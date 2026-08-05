@@ -1,5 +1,13 @@
 Revision history for Tira
 
+0.08  2026-08-05
+    - Made attachment-add responses return the filename actually retained by
+      the target attachment list.
+    - Added `supplied_filename` and `deduped` response metadata so callers can
+      detect filename collapse without rereading the record.
+    - Proved independent record/comment deduplication, cross-record filename
+      retention, and truthful remove/re-add behavior.
+
 0.07  2026-08-05
     - Fixed silent data loss when updating key details, deliverables,
       acceptance criteria, test steps, BDD, or ATDD arrays.

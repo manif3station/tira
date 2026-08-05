@@ -17,7 +17,7 @@ use JSON::PP ();
 use POSIX qw(strftime);
 use YAML::PP;
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -848,18 +848,26 @@ sub attachment_add {
     $self->_atomic_write( $stored, $content ) if !-f $stored;
     my $reference = { sha => $sha, extension => $extension, original_filename => $name };
     my $record = $self->record_show( project => $root, ref => $args{ref} );
+    my $attachments;
     if ( defined $args{comment} ) {
         my ($comment) = grep { $_->{id} eq $args{comment} } @{ $record->{comments} };
         die "Comment '$args{comment}' not found\n" if !$comment;
-        push @{ $comment->{attachments} }, $reference
-          if !grep { $_->{sha} eq $sha && $_->{extension} eq $extension } @{ $comment->{attachments} };
+        $attachments = $comment->{attachments};
     }
     else {
-        push @{ $record->{attachments} }, $reference
-          if !grep { $_->{sha} eq $sha && $_->{extension} eq $extension } @{ $record->{attachments} };
+        $attachments = $record->{attachments};
+    }
+    my ($retained) = grep { $_->{sha} eq $sha && $_->{extension} eq $extension } @{$attachments};
+    my $deduped = defined $retained;
+    if ( !$deduped ) {
+        push @{$attachments}, $reference;
+        $retained = $reference;
     }
     $self->_replace_record( project => $root, ref => $args{ref}, record => $record );
-    return $reference;
+    return {
+        %{$retained}, supplied_filename => $name,
+        deduped => $deduped ? JSON::PP::true : JSON::PP::false,
+    };
 }
 
 sub attachment_get {
@@ -937,9 +945,12 @@ sub evidence_add {
     die "Evidence summary is required\n" if !defined $args{summary} || $args{summary} eq '';
     my $attachment = defined $args{file} ? $self->attachment_add(%args) : undef;
     $record = $self->record_show(%args) if $attachment;
+    my $stored_attachment = $attachment
+      ? { map { $_ => $attachment->{$_} } qw(sha extension original_filename) }
+      : undef;
     my $entry = {
         summary => $args{summary}, uri => $args{uri} // '', author => $args{author},
-        attachment => $attachment, created_at => $self->{clock}->(),
+        attachment => $stored_attachment, created_at => $self->{clock}->(),
     };
     push @{ $record->{evidence} }, $entry;
     $self->_replace_record( %args, record => $record );

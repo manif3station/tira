@@ -240,3 +240,21 @@ Method: Regression TDD + data-loss BDD.
   stopped.
 - Release: committed as `8054cfe`; push was attempted and rejected because the
   configured passphrase-protected SSH identity has no active agent socket.
+
+## DD-396
+
+Method: Regression TDD + contract BDD.
+
+- Red gate: the response-truth test reproduced the unstored second filename and
+  absent deduplication metadata.
+- Docker functional suite: PASS, 13 files and 502 assertions.
+- Coverage: `lib/Tira.pm` and `lib/Tira/CLI.pm` each reached 100.0% statement
+  and subroutine coverage.
+- Acceptance: target-scoped record and comment deduplication, cross-record
+  names, remove/re-add behavior, and JSON CLI response truth passed.
+- Security: all 502 assertions passed under `prove -T`; all 75 entrypoints
+  compiled under taint mode; the production process-primitive scan was clean.
+- Agent contract: exactly 100 implemented use cases remain; checklist retention
+  and attachment response fields are explicit without location disclosure.
+- Platform: shared platform-neutral Perl only; macOS and Windows remain
+  stopped.

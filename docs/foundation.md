@@ -76,6 +76,12 @@ included/excluded scope arguments append in order, matching labels and the
 agent contract. Only an explicit `--set-*` JSON-array option replaces a full
 content array.
 
+Release 0.08 separates stored attachment-reference truth from request metadata.
+Deduplication is evaluated against the target record or comment list. The add
+response returns that list's retained `original_filename`, the caller's
+`supplied_filename`, and a Boolean `deduped`; these response-only fields are
+not written into the attachment reference.
+
 ## Output and errors
 
 Default and `-o toon` output is produced by `Data::TOON` 0.03. `-o json` uses

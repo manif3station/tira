@@ -14,9 +14,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.05):** shipped, executable, and covered by tests.
 - **Implemented (0.06):** shipped, executable, and covered by tests.
 - **Implemented (0.07):** shipped, executable, and covered by tests.
+- **Implemented (0.08):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.07.
+All commands and use cases in this manual ship in release 0.08.
 
 ## Global invocation grammar
 
@@ -99,6 +100,8 @@ Assignees and reporters must be active people defined in `project.yml`.
 Checklist entries have an immutable `CHK-NNN` ID, `item`, free-text `status`,
 creation time, and last update. Status is descriptive; Tira never infers record
 completion or moves a record from it.
+Checklist entries are retained: there is intentionally no checklist remove
+command. Change an entry's item or status with `tira.checklist.update`.
 
 ## Record metadata contract
 
@@ -323,6 +326,13 @@ Many refs may share content. Remove deletes content, appends to
 `delete.log.yml`, and preserves JSON refs. Re-adding identical bytes restores
 the object. Deleted get emits `Deleted at <timestamp>` raw and exits `1`.
 Managed storage paths are never returned; redirect raw bytes to a destination.
+Attachment deduplication is scoped to the target record or comment list. Add
+returns `original_filename` from the reference actually retained,
+`supplied_filename` from the current request, and Boolean `deduped`. Thus a
+same-target duplicate with a different name reports the retained first name,
+the rejected supplied name, and `deduped: true`. A different record may retain
+another filename for the same SHA. These response fields do not alter stored
+references.
 
 ### Checklists, evidence, gates, search, and dashboard
 

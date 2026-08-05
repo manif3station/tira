@@ -42,3 +42,5 @@ smaller agent payloads, comments included in one read, and no HTTP layer.
 DD-394 adds symmetric item/status checklists to SOWs, epics, and tickets.
 DD-395 makes repeatable content and scope updates append-safe while preserving
 explicit replacement controls.
+DD-396 makes attachment responses distinguish retained and supplied filenames
+when content deduplication collapses a same-target reference.

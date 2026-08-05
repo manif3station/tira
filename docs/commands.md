@@ -1,6 +1,6 @@
 # Complete Command Ecosystem
 
-Release 0.07 implements every workflow in `SKILLS.md` through 75 Developer
+Release 0.08 implements every workflow in `SKILLS.md` through 75 Developer
 Dashboard entrypoints. The shared `Tira::CLI` parser applies TOON-first output,
 pretty JSON, Markdown, repeatable options, JSON-array replacement, raw
 attachment output, and consistent structured failures.
@@ -41,6 +41,15 @@ On record update, repeated `--key-detail`, `--deliverable`, `--acceptance`,
 in supplied order. Existing values are retained. The corresponding `--set-*`
 JSON-array options remain the explicit wholesale-replacement controls for the
 six content arrays; scope has no replacement option.
+
+## Attachment response truth
+
+Attachment content remains globally deduplicated by SHA-256, while filenames
+belong to a specific record or comment attachment list. `attachment.add`
+returns `original_filename` from the reference actually retained,
+`supplied_filename` from the current call, and `deduped` as a Boolean. A true
+value therefore makes filename collapse explicit. Removing content never
+removes record references, so re-adding bytes reports the still-retained name.
 
 ## Agent boundary
 

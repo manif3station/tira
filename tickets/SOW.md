@@ -39,3 +39,4 @@ DD-392 makes every text and persistence boundary explicitly UTF-8 and repairs
 legacy isolated-byte records.
 DD-393 documents why the Jira-compatible model uses direct filesystem access:
 smaller agent payloads, comments included in one read, and no HTTP layer.
+DD-394 adds symmetric item/status checklists to SOWs, epics, and tickets.

@@ -49,6 +49,7 @@ sub run {
         'summary=s' => \$option{summary}, 'uri=s' => \$option{uri},
         'gate=s' => \$option{gate}, 'result=s' => \$option{result},
         'details=s' => \$option{details},
+        'item=s' => \$option{item}, 'status=s' => \$option{status},
         'reporter=s' => \$option{reporter}, 'due-date=s' => \$option{due_date},
         'start-date=s' => \$option{start_date}, 'sdlc-gate=s' => \$option{sdlc_gate},
         'lifecycle=s' => \$option{lifecycle}, 'priority=s' => \$option{priority},
@@ -167,6 +168,8 @@ sub _invoke {
         'attachment.get' => 'attachment_get', 'attachment.remove' => 'attachment_remove',
         'evidence.list' => 'evidence_list', 'evidence.add' => 'evidence_add',
         'gate.list' => 'gate_list', 'gate.add' => 'gate_add',
+        'checklist.list' => 'checklist_list', 'checklist.add' => 'checklist_add',
+        'checklist.update' => 'checklist_update',
         'search' => 'search', 'dashboard' => 'dashboard',
     );
     my $method = $method{$command} or die "Unsupported Tira command '$command'\n";

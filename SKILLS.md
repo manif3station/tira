@@ -12,9 +12,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.03):** shipped, executable, and covered by tests.
 - **Implemented (0.04):** shipped, executable, and covered by tests.
 - **Implemented (0.05):** shipped, executable, and covered by tests.
+- **Implemented (0.06):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.05.
+All commands and use cases in this manual ship in release 0.06.
 
 ## Global invocation grammar
 
@@ -86,7 +87,7 @@ filenames.
 Every SOW, epic, and ticket JSON contains `ref`, `type`, `title`, `description`,
 `key_details`, `problem_or_feature`, `solution_needed`, `deliverables`,
 `scope.included`, `scope.excluded`, `source`, `acceptance_criteria`,
-`test_steps`, `bdd`, `atdd`, `gate_passing_log`, `evidence`, `attachments`,
+`test_steps`, `bdd`, `atdd`, `gate_passing_log`, `evidence`, `attachments`, `checklist`,
 `subtasks`, `linkage`, `assignee`, `reporter`, `labels`, `due_date`,
 `start_date`, `sdlc_gate`, `lifecycle`, `priority`, `fix_version`,
 `affects_versions`, `parent`, `comments`, `created_at`, and `last_updated`.
@@ -94,6 +95,9 @@ Every SOW, epic, and ticket JSON contains `ref`, `type`, `title`, `description`,
 Comments have an ID, author, `markdown|text` format, body, attachments, creation
 time, and last update. Evidence and gate entries are append-only observations.
 Assignees and reporters must be active people defined in `project.yml`.
+Checklist entries have an immutable `CHK-NNN` ID, `item`, free-text `status`,
+creation time, and last update. Status is descriptive; Tira never infers record
+completion or moves a record from it.
 
 ## Record metadata contract
 
@@ -312,11 +316,14 @@ Many refs may share content. Remove deletes content, appends to
 the object. Deleted get emits `Deleted at <timestamp>` raw and exits `1`.
 Managed storage paths are never returned; redirect raw bytes to a destination.
 
-### Evidence, gates, search, and dashboard
+### Checklists, evidence, gates, search, and dashboard
 
 All are **Implemented (DD-389)**:
 
 ```text
+tira.checklist.list --ref REF [-o FORMAT]
+tira.checklist.add --ref REF --item TEXT --status TEXT [-o FORMAT]
+tira.checklist.update --ref REF --id CHK-NNN [--item TEXT] [--status TEXT] [-o FORMAT]
 tira.evidence.list --ref REF [-o FORMAT]
 tira.evidence.add --ref REF --summary TEXT [--uri URI] [--file PATH] [--author ID] [-o FORMAT]
 tira.gate.list --ref REF [-o FORMAT]
@@ -325,6 +332,9 @@ tira.search --text QUERY [--type TYPE] [--column SLUG] [--assignee ID] [-o FORMA
 tira.dashboard [--type TYPE|all] [--include-discard] [-o FORMAT]
 ```
 
+Checklist commands apply symmetrically to SOWs, epics, and tickets. Add
+requires both non-empty values. Update requires at least one of `--item` or
+`--status`; omitted values remain unchanged. Entries retain order and IDs.
 Evidence may have both URI and file. Gates record observations but never move
 work. Search scans files without an index and combines filters with AND.
 Dashboard follows configured column order and excludes Discard by default.
@@ -625,8 +635,8 @@ without revealing or creating a storage location.
 ### UC-097: Add evidence
 **Implemented.** `dashboard tira.evidence.add --ref TKT-001 --summary "CI" --uri https://ci.example.test/1 --file result.xml --author ada`.
 
-### UC-098: Record gate
-**Implemented.** `dashboard tira.gate.add --ref TKT-001 --gate Security --result pass --details "122 tests" --author ada`.
+### UC-098: Record gates and checklists
+**Implemented.** `dashboard tira.gate.add --ref TKT-001 --gate Security --result pass --details "122 tests" --author ada`; manage the same record's checklist with `dashboard tira.checklist.add --ref TKT-001 --item "Review report" --status "To Do"`, `dashboard tira.checklist.list --ref TKT-001`, and `dashboard tira.checklist.update --ref TKT-001 --id CHK-001 --status Done`.
 
 ### UC-099: Search files
 **Implemented.** `dashboard tira.search --text authentication --type ticket --column backlog`.

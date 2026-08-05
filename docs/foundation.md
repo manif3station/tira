@@ -66,6 +66,11 @@ Project people carry an `active` flag. Deactivation blocks new assignee and
 reporter references without rewriting historical records; activation restores
 eligibility. Historical person references prevent removal.
 
+Release 0.06 adds an ordered `checklist` array to every record. Each entry has
+an immutable `CHK-NNN` ID, an item, a user-controlled status, and creation and
+last-update timestamps. Tira does not interpret checklist status as workflow
+state; users decide what each value means and update it explicitly.
+
 ## Output and errors
 
 Default and `-o toon` output is produced by `Data::TOON` 0.03. `-o json` uses

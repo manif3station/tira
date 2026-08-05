@@ -1,5 +1,12 @@
 Revision history for Tira
 
+0.06  2026-08-05
+    - Added ordered checklists to SOWs, epics, and tickets.
+    - Added checklist list, add, and update commands with immutable entry IDs,
+      item/status values, timestamps, validation, and Markdown rendering.
+    - Expanded the Docker suite while retaining 100% statement and subroutine
+      coverage.
+
 0.05  2026-08-05
     - Documented why Tira mirrors Jira's work model while using direct local
       files to reduce agent payload and request overhead.

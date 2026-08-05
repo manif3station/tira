@@ -112,7 +112,7 @@ my $legacy_path = File::Spec->catfile( $root, '.tira', 'ticket', 'backlog', "$le
 open my $legacy_in, '<:raw', $legacy_path or die $!;
 my $legacy_data = decode_json( do { local $/; <$legacy_in> } );
 close $legacy_in;
-delete @{$legacy_data}{qw(assignee reporter labels due_date start_date sdlc_gate lifecycle priority fix_version affects_versions parent)};
+delete @{$legacy_data}{qw(assignee reporter labels due_date start_date sdlc_gate lifecycle priority fix_version affects_versions parent checklist)};
 $legacy_data->{assignees} = ['ada'];
 open my $legacy_out, '>:raw', $legacy_path or die $!;
 print {$legacy_out} JSON::PP->new->canonical->pretty->encode($legacy_data);
@@ -120,6 +120,7 @@ close $legacy_out;
 my $migrated = $tira->record_show( project => $root, ref => $legacy->{ref} );
 is( $migrated->{assignee}, 'ada', 'legacy assignee array migrates to singular assignee' );
 is_deeply( $migrated->{labels}, [], 'legacy record receives metadata defaults' );
+is_deeply( $migrated->{checklist}, [], 'legacy record receives empty checklist default' );
 
 $legacy_data->{comments} = [{
     id => 'CMT-001', author => 'ada', format => 'markdown', body => 'Cost £523',

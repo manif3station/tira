@@ -4,13 +4,14 @@ Tira is a filesystem-native Kanban project manager for Developer Dashboard. It
 provides Jira-style projects, SOWs, epics, and tickets over a transparent local
 filesystem engine accessed exclusively through Tira commands.
 
-Release 0.05 implements the complete command ecosystem: projects, independent
+Release 0.06 implements the complete command ecosystem: projects, independent
 boards, columns, records, links, people, comments, attachments, evidence,
 gates, search, dashboards, agent-efficient TOON output, singular record
 ownership, planning metadata, immediate parents, and inactive-person controls.
 Attachment retrieval streams content without exposing its managed location.
 Text is strict UTF-8 end to end, including long comments and currency symbols;
 legacy isolated-byte records are repaired when next updated.
+Every SOW, epic, and ticket also has an ordered checklist of item/status pairs.
 
 ## Value
 
@@ -71,6 +72,8 @@ dashboard tira.column.add --type ticket --name in-progress --after backlog
 dashboard tira.hierarchy.link --parent SOW-001 --child EPC-001
 dashboard tira.link.add --from TKT-001 --type blocks --to TKT-002
 dashboard tira.comment.add --ref TKT-001 --author ada --text "Ready for review"
+dashboard tira.checklist.add --ref TKT-001 --item "Run regression" --status "To Do"
+dashboard tira.checklist.update --ref TKT-001 --id CHK-001 --status Done
 dashboard tira.project.people.deactivate --id ada
 dashboard tira.dashboard --type all -o human
 ```

@@ -28,6 +28,7 @@ DD-391 removes attachment storage-path output while retaining raw retrieval.
 DD-392 hardens Unicode comments, persistence, output, and legacy recovery.
 DD-393 documents the measured agent-context advantage of Tira's direct
 filesystem Jira mirror.
+DD-394 adds ordered item/status checklists to every work-record type.
 
 ## Release standard
 

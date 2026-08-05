@@ -17,7 +17,7 @@ use JSON::PP ();
 use POSIX qw(strftime);
 use YAML::PP;
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -156,6 +156,7 @@ sub create_record {
                 gate_passing_log     => [],
                 evidence             => [],
                 attachments          => [],
+                checklist            => [],
                 subtasks             => [],
                 linkage              => $self->_empty_linkage($type),
                 assignee             => $args{assignee},
@@ -953,6 +954,42 @@ sub gate_add {
     return $entry;
 }
 
+sub checklist_list {
+    my ( $self, %args ) = @_;
+    return $self->record_show(%args)->{checklist};
+}
+
+sub checklist_add {
+    my ( $self, %args ) = @_;
+    die "Checklist item is required\n" if !defined $args{item} || $args{item} eq '';
+    die "Checklist status is required\n" if !defined $args{status} || $args{status} eq '';
+    my $record = $self->record_show(%args);
+    my $number = @{ $record->{checklist} } + 1;
+    my $now = $self->{clock}->();
+    my $entry = {
+        id => sprintf( 'CHK-%03d', $number ), item => $args{item}, status => $args{status},
+        created_at => $now, last_updated => $now,
+    };
+    push @{ $record->{checklist} }, $entry;
+    $self->_replace_record( %args, record => $record );
+    return $entry;
+}
+
+sub checklist_update {
+    my ( $self, %args ) = @_;
+    die "Checklist item or status is required\n" if !defined $args{item} && !defined $args{status};
+    die "Checklist item is required\n" if defined $args{item} && $args{item} eq '';
+    die "Checklist status is required\n" if defined $args{status} && $args{status} eq '';
+    my $record = $self->record_show(%args);
+    my ($entry) = grep { $_->{id} eq ( $args{id} // '' ) } @{ $record->{checklist} };
+    die "Checklist entry '$args{id}' not found\n" if !$entry;
+    $entry->{item} = $args{item} if defined $args{item};
+    $entry->{status} = $args{status} if defined $args{status};
+    $entry->{last_updated} = $self->{clock}->();
+    $self->_replace_record( %args, record => $record );
+    return $entry;
+}
+
 sub search {
     my ( $self, %args ) = @_;
     return $self->record_list(%args);
@@ -1139,6 +1176,7 @@ sub _read_json {
     for my $field (qw(labels affects_versions)) {
         $record->{$field} = [] if !exists $record->{$field};
     }
+    $record->{checklist} = [] if !exists $record->{checklist};
     $record->{parent} = $record->{linkage}{"parent_$record->{type}_ref"}
       // $record->{linkage}{sow_ref} // $record->{linkage}{epic_ref};
     return $record;
@@ -1222,13 +1260,17 @@ sub _markdown {
         my $assignee = defined $data->{assignee} ? ( $names{ $data->{assignee} } // $data->{assignee} ) : '_Unassigned_';
         my $reporter = defined $data->{reporter} ? ( $names{ $data->{reporter} } // $data->{reporter} ) : '_None_';
         my $priority = defined $data->{priority} ? $priority{ $data->{priority} } : '_None_';
+        my $checklist = @{ $data->{checklist} // [] }
+          ? "\n## Checklist\n\n" . join( '', map { "- [$_->{status}] $_->{item}\n" } @{ $data->{checklist} } )
+          : "\n## Checklist\n\n_Empty._\n";
         return "# $data->{ref}: $data->{title}\n\n$description\n\n"
           . "- Type: `$data->{type}`\n"
           . "- Assignee: $assignee\n"
           . "- Reporter: $reporter\n"
           . "- Priority: $priority\n"
           . "- Created: $data->{created_at}\n"
-          . "- Last Updated: $data->{last_updated}\n";
+          . "- Last Updated: $data->{last_updated}\n"
+          . $checklist;
     }
     if ( ref($data) eq 'HASH' && ref( $data->{_column_order} ) eq 'HASH' ) {
         my $markdown = "# Tira Dashboard\n";
@@ -1356,6 +1398,8 @@ folders, and stores SOW, epic, and ticket records as JSON files. This module own
 safe project discovery, atomic persistence, monotonic reference allocation, and
 the shared TOON, JSON, and Markdown output contract. Text persistence is
 canonical UTF-8; legacy isolated bytes are repaired during record reads.
+Every work record also supports ordered checklist entries with item/status
+values and immutable record-local IDs.
 
 =head1 METHODS
 

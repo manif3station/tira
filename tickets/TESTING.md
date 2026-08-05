@@ -201,3 +201,19 @@ Method: DocsDD.
 - Documentation: the measured Jira/Tira payload comparison and no-HTTP local
   filesystem architecture are recorded in README and the foundation guide.
 - Platform: documentation-only; macOS and Windows remain stopped.
+
+## DD-394
+
+Method: TDD + BDD + ATDD.
+
+- Docker functional suite: PASS, 11 files and 445 assertions.
+- Coverage: `lib/Tira.pm` and `lib/Tira/CLI.pm` each reached 100.0% statement
+  and subroutine coverage.
+- Acceptance: all three record types passed checklist default, add, update,
+  list, validation, legacy normalization, human output, and CLI-route checks.
+- Security: all 445 assertions passed under `prove -T`; all 75 entrypoints
+  compiled under taint mode; the production process-primitive scan was clean.
+- Agent contract: exactly 100 implemented use cases remain, with checklist
+  command combinations incorporated without disclosing managed location.
+- Platform: no platform-dependent branch changed; macOS and Windows remain
+  stopped.

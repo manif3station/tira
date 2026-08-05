@@ -178,6 +178,9 @@ Method: TDD + security BDD.
   comment text with empty stderr.
 - Platform: no platform-dependent branch changed; macOS and Windows remain
   stopped.
+- Release: committed as `cd63423`; the mandatory push was attempted and
+  rejected because the configured passphrase-protected SSH identity has no
+  active agent socket.
 
 ### Platforms
 

@@ -1,12 +1,25 @@
 Revision history for Tira
 
+0.02  2026-08-05
+    - Implemented all 100 documented use cases across 70 CLI entrypoints.
+    - Added project people and link types, board/column lifecycle and sync,
+      complete record fields and movement, hierarchy, subitems, reciprocal
+      links, assignments, comments, attachments, evidence, gates, search, and
+      ordered Kanban dashboard output.
+    - Added transactional rollback for reciprocal record writes and column
+      filesystem/configuration changes.
+    - Made project location intentionally opaque in the agent contract and CLI
+      help so agents use commands instead of managed-storage edits.
+    - Added full command-matrix, idempotency, rollback, and security tests while
+      maintaining 100% statement and subroutine coverage.
+
 0.01  2026-08-05
     - Established the governed filesystem-native Tira foundation.
     - Added project discovery and canonical `.tira` project creation.
     - Added independent SOW, epic, and ticket boards with protected Backlog and
       Discard columns and immutable increasing references.
     - Added free-ranging SOW, epic, and ticket creation with canonical JSON.
-    - Added `TIRA_HOME` project selection with explicit `--project` precedence.
+    - Added private project-context selection.
     - Added TOON-first, pretty JSON, and Markdown output modes.
     - Added the raw `dashboard tira.skills` agent manual command.
     - Expanded the agent manual with the complete technical command catalogue,

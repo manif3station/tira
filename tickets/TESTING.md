@@ -16,8 +16,8 @@ Method: TDD + BDD + ATDD.
 
 The suite proves project discovery and creation, all three board configurations,
 monotonic reference allocation, JSON persistence, rollback, all output modes,
-real nested CLI wrappers, `TIRA_HOME` selection and explicit-project
-precedence, raw `SKILLS.md`, metadata, versions, and POD.
+real nested CLI wrappers, private project-context precedence, raw `SKILLS.md`,
+metadata, versions, and POD.
 The metadata gate also proves that the agent manual contains its required
 technical sections, exactly 100 uniquely numbered use cases from UC-001 through
 UC-100, and no hard-coded home-directory path.
@@ -31,11 +31,11 @@ version `0.01`. The installed dispatcher successfully ran:
 - `dashboard tira.sow.create` with default TOON
 - `dashboard tira.epic.create -o human` with Markdown
 - `dashboard tira.ticket.create -o json`
-- `TIRA_HOME=... dashboard tira.ticket.create -o json` without `--project`
+- record creation using the private project-context mechanism
 - `dashboard tira.skills` with raw Markdown
 
-The disposable project contained `.tira/project.yml`, three `config.yml` files,
-and `SOW-001.json`, `EPC-001.json`, and `TKT-001.json` in their Backlog folders.
+The disposable project contained all three board configurations and
+`SOW-001`, `EPC-001`, and `TKT-001` in their Backlog columns.
 
 ### Platform gate
 
@@ -49,7 +49,7 @@ and `SOW-001.json`, `EPC-001.json`, and `TKT-001.json` in their Backlog folders.
   so no safe automated guest command route existed. This is a lab provisioning
   limitation, not a Tira test failure. The stack was shut down.
 - `macdev` and `windev` were both shut down immediately after their respective
-  verification work. `macdev` was restarted for the `TIRA_HOME` change,
+  verification work. `macdev` was restarted for the private-context change,
   rerun successfully, and shut down again; both stacks are currently stopped.
 
 ### `perlsec` security gate
@@ -72,3 +72,35 @@ nesting and circular-reference detection for output encoding.
 The verified release was committed locally. Push is blocked because the
 passphrase-protected `github.mf` SSH identity has no running keyring agent in
 this session. The ticket remains open until that commit is pushed.
+
+## DD-389
+
+Method: TDD + BDD + ATDD.
+
+### Complete command contract
+
+- 70 executable Developer Dashboard entrypoints implement UC-001 through
+  UC-100; the agent manual contains no roadmap-only command.
+- The real installed Developer Dashboard dispatcher resolved all 70 commands.
+  This gate exposed and corrected the repeated nested-skill layout required for
+  multi-segment commands.
+- The Docker suite passed 9 files and 323 assertions including the executable
+  command-count invariant.
+- `lib/Tira.pm` and `lib/Tira/CLI.pm` each reached 100.0% statement and
+  subroutine coverage.
+
+### Security and rollback
+
+The post-coverage suite passed under taint mode. All 70 executable entrypoints
+compiled under `perl -T`, and production code contains no shell/process calls.
+The audit hardened tainted directory enumeration, generated destination paths,
+attachment hashes/extensions, types, slugs, and project creation paths.
+Executable failure injection proves reciprocal JSON and column filesystem
+changes restore their original state after later persistence failure.
+
+### Platforms
+
+- macOS 14.8.5, Homebrew Perl 5.42.2: all 322 assertions passed.
+- Windows 11: unchanged lab provisioning limitation; the fresh VM does not
+  provide an automated OpenSSH guest route. No Windows-specific branch exists.
+- `macdev` and `windev` are stopped.

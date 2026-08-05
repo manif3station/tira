@@ -34,6 +34,8 @@ like(
 
 eval { $default_clock->create_project( dir => File::Spec->catdir( $tmp, 'nameless' ) ) };
 like( $@, qr/Project name is required/, 'project creation requires a name' );
+eval { $default_clock->create_project( dir => "bad\0path", name => 'Unsafe' ) };
+like( $@, qr/Unsafe control character/, 'project creation rejects unsafe path input' );
 
 my $project = File::Spec->catdir( $tmp, 'project' );
 $default_clock->create_project( dir => $project, name => 'Failure paths' );
@@ -52,6 +54,8 @@ is_deeply( $epic->{linkage}{ticket_refs}, [], 'epic linkage factory is exercised
 
 eval { $default_clock->format_output( {}, output => 'xml' ) };
 like( $@, qr/Unsupported output format/, 'unsupported output formats are rejected' );
+eval { $default_clock->board_show( project => $project, type => 'unknown' ) };
+like( $@, qr/Unsupported record type/, 'board commands reject unknown entity types' );
 like(
     $default_clock->format_output( { result => 'ok' }, output => 'human' ),
     qr/^# Tira Result/m,
@@ -104,7 +108,7 @@ my $help = '';
     );
 }
 like( $help, qr/dashboard tira\.ticket\.create/, 'record help names the dotted DD command' );
-like( $help, qr/--project overrides TIRA_HOME/, 'record help documents project selection precedence' );
+unlike( $help, qr/--project|TIRA_HOME/, 'record help keeps project selection private' );
 
 my $project_help = '';
 {
@@ -113,6 +117,14 @@ my $project_help = '';
     Tira::CLI->run( command => 'project.create', argv => ['--help'] );
 }
 like( $project_help, qr/dashboard tira\.project\.create/, 'project help names the dotted DD command' );
+
+my $generic_help = '';
+{
+    open my $capture, '>', \$generic_help or die $!;
+    local *STDOUT = $capture;
+    Tira::CLI->run( command => 'column.list', argv => ['--help'] );
+}
+like( $generic_help, qr/dashboard tira\.column\.list/, 'generic help names the exact dotted command' );
 
 my $direct_root = File::Spec->catdir( $tmp, 'direct-cli' );
 my ( $direct_out, $direct_err ) = ( '', '' );

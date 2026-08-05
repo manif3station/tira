@@ -9,7 +9,8 @@ Markdown comments, attachments, cloning, and agent-efficient output.
 
 ## Product contract
 
-- Store the complete project database beneath the project's `.tira/` folder.
+- Store the complete project database in a private filesystem-backed location
+  accessed only through Tira commands.
 - Treat column folders as board state and JSON files as records; do not add an
   index or registry over the filesystem.
 - Keep SOW, epic, and ticket boards independent while linking records in both
@@ -27,3 +28,9 @@ Markdown comments, attachments, cloning, and agent-efficient output.
 Deliver the system incrementally through documented TDD, BDD, and ATDD tickets.
 Every ticket must pass the Docker test and 100% statement/subroutine coverage
 gates before documentation, commit, and push.
+
+## Delivery status
+
+The full product contract is implemented in release 0.02 through DD-388 and
+DD-389. UC-001 through UC-100 and all 70 commands are proven. Final delivery is
+pending only the required repository push.

@@ -5,16 +5,18 @@ use warnings;
 
 use Cwd qw(abs_path realpath);
 use Data::TOON;
+use Digest::SHA qw(sha256_hex);
 use Fcntl qw(:flock);
-use File::Basename qw(dirname);
+use File::Basename qw(basename dirname);
+use File::Find qw(find);
 use File::Path qw(make_path);
 use File::Spec;
 use File::Temp qw(tempfile);
-use JSON::PP qw(encode_json);
+use JSON::PP qw(decode_json);
 use POSIX qw(strftime);
 use YAML::PP;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -35,6 +37,7 @@ sub create_project {
     my $name = $args{name};
     die "Project name is required\n" if !defined $name || $name eq '';
     my $dir = defined $args{dir} && $args{dir} ne '' ? $args{dir} : '.';
+    $dir = $self->_safe_path_input( $dir, 'project directory' );
 
     make_path($dir) if !-d $dir;
     my $root = $self->_canonical_path( $dir, "project directory '$dir'" );
@@ -106,13 +109,16 @@ sub discover_project {
 
 sub create_record {
     my ( $self, %args ) = @_;
-    my $type = $args{type} // '';
-    die "Unsupported record type '$type'\n" if !exists $TYPE_PREFIX{$type};
+    my $type = $self->_valid_type( $args{type} );
     my $title = $args{title};
     die "Record title is required\n" if !defined $title || $title eq '';
     my $root = $self->discover_project(
         defined $args{project} ? ( project => $args{project} ) : ( start => $args{start} // '.' ),
     );
+    if ( $args{assignees} ) {
+        my %people = map { $_->{id} => 1 } @{ $self->person_list( project => $root ) };
+        die "Unknown project person\n" if grep { !$people{$_} } @{ $args{assignees} };
+    }
     my $board = File::Spec->catdir( $root, '.tira', $type );
 
     return $self->_with_project_lock(
@@ -131,22 +137,22 @@ sub create_record {
                 type                 => $type,
                 title                => $title,
                 description          => $args{description} // '',
-                key_details          => [],
-                problem_or_feature   => '',
-                solution_needed      => '',
-                deliverables         => [],
-                scope                => { included => [], excluded => [] },
-                source               => '',
-                acceptance_criteria  => [],
-                test_steps           => [],
-                bdd                  => [],
-                atdd                 => [],
+                    key_details          => $args{key_details} // [],
+                    problem_or_feature   => $args{problem_or_feature} // '',
+                    solution_needed      => $args{solution_needed} // '',
+                    deliverables         => $args{deliverables} // [],
+                    scope                => { included => $args{scope_in} // [], excluded => $args{scope_out} // [] },
+                    source               => $args{source} // '',
+                    acceptance_criteria  => $args{acceptance} // [],
+                    test_steps           => $args{test_steps} // [],
+                    bdd                  => $args{bdd} // [],
+                    atdd                 => $args{atdd} // [],
                 gate_passing_log     => [],
                 evidence             => [],
                 attachments          => [],
                 subtasks             => [],
                 linkage              => $self->_empty_linkage($type),
-                assignees            => [],
+                    assignees            => $args{assignees} // [],
                 comments             => [],
                 created_at           => $now,
                 last_updated         => $now,
@@ -162,6 +168,866 @@ sub create_record {
             return $record;
         },
     );
+}
+
+sub project_show {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->{yaml}->load_file( File::Spec->catfile( $root, '.tira', 'project.yml' ) );
+}
+
+sub project_update {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my $path = File::Spec->catfile( $root, '.tira', 'project.yml' );
+        my $data = $self->{yaml}->load_file($path);
+        $data->{name} = $args{name} if defined $args{name};
+        $data->{last_updated} = $self->{clock}->();
+        $self->_write_yaml( $path, $data );
+        return $data;
+    } );
+}
+
+sub person_list {
+    my ( $self, %args ) = @_;
+    return $self->project_show(%args)->{people};
+}
+
+sub person_add {
+    my ( $self, %args ) = @_;
+    die "Person id is required\n" if !defined $args{id} || $args{id} eq '';
+    die "Person name is required\n" if !defined $args{name} || $args{name} eq '';
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $data ) = $self->_project_data($root);
+        die "Person '$args{id}' already exists\n" if grep { $_->{id} eq $args{id} } @{ $data->{people} };
+        my $person = { id => $args{id}, name => $args{name}, email => $args{email} // '' };
+        push @{ $data->{people} }, $person;
+        $data->{last_updated} = $self->{clock}->();
+        $self->_write_yaml( $path, $data );
+        return $person;
+    } );
+}
+
+sub person_update {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $data ) = $self->_project_data($root);
+        my ($person) = grep { $_->{id} eq ( $args{id} // '' ) } @{ $data->{people} };
+        die "Person '$args{id}' not found\n" if !$person;
+        $person->{name} = $args{name} if defined $args{name};
+        $person->{email} = $args{email} if defined $args{email};
+        $data->{last_updated} = $self->{clock}->();
+        $self->_write_yaml( $path, $data );
+        return $person;
+    } );
+}
+
+sub person_remove {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        for my $record ( @{ $self->record_list( project => $root ) } ) {
+            die "Person '$args{id}' is still assigned\n" if grep { $_ eq $args{id} } @{ $record->{assignees} };
+        }
+        my ( $path, $data ) = $self->_project_data($root);
+        my @kept = grep { $_->{id} ne ( $args{id} // '' ) } @{ $data->{people} };
+        die "Person '$args{id}' not found\n" if @kept == @{ $data->{people} };
+        $data->{people} = \@kept;
+        $data->{last_updated} = $self->{clock}->();
+        $self->_write_yaml( $path, $data );
+        return { removed => $args{id} };
+    } );
+}
+
+sub link_type_list {
+    my ( $self, %args ) = @_;
+    return $self->project_show(%args)->{link_types};
+}
+
+sub link_type_add {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $data ) = $self->_project_data($root);
+        die "Link type names are required\n" if !$args{outward} || !$args{inward};
+        die "Link type '$args{outward}' already exists\n"
+          if grep { $_->{outward} eq $args{outward} || $_->{inward} eq $args{outward} } @{ $data->{link_types} };
+        my $link = { outward => $args{outward}, inward => $args{inward}, protected => JSON::PP::false };
+        push @{ $data->{link_types} }, $link;
+        $self->_write_yaml( $path, $data );
+        return $link;
+    } );
+}
+
+sub link_type_remove {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $data ) = $self->_project_data($root);
+        my ($match) = grep { $_->{outward} eq ( $args{outward} // '' ) } @{ $data->{link_types} };
+        die "Link type '$args{outward}' not found\n" if !$match;
+        die "Link type '$args{outward}' is protected\n" if $match->{protected};
+        for my $record ( @{ $self->record_list( project => $root ) } ) {
+            die "Link type '$args{outward}' is still in use\n"
+              if grep { $_->{type} eq $match->{outward} || $_->{type} eq $match->{inward} } @{ $record->{linkage}{links} };
+        }
+        $data->{link_types} = [ grep { $_->{outward} ne $args{outward} } @{ $data->{link_types} } ];
+        $self->_write_yaml( $path, $data );
+        return { removed => $args{outward} };
+    } );
+}
+
+sub column_list {
+    my ( $self, %args ) = @_;
+    my ( undef, $config ) = $self->_board_data(%args);
+    return $config->{columns};
+}
+
+sub board_show {
+    my ( $self, %args ) = @_;
+    my ( undef, $config ) = $self->_board_data(%args);
+    return $config;
+}
+
+sub column_add {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    $args{name} = $self->_valid_slug( $args{name} );
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $config ) = $self->_board_data( project => $root, type => $args{type} );
+        die "Column '$args{name}' already exists\n" if grep { $_->{name} eq $args{name} } @{ $config->{columns} };
+        die "Use only one of --after or --before\n" if defined $args{after} && defined $args{before};
+        my $column = { name => $args{name}, label => $args{label} // $args{name}, protected => JSON::PP::false };
+        my $position = @{ $config->{columns} } - 1;
+        for my $i ( 0 .. $#{ $config->{columns} } ) {
+            $position = $i + 1 if defined $args{after} && $config->{columns}[$i]{name} eq $args{after};
+            $position = $i if defined $args{before} && $config->{columns}[$i]{name} eq $args{before};
+        }
+        splice @{ $config->{columns} }, $position, 0, $column;
+        my $directory = File::Spec->catdir( dirname($path), $args{name} );
+        make_path($directory);
+        eval { $self->_write_yaml( $path, $config ); 1 } or do {
+            my $error = $@ || 'Unknown column configuration failure';
+            rmdir $directory;
+            die $error;
+        };
+        return $column;
+    } );
+}
+
+sub column_rename {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    $args{name} = $self->_valid_slug( $args{name} );
+    $args{new_name} = $self->_valid_slug( $args{new_name} );
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $config ) = $self->_board_data( project => $root, type => $args{type} );
+        my ($column) = grep { $_->{name} eq ( $args{name} // '' ) } @{ $config->{columns} };
+        die "Column '$args{name}' not found\n" if !$column;
+        die "Column '$args{name}' is protected\n" if $column->{protected};
+        die "Column '$args{new_name}' already exists\n" if grep { $_->{name} eq $args{new_name} } @{ $config->{columns} };
+        my $board = dirname($path);
+        my $old_directory = File::Spec->catdir( $board, $args{name} );
+        my $new_directory = File::Spec->catdir( $board, $args{new_name} );
+        rename $old_directory, $new_directory
+          or die "Cannot rename column '$args{name}': $!\n";
+        $column->{name} = $args{new_name};
+        $column->{label} = $args{label} if defined $args{label};
+        eval { $self->_write_yaml( $path, $config ); 1 } or do {
+            my $error = $@ || 'Unknown column configuration failure';
+            rename $new_directory, $old_directory or die "$error; rollback rename failed: $!\n";
+            die $error;
+        };
+        return $column;
+    } );
+}
+
+sub column_reorder {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    $args{name} = $self->_valid_slug( $args{name} );
+    $args{after} = $self->_valid_slug( $args{after} ) if defined $args{after};
+    $args{before} = $self->_valid_slug( $args{before} ) if defined $args{before};
+    return $self->_with_project_lock( $root, sub {
+        die "Use exactly one of --after or --before\n" if ( defined $args{after} ? 1 : 0 ) + ( defined $args{before} ? 1 : 0 ) != 1;
+        my ( $path, $config ) = $self->_board_data( project => $root, type => $args{type} );
+        my ($column) = grep { $_->{name} eq ( $args{name} // '' ) } @{ $config->{columns} };
+        die "Column '$args{name}' not found\n" if !$column;
+        die "Column '$args{name}' is protected\n" if $column->{protected};
+        my @columns = grep { $_ != $column } @{ $config->{columns} };
+        my $target = $args{after} // $args{before};
+        my ($index) = grep { $columns[$_]{name} eq $target } 0 .. $#columns;
+        die "Column '$target' not found\n" if !defined $index;
+        $index++ if defined $args{after};
+        splice @columns, $index, 0, $column;
+        $config->{columns} = \@columns;
+        $self->_write_yaml( $path, $config );
+        return $column;
+    } );
+}
+
+sub column_remove {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    $args{name} = $self->_valid_slug( $args{name} );
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $config ) = $self->_board_data( project => $root, type => $args{type} );
+        my ($column) = grep { $_->{name} eq ( $args{name} // '' ) } @{ $config->{columns} };
+        die "Column '$args{name}' not found\n" if !$column;
+        die "Column '$args{name}' is protected\n" if $column->{protected};
+        my $board = dirname($path);
+        my $source = File::Spec->catdir( $board, $args{name} );
+        my $discard = File::Spec->catdir( $board, 'discard' );
+        opendir my $dh, $source or die "Cannot read column '$args{name}': $!\n";
+        my @names = map { /\A([A-Z][A-Z0-9-]{0,31}-\d{1,12}\.json)\z/ ? $1 : () }
+          grep { -f File::Spec->catfile( $source, $_ ) } readdir $dh;
+        for my $name (@names) {
+            my $file = File::Spec->catfile( $source, $name );
+            rename $file, File::Spec->catfile( $discard, $name ) or die "Cannot discard '$file': $!\n";
+        }
+        closedir $dh;
+        $config->{columns} = [ grep { $_->{name} ne $args{name} } @{ $config->{columns} } ];
+        eval { $self->_write_yaml( $path, $config ); 1 } or do {
+            my $error = $@ || 'Unknown column configuration failure';
+            rename File::Spec->catfile( $discard, $_ ), File::Spec->catfile( $source, $_ ) for @names;
+            die $error;
+        };
+        rmdir $source or die "Cannot remove column '$args{name}': $!\n";
+        return { removed => $args{name}, destination => 'discard' };
+    } );
+}
+
+sub board_refs {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $config ) = $self->_board_data( project => $root, type => $args{type} );
+        $config->{prefix} = $args{prefix} if defined $args{prefix};
+        $config->{digits} = $args{digits} if defined $args{digits};
+        $self->_validated_counter( $config, $path );
+        $self->_write_yaml( $path, $config );
+        return $config;
+    } );
+}
+
+sub record_show {
+    my ( $self, %args ) = @_;
+    my ( $path, $record, $column ) = $self->_record_data(%args);
+    return { %{$record}, column => $column };
+}
+
+sub record_list {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my @records;
+    for my $candidate ( defined $args{type} ? ( $args{type} ) : qw(sow epic ticket) ) {
+        my $type = $self->_valid_type($candidate);
+        my $board = File::Spec->catdir( $root, '.tira', $type );
+        next if !-d $board;
+        find( { no_chdir => 1, wanted => sub {
+            return if !-f $File::Find::name || basename( $File::Find::name ) !~ /\.json\z/;
+            my $path = $self->_canonical_path( $File::Find::name, 'record file' );
+            my $record = $self->_read_json($path);
+            my $column = basename( dirname($path) );
+            return if defined $args{column} && $column ne $args{column};
+            return if defined $args{assignee} && !grep { $_ eq $args{assignee} } @{ $record->{assignees} };
+            my $parent = $record->{linkage}{sow_ref} // $record->{linkage}{epic_ref} // $record->{linkage}{parent_sow_ref} // '';
+            return if defined $args{parent} && $parent ne $args{parent};
+            if ( defined $args{text} ) {
+                my $haystack = join ' ', $record->{ref}, $record->{title}, $record->{description};
+                return if index( lc $haystack, lc $args{text} ) < 0;
+            }
+            push @records, { %{$record}, column => $column };
+        } }, $board );
+    }
+    return [ sort { $a->{ref} cmp $b->{ref} } @records ];
+}
+
+sub record_update {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $record, $column ) = $self->_record_data( project => $root, ref => $args{ref} );
+        for my $field (qw(title description problem_or_feature solution_needed source)) {
+            $record->{$field} = $args{$field} if defined $args{$field};
+        }
+        my %arrays = (
+            key_details => 'key_details', deliverables => 'deliverables', acceptance => 'acceptance_criteria',
+            test_steps => 'test_steps', bdd => 'bdd', atdd => 'atdd', assignees => 'assignees',
+            attachments => 'attachments', evidence => 'evidence', gate_passing_log => 'gate_passing_log',
+        );
+        for my $argument ( keys %arrays ) {
+            $record->{ $arrays{$argument} } = $args{$argument} if defined $args{$argument};
+        }
+        $record->{scope}{included} = $args{scope_in} if defined $args{scope_in};
+        $record->{scope}{excluded} = $args{scope_out} if defined $args{scope_out};
+        $record->{scope} = $args{scope} if defined $args{scope};
+        $record->{last_updated} = $self->{clock}->();
+        $self->_write_json( $path, $record );
+        return { %{$record}, column => $column };
+    } );
+}
+
+sub record_move {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $record ) = $self->_record_data( project => $root, ref => $args{ref} );
+        my $type = $record->{type};
+        die "Invalid record type in '$args{ref}'\n" if $type !~ /\A(sow|epic|ticket)\z/;
+        $type = $1;
+        my $column = $self->_valid_slug( $args{column} );
+        my ( undef, $config ) = $self->_board_data( project => $root, type => $type );
+        die "Column '$column' not found\n" if !grep { $_->{name} eq $column } @{ $config->{columns} };
+        my $destination = File::Spec->catfile( $root, '.tira', $type, $column, basename($path) );
+        rename $path, $destination or die "Cannot move '$args{ref}': $!\n";
+        return { %{$record}, column => $column };
+    } );
+}
+
+sub record_discard {
+    my ( $self, %args ) = @_;
+    return $self->record_move( %args, column => 'discard' );
+}
+
+sub record_restore {
+    my ( $self, %args ) = @_;
+    return $self->record_move( %args, column => $args{column} // 'backlog' );
+}
+
+sub project_validate {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    if ( $args{repair} ) {
+        $self->column_sync( project => $root, type => $_, apply => 1 ) for qw(sow epic ticket);
+    }
+    my @issues;
+    for my $type (qw(sow epic ticket)) {
+        my ( undef, $config ) = $self->_board_data( project => $root, type => $type );
+        my %configured = map { $_->{name} => 1 } @{ $config->{columns} };
+        my $board = File::Spec->catdir( $root, '.tira', $type );
+        opendir my $dh, $board or die "Cannot read board '$type': $!\n";
+        my %actual = map { $_ => 1 } grep { -d File::Spec->catdir( $board, $_ ) && !/^\./ } readdir $dh;
+        closedir $dh;
+        push @issues, map { "$type: missing directory $_" } grep { !$actual{$_} } sort keys %configured;
+        push @issues, map { "$type: unconfigured directory $_" } grep { !$configured{$_} } sort keys %actual;
+    }
+    return { valid => @issues ? JSON::PP::false : JSON::PP::true, issues => \@issues };
+}
+
+sub column_sync {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my ( $path, $config ) = $self->_board_data( project => $root, type => $args{type} );
+    my $board = dirname($path);
+    opendir my $dh, $board or die "Cannot read board '$args{type}': $!\n";
+    my @actual = sort grep { -d File::Spec->catdir( $board, $_ ) && !/^\./ } readdir $dh;
+    closedir $dh;
+    my %actual = map { $_ => 1 } @actual;
+    my %configured = map { $_->{name} => $_ } @{ $config->{columns} };
+    my @missing = grep { !$actual{$_} } sort keys %configured;
+    my @unconfigured = grep { !$configured{$_} } @actual;
+    if ( $args{apply} ) {
+        make_path( File::Spec->catdir( $board, $_ ) ) for grep { $configured{$_}{protected} } @missing;
+        my @columns = grep { $actual{ $_->{name} } || $_->{protected} } @{ $config->{columns} };
+        my $discard = pop @columns;
+        push @columns, map { { name => $_, label => $_, protected => JSON::PP::false } } @unconfigured;
+        push @columns, $discard;
+        $config->{columns} = \@columns;
+        $self->_write_yaml( $path, $config );
+    }
+    return { missing => \@missing, unconfigured => \@unconfigured, applied => $args{apply} ? JSON::PP::true : JSON::PP::false };
+}
+
+sub hierarchy_link {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $parent_path, $parent ) = $self->_record_data( project => $root, ref => $args{parent} );
+        my ( $child_path, $child ) = $self->_record_data( project => $root, ref => $args{child} );
+        my ( $up, $down );
+        if ( $parent->{type} eq 'sow' && $child->{type} eq 'epic' ) {
+            ( $up, $down ) = ( 'sow_ref', 'epic_refs' );
+        }
+        elsif ( $parent->{type} eq 'epic' && $child->{type} eq 'ticket' ) {
+            ( $up, $down ) = ( 'epic_ref', 'ticket_refs' );
+        }
+        else {
+            die "Hierarchy requires SOW-to-epic or epic-to-ticket\n";
+        }
+        my $old_parent_ref = $child->{linkage}{$up};
+        my @updates;
+        if ( defined $old_parent_ref && $old_parent_ref ne $parent->{ref} ) {
+            my ( $old_path, $old_parent ) = $self->_record_data( project => $root, ref => $old_parent_ref );
+            $old_parent->{linkage}{$down} = [ grep { $_ ne $child->{ref} } @{ $old_parent->{linkage}{$down} } ];
+            $old_parent->{last_updated} = $self->{clock}->();
+            push @updates, [ $old_path, $old_parent ];
+        }
+        $child->{linkage}{$up} = $parent->{ref};
+        push @{ $parent->{linkage}{$down} }, $child->{ref}
+          if !grep { $_ eq $child->{ref} } @{ $parent->{linkage}{$down} };
+        $child->{last_updated} = $parent->{last_updated} = $self->{clock}->();
+        push @updates, [ $parent_path, $parent ], [ $child_path, $child ];
+        $self->_write_json_transaction(\@updates);
+        return { parent => $parent->{ref}, child => $child->{ref} };
+    } );
+}
+
+sub hierarchy_unlink {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $parent_path, $parent ) = $self->_record_data( project => $root, ref => $args{parent} );
+        my ( $child_path, $child ) = $self->_record_data( project => $root, ref => $args{child} );
+        my ( $up, $down ) = $parent->{type} eq 'sow' && $child->{type} eq 'epic'
+          ? ( 'sow_ref', 'epic_refs' )
+          : $parent->{type} eq 'epic' && $child->{type} eq 'ticket'
+          ? ( 'epic_ref', 'ticket_refs' )
+          : die "Hierarchy requires SOW-to-epic or epic-to-ticket\n";
+        die "Records are not linked in that hierarchy\n" if ( $child->{linkage}{$up} // '' ) ne $parent->{ref};
+        $child->{linkage}{$up} = undef;
+        $parent->{linkage}{$down} = [ grep { $_ ne $child->{ref} } @{ $parent->{linkage}{$down} } ];
+        $child->{last_updated} = $parent->{last_updated} = $self->{clock}->();
+        $self->_write_json_transaction( [ [ $parent_path, $parent ], [ $child_path, $child ] ] );
+        return { parent => $parent->{ref}, child => $child->{ref}, unlinked => JSON::PP::true };
+    } );
+}
+
+sub hierarchy_show {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my %seen;
+    my $build;
+    $build = sub {
+        my ($ref) = @_;
+        die "Hierarchy cycle detected at '$ref'\n" if $seen{$ref}++;
+        my $record = $self->record_show( project => $root, ref => $ref );
+        my $children = $record->{type} eq 'sow' ? $record->{linkage}{epic_refs}
+          : $record->{type} eq 'epic' ? $record->{linkage}{ticket_refs} : [];
+        my $node = { ref => $ref, type => $record->{type}, title => $record->{title}, children => [] };
+        if ( $args{recursive} ) {
+            push @{ $node->{children} }, $build->($_) for @{$children};
+        }
+        else {
+            $node->{children} = [ map { { ref => $_ } } @{$children} ];
+        }
+        $seen{$ref}--;
+        return $node;
+    };
+    return $build->( $args{ref} );
+}
+
+sub subitem_link {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $parent_path, $parent ) = $self->_record_data( project => $root, ref => $args{parent} );
+        my ( $child_path, $child ) = $self->_record_data( project => $root, ref => $args{child} );
+        die "Subitems must have the same type\n" if $parent->{type} ne $child->{type};
+        die "Subitem cycle detected\n" if $self->_is_subitem_descendant( $root, $child->{ref}, $parent->{ref} );
+        my $type = $parent->{type};
+        my $up = "parent_${type}_ref";
+        my $down = "sub_${type}_refs";
+        die "Child already has a different subitem parent\n"
+          if defined $child->{linkage}{$up} && $child->{linkage}{$up} ne $parent->{ref};
+        $child->{linkage}{$up} = $parent->{ref};
+        push @{ $parent->{linkage}{$down} }, $child->{ref}
+          if !grep { $_ eq $child->{ref} } @{ $parent->{linkage}{$down} };
+        $self->_write_json_transaction( [ [ $parent_path, $parent ], [ $child_path, $child ] ] );
+        return { parent => $parent->{ref}, child => $child->{ref} };
+    } );
+}
+
+sub subitem_unlink {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $parent_path, $parent ) = $self->_record_data( project => $root, ref => $args{parent} );
+        my ( $child_path, $child ) = $self->_record_data( project => $root, ref => $args{child} );
+        die "Subitems must have the same type\n" if $parent->{type} ne $child->{type};
+        my $type = $parent->{type};
+        my $up = "parent_${type}_ref";
+        my $down = "sub_${type}_refs";
+        die "Records are not linked as subitems\n" if ( $child->{linkage}{$up} // '' ) ne $parent->{ref};
+        $child->{linkage}{$up} = undef;
+        $parent->{linkage}{$down} = [ grep { $_ ne $child->{ref} } @{ $parent->{linkage}{$down} } ];
+        $self->_write_json_transaction( [ [ $parent_path, $parent ], [ $child_path, $child ] ] );
+        return { parent => $parent->{ref}, child => $child->{ref}, unlinked => JSON::PP::true };
+    } );
+}
+
+sub link_add {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $from_path, $from ) = $self->_record_data( project => $root, ref => $args{from} );
+        my ( $to_path, $to ) = $self->_record_data( project => $root, ref => $args{to} );
+        my $reciprocal = $self->_reciprocal_type( $root, $args{type} );
+        push @{ $from->{linkage}{links} }, { type => $args{type}, ref => $to->{ref} }
+          if !grep { $_->{type} eq $args{type} && $_->{ref} eq $to->{ref} } @{ $from->{linkage}{links} };
+        push @{ $to->{linkage}{links} }, { type => $reciprocal, ref => $from->{ref} }
+          if !grep { $_->{type} eq $reciprocal && $_->{ref} eq $from->{ref} } @{ $to->{linkage}{links} };
+        $self->_write_json_transaction( [ [ $from_path, $from ], [ $to_path, $to ] ] );
+        return { from => $from->{ref}, type => $args{type}, to => $to->{ref}, reciprocal => $reciprocal };
+    } );
+}
+
+sub link_remove {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $from_path, $from ) = $self->_record_data( project => $root, ref => $args{from} );
+        my ( $to_path, $to ) = $self->_record_data( project => $root, ref => $args{to} );
+        my $reciprocal = $self->_reciprocal_type( $root, $args{type} );
+        $from->{linkage}{links} = [ grep { !( $_->{type} eq $args{type} && $_->{ref} eq $to->{ref} ) } @{ $from->{linkage}{links} } ];
+        $to->{linkage}{links} = [ grep { !( $_->{type} eq $reciprocal && $_->{ref} eq $from->{ref} ) } @{ $to->{linkage}{links} } ];
+        $self->_write_json_transaction( [ [ $from_path, $from ], [ $to_path, $to ] ] );
+        return { removed => JSON::PP::true };
+    } );
+}
+
+sub link_list {
+    my ( $self, %args ) = @_;
+    my $links = $self->record_show(%args)->{linkage}{links};
+    return [ grep { !defined $args{type} || $_->{type} eq $args{type} } @{$links} ];
+}
+
+sub assignment_list {
+    my ( $self, %args ) = @_;
+    return $self->record_show(%args)->{assignees};
+}
+
+sub assignment_add {
+    my ( $self, %args ) = @_;
+    my $people = $self->assignment_list(%args);
+    push @{$people}, $args{person} if !grep { $_ eq $args{person} } @{$people};
+    return $self->assignment_set( %args, people => $people );
+}
+
+sub assignment_remove {
+    my ( $self, %args ) = @_;
+    my $people = [ grep { $_ ne $args{person} } @{ $self->assignment_list(%args) } ];
+    return $self->assignment_set( %args, people => $people );
+}
+
+sub assignment_set {
+    my ( $self, %args ) = @_;
+    my %valid = map { $_->{id} => 1 } @{ $self->person_list(%args) };
+    die "Unknown project person\n" if grep { !$valid{$_} } @{ $args{people} // [] };
+    return $self->record_update( %args, assignees => $args{people} // [] );
+}
+
+sub comment_list {
+    my ( $self, %args ) = @_;
+    return $self->record_show(%args)->{comments};
+}
+
+sub comment_add {
+    my ( $self, %args ) = @_;
+    $self->_require_person( %args, person => $args{author} );
+    my $record = $self->record_show(%args);
+    my $number = 1;
+    for my $existing ( @{ $record->{comments} } ) {
+        $number = $1 + 1 if $existing->{id} =~ /\ACMT-(\d+)\z/ && $1 >= $number;
+    }
+    my $now = $self->{clock}->();
+    my $comment = {
+        id => sprintf( 'CMT-%03d', $number ), author => $args{author}, format => $args{format} // 'markdown',
+        body => $args{text} // '', attachments => [], created_at => $now, last_updated => $now,
+    };
+    push @{ $record->{comments} }, $comment;
+    $self->_replace_record( %args, record => $record );
+    return $comment;
+}
+
+sub comment_update {
+    my ( $self, %args ) = @_;
+    my $record = $self->record_show(%args);
+    my ($comment) = grep { $_->{id} eq ( $args{comment} // '' ) } @{ $record->{comments} };
+    die "Comment '$args{comment}' not found\n" if !$comment;
+    $comment->{body} = $args{text} if defined $args{text};
+    $comment->{format} = $args{format} if defined $args{format};
+    $comment->{last_updated} = $self->{clock}->();
+    $self->_replace_record( %args, record => $record );
+    return $comment;
+}
+
+sub comment_attach {
+    my ( $self, %args ) = @_;
+    return $self->attachment_add(%args);
+}
+
+sub attachment_add {
+    my ( $self, %args ) = @_;
+    my $file = $self->_canonical_path( $args{file}, "attachment '$args{file}'" );
+    open my $fh, '<:raw', $file or die "Cannot read attachment '$file': $!\n";
+    my $content = do { local $/; <$fh> };
+    close $fh;
+    my $sha = sha256_hex($content);
+    $sha =~ /\A([0-9a-f]{64})\z/ or die "Cannot validate attachment SHA\n";
+    $sha = $1;
+    my $name = basename($file);
+    my $extension = $name =~ /\.([A-Za-z0-9]+)\z/ ? lc $1 : 'bin';
+    my $root = $self->discover_project(%args);
+    my $stored = File::Spec->catfile( $root, '.tira', 'attachments', "$sha.$extension" );
+    $self->_atomic_write( $stored, $content ) if !-f $stored;
+    my $reference = { sha => $sha, extension => $extension, original_filename => $name };
+    my $record = $self->record_show( project => $root, ref => $args{ref} );
+    if ( defined $args{comment} ) {
+        my ($comment) = grep { $_->{id} eq $args{comment} } @{ $record->{comments} };
+        die "Comment '$args{comment}' not found\n" if !$comment;
+        push @{ $comment->{attachments} }, $reference
+          if !grep { $_->{sha} eq $sha && $_->{extension} eq $extension } @{ $comment->{attachments} };
+    }
+    else {
+        push @{ $record->{attachments} }, $reference
+          if !grep { $_->{sha} eq $sha && $_->{extension} eq $extension } @{ $record->{attachments} };
+    }
+    $self->_replace_record( project => $root, ref => $args{ref}, record => $record );
+    return $reference;
+}
+
+sub attachment_get {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $path = $self->_attachment_path( $root, %args );
+    if ( defined $path && -f $path ) {
+        open my $fh, '<:raw', $path or die "Cannot read attachment: $!\n";
+        my $content = do { local $/; <$fh> };
+        close $fh;
+        return { content => $content, path => $path, deleted => 0 };
+    }
+    my $log_path = File::Spec->catfile( $root, '.tira', 'attachments', 'delete.log.yml' );
+    if ( -f $log_path ) {
+        my $entries = $self->{yaml}->load_file($log_path) || [];
+        my ($entry) = reverse grep { $_->{sha} eq ( $args{sha} // '' ) && ( !defined $args{extension} || $_->{extension} eq $args{extension} ) } @{$entries};
+        return { content => "Deleted at $entry->{deleted_at}\n", deleted => 1, deleted_at => $entry->{deleted_at} } if $entry;
+    }
+    die "Attachment '$args{sha}' not found\n";
+}
+
+sub attachment_remove {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $path = $self->_attachment_path( $root, %args );
+    die "Attachment '$args{sha}' not found\n" if !defined $path || !-f $path;
+    my $extension = $args{extension} // ( basename($path) =~ /\.([^.]+)\z/ ? $1 : 'bin' );
+    unlink $path or die "Cannot remove attachment: $!\n";
+    my $entry = { sha => $args{sha}, extension => $extension, deleted_at => $self->{clock}->() };
+    my $log_path = File::Spec->catfile( $root, '.tira', 'attachments', 'delete.log.yml' );
+    my $entries = -f $log_path ? ( $self->{yaml}->load_file($log_path) || [] ) : [];
+    push @{$entries}, $entry;
+    $self->_write_yaml( $log_path, $entries );
+    return $entry;
+}
+
+sub attachment_list {
+    my ( $self, %args ) = @_;
+    return $self->record_show(%args)->{attachments} if defined $args{ref};
+    my $root = $self->discover_project(%args);
+    my $dir = File::Spec->catdir( $root, '.tira', 'attachments' );
+    opendir my $dh, $dir or die "Cannot read attachments: $!\n";
+    my @items = map { my ( $sha, $ext ) = /\A([0-9a-f]{64})\.([^.]+)\z/; { sha => $sha, extension => $ext } }
+      grep { /\A[0-9a-f]{64}\.[^.]+\z/ } readdir $dh;
+    closedir $dh;
+    if ( $args{include_deleted} ) {
+        my $log_path = File::Spec->catfile( $root, '.tira', 'attachments', 'delete.log.yml' );
+        if ( -f $log_path ) {
+            push @items, map { { %{$_}, deleted => JSON::PP::true } } @{ $self->{yaml}->load_file($log_path) || [] };
+        }
+    }
+    return \@items;
+}
+
+sub record_clone {
+    my ( $self, %args ) = @_;
+    my $source = $self->record_show(%args);
+    my $clone = $self->create_record( project => $args{project}, type => $source->{type}, title => $args{title}, description => $source->{description} );
+    my %copy = %{$source};
+    delete @copy{qw(ref column type title created_at last_updated linkage comments assignees)};
+    $clone = $self->record_update( project => $args{project}, ref => $clone->{ref}, %copy );
+    $self->link_add( project => $args{project}, from => $source->{ref}, type => 'clones', to => $clone->{ref} );
+    return $self->record_show( project => $args{project}, ref => $clone->{ref} );
+}
+
+sub evidence_list {
+    my ( $self, %args ) = @_;
+    return $self->record_show(%args)->{evidence};
+}
+
+sub evidence_add {
+    my ( $self, %args ) = @_;
+    $self->_require_person( %args, person => $args{author} ) if defined $args{author};
+    my $record = $self->record_show(%args);
+    die "Evidence summary is required\n" if !defined $args{summary} || $args{summary} eq '';
+    my $attachment = defined $args{file} ? $self->attachment_add(%args) : undef;
+    $record = $self->record_show(%args) if $attachment;
+    my $entry = {
+        summary => $args{summary}, uri => $args{uri} // '', author => $args{author},
+        attachment => $attachment, created_at => $self->{clock}->(),
+    };
+    push @{ $record->{evidence} }, $entry;
+    $self->_replace_record( %args, record => $record );
+    return $entry;
+}
+
+sub gate_list {
+    my ( $self, %args ) = @_;
+    return $self->record_show(%args)->{gate_passing_log};
+}
+
+sub gate_add {
+    my ( $self, %args ) = @_;
+    die "Invalid gate result\n" if ( $args{result} // '' ) !~ /\A(?:pass|fail|blocked)\z/;
+    $self->_require_person( %args, person => $args{author} ) if defined $args{author};
+    my $record = $self->record_show(%args);
+    my $entry = { gate => $args{gate}, result => $args{result}, details => $args{details}, author => $args{author}, created_at => $self->{clock}->() };
+    push @{ $record->{gate_passing_log} }, $entry;
+    $self->_replace_record( %args, record => $record );
+    return $entry;
+}
+
+sub search {
+    my ( $self, %args ) = @_;
+    return $self->record_list(%args);
+}
+
+sub dashboard {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my %dashboard;
+    $dashboard{_column_order} = {};
+    for my $type ( ( $args{type} // 'all' ) eq 'all' ? qw(sow epic ticket) : ( $args{type} ) ) {
+        for my $column ( @{ $self->column_list( project => $root, type => $type ) } ) {
+            next if $column->{name} eq 'discard' && !$args{include_discard};
+            push @{ $dashboard{_column_order}{$type} }, $column->{name};
+            $dashboard{$type}{ $column->{name} } = $self->record_list( project => $root, type => $type, column => $column->{name} );
+        }
+    }
+    return \%dashboard;
+}
+
+sub _project_data {
+    my ( $self, $root ) = @_;
+    my $path = File::Spec->catfile( $root, '.tira', 'project.yml' );
+    return ( $path, $self->{yaml}->load_file($path) );
+}
+
+sub _replace_record {
+    my ( $self, %args ) = @_;
+    my ( $path, undef, $column ) = $self->_record_data(%args);
+    my %record = %{ $args{record} };
+    delete $record{column};
+    $record{last_updated} = $self->{clock}->();
+    $self->_write_json( $path, \%record );
+    return { %record, column => $column };
+}
+
+sub _require_person {
+    my ( $self, %args ) = @_;
+    my $person = $args{person};
+    die "Project person is required\n" if !defined $person || $person eq '';
+    die "Unknown project person '$person'\n" if !grep { $_->{id} eq $person } @{ $self->person_list(%args) };
+    return $person;
+}
+
+sub _reciprocal_type {
+    my ( $self, $root, $type ) = @_;
+    for my $pair ( @{ $self->link_type_list( project => $root ) } ) {
+        return $pair->{inward} if $pair->{outward} eq ( $type // '' );
+        return $pair->{outward} if $pair->{inward} eq ( $type // '' );
+    }
+    die "Unknown link type '$type'\n";
+}
+
+sub _is_subitem_descendant {
+    my ( $self, $root, $start, $wanted ) = @_;
+    return 1 if $start eq $wanted;
+    my $record = $self->record_show( project => $root, ref => $start );
+    my $key = "sub_$record->{type}_refs";
+    for my $child ( @{ $record->{linkage}{$key} } ) {
+        return 1 if $self->_is_subitem_descendant( $root, $child, $wanted );
+    }
+    return 0;
+}
+
+sub _attachment_path {
+    my ( $self, $root, %args ) = @_;
+    my $sha = $args{sha} // '';
+    die "Invalid attachment SHA\n" if $sha !~ /\A([0-9a-f]{64})\z/;
+    $sha = $1;
+    my $dir = File::Spec->catdir( $root, '.tira', 'attachments' );
+    if ( defined $args{extension} ) {
+        die "Invalid attachment extension\n" if $args{extension} !~ /\A([A-Za-z0-9]+)\z/;
+        my $extension = $1;
+        return File::Spec->catfile( $dir, "$sha.$extension" );
+    }
+    opendir my $dh, $dir or die "Cannot read attachments: $!\n";
+    my @matches = map { /\A(\Q$sha\E)\.([A-Za-z0-9]+)\z/ ? File::Spec->catfile( $dir, "$1.$2" ) : () } readdir $dh;
+    closedir $dh;
+    die "Attachment SHA '$sha' has multiple extensions\n" if @matches > 1;
+    return $matches[0];
+}
+
+sub _board_data {
+    my ( $self, %args ) = @_;
+    my $type = $self->_valid_type( $args{type} );
+    my $root = $self->discover_project(%args);
+    my $path = File::Spec->catfile( $root, '.tira', $type, 'config.yml' );
+    my $config = $self->{yaml}->load_file($path);
+    $_->{name} = $self->_valid_slug( $_->{name} ) for @{ $config->{columns} };
+    return ( $path, $config );
+}
+
+sub _record_data {
+    my ( $self, %args ) = @_;
+    my $ref = $args{ref} // '';
+    die "Record reference is required\n" if $ref eq '';
+    die "Invalid record reference '$ref'\n" if $ref !~ /\A[A-Z][A-Z0-9-]{0,31}-\d{1,12}\z/;
+    my $root = $self->discover_project(%args);
+    my @found;
+    for my $type (qw(sow epic ticket)) {
+        my $board = File::Spec->catdir( $root, '.tira', $type );
+        find( { no_chdir => 1, wanted => sub {
+            push @found, $self->_canonical_path( $File::Find::name, "record '$ref'" )
+              if -f $File::Find::name && basename( $File::Find::name ) eq "$ref.json";
+        } }, $board );
+    }
+    die "Record '$ref' not found\n" if !@found;
+    die "Duplicate record '$ref' found\n" if @found > 1;
+    my $path = $found[0];
+    return ( $path, $self->_read_json($path), basename( dirname($path) ) );
+}
+
+sub _read_json {
+    my ( $self, $path ) = @_;
+    open my $fh, '<:raw', $path or die "Cannot read JSON '$path': $!\n";
+    my $content = do { local $/; <$fh> };
+    close $fh or die "Cannot close JSON '$path': $!\n";
+    return decode_json($content);
+}
+
+sub _valid_slug {
+    my ( $self, $slug ) = @_;
+    die "Invalid column name\n" if !defined $slug || $slug !~ /\A([a-z0-9]+(?:-[a-z0-9]+)*)\z/;
+    return $1;
+}
+
+sub _valid_type {
+    my ( $self, $type ) = @_;
+    $type //= '';
+    die "Unsupported record type '$type'\n" if $type !~ /\A(sow|epic|ticket)\z/;
+    return $1;
+}
+
+sub _safe_path_input {
+    my ( $self, $path, $label ) = @_;
+    die "Unsafe control character in $label\n" if !defined $path || $path =~ /[\x00-\x1f\x7f]/;
+    $path =~ /\A(.+)\z/ or die "Cannot validate $label\n";
+    return $1;
 }
 
 sub format_output {
@@ -204,6 +1070,21 @@ sub _markdown {
           . "- Type: `$data->{type}`\n"
           . "- Created: $data->{created_at}\n"
           . "- Last Updated: $data->{last_updated}\n";
+    }
+    if ( ref($data) eq 'HASH' && ref( $data->{_column_order} ) eq 'HASH' ) {
+        my $markdown = "# Tira Dashboard\n";
+        for my $type (qw(sow epic ticket)) {
+            next if !exists $data->{_column_order}{$type};
+            $markdown .= "\n## " . uc($type) . "\n";
+            for my $column ( @{ $data->{_column_order}{$type} } ) {
+                $markdown .= "\n### $column\n";
+                my $records = $data->{$type}{$column};
+                $markdown .= @{$records}
+                  ? join( '', map { "- `$_->{ref}` $_->{title}\n" } @{$records} )
+                  : "_Empty._\n";
+            }
+        }
+        return $markdown;
     }
     return "# Tira Result\n\n```json\n" . JSON::PP->new->canonical->pretty->encode($data) . "```\n";
 }
@@ -252,6 +1133,29 @@ sub _write_json {
     my ( $self, $path, $data ) = @_;
     my $json = JSON::PP->new->canonical->pretty->encode($data);
     $self->_atomic_write( $path, $json );
+}
+
+sub _write_json_transaction {
+    my ( $self, $updates ) = @_;
+    my %original;
+    for my $update ( @{$updates} ) {
+        my ($path) = @{$update};
+        open my $fh, '<:raw', $path or die "Cannot snapshot '$path': $!\n";
+        $original{$path} = do { local $/; <$fh> };
+        close $fh or die "Cannot close snapshot '$path': $!\n";
+    }
+    my $ok = eval {
+        $self->_write_json( @{$_} ) for @{$updates};
+        1;
+    };
+    if ( !$ok ) {
+        my $error = $@ || 'Unknown multi-record write failure';
+        for my $path ( keys %original ) {
+            $self->_atomic_write( $path, $original{$path} );
+        }
+        die $error;
+    }
+    return 1;
 }
 
 sub _atomic_write {

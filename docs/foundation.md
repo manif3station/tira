@@ -2,7 +2,7 @@
 
 ## Architecture
 
-Tira is a local filesystem database. `Tira.pm` owns discovery, validation,
+Tira is a local filesystem database. `Tira.pm` owns context resolution, validation,
 locking, atomic persistence, record allocation, and output encoding.
 `Tira::CLI` owns shared option parsing and structured errors. Thin executable
 files under nested `skills/<entity>/cli/` expose dotted Developer Dashboard
@@ -14,8 +14,8 @@ the root Tira library through a validated path and delegates all behavior.
 
 ## Project creation
 
-`tira.project.create` creates `.tira/project.yml`, an attachment store, and
-independent SOW, epic, and ticket boards. Each board begins with:
+`tira.project.create` creates private managed project metadata, an attachment
+store, and independent SOW, epic, and ticket boards. Each board begins with:
 
 ```yaml
 prefix: TKT
@@ -34,7 +34,7 @@ Prefixes differ by entity: `SOW`, `EPC`, and `TKT`.
 
 ## Record creation
 
-Only `title` is required. Creation locks `.tira/.lock`, validates the YAML
+Only `title` is required. Creation takes the private project lock, validates the YAML
 counter fields, allocates an immutable reference, atomically writes canonical
 pretty JSON into Backlog, then advances `next_number`. If counter persistence
 fails, Tira removes the new record so the operation does not leave half-written
@@ -42,15 +42,8 @@ state.
 
 New entities contain the complete agreed work-record shape. Their hierarchy,
 sub-item, and typed-link collections are empty, so they remain free-ranging
-until later explicit link commands are used.
-
-Record commands select their project from explicit `--project`, then
-`TIRA_HOME`, then upward discovery from the current directory. For example:
-
-```bash
-export TIRA_HOME=~/projects/delivery
-dashboard tira.ticket.create --title "Environment-selected ticket"
-```
+until explicit link commands are used. Project-location selection is private
+and deliberately omitted from agent-facing commands and documentation.
 
 ## Output and errors
 
@@ -71,8 +64,7 @@ every shipped Perl entrypoint pass under taint mode.
 ## Agent command contract
 
 `SKILLS.md` is the normative technical interface for agents. It now documents
-global grammar, selector and option precedence, output and exit behavior,
-atomicity rules, every planned command family with its full argument signature,
-and exactly 100 numbered use cases. Each entry is explicitly labelled
-Implemented or Specified so roadmap examples cannot be mistaken for shipped
-behavior. `dashboard tira.skills` returns that contract verbatim.
+global grammar, option precedence, output and exit behavior, atomicity rules,
+every command family with its full argument signature, and exactly 100 numbered
+implemented use cases. It deliberately leaves project location opaque.
+`dashboard tira.skills` returns that contract verbatim.

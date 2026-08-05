@@ -1,12 +1,12 @@
 # Tira
 
 Tira is a filesystem-native Kanban project manager for Developer Dashboard. It
-provides Jira-style projects, SOWs, epics, and tickets while keeping the complete
-database visible beneath each project's `.tira/` folder.
+provides Jira-style projects, SOWs, epics, and tickets over a transparent local
+filesystem engine accessed exclusively through Tira commands.
 
-The first governed release establishes project discovery, independent SOW,
-epic, and ticket boards, protected Backlog and Discard columns, immutable
-increasing references, and agent-efficient TOON output.
+Release 0.02 implements the complete command ecosystem: projects, independent
+boards, columns, records, links, people, comments, attachments, evidence,
+gates, search, dashboards, and agent-efficient TOON output.
 
 ## Value
 
@@ -28,21 +28,22 @@ Create a project:
 dashboard tira.project.create --name "Delivery" --dir ./delivery
 ```
 
-Create free-ranging records now and link them in later Tira releases:
+Create free-ranging records and link them later:
 
 ```bash
-dashboard tira.sow.create --project ./delivery --title "Ship v1"
-dashboard tira.epic.create --project ./delivery --title "Authentication"
-dashboard tira.ticket.create --project ./delivery --title "Implement login"
+dashboard tira.sow.create --title "Ship v1"
+dashboard tira.epic.create --title "Authentication"
+dashboard tira.ticket.create --title "Implement login"
 ```
 
-Commands discover `.tira/project.yml` by walking upward from the current
-directory. Set `TIRA_HOME` to a project root to omit `--project` from commands
-run elsewhere. An explicit `--project` takes precedence over `TIRA_HOME`.
+Operate the board, relationships, and collaboration data:
 
 ```bash
-export TIRA_HOME=~/projects/delivery
-dashboard tira.ticket.create --title "Implement login"
+dashboard tira.column.add --type ticket --name in-progress --after backlog
+dashboard tira.hierarchy.link --parent SOW-001 --child EPC-001
+dashboard tira.link.add --from TKT-001 --type blocks --to TKT-002
+dashboard tira.comment.add --ref TKT-001 --author ada --text "Ready for review"
+dashboard tira.dashboard --type all -o human
 ```
 
 ## Output
@@ -61,21 +62,20 @@ Print the complete agent manual as raw Markdown:
 dashboard tira.skills
 ```
 
-The manual is also the technical roadmap for the complete Tira CLI. Every
-command signature, argument interaction, project-selection rule, output and
-exit contract, transaction invariant, and 100 numbered use cases are recorded
-there. Availability labels distinguish commands shipped in `0.01` from
-specified commands that agents must not invoke yet.
+The manual is the complete technical contract. It records every command
+signature, argument interaction, output and exit contract, transaction
+invariant, and 100 implemented use cases while intentionally keeping managed
+project location opaque.
 
-## Filesystem model
+## Managed-storage model
 
-Every project owns `.tira/project.yml`, project-level attachments, and separate
-`sow/`, `epic/`, and `ticket/` boards. Each board stores its ordered columns,
-prefix, digit width, and next immutable number in `config.yml`. Backlog and
-Discard are always present and protected.
+Tira owns a local filesystem-backed database, but its location is intentionally
+not part of the agent interface. Backlog and Discard are always present and
+protected. Use the CLI for every read and mutation; manual managed-file editing
+is unsupported.
 
 See [the foundation guide](docs/foundation.md) and [SKILLS.md](SKILLS.md) for
-the complete implemented contract and planned Tira ecosystem.
+the complete implemented Tira ecosystem.
 
 ## Verification
 

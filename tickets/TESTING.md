@@ -157,6 +157,9 @@ Method: TDD + security BDD.
   storage lookup, returned status 2 and empty stdout, and exposed no location.
 - Platform: no platform-dependent code changed; macOS and Windows remain
   stopped.
+- Release: committed as `d4f3654`; the mandatory push was attempted and
+  rejected because the configured passphrase-protected SSH identity has no
+  active agent socket.
 
 ### Platforms
 

@@ -258,3 +258,5 @@ Method: Regression TDD + contract BDD.
   and attachment response fields are explicit without location disclosure.
 - Platform: shared platform-neutral Perl only; macOS and Windows remain
   stopped.
+- Release: committed as `7e2a99d`; push was attempted and rejected because the
+  configured passphrase-protected SSH identity has no active agent socket.

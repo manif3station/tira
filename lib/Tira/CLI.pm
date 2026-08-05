@@ -65,6 +65,9 @@ sub run {
         return 0;
     }
 
+    return _error( $tira, 'toon', "Unsupported output format '$option{output}'" )
+      if $command eq 'attachment.get' && $option{output} !~ /\A(?:toon|json|human)\z/;
+
     $option{project} = $ENV{TIRA_HOME} if !defined $option{project} && defined $ENV{TIRA_HOME};
 
     my $result;
@@ -75,10 +78,6 @@ sub run {
     return _error( $tira, $option{output}, $@ || 'Unknown Tira failure' ) if !$ok;
 
     if ( $command eq 'attachment.get' ) {
-        if ( $option{output} eq 'path' ) {
-            print "$result->{path}\n";
-            return 0;
-        }
         print $result->{content};
         return $result->{deleted} ? 1 : 0;
     }

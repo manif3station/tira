@@ -1,5 +1,13 @@
 Revision history for Tira
 
+0.04  2026-08-05
+    - Removed attachment path output so managed storage locations are never
+      returned by the CLI or engine.
+    - Made attachment retrieval reject unsupported output formats before
+      emitting content while preserving raw bytes and deleted markers.
+    - Added path-secrecy acceptance coverage; the Docker suite now contains
+      394 assertions with 100% statement and subroutine coverage.
+
 0.03  2026-08-05
     - Added symmetric SOW, epic, and ticket planning metadata: singular
       assignee, reporter, labels, dates, SDLC gate, lifecycle, priority,

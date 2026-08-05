@@ -10,9 +10,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.01):** shipped, executable, and covered by tests.
 - **Implemented (0.02):** shipped, executable, and covered by tests.
 - **Implemented (0.03):** shipped, executable, and covered by tests.
+- **Implemented (0.04):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.03.
+All commands and use cases in this manual ship in release 0.04.
 
 ## Global invocation grammar
 
@@ -44,7 +45,7 @@ and `--set-*` for the same field are mutually exclusive.
 - `-o human`: Markdown summary.
 - Errors use the selected structured format on stderr, never success stdout.
 - Mutations return the affected record or operation receipt.
-- `attachment.get` defaults to raw bytes and uniquely supports `-o path`.
+- `attachment.get` emits raw bytes and never exposes managed storage paths.
 - `tira.skills` emits raw Markdown and accepts no options.
 
 ## Exit status contract
@@ -294,15 +295,15 @@ All are **Implemented (DD-389)**:
 ```text
 tira.attachment.add --ref REF --file PATH [--comment ID] [-o FORMAT]
 tira.attachment.list [--ref REF] [--include-deleted] [-o FORMAT]
-tira.attachment.get --sha SHA256 [--extension EXT] [-o raw|path]
+tira.attachment.get --sha SHA256 [--extension EXT]
 tira.attachment.remove --sha SHA256 [--extension EXT] [-o FORMAT]
 ```
 
 Add hashes bytes, stores `sha256.extension`, and records the original filename.
 Many refs may share content. Remove deletes content, appends to
 `delete.log.yml`, and preserves JSON refs. Re-adding identical bytes restores
-the object. Deleted get emits `Deleted at <timestamp>` raw and exits `1`. Only
-explicit `-o path` reveals storage location.
+the object. Deleted get emits `Deleted at <timestamp>` raw and exits `1`.
+Managed storage paths are never returned; redirect raw bytes to a destination.
 
 ### Evidence, gates, search, and dashboard
 
@@ -605,8 +606,8 @@ without revealing or creating a storage location.
 ### UC-093: Stream attachment
 **Implemented.** `dashboard tira.attachment.get --sha <64-hex> --extension zip > copy.zip`.
 
-### UC-094: Reveal path explicitly
-**Implemented.** `dashboard tira.attachment.get --sha <64-hex> --extension png -o path`.
+### UC-094: Retrieve by an unambiguous SHA
+**Implemented.** `dashboard tira.attachment.get --sha <64-hex> > recovered.bin` works without an extension when the SHA resolves uniquely.
 
 ### UC-095: Remove content
 **Implemented.** `dashboard tira.attachment.remove --sha <64-hex> --extension zip` logs deletion.

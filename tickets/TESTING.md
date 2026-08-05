@@ -144,6 +144,20 @@ attempted and rejected because the configured passphrase-protected GitHub SSH
 identity has no active agent socket. No non-interactive GitHub CLI or Git
 credential-helper route is configured, so the mandatory push remains open.
 
+## DD-391
+
+Method: TDD + security BDD.
+
+- Docker functional suite: PASS, 10 files and 394 assertions.
+- Coverage: `lib/Tira.pm` and `lib/Tira/CLI.pm` each reached 100.0% statement
+  and subroutine coverage.
+- Security: all 394 assertions passed under `prove -T`; all 72 entrypoints
+  compiled under taint mode; the production process-primitive scan was clean.
+- Installed dispatch: Tira 0.04 rejected attachment path output before managed
+  storage lookup, returned status 2 and empty stdout, and exposed no location.
+- Platform: no platform-dependent code changed; macOS and Windows remain
+  stopped.
+
 ### Platforms
 
 - macOS 14.8.5, Homebrew Perl 5.42.2: all 322 assertions passed.

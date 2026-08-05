@@ -16,7 +16,7 @@ use JSON::PP qw(decode_json);
 use POSIX qw(strftime);
 use YAML::PP;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -860,7 +860,7 @@ sub attachment_get {
         open my $fh, '<:raw', $path or die "Cannot read attachment: $!\n";
         my $content = do { local $/; <$fh> };
         close $fh;
-        return { content => $content, path => $path, deleted => 0 };
+        return { content => $content, deleted => 0 };
     }
     my $log_path = File::Spec->catfile( $root, '.tira', 'attachments', 'delete.log.yml' );
     if ( -f $log_path ) {

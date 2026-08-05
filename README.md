@@ -33,8 +33,8 @@ on comment-heavy work:
 - Jira needs separate issue and comment requests; one Tira `show` includes the
   record and its comments.
 
-For example, ZEPG-1 occupied 1.04 MB across two Jira requests and 301 KB in one
-Tira read. ZSD-1 was only 1.29 times larger in Jira because it had no comments,
+For example, Ticket at Jira occupied 1.04 MB across two requests and 301 KB in one
+Tira read. If ticket was only 1.29 times larger in Jira because it had no comments,
 supporting the conclusion that repeated author metadata drives much of the
 growth. A heavy ticket can therefore use roughly one-third of an agent's
 context with Tira, in one operation instead of two.

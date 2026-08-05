@@ -217,3 +217,6 @@ Method: TDD + BDD + ATDD.
   command combinations incorporated without disclosing managed location.
 - Platform: no platform-dependent branch changed; macOS and Windows remain
   stopped.
+- Release: committed as `19fe726`; push was attempted and rejected because the
+  configured passphrase-protected SSH identity has no active agent socket.
+  The remote-backed installer therefore remains on 0.05 until 0.06 is pushed.

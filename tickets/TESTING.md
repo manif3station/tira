@@ -238,3 +238,5 @@ Method: Regression TDD + data-loss BDD.
   append/replacement distinction matches the executable behavior.
 - Platform: shared platform-neutral Perl only; macOS and Windows remain
   stopped.
+- Release: committed as `8054cfe`; push was attempted and rejected because the
+  configured passphrase-protected SSH identity has no active agent socket.

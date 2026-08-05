@@ -214,6 +214,16 @@ like( $direct_err, qr/Invalid command-line options/, 'argument parse failure is 
     open my $stderr, '>', \$direct_err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    is( Tira::CLI->run( command => 'record.create', type => 'ticket', argv => [ "\xFF" ] ), 2, 'invalid UTF-8 argv is rejected' );
+}
+like( $direct_err, qr/UTF-8/, 'invalid UTF-8 argv failure is structured' );
+
+( $direct_out, $direct_err ) = ( '', '' );
+{
+    open my $stdout, '>', \$direct_out or die $!;
+    open my $stderr, '>', \$direct_err or die $!;
+    local *STDOUT = $stdout;
+    local *STDERR = $stderr;
     is(
         Tira::CLI->run(
             command => 'record.create', type => 'ticket',

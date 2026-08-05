@@ -35,3 +35,5 @@ The full product contract is implemented in release 0.02 through DD-388 and
 DD-389. UC-001 through UC-100 and all 70 commands are proven. DD-390 extends
 the record and person contracts with planning metadata and inactive-person
 lifecycle controls. DD-391 makes attachment retrieval strictly path-private.
+DD-392 makes every text and persistence boundary explicitly UTF-8 and repairs
+legacy isolated-byte records.

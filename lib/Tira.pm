@@ -6,17 +6,18 @@ use warnings;
 use Cwd qw(abs_path realpath);
 use Data::TOON;
 use Digest::SHA qw(sha256_hex);
+use Encode qw(decode encode_utf8 FB_QUIET);
 use Fcntl qw(:flock);
 use File::Basename qw(basename dirname);
 use File::Find qw(find);
 use File::Path qw(make_path);
 use File::Spec;
 use File::Temp qw(tempfile);
-use JSON::PP qw(decode_json);
+use JSON::PP ();
 use POSIX qw(strftime);
 use YAML::PP;
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -1123,7 +1124,11 @@ sub _read_json {
     open my $fh, '<:raw', $path or die "Cannot read JSON '$path': $!\n";
     my $content = do { local $/; <$fh> };
     close $fh or die "Cannot close JSON '$path': $!\n";
-    my $record = decode_json($content);
+    my $record = eval { JSON::PP->new->utf8->decode($content) };
+    if ( !defined $record ) {
+        my $characters = $self->_decode_legacy_utf8($content);
+        $record = JSON::PP->new->decode($characters);
+    }
     if ( !exists $record->{assignee} && exists $record->{assignees} ) {
         $record->{assignee} = @{ $record->{assignees} // [] } ? $record->{assignees}[0] : undef;
     }
@@ -1143,6 +1148,16 @@ sub _valid_slug {
     my ( $self, $slug ) = @_;
     die "Invalid column name\n" if !defined $slug || $slug !~ /\A([a-z0-9]+(?:-[a-z0-9]+)*)\z/;
     return $1;
+}
+
+sub _decode_legacy_utf8 {
+    my ( $self, $bytes ) = @_;
+    my $characters = '';
+    while ( length $bytes ) {
+        $characters .= decode( 'UTF-8', $bytes, FB_QUIET );
+        $characters .= chr unpack( 'C', substr( $bytes, 0, 1, '' ) ) if length $bytes;
+    }
+    return $characters;
 }
 
 sub _valid_type {
@@ -1247,7 +1262,8 @@ sub _with_project_lock {
 
 sub _write_yaml {
     my ( $self, $path, $data ) = @_;
-    $self->_atomic_write( $path, $self->{yaml}->dump_string($data) );
+    my $yaml = $self->{yaml}->dump_string($data);
+    $self->_atomic_write( $path, utf8::is_utf8($yaml) ? encode_utf8($yaml) : $yaml );
 }
 
 sub _validated_counter {
@@ -1275,7 +1291,7 @@ sub _canonical_path {
 
 sub _write_json {
     my ( $self, $path, $data ) = @_;
-    my $json = JSON::PP->new->canonical->pretty->encode($data);
+    my $json = JSON::PP->new->canonical->pretty->utf8->encode($data);
     $self->_atomic_write( $path, $json );
 }
 
@@ -1338,7 +1354,8 @@ Tira - Filesystem-native Kanban project management engine
 Tira stores project configuration beneath C<.tira>, represents board columns as
 folders, and stores SOW, epic, and ticket records as JSON files. This module owns
 safe project discovery, atomic persistence, monotonic reference allocation, and
-the shared TOON, JSON, and Markdown output contract.
+the shared TOON, JSON, and Markdown output contract. Text persistence is
+canonical UTF-8; legacy isolated bytes are repaired during record reads.
 
 =head1 METHODS
 

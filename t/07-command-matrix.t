@@ -2,10 +2,12 @@
 
 use strict;
 use warnings;
+use utf8;
 
 use File::Path qw(make_path);
 use File::Spec;
 use File::Temp qw(tempdir tempfile);
+use Encode qw(encode_utf8);
 use JSON::PP qw(decode_json);
 use Test::More;
 
@@ -119,14 +121,14 @@ cli( 'assign.remove', undef, '--ref', 'TKT-001', '--person', 'ada', @at );
 cli( 'assign.set', undef, '--ref', 'TKT-001', '--person', 'ada', @at );
 
 my ( $text_fh, $text_file ) = tempfile( DIR => $tmp, SUFFIX => '.txt' );
-print {$text_fh} 'Comment from file';
+print {$text_fh} encode_utf8('Comment costs £5 from file');
 close $text_fh;
 my ( $bin_fh, $bin_file ) = tempfile( DIR => $tmp, SUFFIX => '.dat' );
 binmode $bin_fh;
 print {$bin_fh} "matrix\0attachment";
 close $bin_fh;
 ( $status, $out ) = cli( 'comment.add', undef, '--ref', 'TKT-001', '--author', 'ada', '--file', $text_file, '--attach', $bin_file, @at );
-is( decode_json($out)->{body}, 'Comment from file', 'comment file/attachment dispatch' );
+is( decode_json($out)->{body}, 'Comment costs £5 from file', 'UTF-8 comment file/attachment dispatch' );
 ( $status, $out ) = cli( 'comment.update', undef, '--ref', 'TKT-001', '--comment', 'CMT-001', '--text', 'Updated', @at );
 is( decode_json($out)->{body}, 'Updated', 'comment update dispatch' );
 ( $status, $out ) = cli( 'comment.list', undef, '--ref', 'TKT-001', @at );

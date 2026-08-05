@@ -63,6 +63,15 @@ structured format on stderr and exit with status 2. `tira.skills` prints raw
 Markdown because its content, rather than metadata about the content, is the
 requested result.
 
+## UTF-8 boundary
+
+Tira decodes command-line and text-file input as strict UTF-8 character data,
+then encodes JSON, YAML, TOON, JSON output, and Markdown output as UTF-8 bytes.
+Attachments bypass text encoding and remain raw. The record reader accepts
+canonical UTF-8 first; if an older record contains an isolated byte written by
+the former mixed string boundary, it maps that byte to its intended Unicode
+code point and rewrites canonical UTF-8 on the next mutation.
+
 ## Security properties
 
 Tira invokes no shell or external process. It validates and untaints canonical

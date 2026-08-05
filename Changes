@@ -1,5 +1,15 @@
 Revision history for Tira
 
+0.05  2026-08-05
+    - Made CLI argv, comment files, YAML, JSON, and structured output explicitly
+      UTF-8 while preserving raw attachment bytes.
+    - Fixed long comments containing `£` and eliminated wide-character output
+      warnings.
+    - Added lossless isolated-byte recovery for records corrupted by the former
+      mixed byte/character writer; the next mutation persists valid UTF-8.
+    - Expanded the Docker suite to 404 assertions while retaining 100%
+      statement and subroutine coverage.
+
 0.04  2026-08-05
     - Removed attachment path output so managed storage locations are never
       returned by the CLI or engine.

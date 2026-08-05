@@ -3,6 +3,7 @@ package Tira::CLI;
 use strict;
 use warnings;
 
+use Encode qw(decode encode_utf8 FB_CROAK);
 use Getopt::Long qw(GetOptionsFromArray);
 use JSON::PP ();
 use Tira;
@@ -14,6 +15,18 @@ sub run {
     my $argv = $args{argv} || [];
     my $tira = $args{tira} || Tira->new;
     my %option = ( output => 'toon' );
+    my $environment_project;
+    my $decoded = eval {
+        for my $argument ( @{$argv} ) {
+            $argument = decode( 'UTF-8', $argument, FB_CROAK ) if !utf8::is_utf8($argument);
+        }
+        if ( defined $ENV{TIRA_HOME} ) {
+            $environment_project = utf8::is_utf8( $ENV{TIRA_HOME} )
+              ? $ENV{TIRA_HOME} : decode( 'UTF-8', $ENV{TIRA_HOME}, FB_CROAK );
+        }
+        1;
+    };
+    return _error( $tira, 'toon', $@ || 'Invalid UTF-8 command-line input' ) if !$decoded;
     my $parsed = GetOptionsFromArray(
         $argv,
         'name=s' => \$option{name}, 'dir=s' => \$option{dir}, 'title=s' => \$option{title},
@@ -68,7 +81,7 @@ sub run {
     return _error( $tira, 'toon', "Unsupported output format '$option{output}'" )
       if $command eq 'attachment.get' && $option{output} !~ /\A(?:toon|json|human)\z/;
 
-    $option{project} = $ENV{TIRA_HOME} if !defined $option{project} && defined $ENV{TIRA_HOME};
+    $option{project} = $environment_project if !defined $option{project} && defined $environment_project;
 
     my $result;
     my $ok = eval {
@@ -84,7 +97,7 @@ sub run {
 
     my $formatted = eval { $tira->format_output( $result, output => $option{output}, project => $option{project} ) };
     return _error( $tira, 'toon', $@ || 'Unable to format output' ) if !defined $formatted;
-    print $formatted;
+    print _utf8_bytes($formatted);
     return 0;
 }
 
@@ -164,7 +177,7 @@ sub _invoke {
     $args{include_deleted} = $option->{include_deleted} if $command eq 'attachment.list';
     if ( $command =~ /\Acomment\.(?:add|update)\z/ && defined $option->{file} ) {
         die "Use only one of --text or --file\n" if defined $option->{text};
-        $args{text} = _text_input( $option->{file} );
+        $args{text} = _text_input( $option->{file}, utf8 => 1 );
     }
     if ( $command eq 'comment.add' && $option->{attach} ) {
         my $comment = $tira->$method(%args);
@@ -175,7 +188,7 @@ sub _invoke {
 }
 
 sub _text_input {
-    my ($file) = @_;
+    my ( $file, %args ) = @_;
     my $fh;
     if ( $file eq '-' ) {
         $fh = *STDIN;
@@ -185,7 +198,7 @@ sub _text_input {
     }
     my $content = do { local $/; <$fh> };
     close $fh if $file ne '-';
-    return $content;
+    return $args{utf8} ? decode( 'UTF-8', $content, FB_CROAK ) : $content;
 }
 
 sub _json_array_input {
@@ -200,8 +213,13 @@ sub _error {
     $message =~ s/\s+\z//;
     my $formatted = eval { $tira->format_output( { error => $message }, output => $output ) };
     $formatted = JSON::PP->new->canonical->pretty->encode( { error => $message } ) if !defined $formatted;
-    print STDERR $formatted;
+    print STDERR _utf8_bytes($formatted);
     return 2;
+}
+
+sub _utf8_bytes {
+    my ($text) = @_;
+    return utf8::is_utf8($text) ? encode_utf8($text) : $text;
 }
 
 sub _usage {
@@ -225,7 +243,9 @@ Tira::CLI - Shared command boundary for Tira DD commands
 
 Parses the common project and record metadata options, invokes L<Tira>, and
 applies the TOON-first output and structured error contract. Project-location
-selection is intentionally omitted from user-facing help.
+selection is intentionally omitted from user-facing help. Text input is decoded
+strictly as UTF-8 and structured output is emitted as UTF-8 bytes; attachment
+content remains raw.
 
 =head1 METHODS
 

@@ -1,6 +1,6 @@
 # Complete Command Ecosystem
 
-Release 0.04 implements every workflow in `SKILLS.md` through 72 Developer
+Release 0.05 implements every workflow in `SKILLS.md` through 72 Developer
 Dashboard entrypoints. The shared `Tira::CLI` parser applies TOON-first output,
 pretty JSON, Markdown, repeatable options, JSON-array replacement, raw
 attachment output, and consistent structured failures.
@@ -21,6 +21,8 @@ attachment output, and consistent structured failures.
 - SHA-256 attachment deduplication, path-private raw retrieval, append-only deletion
   logging, and identical-content restoration.
 - Filesystem search and an ordered Markdown/structured Kanban dashboard.
+- Strict UTF-8 CLI/text boundaries, canonical UTF-8 persistence and output,
+  and lossless recovery of isolated legacy bytes.
 
 ## Transaction boundaries
 

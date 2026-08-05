@@ -25,6 +25,7 @@ coverage, taint security, installed-dispatch proof, and macOS verification.
 DD-390 adds singular ownership, planning and release metadata, generated
 immediate parents, and inactive-person lifecycle behavior.
 DD-391 removes attachment storage-path output while retaining raw retrieval.
+DD-392 hardens Unicode comments, persistence, output, and legacy recovery.
 
 ## Release standard
 

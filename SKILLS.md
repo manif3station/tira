@@ -11,9 +11,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.02):** shipped, executable, and covered by tests.
 - **Implemented (0.03):** shipped, executable, and covered by tests.
 - **Implemented (0.04):** shipped, executable, and covered by tests.
+- **Implemented (0.05):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.04.
+All commands and use cases in this manual ship in release 0.05.
 
 ## Global invocation grammar
 
@@ -29,6 +30,12 @@ References are immutable, case-sensitive values such as `SOW-001`, `EPC-001`,
 and `TKT-001`. Quote whitespace, Markdown, glob characters, and empty strings.
 Repeat an option only where its table marks it repeatable. `--help` is exclusive
 and performs no mutation.
+
+All command-line text, text files, YAML, JSON, and structured output use UTF-8.
+Invalid UTF-8 input is rejected. Non-ASCII text, including `£`, is preserved in
+titles, fields, comments, evidence, and gate details. Attachment content remains
+raw bytes. When a legacy record contains an isolated non-UTF-8 byte, Tira
+repairs it during reading and persists canonical UTF-8 on the next mutation.
 
 ## Argument precedence
 

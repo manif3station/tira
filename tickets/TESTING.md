@@ -161,6 +161,24 @@ Method: TDD + security BDD.
   rejected because the configured passphrase-protected SSH identity has no
   active agent socket.
 
+## DD-392
+
+Method: TDD + security BDD.
+
+- Docker functional suite: PASS, 10 files and 404 assertions.
+- Coverage: `lib/Tira.pm` and `lib/Tira/CLI.pm` each reached 100.0% statement
+  and subroutine coverage.
+- UTF-8 regression: a greater-than-40-KB argv comment containing `£` produced
+  no warning and round-tripped through output, persistence, and reread.
+- Legacy repair: isolated byte `0xA3` recovered as `£`; the next mutation wrote
+  canonical UTF-8 bytes `0xC2 0xA3`.
+- Security: 404 assertions passed under `prove -T`; all 72 entrypoints compiled
+  in taint mode; no production process primitive was found.
+- Installed dispatch: Tira 0.05 created and reread Unicode metadata, title, and
+  comment text with empty stderr.
+- Platform: no platform-dependent branch changed; macOS and Windows remain
+  stopped.
+
 ### Platforms
 
 - macOS 14.8.5, Homebrew Perl 5.42.2: all 322 assertions passed.

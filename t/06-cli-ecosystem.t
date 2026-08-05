@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use utf8;
 
 BEGIN {
     if (${^TAINT}) {
@@ -13,6 +14,7 @@ BEGIN {
 
 use File::Spec;
 use File::Temp qw(tempdir);
+use Encode qw(encode_utf8);
 use IPC::Open3;
 use JSON::PP qw(decode_json);
 use Symbol qw(gensym);
@@ -42,8 +44,9 @@ my ( $status, $out, $err ) = command( {}, @perl, 'skills/project/cli/create', '-
 is( $status, 0, 'full CLI project created' );
 my %env = ( TIRA_HOME => $root );
 
-( $status, $out, $err ) = command( \%env, @perl, 'skills/project/skills/people/cli/add', '--id', 'ada', '--name', 'Ada', '-o', 'json' );
+( $status, $out, $err ) = command( \%env, @perl, 'skills/project/skills/people/cli/add', '--id', 'ada', '--name', encode_utf8('Ada £'), '-o', 'json' );
 is( decode_json($out)->{id}, 'ada', 'nested people command dispatches' );
+is( decode_json($out)->{name}, 'Ada £', 'UTF-8 project metadata round-trips without warnings' );
 ( $status, $out, $err ) = command( \%env, @perl, 'skills/column/cli/add', '--type', 'ticket', '--name', 'doing', '--after', 'backlog', '-o', 'json' );
 is( decode_json($out)->{name}, 'doing', 'column command parses placement arguments' );
 
@@ -59,6 +62,16 @@ is( $status, 0, 'hierarchy link dispatches' );
 is( decode_json($out)->{assignee}, 'ada', 'assignment command dispatches' );
 ( $status, $out, $err ) = command( \%env, @perl, 'skills/comment/cli/add', '--ref', 'TKT-001', '--author', 'ada', '--text', 'CLI note', '-o', 'json' );
 is( decode_json($out)->{body}, 'CLI note', 'comment command dispatches' );
+my $currency_comment = ( 'Migration detail. ' x 2200 ) . 'Fire damage costs £523';
+( $status, $out, $err ) = command(
+    \%env, @perl, 'skills/comment/cli/add', '--ref', 'TKT-001', '--author', 'ada',
+    '--text', encode_utf8($currency_comment), '-o', 'json',
+);
+is( $status, 0, 'long UTF-8 comment command succeeds' );
+is( $err, '', 'long UTF-8 comment emits no wide-character warning' );
+is( decode_json($out)->{body}, $currency_comment, 'long UTF-8 comment JSON output round-trips' );
+( $status, $out, $err ) = command( \%env, @perl, 'skills/ticket/cli/show', '--ref', 'TKT-001', '-o', 'json' );
+is( decode_json($out)->{comments}[1]{body}, $currency_comment, 'persisted UTF-8 comment remains readable' );
 ( $status, $out, $err ) = command( \%env, @perl, 'skills/ticket/cli/move', '--ref', 'TKT-001', '--column', 'doing', '-o', 'json' );
 is( decode_json($out)->{column}, 'doing', 'record movement command dispatches' );
 ( $status, $out, $err ) = command( \%env, @perl, 'cli/search', '--text', 'Ticket', '--type', 'ticket', '-o', 'json' );

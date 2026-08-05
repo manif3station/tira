@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use utf8;
 
 use File::Spec;
 use File::Temp qw(tempdir);
@@ -119,6 +120,24 @@ close $legacy_out;
 my $migrated = $tira->record_show( project => $root, ref => $legacy->{ref} );
 is( $migrated->{assignee}, 'ada', 'legacy assignee array migrates to singular assignee' );
 is_deeply( $migrated->{labels}, [], 'legacy record receives metadata defaults' );
+
+$legacy_data->{comments} = [{
+    id => 'CMT-001', author => 'ada', format => 'markdown', body => 'Cost £523',
+    attachments => [], created_at => '2026-08-05T13:30:00Z', last_updated => '2026-08-05T13:30:00Z',
+}];
+my $legacy_bytes = JSON::PP->new->canonical->pretty->utf8->encode($legacy_data);
+$legacy_bytes =~ s/\xC2\xA3/\xA3/ or die 'Could not create legacy pound-byte fixture';
+open $legacy_out, '>:raw', $legacy_path or die $!;
+print {$legacy_out} $legacy_bytes;
+close $legacy_out;
+$migrated = $tira->record_show( project => $root, ref => $legacy->{ref} );
+is( $migrated->{comments}[0]{body}, 'Cost £523', 'legacy isolated pound byte is repaired without data loss' );
+$tira->record_update( project => $root, ref => $legacy->{ref}, title => 'Legacy repaired' );
+open $legacy_in, '<:raw', $legacy_path or die $!;
+my $repaired_bytes = do { local $/; <$legacy_in> };
+close $legacy_in;
+is( decode_json($repaired_bytes)->{comments}[0]{body}, 'Cost £523', 'next mutation persists repaired valid UTF-8 JSON' );
+like( $repaired_bytes, qr/\xC2\xA3/, 'repaired JSON contains canonical UTF-8 pound bytes' );
 
 my $yaml = YAML::PP->new( boolean => 'JSON::PP' );
 my $project_path = File::Spec->catfile( $root, '.tira', 'project.yml' );

@@ -1,6 +1,6 @@
 # Complete Command Ecosystem
 
-Release 0.06 implements every workflow in `SKILLS.md` through 75 Developer
+Release 0.07 implements every workflow in `SKILLS.md` through 75 Developer
 Dashboard entrypoints. The shared `Tira::CLI` parser applies TOON-first output,
 pretty JSON, Markdown, repeatable options, JSON-array replacement, raw
 attachment output, and consistent structured failures.
@@ -33,6 +33,14 @@ snapshot all affected JSON and restore every snapshot if a later write fails.
 Column add, rename, and removal similarly roll back their filesystem changes
 when configuration persistence fails. Reference counters only increase and
 failed counter persistence removes the uncommitted record.
+
+## Accumulating record fields
+
+On record update, repeated `--key-detail`, `--deliverable`, `--acceptance`,
+`--test-step`, `--bdd`, `--atdd`, `--scope-in`, and `--scope-out` values append
+in supplied order. Existing values are retained. The corresponding `--set-*`
+JSON-array options remain the explicit wholesale-replacement controls for the
+six content arrays; scope has no replacement option.
 
 ## Agent boundary
 

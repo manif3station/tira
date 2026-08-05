@@ -17,7 +17,7 @@ use JSON::PP ();
 use POSIX qw(strftime);
 use YAML::PP;
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -512,16 +512,24 @@ sub record_update {
         }
         $record->{affects_versions} = $self->_unique_casefold( $args{affects_versions_replace} )
           if defined $args{affects_versions_replace};
-        my %arrays = (
+        my %accumulating = (
             key_details => 'key_details', deliverables => 'deliverables', acceptance => 'acceptance_criteria',
             test_steps => 'test_steps', bdd => 'bdd', atdd => 'atdd',
-            attachments => 'attachments', evidence => 'evidence', gate_passing_log => 'gate_passing_log',
         );
+        for my $argument ( keys %accumulating ) {
+            next if !defined $args{$argument};
+            push @{ $record->{ $accumulating{$argument} } }, @{ $args{$argument} };
+        }
+        for my $argument ( keys %accumulating ) {
+            my $replacement = "${argument}_replace";
+            $record->{ $accumulating{$argument} } = $args{$replacement} if defined $args{$replacement};
+        }
+        my %arrays = ( attachments => 'attachments', evidence => 'evidence', gate_passing_log => 'gate_passing_log' );
         for my $argument ( keys %arrays ) {
             $record->{ $arrays{$argument} } = $args{$argument} if defined $args{$argument};
         }
-        $record->{scope}{included} = $args{scope_in} if defined $args{scope_in};
-        $record->{scope}{excluded} = $args{scope_out} if defined $args{scope_out};
+        push @{ $record->{scope}{included} }, @{ $args{scope_in} } if defined $args{scope_in};
+        push @{ $record->{scope}{excluded} }, @{ $args{scope_out} } if defined $args{scope_out};
         $record->{scope} = $args{scope} if defined $args{scope};
         $record->{last_updated} = $self->{clock}->();
         $self->_write_json( $path, $record );

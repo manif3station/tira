@@ -29,6 +29,7 @@ DD-392 hardens Unicode comments, persistence, output, and legacy recovery.
 DD-393 documents the measured agent-context advantage of Tira's direct
 filesystem Jira mirror.
 DD-394 adds ordered item/status checklists to every work-record type.
+DD-395 prevents silent data loss by making every accumulating update append.
 
 ## Release standard
 

@@ -220,3 +220,21 @@ Method: TDD + BDD + ATDD.
 - Release: committed as `19fe726`; push was attempted and rejected because the
   configured passphrase-protected SSH identity has no active agent socket.
   The remote-backed installer therefore remains on 0.05 until 0.06 is pushed.
+
+## DD-395
+
+Method: Regression TDD + data-loss BDD.
+
+- Red gate: the focused regression failed 25 of 27 assertions and reproduced
+  silent replacement in all six content arrays and both scope arrays.
+- Docker functional suite: PASS, 12 files and 479 assertions.
+- Coverage: `lib/Tira.pm` and `lib/Tira/CLI.pm` each reached 100.0% statement
+  and subroutine coverage.
+- Acceptance: SOW, epic, and ticket updates retained existing entries,
+  appended repeated values in order, and preserved explicit full replacement.
+- Security: all 479 assertions passed under `prove -T`; all 75 entrypoints
+  compiled under taint mode; the production process-primitive scan was clean.
+- Agent contract: exactly 100 implemented use cases remain and the documented
+  append/replacement distinction matches the executable behavior.
+- Platform: shared platform-neutral Perl only; macOS and Windows remain
+  stopped.

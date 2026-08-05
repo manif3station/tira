@@ -13,9 +13,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.04):** shipped, executable, and covered by tests.
 - **Implemented (0.05):** shipped, executable, and covered by tests.
 - **Implemented (0.06):** shipped, executable, and covered by tests.
+- **Implemented (0.07):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.06.
+All commands and use cases in this manual ship in release 0.07.
 
 ## Global invocation grammar
 
@@ -143,6 +144,13 @@ Repeated `--label` and `--affects-version` values append on update. Their
 reads stdin. Append and replacement forms for the same field conflict. Empty
 strings clear nullable scalar fields. Parent changes only through hierarchy or
 sub-item link commands.
+
+The same append rule applies to repeated `--key-detail`, `--deliverable`,
+`--acceptance`, `--test-step`, `--bdd`, `--atdd`, `--scope-in`, and
+`--scope-out` values. Existing values remain first and new values retain CLI
+order. `--set-key-details`, `--set-deliverables`, `--set-acceptance`,
+`--set-test-steps`, `--set-bdd`, and `--set-atdd` are the explicit full-array
+replacement controls. Scope has no wholesale replacement command.
 
 Project people gain an `active` Boolean, defaulting to true. Inactive people
 remain rendered on historical records but cannot become a new assignee or

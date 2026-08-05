@@ -71,6 +71,11 @@ an immutable `CHK-NNN` ID, an item, a user-controlled status, and creation and
 last-update timestamps. Tira does not interpret checklist status as workflow
 state; users decide what each value means and update it explicitly.
 
+Release 0.07 makes accumulating record updates loss-safe. Content-array and
+included/excluded scope arguments append in order, matching labels and the
+agent contract. Only an explicit `--set-*` JSON-array option replaces a full
+content array.
+
 ## Output and errors
 
 Default and `-o toon` output is produced by `Data::TOON` 0.03. `-o json` uses

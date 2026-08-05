@@ -108,15 +108,16 @@ sub _invoke {
     delete @args{qw(output help apply repair_columns recursive include_deleted include_discard attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions)};
     $args{type} = $record_type if defined $record_type;
     my %sets = (
-        set_key_details => 'key_details', set_deliverables => 'deliverables',
-        set_acceptance => 'acceptance', set_test_steps => 'test_steps',
-        set_bdd => 'bdd', set_atdd => 'atdd',
+        set_key_details => 'key_details_replace', set_deliverables => 'deliverables_replace',
+        set_acceptance => 'acceptance_replace', set_test_steps => 'test_steps_replace',
+        set_bdd => 'bdd_replace', set_atdd => 'atdd_replace',
         set_labels => 'labels_replace', set_affects_versions => 'affects_versions_replace',
     );
     for my $set ( keys %sets ) {
         next if !defined $option->{$set};
         my $append = $set eq 'set_labels' ? 'labels'
-          : $set eq 'set_affects_versions' ? 'affects_versions' : $sets{$set};
+          : $set eq 'set_affects_versions' ? 'affects_versions'
+          : $sets{$set} =~ s/_replace\z//r;
         die "Cannot combine append and replacement for '$append'\n" if defined $args{$append};
         $args{ $sets{$set} } = _json_array_input( $option->{$set} );
     }

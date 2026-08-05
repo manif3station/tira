@@ -40,3 +40,5 @@ legacy isolated-byte records.
 DD-393 documents why the Jira-compatible model uses direct filesystem access:
 smaller agent payloads, comments included in one read, and no HTTP layer.
 DD-394 adds symmetric item/status checklists to SOWs, epics, and tickets.
+DD-395 makes repeatable content and scope updates append-safe while preserving
+explicit replacement controls.

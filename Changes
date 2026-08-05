@@ -1,5 +1,12 @@
 Revision history for Tira
 
+0.07  2026-08-05
+    - Fixed silent data loss when updating key details, deliverables,
+      acceptance criteria, test steps, BDD, or ATDD arrays.
+    - Made included and excluded scope updates append consistently.
+    - Preserved explicit `--set-*` wholesale replacement and repeated-argument
+      ordering across SOWs, epics, and tickets.
+
 0.06  2026-08-05
     - Added ordered checklists to SOWs, epics, and tickets.
     - Added checklist list, add, and update commands with immutable entry IDs,

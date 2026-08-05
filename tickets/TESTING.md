@@ -188,3 +188,16 @@ Method: TDD + security BDD.
 - Windows 11: unchanged lab provisioning limitation; the fresh VM does not
   provide an automated OpenSSH guest route. No Windows-specific branch exists.
 - `macdev` and `windev` are stopped.
+
+## DD-393
+
+Method: DocsDD.
+
+- Docker functional suite: PASS, 10 files and 404 assertions.
+- Coverage: `lib/Tira.pm` and `lib/Tira/CLI.pm` retained 100.0% statement and
+  subroutine coverage.
+- Security: all 404 assertions passed under `prove -T`; all 72 entrypoints
+  compiled under taint mode; the production process-primitive scan was clean.
+- Documentation: the measured Jira/Tira payload comparison and no-HTTP local
+  filesystem architecture are recorded in README and the foundation guide.
+- Platform: documentation-only; macOS and Windows remain stopped.

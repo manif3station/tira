@@ -18,6 +18,30 @@ Tira gives people and AI agents a shared project-management model without a
 server or opaque database. Folders represent Kanban columns, JSON files
 represent work records, and YAML files hold project and board configuration.
 
+### Why mirror Jira locally?
+
+Tira keeps Jira's familiar project, epic, ticket, and Kanban concepts while
+removing payload overhead that quickly consumes an LLM agent's context and
+usage allowance. In measured migration examples, Jira responses averaged
+about 3.3 times the size of equivalent Tira records, with the gap increasing
+on comment-heavy work:
+
+- Jira ADF expands each paragraph into a nested `type`/`content` tree.
+- Every Jira comment repeats its author's account, timezone, and avatar block,
+  including five image URLs.
+- Jira needs separate issue and comment requests; one Tira `show` includes the
+  record and its comments.
+
+For example, ZEPG-1 occupied 1.04 MB across two Jira requests and 301 KB in one
+Tira read. ZSD-1 was only 1.29 times larger in Jira because it had no comments,
+supporting the conclusion that repeated author metadata drives much of the
+growth. A heavy ticket can therefore use roughly one-third of an agent's
+context with Tira, in one operation instead of two.
+
+Tira deliberately has no HTTP transaction layer. Commands operate directly on
+validated local files and column folders, keeping the system simple,
+inspectable, and efficient.
+
 ## Installation
 
 ```bash

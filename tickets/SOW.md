@@ -37,3 +37,5 @@ the record and person contracts with planning metadata and inactive-person
 lifecycle controls. DD-391 makes attachment retrieval strictly path-private.
 DD-392 makes every text and persistence boundary explicitly UTF-8 and repairs
 legacy isolated-byte records.
+DD-393 documents why the Jira-compatible model uses direct filesystem access:
+smaller agent payloads, comments included in one read, and no HTTP layer.

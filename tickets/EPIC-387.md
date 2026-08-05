@@ -26,10 +26,12 @@ DD-390 adds singular ownership, planning and release metadata, generated
 immediate parents, and inactive-person lifecycle behavior.
 DD-391 removes attachment storage-path output while retaining raw retrieval.
 DD-392 hardens Unicode comments, persistence, output, and legacy recovery.
+DD-393 documents the measured agent-context advantage of Tira's direct
+filesystem Jira mirror.
 
 ## Release standard
 
 Each slice is independently tested, documented, committed, and pushed. The epic
 closes only when the complete CLI documented in `SKILLS.md` is proven.
 
-Status: in progress through DD-390.
+Status: in progress through DD-393.

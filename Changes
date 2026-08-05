@@ -1,6 +1,8 @@
 Revision history for Tira
 
 0.05  2026-08-05
+    - Documented why Tira mirrors Jira's work model while using direct local
+      files to reduce agent payload and request overhead.
     - Made CLI argv, comment files, YAML, JSON, and structured output explicitly
       UTF-8 while preserving raw attachment bytes.
     - Fixed long comments containing `£` and eliminated wide-character output

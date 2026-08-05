@@ -8,6 +8,17 @@ locking, atomic persistence, record allocation, and output encoding.
 files under nested `skills/<entity>/cli/` expose dotted Developer Dashboard
 commands.
 
+There is no HTTP service or transport layer: commands read and atomically
+update the managed YAML, JSON, attachment, and column-folder structures
+directly. This preserves Jira-style work organization without carrying Jira's
+ADF and repeated per-comment author metadata through an agent's context.
+
+Measured migration examples found Jira payloads about 3.3 times larger on
+average. ZEPG-1 required two Jira requests totalling 1.04 MB, while one Tira
+record read including comments was 301 KB. A comment-free ZSD-1 was only 1.29
+times larger in Jira, indicating that repeated comment-author metadata is a
+major source of the widening payload gap.
+
 Developer Dashboard resolves, for example,
 `dashboard tira.ticket.create` to `skills/ticket/cli/create`. The wrapper loads
 the root Tira library through a validated path and delegates all behavior.

@@ -14,8 +14,6 @@ sub run {
     my $argv = $args{argv} || [];
     my $tira = $args{tira} || Tira->new;
     my %option = ( output => 'toon' );
-    my @repeatable = qw(key_detail deliverable scope_in scope_out acceptance test_step bdd atdd assignee person attach);
-
     my $parsed = GetOptionsFromArray(
         $argv,
         'name=s' => \$option{name}, 'dir=s' => \$option{dir}, 'title=s' => \$option{title},
@@ -23,7 +21,7 @@ sub run {
         'output|o=s' => \$option{output}, 'help' => \$option{help},
         'id=s' => \$option{id}, 'email=s' => \$option{email},
         'outward=s' => \$option{outward}, 'inward=s' => \$option{inward},
-        'type=s' => \$option{type}, 'label=s' => \$option{label},
+        'type=s' => \$option{type}, 'label=s@' => \$option{labels},
         'after=s' => \$option{after}, 'before=s' => \$option{before},
         'new-name=s' => \$option{new_name}, 'prefix=s' => \$option{prefix},
         'digits=i' => \$option{digits}, 'ref=s' => \$option{ref},
@@ -38,6 +36,10 @@ sub run {
         'summary=s' => \$option{summary}, 'uri=s' => \$option{uri},
         'gate=s' => \$option{gate}, 'result=s' => \$option{result},
         'details=s' => \$option{details},
+        'reporter=s' => \$option{reporter}, 'due-date=s' => \$option{due_date},
+        'start-date=s' => \$option{start_date}, 'sdlc-gate=s' => \$option{sdlc_gate},
+        'lifecycle=s' => \$option{lifecycle}, 'priority=s' => \$option{priority},
+        'fix-version=s' => \$option{fix_version},
         'repair-columns' => \$option{repair_columns}, 'apply' => \$option{apply},
         'recursive' => \$option{recursive}, 'include-deleted' => \$option{include_deleted},
         'include-discard' => \$option{include_discard},
@@ -45,13 +47,16 @@ sub run {
         'scope-in=s@' => \$option{scope_in}, 'scope-out=s@' => \$option{scope_out},
         'acceptance=s@' => \$option{acceptance}, 'test-step=s@' => \$option{test_steps},
         'bdd=s@' => \$option{bdd}, 'atdd=s@' => \$option{atdd},
-        'assignee=s@' => \$option{assignees}, 'person=s@' => \$option{people},
+        'assignee=s' => \$option{assignee}, 'person=s@' => \$option{people},
         'attach=s@' => \$option{attach},
+        'affects-version=s@' => \$option{affects_versions},
         'set-key-details=s' => \$option{set_key_details},
         'set-deliverables=s' => \$option{set_deliverables},
         'set-acceptance=s' => \$option{set_acceptance},
         'set-test-steps=s' => \$option{set_test_steps},
         'set-bdd=s' => \$option{set_bdd}, 'set-atdd=s' => \$option{set_atdd},
+        'set-labels=s' => \$option{set_labels},
+        'set-affects-versions=s' => \$option{set_affects_versions},
     );
     return _error( $tira, $option{output}, 'Invalid command-line options' ) if !$parsed || @{$argv};
 
@@ -78,7 +83,7 @@ sub run {
         return $result->{deleted} ? 1 : 0;
     }
 
-    my $formatted = eval { $tira->format_output( $result, output => $option{output} ) };
+    my $formatted = eval { $tira->format_output( $result, output => $option{output}, project => $option{project} ) };
     return _error( $tira, 'toon', $@ || 'Unable to format output' ) if !defined $formatted;
     print $formatted;
     return 0;
@@ -87,18 +92,22 @@ sub run {
 sub _invoke {
     my ( $tira, $command, $record_type, $option ) = @_;
     my %args = %{$option};
-    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd)};
+    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions)};
     $args{type} = $record_type if defined $record_type;
     my %sets = (
         set_key_details => 'key_details', set_deliverables => 'deliverables',
         set_acceptance => 'acceptance', set_test_steps => 'test_steps',
         set_bdd => 'bdd', set_atdd => 'atdd',
+        set_labels => 'labels_replace', set_affects_versions => 'affects_versions_replace',
     );
     for my $set ( keys %sets ) {
         next if !defined $option->{$set};
-        die "Cannot combine append and replacement for '$sets{$set}'\n" if defined $args{ $sets{$set} };
+        my $append = $set eq 'set_labels' ? 'labels'
+          : $set eq 'set_affects_versions' ? 'affects_versions' : $sets{$set};
+        die "Cannot combine append and replacement for '$append'\n" if defined $args{$append};
         $args{ $sets{$set} } = _json_array_input( $option->{$set} );
     }
+    $args{label} = $option->{labels}[0] if $command =~ /\Acolumn\.(?:add|rename)\z/ && $option->{labels};
 
     return $tira->create_project( name => $option->{name}, dir => $option->{dir} // '.' ) if $command eq 'project.create';
     return $tira->create_record(%args) if $command eq 'record.create';
@@ -108,6 +117,8 @@ sub _invoke {
     return $tira->person_add(%args) if $command eq 'project.people.add';
     return $tira->person_update(%args) if $command eq 'project.people.update';
     return $tira->person_remove(%args) if $command eq 'project.people.remove';
+    return $tira->person_activate(%args) if $command eq 'project.people.activate';
+    return $tira->person_deactivate(%args) if $command eq 'project.people.deactivate';
     return $tira->link_type_list(%args) if $command eq 'project.link-types.list';
     return $tira->link_type_add(%args) if $command eq 'project.link-types.add';
     return $tira->link_type_remove(%args) if $command eq 'project.link-types.remove';
@@ -198,7 +209,7 @@ sub _usage {
     my ( $command, $type ) = @_;
     return "Usage: dashboard tira.project.create --name NAME [--dir DIR] [-o toon|json|human]\n"
       if $command eq 'project.create';
-    return "Usage: dashboard tira.$type.create --title TITLE [--description TEXT] [-o toon|json|human]\n"
+    return "Usage: dashboard tira.$type.create --title TITLE [record field options] [-o toon|json|human]\n"
       if defined $type;
     return "Usage: dashboard tira.$command [options] [-o toon|json|human]\n";
 }
@@ -213,7 +224,7 @@ Tira::CLI - Shared command boundary for Tira DD commands
 
 =head1 DESCRIPTION
 
-Parses the common project and record creation options, invokes L<Tira>, and
+Parses the common project and record metadata options, invokes L<Tira>, and
 applies the TOON-first output and structured error contract. Project-location
 selection is intentionally omitted from user-facing help.
 

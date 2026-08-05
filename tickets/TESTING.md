@@ -98,6 +98,45 @@ attachment hashes/extensions, types, slugs, and project creation paths.
 Executable failure injection proves reciprocal JSON and column filesystem
 changes restore their original state after later persistence failure.
 
+### Release gate
+
+Commit `add2c42` is present on `origin/master`.
+
+## DD-390
+
+Method: TDD + BDD + ATDD.
+
+### Docker functional and coverage gate
+
+- Functional suite: PASS, 10 files and 389 assertions.
+- `lib/Tira.pm`: 100.0% statement, 100.0% subroutine.
+- `lib/Tira/CLI.pm`: 100.0% statement, 100.0% subroutine.
+- Combined: 100.0% statement, 100.0% subroutine.
+
+The suite proves the symmetric metadata schema across SOWs, epics, and tickets;
+case-insensitive labels; singular ownership; ISO 8601 validation; priorities;
+versions; generated immediate parents; inactive-person enforcement; human name
+and priority rendering; CLI argument combinations; and release 0.02 data
+normalization.
+
+### `perlsec` and taint gate
+
+The complete 389-assertion suite passed under `prove -T`. All 72 executable
+entrypoints compiled under `perl -T` with the installed dependency path, and a
+production-source scan confirmed no shell/process primitives. The first
+standalone compile attempt omitted the taint-safe local-library include path;
+the corrected strict loop compiled every entrypoint successfully.
+
+No macOS or Windows lab run was required because DD-390 changes only the shared
+Perl data model and CLI parser and introduces no platform-dependent branch.
+Both platform stacks remain stopped.
+
+### Installed dispatch gate
+
+Developer Dashboard installed the working tree as Tira 0.03. The raw skills
+manual resolved, and all other 71 help routes resolved, proving all 72 shipped
+entrypoints including person activate/deactivate.
+
 ### Platforms
 
 - macOS 14.8.5, Homebrew Perl 5.42.2: all 322 assertions passed.

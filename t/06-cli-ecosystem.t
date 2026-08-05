@@ -56,7 +56,7 @@ isnt( $status, 0, 'unknown hierarchy option is rejected' );
 ( $status, $out, $err ) = command( \%env, @perl, 'skills/hierarchy/cli/link', '--parent', 'SOW-001', '--child', 'EPC-001', '-o', 'json' );
 is( $status, 0, 'hierarchy link dispatches' );
 ( $status, $out, $err ) = command( \%env, @perl, 'skills/assign/cli/add', '--ref', 'TKT-001', '--person', 'ada', '-o', 'json' );
-is_deeply( decode_json($out)->{assignees}, ['ada'], 'assignment command dispatches' );
+is( decode_json($out)->{assignee}, 'ada', 'assignment command dispatches' );
 ( $status, $out, $err ) = command( \%env, @perl, 'skills/comment/cli/add', '--ref', 'TKT-001', '--author', 'ada', '--text', 'CLI note', '-o', 'json' );
 is( decode_json($out)->{body}, 'CLI note', 'comment command dispatches' );
 ( $status, $out, $err ) = command( \%env, @perl, 'skills/ticket/cli/move', '--ref', 'TKT-001', '--column', 'doing', '-o', 'json' );

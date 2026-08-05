@@ -16,7 +16,7 @@ use JSON::PP qw(decode_json);
 use POSIX qw(strftime);
 use YAML::PP;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -70,7 +70,7 @@ sub create_project {
     $self->_write_yaml(
         $project_file,
         {
-            schema_version => 1,
+            schema_version => 2,
             name           => $name,
             created_at     => $created_at,
             last_updated   => $created_at,
@@ -115,10 +115,15 @@ sub create_record {
     my $root = $self->discover_project(
         defined $args{project} ? ( project => $args{project} ) : ( start => $args{start} // '.' ),
     );
-    if ( $args{assignees} ) {
-        my %people = map { $_->{id} => 1 } @{ $self->person_list( project => $root ) };
-        die "Unknown project person\n" if grep { !$people{$_} } @{ $args{assignees} };
-    }
+    $self->_require_active_person( project => $root, person => $args{assignee} )
+      if defined $args{assignee} && $args{assignee} ne '';
+    $self->_require_active_person( project => $root, person => $args{reporter} )
+      if defined $args{reporter} && $args{reporter} ne '';
+    my $labels = $self->_unique_casefold( $args{labels} // [] );
+    my $affects_versions = $self->_unique_casefold( $args{affects_versions} // [] );
+    my $priority = $self->_valid_priority( $args{priority} );
+    my $due_date = $self->_valid_datetime( $args{due_date}, 'Due date' );
+    my $start_date = $self->_valid_datetime( $args{start_date}, 'Start date' );
     my $board = File::Spec->catdir( $root, '.tira', $type );
 
     return $self->_with_project_lock(
@@ -152,7 +157,17 @@ sub create_record {
                 attachments          => [],
                 subtasks             => [],
                 linkage              => $self->_empty_linkage($type),
-                    assignees            => $args{assignees} // [],
+                assignee             => $args{assignee},
+                reporter             => $args{reporter},
+                labels               => $labels,
+                due_date             => $due_date,
+                start_date           => $start_date,
+                sdlc_gate            => $args{sdlc_gate},
+                lifecycle            => $args{lifecycle},
+                priority             => $priority,
+                fix_version          => $args{fix_version},
+                affects_versions     => $affects_versions,
+                parent               => undef,
                 comments             => [],
                 created_at           => $now,
                 last_updated         => $now,
@@ -173,7 +188,11 @@ sub create_record {
 sub project_show {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
-    return $self->{yaml}->load_file( File::Spec->catfile( $root, '.tira', 'project.yml' ) );
+    my $data = $self->{yaml}->load_file( File::Spec->catfile( $root, '.tira', 'project.yml' ) );
+    for my $person ( @{ $data->{people} } ) {
+        $person->{active} = JSON::PP::true if !exists $person->{active};
+    }
+    return $data;
 }
 
 sub project_update {
@@ -202,7 +221,7 @@ sub person_add {
     return $self->_with_project_lock( $root, sub {
         my ( $path, $data ) = $self->_project_data($root);
         die "Person '$args{id}' already exists\n" if grep { $_->{id} eq $args{id} } @{ $data->{people} };
-        my $person = { id => $args{id}, name => $args{name}, email => $args{email} // '' };
+        my $person = { id => $args{id}, name => $args{name}, email => $args{email} // '', active => JSON::PP::true };
         push @{ $data->{people} }, $person;
         $data->{last_updated} = $self->{clock}->();
         $self->_write_yaml( $path, $data );
@@ -230,7 +249,12 @@ sub person_remove {
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         for my $record ( @{ $self->record_list( project => $root ) } ) {
-            die "Person '$args{id}' is still assigned\n" if grep { $_ eq $args{id} } @{ $record->{assignees} };
+            my @references = ( $record->{assignee}, $record->{reporter} );
+            push @references, map { $_->{author} } @{ $record->{comments} // [] };
+            push @references, map { $_->{author} } @{ $record->{evidence} // [] };
+            push @references, map { $_->{author} } @{ $record->{gate_passing_log} // [] };
+            die "Person '$args{id}' has a historical reference\n"
+              if grep { defined $_ && $_ eq ( $args{id} // '' ) } @references;
         }
         my ( $path, $data ) = $self->_project_data($root);
         my @kept = grep { $_->{id} ne ( $args{id} // '' ) } @{ $data->{people} };
@@ -240,6 +264,16 @@ sub person_remove {
         $self->_write_yaml( $path, $data );
         return { removed => $args{id} };
     } );
+}
+
+sub person_activate {
+    my ( $self, %args ) = @_;
+    return $self->_set_person_active( %args, active => JSON::PP::true );
+}
+
+sub person_deactivate {
+    my ( $self, %args ) = @_;
+    return $self->_set_person_active( %args, active => JSON::PP::false );
 }
 
 sub link_type_list {
@@ -433,8 +467,8 @@ sub record_list {
             my $record = $self->_read_json($path);
             my $column = basename( dirname($path) );
             return if defined $args{column} && $column ne $args{column};
-            return if defined $args{assignee} && !grep { $_ eq $args{assignee} } @{ $record->{assignees} };
-            my $parent = $record->{linkage}{sow_ref} // $record->{linkage}{epic_ref} // $record->{linkage}{parent_sow_ref} // '';
+            return if defined $args{assignee} && ( $record->{assignee} // '' ) ne $args{assignee};
+            my $parent = $record->{parent} // '';
             return if defined $args{parent} && $parent ne $args{parent};
             if ( defined $args{text} ) {
                 my $haystack = join ' ', $record->{ref}, $record->{title}, $record->{description};
@@ -451,12 +485,34 @@ sub record_update {
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         my ( $path, $record, $column ) = $self->_record_data( project => $root, ref => $args{ref} );
-        for my $field (qw(title description problem_or_feature solution_needed source)) {
+        for my $field (qw(title description problem_or_feature solution_needed source sdlc_gate lifecycle fix_version)) {
             $record->{$field} = $args{$field} if defined $args{$field};
         }
+        for my $field (qw(sdlc_gate lifecycle fix_version)) {
+            $record->{$field} = undef if defined $args{$field} && $args{$field} eq '';
+        }
+        for my $field (qw(assignee reporter)) {
+            next if !defined $args{$field};
+            $self->_require_active_person( project => $root, person => $args{$field} ) if $args{$field} ne '';
+            $record->{$field} = $args{$field} eq '' ? undef : $args{$field};
+        }
+        $record->{priority} = $self->_valid_priority( $args{priority} ) if defined $args{priority};
+        $record->{due_date} = $self->_valid_datetime( $args{due_date}, 'Due date' ) if defined $args{due_date};
+        $record->{start_date} = $self->_valid_datetime( $args{start_date}, 'Start date' ) if defined $args{start_date};
+        if ( defined $args{labels} ) {
+            $record->{labels} = $self->_unique_casefold( [ @{ $record->{labels} // [] }, @{ $args{labels} } ] );
+        }
+        $record->{labels} = $self->_unique_casefold( $args{labels_replace} ) if defined $args{labels_replace};
+        if ( defined $args{affects_versions} ) {
+            $record->{affects_versions} = $self->_unique_casefold(
+                [ @{ $record->{affects_versions} // [] }, @{ $args{affects_versions} } ]
+            );
+        }
+        $record->{affects_versions} = $self->_unique_casefold( $args{affects_versions_replace} )
+          if defined $args{affects_versions_replace};
         my %arrays = (
             key_details => 'key_details', deliverables => 'deliverables', acceptance => 'acceptance_criteria',
-            test_steps => 'test_steps', bdd => 'bdd', atdd => 'atdd', assignees => 'assignees',
+            test_steps => 'test_steps', bdd => 'bdd', atdd => 'atdd',
             attachments => 'attachments', evidence => 'evidence', gate_passing_log => 'gate_passing_log',
         );
         for my $argument ( keys %arrays ) {
@@ -567,6 +623,7 @@ sub hierarchy_link {
             push @updates, [ $old_path, $old_parent ];
         }
         $child->{linkage}{$up} = $parent->{ref};
+        $child->{parent} = $child->{linkage}{"parent_$child->{type}_ref"} // $parent->{ref};
         push @{ $parent->{linkage}{$down} }, $child->{ref}
           if !grep { $_ eq $child->{ref} } @{ $parent->{linkage}{$down} };
         $child->{last_updated} = $parent->{last_updated} = $self->{clock}->();
@@ -589,6 +646,7 @@ sub hierarchy_unlink {
           : die "Hierarchy requires SOW-to-epic or epic-to-ticket\n";
         die "Records are not linked in that hierarchy\n" if ( $child->{linkage}{$up} // '' ) ne $parent->{ref};
         $child->{linkage}{$up} = undef;
+        $child->{parent} = $child->{linkage}{"parent_$child->{type}_ref"};
         $parent->{linkage}{$down} = [ grep { $_ ne $child->{ref} } @{ $parent->{linkage}{$down} } ];
         $child->{last_updated} = $parent->{last_updated} = $self->{clock}->();
         $self->_write_json_transaction( [ [ $parent_path, $parent ], [ $child_path, $child ] ] );
@@ -634,8 +692,10 @@ sub subitem_link {
         die "Child already has a different subitem parent\n"
           if defined $child->{linkage}{$up} && $child->{linkage}{$up} ne $parent->{ref};
         $child->{linkage}{$up} = $parent->{ref};
+        $child->{parent} = $parent->{ref};
         push @{ $parent->{linkage}{$down} }, $child->{ref}
           if !grep { $_ eq $child->{ref} } @{ $parent->{linkage}{$down} };
+        $child->{last_updated} = $parent->{last_updated} = $self->{clock}->();
         $self->_write_json_transaction( [ [ $parent_path, $parent ], [ $child_path, $child ] ] );
         return { parent => $parent->{ref}, child => $child->{ref} };
     } );
@@ -653,7 +713,9 @@ sub subitem_unlink {
         my $down = "sub_${type}_refs";
         die "Records are not linked as subitems\n" if ( $child->{linkage}{$up} // '' ) ne $parent->{ref};
         $child->{linkage}{$up} = undef;
+        $child->{parent} = $child->{linkage}{sow_ref} // $child->{linkage}{epic_ref};
         $parent->{linkage}{$down} = [ grep { $_ ne $child->{ref} } @{ $parent->{linkage}{$down} } ];
+        $child->{last_updated} = $parent->{last_updated} = $self->{clock}->();
         $self->_write_json_transaction( [ [ $parent_path, $parent ], [ $child_path, $child ] ] );
         return { parent => $parent->{ref}, child => $child->{ref}, unlinked => JSON::PP::true };
     } );
@@ -697,27 +759,27 @@ sub link_list {
 
 sub assignment_list {
     my ( $self, %args ) = @_;
-    return $self->record_show(%args)->{assignees};
+    my $person = $self->record_show(%args)->{assignee};
+    return defined $person ? [$person] : [];
 }
 
 sub assignment_add {
     my ( $self, %args ) = @_;
-    my $people = $self->assignment_list(%args);
-    push @{$people}, $args{person} if !grep { $_ eq $args{person} } @{$people};
-    return $self->assignment_set( %args, people => $people );
+    return $self->assignment_set( %args, people => [ $args{person} ] );
 }
 
 sub assignment_remove {
     my ( $self, %args ) = @_;
-    my $people = [ grep { $_ ne $args{person} } @{ $self->assignment_list(%args) } ];
-    return $self->assignment_set( %args, people => $people );
+    my $current = $self->record_show(%args)->{assignee};
+    return $self->record_show(%args) if !defined $current || $current ne ( $args{person} // '' );
+    return $self->assignment_set( %args, people => [] );
 }
 
 sub assignment_set {
     my ( $self, %args ) = @_;
-    my %valid = map { $_->{id} => 1 } @{ $self->person_list(%args) };
-    die "Unknown project person\n" if grep { !$valid{$_} } @{ $args{people} // [] };
-    return $self->record_update( %args, assignees => $args{people} // [] );
+    my $people = $args{people} // [];
+    die "A record accepts only one assignee\n" if @{$people} > 1;
+    return $self->record_update( %args, assignee => @{$people} ? $people->[0] : '' );
 }
 
 sub comment_list {
@@ -847,7 +909,7 @@ sub record_clone {
     my $source = $self->record_show(%args);
     my $clone = $self->create_record( project => $args{project}, type => $source->{type}, title => $args{title}, description => $source->{description} );
     my %copy = %{$source};
-    delete @copy{qw(ref column type title created_at last_updated linkage comments assignees)};
+    delete @copy{qw(ref column type title created_at last_updated linkage comments assignee parent)};
     $clone = $self->record_update( project => $args{project}, ref => $clone->{ref}, %copy );
     $self->link_add( project => $args{project}, from => $source->{ref}, type => 'clones', to => $clone->{ref} );
     return $self->record_show( project => $args{project}, ref => $clone->{ref} );
@@ -913,7 +975,25 @@ sub dashboard {
 sub _project_data {
     my ( $self, $root ) = @_;
     my $path = File::Spec->catfile( $root, '.tira', 'project.yml' );
-    return ( $path, $self->{yaml}->load_file($path) );
+    my $data = $self->{yaml}->load_file($path);
+    for my $person ( @{ $data->{people} } ) {
+        $person->{active} = JSON::PP::true if !exists $person->{active};
+    }
+    return ( $path, $data );
+}
+
+sub _set_person_active {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $data ) = $self->_project_data($root);
+        my ($person) = grep { $_->{id} eq ( $args{id} // '' ) } @{ $data->{people} };
+        die "Person '$args{id}' not found\n" if !$person;
+        $person->{active} = $args{active};
+        $data->{last_updated} = $self->{clock}->();
+        $self->_write_yaml( $path, $data );
+        return $person;
+    } );
 }
 
 sub _replace_record {
@@ -932,6 +1012,42 @@ sub _require_person {
     die "Project person is required\n" if !defined $person || $person eq '';
     die "Unknown project person '$person'\n" if !grep { $_->{id} eq $person } @{ $self->person_list(%args) };
     return $person;
+}
+
+sub _require_active_person {
+    my ( $self, %args ) = @_;
+    my $person = $args{person};
+    die "Project person is required\n" if !defined $person || $person eq '';
+    my ($match) = grep { $_->{id} eq $person } @{ $self->person_list(%args) };
+    die "Unknown project person '$person'\n" if !$match;
+    die "Project person '$person' is inactive\n" if exists $match->{active} && !$match->{active};
+    return $person;
+}
+
+sub _unique_casefold {
+    my ( $self, $values ) = @_;
+    die "Expected an array of text values\n" if ref($values) ne 'ARRAY';
+    my ( %seen, @unique );
+    for my $value ( @{$values} ) {
+        die "Array values must be non-empty text\n" if !defined $value || ref($value) || $value eq '';
+        push @unique, $value if !$seen{ lc $value }++;
+    }
+    return \@unique;
+}
+
+sub _valid_priority {
+    my ( $self, $priority ) = @_;
+    return undef if !defined $priority || $priority eq '';
+    die "Priority must be an integer from 1 to 5\n" if $priority !~ /\A([1-5])\z/;
+    return 0 + $1;
+}
+
+sub _valid_datetime {
+    my ( $self, $value, $label ) = @_;
+    return undef if !defined $value || $value eq '';
+    die "$label must be an ISO 8601 date-time with timezone\n"
+      if $value !~ /\A(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))\z/;
+    return $1;
 }
 
 sub _reciprocal_type {
@@ -1007,7 +1123,20 @@ sub _read_json {
     open my $fh, '<:raw', $path or die "Cannot read JSON '$path': $!\n";
     my $content = do { local $/; <$fh> };
     close $fh or die "Cannot close JSON '$path': $!\n";
-    return decode_json($content);
+    my $record = decode_json($content);
+    if ( !exists $record->{assignee} && exists $record->{assignees} ) {
+        $record->{assignee} = @{ $record->{assignees} // [] } ? $record->{assignees}[0] : undef;
+    }
+    delete $record->{assignees};
+    for my $field (qw(assignee reporter due_date start_date sdlc_gate lifecycle priority fix_version)) {
+        $record->{$field} = undef if !exists $record->{$field};
+    }
+    for my $field (qw(labels affects_versions)) {
+        $record->{$field} = [] if !exists $record->{$field};
+    }
+    $record->{parent} = $record->{linkage}{"parent_$record->{type}_ref"}
+      // $record->{linkage}{sow_ref} // $record->{linkage}{epic_ref};
+    return $record;
 }
 
 sub _valid_slug {
@@ -1033,9 +1162,12 @@ sub _safe_path_input {
 sub format_output {
     my ( $self, $data, %args ) = @_;
     my $output = $args{output} // 'toon';
-    return Data::TOON->encode($data) . "\n" if $output eq 'toon';
+    if ( $output eq 'toon' ) {
+        local $SIG{__WARN__} = sub { };
+        return Data::TOON->encode($data) . "\n";
+    }
     return JSON::PP->new->canonical->pretty->encode($data) if $output eq 'json';
-    return $self->_markdown($data) if $output eq 'human';
+    return $self->_markdown( $data, %args ) if $output eq 'human';
     die "Unsupported output format '$output'\n";
 }
 
@@ -1063,11 +1195,23 @@ sub _empty_linkage {
 }
 
 sub _markdown {
-    my ( $self, $data ) = @_;
+    my ( $self, $data, %args ) = @_;
     if ( ref($data) eq 'HASH' && exists $data->{ref} ) {
         my $description = $data->{description} ne '' ? $data->{description} : '_No description._';
+        my %priority = ( 1 => 'Low', 2 => 'Medium Low', 3 => 'Medium', 4 => 'High', 5 => 'Very High' );
+        my %names;
+        my $people = eval {
+            $self->person_list( defined $args{project} ? ( project => $args{project} ) : () );
+        } // [];
+        %names = map { $_->{id} => $_->{name} } @{$people};
+        my $assignee = defined $data->{assignee} ? ( $names{ $data->{assignee} } // $data->{assignee} ) : '_Unassigned_';
+        my $reporter = defined $data->{reporter} ? ( $names{ $data->{reporter} } // $data->{reporter} ) : '_None_';
+        my $priority = defined $data->{priority} ? $priority{ $data->{priority} } : '_None_';
         return "# $data->{ref}: $data->{title}\n\n$description\n\n"
           . "- Type: `$data->{type}`\n"
+          . "- Assignee: $assignee\n"
+          . "- Reporter: $reporter\n"
+          . "- Priority: $priority\n"
           . "- Created: $data->{created_at}\n"
           . "- Last Updated: $data->{last_updated}\n";
     }
@@ -1213,6 +1357,8 @@ Finds C<.tira/project.yml> by explicit root or upward directory traversal.
 =head2 create_record
 
 Creates one free-ranging SOW, epic, or ticket in its Backlog column.
+Release 0.03 records include singular assignee, optional reporter, planning and
+version metadata, numeric priority, and an immediate generated parent.
 
 =head2 format_output
 

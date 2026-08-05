@@ -9,9 +9,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 
 - **Implemented (0.01):** shipped, executable, and covered by tests.
 - **Implemented (0.02):** shipped, executable, and covered by tests.
+- **Implemented (0.03):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.02.
+All commands and use cases in this manual ship in release 0.03.
 
 ## Global invocation grammar
 
@@ -78,12 +79,69 @@ Every SOW, epic, and ticket JSON contains `ref`, `type`, `title`, `description`,
 `key_details`, `problem_or_feature`, `solution_needed`, `deliverables`,
 `scope.included`, `scope.excluded`, `source`, `acceptance_criteria`,
 `test_steps`, `bdd`, `atdd`, `gate_passing_log`, `evidence`, `attachments`,
-`subtasks`, `linkage`, `assignees`, `comments`, `created_at`, and
-`last_updated`.
+`subtasks`, `linkage`, `assignee`, `reporter`, `labels`, `due_date`,
+`start_date`, `sdlc_gate`, `lifecycle`, `priority`, `fix_version`,
+`affects_versions`, `parent`, `comments`, `created_at`, and `last_updated`.
 
 Comments have an ID, author, `markdown|text` format, body, attachments, creation
 time, and last update. Evidence and gate entries are append-only observations.
-Assignees must exist in `project.yml`.
+Assignees and reporters must be active people defined in `project.yml`.
+
+## Record metadata contract
+
+The following implemented contract applies symmetrically to SOWs, epics, and
+tickets.
+
+- `assignee`: one active project-person ID or `null`. Human output renders the
+  current person name. One record has at most one assignee.
+- `reporter`: one project-person ID or `null`. It is optional and human output
+  renders the current person name.
+- `labels`: an array of case-insensitive free-text values. Preserve the first
+  spelling supplied and reject later case-insensitive duplicates.
+- `due_date` and `start_date`: nullable ISO 8601 date-times with a mandatory
+  timezone, such as `2026-08-05T14:30:00+01:00` or
+  `2026-08-05T13:30:00Z`.
+- `sdlc_gate` and `lifecycle`: nullable free-text values. `sdlc_gate` is
+  independent of append-only structured gate log entries.
+- `priority`: nullable JSON integer from `1` through `5`. Human output renders
+  `Low`, `Medium Low`, `Medium`, `High`, or `Very High`, respectively.
+- `fix_version`: one nullable free-text value.
+- `affects_versions`: an array of free-text values, empty by default.
+- `parent`: one generated parent ref or `null`; it is never directly editable.
+
+Parent is the immediate structural parent only. A sub-ticket's parent is its
+master ticket, not its epic; a sub-epic's parent is its master epic, not its
+SOW. Otherwise, an epic's parent may be its SOW and a ticket's parent may be
+its epic. A sub-SOW may have one parent SOW. More distant ancestry remains
+discoverable by following parent linkage.
+
+Implemented create/update arguments are:
+
+```text
+--assignee ID|"" --reporter ID|""
+--label TEXT ... --set-labels FILE
+--due-date DATETIME|"" --start-date DATETIME|""
+--sdlc-gate TEXT|"" --lifecycle TEXT|"" --priority 1..5|""
+--fix-version TEXT|""
+--affects-version TEXT ... --set-affects-versions FILE
+```
+
+Repeated `--label` and `--affects-version` values append on update. Their
+`--set-*` forms replace the complete array from a UTF-8 JSON-array file; `-`
+reads stdin. Append and replacement forms for the same field conflict. Empty
+strings clear nullable scalar fields. Parent changes only through hierarchy or
+sub-item link commands.
+
+Project people gain an `active` Boolean, defaulting to true. Inactive people
+remain rendered on historical records but cannot become a new assignee or
+reporter. Reactivation restores eligibility. Person removal is rejected while
+any historical assignee, reporter, author, or other person reference remains.
+The implemented commands are:
+
+```text
+tira.project.people.deactivate --id ID [-o FORMAT]
+tira.project.people.activate --id ID [-o FORMAT]
+```
 
 ## Record field arguments
 
@@ -102,7 +160,16 @@ Assignees must exist in `project.yml`.
 | `--test-step TEXT` | yes | optional | append | Verification step. |
 | `--bdd TEXT` | yes | optional | append | BDD scenario. |
 | `--atdd TEXT` | yes | optional | append | ATDD scenario. |
-| `--assignee ID` | yes | optional | replace | Project person. |
+| `--assignee ID|""` | no | optional | replace/clear | Active project person. |
+| `--reporter ID|""` | no | optional | replace/clear | Active project person. |
+| `--label TEXT` | yes | optional | append | Case-insensitive unique label. |
+| `--due-date DATETIME|""` | no | optional | replace/clear | Zoned ISO 8601 date-time. |
+| `--start-date DATETIME|""` | no | optional | replace/clear | Zoned ISO 8601 date-time. |
+| `--sdlc-gate TEXT|""` | no | optional | replace/clear | Free-text SDLC state. |
+| `--lifecycle TEXT|""` | no | optional | replace/clear | Free-text lifecycle. |
+| `--priority 1..5|""` | no | optional | replace/clear | Numeric priority. |
+| `--fix-version TEXT|""` | no | optional | replace/clear | One target version. |
+| `--affects-version TEXT` | yes | optional | append | Affected version. |
 
 All listed create and update fields are implemented. Updates may replace arrays
 with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
@@ -119,7 +186,9 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
 - `tira.project.people.list [-o FORMAT]` — **Implemented.**
 - `tira.project.people.add --id ID --name TEXT [--email EMAIL] [-o FORMAT]` — **Implemented.**
 - `tira.project.people.update --id ID [--name TEXT] [--email EMAIL|""] [-o FORMAT]` — **Implemented.**
-- `tira.project.people.remove --id ID [-o FORMAT]` — **Implemented.** Fails while assigned.
+- `tira.project.people.activate --id ID [-o FORMAT]` — **Implemented.**
+- `tira.project.people.deactivate --id ID [-o FORMAT]` — **Implemented.**
+- `tira.project.people.remove --id ID [-o FORMAT]` — **Implemented.** Fails while historically referenced.
 - `tira.project.link-types.list [-o FORMAT]` — **Implemented.**
 - `tira.project.link-types.add --outward NAME --inward NAME [-o FORMAT]` — **Implemented.** Names unique.
 - `tira.project.link-types.remove --outward NAME [-o FORMAT]` — **Implemented.** Protected types remain.
@@ -150,9 +219,9 @@ Prefix/digit changes affect future refs and never lower `next_number`.
 These create commands are **Implemented**:
 
 ```text
-tira.sow.create --title TEXT [--description TEXT] [-o FORMAT]
-tira.epic.create --title TEXT [--description TEXT] [-o FORMAT]
-tira.ticket.create --title TEXT [--description TEXT] [-o FORMAT]
+tira.sow.create --title TEXT [record field arguments] [-o FORMAT]
+tira.epic.create --title TEXT [record field arguments] [-o FORMAT]
+tira.ticket.create --title TEXT [record field arguments] [-o FORMAT]
 ```
 
 They create independent Backlog records with empty linkage. These symmetric
@@ -168,14 +237,15 @@ tira.TYPE.restore --ref REF [--column SLUG] [-o FORMAT]
 tira.TYPE.clone --ref REF --title TEXT [-o FORMAT]
 ```
 
-List filters use AND. Parent means SOW for epic, epic for ticket, and same-type
-parent for SOW. Discard is movement, not deletion; restore defaults to Backlog.
+List filters use AND. Parent means the generated immediate parent ref. Discard
+is movement, not deletion; restore defaults to Backlog.
 Clone creates a Backlog record, shares attachment refs, clears hierarchy, and
 adds reciprocal clone links.
 
 ### Hierarchy and typed links
 
-All are **Implemented (DD-389)**:
+All are **Implemented (DD-389)**, with immediate-parent projection updated by
+DD-390:
 
 ```text
 tira.hierarchy.link --parent REF --child REF [-o FORMAT]
@@ -196,21 +266,24 @@ Typed links may cross types. Built-ins are `blocks`/`is-blocked-by`,
 
 ### Assignments and comments
 
-All are **Implemented (DD-389)**:
+All are **Implemented (DD-389)**, with singular assignment semantics updated
+by DD-390:
 
 ```text
 tira.assign.list --ref REF [-o FORMAT]
 tira.assign.add --ref REF --person ID [-o FORMAT]
 tira.assign.remove --ref REF --person ID [-o FORMAT]
-tira.assign.set --ref REF [--person ID ...] [-o FORMAT]
+tira.assign.set --ref REF [--person ID] [-o FORMAT]
 tira.comment.list --ref REF [-o FORMAT]
 tira.comment.add --ref REF --author ID (--text TEXT|--file FILE) [--format markdown|text] [--attach PATH ...] [-o FORMAT]
 tira.comment.update --ref REF --comment ID (--text TEXT|--file FILE) [--format markdown|text] [-o FORMAT]
 tira.comment.attach --ref REF --comment ID --file PATH [-o FORMAT]
 ```
 
-People must exist. Assignment add is idempotent; set replaces all and clears
-with no `--person`. Comment `--text`/`--file` conflict; `--file -` reads stdin.
+People must exist and be active for new assignments. Assignment add replaces
+the singular assignee; set accepts at most one person and clears with no
+`--person`. Remove clears only a matching assignee. Comment `--text`/`--file`
+conflict; `--file -` reads stdin.
 Markdown is default. Comments are retained, not deleted. Updates preserve
 creation time. Repeated `--attach` imports files before writing the comment.
 
@@ -493,17 +566,17 @@ without revealing or creating a storage location.
 ### UC-080: Assign person
 **Implemented.** `dashboard tira.assign.add --ref TKT-001 --person ada`.
 
-### UC-081: Set assignees
-**Implemented.** `dashboard tira.assign.set --ref TKT-001 --person ada --person grace`.
+### UC-081: Replace the singular assignee
+**Implemented.** `dashboard tira.assign.set --ref TKT-001 --person grace` replaces any prior assignee.
 
-### UC-082: Clear assignees
+### UC-082: Clear the assignee
 **Implemented.** `dashboard tira.assign.set --ref TKT-001`.
 
-### UC-083: Remove assignee
-**Implemented.** `dashboard tira.assign.remove --ref TKT-001 --person grace`.
+### UC-083: Deactivate and reactivate a person
+**Implemented.** `dashboard tira.project.people.deactivate --id grace` blocks new ownership; `dashboard tira.project.people.activate --id grace` restores eligibility.
 
-### UC-084: List assignees
-**Implemented.** `dashboard tira.assign.list --ref TKT-001 -o json`.
+### UC-084: List or remove the assignee
+**Implemented.** `dashboard tira.assign.list --ref TKT-001 -o json`; `dashboard tira.assign.remove --ref TKT-001 --person grace` clears a match.
 
 ### UC-085: Add Markdown comment
 **Implemented.** `dashboard tira.comment.add --ref TKT-001 --author ada --text "## Review"`.

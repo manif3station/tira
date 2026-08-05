@@ -32,5 +32,6 @@ gates before documentation, commit, and push.
 ## Delivery status
 
 The full product contract is implemented in release 0.02 through DD-388 and
-DD-389. UC-001 through UC-100 and all 70 commands are proven. Final delivery is
-pending only the required repository push.
+DD-389. UC-001 through UC-100 and all 70 commands are proven. DD-390 extends
+the record and person contracts with planning metadata and inactive-person
+lifecycle controls.

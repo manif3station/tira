@@ -1,5 +1,15 @@
 Revision history for Tira
 
+0.03  2026-08-05
+    - Added symmetric SOW, epic, and ticket planning metadata: singular
+      assignee, reporter, labels, dates, SDLC gate, lifecycle, priority,
+      fix version, affected versions, and generated immediate parent.
+    - Added project-person activation and deactivation while retaining
+      historical names and rejecting new ownership by inactive people.
+    - Updated assignment commands to enforce one assignee per record.
+    - Expanded the Docker suite to 10 files and 389 assertions while retaining
+      100% statement and subroutine coverage.
+
 0.02  2026-08-05
     - Implemented all 100 documented use cases across 70 CLI entrypoints.
     - Added project people and link types, board/column lifecycle and sync,

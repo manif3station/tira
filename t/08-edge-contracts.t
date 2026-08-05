@@ -20,12 +20,12 @@ $tira->person_add( project => $root, id => 'ada', name => 'Ada' );
 my $sow1 = $tira->create_record( project => $root, type => 'sow', title => 'SOW 1' );
 my $sow2 = $tira->create_record( project => $root, type => 'sow', title => 'SOW 2' );
 my $epic = $tira->create_record( project => $root, type => 'epic', title => 'Epic' );
-my $ticket1 = $tira->create_record( project => $root, type => 'ticket', title => 'Ticket 1', assignees => ['ada'] );
+my $ticket1 = $tira->create_record( project => $root, type => 'ticket', title => 'Ticket 1', assignee => 'ada' );
 my $ticket2 = $tira->create_record( project => $root, type => 'ticket', title => 'Ticket 2' );
 
 is( scalar @{ $tira->record_list( project => $root, type => 'ticket', assignee => 'ada' ) }, 1, 'assignee filter selects matching record' );
 eval { $tira->person_remove( project => $root, id => 'ada' ) };
-like( $@, qr/still assigned/, 'assigned person cannot be removed' );
+like( $@, qr/historical reference/, 'historically referenced person cannot be removed' );
 
 $tira->link_type_add( project => $root, outward => 'implements', inward => 'is-implemented-by' );
 $tira->link_add( project => $root, from => $ticket1->{ref}, type => 'implements', to => $ticket2->{ref} );

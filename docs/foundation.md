@@ -45,6 +45,16 @@ sub-item, and typed-link collections are empty, so they remain free-ranging
 until explicit link commands are used. Project-location selection is private
 and deliberately omitted from agent-facing commands and documentation.
 
+Release 0.03 adds the same planning fields to every record type: singular
+assignee, optional reporter, case-insensitive labels, zoned start/due
+date-times, free-text SDLC gate and lifecycle, priority 1-5, fix version, and
+affected versions. The `parent` field is generated from immediate linkage. A
+same-type parent takes precedence over the broader SOW/epic hierarchy.
+
+Project people carry an `active` flag. Deactivation blocks new assignee and
+reporter references without rewriting historical records; activation restores
+eligibility. Historical person references prevent removal.
+
 ## Output and errors
 
 Default and `-o toon` output is produced by `Data::TOON` 0.03. `-o json` uses

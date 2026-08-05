@@ -42,8 +42,8 @@ $tira->link_remove( project => $root, from => $ticket1->{ref}, type => 'blocks',
 is_deeply( $tira->link_list( project => $root, ref => $ticket1->{ref} ), [], 'typed link can be removed' );
 
 $tira->assignment_add( project => $root, ref => $ticket1->{ref}, person => 'ada' );
-$tira->assignment_set( project => $root, ref => $ticket1->{ref}, people => [qw(ada grace)] );
-is_deeply( $tira->assignment_list( project => $root, ref => $ticket1->{ref} ), [qw(ada grace)], 'assignees can be replaced' );
+$tira->assignment_set( project => $root, ref => $ticket1->{ref}, people => ['grace'] );
+is_deeply( $tira->assignment_list( project => $root, ref => $ticket1->{ref} ), ['grace'], 'singular assignee can be replaced' );
 $tira->assignment_remove( project => $root, ref => $ticket1->{ref}, person => 'grace' );
 
 my $comment = $tira->comment_add( project => $root, ref => $ticket1->{ref}, author => 'ada', text => 'Initial', format => 'markdown' );

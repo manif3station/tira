@@ -51,7 +51,7 @@ my $ticket = $tira->create_record( project => $root, type => 'ticket', title => 
 is( $tira->record_show( project => $root, ref => $ticket->{ref} )->{title}, 'Lifecycle ticket', 'record can be shown' );
 $ticket = $tira->record_update(
     project => $root, ref => $ticket->{ref}, title => 'Updated',
-    acceptance => [ 'Works', 'Is tested' ], assignees => ['ada'],
+    acceptance => [ 'Works', 'Is tested' ], assignee => 'ada',
 );
 is( $ticket->{title}, 'Updated', 'record scalar can be updated' );
 is_deeply( $ticket->{acceptance_criteria}, [ 'Works', 'Is tested' ], 'record array can be updated' );
@@ -72,9 +72,9 @@ is( $next->{ref}, 'DEV-00002', 'new reference configuration preserves monotonic 
 
 my $validation = $tira->project_validate( project => $root );
 is_deeply( $validation->{issues}, [], 'valid project reports no issues' );
-$tira->record_update( project => $root, ref => $ticket->{ref}, assignees => [] );
-$tira->person_remove( project => $root, id => 'ada' );
-is_deeply( $tira->person_list( project => $root ), [], 'unused person can be removed' );
+$tira->person_add( project => $root, id => 'unused', name => 'Unused' );
+$tira->person_remove( project => $root, id => 'unused' );
+is( scalar @{ $tira->person_list( project => $root ) }, 1, 'unused person can be removed' );
 
 done_testing;
 

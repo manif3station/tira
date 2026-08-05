@@ -36,10 +36,13 @@ is( decode_json($out)->{name}, 'Matrix', 'project show dispatch' );
 is( decode_json($out)->{name}, 'Updated Matrix', 'project update dispatch' );
 
 cli( 'project.people.add', undef, '--id', 'ada', '--name', 'Ada', @at );
+cli( 'project.people.add', undef, '--id', 'unused', '--name', 'Unused', @at );
 ( $status, $out ) = cli( 'project.people.update', undef, '--id', 'ada', '--email', 'ada@example.test', @at );
 is( decode_json($out)->{email}, 'ada@example.test', 'person update dispatch' );
 ( $status, $out ) = cli( 'project.people.list', undef, @at );
-is( scalar @{ decode_json($out) }, 1, 'person list dispatch' );
+is( scalar @{ decode_json($out) }, 2, 'person list dispatch' );
+cli( 'project.people.deactivate', undef, '--id', 'ada', @at );
+cli( 'project.people.activate', undef, '--id', 'ada', @at );
 
 cli( 'project.link-types.add', undef, '--outward', 'implements', '--inward', 'is-implemented-by', @at );
 ( $status, $out ) = cli( 'project.link-types.list', undef, @at );
@@ -70,9 +73,16 @@ close $json_fh;
 ( $status, $out ) = cli(
     'record.create', 'sow', '--title', 'SOW', '--key-detail', 'Detail', '--deliverable', 'Release',
     '--scope-in', 'API', '--scope-out', 'UI', '--acceptance', 'Accepted', '--test-step', 'Run',
-    '--bdd', 'Given', '--atdd', 'Verify', '--assignee', 'ada', @at,
+    '--bdd', 'Given', '--atdd', 'Verify', '--assignee', 'ada', '--reporter', 'ada',
+    '--label', 'Delivery', '--label', 'delivery', '--due-date', '2026-09-01T17:00:00+01:00',
+    '--start-date', '2026-08-06T09:00:00Z', '--sdlc-gate', 'Architecture',
+    '--lifecycle', 'Build', '--priority', '4', '--fix-version', '3.0.0',
+    '--affects-version', '2.0.0', @at,
 );
-is( decode_json($out)->{ref}, 'WORK-0001', 'full record-create field options dispatch' );
+my $created_sow = decode_json($out);
+is( $created_sow->{ref}, 'WORK-0001', 'full record-create field options dispatch' );
+is_deeply( $created_sow->{labels}, ['Delivery'], 'CLI record labels are case-insensitively unique' );
+is( $created_sow->{priority}, 4, 'CLI record metadata reaches the engine' );
 cli( 'record.create', 'epic', '--title', 'Epic', @at );
 cli( 'record.create', 'ticket', '--title', 'Ticket', @at );
 
@@ -80,6 +90,11 @@ cli( 'record.create', 'ticket', '--title', 'Ticket', @at );
 is( decode_json($out)->{title}, 'Ticket', 'record show dispatch' );
 ( $status, $out ) = cli( 'record.update', 'ticket', '--ref', 'TKT-001', '--set-acceptance', $json_file, @at );
 is( scalar @{ decode_json($out)->{acceptance_criteria} }, 2, 'JSON-array replacement dispatch' );
+( $status, $out ) = cli(
+    'record.update', 'ticket', '--ref', 'TKT-001', '--set-labels', $json_file,
+    '--set-affects-versions', $json_file, '--priority', '1', @at,
+);
+is_deeply( decode_json($out)->{labels}, [ 'criterion one', 'criterion two' ], 'metadata array replacements dispatch' );
 ( $status, $out ) = cli( 'record.list', 'ticket', '--text', 'Ticket', @at );
 is( scalar @{ decode_json($out) }, 1, 'record list dispatch' );
 
@@ -156,7 +171,7 @@ like( $out, qr/^# Tira Dashboard.*^## TICKET.*^### backlog/ms, 'human dashboard 
 cli( 'column.remove', undef, '--type', 'ticket', '--name', 'verify', @at );
 cli( 'assign.set', undef, '--ref', 'TKT-001', @at );
 cli( 'assign.set', undef, '--ref', 'WORK-0001', @at );
-cli( 'project.people.remove', undef, '--id', 'ada', @at );
+cli( 'project.people.remove', undef, '--id', 'unused', @at );
 
 done_testing;
 

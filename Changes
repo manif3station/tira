@@ -1,0 +1,15 @@
+Revision history for Tira
+
+0.01  2026-08-05
+    - Established the governed filesystem-native Tira foundation.
+    - Added project discovery and canonical `.tira` project creation.
+    - Added independent SOW, epic, and ticket boards with protected Backlog and
+      Discard columns and immutable increasing references.
+    - Added free-ranging SOW, epic, and ticket creation with canonical JSON.
+    - Added `TIRA_HOME` project selection with explicit `--project` precedence.
+    - Added TOON-first, pretty JSON, and Markdown output modes.
+    - Added the raw `dashboard tira.skills` agent manual command.
+    - Expanded the agent manual with the complete technical command catalogue,
+      argument rules, lifecycle semantics, and 100 numbered use cases.
+    - Added atomic writes, project locking, counter validation, taint-safe path
+      validation, Docker verification, and 100% coverage.

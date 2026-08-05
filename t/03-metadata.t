@@ -1,0 +1,76 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+BEGIN {
+    if (${^TAINT}) {
+        $ENV{PATH}   = '/usr/bin:/bin';
+        $ENV{TMPDIR} = '/tmp';
+        delete @ENV{qw(IFS CDPATH ENV BASH_ENV PERL5LIB PERLLIB PERL_USE_UNSAFE_INC)};
+    }
+}
+
+use Pod::Checker qw(podchecker);
+use Test::More;
+
+for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md cpanfile)) {
+    ok( -f $file, "$file exists" );
+}
+
+open my $env, '<', '.env' or die "Cannot read .env: $!";
+my $env_text = do { local $/; <$env> };
+close $env;
+like( $env_text, qr/^VERSION=0\.01$/m, '.env stores version 0.01' );
+
+open my $skills, '<', 'SKILLS.md' or die "Cannot read SKILLS.md: $!";
+my $skills_text = do { local $/; <$skills> };
+close $skills;
+for my $section (
+    'Availability legend', 'Global invocation grammar', 'Argument precedence',
+    'Command catalogue', 'Record field arguments', 'Exit status contract',
+    'Concurrency and transaction semantics', '100 use cases',
+) {
+    like( $skills_text, qr/^## \Q$section\E$/m, "SKILLS.md contains $section" );
+}
+my @use_cases = $skills_text =~ /^### UC-\d{3}:/mg;
+is( scalar @use_cases, 100, 'SKILLS.md contains exactly 100 numbered use cases' );
+my %seen;
+while ( $skills_text =~ /^### UC-(\d{3}):/mg ) {
+    $seen{$1}++;
+}
+is_deeply( [ sort keys %seen ], [ map { sprintf '%03d', $_ } 1 .. 100 ], 'use cases are numbered UC-001 through UC-100' );
+unlike( $skills_text, qr{/home/[A-Za-z0-9._-]+/}, 'SKILLS.md contains no hard-coded home-directory path' );
+
+use lib 'lib';
+use Tira;
+is( $Tira::VERSION, '0.01', 'module version matches .env' );
+
+my @perl_files = (
+    'lib/Tira.pm',
+    'lib/Tira/CLI.pm',
+    'cli/skills',
+    'skills/project/cli/create',
+    'skills/sow/cli/create',
+    'skills/epic/cli/create',
+    'skills/ticket/cli/create',
+    glob('t/*.t'),
+);
+for my $file (@perl_files) {
+    is( podchecker($file), 0, "$file has valid POD" );
+}
+
+done_testing;
+
+__END__
+
+=head1 NAME
+
+03-metadata.t - Repository metadata and POD gate for Tira
+
+=head1 DESCRIPTION
+
+Ensures the required repository artifacts exist, version metadata agrees, and
+every shipped Perl module, command, and test contains valid POD.
+
+=cut

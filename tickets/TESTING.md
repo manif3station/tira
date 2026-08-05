@@ -137,6 +137,13 @@ Developer Dashboard installed the working tree as Tira 0.03. The raw skills
 manual resolved, and all other 71 help routes resolved, proving all 72 shipped
 entrypoints including person activate/deactivate.
 
+### Release gate
+
+The implementation was committed as `294fadc`. `git push -u origin master` was
+attempted and rejected because the configured passphrase-protected GitHub SSH
+identity has no active agent socket. No non-interactive GitHub CLI or Git
+credential-helper route is configured, so the mandatory push remains open.
+
 ### Platforms
 
 - macOS 14.8.5, Homebrew Perl 5.42.2: all 322 assertions passed.

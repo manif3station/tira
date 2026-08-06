@@ -21,9 +21,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.12):** shipped, executable, and covered by tests.
 - **Implemented (0.13):** shipped, executable, and covered by tests.
 - **Implemented (0.14):** shipped, executable, and covered by tests.
+- **Implemented (0.15):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.14.
+All commands and use cases in this manual ship in release 0.15.
 
 ## Global invocation grammar
 
@@ -32,6 +33,7 @@ dashboard tira.<resource>.<action> [arguments] [-o FORMAT]
 dashboard tira.skills
 
 FORMAT := toon | json | human
+DASHBOARD_FORMAT := toon | json | human | table
 TYPE   := sow | epic | ticket
 ```
 
@@ -366,7 +368,10 @@ tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text
 tira.import --file FILE [--dry-run] [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [-o FORMAT]
 tira.replace --pattern REGEX --with TEXT [--field FIELD ...] [--type TYPE] [--dry-run] [-o FORMAT]
-tira.dashboard [--type TYPE|all] [--include-discard] [--title] [-o FORMAT]
+tira.dashboard [--type TYPE|all] [--include-discard] [--title] [-o DASHBOARD_FORMAT]
+tira.dashboard.sow [--include-discard] [--title] [-o DASHBOARD_FORMAT]
+tira.dashboard.epic [--include-discard] [--title] [-o DASHBOARD_FORMAT]
+tira.dashboard.ticket [--include-discard] [--title] [-o DASHBOARD_FORMAT]
 ```
 
 Checklist commands apply symmetrically to SOWs, epics, and tickets. Add
@@ -404,6 +409,12 @@ Default TOON and human dashboards contain only refs and use filename/stat data,
 without decoding records. `--title` decodes each card once to add its title.
 `-o json` returns complete records. All modes sort cards by filesystem
 modification time, newest first, then by ref when timestamps tie.
+For these four dashboard commands only, `-o table` prints a complete raw HTML
+document. The combined command stacks SOW, epic, and ticket boards; specific
+commands print one board. Columns run left-to-right. Embedded CSS provides the
+responsive visual design, while embedded JavaScript lets the viewer select
+cards and reorder each board by last modified or card ref. Table output remains
+ref-only unless `--title` is supplied and uses no external resources.
 
 ## 100 use cases
 
@@ -708,7 +719,7 @@ without revealing or creating a storage location.
 **Implemented.** Repeat fields in one reviewable pass: `dashboard tira.search --text Jira --field description --field atdd -o json` and `dashboard tira.replace --pattern Jira --with Local --field description --field atdd --dry-run -o json`. Import preview `dashboard tira.import --file changes.json --dry-run -o json` returns `changes[]` entries containing `ref`, `field`, `before`, and `after`; omit dry-run only after reviewing every diff.
 
 ### UC-100: Render dashboard
-**Implemented.** `dashboard tira.dashboard --type all` is the ref-only fast path; add `--title` for titles, `--include-discard` for archived cards, or `-o json` for complete records.
+**Implemented.** `dashboard tira.dashboard --type all` is the ref-only fast path; add `--title` for titles, `--include-discard` for archived cards, `-o json` for complete records, or `-o table` for self-contained interactive HTML. Type-specific table commands are `tira.dashboard.sow`, `.epic`, and `.ticket`.
 
 ## Safety contract
 

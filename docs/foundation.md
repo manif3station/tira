@@ -111,6 +111,11 @@ JSON filenames supply refs and file mtimes supply newest-first ordering, with
 ref tie-breaking. `--title` reads each record once; JSON output reads full
 records while retaining the same filesystem order.
 
+Release 0.15 adds a self-contained HTML projection for the combined dashboard
+and three type-specific entrypoints. CSS and JavaScript are embedded, dynamic
+values are escaped, no network resources are loaded, and card mtimes are
+included only as HTML data needed for local mtime/ref sorting.
+
 ## Output and errors
 
 Default and `-o toon` output is produced by `Data::TOON` 0.03. `-o json` uses

@@ -1,5 +1,13 @@
 Revision history for Tira
 
+0.15  2026-08-06
+    - Added self-contained `-o table` HTML to combined and type-specific
+      dashboard commands.
+    - Added polished responsive Kanban styling, offline card selection, and
+      interactive last-modified/reference sorting.
+    - Preserved ref-only zero-JSON reads unless `--title` is requested.
+    - Added three type-specific dashboard entrypoints and Playwright coverage.
+
 0.14  2026-08-06
     - Made default dashboard output ref-only without opening record JSON.
     - Added `--title` for title-enriched summary output with one read per card.

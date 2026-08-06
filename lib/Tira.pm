@@ -17,7 +17,7 @@ use JSON::PP ();
 use POSIX qw(strftime);
 use YAML::PP;
 
-our $VERSION = '0.14';
+our $VERSION = '0.15';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -1221,7 +1221,9 @@ sub dashboard {
             }
             closedir $dh;
             @cards = sort { $b->{_mtime} <=> $a->{_mtime} || $a->{ref} cmp $b->{ref} } @cards;
-            delete $_->{_mtime} for @cards;
+            if ( !$args{include_mtime} ) {
+                delete $_->{_mtime} for @cards;
+            }
             $by_column{ $column->{name} } = \@cards;
         }
         for my $column (@columns) {
@@ -1453,7 +1455,60 @@ sub format_output {
     }
     return JSON::PP->new->canonical->pretty->encode($data) if $output eq 'json';
     return $self->_markdown( $data, %args ) if $output eq 'human';
+    return $self->_dashboard_table($data) if $output eq 'table';
     die "Unsupported output format '$output'\n";
+}
+
+sub _html_escape {
+    my ( $self, $value ) = @_;
+    $value = '' if !defined $value;
+    $value =~ s/&/&amp;/g;
+    $value =~ s/</&lt;/g;
+    $value =~ s/>/&gt;/g;
+    $value =~ s/"/&quot;/g;
+    $value =~ s/'/&#39;/g;
+    return $value;
+}
+
+sub _dashboard_table {
+    my ( $self, $data ) = @_;
+    die "Table output requires dashboard data\n"
+      if ref($data) ne 'HASH' || ref( $data->{_column_order} ) ne 'HASH';
+    my %heading = ( sow => 'Statements of Work', epic => 'Epics', ticket => 'Tickets' );
+    my $boards = '';
+    for my $type (qw(sow epic ticket)) {
+        next if !exists $data->{_column_order}{$type};
+        my @columns = @{ $data->{_column_order}{$type} };
+        my $headers = join '', map { '<th scope="col">' . $self->_html_escape($_) . '</th>' } @columns;
+        my $cells = join '', map {
+            my $column = $_;
+            my $cards = join '', map {
+                my $ref = $self->_html_escape( $_->{ref} );
+                my $title = defined $_->{title}
+                  ? '<span class="card__title">' . $self->_html_escape( $_->{title} ) . '</span>' : '';
+                my $mtime = 0 + ( $_->{_mtime} // 0 );
+                '<li data-ref="' . $ref . '" data-mtime="' . $mtime
+                  . '"><button class="card" type="button" data-ref="' . $ref
+                  . '"><span class="card__ref">' . $ref . '</span>' . $title . '</button></li>';
+            } @{ $data->{$type}{$column} // [] };
+            '<td><ol class="cards">' . $cards . '</ol></td>';
+        } @columns;
+        $boards .= '<section class="board board--' . $type . '" data-type="' . $type . '">'
+          . '<header class="board__header"><span class="board__kicker">Tira board</span><h2>'
+          . $heading{$type} . '</h2><div class="sorter" role="group" aria-label="Sort cards">'
+          . '<button type="button" data-sort="mtime" class="is-active">Last modified</button>'
+          . '<button type="button" data-sort="ref">Card reference</button></div></header>'
+          . '<div class="board__scroll"><table><thead><tr>'
+          . $headers . '</tr></thead><tbody><tr>' . $cells . '</tr></tbody></table></div></section>';
+    }
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+      . '<meta name="viewport" content="width=device-width,initial-scale=1"><title>Tira Kanban</title><style>'
+      . <<'CSS'
+:root{color-scheme:dark;--ink:#f8fafc;--muted:#9aa8bd;--panel:rgba(14,23,42,.76);--line:rgba(148,163,184,.16);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}*{box-sizing:border-box}body{margin:0;min-height:100vh;color:var(--ink);background:radial-gradient(circle at 12% 4%,rgba(99,102,241,.3),transparent 30rem),radial-gradient(circle at 88% 18%,rgba(14,165,233,.2),transparent 32rem),linear-gradient(145deg,#050816 0%,#0b1022 52%,#11182c 100%);background-attachment:fixed}body:before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);background-size:32px 32px}.shell{position:relative;width:min(96rem,calc(100% - 2rem));margin:auto;padding:3.5rem 0 5rem}.hero{display:flex;align-items:end;justify-content:space-between;gap:2rem;margin:0 0 2.5rem;padding:0 .4rem}.eyebrow,.board__kicker{color:#a5b4fc;font-size:.72rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase}.hero h1{margin:.35rem 0 0;font-size:clamp(2.2rem,6vw,4.8rem);line-height:.9;letter-spacing:-.055em;background:linear-gradient(110deg,#fff 15%,#c4b5fd 52%,#67e8f9);-webkit-background-clip:text;color:transparent}.hero p{max-width:30rem;margin:0;color:var(--muted);line-height:1.6}.board{--accent:#818cf8;margin:0 0 2rem;padding:1.15rem;border:1px solid var(--line);border-radius:1.5rem;background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025)),var(--panel);box-shadow:0 28px 70px rgba(0,0,0,.32),inset 0 1px rgba(255,255,255,.08);backdrop-filter:blur(20px)}.board--sow{--accent:#f59e0b}.board--epic{--accent:#a78bfa}.board--ticket{--accent:#22d3ee}.board__header{display:flex;align-items:center;gap:1rem;padding:.4rem .45rem 1.15rem}.board__header:before{content:"";width:.62rem;height:2.8rem;border-radius:1rem;background:var(--accent);box-shadow:0 0 28px var(--accent)}.board__header h2{margin:0;font-size:1.35rem;letter-spacing:-.025em}.board__kicker{margin-left:auto;color:var(--muted)}.sorter{display:flex;gap:.35rem;padding:.3rem;margin-left:.3rem;border:1px solid var(--line);border-radius:.8rem;background:rgba(2,6,23,.32)}.sorter button{padding:.48rem .68rem;color:var(--muted);background:transparent;border:0;border-radius:.55rem;font-size:.72rem;font-weight:750;cursor:pointer}.sorter button:hover,.sorter button.is-active{color:#07111f;background:var(--accent)}.board__scroll{overflow-x:auto;padding:0 0 .4rem;scrollbar-color:var(--accent) transparent}table{width:100%;min-width:max-content;border-spacing:.7rem 0;table-layout:fixed}th{position:sticky;top:0;z-index:2;min-width:17rem;padding:.9rem 1rem;text-align:left;color:#dbeafe;background:rgba(15,23,42,.94);border:1px solid var(--line);border-bottom:2px solid var(--accent);border-radius:.85rem .85rem .25rem .25rem;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase}td{width:17rem;min-width:17rem;padding:.75rem .35rem;vertical-align:top;background:rgba(2,6,23,.28);border-radius:0 0 1rem 1rem}.cards{display:grid;gap:.7rem;margin:0;padding:0;list-style:none}.card{display:block;width:100%;padding:1rem;text-align:left;color:var(--ink);background:linear-gradient(145deg,rgba(255,255,255,.1),rgba(255,255,255,.045));border:1px solid rgba(255,255,255,.1);border-radius:1rem;box-shadow:0 10px 25px rgba(0,0,0,.18);cursor:pointer;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}.card:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 14px 34px rgba(0,0,0,.28),0 0 0 1px var(--accent)}.card.is-selected{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent),0 16px 40px rgba(0,0,0,.32)}.card__ref{display:block;color:var(--accent);font:800 .76rem/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em}.card__title{display:block;margin-top:.62rem;color:#eef2ff;font-size:.94rem;font-weight:650;line-height:1.35}@media(max-width:720px){.shell{width:min(100% - 1rem,96rem);padding-top:2rem}.hero{display:block}.hero p{margin-top:1rem}.board{padding:.7rem;border-radius:1rem}.board__header{flex-wrap:wrap}.board__kicker{margin-left:0}.sorter{width:100%;margin:0}th,td{min-width:15rem;width:15rem}}
+CSS
+      . '</style></head><body><main class="shell"><header class="hero"><div><span class="eyebrow">Filesystem-native flow</span><h1>Tira Kanban</h1></div><p>Focused work, arranged by state. Select a card to keep your place.</p></header>'
+      . $boards
+      . q{</main><script>const sortBoard=(board,mode)=>{board.querySelectorAll(".cards").forEach(list=>{const cards=[...list.children];cards.sort((a,b)=>mode==="ref"?a.dataset.ref.localeCompare(b.dataset.ref):(Number(b.dataset.mtime)-Number(a.dataset.mtime)||a.dataset.ref.localeCompare(b.dataset.ref)));cards.forEach(card=>list.appendChild(card))});board.querySelectorAll("[data-sort]").forEach(button=>button.classList.toggle("is-active",button.dataset.sort===mode));document.documentElement.dataset.sort=mode};document.documentElement.dataset.ready="true";document.documentElement.dataset.sort="mtime";document.querySelectorAll(".card").forEach(card=>card.addEventListener("click",()=>card.classList.toggle("is-selected")));document.querySelectorAll(".board").forEach(board=>board.querySelectorAll("[data-sort]").forEach(button=>button.addEventListener("click",()=>sortBoard(board,button.dataset.sort))));</script></body></html>};
 }
 
 sub _empty_linkage {

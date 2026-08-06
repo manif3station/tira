@@ -386,3 +386,26 @@ Method: Performance TDD + output-contract BDD + filesystem-ordering ATDD.
   compiled under taint mode; the production process-primitive scan was clean.
 - Agent contract: exactly 100 implemented use cases remain.
 - Platform: macOS and Windows remain stopped.
+
+## DD-403
+
+Method: BDD + HTML security TDD + Playwright ATDD.
+
+- Red gate: 13/18 assertions failed before table rendering and type-specific
+  dashboard routes existed.
+- Perl acceptance: combined/one-board routing, left-to-right columns, title
+  opt-in, HTML escaping, offline output, sort metadata, and table-only scope
+  passed.
+- Playwright: PASS in Docker with pinned Chromium; column geometry, gradient
+  styling, panel treatment, card selection, mtime/ref controls, script init,
+  and zero external elements passed.
+- Visual review: PASS at 1440x1000; aurora/glass treatment, cyan ticket accent,
+  card depth, typography, sticky headers, and horizontal overflow were clear.
+- Docker functional suite: PASS, 17 files and 654 assertions.
+- Coverage: `lib/Tira.pm` and `lib/Tira/CLI.pm` each reached 100.0% statement
+  and subroutine coverage.
+- Security: all 654 assertions passed under `prove -T`; all 83 entrypoints
+  compiled under taint mode; the production process-primitive scan was clean.
+- Agent contract: exactly 100 implemented use cases remain.
+- Cleanup/platform: browser/screenshot/HTML/coverage artifacts removed;
+  macOS and Windows remain stopped.

@@ -55,3 +55,5 @@ DD-401 adds DD-native project alias resolution without disclosing managed
 locations through the agent manual.
 DD-402 makes the default dashboard a ref-only filesystem view with optional
 titles and unchanged full JSON automation output.
+DD-403 adds raw self-contained HTML tables for combined and type-specific
+dashboard commands.

@@ -38,10 +38,11 @@ DD-399 makes hierarchy reads retain the complete underlying record truth.
 DD-400 makes dashboard cost scale with boards and records instead of columns.
 DD-401 accepts Developer Dashboard path aliases as private project selectors.
 DD-402 adds a metadata-free, modification-time-ordered dashboard fast path.
+DD-403 adds self-contained browser-rendered Kanban table output.
 
 ## Release standard
 
 Each slice is independently tested, documented, committed, and pushed. The epic
 closes only when the complete CLI documented in `SKILLS.md` is proven.
 
-Status: in progress through DD-402.
+Status: in progress through DD-403.

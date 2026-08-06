@@ -85,6 +85,8 @@ sub run {
 
     return _error( $tira, 'toon', "Unsupported output format '$option{output}'" )
       if $command eq 'attachment.get' && $option{output} !~ /\A(?:toon|json|human)\z/;
+    return _error( $tira, 'toon', 'Table output is available only for dashboard commands' )
+      if $option{output} eq 'table' && $command !~ /\Adashboard(?:\.(?:sow|epic|ticket))?\z/;
 
     $option{project} = $environment_project if !defined $option{project} && defined $environment_project;
 
@@ -204,15 +206,18 @@ sub _invoke {
         'checklist.list' => 'checklist_list', 'checklist.add' => 'checklist_add',
         'checklist.update' => 'checklist_update',
         'search' => 'search', 'dashboard' => 'dashboard',
+        'dashboard.sow' => 'dashboard', 'dashboard.epic' => 'dashboard', 'dashboard.ticket' => 'dashboard',
     );
     my $method = $method{$command} or die "Unsupported Tira command '$command'\n";
     $args{person} = $option->{people}[0] if $command =~ /\Aassign\.(?:add|remove)\z/ && $option->{people};
     $args{people} = $option->{people} // [] if $command eq 'assign.set';
     $args{recursive} = $option->{recursive} if $command eq 'hierarchy.show';
-    if ( $command eq 'dashboard' ) {
+    if ( $command =~ /\Adashboard(?:\.(sow|epic|ticket))?\z/ ) {
+        $args{type} = $1 if defined $1;
         $args{include_discard} = $option->{include_discard};
         $args{summary} = $option->{output} ne 'json';
         $args{with_title} = defined $option->{title};
+        $args{include_mtime} = $option->{output} eq 'table';
     }
     $args{include_deleted} = $option->{include_deleted} if $command eq 'attachment.list';
     if ( $command =~ /\Acomment\.(?:add|update)\z/ && defined $option->{file} ) {

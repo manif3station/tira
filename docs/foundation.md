@@ -145,6 +145,20 @@ canonical UTF-8 first; if an older record contains an isolated byte written by
 the former mixed string boundary, it maps that byte to its intended Unicode
 code point and rewrites canonical UTF-8 on the next mutation.
 
+## Concurrent editing
+
+Every mutation serializes under the private project lock and lands through an
+atomic same-directory rename, so simultaneous saves — even in the same second
+— can never corrupt or interleave a record file. Field updates are
+read-modify-write of a single field inside that lock, so two people editing
+*different* fields of one card both survive in either order. For the remaining
+case — two people editing the *same* field — `record_update` accepts an
+`expect` map of scalar field bases and refuses the write with a
+`Conflict: <field> changed while you were editing` error when the stored value
+no longer matches; the dashboard sends each editor's opening value as its base,
+surfaces the conflict, and reloads the fresh card instead of silently
+overwriting.
+
 ## Security properties
 
 Tira invokes no shell or external process. It validates and untaints canonical

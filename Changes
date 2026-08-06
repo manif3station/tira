@@ -1,5 +1,15 @@
 Revision history for Tira
 
+0.34  2026-08-06
+    - Optimistic concurrency for dialog field edits: each editor remembers
+      the value it opened with and sends it as the save's base; inside the
+      project lock the engine rejects the save if that field changed
+      underneath, the route flags the failure as a conflict, and the
+      dialog shows "changed while you were editing" and reloads the fresh
+      card. Different-field edits from separate machines keep merging
+      safely as before; same-field edits no longer silently last-write-
+      win.
+
 0.33  2026-08-06
     - The card dialog header gained a column dropdown beside the ref, so a
       card can be moved between columns from the open dialog like Jira;

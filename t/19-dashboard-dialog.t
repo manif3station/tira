@@ -56,6 +56,9 @@ for my $section (qw(Details Description Checklist Comments)) {
 }
 like( $live_html, qr{fetch\("/people"}, 'the dialog loads the author choices from /people' );
 like( $live_html, qr{mutate\("/update"}, 'field edits post to the update route' );
+like( $live_html, qr/base:base/, 'field saves carry the base value they loaded' );
+like( $live_html, qr/result\.conflict/, 'the dialog distinguishes conflict responses' );
+like( $live_html, qr/changed while you were editing/, 'conflict messaging explains the retry' );
 like( $live_html, qr{mutate\("/comment/add"}, 'comment creation posts to its route' );
 like( $live_html, qr{mutate\("/comment/update"}, 'comment editing posts to its route' );
 like( $live_html, qr{mutate\("/comment/remove"}, 'comment deletion posts to its route' );
@@ -123,6 +126,21 @@ for my $payload ( undef, [], { ref => 'TKT-001' } ) {
     like( $error, qr/payload|requires/i, 'malformed comment removal payloads are refused' );
 }
 
+# DD-423: optimistic concurrency through the update provider
+my $cas = decode_json(
+    $calls->[0]{update}->( { ref => 'TKT-001', field => 'title', value => 'CAS write', base => 'Renamed card' } )
+);
+ok( $cas->{ok}, 'a matching base saves through the provider' );
+is( $cas->{record}{title}, 'CAS write', 'the compare-and-swap value persists' );
+
+$error = eval { $calls->[0]{update}->( { ref => 'TKT-001', field => 'title', value => 'Lost write', base => 'Renamed card' } ); 1 } ? '' : $@;
+like( $error, qr/\AConflict: title changed while you were editing/, 'a stale base is refused with a conflict error' );
+is( $tira->record_show( project => $root, ref => 'TKT-001' )->{title},
+    'CAS write', 'the conflicted save writes nothing' );
+
+$error = eval { $calls->[0]{update}->( { ref => 'TKT-001', field => 'title', value => 'x', base => ['nope'] } ); 1 } ? '' : $@;
+like( $error, qr/plain value/, 'structured bases are refused' );
+
 my %providers = (
     render => sub { '<!doctype html>' }, data => sub { '{}' },
     move => sub { '{}' }, detail => sub { '{}' },
@@ -156,7 +174,11 @@ for my $missing (qw(update comment_add comment_update comment_remove people)) {
 my %received;
 my $app = Tira::DashboardWeb->build_psgi_app(
     %providers,
-    update => sub { $received{update} = $_[0]; return '{"ok":true,"record":{"title":"\\u00a3"}}' },
+    update => sub {
+        $received{update} = $_[0];
+        die "Conflict: title changed while you were editing\n" if ( $_[0]{base} // '' ) eq 'STALE';
+        return '{"ok":true,"record":{"title":"\\u00a3"}}';
+    },
     comment_add => sub { $received{comment_add} = $_[0]; return '{"ok":true,"comment":{"id":"CMT-001"}}' },
     comment_update => sub { $received{comment_update} = $_[0]; return '{"ok":true,"comment":{"id":"CMT-001"}}' },
     comment_remove => sub { $received{comment_remove} = $_[0]; die "Comment 'CMT-404' not found\n" },
@@ -203,6 +225,18 @@ test_psgi $app, sub {
     my $failure = decode_json( $remove_response->content );
     ok( !$failure->{ok}, 'the failing mutation reports ok false' );
     like( $failure->{error}, qr/CMT-404.*not found/, 'the failing mutation carries the engine error' );
+    ok( !exists $failure->{conflict}, 'ordinary failures carry no conflict flag' );
+
+    my $conflict_response = $client->(
+        POST '/update', Content_Type => 'application/json',
+        Content => '{"ref":"TKT-001","field":"title","value":"Mine","base":"STALE"}',
+    );
+    is( $conflict_response->code, 422, 'a conflicting update returns unprocessable' );
+    my $conflict = decode_json( $conflict_response->content );
+    ok( !$conflict->{ok}, 'the conflict reports ok false' );
+    ok( $conflict->{conflict}, 'the conflict is flagged so the dialog can recover' );
+    like( $conflict->{error}, qr/changed while you were editing/, 'the conflict explains itself' );
+    is( $received{update}{base}, 'STALE', 'the base travels through the route' );
 
     my $bad_json = $client->(
         POST '/update', Content_Type => 'application/json', Content => 'not-json',

@@ -3,7 +3,7 @@ package Tira::DashboardWeb;
 use strict;
 use warnings;
 
-our $VERSION = '0.33';
+our $VERSION = '0.34';
 
 use Encode qw(encode_utf8);
 use JSON::PP ();
@@ -130,9 +130,9 @@ sub _mutation {
         my $error = $@ || 'Mutation failed';
         $error =~ s/(?: at \S+ line \d+\.?)?\s*\z//s;
         status 422;
-        return _response_bytes(
-            JSON::PP->new->canonical->encode( { ok => JSON::PP::false, error => $error } )
-        );
+        my %failure = ( ok => JSON::PP::false, error => $error );
+        $failure{conflict} = JSON::PP::true if $error =~ /\AConflict:/;
+        return _response_bytes( JSON::PP->new->canonical->encode( \%failure ) );
     }
     return _response_bytes($result);
 }

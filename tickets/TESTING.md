@@ -868,3 +868,27 @@ report, message 2915 — three connected findings).
   selectOption posting `/move`, and the mobile "Edited elsewhere" refresh
   wait — the regression's own detector. Playwright ×3 green; functional
   PASS `Files=25, Tests=969`; coverage `100.0%`; `prove -T` PASS.
+
+## Latest Verification For `DD-423`
+
+- Owner discussion and approval (messages 2927/2928, 2932): protect
+  same-field edits from silent last-write-wins between two users on
+  different machines; different-field merges must stay unaffected.
+- Engine: `record_update` gained `expect => { field => base }`, a
+  compare-and-swap checked inside the project lock before any change —
+  mismatch dies `Conflict: <field> changed while you were editing` and
+  writes nothing; null bases match only unset fields; values compare as
+  strings.
+- Route: the browser update provider forwards a scalar `base` as
+  `expect` (structured bases refused); `_mutation` marks `Conflict:`
+  failures with `conflict:true` in the 422 JSON.
+- Dialog: each field editor sends the value it opened with as `base`;
+  a conflict shows the explanation and reloads the fresh card, message
+  kept visible.
+- Guards: t/09 engine CAS semantics (stale/matching/null/numeric bases);
+  t/19 provider round-trip, structured-base refusal, HTTP 422 conflict
+  shape, no-flag on ordinary failures, renderer contract for
+  `base:base`, `result.conflict`, and the message; Playwright asserts
+  the base in the real update payload and the full conflict recovery.
+  Playwright ×3 green; functional PASS `Files=25, Tests=989`; coverage
+  `100.0%` on all three modules; `prove -T` PASS.

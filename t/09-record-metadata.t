@@ -149,6 +149,36 @@ ok( $tira->project_show( project => $root )->{people}[1]{active}, 'legacy person
 $tira->person_update( project => $root, id => 'grace', email => 'grace@example.test' );
 ok( $tira->project_show( project => $root )->{people}[1]{active}, 'legacy person active default persists on mutation' );
 
+# DD-423: optimistic concurrency — expect is a compare-and-swap under the lock
+$ticket = $tira->record_update( project => $root, ref => $ticket->{ref}, title => 'Concurrency base' );
+eval {
+    $tira->record_update(
+        project => $root, ref => $ticket->{ref},
+        title => 'Second writer', expect => { title => 'Stale title' },
+    );
+};
+like( $@, qr/\AConflict: title changed while you were editing/, 'a stale base is rejected as a conflict' );
+is( $tira->record_show( project => $root, ref => $ticket->{ref} )->{title},
+    'Concurrency base', 'a conflicted update writes nothing' );
+$ticket = $tira->record_update(
+    project => $root, ref => $ticket->{ref},
+    title => 'Second writer', expect => { title => 'Concurrency base' },
+);
+is( $ticket->{title}, 'Second writer', 'a matching base applies the update' );
+$ticket = $tira->record_update(
+    project => $root, ref => $ticket->{ref}, fix_version => '4.0.0', expect => { fix_version => undef },
+);
+is( $ticket->{fix_version}, '4.0.0', 'a null base matches a still-empty field' );
+eval {
+    $tira->record_update(
+        project => $root, ref => $ticket->{ref}, fix_version => '5.0.0', expect => { fix_version => undef },
+    );
+};
+like( $@, qr/\AConflict: fix_version changed/, 'a null base conflicts once the field has a value' );
+$ticket = $tira->record_update( project => $root, ref => $ticket->{ref}, priority => 3 );
+$ticket = $tira->record_update( project => $root, ref => $ticket->{ref}, priority => 4, expect => { priority => 3 } );
+is( $ticket->{priority}, 4, 'numeric bases compare by value' );
+
 done_testing;
 
 __END__

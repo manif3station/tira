@@ -251,8 +251,10 @@ sub browser_providers {
             }
             die "Field '$field' is not editable\n" if !$editable{$field};
             die "Field '$field' requires a plain value\n" if ref $value;
+            die "Update base must be a plain value\n" if exists $payload->{base} && ref $payload->{base};
             my $record = $tira->record_update(
                 project => $project, ref => $payload->{ref}, $field => $value,
+                ( exists $payload->{base} ? ( expect => { $field => $payload->{base} } ) : () ),
             );
             return $json->encode( { ok => JSON::PP::true, record => $record } );
         },

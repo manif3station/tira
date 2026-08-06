@@ -84,7 +84,11 @@ const fs = require('fs');
       return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"entry":{"id":"CHK-002"}}' });
     }
     if (requestUrl.pathname === '/update' && route.request().method() === 'POST') {
-      mutations.push({ path: '/update', body: JSON.parse(route.request().postData()) });
+      const body = JSON.parse(route.request().postData());
+      mutations.push({ path: '/update', body });
+      if (body.value === 'Conflict probe')
+        return route.fulfill({ status: 422, contentType: 'application/json',
+          body: '{"ok":false,"conflict":true,"error":"Conflict: title changed while you were editing"}' });
       return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"record":{}}' });
     }
     if (requestUrl.pathname.startsWith('/comment/') && route.request().method() === 'POST') {
@@ -160,7 +164,21 @@ const fs = require('fs');
   if (!update) throw new Error('field edit posted no /update request');
   if (update.body.ref !== 'TKT-001' || update.body.field !== 'title' || update.body.value !== 'Renamed by dialog')
     throw new Error(`unexpected update payload: ${JSON.stringify(update.body)}`);
+  if (update.body.base !== 'Live browser card')
+    throw new Error(`the update payload must carry the base value it loaded, got ${JSON.stringify(update.body.base)}`);
   if (detailRequests < 2) throw new Error('a saved edit did not re-read the record');
+
+  const detailsBeforeConflict = detailRequests;
+  await page.locator('.card-dialog [data-edit="title"]').click();
+  await page.locator('.card-dialog h2 .card-edit-input').fill('Conflict probe');
+  await page.locator('.card-dialog [data-save="title"]').click();
+  await page.waitForFunction(() =>
+    (document.querySelector('.card-dialog__error')?.textContent || '').includes('changed while you were editing'));
+  await page.waitForFunction(() => document.querySelectorAll('.card-dialog h2 .card-edit-input').length === 0);
+  if (detailRequests <= detailsBeforeConflict)
+    throw new Error('a conflicted save must reload the card so the user sees the fresh value');
+  const conflictErrorHidden = await page.locator('.card-dialog__error').evaluate(node => node.hidden);
+  if (conflictErrorHidden) throw new Error('the conflict message must stay visible after the reload');
 
   const commentIds = await page.locator('.card-dialog .card-comment').evaluateAll(nodes => nodes.map(node => node.dataset.comment));
   if (JSON.stringify(commentIds) !== JSON.stringify(['CMT-002', 'CMT-001'])) throw new Error(`comments are not newest-first: ${commentIds}`);

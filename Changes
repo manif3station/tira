@@ -1,5 +1,13 @@
 Revision history for Tira
 
+0.36  2026-08-07
+    - CA15 (EPIC-424): sparse reads. show, list, and export omit empty
+      values by default (null, empty string, empty array, hash of only
+      such values); --include-empty restores the fixed-key shape. false
+      and 0 are never treated as empty; a field named in --fields stays
+      visible even when empty; internal callers and the browser dialog
+      are unaffected.
+
 0.35  2026-08-07
     - CA01-CA03 (EPIC-424): field projection on reads. show, list, and
       export accept --fields and --exclude-fields (comma-separated,

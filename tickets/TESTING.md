@@ -909,3 +909,19 @@ report, message 2915 — three connected findings).
 - Functional PASS `Files=26, Tests=1018`; coverage `100.0%` statement
   and subroutine on all three modules; `prove -T` PASS; `cover_db`
   cleaned.
+
+## Latest Verification For `DD-425`
+
+- CA15: empty-value omission on show, list, and export. Emptiness is
+  undef, empty string, empty array, or a hash of only such values;
+  booleans and numbers never count as empty.
+- Pruning lives in the projection layer behind an explicit `omit_empty`
+  argument — the CLI defaults it on for the three read commands and
+  `--include-empty` restores the fixed-key shape; engine-internal and
+  browser callers never pass it and are unaffected (full prior suite
+  green unchanged).
+- `--fields`-selected keys are exempt from pruning, so a selected empty
+  field is returned as visible null.
+- New suite `t/26-omit-empty.t` red-first; functional PASS
+  `Files=27, Tests=1042`; coverage `100.0%` on all three modules;
+  `prove -T` PASS; `cover_db` cleaned.

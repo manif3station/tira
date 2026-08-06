@@ -87,6 +87,12 @@ all reads and mutations and must not attempt direct filesystem access. Run
 Existing record-list commands retain their compatible array result; `--full`
 is an explicit assertion that the full records already returned are required.
 
+Show, list, and export omit empty values by default — null, empty string,
+empty array, or a hash containing only such values — and `--include-empty`
+restores the previous fixed-key shape. `false` and `0` are never treated as
+empty, and a field named in `--fields` is returned even when empty, so an
+explicit question always gets an explicit answer.
+
 Show, list, and export accept `--fields` and `--exclude-fields`
 (comma-separated, repeatable, accumulating) to project each returned record.
 Selection always keeps `ref`, exclusion applies after selection, stored data

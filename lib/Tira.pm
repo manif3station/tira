@@ -17,7 +17,7 @@ use JSON::PP ();
 use POSIX qw(strftime);
 use YAML::PP;
 
-our $VERSION = '0.35';
+our $VERSION = '0.36';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -488,7 +488,25 @@ sub _field_projection {
         }
         $plan{$side} = { map { $_ => 1 } @names };
     }
+    $plan{omit_empty} = 1 if $args{omit_empty};
     return %plan ? \%plan : undef;
+}
+
+# CA15: a value is empty when it is undef, an empty string, an empty
+# array, or a hash whose every value is empty by the same rule (scope and
+# blank linkage). Booleans and numbers — including 0 and false — are
+# never empty.
+sub _is_empty_value {
+    my ($value) = @_;
+    return 1 if !defined $value;
+    my $kind = ref $value;
+    return $value eq '' if !$kind;
+    return !@{$value} if $kind eq 'ARRAY';
+    if ( $kind eq 'HASH' ) {
+        _is_empty_value($_) || return 0 for values %{$value};
+        return 1;
+    }
+    return 0;
 }
 
 # Selection always keeps ref (identity is never lossy); exclusion applies
@@ -502,6 +520,12 @@ sub _project_record {
           ( 'ref', keys %{$keep} );
     }
     delete @projected{ keys %{ $plan->{exclude_fields} } } if $plan->{exclude_fields};
+    if ( $plan->{omit_empty} ) {
+        for my $field ( keys %projected ) {
+            next if $plan->{fields} && $plan->{fields}{$field};
+            delete $projected{$field} if _is_empty_value( $projected{$field} );
+        }
+    }
     return \%projected;
 }
 

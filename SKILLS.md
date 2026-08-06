@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.35):** shipped, executable, and covered by tests.
+- **Implemented (0.36):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.35.
+All commands and use cases in this manual ship in release 0.36.
 
 ## Global invocation grammar
 
@@ -278,8 +278,8 @@ They create independent Backlog records with empty linkage. These symmetric
 forms are **Implemented (DD-389)** for each `TYPE`:
 
 ```text
-tira.TYPE.show --ref REF [--fields LIST] [--exclude-fields LIST] [-o FORMAT]
-tira.TYPE.list [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [--fields LIST] [--exclude-fields LIST] [-o FORMAT]
+tira.TYPE.show --ref REF [--fields LIST] [--exclude-fields LIST] [--include-empty] [-o FORMAT]
+tira.TYPE.list [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [--fields LIST] [--exclude-fields LIST] [--include-empty] [-o FORMAT]
 tira.TYPE.update --ref REF [record field arguments] [-o FORMAT]
 tira.TYPE.move --ref REF --column SLUG [-o FORMAT]
 tira.TYPE.discard --ref REF [-o FORMAT]
@@ -296,6 +296,14 @@ exclusion applies after selection. An unknown or empty field name exits 2
 naming the offender — a typo can never quietly return an empty object.
 Selected fields that are null stay visibly null. On any other command
 either flag exits 2.
+Empty omission is **Implemented (DD-425)** on the same three commands: by
+default a returned record omits keys whose value is null, an empty
+string, an empty array, or a hash of only such values; `--include-empty`
+restores every key. An omitted key therefore always means "empty or
+unset" — `false` and `0` are values and are never omitted, and a field
+named in `--fields` is always present even when empty. The record schema
+section above lists every possible key, so omission costs no
+discoverability.
 Clone creates a Backlog record, shares attachment refs, clears hierarchy, and
 adds reciprocal clone links.
 
@@ -391,7 +399,7 @@ tira.evidence.annotate --ref REF --id EVD-NNN --note TEXT [--author ID] [-o FORM
 tira.gate.list --ref REF [-o FORMAT]
 tira.gate.add --ref REF --gate TEXT --result pass|fail|blocked --details TEXT [--author ID] [-o FORMAT]
 tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]
-tira.export [--fields LIST] [--exclude-fields LIST] [-o FORMAT]
+tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [-o FORMAT]
 tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [-o FORMAT]
 tira.import --file FILE [--dry-run] [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [-o FORMAT]
@@ -647,7 +655,7 @@ without revealing or creating a storage location.
 **Implemented.** `dashboard tira.epic.show --ref EPC-001 -o human`.
 
 ### UC-042: Show a ticket, whole or projected
-**Implemented.** `dashboard tira.ticket.show --ref TKT-001` returns the full record; `dashboard tira.ticket.show --ref TKT-001 --fields column -o json` returns only `ref` and `column` — the cheapest way to answer the board's commonest question.
+**Implemented.** `dashboard tira.ticket.show --ref TKT-001` returns the record's populated keys (empty values are omitted by default; `--include-empty` restores them); `dashboard tira.ticket.show --ref TKT-001 --fields column -o json` returns only `ref` and `column` — the cheapest way to answer the board's commonest question.
 
 ### UC-043: Read boards in one call, at chosen weight
 **Implemented.** `dashboard tira.export -o json` returns every SOW, epic, and ticket in one `{records, count}` object; `dashboard tira.export --fields ref,column -o json` returns the same board as two-key records, and `--exclude-fields description,comments` keeps structure while dropping the prose. Count is unaffected by projection.

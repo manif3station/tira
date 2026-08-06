@@ -127,13 +127,35 @@ sub run {
         };
         my $data = sub {
             my %data_option = %option;
-            $data_option{output} = 'json';
+            $data_option{output} = 'toon';
             my $dashboard = _invoke( $tira, $command, $type, \%data_option );
             return $tira->format_output( $dashboard, output => 'json', project => $option{project} );
+        };
+        my $move = sub {
+            my ($payload) = @_;
+            die "Move payload must be an object\n" if ref($payload) ne 'HASH';
+            for my $key (qw(type ref column)) {
+                die "Move payload requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
+            }
+            my $record = $tira->record_move(
+                project => $option{project}, type => $payload->{type},
+                ref => $payload->{ref}, column => $payload->{column},
+            );
+            return JSON::PP->new->canonical->encode( { ok => JSON::PP::true, record => $record } );
+        };
+        my $detail = sub {
+            my ($payload) = @_;
+            die "Record detail requires type and ref\n"
+              if ref($payload) ne 'HASH' || !defined $payload->{type} || !defined $payload->{ref};
+            my $record = $tira->record_show(
+                project => $option{project}, type => $payload->{type}, ref => $payload->{ref},
+            );
+            return JSON::PP->new->canonical->encode($record);
         };
         my $served = eval {
             $browser_server->(
                 host => $browser_host, port => $browser_port, render => $render, data => $data,
+                move => $move, detail => $detail,
             );
             1;
         };

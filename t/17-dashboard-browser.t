@@ -5,7 +5,8 @@ use warnings;
 
 use File::Spec;
 use File::Temp qw(tempdir);
-use HTTP::Request::Common qw(GET);
+use Encode qw(decode_utf8);
+use HTTP::Request::Common qw(GET POST);
 use JSON::PP qw(decode_json);
 use Plack::Test;
 use Test::More;
@@ -48,10 +49,22 @@ my $live_html = $calls->[0]{render}->();
 like( $live_html, qr/Live card/, 'server renderer retains title mode' );
 like( $live_html, qr/fetch\("\/data".*updateBoards/s,
     'browser dashboard updates board positions from the JSON endpoint' );
+like( $live_html, qr/fetch\("\/record\?type=".*JSON\.stringify/s,
+    'browser dashboard lazy-loads full card details on click' );
 unlike( $live_html, qr/setTimeout\(\(\)=>location\.reload/,
     'browser dashboard does not reload the whole page' );
 like( $live_html, qr/<dialog class="card-dialog".*JSON\.stringify/s,
     'browser dashboard includes a full-record card dialog' );
+like( $live_html, qr/draggable.*dragstart.*\/move/s,
+    'browser dashboard exposes drag and drop move behavior' );
+ok( ref $calls->[0]{move} eq 'CODE', 'browser server receives a move provider' );
+ok( ref $calls->[0]{detail} eq 'CODE', 'browser server receives a detail provider' );
+my $move_result = decode_json(
+    $calls->[0]{move}->( { type => 'ticket', ref => 'TKT-001', column => 'backlog' } )
+);
+ok( $move_result->{ok}, 'browser move provider returns a successful mutation' );
+is( decode_json( $calls->[0]{detail}->( { type => 'ticket', ref => 'TKT-001' } ) )->{ref},
+    'TKT-001', 'browser detail provider returns one complete record' );
 my $browser_data = decode_json( $calls->[0]{data}->() );
 is( $browser_data->{ticket}{backlog}[0]{title}, 'Live card',
     'browser data callback returns complete JSON records' );
@@ -82,28 +95,51 @@ like( $err, qr/Browser output is available only for dashboard commands/,
     'scope error is actionable' );
 
 my $renders = 0;
+my $pound = chr 0xA3;
 my $app = Tira::DashboardWeb->build_psgi_app(
-    render => sub { $renders++; return '<!doctype html><p>Live</p>' },
-    data => sub { return '{"ticket":{"backlog":[]}}' },
+    render => sub { $renders++; return '<!doctype html><p>Live ' . $pound . '</p>' },
+    data => sub { return '{"ticket":{"backlog":[{"title":"\\u00a3"}]}}' },
+    move => sub { return '{"ok":true}' },
+    detail => sub { return '{"ref":"TKT-001","title":"\\u00a3"}' },
 );
-test_psgi $app, sub {
+my @warnings;
+{
+    local $SIG{__WARN__} = sub { push @warnings, @_ };
+    test_psgi $app, sub {
     my ($client) = @_;
     my $response = $client->( GET '/?refresh=30' );
     is( $response->code, 200, 'PSGI root returns success' );
     like( $response->header('Content-Type'), qr{text/html}, 'PSGI response is HTML' );
-    is( $response->content, '<!doctype html><p>Live</p>', 'PSGI returns rendered dashboard' );
+    is( decode_utf8( $response->content ), '<!doctype html><p>Live ' . $pound . '</p>',
+        'PSGI returns UTF-8 rendered dashboard bytes' );
     my $data_response = $client->( GET '/data?refresh=30' );
     is( $data_response->code, 200, 'PSGI data route returns success' );
     like( $data_response->header('Content-Type'), qr{application/json}, 'data response is JSON' );
-    is( decode_json( $data_response->content )->{ticket}{backlog}[0] // 'empty', 'empty',
-        'data route returns the supplied full dashboard payload' );
-};
+    is( decode_json( $data_response->content )->{ticket}{backlog}[0]{title}, $pound,
+        'data route returns UTF-8 JSON bytes' );
+    my $move_response = $client->(
+        POST '/move', Content_Type => 'application/json', Content => '{"type":"ticket","ref":"TKT-001","column":"done"}'
+    );
+    is( $move_response->code, 200, 'PSGI move route returns success' );
+    is( decode_json( $move_response->content )->{ok}, JSON::PP::true,
+        'move route returns the provider result' );
+    my $detail_response = $client->( GET '/record?type=ticket&ref=TKT-001' );
+    is( $detail_response->code, 200, 'PSGI detail route returns success' );
+    is( decode_json( $detail_response->content )->{title}, $pound,
+        'detail route returns the clicked record payload' );
+    };
+}
+is( scalar @warnings, 0, 'PSGI emits no implicit wide-character warnings' );
 is( $renders, 1, 'PSGI renders afresh for each request' );
 
 eval { Tira::DashboardWeb->build_psgi_app() };
 like( $@, qr/Missing dashboard renderer/, 'PSGI builder requires a renderer' );
 eval { Tira::DashboardWeb->build_psgi_app( render => sub { '' } ) };
 like( $@, qr/Missing dashboard data provider/, 'PSGI builder requires a data provider' );
+eval { Tira::DashboardWeb->build_psgi_app( render => sub { '' }, data => sub { '{}' } ) };
+like( $@, qr/Missing dashboard move provider/, 'PSGI builder requires a move provider' );
+eval { Tira::DashboardWeb->build_psgi_app( render => sub { '' }, data => sub { '{}' }, move => sub { '{}' } ) };
+like( $@, qr/Missing dashboard detail provider/, 'PSGI builder requires a detail provider' );
 
 {
     no warnings 'redefine';
@@ -116,6 +152,8 @@ like( $@, qr/Missing dashboard data provider/, 'PSGI builder requires a data pro
             host => 'localhost', port => 4567,
             render => sub { '<!doctype html>' },
             data => sub { '{}' },
+            move => sub { '{}' },
+            detail => sub { '{}' },
         ),
         'serve completes when its PSGI runner exits'
     );
@@ -165,7 +203,8 @@ __END__
 
 =head1 DESCRIPTION
 
-Guards browser endpoint parsing, dashboard-only scope, live rendering, and the
-HTTP response contract of the Dancer2 PSGI application.
+Guards browser endpoint parsing, dashboard-only scope, live rendering, lazy
+detail/move routes, UTF-8 response bytes, and the HTTP contract of the Dancer2
+PSGI application.
 
 =cut

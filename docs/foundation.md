@@ -119,10 +119,12 @@ included only as HTML data needed for local mtime/ref sorting.
 Release 0.16 adds a visible, query-controlled refresh timer to that document.
 It also adds a minimal Dancer2 PSGI projection: browser mode accepts only
 explicit local bind names and valid TCP ports. Its data route returns the
-complete JSON dashboard, and embedded JavaScript moves cards between columns
-without reloading the document. Card clicks open a full-record dialog and a
-last-updated indicator advances only after successful data application. The
-default listener is `0.0.0.0:7899`.
+lightweight card placement dashboard, and embedded JavaScript moves cards
+between columns without reloading the document. Drag/drop calls the actual
+record move, physically moving the JSON file between column folders. Card
+clicks make one detail request for a full-record dialog, and a last-updated
+indicator advances only after successful data application. The default
+listener is `0.0.0.0:7899`.
 
 ## Output and errors
 

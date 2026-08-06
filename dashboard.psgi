@@ -12,6 +12,7 @@ BEGIN {
 
 use Tira;
 use Tira::DashboardWeb;
+use JSON::PP ();
 
 my $project = $ENV{TIRA_DASHBOARD_ROOT} // die "TIRA_DASHBOARD_ROOT is required\n";
 my $type = $ENV{TIRA_DASHBOARD_TYPE};
@@ -31,9 +32,31 @@ Tira::DashboardWeb->build_psgi_app(
         );
     },
     data => sub {
-        my %args = ( project => $project, summary => 0 );
+        my %args = ( project => $project, summary => 1, with_title => $with_title );
         $args{type} = $type if defined $type && length $type;
         return $tira->format_output( $tira->dashboard(%args), output => 'json' );
+    },
+    move => sub {
+        my ($payload) = @_;
+        die "Move payload must be an object\n" if ref($payload) ne 'HASH';
+        return $tira->format_output(
+            { ok => JSON::PP::true, record => $tira->record_move(
+                project => $project, type => $payload->{type},
+                ref => $payload->{ref}, column => $payload->{column},
+            ) },
+            output => 'json',
+        );
+    },
+    detail => sub {
+        my ($payload) = @_;
+        die "Record detail requires type and ref\n"
+          if ref($payload) ne 'HASH' || !defined $payload->{type} || !defined $payload->{ref};
+        return $tira->format_output(
+            $tira->record_show(
+                project => $project, type => $payload->{type}, ref => $payload->{ref},
+            ),
+            output => 'json',
+        );
     },
 );
 

@@ -420,11 +420,12 @@ The page reloads every five seconds by default and shows the active interval;
 clamped to one. `-o browser` serves this same live HTML at `0.0.0.0:7899`.
 Use `-o browser=localhost:4567`, `127.0.0.1`, or `0.0.0.0:1234` to choose an
 approved bind. The optional port defaults to 7899, and every request rebuilds
-the full `-o json` dashboard payload from current filesystem state. Browser
+lightweight card placement payload from current filesystem state. Browser
 JavaScript applies that payload in place, moving cards without reloading the
-page. Clicking a card opens its complete record in a detail dialog. The visible
-last-updated time advances only after fresh data is applied. Stop the foreground
-server with Ctrl-C.
+page. Drag/drop calls the real JSON-file move operation. Clicking a card makes
+one detail request for its complete record and opens that record in a dialog.
+The visible last-updated time advances only after fresh data is applied. Stop
+the foreground server with Ctrl-C.
 
 ## 100 use cases
 

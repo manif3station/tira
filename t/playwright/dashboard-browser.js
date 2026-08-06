@@ -16,8 +16,19 @@ const fs = require('fs');
   });
   let pageRequests = 0;
   let dataRequests = 0;
+  let moveRequests = 0;
+  let detailRequests = 0;
   await page.route('http://tira.test/**', async route => {
-    if (new URL(route.request().url()).pathname === '/data') {
+    const requestUrl = new URL(route.request().url());
+    if (requestUrl.pathname === '/move' && route.request().method() === 'POST') {
+      moveRequests++;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+    }
+    if (requestUrl.pathname === '/record') {
+      detailRequests++;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ref":"TKT-001","title":"Live browser card","description":"Full popup detail"}' });
+    }
+    if (requestUrl.pathname === '/data') {
       dataRequests++;
       return route.fulfill({ status: 200, contentType: 'application/json', body: data });
     }
@@ -28,8 +39,12 @@ const fs = require('fs');
   await page.waitForFunction(() => document.querySelector('.last-updated')?.textContent !== 'Last updated: pending');
   await page.waitForFunction(() => document.querySelector('[data-column="in-progress"] [data-ref="TKT-001"]'));
   if (pageRequests !== 1 || dataRequests !== 1) throw new Error(`unexpected requests page=${pageRequests} data=${dataRequests}`);
+  if (JSON.parse(data).ticket['in-progress'][0].description) throw new Error('lightweight data leaked full record fields');
   if (await page.evaluate(() => window.__tiraTimerDelay) !== 30000) throw new Error('custom refresh interval was not scheduled');
+  await page.locator('[data-column="in-progress"] .card').dragTo(page.locator('[data-column="backlog"]'));
+  if (moveRequests !== 1) throw new Error(`drag move request missing: ${moveRequests}`);
   await page.locator('[data-ref="TKT-001"] .card').click();
+  if (detailRequests !== 1) throw new Error(`lazy detail request missing: ${detailRequests}`);
   if (!await page.locator('.card-dialog').evaluate(dialog => dialog.open)) throw new Error('card detail dialog did not open');
   const detail = await page.locator('.card-dialog pre').textContent();
   if (!detail.includes('Live browser card') || !detail.includes('Full popup detail')) throw new Error('full card detail is missing');

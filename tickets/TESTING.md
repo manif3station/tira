@@ -419,14 +419,16 @@ Method: Browser BDD + JavaScript timer TDD + PSGI/HTTP ATDD.
   contract existed.
 - Timer acceptance: default 5, invalid 5, zero-clamped 1, and custom 60 second
   intervals passed with visible refresh and last-updated state.
-- Browser acceptance: `/data` returns the complete JSON dashboard; JavaScript
-  moves cards in place without page reload and opens full record data in a
-  dialog.
+- Browser acceptance: `/data` returns lightweight placement/title data; JavaScript
+  moves cards in place without page reload. It carries only placement/title
+  fields; `/record` loads full record data once when a card is clicked.
+- Drag/drop acceptance: `/move` is a real record mutation that moves the JSON
+  file into the requested column folder before placement refresh.
 - Playwright: PASS at 1440x1000 with one shell request and one JSON request,
   30-second scheduling, card movement to `in-progress`, and dialog content.
 - Visual review: PASS; the modal has a clear cyan identity, readable full JSON,
   strong depth, restrained backdrop blur, and an accessible close control.
-- Docker functional/coverage suite: PASS, 18 files and 701 assertions.
+- Docker functional/coverage suite: PASS, 18 files and 714 assertions.
 - Coverage: all three production modules reached 100.0% statement and
   subroutine coverage.
 - Security: all 701 assertions passed under `prove -T`; all 83 entrypoints and

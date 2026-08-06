@@ -9,6 +9,8 @@ Revision history for Tira
       move cards in place through AJAX without reloading the page.
     - Added a Jira-style full-record card dialog and truthful last-updated
       timestamp, plus direct PSGI and Playwright coverage.
+    - Added real drag/drop moves backed by the JSON-file column folders.
+      Refresh data stays lightweight; complete record JSON loads only on click.
 
 0.15  2026-08-06
     - Added self-contained `-o table` HTML to combined and type-specific

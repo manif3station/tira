@@ -107,9 +107,11 @@ Append `?refresh=30` to the browser URL to select a positive interval in
 seconds; zero is safely clamped to one second. Browser output serves the same
 board shell through Dancer2, defaults to `0.0.0.0:7899`, and accepts `0.0.0.0`,
 `127.0.0.1`, or `localhost` with an optional port. Each request rescans the
-filesystem. The page polls a full JSON endpoint and moves cards in place
-without reloading; click a card for a full-record detail dialog. “Last updated”
-changes only after fresh data is applied. Stop the foreground command with
+filesystem. The page polls lightweight card placement data and moves cards in
+place without reloading. Dragging a card calls the real record-move operation,
+which moves its JSON file into the target column folder. Click a card to load
+its complete record on demand in a detail dialog. “Last updated” changes only
+after fresh data is applied. Stop the foreground command with
 Ctrl-C when the dashboard is no longer needed.
 
 The default all-interface bind is reachable from permitted network peers. Use

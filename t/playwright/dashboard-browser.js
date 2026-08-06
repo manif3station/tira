@@ -30,6 +30,8 @@ const fs = require('fs');
     gate_passing_log: [], evidence: [],
     attachments: [
       { sha: 'a'.repeat(64), extension: 'txt', original_filename: 'notes.txt', added_at: '2026-08-02T10:00:00+0100' },
+      { sha: 'f'.repeat(64), extension: 'mp4', original_filename: 'clip.mp4', added_at: '2026-08-01T10:00:00+0100' },
+      { sha: '9'.repeat(64), extension: 'tiff', original_filename: 'scan.tiff', added_at: '2026-08-01T09:00:00+0100' },
       { sha: 'e'.repeat(64), extension: 'txt', original_filename: 'fresh.txt', added_at: '2026-08-05T10:00:00+0100' }],
     subtasks: [],
     linkage: { epic_ref: null, parent_ticket_ref: null, sub_ticket_refs: ['TKT-005'], links: [{ type: 'blocks', ref: 'TKT-009' }] },
@@ -307,6 +309,20 @@ const fs = require('fs');
   const subUnlink = mutations.find(e => e.path === '/subitem/unlink');
   if (!subUnlink || subUnlink.body.parent !== 'TKT-001' || subUnlink.body.child !== 'TKT-005')
     throw new Error(`unexpected subitem unlink payload: ${JSON.stringify(subUnlink && subUnlink.body)}`);
+
+  await page.locator(`.card-dialog [data-view-attachment="${'f'.repeat(64)}.mp4"]`).first().click();
+  await page.waitForSelector('.card-viewer:not([hidden])');
+  const videoSrc = await page.locator('.card-viewer__video').getAttribute('src');
+  if (!videoSrc || !videoSrc.includes('/attachment?') || await page.locator('.card-viewer__video').evaluate(node => node.hidden))
+    throw new Error(`video attachments must open in the player: ${videoSrc}`);
+  await page.locator('.card-viewer__close').click();
+  await page.waitForSelector('.card-viewer', { state: 'hidden' });
+
+  await page.locator(`.card-dialog [data-view-attachment="${'9'.repeat(64)}.tiff"]`).first().click();
+  await page.waitForSelector('.card-viewer:not([hidden])');
+  await page.waitForSelector('.card-viewer__fallback:not([hidden])', { timeout: 10000 });
+  await page.locator('.card-viewer__close').click();
+  await page.waitForSelector('.card-viewer', { state: 'hidden' });
 
   await page.locator(`.card-dialog [data-view-attachment="${'a'.repeat(64)}.txt"]`).first().click();
   await page.waitForSelector('.card-viewer:not([hidden])');

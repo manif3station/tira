@@ -1,5 +1,15 @@
 Revision history for Tira
 
+0.32  2026-08-06
+    - Media previews: video (mp4/m4v/mov/webm) and audio (mp3/wav/m4a/
+      ogg/flac) attachments open in a native player; the attachment route
+      gained HTTP byte-range support (206 partial content) so iOS plays
+      media and seeking works everywhere.
+    - TIFF serves as image/tiff and previews where the browser decodes it
+      (Safari); browsers that cannot show a clear not-supported panel
+      with the download instead of a broken image. Unknown binaries get
+      the same panel; office documents remain downloads.
+
 0.31  2026-08-06
     - Escape with an attachment preview open now closes only the preview;
       a second Escape closes the dialog. Closing the dialog by any route

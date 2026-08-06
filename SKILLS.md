@@ -37,9 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
+- **Implemented (0.32):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.31.
+All commands and use cases in this manual ship in release 0.32.
 
 ## Global invocation grammar
 
@@ -468,7 +469,11 @@ Attachments render as chips: images and PDFs open inline in an overlay
 viewer; text-like files render in the viewer's own themed panel — fetched
 and set as plain text with deterministic dark-theme contrast in every
 color scheme, so nothing can execute and nothing can vanish into a
-same-color background; other types offer a named download. Escape closes
+same-color background; video and audio attachments open in a native player backed by byte-range
+streaming on the attachment route (so iOS plays and seeking works); PDFs
+preview in the frame; TIFF previews where the browser can decode it and
+otherwise shows a clear not-supported panel with the download; office
+documents and other binaries offer a named download. Escape closes
 the open preview first and the dialog second, and closing the dialog by
 any route resets the preview layer. While the dialog is open it refreshes
 on the board's cycle so edits from other terminals appear — but never

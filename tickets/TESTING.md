@@ -828,3 +828,23 @@ report, message 2915 — three connected findings).
   cycle ("Edited elsewhere"). Playwright ×3 green.
 - Functional PASS `Files=25, Tests=957`; coverage `100.0%`; `prove -T`
   PASS.
+
+## Latest Verification For `DD-421`
+
+- Owner ask (message 2917): preview video, PDF, TIFF, and documents.
+- Server: extension map adds video/audio/tiff types; the `/attachment`
+  route advertises `Accept-Ranges: bytes` and answers single byte ranges
+  as 206 with `Content-Range` (verified: exact slice, open-ended tail,
+  unsatisfiable range falling back to 200 full body) — required for iOS
+  media playback and seeking everywhere.
+- Viewer: dedicated panes — native video/audio players, image pane with
+  an onerror fallback panel (how TIFF degrades on browsers that cannot
+  decode it; Chromium proves the fallback path), text pane, PDF iframe,
+  and a not-supported panel for other binaries; every close path resets
+  all panes.
+- Guards: provider content-type checks (mp4→video/mp4 inline,
+  tiff→image/tiff, mp3→audio/mpeg); route Range semantics; Playwright
+  proves the video player pane and the TIFF fallback panel. One fixture
+  count correction in t/21 after adding the media uploads. Playwright ×3
+  green; functional PASS `Files=25, Tests=968`; coverage `100.0%`;
+  `prove -T` PASS.

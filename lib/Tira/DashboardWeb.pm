@@ -3,7 +3,7 @@ package Tira::DashboardWeb;
 use strict;
 use warnings;
 
-our $VERSION = '0.31';
+our $VERSION = '0.32';
 
 use Encode qw(encode_utf8);
 use JSON::PP ();
@@ -90,7 +90,30 @@ get '/attachment' => sub {
     $name =~ s/["\r\n]//g;
     response->header( 'Content-Disposition' =>
       ( $payload->{inline} ? 'inline' : 'attachment' ) . qq{; filename="$name"} );
-    return _response_bytes( $payload->{content} );
+    my $bytes = _response_bytes( $payload->{content} );
+    my $length = length $bytes;
+    response->header( 'Accept-Ranges' => 'bytes' );
+    my $range = request->header('Range');
+    # Safari refuses to play media without byte-range support, and every
+    # player needs it for seeking.
+    if ( defined $range && $range =~ /\Abytes=(\d*)-(\d*)\z/ && $length ) {
+        my ( $start, $end ) = ( $1, $2 );
+        if ( $start eq '' && $end ne '' ) {
+            $start = $length - $end;
+            $start = 0 if $start < 0;
+            $end = $length - 1;
+        }
+        else {
+            $start = 0 + ( $start || 0 );
+            $end = ( $end ne '' && $end < $length ) ? 0 + $end : $length - 1;
+        }
+        if ( $start <= $end && $start < $length ) {
+            status 206;
+            response->header( 'Content-Range' => "bytes $start-$end/$length" );
+            return substr( $bytes, $start, $end - $start + 1 );
+        }
+    }
+    return $bytes;
 };
 
 # Dialog mutations report failures as structured JSON instead of an HTML

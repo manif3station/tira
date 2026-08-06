@@ -424,6 +424,11 @@ sub _attachment_content_type {
     my %image = map { $_ => 1 } qw(png jpg jpeg gif webp svg);
     return 'image/' . ( $extension eq 'jpg' ? 'jpeg' : $extension eq 'svg' ? 'svg+xml' : $extension )
       if $image{$extension};
+    return 'image/tiff' if $extension eq 'tif' || $extension eq 'tiff';
+    my %video = ( mp4 => 'video/mp4', m4v => 'video/mp4', mov => 'video/quicktime', webm => 'video/webm' );
+    return $video{$extension} if $video{$extension};
+    my %audio = ( mp3 => 'audio/mpeg', wav => 'audio/wav', m4a => 'audio/mp4', ogg => 'audio/ogg', flac => 'audio/flac' );
+    return $audio{$extension} if $audio{$extension};
     return 'application/pdf' if $extension eq 'pdf';
     my %text = map { $_ => 1 } qw(txt md log csv json yml yaml xml html);
     return 'text/plain; charset=UTF-8' if $text{$extension};

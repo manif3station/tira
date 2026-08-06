@@ -90,11 +90,28 @@ is( $zip_fetch->{content_type}, 'application/octet-stream', 'unpreviewable types
 ok( !$zip_fetch->{inline}, 'octet-stream attachments are served as downloads, not inline' );
 is( $zip_fetch->{filename}, 'bundle.zip', 'the download keeps its original filename' );
 
+my $video_added = decode_json( $calls->[0]{attachment_add}->( {
+    ref => 'TKT-001', filename => 'demo.mp4',
+    content_base64 => encode_base64( 'FAKE-MP4-BYTES-0123456789', '' ),
+} ) );
+my $video_fetch = $calls->[0]{attachment_fetch}->( { ref => 'TKT-001', sha => $video_added->{attachment}{sha}, extension => 'mp4' } );
+is( $video_fetch->{content_type}, 'video/mp4', 'mp4 attachments are served as video' );
+ok( $video_fetch->{inline}, 'video attachments are served inline for the player' );
+my $tiff_added = decode_json( $calls->[0]{attachment_add}->( {
+    ref => 'TKT-001', filename => 'scan.tiff',
+    content_base64 => encode_base64( 'II*FAKE-TIFF', '' ),
+} ) );
+my $tiff_fetch = $calls->[0]{attachment_fetch}->( { ref => 'TKT-001', sha => $tiff_added->{attachment}{sha}, extension => 'tiff' } );
+is( $tiff_fetch->{content_type}, 'image/tiff', 'tiff attachments are served as image/tiff' );
+my $audio_fetch_type = Tira::CLI::_attachment_content_type('mp3');
+is( $audio_fetch_type, 'audio/mpeg', 'mp3 maps to audio' );
+
 my $removed = decode_json( $calls->[0]{attachment_remove}->( { ref => 'TKT-001', sha => $sha, extension => 'txt' } ) );
 ok( $removed->{ok}, 'the attachment remove provider detaches' );
 my $remaining = $tira->record_show( project => $root, ref => 'TKT-001' )->{attachments};
-is( scalar @{$remaining}, 1, 'only the detached reference is removed through the browser provider' );
-is( $remaining->[0]{extension}, 'zip', 'the untouched attachment reference survives' );
+is( scalar @{$remaining}, 3, 'only the detached reference is removed through the browser provider' );
+is_deeply( [ sort map { $_->{extension} } @{$remaining} ], [ 'mp4', 'tiff', 'zip' ],
+    'the untouched attachment references survive' );
 
 my $error = eval { $calls->[0]{attachment_add}->( { ref => 'TKT-001', filename => 'x.txt' } ); 1 } ? '' : $@;
 like( $error, qr/requires/i, 'upload payloads must carry content' );
@@ -137,6 +154,19 @@ test_psgi $app, sub {
     is( $fetch->code, 200, 'the attachment route streams' );
     like( $fetch->header('Content-Type'), qr{text/plain}, 'the provider content type is used' );
     is( decode_utf8( $fetch->content ), "BYTES ${pound}", 'attachment bytes round-trip UTF-8 safely' );
+    is( $fetch->header('Accept-Ranges'), 'bytes', 'the route advertises byte ranges' );
+
+    my $partial = $client->( GET '/attachment?ref=TKT-001&sha=' . ( '0' x 64 ) . '&extension=txt', Range => 'bytes=0-4' );
+    is( $partial->code, 206, 'a range request answers partial content' );
+    is( $partial->content, 'BYTES', 'the requested byte slice is returned' );
+    like( $partial->header('Content-Range'), qr{\Abytes 0-4/\d+\z}, 'the content range names the slice and total' );
+
+    my $tail = $client->( GET '/attachment?ref=TKT-001&sha=' . ( '0' x 64 ) . '&extension=txt', Range => 'bytes=6-' );
+    is( $tail->code, 206, 'an open-ended range answers partial content' );
+    is( decode_utf8( $tail->content ), $pound, 'the open-ended slice reaches the end' );
+
+    my $bogus = $client->( GET '/attachment?ref=TKT-001&sha=' . ( '0' x 64 ) . '&extension=txt', Range => 'bytes=99-' );
+    is( $bogus->code, 200, 'an unsatisfiable range falls back to the full body' );
 
     my $add = $client->(
         POST '/attachment/add', Content_Type => 'application/json',

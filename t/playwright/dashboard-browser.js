@@ -124,6 +124,8 @@ const fs = require('fs');
   if (dataRequests < 2) throw new Error('post-drag refresh never fetched /data');
   await page.evaluate(() => new Promise(requestAnimationFrame));
 
+  const seq = () => page.evaluate(() => window.__tiraMutationSeq || 0);
+  let before = 0;
   await page.locator('[data-ref="TKT-001"] .card').click();
   await page.waitForFunction(() => document.querySelector('.card-dialog')?.open);
   if (detailRequests !== 1) throw new Error(`lazy detail request missing: ${detailRequests}`);
@@ -138,6 +140,17 @@ const fs = require('fs');
     throw new Error('dialog leaks raw JSON or empty markers');
   if (await page.locator('.card-dialog .card-dialog__sections pre').count() !== 0) throw new Error('dialog still renders a raw JSON blob');
   if (peopleRequests < 1) throw new Error('author choices were not loaded from /people');
+
+  const statusOptions = await page.locator('.card-dialog .card-status option').evaluateAll(nodes => nodes.map(node => node.value));
+  if (statusOptions.length < 2 || !statusOptions.includes('backlog') || !statusOptions.includes('in-progress'))
+    throw new Error(`the column dropdown must list the board columns: ${statusOptions}`);
+  const statusSelected = await page.locator('.card-dialog .card-status').inputValue();
+  if (statusSelected !== 'in-progress') throw new Error(`the dropdown must preselect the card's column, got ${statusSelected}`);
+  before = await seq();
+  const movesBeforeStatus = moveRequests;
+  await page.locator('.card-dialog .card-status').selectOption('backlog');
+  await page.waitForFunction(prev => (window.__tiraMutationSeq || 0) > prev, before);
+  if (moveRequests !== movesBeforeStatus + 1) throw new Error('the dropdown move did not post /move');
 
   await page.locator('.card-dialog [data-edit="title"]').click();
   await page.locator('.card-dialog h2 .card-edit-input').fill('Renamed by dialog');
@@ -204,8 +217,7 @@ const fs = require('fs');
   await page.locator(`.card-dialog [data-view-attachment="${'a'.repeat(64)}.txt"]`).click();
   await page.waitForSelector('.card-viewer:not([hidden])');
   await page.waitForSelector('.card-viewer .card-viewer__text:not([hidden])');
-  const paneText = await page.locator('.card-viewer .card-viewer__text').textContent();
-  if (!paneText.includes('ATTACHMENT BYTES')) throw new Error(`text pane lacks the file content: ${paneText}`);
+  await page.waitForFunction(() => document.querySelector('.card-viewer__text')?.textContent.includes('ATTACHMENT BYTES'));
   const paneColor = await page.locator('.card-viewer .card-viewer__text').evaluate(node => getComputedStyle(node).color);
   const frameHidden = await page.locator('.card-viewer iframe').evaluate(node => node.hidden);
   if (!frameHidden) throw new Error('text attachments must not render through the iframe');
@@ -231,8 +243,7 @@ const fs = require('fs');
   if (Buffer.from(uploaded.body.content_base64, 'base64').toString() !== 'uploaded bytes')
     throw new Error('uploaded content did not round-trip through base64');
 
-  const seq = () => page.evaluate(() => window.__tiraMutationSeq || 0);
-  let before = await seq();
+  before = await seq();
   await page.locator('.card-dialog [data-list-edit="acceptance_criteria:0"]').click();
   await page.locator('.card-dialog [data-list-input="acceptance_criteria"]').fill('No JSON blob, edited');
   await page.locator('.card-dialog [data-list-save="acceptance_criteria"]').click();

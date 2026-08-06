@@ -1,5 +1,15 @@
 Revision history for Tira
 
+0.33  2026-08-06
+    - The card dialog header gained a column dropdown beside the ref, so a
+      card can be moved between columns from the open dialog like Jira;
+      choosing a column posts the same transactional move as drag-and-drop
+      and the dialog and board refresh in place.
+    - Fixed a live-refresh regression the dropdown introduced: opening the
+      dialog auto-focused the new select, which the editing guard read as
+      an active edit and suppressed refresh forever. The close button now
+      takes initial focus.
+
 0.32  2026-08-06
     - Media previews: video (mp4/m4v/mov/webm) and audio (mp3/wav/m4a/
       ogg/flac) attachments open in a native player; the attachment route

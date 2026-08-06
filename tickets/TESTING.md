@@ -848,3 +848,23 @@ report, message 2915 — three connected findings).
   count correction in t/21 after adding the media uploads. Playwright ×3
   green; functional PASS `Files=25, Tests=968`; coverage `100.0%`;
   `prove -T` PASS.
+
+## Latest Verification For `DD-422`
+
+- Owner ask (message 2924): a column dropdown in the card dialog to move
+  the card between columns like Jira.
+- Renderer: the header ref line gains a `card-status` select populated
+  from the live board DOM for the card's type, preselected to the current
+  column; a change posts the standard `/move` payload then refreshes the
+  board and reloads the dialog.
+- Loop record: the mobile Playwright refresh guard went red — root cause
+  `showModal()` auto-focusing the new select, which the editing guard
+  reads as an active edit, suppressing live refresh forever. Fix:
+  `autofocus` on the close button so initial focus is a non-editing
+  control. A separate guard-script race (text pane asserted before its
+  fetch resolved) was replaced with a content wait.
+- Guards: t/19 pins `card-status` in live HTML; Playwright asserts the
+  option list (backlog + in-progress), the in-progress preselection, a
+  selectOption posting `/move`, and the mobile "Edited elsewhere" refresh
+  wait — the regression's own detector. Playwright ×3 green; functional
+  PASS `Files=25, Tests=969`; coverage `100.0%`; `prove -T` PASS.

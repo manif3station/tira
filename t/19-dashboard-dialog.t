@@ -50,6 +50,7 @@ like( $live_html, qr/card-dialog__sections/,
 unlike( $live_html, qr/JSON\.stringify\(record,\s*null/,
     'the dialog never renders the record as one JSON blob' );
 like( $live_html, qr/renderCard/, 'the dialog builds its sections from the record' );
+like( $live_html, qr/card-status/, 'the dialog header offers the column dropdown' );
 for my $section (qw(Details Description Checklist Comments)) {
     like( $live_html, qr/\Q$section\E/, "the dialog knows the $section section" );
 }

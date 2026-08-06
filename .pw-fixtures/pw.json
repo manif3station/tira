@@ -1,0 +1,29 @@
+{
+   "_column_order" : {
+      "ticket" : [
+         "backlog",
+         "in-progress"
+      ]
+   },
+   "ticket" : {
+      "backlog" : [
+         {
+            "_mtime" : 1786054128,
+            "ref" : "TKT-003",
+            "title" : "Newest card"
+         },
+         {
+            "_mtime" : 1786053828,
+            "ref" : "TKT-002",
+            "title" : "Resident card"
+         }
+      ],
+      "in-progress" : [
+         {
+            "_mtime" : 1786054328,
+            "ref" : "TKT-001",
+            "title" : "Live browser card"
+         }
+      ]
+   }
+}

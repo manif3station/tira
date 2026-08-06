@@ -39,10 +39,12 @@ DD-400 makes dashboard cost scale with boards and records instead of columns.
 DD-401 accepts Developer Dashboard path aliases as private project selectors.
 DD-402 adds a metadata-free, modification-time-ordered dashboard fast path.
 DD-403 adds self-contained browser-rendered Kanban table output.
+DD-404 adds query-controlled automatic refresh to HTML dashboards.
+DD-405 serves that HTML through a bounded Dancer2 PSGI listener.
 
 ## Release standard
 
 Each slice is independently tested, documented, committed, and pushed. The epic
 closes only when the complete CLI documented in `SKILLS.md` is proven.
 
-Status: in progress through DD-403.
+Status: in progress through DD-405.

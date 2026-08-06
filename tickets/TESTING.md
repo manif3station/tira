@@ -409,3 +409,29 @@ Method: BDD + HTML security TDD + Playwright ATDD.
 - Agent contract: exactly 100 implemented use cases remain.
 - Cleanup/platform: browser/screenshot/HTML/coverage artifacts removed;
   macOS and Windows remain stopped.
+
+## DD-404 and DD-405
+
+Method: Browser BDD + JavaScript timer TDD + PSGI/HTTP ATDD.
+
+- Red gates: DD-404 failed exactly two missing refresh expectations; DD-405
+  initially failed because no PSGI adapter, JSON route, or browser output
+  contract existed.
+- Timer acceptance: default 5, invalid 5, zero-clamped 1, and custom 60 second
+  intervals passed with visible refresh and last-updated state.
+- Browser acceptance: `/data` returns the complete JSON dashboard; JavaScript
+  moves cards in place without page reload and opens full record data in a
+  dialog.
+- Playwright: PASS at 1440x1000 with one shell request and one JSON request,
+  30-second scheduling, card movement to `in-progress`, and dialog content.
+- Visual review: PASS; the modal has a clear cyan identity, readable full JSON,
+  strong depth, restrained backdrop blur, and an accessible close control.
+- Docker functional/coverage suite: PASS, 18 files and 701 assertions.
+- Coverage: all three production modules reached 100.0% statement and
+  subroutine coverage.
+- Security: all 701 assertions passed under `prove -T`; all 83 entrypoints and
+  `dashboard.psgi` compiled under taint mode; the production process-primitive
+  scan was clean.
+- Agent contract: exactly 100 implemented use cases remain and private project
+  selection terms remain absent from `SKILLS.md`.
+- Platform: macOS and Windows remain stopped.

@@ -116,6 +116,14 @@ and three type-specific entrypoints. CSS and JavaScript are embedded, dynamic
 values are escaped, no network resources are loaded, and card mtimes are
 included only as HTML data needed for local mtime/ref sorting.
 
+Release 0.16 adds a visible, query-controlled refresh timer to that document.
+It also adds a minimal Dancer2 PSGI projection: browser mode accepts only
+explicit local bind names and valid TCP ports. Its data route returns the
+complete JSON dashboard, and embedded JavaScript moves cards between columns
+without reloading the document. Card clicks open a full-record dialog and a
+last-updated indicator advances only after successful data application. The
+default listener is `0.0.0.0:7899`.
+
 ## Output and errors
 
 Default and `-o toon` output is produced by `Data::TOON` 0.03. `-o json` uses

@@ -21,10 +21,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.12):** shipped, executable, and covered by tests.
 - **Implemented (0.13):** shipped, executable, and covered by tests.
 - **Implemented (0.14):** shipped, executable, and covered by tests.
-- **Implemented (0.15):** shipped, executable, and covered by tests.
+- **Implemented (0.16):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.15.
+All commands and use cases in this manual ship in release 0.16.
 
 ## Global invocation grammar
 
@@ -415,6 +415,16 @@ commands print one board. Columns run left-to-right. Embedded CSS provides the
 responsive visual design, while embedded JavaScript lets the viewer select
 cards and reorder each board by last modified or card ref. Table output remains
 ref-only unless `--title` is supplied and uses no external resources.
+The page reloads every five seconds by default and shows the active interval;
+`?refresh=30` selects 30 seconds, invalid values fall back to five, and zero is
+clamped to one. `-o browser` serves this same live HTML at `0.0.0.0:7899`.
+Use `-o browser=localhost:4567`, `127.0.0.1`, or `0.0.0.0:1234` to choose an
+approved bind. The optional port defaults to 7899, and every request rebuilds
+the full `-o json` dashboard payload from current filesystem state. Browser
+JavaScript applies that payload in place, moving cards without reloading the
+page. Clicking a card opens its complete record in a detail dialog. The visible
+last-updated time advances only after fresh data is applied. Stop the foreground
+server with Ctrl-C.
 
 ## 100 use cases
 
@@ -719,7 +729,7 @@ without revealing or creating a storage location.
 **Implemented.** Repeat fields in one reviewable pass: `dashboard tira.search --text Jira --field description --field atdd -o json` and `dashboard tira.replace --pattern Jira --with Local --field description --field atdd --dry-run -o json`. Import preview `dashboard tira.import --file changes.json --dry-run -o json` returns `changes[]` entries containing `ref`, `field`, `before`, and `after`; omit dry-run only after reviewing every diff.
 
 ### UC-100: Render dashboard
-**Implemented.** `dashboard tira.dashboard --type all` is the ref-only fast path; add `--title` for titles, `--include-discard` for archived cards, `-o json` for complete records, or `-o table` for self-contained interactive HTML. Type-specific table commands are `tira.dashboard.sow`, `.epic`, and `.ticket`.
+**Implemented.** `dashboard tira.dashboard --type all` is the ref-only fast path; add `--title` for titles, `--include-discard` for archived cards, `-o json` for complete records, `-o table` for self-contained interactive HTML, or `-o browser` for the live Dancer2 view. Type-specific table/browser commands are `tira.dashboard.sow`, `.epic`, and `.ticket`.
 
 ## Safety contract
 

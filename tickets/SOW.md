@@ -57,3 +57,6 @@ DD-402 makes the default dashboard a ref-only filesystem view with optional
 titles and unchanged full JSON automation output.
 DD-403 adds raw self-contained HTML tables for combined and type-specific
 dashboard commands.
+DD-404 adds safe default and query-controlled refresh timing to those tables.
+DD-405 adds an optional Developer Dashboard-supplied Dancer2 PSGI server for
+the same self-contained HTML with bounded listener configuration.

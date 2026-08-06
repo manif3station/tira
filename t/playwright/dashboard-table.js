@@ -15,7 +15,29 @@ const fs = require('fs');
     args: ['--no-sandbox'],
   });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-  await page.goto(`file://${path.resolve(htmlPath)}`);
+  await page.addInitScript(() => {
+    window.setTimeout = (_callback, delay) => {
+      window.__tiraTimerDelay = delay;
+      return 1;
+    };
+  });
+  const url = `file://${path.resolve(htmlPath)}`;
+  const assertRefresh = async (query, seconds, delay) => {
+    await page.goto(`${url}${query}`);
+    const state = await page.evaluate(() => ({
+      seconds: document.documentElement.dataset.refresh,
+      delay: window.__tiraTimerDelay,
+      text: document.querySelector('.refresh-status')?.textContent || '',
+    }));
+    if (state.seconds !== String(seconds) || state.delay !== delay || !state.text.includes(`${seconds}s`)) {
+      throw new Error(`unexpected refresh state ${JSON.stringify(state)}`);
+    }
+    if (!await page.locator('.last-updated').textContent()) throw new Error('last-updated timestamp is missing');
+  };
+  await assertRefresh('', 5, 5000);
+  await assertRefresh('?refresh=invalid', 5, 5000);
+  await assertRefresh('?refresh=0', 1, 1000);
+  await assertRefresh('?refresh=60', 60, 60000);
   if (await page.locator('.board').count() !== 1) throw new Error('expected one type-specific board');
   const headers = page.locator('th');
   if (await headers.count() < 2) throw new Error('expected at least two columns');

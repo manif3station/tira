@@ -15,6 +15,7 @@ sub run {
     my $type = $args{type};
     my $argv = $args{argv} || [];
     my $tira = $args{tira} || Tira->new( path_resolver => _dd_path_resolver() );
+    my $browser_server = $args{browser_server} || \&_serve_browser;
     my %option = ( output => 'toon' );
     my $environment_project;
     my $decoded = eval {
@@ -87,6 +88,18 @@ sub run {
       if $command eq 'attachment.get' && $option{output} !~ /\A(?:toon|json|human)\z/;
     return _error( $tira, 'toon', 'Table output is available only for dashboard commands' )
       if $option{output} eq 'table' && $command !~ /\Adashboard(?:\.(?:sow|epic|ticket))?\z/;
+    return _error( $tira, 'toon', 'Browser output is available only for dashboard commands' )
+      if $option{output} =~ /\Abrowser(?:=|\z)/ && $command !~ /\Adashboard(?:\.(?:sow|epic|ticket))?\z/;
+
+    my ( $browser_host, $browser_port );
+    if ( $option{output} =~ /\Abrowser(?:=(.*))?\z/ ) {
+        my $endpoint = defined $1 && length $1 ? $1 : '0.0.0.0:7899';
+        my $valid = eval {
+            ( $browser_host, $browser_port ) = _browser_endpoint($endpoint);
+            1;
+        };
+        return _error( $tira, 'toon', $@ || 'Invalid browser endpoint' ) if !$valid;
+    }
 
     $option{project} = $environment_project if !defined $option{project} && defined $environment_project;
 
@@ -100,6 +113,32 @@ sub run {
     if ( $command eq 'attachment.get' ) {
         print $result->{content};
         return $result->{deleted} ? 1 : 0;
+    }
+
+    if ( defined $browser_host ) {
+        my $render = sub {
+            my %render_option = %option;
+            $render_option{output} = 'table';
+            my $dashboard = _invoke( $tira, $command, $type, \%render_option );
+            return $tira->format_output(
+                $dashboard, output => 'table', project => $option{project}, live => 1,
+                with_title => defined $option{title},
+            );
+        };
+        my $data = sub {
+            my %data_option = %option;
+            $data_option{output} = 'json';
+            my $dashboard = _invoke( $tira, $command, $type, \%data_option );
+            return $tira->format_output( $dashboard, output => 'json', project => $option{project} );
+        };
+        my $served = eval {
+            $browser_server->(
+                host => $browser_host, port => $browser_port, render => $render, data => $data,
+            );
+            1;
+        };
+        return _error( $tira, 'toon', $@ || 'Unable to serve dashboard' ) if !$served;
+        return 0;
     }
 
     my $formatted = eval { $tira->format_output( $result, output => $option{output}, project => $option{project} ) };
@@ -125,6 +164,20 @@ sub _dd_path_resolver {
         $paths->register_named_paths( $config->path_aliases );
         return $paths->resolve_dir($name);
     };
+}
+
+sub _browser_endpoint {
+    my ($endpoint) = @_;
+    $endpoint =~ /\A(0\.0\.0\.0|127\.0\.0\.1|localhost)(?::([0-9]+))?\z/
+      or die "Unsupported browser endpoint '$endpoint'\n";
+    my ( $host, $port ) = ( $1, defined $2 ? 0 + $2 : 7899 );
+    die "Browser port must be between 1 and 65535\n" if $port < 1 || $port > 65535;
+    return ( $host, $port );
+}
+
+sub _serve_browser {
+    require Tira::DashboardWeb;
+    return Tira::DashboardWeb->serve(@_);
 }
 
 sub _invoke {
@@ -217,7 +270,7 @@ sub _invoke {
         $args{include_discard} = $option->{include_discard};
         $args{summary} = $option->{output} ne 'json';
         $args{with_title} = defined $option->{title};
-        $args{include_mtime} = $option->{output} eq 'table';
+        $args{include_mtime} = $option->{output} eq 'table' || $option->{output} =~ /\Abrowser(?:=|\z)/;
     }
     $args{include_deleted} = $option->{include_deleted} if $command eq 'attachment.list';
     if ( $command =~ /\Acomment\.(?:add|update)\z/ && defined $option->{file} ) {
@@ -290,7 +343,8 @@ Parses the common project and record metadata options, invokes L<Tira>, and
 applies the TOON-first output and structured error contract. Project-location
 selection is intentionally omitted from user-facing help. Text input is decoded
 strictly as UTF-8 and structured output is emitted as UTF-8 bytes; attachment
-content remains raw.
+content remains raw. Dashboard commands additionally support self-contained
+HTML and validated Dancer2 browser serving.
 
 =head1 METHODS
 

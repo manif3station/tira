@@ -1,5 +1,15 @@
 Revision history for Tira
 
+0.16  2026-08-06
+    - Added visible five-second automatic refresh to HTML dashboards, with a
+      safe `refresh=N` URL override and a one-second minimum.
+    - Added `-o browser` and validated localhost bind overrides for all four
+      dashboard commands.
+    - Added a Dancer2 PSGI adapter with a full JSON data route; browser boards
+      move cards in place through AJAX without reloading the page.
+    - Added a Jira-style full-record card dialog and truthful last-updated
+      timestamp, plus direct PSGI and Playwright coverage.
+
 0.15  2026-08-06
     - Added self-contained `-o table` HTML to combined and type-specific
       dashboard commands.

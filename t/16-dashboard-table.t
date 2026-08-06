@@ -36,8 +36,12 @@ is( $status, 0, 'combined table dashboard succeeds' );
 is( $err, '', 'combined table dashboard has no stderr' );
 like( $html, qr/\A<!doctype html>/i, 'table output is a raw HTML document' );
 like( $html, qr/<style>.*linear-gradient/s, 'table embeds a styled gradient surface' );
-like( $html, qr/<script>.*addEventListener/s, 'table embeds local interaction JavaScript' );
+like( $html, qr/<script>.*onclick/s, 'table embeds local interaction JavaScript' );
 like( $html, qr/data-sort="mtime".*data-sort="ref"/s, 'table provides mtime and ref sorting controls' );
+like( $html, qr/class="refresh-status"/, 'table displays its active refresh interval' );
+like( $html, qr/class="last-updated"/, 'table displays when its data was last updated' );
+like( $html, qr/URLSearchParams.*refresh.*location\.reload.*setTimeout/s,
+    'table embeds query-controlled automatic reload logic' );
 is( scalar( () = $html =~ /class="board board--/g ), 3, 'combined dashboard stacks three type boards' );
 like( $html, qr/data-type="sow".*data-type="epic".*data-type="ticket"/s,
     'combined dashboard preserves SOW, epic, ticket vertical order' );

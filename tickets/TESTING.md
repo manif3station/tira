@@ -282,3 +282,11 @@ Method: ATDD + migration BDD + security TDD.
   stopped.
 - Release: committed as `c9006f9`; push was attempted and rejected because the
   configured passphrase-protected SSH identity has no active agent socket.
+- Real CLI reproduction: installed pre-0.09 `d2` rejected `--full` and
+  `--field` with exit 2 and lacked `tira.export` with exit 1. A separate
+  disposable project exercised the 0.09 working-tree entrypoints: export
+  returned all three types with columns; full list returned the complete ticket;
+  search returned two exact description hits; import/replace dry runs did not
+  persist; applies matched their previews; gate/evidence originals survived
+  annotation; and a mixed import failed atomically without changing the valid
+  ticket.

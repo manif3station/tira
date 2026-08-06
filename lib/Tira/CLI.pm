@@ -56,6 +56,7 @@ sub run {
         'fields=s@' => \$option{field_selection},
         'exclude-fields=s@' => \$option{exclude_fields},
         'include-empty' => \$option{include_empty},
+        'since=s' => \$option{since},
         'with=s' => \$option{with}, 'note=s' => \$option{note},
         'reporter=s' => \$option{reporter}, 'due-date=s' => \$option{due_date},
         'start-date=s' => \$option{start_date}, 'sdlc-gate=s' => \$option{sdlc_gate},
@@ -444,8 +445,9 @@ sub _invoke {
     my ( $tira, $command, $record_type, $option ) = @_;
     my %args = %{$option};
     delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty)};
-    if ( defined $option->{field_selection} || defined $option->{exclude_fields} || $option->{include_empty} ) {
-        die "Field selection is available on show, list, and export commands\n"
+    if ( defined $option->{field_selection} || defined $option->{exclude_fields}
+        || $option->{include_empty} || defined $option->{since} ) {
+        die "Read options are available on show, list, and export commands\n"
           if $command !~ /\A(?:record\.(?:show|list)|export)\z/;
         $args{fields} = $option->{field_selection} if defined $option->{field_selection};
         $args{exclude_fields} = $option->{exclude_fields} if defined $option->{exclude_fields};

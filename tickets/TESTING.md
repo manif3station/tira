@@ -925,3 +925,17 @@ report, message 2915 — three connected findings).
 - New suite `t/26-omit-empty.t` red-first; functional PASS
   `Files=27, Tests=1042`; coverage `100.0%` on all three modules;
   `prove -T` PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-426`
+
+- CA04: `--since` on show, list, and export with instant-based
+  comparison (`Z`/`±HH:MM`/`±HHMM`; offsetless reads as UTC); export
+  envelope gains `now` captured before the scan for gap-free chaining.
+- Red-first `t/27-changed-since.t`: threshold inclusivity, offset
+  equivalence (string order would exclude what instant order includes —
+  pinned), future→empty exit 0, garbage→exit 2 naming the failure,
+  `now` only with since, projection composition, show→`{}` when
+  unchanged, corrupted `last_updated` never hidden, CLI guard exit 2 on
+  mutations.
+- Functional PASS `Files=28, Tests=1071`; coverage `100.0%` all three
+  modules; `prove -T` PASS; `cover_db` cleaned.

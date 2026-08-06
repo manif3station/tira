@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.36):** shipped, executable, and covered by tests.
+- **Implemented (0.37):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.36.
+All commands and use cases in this manual ship in release 0.37.
 
 ## Global invocation grammar
 
@@ -278,8 +278,8 @@ They create independent Backlog records with empty linkage. These symmetric
 forms are **Implemented (DD-389)** for each `TYPE`:
 
 ```text
-tira.TYPE.show --ref REF [--fields LIST] [--exclude-fields LIST] [--include-empty] [-o FORMAT]
-tira.TYPE.list [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [--fields LIST] [--exclude-fields LIST] [--include-empty] [-o FORMAT]
+tira.TYPE.show --ref REF [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [-o FORMAT]
+tira.TYPE.list [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [-o FORMAT]
 tira.TYPE.update --ref REF [record field arguments] [-o FORMAT]
 tira.TYPE.move --ref REF --column SLUG [-o FORMAT]
 tira.TYPE.discard --ref REF [-o FORMAT]
@@ -304,6 +304,17 @@ unset" — `false` and `0` are values and are never omitted, and a field
 named in `--fields` is always present even when empty. The record schema
 section above lists every possible key, so omission costs no
 discoverability.
+Changed-since filtering is **Implemented (DD-426)** on the same three
+commands: `--since` takes an ISO 8601 timestamp (`Z`, `±HH:MM`, or
+`±HHMM`; a missing offset reads as UTC) and returns only records whose
+`last_updated` is at or after that instant — compared as instants, never
+as strings. With `--since`, the export envelope adds `now`, the server
+clock at scan start; pass it back as the next `--since` for gap-free
+polling (a record touched in the boundary second may repeat, but none
+can be missed). A future timestamp returns empty with exit 0; a
+malformed one exits 2; `show` returns `{}` for an unchanged record; a
+record whose stored stamp is unreadable is always returned, never
+hidden.
 Clone creates a Backlog record, shares attachment refs, clears hierarchy, and
 adds reciprocal clone links.
 
@@ -399,7 +410,7 @@ tira.evidence.annotate --ref REF --id EVD-NNN --note TEXT [--author ID] [-o FORM
 tira.gate.list --ref REF [-o FORMAT]
 tira.gate.add --ref REF --gate TEXT --result pass|fail|blocked --details TEXT [--author ID] [-o FORMAT]
 tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]
-tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [-o FORMAT]
+tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [-o FORMAT]
 tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [-o FORMAT]
 tira.import --file FILE [--dry-run] [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [-o FORMAT]
@@ -658,7 +669,7 @@ without revealing or creating a storage location.
 **Implemented.** `dashboard tira.ticket.show --ref TKT-001` returns the record's populated keys (empty values are omitted by default; `--include-empty` restores them); `dashboard tira.ticket.show --ref TKT-001 --fields column -o json` returns only `ref` and `column` — the cheapest way to answer the board's commonest question.
 
 ### UC-043: Read boards in one call, at chosen weight
-**Implemented.** `dashboard tira.export -o json` returns every SOW, epic, and ticket in one `{records, count}` object; `dashboard tira.export --fields ref,column -o json` returns the same board as two-key records, and `--exclude-fields description,comments` keeps structure while dropping the prose. Count is unaffected by projection.
+**Implemented.** `dashboard tira.export -o json` returns every SOW, epic, and ticket in one `{records, count}` object; `dashboard tira.export --fields ref,column -o json` returns the same board as two-key records, and `--exclude-fields description,comments` keeps structure while dropping the prose. Count is unaffected by projection. `dashboard tira.export --since 2026-08-07T02:30:00Z --fields ref,column -o json` returns only records changed at or after that instant plus `now` for the next poll — a quiet board costs a few bytes to check.
 
 ### UC-044: Filter by column
 **Implemented.** `dashboard tira.ticket.list --column backlog`.

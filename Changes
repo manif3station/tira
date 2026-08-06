@@ -1,5 +1,13 @@
 Revision history for Tira
 
+0.37  2026-08-07
+    - CA04 (EPIC-424): changed-since reads. show, list, and export take
+      --since (ISO 8601, instant-compared across offsets); export's
+      envelope adds now for gap-free poll chaining. Future thresholds
+      are empty with exit 0, malformed ones exit 2, unreadable stored
+      stamps are never hidden, and show returns {} for an unchanged
+      record.
+
 0.36  2026-08-07
     - CA15 (EPIC-424): sparse reads. show, list, and export omit empty
       values by default (null, empty string, empty array, hash of only

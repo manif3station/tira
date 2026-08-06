@@ -87,6 +87,15 @@ all reads and mutations and must not attempt direct filesystem access. Run
 Existing record-list commands retain their compatible array result; `--full`
 is an explicit assertion that the full records already returned are required.
 
+Show, list, and export accept `--since TIMESTAMP` to return only records
+whose `last_updated` is at or after that instant (timezone-aware, never a
+string comparison). Export's envelope then carries `now` — the server clock
+captured before the scan — so a poller passes it back as its next `--since`
+and can never miss a change; a record touched in the boundary second may
+appear twice, which is the safe side. Future timestamps return empty with
+exit 0, malformed ones exit 2, and a record whose stored stamp is
+unreadable is always returned.
+
 Show, list, and export omit empty values by default — null, empty string,
 empty array, or a hash containing only such values — and `--include-empty`
 restores the previous fixed-key shape. `false` and `0` are never treated as

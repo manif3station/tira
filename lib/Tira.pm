@@ -15,9 +15,10 @@ use File::Spec;
 use File::Temp qw(tempfile);
 use JSON::PP ();
 use POSIX qw(strftime);
+use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.36';
+our $VERSION = '0.37';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -492,6 +493,32 @@ sub _field_projection {
     return %plan ? \%plan : undef;
 }
 
+# CA04: instant-based comparison. Accepts Z, +-HH:MM, and the +-HHMM the
+# default clock writes; a missing offset reads as UTC. Dies on anything
+# else so a malformed threshold can never silently mean "everything".
+sub _epoch_of_datetime {
+    my ( $value, $label ) = @_;
+    my ( $year, $month, $day, $hour, $minute, $second, $offset ) =
+      ( $value // '' ) =~ /\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})?\z/
+      or die "$label must be an ISO 8601 date-time\n";
+    my $epoch = timegm_modern( $second, $minute, $hour, $day, $month - 1, $year );
+    if ( defined $offset && $offset ne 'Z' ) {
+        my ( $sign, $offset_hours, $offset_minutes ) = $offset =~ /\A([+-])(\d{2}):?(\d{2})\z/;
+        my $shift = $offset_hours * 3600 + $offset_minutes * 60;
+        $epoch += $sign eq '-' ? $shift : -$shift;
+    }
+    return $epoch;
+}
+
+# A record whose stored stamp cannot be parsed is treated as changed —
+# since-filtering may skip quiet records but must never hide one.
+sub _changed_since {
+    my ( $record, $threshold ) = @_;
+    my $stamp = eval { _epoch_of_datetime( $record->{last_updated}, 'Last updated' ) };
+    return 1 if !defined $stamp;
+    return $stamp >= $threshold;
+}
+
 # CA15: a value is empty when it is undef, an empty string, an empty
 # array, or a hash whose every value is empty by the same rule (scope and
 # blank linkage). Booleans and numbers — including 0 and false — are
@@ -532,7 +559,9 @@ sub _project_record {
 sub record_show {
     my ( $self, %args ) = @_;
     my $plan = _field_projection(%args);
+    my $threshold = defined $args{since} ? _epoch_of_datetime( $args{since}, 'Since' ) : undef;
     my ( $path, $record, $column ) = $self->_record_data(%args);
+    return {} if defined $threshold && !_changed_since( $record, $threshold );
     my $root = $self->discover_project(%args);
     for my $pool ( $record->{attachments}, map { $_->{attachments} } @{ $record->{comments} // [] } ) {
         $self->_backfill_added_at( $root, $pool );
@@ -559,6 +588,7 @@ sub _backfill_added_at {
 sub record_list {
     my ( $self, %args ) = @_;
     my $plan = _field_projection(%args);
+    my $threshold = defined $args{since} ? _epoch_of_datetime( $args{since}, 'Since' ) : undef;
     my $root = $self->discover_project(%args);
     my @records;
     for my $candidate ( defined $args{type} ? ( $args{type} ) : qw(sow epic ticket) ) {
@@ -578,6 +608,7 @@ sub record_list {
                 my $haystack = join ' ', $record->{ref}, $record->{title}, $record->{description};
                 return if index( lc $haystack, lc $args{text} ) < 0;
             }
+            return if defined $threshold && !_changed_since( $record, $threshold );
             push @records, _project_record( { %{$record}, column => $column }, $plan );
         } }, $board );
     }
@@ -586,8 +617,11 @@ sub record_list {
 
 sub export_records {
     my ( $self, %args ) = @_;
+    my $now = defined $args{since} ? $self->{clock}->() : undef;
     my $records = $self->record_list(%args);
-    return { records => $records, count => scalar @{$records} };
+    my $result = { records => $records, count => scalar @{$records} };
+    $result->{now} = $now if defined $now;
+    return $result;
 }
 
 # Optimistic-concurrency comparator for scalar record fields: an absent or

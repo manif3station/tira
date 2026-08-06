@@ -59,6 +59,7 @@ sub run {
         'since=s' => \$option{since},
         'if-changed=s' => \$option{if_changed},
         'count' => \$option{count}, 'refs-only' => \$option{refs_only},
+        'brief' => \$option{brief}, 'truncate=i' => \$option{truncate},
         'with=s' => \$option{with}, 'note=s' => \$option{note},
         'reporter=s' => \$option{reporter}, 'due-date=s' => \$option{due_date},
         'start-date=s' => \$option{start_date}, 'sdlc-gate=s' => \$option{sdlc_gate},
@@ -456,11 +457,21 @@ sub _invoke {
     my %args = %{$option};
     delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty)};
     if ( defined $option->{field_selection} || defined $option->{exclude_fields}
-        || $option->{include_empty} || defined $option->{since} ) {
+        || $option->{include_empty} || defined $option->{since}
+        || $option->{brief} || defined $option->{truncate} ) {
         die "Read options are available on show, list, and export commands\n"
           if $command !~ /\A(?:record\.(?:show|list)|export)\z/;
         $args{fields} = $option->{field_selection} if defined $option->{field_selection};
         $args{exclude_fields} = $option->{exclude_fields} if defined $option->{exclude_fields};
+    }
+    if ( $command =~ /\A(?:record\.(?:show|list)|export)\z/ ) {
+        die "Cannot combine --full with --truncate\n"
+          if $option->{full} && defined $option->{truncate};
+        die "Truncate must be zero or a positive character count\n"
+          if defined $option->{truncate} && $option->{truncate} < 0;
+        $args{truncate} = defined $option->{truncate} ? $option->{truncate}
+          : $option->{full} ? undef : 2000;
+        delete $args{truncate} if !defined $args{truncate};
     }
     $args{omit_empty} = 1
       if $command =~ /\A(?:record\.(?:show|list)|export)\z/ && !$option->{include_empty};

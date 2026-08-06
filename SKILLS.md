@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.39):** shipped, executable, and covered by tests.
+- **Implemented (0.40):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.39.
+All commands and use cases in this manual ship in release 0.40.
 
 ## Global invocation grammar
 
@@ -278,8 +278,8 @@ They create independent Backlog records with empty linkage. These symmetric
 forms are **Implemented (DD-389)** for each `TYPE`:
 
 ```text
-tira.TYPE.show --ref REF [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [-o FORMAT]
-tira.TYPE.list [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--count] [--refs-only] [-o FORMAT]
+tira.TYPE.show --ref REF [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--brief] [--truncate N|--full] [-o FORMAT]
+tira.TYPE.list [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--count] [--refs-only] [--brief] [--truncate N|--full] [-o FORMAT]
 tira.TYPE.update --ref REF [record field arguments] [-o FORMAT]
 tira.TYPE.move --ref REF --column SLUG [-o FORMAT]
 tira.TYPE.discard --ref REF [-o FORMAT]
@@ -334,6 +334,21 @@ over refs-only wins over `--fields`, documented rather than guessed, and
 field names are still validated loudly even when projection is moot.
 With `-o human`, count prints a bare number and refs-only prints one ref
 per line, so both pipe straight into a shell.
+Brief and truncation are **Implemented (DD-429)** on show, list, and
+export. `--brief` is exactly `ref,title,column,sdlc_gate,assignee` — a
+shorthand for the equivalent `--fields` list, never a special case — with
+the title cut at a stable 72 characters plus an ellipsis and a null
+assignee kept visible; combining it with `--fields` exits 2. Long text
+(`description`, `problem_or_feature`, `solution_needed`, and each gate
+`details` / evidence `summary`) truncates at 2000 characters by default,
+always visibly: the cut value ends with an ellipsis and gains
+`<field>_truncated` and `<field>_length` markers. `--truncate N` chooses
+the limit, `--truncate 0` omits the text while still marking it present,
+`--full` restores everything (combining `--full` with `--truncate` exits
+2), short fields carry no markers, and structural fields are never cut.
+Truncation is presentation only: `content_hash` is computed from the
+full record. The board dashboard is already a summary view and takes no
+brief flag.
 Clone creates a Backlog record, shares attachment refs, clears hierarchy, and
 adds reciprocal clone links.
 
@@ -429,7 +444,7 @@ tira.evidence.annotate --ref REF --id EVD-NNN --note TEXT [--author ID] [-o FORM
 tira.gate.list --ref REF [-o FORMAT]
 tira.gate.add --ref REF --gate TEXT --result pass|fail|blocked --details TEXT [--author ID] [-o FORMAT]
 tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]
-tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--count] [-o FORMAT]
+tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--count] [--brief] [--truncate N|--full] [-o FORMAT]
 tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [-o FORMAT]
 tira.import --file FILE [--dry-run] [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [--count] [--refs-only] [-o FORMAT]
@@ -678,8 +693,8 @@ without revealing or creating a storage location.
 ### UC-039: Change future refs
 **Implemented.** `dashboard tira.board.refs --type ticket --prefix DEV --digits 5`.
 
-### UC-040: Show SOW
-**Implemented.** `dashboard tira.sow.show --ref SOW-001 -o json`.
+### UC-040: Show a SOW, briefly when that is enough
+**Implemented.** `dashboard tira.sow.show --ref SOW-001 -o json` (long text arrives truncated with visible markers; `--full` restores it); `dashboard tira.sow.show --ref SOW-001 --brief -o human` is the one-line look.
 
 ### UC-041: Show epic
 **Implemented.** `dashboard tira.epic.show --ref EPC-001 -o human`.

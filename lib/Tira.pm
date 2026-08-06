@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.39';
+our $VERSION = '0.40';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -478,9 +478,60 @@ my %RECORD_FIELD = map { $_ => 1 } @RECORD_FIELDS;
 # CA01-CA03: validate --fields/--exclude-fields input (comma lists,
 # repeatable) into a projection plan. Unknown and empty names die so a typo
 # can never quietly return an empty object.
+my @BRIEF_FIELDS = qw(ref title column sdlc_gate assignee);
+my $BRIEF_TITLE_WIDTH = 72;
+my %LONG_TEXT_FIELD = map { $_ => 1 } qw(description problem_or_feature solution_needed);
+my $ELLIPSIS = "\x{2026}";
+
+# CA09: truncation is presentation only — applied after hashing and
+# projection, marked per field (and per gate/evidence entry) with the
+# original length, and never silent. A zero limit omits the text but
+# still marks it present.
+sub _truncate_text_slot {
+    my ( $container, $key, $limit ) = @_;
+    my $value = $container->{$key};
+    return if !defined $value || ref $value;
+    my $length = length $value;
+    return if $limit > 0 && $length <= $limit;
+    if ( $limit > 0 ) {
+        $container->{$key} = substr( $value, 0, $limit ) . $ELLIPSIS;
+    }
+    else {
+        return if $length == 0;
+        delete $container->{$key};
+    }
+    $container->{"${key}_truncated"} = JSON::PP::true;
+    $container->{"${key}_length"} = $length;
+    return;
+}
+
+sub _apply_truncation {
+    my ( $projected, $limit ) = @_;
+    _truncate_text_slot( $projected, $_, $limit ) for keys %LONG_TEXT_FIELD;
+    for my $entry ( @{ $projected->{gate_passing_log} // [] } ) {
+        _truncate_text_slot( $entry, 'details', $limit );
+    }
+    for my $entry ( @{ $projected->{evidence} // [] } ) {
+        _truncate_text_slot( $entry, 'summary', $limit );
+    }
+    return $projected;
+}
+
+sub _apply_brief_title {
+    my ($projected) = @_;
+    my $title = $projected->{title};
+    return if !defined $title || length($title) <= $BRIEF_TITLE_WIDTH;
+    $projected->{title} = substr( $title, 0, $BRIEF_TITLE_WIDTH ) . $ELLIPSIS;
+    return;
+}
+
 sub _field_projection {
     my (%args) = @_;
     my %plan;
+    if ( $args{brief} ) {
+        die "Brief contradicts an explicit field selection\n" if defined $args{fields};
+        $args{fields} = [ join ',', @BRIEF_FIELDS ];
+    }
     for my $side (qw(fields exclude_fields)) {
         next if !defined $args{$side};
         my @names = map { split /,/, $_, -1 } @{ $args{$side} };
@@ -600,7 +651,10 @@ sub record_show {
     }
     $full->{content_hash} = _record_content_hash($full)
       if $plan && $plan->{fields} && $plan->{fields}{content_hash};
-    return _project_record( $full, $plan );
+    my $projected = _project_record( $full, $plan );
+    _apply_truncation( $projected, $args{truncate} ) if defined $args{truncate};
+    _apply_brief_title($projected) if $args{brief};
+    return $projected;
 }
 
 # Attachments stored before release 0.22 predate the added_at stamp. The
@@ -649,7 +703,12 @@ sub record_list {
             my $full = { %{$record}, column => $column };
             $full->{content_hash} = _record_content_hash($full)
               if $plan && $plan->{fields} && $plan->{fields}{content_hash};
-            push @records, _project_record( $full, $plan );
+            my $projected = _project_record( $full, $plan );
+            if ( !$args{count} && !$args{refs_only} ) {
+                _apply_truncation( $projected, $args{truncate} ) if defined $args{truncate};
+                _apply_brief_title($projected) if $args{brief};
+            }
+            push @records, $projected;
         } }, $board );
     }
     my $sorted = [ sort { $a->{ref} cmp $b->{ref} } @records ];

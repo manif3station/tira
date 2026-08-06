@@ -87,6 +87,15 @@ all reads and mutations and must not attempt direct filesystem access. Run
 Existing record-list commands retain their compatible array result; `--full`
 is an explicit assertion that the full records already returned are required.
 
+`--brief` on show, list, and export is the documented five-field preset
+(`ref,title,column,sdlc_gate,assignee`, title cut at a stable 72 characters);
+long text fields and gate/evidence entry text truncate at 2000 characters by
+default with an ellipsis plus `_truncated`/`_length` markers — never
+silently. `--truncate N` picks the limit, `--truncate 0` omits but marks,
+`--full` restores the complete values, and contradictory combinations exit 2.
+Hashes are computed before truncation, so a truncated read and a full read
+agree about change.
+
 `--count` on list, export, and search suppresses the records and returns the
 count alone; `--refs-only` on list and search returns a flat, stably ordered,
 deduplicated ref array. Count wins over refs-only wins over field selection —

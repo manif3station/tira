@@ -1,5 +1,14 @@
 Revision history for Tira
 
+0.40  2026-08-07
+    - CA08+CA09 (EPIC-424): the --brief preset (five documented fields,
+      title cut at 72 chars, null assignee visible, contradiction with
+      --fields loud) and default long-text truncation at 2000 chars with
+      ellipsis plus _truncated/_length markers on fields and gate/
+      evidence entries; --truncate N chooses, zero omits-but-marks,
+      --full restores. Presentation only — hashes come from the full
+      record.
+
 0.39  2026-08-07
     - CA07+CA17 (EPIC-424): count-only and refs-only reads. --count on
       list, export, and search returns {"count": N} alone; --refs-only

@@ -966,3 +966,18 @@ report, message 2915 — three connected findings).
   epic fixture, so the scenario pins `--type` explicitly.
 - Functional PASS `Files=30, Tests=1123`; coverage `100.0%` all three
   modules; `prove -T` PASS; `cover_db` cleaned. Browser untouched.
+
+## Latest Verification For `DD-429`
+
+- CA08+CA09: `--brief` as a projection-preset shorthand (title cut at a
+  documented 72 chars) and default 2000-char long-text truncation with
+  ellipsis plus `_truncated`/`_length` markers on `description`,
+  `problem_or_feature`, `solution_needed`, gate `details`, and evidence
+  `summary`; `--truncate N`, `--truncate 0` omit-but-mark, `--full`
+  restore; contradictions and negative limits exit 2.
+- Truncation applies after hashing and projection — asserted by an
+  unchanged `content_hash` under a 50-char cut.
+- Red-first `t/30-brief-truncate.t` (32 checks); functional PASS
+  `Files=31, Tests=1155`; coverage `100.0%` statement and subroutine on
+  all three modules; `prove -T` PASS; `cover_db` cleaned. Browser
+  untouched (engine flags are opt-in).

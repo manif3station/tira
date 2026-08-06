@@ -32,9 +32,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.24):** shipped, executable, and covered by tests.
 - **Implemented (0.25):** shipped, executable, and covered by tests.
 - **Implemented (0.26):** shipped, executable, and covered by tests.
+- **Implemented (0.27):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.26.
+All commands and use cases in this manual ship in release 0.27.
 
 ## Global invocation grammar
 
@@ -466,7 +467,8 @@ same-color background; other types offer a named download.
 Files upload from the dialog with a 16 MB cap through the same hash-dedup
 store as the CLI, and each comment carries and manages its own attachment
 chips. Attachment references record their added time and render as a vertical
-one-per-row list, dates right-aligned, sorted newest first. References
+one-per-row list, full date-and-time stamps right-aligned, sorted newest
+first at full timestamp precision. References
 stored before timestamps existed recover their real added time on read
 from the deduplicated store file's own modification time (persisted on
 the record's next mutation, like the legacy UTF-8 repair); only a

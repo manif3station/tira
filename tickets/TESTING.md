@@ -733,3 +733,15 @@ real project board (message 2888).
   ZSD-136-shaped fixture visually reviewed.
 - Functional: PASS, `Files=25, Tests=954`; coverage `100.0%` statement
   and subroutine; taint gates PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-416`
+
+- Owner annotation on the 0.26 proof screenshot: the rows showed only the
+  date, so same-day attachments gave no visible order even though the
+  sort already compared full ISO timestamps.
+- Fix: the row stamp renders through `humanDate` (full date and time);
+  sorting unchanged. The permanent browser guard now requires the full
+  `YYYY-MM-DD HH:MM:SS` stamp on the newest row.
+- Functional PASS `Files=25, Tests=954`; coverage `100.0%`; `prove -T`
+  PASS; Playwright ×3 green; mobile dark capture visually reviewed with
+  intra-day ordering legible (21:34 > 18:02 > 15:31).

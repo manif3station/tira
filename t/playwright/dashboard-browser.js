@@ -151,7 +151,7 @@ const fs = require('fs');
     throw new Error('bold markdown did not render as a strong element');
   const chipNames = await page.locator('.card-dialog .card-attachments .card-attachment__view').evaluateAll(nodes => nodes.map(node => node.textContent));
   if (!chipNames[0].includes('fresh.txt')) throw new Error(`attachments are not newest-first: ${chipNames}`);
-  if (!chipNames[0].includes('2026-08-05')) throw new Error(`attachment chip lacks its date: ${chipNames[0]}`);
+  if (!/2026-08-05 10:00:00/.test(chipNames[0])) throw new Error(`attachment chip lacks its full timestamp: ${chipNames[0]}`);
   const chipBoxes = await page.locator('.card-dialog .card-attachments .card-attachment').evaluateAll(nodes => nodes.map(node => {
     const rect = node.getBoundingClientRect();
     const host = node.closest('.card-attachment-strip').getBoundingClientRect();

@@ -30,7 +30,7 @@ sub run {
     return _error( $tira, 'toon', $@ || 'Invalid UTF-8 command-line input' ) if !$decoded;
     my $parsed = GetOptionsFromArray(
         $argv,
-        'name=s' => \$option{name}, 'dir=s' => \$option{dir}, 'title=s' => \$option{title},
+        'name=s' => \$option{name}, 'dir=s' => \$option{dir}, 'title:s' => \$option{title},
         'description=s' => \$option{description}, 'project=s' => \$option{project},
         'output|o=s' => \$option{output}, 'help' => \$option{help},
         'id=s' => \$option{id}, 'email=s' => \$option{email},
@@ -209,7 +209,11 @@ sub _invoke {
     $args{person} = $option->{people}[0] if $command =~ /\Aassign\.(?:add|remove)\z/ && $option->{people};
     $args{people} = $option->{people} // [] if $command eq 'assign.set';
     $args{recursive} = $option->{recursive} if $command eq 'hierarchy.show';
-    $args{include_discard} = $option->{include_discard} if $command eq 'dashboard';
+    if ( $command eq 'dashboard' ) {
+        $args{include_discard} = $option->{include_discard};
+        $args{summary} = $option->{output} ne 'json';
+        $args{with_title} = defined $option->{title};
+    }
     $args{include_deleted} = $option->{include_deleted} if $command eq 'attachment.list';
     if ( $command =~ /\Acomment\.(?:add|update)\z/ && defined $option->{file} ) {
         die "Use only one of --text or --file\n" if defined $option->{text};

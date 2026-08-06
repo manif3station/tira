@@ -106,6 +106,11 @@ aliases. Tira delegates alias semantics to DD's installed registry/config
 classes, gives real filesystem paths precedence, and keeps resolved targets out
 of alias-facing command output and errors.
 
+Release 0.14 makes the default dashboard a directory/stat projection: valid
+JSON filenames supply refs and file mtimes supply newest-first ordering, with
+ref tie-breaking. `--title` reads each record once; JSON output reads full
+records while retaining the same filesystem order.
+
 ## Output and errors
 
 Default and `-o toon` output is produced by `Data::TOON` 0.03. `-o json` uses

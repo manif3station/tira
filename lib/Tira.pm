@@ -17,7 +17,7 @@ use JSON::PP ();
 use POSIX qw(strftime);
 use YAML::PP;
 
-our $VERSION = '0.13';
+our $VERSION = '0.14';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -1203,8 +1203,26 @@ sub dashboard {
         my @columns = grep { $_->{name} ne 'discard' || $args{include_discard} }
           @{ $self->column_list( project => $root, type => $type ) };
         my %by_column = map { $_->{name} => [] } @columns;
-        for my $record ( @{ $self->record_list( project => $root, type => $type ) } ) {
-            push @{ $by_column{ $record->{column} } }, $record if exists $by_column{ $record->{column} };
+        for my $column (@columns) {
+            my $dir = File::Spec->catdir( $root, '.tira', $type, $column->{name} );
+            opendir my $dh, $dir or die "Cannot read dashboard column '$column->{name}': $!\n";
+            my @cards;
+            for my $filename ( readdir $dh ) {
+                next if $filename !~ /\A([A-Z][A-Z0-9-]{0,31}-\d{1,12})\.json\z/;
+                my $ref = $1;
+                my $path = File::Spec->catfile( $dir, $filename );
+                next if !-f $path;
+                my @stat = stat $path;
+                die "Cannot stat dashboard card '$ref'\n" if !@stat;
+                my $card = $args{summary} ? { ref => $ref } : { %{ $self->_read_json($path) }, column => $column->{name} };
+                $card->{title} = $self->_read_json($path)->{title} if $args{summary} && $args{with_title};
+                $card->{_mtime} = $stat[9];
+                push @cards, $card;
+            }
+            closedir $dh;
+            @cards = sort { $b->{_mtime} <=> $a->{_mtime} || $a->{ref} cmp $b->{ref} } @cards;
+            delete $_->{_mtime} for @cards;
+            $by_column{ $column->{name} } = \@cards;
         }
         for my $column (@columns) {
             push @{ $dashboard{_column_order}{$type} }, $column->{name};
@@ -1502,7 +1520,7 @@ sub _markdown {
                 $markdown .= "\n### $column\n";
                 my $records = $data->{$type}{$column};
                 $markdown .= @{$records}
-                  ? join( '', map { "- `$_->{ref}` $_->{title}\n" } @{$records} )
+                  ? join( '', map { "- `$_->{ref}`" . ( defined $_->{title} ? " $_->{title}" : '' ) . "\n" } @{$records} )
                   : "_Empty._\n";
             }
         }

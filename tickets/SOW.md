@@ -53,3 +53,5 @@ when a reference cannot be resolved.
 DD-400 removes repeated full-board scans from dashboard rendering.
 DD-401 adds DD-native project alias resolution without disclosing managed
 locations through the agent manual.
+DD-402 makes the default dashboard a ref-only filesystem view with optional
+titles and unchanged full JSON automation output.

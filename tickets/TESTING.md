@@ -367,3 +367,22 @@ Method: TDD + path-resolution security BDD + installed CLI ATDD.
 - Agent contract: exactly 100 use cases remain and `SKILLS.md` contains none of
   the private selection mechanisms.
 - Platform: macOS and Windows remain stopped.
+
+## DD-402
+
+Method: Performance TDD + output-contract BDD + filesystem-ordering ATDD.
+
+- Baseline: 240 cards / 13 columns took 1.06, 0.82, and 0.89 seconds and
+  emitted 224,033 TOON bytes while decoding all records.
+- Red gate: nine assertions exposed JSON reads, full-card defaults, ref order,
+  and missing bare `--title` support.
+- Post-fix default: 0.28, 0.14, and 0.28 seconds; 3,881 bytes; zero JSON reads.
+- Post-fix title/full: one read per title card; full JSON retained complete
+  records. Every mode used newest-mtime-first ordering and deterministic ties.
+- Docker functional suite: PASS, 16 files and 628 assertions.
+- Coverage: `lib/Tira.pm` and `lib/Tira/CLI.pm` each reached 100.0% statement
+  and subroutine coverage.
+- Security: all 628 assertions passed under `prove -T`; all 80 entrypoints
+  compiled under taint mode; the production process-primitive scan was clean.
+- Agent contract: exactly 100 implemented use cases remain.
+- Platform: macOS and Windows remain stopped.

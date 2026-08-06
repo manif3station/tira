@@ -20,9 +20,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.11):** shipped, executable, and covered by tests.
 - **Implemented (0.12):** shipped, executable, and covered by tests.
 - **Implemented (0.13):** shipped, executable, and covered by tests.
+- **Implemented (0.14):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.13.
+All commands and use cases in this manual ship in release 0.14.
 
 ## Global invocation grammar
 
@@ -365,7 +366,7 @@ tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text
 tira.import --file FILE [--dry-run] [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [-o FORMAT]
 tira.replace --pattern REGEX --with TEXT [--field FIELD ...] [--type TYPE] [--dry-run] [-o FORMAT]
-tira.dashboard [--type TYPE|all] [--include-discard] [-o FORMAT]
+tira.dashboard [--type TYPE|all] [--include-discard] [--title] [-o FORMAT]
 ```
 
 Checklist commands apply symmetrically to SOWs, epics, and tickets. Add
@@ -399,6 +400,10 @@ evidence observations.
 Dashboard scans each selected board once and groups records by configured
 column in memory. Column count therefore does not multiply JSON file reads;
 configured order and optional Discard inclusion remain unchanged.
+Default TOON and human dashboards contain only refs and use filename/stat data,
+without decoding records. `--title` decodes each card once to add its title.
+`-o json` returns complete records. All modes sort cards by filesystem
+modification time, newest first, then by ref when timestamps tie.
 
 ## 100 use cases
 
@@ -703,7 +708,7 @@ without revealing or creating a storage location.
 **Implemented.** Repeat fields in one reviewable pass: `dashboard tira.search --text Jira --field description --field atdd -o json` and `dashboard tira.replace --pattern Jira --with Local --field description --field atdd --dry-run -o json`. Import preview `dashboard tira.import --file changes.json --dry-run -o json` returns `changes[]` entries containing `ref`, `field`, `before`, and `after`; omit dry-run only after reviewing every diff.
 
 ### UC-100: Render dashboard
-**Implemented.** `dashboard tira.dashboard --type all --include-discard -o human`.
+**Implemented.** `dashboard tira.dashboard --type all` is the ref-only fast path; add `--title` for titles, `--include-discard` for archived cards, or `-o json` for complete records.
 
 ## Safety contract
 

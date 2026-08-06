@@ -95,7 +95,7 @@ my $counting = CountingTira->new( clock => sub { '2026-08-05T02:00:00+0100' } );
 $counting->column_add( project => $root, type => 'ticket', name => 'doing', before => 'discard' );
 $counting->column_add( project => $root, type => 'ticket', name => 'review', before => 'discard' );
 $counting->dashboard( project => $root, type => 'ticket' );
-is( $counting->{record_list_calls}, 1, 'dashboard scans a selected board only once' );
+is( $counting->{record_list_calls} // 0, 0, 'dashboard does not invoke repeated recursive record scans' );
 
 my $removed = $tira->attachment_remove( project => $root, sha => $attachment->{sha}, extension => 'bin' );
 ok( $removed->{deleted_at}, 'attachment removal records timestamp' );

@@ -1,5 +1,12 @@
 Revision history for Tira
 
+0.14  2026-08-06
+    - Made default dashboard output ref-only without opening record JSON.
+    - Added `--title` for title-enriched summary output with one read per card.
+    - Ordered every dashboard mode newest-first by file modification time with
+      deterministic reference tie-breaking.
+    - Retained complete record payloads for `-o json`.
+
 0.13  2026-08-06
     - Accepted Developer Dashboard path aliases wherever a project directory
       selector is accepted, while retaining direct-path precedence.

@@ -2,3 +2,4 @@
 /.test-tmp/
 /.tira/
 *.bak
+/.pw-fixtures/

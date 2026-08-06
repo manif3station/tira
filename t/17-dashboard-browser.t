@@ -55,8 +55,10 @@ unlike( $live_html, qr/setTimeout\(\(\)=>location\.reload/,
     'browser dashboard does not reload the whole page' );
 like( $live_html, qr/<dialog class="card-dialog".*card-dialog__sections/s,
     'browser dashboard includes a sectioned card dialog' );
-like( $live_html, qr/draggable.*dragstart.*\/move/s,
-    'browser dashboard exposes drag and drop move behavior' );
+like( $live_html, qr/pointerdown.*pointerup.*\/move/s,
+    'browser dashboard exposes pointer-based drag and drop move behavior' );
+unlike( $live_html, qr/dragstart|draggable="true"/,
+    'the HTML5 drag path is fully replaced' );
 ok( ref $calls->[0]{move} eq 'CODE', 'browser server receives a move provider' );
 ok( ref $calls->[0]{detail} eq 'CODE', 'browser server receives a detail provider' );
 my $move_result = decode_json(

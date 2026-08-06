@@ -26,9 +26,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.18):** shipped, executable, and covered by tests.
 - **Implemented (0.19):** shipped, executable, and covered by tests.
 - **Implemented (0.20):** shipped, executable, and covered by tests.
+- **Implemented (0.21):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.20.
+All commands and use cases in this manual ship in release 0.21.
 
 ## Global invocation grammar
 
@@ -431,7 +432,11 @@ Use `-o browser=localhost:4567`, `127.0.0.1`, or `0.0.0.0:1234` to choose an
 approved bind. The optional port defaults to 7899, and every request rebuilds
 lightweight card placement payload from current filesystem state. Browser
 JavaScript applies that payload in place, moving cards without reloading the
-page. Drag/drop calls the real JSON-file move operation. Clicking a card makes
+page. Drag/drop calls the real JSON-file move operation through a pointer-events
+engine that serves mouse and touch alike: mouse drags start after a small
+movement threshold, touch drags start after a short hold so page scrolling
+stays native, a floating ghost tracks the pointer, the destination column
+highlights, and the release click never reopens the dragged card. Clicking a card makes
 one detail request for its complete record and opens a Jira-style dialog that
 renders the record section by section — a details grid (assignee, reporter,
 priority label, labels, dates, versions, SDLC gate, lifecycle, parent,

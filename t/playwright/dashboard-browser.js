@@ -95,8 +95,19 @@ const fs = require('fs');
   if (pageRequests !== 1 || dataRequests !== 1) throw new Error(`unexpected requests page=${pageRequests} data=${dataRequests}`);
   if (JSON.parse(data).ticket['in-progress'][0].description) throw new Error('lightweight data leaked full record fields');
   if (await page.evaluate(() => window.__tiraTimerDelay) !== 30000) throw new Error('custom refresh interval was not scheduled');
-  await page.locator('[data-column="in-progress"] .card').dragTo(page.locator('[data-column="backlog"]'));
+  const dragFrom = await page.locator('[data-column="in-progress"] .card').boundingBox();
+  const dragTo = await page.locator('[data-column="backlog"]').boundingBox();
+  await page.mouse.move(dragFrom.x + dragFrom.width / 2, dragFrom.y + 15);
+  await page.mouse.down();
+  await page.mouse.move(dragTo.x + dragTo.width / 2, dragTo.y + dragTo.height / 2, { steps: 8 });
+  const midDrag = await page.evaluate(() => ({ ghost: document.querySelectorAll('.card--ghost').length, target: document.querySelectorAll('.is-drop-target').length }));
+  await page.mouse.up();
+  await page.waitForFunction(() => document.querySelectorAll('.card--ghost').length === 0);
+  if (midDrag.ghost !== 1 || midDrag.target !== 1) throw new Error(`drag affordances missing mid-drag: ${JSON.stringify(midDrag)}`);
   if (moveRequests !== 1) throw new Error(`drag move request missing: ${moveRequests}`);
+  for (let i = 0; i < 80 && dataRequests < 2; i++) await new Promise(resolve => setTimeout(resolve, 25));
+  if (dataRequests < 2) throw new Error('post-drag refresh never fetched /data');
+  await page.evaluate(() => new Promise(requestAnimationFrame));
 
   await page.locator('[data-ref="TKT-001"] .card').click();
   await page.waitForFunction(() => document.querySelector('.card-dialog')?.open);
@@ -264,6 +275,11 @@ const fs = require('fs');
     if (u.pathname === '/data') return route.fulfill({ status: 200, contentType: 'application/json', body: data });
     return route.fulfill({ status: 200, contentType: 'text/html', body: html });
   });
+  let mobileMoves = 0;
+  await mobile.route('http://tira.test/move', async route => {
+    mobileMoves++;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+  });
   await mobile.goto('http://tira.test/');
   await mobile.waitForSelector('[data-ref="TKT-001"] .card');
   const bodyOverflow = await mobile.evaluate(() => document.body.scrollWidth - document.documentElement.clientWidth);
@@ -274,6 +290,22 @@ const fs = require('fs');
   if (!dialogBox || dialogBox.width > 430) throw new Error(`mobile dialog is too wide: ${dialogBox && dialogBox.width}`);
   const gridColumns = await mobile.locator('.card-details').first().evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length);
   if (gridColumns !== 1) throw new Error(`mobile details grid should stack to one column, got ${gridColumns}`);
+  await mobile.locator('.card-dialog__close').click();
+  const cdp = await mobile.context().newCDPSession(mobile);
+  const cardBox = await mobile.locator('[data-column="in-progress"] [data-ref="TKT-001"] .card').boundingBox();
+  const targetBox = await mobile.locator('[data-column="backlog"]').boundingBox();
+  const fromX = cardBox.x + cardBox.width / 2, fromY = cardBox.y + 20;
+  const toX = targetBox.x + targetBox.width / 2, toY = targetBox.y + Math.min(60, targetBox.height / 2);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: fromX, y: fromY }] });
+  await mobile.waitForTimeout(400);
+  for (let step = 1; step <= 8; step++) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove',
+      touchPoints: [{ x: fromX + (toX - fromX) * step / 8, y: fromY + (toY - fromY) * step / 8 }] });
+    await mobile.waitForTimeout(40);
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await mobile.waitForTimeout(300);
+  if (mobileMoves !== 1) throw new Error(`touch drag posted ${mobileMoves} move requests, expected 1`);
   await mobile.screenshot({ path: screenshotPath.replace(/\.png$/, '') + '-mobile.png', fullPage: false });
   await mobile.close();
   await browser.close();

@@ -576,3 +576,34 @@ Method: Engine-provider TDD + HTTP ATDD + Browser BDD (desktop + mobile).
   stacked labeled fields, and per-item editors.
 - Agent contract: exactly 100 use cases; no location disclosure.
 - Platform: labs remain stopped; nothing platform-dependent changed.
+
+## Latest Verification For `DD-410`
+
+Method: Browser BDD (desktop + touch) under the Mandatory Problem-Solving
+Loop; the full loop record lives in `tickets/DD-410.md`.
+
+- Red gate (loop steps 4-5): a real CDP touch drag on the 430x932 pass
+  posted ZERO `/move` requests against the HTML5 drag engine — the exact
+  reported failure, root-caused to mobile browsers never synthesizing
+  HTML5 drag events from touch.
+- Fix (step 6): one Pointer Events engine for both inputs — 250ms
+  hold-to-drag on touch (native scrolling preserved via
+  `touch-action:pan-y`), 6px movement threshold on mouse, floating ghost,
+  `elementFromPoint` drop-target highlight, same `/move` contract.
+- Re-run (step 7): the identical touch reproduction posts exactly one
+  `/move`; the desktop pointer drag posts one `/move` with ghost and
+  highlight asserted mid-drag; a card click still opens the dialog.
+- Two additional defects found and fixed during the loop: the drag-release
+  click reopened the dropped card (now swallowed by a one-shot 50ms
+  window), and Playwright's `dragTo` helper proved incompatible with a
+  pointer engine (HTML5-DnD-oriented) — the suite now drives raw pointer
+  input, which also eliminated the historical intermittent drag flake.
+- Stability: four consecutive full Playwright runs PASS after adding a
+  deterministic post-drag settle (refresh round trip + one frame).
+- Guards (step 8): the touch-drag scenario is permanent in the mobile
+  pass; the renderer contract test pins the pointer engine and forbids
+  `dragstart`/`draggable`.
+- Functional: PASS in Docker, `Files=24, Tests=938`; coverage `100.0%`
+  statement and subroutine; taint and primitive-scan gates clean;
+  `cover_db` cleaned.
+- Platform: labs remain stopped; nothing platform-dependent changed.

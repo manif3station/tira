@@ -475,3 +475,41 @@ Method: Engine/CLI TDD + HTTP ATDD + Browser BDD (Playwright).
   project selection terms remain absent from `SKILLS.md`.
 - Platform: macOS and Windows labs remain stopped; no platform-dependent
   behavior changed (pure Perl/JS over existing routes).
+
+## Latest Verification For `DD-407`
+
+Method: Engine/CLI TDD + HTTP ATDD + Browser BDD (Playwright), from the
+recorded Jira research plan in `tickets/DD-407.md`.
+
+- Red gates: `t/20-attachment-detach.t` died on the missing
+  `attachment_add_content`/`attachment_detach` engine methods;
+  `t/21-dashboard-attachments.t` failed 9 assertions (no providers, routes,
+  or dialog markup).
+- Functional: PASS in Docker, `Files=22, Tests=852`.
+- Coverage: `100.0%` statement and subroutine for all three production
+  modules after adding the octet-stream fallback test; `cover_db` cleaned.
+- Taint/perlsec: suite PASS under `prove -T`; all entrypoints and
+  `dashboard.psgi` compile under `perl -T`; process-primitive scan clean.
+- HTTP ATDD: `GET /attachment` streams provider bytes with the provider's
+  content type and disposition and answers unknown attachments 404;
+  `/attachment/add` and `/attachment/remove` decode JSON payloads and fail
+  as structured 422; text-like content (html included) is typed
+  `text/plain` so nothing executes in the viewer frame.
+- Engine acceptance: content uploads dedup by sha across records without
+  temp files, refuse >16MB, and retain UTF-8 original filenames; detach
+  removes exactly one reference (record- or comment-scoped), physically
+  removes the stored file through the logged `attachment_remove` only when
+  no record or comment anywhere still references it, and dies clearly on a
+  reference the record does not hold; `tira.attachment.detach` mirrors it.
+- Browser BDD: Playwright PASS — comment-owned chip renders inside its
+  comment; the viewer overlay opens with an `/attachment?` iframe src and
+  closes; confirmed deletion posts the exact detach payload; a real file
+  picked through the input posts base64 that round-trips byte-identically.
+- Visual review: PASS on strip and viewer screenshots — chips read like
+  Jira (filename + delete + Attach file control), `notes.txt` opens inline
+  over the dialog with correct `£` rendering and Download/close controls.
+  The owner's phone screenshot review caught hover-only edit pencils
+  (invisible on touch, so the modal read as read-only); pencils are now
+  always visible (`MISTAKE.md` `CAPTION-BLIND` records the miss).
+- Agent contract: exactly 100 use cases; no project-location disclosure.
+- Platform: labs remain stopped; nothing platform-dependent changed.

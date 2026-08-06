@@ -3,13 +3,14 @@ package Tira::DashboardWeb;
 use strict;
 use warnings;
 
-our $VERSION = '0.17';
+our $VERSION = '0.18';
 
 use Encode qw(encode_utf8);
 use JSON::PP ();
 use Dancer2 appname => 'TiraDashboard';
 
-our ( $RENDER, $DATA, $MOVE, $DETAIL, $UPDATE, $COMMENT_ADD, $COMMENT_UPDATE, $COMMENT_REMOVE, $PEOPLE );
+our ( $RENDER, $DATA, $MOVE, $DETAIL, $UPDATE, $COMMENT_ADD, $COMMENT_UPDATE, $COMMENT_REMOVE, $PEOPLE,
+      $ATTACHMENT_FETCH, $ATTACHMENT_ADD, $ATTACHMENT_REMOVE );
 
 get '/' => sub {
     content_type 'text/html; charset=UTF-8';
@@ -50,6 +51,33 @@ post '/update' => sub { return _mutation( \$UPDATE ) };
 post '/comment/add' => sub { return _mutation( \$COMMENT_ADD ) };
 post '/comment/update' => sub { return _mutation( \$COMMENT_UPDATE ) };
 post '/comment/remove' => sub { return _mutation( \$COMMENT_REMOVE ) };
+post '/attachment/add' => sub { return _mutation( \$ATTACHMENT_ADD ) };
+post '/attachment/remove' => sub { return _mutation( \$ATTACHMENT_REMOVE ) };
+
+get '/attachment' => sub {
+    my %query;
+    for my $pair ( split /&/, request->env->{QUERY_STRING} // '' ) {
+        my ( $key, $value ) = split /=/, $pair, 2;
+        next if !defined $value;
+        $value =~ tr/+/ /;
+        $value =~ s/%([0-9A-Fa-f]{2})/chr hex $1/ge;
+        $query{$key} = $value;
+    }
+    my $payload = eval { $ATTACHMENT_FETCH->( \%query ) };
+    if ( !defined $payload ) {
+        status 404;
+        content_type 'text/plain; charset=UTF-8';
+        my $error = $@ || 'Attachment not found';
+        $error =~ s/(?: at \S+ line \d+\.?)?\s*\z//s;
+        return _response_bytes($error);
+    }
+    content_type( $payload->{content_type} // 'application/octet-stream' );
+    my $name = $payload->{filename} // 'attachment.bin';
+    $name =~ s/["\r\n]//g;
+    response->header( 'Content-Disposition' =>
+      ( $payload->{inline} ? 'inline' : 'attachment' ) . qq{; filename="$name"} );
+    return _response_bytes( $payload->{content} );
+};
 
 # Dialog mutations report failures as structured JSON instead of an HTML
 # error page, so the dialog can show the engine's validation message inline.
@@ -87,6 +115,9 @@ my @PROVIDERS = (
     [ comment_update => \$COMMENT_UPDATE, 'comment update provider' ],
     [ comment_remove => \$COMMENT_REMOVE, 'comment remove provider' ],
     [ people => \$PEOPLE, 'people provider' ],
+    [ attachment_fetch => \$ATTACHMENT_FETCH, 'attachment fetch provider' ],
+    [ attachment_add => \$ATTACHMENT_ADD, 'attachment add provider' ],
+    [ attachment_remove => \$ATTACHMENT_REMOVE, 'attachment remove provider' ],
 );
 
 sub build_psgi_app {
@@ -136,7 +167,11 @@ through Plack's bundled standalone server at a validated CLI bind address.
 =head2 build_psgi_app
 
 Accepts render, data, move, detail, update, comment_add, comment_update,
-comment_remove, and people coderefs and returns the Dancer2 PSGI application.
+comment_remove, people, attachment_fetch, attachment_add, and
+attachment_remove coderefs and returns the Dancer2 PSGI application. The
+attachment fetch provider returns a typed payload that the GET /attachment
+route streams with its content type and disposition; unknown attachments
+answer 404.
 
 =head2 serve
 

@@ -276,7 +276,67 @@ sub browser_providers {
                   grep { $_->{active} } @{ $tira->person_list( project => $project ) } ]
             );
         },
+        attachment_fetch => sub {
+            my ($payload) = @_;
+            die "Attachment fetch requires ref and sha\n"
+              if ref($payload) ne 'HASH' || !defined $payload->{ref} || !defined $payload->{sha};
+            my $got = $tira->attachment_get(
+                project => $project, sha => $payload->{sha},
+                ( defined $payload->{extension} ? ( extension => $payload->{extension} ) : () ),
+            );
+            die "Attachment '$payload->{sha}' not found\n" if $got->{deleted};
+            my $record = $tira->record_show( project => $project, ref => $payload->{ref} );
+            my ($reference) =
+              grep { $_->{sha} eq $payload->{sha} }
+              ( @{ $record->{attachments} }, map { @{ $_->{attachments} // [] } } @{ $record->{comments} } );
+            my $extension = $payload->{extension} // ( $reference ? $reference->{extension} : 'bin' );
+            my $filename = $reference ? $reference->{original_filename} : "$payload->{sha}.$extension";
+            return {
+                content => $got->{content},
+                content_type => _attachment_content_type($extension),
+                filename => $filename,
+                inline => _attachment_content_type($extension) eq 'application/octet-stream' ? 0 : 1,
+            };
+        },
+        attachment_add => sub {
+            my ($payload) = @_;
+            die "Attachment upload requires ref, filename, and content\n"
+              if ref($payload) ne 'HASH' || !defined $payload->{ref} || !defined $payload->{filename}
+              || !defined $payload->{content_base64};
+            require MIME::Base64;
+            my $content = MIME::Base64::decode_base64( $payload->{content_base64} );
+            my $attachment = $tira->attachment_add_content(
+                project => $project, ref => $payload->{ref},
+                filename => $payload->{filename}, content => $content,
+                ( defined $payload->{comment} ? ( comment => $payload->{comment} ) : () ),
+            );
+            return $json->encode( { ok => JSON::PP::true, attachment => $attachment } );
+        },
+        attachment_remove => sub {
+            my ($payload) = @_;
+            die "Attachment removal requires ref and sha\n"
+              if ref($payload) ne 'HASH' || !defined $payload->{ref} || !defined $payload->{sha};
+            my $result = $tira->attachment_detach(
+                project => $project, ref => $payload->{ref}, sha => $payload->{sha},
+                ( defined $payload->{extension} ? ( extension => $payload->{extension} ) : () ),
+                ( defined $payload->{comment} ? ( comment => $payload->{comment} ) : () ),
+            );
+            return $json->encode( { ok => JSON::PP::true, %{$result} } );
+        },
     );
+}
+
+# The viewer forces text-like content (html included) to plain text so
+# nothing fetched from the store can execute inside the dialog's frame.
+sub _attachment_content_type {
+    my ($extension) = @_;
+    my %image = map { $_ => 1 } qw(png jpg jpeg gif webp svg);
+    return 'image/' . ( $extension eq 'jpg' ? 'jpeg' : $extension eq 'svg' ? 'svg+xml' : $extension )
+      if $image{$extension};
+    return 'application/pdf' if $extension eq 'pdf';
+    my %text = map { $_ => 1 } qw(txt md log csv json yml yaml xml html);
+    return 'text/plain; charset=UTF-8' if $text{$extension};
+    return 'application/octet-stream';
 }
 
 sub _invoke {
@@ -352,6 +412,7 @@ sub _invoke {
         'comment.attach' => 'comment_attach',
         'attachment.add' => 'attachment_add', 'attachment.list' => 'attachment_list',
         'attachment.get' => 'attachment_get', 'attachment.remove' => 'attachment_remove',
+        'attachment.detach' => 'attachment_detach',
         'evidence.list' => 'evidence_list', 'evidence.add' => 'evidence_add',
         'evidence.annotate' => 'evidence_annotate',
         'gate.list' => 'gate_list', 'gate.add' => 'gate_add',

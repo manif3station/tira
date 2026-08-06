@@ -27,10 +27,13 @@ const fs = require('fs');
     acceptance_criteria: ['No JSON blob'], test_steps: ['Click a card'],
     bdd: ['Given a card'], atdd: ['Dialog renders sections'],
     checklist: [{ item: 'Design sections', status: 'done' }],
-    gate_passing_log: [], evidence: [], attachments: [], subtasks: [],
+    gate_passing_log: [], evidence: [],
+    attachments: [{ sha: 'a'.repeat(64), extension: 'txt', original_filename: 'notes.txt' }],
+    subtasks: [],
     linkage: { epic_ref: null, parent_ticket_ref: null, sub_ticket_refs: [], links: [] },
     comments: [{ id: 'CMT-001', author: 'ada', format: 'markdown', body: 'First comment',
-      attachments: [], created_at: '2026-08-05T10:00:00+0100', last_updated: '2026-08-05T10:00:00+0100' }],
+      attachments: [{ sha: 'b'.repeat(64), extension: 'png', original_filename: 'diagram.png' }],
+      created_at: '2026-08-05T10:00:00+0100', last_updated: '2026-08-05T10:00:00+0100' }],
     created_at: '2026-08-01T08:00:00+0100', last_updated: '2026-08-05T10:00:00+0100',
   };
   let pageRequests = 0;
@@ -52,6 +55,13 @@ const fs = require('fs');
     if (requestUrl.pathname === '/people') {
       peopleRequests++;
       return route.fulfill({ status: 200, contentType: 'application/json', body: '[{"id":"ada","name":"Ada Lovelace"}]' });
+    }
+    if (requestUrl.pathname === '/attachment') {
+      return route.fulfill({ status: 200, contentType: 'text/plain; charset=UTF-8', body: 'ATTACHMENT BYTES' });
+    }
+    if (requestUrl.pathname.startsWith('/attachment/') && route.request().method() === 'POST') {
+      mutations.push({ path: requestUrl.pathname, body: JSON.parse(route.request().postData()) });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"attachment":{"sha":"cc"}}' });
     }
     if (requestUrl.pathname === '/update' && route.request().method() === 'POST') {
       mutations.push({ path: '/update', body: JSON.parse(route.request().postData()) });
@@ -123,6 +133,35 @@ const fs = require('fs');
   const removed = mutations.find(entry => entry.path === '/comment/remove');
   if (!removed || removed.body.comment !== 'CMT-001' || removed.body.ref !== 'TKT-001')
     throw new Error(`unexpected comment remove payload: ${JSON.stringify(removed && removed.body)}`);
+
+  const commentChip = page.locator('.card-dialog [data-comment="CMT-001"] .card-attachment');
+  if (await commentChip.count() !== 1) throw new Error('comment-owned attachment chip is missing from its comment');
+  if (!(await commentChip.textContent()).includes('diagram.png')) throw new Error('comment attachment chip lacks its filename');
+
+  await page.locator(`.card-dialog [data-view-attachment="${'a'.repeat(64)}.txt"]`).click();
+  await page.waitForSelector('.card-viewer:not([hidden])');
+  const frameSrc = await page.locator('.card-viewer iframe').getAttribute('src');
+  if (!frameSrc || !frameSrc.includes('/attachment?') || !frameSrc.includes('a'.repeat(64)))
+    throw new Error(`viewer frame src is wrong: ${frameSrc}`);
+  await page.locator('.card-viewer__close').click();
+  await page.waitForSelector('.card-viewer', { state: 'hidden' });
+
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator(`.card-dialog [data-detach-attachment="${'a'.repeat(64)}.txt"]`).click();
+  await page.waitForFunction(() => window.__tiraLastMutation === '/attachment/remove');
+  const detached = mutations.find(entry => entry.path === '/attachment/remove');
+  if (!detached || detached.body.sha !== 'a'.repeat(64) || detached.body.extension !== 'txt' || detached.body.ref !== 'TKT-001')
+    throw new Error(`unexpected attachment remove payload: ${JSON.stringify(detached && detached.body)}`);
+
+  const uploadPath = require('path').join(require('os').tmpdir(), 'tira-upload.txt');
+  fs.writeFileSync(uploadPath, 'uploaded bytes');
+  await page.locator('.card-dialog .card-attach-input[data-attach-target="record"]').setInputFiles(uploadPath);
+  await page.waitForFunction(() => window.__tiraLastMutation === '/attachment/add');
+  const uploaded = mutations.find(entry => entry.path === '/attachment/add');
+  if (!uploaded || uploaded.body.filename !== 'tira-upload.txt' || !uploaded.body.content_base64 || uploaded.body.ref !== 'TKT-001')
+    throw new Error(`unexpected attachment add payload: ${JSON.stringify(uploaded && uploaded.body)}`);
+  if (Buffer.from(uploaded.body.content_base64, 'base64').toString() !== 'uploaded bytes')
+    throw new Error('uploaded content did not round-trip through base64');
 
   await page.screenshot({ path: screenshotPath, fullPage: true });
   await browser.close();

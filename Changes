@@ -1,5 +1,21 @@
 Revision history for Tira
 
+0.18  2026-08-06
+    - Attachments are now first-class in the browser card dialog: chip strip
+      with one-click inline viewing in an overlay (images, PDF, and text-like
+      files stream through a typed `/attachment` route; HTML is forced to
+      plain text so nothing can execute in the viewer), and a named download
+      for every other type.
+    - Added dialog uploads through base64 with a 16 MB cap, reusing the
+      engine's content-hash dedup via the new `attachment_add_content`
+      engine method (attachment_add now delegates to it).
+    - Added reference-safe deletion: the new `attachment_detach` engine
+      method and `tira.attachment.detach` command remove a record's or
+      comment's reference and physically delete the stored file, with
+      logging, only when no other record or comment still references it.
+    - Every comment now renders and manages its own attachment chips,
+      separate from the record strip, including per-comment uploads.
+
 0.17  2026-08-06
     - Replaced the browser card dialog's raw JSON blob with a Jira-style
       sectioned view: a details grid, long-text sections, list sections

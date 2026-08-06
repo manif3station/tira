@@ -4,7 +4,7 @@ Tira is a filesystem-native Kanban project manager for Developer Dashboard. It
 provides Jira-style projects, SOWs, epics, and tickets over a transparent local
 filesystem engine accessed exclusively through Tira commands.
 
-Release 0.17 implements the complete command ecosystem: projects, independent
+Release 0.18 implements the complete command ecosystem: projects, independent
 boards, columns, records, links, people, comments, attachments, evidence,
 gates, search, dashboards, agent-efficient TOON output, singular record
 ownership, planning metadata, immediate parents, and inactive-person controls.
@@ -32,7 +32,13 @@ Project selection also accepts aliases registered with `d2 path`; Tira resolves
 them through Developer Dashboard without printing the private target directory.
 The live browser board opens every card in a Jira-style sectioned dialog with
 in-place field editing and full comment management, including permanent
-comment deletion through the new `tira.comment.remove` command.
+comment deletion through the `tira.comment.remove` command.
+Attachments are first-class in the dialog: chips open images, PDFs, and text
+inline in an overlay viewer with no download step (HTML is forced to plain
+text so nothing executes), files upload from the dialog with a 16 MB cap,
+deletion is reference-safe under content-hash dedup via the new
+`tira.attachment.detach` command, and every comment shows and manages its
+own attachments separately from the record strip.
 
 ## Value
 

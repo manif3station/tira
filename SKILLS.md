@@ -22,9 +22,11 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.13):** shipped, executable, and covered by tests.
 - **Implemented (0.14):** shipped, executable, and covered by tests.
 - **Implemented (0.16):** shipped, executable, and covered by tests.
+- **Implemented (0.17):** shipped, executable, and covered by tests.
+- **Implemented (0.18):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.16.
+All commands and use cases in this manual ship in release 0.18.
 
 ## Global invocation grammar
 
@@ -338,6 +340,7 @@ tira.attachment.add --ref REF --file PATH [--comment ID] [-o FORMAT]
 tira.attachment.list [--ref REF] [--include-deleted] [-o FORMAT]
 tira.attachment.get --sha SHA256 [--extension EXT]
 tira.attachment.remove --sha SHA256 [--extension EXT] [-o FORMAT]
+tira.attachment.detach --ref REF --sha SHA256 [--extension EXT] [--comment ID] [-o FORMAT]
 ```
 
 Add hashes bytes, stores `sha256.extension`, and records the original filename.
@@ -440,6 +443,14 @@ date) appear inside the dialog without closing it. The comment section adds
 comments with an author picker limited to active people, edits any comment in
 place, and deletes a comment permanently; every successful change re-reads
 the record so the dialog always shows filesystem truth.
+Attachments render as chips: images, PDFs, and text-like files open inline
+in an overlay viewer streamed with a safe content type (HTML is served as
+plain text so it can never execute); other types offer a named download.
+Files upload from the dialog with a 16 MB cap through the same hash-dedup
+store as the CLI, and each comment carries and manages its own attachment
+chips. Dialog deletion detaches the reference; the stored file is physically
+removed, with logging, only when no record or comment still references it —
+the same semantics as `tira.attachment.detach`.
 The visible last-updated time advances only after fresh data is applied. Stop
 the foreground server with Ctrl-C.
 

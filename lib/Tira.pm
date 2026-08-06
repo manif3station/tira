@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.40';
+our $VERSION = '0.41';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -471,7 +471,7 @@ my @RECORD_FIELDS = qw(
     gate_passing_log evidence attachments checklist subtasks linkage assignee
     reporter labels due_date start_date sdlc_gate lifecycle priority
     fix_version affects_versions parent comments created_at last_updated column
-    content_hash
+    content_hash attachment_count
 );
 my %RECORD_FIELD = map { $_ => 1 } @RECORD_FIELDS;
 
@@ -651,7 +651,11 @@ sub record_show {
     }
     $full->{content_hash} = _record_content_hash($full)
       if $plan && $plan->{fields} && $plan->{fields}{content_hash};
+    $full->{attachment_count} = scalar @{ $record->{attachments} // [] }
+      if $plan && $plan->{fields} && $plan->{fields}{attachment_count};
     my $projected = _project_record( $full, $plan );
+    $projected->{comments} = [ map { _comment_meta($_) } @{ $projected->{comments} } ]
+      if $args{meta_only} && ref $projected->{comments} eq 'ARRAY';
     _apply_truncation( $projected, $args{truncate} ) if defined $args{truncate};
     _apply_brief_title($projected) if $args{brief};
     return $projected;
@@ -703,8 +707,12 @@ sub record_list {
             my $full = { %{$record}, column => $column };
             $full->{content_hash} = _record_content_hash($full)
               if $plan && $plan->{fields} && $plan->{fields}{content_hash};
+            $full->{attachment_count} = scalar @{ $record->{attachments} // [] }
+              if $plan && $plan->{fields} && $plan->{fields}{attachment_count};
             my $projected = _project_record( $full, $plan );
             if ( !$args{count} && !$args{refs_only} ) {
+                $projected->{comments} = [ map { _comment_meta($_) } @{ $projected->{comments} } ]
+                  if $args{meta_only} && ref $projected->{comments} eq 'ARRAY';
                 _apply_truncation( $projected, $args{truncate} ) if defined $args{truncate};
                 _apply_brief_title($projected) if $args{brief};
             }
@@ -1070,9 +1078,70 @@ sub assignment_set {
     return $self->record_update( %args, assignee => @{$people} ? $people->[0] : '' );
 }
 
+my @COMMENT_FIELDS = qw(id author format body attachments created_at last_updated body_length attachment_count);
+my %COMMENT_FIELD = map { $_ => 1 } @COMMENT_FIELDS;
+
+# CA11: everything a watcher needs to notice and attribute a comment,
+# nothing it has to pay for before deciding to act.
+sub _comment_meta {
+    my ($comment) = @_;
+    return {
+        id => $comment->{id}, author => $comment->{author}, format => $comment->{format},
+        created_at => $comment->{created_at}, last_updated => $comment->{last_updated},
+        body_length => length( $comment->{body} // '' ),
+        attachment_count => scalar @{ $comment->{attachments} // [] },
+    };
+}
+
 sub comment_list {
     my ( $self, %args ) = @_;
-    return $self->record_show(%args)->{comments};
+    my $last = delete $args{last};
+    my $first = delete $args{first};
+    my $meta_only = delete $args{meta_only};
+    my $count_mode = delete $args{count};
+    my $since = delete $args{since};
+    my $fields = delete $args{fields};
+    die "Cannot combine --first with --last\n" if defined $first && defined $last;
+    for my $window ( grep { defined } $first, $last ) {
+        die "Comment windows must be zero or a positive count\n" if $window < 0;
+    }
+    my $keep;
+    if ( defined $fields ) {
+        my @names = map { split /,/, $_, -1 } @{$fields};
+        for my $name (@names) {
+            die "Empty field name in field selection\n" if !length $name;
+            die "Unknown comment field '$name'\n" if !$COMMENT_FIELD{$name};
+            die "Meta-only contradicts selecting the body\n" if $meta_only && $name eq 'body';
+        }
+        $keep = { map { $_ => 1 } @names };
+    }
+    my $comments = $self->record_show(%args)->{comments};
+    if ( defined $since ) {
+        my $threshold = _epoch_of_datetime( $since, 'Since' );
+        $comments = [ grep {
+            my $stamp = eval { _epoch_of_datetime( $_->{last_updated} // $_->{created_at}, 'Comment stamp' ) };
+            !defined $stamp || $stamp >= $threshold;
+        } @{$comments} ];
+    }
+    my $total = scalar @{$comments};
+    return { count => $total }
+      if $count_mode || ( defined $last && $last == 0 ) || ( defined $first && $first == 0 );
+    if ( defined $last ) {
+        my $window = $last > $total ? $total : $last;
+        $comments = $window ? [ @{$comments}[ $total - $window .. $total - 1 ] ] : [];
+    }
+    elsif ( defined $first ) {
+        my $window = $first > $total ? $total : $first;
+        $comments = [ @{$comments}[ 0 .. $window - 1 ] ];
+    }
+    $comments = [ map { _comment_meta($_) } @{$comments} ] if $meta_only;
+    if ($keep) {
+        $comments = [ map {
+            my $comment = $_;
+            +{ map { exists $comment->{$_} ? ( $_ => $comment->{$_} ) : () } ( 'id', keys %{$keep} ) };
+        } @{$comments} ];
+    }
+    return $comments;
 }
 
 sub comment_add {
@@ -1251,8 +1320,80 @@ sub attachment_remove {
     return $entry;
 }
 
+my @ATTACHMENT_FIELDS = qw(sha extension original_filename added_at filename size content_type);
+my %ATTACHMENT_FIELD = map { $_ => 1 } @ATTACHMENT_FIELDS;
+
+sub _attachment_content_type {
+    my ($extension) = @_;
+    my %image = map { $_ => 1 } qw(png jpg jpeg gif webp svg);
+    return 'image/' . ( $extension eq 'jpg' ? 'jpeg' : $extension eq 'svg' ? 'svg+xml' : $extension )
+      if $image{$extension};
+    return 'image/tiff' if $extension eq 'tif' || $extension eq 'tiff';
+    my %video = ( mp4 => 'video/mp4', m4v => 'video/mp4', mov => 'video/quicktime', webm => 'video/webm' );
+    return $video{$extension} if $video{$extension};
+    my %audio = ( mp3 => 'audio/mpeg', wav => 'audio/wav', m4a => 'audio/mp4', ogg => 'audio/ogg', flac => 'audio/flac' );
+    return $audio{$extension} if $audio{$extension};
+    return 'application/pdf' if $extension eq 'pdf';
+    my %text = map { $_ => 1 } qw(txt md log csv json yml yaml xml html);
+    return 'text/plain; charset=UTF-8' if $text{$extension};
+    return 'application/octet-stream';
+}
+
 sub attachment_list {
     my ( $self, %args ) = @_;
+    my $meta_only = delete $args{meta_only};
+    my $count_mode = delete $args{count};
+    my $since = delete $args{since};
+    my $fields = delete $args{fields};
+    if ( !defined $args{ref} ) {
+        die "Attachment read options require --ref\n"
+          if $meta_only || $count_mode || defined $since || defined $fields;
+    }
+    if ( defined $args{ref} && ( $meta_only || $count_mode || defined $since || defined $fields ) ) {
+        my $keep;
+        if ( defined $fields ) {
+            my @names = map { split /,/, $_, -1 } @{$fields};
+            for my $name (@names) {
+                die "Empty field name in field selection\n" if !length $name;
+                die "Unknown attachment field '$name'\n" if !$ATTACHMENT_FIELD{$name};
+            }
+            $keep = { map { $_ => 1 } @names };
+        }
+        my $references = $self->record_show(%args)->{attachments};
+        if ( defined $since ) {
+            my $threshold = _epoch_of_datetime( $since, 'Since' );
+            $references = [ grep {
+                my $stamp = eval { _epoch_of_datetime( $_->{added_at}, 'Added at' ) };
+                !defined $stamp || $stamp >= $threshold;
+            } @{$references} ];
+        }
+        return { count => scalar @{$references} } if $count_mode;
+        my $root = $self->discover_project(%args);
+        my @entries = map {
+            my $reference = $_;
+            my $stored = eval { $self->_attachment_path( $root, sha => $reference->{sha}, extension => $reference->{extension} ) };
+            +{
+                %{$reference},
+                filename => $reference->{original_filename}
+                  // ( ( $reference->{sha} // 'attachment' ) . '.' . ( $reference->{extension} // 'bin' ) ),
+                size => ( defined $stored && -f $stored ) ? -s $stored : undef,
+                content_type => _attachment_content_type( $reference->{extension} // '' ),
+            };
+        } @{$references};
+        if ($keep) {
+            return [ map {
+                my $entry = $_;
+                +{ map { exists $entry->{$_} ? ( $_ => $entry->{$_} ) : () } ( 'sha', keys %{$keep} ) };
+            } @entries ];
+        }
+        # CA12: newest evidence first, documented.
+        @entries = sort {
+            ( $b->{added_at} // '' ) cmp( $a->{added_at} // '' )
+        } @entries;
+        my $total_size = 0;
+        $total_size += $_->{size} // 0 for @entries;
+        return { attachments => \@entries, count => scalar @entries, total_size => $total_size };
+    }
     return $self->record_show(%args)->{attachments} if defined $args{ref};
     my $root = $self->discover_project(%args);
     my $dir = File::Spec->catdir( $root, '.tira', 'attachments' );

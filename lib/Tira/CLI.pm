@@ -60,6 +60,8 @@ sub run {
         'if-changed=s' => \$option{if_changed},
         'count' => \$option{count}, 'refs-only' => \$option{refs_only},
         'brief' => \$option{brief}, 'truncate=i' => \$option{truncate},
+        'last=i' => \$option{last}, 'first=i' => \$option{first},
+        'meta-only' => \$option{meta_only},
         'with=s' => \$option{with}, 'note=s' => \$option{note},
         'reporter=s' => \$option{reporter}, 'due-date=s' => \$option{due_date},
         'start-date=s' => \$option{start_date}, 'sdlc-gate=s' => \$option{sdlc_gate},
@@ -438,18 +440,7 @@ sub browser_providers {
 # nothing fetched from the store can execute inside the dialog's frame.
 sub _attachment_content_type {
     my ($extension) = @_;
-    my %image = map { $_ => 1 } qw(png jpg jpeg gif webp svg);
-    return 'image/' . ( $extension eq 'jpg' ? 'jpeg' : $extension eq 'svg' ? 'svg+xml' : $extension )
-      if $image{$extension};
-    return 'image/tiff' if $extension eq 'tif' || $extension eq 'tiff';
-    my %video = ( mp4 => 'video/mp4', m4v => 'video/mp4', mov => 'video/quicktime', webm => 'video/webm' );
-    return $video{$extension} if $video{$extension};
-    my %audio = ( mp3 => 'audio/mpeg', wav => 'audio/wav', m4a => 'audio/mp4', ogg => 'audio/ogg', flac => 'audio/flac' );
-    return $audio{$extension} if $audio{$extension};
-    return 'application/pdf' if $extension eq 'pdf';
-    my %text = map { $_ => 1 } qw(txt md log csv json yml yaml xml html);
-    return 'text/plain; charset=UTF-8' if $text{$extension};
-    return 'application/octet-stream';
+    return Tira::_attachment_content_type($extension);
 }
 
 sub _invoke {
@@ -459,8 +450,12 @@ sub _invoke {
     if ( defined $option->{field_selection} || defined $option->{exclude_fields}
         || $option->{include_empty} || defined $option->{since}
         || $option->{brief} || defined $option->{truncate} ) {
+        my $comment_scope = ( defined $option->{field_selection} || defined $option->{since} )
+          && !defined $option->{exclude_fields} && !$option->{include_empty}
+          && !$option->{brief} && !defined $option->{truncate};
         die "Read options are available on show, list, and export commands\n"
-          if $command !~ /\A(?:record\.(?:show|list)|export)\z/;
+          if $command !~ /\A(?:record\.(?:show|list)|export)\z/
+          && !( $comment_scope && $command =~ /\A(?:comment|attachment)\.list\z/ );
         $args{fields} = $option->{field_selection} if defined $option->{field_selection};
         $args{exclude_fields} = $option->{exclude_fields} if defined $option->{exclude_fields};
     }
@@ -477,8 +472,13 @@ sub _invoke {
       if $command =~ /\A(?:record\.(?:show|list)|export)\z/ && !$option->{include_empty};
     die "Conditional reads are available on show and export commands\n"
       if defined $option->{if_changed} && $command !~ /\A(?:record\.show|export)\z/;
-    die "Count is available on list, export, and search commands\n"
-      if $option->{count} && $command !~ /\A(?:record\.list|export|search)\z/;
+    die "Count is available on list, export, and search commands, and the comment and attachment lists\n"
+      if $option->{count} && $command !~ /\A(?:record\.list|export|search|comment\.list|attachment\.list)\z/;
+    die "Windows (--last/--first) are available on the comment list command\n"
+      if ( defined $option->{last} || defined $option->{first} ) && $command ne 'comment.list';
+    die "Meta-only is available on the comment and attachment lists, show, list, and export\n"
+      if $option->{meta_only}
+      && $command !~ /\A(?:comment\.list|attachment\.list|record\.(?:show|list)|export)\z/;
     die "Refs-only is available on list and search commands\n"
       if $option->{refs_only} && $command !~ /\A(?:record\.list|search)\z/;
     $args{type} = $record_type if defined $record_type;

@@ -87,6 +87,15 @@ all reads and mutations and must not attempt direct filesystem access. Run
 Existing record-list commands retain their compatible array result; `--full`
 is an explicit assertion that the full records already returned are required.
 
+Comment reads window and slim down: `--last N`/`--first N` (newest-last
+storage order), `--meta-only` (id, author, stamps, body length, attachment
+count), comment-level `--fields` with `id` always kept, `--since` against the
+comment's own stamps, and `--count`. Attachment lists enrich under
+`--meta-only` with the stored filename, real byte size, content type, and
+added time, newest first, in an envelope carrying `count` and `total_size`.
+Record reads accept `--meta-only` to strip embedded comment bodies, and the
+computed `attachment_count` field joins `--fields` for evidence coverage.
+
 `--brief` on show, list, and export is the documented five-field preset
 (`ref,title,column,sdlc_gate,assignee`, title cut at a stable 72 characters);
 long text fields and gate/evidence entry text truncate at 2000 characters by

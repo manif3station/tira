@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.40):** shipped, executable, and covered by tests.
+- **Implemented (0.41):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.40.
+All commands and use cases in this manual ship in release 0.41.
 
 ## Global invocation grammar
 
@@ -349,6 +349,21 @@ the limit, `--truncate 0` omits the text while still marking it present,
 Truncation is presentation only: `content_hash` is computed from the
 full record. The board dashboard is already a summary view and takes no
 brief flag.
+Comment and attachment reads are **Implemented (DD-430)**. Comments are
+stored newest-last, so `--last N` is the recent thread and `--first N`
+the original framing (contradictory together, exit 2; a zero window or
+`--count` returns `{"count": N}` alone; an oversize window returns
+everything). `--meta-only` returns id, author, format, both stamps,
+`body_length`, and `attachment_count` — selecting `body` with it exits
+2. Comment `--fields` selects comment keys with `id` always kept;
+`--since` filters by the comment's own stamps. On show, list, and
+export, `--meta-only` strips embedded comment bodies board-wide.
+`tira.attachment.list --ref REF --meta-only` returns newest-first
+entries with `filename`, real byte `size`, `content_type`, `added_at`,
+and `sha`, in an envelope with `count` and `total_size`; attachment
+`--fields` keeps `sha`; `--since` filters by `added_at`; these options
+require `--ref`. The computed record field `attachment_count` is
+selectable via `--fields` for board-wide evidence coverage.
 Clone creates a Backlog record, shares attachment refs, clears hierarchy, and
 adds reciprocal clone links.
 
@@ -388,7 +403,7 @@ tira.assign.list --ref REF [-o FORMAT]
 tira.assign.add --ref REF --person ID [-o FORMAT]
 tira.assign.remove --ref REF --person ID [-o FORMAT]
 tira.assign.set --ref REF [--person ID] [-o FORMAT]
-tira.comment.list --ref REF [-o FORMAT]
+tira.comment.list --ref REF [--last N|--first N] [--meta-only] [--fields LIST] [--since TIMESTAMP] [--count] [-o FORMAT]
 tira.comment.add --ref REF --author ID (--text TEXT|--file FILE) [--format markdown|text] [--attach PATH ...] [-o FORMAT]
 tira.comment.update --ref REF --comment ID (--text TEXT|--file FILE) [--format markdown|text] [-o FORMAT]
 tira.comment.remove --ref REF --comment ID [-o FORMAT]
@@ -411,7 +426,7 @@ All are **Implemented (DD-389)**:
 
 ```text
 tira.attachment.add --ref REF --file PATH [--comment ID] [-o FORMAT]
-tira.attachment.list [--ref REF] [--include-deleted] [-o FORMAT]
+tira.attachment.list [--ref REF] [--include-deleted] [--meta-only] [--fields LIST] [--since TIMESTAMP] [--count] [-o FORMAT]
 tira.attachment.get --sha SHA256 [--extension EXT]
 tira.attachment.remove --sha SHA256 [--extension EXT] [-o FORMAT]
 tira.attachment.detach --ref REF --sha SHA256 [--extension EXT] [--comment ID] [-o FORMAT]
@@ -843,8 +858,8 @@ without revealing or creating a storage location.
 ### UC-089: Attach to comment
 **Implemented.** `dashboard tira.comment.attach --ref TKT-001 --comment CMT-001 --file screenshot.png`.
 
-### UC-090: List comments
-**Implemented.** `dashboard tira.comment.list --ref TKT-001 -o human`.
+### UC-090: Read comments at chosen weight
+**Implemented.** `dashboard tira.comment.list --ref TKT-001 -o json` lists everything; `--last 1` is the newest comment alone, `--meta-only` returns ids, authors, stamps, body lengths, and attachment counts without a single body — exactly what a watcher needs before deciding to read.
 
 ### UC-091: Add attachment
 **Implemented.** `dashboard tira.attachment.add --ref TKT-001 --file ./build.zip`.

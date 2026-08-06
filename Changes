@@ -1,5 +1,15 @@
 Revision history for Tira
 
+0.41  2026-08-07
+    - CA10-CA12 (EPIC-424): comment windows (--last/--first, zero as
+      existence check), comment --meta-only (body length + attachment
+      count, board-wide via record reads), comment-level --fields with
+      id kept, attachment --meta-only (filename, real size, content
+      type, added time, sha, total_size envelope, newest first),
+      attachment --fields/--since/--count, and the selectable computed
+      attachment_count record field. The attachment content-type map
+      moved into the engine as the single source of truth.
+
 0.40  2026-08-07
     - CA08+CA09 (EPIC-424): the --brief preset (five documented fields,
       title cut at 72 chars, null assignee visible, contradiction with

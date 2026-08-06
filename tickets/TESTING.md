@@ -981,3 +981,19 @@ report, message 2915 — three connected findings).
   `Files=31, Tests=1155`; coverage `100.0%` statement and subroutine on
   all three modules; `prove -T` PASS; `cover_db` cleaned. Browser
   untouched (engine flags are opt-in).
+
+## Latest Verification For `DD-430`
+
+- CA10-CA12: comment windows/meta/fields/since/count; record-level and
+  board-wide `--meta-only`; enriched attachment metadata (filename,
+  real size, content type, added time, sha, `total_size`), newest
+  first; `attachment_count` computed record field; engine-owned
+  content-type map with the CLI delegating.
+- Red loop caught: two Perl block-vs-hashref parses (`+{`), and the
+  fixture truth that `original_filename` already carries its extension
+  (assembling would have produced `evidence.txt.txt`).
+- Red-first `t/31-comment-attachment-meta.t` (43 checks after the
+  coverage close: list-level `attachment_count` and the newest-first
+  comparator needed a second attachment); functional PASS
+  `Files=32, Tests=1198`; coverage `100.0%` all three modules;
+  `prove -T` PASS; `cover_db` cleaned. Browser untouched.

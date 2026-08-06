@@ -55,7 +55,9 @@ const fs = require('fs');
     }
     if (requestUrl.pathname === '/record') {
       detailRequests++;
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(record) });
+      const askedRef = requestUrl.searchParams.get('ref') || 'TKT-001';
+      const served = { ...record, ref: askedRef, title: askedRef === 'TKT-001' ? record.title : 'Resident card' };
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(served) });
     }
     if (requestUrl.pathname === '/people') {
       peopleRequests++;
@@ -306,6 +308,23 @@ const fs = require('fs');
   if (!subUnlink || subUnlink.body.parent !== 'TKT-001' || subUnlink.body.child !== 'TKT-005')
     throw new Error(`unexpected subitem unlink payload: ${JSON.stringify(subUnlink && subUnlink.body)}`);
 
+  await page.locator(`.card-dialog [data-view-attachment="${'a'.repeat(64)}.txt"]`).first().click();
+  await page.waitForSelector('.card-viewer:not([hidden])');
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.card-viewer', { state: 'hidden' });
+  if (!await page.locator('.card-dialog').evaluate(dialog => dialog.open))
+    throw new Error('Escape with the viewer open must close only the viewer');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('.card-dialog').open);
+  await page.locator('[data-ref="TKT-002"] .card').click();
+  await page.waitForFunction(() => document.querySelector('.card-dialog')?.open);
+  if (await page.locator('.card-viewer:visible').count() !== 0)
+    throw new Error('a reopened dialog must not show the previous attachment viewer');
+  const reopenedRef = await page.locator('.card-dialog__ref').textContent();
+  if (!reopenedRef.startsWith('TKT-002'))
+    throw new Error(`a reopened dialog must show the newly clicked card, got: ${reopenedRef}`);
+  await page.keyboard.press('Escape');
+
   await page.screenshot({ path: screenshotPath, fullPage: true });
 
   const mobile = await browser.newPage({ viewport: { width: 430, height: 932 } });
@@ -316,6 +335,10 @@ const fs = require('fs');
     if (u.pathname === '/link-types') return route.fulfill({ status: 200, contentType: 'application/json', body: '[{"outward":"blocks","inward":"is-blocked-by"}]' });
     if (u.pathname === '/data') return route.fulfill({ status: 200, contentType: 'application/json', body: data });
     return route.fulfill({ status: 200, contentType: 'text/html', body: html });
+  });
+  let mobileTitle = 'Live browser card';
+  await mobile.route('http://tira.test/record**', async route => {
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...record, title: mobileTitle }) });
   });
   let mobileMoves = 0;
   await mobile.route('http://tira.test/move', async route => {
@@ -336,6 +359,8 @@ const fs = require('fs');
   if (sideScroll > 1) throw new Error(`modal body scrolls sideways by ${sideScroll}px`);
   const gridColumns = await mobile.locator('.card-details').first().evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length);
   if (gridColumns !== 1) throw new Error(`mobile details grid should stack to one column, got ${gridColumns}`);
+  mobileTitle = 'Edited elsewhere';
+  await mobile.waitForFunction(() => document.querySelector('.card-dialog h2')?.textContent.includes('Edited elsewhere'), null, { timeout: 15000 });
   await mobile.locator('.card-dialog__close').click();
   const cdp = await mobile.context().newCDPSession(mobile);
   const cardBox = await mobile.locator('[data-column="in-progress"] [data-ref="TKT-001"] .card').boundingBox();

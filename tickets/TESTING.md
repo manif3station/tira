@@ -805,3 +805,26 @@ content clipped horizontally.
   the sections area has zero horizontal scroll. Playwright ×3 green.
 - Functional PASS `Files=25, Tests=957`; coverage `100.0%`; `prove -T`
   PASS. Owner device check requested.
+
+## Latest Verification For `DD-420`
+
+Method: Browser BDD under the Mandatory Problem-Solving Loop (owner
+report, message 2915 — three connected findings).
+
+- Root causes: the dialog's native Escape (cancel) closed the whole modal
+  with no cleanup path, leaving the attachment viewer overlay alive; on
+  the next open it painted the previous attachment over the fresh
+  sections — the "old card content". Separately, nothing ever re-read an
+  open dialog's record.
+- Fix: the dialog's `cancel` event closes only the viewer when one is
+  open; the `close` event resets the viewer and error strip; the board's
+  refresh cycle calls a dialog reload guarded by an editing-activity
+  predicate (open field/comment editors, focused form controls, or the
+  expanded composer suppress it).
+- Guards: desktop — Escape closes viewer-then-dialog in two steps, and a
+  reopened dialog shows the newly clicked card (`/record` mock echoes the
+  requested ref) with no viewer remnant; mobile — with the dialog open
+  and no editing, a changed record title arrives through a real refresh
+  cycle ("Edited elsewhere"). Playwright ×3 green.
+- Functional PASS `Files=25, Tests=957`; coverage `100.0%`; `prove -T`
+  PASS.

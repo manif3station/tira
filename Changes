@@ -1,5 +1,18 @@
 Revision history for Tira
 
+0.22  2026-08-06
+    - Attachment references now record `added_at` at add time (file and
+      content paths alike); deduplicated re-adds keep the original stamp.
+      Dialog chips display the date and sort newest first; legacy
+      references without a stamp render an em-dash and sort last.
+    - Comments render newest first beneath a collapsed top composer that
+      expands on demand with an author picker and a bold/italic/code/list
+      formatting bar; comment text is stored as markdown unchanged.
+    - Markdown comment bodies render formatted through a DOM-building
+      renderer (bold, italic, inline code, bullet lists, paragraphs) that
+      never assigns raw HTML, so nothing can execute; `format: text`
+      bodies stay plain.
+
 0.21  2026-08-06
     - Fixed card drag-and-drop on touch devices: the board now uses one
       Pointer Events engine for mouse and touch instead of HTML5 drag

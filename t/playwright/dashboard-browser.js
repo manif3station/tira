@@ -28,12 +28,17 @@ const fs = require('fs');
     bdd: ['Given a card'], atdd: ['Dialog renders sections'],
     checklist: [{ id: 'CHK-001', item: 'Design sections', status: 'done', created_at: '2026-08-01T09:00:00+0100', last_updated: '2026-08-01T09:00:00+0100' }],
     gate_passing_log: [], evidence: [],
-    attachments: [{ sha: 'a'.repeat(64), extension: 'txt', original_filename: 'notes.txt' }],
+    attachments: [
+      { sha: 'a'.repeat(64), extension: 'txt', original_filename: 'notes.txt', added_at: '2026-08-02T10:00:00+0100' },
+      { sha: 'e'.repeat(64), extension: 'txt', original_filename: 'fresh.txt', added_at: '2026-08-05T10:00:00+0100' }],
     subtasks: [],
     linkage: { epic_ref: null, parent_ticket_ref: null, sub_ticket_refs: ['TKT-005'], links: [{ type: 'blocks', ref: 'TKT-009' }] },
-    comments: [{ id: 'CMT-001', author: 'ada', format: 'markdown', body: 'First comment',
-      attachments: [{ sha: 'b'.repeat(64), extension: 'png', original_filename: 'diagram.png' }],
-      created_at: '2026-08-05T10:00:00+0100', last_updated: '2026-08-05T10:00:00+0100' }],
+    comments: [
+      { id: 'CMT-001', author: 'ada', format: 'markdown', body: 'First **bold** comment',
+        attachments: [{ sha: 'b'.repeat(64), extension: 'png', original_filename: 'diagram.png', added_at: '2026-08-04T10:00:00+0100' }],
+        created_at: '2026-08-05T10:00:00+0100', last_updated: '2026-08-05T10:00:00+0100' },
+      { id: 'CMT-002', author: 'ada', format: 'markdown', body: 'Newest comment',
+        attachments: [], created_at: '2026-08-06T10:00:00+0100', last_updated: '2026-08-06T10:00:00+0100' }],
     created_at: '2026-08-01T08:00:00+0100', last_updated: '2026-08-05T10:00:00+0100',
   };
   let pageRequests = 0;
@@ -116,7 +121,7 @@ const fs = require('fs');
   const sections = page.locator('.card-dialog .card-dialog__sections');
   const sectionText = await sections.textContent();
   for (const expected of ['Details', 'Description', 'Full popup detail', 'Very High', 'Ada Lovelace',
-    'Checklist', 'Design sections', 'Comments', 'First comment', 'Acceptance Criteria', 'No JSON blob']) {
+    'Checklist', 'Design sections', 'Comments', 'bold', 'Acceptance Criteria', 'No JSON blob']) {
     if (!sectionText.includes(expected)) throw new Error(`sectioned dialog is missing: ${expected}`);
   }
   if (sectionText.includes('"ref"') || sectionText.includes('undefined') || sectionText.includes('null'))
@@ -134,12 +139,31 @@ const fs = require('fs');
     throw new Error(`unexpected update payload: ${JSON.stringify(update.body)}`);
   if (detailRequests < 2) throw new Error('a saved edit did not re-read the record');
 
+  const commentIds = await page.locator('.card-dialog .card-comment').evaluateAll(nodes => nodes.map(node => node.dataset.comment));
+  if (JSON.stringify(commentIds) !== JSON.stringify(['CMT-002', 'CMT-001'])) throw new Error(`comments are not newest-first: ${commentIds}`);
+  if (await page.locator('.card-dialog .card-comment__body strong').count() !== 1)
+    throw new Error('bold markdown did not render as a strong element');
+  const chipNames = await page.locator('.card-dialog .card-attachments .card-attachment__view').evaluateAll(nodes => nodes.map(node => node.textContent));
+  if (!chipNames[0].includes('fresh.txt')) throw new Error(`attachments are not newest-first: ${chipNames}`);
+  if (!chipNames[0].includes('2026-08-05')) throw new Error(`attachment chip lacks its date: ${chipNames[0]}`);
+  if (await page.locator('.card-dialog .card-comment-form:visible').count() !== 0)
+    throw new Error('the composer must start collapsed');
+  const composerToggle = page.locator('.card-dialog .card-composer-toggle');
+  const commentsBox = await page.locator('.card-dialog .card-comments-box').evaluate(box => box.firstElementChild.className);
+  if (!commentsBox.includes('card-composer')) throw new Error(`the composer is not at the top of the comments box: ${commentsBox}`);
+  await composerToggle.click();
+  await page.waitForSelector('.card-dialog .card-comment-form:visible');
+  await page.locator('.card-dialog .card-comment-form textarea[name="text"]').fill('rich');
+  await page.locator('.card-dialog .card-comment-form textarea[name="text"]').evaluate(area => { area.selectionStart = 0; area.selectionEnd = 4; });
+  await page.locator('.card-dialog .card-comment-form [data-md="bold"]').click();
+  const toolbarValue = await page.locator('.card-dialog .card-comment-form textarea[name="text"]').inputValue();
+  if (toolbarValue !== '**rich**') throw new Error(`bold toolbar produced: ${toolbarValue}`);
   await page.locator('.card-dialog .card-comment-form select[name="author"]').selectOption('ada');
-  await page.locator('.card-dialog .card-comment-form textarea[name="text"]').fill('A new comment');
+  await page.locator('.card-dialog .card-comment-form textarea[name="text"]').fill('A **new** comment');
   await page.locator('.card-dialog .card-comment-form button[type="submit"]').click();
   await page.waitForFunction(() => window.__tiraLastMutation === '/comment/add');
   const added = mutations.find(entry => entry.path === '/comment/add');
-  if (!added || added.body.author !== 'ada' || added.body.text !== 'A new comment' || added.body.ref !== 'TKT-001')
+  if (!added || added.body.author !== 'ada' || added.body.text !== 'A **new** comment' || added.body.ref !== 'TKT-001')
     throw new Error(`unexpected comment add payload: ${JSON.stringify(added && added.body)}`);
 
   await page.locator('.card-dialog [data-comment-edit="CMT-001"]').click();

@@ -607,3 +607,33 @@ Loop; the full loop record lives in `tickets/DD-410.md`.
   statement and subroutine; taint and primitive-scan gates clean;
   `cover_db` cleaned.
 - Platform: labs remain stopped; nothing platform-dependent changed.
+
+## Latest Verification For `DD-411`
+
+Method: Engine TDD + Browser BDD (Playwright).
+
+- Red gates: `t/24-dashboard-comments-attachments.t` failed on missing
+  `added_at` stamping and composer/renderer contract; the updated `t/12`
+  reference-shape expectation failed against the unstamped engine.
+- Functional: PASS in Docker, `Files=25, Tests=953`.
+- Coverage: `100.0%` statement and subroutine, all three modules;
+  `cover_db` cleaned.
+- Taint/perlsec: `prove -T` PASS; entrypoints and `dashboard.psgi` compile
+  under `-T`. The primitive scan's single textual hit is JavaScript's
+  `RegExp.exec()` inside the embedded dashboard script — inert string data
+  to Perl, not a process primitive; no Perl `system`/`exec`/`qx`/
+  `readpipe` exists in production code.
+- Engine acceptance: content and file-path adds stamp `added_at` from the
+  injected clock; dedup re-adds retain the original stamp; every listed
+  reference carries the field.
+- Browser BDD: Playwright PASS ×3 — chips ordered newest first with
+  visible dates, comments ordered `CMT-002` before `CMT-001`, the composer
+  starts collapsed (a `[hidden]`-beats-`display:grid` CSS defect was
+  caught and fixed) at the top of the comments box, the bold toolbar wraps
+  a selection into `**rich**`, markdown text reaches `/comment/add`
+  unchanged, and a bold body renders exactly one `<strong>` element with
+  no raw-HTML injection path (`innerHTML` absent by contract test).
+- Visual review: PASS — dated chips, top composer with formatting bar, and
+  formatted bold/italic/code/bullet rendering in comments.
+- Agent contract: exactly 100 use cases; no location disclosure.
+- Platform: labs remain stopped; nothing platform-dependent changed.

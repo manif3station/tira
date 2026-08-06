@@ -40,7 +40,7 @@ is( $second->{original_filename}, 'first-name.txt', 'duplicate returns retained 
 is( $second->{supplied_filename}, 'second-name.txt', 'duplicate returns rejected supplied filename' );
 ok( $second->{deduped}, 'duplicate reports record-level deduplication' );
 is_deeply( $tira->attachment_list( project => $root, ref => $ticket->{ref} ),
-    [ { sha => $first->{sha}, extension => 'txt', original_filename => 'first-name.txt' } ],
+    [ { sha => $first->{sha}, extension => 'txt', original_filename => 'first-name.txt', added_at => '2026-08-05T17:00:00Z' } ],
     'record stores one truthful reference' );
 
 $tira->attachment_remove( project => $root, sha => $first->{sha}, extension => 'txt' );

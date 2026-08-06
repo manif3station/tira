@@ -27,9 +27,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.19):** shipped, executable, and covered by tests.
 - **Implemented (0.20):** shipped, executable, and covered by tests.
 - **Implemented (0.21):** shipped, executable, and covered by tests.
+- **Implemented (0.22):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.21.
+All commands and use cases in this manual ship in release 0.22.
 
 ## Global invocation grammar
 
@@ -455,7 +456,12 @@ in an overlay viewer streamed with a safe content type (HTML is served as
 plain text so it can never execute); other types offer a named download.
 Files upload from the dialog with a 16 MB cap through the same hash-dedup
 store as the CLI, and each comment carries and manages its own attachment
-chips. Dialog deletion detaches the reference; the stored file is physically
+chips. Attachment references record their added time; chips display the
+date and sort newest first, with legacy references lacking a timestamp
+shown with an em-dash and sorted last. Comments render newest first below
+a collapsed composer that expands on demand with a formatting bar; comment
+text is stored as markdown and rendered through a DOM-building formatter
+(bold, italic, inline code, bullet lists) that never injects raw HTML. Dialog deletion detaches the reference; the stored file is physically
 removed, with logging, only when no record or comment still references it —
 the same semantics as `tira.attachment.detach`.
 List fields edit per item in the dialog: each row offers edit and remove, and

@@ -4,7 +4,7 @@ Tira is a filesystem-native Kanban project manager for Developer Dashboard. It
 provides Jira-style projects, SOWs, epics, and tickets over a transparent local
 filesystem engine accessed exclusively through Tira commands.
 
-Release 0.21 implements the complete command ecosystem: projects, independent
+Release 0.22 implements the complete command ecosystem: projects, independent
 boards, columns, records, links, people, comments, attachments, evidence,
 gates, search, dashboards, agent-efficient TOON output, singular record
 ownership, planning metadata, immediate parents, and inactive-person controls.
@@ -52,6 +52,10 @@ dialog and a stacked details grid. Card drag-and-drop runs on pointer
 events, so it works identically with a mouse and with touch: hold a card
 briefly on a phone, drag its floating ghost to the highlighted column, and
 the same real JSON-file move applies.
+Attachment chips show their added date and sort newest first; comments list
+newest first under a collapsed top composer that expands into an author
+picker, a bold/italic/code/list formatting bar, and markdown storage with
+safe formatted rendering in the dialog.
 
 ## Value
 

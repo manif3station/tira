@@ -110,6 +110,8 @@ my %providers = (
     attachment_fetch => sub { return { content => "BYTES ${pound}", content_type => 'text/plain; charset=UTF-8', filename => 'a.txt' } },
     attachment_add => sub { return '{"ok":true,"attachment":{"sha":"00"}}' },
     attachment_remove => sub { die "Attachment 'ff' is not attached\n" },
+    checklist_add => sub { return '{"ok":true}' },
+    checklist_update => sub { return '{"ok":true}' },
 );
 
 for my $missing (qw(attachment_fetch attachment_add attachment_remove)) {

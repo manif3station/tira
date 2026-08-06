@@ -109,6 +109,8 @@ my $app = Tira::DashboardWeb->build_psgi_app(
     attachment_fetch => sub { return { content => '', content_type => 'text/plain; charset=UTF-8', filename => 'x.txt', inline => 1 } },
     attachment_add => sub { return '{"ok":true}' },
     attachment_remove => sub { return '{"ok":true}' },
+    checklist_add => sub { return '{"ok":true}' },
+    checklist_update => sub { return '{"ok":true}' },
 );
 my @warnings;
 {
@@ -170,6 +172,8 @@ like( $@, qr/Missing dashboard detail provider/, 'PSGI builder requires a detail
             attachment_fetch => sub { return {} },
             attachment_add => sub { '{}' },
             attachment_remove => sub { '{}' },
+            checklist_add => sub { '{}' },
+            checklist_update => sub { '{}' },
         ),
         'serve completes when its PSGI runner exits'
     );

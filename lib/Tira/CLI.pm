@@ -195,6 +195,13 @@ sub browser_providers {
         sdlc_gate lifecycle fix_version assignee reporter priority
         start_date due_date
     );
+    my %list_editable = (
+        labels => 'labels_replace', affects_versions => 'affects_versions_replace',
+        key_details => 'key_details_replace', deliverables => 'deliverables_replace',
+        acceptance_criteria => 'acceptance_replace', test_steps => 'test_steps_replace',
+        bdd => 'bdd_replace', atdd => 'atdd_replace',
+        scope_included => 'scope', scope_excluded => 'scope',
+    );
     return (
         move => sub {
             my ($payload) = @_;
@@ -224,13 +231,53 @@ sub browser_providers {
                 die "Update payload requires ref, field, and value\n"
                   if !defined $payload->{$key} || ref $payload->{$key} || !exists $payload->{value};
             }
-            die "Field '$payload->{field}' is not editable\n" if !$editable{ $payload->{field} };
-            die "Update payload requires ref, field, and a plain value\n" if ref $payload->{value};
+            my $field = $payload->{field};
+            my $value = $payload->{value};
+            if ( $list_editable{$field} ) {
+                die "Field '$field' requires an array value\n" if ref $value ne 'ARRAY';
+                die "Field '$field' accepts plain text items only\n" if grep { ref $_ || !defined $_ } @{$value};
+                my %change;
+                if ( $field =~ /\Ascope_(included|excluded)\z/ ) {
+                    my $side = $1;
+                    my $scope = $tira->record_show( project => $project, ref => $payload->{ref} )->{scope};
+                    $change{scope} = { %{ $scope // {} }, $side => $value };
+                }
+                else {
+                    $change{ $list_editable{$field} } = $value;
+                }
+                my $record = $tira->record_update( project => $project, ref => $payload->{ref}, %change );
+                return $json->encode( { ok => JSON::PP::true, record => $record } );
+            }
+            die "Field '$field' is not editable\n" if !$editable{$field};
+            die "Field '$field' requires a plain value\n" if ref $value;
             my $record = $tira->record_update(
-                project => $project, ref => $payload->{ref},
-                $payload->{field} => $payload->{value},
+                project => $project, ref => $payload->{ref}, $field => $value,
             );
             return $json->encode( { ok => JSON::PP::true, record => $record } );
+        },
+        checklist_add => sub {
+            my ($payload) = @_;
+            die "Checklist payload must be an object\n" if ref($payload) ne 'HASH';
+            for my $key (qw(ref item status)) {
+                die "Checklist add requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
+            }
+            my $entry = $tira->checklist_add(
+                project => $project, ref => $payload->{ref},
+                item => $payload->{item}, status => $payload->{status},
+            );
+            return $json->encode( { ok => JSON::PP::true, entry => $entry } );
+        },
+        checklist_update => sub {
+            my ($payload) = @_;
+            die "Checklist payload must be an object\n" if ref($payload) ne 'HASH';
+            die "Checklist update requires ref and id\n"
+              if !defined $payload->{ref} || ref $payload->{ref} || !defined $payload->{id} || ref $payload->{id};
+            my $entry = $tira->checklist_update(
+                project => $project, ref => $payload->{ref}, id => $payload->{id},
+                ( defined $payload->{item} ? ( item => $payload->{item} ) : () ),
+                ( defined $payload->{status} ? ( status => $payload->{status} ) : () ),
+            );
+            return $json->encode( { ok => JSON::PP::true, entry => $entry } );
         },
         comment_add => sub {
             my ($payload) = @_;

@@ -26,7 +26,7 @@ const fs = require('fs');
     scope: { included: ['dialog'], excluded: ['reports'] },
     acceptance_criteria: ['No JSON blob'], test_steps: ['Click a card'],
     bdd: ['Given a card'], atdd: ['Dialog renders sections'],
-    checklist: [{ item: 'Design sections', status: 'done' }],
+    checklist: [{ id: 'CHK-001', item: 'Design sections', status: 'done', created_at: '2026-08-01T09:00:00+0100', last_updated: '2026-08-01T09:00:00+0100' }],
     gate_passing_log: [], evidence: [],
     attachments: [{ sha: 'a'.repeat(64), extension: 'txt', original_filename: 'notes.txt' }],
     subtasks: [],
@@ -62,6 +62,10 @@ const fs = require('fs');
     if (requestUrl.pathname.startsWith('/attachment/') && route.request().method() === 'POST') {
       mutations.push({ path: requestUrl.pathname, body: JSON.parse(route.request().postData()) });
       return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"attachment":{"sha":"cc"}}' });
+    }
+    if (requestUrl.pathname.startsWith('/checklist/') && route.request().method() === 'POST') {
+      mutations.push({ path: requestUrl.pathname, body: JSON.parse(route.request().postData()) });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"entry":{"id":"CHK-002"}}' });
     }
     if (requestUrl.pathname === '/update' && route.request().method() === 'POST') {
       mutations.push({ path: '/update', body: JSON.parse(route.request().postData()) });
@@ -103,9 +107,9 @@ const fs = require('fs');
   if (peopleRequests < 1) throw new Error('author choices were not loaded from /people');
 
   await page.locator('.card-dialog [data-edit="title"]').click();
-  await page.locator('.card-dialog .card-edit-input').fill('Renamed by dialog');
+  await page.locator('.card-dialog h2 .card-edit-input').fill('Renamed by dialog');
   await page.locator('.card-dialog [data-save="title"]').click();
-  await page.waitForFunction(() => document.querySelectorAll('.card-dialog .card-edit-input').length === 0);
+  await page.waitForFunction(() => document.querySelectorAll('.card-dialog h2 .card-edit-input').length === 0);
   const update = mutations.find(entry => entry.path === '/update');
   if (!update) throw new Error('field edit posted no /update request');
   if (update.body.ref !== 'TKT-001' || update.body.field !== 'title' || update.body.value !== 'Renamed by dialog')
@@ -162,6 +166,51 @@ const fs = require('fs');
     throw new Error(`unexpected attachment add payload: ${JSON.stringify(uploaded && uploaded.body)}`);
   if (Buffer.from(uploaded.body.content_base64, 'base64').toString() !== 'uploaded bytes')
     throw new Error('uploaded content did not round-trip through base64');
+
+  const seq = () => page.evaluate(() => window.__tiraMutationSeq || 0);
+  let before = await seq();
+  await page.locator('.card-dialog [data-list-edit="acceptance_criteria:0"]').click();
+  await page.locator('.card-dialog [data-list-input="acceptance_criteria"]').fill('No JSON blob, edited');
+  await page.locator('.card-dialog [data-list-save="acceptance_criteria"]').click();
+  await page.waitForFunction(prev => (window.__tiraMutationSeq || 0) > prev, before);
+  const listEdit = mutations.filter(e => e.path === '/update').find(e => e.body.field === 'acceptance_criteria');
+  if (!listEdit || !Array.isArray(listEdit.body.value) || listEdit.body.value[0] !== 'No JSON blob, edited')
+    throw new Error(`unexpected list edit payload: ${JSON.stringify(listEdit && listEdit.body)}`);
+
+  before = await seq();
+  await page.locator('.card-dialog [data-list-remove="key_details:0"]').click();
+  await page.waitForFunction(prev => (window.__tiraMutationSeq || 0) > prev, before);
+  const listRemove = mutations.filter(e => e.path === '/update').find(e => e.body.field === 'key_details');
+  if (!listRemove || !Array.isArray(listRemove.body.value) || listRemove.body.value.length !== 0)
+    throw new Error(`unexpected list remove payload: ${JSON.stringify(listRemove && listRemove.body)}`);
+
+  before = await seq();
+  await page.locator('.card-dialog [data-list-add="deliverables"]').fill('Second deliverable');
+  await page.locator('.card-dialog [data-list-add-save="deliverables"]').click();
+  await page.waitForFunction(prev => (window.__tiraMutationSeq || 0) > prev, before);
+  const listAdd = mutations.filter(e => e.path === '/update').find(e => e.body.field === 'deliverables');
+  if (!listAdd || JSON.stringify(listAdd.body.value) !== JSON.stringify(['Readable dialog', 'Second deliverable']))
+    throw new Error(`unexpected list add payload: ${JSON.stringify(listAdd && listAdd.body)}`);
+
+  before = await seq();
+  await page.locator('.card-dialog [data-checklist-edit="CHK-001"]').click();
+  await page.locator('.card-dialog [data-checklist-status="CHK-001"]').fill('In Progress');
+  await page.locator('.card-dialog [data-checklist-save="CHK-001"]').click();
+  await page.waitForFunction(prev => (window.__tiraMutationSeq || 0) > prev, before);
+  const checklistEdit = mutations.find(e => e.path === '/checklist/update');
+  if (!checklistEdit || checklistEdit.body.id !== 'CHK-001' || checklistEdit.body.status !== 'In Progress')
+    throw new Error(`unexpected checklist edit payload: ${JSON.stringify(checklistEdit && checklistEdit.body)}`);
+
+  before = await seq();
+  await page.locator('.card-dialog .card-checklist-form input[name="item"]').fill('New row');
+  await page.locator('.card-dialog .card-checklist-form input[name="status"]').fill('To Do');
+  await page.locator('.card-dialog .card-checklist-form button[type="submit"]').click();
+  await page.waitForFunction(prev => (window.__tiraMutationSeq || 0) > prev, before);
+  const checklistAdd = mutations.find(e => e.path === '/checklist/add');
+  if (!checklistAdd || checklistAdd.body.item !== 'New row' || checklistAdd.body.status !== 'To Do')
+    throw new Error(`unexpected checklist add payload: ${JSON.stringify(checklistAdd && checklistAdd.body)}`);
+  if (await page.locator('.card-dialog [data-checklist-remove]').count() !== 0)
+    throw new Error('checklist rows must not offer a delete control');
 
   await page.screenshot({ path: screenshotPath, fullPage: true });
   await browser.close();

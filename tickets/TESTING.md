@@ -513,3 +513,34 @@ recorded Jira research plan in `tickets/DD-407.md`.
   always visible (`MISTAKE.md` `CAPTION-BLIND` records the miss).
 - Agent contract: exactly 100 use cases; no project-location disclosure.
 - Platform: labs remain stopped; nothing platform-dependent changed.
+
+## Latest Verification For `DD-408`
+
+Method: Engine/CLI TDD + HTTP ATDD + Browser BDD (Playwright).
+
+- Red gates: `t/22-dashboard-lists.t` failed 6 assertions (no checklist
+  providers, no editable-list markup, no array-valued update semantics).
+- Functional: PASS in Docker, `Files=23, Tests=882`.
+- Coverage: `100.0%` statement and subroutine for all three production
+  modules; `cover_db` cleaned.
+- Taint/perlsec: suite PASS under `prove -T`; entrypoints and
+  `dashboard.psgi` compile under `perl -T`; primitive scan clean.
+- HTTP/provider ATDD: array-valued `/update` replaces whole lists in order
+  through the engine's replace semantics; scope sides replace independently
+  and preserve the other side; list fields refuse plain scalars, plain
+  fields refuse arrays, list items must be plain text, linkage is refused
+  by name; `/checklist/add` and `/checklist/update` wrap the engine
+  commands and fail as structured 422 (unknown ids, missing item/status).
+- Browser BDD: Playwright PASS — per-item list edit posts the full
+  replacement array, item removal posts the shrunken list, the add box
+  appends, checklist status edit posts `/checklist/update` with the
+  immutable id, the add form posts `/checklist/add`, and no checklist
+  delete control exists. Two script fixes during the run: the title-edit
+  selector needed scoping to the heading once list adders shared the input
+  class, and one drag-step flake retried clean.
+- Visual review: PASS — every value carries a visible pencil, list rows
+  show edit/remove with an Add box per section. Noted as follow-up polish
+  (not blocking): the labels/affects-versions adders make the details grid
+  denser than the DD-406 layout.
+- Agent contract: exactly 100 use cases; no location disclosure.
+- Platform: labs remain stopped; nothing platform-dependent changed.

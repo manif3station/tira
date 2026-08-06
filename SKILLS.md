@@ -24,9 +24,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.16):** shipped, executable, and covered by tests.
 - **Implemented (0.17):** shipped, executable, and covered by tests.
 - **Implemented (0.18):** shipped, executable, and covered by tests.
+- **Implemented (0.19):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.18.
+All commands and use cases in this manual ship in release 0.19.
 
 ## Global invocation grammar
 
@@ -451,6 +452,14 @@ store as the CLI, and each comment carries and manages its own attachment
 chips. Dialog deletion detaches the reference; the stored file is physically
 removed, with logging, only when no record or comment still references it —
 the same semantics as `tira.attachment.detach`.
+List fields edit per item in the dialog: each row offers edit and remove, and
+each list section (plus labels and affects versions in the details grid) has
+an add box; saves send the whole replacement list through the engine's
+replace semantics, so ordering and case-insensitive label dedup still apply.
+Checklist entries add and edit in place through the checklist commands'
+semantics — ids are immutable, entries are never deleted from the dialog,
+and item and status stay free text. Linkage remains read-only in the dialog;
+structural changes stay with the hierarchy and link commands.
 The visible last-updated time advances only after fresh data is applied. Stop
 the foreground server with Ctrl-C.
 

@@ -1,5 +1,21 @@
 Revision history for Tira
 
+0.19  2026-08-06
+    - Made every list field editable per item in the browser card dialog:
+      labels, affects versions, key details, deliverables, scope included
+      and excluded, acceptance criteria, test steps, BDD, and ATDD, each
+      with add, edit, and remove controls that send whole-list replacements
+      through the engine's validated replace semantics.
+    - Added in-dialog checklist management through new `/checklist/add` and
+      `/checklist/update` routes wrapping the existing engine commands:
+      entries add and edit in place, ids stay immutable, and the
+      retained-not-deleted rule keeps any removal control out of the dialog.
+    - Scope sides replace independently while preserving the other side;
+      linkage remains read-only in the dialog.
+    - Array-valued `/update` payloads are strictly validated: list fields
+      refuse plain scalars, single-value fields refuse arrays, and list
+      items must be plain text.
+
 0.18  2026-08-06
     - Attachments are now first-class in the browser card dialog: chip strip
       with one-click inline viewing in an overlay (images, PDF, and text-like

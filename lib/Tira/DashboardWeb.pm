@@ -3,14 +3,14 @@ package Tira::DashboardWeb;
 use strict;
 use warnings;
 
-our $VERSION = '0.18';
+our $VERSION = '0.19';
 
 use Encode qw(encode_utf8);
 use JSON::PP ();
 use Dancer2 appname => 'TiraDashboard';
 
 our ( $RENDER, $DATA, $MOVE, $DETAIL, $UPDATE, $COMMENT_ADD, $COMMENT_UPDATE, $COMMENT_REMOVE, $PEOPLE,
-      $ATTACHMENT_FETCH, $ATTACHMENT_ADD, $ATTACHMENT_REMOVE );
+      $ATTACHMENT_FETCH, $ATTACHMENT_ADD, $ATTACHMENT_REMOVE, $CHECKLIST_ADD, $CHECKLIST_UPDATE );
 
 get '/' => sub {
     content_type 'text/html; charset=UTF-8';
@@ -53,6 +53,8 @@ post '/comment/update' => sub { return _mutation( \$COMMENT_UPDATE ) };
 post '/comment/remove' => sub { return _mutation( \$COMMENT_REMOVE ) };
 post '/attachment/add' => sub { return _mutation( \$ATTACHMENT_ADD ) };
 post '/attachment/remove' => sub { return _mutation( \$ATTACHMENT_REMOVE ) };
+post '/checklist/add' => sub { return _mutation( \$CHECKLIST_ADD ) };
+post '/checklist/update' => sub { return _mutation( \$CHECKLIST_UPDATE ) };
 
 get '/attachment' => sub {
     my %query;
@@ -118,6 +120,8 @@ my @PROVIDERS = (
     [ attachment_fetch => \$ATTACHMENT_FETCH, 'attachment fetch provider' ],
     [ attachment_add => \$ATTACHMENT_ADD, 'attachment add provider' ],
     [ attachment_remove => \$ATTACHMENT_REMOVE, 'attachment remove provider' ],
+    [ checklist_add => \$CHECKLIST_ADD, 'checklist add provider' ],
+    [ checklist_update => \$CHECKLIST_UPDATE, 'checklist update provider' ],
 );
 
 sub build_psgi_app {

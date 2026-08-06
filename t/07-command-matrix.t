@@ -85,7 +85,8 @@ my $created_sow = decode_json($out);
 is( $created_sow->{ref}, 'WORK-0001', 'full record-create field options dispatch' );
 is_deeply( $created_sow->{labels}, ['Delivery'], 'CLI record labels are case-insensitively unique' );
 is( $created_sow->{priority}, 4, 'CLI record metadata reaches the engine' );
-cli( 'record.create', 'epic', '--title', 'Epic', @at );
+cli( 'record.create', 'epic', '--title', 'Epic', '--description', 'Full epic description',
+    '--assignee', 'ada', '--priority', '3', @at );
 cli( 'record.create', 'ticket', '--title', 'Ticket', @at );
 
 ( $status, $out ) = cli( 'record.show', 'ticket', '--ref', 'TKT-001', @at );
@@ -104,6 +105,20 @@ cli( 'hierarchy.link', undef, '--parent', 'WORK-0001', '--child', 'EPC-001', @at
 cli( 'hierarchy.link', undef, '--parent', 'EPC-001', '--child', 'TKT-001', @at );
 ( $status, $out ) = cli( 'hierarchy.show', undef, '--ref', 'WORK-0001', '--recursive', @at );
 is( decode_json($out)->{children}[0]{ref}, 'EPC-001', 'hierarchy show dispatch' );
+is( decode_json($out)->{children}[0]{description}, 'Full epic description',
+    'hierarchy JSON agrees with record show metadata' );
+my $err;
+( $status, $out, $err ) = cli( 'hierarchy.show', undef, '--ref', 'EPC-001',
+    '--project', $root, '-o', 'human' );
+is( $status, 0, 'hierarchy human view succeeds' );
+is( $err, '', 'hierarchy human view emits no warnings' );
+like( $out, qr/Full epic description/, 'hierarchy human view retains description' );
+like( $out, qr/Assignee: Ada/, 'hierarchy human view resolves assignee' );
+like( $out, qr/Priority: Medium/, 'hierarchy human view renders priority' );
+like( $out, qr/`TKT-001`/, 'hierarchy human view lists immediate children' );
+( $status, $out, $err ) = cli( 'hierarchy.show', undef, '--ref', 'MISSING-999', @at );
+is( $status, 2, 'unresolved hierarchy reference exits 2' );
+like( $err, qr/Record 'MISSING-999' not found/, 'unresolved hierarchy reference reports the read failure' );
 cli( 'hierarchy.unlink', undef, '--parent', 'EPC-001', '--child', 'TKT-001', @at );
 
 cli( 'record.create', 'ticket', '--title', 'Child', @at );

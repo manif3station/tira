@@ -19,7 +19,10 @@ $tira->person_add( project => $root, id => 'ada', name => 'Ada' );
 $tira->person_add( project => $root, id => 'grace', name => 'Grace' );
 
 my $sow = $tira->create_record( project => $root, type => 'sow', title => 'SOW' );
-my $epic = $tira->create_record( project => $root, type => 'epic', title => 'Epic' );
+my $epic = $tira->create_record(
+    project => $root, type => 'epic', title => 'Epic',
+    description => 'Full epic description', assignee => 'ada', priority => 3,
+);
 my $ticket1 = $tira->create_record( project => $root, type => 'ticket', title => 'Ticket 1' );
 my $ticket2 = $tira->create_record( project => $root, type => 'ticket', title => 'Ticket 2' );
 
@@ -29,6 +32,11 @@ is( $tira->record_show( project => $root, ref => $epic->{ref} )->{linkage}{sow_r
 is_deeply( $tira->record_show( project => $root, ref => $sow->{ref} )->{linkage}{epic_refs}, [ $epic->{ref} ], 'SOW downlink is recorded' );
 my $tree = $tira->hierarchy_show( project => $root, ref => $sow->{ref}, recursive => 1 );
 is( $tree->{children}[0]{children}[0]{ref}, $ticket1->{ref}, 'recursive hierarchy reaches ticket' );
+is( $tree->{children}[0]{description}, 'Full epic description', 'recursive hierarchy retains child record description' );
+is( $tree->{children}[0]{assignee}, 'ada', 'recursive hierarchy retains child record assignee' );
+is( $tree->{children}[0]{priority}, 3, 'recursive hierarchy retains child record priority' );
+is_deeply( $tree->{children}[0]{linkage}{ticket_refs}, [ $ticket1->{ref} ],
+    'recursive hierarchy retains child record linkage' );
 
 $tira->subitem_link( project => $root, parent => $ticket1->{ref}, child => $ticket2->{ref} );
 is( $tira->record_show( project => $root, ref => $ticket2->{ref} )->{linkage}{parent_ticket_ref}, $ticket1->{ref}, 'subitem uplink recorded' );

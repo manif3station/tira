@@ -1,5 +1,11 @@
 Revision history for Tira
 
+0.11  2026-08-06
+    - Made hierarchy nodes retain the complete record returned by direct show.
+    - Added an explicit Children section to human hierarchy output.
+    - Prevented sparse hierarchy nodes from producing warnings and false empty
+      descriptions, assignments, priorities, or timestamps.
+
 0.10  2026-08-06
     - Made search and replace `--field` repeatable and cumulative while
       preserving caller-supplied field order.

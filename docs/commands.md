@@ -1,6 +1,6 @@
 # Complete Command Ecosystem
 
-Release 0.10 implements every workflow in `SKILLS.md` through 80 Developer
+Release 0.11 implements every workflow in `SKILLS.md` through 80 Developer
 Dashboard entrypoints. The shared `Tira::CLI` parser applies TOON-first output,
 pretty JSON, Markdown, repeatable options, JSON-array replacement, raw
 attachment output, and consistent structured failures.

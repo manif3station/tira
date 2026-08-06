@@ -93,6 +93,10 @@ Release 0.10 makes field scope an ordered list at the CLI and engine boundary.
 Search always returns `{hits, count}`; repeated fields accumulate for both
 search and replacement, and scoped replacement never visits unnamed fields.
 
+Release 0.11 makes hierarchy nodes complete record projections with an added
+`children` array. This keeps hierarchy and direct record reads consistent,
+while unresolved references retain the structured exit-2 failure contract.
+
 ## Output and errors
 
 Default and `-o toon` output is produced by `Data::TOON` 0.03. `-o json` uses

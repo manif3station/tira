@@ -48,3 +48,5 @@ DD-397 replaces per-record migration loops with one-call export, field-aware
 search, transactional dry-run corrections, and append-only log annotations.
 DD-398 makes field scope cumulative, search output consistent, checklist
 permanence explicit, and import dry-run granularity concrete.
+DD-399 makes hierarchy output agree with direct record reads and fail honestly
+when a reference cannot be resolved.

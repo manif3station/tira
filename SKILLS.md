@@ -17,9 +17,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.08):** shipped, executable, and covered by tests.
 - **Implemented (0.09):** shipped, executable, and covered by tests.
 - **Implemented (0.10):** shipped, executable, and covered by tests.
+- **Implemented (0.11):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.10.
+All commands and use cases in this manual ship in release 0.11.
 
 ## Global invocation grammar
 
@@ -288,6 +289,10 @@ tira.link.list --ref REF [--type NAME] [-o FORMAT]
 
 Hierarchy permits only SOW→epic and epic→ticket. Reparenting removes the old
 reciprocal relationship. Sub-items are same-type, one-to-many, and cycle-free.
+Hierarchy show returns the complete direct-read record plus `children`; human
+output adds a Children section. An empty children array means the record was
+read successfully and has no children. An unresolved ref exits `2`. Recursive
+children are complete records; immediate children are ref-only summaries.
 Typed links may cross types. Built-ins are `blocks`/`is-blocked-by`,
 `clones`/`is-cloned-by`, `duplicates`/`is-duplicated-by`, and symmetric
 `relates-to`. Link add is idempotent. Tira never infers completion.
@@ -590,7 +595,7 @@ without revealing or creating a storage location.
 **Implemented.** Direct SOW→ticket hierarchy exits `2` unchanged.
 
 ### UC-066: Show hierarchy
-**Implemented.** `dashboard tira.hierarchy.show --ref EPC-001`.
+**Implemented.** `dashboard tira.hierarchy.show --ref EPC-001` returns the complete epic plus immediate child refs; `-o human` prints its metadata and Children section.
 
 ### UC-067: Recurse hierarchy
 **Implemented.** `dashboard tira.hierarchy.show --ref SOW-001 --recursive -o json`.

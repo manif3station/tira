@@ -310,3 +310,22 @@ Method: Problem-solving regression TDD + CLI contract BDD.
   compiled under taint mode; the production process-primitive scan was clean.
 - Agent contract: exactly 100 implemented use cases remain.
 - Platform: macOS and Windows remain stopped.
+
+## DD-399
+
+Method: Problem-solving regression TDD + read-path consistency BDD.
+
+- Real pre-fix CLI: installed 0.10 hierarchy human output exited 0 with three
+  warnings and false empty metadata; recursive JSON exposed only four sparse
+  node keys although direct epic show contained the full record.
+- Red gate: 10 new assertions failed across engine and CLI consistency checks.
+- Post-fix CLI: the same disposable project returned the full description,
+  assignee, priority, timestamps, linkage, and three children with empty stderr;
+  recursive children were complete records and an unknown ref still exited 2.
+- Docker functional suite: PASS, 14 files and 595 assertions.
+- Coverage: `lib/Tira.pm` and `lib/Tira/CLI.pm` each reached 100.0% statement
+  and subroutine coverage.
+- Security: all 595 assertions passed under `prove -T`; all 80 entrypoints
+  compiled under taint mode; the production process-primitive scan was clean.
+- Agent contract: exactly 100 implemented use cases remain.
+- Platform: macOS and Windows remain stopped.

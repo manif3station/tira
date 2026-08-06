@@ -17,7 +17,7 @@ use JSON::PP ();
 use POSIX qw(strftime);
 use YAML::PP;
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -681,7 +681,7 @@ sub hierarchy_show {
         my $record = $self->record_show( project => $root, ref => $ref );
         my $children = $record->{type} eq 'sow' ? $record->{linkage}{epic_refs}
           : $record->{type} eq 'epic' ? $record->{linkage}{ticket_refs} : [];
-        my $node = { ref => $ref, type => $record->{type}, title => $record->{title}, children => [] };
+        my $node = { %{$record}, children => [] };
         if ( $args{recursive} ) {
             push @{ $node->{children} }, $build->($_) for @{$children};
         }
@@ -1460,6 +1460,12 @@ sub _markdown {
         my $checklist = @{ $data->{checklist} // [] }
           ? "\n## Checklist\n\n" . join( '', map { "- [$_->{status}] $_->{item}\n" } @{ $data->{checklist} } )
           : "\n## Checklist\n\n_Empty._\n";
+        my $children = exists $data->{children}
+          ? "\n## Children\n\n" . ( @{ $data->{children} }
+              ? join( '', map { "- `$_->{ref}`" . ( defined $_->{title} ? " $_->{title}" : '' ) . "\n" }
+                  @{ $data->{children} } )
+              : "_Empty._\n" )
+          : '';
         return "# $data->{ref}: $data->{title}\n\n$description\n\n"
           . "- Type: `$data->{type}`\n"
           . "- Assignee: $assignee\n"
@@ -1467,7 +1473,8 @@ sub _markdown {
           . "- Priority: $priority\n"
           . "- Created: $data->{created_at}\n"
           . "- Last Updated: $data->{last_updated}\n"
-          . $checklist;
+          . $checklist
+          . $children;
     }
     if ( ref($data) eq 'HASH' && ref( $data->{_column_order} ) eq 'HASH' ) {
         my $markdown = "# Tira Dashboard\n";

@@ -997,3 +997,14 @@ report, message 2915 — three connected findings).
   comparator needed a second attachment); functional PASS
   `Files=32, Tests=1198`; coverage `100.0%` all three modules;
   `prove -T` PASS; `cover_db` cleaned. Browser untouched.
+
+## Latest Verification For `DD-431`
+
+- CA16: repeatable ANDed `--where` on list and export — equality,
+  empty-as-absence via the CA15 rule, inequality both ways,
+  case-insensitive array containment safe on scalars, computed-field
+  clauses, projection/count composition, loud unknown-field and
+  operatorless failures.
+- Red-first `t/32-where.t` (24 checks); functional PASS
+  `Files=33, Tests=1222`; coverage `100.0%` all three modules;
+  `prove -T` PASS; `cover_db` cleaned. Browser untouched.

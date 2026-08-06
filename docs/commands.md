@@ -87,6 +87,13 @@ all reads and mutations and must not attempt direct filesystem access. Run
 Existing record-list commands retain their compatible array result; `--full`
 is an explicit assertion that the full records already returned are required.
 
+`--where` on list and export filters server-side: repeatable ANDed clauses
+with `=` equality, `=` against an empty value meaning empty-or-unset, `!=`
+inequality (and `!=` empty meaning has-a-value), and `~` case-insensitive
+array containment that never crashes on scalars. Unknown fields and
+operatorless clauses exit 2. A query returning three records now costs three
+records, not the board.
+
 Comment reads window and slim down: `--last N`/`--first N` (newest-last
 storage order), `--meta-only` (id, author, stamps, body length, attachment
 count), comment-level `--fields` with `id` always kept, `--since` against the

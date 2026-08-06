@@ -1,5 +1,13 @@
 Revision history for Tira
 
+0.42  2026-08-07
+    - CA16 (EPIC-424): server-side --where filtering on list and export.
+      Repeatable ANDed clauses: = equality, = empty meaning
+      empty-or-unset, != both ways, ~ case-insensitive array containment
+      (scalars never match, never crash). Computed fields filterable.
+      Unknown fields and operatorless clauses exit 2. Composes with
+      projection, count, and since.
+
 0.41  2026-08-07
     - CA10-CA12 (EPIC-424): comment windows (--last/--first, zero as
       existence check), comment --meta-only (body length + attachment

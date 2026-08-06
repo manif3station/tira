@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.41';
+our $VERSION = '0.42';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -571,6 +571,45 @@ sub _changed_since {
     return $stamp >= $threshold;
 }
 
+# CA16: repeatable ANDed filters. FIELD=VALUE equality (empty VALUE means
+# empty-or-unset by the CA15 rule), FIELD!=VALUE inequality (!= empty
+# means has-a-value), FIELD~VALUE case-insensitive array containment
+# (scalars simply never match). Unknown fields and operatorless clauses
+# die so a typo can never read as "none exist".
+sub _parse_where {
+    my ($clauses) = @_;
+    return undef if !defined $clauses;
+    my @parsed;
+    for my $raw ( @{$clauses} ) {
+        my ( $field, $operator, $value ) = ( $raw // '' ) =~ /\A([A-Za-z_]+)(!=|~|=)(.*)\z/s
+          or die "Where filter must be FIELD=VALUE, FIELD!=VALUE, or FIELD~VALUE\n";
+        die "Unknown field '$field'\n" if !$RECORD_FIELD{$field};
+        push @parsed, { field => $field, operator => $operator, value => $value };
+    }
+    return \@parsed;
+}
+
+sub _where_matches {
+    my ( $full, $clauses ) = @_;
+    for my $clause ( @{$clauses} ) {
+        my $value = $full->{ $clause->{field} };
+        if ( $clause->{operator} eq '~' ) {
+            return 0 if ref $value ne 'ARRAY';
+            my $needle = lc $clause->{value};
+            return 0 if !grep { !ref $_ && defined $_ && lc($_) eq $needle } @{$value};
+        }
+        elsif ( $clause->{value} eq '' ) {
+            my $empty = _is_empty_value($value);
+            return 0 if $clause->{operator} eq '=' ? !$empty : $empty;
+        }
+        else {
+            my $equal = defined $value && !ref $value && "$value" eq $clause->{value};
+            return 0 if $clause->{operator} eq '=' ? !$equal : $equal;
+        }
+    }
+    return 1;
+}
+
 # CA05: the content hash covers every meaningful field including the
 # computed column, and excludes only the volatile last_updated stamp —
 # so a no-op write keeps its hash while any real change, comment,
@@ -683,6 +722,9 @@ sub record_list {
     # CA07/CA17: count wins over refs-only wins over projection — but a
     # bad field name stays loud even when projection is moot.
     undef $plan if $args{count} || $args{refs_only};
+    my $where = _parse_where( $args{where} );
+    my %where_computed = map { $_->{field} => 1 }
+      grep { $_->{field} eq 'content_hash' || $_->{field} eq 'attachment_count' } @{ $where // [] };
     my $threshold = defined $args{since} ? _epoch_of_datetime( $args{since}, 'Since' ) : undef;
     my $root = $self->discover_project(%args);
     my @records;
@@ -705,6 +747,13 @@ sub record_list {
             }
             return if defined $threshold && !_changed_since( $record, $threshold );
             my $full = { %{$record}, column => $column };
+            if ($where) {
+                $full->{content_hash} = _record_content_hash($full) if $where_computed{content_hash};
+                $full->{attachment_count} = scalar @{ $record->{attachments} // [] }
+                  if $where_computed{attachment_count};
+                return if !_where_matches( $full, $where );
+                delete @{$full}{ grep { $where_computed{$_} } qw(content_hash attachment_count) };
+            }
             $full->{content_hash} = _record_content_hash($full)
               if $plan && $plan->{fields} && $plan->{fields}{content_hash};
             $full->{attachment_count} = scalar @{ $record->{attachments} // [] }

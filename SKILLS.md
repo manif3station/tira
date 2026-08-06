@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.41):** shipped, executable, and covered by tests.
+- **Implemented (0.42):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.41.
+All commands and use cases in this manual ship in release 0.42.
 
 ## Global invocation grammar
 
@@ -279,7 +279,7 @@ forms are **Implemented (DD-389)** for each `TYPE`:
 
 ```text
 tira.TYPE.show --ref REF [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--brief] [--truncate N|--full] [-o FORMAT]
-tira.TYPE.list [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--count] [--refs-only] [--brief] [--truncate N|--full] [-o FORMAT]
+tira.TYPE.list [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--count] [--refs-only] [--brief] [--truncate N|--full] [--where CLAUSE ...] [-o FORMAT]
 tira.TYPE.update --ref REF [record field arguments] [-o FORMAT]
 tira.TYPE.move --ref REF --column SLUG [-o FORMAT]
 tira.TYPE.discard --ref REF [-o FORMAT]
@@ -364,6 +364,16 @@ and `sha`, in an envelope with `count` and `total_size`; attachment
 `--fields` keeps `sha`; `--since` filters by `added_at`; these options
 require `--ref`. The computed record field `attachment_count` is
 selectable via `--fields` for board-wide evidence coverage.
+Server-side filtering is **Implemented (DD-431)** on list and export:
+`--where` is repeatable and clauses combine with AND. `FIELD=VALUE` is
+string equality; `FIELD=` (empty value) matches a field that is empty or
+unset by the same emptiness rule as omission; `FIELD!=VALUE` excludes;
+`FIELD!=` means the field has a value; `FIELD~VALUE` matches an element
+of an array field case-insensitively, and on a non-array field matches
+nothing rather than erroring. Computed fields (`content_hash`,
+`attachment_count`, `column`, `parent`) are filterable. An unknown field
+or an operatorless clause exits 2 — a typo can never read as "none
+exist". Composes with `--fields`, `--count`, and `--since`.
 Clone creates a Backlog record, shares attachment refs, clears hierarchy, and
 adds reciprocal clone links.
 
@@ -459,7 +469,7 @@ tira.evidence.annotate --ref REF --id EVD-NNN --note TEXT [--author ID] [-o FORM
 tira.gate.list --ref REF [-o FORMAT]
 tira.gate.add --ref REF --gate TEXT --result pass|fail|blocked --details TEXT [--author ID] [-o FORMAT]
 tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]
-tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--count] [--brief] [--truncate N|--full] [-o FORMAT]
+tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--count] [--brief] [--truncate N|--full] [--where CLAUSE ...] [-o FORMAT]
 tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [-o FORMAT]
 tira.import --file FILE [--dry-run] [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [--count] [--refs-only] [-o FORMAT]
@@ -723,8 +733,8 @@ without revealing or creating a storage location.
 ### UC-044: Filter by column, or just count it
 **Implemented.** `dashboard tira.ticket.list --column backlog` lists the column; `dashboard tira.ticket.list --column backlog --count -o json` answers `{"count":47}` for a few bytes, and `--refs-only` returns just the refs — the input to a batch read.
 
-### UC-045: Filter by assignee
-**Implemented.** `dashboard tira.ticket.list --assignee ada`.
+### UC-045: Filter server-side on any field
+**Implemented.** `dashboard tira.ticket.list --assignee ada` remains; `dashboard tira.ticket.list --where column=backlog --where sdlc_gate= -o json` returns parked tickets with no gate in one cheap call, and `--where labels~Zenandi-Developer` checks label coverage without an export.
 
 ### UC-046: Filter by parent
 **Implemented.** `dashboard tira.ticket.list --parent EPC-001`.

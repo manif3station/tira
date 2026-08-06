@@ -62,6 +62,7 @@ sub run {
         'brief' => \$option{brief}, 'truncate=i' => \$option{truncate},
         'last=i' => \$option{last}, 'first=i' => \$option{first},
         'meta-only' => \$option{meta_only},
+        'where=s@' => \$option{where},
         'with=s' => \$option{with}, 'note=s' => \$option{note},
         'reporter=s' => \$option{reporter}, 'due-date=s' => \$option{due_date},
         'start-date=s' => \$option{start_date}, 'sdlc-gate=s' => \$option{sdlc_gate},
@@ -479,6 +480,8 @@ sub _invoke {
     die "Meta-only is available on the comment and attachment lists, show, list, and export\n"
       if $option->{meta_only}
       && $command !~ /\A(?:comment\.list|attachment\.list|record\.(?:show|list)|export)\z/;
+    die "Where filtering is available on list and export commands\n"
+      if defined $option->{where} && $command !~ /\A(?:record\.list|export)\z/;
     die "Refs-only is available on list and search commands\n"
       if $option->{refs_only} && $command !~ /\A(?:record\.list|search)\z/;
     $args{type} = $record_type if defined $record_type;

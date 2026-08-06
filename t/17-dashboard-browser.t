@@ -57,6 +57,8 @@ like( $live_html, qr/<dialog class="card-dialog".*card-dialog__sections/s,
     'browser dashboard includes a sectioned card dialog' );
 like( $live_html, qr/pointerdown.*pointerup.*\/move/s,
     'browser dashboard exposes pointer-based drag and drop move behavior' );
+like( $live_html, qr/touchmove.*preventDefault.*passive:false/s,
+    'an armed drag blocks native touch scrolling so iOS tracks the ghost' );
 unlike( $live_html, qr/dragstart|draggable="true"/,
     'the HTML5 drag path is fully replaced' );
 ok( ref $calls->[0]{move} eq 'CODE', 'browser server receives a move provider' );

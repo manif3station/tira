@@ -745,3 +745,28 @@ real project board (message 2888).
 - Functional PASS `Files=25, Tests=954`; coverage `100.0%`; `prove -T`
   PASS; Playwright ×3 green; mobile dark capture visually reviewed with
   intra-day ordering legible (21:34 > 18:02 > 15:31).
+
+## Latest Verification For `DD-417`
+
+Method: Browser BDD under the Mandatory Problem-Solving Loop; the owner's
+screen recording (message 2898) is the reported reproduction.
+
+- Diagnosis from the recording: the hold ARMS the drag (ghost and dashed
+  drop target visible) but the ghost never tracks the finger — iOS/WebKit
+  keeps claiming the movement for scrolling; preventDefault on pointer
+  events does not stop that arbitration, only blocking the raw touchmove
+  does. The prior touch proof ran emulated Chromium, which is exactly the
+  boundary recorded in the DD-410 evidence.
+- Fix: a non-passive document touchmove listener prevents default only
+  while a drag is armed; pointercancel still aborts cleanly for genuine
+  system interruptions; `-webkit-touch-callout:none` suppresses the
+  long-press callout on cards.
+- Verification stack, honestly bounded: renderer contract guard requires
+  the non-passive touchmove blocker; Chromium desktop and CDP touch flows
+  remain green ×2; the host cannot launch the Playwright WebKit port
+  (missing system libraries — both cached builds fail at startup), so
+  engine behavior under real WebKit gesture arbitration is verified by
+  the owner's re-test on the physical iPhone, which has been requested
+  and is the acceptance gate for this ticket.
+- Functional PASS `Files=25, Tests=955`; coverage `100.0%`; `prove -T`
+  PASS.

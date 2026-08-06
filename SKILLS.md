@@ -33,9 +33,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.25):** shipped, executable, and covered by tests.
 - **Implemented (0.26):** shipped, executable, and covered by tests.
 - **Implemented (0.27):** shipped, executable, and covered by tests.
+- **Implemented (0.28):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.27.
+All commands and use cases in this manual ship in release 0.28.
 
 ## Global invocation grammar
 
@@ -441,7 +442,8 @@ JavaScript applies that payload in place, moving cards without reloading the
 page. Drag/drop calls the real JSON-file move operation through a pointer-events
 engine that serves mouse and touch alike: mouse drags start after a small
 movement threshold, touch drags start after a short hold so page scrolling
-stays native, a floating ghost tracks the pointer, the destination column
+stays native (once a drag arms, the page blocks native touch scrolling so
+iOS keeps delivering movement to the ghost), a floating ghost tracks the pointer, the destination column
 highlights, and the release click never reopens the dragged card. The drop zone is the
 whole column stripe within the card's own board — releasing on, between,
 or below the column's existing cards all land the move; releasing outside

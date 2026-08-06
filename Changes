@@ -1,5 +1,12 @@
 Revision history for Tira
 
+0.28  2026-08-06
+    - Fixed drag-and-drop on iPhone: iOS browsers (all WebKit) kept
+      claiming the moving finger for scrolling, so an armed drag's ghost
+      never tracked. Once the hold arms a drag, a non-passive touchmove
+      listener blocks native scrolling until release; before the hold,
+      scrolling is untouched. Long-press callout suppressed on cards.
+
 0.27  2026-08-06
     - Attachment rows show the complete date-and-time stamp instead of the
       date alone, making the newest-first order verifiable within a day;

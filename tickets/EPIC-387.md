@@ -35,10 +35,11 @@ DD-397 adds migration-scale reads, previewed bulk corrections, and append-only
 log annotations.
 DD-398 standardizes search output and adds safe multi-field migration scopes.
 DD-399 makes hierarchy reads retain the complete underlying record truth.
+DD-400 makes dashboard cost scale with boards and records instead of columns.
 
 ## Release standard
 
 Each slice is independently tested, documented, committed, and pushed. The epic
 closes only when the complete CLI documented in `SKILLS.md` is proven.
 
-Status: in progress through DD-399.
+Status: in progress through DD-400.

@@ -10,6 +10,16 @@ use Test::More;
 use lib 'lib';
 use Tira;
 
+{
+    package CountingTira;
+    use parent 'Tira';
+    sub record_list {
+        my ( $self, @args ) = @_;
+        $self->{record_list_calls}++;
+        return $self->SUPER::record_list(@args);
+    }
+}
+
 my $tmp = tempdir( CLEANUP => 1 );
 my $tick = 0;
 my $tira = Tira->new( clock => sub { sprintf '2026-08-05T01:00:%02d+0100', $tick++ } );
@@ -81,6 +91,11 @@ is( $gate->{result}, 'pass', 'gate result can be appended' );
 is( $tira->search( project => $root, text => 'ticket', type => 'ticket' )->{count}, 2, 'search scans matching records' );
 my $dashboard = $tira->dashboard( project => $root, type => 'all' );
 ok( exists $dashboard->{ticket}{backlog}, 'dashboard groups records by board and column' );
+my $counting = CountingTira->new( clock => sub { '2026-08-05T02:00:00+0100' } );
+$counting->column_add( project => $root, type => 'ticket', name => 'doing', before => 'discard' );
+$counting->column_add( project => $root, type => 'ticket', name => 'review', before => 'discard' );
+$counting->dashboard( project => $root, type => 'ticket' );
+is( $counting->{record_list_calls}, 1, 'dashboard scans a selected board only once' );
 
 my $removed = $tira->attachment_remove( project => $root, sha => $attachment->{sha}, extension => 'bin' );
 ok( $removed->{deleted_at}, 'attachment removal records timestamp' );

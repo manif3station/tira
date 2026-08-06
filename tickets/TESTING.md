@@ -329,3 +329,21 @@ Method: Problem-solving regression TDD + read-path consistency BDD.
   compiled under taint mode; the production process-primitive scan was clean.
 - Agent contract: exactly 100 implemented use cases remain.
 - Platform: macOS and Windows remain stopped.
+
+## DD-400
+
+Method: Problem-solving performance TDD + filesystem-scan BDD.
+
+- Pre-fix installed 0.11 benchmark: 240 tickets / 13 visible columns took
+  4.87, 4.99, and 4.72 seconds.
+- Red gate: corrected three-column instrumentation observed three full board
+  scans where one was expected.
+- Post-fix working-tree benchmark: 0.53, 0.78, and 0.45 seconds, with JSON
+  byte-identical to the baseline and all 240 records in the same column order.
+- Docker functional suite: PASS, 14 files and 596 assertions.
+- Coverage: `lib/Tira.pm` and `lib/Tira/CLI.pm` each reached 100.0% statement
+  and subroutine coverage.
+- Security: all 596 assertions passed under `prove -T`; all 80 entrypoints
+  compiled under taint mode; the production process-primitive scan was clean.
+- Agent contract: exactly 100 implemented use cases remain.
+- Platform: macOS and Windows remain stopped.

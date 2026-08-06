@@ -18,9 +18,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.09):** shipped, executable, and covered by tests.
 - **Implemented (0.10):** shipped, executable, and covered by tests.
 - **Implemented (0.11):** shipped, executable, and covered by tests.
+- **Implemented (0.12):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.11.
+All commands and use cases in this manual ship in release 0.12.
 
 ## Global invocation grammar
 
@@ -393,6 +394,10 @@ writes transactionally unless `--dry-run` is present. Replace scans mutable
 content only, accepts a Perl regular expression, returns before/after diffs,
 and performs no write with `--dry-run`. Neither command rewrites gate or
 evidence observations.
+
+Dashboard scans each selected board once and groups records by configured
+column in memory. Column count therefore does not multiply JSON file reads;
+configured order and optional Discard inclusion remain unchanged.
 
 ## 100 use cases
 

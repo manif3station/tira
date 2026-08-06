@@ -17,7 +17,7 @@ use JSON::PP ();
 use POSIX qw(strftime);
 use YAML::PP;
 
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -1188,10 +1188,15 @@ sub dashboard {
     my %dashboard;
     $dashboard{_column_order} = {};
     for my $type ( ( $args{type} // 'all' ) eq 'all' ? qw(sow epic ticket) : ( $args{type} ) ) {
-        for my $column ( @{ $self->column_list( project => $root, type => $type ) } ) {
-            next if $column->{name} eq 'discard' && !$args{include_discard};
+        my @columns = grep { $_->{name} ne 'discard' || $args{include_discard} }
+          @{ $self->column_list( project => $root, type => $type ) };
+        my %by_column = map { $_->{name} => [] } @columns;
+        for my $record ( @{ $self->record_list( project => $root, type => $type ) } ) {
+            push @{ $by_column{ $record->{column} } }, $record if exists $by_column{ $record->{column} };
+        }
+        for my $column (@columns) {
             push @{ $dashboard{_column_order}{$type} }, $column->{name};
-            $dashboard{$type}{ $column->{name} } = $self->record_list( project => $root, type => $type, column => $column->{name} );
+            $dashboard{$type}{ $column->{name} } = $by_column{ $column->{name} };
         }
     }
     return \%dashboard;

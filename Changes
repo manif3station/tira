@@ -1,5 +1,11 @@
 Revision history for Tira
 
+0.12  2026-08-06
+    - Reduced dashboard reads from one full-board scan per visible column to
+      one scan per selected board.
+    - Preserved byte-identical JSON structure, record order, column order, and
+      Discard filtering while grouping records in memory.
+
 0.11  2026-08-06
     - Made hierarchy nodes retain the complete record returned by direct show.
     - Added an explicit Children section to human hierarchy output.

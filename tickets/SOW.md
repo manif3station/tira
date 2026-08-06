@@ -50,3 +50,4 @@ DD-398 makes field scope cumulative, search output consistent, checklist
 permanence explicit, and import dry-run granularity concrete.
 DD-399 makes hierarchy output agree with direct record reads and fail honestly
 when a reference cannot be resolved.
+DD-400 removes repeated full-board scans from dashboard rendering.

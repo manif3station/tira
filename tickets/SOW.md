@@ -44,3 +44,5 @@ DD-395 makes repeatable content and scope updates append-safe while preserving
 explicit replacement controls.
 DD-396 makes attachment responses distinguish retained and supplied filenames
 when content deduplication collapses a same-target reference.
+DD-397 replaces per-record migration loops with one-call export, field-aware
+search, transactional dry-run corrections, and append-only log annotations.

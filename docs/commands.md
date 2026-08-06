@@ -1,6 +1,6 @@
 # Complete Command Ecosystem
 
-Release 0.08 implements every workflow in `SKILLS.md` through 75 Developer
+Release 0.09 implements every workflow in `SKILLS.md` through 80 Developer
 Dashboard entrypoints. The shared `Tira::CLI` parser applies TOON-first output,
 pretty JSON, Markdown, repeatable options, JSON-array replacement, raw
 attachment output, and consistent structured failures.
@@ -25,6 +25,8 @@ attachment output, and consistent structured failures.
 - Filesystem search and an ordered Markdown/structured Kanban dashboard.
 - Strict UTF-8 CLI/text boundaries, canonical UTF-8 persistence and output,
   and lossless recovery of isolated legacy bytes.
+- One-call export, full lists, field-aware search, previewable bulk correction,
+  and append-only gate/evidence annotations for migrations.
 
 ## Transaction boundaries
 
@@ -56,3 +58,20 @@ removes record references, so re-adding bytes reports the still-retained name.
 Managed project location is intentionally omitted. Agents use Tira commands for
 all reads and mutations and must not attempt direct filesystem access. Run
 `dashboard tira.skills` for the full argument matrix and UC-001 through UC-100.
+
+## Migration-scale commands
+
+`tira.export` returns `{records, count}` for every type and column in one call.
+Existing record-list commands retain their compatible array result; `--full`
+is an explicit assertion that the full records already returned are required.
+
+Field-aware search returns `{hits, count}` and each hit includes ref, type,
+column, dotted field path, and matched value. `tira.replace` operates only on
+mutable content fields and returns field-level before/after changes. `--dry-run`
+performs no write.
+
+`tira.import --file changes.json` accepts a JSON object keyed by record ref.
+Values are exact replacement fields. It validates every record and field before
+writing the complete set transactionally; `--dry-run` returns the same diff
+without mutation. Gate and evidence logs remain append-only: annotate commands
+append attributed correction notes to stable entry IDs.

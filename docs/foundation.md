@@ -82,6 +82,13 @@ response returns that list's retained `original_filename`, the caller's
 `supplied_filename`, and a Boolean `deduped`; these response-only fields are
 not written into the attachment reference.
 
+Release 0.09 adds migration-scale operations without introducing an index,
+service, watcher, changelog, or general log mutation. Export and field-aware
+search still scan the filesystem. Bulk import validates all requested records
+before an atomic multi-file transaction; replace is restricted to mutable text
+content and supports dry-run diffs. Gate and evidence corrections append
+annotations to stable entry IDs, preserving original observations.
+
 ## Output and errors
 
 Default and `-o toon` output is produced by `Data::TOON` 0.03. `-o json` uses

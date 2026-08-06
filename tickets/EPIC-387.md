@@ -31,6 +31,8 @@ filesystem Jira mirror.
 DD-394 adds ordered item/status checklists to every work-record type.
 DD-395 prevents silent data loss by making every accumulating update append.
 DD-396 makes attachment deduplication responses report retained filename truth.
+DD-397 adds migration-scale reads, previewed bulk corrections, and append-only
+log annotations.
 
 ## Release standard
 

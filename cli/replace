@@ -1,0 +1,14 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use File::Spec;
+use FindBin;
+unshift @INC, File::Spec->catdir( $FindBin::Bin, '..', 'lib' );
+require Tira::CLI;
+exit Tira::CLI->run( command => 'replace', argv => \@ARGV );
+__END__
+=head1 NAME
+Tira replace - Preview or apply project-wide text replacement
+=head1 DESCRIPTION
+Performs field-scoped regex replacement over mutable record content.
+=cut

@@ -15,9 +15,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.06):** shipped, executable, and covered by tests.
 - **Implemented (0.07):** shipped, executable, and covered by tests.
 - **Implemented (0.08):** shipped, executable, and covered by tests.
+- **Implemented (0.09):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.08.
+All commands and use cases in this manual ship in release 0.09.
 
 ## Global invocation grammar
 
@@ -196,6 +197,8 @@ tira.project.people.activate --id ID [-o FORMAT]
 
 All listed create and update fields are implemented. Updates may replace arrays
 with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
+`--problem-or-feature` aliases `--problem`; `--acceptance-criteria` aliases
+`--acceptance`; and `--set-acceptance-criteria` aliases `--set-acceptance`.
 
 ## Command catalogue
 
@@ -334,7 +337,7 @@ the rejected supplied name, and `deduped: true`. A different record may retain
 another filename for the same SHA. These response fields do not alter stored
 references.
 
-### Checklists, evidence, gates, search, and dashboard
+### Checklists, evidence, gates, migration, search, and dashboard
 
 All are **Implemented (DD-389)**:
 
@@ -344,9 +347,15 @@ tira.checklist.add --ref REF --item TEXT --status TEXT [-o FORMAT]
 tira.checklist.update --ref REF --id CHK-NNN [--item TEXT] [--status TEXT] [-o FORMAT]
 tira.evidence.list --ref REF [-o FORMAT]
 tira.evidence.add --ref REF --summary TEXT [--uri URI] [--file PATH] [--author ID] [-o FORMAT]
+tira.evidence.annotate --ref REF --id EVD-NNN --note TEXT [--author ID] [-o FORMAT]
 tira.gate.list --ref REF [-o FORMAT]
 tira.gate.add --ref REF --gate TEXT --result pass|fail|blocked --details TEXT [--author ID] [-o FORMAT]
-tira.search --text QUERY [--type TYPE] [--column SLUG] [--assignee ID] [-o FORMAT]
+tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]
+tira.export [-o FORMAT]
+tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [-o FORMAT]
+tira.import --file FILE [--dry-run] [-o FORMAT]
+tira.search --text QUERY [--field FIELD] [--type TYPE] [--column SLUG] [--assignee ID] [-o FORMAT]
+tira.replace --pattern REGEX --with TEXT [--field FIELD] [--type TYPE] [--dry-run] [-o FORMAT]
 tira.dashboard [--type TYPE|all] [--include-discard] [-o FORMAT]
 ```
 
@@ -356,6 +365,21 @@ requires both non-empty values. Update requires at least one of `--item` or
 Evidence may have both URI and file. Gates record observations but never move
 work. Search scans files without an index and combines filters with AND.
 Dashboard follows configured column order and excludes Discard by default.
+Gate/evidence entries have stable IDs and `annotations`; annotate appends an
+attributed correction while preserving the original entry. There is no general
+gate/evidence update command.
+
+Export returns `{records, count}` for every type and column. List continues to
+return its compatible full-record array; `--full` explicitly requests that
+existing shape. Search with `--field` returns `{hits, count}` with dotted field
+paths and matched values.
+
+Import reads a UTF-8 JSON object keyed by ref and treats supplied fields as
+exact replacements. It validates the whole set, returns field-level diffs, and
+writes transactionally unless `--dry-run` is present. Replace scans mutable
+content only, accepts a Perl regular expression, returns before/after diffs,
+and performs no write with `--dry-run`. Neither command rewrites gate or
+evidence observations.
 
 ## 100 use cases
 
@@ -488,8 +512,8 @@ without revealing or creating a storage location.
 ### UC-042: Show ticket
 **Implemented.** `dashboard tira.ticket.show --ref TKT-001`.
 
-### UC-043: List tickets
-**Implemented.** `dashboard tira.ticket.list` scans all columns.
+### UC-043: Read full boards in one call
+**Implemented.** `dashboard tira.ticket.list --full -o json` returns full ticket records across columns; `dashboard tira.export -o json` returns every SOW, epic, and ticket in one `{records, count}` object.
 
 ### UC-044: Filter by column
 **Implemented.** `dashboard tira.ticket.list --column backlog`.
@@ -653,11 +677,11 @@ without revealing or creating a storage location.
 ### UC-097: Add evidence
 **Implemented.** `dashboard tira.evidence.add --ref TKT-001 --summary "CI" --uri https://ci.example.test/1 --file result.xml --author ada`.
 
-### UC-098: Record gates and checklists
-**Implemented.** `dashboard tira.gate.add --ref TKT-001 --gate Security --result pass --details "122 tests" --author ada`; manage the same record's checklist with `dashboard tira.checklist.add --ref TKT-001 --item "Review report" --status "To Do"`, `dashboard tira.checklist.list --ref TKT-001`, and `dashboard tira.checklist.update --ref TKT-001 --id CHK-001 --status Done`.
+### UC-098: Record and annotate gates, evidence, and checklists
+**Implemented.** Add a gate, then append a correction with `dashboard tira.gate.annotate --ref TKT-001 --id GATE-001 --note "Use local docs" --author ada`; evidence uses `tira.evidence.annotate` with `EVD-NNN`. Manage retained checklists with add, list, and update; there is no remove command.
 
-### UC-099: Search files
-**Implemented.** `dashboard tira.search --text authentication --type ticket --column backlog`.
+### UC-099: Search and correct migrations in bulk
+**Implemented.** `dashboard tira.search --text Jira --field description -o json` reports field hits. Preview ref-keyed changes with `dashboard tira.import --file changes.json --dry-run -o json`, or regex changes with `dashboard tira.replace --pattern Jira --with Local --field description --dry-run -o json`; omit dry-run only after reviewing diffs.
 
 ### UC-100: Render dashboard
 **Implemented.** `dashboard tira.dashboard --type all --include-discard -o human`.

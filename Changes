@@ -1,5 +1,13 @@
 Revision history for Tira
 
+0.09  2026-08-06
+    - Added one-call full project export and explicit full record listing.
+    - Added field-aware search and previewable project-wide text replacement.
+    - Added dry-run, transactional ref-keyed JSON bulk import.
+    - Added stable gate/evidence entry IDs and append-only correction
+      annotations without general log mutation.
+    - Added symmetric long-form aliases for acceptance and problem fields.
+
 0.08  2026-08-05
     - Made attachment-add responses return the filename actually retained by
       the target attachment list.

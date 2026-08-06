@@ -17,7 +17,7 @@ use JSON::PP ();
 use POSIX qw(strftime);
 use YAML::PP;
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -480,6 +480,12 @@ sub record_list {
         } }, $board );
     }
     return [ sort { $a->{ref} cmp $b->{ref} } @records ];
+}
+
+sub export_records {
+    my ( $self, %args ) = @_;
+    my $records = $self->record_list(%args);
+    return { records => $records, count => scalar @{$records} };
 }
 
 sub record_update {
@@ -949,12 +955,18 @@ sub evidence_add {
       ? { map { $_ => $attachment->{$_} } qw(sha extension original_filename) }
       : undef;
     my $entry = {
+        id => sprintf( 'EVD-%03d', @{ $record->{evidence} } + 1 ),
         summary => $args{summary}, uri => $args{uri} // '', author => $args{author},
-        attachment => $stored_attachment, created_at => $self->{clock}->(),
+        attachment => $stored_attachment, annotations => [], created_at => $self->{clock}->(),
     };
     push @{ $record->{evidence} }, $entry;
     $self->_replace_record( %args, record => $record );
     return $entry;
+}
+
+sub evidence_annotate {
+    my ( $self, %args ) = @_;
+    return $self->_annotate_log( %args, field => 'evidence', label => 'Evidence' );
 }
 
 sub gate_list {
@@ -967,10 +979,19 @@ sub gate_add {
     die "Invalid gate result\n" if ( $args{result} // '' ) !~ /\A(?:pass|fail|blocked)\z/;
     $self->_require_person( %args, person => $args{author} ) if defined $args{author};
     my $record = $self->record_show(%args);
-    my $entry = { gate => $args{gate}, result => $args{result}, details => $args{details}, author => $args{author}, created_at => $self->{clock}->() };
+    my $entry = {
+        id => sprintf( 'GATE-%03d', @{ $record->{gate_passing_log} } + 1 ),
+        gate => $args{gate}, result => $args{result}, details => $args{details},
+        author => $args{author}, annotations => [], created_at => $self->{clock}->(),
+    };
     push @{ $record->{gate_passing_log} }, $entry;
     $self->_replace_record( %args, record => $record );
     return $entry;
+}
+
+sub gate_annotate {
+    my ( $self, %args ) = @_;
+    return $self->_annotate_log( %args, field => 'gate_passing_log', label => 'Gate' );
 }
 
 sub checklist_list {
@@ -1011,7 +1032,145 @@ sub checklist_update {
 
 sub search {
     my ( $self, %args ) = @_;
+    if ( defined $args{field} ) {
+        my @hits;
+        my %filters = %args;
+        delete @filters{qw(text field)};
+        for my $record ( @{ $self->record_list(%filters) } ) {
+            next if !exists $record->{ $args{field} };
+            push @hits, map {
+                { ref => $record->{ref}, type => $record->{type}, column => $record->{column}, %{$_} }
+            } $self->_field_hits( $record->{ $args{field} }, $args{field}, $args{text} );
+        }
+        return { hits => \@hits, count => scalar @hits };
+    }
     return $self->record_list(%args);
+}
+
+sub _annotate_log {
+    my ( $self, %args ) = @_;
+    die "$args{label} annotation note is required\n" if !defined $args{note} || $args{note} eq '';
+    $self->_require_person( %args, person => $args{author} ) if defined $args{author};
+    my $record = $self->record_show(%args);
+    my ($entry) = grep { $_->{id} eq ( $args{id} // '' ) } @{ $record->{ $args{field} } };
+    die "$args{label} entry '$args{id}' not found\n" if !$entry;
+    my $annotation = { note => $args{note}, author => $args{author}, created_at => $self->{clock}->() };
+    push @{ $entry->{annotations} }, $annotation;
+    $self->_replace_record( %args, record => $record );
+    return $annotation;
+}
+
+sub _field_hits {
+    my ( $self, $value, $path, $text ) = @_;
+    my @hits;
+    if ( !ref($value) ) {
+        push @hits, { field => $path, value => $value }
+          if defined $value && index( lc $value, lc( $text // '' ) ) >= 0;
+    }
+    elsif ( ref($value) eq 'ARRAY' ) {
+        for my $index ( 0 .. $#{$value} ) {
+            push @hits, $self->_field_hits( $value->[$index], "$path.$index", $text );
+        }
+    }
+    elsif ( ref($value) eq 'HASH' ) {
+        for my $key ( sort keys %{$value} ) {
+            push @hits, $self->_field_hits( $value->{$key}, "$path.$key", $text );
+        }
+    }
+    return @hits;
+}
+
+sub _replace_value {
+    my ( $self, $value, $regex, $replacement ) = @_;
+    my $changed = 0;
+    if ( !ref($value) && defined $value ) {
+        my $copy = $value;
+        $changed = ( $copy =~ s/$regex/$replacement/g );
+        $_[1] = $copy if $changed;
+    }
+    elsif ( ref($value) eq 'ARRAY' ) {
+        $changed += $self->_replace_value( $value->[$_], $regex, $replacement ) for 0 .. $#{$value};
+    }
+    elsif ( ref($value) eq 'HASH' ) {
+        $changed += $self->_replace_value( $value->{$_}, $regex, $replacement ) for keys %{$value};
+    }
+    return $changed;
+}
+
+sub bulk_import {
+    my ( $self, %args ) = @_;
+    my $changes = $args{changes};
+    die "Import changes must be a JSON object\n" if ref($changes) ne 'HASH';
+    my $root = $self->discover_project(%args);
+    my %allowed = map { $_ => 1 } qw(
+      title description key_details problem_or_feature solution_needed deliverables scope source
+      acceptance_criteria test_steps bdd atdd assignee reporter labels due_date start_date
+      sdlc_gate lifecycle priority fix_version affects_versions comments checklist
+    );
+    return $self->_with_project_lock( $root, sub {
+        my ( @updates, @diffs );
+        for my $ref ( sort keys %{$changes} ) {
+            die "Import change for '$ref' must be a JSON object\n" if ref( $changes->{$ref} ) ne 'HASH';
+            my ( $path, $record ) = $self->_record_data( project => $root, ref => $ref );
+            for my $field ( sort keys %{ $changes->{$ref} } ) {
+                die "Import field '$field' is not mutable\n" if !$allowed{$field};
+                my $after = $changes->{$ref}{$field};
+                my $before = $record->{$field};
+                die "Import field '$field' has incompatible value type\n"
+                  if defined $before && defined $after && ref($before) ne ref($after);
+                next if JSON::PP->new->canonical->encode($before) eq JSON::PP->new->canonical->encode($after);
+                push @diffs, { ref => $ref, field => $field, before => $before, after => $after };
+                $record->{$field} = $after;
+            }
+            if ( grep { $_->{ref} eq $ref } @diffs ) {
+                $record->{last_updated} = $self->{clock}->();
+                push @updates, [ $path, $record ];
+            }
+        }
+        $self->_write_json_transaction( \@updates ) if @updates && !$args{dry_run};
+        my %changed = map { $_->{ref} => 1 } @diffs;
+        return {
+            dry_run => $args{dry_run} ? JSON::PP::true : JSON::PP::false,
+            changed_records => scalar keys %changed, changes => \@diffs,
+            requested_changes => $changes,
+        };
+    } );
+}
+
+sub replace_records {
+    my ( $self, %args ) = @_;
+    die "Replacement pattern is required\n" if !defined $args{pattern} || $args{pattern} eq '';
+    die "Replacement text is required\n" if !defined $args{with};
+    my $regex = eval { qr/$args{pattern}/ };
+    die "Invalid replacement pattern: $@" if !$regex;
+    my %mutable = map { $_ => 1 } qw(
+      title description key_details problem_or_feature solution_needed deliverables scope source
+      acceptance_criteria test_steps bdd atdd labels sdlc_gate lifecycle fix_version
+      affects_versions comments checklist
+    );
+    die "Replace field '$args{field}' is not mutable\n" if defined $args{field} && !$mutable{ $args{field} };
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( @updates, @diffs );
+        for my $summary ( @{ $self->record_list( project => $root, defined $args{type} ? ( type => $args{type} ) : () ) } ) {
+            my ( $path, $record ) = $self->_record_data( project => $root, ref => $summary->{ref} );
+            my @fields = defined $args{field} ? ( $args{field} ) : sort keys %mutable;
+            for my $field (@fields) {
+                next if !exists $record->{$field};
+                my $before = JSON::PP->new->canonical->decode( JSON::PP->new->canonical->encode( $record->{$field} ) );
+                next if !$self->_replace_value( $record->{$field}, $regex, $args{with} );
+                push @diffs, { ref => $record->{ref}, field => $field, before => $before, after => $record->{$field} };
+            }
+            if ( grep { $_->{ref} eq $record->{ref} } @diffs ) {
+                $record->{last_updated} = $self->{clock}->();
+                push @updates, [ $path, $record ];
+            }
+        }
+        $self->_write_json_transaction( \@updates ) if @updates && !$args{dry_run};
+        my %changed = map { $_->{ref} => 1 } @diffs;
+        return { dry_run => $args{dry_run} ? JSON::PP::true : JSON::PP::false,
+          changed_records => scalar keys %changed, changes => \@diffs };
+    } );
 }
 
 sub dashboard {
@@ -1194,6 +1353,16 @@ sub _read_json {
     }
     for my $field (qw(labels affects_versions)) {
         $record->{$field} = [] if !exists $record->{$field};
+    }
+    for my $index ( 0 .. $#{ $record->{gate_passing_log} // [] } ) {
+        my $entry = $record->{gate_passing_log}[$index];
+        $entry->{id} //= sprintf( 'GATE-%03d', $index + 1 );
+        $entry->{annotations} //= [];
+    }
+    for my $index ( 0 .. $#{ $record->{evidence} // [] } ) {
+        my $entry = $record->{evidence}[$index];
+        $entry->{id} //= sprintf( 'EVD-%03d', $index + 1 );
+        $entry->{annotations} //= [];
     }
     $record->{checklist} = [] if !exists $record->{checklist};
     $record->{parent} = $record->{linkage}{"parent_$record->{type}_ref"}

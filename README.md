@@ -4,7 +4,7 @@ Tira is a filesystem-native Kanban project manager for Developer Dashboard. It
 provides Jira-style projects, SOWs, epics, and tickets over a transparent local
 filesystem engine accessed exclusively through Tira commands.
 
-Release 0.08 implements the complete command ecosystem: projects, independent
+Release 0.09 implements the complete command ecosystem: projects, independent
 boards, columns, records, links, people, comments, attachments, evidence,
 gates, search, dashboards, agent-efficient TOON output, singular record
 ownership, planning metadata, immediate parents, and inactive-person controls.
@@ -16,6 +16,8 @@ Repeatable content and scope options append safely on update; explicit
 `--set-*` options are the only wholesale replacement route.
 Attachment-add responses distinguish the supplied filename from the filename
 actually retained when identical content is deduplicated.
+Migration-scale tools provide one-call export, field-aware search, previewed
+bulk import/replacement, and append-only gate/evidence corrections.
 
 ## Value
 
@@ -82,6 +84,23 @@ dashboard tira.attachment.add --ref TKT-001 --file ./evidence.png -o json
 dashboard tira.project.people.deactivate --id ada
 dashboard tira.dashboard --type all -o human
 ```
+
+Read or correct many records without spawning one process per ticket:
+
+```bash
+dashboard tira.export -o json
+dashboard tira.ticket.list --full -o json
+dashboard tira.search --text Jira --field description -o json
+dashboard tira.import --file changes.json --dry-run -o json
+dashboard tira.replace --pattern Jira --with Local --field description --dry-run -o json
+dashboard tira.gate.annotate --ref TKT-001 --id GATE-001 \
+  --note "Use local documentation" --author ada
+```
+
+Remove `--dry-run` only after reviewing the returned field-level changes.
+Import applies the complete ref-keyed change set transactionally. Gate and
+evidence corrections append annotations; their original observations remain
+unchanged.
 
 SOWs, epics, and tickets share planning metadata. For example:
 

@@ -1,0 +1,14 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use File::Spec;
+use FindBin;
+unshift @INC, File::Spec->catdir( $FindBin::Bin, '..', 'lib' );
+require Tira::CLI;
+exit Tira::CLI->run( command => 'import', argv => \@ARGV );
+__END__
+=head1 NAME
+Tira import - Preview or apply ref-keyed bulk record changes
+=head1 DESCRIPTION
+Reads an explicit JSON change object and delegates transactional updates.
+=cut

@@ -40,7 +40,7 @@ sub run {
         'digits=i' => \$option{digits}, 'ref=s' => \$option{ref},
         'column=s' => \$option{column}, 'parent=s' => \$option{parent},
         'child=s' => \$option{child},
-        'text=s' => \$option{text}, 'problem=s' => \$option{problem_or_feature},
+        'text=s' => \$option{text}, 'problem|problem-or-feature=s' => \$option{problem_or_feature},
         'solution-needed=s' => \$option{solution_needed}, 'source=s' => \$option{source},
         'from=s' => \$option{from}, 'to=s' => \$option{to},
         'author=s' => \$option{author}, 'file=s' => \$option{file},
@@ -50,6 +50,8 @@ sub run {
         'gate=s' => \$option{gate}, 'result=s' => \$option{result},
         'details=s' => \$option{details},
         'item=s' => \$option{item}, 'status=s' => \$option{status},
+        'field=s' => \$option{field}, 'pattern=s' => \$option{pattern},
+        'with=s' => \$option{with}, 'note=s' => \$option{note},
         'reporter=s' => \$option{reporter}, 'due-date=s' => \$option{due_date},
         'start-date=s' => \$option{start_date}, 'sdlc-gate=s' => \$option{sdlc_gate},
         'lifecycle=s' => \$option{lifecycle}, 'priority=s' => \$option{priority},
@@ -57,16 +59,17 @@ sub run {
         'repair-columns' => \$option{repair_columns}, 'apply' => \$option{apply},
         'recursive' => \$option{recursive}, 'include-deleted' => \$option{include_deleted},
         'include-discard' => \$option{include_discard},
+        'full' => \$option{full}, 'dry-run' => \$option{dry_run},
         'key-detail=s@' => \$option{key_details}, 'deliverable=s@' => \$option{deliverables},
         'scope-in=s@' => \$option{scope_in}, 'scope-out=s@' => \$option{scope_out},
-        'acceptance=s@' => \$option{acceptance}, 'test-step=s@' => \$option{test_steps},
+        'acceptance|acceptance-criteria=s@' => \$option{acceptance}, 'test-step=s@' => \$option{test_steps},
         'bdd=s@' => \$option{bdd}, 'atdd=s@' => \$option{atdd},
         'assignee=s' => \$option{assignee}, 'person=s@' => \$option{people},
         'attach=s@' => \$option{attach},
         'affects-version=s@' => \$option{affects_versions},
         'set-key-details=s' => \$option{set_key_details},
         'set-deliverables=s' => \$option{set_deliverables},
-        'set-acceptance=s' => \$option{set_acceptance},
+        'set-acceptance|set-acceptance-criteria=s' => \$option{set_acceptance},
         'set-test-steps=s' => \$option{set_test_steps},
         'set-bdd=s' => \$option{set_bdd}, 'set-atdd=s' => \$option{set_atdd},
         'set-labels=s' => \$option{set_labels},
@@ -105,7 +108,7 @@ sub run {
 sub _invoke {
     my ( $tira, $command, $record_type, $option ) = @_;
     my %args = %{$option};
-    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions)};
+    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions)};
     $args{type} = $record_type if defined $record_type;
     my %sets = (
         set_key_details => 'key_details_replace', set_deliverables => 'deliverables_replace',
@@ -125,6 +128,13 @@ sub _invoke {
 
     return $tira->create_project( name => $option->{name}, dir => $option->{dir} // '.' ) if $command eq 'project.create';
     return $tira->create_record(%args) if $command eq 'record.create';
+    return $tira->export_records(%args) if $command eq 'export';
+    if ( $command eq 'import' ) {
+        die "Import file is required\n" if !defined $option->{file};
+        my $changes = JSON::PP::decode_json( _text_input( $option->{file} ) );
+        return $tira->bulk_import( %args, changes => $changes, dry_run => $option->{dry_run} );
+    }
+    return $tira->replace_records( %args, dry_run => $option->{dry_run} ) if $command eq 'replace';
     return $tira->project_show(%args) if $command eq 'project.show';
     return $tira->project_update(%args) if $command eq 'project.update';
     return $tira->person_list(%args) if $command eq 'project.people.list';
@@ -168,7 +178,9 @@ sub _invoke {
         'attachment.add' => 'attachment_add', 'attachment.list' => 'attachment_list',
         'attachment.get' => 'attachment_get', 'attachment.remove' => 'attachment_remove',
         'evidence.list' => 'evidence_list', 'evidence.add' => 'evidence_add',
+        'evidence.annotate' => 'evidence_annotate',
         'gate.list' => 'gate_list', 'gate.add' => 'gate_add',
+        'gate.annotate' => 'gate_annotate',
         'checklist.list' => 'checklist_list', 'checklist.add' => 'checklist_add',
         'checklist.update' => 'checklist_update',
         'search' => 'search', 'dashboard' => 'dashboard',

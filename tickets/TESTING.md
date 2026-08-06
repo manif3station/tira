@@ -260,3 +260,23 @@ Method: Regression TDD + contract BDD.
   stopped.
 - Release: committed as `7e2a99d`; push was attempted and rejected because the
   configured passphrase-protected SSH identity has no active agent socket.
+
+## DD-397
+
+Method: ATDD + migration BDD + security TDD.
+
+- Docker functional suite: PASS, 14 files and 574 assertions.
+- Coverage: `lib/Tira.pm` and `lib/Tira/CLI.pm` each reached 100.0% statement
+  and subroutine coverage.
+- Read acceptance: export, full list compatibility, columns, field paths, and
+  matched values passed in one-call workflows.
+- Mutation acceptance: import/replace dry runs, exact transactional apply,
+  mixed-set atomic rejection, mutable-field boundaries, and aliases passed.
+- Log acceptance: stable gate/evidence IDs and append-only annotations passed;
+  original observations remained unchanged.
+- Security: all 574 assertions passed under `prove -T`; all 80 entrypoints
+  compiled under taint mode; the production process-primitive scan was clean.
+- Agent contract: exactly 100 implemented use cases remain and all new command
+  combinations are documented without managed-location disclosure.
+- Platform: shared platform-neutral Perl only; macOS and Windows remain
+  stopped.

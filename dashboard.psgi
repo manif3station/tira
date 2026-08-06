@@ -32,7 +32,7 @@ Tira::DashboardWeb->build_psgi_app(
         );
     },
     data => sub {
-        my %args = ( project => $project, summary => 1, with_title => $with_title );
+        my %args = ( project => $project, summary => 1, with_title => $with_title, include_mtime => 1 );
         $args{type} = $type if defined $type && length $type;
         return $tira->format_output( $tira->dashboard(%args), output => 'json' );
     },

@@ -1,5 +1,13 @@
 Revision history for Tira
 
+0.25  2026-08-06
+    - Fixed last-modified sorting breaking after the first live refresh:
+      the lightweight placement payload stripped `_mtime`, so rebuilt
+      cards all stamped zero and the sort collapsed to reference order.
+      The browser data payload now carries `_mtime` and rebuilt cards use
+      it; the permanent browser guard asserts newest-first order with
+      nonzero stamps after refresh.
+
 0.24  2026-08-06
     - Fixed drops onto columns that already hold cards bouncing back: the
       card list only spanned its content height, so the natural release

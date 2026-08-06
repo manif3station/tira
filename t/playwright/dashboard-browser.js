@@ -100,6 +100,9 @@ const fs = require('fs');
   if (pageRequests !== 1 || dataRequests !== 1) throw new Error(`unexpected requests page=${pageRequests} data=${dataRequests}`);
   if (JSON.parse(data).ticket['in-progress'][0].description) throw new Error('lightweight data leaked full record fields');
   if (await page.evaluate(() => window.__tiraTimerDelay) !== 30000) throw new Error('custom refresh interval was not scheduled');
+  const backlogOrder = await page.locator('[data-column="backlog"] li').evaluateAll(nodes => nodes.map(node => node.dataset.ref + ':' + node.dataset.mtime));
+  if (backlogOrder.length !== 2 || !backlogOrder[0].startsWith('TKT-003') || backlogOrder.some(entry => entry.endsWith(':0')))
+    throw new Error(`last-modified sort broken after refresh: ${JSON.stringify(backlogOrder)}`);
   const dragFrom = await page.locator('[data-column="in-progress"] .card').boundingBox();
   const dragTo = await page.locator('[data-column="backlog"]').boundingBox();
   const boardBox = await page.locator('.board--ticket').boundingBox();

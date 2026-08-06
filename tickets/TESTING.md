@@ -686,3 +686,26 @@ Method: Browser BDD under the Mandatory Problem-Solving Loop.
   scenario drops onto the populated column. Playwright ×3 green.
 - Functional: PASS, `Files=25, Tests=953`; coverage `100.0%` statement
   and subroutine; taint gates PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-414`
+
+Method: Browser BDD under the Mandatory Problem-Solving Loop.
+
+- Reproduction: two backlog cards with staggered file mtimes; after the
+  initial live refresh both rebuilt cards stamped `mtime:0` and rendered
+  in reference order (`TKT-002` before the newer `TKT-003`) — the
+  reported broken sort.
+- Root cause: the browser `/data` callback forces summary/`toon` context,
+  which deleted `_mtime` from the payload, and `buildCard` read
+  `updated_at`/`last_updated` fields the summary never carries. The
+  server-rendered initial board sorted correctly, so the breakage only
+  appeared after the first ajax refresh replaced the cards.
+- Fix: the data callbacks (CLI-launched server and `dashboard.psgi`) set
+  `include_mtime`; `_invoke` honors the explicit flag; `buildCard`
+  prefers `_mtime` (epoch seconds) with the old field fallback.
+- Re-run: the identical fixture renders `TKT-003` first with nonzero
+  stamps after refresh; ×3 Playwright green.
+- Guard: the permanent scenario asserts newest-first backlog order with
+  nonzero mtimes right after the initial refresh.
+- Functional: PASS, `Files=25, Tests=953`; coverage `100.0%` statement
+  and subroutine; taint gates PASS; `cover_db` cleaned.

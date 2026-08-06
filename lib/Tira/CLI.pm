@@ -128,6 +128,7 @@ sub run {
         my $data = sub {
             my %data_option = %option;
             $data_option{output} = 'toon';
+            $data_option{include_mtime} = 1;
             my $dashboard = _invoke( $tira, $command, $type, \%data_option );
             return $tira->format_output( $dashboard, output => 'json', project => $option{project} );
         };
@@ -521,7 +522,7 @@ sub _invoke {
         $args{include_discard} = $option->{include_discard};
         $args{summary} = $option->{output} ne 'json';
         $args{with_title} = defined $option->{title};
-        $args{include_mtime} = $option->{output} eq 'table' || $option->{output} =~ /\Abrowser(?:=|\z)/;
+        $args{include_mtime} = $option->{include_mtime} || $option->{output} eq 'table' || $option->{output} =~ /\Abrowser(?:=|\z)/;
     }
     $args{include_deleted} = $option->{include_deleted} if $command eq 'attachment.list';
     if ( $command =~ /\Acomment\.(?:add|update)\z/ && defined $option->{file} ) {

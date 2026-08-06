@@ -101,6 +101,11 @@ Release 0.12 reads each selected dashboard board once and groups the returned
 records into configured columns in memory. Runtime filesystem work therefore
 scales with selected boards and records rather than visible column count.
 
+Release 0.13 allows private project selection through Developer Dashboard path
+aliases. Tira delegates alias semantics to DD's installed registry/config
+classes, gives real filesystem paths precedence, and keeps resolved targets out
+of alias-facing command output and errors.
+
 ## Output and errors
 
 Default and `-o toon` output is produced by `Data::TOON` 0.03. `-o json` uses

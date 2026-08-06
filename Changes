@@ -1,5 +1,11 @@
 Revision history for Tira
 
+0.13  2026-08-06
+    - Accepted Developer Dashboard path aliases wherever a project directory
+      selector is accepted, while retaining direct-path precedence.
+    - Reused DD's registry/config model without shell execution and prevented
+      alias targets from appearing in command results or selector errors.
+
 0.12  2026-08-06
     - Reduced dashboard reads from one full-board scan per visible column to
       one scan per selected board.

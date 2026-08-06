@@ -347,3 +347,23 @@ Method: Problem-solving performance TDD + filesystem-scan BDD.
   compiled under taint mode; the production process-primitive scan was clean.
 - Agent contract: exactly 100 implemented use cases remain.
 - Platform: macOS and Windows remain stopped.
+
+## DD-401
+
+Method: TDD + path-resolution security BDD + installed CLI ATDD.
+
+- Pre-fix installed 0.12: both routes rejected a real registered alias with
+  exit 2 because discovery required a literal filesystem path.
+- Post-fix working-tree CLI: both routes resolved the same DD alias and read
+  project `Zenandi` with status 0 and empty stderr; an unknown alias exited 2.
+- Secrecy: successful and failing streams contained no resolved target path;
+  direct existing paths retain precedence and invalid targets identify only
+  the supplied selector.
+- Docker functional suite: PASS, 15 files and 612 assertions.
+- Coverage: `lib/Tira.pm` and `lib/Tira/CLI.pm` each reached 100.0% statement
+  and subroutine coverage.
+- Security: all 612 assertions passed under `prove -T`; all 80 entrypoints
+  compiled under taint mode; the production process-primitive scan was clean.
+- Agent contract: exactly 100 use cases remain and `SKILLS.md` contains none of
+  the private selection mechanisms.
+- Platform: macOS and Windows remain stopped.

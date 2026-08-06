@@ -65,6 +65,23 @@ require File::Path;
 File::Path::make_path($nested);
 is( $tira->discover_project( start => $nested ), realpath($project_dir), 'project discovery walks upward' );
 is( $tira->discover_project( project => $project_dir ), realpath($project_dir), 'explicit project root overrides discovery' );
+my $alias_calls = 0;
+my $alias_tira = Tira->new( clock => $clock, path_resolver => sub {
+    my ($name) = @_;
+    $alias_calls++;
+    return $project_dir if $name eq 'private-demo';
+    return File::Spec->catdir( $tmp, 'secret-missing-target' ) if $name eq 'broken-private';
+    die "unknown alias";
+} );
+is( $alias_tira->discover_project( project => 'private-demo' ), realpath($project_dir),
+    'project selector resolves through an injected DD path alias resolver' );
+is( $alias_calls, 1, 'alias resolver runs only for a non-path selector' );
+is( $alias_tira->discover_project( project => $project_dir ), realpath($project_dir),
+    'existing absolute project directory keeps direct-path precedence' );
+is( $alias_calls, 1, 'existing project directory bypasses alias resolution' );
+eval { $alias_tira->discover_project( project => 'broken-private' ) };
+like( $@, qr/Cannot resolve project selector 'broken-private'/, 'invalid alias target reports the selector' );
+unlike( $@, qr/secret-missing-target/, 'invalid alias target does not disclose its resolved path' );
 
 my $first = $tira->create_record(
     project     => $project_dir,

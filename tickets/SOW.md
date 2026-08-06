@@ -51,3 +51,5 @@ permanence explicit, and import dry-run granularity concrete.
 DD-399 makes hierarchy output agree with direct record reads and fail honestly
 when a reference cannot be resolved.
 DD-400 removes repeated full-board scans from dashboard rendering.
+DD-401 adds DD-native project alias resolution without disclosing managed
+locations through the agent manual.

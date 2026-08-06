@@ -19,9 +19,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.10):** shipped, executable, and covered by tests.
 - **Implemented (0.11):** shipped, executable, and covered by tests.
 - **Implemented (0.12):** shipped, executable, and covered by tests.
+- **Implemented (0.13):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.12.
+All commands and use cases in this manual ship in release 0.13.
 
 ## Global invocation grammar
 

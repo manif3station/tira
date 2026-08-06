@@ -17,7 +17,7 @@ use JSON::PP ();
 use POSIX qw(strftime);
 use YAML::PP;
 
-our $VERSION = '0.12';
+our $VERSION = '0.13';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -30,6 +30,7 @@ sub new {
     return bless {
         clock => $args{clock} || sub { strftime( '%Y-%m-%dT%H:%M:%S%z', localtime ) },
         yaml  => YAML::PP->new( boolean => 'JSON::PP' ),
+        path_resolver => $args{path_resolver},
     }, $class;
 }
 
@@ -95,8 +96,19 @@ sub create_project {
 sub discover_project {
     my ( $self, %args ) = @_;
     my $candidate = defined $args{project} ? $args{project} : ( $args{start} // '.' );
+    my $selector = $candidate;
+    my $used_alias = 0;
+    if ( !-e $candidate && $self->{path_resolver} ) {
+        my $resolved = eval { $self->{path_resolver}->($candidate) };
+        die "Cannot resolve project selector '$selector'\n"
+          if $@ || !defined $resolved || $resolved eq '' || !-e $resolved;
+        $candidate = $resolved;
+        $used_alias = 1;
+    }
     die "Cannot resolve project path '$candidate'\n" if !-e $candidate;
-    my $path = $self->_canonical_path( $candidate, "project path '$candidate'" );
+    my $path = eval { $self->_canonical_path( $candidate, "project path '$candidate'" ) };
+    die "Cannot resolve project selector '$selector'\n" if $used_alias && !defined $path;
+    die $@ if !defined $path;
     $path = dirname($path) if -f $path;
 
     while (1) {
@@ -105,7 +117,7 @@ sub discover_project {
         last if $parent eq $path;
         $path = $parent;
     }
-    die "No Tira project found from '$candidate'\n";
+    die "No Tira project found from '" . ( $used_alias ? $selector : $candidate ) . "'\n";
 }
 
 sub create_record {

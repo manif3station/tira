@@ -1,6 +1,6 @@
 # Complete Command Ecosystem
 
-Release 0.12 implements every workflow in `SKILLS.md` through 80 Developer
+Release 0.13 implements every workflow in `SKILLS.md` through 80 Developer
 Dashboard entrypoints. The shared `Tira::CLI` parser applies TOON-first output,
 pretty JSON, Markdown, repeatable options, JSON-array replacement, raw
 attachment output, and consistent structured failures.
@@ -37,6 +37,14 @@ snapshot all affected JSON and restore every snapshot if a later write fails.
 Column add, rename, and removal similarly roll back their filesystem changes
 when configuration persistence fails. Reference counters only increase and
 failed counter persistence removes the uncommitted record.
+
+## Private project aliases
+
+Project-directory selectors accept either an existing relative/absolute
+directory or an alias registered with `d2 path add`. Existing directories take
+precedence over an alias of the same spelling. Alias lookup uses Developer
+Dashboard's registry and layered config directly; it does not spawn a command,
+parse human output, or disclose the resolved target in Tira output and errors.
 
 ## Accumulating record fields
 

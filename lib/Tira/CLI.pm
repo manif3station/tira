@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use Encode qw(decode encode_utf8 FB_CROAK);
+use Cwd qw(cwd);
 use Getopt::Long qw(GetOptionsFromArray);
 use JSON::PP ();
 use Tira;
@@ -13,7 +14,7 @@ sub run {
     my $command = $args{command} // '';
     my $type = $args{type};
     my $argv = $args{argv} || [];
-    my $tira = $args{tira} || Tira->new;
+    my $tira = $args{tira} || Tira->new( path_resolver => _dd_path_resolver() );
     my %option = ( output => 'toon' );
     my $environment_project;
     my $decoded = eval {
@@ -103,6 +104,25 @@ sub run {
     return _error( $tira, 'toon', $@ || 'Unable to format output' ) if !defined $formatted;
     print _utf8_bytes($formatted);
     return 0;
+}
+
+sub _dd_path_resolver {
+    return sub {
+        my ($name) = @_;
+        require Developer::Dashboard::Config;
+        require Developer::Dashboard::FileRegistry;
+        require Developer::Dashboard::PathRegistry;
+        my $home = $ENV{HOME} // '';
+        $home =~ /\A([^\x00-\x1f\x7f]+)\z/ or die "Unsafe home path\n";
+        $home = $1;
+        my $paths = Developer::Dashboard::PathRegistry->new(
+            home => $home, cwd => cwd(), workspace_roots => [], project_roots => [],
+        );
+        my $files = Developer::Dashboard::FileRegistry->new( paths => $paths );
+        my $config = Developer::Dashboard::Config->new( files => $files, paths => $paths );
+        $paths->register_named_paths( $config->path_aliases );
+        return $paths->resolve_dir($name);
+    };
 }
 
 sub _invoke {

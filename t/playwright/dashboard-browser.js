@@ -126,7 +126,7 @@ const fs = require('fs');
   }
   if (sectionText.includes('"ref"') || sectionText.includes('undefined') || sectionText.includes('null'))
     throw new Error('dialog leaks raw JSON or empty markers');
-  if (await page.locator('.card-dialog pre').count() !== 0) throw new Error('dialog still renders a raw JSON blob');
+  if (await page.locator('.card-dialog .card-dialog__sections pre').count() !== 0) throw new Error('dialog still renders a raw JSON blob');
   if (peopleRequests < 1) throw new Error('author choices were not loaded from /people');
 
   await page.locator('.card-dialog [data-edit="title"]').click();
@@ -186,9 +186,14 @@ const fs = require('fs');
 
   await page.locator(`.card-dialog [data-view-attachment="${'a'.repeat(64)}.txt"]`).click();
   await page.waitForSelector('.card-viewer:not([hidden])');
-  const frameSrc = await page.locator('.card-viewer iframe').getAttribute('src');
-  if (!frameSrc || !frameSrc.includes('/attachment?') || !frameSrc.includes('a'.repeat(64)))
-    throw new Error(`viewer frame src is wrong: ${frameSrc}`);
+  await page.waitForSelector('.card-viewer .card-viewer__text:not([hidden])');
+  const paneText = await page.locator('.card-viewer .card-viewer__text').textContent();
+  if (!paneText.includes('ATTACHMENT BYTES')) throw new Error(`text pane lacks the file content: ${paneText}`);
+  const paneColor = await page.locator('.card-viewer .card-viewer__text').evaluate(node => getComputedStyle(node).color);
+  const frameHidden = await page.locator('.card-viewer iframe').evaluate(node => node.hidden);
+  if (!frameHidden) throw new Error('text attachments must not render through the iframe');
+  if (paneColor === 'rgb(255, 255, 255)' || paneColor === 'rgb(248, 250, 252)')
+    throw new Error(`text pane color is near-white and could vanish on a light canvas: ${paneColor}`);
   await page.locator('.card-viewer__close').click();
   await page.waitForSelector('.card-viewer', { state: 'hidden' });
 

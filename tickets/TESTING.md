@@ -637,3 +637,24 @@ Method: Engine TDD + Browser BDD (Playwright).
   formatted bold/italic/code/bullet rendering in comments.
 - Agent contract: exactly 100 use cases; no location disclosure.
 - Platform: labs remain stopped; nothing platform-dependent changed.
+
+## Latest Verification For `DD-412`
+
+Method: Browser BDD under the Mandatory Problem-Solving Loop (full record
+in `tickets/DD-412.md`).
+
+- Red gate: the owned `.card-viewer__text` pane selector matched nothing;
+  the owner's screenshot (a real ZSD-138 file, white-on-white in dark
+  mode) is the reported reproduction. Root cause: browser default
+  plain-text rendering follows dark `prefers-color-scheme` (white glyphs)
+  while the dialog CSS forces a light iframe background.
+- Fix: text-like attachments are fetched and rendered into the viewer's
+  themed `<pre>` via `textContent` — deterministic contrast, no execution
+  path; images and PDFs keep their panes.
+- Re-run: Playwright asserts the pane content, that text no longer routes
+  through the iframe, and that the pane color is not near-white; a
+  dark-`colorScheme` capture shows the file fully legible. Playwright ×3
+  green (the former no-`pre`-blob guard was scoped to the sections area,
+  where a blob would actually live).
+- Functional: PASS, `Files=25, Tests=953`; coverage `100.0%` statement
+  and subroutine; taint gates PASS; `cover_db` cleaned.

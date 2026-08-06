@@ -1,5 +1,13 @@
 Revision history for Tira
 
+0.23  2026-08-06
+    - Fixed invisible text-attachment previews in dark mode: the viewer no
+      longer lets the browser's default plain-text stylesheet render text
+      files inside the iframe (white glyphs in dark mode over the frame's
+      light background). Text-like attachments are fetched and rendered in
+      the viewer's own themed panel with deterministic contrast in every
+      color scheme; content stays pure text. Images and PDFs unchanged.
+
 0.22  2026-08-06
     - Attachment references now record `added_at` at add time (file and
       content paths alike); deduplicated re-adds keep the original stamp.

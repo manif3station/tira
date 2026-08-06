@@ -28,9 +28,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.20):** shipped, executable, and covered by tests.
 - **Implemented (0.21):** shipped, executable, and covered by tests.
 - **Implemented (0.22):** shipped, executable, and covered by tests.
+- **Implemented (0.23):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.22.
+All commands and use cases in this manual ship in release 0.23.
 
 ## Global invocation grammar
 
@@ -451,9 +452,11 @@ date) appear inside the dialog without closing it. The comment section adds
 comments with an author picker limited to active people, edits any comment in
 place, and deletes a comment permanently; every successful change re-reads
 the record so the dialog always shows filesystem truth.
-Attachments render as chips: images, PDFs, and text-like files open inline
-in an overlay viewer streamed with a safe content type (HTML is served as
-plain text so it can never execute); other types offer a named download.
+Attachments render as chips: images and PDFs open inline in an overlay
+viewer; text-like files render in the viewer's own themed panel — fetched
+and set as plain text with deterministic dark-theme contrast in every
+color scheme, so nothing can execute and nothing can vanish into a
+same-color background; other types offer a named download.
 Files upload from the dialog with a 16 MB cap through the same hash-dedup
 store as the CLI, and each comment carries and manages its own attachment
 chips. Attachment references record their added time; chips display the

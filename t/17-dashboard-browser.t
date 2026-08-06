@@ -47,6 +47,8 @@ is( $calls->[0]{host}, '0.0.0.0', 'browser defaults to all-interface host' );
 is( $calls->[0]{port}, 7899, 'browser defaults to port 7899' );
 my $live_html = $calls->[0]{render}->();
 like( $live_html, qr/Live card/, 'server renderer retains title mode' );
+like( $live_html, qr/<h1>Browser project<\/h1>/, 'the hero shows the project name' );
+like( $live_html, qr/Tira Kanban/, 'the product name remains visible' );
 like( $live_html, qr/fetch\("\/data".*updateBoards/s,
     'browser dashboard updates board positions from the JSON endpoint' );
 like( $live_html, qr/fetch\("\/record\?type=".*renderCard/s,

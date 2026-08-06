@@ -28,7 +28,7 @@ Tira::DashboardWeb->build_psgi_app(
         $args{type} = $type if defined $type && length $type;
         return $tira->format_output(
             $tira->dashboard(%args), output => 'table', live => 1,
-            with_title => $with_title,
+            with_title => $with_title, project => $project,
         );
     },
     data => sub {

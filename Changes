@@ -1,5 +1,9 @@
 Revision history for Tira
 
+0.29  2026-08-06
+    - The dashboard hero shows the project's configured name as the page
+      heading, with the product name moved to the eyebrow line.
+
 0.28  2026-08-06
     - Fixed drag-and-drop on iPhone: iOS browsers (all WebKit) kept
       claiming the moving finger for scrolling, so an armed drag's ghost

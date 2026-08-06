@@ -17,7 +17,7 @@ use JSON::PP ();
 use POSIX qw(strftime);
 use YAML::PP;
 
-our $VERSION = '0.28';
+our $VERSION = '0.29';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -1590,6 +1590,11 @@ sub _dashboard_table {
           . '<div class="board__scroll"><table><thead><tr>'
           . $headers . '</tr></thead><tbody><tr>' . $cells . '</tr></tbody></table></div></section>';
     }
+    my $project_heading = 'Tira Kanban';
+    if ( defined $args{project} ) {
+        my $project_name = eval { $self->project_show( project => $args{project} )->{name} };
+        $project_heading = $self->_html_escape($project_name) if defined $project_name && $project_name ne '';
+    }
     my $refresh_action = $args{live}
       ? q{fetch("/data",{cache:"no-store"}).then(response=>{if(!response.ok)throw new Error("refresh failed");return response.json()}).then(data=>{updateBoards(data);markUpdated()}).catch(()=>{})}
       : q{location.reload()};
@@ -1637,7 +1642,7 @@ sub _dashboard_table {
 @media(max-width:720px){.card-details{grid-template-columns:auto 1fr}}
 @media(max-width:520px){.shell{width:calc(100% - .8rem);padding-top:1.2rem}.hero h1{font-size:2.2rem}.card-dialog{width:calc(100% - .6rem);max-height:96vh;border-radius:.9rem}.card-dialog header{padding:.9rem 1rem}.card-dialog__sections{padding:.8rem;max-height:calc(96vh - 5.6rem)}.card-section{padding:.75rem .8rem}.card-details{grid-template-columns:1fr;gap:.1rem .5rem}.card-details dt{margin-top:.55rem}.card-comment-form,.card-checklist-form,.card-link-form{flex-direction:column;display:flex}.card-comment-form select,.card-comment-form textarea{width:100%}.card-linkage__label{min-width:100%}th,td{min-width:13rem;width:13rem}}
 CSS
-      . '</style></head><body><main class="shell"><header class="hero"><div><span class="eyebrow">Filesystem-native flow</span><h1>Tira Kanban</h1></div><div class="hero__aside"><p>Focused work, arranged by state. Select a card to keep your place.</p><span class="refresh-status" aria-live="polite">Refresh 5s</span><span class="last-updated">Last updated: pending</span></div></header>'
+      . '</style></head><body><main class="shell"><header class="hero"><div><span class="eyebrow">Tira Kanban &middot; Filesystem-native flow</span><h1>' . $project_heading . '</h1></div><div class="hero__aside"><p>Focused work, arranged by state. Select a card to keep your place.</p><span class="refresh-status" aria-live="polite">Refresh 5s</span><span class="last-updated">Last updated: pending</span></div></header>'
       . $boards
       . '</main>' . $dialog
       . q~<script>const sortBoard=(board,mode)=>{board.querySelectorAll(".cards").forEach(list=>{const cards=[...list.children];cards.sort((a,b)=>mode==="ref"?a.dataset.ref.localeCompare(b.dataset.ref):(Number(b.dataset.mtime)-Number(a.dataset.mtime)||a.dataset.ref.localeCompare(b.dataset.ref)));cards.forEach(card=>list.appendChild(card))});board.querySelectorAll("[data-sort]").forEach(button=>button.classList.toggle("is-active",button.dataset.sort===mode));document.documentElement.dataset.sort=mode};~ . $live_helpers

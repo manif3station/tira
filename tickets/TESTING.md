@@ -770,3 +770,14 @@ screen recording (message 2898) is the reported reproduction.
   and is the acceptance gate for this ticket.
 - Functional PASS `Files=25, Tests=955`; coverage `100.0%`; `prove -T`
   PASS.
+
+## Latest Verification For `DD-418`
+
+- Owner ask (message 2899): the hero should show the project name. The
+  heading now renders the project's configured name (HTML-escaped) with
+  the product name in the eyebrow; without a resolvable project the
+  heading stays "Tira Kanban". `dashboard.psgi` passes the project to the
+  renderer like the CLI path.
+- Contract: t/17 requires `<h1>Browser project</h1>` and the surviving
+  product name. Functional PASS `Files=25, Tests=957`; coverage `100.0%`;
+  `prove -T` PASS; Playwright ×2 green.

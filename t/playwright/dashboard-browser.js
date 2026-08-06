@@ -152,6 +152,13 @@ const fs = require('fs');
   const chipNames = await page.locator('.card-dialog .card-attachments .card-attachment__view').evaluateAll(nodes => nodes.map(node => node.textContent));
   if (!chipNames[0].includes('fresh.txt')) throw new Error(`attachments are not newest-first: ${chipNames}`);
   if (!chipNames[0].includes('2026-08-05')) throw new Error(`attachment chip lacks its date: ${chipNames[0]}`);
+  const chipBoxes = await page.locator('.card-dialog .card-attachments .card-attachment').evaluateAll(nodes => nodes.map(node => {
+    const rect = node.getBoundingClientRect();
+    const host = node.closest('.card-attachment-strip').getBoundingClientRect();
+    return { x: Math.round(rect.x), y: Math.round(rect.y), ratio: rect.width / host.width };
+  }));
+  if (chipBoxes.length < 2 || chipBoxes[0].y === chipBoxes[1].y || chipBoxes.some(box => box.ratio < 0.95))
+    throw new Error(`attachments must render as a one-per-row list: ${JSON.stringify(chipBoxes)}`);
   if (await page.locator('.card-dialog .card-comment-form:visible').count() !== 0)
     throw new Error('the composer must start collapsed');
   const composerToggle = page.locator('.card-dialog .card-composer-toggle');

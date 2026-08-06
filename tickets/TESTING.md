@@ -709,3 +709,27 @@ Method: Browser BDD under the Mandatory Problem-Solving Loop.
   nonzero mtimes right after the initial refresh.
 - Functional: PASS, `Files=25, Tests=953`; coverage `100.0%` statement
   and subroutine; taint gates PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-415`
+
+Method: Engine TDD + Browser BDD, from the owner's screenshot review of a
+real project board (message 2888).
+
+- Owner-visible defects: attachments rendered as a wrapping chip cloud
+  (two per row, long names clipped) rather than a list, and every
+  attachment added before 0.22 showed an em-dash instead of a timestamp,
+  making the sort look broken.
+- Fix: the strip is a vertical one-per-row list (filename left, date
+  right-aligned, delete at the row end; linkage chips stay inline);
+  `record_show` backfills missing `added_at` from the deduplicated store
+  file's own mtime — the moment that content first arrived — persisting on
+  the record's next mutation per the legacy-repair precedent.
+- Engine guard: a simulated legacy reference (fixture-edited, with the
+  store file's mtime pinned via utime) recovers the exact strftime of
+  that epoch through `record_show`.
+- Browser guard: the permanent scenario asserts every attachment row has
+  identical x, stacked y, and ≥95% of the strip width — a list, not a
+  cloud. Playwright ×3 green; mobile dark-mode capture of a
+  ZSD-136-shaped fixture visually reviewed.
+- Functional: PASS, `Files=25, Tests=954`; coverage `100.0%` statement
+  and subroutine; taint gates PASS; `cover_db` cleaned.

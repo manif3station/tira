@@ -48,6 +48,40 @@ is( $from_path->{added_at}, '2026-08-06T23:00:00+0100', 'file-path adds stamp th
 my $listed = $tira->attachment_list( project => $root, ref => 'TKT-001' );
 is( scalar( grep { defined $_->{added_at} } @{$listed} ), 3, 'every stored reference carries added_at' );
 
+# Legacy references (pre-0.22) lack added_at; reads must recover it from
+# the stored file's own mtime. The test simulates the legacy state by
+# editing its own fixture directly - something real agents must never do.
+{
+    use File::Find ();
+    use JSON::PP ();
+    use POSIX ();
+    my $record_path;
+    File::Find::find( { no_chdir => 1, wanted => sub { $record_path = $File::Find::name if /TKT-001\.json\z/ } }, $root );
+    $record_path =~ /\A(.+)\z/s or die 'no record path';
+    $record_path = $1;
+    my $json = JSON::PP->new->canonical;
+    open my $in, '<:raw', $record_path or die $!;
+    my $record = $json->decode( do { local $/; <$in> } );
+    close $in;
+    my $legacy_sha = $record->{attachments}[0]{sha};
+    my $legacy_ext = $record->{attachments}[0]{extension};
+    delete $record->{attachments}[0]{added_at};
+    open my $out, '>:raw', $record_path or die $!;
+    print {$out} $json->encode($record);
+    close $out;
+    my $stored;
+    File::Find::find( { no_chdir => 1, wanted => sub { $stored = $File::Find::name if /\Q$legacy_sha\E\.\Q$legacy_ext\E\z/ } }, $root );
+    $stored =~ /\A(.+)\z/s or die 'no stored path';
+    $stored = $1;
+    my $epoch = 1754300000;
+    utime $epoch, $epoch, $stored or die $!;
+
+    my $shown = $tira->record_show( project => $root, ref => 'TKT-001' );
+    my ($repaired) = grep { $_->{sha} eq $legacy_sha } @{ $shown->{attachments} };
+    is( $repaired->{added_at}, POSIX::strftime( '%Y-%m-%dT%H:%M:%S%z', localtime($epoch) ),
+        'a legacy reference recovers added_at from the stored file mtime' );
+}
+
 sub browser_cli {
     my ( $command, @argv ) = @_;
     my ( $out, $err, @calls ) = ( '', '' );

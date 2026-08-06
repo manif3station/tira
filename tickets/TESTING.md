@@ -782,3 +782,26 @@ screen recording (message 2898) is the reported reproduction.
 - Contract: t/17 requires `<h1>Browser project</h1>` and the surviving
   product name. Functional PASS `Files=25, Tests=957`; coverage `100.0%`;
   `prove -T` PASS; Playwright ×2 green.
+
+## Latest Verification For `DD-419`
+
+Method: Browser BDD under the Mandatory Problem-Solving Loop; the owner's
+screen recording (message 2910) is the reported reproduction, and the
+extracted frames show both faults: a blank backdrop when the card was
+opened after scrolling (dialog stranded above the viewport) and modal
+content clipped horizontally.
+
+- Root causes: DD-407's `position:relative` on the dialog (added for the
+  viewer overlay's absolute positioning) cancelled the UA's fixed modal
+  centering, so the dialog rendered at the page top rather than the
+  viewport; and long unwrapped content made the sections area wider than
+  the phone, enabling horizontal panning.
+- Fix: the dialog is explicitly `position:fixed; inset:0; margin:auto`
+  (the viewer overlay still positions against it, as fixed establishes
+  the containing block); the sections area is `overflow-x:hidden` with
+  `overflow-wrap:anywhere` on sections.
+- Guards: the mobile pass now scrolls to the page bottom BEFORE opening
+  the card and asserts the dialog lands inside the viewport, and asserts
+  the sections area has zero horizontal scroll. Playwright ×3 green.
+- Functional PASS `Files=25, Tests=957`; coverage `100.0%`; `prove -T`
+  PASS. Owner device check requested.

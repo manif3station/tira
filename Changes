@@ -1,5 +1,13 @@
 Revision history for Tira
 
+0.30  2026-08-06
+    - Fixed the card dialog opening off-screen on phones when the page was
+      scrolled: a positioning override added for the attachment viewer had
+      cancelled the modal's fixed viewport centering, leaving users a
+      blank backdrop. The dialog now pins to the viewport center.
+    - Fixed sideways panning inside the dialog body: the sections area
+      clamps to vertical scrolling and long content wraps.
+
 0.29  2026-08-06
     - The dashboard hero shows the project's configured name as the page
       heading, with the product name moved to the eyebrow line.

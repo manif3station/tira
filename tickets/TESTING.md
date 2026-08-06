@@ -280,3 +280,5 @@ Method: ATDD + migration BDD + security TDD.
   combinations are documented without managed-location disclosure.
 - Platform: shared platform-neutral Perl only; macOS and Windows remain
   stopped.
+- Release: committed as `c9006f9`; push was attempted and rejected because the
+  configured passphrase-protected SSH identity has no active agent socket.

@@ -1,5 +1,13 @@
 Revision history for Tira
 
+0.35  2026-08-07
+    - CA01-CA03 (EPIC-424): field projection on reads. show, list, and
+      export accept --fields and --exclude-fields (comma-separated,
+      repeatable); selection always keeps ref, exclusion applies after
+      selection, and unknown or empty field names exit 2 naming the
+      offender. Stored records are never altered; the full payload stays
+      the default.
+
 0.34  2026-08-06
     - Optimistic concurrency for dialog field edits: each editor remembers
       the value it opened with and sends it as the save's base; inside the

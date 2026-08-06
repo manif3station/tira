@@ -892,3 +892,20 @@ report, message 2915 — three connected findings).
   the base in the real update payload and the full conflict recovery.
   Playwright ×3 green; functional PASS `Files=25, Tests=989`; coverage
   `100.0%` on all three modules; `prove -T` PASS.
+
+## Latest Verification For `DD-424`
+
+- EPIC-424 opener (CA01+CA02+CA03): field projection on show, list, and
+  export via one engine layer; CLI flags `--fields`/`--exclude-fields`.
+- New suite `t/25-field-selection.t` (red first): ref always kept on
+  selection; null selections stay visible; comma + repeat accumulation;
+  unknown/empty names die naming the offender (CLI exit 2); exclusion
+  after selection; export count preserved and uniform across types;
+  no-flag reads byte-identical in shape to before; flags on a mutation
+  exit 2.
+- Browser surface untouched (providers call show/list without
+  projection), so the Playwright lab was not required for this change;
+  the full HTTP/dialog suites ran green in Docker.
+- Functional PASS `Files=26, Tests=1018`; coverage `100.0%` statement
+  and subroutine on all three modules; `prove -T` PASS; `cover_db`
+  cleaned.

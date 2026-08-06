@@ -17,7 +17,7 @@ use JSON::PP ();
 use POSIX qw(strftime);
 use YAML::PP;
 
-our $VERSION = '0.34';
+our $VERSION = '0.35';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -461,14 +461,59 @@ sub board_refs {
     } );
 }
 
+# Canonical selectable field names: every key a returned record can carry,
+# including the computed column. Projection is presentation — the stored
+# record is never altered.
+my @RECORD_FIELDS = qw(
+    ref type title description key_details problem_or_feature solution_needed
+    deliverables scope source acceptance_criteria test_steps bdd atdd
+    gate_passing_log evidence attachments checklist subtasks linkage assignee
+    reporter labels due_date start_date sdlc_gate lifecycle priority
+    fix_version affects_versions parent comments created_at last_updated column
+);
+my %RECORD_FIELD = map { $_ => 1 } @RECORD_FIELDS;
+
+# CA01-CA03: validate --fields/--exclude-fields input (comma lists,
+# repeatable) into a projection plan. Unknown and empty names die so a typo
+# can never quietly return an empty object.
+sub _field_projection {
+    my (%args) = @_;
+    my %plan;
+    for my $side (qw(fields exclude_fields)) {
+        next if !defined $args{$side};
+        my @names = map { split /,/, $_, -1 } @{ $args{$side} };
+        for my $name (@names) {
+            die "Empty field name in field selection\n" if !length $name;
+            die "Unknown field '$name'\n" if !$RECORD_FIELD{$name};
+        }
+        $plan{$side} = { map { $_ => 1 } @names };
+    }
+    return %plan ? \%plan : undef;
+}
+
+# Selection always keeps ref (identity is never lossy); exclusion applies
+# after selection, so naming a field on both sides removes it.
+sub _project_record {
+    my ( $record, $plan ) = @_;
+    return $record if !$plan;
+    my %projected = %{$record};
+    if ( my $keep = $plan->{fields} ) {
+        %projected = map { exists $projected{$_} ? ( $_ => $projected{$_} ) : () }
+          ( 'ref', keys %{$keep} );
+    }
+    delete @projected{ keys %{ $plan->{exclude_fields} } } if $plan->{exclude_fields};
+    return \%projected;
+}
+
 sub record_show {
     my ( $self, %args ) = @_;
+    my $plan = _field_projection(%args);
     my ( $path, $record, $column ) = $self->_record_data(%args);
     my $root = $self->discover_project(%args);
     for my $pool ( $record->{attachments}, map { $_->{attachments} } @{ $record->{comments} // [] } ) {
         $self->_backfill_added_at( $root, $pool );
     }
-    return { %{$record}, column => $column };
+    return _project_record( { %{$record}, column => $column }, $plan );
 }
 
 # Attachments stored before release 0.22 predate the added_at stamp. The
@@ -489,6 +534,7 @@ sub _backfill_added_at {
 
 sub record_list {
     my ( $self, %args ) = @_;
+    my $plan = _field_projection(%args);
     my $root = $self->discover_project(%args);
     my @records;
     for my $candidate ( defined $args{type} ? ( $args{type} ) : qw(sow epic ticket) ) {
@@ -508,7 +554,7 @@ sub record_list {
                 my $haystack = join ' ', $record->{ref}, $record->{title}, $record->{description};
                 return if index( lc $haystack, lc $args{text} ) < 0;
             }
-            push @records, { %{$record}, column => $column };
+            push @records, _project_record( { %{$record}, column => $column }, $plan );
         } }, $board );
     }
     return [ sort { $a->{ref} cmp $b->{ref} } @records ];

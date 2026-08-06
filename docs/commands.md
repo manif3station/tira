@@ -87,6 +87,13 @@ all reads and mutations and must not attempt direct filesystem access. Run
 Existing record-list commands retain their compatible array result; `--full`
 is an explicit assertion that the full records already returned are required.
 
+Show, list, and export accept `--fields` and `--exclude-fields`
+(comma-separated, repeatable, accumulating) to project each returned record.
+Selection always keeps `ref`, exclusion applies after selection, stored data
+is never altered, and an unknown or empty field name fails with exit 2 naming
+the field. The full record remains the default — asking for everything is a
+choice, not a tax.
+
 Field-aware search returns `{hits, count}` and each hit includes ref, type,
 column, dotted field path, and matched value. Search uses the same envelope
 without field scoping, where each hit is a complete matching record. Repeated

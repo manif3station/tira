@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.37';
+our $VERSION = '0.38';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -471,6 +471,7 @@ my @RECORD_FIELDS = qw(
     gate_passing_log evidence attachments checklist subtasks linkage assignee
     reporter labels due_date start_date sdlc_gate lifecycle priority
     fix_version affects_versions parent comments created_at last_updated column
+    content_hash
 );
 my %RECORD_FIELD = map { $_ => 1 } @RECORD_FIELDS;
 
@@ -519,6 +520,32 @@ sub _changed_since {
     return $stamp >= $threshold;
 }
 
+# CA05: the content hash covers every meaningful field including the
+# computed column, and excludes only the volatile last_updated stamp —
+# so a no-op write keeps its hash while any real change, comment,
+# attachment, or move alters it. The token is opaque; only equality is
+# contractual.
+sub _record_content_hash {
+    my ($record) = @_;
+    my %meaningful = %{$record};
+    delete @meaningful{qw(last_updated content_hash)};
+    return sha256_hex( encode_utf8( JSON::PP->new->canonical->encode( \%meaningful ) ) );
+}
+
+sub _board_hash {
+    my ($records) = @_;
+    return sha256_hex( encode_utf8( join "\n",
+        map { $_->{ref} . ':' . ( $_->{content_hash} // _record_content_hash($_) ) } @{$records} ) );
+}
+
+# CA06: a bad hash must never be read as "changed" — that would return
+# everything and hide the error.
+sub _valid_conditional_hash {
+    my ($hash) = @_;
+    die "If-changed hash is malformed\n" if ( $hash // '' ) !~ /\A[0-9a-f]{64}\z/;
+    return $hash;
+}
+
 # CA15: a value is empty when it is undef, an empty string, an empty
 # array, or a hash whose every value is empty by the same rule (scope and
 # blank linkage). Booleans and numbers — including 0 and false — are
@@ -560,13 +587,20 @@ sub record_show {
     my ( $self, %args ) = @_;
     my $plan = _field_projection(%args);
     my $threshold = defined $args{since} ? _epoch_of_datetime( $args{since}, 'Since' ) : undef;
+    _valid_conditional_hash( $args{if_changed} ) if defined $args{if_changed};
     my ( $path, $record, $column ) = $self->_record_data(%args);
     return {} if defined $threshold && !_changed_since( $record, $threshold );
     my $root = $self->discover_project(%args);
     for my $pool ( $record->{attachments}, map { $_->{attachments} } @{ $record->{comments} // [] } ) {
         $self->_backfill_added_at( $root, $pool );
     }
-    return _project_record( { %{$record}, column => $column }, $plan );
+    my $full = { %{$record}, column => $column };
+    if ( defined $args{if_changed} ) {
+        return { unchanged => JSON::PP::true } if _record_content_hash($full) eq $args{if_changed};
+    }
+    $full->{content_hash} = _record_content_hash($full)
+      if $plan && $plan->{fields} && $plan->{fields}{content_hash};
+    return _project_record( $full, $plan );
 }
 
 # Attachments stored before release 0.22 predate the added_at stamp. The
@@ -609,7 +643,10 @@ sub record_list {
                 return if index( lc $haystack, lc $args{text} ) < 0;
             }
             return if defined $threshold && !_changed_since( $record, $threshold );
-            push @records, _project_record( { %{$record}, column => $column }, $plan );
+            my $full = { %{$record}, column => $column };
+            $full->{content_hash} = _record_content_hash($full)
+              if $plan && $plan->{fields} && $plan->{fields}{content_hash};
+            push @records, _project_record( $full, $plan );
         } }, $board );
     }
     return [ sort { $a->{ref} cmp $b->{ref} } @records ];
@@ -618,9 +655,24 @@ sub record_list {
 sub export_records {
     my ( $self, %args ) = @_;
     my $now = defined $args{since} ? $self->{clock}->() : undef;
-    my $records = $self->record_list(%args);
+    my $plan = _field_projection(%args);
+    my $wants_hash = defined $args{if_changed}
+      || ( $plan && $plan->{fields} && $plan->{fields}{content_hash} );
+    my $board_hash;
+    if ($wants_hash) {
+        _valid_conditional_hash( $args{if_changed} ) if defined $args{if_changed};
+        my %full_args = %args;
+        delete @full_args{qw(fields exclude_fields omit_empty if_changed)};
+        $board_hash = _board_hash( $self->record_list(%full_args) );
+        return { unchanged => JSON::PP::true }
+          if defined $args{if_changed} && $board_hash eq $args{if_changed};
+    }
+    my %list_args = %args;
+    delete $list_args{if_changed};
+    my $records = $self->record_list(%list_args);
     my $result = { records => $records, count => scalar @{$records} };
     $result->{now} = $now if defined $now;
+    $result->{board_hash} = $board_hash if $wants_hash;
     return $result;
 }
 

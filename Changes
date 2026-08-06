@@ -1,5 +1,15 @@
 Revision history for Tira
 
+0.38  2026-08-07
+    - CA05+CA06 (EPIC-424): content hashes and conditional reads. The
+      computed content_hash field (opaque, stable, excludes only
+      last_updated) is available through --fields on show, list, and
+      export; export adds a board_hash. --if-changed HASH on show and
+      export returns an unchanged marker with exit 1 when nothing
+      differs, the payload with exit 0 otherwise, and exit 2 on a
+      malformed hash; composes with projection and since (stricter
+      wins); never writes.
+
 0.37  2026-08-07
     - CA04 (EPIC-424): changed-since reads. show, list, and export take
       --since (ISO 8601, instant-compared across offsets); export's

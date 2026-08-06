@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.37):** shipped, executable, and covered by tests.
+- **Implemented (0.38):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.37.
+All commands and use cases in this manual ship in release 0.38.
 
 ## Global invocation grammar
 
@@ -278,7 +278,7 @@ They create independent Backlog records with empty linkage. These symmetric
 forms are **Implemented (DD-389)** for each `TYPE`:
 
 ```text
-tira.TYPE.show --ref REF [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [-o FORMAT]
+tira.TYPE.show --ref REF [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [-o FORMAT]
 tira.TYPE.list [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [-o FORMAT]
 tira.TYPE.update --ref REF [record field arguments] [-o FORMAT]
 tira.TYPE.move --ref REF --column SLUG [-o FORMAT]
@@ -315,6 +315,17 @@ can be missed). A future timestamp returns empty with exit 0; a
 malformed one exits 2; `show` returns `{}` for an unchanged record; a
 record whose stored stamp is unreadable is always returned, never
 hidden.
+Content hashes and conditional reads are **Implemented (DD-427)**.
+Selecting the computed `content_hash` field returns an opaque stable
+token covering every meaningful field including placement and excluding
+only `last_updated`, so a no-op write keeps its hash; only equality is
+contractual. `tira.export --fields ref,content_hash` also returns a
+`board_hash` over the whole result. `--if-changed HASH` on show and
+export returns `{"unchanged": true}` with exit 1 when nothing differs
+(exit 0 with the payload otherwise — the exit status alone answers the
+question), exits 2 on a malformed hash rather than treating it as
+changed, composes with `--fields`, and when combined with `--since` the
+stricter suppression wins. Conditional reads never write.
 Clone creates a Backlog record, shares attachment refs, clears hierarchy, and
 adds reciprocal clone links.
 
@@ -410,7 +421,7 @@ tira.evidence.annotate --ref REF --id EVD-NNN --note TEXT [--author ID] [-o FORM
 tira.gate.list --ref REF [-o FORMAT]
 tira.gate.add --ref REF --gate TEXT --result pass|fail|blocked --details TEXT [--author ID] [-o FORMAT]
 tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]
-tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [-o FORMAT]
+tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [-o FORMAT]
 tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [-o FORMAT]
 tira.import --file FILE [--dry-run] [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [-o FORMAT]
@@ -669,7 +680,7 @@ without revealing or creating a storage location.
 **Implemented.** `dashboard tira.ticket.show --ref TKT-001` returns the record's populated keys (empty values are omitted by default; `--include-empty` restores them); `dashboard tira.ticket.show --ref TKT-001 --fields column -o json` returns only `ref` and `column` — the cheapest way to answer the board's commonest question.
 
 ### UC-043: Read boards in one call, at chosen weight
-**Implemented.** `dashboard tira.export -o json` returns every SOW, epic, and ticket in one `{records, count}` object; `dashboard tira.export --fields ref,column -o json` returns the same board as two-key records, and `--exclude-fields description,comments` keeps structure while dropping the prose. Count is unaffected by projection. `dashboard tira.export --since 2026-08-07T02:30:00Z --fields ref,column -o json` returns only records changed at or after that instant plus `now` for the next poll — a quiet board costs a few bytes to check.
+**Implemented.** `dashboard tira.export -o json` returns every SOW, epic, and ticket in one `{records, count}` object; `dashboard tira.export --fields ref,column -o json` returns the same board as two-key records, and `--exclude-fields description,comments` keeps structure while dropping the prose. Count is unaffected by projection. `dashboard tira.export --since 2026-08-07T02:30:00Z --fields ref,column -o json` returns only records changed at or after that instant plus `now` for the next poll; `dashboard tira.export --fields ref,content_hash -o json` adds a `board_hash`, and `dashboard tira.export --if-changed BOARD_HASH` collapses a quiet board to `{"unchanged": true}` with exit 1 — the cheapest possible sweep.
 
 ### UC-044: Filter by column
 **Implemented.** `dashboard tira.ticket.list --column backlog`.

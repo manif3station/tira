@@ -57,6 +57,7 @@ sub run {
         'exclude-fields=s@' => \$option{exclude_fields},
         'include-empty' => \$option{include_empty},
         'since=s' => \$option{since},
+        'if-changed=s' => \$option{if_changed},
         'with=s' => \$option{with}, 'note=s' => \$option{note},
         'reporter=s' => \$option{reporter}, 'due-date=s' => \$option{due_date},
         'start-date=s' => \$option{start_date}, 'sdlc-gate=s' => \$option{sdlc_gate},
@@ -151,7 +152,7 @@ sub run {
     my $formatted = eval { $tira->format_output( $result, output => $option{output}, project => $option{project} ) };
     return _error( $tira, 'toon', $@ || 'Unable to format output' ) if !defined $formatted;
     print _utf8_bytes($formatted);
-    return 0;
+    return ( defined $option{if_changed} && ref $result eq 'HASH' && $result->{unchanged} ) ? 1 : 0;
 }
 
 sub _dd_path_resolver {
@@ -454,6 +455,8 @@ sub _invoke {
     }
     $args{omit_empty} = 1
       if $command =~ /\A(?:record\.(?:show|list)|export)\z/ && !$option->{include_empty};
+    die "Conditional reads are available on show and export commands\n"
+      if defined $option->{if_changed} && $command !~ /\A(?:record\.show|export)\z/;
     $args{type} = $record_type if defined $record_type;
     my %sets = (
         set_key_details => 'key_details_replace', set_deliverables => 'deliverables_replace',

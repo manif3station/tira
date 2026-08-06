@@ -87,6 +87,15 @@ all reads and mutations and must not attempt direct filesystem access. Run
 Existing record-list commands retain their compatible array result; `--full`
 is an explicit assertion that the full records already returned are required.
 
+Records expose a computed `content_hash` through field selection: an opaque
+stable token over every meaningful field including placement, excluding only
+`last_updated`, so a touched-but-identical record keeps its hash. Export adds
+a `board_hash` whenever hashes are requested. `--if-changed HASH` on show and
+export answers with `{"unchanged": true}` and exit 1 when nothing differs,
+the full (projectable) payload with exit 0 when something does, and exit 2 on
+a malformed hash — a bad token must never quietly mean "changed". Combined
+with `--since`, the stricter suppression wins; conditional reads never write.
+
 Show, list, and export accept `--since TIMESTAMP` to return only records
 whose `last_updated` is at or after that instant (timezone-aware, never a
 string comparison). Export's envelope then carries `now` — the server clock

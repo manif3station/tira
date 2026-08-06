@@ -939,3 +939,17 @@ report, message 2915 — three connected findings).
   mutations.
 - Functional PASS `Files=28, Tests=1071`; coverage `100.0%` all three
   modules; `prove -T` PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-427`
+
+- CA05+CA06: stable per-record `content_hash` (canonical JSON minus
+  `last_updated`, SHA-256) available via `--fields`; export `board_hash`
+  computed from full records regardless of projection; `--if-changed`
+  on show and export with unchanged marker + exit 1, payload + exit 0,
+  malformed + exit 2; stricter-wins with `--since`; refused elsewhere.
+- Red-first `t/28-content-hash.t` (26 checks): stability across reads
+  and no-op writes; sensitivity to field edits, comments, and moves;
+  board-hash agreement across quiet exports; conditional collapse and
+  recovery; projection composition; CLI exit-status contract.
+- Functional PASS full suite; coverage `100.0%` all three modules;
+  `prove -T` PASS; `cover_db` cleaned. Browser surface untouched.

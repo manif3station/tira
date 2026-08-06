@@ -112,6 +112,13 @@ my %providers = (
     attachment_remove => sub { die "Attachment 'ff' is not attached\n" },
     checklist_add => sub { return '{"ok":true}' },
     checklist_update => sub { return '{"ok":true}' },
+    link_types => sub { '[]' },
+    hierarchy_link => sub { '{"ok":true}' },
+    hierarchy_unlink => sub { '{"ok":true}' },
+    subitem_link => sub { '{"ok":true}' },
+    subitem_unlink => sub { '{"ok":true}' },
+    link_add => sub { '{"ok":true}' },
+    link_remove => sub { '{"ok":true}' },
 );
 
 for my $missing (qw(attachment_fetch attachment_add attachment_remove)) {

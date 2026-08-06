@@ -111,6 +111,13 @@ my %providers = (
     attachment_remove => sub { '{"ok":true}' },
     checklist_add => sub { return '{"ok":true,"entry":{"id":"CHK-001"}}' },
     checklist_update => sub { die "Checklist entry 'CHK-404' not found\n" },
+    link_types => sub { '[]' },
+    hierarchy_link => sub { '{"ok":true}' },
+    hierarchy_unlink => sub { '{"ok":true}' },
+    subitem_link => sub { '{"ok":true}' },
+    subitem_unlink => sub { '{"ok":true}' },
+    link_add => sub { '{"ok":true}' },
+    link_remove => sub { '{"ok":true}' },
 );
 
 for my $missing (qw(checklist_add checklist_update)) {

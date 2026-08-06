@@ -255,6 +255,49 @@ sub browser_providers {
             );
             return $json->encode( { ok => JSON::PP::true, record => $record } );
         },
+        link_types => sub {
+            return $json->encode(
+                [ map { { outward => $_->{outward}, inward => $_->{inward} } }
+                  @{ $tira->link_type_list( project => $project ) } ]
+            );
+        },
+        ( map {
+            my ( $name, $method ) = @{$_};
+            ( $name => sub {
+                my ($payload) = @_;
+                die ucfirst( $name =~ tr/_/ /r ) . " requires parent and child\n"
+                  if ref($payload) ne 'HASH'
+                  || !defined $payload->{parent} || ref $payload->{parent}
+                  || !defined $payload->{child} || ref $payload->{child};
+                my $result = $tira->$method(
+                    project => $project, parent => $payload->{parent}, child => $payload->{child},
+                );
+                return $json->encode( { ok => JSON::PP::true, result => $result } );
+            } );
+        } ( [ hierarchy_link => 'hierarchy_link' ], [ hierarchy_unlink => 'hierarchy_unlink' ],
+            [ subitem_link => 'subitem_link' ], [ subitem_unlink => 'subitem_unlink' ] ) ),
+        link_add => sub {
+            my ($payload) = @_;
+            die "Link add requires from, type, and to\n"
+              if ref($payload) ne 'HASH'
+              || grep { !defined $payload->{$_} || ref $payload->{$_} } qw(from type to);
+            my $link = $tira->link_add(
+                project => $project, from => $payload->{from},
+                type => $payload->{type}, to => $payload->{to},
+            );
+            return $json->encode( { ok => JSON::PP::true, link => $link } );
+        },
+        link_remove => sub {
+            my ($payload) = @_;
+            die "Link removal requires from, type, and to\n"
+              if ref($payload) ne 'HASH'
+              || grep { !defined $payload->{$_} || ref $payload->{$_} } qw(from type to);
+            my $result = $tira->link_remove(
+                project => $project, from => $payload->{from},
+                type => $payload->{type}, to => $payload->{to},
+            );
+            return $json->encode( { ok => JSON::PP::true, result => $result } );
+        },
         checklist_add => sub {
             my ($payload) = @_;
             die "Checklist payload must be an object\n" if ref($payload) ne 'HASH';

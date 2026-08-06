@@ -4,7 +4,7 @@ Tira is a filesystem-native Kanban project manager for Developer Dashboard. It
 provides Jira-style projects, SOWs, epics, and tickets over a transparent local
 filesystem engine accessed exclusively through Tira commands.
 
-Release 0.19 implements the complete command ecosystem: projects, independent
+Release 0.20 implements the complete command ecosystem: projects, independent
 boards, columns, records, links, people, comments, attachments, evidence,
 gates, search, dashboards, agent-efficient TOON output, singular record
 ownership, planning metadata, immediate parents, and inactive-person controls.
@@ -42,7 +42,13 @@ own attachments separately from the record strip.
 Every list field is editable per item from the dialog — labels, affects
 versions, key details, deliverables, scope, acceptance criteria, test steps,
 BDD, and ATDD — and checklist entries can be added and edited in place while
-remaining retained-not-deleted; linkage stays CLI-only.
+remaining retained-not-deleted.
+Linkage is editable from the dialog too: set or unlink hierarchy and
+sub-item parents, link and unlink children, and add or remove typed links
+with reciprocals through the same transactional engine commands as the CLI.
+Long-text sections carry their edit pencil in the section heading, and the
+whole dashboard is responsive down to phone width with a near-fullscreen
+dialog and a stacked details grid.
 
 ## Value
 

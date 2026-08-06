@@ -25,9 +25,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.17):** shipped, executable, and covered by tests.
 - **Implemented (0.18):** shipped, executable, and covered by tests.
 - **Implemented (0.19):** shipped, executable, and covered by tests.
+- **Implemented (0.20):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.19.
+All commands and use cases in this manual ship in release 0.20.
 
 ## Global invocation grammar
 
@@ -458,8 +459,15 @@ an add box; saves send the whole replacement list through the engine's
 replace semantics, so ordering and case-insensitive label dedup still apply.
 Checklist entries add and edit in place through the checklist commands'
 semantics — ids are immutable, entries are never deleted from the dialog,
-and item and status stay free text. Linkage remains read-only in the dialog;
-structural changes stay with the hierarchy and link commands.
+and item and status stay free text.
+Linkage edits in the dialog reuse the hierarchy, sub-item, and typed-link
+commands transactionally: parent rows link and unlink, children rows unlink
+per entry and link new refs, and typed links offer the project's configured
+outward and inward names with reciprocals kept consistent on both records.
+Engine validation errors (wrong type pairing, unknown ref or link type)
+render inside the dialog. Long-text sections carry their edit pencil in the
+section heading, and a small-screen layout keeps the board and dialog fully
+usable at phone width.
 The visible last-updated time advances only after fresh data is applied. Stop
 the foreground server with Ctrl-C.
 

@@ -544,3 +544,35 @@ Method: Engine/CLI TDD + HTTP ATDD + Browser BDD (Playwright).
   denser than the DD-406 layout.
 - Agent contract: exactly 100 use cases; no location disclosure.
 - Platform: labs remain stopped; nothing platform-dependent changed.
+
+## Latest Verification For `DD-409`
+
+Method: Engine-provider TDD + HTTP ATDD + Browser BDD (desktop + mobile).
+
+- Red gates: `t/23-dashboard-linkage.t` failed on missing providers,
+  routes, interactive markup, heading pencils, and the mobile media query.
+- Functional: PASS in Docker, `Files=24, Tests=937`.
+- Coverage: `100.0%` statement and subroutine, all three modules;
+  `cover_db` cleaned.
+- Taint/perlsec: `prove -T` PASS; entrypoints and `dashboard.psgi` compile
+  under `-T`; primitive scan clean.
+- Provider/HTTP ATDD: hierarchy link/unlink round-trips through the engine
+  (SOW-epic proven, invalid pairs refused with the engine message);
+  sub-item link/unlink round-trips; typed links create and remove with
+  reciprocals on both records; unknown link types refused; `/link-types`
+  serves the configured pairs; all six mutation routes dispatch and fail
+  as structured 422.
+- Browser BDD: Playwright PASS — typed-link removal and creation post the
+  exact payloads (inward name selectable), setting an epic parent posts
+  `/hierarchy/link` with the right parent/child orientation, sub-item
+  unlink posts its payload, the description pencil renders inside the
+  section heading, and one route-literal defect was caught red
+  (dynamically-built route strings hid the contract; replaced with a
+  literal route table).
+- Mobile BDD: dedicated 430x932 pass — zero horizontal page overflow, the
+  dialog fits the viewport, and the details grid stacks to one column.
+- Visual review: PASS on both viewports — heading pencils in place on
+  desktop; the phone layout is genuinely usable with full-width dialog,
+  stacked labeled fields, and per-item editors.
+- Agent contract: exactly 100 use cases; no location disclosure.
+- Platform: labs remain stopped; nothing platform-dependent changed.

@@ -3,14 +3,15 @@ package Tira::DashboardWeb;
 use strict;
 use warnings;
 
-our $VERSION = '0.19';
+our $VERSION = '0.20';
 
 use Encode qw(encode_utf8);
 use JSON::PP ();
 use Dancer2 appname => 'TiraDashboard';
 
 our ( $RENDER, $DATA, $MOVE, $DETAIL, $UPDATE, $COMMENT_ADD, $COMMENT_UPDATE, $COMMENT_REMOVE, $PEOPLE,
-      $ATTACHMENT_FETCH, $ATTACHMENT_ADD, $ATTACHMENT_REMOVE, $CHECKLIST_ADD, $CHECKLIST_UPDATE );
+      $ATTACHMENT_FETCH, $ATTACHMENT_ADD, $ATTACHMENT_REMOVE, $CHECKLIST_ADD, $CHECKLIST_UPDATE,
+      $LINK_TYPES, $HIERARCHY_LINK, $HIERARCHY_UNLINK, $SUBITEM_LINK, $SUBITEM_UNLINK, $LINK_ADD, $LINK_REMOVE );
 
 get '/' => sub {
     content_type 'text/html; charset=UTF-8';
@@ -55,6 +56,17 @@ post '/attachment/add' => sub { return _mutation( \$ATTACHMENT_ADD ) };
 post '/attachment/remove' => sub { return _mutation( \$ATTACHMENT_REMOVE ) };
 post '/checklist/add' => sub { return _mutation( \$CHECKLIST_ADD ) };
 post '/checklist/update' => sub { return _mutation( \$CHECKLIST_UPDATE ) };
+post '/hierarchy/link' => sub { return _mutation( \$HIERARCHY_LINK ) };
+post '/hierarchy/unlink' => sub { return _mutation( \$HIERARCHY_UNLINK ) };
+post '/subitem/link' => sub { return _mutation( \$SUBITEM_LINK ) };
+post '/subitem/unlink' => sub { return _mutation( \$SUBITEM_UNLINK ) };
+post '/link/add' => sub { return _mutation( \$LINK_ADD ) };
+post '/link/remove' => sub { return _mutation( \$LINK_REMOVE ) };
+
+get '/link-types' => sub {
+    content_type 'application/json; charset=UTF-8';
+    return _response_bytes( $LINK_TYPES->() );
+};
 
 get '/attachment' => sub {
     my %query;
@@ -122,6 +134,13 @@ my @PROVIDERS = (
     [ attachment_remove => \$ATTACHMENT_REMOVE, 'attachment remove provider' ],
     [ checklist_add => \$CHECKLIST_ADD, 'checklist add provider' ],
     [ checklist_update => \$CHECKLIST_UPDATE, 'checklist update provider' ],
+    [ link_types => \$LINK_TYPES, 'link types provider' ],
+    [ hierarchy_link => \$HIERARCHY_LINK, 'hierarchy link provider' ],
+    [ hierarchy_unlink => \$HIERARCHY_UNLINK, 'hierarchy unlink provider' ],
+    [ subitem_link => \$SUBITEM_LINK, 'subitem link provider' ],
+    [ subitem_unlink => \$SUBITEM_UNLINK, 'subitem unlink provider' ],
+    [ link_add => \$LINK_ADD, 'link add provider' ],
+    [ link_remove => \$LINK_REMOVE, 'link remove provider' ],
 );
 
 sub build_psgi_app {

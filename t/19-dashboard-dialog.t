@@ -135,6 +135,13 @@ my %providers = (
     attachment_remove => sub { '{"ok":true}' },
     checklist_add => sub { '{"ok":true}' },
     checklist_update => sub { '{"ok":true}' },
+    link_types => sub { '[]' },
+    hierarchy_link => sub { '{"ok":true}' },
+    hierarchy_unlink => sub { '{"ok":true}' },
+    subitem_link => sub { '{"ok":true}' },
+    subitem_unlink => sub { '{"ok":true}' },
+    link_add => sub { '{"ok":true}' },
+    link_remove => sub { '{"ok":true}' },
 );
 
 for my $missing (qw(update comment_add comment_update comment_remove people)) {

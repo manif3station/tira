@@ -111,6 +111,13 @@ my $app = Tira::DashboardWeb->build_psgi_app(
     attachment_remove => sub { return '{"ok":true}' },
     checklist_add => sub { return '{"ok":true}' },
     checklist_update => sub { return '{"ok":true}' },
+    link_types => sub { '[]' },
+    hierarchy_link => sub { '{"ok":true}' },
+    hierarchy_unlink => sub { '{"ok":true}' },
+    subitem_link => sub { '{"ok":true}' },
+    subitem_unlink => sub { '{"ok":true}' },
+    link_add => sub { '{"ok":true}' },
+    link_remove => sub { '{"ok":true}' },
 );
 my @warnings;
 {
@@ -174,6 +181,13 @@ like( $@, qr/Missing dashboard detail provider/, 'PSGI builder requires a detail
             attachment_remove => sub { '{}' },
             checklist_add => sub { '{}' },
             checklist_update => sub { '{}' },
+            link_types => sub { '[]' },
+            hierarchy_link => sub { '{"ok":true}' },
+            hierarchy_unlink => sub { '{"ok":true}' },
+            subitem_link => sub { '{"ok":true}' },
+            subitem_unlink => sub { '{"ok":true}' },
+            link_add => sub { '{"ok":true}' },
+            link_remove => sub { '{"ok":true}' },
         ),
         'serve completes when its PSGI runner exits'
     );

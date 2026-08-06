@@ -30,7 +30,7 @@ const fs = require('fs');
     gate_passing_log: [], evidence: [],
     attachments: [{ sha: 'a'.repeat(64), extension: 'txt', original_filename: 'notes.txt' }],
     subtasks: [],
-    linkage: { epic_ref: null, parent_ticket_ref: null, sub_ticket_refs: [], links: [] },
+    linkage: { epic_ref: null, parent_ticket_ref: null, sub_ticket_refs: ['TKT-005'], links: [{ type: 'blocks', ref: 'TKT-009' }] },
     comments: [{ id: 'CMT-001', author: 'ada', format: 'markdown', body: 'First comment',
       attachments: [{ sha: 'b'.repeat(64), extension: 'png', original_filename: 'diagram.png' }],
       created_at: '2026-08-05T10:00:00+0100', last_updated: '2026-08-05T10:00:00+0100' }],
@@ -55,6 +55,13 @@ const fs = require('fs');
     if (requestUrl.pathname === '/people') {
       peopleRequests++;
       return route.fulfill({ status: 200, contentType: 'application/json', body: '[{"id":"ada","name":"Ada Lovelace"}]' });
+    }
+    if (requestUrl.pathname === '/link-types') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '[{"outward":"blocks","inward":"is-blocked-by"},{"outward":"relates-to","inward":"relates-to"}]' });
+    }
+    if ((requestUrl.pathname.startsWith('/hierarchy/') || requestUrl.pathname.startsWith('/subitem/') || requestUrl.pathname.startsWith('/link/')) && route.request().method() === 'POST') {
+      mutations.push({ path: requestUrl.pathname, body: JSON.parse(route.request().postData()) });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
     }
     if (requestUrl.pathname === '/attachment') {
       return route.fulfill({ status: 200, contentType: 'text/plain; charset=UTF-8', body: 'ATTACHMENT BYTES' });
@@ -212,7 +219,63 @@ const fs = require('fs');
   if (await page.locator('.card-dialog [data-checklist-remove]').count() !== 0)
     throw new Error('checklist rows must not offer a delete control');
 
+  if (await page.locator('.card-dialog .card-section__title [data-edit="description"]').count() !== 1)
+    throw new Error('the description pencil is not in the section heading');
+
+  before = await seq();
+  await page.locator('.card-dialog [data-link-remove="blocks:TKT-009"]').click();
+  await page.waitForFunction(prev => (window.__tiraMutationSeq || 0) > prev, before);
+  const linkRemove = mutations.find(e => e.path === '/link/remove');
+  if (!linkRemove || linkRemove.body.from !== 'TKT-001' || linkRemove.body.type !== 'blocks' || linkRemove.body.to !== 'TKT-009')
+    throw new Error(`unexpected link remove payload: ${JSON.stringify(linkRemove && linkRemove.body)}`);
+
+  before = await seq();
+  await page.locator('.card-dialog .card-link-form select[name="type"]').selectOption('is-blocked-by');
+  await page.locator('.card-dialog .card-link-form input[name="to"]').fill('TKT-777');
+  await page.locator('.card-dialog .card-link-form button[type="submit"]').click();
+  await page.waitForFunction(prev => (window.__tiraMutationSeq || 0) > prev, before);
+  const linkAdd = mutations.find(e => e.path === '/link/add');
+  if (!linkAdd || linkAdd.body.type !== 'is-blocked-by' || linkAdd.body.to !== 'TKT-777')
+    throw new Error(`unexpected link add payload: ${JSON.stringify(linkAdd && linkAdd.body)}`);
+
+  before = await seq();
+  await page.locator('.card-dialog [data-linkage-add="epic_ref"]').fill('EPC-001');
+  await page.locator('.card-dialog [data-linkage-add-save="epic_ref"]').click();
+  await page.waitForFunction(prev => (window.__tiraMutationSeq || 0) > prev, before);
+  const parentLink = mutations.find(e => e.path === '/hierarchy/link');
+  if (!parentLink || parentLink.body.parent !== 'EPC-001' || parentLink.body.child !== 'TKT-001')
+    throw new Error(`unexpected hierarchy link payload: ${JSON.stringify(parentLink && parentLink.body)}`);
+
+  before = await seq();
+  await page.locator('.card-dialog [data-linkage-unlink="sub_ticket_refs:TKT-005"]').click();
+  await page.waitForFunction(prev => (window.__tiraMutationSeq || 0) > prev, before);
+  const subUnlink = mutations.find(e => e.path === '/subitem/unlink');
+  if (!subUnlink || subUnlink.body.parent !== 'TKT-001' || subUnlink.body.child !== 'TKT-005')
+    throw new Error(`unexpected subitem unlink payload: ${JSON.stringify(subUnlink && subUnlink.body)}`);
+
   await page.screenshot({ path: screenshotPath, fullPage: true });
+
+  const mobile = await browser.newPage({ viewport: { width: 430, height: 932 } });
+  await mobile.route('http://tira.test/**', async route => {
+    const u = new URL(route.request().url());
+    if (u.pathname === '/record') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(record) });
+    if (u.pathname === '/people') return route.fulfill({ status: 200, contentType: 'application/json', body: '[{"id":"ada","name":"Ada Lovelace"}]' });
+    if (u.pathname === '/link-types') return route.fulfill({ status: 200, contentType: 'application/json', body: '[{"outward":"blocks","inward":"is-blocked-by"}]' });
+    if (u.pathname === '/data') return route.fulfill({ status: 200, contentType: 'application/json', body: data });
+    return route.fulfill({ status: 200, contentType: 'text/html', body: html });
+  });
+  await mobile.goto('http://tira.test/');
+  await mobile.waitForSelector('[data-ref="TKT-001"] .card');
+  const bodyOverflow = await mobile.evaluate(() => document.body.scrollWidth - document.documentElement.clientWidth);
+  if (bodyOverflow > 1) throw new Error(`mobile page overflows horizontally by ${bodyOverflow}px`);
+  await mobile.click('[data-ref="TKT-001"] .card');
+  await mobile.waitForFunction(() => document.querySelector('.card-dialog')?.open);
+  const dialogBox = await mobile.locator('.card-dialog').boundingBox();
+  if (!dialogBox || dialogBox.width > 430) throw new Error(`mobile dialog is too wide: ${dialogBox && dialogBox.width}`);
+  const gridColumns = await mobile.locator('.card-details').first().evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length);
+  if (gridColumns !== 1) throw new Error(`mobile details grid should stack to one column, got ${gridColumns}`);
+  await mobile.screenshot({ path: screenshotPath.replace(/\.png$/, '') + '-mobile.png', fullPage: false });
+  await mobile.close();
   await browser.close();
   process.stdout.write('dashboard browser Playwright PASS\n');
 })().catch(error => {

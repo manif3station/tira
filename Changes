@@ -1,5 +1,20 @@
 Revision history for Tira
 
+0.20  2026-08-06
+    - Made linkage editable in the browser card dialog through the
+      transactional engine commands: hierarchy and sub-item parents link
+      and unlink, children rows unlink per entry and link new refs, and
+      typed links add and remove with reciprocals, with the project's
+      configured link types served by a new `/link-types` route.
+    - Added `/hierarchy/link`, `/hierarchy/unlink`, `/subitem/link`,
+      `/subitem/unlink`, `/link/add`, and `/link/remove` dialog routes with
+      structured 422 failures carrying engine validation messages.
+    - Moved the long-text edit pencils (description, problem/feature,
+      solution needed) into their section headings.
+    - Added a phone-width responsive layout: near-fullscreen dialog,
+      stacked details grid, and stacked forms, proven by a dedicated
+      mobile-viewport Playwright pass with zero horizontal overflow.
+
 0.19  2026-08-06
     - Made every list field editable per item in the browser card dialog:
       labels, affects versions, key details, deliverables, scope included

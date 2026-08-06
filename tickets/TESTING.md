@@ -953,3 +953,16 @@ report, message 2915 — three connected findings).
   recovery; projection composition; CLI exit-status contract.
 - Functional PASS full suite; coverage `100.0%` all three modules;
   `prove -T` PASS; `cover_db` cleaned. Browser surface untouched.
+
+## Latest Verification For `DD-428`
+
+- CA07+CA17: `--count` (list, export, search) and `--refs-only` (list,
+  search); precedence count > refs-only > fields with loud field
+  validation preserved; search handles both at envelope level so they
+  never leak into its record_list delegation; human output prints a
+  bare number / one ref per line.
+- Red-first `t/29-count-refs.t` (25 checks) — one test correction
+  during the loop: an unscoped field search legitimately matched the
+  epic fixture, so the scenario pins `--type` explicitly.
+- Functional PASS `Files=30, Tests=1123`; coverage `100.0%` all three
+  modules; `prove -T` PASS; `cover_db` cleaned. Browser untouched.

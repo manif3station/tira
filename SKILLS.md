@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.38):** shipped, executable, and covered by tests.
+- **Implemented (0.39):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.38.
+All commands and use cases in this manual ship in release 0.39.
 
 ## Global invocation grammar
 
@@ -279,7 +279,7 @@ forms are **Implemented (DD-389)** for each `TYPE`:
 
 ```text
 tira.TYPE.show --ref REF [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [-o FORMAT]
-tira.TYPE.list [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [-o FORMAT]
+tira.TYPE.list [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--count] [--refs-only] [-o FORMAT]
 tira.TYPE.update --ref REF [record field arguments] [-o FORMAT]
 tira.TYPE.move --ref REF --column SLUG [-o FORMAT]
 tira.TYPE.discard --ref REF [-o FORMAT]
@@ -326,6 +326,14 @@ export returns `{"unchanged": true}` with exit 1 when nothing differs
 question), exits 2 on a malformed hash rather than treating it as
 changed, composes with `--fields`, and when combined with `--since` the
 stricter suppression wins. Conditional reads never write.
+Count and refs-only are **Implemented (DD-428)**: `--count` (list,
+export, search) returns `{"count": N}` alone — zero is an answer, not an
+error — and `--refs-only` (list, search) returns a flat ref array in
+stable ref order, deduplicated for field-scoped search hits. Count wins
+over refs-only wins over `--fields`, documented rather than guessed, and
+field names are still validated loudly even when projection is moot.
+With `-o human`, count prints a bare number and refs-only prints one ref
+per line, so both pipe straight into a shell.
 Clone creates a Backlog record, shares attachment refs, clears hierarchy, and
 adds reciprocal clone links.
 
@@ -421,10 +429,10 @@ tira.evidence.annotate --ref REF --id EVD-NNN --note TEXT [--author ID] [-o FORM
 tira.gate.list --ref REF [-o FORMAT]
 tira.gate.add --ref REF --gate TEXT --result pass|fail|blocked --details TEXT [--author ID] [-o FORMAT]
 tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]
-tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [-o FORMAT]
+tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--count] [-o FORMAT]
 tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [-o FORMAT]
 tira.import --file FILE [--dry-run] [-o FORMAT]
-tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [-o FORMAT]
+tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [--count] [--refs-only] [-o FORMAT]
 tira.replace --pattern REGEX --with TEXT [--field FIELD ...] [--type TYPE] [--dry-run] [-o FORMAT]
 tira.dashboard [--type TYPE|all] [--include-discard] [--title] [-o DASHBOARD_FORMAT]
 tira.dashboard.sow [--include-discard] [--title] [-o DASHBOARD_FORMAT]
@@ -682,8 +690,8 @@ without revealing or creating a storage location.
 ### UC-043: Read boards in one call, at chosen weight
 **Implemented.** `dashboard tira.export -o json` returns every SOW, epic, and ticket in one `{records, count}` object; `dashboard tira.export --fields ref,column -o json` returns the same board as two-key records, and `--exclude-fields description,comments` keeps structure while dropping the prose. Count is unaffected by projection. `dashboard tira.export --since 2026-08-07T02:30:00Z --fields ref,column -o json` returns only records changed at or after that instant plus `now` for the next poll; `dashboard tira.export --fields ref,content_hash -o json` adds a `board_hash`, and `dashboard tira.export --if-changed BOARD_HASH` collapses a quiet board to `{"unchanged": true}` with exit 1 — the cheapest possible sweep.
 
-### UC-044: Filter by column
-**Implemented.** `dashboard tira.ticket.list --column backlog`.
+### UC-044: Filter by column, or just count it
+**Implemented.** `dashboard tira.ticket.list --column backlog` lists the column; `dashboard tira.ticket.list --column backlog --count -o json` answers `{"count":47}` for a few bytes, and `--refs-only` returns just the refs — the input to a batch read.
 
 ### UC-045: Filter by assignee
 **Implemented.** `dashboard tira.ticket.list --assignee ada`.

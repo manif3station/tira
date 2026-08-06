@@ -87,6 +87,12 @@ all reads and mutations and must not attempt direct filesystem access. Run
 Existing record-list commands retain their compatible array result; `--full`
 is an explicit assertion that the full records already returned are required.
 
+`--count` on list, export, and search suppresses the records and returns the
+count alone; `--refs-only` on list and search returns a flat, stably ordered,
+deduplicated ref array. Count wins over refs-only wins over field selection —
+documented precedence, and misspelled field names still fail loudly. Human
+output prints a bare number or one ref per line for direct shell use.
+
 Records expose a computed `content_hash` through field selection: an opaque
 stable token over every meaningful field including placement, excluding only
 `last_updated`, so a touched-but-identical record keeps its hash. Export adds

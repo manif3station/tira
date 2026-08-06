@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.38';
+our $VERSION = '0.39';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -622,6 +622,9 @@ sub _backfill_added_at {
 sub record_list {
     my ( $self, %args ) = @_;
     my $plan = _field_projection(%args);
+    # CA07/CA17: count wins over refs-only wins over projection — but a
+    # bad field name stays loud even when projection is moot.
+    undef $plan if $args{count} || $args{refs_only};
     my $threshold = defined $args{since} ? _epoch_of_datetime( $args{since}, 'Since' ) : undef;
     my $root = $self->discover_project(%args);
     my @records;
@@ -649,11 +652,19 @@ sub record_list {
             push @records, _project_record( $full, $plan );
         } }, $board );
     }
-    return [ sort { $a->{ref} cmp $b->{ref} } @records ];
+    my $sorted = [ sort { $a->{ref} cmp $b->{ref} } @records ];
+    return { count => scalar @{$sorted} } if $args{count};
+    return [ map { $_->{ref} } @{$sorted} ] if $args{refs_only};
+    return $sorted;
 }
 
 sub export_records {
     my ( $self, %args ) = @_;
+    if ( $args{count} ) {
+        my %count_args = %args;
+        delete $count_args{if_changed};
+        return $self->record_list(%count_args);
+    }
     my $now = defined $args{since} ? $self->{clock}->() : undef;
     my $plan = _field_projection(%args);
     my $wants_hash = defined $args{if_changed}
@@ -1303,23 +1314,33 @@ sub checklist_update {
 
 sub search {
     my ( $self, %args ) = @_;
+    my $count_mode = delete $args{count};
+    my $refs_mode = delete $args{refs_only};
     my @fields = defined $args{fields} ? @{ $args{fields} }
       : defined $args{field} ? ( $args{field} ) : ();
+    my $hits;
     if (@fields) {
-        my @hits;
+        my @scoped;
         my %filters = %args;
         delete @filters{qw(text field fields)};
         for my $record ( @{ $self->record_list(%filters) } ) {
             for my $field (@fields) {
                 next if !exists $record->{$field};
-                push @hits, map {
+                push @scoped, map {
                     { ref => $record->{ref}, type => $record->{type}, column => $record->{column}, %{$_} }
                 } $self->_field_hits( $record->{$field}, $field, $args{text} );
             }
         }
-        return { hits => \@hits, count => scalar @hits };
+        $hits = \@scoped;
     }
-    my $hits = $self->record_list(%args);
+    else {
+        $hits = $self->record_list(%args);
+    }
+    return { count => scalar @{$hits} } if $count_mode;
+    if ($refs_mode) {
+        my %seen;
+        return [ grep { !$seen{$_}++ } map { $_->{ref} } @{$hits} ];
+    }
     return { hits => $hits, count => scalar @{$hits} };
 }
 

@@ -58,6 +58,7 @@ sub run {
         'include-empty' => \$option{include_empty},
         'since=s' => \$option{since},
         'if-changed=s' => \$option{if_changed},
+        'count' => \$option{count}, 'refs-only' => \$option{refs_only},
         'with=s' => \$option{with}, 'note=s' => \$option{note},
         'reporter=s' => \$option{reporter}, 'due-date=s' => \$option{due_date},
         'start-date=s' => \$option{start_date}, 'sdlc-gate=s' => \$option{sdlc_gate},
@@ -149,6 +150,14 @@ sub run {
         return 0;
     }
 
+    if ( $option{output} eq 'human' && $option{count} && ref $result eq 'HASH' ) {
+        print "$result->{count}\n";
+        return 0;
+    }
+    if ( $option{output} eq 'human' && $option{refs_only} && ref $result eq 'ARRAY' ) {
+        print map { "$_\n" } @{$result};
+        return 0;
+    }
     my $formatted = eval { $tira->format_output( $result, output => $option{output}, project => $option{project} ) };
     return _error( $tira, 'toon', $@ || 'Unable to format output' ) if !defined $formatted;
     print _utf8_bytes($formatted);
@@ -457,6 +466,10 @@ sub _invoke {
       if $command =~ /\A(?:record\.(?:show|list)|export)\z/ && !$option->{include_empty};
     die "Conditional reads are available on show and export commands\n"
       if defined $option->{if_changed} && $command !~ /\A(?:record\.show|export)\z/;
+    die "Count is available on list, export, and search commands\n"
+      if $option->{count} && $command !~ /\A(?:record\.list|export|search)\z/;
+    die "Refs-only is available on list and search commands\n"
+      if $option->{refs_only} && $command !~ /\A(?:record\.list|search)\z/;
     $args{type} = $record_type if defined $record_type;
     my %sets = (
         set_key_details => 'key_details_replace', set_deliverables => 'deliverables_replace',

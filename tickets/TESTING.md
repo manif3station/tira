@@ -766,8 +766,9 @@ screen recording (message 2898) is the reported reproduction.
   remain green ×2; the host cannot launch the Playwright WebKit port
   (missing system libraries — both cached builds fail at startup), so
   engine behavior under real WebKit gesture arbitration is verified by
-  the owner's re-test on the physical iPhone, which has been requested
-  and is the acceptance gate for this ticket.
+  the owner's re-test on the physical iPhone — CONFIRMED PASSING by the
+  owner ("Fixed. Thanks", message 2905, 2026-08-06), closing the
+  acceptance gate.
 - Functional PASS `Files=25, Tests=955`; coverage `100.0%`; `prove -T`
   PASS.
 

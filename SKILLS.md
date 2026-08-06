@@ -29,9 +29,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.21):** shipped, executable, and covered by tests.
 - **Implemented (0.22):** shipped, executable, and covered by tests.
 - **Implemented (0.23):** shipped, executable, and covered by tests.
+- **Implemented (0.24):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.23.
+All commands and use cases in this manual ship in release 0.24.
 
 ## Global invocation grammar
 
@@ -438,7 +439,10 @@ page. Drag/drop calls the real JSON-file move operation through a pointer-events
 engine that serves mouse and touch alike: mouse drags start after a small
 movement threshold, touch drags start after a short hold so page scrolling
 stays native, a floating ghost tracks the pointer, the destination column
-highlights, and the release click never reopens the dragged card. Clicking a card makes
+highlights, and the release click never reopens the dragged card. The drop zone is the
+whole column stripe within the card's own board — releasing on, between,
+or below the column's existing cards all land the move; releasing outside
+the board cancels. Clicking a card makes
 one detail request for its complete record and opens a Jira-style dialog that
 renders the record section by section — a details grid (assignee, reporter,
 priority label, labels, dates, versions, SDLC gate, lifecycle, parent,

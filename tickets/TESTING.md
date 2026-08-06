@@ -658,3 +658,31 @@ in `tickets/DD-412.md`).
   where a blob would actually live).
 - Functional: PASS, `Files=25, Tests=953`; coverage `100.0%` statement
   and subroutine; taint gates PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-413`
+
+Method: Browser BDD under the Mandatory Problem-Solving Loop.
+
+- Reproduction (loop steps 4-5): with a resident card in the target
+  column, releasing 45px below it hit `MAIN.shell` — no `.cards` ancestor
+  — and posted ZERO `/move` requests: the reported bounce-back. Drops
+  directly onto the resident card worked on both desktop and touch, and
+  empty columns worked because their compact list sits where users aim —
+  which is why every prior drag test missed the gap.
+- Root cause: the drop test required the release point to be inside the
+  `.cards` list, which only spans its content height; the natural
+  "append below" release point on a populated column is outside it.
+- Fix (step 6): `columnAt` resolves geometrically — a direct list hit in
+  the card's own board wins; otherwise, within the board's vertical
+  stripe, the column whose horizontal band contains the pointer is the
+  target; outside the board cancels. Cross-board drops are structurally
+  excluded by the board scoping.
+- Re-run (step 7): the identical below-card release posts exactly one
+  `/move`; onto-card and empty-column drops still pass on desktop and
+  touch.
+- Guard (step 8): the permanent desktop drag scenario now releases into
+  the former dead zone (below content, inside the board stripe) against a
+  fixture with a resident card in the target column; the mobile touch
+  scenario drops onto the populated column. Playwright ×3 green.
+- Functional: PASS, `Files=25, Tests=953`; coverage `100.0%` statement
+  and subroutine; taint gates PASS; `cover_db` cleaned.

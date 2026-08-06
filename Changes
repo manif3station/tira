@@ -1,5 +1,14 @@
 Revision history for Tira
 
+0.24  2026-08-06
+    - Fixed drops onto columns that already hold cards bouncing back: the
+      card list only spanned its content height, so the natural release
+      point below existing cards hit dead space and no move fired. The
+      drop target now resolves geometrically to the column stripe within
+      the card's own board (direct list hits still win; releases outside
+      the board still cancel), and the permanent browser guard drops into
+      the exact former dead zone.
+
 0.23  2026-08-06
     - Fixed invisible text-attachment previews in dark mode: the viewer no
       longer lets the browser's default plain-text stylesheet render text

@@ -102,9 +102,12 @@ const fs = require('fs');
   if (await page.evaluate(() => window.__tiraTimerDelay) !== 30000) throw new Error('custom refresh interval was not scheduled');
   const dragFrom = await page.locator('[data-column="in-progress"] .card').boundingBox();
   const dragTo = await page.locator('[data-column="backlog"]').boundingBox();
+  const boardBox = await page.locator('.board--ticket').boundingBox();
   await page.mouse.move(dragFrom.x + dragFrom.width / 2, dragFrom.y + 15);
   await page.mouse.down();
-  await page.mouse.move(dragTo.x + dragTo.width / 2, dragTo.y + dragTo.height / 2, { steps: 8 });
+  // drop BELOW the column's content but inside the board stripe: the exact
+  // dead zone that bounced drops on populated columns (DD-413)
+  await page.mouse.move(dragTo.x + dragTo.width / 2, boardBox.y + boardBox.height - 25, { steps: 8 });
   const midDrag = await page.evaluate(() => ({ ghost: document.querySelectorAll('.card--ghost').length, target: document.querySelectorAll('.is-drop-target').length }));
   await page.mouse.up();
   await page.waitForFunction(() => document.querySelectorAll('.card--ghost').length === 0);

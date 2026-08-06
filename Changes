@@ -1,5 +1,28 @@
 Revision history for Tira
 
+0.17  2026-08-06
+    - Replaced the browser card dialog's raw JSON blob with a Jira-style
+      sectioned view: a details grid, long-text sections, list sections
+      (key details, deliverables, scope, acceptance criteria, test steps,
+      BDD, ATDD, checklist, subtasks, linkage, gate log, evidence,
+      attachments), and threaded comments, with em-dash placeholders and no
+      leaked JSON, null, or undefined markers.
+    - Added in-dialog editing for single-value record fields; saves post to
+      a new `/update` route that runs the engine's validated `record_update`,
+      and validation failures render inside the dialog as structured 422
+      responses.
+    - Added full in-dialog comment management: an author picker fed by a new
+      `/people` route (active people only), comment creation, in-place
+      editing, and permanent deletion through `/comment/add`,
+      `/comment/update`, and `/comment/remove`.
+    - Added the `comment_remove` engine method and `tira.comment.remove`
+      CLI command; removal reports the deleted comment, updates the record's
+      last-updated timestamp, and never reuses comment ids.
+    - Unified the browser mutation providers behind one shared builder used
+      by both the CLI-launched server and `dashboard.psgi`.
+    - Replaced raw UTF-8 punctuation in the embedded dashboard script with
+      ASCII-safe escapes so dialog glyphs survive every encoding path.
+
 0.16  2026-08-06
     - Added visible five-second automatic refresh to HTML dashboards, with a
       safe `refresh=N` URL override and a one-second minimum.

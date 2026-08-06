@@ -315,6 +315,7 @@ tira.assign.set --ref REF [--person ID] [-o FORMAT]
 tira.comment.list --ref REF [-o FORMAT]
 tira.comment.add --ref REF --author ID (--text TEXT|--file FILE) [--format markdown|text] [--attach PATH ...] [-o FORMAT]
 tira.comment.update --ref REF --comment ID (--text TEXT|--file FILE) [--format markdown|text] [-o FORMAT]
+tira.comment.remove --ref REF --comment ID [-o FORMAT]
 tira.comment.attach --ref REF --comment ID --file PATH [-o FORMAT]
 ```
 
@@ -322,8 +323,11 @@ People must exist and be active for new assignments. Assignment add replaces
 the singular assignee; set accepts at most one person and clears with no
 `--person`. Remove clears only a matching assignee. Comment `--text`/`--file`
 conflict; `--file -` reads stdin.
-Markdown is default. Comments are retained, not deleted. Updates preserve
-creation time. Repeated `--attach` imports files before writing the comment.
+Markdown is default. Updates preserve creation time. Repeated `--attach`
+imports files before writing the comment. `tira.comment.remove` permanently
+deletes one comment by id and reports the removed comment; an unknown id
+fails with exit 2 and no change. Removal updates the record's last-updated
+timestamp; comment ids keep increasing and are never reused.
 
 ### Attachments
 
@@ -423,7 +427,19 @@ approved bind. The optional port defaults to 7899, and every request rebuilds
 lightweight card placement payload from current filesystem state. Browser
 JavaScript applies that payload in place, moving cards without reloading the
 page. Drag/drop calls the real JSON-file move operation. Clicking a card makes
-one detail request for its complete record and opens that record in a dialog.
+one detail request for its complete record and opens a Jira-style dialog that
+renders the record section by section — a details grid (assignee, reporter,
+priority label, labels, dates, versions, SDLC gate, lifecycle, parent,
+source), long-text sections, list sections (key details, deliverables, scope,
+acceptance criteria, test steps, BDD, ATDD, checklist, subtasks, linkage,
+gate log, evidence, attachments), and threaded comments — never as raw JSON.
+Empty values render as an em-dash. Single-value fields carry an inline edit
+control; saving routes the change through the same validated update engine as
+the CLI, and validation failures (bad priority, inactive person, malformed
+date) appear inside the dialog without closing it. The comment section adds
+comments with an author picker limited to active people, edits any comment in
+place, and deletes a comment permanently; every successful change re-reads
+the record so the dialog always shows filesystem truth.
 The visible last-updated time advances only after fresh data is applied. Stop
 the foreground server with Ctrl-C.
 

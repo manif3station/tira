@@ -122,7 +122,9 @@ explicit local bind names and valid TCP ports. Its data route returns the
 lightweight card placement dashboard, and embedded JavaScript moves cards
 between columns without reloading the document. Drag/drop calls the actual
 record move, physically moving the JSON file between column folders. Card
-clicks make one detail request for a full-record dialog, and a last-updated
+clicks make one detail request and render the record in a Jira-style
+sectioned dialog; update, comment, and people routes apply validated engine
+mutations and answer failures as structured 422 JSON, and a last-updated
 indicator advances only after successful data application. The default
 listener is `0.0.0.0:7899`.
 

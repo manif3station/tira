@@ -4,7 +4,7 @@ Tira is a filesystem-native Kanban project manager for Developer Dashboard. It
 provides Jira-style projects, SOWs, epics, and tickets over a transparent local
 filesystem engine accessed exclusively through Tira commands.
 
-Release 0.16 implements the complete command ecosystem: projects, independent
+Release 0.17 implements the complete command ecosystem: projects, independent
 boards, columns, records, links, people, comments, attachments, evidence,
 gates, search, dashboards, agent-efficient TOON output, singular record
 ownership, planning metadata, immediate parents, and inactive-person controls.
@@ -30,6 +30,9 @@ left-to-right columns, stacked type boards, embedded styling, card selection,
 and local last-modified/reference sorting. It makes no network requests.
 Project selection also accepts aliases registered with `d2 path`; Tira resolves
 them through Developer Dashboard without printing the private target directory.
+The live browser board opens every card in a Jira-style sectioned dialog with
+in-place field editing and full comment management, including permanent
+comment deletion through the new `tira.comment.remove` command.
 
 ## Value
 
@@ -110,8 +113,14 @@ board shell through Dancer2, defaults to `0.0.0.0:7899`, and accepts `0.0.0.0`,
 filesystem. The page polls lightweight card placement data and moves cards in
 place without reloading. Dragging a card calls the real record-move operation,
 which moves its JSON file into the target column folder. Click a card to load
-its complete record on demand in a detail dialog. “Last updated” changes only
-after fresh data is applied. Stop the foreground command with
+its complete record on demand in a Jira-style dialog that renders section by
+section — a details grid, description and solution texts, planning lists,
+checklist, linkage, evidence, attachments, and threaded comments — never as a
+raw JSON dump. Single-value fields are editable in place through the same
+validated engine as the CLI, and the comment section adds, edits, and
+permanently deletes comments with an author picker limited to active project
+people. Validation failures appear inside the dialog. “Last updated” changes
+only after fresh data is applied. Stop the foreground command with
 Ctrl-C when the dashboard is no longer needed.
 
 The default all-interface bind is reachable from permitted network peers. Use

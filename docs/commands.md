@@ -27,7 +27,10 @@ attachment output, and consistent structured failures.
   live Dancer2 PSGI serving on a validated local bind. Browser mode polls the
   lightweight placement projection, updates card placement in place, performs
   real JSON-file moves on drag/drop, lazy-loads complete card details in a
-  dialog, and reports when displayed data was last refreshed.
+  Jira-style sectioned dialog, and reports when displayed data was last
+  refreshed. The dialog edits single-value fields through the validated
+  engine, and adds, edits, and permanently deletes comments with an
+  active-people author picker (`tira.comment.remove` is the CLI twin).
 - Strict UTF-8 CLI/text boundaries, canonical UTF-8 persistence and output,
   and lossless recovery of isolated legacy bytes.
 - One-call export, full lists, field-aware search, previewable bulk correction,

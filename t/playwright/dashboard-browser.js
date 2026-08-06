@@ -14,10 +14,31 @@ const fs = require('fs');
   await page.addInitScript(() => {
     window.setTimeout = (_callback, delay) => { window.__tiraTimerDelay = delay; return 1; };
   });
+  const record = {
+    ref: 'TKT-001', type: 'ticket', column: 'in-progress', title: 'Live browser card',
+    description: 'Full popup detail', problem_or_feature: 'Popup must read like Jira',
+    solution_needed: 'Sectioned dialog', source: 'DD-406', priority: 5,
+    assignee: 'ada', reporter: 'ada', labels: ['browser', 'dialog'],
+    start_date: '2026-08-01T09:00:00+0100', due_date: '2026-08-15T17:00:00+0100',
+    sdlc_gate: 'E2E Testing', lifecycle: 'build', fix_version: '0.17',
+    affects_versions: ['0.16'], parent: null,
+    key_details: ['Ajax loaded'], deliverables: ['Readable dialog'],
+    scope: { included: ['dialog'], excluded: ['reports'] },
+    acceptance_criteria: ['No JSON blob'], test_steps: ['Click a card'],
+    bdd: ['Given a card'], atdd: ['Dialog renders sections'],
+    checklist: [{ item: 'Design sections', status: 'done' }],
+    gate_passing_log: [], evidence: [], attachments: [], subtasks: [],
+    linkage: { epic_ref: null, parent_ticket_ref: null, sub_ticket_refs: [], links: [] },
+    comments: [{ id: 'CMT-001', author: 'ada', format: 'markdown', body: 'First comment',
+      attachments: [], created_at: '2026-08-05T10:00:00+0100', last_updated: '2026-08-05T10:00:00+0100' }],
+    created_at: '2026-08-01T08:00:00+0100', last_updated: '2026-08-05T10:00:00+0100',
+  };
   let pageRequests = 0;
   let dataRequests = 0;
   let moveRequests = 0;
   let detailRequests = 0;
+  let peopleRequests = 0;
+  const mutations = [];
   await page.route('http://tira.test/**', async route => {
     const requestUrl = new URL(route.request().url());
     if (requestUrl.pathname === '/move' && route.request().method() === 'POST') {
@@ -26,7 +47,19 @@ const fs = require('fs');
     }
     if (requestUrl.pathname === '/record') {
       detailRequests++;
-      return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ref":"TKT-001","title":"Live browser card","description":"Full popup detail"}' });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(record) });
+    }
+    if (requestUrl.pathname === '/people') {
+      peopleRequests++;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '[{"id":"ada","name":"Ada Lovelace"}]' });
+    }
+    if (requestUrl.pathname === '/update' && route.request().method() === 'POST') {
+      mutations.push({ path: '/update', body: JSON.parse(route.request().postData()) });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"record":{}}' });
+    }
+    if (requestUrl.pathname.startsWith('/comment/') && route.request().method() === 'POST') {
+      mutations.push({ path: requestUrl.pathname, body: JSON.parse(route.request().postData()) });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"comment":{"id":"CMT-002"}}' });
     }
     if (requestUrl.pathname === '/data') {
       dataRequests++;
@@ -43,11 +76,54 @@ const fs = require('fs');
   if (await page.evaluate(() => window.__tiraTimerDelay) !== 30000) throw new Error('custom refresh interval was not scheduled');
   await page.locator('[data-column="in-progress"] .card').dragTo(page.locator('[data-column="backlog"]'));
   if (moveRequests !== 1) throw new Error(`drag move request missing: ${moveRequests}`);
+
   await page.locator('[data-ref="TKT-001"] .card').click();
+  await page.waitForFunction(() => document.querySelector('.card-dialog')?.open);
   if (detailRequests !== 1) throw new Error(`lazy detail request missing: ${detailRequests}`);
-  if (!await page.locator('.card-dialog').evaluate(dialog => dialog.open)) throw new Error('card detail dialog did not open');
-  const detail = await page.locator('.card-dialog pre').textContent();
-  if (!detail.includes('Live browser card') || !detail.includes('Full popup detail')) throw new Error('full card detail is missing');
+
+  const sections = page.locator('.card-dialog .card-dialog__sections');
+  const sectionText = await sections.textContent();
+  for (const expected of ['Details', 'Description', 'Full popup detail', 'Very High', 'Ada Lovelace',
+    'Checklist', 'Design sections', 'Comments', 'First comment', 'Acceptance Criteria', 'No JSON blob']) {
+    if (!sectionText.includes(expected)) throw new Error(`sectioned dialog is missing: ${expected}`);
+  }
+  if (sectionText.includes('"ref"') || sectionText.includes('undefined') || sectionText.includes('null'))
+    throw new Error('dialog leaks raw JSON or empty markers');
+  if (await page.locator('.card-dialog pre').count() !== 0) throw new Error('dialog still renders a raw JSON blob');
+  if (peopleRequests < 1) throw new Error('author choices were not loaded from /people');
+
+  await page.locator('.card-dialog [data-edit="title"]').click();
+  await page.locator('.card-dialog .card-edit-input').fill('Renamed by dialog');
+  await page.locator('.card-dialog [data-save="title"]').click();
+  await page.waitForFunction(() => document.querySelectorAll('.card-dialog .card-edit-input').length === 0);
+  const update = mutations.find(entry => entry.path === '/update');
+  if (!update) throw new Error('field edit posted no /update request');
+  if (update.body.ref !== 'TKT-001' || update.body.field !== 'title' || update.body.value !== 'Renamed by dialog')
+    throw new Error(`unexpected update payload: ${JSON.stringify(update.body)}`);
+  if (detailRequests < 2) throw new Error('a saved edit did not re-read the record');
+
+  await page.locator('.card-dialog .card-comment-form select[name="author"]').selectOption('ada');
+  await page.locator('.card-dialog .card-comment-form textarea[name="text"]').fill('A new comment');
+  await page.locator('.card-dialog .card-comment-form button[type="submit"]').click();
+  await page.waitForFunction(() => window.__tiraLastMutation === '/comment/add');
+  const added = mutations.find(entry => entry.path === '/comment/add');
+  if (!added || added.body.author !== 'ada' || added.body.text !== 'A new comment' || added.body.ref !== 'TKT-001')
+    throw new Error(`unexpected comment add payload: ${JSON.stringify(added && added.body)}`);
+
+  await page.locator('.card-dialog [data-comment-edit="CMT-001"]').click();
+  await page.locator('.card-dialog [data-comment="CMT-001"] textarea').fill('Edited comment');
+  await page.locator('.card-dialog [data-comment-save="CMT-001"]').click();
+  await page.waitForFunction(() => window.__tiraLastMutation === '/comment/update');
+  const edited = mutations.find(entry => entry.path === '/comment/update');
+  if (!edited || edited.body.comment !== 'CMT-001' || edited.body.text !== 'Edited comment')
+    throw new Error(`unexpected comment update payload: ${JSON.stringify(edited && edited.body)}`);
+
+  await page.locator('.card-dialog [data-comment-remove="CMT-001"]').click();
+  await page.waitForFunction(() => window.__tiraLastMutation === '/comment/remove');
+  const removed = mutations.find(entry => entry.path === '/comment/remove');
+  if (!removed || removed.body.comment !== 'CMT-001' || removed.body.ref !== 'TKT-001')
+    throw new Error(`unexpected comment remove payload: ${JSON.stringify(removed && removed.body)}`);
+
   await page.screenshot({ path: screenshotPath, fullPage: true });
   await browser.close();
   process.stdout.write('dashboard browser Playwright PASS\n');

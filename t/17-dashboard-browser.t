@@ -49,12 +49,12 @@ my $live_html = $calls->[0]{render}->();
 like( $live_html, qr/Live card/, 'server renderer retains title mode' );
 like( $live_html, qr/fetch\("\/data".*updateBoards/s,
     'browser dashboard updates board positions from the JSON endpoint' );
-like( $live_html, qr/fetch\("\/record\?type=".*JSON\.stringify/s,
+like( $live_html, qr/fetch\("\/record\?type=".*renderCard/s,
     'browser dashboard lazy-loads full card details on click' );
 unlike( $live_html, qr/setTimeout\(\(\)=>location\.reload/,
     'browser dashboard does not reload the whole page' );
-like( $live_html, qr/<dialog class="card-dialog".*JSON\.stringify/s,
-    'browser dashboard includes a full-record card dialog' );
+like( $live_html, qr/<dialog class="card-dialog".*card-dialog__sections/s,
+    'browser dashboard includes a sectioned card dialog' );
 like( $live_html, qr/draggable.*dragstart.*\/move/s,
     'browser dashboard exposes drag and drop move behavior' );
 ok( ref $calls->[0]{move} eq 'CODE', 'browser server receives a move provider' );
@@ -101,6 +101,11 @@ my $app = Tira::DashboardWeb->build_psgi_app(
     data => sub { return '{"ticket":{"backlog":[{"title":"\\u00a3"}]}}' },
     move => sub { return '{"ok":true}' },
     detail => sub { return '{"ref":"TKT-001","title":"\\u00a3"}' },
+    update => sub { return '{"ok":true}' },
+    comment_add => sub { return '{"ok":true}' },
+    comment_update => sub { return '{"ok":true}' },
+    comment_remove => sub { return '{"ok":true}' },
+    people => sub { return '[]' },
 );
 my @warnings;
 {
@@ -154,6 +159,11 @@ like( $@, qr/Missing dashboard detail provider/, 'PSGI builder requires a detail
             data => sub { '{}' },
             move => sub { '{}' },
             detail => sub { '{}' },
+            update => sub { '{}' },
+            comment_add => sub { '{}' },
+            comment_update => sub { '{}' },
+            comment_remove => sub { '{}' },
+            people => sub { '[]' },
         ),
         'serve completes when its PSGI runner exits'
     );

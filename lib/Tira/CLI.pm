@@ -131,31 +131,11 @@ sub run {
             my $dashboard = _invoke( $tira, $command, $type, \%data_option );
             return $tira->format_output( $dashboard, output => 'json', project => $option{project} );
         };
-        my $move = sub {
-            my ($payload) = @_;
-            die "Move payload must be an object\n" if ref($payload) ne 'HASH';
-            for my $key (qw(type ref column)) {
-                die "Move payload requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
-            }
-            my $record = $tira->record_move(
-                project => $option{project}, type => $payload->{type},
-                ref => $payload->{ref}, column => $payload->{column},
-            );
-            return JSON::PP->new->canonical->encode( { ok => JSON::PP::true, record => $record } );
-        };
-        my $detail = sub {
-            my ($payload) = @_;
-            die "Record detail requires type and ref\n"
-              if ref($payload) ne 'HASH' || !defined $payload->{type} || !defined $payload->{ref};
-            my $record = $tira->record_show(
-                project => $option{project}, type => $payload->{type}, ref => $payload->{ref},
-            );
-            return JSON::PP->new->canonical->encode($record);
-        };
+        my %providers = browser_providers( tira => $tira, project => $option{project} );
         my $served = eval {
             $browser_server->(
                 host => $browser_host, port => $browser_port, render => $render, data => $data,
-                move => $move, detail => $detail,
+                %providers,
             );
             1;
         };
@@ -200,6 +180,103 @@ sub _browser_endpoint {
 sub _serve_browser {
     require Tira::DashboardWeb;
     return Tira::DashboardWeb->serve(@_);
+}
+
+# One provider set feeds both the CLI-launched Dancer2 server and the
+# standalone dashboard.psgi, so browser mutations can never drift from the
+# engine's validated command surface.
+sub browser_providers {
+    my (%args) = @_;
+    my $tira = $args{tira};
+    my $project = $args{project};
+    my $json = JSON::PP->new->canonical;
+    my %editable = map { $_ => 1 } qw(
+        title description problem_or_feature solution_needed source
+        sdlc_gate lifecycle fix_version assignee reporter priority
+        start_date due_date
+    );
+    return (
+        move => sub {
+            my ($payload) = @_;
+            die "Move payload must be an object\n" if ref($payload) ne 'HASH';
+            for my $key (qw(type ref column)) {
+                die "Move payload requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
+            }
+            my $record = $tira->record_move(
+                project => $project, type => $payload->{type},
+                ref => $payload->{ref}, column => $payload->{column},
+            );
+            return $json->encode( { ok => JSON::PP::true, record => $record } );
+        },
+        detail => sub {
+            my ($payload) = @_;
+            die "Record detail requires type and ref\n"
+              if ref($payload) ne 'HASH' || !defined $payload->{type} || !defined $payload->{ref};
+            my $record = $tira->record_show(
+                project => $project, type => $payload->{type}, ref => $payload->{ref},
+            );
+            return $json->encode($record);
+        },
+        update => sub {
+            my ($payload) = @_;
+            die "Update payload must be an object\n" if ref($payload) ne 'HASH';
+            for my $key (qw(ref field)) {
+                die "Update payload requires ref, field, and value\n"
+                  if !defined $payload->{$key} || ref $payload->{$key} || !exists $payload->{value};
+            }
+            die "Field '$payload->{field}' is not editable\n" if !$editable{ $payload->{field} };
+            die "Update payload requires ref, field, and a plain value\n" if ref $payload->{value};
+            my $record = $tira->record_update(
+                project => $project, ref => $payload->{ref},
+                $payload->{field} => $payload->{value},
+            );
+            return $json->encode( { ok => JSON::PP::true, record => $record } );
+        },
+        comment_add => sub {
+            my ($payload) = @_;
+            die "Comment payload must be an object\n" if ref($payload) ne 'HASH';
+            for my $key (qw(ref author text)) {
+                die "Comment payload requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
+            }
+            die "Project person '$payload->{author}' is inactive\n"
+              if grep { $_->{id} eq $payload->{author} && !$_->{active} }
+              @{ $tira->person_list( project => $project ) };
+            my $comment = $tira->comment_add(
+                project => $project, ref => $payload->{ref},
+                author => $payload->{author}, text => $payload->{text},
+            );
+            return $json->encode( { ok => JSON::PP::true, comment => $comment } );
+        },
+        comment_update => sub {
+            my ($payload) = @_;
+            die "Comment payload must be an object\n" if ref($payload) ne 'HASH';
+            for my $key (qw(ref comment text)) {
+                die "Comment payload requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
+            }
+            my $comment = $tira->comment_update(
+                project => $project, ref => $payload->{ref},
+                comment => $payload->{comment}, text => $payload->{text},
+            );
+            return $json->encode( { ok => JSON::PP::true, comment => $comment } );
+        },
+        comment_remove => sub {
+            my ($payload) = @_;
+            die "Comment removal payload must be an object\n" if ref($payload) ne 'HASH';
+            for my $key (qw(ref comment)) {
+                die "Comment removal requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
+            }
+            my $removed = $tira->comment_remove(
+                project => $project, ref => $payload->{ref}, comment => $payload->{comment},
+            );
+            return $json->encode( { ok => JSON::PP::true, removed => $removed } );
+        },
+        people => sub {
+            return $json->encode(
+                [ map { { id => $_->{id}, name => $_->{name} } }
+                  grep { $_->{active} } @{ $tira->person_list( project => $project ) } ]
+            );
+        },
+    );
 }
 
 sub _invoke {
@@ -271,7 +348,8 @@ sub _invoke {
         'assign.list' => 'assignment_list', 'assign.add' => 'assignment_add',
         'assign.remove' => 'assignment_remove', 'assign.set' => 'assignment_set',
         'comment.list' => 'comment_list', 'comment.add' => 'comment_add',
-        'comment.update' => 'comment_update', 'comment.attach' => 'comment_attach',
+        'comment.update' => 'comment_update', 'comment.remove' => 'comment_remove',
+        'comment.attach' => 'comment_attach',
         'attachment.add' => 'attachment_add', 'attachment.list' => 'attachment_list',
         'attachment.get' => 'attachment_get', 'attachment.remove' => 'attachment_remove',
         'evidence.list' => 'evidence_list', 'evidence.add' => 'evidence_add',

@@ -46,3 +46,5 @@ DD-396 makes attachment responses distinguish retained and supplied filenames
 when content deduplication collapses a same-target reference.
 DD-397 replaces per-record migration loops with one-call export, field-aware
 search, transactional dry-run corrections, and append-only log annotations.
+DD-398 makes field scope cumulative, search output consistent, checklist
+permanence explicit, and import dry-run granularity concrete.

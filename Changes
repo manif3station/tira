@@ -1,5 +1,12 @@
 Revision history for Tira
 
+0.10  2026-08-06
+    - Made search and replace `--field` repeatable and cumulative while
+      preserving caller-supplied field order.
+    - Standardized all search results as `{hits, count}`.
+    - Strengthened checklist permanence documentation and added a concrete
+      per-field import dry-run diff example.
+
 0.09  2026-08-06
     - Added one-call full project export and explicit full record listing.
     - Added field-aware search and previewable project-wide text replacement.

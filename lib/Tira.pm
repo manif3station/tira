@@ -17,7 +17,7 @@ use JSON::PP ();
 use POSIX qw(strftime);
 use YAML::PP;
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -1032,19 +1032,24 @@ sub checklist_update {
 
 sub search {
     my ( $self, %args ) = @_;
-    if ( defined $args{field} ) {
+    my @fields = defined $args{fields} ? @{ $args{fields} }
+      : defined $args{field} ? ( $args{field} ) : ();
+    if (@fields) {
         my @hits;
         my %filters = %args;
-        delete @filters{qw(text field)};
+        delete @filters{qw(text field fields)};
         for my $record ( @{ $self->record_list(%filters) } ) {
-            next if !exists $record->{ $args{field} };
-            push @hits, map {
-                { ref => $record->{ref}, type => $record->{type}, column => $record->{column}, %{$_} }
-            } $self->_field_hits( $record->{ $args{field} }, $args{field}, $args{text} );
+            for my $field (@fields) {
+                next if !exists $record->{$field};
+                push @hits, map {
+                    { ref => $record->{ref}, type => $record->{type}, column => $record->{column}, %{$_} }
+                } $self->_field_hits( $record->{$field}, $field, $args{text} );
+            }
         }
         return { hits => \@hits, count => scalar @hits };
     }
-    return $self->record_list(%args);
+    my $hits = $self->record_list(%args);
+    return { hits => $hits, count => scalar @{$hits} };
 }
 
 sub _annotate_log {
@@ -1148,13 +1153,17 @@ sub replace_records {
       acceptance_criteria test_steps bdd atdd labels sdlc_gate lifecycle fix_version
       affects_versions comments checklist
     );
-    die "Replace field '$args{field}' is not mutable\n" if defined $args{field} && !$mutable{ $args{field} };
+    my @selected = defined $args{fields} ? @{ $args{fields} }
+      : defined $args{field} ? ( $args{field} ) : ();
+    for my $field (@selected) {
+        die "Replace field '$field' is not mutable\n" if !$mutable{$field};
+    }
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         my ( @updates, @diffs );
         for my $summary ( @{ $self->record_list( project => $root, defined $args{type} ? ( type => $args{type} ) : () ) } ) {
             my ( $path, $record ) = $self->_record_data( project => $root, ref => $summary->{ref} );
-            my @fields = defined $args{field} ? ( $args{field} ) : sort keys %mutable;
+            my @fields = @selected ? @selected : sort keys %mutable;
             for my $field (@fields) {
                 next if !exists $record->{$field};
                 my $before = JSON::PP->new->canonical->decode( JSON::PP->new->canonical->encode( $record->{$field} ) );

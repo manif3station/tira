@@ -50,7 +50,7 @@ sub run {
         'gate=s' => \$option{gate}, 'result=s' => \$option{result},
         'details=s' => \$option{details},
         'item=s' => \$option{item}, 'status=s' => \$option{status},
-        'field=s' => \$option{field}, 'pattern=s' => \$option{pattern},
+        'field=s@' => \$option{fields}, 'pattern=s' => \$option{pattern},
         'with=s' => \$option{with}, 'note=s' => \$option{note},
         'reporter=s' => \$option{reporter}, 'due-date=s' => \$option{due_date},
         'start-date=s' => \$option{start_date}, 'sdlc-gate=s' => \$option{sdlc_gate},

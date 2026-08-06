@@ -4,7 +4,7 @@ Tira is a filesystem-native Kanban project manager for Developer Dashboard. It
 provides Jira-style projects, SOWs, epics, and tickets over a transparent local
 filesystem engine accessed exclusively through Tira commands.
 
-Release 0.09 implements the complete command ecosystem: projects, independent
+Release 0.10 implements the complete command ecosystem: projects, independent
 boards, columns, records, links, people, comments, attachments, evidence,
 gates, search, dashboards, agent-efficient TOON output, singular record
 ownership, planning metadata, immediate parents, and inactive-person controls.
@@ -96,6 +96,19 @@ dashboard tira.replace --pattern Jira --with Local --field description --dry-run
 dashboard tira.gate.annotate --ref TKT-001 --id GATE-001 \
   --note "Use local documentation" --author ada
 ```
+
+Repeat `--field` to review or change several fields while preserving historical
+comments:
+
+```bash
+dashboard tira.search --text 'dashboard doc.' \
+  --field description --field bdd --field atdd -o json
+dashboard tira.replace --pattern 'dashboard doc\.' --with 'the docs vault' \
+  --field description --field bdd --field atdd --dry-run -o json
+```
+
+Search always returns `{hits, count}`. Unnamed fields are not inspected by a
+scoped replacement.
 
 Remove `--dry-run` only after reviewing the returned field-level changes.
 Import applies the complete ref-keyed change set transactionally. Gate and

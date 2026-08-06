@@ -1,6 +1,6 @@
 # Complete Command Ecosystem
 
-Release 0.09 implements every workflow in `SKILLS.md` through 80 Developer
+Release 0.10 implements every workflow in `SKILLS.md` through 80 Developer
 Dashboard entrypoints. The shared `Tira::CLI` parser applies TOON-first output,
 pretty JSON, Markdown, repeatable options, JSON-array replacement, raw
 attachment output, and consistent structured failures.
@@ -66,12 +66,32 @@ Existing record-list commands retain their compatible array result; `--full`
 is an explicit assertion that the full records already returned are required.
 
 Field-aware search returns `{hits, count}` and each hit includes ref, type,
-column, dotted field path, and matched value. `tira.replace` operates only on
+column, dotted field path, and matched value. Search uses the same envelope
+without field scoping, where each hit is a complete matching record. Repeated
+`--field` options accumulate in supplied order. `tira.replace` operates only on
 mutable content fields and returns field-level before/after changes. `--dry-run`
 performs no write.
+
+Scope corrections to instruction-bearing fields when comments must remain
+historical: a legacy string in a description is an instruction to fix; the
+same string in a comment is a record to preserve. Omitting `--field` from
+replace selects every mutable field.
 
 `tira.import --file changes.json` accepts a JSON object keyed by record ref.
 Values are exact replacement fields. It validates every record and field before
 writing the complete set transactionally; `--dry-run` returns the same diff
 without mutation. Gate and evidence logs remain append-only: annotate commands
 append attributed correction notes to stable entry IDs.
+
+An import dry-run returns one object per changed field:
+
+```json
+{
+  "changes": [
+    {"ref":"TKT-001","field":"description","before":"old","after":"new"},
+    {"ref":"TKT-001","field":"atdd","before":[],"after":["one","two"]}
+  ],
+  "changed_records": 1,
+  "dry_run": true
+}
+```

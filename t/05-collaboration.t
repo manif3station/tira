@@ -70,7 +70,7 @@ is( $evidence->{summary}, 'CI', 'evidence can be appended' );
 my $gate = $tira->gate_add( project => $root, ref => $ticket1->{ref}, gate => 'Security', result => 'pass', details => 'Clean', author => 'ada' );
 is( $gate->{result}, 'pass', 'gate result can be appended' );
 
-is( scalar @{ $tira->search( project => $root, text => 'ticket', type => 'ticket' ) }, 2, 'search scans matching records' );
+is( $tira->search( project => $root, text => 'ticket', type => 'ticket' )->{count}, 2, 'search scans matching records' );
 my $dashboard = $tira->dashboard( project => $root, type => 'all' );
 ok( exists $dashboard->{ticket}{backlog}, 'dashboard groups records by board and column' );
 

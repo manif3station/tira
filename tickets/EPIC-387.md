@@ -33,10 +33,11 @@ DD-395 prevents silent data loss by making every accumulating update append.
 DD-396 makes attachment deduplication responses report retained filename truth.
 DD-397 adds migration-scale reads, previewed bulk corrections, and append-only
 log annotations.
+DD-398 standardizes search output and adds safe multi-field migration scopes.
 
 ## Release standard
 
 Each slice is independently tested, documented, committed, and pushed. The epic
 closes only when the complete CLI documented in `SKILLS.md` is proven.
 
-Status: in progress through DD-393.
+Status: in progress through DD-398.

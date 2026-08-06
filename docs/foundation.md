@@ -89,6 +89,10 @@ before an atomic multi-file transaction; replace is restricted to mutable text
 content and supports dry-run diffs. Gate and evidence corrections append
 annotations to stable entry IDs, preserving original observations.
 
+Release 0.10 makes field scope an ordered list at the CLI and engine boundary.
+Search always returns `{hits, count}`; repeated fields accumulate for both
+search and replacement, and scoped replacement never visits unnamed fields.
+
 ## Output and errors
 
 Default and `-o toon` output is produced by `Data::TOON` 0.03. `-o json` uses

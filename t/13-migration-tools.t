@@ -155,6 +155,47 @@ for my $case (
     is( $stderr, '', "$command CLI has no stderr" );
 }
 
+my $multi = $tira->create_record(
+    project => $root, type => 'ticket', title => 'Multi-field probe',
+    description => 'legacy instruction', bdd => ['legacy BDD'], atdd => ['legacy ATDD'],
+);
+$tira->comment_add( project => $root, ref => $multi->{ref}, author => 'ada', text => 'legacy historical comment' );
+my $unscoped = $tira->search( project => $root, text => 'legacy', type => 'ticket' );
+is( ref($unscoped), 'HASH', 'unscoped search returns the standard object envelope' );
+ok( exists $unscoped->{hits} && exists $unscoped->{count}, 'unscoped search exposes hits and count' );
+my $multi_hits = $tira->search(
+    project => $root, text => 'legacy', fields => [qw(description bdd atdd)], type => 'ticket',
+);
+is_deeply( [ map { $_->{field} } @{ $multi_hits->{hits} } ],
+    [ 'description', 'bdd.0', 'atdd.0' ], 'search accumulates all named fields' );
+my $multi_preview = $tira->replace_records(
+    project => $root, pattern => 'legacy', with => 'current',
+    fields => [qw(description bdd atdd)], type => 'ticket', dry_run => 1,
+);
+is_deeply( [ map { $_->{field} } @{ $multi_preview->{changes} } ],
+    [qw(description bdd atdd)], 'replace dry-run groups changes by every named field' );
+$tira->replace_records(
+    project => $root, pattern => 'legacy', with => 'current',
+    fields => [qw(description bdd atdd)], type => 'ticket',
+);
+is( $tira->search( project => $root, text => 'legacy', field => 'comments', type => 'ticket' )->{count},
+    1, 'replace leaves an unnamed comment field untouched' );
+
+my ( $multi_out, $multi_err ) = ('', '');
+{
+    $ENV{TIRA_HOME} = $root;
+    open my $out, '>', \$multi_out or die $!;
+    open my $err, '>', \$multi_err or die $!;
+    local *STDOUT = $out;
+    local *STDERR = $err;
+    is( Tira::CLI->run( command => 'search', argv => [
+        '--text', 'current', '--field', 'description', '--field', 'atdd', '-o', 'json',
+    ] ), 0, 'CLI accepts repeated field scopes' );
+}
+is( $multi_err, '', 'repeated-field CLI search has no stderr' );
+is_deeply( [ map { $_->{field} } @{ decode_json($multi_out)->{hits} } ],
+    [ 'description', 'atdd.0' ], 'CLI repeated fields accumulate rather than overwrite' );
+
 done_testing;
 
 __END__

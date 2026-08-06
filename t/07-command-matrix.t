@@ -170,7 +170,7 @@ cli( 'record.restore', 'ticket', '--ref', 'TKT-001', '--column', 'doing', @at );
 like( decode_json($out)->{ref}, qr/^TKT-/, 'record clone dispatch' );
 
 ( $status, $out ) = cli( 'search', undef, '--text', 'Ticket', '--type', 'ticket', @at );
-ok( @{ decode_json($out) }, 'search dispatch' );
+ok( @{ decode_json($out)->{hits} }, 'search dispatch' );
 ( $status, $out ) = cli( 'dashboard', undef, '--type', 'all', '--include-discard', @at );
 ok( exists decode_json($out)->{ticket}{discard}, 'dashboard include-discard dispatch' );
 ( $status, $out ) = cli( 'dashboard', undef, '--type', 'ticket', '--project', $root, '-o', 'human' );

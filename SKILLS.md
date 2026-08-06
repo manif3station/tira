@@ -16,9 +16,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.07):** shipped, executable, and covered by tests.
 - **Implemented (0.08):** shipped, executable, and covered by tests.
 - **Implemented (0.09):** shipped, executable, and covered by tests.
+- **Implemented (0.10):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.09.
+All commands and use cases in this manual ship in release 0.10.
 
 ## Global invocation grammar
 
@@ -101,8 +102,9 @@ Assignees and reporters must be active people defined in `project.yml`.
 Checklist entries have an immutable `CHK-NNN` ID, `item`, free-text `status`,
 creation time, and last update. Status is descriptive; Tira never infers record
 completion or moves a record from it.
-Checklist entries are retained: there is intentionally no checklist remove
-command. Change an entry's item or status with `tira.checklist.update`.
+Checklist entries are retained, not deleted; there is no remove command. Word
+an entry as though it will outlive the work, and change its item or status only
+with `tira.checklist.update`.
 
 ## Record metadata contract
 
@@ -354,8 +356,8 @@ tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]
 tira.export [-o FORMAT]
 tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [-o FORMAT]
 tira.import --file FILE [--dry-run] [-o FORMAT]
-tira.search --text QUERY [--field FIELD] [--type TYPE] [--column SLUG] [--assignee ID] [-o FORMAT]
-tira.replace --pattern REGEX --with TEXT [--field FIELD] [--type TYPE] [--dry-run] [-o FORMAT]
+tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [-o FORMAT]
+tira.replace --pattern REGEX --with TEXT [--field FIELD ...] [--type TYPE] [--dry-run] [-o FORMAT]
 tira.dashboard [--type TYPE|all] [--include-discard] [-o FORMAT]
 ```
 
@@ -371,8 +373,14 @@ gate/evidence update command.
 
 Export returns `{records, count}` for every type and column. List continues to
 return its compatible full-record array; `--full` explicitly requests that
-existing shape. Search with `--field` returns `{hits, count}` with dotted field
-paths and matched values.
+existing shape. Search always returns `{hits, count}`. Without field scoping,
+hits are complete records. With repeated `--field`, hits contain dotted field
+paths and matched values from every named field in supplied order.
+
+Repeated search/replace fields accumulate. Omit replace fields to scan every
+mutable field. Name fields when historical content must be excluded: a legacy
+string in a description is an instruction to fix; the same string in a comment
+is a record to preserve. Scoped replacement never visits an unnamed field.
 
 Import reads a UTF-8 JSON object keyed by ref and treats supplied fields as
 exact replacements. It validates the whole set, returns field-level diffs, and
@@ -681,7 +689,7 @@ without revealing or creating a storage location.
 **Implemented.** Add a gate, then append a correction with `dashboard tira.gate.annotate --ref TKT-001 --id GATE-001 --note "Use local docs" --author ada`; evidence uses `tira.evidence.annotate` with `EVD-NNN`. Manage retained checklists with add, list, and update; there is no remove command.
 
 ### UC-099: Search and correct migrations in bulk
-**Implemented.** `dashboard tira.search --text Jira --field description -o json` reports field hits. Preview ref-keyed changes with `dashboard tira.import --file changes.json --dry-run -o json`, or regex changes with `dashboard tira.replace --pattern Jira --with Local --field description --dry-run -o json`; omit dry-run only after reviewing diffs.
+**Implemented.** Repeat fields in one reviewable pass: `dashboard tira.search --text Jira --field description --field atdd -o json` and `dashboard tira.replace --pattern Jira --with Local --field description --field atdd --dry-run -o json`. Import preview `dashboard tira.import --file changes.json --dry-run -o json` returns `changes[]` entries containing `ref`, `field`, `before`, and `after`; omit dry-run only after reviewing every diff.
 
 ### UC-100: Render dashboard
 **Implemented.** `dashboard tira.dashboard --type all --include-discard -o human`.

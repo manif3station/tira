@@ -75,7 +75,7 @@ is( decode_json($out)->{comments}[1]{body}, $currency_comment, 'persisted UTF-8 
 ( $status, $out, $err ) = command( \%env, @perl, 'skills/ticket/cli/move', '--ref', 'TKT-001', '--column', 'doing', '-o', 'json' );
 is( decode_json($out)->{column}, 'doing', 'record movement command dispatches' );
 ( $status, $out, $err ) = command( \%env, @perl, 'cli/search', '--text', 'Ticket', '--type', 'ticket', '-o', 'json' );
-is( scalar @{ decode_json($out) }, 1, 'root search command dispatches' );
+is( scalar @{ decode_json($out)->{hits} }, 1, 'root search command dispatches with standard envelope' );
 ( $status, $out, $err ) = command( \%env, @perl, 'cli/dashboard', '--type', 'all', '-o', 'json' );
 ok( exists decode_json($out)->{ticket}{doing}, 'root dashboard command dispatches' );
 

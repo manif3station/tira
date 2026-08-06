@@ -290,3 +290,23 @@ Method: ATDD + migration BDD + security TDD.
   persist; applies matched their previews; gate/evidence originals survived
   annotation; and a mixed import failed atomically without changing the valid
   ticket.
+
+## DD-398
+
+Method: Problem-solving regression TDD + CLI contract BDD.
+
+- Pre-fix reproduction: repeated `--field` options retained only the final
+  value, and unscoped search returned an array while scoped search returned an
+  object. Checklist removal was already unavailable, and import dry-run already
+  supplied complete per-field diffs.
+- Post-fix acceptance: repeated search/replace fields accumulate in supplied
+  order, unnamed comments remain unchanged, and every search returns
+  `{hits,count}`. Checklist permanence and verified import-diff shape are now
+  explicit in agent and command documentation.
+- Docker functional suite: PASS, 14 files and 582 assertions.
+- Coverage: `lib/Tira.pm` and `lib/Tira/CLI.pm` each reached 100.0% statement
+  and subroutine coverage.
+- Security: all 582 assertions passed under `prove -T`; all 80 entrypoints
+  compiled under taint mode; the production process-primitive scan was clean.
+- Agent contract: exactly 100 implemented use cases remain.
+- Platform: macOS and Windows remain stopped.

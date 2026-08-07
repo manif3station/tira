@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.56):** shipped, executable, and covered by tests.
+- **Implemented (0.57):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.56.
+All commands and use cases in this manual ship in release 0.57.
 
 ## Global invocation grammar
 
@@ -238,7 +238,9 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   [--sow-prefix PREFIX] [--epic-prefix PREFIX] [--ticket-prefix PREFIX]
   [--digits N] [-o FORMAT]` — **Implemented (DD-446).** Creates a project, its
   people, each board's reference prefix, and one shared column set in a single
-  call. `--members` and `--columns` take comma-separated human text and repeat.
+  call. `--members` and `--columns` take comma-separated human text and repeat, and
+  `--sow-columns`, `--epic-columns`, and `--ticket-columns` give one board its
+  own set instead of the shared one.
   Column names are written as they read — `--columns "Backlog, In Progress,
   Done / Release"` — and each becomes a lowercase hyphenated column keeping the
   original text as its label. Columns that already exist, including the
@@ -248,6 +250,15 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   applied before any record can exist, which matters because a board counter
   never goes backwards: set a prefix after the first record and the next
   reference is `002`.
+- `tira.onboard [-o FORMAT]` — **Implemented (DD-448).** The guided version of
+  `tira.project.new`: it asks for the name, the directory, the people, each
+  board's reference prefix, whether all three boards share one column set, and
+  the columns, then shows a summary and creates everything once confirmed. Any
+  flag given becomes that question's default. Answers that cannot be used are
+  re-asked with the reason. Declining the confirmation exits 1 and creates
+  nothing; reaching the end of input aborts and creates nothing.
+  `tira.project.new` itself never asks anything, so scripts and agents calling
+  it can never be left waiting.
 - `tira.project.show [-o FORMAT]` — **Implemented.**
 - `tira.project.update [--name TEXT] [-o FORMAT]` — **Implemented.**
 - `tira.project.people.list [-o FORMAT]` — **Implemented.**
@@ -703,7 +714,7 @@ the foreground server with Ctrl-C.
 Every case below is implemented and executable.
 
 ### UC-001: Create a project, or a whole board setup, in one call
-**Implemented.** `dashboard tira.project.create --name "MT5"` creates an empty project in the current directory. `dashboard tira.project.new --name "MT5" --members "K-Bot, Michael" --columns "Backlog, Planning, In Progress, Done / Release" --sow-prefix M5S --epic-prefix M5E --ticket-prefix M5T` does the whole onboarding at once — people, per-board reference prefixes, and the same columns on all three boards, named as they read.
+**Implemented.** `dashboard tira.project.create --name "MT5"` creates an empty project in the current directory. `dashboard tira.project.new --name "MT5" --members "K-Bot, Michael" --columns "Backlog, Planning, In Progress, Done / Release" --sow-prefix M5S --epic-prefix M5E --ticket-prefix M5T` does the whole onboarding at once — people, per-board reference prefixes, and the same columns on all three boards, named as they read. `dashboard tira.onboard` asks the same questions one at a time and creates it from the answers.
 
 ### UC-002: Create elsewhere
 **Implemented.** `dashboard tira.project.create --name "API" --dir ~/work/api`.

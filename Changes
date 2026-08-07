@@ -1,5 +1,18 @@
 Revision history for Tira
 
+0.57  2026-08-07
+    - New `tira.onboard`: the guided form of project.new, asking for the
+      name, directory, people, each board's reference prefix, whether the
+      boards share one column set, and the columns, then confirming
+      before it writes anything. Flags pre-fill the answers, unusable
+      answers are re-asked with the reason, declining exits 1 and
+      reaching the end of input aborts — both leaving nothing behind.
+      Only onboard ever prompts; project.new stays argument-driven so
+      scripts and agents can never be left waiting on input.
+    - project.new gained --sow-columns, --epic-columns, and
+      --ticket-columns, so boards can differ instead of always sharing
+      one set.
+
 0.56  2026-08-07
     - New `tira.project.new` (owner request): one command creates a
       project, its members, each board's reference prefix, and one

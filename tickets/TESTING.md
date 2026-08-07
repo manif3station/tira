@@ -1232,3 +1232,19 @@ report, message 2915 — three connected findings).
   filesystem and CLI logic already covered by the Docker suite, with no
   browser surface, so the QEMU labs were not required and were not
   started.
+
+## Latest Verification For `DD-448`
+
+- `tira.onboard` guided setup with the prompt stream injected, so the
+  whole flow is exercised without a terminal. Red-first
+  `t/41-project-wizard.t`: full run, per-board column sets, re-asks on a
+  bad prefix and an unclear yes/no, flags as defaults (including every
+  members and columns flag), declining exits 1 with nothing created,
+  and abandonment at each of the eight question points aborts with
+  nothing created.
+- The property that matters most is pinned separately: a bare
+  `project.new` exits 2 rather than ever waiting for input.
+- Functional PASS `Files=42, Tests=1568`; coverage `100.0%` statement
+  and subroutine on all three modules; `prove -T` PASS; `cover_db`
+  cleaned. No browser surface, so the Playwright lab was not required;
+  no platform-dependent behaviour, so the QEMU labs were not started.

@@ -104,6 +104,13 @@ with text lengths and annotation counts, `--where` entry filters such as
 `result=fail`, and `--count`. Annotations stay with their parent entry;
 reading an append-only log never mutates it.
 
+`tira.onboard` is the guided form of the same thing: it asks for the name,
+directory, people, each board's reference prefix, whether the boards share one
+column set, and the columns, then confirms before writing. Flags pre-fill the
+answers, unusable answers are re-asked, and both declining and running out of
+input leave nothing behind. Only `tira.onboard` ever prompts — `project.new`
+is purely argument-driven so nothing automated can be left waiting on input.
+
 `tira.project.new` bootstraps in one call what `project.create`, `project.people.add`,
 `board.refs`, and `column.add` otherwise do across dozens: it creates the project,
 adds each member, sets each board's reference prefix, and applies one shared column

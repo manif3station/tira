@@ -16,6 +16,7 @@ sub run {
     my $argv = $args{argv} || [];
     my $tira = $args{tira} || Tira->new( path_resolver => _dd_path_resolver() );
     my $browser_server = $args{browser_server} || \&_serve_browser;
+    my $guided_input = $args{input};
     my %option = ( output => 'toon' );
     my $environment_project;
     my $decoded = eval {
@@ -65,6 +66,8 @@ sub run {
         'meta-only' => \$option{meta_only},
         'where=s@' => \$option{where},
         'members=s@' => \$option{members}, 'columns=s@' => \$option{columns},
+        'sow-columns=s@' => \$option{sow_columns}, 'epic-columns=s@' => \$option{epic_columns},
+        'ticket-columns=s@' => \$option{ticket_columns},
         'sow-prefix=s' => \$option{sow_prefix}, 'epic-prefix=s' => \$option{epic_prefix},
         'ticket-prefix=s' => \$option{ticket_prefix},
         'snapshot=s' => \$option{snapshot},
@@ -119,6 +122,19 @@ sub run {
     }
 
     $option{project} = $environment_project if !defined $option{project} && defined $environment_project;
+
+    # Only tira.onboard ever prompts. project.new stays purely argument-driven,
+    # so no script or agent invoking it can be left waiting on input, and
+    # onboard needs no terminal detection: without input it reaches end of
+    # stream immediately and aborts rather than blocking.
+    if ( $command eq 'onboard' ) {
+        my ( $answers, $guided_status ) = _project_wizard( $guided_input // \*STDIN, \%option );
+        if ( !$answers ) {
+            print STDERR "Nothing was created.\n";
+            return $guided_status;
+        }
+        %option = ( %option, %{$answers} );
+    }
 
     my $cache;
     if ( defined $option{cache_ttl} && $option{cache_ttl} >= 1 && !$option{no_cache} ) {
@@ -565,6 +581,106 @@ sub _cache_store {
     return;
 }
 
+# DD-448: the guided setup behind tira.onboard. Plain reads and writes — no terminal control
+# codes, no new dependency, nothing spawned — so the command stays taint-clean.
+# It is only ever entered deliberately (see the caller): a wizard that reads
+# standard input would otherwise hang every script and agent that runs the
+# command without arguments, which is most of them.
+sub _ask {
+    my ( $in, $question, $default ) = @_;
+    my $shown = defined $default && $default ne '' ? " [$default]" : '';
+    print "$question$shown: ";
+    my $answer = <$in>;
+    return undef if !defined $answer;
+    chomp $answer;
+    $answer =~ s/\A\s+|\s+\z//g;
+    return length $answer ? $answer : ( defined $default ? $default : '' );
+}
+
+sub _ask_yes {
+    my ( $in, $question, $default ) = @_;
+    while (1) {
+        my $answer = _ask( $in, "$question [" . ( $default ? 'Y/n' : 'y/N' ) . ']', '' );
+        return undef if !defined $answer;
+        return $default if $answer eq '';
+        return 1 if $answer =~ /\Ay(?:es)?\z/i;
+        return 0 if $answer =~ /\An(?:o)?\z/i;
+        print "  Please answer yes or no.\n";
+    }
+}
+
+sub _project_wizard {
+    my ( $in, $option ) = @_;
+    print "Tira project setup — answer the questions, or press Ctrl-D to abort.\n\n";
+    my %answers;
+
+    while (1) {
+        my $name = _ask( $in, 'Project name', $option->{name} );
+        return ( undef, 2 ) if !defined $name;
+        if ( $name eq '' ) {
+            print "  A project needs a name.\n";
+            next;
+        }
+        $answers{name} = $name;
+        last;
+    }
+
+    my $dir = _ask( $in, 'Project directory', $option->{dir} // '.' );
+    return ( undef, 2 ) if !defined $dir;
+    $answers{dir} = $dir;
+
+    my $members = _ask( $in, 'People, separated by commas',
+        $option->{members} ? join( ', ', @{ $option->{members} } ) : '' );
+    return ( undef, 2 ) if !defined $members;
+    $answers{members} = [$members];
+
+    my %default_prefix = ( sow => 'SOW', epic => 'EPC', ticket => 'TKT' );
+    for my $type (qw(sow epic ticket)) {
+        while (1) {
+            my $prefix = _ask( $in, "Reference prefix for \u$type records",
+                $option->{"${type}_prefix"} // $default_prefix{$type} );
+            return ( undef, 2 ) if !defined $prefix;
+            if ( $prefix !~ /\A[A-Z][A-Z0-9-]{0,31}\z/ ) {
+                print "  Invalid prefix: it must start with a capital letter and use capitals, digits, and hyphens.\n";
+                next;
+            }
+            $answers{"${type}_prefix"} = $prefix;
+            last;
+        }
+    }
+
+    my $shared = _ask_yes( $in, 'Do all three boards use the same columns?', 1 );
+    return ( undef, 2 ) if !defined $shared;
+    if ($shared) {
+        my $columns = _ask( $in, 'Columns, in order, separated by commas',
+            $option->{columns} ? join( ', ', @{ $option->{columns} } ) : '' );
+        return ( undef, 2 ) if !defined $columns;
+        $answers{columns} = [$columns];
+    }
+    else {
+        for my $type (qw(sow epic ticket)) {
+            my $columns = _ask( $in, "Columns for the \u$type board",
+                $option->{"${type}_columns"} ? join( ', ', @{ $option->{"${type}_columns"} } ) : '' );
+            return ( undef, 2 ) if !defined $columns;
+            $answers{"${type}_columns"} = [$columns];
+        }
+    }
+
+    print "\nAbout to create:\n";
+    print "  name       $answers{name}\n";
+    print "  directory  $answers{dir}\n";
+    print "  people     " . ( join( ', ', @{ $answers{members} } ) || '(none)' ) . "\n";
+    print "  prefixes   sow $answers{sow_prefix}, epic $answers{epic_prefix}, ticket $answers{ticket_prefix}\n";
+    for my $key ( grep { /_columns\z|\Acolumns\z/ } sort keys %answers ) {
+        print "  $key " . join( ', ', @{ $answers{$key} } ) . "\n";
+    }
+    print "\n";
+    my $confirmed = _ask_yes( $in, 'Create this project?', 1 );
+    return ( undef, 2 ) if !defined $confirmed;
+    return ( undef, 1 ) if !$confirmed;
+    return ( \%answers, 0 );
+}
+
 sub _attachment_content_type {
     my ($extension) = @_;
     return Tira::_attachment_content_type($extension);
@@ -573,7 +689,7 @@ sub _attachment_content_type {
 sub _invoke {
     my ( $tira, $command, $record_type, $option ) = @_;
     my %args = %{$option};
-    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty members columns sow_prefix epic_prefix ticket_prefix)};
+    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
     if ( defined $option->{field_selection} || defined $option->{exclude_fields}
         || $option->{include_empty} || defined $option->{since}
         || $option->{brief} || defined $option->{truncate} ) {
@@ -606,7 +722,10 @@ sub _invoke {
       if defined $option->{snapshot} && $command ne 'diff';
     die "Bootstrap options belong to the project.new command\n"
       if $command ne 'project.new'
-      && grep { defined $option->{$_} } qw(members columns sow_prefix epic_prefix ticket_prefix);
+      && $command ne 'onboard'
+      && grep { defined $option->{$_} }
+      qw(members columns sow_columns epic_columns ticket_columns
+         sow_prefix epic_prefix ticket_prefix);
     if ( defined $option->{cache_ttl} || $option->{no_cache} ) {
         die "Caching is available on read commands only\n"
           if $command !~ /\A(?:record\.(?:show|list)|export|search|diff|board\.show|project\.show|(?:comment|attachment|gate|evidence|checklist)\.list)\z/;
@@ -658,10 +777,12 @@ sub _invoke {
     $args{label} = $option->{labels}[0] if $command =~ /\Acolumn\.(?:add|rename)\z/ && $option->{labels};
 
     return $tira->create_project( name => $option->{name}, dir => $option->{dir} // '.' ) if $command eq 'project.create';
-    if ( $command eq 'project.new' ) {
+    if ( $command eq 'project.new' || $command eq 'onboard' ) {
         return $tira->project_new(
             name => $option->{name}, dir => $option->{dir} // '.',
             members => $option->{members}, columns => $option->{columns},
+            map( { ( "${_}_columns" => $option->{"${_}_columns"} ) }
+                grep { defined $option->{"${_}_columns"} } qw(sow epic ticket) ),
             ( defined $option->{digits} ? ( digits => $option->{digits} ) : () ),
             map { ( "${_}_prefix" => $option->{"${_}_prefix"} ) }
               grep { defined $option->{"${_}_prefix"} } qw(sow epic ticket),

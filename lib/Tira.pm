@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.56';
+our $VERSION = '0.57';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -72,7 +72,11 @@ sub project_new {
     my @members = _split_list( $args{members} );
     die "Every member needs a name\n"
       if defined $args{members} && !@members && _wanted_members( $args{members} );
-    my @wanted = map { { text => $_, slug => _column_slug($_) } } _split_list( $args{columns} );
+    my %wanted;
+    for my $type (qw(sow epic ticket)) {
+        my $given = defined $args{"${type}_columns"} ? $args{"${type}_columns"} : $args{columns};
+        $wanted{$type} = [ map { { text => $_, slug => _column_slug($_) } } _split_list($given) ];
+    }
 
     my %prefix;
     for my $type (qw(sow epic ticket)) {
@@ -151,7 +155,7 @@ sub project_new {
     for my $type (qw(sow epic ticket)) {
         my %existing_column =
           map { $_->{name} => 1 } @{ $self->column_list( project => $root, type => $type ) };
-        for my $column (@wanted) {
+        for my $column ( @{ $wanted{$type} } ) {
             if ( $existing_column{ $column->{slug} } ) {
                 push @skipped, { kind => 'column', type => $type, name => $column->{slug} };
                 next;

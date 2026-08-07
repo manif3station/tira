@@ -1,5 +1,13 @@
 Revision history for Tira
 
+0.55  2026-08-07
+    - Fixed the card dialog's column dropdown showing the card count
+      appended to each column name (owner photo, message 2990) — a
+      0.54 regression: the option labels were read from the whole
+      header cell, which now contains the count badge. Labels now come
+      from the column-name element. Card moves were never affected;
+      only the visible text was.
+
 0.54  2026-08-07
     - Column card counts and add-card from the board (owner message
       2978). Each column header shows its count, hidden when the column

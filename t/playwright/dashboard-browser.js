@@ -228,6 +228,13 @@ const fs = require('fs');
   const statusOptions = await page.locator('.card-dialog .card-status option').evaluateAll(nodes => nodes.map(node => node.value));
   if (statusOptions.length < 2 || !statusOptions.includes('backlog') || !statusOptions.includes('in-progress'))
     throw new Error(`the column dropdown must list the board columns: ${statusOptions}`);
+  const statusLabels = await page.locator('.card-dialog .card-status option').evaluateAll(nodes => nodes.map(node => node.textContent));
+  if (statusLabels.some(label => /\d/.test(label)))
+    throw new Error(`dropdown labels must be column names only, got ${JSON.stringify(statusLabels)}`);
+  const labelledValues = await page.locator('.card-dialog .card-status option').evaluateAll(nodes =>
+    nodes.map(node => `${node.textContent}|${node.value}`));
+  if (!labelledValues.includes('backlog|backlog') || !labelledValues.includes('in-progress|in-progress'))
+    throw new Error(`each option must show its column's own name, got ${JSON.stringify(labelledValues)}`);
   const statusSelected = await page.locator('.card-dialog .card-status').inputValue();
   if (statusSelected !== 'in-progress') throw new Error(`the dropdown must preselect the card's column, got ${statusSelected}`);
   before = await seq();

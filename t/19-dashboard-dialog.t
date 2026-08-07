@@ -52,6 +52,8 @@ unlike( $live_html, qr/JSON\.stringify\(record,\s*null/,
     'the dialog never renders the record as one JSON blob' );
 like( $live_html, qr/renderCard/, 'the dialog builds its sections from the record' );
 like( $live_html, qr/card-status/, 'the dialog header offers the column dropdown' );
+like( $live_html, qr/querySelector\("\.column__name"\)/,
+    'the column dropdown labels come from the column name, not the whole header (DD-445)' );
 like( $live_html, qr/data-add-card=/, 'each column offers an add-card control (DD-441)' );
 like( $live_html, qr/const openNewCard=/, 'the dialog has a new-card mode' );
 like( $live_html, qr/reference assigned on save/, 'new cards show no ref until they are saved' );

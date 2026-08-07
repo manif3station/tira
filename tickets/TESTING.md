@@ -1195,3 +1195,18 @@ report, message 2915 — three connected findings).
   switching to the created card); functional PASS `Files=40,
   Tests=1465`; coverage `100.0%`; `prove -T` PASS; visual review of
   counts and the new-card form.
+
+## Latest Verification For `DD-445`
+
+- Owner photo (2990): dropdown labels read `backlog46`, `in-review1`.
+  Root cause: 0.54 put the count badge inside the header cell whose
+  text DD-422 used for option labels. Values were unaffected, so moves
+  always worked.
+- Reproduced pre-fix at fixture scale (`["backlog2","in-progress1"]`),
+  fixed by reading `.column__name`, re-run green ×3.
+- Guard strengthened where it failed: the dialog scenario asserted
+  option *values* only, which is why a visibly broken UI passed. It now
+  asserts the visible labels carry no digits and pair with their own
+  values; t/19 pins the `.column__name` lookup.
+- Functional PASS `Files=40, Tests=1466`; coverage `100.0%`;
+  `prove -T` PASS; fixtures and `cover_db` cleaned.

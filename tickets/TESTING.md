@@ -1248,3 +1248,18 @@ report, message 2915 — three connected findings).
   and subroutine on all three modules; `prove -T` PASS; `cover_db`
   cleaned. No browser surface, so the Playwright lab was not required;
   no platform-dependent behaviour, so the QEMU labs were not started.
+
+## Latest Verification For `DD-449`
+
+- Remembered dashboard address in `project.yml`, set through
+  `project.update`, reported by `project.show`, consumed by
+  `-o browser`. Red-first `t/42-dashboard-address.t`: persistence,
+  `any` mapping to every interface, partial updates leaving the other
+  value alone, refusals for an unsupported host and zero/oversized/
+  non-numeric ports with the stored value untouched, the documented
+  precedence (command line beats remembered beats default), and a
+  project that never set one still serving `0.0.0.0:7899`.
+- Functional PASS `Files=43, Tests=1591`; coverage `100.0%` statement
+  and subroutine on all three modules; `prove -T` PASS; `cover_db`
+  cleaned. Serving is exercised through the injected browser server, so
+  no port is bound by the suite.

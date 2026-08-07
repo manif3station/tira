@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.57';
+our $VERSION = '0.58';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -373,6 +373,19 @@ sub project_update {
         my $path = File::Spec->catfile( $root, '.tira', 'project.yml' );
         my $data = $self->{yaml}->load_file($path);
         $data->{name} = $args{name} if defined $args{name};
+        if ( defined $args{dashboard_host} ) {
+            my $host = $args{dashboard_host} eq 'any' ? '0.0.0.0' : $args{dashboard_host};
+            die "Dashboard host must be localhost, 0.0.0.0, 127.0.0.1, or any\n"
+              if $host !~ /\A(?:0\.0\.0\.0|127\.0\.0\.1|localhost)\z/;
+            $data->{dashboard}{host} = $host;
+        }
+        if ( defined $args{dashboard_port} ) {
+            die "Dashboard port must be between 1 and 65535\n"
+              if $args{dashboard_port} !~ /\A[0-9]+\z/
+              || $args{dashboard_port} < 1
+              || $args{dashboard_port} > 65535;
+            $data->{dashboard}{port} = 0 + $args{dashboard_port};
+        }
         $data->{last_updated} = $self->{clock}->();
         $self->_write_yaml( $path, $data );
         return $data;

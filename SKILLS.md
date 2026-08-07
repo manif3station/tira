@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.57):** shipped, executable, and covered by tests.
+- **Implemented (0.58):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.57.
+All commands and use cases in this manual ship in release 0.58.
 
 ## Global invocation grammar
 
@@ -260,7 +260,16 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   `tira.project.new` itself never asks anything, so scripts and agents calling
   it can never be left waiting.
 - `tira.project.show [-o FORMAT]` — **Implemented.**
-- `tira.project.update [--name TEXT] [-o FORMAT]` — **Implemented.**
+- `tira.project.update [--name TEXT] [--dashboard-host HOST] [--dashboard-port PORT]
+  [-o FORMAT]` — **Implemented.** Renames a project, and **Implemented
+  (DD-449)** remembers the address its live board should listen on:
+  `--dashboard-host` takes `localhost`, `127.0.0.1`, `0.0.0.0`, or `any` as the
+  plain-language form of every interface, and `--dashboard-port` takes 1-65535.
+  Both are checked where they are set, so a bad value is refused then rather
+  than the next time someone serves the board. `tira.dashboard -o browser`
+  uses the remembered address; an address written on the command line, such as
+  `-o browser=localhost:8080`, still wins; a project that has never set one
+  serves `0.0.0.0:7899` as always. `tira.project.show` reports it.
 - `tira.project.people.list [-o FORMAT]` — **Implemented.**
 - `tira.project.people.add --id ID --name TEXT [--email EMAIL] [-o FORMAT]` — **Implemented.**
 - `tira.project.people.update --id ID [--name TEXT] [--email EMAIL|""] [-o FORMAT]` — **Implemented.**

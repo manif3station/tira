@@ -1,5 +1,14 @@
 Revision history for Tira
 
+0.58  2026-08-07
+    - A project now remembers its dashboard address:
+      `tira.project.update --dashboard-host localhost --dashboard-port
+      8080` stores it, project.show reports it, and `-o browser` uses it
+      instead of always listening on 0.0.0.0:7899. `any` is the
+      plain-language form of every interface. An address given on the
+      command line still wins, and both values are validated where they
+      are set rather than where they are used.
+
 0.57  2026-08-07
     - New `tira.onboard`: the guided form of project.new, asking for the
       name, directory, people, each board's reference prefix, whether the

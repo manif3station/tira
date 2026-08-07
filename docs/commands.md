@@ -104,6 +104,13 @@ with text lengths and annotation counts, `--where` entry filters such as
 `result=fail`, and `--count`. Annotations stay with their parent entry;
 reading an append-only log never mutates it.
 
+A project remembers the address its live dashboard should listen on:
+`tira.project.update --dashboard-host localhost --dashboard-port 8080` stores it,
+`project.show` reports it, and `-o browser` uses it. Precedence is stated rather
+than incidental — an address on the command line beats the remembered one, which
+beats the `0.0.0.0:7899` default — and both values are validated where they are
+set, not where they are used.
+
 `tira.onboard` is the guided form of the same thing: it asks for the name,
 directory, people, each board's reference prefix, whether the boards share one
 column set, and the columns, then confirms before writing. Flags pre-fill the

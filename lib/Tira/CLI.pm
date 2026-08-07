@@ -66,6 +66,8 @@ sub run {
         'meta-only' => \$option{meta_only},
         'where=s@' => \$option{where},
         'members=s@' => \$option{members}, 'columns=s@' => \$option{columns},
+        'dashboard-host=s' => \$option{dashboard_host},
+        'dashboard-port=s' => \$option{dashboard_port},
         'sow-columns=s@' => \$option{sow_columns}, 'epic-columns=s@' => \$option{epic_columns},
         'ticket-columns=s@' => \$option{ticket_columns},
         'sow-prefix=s' => \$option{sow_prefix}, 'epic-prefix=s' => \$option{epic_prefix},
@@ -111,17 +113,23 @@ sub run {
     return _error( $tira, 'toon', 'Browser output is available only for dashboard commands' )
       if $option{output} =~ /\Abrowser(?:=|\z)/ && $command !~ /\Adashboard(?:\.(?:sow|epic|ticket))?\z/;
 
+    $option{project} = $environment_project if !defined $option{project} && defined $environment_project;
+
     my ( $browser_host, $browser_port );
     if ( $option{output} =~ /\Abrowser(?:=(.*))?\z/ ) {
-        my $endpoint = defined $1 && length $1 ? $1 : '0.0.0.0:7899';
+        my $given = $1;
+        # Precedence, stated once: an address on the command line wins, the
+        # project's remembered address is next, the original default last.
+        my $endpoint = defined $given && length $given ? $given : do {
+            my $stored = eval { $tira->project_show( project => $option{project} )->{dashboard} };
+            join ':', ( $stored->{host} // '0.0.0.0' ), ( $stored->{port} // 7899 );
+        };
         my $valid = eval {
             ( $browser_host, $browser_port ) = _browser_endpoint($endpoint);
             1;
         };
         return _error( $tira, 'toon', $@ || 'Invalid browser endpoint' ) if !$valid;
     }
-
-    $option{project} = $environment_project if !defined $option{project} && defined $environment_project;
 
     # Only tira.onboard ever prompts. project.new stays purely argument-driven,
     # so no script or agent invoking it can be left waiting on input, and
@@ -720,6 +728,9 @@ sub _invoke {
       if $option->{count} && $command !~ /\A(?:record\.list|export|search|comment\.list|attachment\.list|gate\.list|evidence\.list|history\.list|diff)\z/;
     die "Snapshot baselines are available on the diff command\n"
       if defined $option->{snapshot} && $command ne 'diff';
+    die "Dashboard address options belong to the project.update command\n"
+      if $command ne 'project.update'
+      && grep { defined $option->{$_} } qw(dashboard_host dashboard_port);
     die "Bootstrap options belong to the project.new command\n"
       if $command ne 'project.new'
       && $command ne 'onboard'

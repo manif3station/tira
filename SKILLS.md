@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.52):** shipped, executable, and covered by tests.
+- **Implemented (0.53):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.52.
+All commands and use cases in this manual ship in release 0.53.
 
 ## Global invocation grammar
 
@@ -410,6 +410,21 @@ replacing the unbounded text with `details_length`/`summary_length` and
 `annotation_count`. `--where` filters entries (`result=fail` is the one
 that matters) with the same loud unknown-field rule. Annotations always
 ride with their parent entry; reads never mutate the logs.
+Per-field history is **Implemented (DD-443)**. Every record write is
+journaled field by field, whichever command performed it: creation seeds
+one entry per set field so a field's timeline starts at its birth value,
+edits record `before` and `after`, moves record the column change, and
+structural fields (comments, attachments, linkage and the like) record
+that they changed without inlining their whole value. Entries carry the
+change time, the record ref, the operation, and an author when the
+command supplied one — an unattributed change is recorded as such rather
+than guessed. A rolled-back operation records nothing, so history never
+claims a change that did not happen. `tira.history.list` reads it with
+the same window, `--since`, `--where`, `--count`, and truncation
+semantics as the other logs; `--field` narrows to one field's timeline
+and an unknown name exits 2. History lives outside the boards, so it
+never alters a record, a `content_hash`, or a board read, and reading it
+never writes.
 Compact JSON is **Implemented (DD-435)**: `-o json` emits canonical
 one-line JSON with stable key order and unescaped UTF-8 — measurably
 smaller, identical information — while `-o json-pretty` keeps the
@@ -520,6 +535,7 @@ tira.evidence.list --ref REF [--last N|--first N] [--id EVD-NNN] [--meta-only] [
 tira.evidence.add --ref REF --summary TEXT [--uri URI] [--file PATH] [--author ID] [-o FORMAT]
 tira.evidence.annotate --ref REF --id EVD-NNN --note TEXT [--author ID] [-o FORMAT]
 tira.gate.list --ref REF [--last N|--first N] [--id GATE-NNN] [--meta-only] [--where CLAUSE ...] [--count] [-o FORMAT]
+tira.history.list --ref REF [--field NAME] [--last N|--first N] [--since TIMESTAMP] [--where CLAUSE ...] [--count] [--truncate N|--full] [-o FORMAT]
 tira.gate.add --ref REF --gate TEXT --result pass|fail|blocked --details TEXT [--author ID] [-o FORMAT]
 tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]
 tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--count] [--brief] [--truncate N|--full] [--where CLAUSE ...] [-o FORMAT]
@@ -821,7 +837,7 @@ without revealing or creating a storage location.
 **Implemented.** Pipe JSON to `--set-key-details -`.
 
 ### UC-054: Move ticket
-**Implemented.** `dashboard tira.ticket.move --ref TKT-001 --column in-progress`.
+**Implemented.** `dashboard tira.ticket.move --ref TKT-001 --column in-progress`. Every move, like every field edit, is journaled: `dashboard tira.history.list --ref TKT-001 --field column -o json` returns that card's column timeline, and `--field title` or any other field returns its own, with the value before and after each change.
 
 ### UC-055: Move epic independently
 **Implemented.** Moving an epic does not move its tickets.

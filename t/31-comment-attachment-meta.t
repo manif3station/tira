@@ -150,7 +150,7 @@ is( decode_json($out)->{attachments}[0]{filename}, 'later.txt', 'CLI attachment 
     'record.list', 'ticket', '--project', $root, '--last', '1', '-o', 'json',
 );
 is( $status, 2, 'windows outside comment lists exit 2' );
-like( $err, qr/comment list/, 'the window error names where it applies' );
+like( $err, qr/comment, gate, evidence, and history/, 'the window error names every list it applies to' );
 
 ( $status, $out, $err ) = run_cli(
     'record.update', 'ticket', '--project', $root, '--ref', $ref,

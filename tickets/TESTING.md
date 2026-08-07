@@ -1154,3 +1154,24 @@ report, message 2915 — three connected findings).
   the same 138-record board. Functional PASS `Files=39, Tests=1387`;
   coverage `100.0%` all three modules; `prove -T` PASS; Playwright ×3
   green; `cover_db` and fixtures cleaned.
+
+## Latest Verification For `DD-443`
+
+- Per-field history journaled at the single write choke point and
+  committed at the lock boundary. Red-first `t/39-history.t` (48
+  checks): birth entries, before/after edits, validated and honest
+  attribution, move journaling, structural-change markers, oldest-first
+  ordering, windows, since, where, count, unknown-field refusal,
+  truncation with `--full`, and — importantly — that a rolled-back
+  multi-record operation records nothing.
+- Proven non-invasive: no `history` field on records, `content_hash`
+  unchanged by history reads, journal files not mistaken for records by
+  the board scan.
+- Building it surfaced DD-444: the `_replace_record` family mutates
+  without the project lock despite the documented guarantee. History
+  handles it correctly (self-flush when no lock frame is active); the
+  locking gap is raised separately with evidence rather than absorbed.
+- One existing assertion updated deliberately: the window-scope error
+  message now names the history list too.
+- Functional PASS `Files=40, Tests=1437`; coverage `100.0%` all three
+  modules; `prove -T` PASS; `cover_db` cleaned.

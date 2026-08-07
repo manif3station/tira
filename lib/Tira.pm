@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.52';
+our $VERSION = '0.53';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -929,6 +929,7 @@ sub _matches_base {
 sub record_update {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
+    local $self->{_journal_author} = $self->_journal_attribution( %args, project => $root );
     return $self->_with_project_lock( $root, sub {
         my ( $path, $record, $column ) = $self->_record_data( project => $root, ref => $args{ref} );
         if ( my $expect = $args{expect} ) {
@@ -990,6 +991,7 @@ sub record_update {
 sub record_move {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
+    local $self->{_journal_author} = $self->_journal_attribution( %args, project => $root );
     return $self->_with_project_lock( $root, sub {
         my ( $path, $record ) = $self->_record_data( project => $root, ref => $args{ref} );
         my $type = $record->{type};
@@ -999,7 +1001,12 @@ sub record_move {
         my ( undef, $config ) = $self->_board_data( project => $root, type => $type );
         die "Column '$column' not found\n" if !grep { $_->{name} eq $column } @{ $config->{columns} };
         my $destination = File::Spec->catfile( $root, '.tira', $type, $column, basename($path) );
+        my $previous_column = basename( dirname($path) );
         rename $path, $destination or die "Cannot move '$args{ref}': $!\n";
+        $self->_journal_record(
+            ref => $record->{ref}, op => 'move',
+            entries => [ { field => 'column', before => $previous_column, after => $column } ],
+        ) if $previous_column ne $column;
         return { %{$record}, column => $column };
     } );
 }
@@ -1311,6 +1318,7 @@ sub comment_list {
 sub comment_add {
     my ( $self, %args ) = @_;
     $self->_require_person( %args, person => $args{author} );
+    local $self->{_journal_author} = $args{author};
     my $record = $self->record_show(%args);
     my $number = 1;
     for my $existing ( @{ $record->{comments} } ) {
@@ -1971,6 +1979,7 @@ sub _replace_record {
     delete $record{column};
     $record{last_updated} = $self->{clock}->();
     $self->_write_json( $path, \%record );
+    $self->_journal_flush( $self->discover_project(%args) ) if !$self->{_journal_depth};
     return { %record, column => $column };
 }
 
@@ -2114,6 +2123,128 @@ sub json_object { return json_backend()->new }
 
 # Drop-in for JSON::PP::decode_json: UTF-8 bytes in, characters out.
 sub json_decode { return json_object()->utf8->decode( $_[0] ) }
+
+# DD-443: per-field history. Every record write funnels through
+# _write_json, so the diff is taken there rather than in twenty commands
+# — a command added later cannot escape history by forgetting to call
+# something. Entries buffer for the duration of the locked operation and
+# flush only when it succeeds, so a rolled-back transaction can never
+# leave history claiming a change that did not happen. The journal lives
+# outside the boards, so records, content hashes, and board scans are
+# untouched.
+my %HISTORY_FIELD = ( map { $_ => 1 } @RECORD_FIELDS, 'op', 'author', 'at' );
+
+# Attribution is optional; when given it must name a known project person
+# (active or not, so historical people can still be credited).
+sub _journal_attribution {
+    my ( $self, %args ) = @_;
+    return undef if !defined $args{author} || $args{author} eq '';
+    return $self->_require_person( %args, person => $args{author} );
+}
+
+# DD-443 reads reuse the CA20 window semantics and the CA09 truncation.
+sub history_list {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $last = delete $args{last};
+    my $first = delete $args{first};
+    my $count_mode = delete $args{count};
+    my $field = delete $args{field};
+    my $since = delete $args{since};
+    my $where = _parse_where( delete $args{where}, \%HISTORY_FIELD, 'history ' );
+    die "Cannot combine --first with --last\n" if defined $first && defined $last;
+    for my $window ( grep { defined } $first, $last ) {
+        die "History windows must be zero or a positive count\n" if $window < 0;
+    }
+    if ( defined $field ) {
+        die "Unknown field '$field'\n" if !$HISTORY_FIELD{$field};
+    }
+    my ( undef, $record ) = $self->_record_data( %args, project => $root );
+    my $path = $self->_journal_path( $root, $record->{ref} );
+    my @entries;
+    if ( -f $path ) {
+        open my $fh, '<:raw', $path or die "Cannot read history: $!\n";
+        while ( my $line = <$fh> ) {
+            next if $line !~ /\S/;
+            push @entries, json_decode($line);
+        }
+        close $fh or die "Cannot close history: $!\n";
+    }
+    @entries = grep { ( $_->{field} // '' ) eq $field } @entries if defined $field;
+    if ( defined $since ) {
+        my $threshold = _epoch_of_datetime( $since, 'Since' );
+        @entries = grep {
+            my $stamp = eval { _epoch_of_datetime( $_->{at}, 'History stamp' ) };
+            !defined $stamp || $stamp >= $threshold;
+        } @entries;
+    }
+    @entries = grep { _where_matches( $_, $where ) } @entries if $where;
+    my $total = scalar @entries;
+    return { count => $total }
+      if $count_mode || ( defined $last && $last == 0 ) || ( defined $first && $first == 0 );
+    if ( defined $last ) {
+        my $window = $last > $total ? $total : $last;
+        @entries = $window ? @entries[ $total - $window .. $total - 1 ] : ();
+    }
+    elsif ( defined $first ) {
+        my $window = $first > $total ? $total : $first;
+        @entries = @entries[ 0 .. $window - 1 ];
+    }
+    if ( defined $args{truncate} ) {
+        _truncate_text_slot( $_, 'before', $args{truncate} ) for @entries;
+        _truncate_text_slot( $_, 'after', $args{truncate} ) for @entries;
+    }
+    return \@entries;
+}
+
+sub _journal_path {
+    my ( $self, $root, $ref ) = @_;
+    return File::Spec->catfile( $root, '.tira', 'history', "$ref.jsonl" );
+}
+
+sub _journal_changes {
+    my ( $self, $previous, $current ) = @_;
+    my @entries;
+    for my $field (@RECORD_FIELDS) {
+        next if $field eq 'column' || $field eq 'last_updated';
+        my ( $before, $after ) = ( $previous->{$field}, $current->{$field} );
+        next if _values_equal( $before, $after );
+        if ( ref $before || ref $after ) {
+            push @entries, { field => $field, changed => JSON::PP::true };
+        }
+        else {
+            push @entries, { field => $field, before => $before, after => $after };
+        }
+    }
+    return @entries;
+}
+
+sub _journal_record {
+    my ( $self, %args ) = @_;
+    my $ref = $args{ref} // return;
+    push @{ $self->{_journal} },
+      map { { at => $self->{clock}->(), ref => $ref, op => $args{op}, author => $self->{_journal_author}, %{$_} } }
+      @{ $args{entries} };
+    return;
+}
+
+sub _journal_flush {
+    my ( $self, $root ) = @_;
+    my $pending = delete $self->{_journal};
+    return if !$pending || !@{$pending};
+    my $dir = File::Spec->catdir( $root, '.tira', 'history' );
+    make_path($dir) if !-d $dir;
+    my %grouped;
+    push @{ $grouped{ $_->{ref} } }, $_ for @{$pending};
+    for my $ref ( sort keys %grouped ) {
+        my $path = $self->_journal_path( $root, $ref );
+        open my $fh, '>>:raw', $path or die "Cannot append history for '$ref': $!\n";
+        print {$fh} map { json_object()->canonical->encode($_) . "\n" } @{ $grouped{$ref} }
+          or die "Cannot write history for '$ref': $!\n";
+        close $fh or die "Cannot close history for '$ref': $!\n";
+    }
+    return;
+}
 
 sub _read_json {
     my ( $self, $path ) = @_;
@@ -2388,7 +2519,12 @@ sub _with_project_lock {
     open my $lock, '>>', $lock_path or die "Cannot open project lock '$lock_path': $!\n";
     flock( $lock, LOCK_EX ) or die "Cannot lock Tira project '$root': $!\n";
     my ( $result, $error );
-    eval { $result = $code->(); 1 } or $error = $@ || 'Unknown locked operation failure';
+    {
+        local $self->{_journal_depth} = ( $self->{_journal_depth} // 0 ) + 1;
+        eval { $result = $code->(); 1 } or $error = $@ || 'Unknown locked operation failure';
+    }
+    if ( defined $error ) { delete $self->{_journal} }
+    else { eval { $self->_journal_flush($root); 1 } or $error = $@ }
     close $lock or die "Cannot close project lock '$lock_path': $!\n";
     die $error if defined $error;
     return $result;
@@ -2425,6 +2561,14 @@ sub _canonical_path {
 
 sub _write_json {
     my ( $self, $path, $data ) = @_;
+    my $previous;
+    if ( ref $data eq 'HASH' && defined $data->{ref} && $data->{ref} =~ /\A([A-Z][A-Z0-9-]{0,31}-\d{1,12})\z/ ) {
+        my $ref = $1;
+        $previous = -f $path ? eval { $self->_read_json($path) } : undef;
+        my @entries = $self->_journal_changes( $previous // {}, $data );
+        $self->_journal_record( ref => $ref, op => ( $previous ? 'update' : 'create' ), entries => \@entries )
+          if @entries;
+    }
     my $json = json_object()->canonical->pretty->utf8->encode($data);
     $self->_atomic_write( $path, $json );
 }

@@ -1,5 +1,17 @@
 Revision history for Tira
 
+0.53  2026-08-07
+    - Per-field history (DD-443): every record write is journaled field
+      by field to .tira/history/<REF>.jsonl, whichever command performed
+      it, with before and after values, the change time, the operation,
+      and an optional validated author. Creation seeds birth entries,
+      moves journal their column change, structural fields record that
+      they changed without inlining their value, and rolled-back
+      operations record nothing. tira.history.list reads it with the
+      established window, since, where, count, and truncation
+      semantics. History lives outside the boards, so records, content
+      hashes, and board reads are untouched.
+
 0.52  2026-08-07
     - Reads are up to 170x faster on mature boards: Cpanel::JSON::XS is
       used when installed, with core JSON::PP as the fallback. Measured

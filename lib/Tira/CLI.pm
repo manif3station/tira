@@ -562,7 +562,7 @@ sub _invoke {
         $args{fields} = $option->{field_selection} if defined $option->{field_selection};
         $args{exclude_fields} = $option->{exclude_fields} if defined $option->{exclude_fields};
     }
-    if ( $command =~ /\A(?:record\.(?:show|list)|export)\z/ ) {
+    if ( $command =~ /\A(?:record\.(?:show|list)|export|history\.list)\z/ ) {
         die "Cannot combine --full with --truncate\n"
           if $option->{full} && defined $option->{truncate};
         die "Truncate must be zero or a positive character count\n"
@@ -573,10 +573,11 @@ sub _invoke {
     }
     $args{omit_empty} = 1
       if $command =~ /\A(?:record\.(?:show|list)|export)\z/ && !$option->{include_empty};
+    delete $args{omit_empty} if $command eq 'history.list';
     die "Conditional reads are available on show and export commands\n"
       if defined $option->{if_changed} && $command !~ /\A(?:record\.show|export)\z/;
     die "Count is available on list, export, and search commands, and the comment, attachment, gate, and evidence lists\n"
-      if $option->{count} && $command !~ /\A(?:record\.list|export|search|comment\.list|attachment\.list|gate\.list|evidence\.list|diff)\z/;
+      if $option->{count} && $command !~ /\A(?:record\.list|export|search|comment\.list|attachment\.list|gate\.list|evidence\.list|history\.list|diff)\z/;
     die "Snapshot baselines are available on the diff command\n"
       if defined $option->{snapshot} && $command ne 'diff';
     if ( defined $option->{cache_ttl} || $option->{no_cache} ) {
@@ -586,14 +587,14 @@ sub _invoke {
           if defined $option->{cache_ttl} && $option->{cache_ttl} < 1;
     }
     delete @args{qw(cache_ttl no_cache)};
-    die "Windows (--last/--first) are available on the comment list, gate list, and evidence list commands\n"
+    die "Windows (--last/--first) are available on the comment, gate, evidence, and history lists\n"
       if ( defined $option->{last} || defined $option->{first} )
-      && $command !~ /\A(?:comment|gate|evidence)\.list\z/;
+      && $command !~ /\A(?:comment|gate|evidence|history)\.list\z/;
     die "Meta-only is available on the comment and attachment lists, gate and evidence lists, show, list, and export\n"
       if $option->{meta_only}
       && $command !~ /\A(?:comment\.list|attachment\.list|gate\.list|evidence\.list|record\.(?:show|list)|export)\z/;
     die "Where filtering is available on list and export commands, and the gate and evidence lists\n"
-      if defined $option->{where} && $command !~ /\A(?:record\.list|export|gate\.list|evidence\.list)\z/;
+      if defined $option->{where} && $command !~ /\A(?:record\.list|export|gate\.list|evidence\.list|history\.list)\z/;
     my @batch_refs = (
         @{ $option->{ref_list} // [] } > 1 ? @{ $option->{ref_list} } : (),
         defined $option->{refs} ? ( split /,/, $option->{refs} ) : (),
@@ -633,6 +634,12 @@ sub _invoke {
     return $tira->create_record(%args) if $command eq 'record.create';
     return $tira->export_records(%args) if $command eq 'export';
     return $tira->diff_records(%args) if $command eq 'diff';
+    if ( $command eq 'history.list' ) {
+        my %history = %args;
+        delete $history{fields};
+        $history{field} = $option->{fields}[0] if $option->{fields};
+        return $tira->history_list(%history);
+    }
     if ( $command eq 'import' ) {
         die "Import file is required\n" if !defined $option->{file};
         my $changes = Tira::json_decode( _text_input( $option->{file} ) );

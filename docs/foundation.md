@@ -159,6 +159,21 @@ no longer matches; the dashboard sends each editor's opening value as its base,
 surfaces the conflict, and reloads the fresh card instead of silently
 overwriting.
 
+## Per-field history
+
+Every record write funnels through one internal writer, so history is taken
+there rather than in each command: the previous version is diffed against the
+new one and an entry per changed field is appended to
+`.tira/history/<REF>.jsonl`. Creation seeds one entry per set field, moves
+journal the column change even though they rename rather than rewrite, and
+structural fields record that they changed without inlining their value.
+Entries buffer for the duration of a locked operation and are written only
+when it succeeds, so a rolled-back multi-record change leaves no trace — a
+gap in history is preferable to history claiming something that never
+happened. The journal sits outside the board directories, so records,
+content hashes, and board scans are unaffected, and `tira.history.list`
+never writes.
+
 ## Security properties
 
 Tira invokes no shell or external process. It validates and untaints canonical

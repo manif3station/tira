@@ -20,6 +20,7 @@ my $tmp = tempdir( CLEANUP => 1 );
 my $root = File::Spec->catdir( $tmp, 'dialog' );
 my $tira = Tira->new( clock => sub { '2026-08-06T15:00:00+0100' } );
 $tira->create_project( name => 'Dialog project', dir => $root );
+$tira->column_add( project => $root, type => 'ticket', name => 'in-progress', label => 'In Progress' );
 $tira->person_add( project => $root, id => 'ada', name => 'Ada Lovelace' );
 $tira->person_add( project => $root, id => 'bob', name => 'Bob Retired' );
 $tira->person_deactivate( project => $root, id => 'bob' );
@@ -51,6 +52,15 @@ unlike( $live_html, qr/JSON\.stringify\(record,\s*null/,
     'the dialog never renders the record as one JSON blob' );
 like( $live_html, qr/renderCard/, 'the dialog builds its sections from the record' );
 like( $live_html, qr/card-status/, 'the dialog header offers the column dropdown' );
+like( $live_html, qr/data-add-card=/, 'each column offers an add-card control (DD-441)' );
+like( $live_html, qr/const openNewCard=/, 'the dialog has a new-card mode' );
+like( $live_html, qr/reference assigned on save/, 'new cards show no ref until they are saved' );
+like( $live_html, qr/fetch\("\/create"/, 'creating posts to the create route' );
+like( $live_html, qr/A title is required/, 'only the title is mandatory, and it is enforced' );
+like( $live_html, qr/dialog\.querySelector\("\.card-new"\)/,
+    'a half-filled new card counts as active editing, so refresh never wipes it' );
+like( $live_html, qr/if\(!dialog\.dataset\.ref\)return/,
+    'the refresh cycle skips a dialog that has no record yet' );
 like( $live_html, qr/card-linkage-table/, 'linkage renders as a table-style list (CA21)' );
 like( $live_html, qr/card-linkage__title/, 'linkage rows carry the linked title' );
 like( $live_html, qr/card-linkage__status/, 'linkage rows carry the linked status' );
@@ -136,6 +146,45 @@ for my $payload ( undef, [], { ref => 'TKT-001' } ) {
     like( $error, qr/payload|requires/i, 'malformed comment removal payloads are refused' );
 }
 
+# DD-441: creating a card from a column through the browser
+my $made = decode_json(
+    $calls->[0]{create}->( { type => 'ticket', column => 'in-progress', title => 'Made from the board' } )
+);
+ok( $made->{ok}, 'the create provider succeeds' );
+like( $made->{record}{ref}, qr/\ATKT-\d+\z/, 'a reference is assigned on creation' );
+is( $made->{record}{column}, 'in-progress', 'the card is created in the column that asked for it' );
+is( $made->{record}{title}, 'Made from the board', 'the supplied title is stored' );
+is( $tira->record_show( project => $root, ref => $made->{record}{ref} )->{title},
+    'Made from the board', 'creation persists to the filesystem' );
+
+my $optional = decode_json(
+    $calls->[0]{create}->( {
+        type => 'ticket', column => 'backlog', title => 'With detail',
+        description => 'Filled in', priority => '4', assignee => 'ada',
+    } )
+);
+is( $optional->{record}{description}, 'Filled in', 'optional fields are stored when given' );
+is( $optional->{record}{priority}, 4, 'priority is stored as a number' );
+is( $optional->{record}{assignee}, 'ada', 'assignee is stored' );
+
+my $blank = decode_json(
+    $calls->[0]{create}->( {
+        type => 'ticket', column => 'backlog', title => 'Only a title',
+        description => '', priority => '', assignee => '',
+    } )
+);
+ok( !defined $blank->{record}{priority}, 'empty optional fields are left unset, not stored as blanks' );
+is( $blank->{record}{description}, '', 'an empty description stays empty' );
+
+$error = eval { $calls->[0]{create}->( { type => 'ticket', column => 'backlog' } ); 1 } ? '' : $@;
+like( $error, qr/requires type, column, and title/, 'the title is mandatory' );
+$error = eval { $calls->[0]{create}->( { type => 'ticket', column => 'nowhere', title => 'X' } ); 1 } ? '' : $@;
+like( $error, qr/Column 'nowhere' not found/, 'an unknown column is refused by the engine' );
+$error = eval { $calls->[0]{create}->( { type => 'ticket', column => 'backlog', title => 'X', assignee => 'bob' } ); 1 } ? '' : $@;
+like( $error, qr/bob/, 'an unknown assignee is refused' );
+$error = eval { $calls->[0]{create}->('nope'); 1 } ? '' : $@;
+like( $error, qr/payload must be an object/, 'malformed create payloads are refused' );
+
 # DD-423: optimistic concurrency through the update provider
 my $cas = decode_json(
     $calls->[0]{update}->( { ref => 'TKT-001', field => 'title', value => 'CAS write', base => 'Renamed card' } )
@@ -154,6 +203,7 @@ like( $error, qr/plain value/, 'structured bases are refused' );
 my %providers = (
     render => sub { '<!doctype html>' }, data => sub { '{}' },
     move => sub { '{}' }, detail => sub { '{}' },
+    create => sub { '{"ok":true,"record":{"ref":"TKT-009"}}' },
     update => sub { '{"ok":true}' },
     comment_add => sub { '{"ok":true}' },
     comment_update => sub { '{"ok":true}' },
@@ -184,6 +234,7 @@ for my $missing (qw(update comment_add comment_update comment_remove people)) {
 my %received;
 my $app = Tira::DashboardWeb->build_psgi_app(
     %providers,
+    create => sub { $received{create} = $_[0]; return '{"ok":true,"record":{"ref":"TKT-009"}}' },
     update => sub {
         $received{update} = $_[0];
         die "Conflict: title changed while you were editing\n" if ( $_[0]{base} // '' ) eq 'STALE';
@@ -212,6 +263,13 @@ test_psgi $app, sub {
     is( decode_json( $update_response->content )->{record}{title}, $pound,
         'the update route returns the provider result' );
     is( $received{update}{value}, "New ${pound} title", 'the update payload decodes UTF-8 text' );
+
+    my $create_response = $client->(
+        POST '/create', Content_Type => 'application/json',
+        Content => '{"type":"ticket","column":"backlog","title":"Routed"}',
+    );
+    is( $create_response->code, 200, 'the create route responds' );
+    is( $received{create}{title}, 'Routed', 'the create payload is delivered' );
 
     my $add_response = $client->(
         POST '/comment/add', Content_Type => 'application/json',

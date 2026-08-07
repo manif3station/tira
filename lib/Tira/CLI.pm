@@ -258,6 +258,27 @@ sub browser_providers {
             );
             return $json->encode($record);
         },
+        create => sub {
+            my ($payload) = @_;
+            die "Create payload must be an object\n" if ref($payload) ne 'HASH';
+            for my $key (qw(type column title)) {
+                die "Create payload requires type, column, and title\n"
+                  if !defined $payload->{$key} || ref $payload->{$key} || $payload->{$key} eq '';
+            }
+            my %optional;
+            for my $field (qw(description priority assignee)) {
+                next if !defined $payload->{$field} || $payload->{$field} eq '';
+                die "Field '$field' requires a plain value\n" if ref $payload->{$field};
+                $optional{$field} = $payload->{$field};
+            }
+            my $record = $tira->create_record(
+                project => $project, type => $payload->{type}, title => $payload->{title}, %optional,
+            );
+            $record = $tira->record_move(
+                project => $project, ref => $record->{ref}, column => $payload->{column},
+            ) if $payload->{column} ne 'backlog';
+            return $json->encode( { ok => JSON::PP::true, record => $record } );
+        },
         update => sub {
             my ($payload) = @_;
             die "Update payload must be an object\n" if ref($payload) ne 'HASH';

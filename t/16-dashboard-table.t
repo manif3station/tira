@@ -53,13 +53,20 @@ like( $html, qr/html\[data-width="fit"\] th,html\[data-width="fit"\] td\{min-wid
     'fit mode lets columns shrink to the container' );
 like( $html, qr/\@media\(max-width:720px\)\{html\[data-width="fit"\] \.board__scroll\{overflow-x:auto\}/,
     'narrow screens keep scrollable columns while the preference is preserved' );
+is( scalar( () = $html =~ /class="column__count"/g ), 4,
+    'every rendered column carries a count badge — sow, epic, and both ticket columns, Discard excluded as always (DD-441)' );
+like( $html, qr/data-count-for="backlog" hidden/, 'count badges start hidden and are filled from the board' );
+like( $html, qr/badge\.hidden=total===0/, 'an empty column shows no zero' );
+like( $html, qr/badge\.textContent=total\?String\(total\):""/, 'a populated column shows its number' );
+unlike( $html, qr/class="column__add"/,
+    'static output renders no add-card control: it has no server to post to' );
 like( $html, qr/class="last-updated"/, 'table displays when its data was last updated' );
 like( $html, qr/URLSearchParams.*refresh.*location\.reload.*setTimeout/s,
     'table embeds query-controlled automatic reload logic' );
 is( scalar( () = $html =~ /class="board board--/g ), 3, 'combined dashboard stacks three type boards' );
 like( $html, qr/data-type="sow".*data-type="epic".*data-type="ticket"/s,
     'combined dashboard preserves SOW, epic, ticket vertical order' );
-like( $html, qr/<th[^>]*>backlog<\/th>.*<th[^>]*>in-progress<\/th>/s,
+like( $html, qr/class="column__name">backlog<.*class="column__name">in-progress</s,
     'ticket columns render left to right' );
 like( $html, qr/&lt;script&gt;alert\(&quot;x&quot;\)&lt;\/script&gt;/,
     'record titles are HTML escaped' );

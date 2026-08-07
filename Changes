@@ -1,5 +1,16 @@
 Revision history for Tira
 
+0.54  2026-08-07
+    - Column card counts and add-card from the board (owner message
+      2978). Each column header shows its count, hidden when the column
+      is empty, derived from the board so it stays right after refresh,
+      drag, and creation. Every column on a live board gains an add-card
+      control that opens the dialog in new-card mode: empty form, no
+      reference until it is saved, title the only required field, the
+      rest optional and editable on the card afterwards. Creation goes
+      through the same validated engine path as the CLI and the dialog
+      then switches to the created card.
+
 0.53  2026-08-07
     - Per-field history (DD-443): every record write is journaled field
       by field to .tira/history/<REF>.jsonl, whichever command performed

@@ -90,6 +90,12 @@ const fs = require('fs');
       mutations.push({ path: requestUrl.pathname, body: JSON.parse(route.request().postData()) });
       return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"entry":{"id":"CHK-002"}}' });
     }
+    if (requestUrl.pathname === '/create' && route.request().method() === 'POST') {
+      const body = JSON.parse(route.request().postData());
+      mutations.push({ path: '/create', body });
+      return route.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify({ ok: true, record: { ...record, ref: 'TKT-042', title: body.title, column: body.column } }) });
+    }
     if (requestUrl.pathname === '/update' && route.request().method() === 'POST') {
       const body = JSON.parse(route.request().postData());
       mutations.push({ path: '/update', body });
@@ -159,11 +165,54 @@ const fs = require('fs');
   if (await page.evaluate(() => document.documentElement.dataset.width) !== 'standard')
     throw new Error('switching back to standard must also be remembered');
 
+  const countText = column => page.locator(`[data-count-for="${column}"]`).textContent();
+  const countHidden = column => page.locator(`[data-count-for="${column}"]`).evaluate(node => node.hidden);
+  if (await countText('backlog') !== '2') throw new Error(`backlog should show 2 cards, got ${await countText('backlog')}`);
+  if (await countText('in-progress') !== '1') throw new Error('in-progress should show 1 card');
+  await page.evaluate(() => document.querySelector('[data-column="in-progress"]').replaceChildren());
+  await page.evaluate(() => window.__tiraForceCounts && window.__tiraForceCounts());
+
+  await page.locator('[data-add-card="backlog"]').click();
+  await page.waitForFunction(() => document.querySelector('.card-dialog')?.open);
+  await page.waitForSelector('.card-dialog .card-new');
+  const newRef = await page.locator('.card-dialog__ref').textContent();
+  if (!newRef.includes('reference assigned on save'))
+    throw new Error(`a new card must show no reference, got: ${newRef}`);
+  if (await page.evaluate(() => document.querySelector('.card-dialog').dataset.ref) !== '')
+    throw new Error('a new card dialog must carry no ref');
+
+  const createsBefore = mutations.filter(e => e.path === '/create').length;
+  await page.locator('.card-dialog [data-create-card]').click();
+  await page.waitForFunction(() =>
+    (document.querySelector('.card-dialog__error')?.textContent || '').includes('title is required'));
+  if (mutations.filter(e => e.path === '/create').length !== createsBefore)
+    throw new Error('a card with no title must not be created');
+
+  await page.locator('.card-dialog .card-new [name="title"]').fill('Created from the board');
+  await page.locator('.card-dialog .card-new [name="priority"]').selectOption('4');
+  await page.locator('.card-dialog [data-create-card]').click();
+  await page.waitForFunction(() => document.querySelector('.card-dialog').dataset.ref === 'TKT-042');
+  const created = mutations.find(e => e.path === '/create');
+  if (!created) throw new Error('creating posted no /create request');
+  if (created.body.title !== 'Created from the board' || created.body.column !== 'backlog'
+    || created.body.type !== 'ticket' || created.body.priority !== '4')
+    throw new Error(`unexpected create payload: ${JSON.stringify(created.body)}`);
+  const shownAfterCreate = await page.locator('.card-dialog__ref').textContent();
+  if (!shownAfterCreate.startsWith('TKT-042'))
+    throw new Error(`the dialog must switch to the created card, got: ${shownAfterCreate}`);
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('.card-dialog')?.open);
+  await page.reload();
+  await page.waitForFunction(() => document.documentElement.dataset.ready === 'true');
+
   const seq = () => page.evaluate(() => window.__tiraMutationSeq || 0);
   let before = 0;
+  const detailsBeforeOpen = detailRequests;
   await page.locator('[data-ref="TKT-001"] .card').click();
   await page.waitForFunction(() => document.querySelector('.card-dialog')?.open);
-  if (detailRequests !== 4) throw new Error(`expected the lazy record read plus three linked-row lookups, got ${detailRequests}`);
+  await page.waitForFunction(() => document.querySelectorAll('.card-dialog [data-linkage-row]').length >= 3);
+  if (detailRequests - detailsBeforeOpen !== 4)
+    throw new Error(`expected the lazy record read plus three linked-row lookups, got ${detailRequests - detailsBeforeOpen}`);
 
   const sections = page.locator('.card-dialog .card-dialog__sections');
   const sectionText = await sections.textContent();

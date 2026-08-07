@@ -1175,3 +1175,23 @@ report, message 2915 — three connected findings).
   message now names the history list too.
 - Functional PASS `Files=40, Tests=1437`; coverage `100.0%` all three
   modules; `prove -T` PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-441`
+
+- Counts derived from the board DOM (hidden at zero) and a per-column
+  add-card control on live boards only; new-card dialog mode with a
+  `/create` route and provider through the ordinary engine path.
+- Red evidence: the implementation predated its tests here, so the new
+  contracts were verified by stashing `lib/` — `t/19` 6–12 and `t/16`'s
+  count/add-card assertions failed, then passed once restored. Recorded
+  in the ticket rather than glossed.
+- Two fixture-truth corrections during the loop: Discard is excluded
+  from rendered boards (4 badges, not 7), and the DD-437 detail-request
+  assertion is now relative to the dialog open rather than cumulative,
+  which is more robust regardless.
+- Native form validation was suppressed so the dialog's own error host
+  owns the message, matching every other failure in the UI.
+- Playwright ×3 green (counts, no-title refusal, create payload, dialog
+  switching to the created card); functional PASS `Files=40,
+  Tests=1465`; coverage `100.0%`; `prove -T` PASS; visual review of
+  counts and the new-card form.

@@ -3,13 +3,13 @@ package Tira::DashboardWeb;
 use strict;
 use warnings;
 
-our $VERSION = '0.53';
+our $VERSION = '0.54';
 
 use Encode qw(encode_utf8);
 use JSON::PP ();
 use Dancer2 appname => 'TiraDashboard';
 
-our ( $RENDER, $DATA, $MOVE, $DETAIL, $UPDATE, $COMMENT_ADD, $COMMENT_UPDATE, $COMMENT_REMOVE, $PEOPLE,
+our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $COMMENT_ADD, $COMMENT_UPDATE, $COMMENT_REMOVE, $PEOPLE,
       $ATTACHMENT_FETCH, $ATTACHMENT_ADD, $ATTACHMENT_REMOVE, $CHECKLIST_ADD, $CHECKLIST_UPDATE,
       $LINK_TYPES, $HIERARCHY_LINK, $HIERARCHY_UNLINK, $SUBITEM_LINK, $SUBITEM_UNLINK, $LINK_ADD, $LINK_REMOVE );
 
@@ -48,6 +48,7 @@ get '/people' => sub {
     return _response_bytes( $PEOPLE->() );
 };
 
+post '/create' => sub { return _mutation( \$CREATE ) };
 post '/update' => sub { return _mutation( \$UPDATE ) };
 post '/comment/add' => sub { return _mutation( \$COMMENT_ADD ) };
 post '/comment/update' => sub { return _mutation( \$COMMENT_UPDATE ) };
@@ -147,6 +148,7 @@ my @PROVIDERS = (
     [ data => \$DATA, 'data provider' ],
     [ move => \$MOVE, 'move provider' ],
     [ detail => \$DETAIL, 'detail provider' ],
+    [ create => \$CREATE, 'create provider' ],
     [ update => \$UPDATE, 'update provider' ],
     [ comment_add => \$COMMENT_ADD, 'comment add provider' ],
     [ comment_update => \$COMMENT_UPDATE, 'comment update provider' ],

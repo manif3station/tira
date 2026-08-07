@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.53):** shipped, executable, and covered by tests.
+- **Implemented (0.54):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.53.
+All commands and use cases in this manual ship in release 0.54.
 
 ## Global invocation grammar
 
@@ -591,6 +591,18 @@ commands print one board. Columns run left-to-right. Embedded CSS provides the
 responsive visual design, while embedded JavaScript lets the viewer select
 cards and reorder each board by last modified or card ref. Table output remains
 ref-only unless `--title` is supplied and uses no external resources.
+Each column header shows its card count, and only when it has cards — an
+empty column shows no zero. Counts are derived from the board itself, so
+they stay correct after a refresh, a drag, or a creation. Every column
+also offers an add-card control (live boards only, since a static file
+has no server to post to): it opens the same dialog in new-card mode
+with an empty form and no reference, because the reference is assigned
+on save. Only the title is required; description, priority, and assignee
+are optional there and every remaining field is editable on the card
+once it exists. Creating posts to the same validated engine path as the
+CLI, so an unknown column or assignee is refused, and the dialog then
+switches to the created card. **Implemented (DD-441).**
+
 Each board header carries a column-width toggle: Standard (the default) keeps
 fixed-width scrollable columns, Fit all shrinks every column so a wide board
 fits without sideways scrolling. The choice applies to every board, is
@@ -698,7 +710,7 @@ Every case below is implemented and executable.
 **Implemented.** `dashboard tira.epic.create --title "Identity"`.
 
 ### UC-008: Create a ticket
-**Implemented.** `dashboard tira.ticket.create --title "Login"`.
+**Implemented.** `dashboard tira.ticket.create --title "Login"`. The live board offers the same thing without the CLI: an add-card control on every column opens the dialog with an empty form, assigns the reference on save, and requires only a title.
 
 ### UC-009: Add a description
 **Implemented.** `dashboard tira.ticket.create --title "Docs" --description "## Goal"`.

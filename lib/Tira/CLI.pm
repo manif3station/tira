@@ -65,6 +65,7 @@ sub run {
         'meta-only' => \$option{meta_only},
         'where=s@' => \$option{where},
         'snapshot=s' => \$option{snapshot},
+        'cache-ttl=i' => \$option{cache_ttl}, 'no-cache' => \$option{no_cache},
         'with=s' => \$option{with}, 'note=s' => \$option{note},
         'reporter=s' => \$option{reporter}, 'due-date=s' => \$option{due_date},
         'start-date=s' => \$option{start_date}, 'sdlc-gate=s' => \$option{sdlc_gate},
@@ -116,6 +117,15 @@ sub run {
 
     $option{project} = $environment_project if !defined $option{project} && defined $environment_project;
 
+    my $cache;
+    if ( defined $option{cache_ttl} && $option{cache_ttl} >= 1 && !$option{no_cache} ) {
+        $cache = eval { _cache_context( $tira, $command, $type, \%option ) };
+        if ( $cache && $cache->{hit} ) {
+            print STDERR "tira: served from cache\n";
+            print _utf8_bytes( $cache->{hit}{bytes} );
+            return $cache->{hit}{status};
+        }
+    }
     my $result;
     my $ok = eval {
         $result = _invoke( $tira, $command, $type, \%option );
@@ -168,7 +178,9 @@ sub run {
     my $formatted = eval { $tira->format_output( $result, output => $option{output}, project => $option{project} ) };
     return _error( $tira, 'toon', $@ || 'Unable to format output' ) if !defined $formatted;
     print _utf8_bytes($formatted);
-    return ( defined $option{if_changed} && ref $result eq 'HASH' && $result->{unchanged} ) ? 1 : 0;
+    my $status = ( defined $option{if_changed} && ref $result eq 'HASH' && $result->{unchanged} ) ? 1 : 0;
+    _cache_store( $cache, $formatted, $status ) if $cache;
+    return $status;
 }
 
 sub _dd_path_resolver {
@@ -442,6 +454,93 @@ sub browser_providers {
 
 # The viewer forces text-like content (html included) to plain text so
 # nothing fetched from the store can execute inside the dialog's frame.
+# CA18: per-call opt-in read-through cache. Entries live under the
+# project's own .tira/cache (never a shared temp path), key on the full
+# argument set, and are valid only while both the ttl holds and a board
+# fingerprint (hi-res mtimes of the config, boards, columns, and
+# attachment store) is unchanged — so any write invalidates immediately
+# and a caller can never read its own stale data. A corrupt entry warns
+# and falls back to a live read; a hit is always reported on stderr.
+sub _board_fingerprint {
+    my ($root) = @_;
+    require Time::HiRes;
+    my @stamps;
+    my @paths = (
+        File::Spec->catfile( $root, '.tira', 'project.yml' ),
+        File::Spec->catdir( $root, '.tira', 'attachments' ),
+    );
+    for my $type (qw(sow epic ticket)) {
+        my $board = File::Spec->catdir( $root, '.tira', $type );
+        push @paths, $board;
+        if ( opendir my $dh, $board ) {
+            push @paths, map { File::Spec->catdir( $board, $_ ) }
+              sort grep { !/\A\./ } readdir $dh;
+            closedir $dh;
+        }
+    }
+    for my $path (@paths) {
+        my @stat = Time::HiRes::stat($path);
+        push @stamps, $path . '=' . ( @stat ? $stat[9] : 'absent' );
+    }
+    return join ';', @stamps;
+}
+
+sub _cache_context {
+    my ( $tira, $command, $type, $option ) = @_;
+    my $root = $tira->discover_project( project => $option->{project} );
+    ($root) = $root =~ /\A(.+)\z/s;
+    my $key_source = JSON::PP->new->canonical->encode( {
+        command => $command, type => $type,
+        map { $_ => $option->{$_} }
+          grep { defined $option->{$_} && $_ ne 'cache_ttl' && $_ ne 'no_cache' }
+          sort keys %{$option},
+    } );
+    my $key = Digest::SHA::sha256_hex( encode_utf8($key_source) );
+    my $dir = File::Spec->catdir( $root, '.tira', 'cache' );
+    my $file = File::Spec->catfile( $dir, "$key.json" );
+    my $context = {
+        dir => $dir, file => $file, ttl => $option->{cache_ttl},
+        fingerprint => _board_fingerprint($root),
+    };
+    if ( -f $file ) {
+        require MIME::Base64;
+        my $entry = eval {
+            open my $fh, '<:raw', $file or die "unreadable\n";
+            local $/;
+            JSON::PP::decode_json(<$fh>);
+        };
+        if ( !$entry || ref $entry ne 'HASH' || !defined $entry->{bytes} ) {
+            print STDERR "tira: discarding corrupt cache entry\n";
+        }
+        elsif ( time() - ( $entry->{stored_at} // 0 ) <= $context->{ttl}
+            && ( $entry->{fingerprint} // '' ) eq $context->{fingerprint} ) {
+            $context->{hit} = {
+                bytes => Encode::decode( 'UTF-8', MIME::Base64::decode_base64( $entry->{bytes} ) ),
+                status => $entry->{status} // 0,
+            };
+        }
+    }
+    return $context;
+}
+
+sub _cache_store {
+    my ( $context, $formatted, $status ) = @_;
+    eval {
+        require MIME::Base64;
+        File::Path::make_path( $context->{dir} ) if !-d $context->{dir};
+        my ( $fh, $temp ) = File::Temp::tempfile( DIR => $context->{dir}, SUFFIX => '.tmp' );
+        binmode $fh, ':raw';
+        print {$fh} JSON::PP->new->canonical->encode( {
+            stored_at => time(), fingerprint => $context->{fingerprint},
+            status => $status, bytes => MIME::Base64::encode_base64( _utf8_bytes($formatted), '' ),
+        } );
+        close $fh;
+        rename $temp, $context->{file} or die "rename failed\n";
+        1;
+    } or print STDERR "tira: unable to store cache entry\n";
+    return;
+}
+
 sub _attachment_content_type {
     my ($extension) = @_;
     return Tira::_attachment_content_type($extension);
@@ -480,6 +579,13 @@ sub _invoke {
       if $option->{count} && $command !~ /\A(?:record\.list|export|search|comment\.list|attachment\.list|gate\.list|evidence\.list|diff)\z/;
     die "Snapshot baselines are available on the diff command\n"
       if defined $option->{snapshot} && $command ne 'diff';
+    if ( defined $option->{cache_ttl} || $option->{no_cache} ) {
+        die "Caching is available on read commands only\n"
+          if $command !~ /\A(?:record\.(?:show|list)|export|search|diff|board\.show|project\.show|(?:comment|attachment|gate|evidence|checklist)\.list)\z/;
+        die "Cache TTL must be a positive number of seconds\n"
+          if defined $option->{cache_ttl} && $option->{cache_ttl} < 1;
+    }
+    delete @args{qw(cache_ttl no_cache)};
     die "Windows (--last/--first) are available on the comment list, gate list, and evidence list commands\n"
       if ( defined $option->{last} || defined $option->{first} )
       && $command !~ /\A(?:comment|gate|evidence)\.list\z/;

@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.46):** shipped, executable, and covered by tests.
+- **Implemented (0.47):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.46.
+All commands and use cases in this manual ship in release 0.47.
 
 ## Global invocation grammar
 
@@ -416,6 +416,17 @@ smaller, identical information — while `-o json-pretty` keeps the
 indented shape. Formats are presentation only, and errors always go to
 stderr in the selected structured format, so stdout can never carry a
 corrupted payload.
+An opt-in read-through cache is **Implemented (DD-436)** and disabled by
+default: `--cache-ttl N` (seconds, at least 1) enables it per call on
+read commands only, `--no-cache` is the explicit bypass. Entries key on
+the full argument set and are valid only while both the ttl holds and a
+board fingerprint is unchanged — any write invalidates immediately, so
+a caller can never read its own stale data. A hit is always reported on
+stderr (`served from cache`), never invisible; a corrupt entry warns and
+falls back to a live read; a cached conditional read replays its exit
+status. `--since` and `--if-changed` are part of the key, so they can
+never silently defeat each other. Caching a mutation or a zero ttl
+exits 2.
 Clone creates a Backlog record, shares attachment refs, clears hierarchy, and
 adds reciprocal clone links.
 
@@ -771,7 +782,7 @@ without revealing or creating a storage location.
 **Implemented.** `dashboard tira.ticket.show --ref TKT-001` returns the record's populated keys (empty values are omitted by default; `--include-empty` restores them); `dashboard tira.ticket.show --ref TKT-001 --fields column -o json` returns only `ref` and `column` — the cheapest way to answer the board's commonest question.
 
 ### UC-043: Read boards in one call, at chosen weight
-**Implemented.** `dashboard tira.export -o json` returns every SOW, epic, and ticket in one `{records, count}` object; `dashboard tira.export --fields ref,column -o json` returns the same board as two-key records, and `--exclude-fields description,comments` keeps structure while dropping the prose. Count is unaffected by projection. `dashboard tira.export --since 2026-08-07T02:30:00Z --fields ref,column -o json` returns only records changed at or after that instant plus `now` for the next poll; `dashboard tira.export --fields ref,content_hash -o json` adds a `board_hash`, and `dashboard tira.export --if-changed BOARD_HASH` collapses a quiet board to `{"unchanged": true}` with exit 1 — the cheapest possible sweep.
+**Implemented.** `dashboard tira.export -o json` returns every SOW, epic, and ticket in one `{records, count}` object; `dashboard tira.export --fields ref,column -o json` returns the same board as two-key records, and `--exclude-fields description,comments` keeps structure while dropping the prose. Count is unaffected by projection. `dashboard tira.export --since 2026-08-07T02:30:00Z --fields ref,column -o json` returns only records changed at or after that instant plus `now` for the next poll; `dashboard tira.export --fields ref,content_hash -o json` adds a `board_hash`, and `dashboard tira.export --if-changed BOARD_HASH` collapses a quiet board to `{"unchanged": true}` with exit 1 — the cheapest possible sweep. Repeated sweeps within one task can add `--cache-ttl 60`: identical calls serve locally, any write reads fresh, and a hit always announces itself on stderr.
 
 ### UC-044: Filter by column, or just count it
 **Implemented.** `dashboard tira.ticket.list --column backlog` lists the column; `dashboard tira.ticket.list --column backlog --count -o json` answers `{"count":47}` for a few bytes, and `--refs-only` returns just the refs — the input to a batch read.

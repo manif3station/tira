@@ -1059,3 +1059,18 @@ report, message 2915 — three connected findings).
   `Files=37, Tests=1324`; coverage `100.0%` all three modules;
   `prove -T` PASS; `cover_db` cleaned. Dashboard /data shrinks too;
   dialog behavior unchanged (providers encode their own JSON).
+
+## Latest Verification For `DD-436`
+
+- CA18: per-call opt-in cache under `.tira/cache` — full-argument
+  SHA-256 keys, ttl + hi-res board-fingerprint validity (any write
+  invalidates immediately), visible stderr hits, atomic stores, corrupt
+  fallback with warning, replayed exit statuses, `--no-cache` bypass,
+  exit-2 misuse guards.
+- Red loop caught: a zero ttl combined with a same-second entry hit the
+  cache before validation — the lookup now engages only for ttl >= 1.
+- Red-first `t/37-cache.t` (22 checks; the taint gate additionally
+  caught a tainted readdir name in the corrupt-entry scenario, fixed
+  with a regex untaint); functional PASS `Files=38, Tests=1347`;
+  coverage `100.0%` all three modules; `prove -T` PASS; `cover_db`
+  cleaned. Browser untouched.

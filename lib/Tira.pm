@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.46';
+our $VERSION = '0.47';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',

@@ -1,5 +1,14 @@
 Revision history for Tira
 
+0.47  2026-08-07
+    - CA18 (EPIC-424): opt-in read-through cache, disabled by default.
+      --cache-ttl N enables per call on read commands; entries key on
+      the full argument set under the project workspace and stay valid
+      only while the ttl and a hi-res board fingerprint both hold, so
+      any write invalidates immediately. Hits report on stderr, corrupt
+      entries warn and fall back live, cached conditional reads replay
+      their exit status, --no-cache bypasses, misuse exits 2.
+
 0.46  2026-08-07
     - CA14 (EPIC-424): -o json is now canonical compact JSON (stable
       key order, raw UTF-8, one line); -o json-pretty keeps the indented

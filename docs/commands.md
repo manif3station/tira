@@ -87,6 +87,13 @@ all reads and mutations and must not attempt direct filesystem access. Run
 Existing record-list commands retain their compatible array result; `--full`
 is an explicit assertion that the full records already returned are required.
 
+The read cache is opt-in per call: `--cache-ttl N` on read commands serves
+repeated identical calls locally while both the ttl and a board fingerprint
+hold — any write invalidates immediately (read-your-own-writes), hits are
+reported on stderr, corrupt entries warn and fall back to a live read, and
+entries live under the project workspace, never a shared temp path.
+`--no-cache` bypasses explicitly; mutations and zero ttls exit 2.
+
 `-o json` is compact by default — canonical key order, raw UTF-8, one line
 — and `-o json-pretty` keeps the previous indented shape. The two carry
 identical information; whitespace was pure cost for machine callers.

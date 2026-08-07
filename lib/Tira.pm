@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.45';
+our $VERSION = '0.46';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -2157,7 +2157,8 @@ sub format_output {
         local $SIG{__WARN__} = sub { };
         return Data::TOON->encode($data) . "\n";
     }
-    return JSON::PP->new->canonical->pretty->encode($data) if $output eq 'json';
+    return JSON::PP->new->canonical->encode($data) . "\n" if $output eq 'json';
+    return JSON::PP->new->canonical->pretty->encode($data) if $output eq 'json-pretty';
     return $self->_markdown( $data, %args ) if $output eq 'human';
     return $self->_dashboard_table( $data, %args ) if $output eq 'table';
     die "Unsupported output format '$output'\n";

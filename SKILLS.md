@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.45):** shipped, executable, and covered by tests.
+- **Implemented (0.46):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.45.
+All commands and use cases in this manual ship in release 0.46.
 
 ## Global invocation grammar
 
@@ -75,7 +75,10 @@ and `--set-*` for the same field are mutually exclusive.
 ## Output contract
 
 - Default and `-o toon`: `Data::TOON` output.
-- `-o json`: canonical pretty JSON with the full result.
+- `-o json`: canonical compact JSON — stable key order, raw UTF-8, one
+  line. **Implemented (DD-435)**; identical information to every other
+  format.
+- `-o json-pretty`: the indented JSON shape, for human reading.
 - `-o human`: Markdown summary.
 - Errors use the selected structured format on stderr, never success stdout.
 - Mutations return the affected record or operation receipt.
@@ -407,6 +410,12 @@ replacing the unbounded text with `details_length`/`summary_length` and
 `annotation_count`. `--where` filters entries (`result=fail` is the one
 that matters) with the same loud unknown-field rule. Annotations always
 ride with their parent entry; reads never mutate the logs.
+Compact JSON is **Implemented (DD-435)**: `-o json` emits canonical
+one-line JSON with stable key order and unescaped UTF-8 — measurably
+smaller, identical information — while `-o json-pretty` keeps the
+indented shape. Formats are presentation only, and errors always go to
+stderr in the selected structured format, so stdout can never carry a
+corrupted payload.
 Clone creates a Backlog record, shares attachment refs, clears hierarchy, and
 adds reciprocal clone links.
 
@@ -671,8 +680,8 @@ Every case below is implemented and executable.
 **Implemented.** A command with no available managed project exits nonzero
 without revealing or creating a storage location.
 
-### UC-013: Human output
-**Implemented.** `dashboard tira.sow.create --title "Migration" -o human`.
+### UC-013: Choose the output weight
+**Implemented.** `dashboard tira.project.show -o human` reads as Markdown; `-o json` is compact machine JSON (stable key order, raw UTF-8); `-o json-pretty` restores the indented shape when a person is reading.
 
 ### UC-014: Explicit TOON
 **Implemented.** `dashboard tira.epic.create --title "Cache" -o toon`.

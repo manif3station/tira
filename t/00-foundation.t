@@ -117,8 +117,8 @@ is( $ticket_config->{next_number}, 3, 'counter persists the next unused number' 
 my $toon = $tira->format_output( { records => [ $first, $second ] } );
 like( $toon, qr/records\[2\]/, 'TOON is the default output format' );
 my $json = $tira->format_output( $first, output => 'json' );
-like( $json, qr/^\{\n/s, 'JSON output is pretty printed' );
-like( $json, qr/\n\s+"ref"\s*:\s*"TKT-001"/, 'pretty JSON contains the record reference' );
+unlike( $json, qr/\n./s, 'JSON output is compact by default (CA14)' );
+like( $json, qr/"ref":"TKT-001"/, 'compact JSON contains the record reference' );
 my $human = $tira->format_output( $first, output => 'human' );
 like( $human, qr/^# TKT-001: First ticket$/m, 'human output is Markdown' );
 

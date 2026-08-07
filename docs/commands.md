@@ -87,6 +87,10 @@ all reads and mutations and must not attempt direct filesystem access. Run
 Existing record-list commands retain their compatible array result; `--full`
 is an explicit assertion that the full records already returned are required.
 
+`-o json` is compact by default — canonical key order, raw UTF-8, one line
+— and `-o json-pretty` keeps the previous indented shape. The two carry
+identical information; whitespace was pure cost for machine callers.
+
 Gate and evidence logs read indexed: `--last`/`--first` windows over the
 newest-last order, `--id` for one entry (loud when missing), `--meta-only`
 with text lengths and annotation counts, `--where` entry filters such as

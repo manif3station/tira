@@ -1046,3 +1046,16 @@ report, message 2915 — three connected findings).
 - Red-first `t/35-log-windows.t` (31 checks); functional PASS
   `Files=36, Tests=1307`; coverage `100.0%` all three modules;
   `prove -T` PASS; `cover_db` cleaned. Browser untouched.
+
+## Latest Verification For `DD-435`
+
+- CA14: `-o json` compact (canonical, stable keys, raw UTF-8, trailing
+  newline), `-o json-pretty` preserving the indented shape;
+  presentation-only proven by information-identity and a stable-bytes
+  assertion; stdout/stderr separation pinned on failure paths.
+- `t/00-foundation.t` format contract updated with the change itself —
+  recorded as deliberate in the ticket.
+- Red-first `t/36-compact-json.t` (17 checks); functional PASS
+  `Files=37, Tests=1324`; coverage `100.0%` all three modules;
+  `prove -T` PASS; `cover_db` cleaned. Dashboard /data shrinks too;
+  dialog behavior unchanged (providers encode their own JSON).

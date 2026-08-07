@@ -409,7 +409,11 @@ const fs = require('fs');
     return route.fulfill({ status: 200, contentType: 'text/html', body: html });
   });
   let mobileTitle = 'Live browser card';
+  let mobileRecordHits = 0;
+  let mobileRecordDelay = 0;
   await mobile.route('http://tira.test/record**', async route => {
+    mobileRecordHits++;
+    if (mobileRecordDelay) await new Promise(resolve => setTimeout(resolve, mobileRecordDelay));
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...record, title: mobileTitle }) });
   });
   let mobileMoves = 0;
@@ -431,6 +435,31 @@ const fs = require('fs');
   if (sideScroll > 1) throw new Error(`modal body scrolls sideways by ${sideScroll}px`);
   const gridColumns = await mobile.locator('.card-details').first().evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length);
   if (gridColumns !== 1) throw new Error(`mobile details grid should stack to one column, got ${gridColumns}`);
+  await mobile.waitForFunction(() => {
+    const rows = document.querySelectorAll('.card-dialog [data-linkage-row]');
+    return rows.length >= 3 && [...rows].every(row => row.querySelector('.card-linkage__title').textContent !== '\u2026');
+  });
+  await mobile.evaluate(() => { document.querySelector('.card-dialog__sections').firstElementChild.__tiraStable = 1; });
+  const quietStart = mobileRecordHits;
+  await new Promise(resolve => setTimeout(resolve, 7000));
+  const quietHits = mobileRecordHits - quietStart;
+  if (quietHits > 2)
+    throw new Error(`an unchanged card must not refetch its linked rows: ${quietHits} record reads in one quiet cycle`);
+  const stableNode = await mobile.evaluate(() => !!document.querySelector('.card-dialog__sections').firstElementChild.__tiraStable);
+  if (!stableNode) throw new Error('an identical refresh cycle rebuilt the dialog DOM');
+
+  mobileRecordDelay = 600;
+  mobileTitle = 'Race change';
+  const raceStart = mobileRecordHits;
+  for (let i = 0; i < 400 && mobileRecordHits === raceStart; i++) await new Promise(resolve => setTimeout(resolve, 25));
+  await mobile.locator('.card-dialog [data-edit="title"]').click();
+  await new Promise(resolve => setTimeout(resolve, 1200));
+  const editorAlive = await mobile.evaluate(() => !!document.querySelector('.card-dialog h2 .card-edit-input'));
+  if (!editorAlive) throw new Error('an in-flight refresh evicted an active editor');
+  mobileRecordDelay = 0;
+  await mobile.evaluate(() => document.querySelector('.card-dialog .card-edit-cancel').click());
+  await mobile.waitForFunction(() => document.querySelectorAll('.card-dialog h2 .card-edit-input').length === 0);
+
   mobileTitle = 'Edited elsewhere';
   await mobile.waitForFunction(() => document.querySelector('.card-dialog h2')?.textContent.includes('Edited elsewhere'), null, { timeout: 15000 });
   await mobile.locator('.card-dialog__close').click();

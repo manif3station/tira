@@ -56,6 +56,11 @@ like( $live_html, qr/card-linkage__title/, 'linkage rows carry the linked title'
 like( $live_html, qr/card-linkage__status/, 'linkage rows carry the linked status' );
 like( $live_html, qr/priorityRank/, 'linkage rows sort by priority' );
 like( $live_html, qr/data-linkage-row/, 'linkage rows are addressable for tooling' );
+like( $live_html, qr/lastDialogRecordJson/, 'the dialog keeps a rendered-content snapshot (DD-438)' );
+like( $live_html, qr/JSON\.stringify\(record\)===lastDialogRecordJson/,
+    'an identical refresh repaints nothing' );
+like( $live_html, qr/\|\|dialogEditingActive\(\)\)return/,
+    'the editing guard re-checks after the refresh fetch returns' );
 for my $section (qw(Details Description Checklist Comments)) {
     like( $live_html, qr/\Q$section\E/, "the dialog knows the $section section" );
 }

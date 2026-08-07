@@ -1091,3 +1091,19 @@ report, message 2915 — three connected findings).
   (main read + three linked lookups). Playwright ×3 green; functional
   PASS `Files=38, Tests=1352`; coverage `100.0%`; `prove -T` PASS;
   `cover_db` cleaned; screenshots reviewed.
+
+## Latest Verification For `DD-438`
+
+- Owner video (2969): linkage re-reading every cycle on an unchanged
+  epic; editors evicted by in-flight refreshes. Loop record in the
+  ticket; pre-fix reproduction failed exactly as predicted ("4 record
+  reads in one quiet cycle").
+- Fix: refresh compares the fetched record against the rendered
+  snapshot (repaint only on real change) and re-checks the editing
+  guard after the fetch. reloadCard stays the force path for user
+  actions.
+- Permanent guards: quiet-cycle fetch budget (≤2 reads/7s) + DOM node
+  stability tag + delayed-response editor race in the Playwright mobile
+  pass; t/19 pins `lastDialogRecordJson`, the identical-skip, and the
+  post-fetch re-check. Playwright ×3 green; functional PASS
+  `Files=38, Tests=1355`; coverage `100.0%`; `prove -T` PASS.

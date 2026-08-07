@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.58):** shipped, executable, and covered by tests.
+- **Implemented (0.59):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.58.
+All commands and use cases in this manual ship in release 0.59.
 
 ## Global invocation grammar
 
@@ -258,7 +258,11 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   re-asked with the reason. Declining the confirmation exits 1 and creates
   nothing; reaching the end of input aborts and creates nothing.
   `tira.project.new` itself never asks anything, so scripts and agents calling
-  it can never be left waiting.
+  it can never be left waiting. At a terminal every answer is editable: Ctrl-A
+  and Ctrl-E jump to the start and end of the line, Ctrl-U clears it, Ctrl-K
+  cuts to the end, the arrows and Home/End move the cursor, and Ctrl-C or
+  Ctrl-D abandons the prompt. Away from a terminal the prompt is a plain read,
+  so piping answers in behaves exactly as before.
 - `tira.project.show [-o FORMAT]` — **Implemented.**
 - `tira.project.update [--name TEXT] [--dashboard-host HOST] [--dashboard-port PORT]
   [-o FORMAT]` — **Implemented.** Renames a project, and **Implemented
@@ -270,6 +274,10 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   uses the remembered address; an address written on the command line, such as
   `-o browser=localhost:8080`, still wins; a project that has never set one
   serves `0.0.0.0:7899` as always. `tira.project.show` reports it.
+  `--listen HOST` or `--listen HOST:PORT` is the compact form of the two.
+  A path beginning with `~` means the user's home directory wherever it is
+  accepted — typed at a prompt, or written as `--dir "~/work"`, which a shell
+  does not expand.
 - `tira.project.people.list [-o FORMAT]` — **Implemented.**
 - `tira.project.people.add --id ID --name TEXT [--email EMAIL] [-o FORMAT]` — **Implemented.**
 - `tira.project.people.update --id ID [--name TEXT] [--email EMAIL|""] [-o FORMAT]` — **Implemented.**

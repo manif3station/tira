@@ -104,6 +104,14 @@ with text lengths and annotation counts, `--where` entry filters such as
 `result=fail`, and `--count`. Annotations stay with their parent entry;
 reading an append-only log never mutates it.
 
+Prompted answers are editable at a terminal — Ctrl-A, Ctrl-E, Ctrl-U, Ctrl-K,
+arrows, Home and End — written directly against core POSIX termios, because no
+`Term::ReadLine` editing implementation is installed on the host or in the test
+image and depending on one would have delivered nothing. Away from a terminal
+the prompt falls back to a plain read. A leading `~` expands to the user's home
+directory wherever a path is accepted, including at a prompt and inside a
+quoted `--dir`, where a shell would not have expanded it.
+
 A project remembers the address its live dashboard should listen on:
 `tira.project.update --dashboard-host localhost --dashboard-port 8080` stores it,
 `project.show` reports it, and `-o browser` uses it. Precedence is stated rather

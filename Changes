@@ -1,5 +1,21 @@
 Revision history for Tira
 
+0.59  2026-08-08
+    - A leading ~ now means the home directory wherever a path is
+      accepted (owner report: answering the directory question with
+      ~/foo/bar created a directory literally named ~). That covers the
+      guided prompts and a quoted --dir or --project, which a shell
+      never expands.
+    - Prompts are editable at a terminal: Ctrl-A and Ctrl-E as asked,
+      plus Ctrl-U, Ctrl-K, backspace, arrows and Home/End, written
+      against core POSIX termios rather than a Term::ReadLine editing
+      module, none of which is installed anywhere this runs. Away from a
+      terminal the prompt stays a plain read.
+    - project.update gained --listen HOST[:PORT] as the compact form of
+      --dashboard-host and --dashboard-port.
+    - Fixed: pressing enter past the people question in the guided setup
+      reported "Every member needs a name" instead of meaning "none".
+
 0.58  2026-08-07
     - A project now remembers its dashboard address:
       `tira.project.update --dashboard-host localhost --dashboard-port

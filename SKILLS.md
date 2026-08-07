@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.44):** shipped, executable, and covered by tests.
+- **Implemented (0.45):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.44.
+All commands and use cases in this manual ship in release 0.45.
 
 ## Global invocation grammar
 
@@ -397,6 +397,16 @@ ids — enough to act without a further read — and `now` for chaining.
 snapshot comparison; `--count` answers whether to look; an empty diff is
 an explicit empty result. Exactly one baseline is required; diff never
 writes, and storing a snapshot is the separate export call.
+Indexed log reads are **Implemented (DD-434)** on the gate and evidence
+lists, whose entries are append-only and stored newest-last: `--last N`
+is the recent history (`--last 1` answers "what did it last pass?" at
+constant cost), `--first N` the origins, a zero window or `--count`
+returns `{"count": N}`, and `--id` returns one entry with a loud miss.
+`--meta-only` keeps ids, results, uris, authors, and stamps while
+replacing the unbounded text with `details_length`/`summary_length` and
+`annotation_count`. `--where` filters entries (`result=fail` is the one
+that matters) with the same loud unknown-field rule. Annotations always
+ride with their parent entry; reads never mutate the logs.
 Clone creates a Backlog record, shares attachment refs, clears hierarchy, and
 adds reciprocal clone links.
 
@@ -486,10 +496,10 @@ All are **Implemented (DD-389)**:
 tira.checklist.list --ref REF [-o FORMAT]
 tira.checklist.add --ref REF --item TEXT --status TEXT [-o FORMAT]
 tira.checklist.update --ref REF --id CHK-NNN [--item TEXT] [--status TEXT] [-o FORMAT]
-tira.evidence.list --ref REF [-o FORMAT]
+tira.evidence.list --ref REF [--last N|--first N] [--id EVD-NNN] [--meta-only] [--where CLAUSE ...] [--count] [-o FORMAT]
 tira.evidence.add --ref REF --summary TEXT [--uri URI] [--file PATH] [--author ID] [-o FORMAT]
 tira.evidence.annotate --ref REF --id EVD-NNN --note TEXT [--author ID] [-o FORMAT]
-tira.gate.list --ref REF [-o FORMAT]
+tira.gate.list --ref REF [--last N|--first N] [--id GATE-NNN] [--meta-only] [--where CLAUSE ...] [--count] [-o FORMAT]
 tira.gate.add --ref REF --gate TEXT --result pass|fail|blocked --details TEXT [--author ID] [-o FORMAT]
 tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]
 tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--count] [--brief] [--truncate N|--full] [--where CLAUSE ...] [-o FORMAT]
@@ -916,8 +926,8 @@ without revealing or creating a storage location.
 ### UC-097: Add evidence
 **Implemented.** `dashboard tira.evidence.add --ref TKT-001 --summary "CI" --uri https://ci.example.test/1 --file result.xml --author ada`.
 
-### UC-098: Record and annotate gates, evidence, and checklists
-**Implemented.** Add a gate, then append a correction with `dashboard tira.gate.annotate --ref TKT-001 --id GATE-001 --note "Use local docs" --author ada`; evidence uses `tira.evidence.annotate` with `EVD-NNN`. Manage retained checklists with add, list, and update; there is no remove command.
+### UC-098: Record, annotate, and cheaply re-read gates, evidence, and checklists
+**Implemented.** Add a gate, then append a correction with `dashboard tira.gate.annotate --ref TKT-001 --id GATE-001 --note "Use local docs" --author ada`; evidence uses `tira.evidence.annotate` with `EVD-NNN`. Manage retained checklists with add, list, and update; there is no remove command. `dashboard tira.gate.list --ref TKT-001 --last 1 -o json` reads the newest gate entry at constant cost, and `--where result=fail --meta-only` lists every failure without the details text.
 
 ### UC-099: Search and correct migrations in bulk
 **Implemented.** Repeat fields in one reviewable pass: `dashboard tira.search --text Jira --field description --field atdd -o json` and `dashboard tira.replace --pattern Jira --with Local --field description --field atdd --dry-run -o json`. Import preview `dashboard tira.import --file changes.json --dry-run -o json` returns `changes[]` entries containing `ref`, `field`, `before`, and `after`; omit dry-run only after reviewing every diff.

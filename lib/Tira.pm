@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.44';
+our $VERSION = '0.45';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -577,13 +577,15 @@ sub _changed_since {
 # (scalars simply never match). Unknown fields and operatorless clauses
 # die so a typo can never read as "none exist".
 sub _parse_where {
-    my ($clauses) = @_;
+    my ( $clauses, $known, $label ) = @_;
     return undef if !defined $clauses;
+    $known //= \%RECORD_FIELD;
+    $label //= '';
     my @parsed;
     for my $raw ( @{$clauses} ) {
         my ( $field, $operator, $value ) = ( $raw // '' ) =~ /\A([A-Za-z_]+)(!=|~|=)(.*)\z/s
           or die "Where filter must be FIELD=VALUE, FIELD!=VALUE, or FIELD~VALUE\n";
-        die "Unknown field '$field'\n" if !$RECORD_FIELD{$field};
+        die "Unknown ${label}field '$field'\n" if !$known->{$field};
         push @parsed, { field => $field, operator => $operator, value => $value };
     }
     return \@parsed;
@@ -1583,9 +1585,69 @@ sub record_clone {
     return $self->record_show( project => $args{project}, ref => $clone->{ref} );
 }
 
+# CA20: one indexed reader for both append-only logs. Windows over the
+# newest-last storage order, read-by-id with loud misses, entry-level
+# where clauses, and metadata that keeps results and uris while
+# reporting only the length of the unbounded text. Reads never mutate.
+my %LOG_SPEC = (
+    gate_passing_log => {
+        label => 'gate', text => 'details',
+        fields => { map { $_ => 1 } qw(id gate result details author created_at) },
+    },
+    evidence => {
+        label => 'evidence', text => 'summary',
+        fields => { map { $_ => 1 } qw(id summary uri author created_at) },
+    },
+);
+
+sub _log_entry_meta {
+    my ( $entry, $spec ) = @_;
+    my %meta = %{$entry};
+    my $text = delete $meta{ $spec->{text} };
+    delete $meta{annotations};
+    $meta{ $spec->{text} . '_length' } = length( $text // '' );
+    $meta{annotation_count} = scalar @{ $entry->{annotations} // [] };
+    return \%meta;
+}
+
+sub _indexed_log_read {
+    my ( $self, $log_field, %args ) = @_;
+    my $spec = $LOG_SPEC{$log_field};
+    my $last = delete $args{last};
+    my $first = delete $args{first};
+    my $id = delete $args{id};
+    my $meta_only = delete $args{meta_only};
+    my $count_mode = delete $args{count};
+    my $where_raw = delete $args{where};
+    die "Cannot combine --first with --last\n" if defined $first && defined $last;
+    for my $window ( grep { defined } $first, $last ) {
+        die "Log windows must be zero or a positive count\n" if $window < 0;
+    }
+    my $where = _parse_where( $where_raw, $spec->{fields}, "$spec->{label} " );
+    my $entries = $self->record_show(%args)->{$log_field};
+    if ( defined $id ) {
+        my ($entry) = grep { ( $_->{id} // '' ) eq $id } @{$entries};
+        die "\u$spec->{label} entry '$id' not found\n" if !$entry;
+        return $meta_only ? _log_entry_meta( $entry, $spec ) : $entry;
+    }
+    $entries = [ grep { _where_matches( $_, $where ) } @{$entries} ] if $where;
+    my $total = scalar @{$entries};
+    return { count => $total }
+      if $count_mode || ( defined $last && $last == 0 ) || ( defined $first && $first == 0 );
+    if ( defined $last ) {
+        my $window = $last > $total ? $total : $last;
+        $entries = $window ? [ @{$entries}[ $total - $window .. $total - 1 ] ] : [];
+    }
+    elsif ( defined $first ) {
+        my $window = $first > $total ? $total : $first;
+        $entries = [ @{$entries}[ 0 .. $window - 1 ] ];
+    }
+    return $meta_only ? [ map { _log_entry_meta( $_, $spec ) } @{$entries} ] : $entries;
+}
+
 sub evidence_list {
     my ( $self, %args ) = @_;
-    return $self->record_show(%args)->{evidence};
+    return $self->_indexed_log_read( 'evidence', %args );
 }
 
 sub evidence_add {
@@ -1615,7 +1677,7 @@ sub evidence_annotate {
 
 sub gate_list {
     my ( $self, %args ) = @_;
-    return $self->record_show(%args)->{gate_passing_log};
+    return $self->_indexed_log_read( 'gate_passing_log', %args );
 }
 
 sub gate_add {

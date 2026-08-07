@@ -87,6 +87,12 @@ all reads and mutations and must not attempt direct filesystem access. Run
 Existing record-list commands retain their compatible array result; `--full`
 is an explicit assertion that the full records already returned are required.
 
+Gate and evidence logs read indexed: `--last`/`--first` windows over the
+newest-last order, `--id` for one entry (loud when missing), `--meta-only`
+with text lengths and annotation counts, `--where` entry filters such as
+`result=fail`, and `--count`. Annotations stay with their parent entry;
+reading an append-only log never mutates it.
+
 `tira.diff` is the watcher: `--since T` lists added/changed records with
 their current column, gate, title, and new-comment ids plus `now` for the
 next poll; `--snapshot FILE` (a saved `tira.export --include-empty -o json`)

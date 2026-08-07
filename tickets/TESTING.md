@@ -1035,3 +1035,14 @@ report, message 2915 — three connected findings).
   edited comment and a labels change exercise the changed-marker
   branches); functional PASS `Files=35, Tests=1276`; coverage `100.0%`
   all three modules; `prove -T` PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-434`
+
+- CA20: `_indexed_log_read` over both append-only logs — windows,
+  read-by-id with loud misses, meta-only with text lengths and
+  annotation counts, entry-level `--where` via the generalized clause
+  parser, count/zero-window existence checks; annotations ride their
+  entries; plain reads unchanged.
+- Red-first `t/35-log-windows.t` (31 checks); functional PASS
+  `Files=36, Tests=1307`; coverage `100.0%` all three modules;
+  `prove -T` PASS; `cover_db` cleaned. Browser untouched.

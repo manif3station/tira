@@ -1,5 +1,13 @@
 Revision history for Tira
 
+0.45  2026-08-07
+    - CA20 (EPIC-424): indexed reads on the append-only gate and
+      evidence logs. --last/--first windows (newest last), --id with
+      loud misses, --meta-only keeping results/uris/authors/stamps with
+      text lengths and annotation counts, entry-level --where
+      (result=fail), zero windows and --count as existence checks.
+      Annotations ride with their entries; reads never mutate.
+
 0.44  2026-08-07
     - CA13 (EPIC-424): first-class tira.diff. Since mode: added/changed
       kinds with current column, gate, title, new-comment ids, and now

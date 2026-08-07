@@ -476,17 +476,18 @@ sub _invoke {
       if $command =~ /\A(?:record\.(?:show|list)|export)\z/ && !$option->{include_empty};
     die "Conditional reads are available on show and export commands\n"
       if defined $option->{if_changed} && $command !~ /\A(?:record\.show|export)\z/;
-    die "Count is available on list, export, and search commands, and the comment and attachment lists\n"
-      if $option->{count} && $command !~ /\A(?:record\.list|export|search|comment\.list|attachment\.list|diff)\z/;
+    die "Count is available on list, export, and search commands, and the comment, attachment, gate, and evidence lists\n"
+      if $option->{count} && $command !~ /\A(?:record\.list|export|search|comment\.list|attachment\.list|gate\.list|evidence\.list|diff)\z/;
     die "Snapshot baselines are available on the diff command\n"
       if defined $option->{snapshot} && $command ne 'diff';
-    die "Windows (--last/--first) are available on the comment list command\n"
-      if ( defined $option->{last} || defined $option->{first} ) && $command ne 'comment.list';
-    die "Meta-only is available on the comment and attachment lists, show, list, and export\n"
+    die "Windows (--last/--first) are available on the comment list, gate list, and evidence list commands\n"
+      if ( defined $option->{last} || defined $option->{first} )
+      && $command !~ /\A(?:comment|gate|evidence)\.list\z/;
+    die "Meta-only is available on the comment and attachment lists, gate and evidence lists, show, list, and export\n"
       if $option->{meta_only}
-      && $command !~ /\A(?:comment\.list|attachment\.list|record\.(?:show|list)|export)\z/;
-    die "Where filtering is available on list and export commands\n"
-      if defined $option->{where} && $command !~ /\A(?:record\.list|export)\z/;
+      && $command !~ /\A(?:comment\.list|attachment\.list|gate\.list|evidence\.list|record\.(?:show|list)|export)\z/;
+    die "Where filtering is available on list and export commands, and the gate and evidence lists\n"
+      if defined $option->{where} && $command !~ /\A(?:record\.list|export|gate\.list|evidence\.list)\z/;
     my @batch_refs = (
         @{ $option->{ref_list} // [] } > 1 ? @{ $option->{ref_list} } : (),
         defined $option->{refs} ? ( split /,/, $option->{refs} ) : (),

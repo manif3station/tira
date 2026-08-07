@@ -1,5 +1,14 @@
 Revision history for Tira
 
+0.51  2026-08-07
+    - Column-width toggle in every board header (owner photo, message
+      2976): Standard keeps today's fixed-width scrollable columns, Fit
+      all shrinks every column so a wide board — the reported case had
+      twelve — is fully visible without sideways scrolling. The choice
+      applies to all boards, persists in browser storage, degrades to
+      Standard when storage is blocked, and narrow screens keep
+      scrollable columns while the desktop preference is preserved.
+
 0.50  2026-08-07
     - The dashboard's default live-refresh interval is now 60 seconds
       (was 5). `?refresh=N` still selects any positive interval and

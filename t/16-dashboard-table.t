@@ -42,6 +42,17 @@ like( $html, qr/class="refresh-status"/, 'table displays its active refresh inte
 like( $html, qr/>Refresh 60s</, 'the default refresh interval is 60 seconds' );
 like( $html, qr/Math\.max\(1,Number\(rawRefresh\)\):60;/,
     'the script falls back to the 60-second default for missing or invalid values' );
+is( scalar( () = $html =~ /class="widther"/g ), 3,
+    'every board header offers the column-width toggle (DD-440)' );
+like( $html, qr/data-width="standard" class="is-active"/, 'standard width is the shipped default' );
+like( $html, qr/data-width="fit"/, 'fit-all is the alternative' );
+like( $html, qr/localStorage\.setItem\(widthStorageKey/, 'the width choice persists to browser storage' );
+like( $html, qr/localStorage\.getItem\(widthStorageKey/, 'the stored width choice is read back on load' );
+like( $html, qr/catch\(error\)\{return null\}/, 'unavailable storage degrades to the default rather than failing' );
+like( $html, qr/html\[data-width="fit"\] th,html\[data-width="fit"\] td\{min-width:0/,
+    'fit mode lets columns shrink to the container' );
+like( $html, qr/\@media\(max-width:720px\)\{html\[data-width="fit"\] \.board__scroll\{overflow-x:auto\}/,
+    'narrow screens keep scrollable columns while the preference is preserved' );
 like( $html, qr/class="last-updated"/, 'table displays when its data was last updated' );
 like( $html, qr/URLSearchParams.*refresh.*location\.reload.*setTimeout/s,
     'table embeds query-controlled automatic reload logic' );

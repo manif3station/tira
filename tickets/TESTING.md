@@ -1120,3 +1120,20 @@ report, message 2915 — three connected findings).
 - Playwright ×3 green; functional PASS `Files=38, Tests=1357`;
   coverage `100.0%` all three modules; `prove -T` PASS; `cover_db` and
   fixtures cleaned.
+
+## Latest Verification For `DD-440`
+
+- Owner photo (2976): >9 columns forced sideways scrolling. Shipped a
+  Standard/Fit-all toggle in every board header, global across boards,
+  persisted in `localStorage` (blocked storage → Standard), applied
+  before `data-ready` so a remembered choice never flashes.
+- Red-first Playwright guard failed as designed ("the board must start
+  in standard width mode"), then covered: default state, fit removing
+  min-widths and overflow, active-button marking, persistence across
+  reload in both directions, and re-application on load.
+- t/16 pins the toggle in all three board headers, the storage read /
+  write / fallback, the fit CSS, and the narrow-screen revert.
+- Visual review on a twelve-column board in both modes changed the fit
+  typography (word-boundary wrapping and a smaller card title) before
+  shipping. Playwright ×3 green; functional PASS
+  `Files=38, Tests=1365`; coverage `100.0%`; `prove -T` PASS.

@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.50):** shipped, executable, and covered by tests.
+- **Implemented (0.51):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.50.
+All commands and use cases in this manual ship in release 0.51.
 
 ## Global invocation grammar
 
@@ -575,6 +575,12 @@ commands print one board. Columns run left-to-right. Embedded CSS provides the
 responsive visual design, while embedded JavaScript lets the viewer select
 cards and reorder each board by last modified or card ref. Table output remains
 ref-only unless `--title` is supplied and uses no external resources.
+Each board header carries a column-width toggle: Standard (the default) keeps
+fixed-width scrollable columns, Fit all shrinks every column so a wide board
+fits without sideways scrolling. The choice applies to every board, is
+remembered in browser storage across reloads, and falls back to Standard when
+storage is unavailable; screens under 720px keep scrollable columns while the
+saved preference is preserved for the desktop.
 The page reloads every sixty seconds by default and shows the active interval;
 `?refresh=30` selects 30 seconds, invalid values fall back to sixty, and zero is
 clamped to one. `-o browser` serves this same live HTML at `0.0.0.0:7899`.

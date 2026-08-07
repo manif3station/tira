@@ -1,5 +1,14 @@
 Revision history for Tira
 
+0.48  2026-08-07
+    - CA21 (owner messages 2951/2953): the dialog's Linkage section
+      renders as a table-style list like Attachments — each linked
+      record as a row with its ref chip, live title, and column status
+      pill, sorted by priority (highest first, unknown last); typed
+      links keep their relationship label in a compact typed row.
+      Details load through the existing /record provider with per-render
+      caching; all linkage edit controls and payloads are unchanged.
+
 0.47  2026-08-07
     - CA18 (EPIC-424): opt-in read-through cache, disabled by default.
       --cache-ttl N enables per call on read commands; entries key on

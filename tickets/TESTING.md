@@ -1074,3 +1074,20 @@ report, message 2915 — three connected findings).
   with a regex untaint); functional PASS `Files=38, Tests=1347`;
   coverage `100.0%` all three modules; `prove -T` PASS; `cover_db`
   cleaned. Browser untouched.
+
+## Latest Verification For `DD-437` (CA21)
+
+- Linkage renders as table rows (ref chip, live title, status pill)
+  sorted by priority desc via `/record` lookups with per-render
+  caching; typed links keep their label in a compact `--typed` grid
+  variant; every linkage mutation contract untouched (t/23 unchanged).
+- Visual review caught two things the assertions did not: the typed-row
+  ref chip stretching (grid fixed with the `--typed` variant) and the
+  stale-fixture trap — a static `pw.html` bakes the old renderer, so
+  fixtures must regenerate before any re-check.
+- Guards: t/19 pins the table classes, `priorityRank`, and
+  `data-linkage-row`; Playwright asserts row content, priority order,
+  and the typed label, and the dialog-open detail count moved 1 → 4
+  (main read + three linked lookups). Playwright ×3 green; functional
+  PASS `Files=38, Tests=1352`; coverage `100.0%`; `prove -T` PASS;
+  `cover_db` cleaned; screenshots reviewed.

@@ -34,7 +34,7 @@ const fs = require('fs');
       { sha: '9'.repeat(64), extension: 'tiff', original_filename: 'scan.tiff', added_at: '2026-08-01T09:00:00+0100' },
       { sha: 'e'.repeat(64), extension: 'txt', original_filename: 'fresh.txt', added_at: '2026-08-05T10:00:00+0100' }],
     subtasks: [],
-    linkage: { epic_ref: null, parent_ticket_ref: null, sub_ticket_refs: ['TKT-005'], links: [{ type: 'blocks', ref: 'TKT-009' }] },
+    linkage: { epic_ref: null, parent_ticket_ref: null, sub_ticket_refs: ['TKT-004', 'TKT-005'], links: [{ type: 'blocks', ref: 'TKT-009' }] },
     comments: [
       { id: 'CMT-001', author: 'ada', format: 'markdown', body: 'First **bold** comment',
         attachments: [{ sha: 'b'.repeat(64), extension: 'png', original_filename: 'diagram.png', added_at: '2026-08-04T10:00:00+0100' }],
@@ -58,7 +58,14 @@ const fs = require('fs');
     if (requestUrl.pathname === '/record') {
       detailRequests++;
       const askedRef = requestUrl.searchParams.get('ref') || 'TKT-001';
-      const served = { ...record, ref: askedRef, title: askedRef === 'TKT-001' ? record.title : 'Resident card' };
+      const linked = {
+        'TKT-004': { title: 'Low priority child', column: 'backlog', priority: 1 },
+        'TKT-005': { title: 'High priority child', column: 'in-progress', priority: 5 },
+        'TKT-009': { title: 'Blocked partner', column: 'backlog', priority: 3 },
+      };
+      const served = linked[askedRef]
+        ? { ...record, ref: askedRef, linkage: { links: [] }, comments: [], attachments: [], ...linked[askedRef] }
+        : { ...record, ref: askedRef, title: askedRef === 'TKT-001' ? record.title : 'Resident card' };
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(served) });
     }
     if (requestUrl.pathname === '/people') {
@@ -132,7 +139,7 @@ const fs = require('fs');
   let before = 0;
   await page.locator('[data-ref="TKT-001"] .card').click();
   await page.waitForFunction(() => document.querySelector('.card-dialog')?.open);
-  if (detailRequests !== 1) throw new Error(`lazy detail request missing: ${detailRequests}`);
+  if (detailRequests !== 4) throw new Error(`expected the lazy record read plus three linked-row lookups, got ${detailRequests}`);
 
   const sections = page.locator('.card-dialog .card-dialog__sections');
   const sectionText = await sections.textContent();
@@ -179,6 +186,26 @@ const fs = require('fs');
     throw new Error('a conflicted save must reload the card so the user sees the fresh value');
   const conflictErrorHidden = await page.locator('.card-dialog__error').evaluate(node => node.hidden);
   if (conflictErrorHidden) throw new Error('the conflict message must stay visible after the reload');
+
+  await page.waitForFunction(() => {
+    const rows = document.querySelectorAll('.card-dialog [data-linkage-row]');
+    return rows.length >= 3 && [...rows].every(row => row.querySelector('.card-linkage__title').textContent !== '\u2026');
+  });
+  const childRows = await page.locator('.card-dialog .card-linkage-table [data-linkage-row]').evaluateAll(rows =>
+    rows.filter(row => ['TKT-004', 'TKT-005'].includes(row.getAttribute('data-linkage-row')))
+      .map(row => ({
+        ref: row.getAttribute('data-linkage-row'),
+        title: row.querySelector('.card-linkage__title').textContent,
+        status: row.querySelector('.card-linkage__status').textContent,
+      })));
+  if (childRows.length !== 2) throw new Error(`expected two linked child rows, got ${JSON.stringify(childRows)}`);
+  if (childRows[0].ref !== 'TKT-005' || childRows[1].ref !== 'TKT-004')
+    throw new Error(`linkage rows must sort by priority, got ${childRows.map(row => row.ref).join(',')}`);
+  if (childRows[0].title !== 'High priority child' || childRows[0].status !== 'in-progress')
+    throw new Error(`linkage rows must show title and status, got ${JSON.stringify(childRows[0])}`);
+  const blockedRow = await page.locator('.card-dialog [data-linkage-row="TKT-009"]').first();
+  const blockedType = await blockedRow.locator('.card-linkage__type').textContent();
+  if (blockedType !== 'blocks') throw new Error(`typed link rows must keep their type, got ${blockedType}`);
 
   const commentIds = await page.locator('.card-dialog .card-comment').evaluateAll(nodes => nodes.map(node => node.dataset.comment));
   if (JSON.stringify(commentIds) !== JSON.stringify(['CMT-002', 'CMT-001'])) throw new Error(`comments are not newest-first: ${commentIds}`);

@@ -51,6 +51,11 @@ unlike( $live_html, qr/JSON\.stringify\(record,\s*null/,
     'the dialog never renders the record as one JSON blob' );
 like( $live_html, qr/renderCard/, 'the dialog builds its sections from the record' );
 like( $live_html, qr/card-status/, 'the dialog header offers the column dropdown' );
+like( $live_html, qr/card-linkage-table/, 'linkage renders as a table-style list (CA21)' );
+like( $live_html, qr/card-linkage__title/, 'linkage rows carry the linked title' );
+like( $live_html, qr/card-linkage__status/, 'linkage rows carry the linked status' );
+like( $live_html, qr/priorityRank/, 'linkage rows sort by priority' );
+like( $live_html, qr/data-linkage-row/, 'linkage rows are addressable for tooling' );
 for my $section (qw(Details Description Checklist Comments)) {
     like( $live_html, qr/\Q$section\E/, "the dialog knows the $section section" );
 }

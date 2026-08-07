@@ -87,6 +87,12 @@ all reads and mutations and must not attempt direct filesystem access. Run
 Existing record-list commands retain their compatible array result; `--full`
 is an explicit assertion that the full records already returned are required.
 
+Batch reads collapse N invocations into one: repeat `--ref` or pass
+`--refs A,B,C` to show, and the response is keyed by ref with the request
+order preserved, explicit not-found markers for missing refs, a 100-ref
+documented maximum, and full composition with projection and brief. A bad
+ref never loses the call; a bad option never half-succeeds.
+
 `--where` on list and export filters server-side: repeatable ANDed clauses
 with `=` equality, `=` against an empty value meaning empty-or-unset, `!=`
 inequality (and `!=` empty meaning has-a-value), and `~` case-insensitive

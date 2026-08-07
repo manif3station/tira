@@ -1008,3 +1008,17 @@ report, message 2915 — three connected findings).
 - Red-first `t/32-where.t` (24 checks); functional PASS
   `Files=33, Tests=1222`; coverage `100.0%` all three modules;
   `prove -T` PASS; `cover_db` cleaned. Browser untouched.
+
+## Latest Verification For `DD-432`
+
+- CA19: `record_show_many` + CLI batch surface (`--ref` repeatable,
+  `--refs` list, both composing). Keyed-by-ref `{records, order,
+  count}`, explicit not-found markers with the rest preserved,
+  cross-type batches, 100-ref documented ceiling, loud whole-call
+  validation, projection composition, if-changed refusal naming the
+  hash-sweep alternative, single-ref behavior byte-compatible.
+- Red-first `t/33-batch.t` (25 checks after the coverage close: the
+  single `--ref` + `--refs` composition branch needed its own
+  scenario); functional PASS `Files=34, Tests=1247`; coverage `100.0%`
+  all three modules;
+  `prove -T` PASS; `cover_db` cleaned. Browser untouched.

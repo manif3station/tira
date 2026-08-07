@@ -39,7 +39,8 @@ sub run {
         'type=s' => \$option{type}, 'label=s@' => \$option{labels},
         'after=s' => \$option{after}, 'before=s' => \$option{before},
         'new-name=s' => \$option{new_name}, 'prefix=s' => \$option{prefix},
-        'digits=i' => \$option{digits}, 'ref=s' => \$option{ref},
+        'digits=i' => \$option{digits}, 'ref=s@' => \$option{ref_list},
+        'refs=s' => \$option{refs},
         'column=s' => \$option{column}, 'parent=s' => \$option{parent},
         'child=s' => \$option{child},
         'text=s' => \$option{text}, 'problem|problem-or-feature=s' => \$option{problem_or_feature},
@@ -88,6 +89,7 @@ sub run {
         'set-affects-versions=s' => \$option{set_affects_versions},
     );
     return _error( $tira, $option{output}, 'Invalid command-line options' ) if !$parsed || @{$argv};
+    $option{ref} = $option{ref_list}[-1] if $option{ref_list};
 
     if ( $option{help} ) {
         print _usage( $command, $type );
@@ -482,6 +484,22 @@ sub _invoke {
       && $command !~ /\A(?:comment\.list|attachment\.list|record\.(?:show|list)|export)\z/;
     die "Where filtering is available on list and export commands\n"
       if defined $option->{where} && $command !~ /\A(?:record\.list|export)\z/;
+    my @batch_refs = (
+        @{ $option->{ref_list} // [] } > 1 ? @{ $option->{ref_list} } : (),
+        defined $option->{refs} ? ( split /,/, $option->{refs} ) : (),
+    );
+    if (@batch_refs) {
+        die "Multiple refs are only available on show\n" if $command !~ /\Arecord\.show\z/;
+        die "Conditional reads do not batch; poll with export --fields ref,content_hash instead\n"
+          if defined $option->{if_changed};
+        @batch_refs = ( @{ $option->{ref_list} // [] }, @batch_refs )
+          if @{ $option->{ref_list} // [] } == 1 && defined $option->{refs};
+        $args{refs} = \@batch_refs;
+        delete $args{ref};
+        delete $args{ref_list};
+    }
+    delete $args{ref_list};
+    delete $args{refs} if !@batch_refs;
     die "Refs-only is available on list and search commands\n"
       if $option->{refs_only} && $command !~ /\A(?:record\.list|search)\z/;
     $args{type} = $record_type if defined $record_type;
@@ -533,6 +551,7 @@ sub _invoke {
 
     if ( $command =~ /\Arecord\.(show|list|update|move|discard|restore|clone)\z/ ) {
         my $action = $1;
+        return $tira->record_show_many(%args) if $action eq 'show' && $args{refs};
         return $tira->record_show(%args) if $action eq 'show';
         return $tira->record_list(%args) if $action eq 'list';
         return $tira->record_update(%args) if $action eq 'update';

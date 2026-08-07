@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.42):** shipped, executable, and covered by tests.
+- **Implemented (0.43):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.42.
+All commands and use cases in this manual ship in release 0.43.
 
 ## Global invocation grammar
 
@@ -278,7 +278,7 @@ They create independent Backlog records with empty linkage. These symmetric
 forms are **Implemented (DD-389)** for each `TYPE`:
 
 ```text
-tira.TYPE.show --ref REF [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--brief] [--truncate N|--full] [-o FORMAT]
+tira.TYPE.show (--ref REF ...|--refs LIST) [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--brief] [--truncate N|--full] [-o FORMAT]
 tira.TYPE.list [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--count] [--refs-only] [--brief] [--truncate N|--full] [--where CLAUSE ...] [-o FORMAT]
 tira.TYPE.update --ref REF [record field arguments] [-o FORMAT]
 tira.TYPE.move --ref REF --column SLUG [-o FORMAT]
@@ -374,6 +374,17 @@ nothing rather than erroring. Computed fields (`content_hash`,
 `attachment_count`, `column`, `parent`) are filterable. An unknown field
 or an operatorless clause exits 2 — a typo can never read as "none
 exist". Composes with `--fields`, `--count`, and `--since`.
+Batch reads are **Implemented (DD-432)** on show: repeat `--ref` or pass
+`--refs A,B,C` (both compose) and the response is
+`{records, order, count}` — records keyed by ref, `order` preserving the
+request, duplicates collapsed. A missing ref is an explicit
+`{"not_found": true}` marker and never loses the rest of the call; a
+validation error fails the whole call with exit 2 before any lookup.
+Batches cross record types freely, accept at most 100 refs (a clear
+error beyond, never silent truncation), compose with every read option
+except `--if-changed`, which is refused with exit 2 in favor of the
+cheaper `export --fields ref,content_hash` poll. Multiple refs on any
+other command exit 2.
 Clone creates a Backlog record, shares attachment refs, clears hierarchy, and
 adds reciprocal clone links.
 
@@ -721,8 +732,8 @@ without revealing or creating a storage location.
 ### UC-040: Show a SOW, briefly when that is enough
 **Implemented.** `dashboard tira.sow.show --ref SOW-001 -o json` (long text arrives truncated with visible markers; `--full` restores it); `dashboard tira.sow.show --ref SOW-001 --brief -o human` is the one-line look.
 
-### UC-041: Show epic
-**Implemented.** `dashboard tira.epic.show --ref EPC-001 -o human`.
+### UC-041: Show one record or a named set
+**Implemented.** `dashboard tira.epic.show --ref EPC-001 -o human`; `dashboard tira.ticket.show --refs TKT-001,TKT-002,TKT-003 --fields column -o json` answers the columns of a named set in one call, keyed by ref with explicit not-found markers.
 
 ### UC-042: Show a ticket, whole or projected
 **Implemented.** `dashboard tira.ticket.show --ref TKT-001` returns the record's populated keys (empty values are omitted by default; `--include-empty` restores them); `dashboard tira.ticket.show --ref TKT-001 --fields column -o json` returns only `ref` and `column` — the cheapest way to answer the board's commonest question.

@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.42';
+our $VERSION = '0.43';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -714,6 +714,27 @@ sub _backfill_added_at {
         $reference->{added_at} = strftime( '%Y-%m-%dT%H:%M:%S%z', localtime( ( stat $stored )[9] ) );
     }
     return;
+}
+
+# CA19: one call for a known set of refs. Keyed by ref with the request
+# order preserved and duplicates collapsed; a missing ref is an explicit
+# marker and never loses the rest, while validation errors (bad fields,
+# missing project) fail the whole call loudly before any lookup.
+sub record_show_many {
+    my ( $self, %args ) = @_;
+    my $refs = delete $args{refs};
+    die "Batch reads require at least one ref\n" if ref $refs ne 'ARRAY' || !@{$refs};
+    die "Batch reads accept at most 100 refs\n" if @{$refs} > 100;
+    _field_projection(%args);
+    $self->discover_project(%args);
+    my ( %by_ref, @order );
+    for my $ref ( @{$refs} ) {
+        next if exists $by_ref{$ref};
+        push @order, $ref;
+        my $record = eval { $self->record_show( %args, ref => $ref ) };
+        $by_ref{$ref} = defined $record ? $record : { ref => $ref, not_found => JSON::PP::true };
+    }
+    return { records => \%by_ref, order => \@order, count => scalar @order };
 }
 
 sub record_list {

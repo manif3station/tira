@@ -1,5 +1,14 @@
 Revision history for Tira
 
+0.44  2026-08-07
+    - CA13 (EPIC-424): first-class tira.diff. Since mode: added/changed
+      kinds with current column, gate, title, new-comment ids, and now
+      for chaining. Snapshot mode (a saved full export): per-field
+      before/after for scalars, named new comments, explicit changed
+      markers for structural fields, and added/changed/removed
+      distinguished. Field scoping and --count compose; exactly one
+      baseline; never writes. New cli/diff entrypoint (84 total).
+
 0.43  2026-08-07
     - CA19 (EPIC-424): batch reads on show. Repeat --ref or pass --refs
       A,B,C; the response is {records, order, count} keyed by ref with

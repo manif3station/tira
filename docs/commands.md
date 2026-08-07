@@ -87,6 +87,13 @@ all reads and mutations and must not attempt direct filesystem access. Run
 Existing record-list commands retain their compatible array result; `--full`
 is an explicit assertion that the full records already returned are required.
 
+`tira.diff` is the watcher: `--since T` lists added/changed records with
+their current column, gate, title, and new-comment ids plus `now` for the
+next poll; `--snapshot FILE` (a saved `tira.export --include-empty -o json`)
+adds per-field before/after for scalars and distinguishes added, changed,
+and removed — a deletion is never mistaken for quiet. Field scoping and
+`--count` compose; exactly one baseline is required; diff never writes.
+
 Batch reads collapse N invocations into one: repeat `--ref` or pass
 `--refs A,B,C` to show, and the response is keyed by ref with the request
 order preserved, explicit not-found markers for missing refs, a 100-ref

@@ -64,6 +64,7 @@ sub run {
         'last=i' => \$option{last}, 'first=i' => \$option{first},
         'meta-only' => \$option{meta_only},
         'where=s@' => \$option{where},
+        'snapshot=s' => \$option{snapshot},
         'with=s' => \$option{with}, 'note=s' => \$option{note},
         'reporter=s' => \$option{reporter}, 'due-date=s' => \$option{due_date},
         'start-date=s' => \$option{start_date}, 'sdlc-gate=s' => \$option{sdlc_gate},
@@ -458,7 +459,7 @@ sub _invoke {
           && !$option->{brief} && !defined $option->{truncate};
         die "Read options are available on show, list, and export commands\n"
           if $command !~ /\A(?:record\.(?:show|list)|export)\z/
-          && !( $comment_scope && $command =~ /\A(?:comment|attachment)\.list\z/ );
+          && !( $comment_scope && $command =~ /\A(?:comment\.list|attachment\.list|diff)\z/ );
         $args{fields} = $option->{field_selection} if defined $option->{field_selection};
         $args{exclude_fields} = $option->{exclude_fields} if defined $option->{exclude_fields};
     }
@@ -476,7 +477,9 @@ sub _invoke {
     die "Conditional reads are available on show and export commands\n"
       if defined $option->{if_changed} && $command !~ /\A(?:record\.show|export)\z/;
     die "Count is available on list, export, and search commands, and the comment and attachment lists\n"
-      if $option->{count} && $command !~ /\A(?:record\.list|export|search|comment\.list|attachment\.list)\z/;
+      if $option->{count} && $command !~ /\A(?:record\.list|export|search|comment\.list|attachment\.list|diff)\z/;
+    die "Snapshot baselines are available on the diff command\n"
+      if defined $option->{snapshot} && $command ne 'diff';
     die "Windows (--last/--first) are available on the comment list command\n"
       if ( defined $option->{last} || defined $option->{first} ) && $command ne 'comment.list';
     die "Meta-only is available on the comment and attachment lists, show, list, and export\n"
@@ -522,6 +525,7 @@ sub _invoke {
     return $tira->create_project( name => $option->{name}, dir => $option->{dir} // '.' ) if $command eq 'project.create';
     return $tira->create_record(%args) if $command eq 'record.create';
     return $tira->export_records(%args) if $command eq 'export';
+    return $tira->diff_records(%args) if $command eq 'diff';
     if ( $command eq 'import' ) {
         die "Import file is required\n" if !defined $option->{file};
         my $changes = JSON::PP::decode_json( _text_input( $option->{file} ) );

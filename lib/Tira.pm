@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.43';
+our $VERSION = '0.44';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -714,6 +714,98 @@ sub _backfill_added_at {
         $reference->{added_at} = strftime( '%Y-%m-%dT%H:%M:%S%z', localtime( ( stat $stored )[9] ) );
     }
     return;
+}
+
+# CA13: first-class change detection. Since mode reports what a watcher
+# needs to act (kind, current column/gate/title, new comment ids) with
+# now for chaining; snapshot mode compares a stored full export and adds
+# per-field before/after for scalars. Reads only — diff never writes.
+sub _values_equal {
+    my ( $old, $new ) = @_;
+    return 1 if _is_empty_value($old) && _is_empty_value($new);
+    my $encoder = JSON::PP->new->canonical->allow_nonref;
+    return $encoder->encode($old) eq $encoder->encode($new);
+}
+
+sub diff_records {
+    my ( $self, %args ) = @_;
+    my ( $since, $snapshot ) = @args{qw(since snapshot)};
+    die "Diff requires --since or --snapshot\n" if !defined $since && !defined $snapshot;
+    die "Choose one of --since or --snapshot\n" if defined $since && defined $snapshot;
+    my $scope;
+    if ( defined $args{fields} ) {
+        die "Field scoping applies to snapshot diffs\n" if defined $since;
+        my @names = map { split /,/, $_, -1 } @{ $args{fields} };
+        for my $name (@names) {
+            die "Empty field name in field selection\n" if !length $name;
+            die "Unknown field '$name'\n" if !$RECORD_FIELD{$name};
+        }
+        $scope = { map { $_ => 1 } @names };
+    }
+    my %list_args = ( project => $args{project} );
+    $list_args{type} = $args{type} if defined $args{type};
+    my $now = $self->{clock}->();
+    my @changes;
+    if ( defined $since ) {
+        my $threshold = _epoch_of_datetime( $since, 'Since' );
+        for my $record ( @{ $self->record_list( %list_args, since => $since ) } ) {
+            my $created = eval { _epoch_of_datetime( $record->{created_at}, 'Created at' ) };
+            my @new_comments = map { $_->{id} } grep {
+                my $stamp = eval { _epoch_of_datetime( $_->{created_at}, 'Comment stamp' ) };
+                defined $stamp && $stamp >= $threshold;
+            } @{ $record->{comments} // [] };
+            push @changes, {
+                ref => $record->{ref}, type => $record->{type},
+                kind => ( defined $created && $created >= $threshold ) ? 'added' : 'changed',
+                column => $record->{column}, sdlc_gate => $record->{sdlc_gate},
+                title => $record->{title},
+                ( @new_comments ? ( new_comments => \@new_comments ) : () ),
+            };
+        }
+    }
+    else {
+        open my $stored_fh, '<:raw', $snapshot or die "Cannot read snapshot: $!\n";
+        my $raw = do { local $/; <$stored_fh> };
+        close $stored_fh;
+        my $stored = eval { JSON::PP::decode_json($raw) } or die "Snapshot is not valid JSON\n";
+        $stored = $stored->{records} if ref $stored eq 'HASH';
+        die "Snapshot must contain records\n" if ref $stored ne 'ARRAY';
+        my %previous = map { $_->{ref} => $_ }
+          grep { ref $_ eq 'HASH' && defined $_->{ref} } @{$stored};
+        for my $record ( @{ $self->record_list(%list_args) } ) {
+            my $before = delete $previous{ $record->{ref} };
+            if ( !$before ) {
+                push @changes, {
+                    ref => $record->{ref}, kind => 'added', type => $record->{type},
+                    column => $record->{column}, title => $record->{title},
+                };
+                next;
+            }
+            my @field_changes;
+            for my $field ( grep { $_ ne 'ref' && $_ ne 'last_updated' && $_ ne 'content_hash' && $_ ne 'attachment_count' } @RECORD_FIELDS ) {
+                next if $scope && !$scope->{$field};
+                my ( $old, $new ) = ( $before->{$field}, $record->{$field} );
+                next if _values_equal( $old, $new );
+                if ( $field eq 'comments' ) {
+                    my %known = map { ( $_->{id} // '' ) => 1 } @{ $before->{comments} // [] };
+                    my @added = map { $_->{id} } grep { !$known{ $_->{id} // '' } } @{ $new // [] };
+                    push @field_changes,
+                      { field => 'comments', ( @added ? ( added => \@added ) : ( changed => JSON::PP::true ) ) };
+                }
+                elsif ( !ref $old && !ref $new ) {
+                    push @field_changes, { field => $field, before => $old, after => $new };
+                }
+                else {
+                    push @field_changes, { field => $field, changed => JSON::PP::true };
+                }
+            }
+            push @changes, { ref => $record->{ref}, kind => 'changed', fields => \@field_changes }
+              if @field_changes;
+        }
+        push @changes, map { { ref => $_, kind => 'removed' } } sort keys %previous;
+    }
+    return { count => scalar @changes } if $args{count};
+    return { changes => \@changes, count => scalar @changes, now => $now };
 }
 
 # CA19: one call for a known set of refs. Keyed by ref with the request

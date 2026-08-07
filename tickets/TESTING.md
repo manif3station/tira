@@ -1022,3 +1022,16 @@ report, message 2915 — three connected findings).
   scenario); functional PASS `Files=34, Tests=1247`; coverage `100.0%`
   all three modules;
   `prove -T` PASS; `cover_db` cleaned. Browser untouched.
+
+## Latest Verification For `DD-433`
+
+- CA13: `tira.diff` — since mode (kinds, current column/gate/title,
+  new-comment ids, `now`) and snapshot mode (per-field before/after,
+  named added comments, explicit changed markers for edits and
+  structural fields, removals distinguished); one-baseline validation;
+  field scoping (snapshot only); count mode; explicit empty results;
+  new `cli/diff` entrypoint (t/03 count 83→84).
+- Red-first `t/34-diff.t` (29 checks after the coverage close: an
+  edited comment and a labels change exercise the changed-marker
+  branches); functional PASS `Files=35, Tests=1276`; coverage `100.0%`
+  all three modules; `prove -T` PASS; `cover_db` cleaned.

@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.43):** shipped, executable, and covered by tests.
+- **Implemented (0.44):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.43.
+All commands and use cases in this manual ship in release 0.44.
 
 ## Global invocation grammar
 
@@ -385,6 +385,18 @@ error beyond, never silent truncation), compose with every read option
 except `--if-changed`, which is refused with exit 2 in favor of the
 cheaper `export --fields ref,content_hash` poll. Multiple refs on any
 other command exit 2.
+A first-class diff is **Implemented (DD-433)**: `tira.diff --since T`
+reports every record changed at or after that instant with its kind
+(`added`/`changed`), current column, gate, and title, plus new-comment
+ids — enough to act without a further read — and `now` for chaining.
+`tira.diff --snapshot FILE` compares a stored full export (save one with
+`tira.export --include-empty -o json`): scalar fields carry `before` and
+`after`, new comments are named, structural changes carry an explicit
+`changed` marker, and additions, changes, and removals are distinguished
+— a deletion never looks like an absence of change. `--fields` scopes a
+snapshot comparison; `--count` answers whether to look; an empty diff is
+an explicit empty result. Exactly one baseline is required; diff never
+writes, and storing a snapshot is the separate export call.
 Clone creates a Backlog record, shares attachment refs, clears hierarchy, and
 adds reciprocal clone links.
 
@@ -481,6 +493,7 @@ tira.gate.list --ref REF [-o FORMAT]
 tira.gate.add --ref REF --gate TEXT --result pass|fail|blocked --details TEXT [--author ID] [-o FORMAT]
 tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]
 tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--count] [--brief] [--truncate N|--full] [--where CLAUSE ...] [-o FORMAT]
+tira.diff (--since TIMESTAMP|--snapshot FILE) [--type TYPE] [--fields LIST] [--count] [-o FORMAT]
 tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [-o FORMAT]
 tira.import --file FILE [--dry-run] [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [--count] [--refs-only] [-o FORMAT]
@@ -747,8 +760,8 @@ without revealing or creating a storage location.
 ### UC-045: Filter server-side on any field
 **Implemented.** `dashboard tira.ticket.list --assignee ada` remains; `dashboard tira.ticket.list --where column=backlog --where sdlc_gate= -o json` returns parked tickets with no gate in one cheap call, and `--where labels~Zenandi-Developer` checks label coverage without an export.
 
-### UC-046: Filter by parent
-**Implemented.** `dashboard tira.ticket.list --parent EPC-001`.
+### UC-046: Watch the board with a first-class diff
+**Implemented.** `dashboard tira.ticket.list --parent EPC-001` still filters by parent; `dashboard tira.diff --since 2026-08-07T10:30:00Z -o json` replaces a hand-written watcher — kinds, current column and gate, and new-comment ids in one small call, with `now` to chain the next poll.
 
 ### UC-047: Combine filters
 **Implemented.** `dashboard tira.ticket.list --column review --assignee ada --text security` uses AND.

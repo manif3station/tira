@@ -104,6 +104,15 @@ with text lengths and annotation counts, `--where` entry filters such as
 `result=fail`, and `--count`. Annotations stay with their parent entry;
 reading an append-only log never mutates it.
 
+`tira.project.new` bootstraps in one call what `project.create`, `project.people.add`,
+`board.refs`, and `column.add` otherwise do across dozens: it creates the project,
+adds each member, sets each board's reference prefix, and applies one shared column
+set to all three boards. Column names are given as human text and slugified
+automatically with the original kept as the label, columns that already exist are
+skipped so re-running is safe, and everything is validated before the first write so
+a rejected call leaves nothing behind. Prefixes are applied before any record can be
+created, because board counters never rewind.
+
 `tira.diff` is the watcher: `--since T` lists added/changed records with
 their current column, gate, title, and new-comment ids plus `now` for the
 next poll; `--snapshot FILE` (a saved `tira.export --include-empty -o json`)

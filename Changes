@@ -1,5 +1,17 @@
 Revision history for Tira
 
+0.56  2026-08-07
+    - New `tira.project.new` (owner request): one command creates a
+      project, its members, each board's reference prefix, and one
+      shared column set across all three boards — replacing a
+      thirty-five command manual sequence. Column names are given as
+      they read ("Done / Release") and slugified automatically with the
+      original text kept as the label; columns that already exist,
+      including the protected Backlog and Discard, are skipped, so the
+      natural list works verbatim and re-running changes nothing. All
+      input is validated before the first write, and prefixes are set
+      before any record can exist so the first reference is 001.
+
 0.55  2026-08-07
     - Fixed the card dialog's column dropdown showing the card count
       appended to each column name (owner photo, message 2990) — a

@@ -1210,3 +1210,25 @@ report, message 2915 — three connected findings).
   values; t/19 pins the `.column__name` lookup.
 - Functional PASS `Files=40, Tests=1466`; coverage `100.0%`;
   `prove -T` PASS; fixtures and `cover_db` cleaned.
+
+## Latest Verification For `DD-446`
+
+- Investigation ran before any code: the 35-command manual sequence was
+  verified end to end in a throwaway project, and the CLI mechanics,
+  option-collision risks, and the non-re-entrant project lock were
+  surveyed first. That is what shaped the design — plural option names
+  so `--column`/`--prefix`/`--person`/`--label` keep their arity, and a
+  sequence of locked calls with all validation done up front.
+- Red-first `t/40-project-new.t`; full suite `Files=41, Tests=1523`;
+  coverage `100.0%` statement and subroutine on all three modules;
+  `prove -T` PASS; `cover_db` cleaned.
+- Adversarial review (23 agents, each finding re-run by an independent
+  refuter) caught two high-severity defects that the suite did not:
+  colliding board prefixes producing permanently unreadable duplicate
+  references, and silent adoption of a different existing project.
+  Both are fixed with up-front validation and now have permanent tests,
+  as do the over-long column slug and the silently-ignored empty prefix.
+- Platform gate: no platform-dependent behaviour — the command is
+  filesystem and CLI logic already covered by the Docker suite, with no
+  browser surface, so the QEMU labs were not required and were not
+  started.

@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.55';
+our $VERSION = '0.56';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -33,6 +33,158 @@ sub new {
         yaml  => YAML::PP->new( boolean => 'JSON::PP' ),
         path_resolver => $args{path_resolver},
     }, $class;
+}
+
+# DD-446: one-command bootstrap. The project lock is not re-entrant, so this
+# sequences ordinary locked engine calls rather than nesting them — which
+# means every input must be validated BEFORE the first write, or a rejected
+# invocation would leave half a project behind and break the documented
+# "validation failure creates no mutation" contract.
+my $MAX_REF_DIGITS = 12;
+# A column becomes a directory, so a slug longer than the filesystem's name
+# limit fails inside make_path rather than validation. Bounding it here keeps
+# the failure where it belongs — before anything is written.
+my $MAX_SLUG = 255;
+
+# Columns arrive as the owner writes them ("Done / Release"); the slug is
+# derived and the original text kept as the label.
+sub _column_slug {
+    my ($text) = @_;
+    my $slug = lc( $text // '' );
+    $slug =~ s/[^a-z0-9]+/-/g;
+    $slug =~ s/\A-+|-+\z//g;
+    die "Column name '$text' has no usable slug\n" if $slug eq '';
+    die "Column name '$text' is too long\n" if length($slug) > $MAX_SLUG;
+    return $slug;
+}
+
+sub _split_list {
+    my ($values) = @_;
+    return () if !defined $values;
+    return grep { length } map { s/\A\s+|\s+\z//gr }
+      map { split /,/, $_, -1 } ( ref $values eq 'ARRAY' ? @{$values} : $values );
+}
+
+sub project_new {
+    my ( $self, %args ) = @_;
+    die "Project name is required\n" if !defined $args{name} || $args{name} eq '';
+
+    my @members = _split_list( $args{members} );
+    die "Every member needs a name\n"
+      if defined $args{members} && !@members && _wanted_members( $args{members} );
+    my @wanted = map { { text => $_, slug => _column_slug($_) } } _split_list( $args{columns} );
+
+    my %prefix;
+    for my $type (qw(sow epic ticket)) {
+        my $value = $args{"${type}_prefix"};
+        next if !defined $value;
+        die "Invalid $type prefix '$value'\n" if $value !~ /\A[A-Z][A-Z0-9-]{0,31}\z/;
+        $prefix{$type} = $value;
+    }
+    if ( defined $args{digits} ) {
+        die "Reference digits must be between 1 and $MAX_REF_DIGITS\n"
+          if $args{digits} !~ /\A\d+\z/ || $args{digits} < 1 || $args{digits} > $MAX_REF_DIGITS;
+    }
+
+    # Re-running must be safe, so an existing project is adopted rather than
+    # refused — the columns and people below are already skip-if-present.
+    my ( @people, @skipped );
+    # What each board's prefix WILL be, so the whole set can be checked for
+    # uniqueness before anything is written. Two boards sharing a prefix mint
+    # the same reference, and a duplicate reference cannot be read, moved, or
+    # repaired afterwards — it is the one mistake this command must not allow.
+    my $existing = eval { $self->project_show( project => $args{dir} // '.' ) };
+    my %effective;
+    for my $type (qw(sow epic ticket)) {
+        my $current = $existing
+          ? eval { $self->board_refs( project => $args{dir} // '.', type => $type )->{prefix} }
+          : undef;
+        $effective{$type} = $prefix{$type} // $current // $TYPE_PREFIX{$type};
+    }
+    my %seen_prefix;
+    for my $type (qw(sow epic ticket)) {
+        my $clash = $seen_prefix{ $effective{$type} };
+        die "Prefix '$effective{$type}' would be shared by the $clash and $type boards\n" if $clash;
+        $seen_prefix{ $effective{$type} } = $type;
+    }
+
+    if ($existing) {
+        die "A different project ('$existing->{name}') already exists there\n"
+          if ( $existing->{name} // '' ) ne $args{name};
+        # A board counter never rewinds, so changing a prefix once records
+        # exist leaves the board holding two different reference series.
+        for my $type ( sort keys %prefix ) {
+            my $board = $self->board_refs( project => $args{dir} // '.', type => $type );
+            next if ( $board->{prefix} // '' ) eq $prefix{$type};
+            die "The $type board already has records, so its prefix cannot change\n"
+              if ( $board->{next_number} // 1 ) > 1;
+        }
+    }
+
+    my $project = eval { $self->create_project( name => $args{name}, dir => $args{dir} // '.' ) };
+    if ( !defined $project ) {
+        my $error = $@ || 'Unknown project creation failure';
+        die $error if $error !~ /already exists/;
+        push @skipped, { kind => 'project', name => $args{name} };
+        $project = $self->project_show( project => $args{dir} // '.' );
+    }
+    my $root = $self->discover_project( project => $args{dir} // '.' );
+
+    my @boards;
+    for my $type (qw(sow epic ticket)) {
+        my %refs = ( project => $root, type => $type );
+        $refs{prefix} = $prefix{$type} if exists $prefix{$type};
+        $refs{digits} = $args{digits} if defined $args{digits};
+        push @boards, $self->board_refs(%refs);
+    }
+
+    my %existing_person = map { $_->{id} => 1 } @{ $self->person_list( project => $root ) };
+    for my $member (@members) {
+        if ( $existing_person{$member} ) {
+            push @skipped, { kind => 'person', name => $member };
+            next;
+        }
+        push @people, $self->person_add( project => $root, id => $member, name => $member );
+        $existing_person{$member} = 1;
+    }
+
+    for my $type (qw(sow epic ticket)) {
+        my %existing_column =
+          map { $_->{name} => 1 } @{ $self->column_list( project => $root, type => $type ) };
+        for my $column (@wanted) {
+            if ( $existing_column{ $column->{slug} } ) {
+                push @skipped, { kind => 'column', type => $type, name => $column->{slug} };
+                next;
+            }
+            $self->column_add(
+                project => $root, type => $type,
+                name => $column->{slug}, label => $column->{text},
+            );
+            $existing_column{ $column->{slug} } = 1;
+        }
+    }
+
+    return {
+        project => $project,
+        people => \@people,
+        skipped => \@skipped,
+        boards => [ map {
+            my $type = $_;
+            {
+                type => $type,
+                prefix => $self->board_refs( project => $root, type => $type )->{prefix},
+                columns => [ map { $_->{name} }
+                    @{ $self->column_list( project => $root, type => $type ) } ],
+            };
+        } qw(sow epic ticket) ],
+    };
+}
+
+# An explicitly empty member entry is a mistake worth refusing; an omitted
+# option simply means "no members".
+sub _wanted_members {
+    my ($values) = @_;
+    return scalar grep { defined } ( ref $values eq 'ARRAY' ? @{$values} : $values );
 }
 
 sub create_project {

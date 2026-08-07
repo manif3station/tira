@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.55):** shipped, executable, and covered by tests.
+- **Implemented (0.56):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.55.
+All commands and use cases in this manual ship in release 0.56.
 
 ## Global invocation grammar
 
@@ -234,6 +234,20 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
 - `tira.skills` — **Implemented.** No arguments; raw manual.
 - `tira.project.create --name TEXT [--dir DIR] [-o FORMAT]` — **Implemented.**
   Name required; directory defaults to `.`; existing projects are preserved.
+- `tira.project.new --name TEXT [--dir DIR] [--members LIST] [--columns LIST]
+  [--sow-prefix PREFIX] [--epic-prefix PREFIX] [--ticket-prefix PREFIX]
+  [--digits N] [-o FORMAT]` — **Implemented (DD-446).** Creates a project, its
+  people, each board's reference prefix, and one shared column set in a single
+  call. `--members` and `--columns` take comma-separated human text and repeat.
+  Column names are written as they read — `--columns "Backlog, In Progress,
+  Done / Release"` — and each becomes a lowercase hyphenated column keeping the
+  original text as its label. Columns that already exist, including the
+  protected Backlog and Discard, are left alone, so the full list works
+  verbatim and re-running the command changes nothing. Every input is checked
+  before the first write, so a rejected call creates nothing. Prefixes are
+  applied before any record can exist, which matters because a board counter
+  never goes backwards: set a prefix after the first record and the next
+  reference is `002`.
 - `tira.project.show [-o FORMAT]` — **Implemented.**
 - `tira.project.update [--name TEXT] [-o FORMAT]` — **Implemented.**
 - `tira.project.people.list [-o FORMAT]` — **Implemented.**
@@ -688,8 +702,8 @@ the foreground server with Ctrl-C.
 
 Every case below is implemented and executable.
 
-### UC-001: Create locally
-**Implemented.** `dashboard tira.project.create --name "Website"`.
+### UC-001: Create a project, or a whole board setup, in one call
+**Implemented.** `dashboard tira.project.create --name "MT5"` creates an empty project in the current directory. `dashboard tira.project.new --name "MT5" --members "K-Bot, Michael" --columns "Backlog, Planning, In Progress, Done / Release" --sow-prefix M5S --epic-prefix M5E --ticket-prefix M5T` does the whole onboarding at once — people, per-board reference prefixes, and the same columns on all three boards, named as they read.
 
 ### UC-002: Create elsewhere
 **Implemented.** `dashboard tira.project.create --name "API" --dir ~/work/api`.

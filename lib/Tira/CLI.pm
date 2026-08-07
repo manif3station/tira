@@ -64,6 +64,9 @@ sub run {
         'last=i' => \$option{last}, 'first=i' => \$option{first},
         'meta-only' => \$option{meta_only},
         'where=s@' => \$option{where},
+        'members=s@' => \$option{members}, 'columns=s@' => \$option{columns},
+        'sow-prefix=s' => \$option{sow_prefix}, 'epic-prefix=s' => \$option{epic_prefix},
+        'ticket-prefix=s' => \$option{ticket_prefix},
         'snapshot=s' => \$option{snapshot},
         'cache-ttl=i' => \$option{cache_ttl}, 'no-cache' => \$option{no_cache},
         'with=s' => \$option{with}, 'note=s' => \$option{note},
@@ -570,7 +573,7 @@ sub _attachment_content_type {
 sub _invoke {
     my ( $tira, $command, $record_type, $option ) = @_;
     my %args = %{$option};
-    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty)};
+    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty members columns sow_prefix epic_prefix ticket_prefix)};
     if ( defined $option->{field_selection} || defined $option->{exclude_fields}
         || $option->{include_empty} || defined $option->{since}
         || $option->{brief} || defined $option->{truncate} ) {
@@ -601,6 +604,9 @@ sub _invoke {
       if $option->{count} && $command !~ /\A(?:record\.list|export|search|comment\.list|attachment\.list|gate\.list|evidence\.list|history\.list|diff)\z/;
     die "Snapshot baselines are available on the diff command\n"
       if defined $option->{snapshot} && $command ne 'diff';
+    die "Bootstrap options belong to the project.new command\n"
+      if $command ne 'project.new'
+      && grep { defined $option->{$_} } qw(members columns sow_prefix epic_prefix ticket_prefix);
     if ( defined $option->{cache_ttl} || $option->{no_cache} ) {
         die "Caching is available on read commands only\n"
           if $command !~ /\A(?:record\.(?:show|list)|export|search|diff|board\.show|project\.show|(?:comment|attachment|gate|evidence|checklist)\.list)\z/;
@@ -652,6 +658,15 @@ sub _invoke {
     $args{label} = $option->{labels}[0] if $command =~ /\Acolumn\.(?:add|rename)\z/ && $option->{labels};
 
     return $tira->create_project( name => $option->{name}, dir => $option->{dir} // '.' ) if $command eq 'project.create';
+    if ( $command eq 'project.new' ) {
+        return $tira->project_new(
+            name => $option->{name}, dir => $option->{dir} // '.',
+            members => $option->{members}, columns => $option->{columns},
+            ( defined $option->{digits} ? ( digits => $option->{digits} ) : () ),
+            map { ( "${_}_prefix" => $option->{"${_}_prefix"} ) }
+              grep { defined $option->{"${_}_prefix"} } qw(sow epic ticket),
+        );
+    }
     return $tira->create_record(%args) if $command eq 'record.create';
     return $tira->export_records(%args) if $command eq 'export';
     return $tira->diff_records(%args) if $command eq 'diff';

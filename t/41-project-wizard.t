@@ -199,6 +199,45 @@ is( $status, 0, 'per-board column flags complete on enter alone' );
 is_deeply( [ map { $_->{name} } @{ $tira->column_list( project => $per_board, type => 'epic' ) } ],
     [qw(backlog breaking-down discard)], 'each per-board flag becomes its own default answer' );
 
+# The owner's report: a tilde typed at the directory question must mean home,
+# not a directory literally named '~'.
+{
+    local $ENV{HOME} = $tmp;
+    my ( $tilde_status ) = run_wizard( <<"ANSWERS", '-o', 'json' );
+Tilde home
+~/under-home
+ada
+THS
+THE
+THT
+y
+Doing
+y
+ANSWERS
+    is( $tilde_status, 0, 'a tilde answer is accepted' );
+    ok( -d File::Spec->catdir( $tmp, 'under-home', '.tira' ),
+        'the project is created under the home directory' );
+    ok( !-e File::Spec->catdir( $tmp, '~' ), 'and nothing named ~ is created' );
+}
+
+# Pressing enter past the people question means "none", not an empty name.
+{
+    my $nobody = File::Spec->catdir( $tmp, 'nobody' );
+    my ( $skip_status ) = run_wizard( <<"ANSWERS", '-o', 'json' );
+Nobody
+$nobody
+
+NBS
+NBE
+NBT
+y
+Doing
+y
+ANSWERS
+    is( $skip_status, 0, 'skipping the people question is allowed' );
+    is( scalar @{ Tira->new->person_list( project => $nobody ) }, 0, 'and adds nobody' );
+}
+
 # project.new itself must never prompt: it is what scripts and agents call.
 ( my $bare_status, $out, $err ) = do {
     my ( $o, $e ) = ( '', '' );

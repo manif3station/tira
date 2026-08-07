@@ -66,6 +66,7 @@ sub run {
         'meta-only' => \$option{meta_only},
         'where=s@' => \$option{where},
         'members=s@' => \$option{members}, 'columns=s@' => \$option{columns},
+        'listen=s' => \$option{listen},
         'dashboard-host=s' => \$option{dashboard_host},
         'dashboard-port=s' => \$option{dashboard_port},
         'sow-columns=s@' => \$option{sow_columns}, 'epic-columns=s@' => \$option{epic_columns},
@@ -100,6 +101,7 @@ sub run {
     );
     return _error( $tira, $option{output}, 'Invalid command-line options' ) if !$parsed || @{$argv};
     $option{ref} = $option{ref_list}[-1] if $option{ref_list};
+    $option{$_} = _expand_home( $option{$_} ) for grep { defined $option{$_} } qw(dir project);
 
     if ( $option{help} ) {
         print _usage( $command, $type );
@@ -594,11 +596,100 @@ sub _cache_store {
 # It is only ever entered deliberately (see the caller): a wizard that reads
 # standard input would otherwise hang every script and agent that runs the
 # command without arguments, which is most of them.
+# DD-450: a leading ~ means the user's home directory wherever it is typed.
+# The shell expands it for an unquoted command-line argument, but never for an
+# answer typed at a prompt or for a quoted flag — which is how a directory
+# literally named '~' gets created.
+sub _expand_home {
+    my ($path) = @_;
+    return $path if !defined $path || $path !~ m{\A~(?:/|\z)};
+    my ($home) = ( $ENV{HOME} // '' ) =~ /\A([^\x00-\x1f\x7f]*)\z/;
+    return $path if !defined $home || $home eq '';
+    $path =~ s{\A~}{$home};
+    return $path;
+}
+
+# Line editing without a dependency: Term::ReadLine's editing implementations
+# are not installed anywhere this runs, so relying on one would silently give
+# the user nothing. POSIX termios is core, so the editor is written directly
+# against it and degrades to a plain read whenever input is not a terminal.
+sub _raw_mode {
+    my ($fh) = @_;
+    my $fd = fileno($fh);
+    return undef if !defined $fd || $fd < 0 || !-t $fh;
+    require POSIX;
+    my $saved = POSIX::Termios->new;
+    return undef if !eval { $saved->getattr($fd) };
+    my $raw = POSIX::Termios->new;
+    $raw->getattr($fd);
+    $raw->setlflag( ( $raw->getlflag // 0 ) & ~( POSIX::ICANON() | POSIX::ECHO() ) );
+    $raw->setcc( POSIX::VMIN(),  1 );
+    $raw->setcc( POSIX::VTIME(), 0 );
+    $raw->setattr( $fd, POSIX::TCSANOW() );
+    return sub { $saved->setattr( $fd, POSIX::TCSANOW() ); return };
+}
+
+sub _redraw {
+    my ( $prompt, $buffer, $cursor ) = @_;
+    my $column = length($prompt) + $cursor + 1;
+    print "\r\e[2K$prompt$buffer\r\e[${column}G";
+    return;
+}
+
+# Returns the finished line, or undef when the user abandons the prompt.
+sub _edit_line {
+    my ( $in, $prompt, $restore ) = @_;
+    my ( $buffer, $cursor ) = ( '', 0 );
+    _redraw( $prompt, $buffer, $cursor );
+    while (1) {
+        my $char = getc($in);
+        if ( !defined $char || $char eq "\x04" || $char eq "\x03" ) {
+            $restore->();
+            print "\n";
+            return undef;
+        }
+        if ( $char eq "\r" || $char eq "\n" ) {
+            $restore->();
+            print "\n";
+            return $buffer;
+        }
+        if ( $char eq "\x01" ) { $cursor = 0 }                        # Ctrl-A
+        elsif ( $char eq "\x05" ) { $cursor = length $buffer }        # Ctrl-E
+        elsif ( $char eq "\x15" ) { $buffer = ''; $cursor = 0 }       # Ctrl-U
+        elsif ( $char eq "\x0b" ) { substr $buffer, $cursor, length($buffer) - $cursor, '' }  # Ctrl-K
+        elsif ( $char eq "\x7f" || $char eq "\x08" ) {
+            if ( $cursor > 0 ) { substr $buffer, --$cursor, 1, '' }
+        }
+        elsif ( $char eq "\e" ) {
+            my $bracket = getc($in);
+            my $code = defined $bracket && $bracket eq '[' ? getc($in) : undef;
+            if ( defined $code ) {
+                if    ( $code eq 'D' ) { $cursor-- if $cursor > 0 }
+                elsif ( $code eq 'C' ) { $cursor++ if $cursor < length $buffer }
+                elsif ( $code eq 'H' ) { $cursor = 0 }
+                elsif ( $code eq 'F' ) { $cursor = length $buffer }
+            }
+        }
+        elsif ( $char =~ /\A[[:print:]]\z/ ) {
+            substr $buffer, $cursor, 0, $char;
+            $cursor++;
+        }
+        _redraw( $prompt, $buffer, $cursor );
+    }
+}
+
 sub _ask {
     my ( $in, $question, $default ) = @_;
     my $shown = defined $default && $default ne '' ? " [$default]" : '';
-    print "$question$shown: ";
-    my $answer = <$in>;
+    my $prompt = "$question$shown: ";
+    my $answer;
+    if ( my $restore = _raw_mode($in) ) {
+        $answer = _edit_line( $in, $prompt, $restore );
+    }
+    else {
+        print $prompt;
+        $answer = <$in>;
+    }
     return undef if !defined $answer;
     chomp $answer;
     $answer =~ s/\A\s+|\s+\z//g;
@@ -635,12 +726,14 @@ sub _project_wizard {
 
     my $dir = _ask( $in, 'Project directory', $option->{dir} // '.' );
     return ( undef, 2 ) if !defined $dir;
-    $answers{dir} = $dir;
+    $answers{dir} = _expand_home($dir);
 
     my $members = _ask( $in, 'People, separated by commas',
         $option->{members} ? join( ', ', @{ $option->{members} } ) : '' );
     return ( undef, 2 ) if !defined $members;
-    $answers{members} = [$members];
+    # Enter means "none yet", not "a person with an empty name" — the
+    # empty-string guard exists for an explicit --members "" on a command line.
+    $answers{members} = [$members] if $members ne '';
 
     my %default_prefix = ( sow => 'SOW', epic => 'EPC', ticket => 'TKT' );
     for my $type (qw(sow epic ticket)) {
@@ -663,21 +756,21 @@ sub _project_wizard {
         my $columns = _ask( $in, 'Columns, in order, separated by commas',
             $option->{columns} ? join( ', ', @{ $option->{columns} } ) : '' );
         return ( undef, 2 ) if !defined $columns;
-        $answers{columns} = [$columns];
+        $answers{columns} = [$columns] if $columns ne '';
     }
     else {
         for my $type (qw(sow epic ticket)) {
             my $columns = _ask( $in, "Columns for the \u$type board",
                 $option->{"${type}_columns"} ? join( ', ', @{ $option->{"${type}_columns"} } ) : '' );
             return ( undef, 2 ) if !defined $columns;
-            $answers{"${type}_columns"} = [$columns];
+            $answers{"${type}_columns"} = [$columns] if $columns ne '';
         }
     }
 
     print "\nAbout to create:\n";
     print "  name       $answers{name}\n";
     print "  directory  $answers{dir}\n";
-    print "  people     " . ( join( ', ', @{ $answers{members} } ) || '(none)' ) . "\n";
+    print "  people     " . ( join( ', ', @{ $answers{members} // [] } ) || '(none)' ) . "\n";
     print "  prefixes   sow $answers{sow_prefix}, epic $answers{epic_prefix}, ticket $answers{ticket_prefix}\n";
     for my $key ( grep { /_columns\z|\Acolumns\z/ } sort keys %answers ) {
         print "  $key " . join( ', ', @{ $answers{$key} } ) . "\n";
@@ -730,7 +823,16 @@ sub _invoke {
       if defined $option->{snapshot} && $command ne 'diff';
     die "Dashboard address options belong to the project.update command\n"
       if $command ne 'project.update'
-      && grep { defined $option->{$_} } qw(dashboard_host dashboard_port);
+      && grep { defined $option->{$_} } qw(dashboard_host dashboard_port listen);
+    if ( defined $option->{listen} ) {
+        # The compact form the owner asked for: --listen any:8080 is the same
+        # thing as --dashboard-host any --dashboard-port 8080.
+        my ( $host, $port ) = $option->{listen} =~ /\A([^:]+)(?::([0-9]+))?\z/
+          or die "Listen address must be HOST or HOST:PORT\n";
+        $args{dashboard_host} = $host;
+        $args{dashboard_port} = $port if defined $port;
+    }
+    delete $args{listen};
     die "Bootstrap options belong to the project.new command\n"
       if $command ne 'project.new'
       && $command ne 'onboard'

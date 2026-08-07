@@ -1263,3 +1263,25 @@ report, message 2915 — three connected findings).
   and subroutine on all three modules; `prove -T` PASS; `cover_db`
   cleaned. Serving is exercised through the injected browser server, so
   no port is bound by the suite.
+
+## Latest Verification For `DD-450`
+
+- Tilde expansion proven where the owner hit it: the guided directory
+  answer `~/under-home` creates the project under the home directory
+  and nothing named `~` appears. Unit cases cover a bare `~`, absolute
+  and relative paths left alone, `~user` deliberately not guessed at,
+  and an empty HOME leaving the text as typed.
+- Line editing driven through a REAL pseudo-terminal (`IO::Tty`, test
+  dependency only — the shipped skill gains no dependency), so raw
+  mode, every key, and the restore path execute for real instead of
+  being excluded from coverage: Ctrl-A, Ctrl-E, Ctrl-U, Ctrl-K,
+  backspace at and away from the start, arrows with both bounds, Home,
+  End, unknown escape sequences ignored, non-printing input ignored,
+  Ctrl-C, Ctrl-D, and end of input.
+- Two defects surfaced by these tests and fixed: enter past the people
+  question errored instead of meaning "none", and the first harness let
+  the tty driver pre-process keystrokes so the editor was not actually
+  under test. Both recorded in the ticket.
+- Functional PASS `Files=44, Tests=1638`; coverage `100.0%` statement
+  and subroutine on all three modules with no exclusions; `prove -T`
+  PASS; `cover_db` cleaned.

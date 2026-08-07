@@ -8,6 +8,9 @@ requires 'Plack', '1.0051';
 recommends 'Cpanel::JSON::XS', '4.19';
 
 on test => sub {
+    # A real pseudo-terminal, so the line editor's terminal handling is
+    # covered by exercising it rather than by excluding it.
+    requires 'IO::Tty', '0';
     requires 'Pod::Checker', '0';
     requires 'Test::More', '0.98';
     requires 'HTTP::Request::Common', '0';

@@ -108,6 +108,42 @@ is( $status, 2, 'an out-of-range port exits 2' );
 is( $tira->project_show( project => $root )->{dashboard}{port}, 8100,
     'and leaves the remembered port alone' );
 
+# The compact form the owner asked for.
+for my $case (
+    [ 'localhost:8300', 'localhost', 8300, 'host and port together' ],
+    [ 'any:8400',       '0.0.0.0',   8400, 'any with a port' ],
+    [ '127.0.0.1',      '127.0.0.1', 8400, 'a bare host leaves the port alone' ],
+) {
+    my ( $listen, $host, $port, $label ) = @{$case};
+    my ( $s, $o, $e ) = do {
+        my ( $out2, $err2 ) = ( '', '' );
+        open my $so, '>', \$out2 or die $!;
+        open my $se, '>', \$err2 or die $!;
+        local *STDOUT = $so;
+        local *STDERR = $se;
+        my $st = Tira::CLI->run( command => 'project.update',
+            argv => [ '--project', $root, '--listen', $listen, '-o', 'json' ] );
+        ( $st, $out2, $err2 );
+    };
+    is( $s, 0, "--listen $listen is accepted ($label)" );
+    my $shown = decode_json($o)->{dashboard};
+    is( $shown->{host}, $host, "--listen $listen sets the host" );
+    is( $shown->{port}, $port, "--listen $listen sets the port" );
+}
+
+my ( $bad_status, undef, $bad_err ) = do {
+    my ( $out2, $err2 ) = ( '', '' );
+    open my $so, '>', \$out2 or die $!;
+    open my $se, '>', \$err2 or die $!;
+    local *STDOUT = $so;
+    local *STDERR = $se;
+    my $st = Tira::CLI->run( command => 'project.update',
+        argv => [ '--project', $root, '--listen', 'a:b:c', '-o', 'json' ] );
+    ( $st, $out2, $err2 );
+};
+is( $bad_status, 2, 'a malformed listen address exits 2' );
+like( $bad_err, qr/HOST or HOST:PORT/, 'and says the accepted shape' );
+
 done_testing;
 
 __END__

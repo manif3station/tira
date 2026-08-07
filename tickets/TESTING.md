@@ -1137,3 +1137,20 @@ report, message 2915 — three connected findings).
   typography (word-boundary wrapping and a smaller card title) before
   shipping. Playwright ×3 green; functional PASS
   `Files=38, Tests=1365`; coverage `100.0%`; `prove -T` PASS.
+
+## Latest Verification For `DD-442`
+
+- Measured first: the 2-second titled dashboard was pure-Perl JSON
+  parsing (1992ms of a 2076ms call), not file I/O (2ms) or layout.
+- Cpanel::JSON::XS selected at runtime with a JSON::PP fallback.
+  Byte-identity for canonical, pretty, and non-reference encodings
+  verified before adoption and now pinned by `t/38-json-backend.t`
+  against whichever backend is installed — the guard that keeps stored
+  records and content hashes stable.
+- The existing suite caught the one real divergence (bare-scalar
+  encoding); every value-bearing path now states `allow_nonref`
+  explicitly while structural paths stay strict.
+- After: titled dashboard 12ms, full export 19ms, field search 17ms on
+  the same 138-record board. Functional PASS `Files=39, Tests=1387`;
+  coverage `100.0%` all three modules; `prove -T` PASS; Playwright ×3
+  green; `cover_db` and fixtures cleaned.

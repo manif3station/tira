@@ -1,5 +1,15 @@
 Revision history for Tira
 
+0.52  2026-08-07
+    - Reads are up to 170x faster on mature boards: Cpanel::JSON::XS is
+      used when installed, with core JSON::PP as the fallback. Measured
+      on 138 records averaging 32KB — dashboard with titles 2076ms to
+      12ms, full export 2070ms to 19ms, field-scoped search 2234ms to
+      17ms. Output is byte-identical, so stored records never rewrite
+      and content hashes never drift; the non-reference tolerance of
+      the previous backend is preserved explicitly on every
+      value-bearing path.
+
 0.51  2026-08-07
     - Column-width toggle in every board header (owner photo, message
       2976): Standard keeps today's fixed-width scrollable columns, Fit

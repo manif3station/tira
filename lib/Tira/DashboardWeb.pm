@@ -3,7 +3,7 @@ package Tira::DashboardWeb;
 use strict;
 use warnings;
 
-our $VERSION = '0.51';
+our $VERSION = '0.52';
 
 use Encode qw(encode_utf8);
 use JSON::PP ();
@@ -24,7 +24,7 @@ get '/data' => sub {
 };
 
 post '/move' => sub {
-    my $payload = JSON::PP::decode_json( request->body // '' );
+    my $payload = Tira::json_decode( request->body // '' );
     die "Invalid move payload\n" if ref($payload) ne 'HASH';
     content_type 'application/json; charset=UTF-8';
     return _response_bytes( $MOVE->($payload) );
@@ -123,7 +123,7 @@ sub _mutation {
     content_type 'application/json; charset=UTF-8';
     my $result = eval {
         my $body = request->body // '';
-        my $payload = JSON::PP::decode_json( utf8::is_utf8($body) ? encode_utf8($body) : $body );
+        my $payload = Tira::json_decode( utf8::is_utf8($body) ? encode_utf8($body) : $body );
         ${$provider}->($payload);
     };
     if ( !defined $result ) {
@@ -132,7 +132,7 @@ sub _mutation {
         status 422;
         my %failure = ( ok => JSON::PP::false, error => $error );
         $failure{conflict} = JSON::PP::true if $error =~ /\AConflict:/;
-        return _response_bytes( JSON::PP->new->canonical->encode( \%failure ) );
+        return _response_bytes( Tira::json_object()->canonical->encode( \%failure ) );
     }
     return _response_bytes($result);
 }

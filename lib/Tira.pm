@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.51';
+our $VERSION = '0.52';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -621,7 +621,7 @@ sub _record_content_hash {
     my ($record) = @_;
     my %meaningful = %{$record};
     delete @meaningful{qw(last_updated content_hash)};
-    return sha256_hex( encode_utf8( JSON::PP->new->canonical->encode( \%meaningful ) ) );
+    return sha256_hex( encode_utf8( json_object()->canonical->encode( \%meaningful ) ) );
 }
 
 sub _board_hash {
@@ -725,7 +725,7 @@ sub _backfill_added_at {
 sub _values_equal {
     my ( $old, $new ) = @_;
     return 1 if _is_empty_value($old) && _is_empty_value($new);
-    my $encoder = JSON::PP->new->canonical->allow_nonref;
+    my $encoder = json_object()->canonical->allow_nonref;
     return $encoder->encode($old) eq $encoder->encode($new);
 }
 
@@ -769,7 +769,7 @@ sub diff_records {
         open my $stored_fh, '<:raw', $snapshot or die "Cannot read snapshot: $!\n";
         my $raw = do { local $/; <$stored_fh> };
         close $stored_fh;
-        my $stored = eval { JSON::PP::decode_json($raw) } or die "Snapshot is not valid JSON\n";
+        my $stored = eval { json_decode($raw) } or die "Snapshot is not valid JSON\n";
         $stored = $stored->{records} if ref $stored eq 'HASH';
         die "Snapshot must contain records\n" if ref $stored ne 'ARRAY';
         my %previous = map { $_->{ref} => $_ }
@@ -1839,7 +1839,8 @@ sub bulk_import {
                 my $before = $record->{$field};
                 die "Import field '$field' has incompatible value type\n"
                   if defined $before && defined $after && ref($before) ne ref($after);
-                next if JSON::PP->new->canonical->encode($before) eq JSON::PP->new->canonical->encode($after);
+                my $encoder = json_object()->canonical->allow_nonref;
+                next if $encoder->encode($before) eq $encoder->encode($after);
                 push @diffs, { ref => $ref, field => $field, before => $before, after => $after };
                 $record->{$field} = $after;
             }
@@ -1882,7 +1883,8 @@ sub replace_records {
             my @fields = @selected ? @selected : sort keys %mutable;
             for my $field (@fields) {
                 next if !exists $record->{$field};
-                my $before = JSON::PP->new->canonical->decode( JSON::PP->new->canonical->encode( $record->{$field} ) );
+                my $cloner = json_object()->canonical->allow_nonref;
+                my $before = $cloner->decode( $cloner->encode( $record->{$field} ) );
                 next if !$self->_replace_value( $record->{$field}, $regex, $args{with} );
                 push @diffs, { ref => $record->{ref}, field => $field, before => $before, after => $record->{$field} };
             }
@@ -2084,15 +2086,44 @@ sub _record_data {
     return ( $path, $self->_read_json($path), basename( dirname($path) ) );
 }
 
+# JSON::PP is core but pure Perl: decoding a mature board costs seconds
+# (measured on 138 records averaging 32KB — 1992ms with JSON::PP, 6ms with
+# an XS backend, while reading the same files without parsing costs 2ms).
+# Cpanel::JSON::XS is used when installed and JSON::PP otherwise. The two
+# emit byte-identical canonical and pretty output and share
+# JSON::PP::Boolean, so stored records never rewrite and content hashes
+# never drift — t/38 proves that against whichever backend is present.
+my @JSON_BACKENDS = qw(Cpanel::JSON::XS JSON::PP);
+my $JSON_BACKEND;
+
+sub _select_json_backend {
+    my (@candidates) = @_;
+    for my $class (@candidates) {
+        ( my $file = $class ) =~ s{::}{/}g;
+        return $class if eval { require "$file.pm"; 1 };
+    }
+    return 'JSON::PP';
+}
+
+sub json_backend {
+    $JSON_BACKEND //= _select_json_backend(@JSON_BACKENDS);
+    return $JSON_BACKEND;
+}
+
+sub json_object { return json_backend()->new }
+
+# Drop-in for JSON::PP::decode_json: UTF-8 bytes in, characters out.
+sub json_decode { return json_object()->utf8->decode( $_[0] ) }
+
 sub _read_json {
     my ( $self, $path ) = @_;
     open my $fh, '<:raw', $path or die "Cannot read JSON '$path': $!\n";
     my $content = do { local $/; <$fh> };
     close $fh or die "Cannot close JSON '$path': $!\n";
-    my $record = eval { JSON::PP->new->utf8->decode($content) };
+    my $record = eval { json_object()->utf8->decode($content) };
     if ( !defined $record ) {
         my $characters = $self->_decode_legacy_utf8($content);
-        $record = JSON::PP->new->decode($characters);
+        $record = json_object()->decode($characters);
     }
     if ( !exists $record->{assignee} && exists $record->{assignees} ) {
         $record->{assignee} = @{ $record->{assignees} // [] } ? $record->{assignees}[0] : undef;
@@ -2157,8 +2188,8 @@ sub format_output {
         local $SIG{__WARN__} = sub { };
         return Data::TOON->encode($data) . "\n";
     }
-    return JSON::PP->new->canonical->encode($data) . "\n" if $output eq 'json';
-    return JSON::PP->new->canonical->pretty->encode($data) if $output eq 'json-pretty';
+    return json_object()->canonical->allow_nonref->encode($data) . "\n" if $output eq 'json';
+    return json_object()->canonical->allow_nonref->pretty->encode($data) if $output eq 'json-pretty';
     return $self->_markdown( $data, %args ) if $output eq 'human';
     return $self->_dashboard_table( $data, %args ) if $output eq 'table';
     die "Unsupported output format '$output'\n";
@@ -2348,7 +2379,7 @@ sub _markdown {
         }
         return $markdown;
     }
-    return "# Tira Result\n\n```json\n" . JSON::PP->new->canonical->pretty->encode($data) . "```\n";
+    return "# Tira Result\n\n```json\n" . json_object()->canonical->allow_nonref->pretty->encode($data) . "```\n";
 }
 
 sub _with_project_lock {
@@ -2394,7 +2425,7 @@ sub _canonical_path {
 
 sub _write_json {
     my ( $self, $path, $data ) = @_;
-    my $json = JSON::PP->new->canonical->pretty->utf8->encode($data);
+    my $json = json_object()->canonical->pretty->utf8->encode($data);
     $self->_atomic_write( $path, $json );
 }
 

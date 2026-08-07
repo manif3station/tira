@@ -223,7 +223,7 @@ sub browser_providers {
     my (%args) = @_;
     my $tira = $args{tira};
     my $project = $args{project};
-    my $json = JSON::PP->new->canonical;
+    my $json = Tira::json_object()->canonical;
     my %editable = map { $_ => 1 } qw(
         title description problem_or_feature solution_needed source
         sdlc_gate lifecycle fix_version assignee reporter priority
@@ -489,7 +489,7 @@ sub _cache_context {
     my ( $tira, $command, $type, $option ) = @_;
     my $root = $tira->discover_project( project => $option->{project} );
     ($root) = $root =~ /\A(.+)\z/s;
-    my $key_source = JSON::PP->new->canonical->encode( {
+    my $key_source = Tira::json_object()->canonical->encode( {
         command => $command, type => $type,
         map { $_ => $option->{$_} }
           grep { defined $option->{$_} && $_ ne 'cache_ttl' && $_ ne 'no_cache' }
@@ -507,7 +507,7 @@ sub _cache_context {
         my $entry = eval {
             open my $fh, '<:raw', $file or die "unreadable\n";
             local $/;
-            JSON::PP::decode_json(<$fh>);
+            Tira::json_decode(<$fh>);
         };
         if ( !$entry || ref $entry ne 'HASH' || !defined $entry->{bytes} ) {
             print STDERR "tira: discarding corrupt cache entry\n";
@@ -530,7 +530,7 @@ sub _cache_store {
         File::Path::make_path( $context->{dir} ) if !-d $context->{dir};
         my ( $fh, $temp ) = File::Temp::tempfile( DIR => $context->{dir}, SUFFIX => '.tmp' );
         binmode $fh, ':raw';
-        print {$fh} JSON::PP->new->canonical->encode( {
+        print {$fh} Tira::json_object()->canonical->encode( {
             stored_at => time(), fingerprint => $context->{fingerprint},
             status => $status, bytes => MIME::Base64::encode_base64( _utf8_bytes($formatted), '' ),
         } );
@@ -635,7 +635,7 @@ sub _invoke {
     return $tira->diff_records(%args) if $command eq 'diff';
     if ( $command eq 'import' ) {
         die "Import file is required\n" if !defined $option->{file};
-        my $changes = JSON::PP::decode_json( _text_input( $option->{file} ) );
+        my $changes = Tira::json_decode( _text_input( $option->{file} ) );
         return $tira->bulk_import( %args, changes => $changes, dry_run => $option->{dry_run} );
     }
     return $tira->replace_records( %args, dry_run => $option->{dry_run} ) if $command eq 'replace';
@@ -733,7 +733,7 @@ sub _text_input {
 
 sub _json_array_input {
     my ($file) = @_;
-    my $data = JSON::PP::decode_json( _text_input($file) );
+    my $data = Tira::json_decode( _text_input($file) );
     die "Replacement input must be a JSON array\n" if ref($data) ne 'ARRAY';
     return $data;
 }
@@ -742,7 +742,7 @@ sub _error {
     my ( $tira, $output, $message ) = @_;
     $message =~ s/\s+\z//;
     my $formatted = eval { $tira->format_output( { error => $message }, output => $output ) };
-    $formatted = JSON::PP->new->canonical->pretty->encode( { error => $message } ) if !defined $formatted;
+    $formatted = Tira::json_object()->canonical->pretty->encode( { error => $message } ) if !defined $formatted;
     print STDERR _utf8_bytes($formatted);
     return 2;
 }

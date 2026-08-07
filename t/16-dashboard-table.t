@@ -39,6 +39,9 @@ like( $html, qr/<style>.*linear-gradient/s, 'table embeds a styled gradient surf
 like( $html, qr/<script>.*onclick/s, 'table embeds local interaction JavaScript' );
 like( $html, qr/data-sort="mtime".*data-sort="ref"/s, 'table provides mtime and ref sorting controls' );
 like( $html, qr/class="refresh-status"/, 'table displays its active refresh interval' );
+like( $html, qr/>Refresh 60s</, 'the default refresh interval is 60 seconds' );
+like( $html, qr/Math\.max\(1,Number\(rawRefresh\)\):60;/,
+    'the script falls back to the 60-second default for missing or invalid values' );
 like( $html, qr/class="last-updated"/, 'table displays when its data was last updated' );
 like( $html, qr/URLSearchParams.*refresh.*location\.reload.*setTimeout/s,
     'table embeds query-controlled automatic reload logic' );

@@ -1,5 +1,13 @@
 Revision history for Tira
 
+0.50  2026-08-07
+    - The dashboard's default live-refresh interval is now 60 seconds
+      (was 5). `?refresh=N` still selects any positive interval and
+      invalid values fall back to the new default. With 0.49's
+      repaint-only-on-change cycle the board still updates in place;
+      it now costs one comparison per minute instead of one every five
+      seconds.
+
 0.49  2026-08-07
     - Dialog live refresh repaints only on real change (owner video,
       message 2969): the cycle fetches the record, compares it against

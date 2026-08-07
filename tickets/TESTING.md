@@ -1107,3 +1107,16 @@ report, message 2915 — three connected findings).
   pass; t/19 pins `lastDialogRecordJson`, the identical-skip, and the
   post-fetch re-check. Playwright ×3 green; functional PASS
   `Files=38, Tests=1355`; coverage `100.0%`; `prove -T` PASS.
+
+## Latest Verification For `DD-439`
+
+- Default refresh interval 5s → 60s in both carriers (header badge and
+  script fallback); override, validation, and clamp untouched.
+- t/16 now pins `>Refresh 60s<` and the `:60` fallback so the two
+  cannot drift apart. The Playwright mobile pass requests `?refresh=2`
+  so DD-438's cycle guards still exercise a real cycle at test speed;
+  the quiet-cycle budget is 4 reads across ~3 cycles (post-fix costs
+  one comparison per cycle, pre-fix four).
+- Playwright ×3 green; functional PASS `Files=38, Tests=1357`;
+  coverage `100.0%` all three modules; `prove -T` PASS; `cover_db` and
+  fixtures cleaned.

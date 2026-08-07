@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.49';
+our $VERSION = '0.50';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -2265,12 +2265,12 @@ sub _dashboard_table {
 @media(max-width:720px){.card-details{grid-template-columns:auto 1fr}}
 @media(max-width:520px){.shell{width:calc(100% - .8rem);padding-top:1.2rem}.hero h1{font-size:2.2rem}.card-dialog{width:calc(100% - .6rem);max-height:96vh;border-radius:.9rem}.card-dialog header{padding:.9rem 1rem}.card-dialog__sections{padding:.8rem;max-height:calc(96vh - 5.6rem)}.card-section{padding:.75rem .8rem}.card-details{grid-template-columns:1fr;gap:.1rem .5rem}.card-details dt{margin-top:.55rem}.card-comment-form,.card-checklist-form,.card-link-form{flex-direction:column;display:flex}.card-comment-form select,.card-comment-form textarea{width:100%}.card-linkage__label{min-width:100%}th,td{min-width:13rem;width:13rem}}
 CSS
-      . '</style></head><body><main class="shell"><header class="hero"><div><span class="eyebrow">Tira Kanban &middot; Filesystem-native flow</span><h1>' . $project_heading . '</h1></div><div class="hero__aside"><p>Focused work, arranged by state. Select a card to keep your place.</p><span class="refresh-status" aria-live="polite">Refresh 5s</span><span class="last-updated">Last updated: pending</span></div></header>'
+      . '</style></head><body><main class="shell"><header class="hero"><div><span class="eyebrow">Tira Kanban &middot; Filesystem-native flow</span><h1>' . $project_heading . '</h1></div><div class="hero__aside"><p>Focused work, arranged by state. Select a card to keep your place.</p><span class="refresh-status" aria-live="polite">Refresh 60s</span><span class="last-updated">Last updated: pending</span></div></header>'
       . $boards
       . '</main>' . $dialog
       . q~<script>const sortBoard=(board,mode)=>{board.querySelectorAll(".cards").forEach(list=>{const cards=[...list.children];cards.sort((a,b)=>mode==="ref"?a.dataset.ref.localeCompare(b.dataset.ref):(Number(b.dataset.mtime)-Number(a.dataset.mtime)||a.dataset.ref.localeCompare(b.dataset.ref)));cards.forEach(card=>list.appendChild(card))});board.querySelectorAll("[data-sort]").forEach(button=>button.classList.toggle("is-active",button.dataset.sort===mode));document.documentElement.dataset.sort=mode};~ . $live_helpers
       . q~const bindBoards=()=>{document.querySelectorAll(".card").forEach(card=>{~ . $card_binding
-      . q~});document.querySelectorAll(".board").forEach(board=>board.querySelectorAll("[data-sort]").forEach(button=>button.onclick=()=>sortBoard(board,button.dataset.sort)))};const markUpdated=()=>{document.querySelector(".last-updated").textContent=`Last updated: ${new Date().toLocaleString()}`};document.documentElement.dataset.ready="true";document.documentElement.dataset.sort="mtime";bindBoards();markUpdated();const params=new URLSearchParams(location.search);const rawRefresh=params.get("refresh");const refreshSeconds=/^\d+$/.test(rawRefresh||"")?Math.max(1,Number(rawRefresh)):5;document.documentElement.dataset.refresh=String(refreshSeconds);document.querySelector(".refresh-status").textContent=`Refresh ${refreshSeconds}s`;const refreshDashboard=()=>~ . $refresh_action
+      . q~});document.querySelectorAll(".board").forEach(board=>board.querySelectorAll("[data-sort]").forEach(button=>button.onclick=()=>sortBoard(board,button.dataset.sort)))};const markUpdated=()=>{document.querySelector(".last-updated").textContent=`Last updated: ${new Date().toLocaleString()}`};document.documentElement.dataset.ready="true";document.documentElement.dataset.sort="mtime";bindBoards();markUpdated();const params=new URLSearchParams(location.search);const rawRefresh=params.get("refresh");const refreshSeconds=/^\d+$/.test(rawRefresh||"")?Math.max(1,Number(rawRefresh)):60;document.documentElement.dataset.refresh=String(refreshSeconds);document.querySelector(".refresh-status").textContent=`Refresh ${refreshSeconds}s`;const refreshDashboard=()=>~ . $refresh_action
       . q~;const scheduleRefresh=()=>setTimeout(()=>{Promise.resolve(refreshDashboard()).finally(scheduleRefresh)},refreshSeconds*1000);~ . $initial_refresh
       . q~scheduleRefresh();~ . $drag_script . q~</script></body></html>~;
 }

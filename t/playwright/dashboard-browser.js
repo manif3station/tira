@@ -421,7 +421,7 @@ const fs = require('fs');
     mobileMoves++;
     return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
   });
-  await mobile.goto('http://tira.test/');
+  await mobile.goto('http://tira.test/?refresh=2');
   await mobile.waitForSelector('[data-ref="TKT-001"] .card');
   const bodyOverflow = await mobile.evaluate(() => document.body.scrollWidth - document.documentElement.clientWidth);
   if (bodyOverflow > 1) throw new Error(`mobile page overflows horizontally by ${bodyOverflow}px`);
@@ -443,8 +443,8 @@ const fs = require('fs');
   const quietStart = mobileRecordHits;
   await new Promise(resolve => setTimeout(resolve, 7000));
   const quietHits = mobileRecordHits - quietStart;
-  if (quietHits > 2)
-    throw new Error(`an unchanged card must not refetch its linked rows: ${quietHits} record reads in one quiet cycle`);
+  if (quietHits > 4)
+    throw new Error(`an unchanged card must not refetch its linked rows: ${quietHits} record reads across ~3 quiet 2s cycles`);
   const stableNode = await mobile.evaluate(() => !!document.querySelector('.card-dialog__sections').firstElementChild.__tiraStable);
   if (!stableNode) throw new Error('an identical refresh cycle rebuilt the dialog DOM');
 

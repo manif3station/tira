@@ -4,7 +4,7 @@ Tira is a filesystem-native Kanban project manager for Developer Dashboard. It
 provides Jira-style projects, SOWs, epics, and tickets over a transparent local
 filesystem engine accessed exclusively through Tira commands.
 
-Release 0.49 implements the complete command ecosystem: projects, independent
+Release 0.50 implements the complete command ecosystem: projects, independent
 boards, columns, records, links, people, comments, attachments, evidence,
 gates, search, dashboards, agent-efficient TOON output, singular record
 ownership, planning metadata, immediate parents, and inactive-person controls.
@@ -132,7 +132,7 @@ dashboard tira.dashboard -o browser
 dashboard tira.dashboard.ticket --title -o browser=localhost:4567
 ```
 
-HTML dashboards reload every five seconds and display the active interval.
+HTML dashboards reload every sixty seconds and display the active interval.
 Append `?refresh=30` to the browser URL to select a positive interval in
 seconds; zero is safely clamped to one second. Browser output serves the same
 board shell through Dancer2, defaults to `0.0.0.0:7899`, and accepts `0.0.0.0`,

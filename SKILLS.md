@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.49):** shipped, executable, and covered by tests.
+- **Implemented (0.50):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.49.
+All commands and use cases in this manual ship in release 0.50.
 
 ## Global invocation grammar
 
@@ -575,8 +575,8 @@ commands print one board. Columns run left-to-right. Embedded CSS provides the
 responsive visual design, while embedded JavaScript lets the viewer select
 cards and reorder each board by last modified or card ref. Table output remains
 ref-only unless `--title` is supplied and uses no external resources.
-The page reloads every five seconds by default and shows the active interval;
-`?refresh=30` selects 30 seconds, invalid values fall back to five, and zero is
+The page reloads every sixty seconds by default and shows the active interval;
+`?refresh=30` selects 30 seconds, invalid values fall back to sixty, and zero is
 clamped to one. `-o browser` serves this same live HTML at `0.0.0.0:7899`.
 Use `-o browser=localhost:4567`, `127.0.0.1`, or `0.0.0.0:1234` to choose an
 approved bind. The optional port defaults to 7899, and every request rebuilds

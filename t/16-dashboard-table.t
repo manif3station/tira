@@ -52,8 +52,12 @@ like( $html, qr/data-width="fit"/, 'fit-all is the alternative' );
 like( $html, qr/localStorage\.setItem\(widthStorageKey/, 'the width choice persists to browser storage' );
 like( $html, qr/localStorage\.getItem\(widthStorageKey/, 'the stored width choice is read back on load' );
 like( $html, qr/catch\(error\)\{return null\}/, 'unavailable storage degrades to the default rather than failing' );
-like( $html, qr/html\[data-width="fit"\] th,html\[data-width="fit"\] td\{min-width:0/,
-    'fit mode lets columns shrink to the container' );
+like( $html, qr/html\[data-width="fit"\] \.board__columns\{display:grid/,
+    'fit mode lays the columns out as a grid, so they can wrap onto more than one row' );
+like( $html, qr/repeat\(auto-fill,minmax\(14rem,1fr\)\)/,
+    'wrapping at a readable minimum width instead of squeezing every column onto one row' );
+like( $html, qr/\.column__head\{position:sticky/,
+    'and each column keeps its own sticky heading, now that it owns one' );
 like( $html, qr/\@media\(max-width:720px\)\{html\[data-width="fit"\] \.board__scroll\{overflow-x:auto\}/,
     'narrow screens keep scrollable columns while the preference is preserved' );
 is( scalar( () = $html =~ /class="column__count"/g ), 4,

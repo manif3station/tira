@@ -1,5 +1,18 @@
 Revision history for Tira
 
+0.76  2026-08-08
+    - Fit all now wraps the columns onto more than one row. With the
+      overflow defects fixed, thirteen columns across a 1280px window
+      was 81 pixels each: correct arithmetic and an unreadable board.
+      A table cannot wrap, because the heading row and the body row are
+      separate and a wrapped column would leave its heading behind - so
+      each column is now one block owning its own heading, laid out in
+      a scrolling row for Standard and a wrapping grid for Fit.
+    - Almost nothing else needed changing: the card drag finds the list
+      under the pointer by geometry, and paging, filtering and counts
+      address columns by name. Verified with the drag, paging, wrap and
+      column-editor browser guards, each run twice.
+
 0.75  2026-08-08
     - Creating a project inside another one is refused, naming the
       project in the way and its directory. Without a directory,

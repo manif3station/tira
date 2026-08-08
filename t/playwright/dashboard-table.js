@@ -39,7 +39,7 @@ const fs = require('fs');
   await assertRefresh('?refresh=0', 1, 1000);
   await assertRefresh('?refresh=60', 60, 60000);
   if (await page.locator('.board').count() !== 1) throw new Error('expected one type-specific board');
-  const headers = page.locator('th');
+  const headers = page.locator('.column__head');
   if (await headers.count() < 2) throw new Error('expected at least two columns');
   const first = await headers.nth(0).boundingBox();
   const second = await headers.nth(1).boundingBox();

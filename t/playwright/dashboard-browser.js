@@ -149,13 +149,15 @@ const fs = require('fs');
   if (dataRequests < 2) throw new Error('post-drag refresh never fetched /data');
   await page.evaluate(() => new Promise(requestAnimationFrame));
 
-  const columnMinWidth = () => page.locator('.board--ticket th').first().evaluate(node => getComputedStyle(node).minWidth);
-  if (await columnMinWidth() === '0px') throw new Error('standard mode must keep fixed-width columns');
+  // The fixed width lives on the column itself now that each column owns its
+  // heading, so that is where standard-versus-fit is asked.
+  const columnBasis = () => page.locator('.board--ticket .column').first().evaluate(node => getComputedStyle(node).flexBasis);
+  if (await columnBasis() === 'auto') throw new Error('standard mode must keep fixed-width columns');
   if (await page.evaluate(() => document.documentElement.dataset.width) !== 'standard')
     throw new Error('the board must start in standard width mode');
   await page.locator('.board--ticket [data-width="fit"]').click();
   await page.waitForFunction(() => document.documentElement.dataset.width === 'fit');
-  if (await columnMinWidth() !== '0px') throw new Error('fit mode must let columns shrink to the container');
+  if (await columnBasis() !== 'auto') throw new Error('fit mode must let columns shrink to the container');
   const fitOverflow = await page.locator('.board--ticket .board__scroll').evaluate(node => node.scrollWidth - node.clientWidth);
   if (fitOverflow > 1) throw new Error(`fit mode must remove sideways scrolling, overflows by ${fitOverflow}px`);
   const fitActive = await page.locator('.board--ticket [data-width="fit"]').evaluate(node => node.classList.contains('is-active'));
@@ -164,10 +166,10 @@ const fs = require('fs');
   await page.waitForFunction(() => document.documentElement.dataset.ready === 'true');
   if (await page.evaluate(() => document.documentElement.dataset.width) !== 'fit')
     throw new Error('the width choice must be remembered across reloads');
-  if (await columnMinWidth() !== '0px') throw new Error('the remembered fit mode must apply on load');
+  if (await columnBasis() !== 'auto') throw new Error('the remembered fit mode must apply on load');
   await page.locator('.board--ticket [data-width="standard"]').click();
   await page.waitForFunction(() => document.documentElement.dataset.width === 'standard');
-  if (await columnMinWidth() === '0px') throw new Error('switching back to standard must restore fixed columns');
+  if (await columnBasis() === 'auto') throw new Error('switching back to standard must restore fixed columns');
   await page.reload();
   await page.waitForFunction(() => document.documentElement.dataset.ready === 'true');
   if (await page.evaluate(() => document.documentElement.dataset.width) !== 'standard')

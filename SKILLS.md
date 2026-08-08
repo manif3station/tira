@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.75):** shipped, executable, and covered by tests.
+- **Implemented (0.76):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.75.
+All commands and use cases in this manual ship in release 0.76.
 
 ## Global invocation grammar
 
@@ -450,6 +450,13 @@ is listed with `basis: none` and **no duration** rather than a guessed one, and
 `--older-than MINUTES` never returns it — an unmeasured card is unknown, not
 old. An unreadable stamp yields `basis: unknown` instead of failing the board,
 and a column renamed underneath a card does not disturb its measurement.
+Wrapping wide boards is **Implemented (DD-453)**: each column now owns
+its own heading rather than sitting in a table row, so **Fit all wraps
+the columns onto as many rows as it takes** at a readable width instead
+of squeezing every one of them onto a single line. Standard is
+unchanged: one row, full-width columns, scrolling sideways. Drag and
+drop, paging, filtering, counts and the column editor are unaffected.
+
 Nesting refusal is **Implemented (DD-447)**: creating a project in a
 directory that sits inside an existing project is refused, naming the
 project that is in the way and where it is. Project discovery walks

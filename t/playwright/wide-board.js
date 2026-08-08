@@ -23,11 +23,11 @@ if (!htmlPath) {
   await page.goto('http://tira.test/');
   await page.waitForFunction(() => document.documentElement.dataset.ready === 'true');
 
-  const columnWidths = () => page.locator('.board--ticket th').evaluateAll(
+  const columnWidths = () => page.locator('.board--ticket .column__head').evaluateAll(
     nodes => nodes.map(node => Math.round(node.getBoundingClientRect().width)));
   const spills = () => page.evaluate(() => {
     const found = [];
-    document.querySelectorAll('.board--ticket td').forEach(cell => {
+    document.querySelectorAll('.board--ticket .column').forEach(cell => {
       const edge = cell.getBoundingClientRect().right;
       cell.querySelectorAll('.card').forEach(card => {
         const over = Math.round(card.getBoundingClientRect().right - edge);

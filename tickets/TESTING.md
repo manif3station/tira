@@ -1593,3 +1593,29 @@ report, message 2915 — three connected findings).
   re-judges a decision already made.
 - Functional PASS `Files=55, Tests=2092`; coverage `100.0%` all three
   modules; `prove -T` PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-453`
+
+- New browser guard `t/playwright/wrap-board.js`: Standard keeping one
+  row with full-width columns and no card spill, Fit wrapping onto more
+  than one row with nothing below the readable minimum and nothing past
+  the right edge, no spill in either mode, and Standard unwrapping when
+  chosen again. **Verified in the failing direction** against a build
+  with the grid rule removed: `FAIL: fit mode did not wrap`.
+- The three existing browser guards were re-run because this rebuilds
+  what they read: `dashboard-browser.js` (pointer drag, refresh,
+  sorting, width memory), `wide-board.js` (eleven columns, spill,
+  paging) and `column-editor.js`. All four green on two consecutive
+  runs.
+- Rebuilding their fixtures found three fixture faults of my own, not
+  code faults: the paging guard addresses columns by name and needs a
+  ticket-only board, the drag guard needs a *post-move* data file to
+  tell a real move from a card that never left, and every card sharing
+  one frozen clock makes last-modified sorting untestable.
+- `dashboard-browser.js` asked for the fixed width on the heading; the
+  width now lives on the column itself, so the assertion moved with it
+  rather than being deleted.
+- Eyeballed at 1280px with eleven columns: three rows in Fit, headings,
+  counts, paging button and add-card all correct.
+- Functional PASS `Files=55, Tests=2094`; coverage `100.0%` all three
+  modules; `prove -T` PASS; fixtures cleaned.

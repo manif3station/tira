@@ -1323,3 +1323,16 @@ report, message 2915 — three connected findings).
   [14…]px`), green ×3 after.
 - Functional PASS `Files=44, Tests=1638`; coverage `100.0%` all three
   modules; `prove -T` PASS; fixtures and `cover_db` cleaned.
+
+## Latest Verification For `DD-454`
+
+- Title contract pinned in `t/16-dashboard-table.t`: a combined
+  dashboard reads `Table project :: Kanban :: 3`, a type-scoped one
+  reads `Table project :: Tickets :: 1`, and the old generic title is
+  asserted gone.
+- Checked against a realistic board before shipping: `MT5 :: Tickets ::
+  57` for the ticket board and `MT5 :: Kanban :: 57` for all three,
+  confirming the count follows what is rendered rather than what is
+  stored.
+- Functional PASS `Files=44, Tests=1641`; coverage `100.0%` all three
+  modules; `prove -T` PASS; fixtures and `cover_db` cleaned.

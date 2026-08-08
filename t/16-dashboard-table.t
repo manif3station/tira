@@ -38,6 +38,9 @@ like( $html, qr/\A<!doctype html>/i, 'table output is a raw HTML document' );
 like( $html, qr/<style>.*linear-gradient/s, 'table embeds a styled gradient surface' );
 like( $html, qr/<script>.*onclick/s, 'table embeds local interaction JavaScript' );
 like( $html, qr/data-sort="mtime".*data-sort="ref"/s, 'table provides mtime and ref sorting controls' );
+like( $html, qr{<title>Table project :: Kanban :: 3</title>},
+    'the tab reads project, board and card count; all three boards read as Kanban (DD-454)' );
+unlike( $html, qr{<title>Tira Kanban</title>}, 'and no longer shows the generic product name' );
 like( $html, qr/class="refresh-status"/, 'table displays its active refresh interval' );
 like( $html, qr/>Refresh 60s</, 'the default refresh interval is 60 seconds' );
 like( $html, qr/Math\.max\(1,Number\(rawRefresh\)\):60;/,
@@ -78,6 +81,8 @@ is( $status, 0, 'type-specific table dashboard succeeds' );
 is( scalar( () = $html =~ /class="board board--/g ), 1, 'type-specific command renders one board' );
 like( $html, qr/data-type="ticket"/, 'ticket command renders ticket board' );
 unlike( $html, qr/data-type="(?:sow|epic)"/, 'ticket command excludes other boards' );
+like( $html, qr{<title>Table project :: Tickets :: 1</title>},
+    'a single-type board names that board in the tab' );
 like( $html, qr/data-mtime="\d+"/, 'table embeds filesystem mtime for local sorting' );
 unlike( $html, qr/<span class="card__title">/, 'table remains ref-only without title flag' );
 

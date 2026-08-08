@@ -1,5 +1,12 @@
 Revision history for Tira
 
+0.62  2026-08-08
+    - The browser tab now reads `<project> :: <board> :: <cards>`, for
+      example `MT5 :: Tickets :: 57`, instead of a generic product name
+      on every board (owner request). All three boards on one page read
+      `Kanban`, and the count is what the page actually renders, so it
+      never disagrees with the board beneath it.
+
 0.61  2026-08-08
     - Fixed cards still drawing over the next column on boards with many
       columns (owner photo, message 3007) — a different defect from

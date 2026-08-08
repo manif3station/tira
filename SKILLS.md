@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.72):** shipped, executable, and covered by tests.
+- **Implemented (0.73):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.72.
+All commands and use cases in this manual ship in release 0.73.
 
 ## Global invocation grammar
 
@@ -450,6 +450,14 @@ is listed with `basis: none` and **no duration** rather than a guessed one, and
 `--older-than MINUTES` never returns it — an unmeasured card is unknown, not
 old. An unreadable stamp yields `basis: unknown` instead of failing the board,
 and a column renamed underneath a card does not disturb its measurement.
+The column editor is **Implemented (DD-466)**: each board control has a
+Columns button opening a modal that shows that board's own columns —
+drag a row by its grip to reorder, edit its label, set how many minutes
+a card may sit there, turn its eye off to stop it being chased, remove
+it, or add a new one before Discard. Saving sends the whole layout at
+once. Reordering uses pointer events like the rest of the board, so the
+grip works on a phone.
+
 Whole-layout column edits are **Implemented (DD-465)**:
 `tira.column.apply` takes the column list a board should have — order,
 labels, per-column thresholds and watched flags — and works out the

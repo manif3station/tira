@@ -1526,3 +1526,31 @@ report, message 2915 — three connected findings).
   board with a missing route.
 - Functional PASS `Files=53, Tests=2052`; coverage `100.0%` all three
   modules; `prove -T` PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-466`
+
+- New browser guard `t/playwright/column-editor.js`, driven with real
+  pointer events: the button on the board control, the layout shown as
+  stored, four removable columns and two protected ones with no remove
+  control, the unwatched eye shown off, the stored threshold shown,
+  dragging a row by its grip past another, editing a threshold,
+  toggling an eye, removing a column, adding one before Discard, and
+  the saved payload matching what was on screen.
+- **The guard was verified in the failing direction three times**, each
+  against a deliberately broken build: no Columns button
+  (`FAIL: the ticket board has no Columns button`), a dead grip
+  (`FAIL: dragging by the grip did not reorder`), and a dropped
+  threshold (`FAIL: the edited threshold was not sent, got undefined`).
+  Then green on three consecutive runs of the real build.
+- I nearly recorded a false green here. My first run against a broken
+  fixture printed "all checks passed" through a pipe, because a missing
+  element threw an unhandled rejection rather than reporting, and the
+  pipe hid the exit code. The guard now traps unhandled rejections and
+  returns early on a missing button, and every check above was judged
+  by exit code rather than by the last line of piped output. Same
+  family as `EMPTY-GREEN`.
+- `t/17` already guarded that the board uses pointer events rather than
+  HTML5 drag, and it caught my first implementation using `draggable`.
+  That guard is why the grip works on a phone.
+- Functional PASS `Files=53, Tests=2052`; coverage `100.0%` all three
+  modules; fixtures cleaned.

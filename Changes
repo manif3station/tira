@@ -1,5 +1,21 @@
 Revision history for Tira
 
+0.73  2026-08-08
+    - The column editor. Each board control now has a Columns button
+      opening a modal showing that board's own structure: drag a row by
+      its grip to reorder, edit the label, set how long a card may sit
+      there, turn the eye off to stop the column being chased, remove a
+      column, or add one. Saving sends the whole layout in a single
+      call.
+    - Reordering uses pointer events rather than HTML5 drag, matching
+      the card drag the board already uses, so the grip works on a
+      phone rather than being the one thing on the board a touch device
+      cannot move. Protected columns offer no remove control at all,
+      since the engine refuses them and a button that always errors is
+      worse than no button. An untouched threshold is omitted rather
+      than sent as zero, so a column falls back to the project default
+      instead of being refused.
+
 0.72  2026-08-08
     - `tira.column.apply` takes a whole column layout in one call and
       works out the difference itself: what to add, what to remove,

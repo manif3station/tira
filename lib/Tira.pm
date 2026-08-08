@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.73';
+our $VERSION = '0.74';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -2076,44 +2076,53 @@ sub comment_list {
 
 sub comment_add {
     my ( $self, %args ) = @_;
-    $self->_require_person( %args, person => $args{author} );
-    local $self->{_journal_author} = $args{author};
-    my $record = $self->record_show(%args);
-    my $number = 1;
-    for my $existing ( @{ $record->{comments} } ) {
-        $number = $1 + 1 if $existing->{id} =~ /\ACMT-(\d+)\z/ && $1 >= $number;
-    }
-    my $now = $self->{clock}->();
-    my $comment = {
-        id => sprintf( 'CMT-%03d', $number ), author => $args{author}, format => $args{format} // 'markdown',
-        body => $args{text} // '', attachments => [], created_at => $now, last_updated => $now,
-    };
-    push @{ $record->{comments} }, $comment;
-    $self->_replace_record( %args, record => $record );
-    return $comment;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        $self->_require_person( %args, person => $args{author} );
+        local $self->{_journal_author} = $args{author};
+        my $record = $self->record_show(%args);
+        my $number = 1;
+        for my $existing ( @{ $record->{comments} } ) {
+            $number = $1 + 1 if $existing->{id} =~ /\ACMT-(\d+)\z/ && $1 >= $number;
+        }
+        my $now = $self->{clock}->();
+        my $comment = {
+            id => sprintf( 'CMT-%03d', $number ), author => $args{author}, format => $args{format} // 'markdown',
+            body => $args{text} // '', attachments => [], created_at => $now, last_updated => $now,
+        };
+        push @{ $record->{comments} }, $comment;
+        $self->_replace_record( %args, record => $record );
+        return $comment;
+    } );
 }
 
 sub comment_update {
     my ( $self, %args ) = @_;
-    my $record = $self->record_show(%args);
-    my ($comment) = grep { $_->{id} eq ( $args{comment} // '' ) } @{ $record->{comments} };
-    die "Comment '$args{comment}' not found\n" if !$comment;
-    $comment->{body} = $args{text} if defined $args{text};
-    $comment->{format} = $args{format} if defined $args{format};
-    $comment->{last_updated} = $self->{clock}->();
-    $self->_replace_record( %args, record => $record );
-    return $comment;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my $record = $self->record_show(%args);
+        my ($comment) = grep { $_->{id} eq ( $args{comment} // '' ) } @{ $record->{comments} };
+        die "Comment '$args{comment}' not found\n" if !$comment;
+        $comment->{body} = $args{text} if defined $args{text};
+        $comment->{format} = $args{format} if defined $args{format};
+        $comment->{last_updated} = $self->{clock}->();
+        $self->_replace_record( %args, record => $record );
+        return $comment;
+    } );
 }
 
 sub comment_remove {
     my ( $self, %args ) = @_;
-    my $record = $self->record_show(%args);
-    my $id = $args{comment} // '';
-    my ($removed) = grep { $_->{id} eq $id } @{ $record->{comments} };
-    die "Comment '$id' not found\n" if !$removed;
-    $record->{comments} = [ grep { $_->{id} ne $id } @{ $record->{comments} } ];
-    $self->_replace_record( %args, record => $record );
-    return $removed;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my $record = $self->record_show(%args);
+        my $id = $args{comment} // '';
+        my ($removed) = grep { $_->{id} eq $id } @{ $record->{comments} };
+        die "Comment '$id' not found\n" if !$removed;
+        $record->{comments} = [ grep { $_->{id} ne $id } @{ $record->{comments} } ];
+        $self->_replace_record( %args, record => $record );
+        return $removed;
+    } );
 }
 
 sub comment_attach {
@@ -2135,40 +2144,43 @@ sub attachment_add {
 # dialog upload cannot balloon the store.
 sub attachment_add_content {
     my ( $self, %args ) = @_;
-    my $content = $args{content};
-    die "Attachment upload requires filename and content\n"
-      if !defined $args{filename} || $args{filename} eq '' || !defined $content;
-    die "Attachment upload is too large (16 MB maximum)\n" if length($content) > 16 * 1024 * 1024;
-    my $sha = sha256_hex($content);
-    $sha =~ /\A([0-9a-f]{64})\z/ or die "Cannot validate attachment SHA\n";
-    $sha = $1;
-    my $name = $args{filename};
-    my $extension = $name =~ /\.([A-Za-z0-9]+)\z/ ? lc $1 : 'bin';
     my $root = $self->discover_project(%args);
-    my $stored = File::Spec->catfile( $root, '.tira', 'attachments', "$sha.$extension" );
-    $self->_atomic_write( $stored, $content ) if !-f $stored;
-    my $reference = { sha => $sha, extension => $extension, original_filename => $name, added_at => $self->{clock}->() };
-    my $record = $self->record_show( project => $root, ref => $args{ref} );
-    my $attachments;
-    if ( defined $args{comment} ) {
-        my ($comment) = grep { $_->{id} eq $args{comment} } @{ $record->{comments} };
-        die "Comment '$args{comment}' not found\n" if !$comment;
-        $attachments = $comment->{attachments};
-    }
-    else {
-        $attachments = $record->{attachments};
-    }
-    my ($retained) = grep { $_->{sha} eq $sha && $_->{extension} eq $extension } @{$attachments};
-    my $deduped = defined $retained;
-    if ( !$deduped ) {
-        push @{$attachments}, $reference;
-        $retained = $reference;
-    }
-    $self->_replace_record( project => $root, ref => $args{ref}, record => $record );
-    return {
-        %{$retained}, supplied_filename => $name,
-        deduped => $deduped ? JSON::PP::true : JSON::PP::false,
-    };
+    return $self->_with_project_lock( $root, sub {
+        my $content = $args{content};
+        die "Attachment upload requires filename and content\n"
+          if !defined $args{filename} || $args{filename} eq '' || !defined $content;
+        die "Attachment upload is too large (16 MB maximum)\n" if length($content) > 16 * 1024 * 1024;
+        my $sha = sha256_hex($content);
+        $sha =~ /\A([0-9a-f]{64})\z/ or die "Cannot validate attachment SHA\n";
+        $sha = $1;
+        my $name = $args{filename};
+        my $extension = $name =~ /\.([A-Za-z0-9]+)\z/ ? lc $1 : 'bin';
+        my $root = $self->discover_project(%args);
+        my $stored = File::Spec->catfile( $root, '.tira', 'attachments', "$sha.$extension" );
+        $self->_atomic_write( $stored, $content ) if !-f $stored;
+        my $reference = { sha => $sha, extension => $extension, original_filename => $name, added_at => $self->{clock}->() };
+        my $record = $self->record_show( project => $root, ref => $args{ref} );
+        my $attachments;
+        if ( defined $args{comment} ) {
+            my ($comment) = grep { $_->{id} eq $args{comment} } @{ $record->{comments} };
+            die "Comment '$args{comment}' not found\n" if !$comment;
+            $attachments = $comment->{attachments};
+        }
+        else {
+            $attachments = $record->{attachments};
+        }
+        my ($retained) = grep { $_->{sha} eq $sha && $_->{extension} eq $extension } @{$attachments};
+        my $deduped = defined $retained;
+        if ( !$deduped ) {
+            push @{$attachments}, $reference;
+            $retained = $reference;
+        }
+        $self->_replace_record( project => $root, ref => $args{ref}, record => $record );
+        return {
+            %{$retained}, supplied_filename => $name,
+            deduped => $deduped ? JSON::PP::true : JSON::PP::false,
+        };
+    } );
 }
 
 # Removes one attachment reference from a record (or one of its comments).
@@ -2178,43 +2190,46 @@ sub attachment_add_content {
 sub attachment_detach {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
-    my $sha = $args{sha} // '';
-    my $record = $self->record_show( project => $root, ref => $args{ref} );
-    my $owner;
-    if ( defined $args{comment} ) {
-        ($owner) = grep { $_->{id} eq $args{comment} } @{ $record->{comments} };
-        die "Comment '$args{comment}' not found\n" if !$owner;
-    }
-    else {
-        $owner = $record;
-    }
-    my @keep = grep {
-        !( $_->{sha} eq $sha && ( !defined $args{extension} || $_->{extension} eq $args{extension} ) )
-    } @{ $owner->{attachments} };
-    my ($reference) = grep {
-        $_->{sha} eq $sha && ( !defined $args{extension} || $_->{extension} eq $args{extension} )
-    } @{ $owner->{attachments} };
-    die "Attachment '$sha' is not attached there\n" if !$reference;
-    $owner->{attachments} = \@keep;
-    $self->_replace_record( project => $root, ref => $args{ref}, record => $record );
-
-    my $extension = $reference->{extension};
-    my $still_referenced = 0;
-    for my $candidate ( @{ $self->record_list( project => $root ) } ) {
-        my @pools = ( $candidate->{attachments}, map { $_->{attachments} } @{ $candidate->{comments} // [] } );
-        for my $pool (@pools) {
-            $still_referenced ||= grep { $_->{sha} eq $sha && $_->{extension} eq $extension } @{ $pool // [] };
+    return $self->_with_project_lock( $root, sub {
+        my $root = $self->discover_project(%args);
+        my $sha = $args{sha} // '';
+        my $record = $self->record_show( project => $root, ref => $args{ref} );
+        my $owner;
+        if ( defined $args{comment} ) {
+            ($owner) = grep { $_->{id} eq $args{comment} } @{ $record->{comments} };
+            die "Comment '$args{comment}' not found\n" if !$owner;
         }
-    }
-    my $removed = 0;
-    if ( !$still_referenced ) {
-        $self->attachment_remove( project => $root, sha => $sha, extension => $extension );
-        $removed = 1;
-    }
-    return {
-        detached => JSON::PP::true, sha => $sha, extension => $extension,
-        removed_from_store => $removed ? JSON::PP::true : JSON::PP::false,
-    };
+        else {
+            $owner = $record;
+        }
+        my @keep = grep {
+            !( $_->{sha} eq $sha && ( !defined $args{extension} || $_->{extension} eq $args{extension} ) )
+        } @{ $owner->{attachments} };
+        my ($reference) = grep {
+            $_->{sha} eq $sha && ( !defined $args{extension} || $_->{extension} eq $args{extension} )
+        } @{ $owner->{attachments} };
+        die "Attachment '$sha' is not attached there\n" if !$reference;
+        $owner->{attachments} = \@keep;
+        $self->_replace_record( project => $root, ref => $args{ref}, record => $record );
+
+        my $extension = $reference->{extension};
+        my $still_referenced = 0;
+        for my $candidate ( @{ $self->record_list( project => $root ) } ) {
+            my @pools = ( $candidate->{attachments}, map { $_->{attachments} } @{ $candidate->{comments} // [] } );
+            for my $pool (@pools) {
+                $still_referenced ||= grep { $_->{sha} eq $sha && $_->{extension} eq $extension } @{ $pool // [] };
+            }
+        }
+        my $removed = 0;
+        if ( !$still_referenced ) {
+            $self->attachment_remove( project => $root, sha => $sha, extension => $extension );
+            $removed = 1;
+        }
+        return {
+            detached => JSON::PP::true, sha => $sha, extension => $extension,
+            removed_from_store => $removed ? JSON::PP::true : JSON::PP::false,
+        };
+    } );
 }
 
 sub attachment_get {
@@ -2419,22 +2434,25 @@ sub evidence_list {
 
 sub evidence_add {
     my ( $self, %args ) = @_;
-    $self->_require_person( %args, person => $args{author} ) if defined $args{author};
-    my $record = $self->record_show(%args);
-    die "Evidence summary is required\n" if !defined $args{summary} || $args{summary} eq '';
-    my $attachment = defined $args{file} ? $self->attachment_add(%args) : undef;
-    $record = $self->record_show(%args) if $attachment;
-    my $stored_attachment = $attachment
-      ? { map { $_ => $attachment->{$_} } qw(sha extension original_filename) }
-      : undef;
-    my $entry = {
-        id => sprintf( 'EVD-%03d', @{ $record->{evidence} } + 1 ),
-        summary => $args{summary}, uri => $args{uri} // '', author => $args{author},
-        attachment => $stored_attachment, annotations => [], created_at => $self->{clock}->(),
-    };
-    push @{ $record->{evidence} }, $entry;
-    $self->_replace_record( %args, record => $record );
-    return $entry;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        $self->_require_person( %args, person => $args{author} ) if defined $args{author};
+        my $record = $self->record_show(%args);
+        die "Evidence summary is required\n" if !defined $args{summary} || $args{summary} eq '';
+        my $attachment = defined $args{file} ? $self->attachment_add(%args) : undef;
+        $record = $self->record_show(%args) if $attachment;
+        my $stored_attachment = $attachment
+          ? { map { $_ => $attachment->{$_} } qw(sha extension original_filename) }
+          : undef;
+        my $entry = {
+            id => sprintf( 'EVD-%03d', @{ $record->{evidence} } + 1 ),
+            summary => $args{summary}, uri => $args{uri} // '', author => $args{author},
+            attachment => $stored_attachment, annotations => [], created_at => $self->{clock}->(),
+        };
+        push @{ $record->{evidence} }, $entry;
+        $self->_replace_record( %args, record => $record );
+        return $entry;
+    } );
 }
 
 sub evidence_annotate {
@@ -2449,17 +2467,20 @@ sub gate_list {
 
 sub gate_add {
     my ( $self, %args ) = @_;
-    die "Invalid gate result\n" if ( $args{result} // '' ) !~ /\A(?:pass|fail|blocked)\z/;
-    $self->_require_person( %args, person => $args{author} ) if defined $args{author};
-    my $record = $self->record_show(%args);
-    my $entry = {
-        id => sprintf( 'GATE-%03d', @{ $record->{gate_passing_log} } + 1 ),
-        gate => $args{gate}, result => $args{result}, details => $args{details},
-        author => $args{author}, annotations => [], created_at => $self->{clock}->(),
-    };
-    push @{ $record->{gate_passing_log} }, $entry;
-    $self->_replace_record( %args, record => $record );
-    return $entry;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        die "Invalid gate result\n" if ( $args{result} // '' ) !~ /\A(?:pass|fail|blocked)\z/;
+        $self->_require_person( %args, person => $args{author} ) if defined $args{author};
+        my $record = $self->record_show(%args);
+        my $entry = {
+            id => sprintf( 'GATE-%03d', @{ $record->{gate_passing_log} } + 1 ),
+            gate => $args{gate}, result => $args{result}, details => $args{details},
+            author => $args{author}, annotations => [], created_at => $self->{clock}->(),
+        };
+        push @{ $record->{gate_passing_log} }, $entry;
+        $self->_replace_record( %args, record => $record );
+        return $entry;
+    } );
 }
 
 sub gate_annotate {
@@ -2474,33 +2495,39 @@ sub checklist_list {
 
 sub checklist_add {
     my ( $self, %args ) = @_;
-    die "Checklist item is required\n" if !defined $args{item} || $args{item} eq '';
-    die "Checklist status is required\n" if !defined $args{status} || $args{status} eq '';
-    my $record = $self->record_show(%args);
-    my $number = @{ $record->{checklist} } + 1;
-    my $now = $self->{clock}->();
-    my $entry = {
-        id => sprintf( 'CHK-%03d', $number ), item => $args{item}, status => $args{status},
-        created_at => $now, last_updated => $now,
-    };
-    push @{ $record->{checklist} }, $entry;
-    $self->_replace_record( %args, record => $record );
-    return $entry;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        die "Checklist item is required\n" if !defined $args{item} || $args{item} eq '';
+        die "Checklist status is required\n" if !defined $args{status} || $args{status} eq '';
+        my $record = $self->record_show(%args);
+        my $number = @{ $record->{checklist} } + 1;
+        my $now = $self->{clock}->();
+        my $entry = {
+            id => sprintf( 'CHK-%03d', $number ), item => $args{item}, status => $args{status},
+            created_at => $now, last_updated => $now,
+        };
+        push @{ $record->{checklist} }, $entry;
+        $self->_replace_record( %args, record => $record );
+        return $entry;
+    } );
 }
 
 sub checklist_update {
     my ( $self, %args ) = @_;
-    die "Checklist item or status is required\n" if !defined $args{item} && !defined $args{status};
-    die "Checklist item is required\n" if defined $args{item} && $args{item} eq '';
-    die "Checklist status is required\n" if defined $args{status} && $args{status} eq '';
-    my $record = $self->record_show(%args);
-    my ($entry) = grep { $_->{id} eq ( $args{id} // '' ) } @{ $record->{checklist} };
-    die "Checklist entry '$args{id}' not found\n" if !$entry;
-    $entry->{item} = $args{item} if defined $args{item};
-    $entry->{status} = $args{status} if defined $args{status};
-    $entry->{last_updated} = $self->{clock}->();
-    $self->_replace_record( %args, record => $record );
-    return $entry;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        die "Checklist item or status is required\n" if !defined $args{item} && !defined $args{status};
+        die "Checklist item is required\n" if defined $args{item} && $args{item} eq '';
+        die "Checklist status is required\n" if defined $args{status} && $args{status} eq '';
+        my $record = $self->record_show(%args);
+        my ($entry) = grep { $_->{id} eq ( $args{id} // '' ) } @{ $record->{checklist} };
+        die "Checklist entry '$args{id}' not found\n" if !$entry;
+        $entry->{item} = $args{item} if defined $args{item};
+        $entry->{status} = $args{status} if defined $args{status};
+        $entry->{last_updated} = $self->{clock}->();
+        $self->_replace_record( %args, record => $record );
+        return $entry;
+    } );
 }
 
 sub search {
@@ -3310,6 +3337,17 @@ sub _markdown {
 
 sub _with_project_lock {
     my ( $self, $root, $code ) = @_;
+
+    # DD-444: reentrant. Two handles on one file are two lock entries even in
+    # the same process, so a locked operation taking the lock again used to
+    # deadlock against itself - which is why the comment, checklist, gate and
+    # evidence writers ran outside it and could lose a concurrent write. A root
+    # already ours runs inside the lock we are holding.
+    if ( $self->{_locked}{$root} ) {
+        local $self->{_journal_depth} = ( $self->{_journal_depth} // 0 ) + 1;
+        return $code->();
+    }
+    local $self->{_locked}{$root} = 1;
     my $lock_path = File::Spec->catfile( $root, '.tira', '.lock' );
     open my $lock, '>>', $lock_path or die "Cannot open project lock '$lock_path': $!\n";
     flock( $lock, LOCK_EX ) or die "Cannot lock Tira project '$root': $!\n";

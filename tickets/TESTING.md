@@ -1554,3 +1554,26 @@ report, message 2915 — three connected findings).
   That guard is why the grip works on a phone.
 - Functional PASS `Files=53, Tests=2052`; coverage `100.0%` all three
   modules; fixtures cleaned.
+
+## Latest Verification For `DD-444`
+
+- Red-first `t/53-lock.t` (21 checks): the lock free when idle,
+  reentrancy under a 20-second alarm so a deadlock fails the test
+  instead of hanging the suite, the lock still genuinely held inside
+  the nested call, nesting across two projects taking both, a nested
+  failure releasing everything, and each of the seven read-modify-write
+  methods proven to hold the lock at the moment it writes.
+- Whether the lock is held is asked the only way that gives a straight
+  answer: a second handle in the same process is a second lock entry,
+  so a non-blocking `flock` that cannot be taken proves somebody holds
+  it.
+- **Verified in the failing direction**: run against the pre-fix module
+  (`git show HEAD:lib/Tira.pm`), the test fails with `deadlocked` on
+  the reentrancy check, which is exactly the reason those methods were
+  left unlocked in the first place. Module restored and byte-compared
+  afterwards.
+- Three of my own calls used the wrong field names, and I read the
+  contract out of `t/10-checklist.t` and the engine rather than
+  guessing a fourth time.
+- Functional PASS `Files=54, Tests=2074`; coverage `100.0%` all three
+  modules; `prove -T` PASS; `cover_db` cleaned.

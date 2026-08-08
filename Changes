@@ -1,5 +1,20 @@
 Revision history for Tira
 
+0.74  2026-08-08
+    - Mutations that bypassed the project lock now take it. Comments,
+      checklists, gates, evidence and attachment references read a
+      record, changed it in memory and wrote it back with nothing held,
+      so two changes made at the same moment could each read the same
+      record and one could be lost without any error - while the manual
+      already claimed every mutation was serialised.
+    - The lock is now reentrant. Two handles on one file are two lock
+      entries even inside one process, so a locked operation taking the
+      lock again used to deadlock against itself; that is why those
+      methods were left outside it. A root already held now runs inside
+      the lock we have, and each of the ten methods wraps its whole
+      read-modify-write rather than only the write, because the read is
+      half the race.
+
 0.73  2026-08-08
     - The column editor. Each board control now has a Columns button
       opening a modal showing that board's own structure: drag a row by

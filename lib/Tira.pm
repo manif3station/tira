@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.70';
+our $VERSION = '0.71';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -545,6 +545,98 @@ sub link_type_remove {
 # DD-459: a column is watched unless it has been switched off. The default is
 # applied on READ so every board created before this release behaves correctly
 # without a migration.
+# DD-463: what Developer Dashboard needs in order to run the reminder job. A
+# structure only - computing and installing spawn nothing, which is what keeps
+# the no-external-process guarantee in docs/foundation.md true. The sending
+# itself lives in collector/tira-remind, outside the command surface.
+sub _collector_config_path {
+    my $home = $ENV{HOME} // '';
+    $home =~ /\A([^\x00-\x1f\x7f]*)\z/ or die "Unsafe home path\n";
+    return File::Spec->catfile( $1, '.developer-dashboard', 'config', 'config.json' );
+}
+
+sub _collector_script {
+    my $here = __FILE__;
+    $here =~ /\A([^\x00-\x1f\x7f]+)\z/ or die "Unsafe module path\n";
+    my $skill = File::Spec->rel2abs( File::Spec->catdir( dirname($1), File::Spec->updir ) );
+    return File::Spec->catfile( $skill, 'collector', 'tira-remind' );
+}
+
+sub collector_entry {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $project = $self->project_show( project => $root );
+
+    # No heartbeat, no collector: the owner asked for exactly that.
+    return undef if !defined $project->{heartbeat};
+    my $name = $project->{collector} // _column_slug( $project->{name} );
+    return {
+        name => "tira.$name",
+        command => _collector_script() . " $root",
+        cwd => $root,
+        interval => int( $project->{heartbeat} * 60 ),
+
+        # The runtime default is thirty seconds and it does not kill what it
+        # times out, so a coding agent needs room to answer rather than a
+        # trail of orphans.
+        timeout => 600,
+        mode => 'singleton',
+        rotation => { lines => 200 },
+    };
+}
+
+sub _collector_config {
+    my ($path) = @_;
+    return {} if !-f $path;
+    open my $fh, '<:raw', $path or die "Cannot read Developer Dashboard config '$path': $!\n";
+    my $content = do { local $/; <$fh> };
+    close $fh or die "Cannot close Developer Dashboard config '$path': $!\n";
+    return length $content ? json_object()->utf8->decode($content) : {};
+}
+
+sub _collector_write {
+    my ( $self, $path, $config ) = @_;
+    my $dir = dirname($path);
+    make_path($dir) if !-d $dir;
+    $self->_atomic_write( $path, json_object()->canonical->pretty->utf8->encode($config) );
+}
+
+sub collector_install {
+    my ( $self, %args ) = @_;
+    my $entry = $self->collector_entry(%args)
+      or die "This project has no heartbeat, so there is nothing to install\n";
+    my $path = _collector_config_path();
+    my $config = _collector_config($path);
+    my @collectors = @{ $config->{collectors} // [] };
+
+    # A collector name is global to the machine, so one project must never
+    # quietly take over the job another one registered.
+    for my $other ( grep { $_->{name} eq $entry->{name} } @collectors ) {
+        die "A collector called '$entry->{name}' is already registered for "
+          . "$other->{cwd}\n"
+          if ( $other->{cwd} // '' ) ne $entry->{cwd};
+    }
+    @collectors = ( ( grep { $_->{name} ne $entry->{name} } @collectors ), $entry );
+    $config->{collectors} = \@collectors;
+    $self->_collector_write( $path, $config );
+    return $entry;
+}
+
+sub collector_remove {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $project = $self->project_show( project => $root );
+    my $name = 'tira.' . ( $project->{collector} // _column_slug( $project->{name} ) );
+    my $path = _collector_config_path();
+    my $config = _collector_config($path);
+    my @collectors = @{ $config->{collectors} // [] };
+    my ($mine) = grep { $_->{name} eq $name } @collectors;
+    die "No collector called '$name' is installed\n" if !$mine;
+    $config->{collectors} = [ grep { $_->{name} ne $name } @collectors ];
+    $self->_collector_write( $path, $config );
+    return $mine;
+}
+
 # DD-462: the reminder escalates with how often a card has already been chased
 # where it stands. Wording proposed for the owner to approve or replace.
 sub _duration_phrase {

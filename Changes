@@ -1,5 +1,23 @@
 Revision history for Tira
 
+0.71  2026-08-08
+    - The reminder job itself (EPIC-457, last piece).
+      `tira.collector.show` computes the background job for a project
+      and `tira.collector.install` registers it, merging into the
+      machine's own configuration rather than editing an installed
+      skill - which the runtime destroys on the next reinstall - and
+      refusing to take over a name another project owns. No heartbeat
+      means no job.
+    - Sending lives in `collector/tira-remind`, outside `lib/` and
+      outside the command surface, so Tira itself still runs no shell
+      and no external process. It sends one message covering every
+      stale card, records them only once delivery has actually
+      happened, retries a failed delivery once, and then writes a
+      warning. Nothing stale, no coding agent installed and no session
+      configured are quiet no-ops rather than errors, so a situation
+      that is not a fault does not light an error indicator or feed the
+      runtime watchdog.
+
 0.70  2026-08-08
     - Reminder settings and re-runnable onboarding (EPIC-457, sixth
       piece). The project records the default staleness threshold, the

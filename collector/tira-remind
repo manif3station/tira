@@ -1,0 +1,91 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use File::Basename qw(dirname);
+use File::Spec;
+use JSON::PP qw(decode_json);
+
+# DD-463: the only part of Tira that runs another program. It lives outside
+# lib/ and outside the command surface on purpose: the engine's documented
+# guarantee is that Tira invokes no shell or external process, and a
+# Developer Dashboard collector is itself a command, so the coding agent is
+# invoked here rather than there.
+
+my $root = shift @ARGV;
+die "Usage: tira-remind PROJECT_DIRECTORY\n" if !defined $root || !length $root;
+my $skill = File::Spec->rel2abs( File::Spec->catdir( dirname(__FILE__), File::Spec->updir ) );
+unshift @INC, File::Spec->catdir( $skill, 'lib' );
+require Tira;
+
+my $tira = Tira->new;
+my $agent_binary = $ENV{TIRA_AGENT_BIN} || 'claude';
+
+sub warn_once {
+    my ($message) = @_;
+    eval { $tira->warning_add( project => $root, message => $message ) };
+    return 0;
+}
+
+my $project = eval { $tira->project_show( project => $root ) }
+  or exit warn_once("Tira reminders cannot read the project at $root.");
+
+# Nothing to say, nobody to say it to, or nothing to say it with: exit quietly
+# rather than as an error. A collector that fails every heartbeat lights up an
+# error indicator and feeds the watchdog, for a situation that is not a fault.
+my $session = $project->{session};
+exit 0 if !defined $session || !length $session;
+exit 0 if !grep { -x File::Spec->catfile( $_, $agent_binary ) } grep { length } split /:/, $ENV{PATH} // '';
+
+my $message = $tira->notification_message( project => $root );
+exit 0 if !$message->{level};
+
+# One attempt, then one retry: a session id that has just gone stale deserves a
+# second try, and anything past that is a real failure worth telling somebody.
+my $sent = 0;
+for my $attempt ( 1 .. 2 ) {
+    my $status = system( $agent_binary, '-p', '--resume', $session, $message->{text} );
+    if ( $status == 0 ) {
+        $sent = 1;
+        last;
+    }
+}
+
+exit warn_once(
+    "Tira could not deliver a reminder to the $project->{agent} session "
+      . "'$session' after two attempts. Reminders are not reaching anyone. "
+      . 'Check the session id with tira.project.show and set a live one with '
+      . 'tira.project.update --session.'
+) if !$sent;
+
+# Recorded only on delivery, so escalation never counts a message nobody saw.
+my %by_column;
+push @{ $by_column{ $_->{column} } }, $_->{ref} for @{ $message->{cards} };
+for my $column ( sort keys %by_column ) {
+    eval {
+        $tira->notification_record( project => $root, ref => $by_column{$column}, column => $column );
+    };
+}
+exit 0;
+
+__END__
+
+=head1 NAME
+
+tira-remind - Send one escalating reminder about cards that have stopped moving
+
+=head1 DESCRIPTION
+
+Run by a Developer Dashboard collector on the project's heartbeat. Composes a
+single message covering every card past its column's limit, sends it to the
+configured coding agent session, and records each card only once the message
+has actually been delivered, so escalation never counts a reminder nobody saw.
+
+Exits quietly when there is nothing stale, when no session is configured, or
+when the coding agent is not installed: none of those is a fault, and failing
+every heartbeat would light an error indicator and feed the runtime watchdog
+for no reason. A delivery that fails twice writes a warning, which every Tira
+command then shows until somebody clears it.
+
+=cut

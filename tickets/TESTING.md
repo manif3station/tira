@@ -1481,3 +1481,27 @@ report, message 2915 — three connected findings).
   top of the ladder absolute about priority.
 - Functional PASS `Files=50, Tests=1949`; coverage `100.0%` all three
   modules; `prove -T` PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-463`
+
+- Red-first `t/50-collector.t` (26 checks): the namespaced entry, the
+  heartbeat converted to the seconds the runtime actually reads, an
+  explicit working directory, a timeout longer than the thirty-second
+  default, no heartbeat producing no job, merging into a seeded config
+  beside an unrelated collector without touching it, idempotent
+  reinstall, refusal to take over another project's name, removal of
+  only its own entry, and the CLI surface.
+- Red-first `t/51-remind.t` (24 checks) drives the reminder script
+  against a stub coding agent: nothing stale, no agent installed and no
+  session configured each exiting 0 and sending nothing; a real
+  delivery reaching the right session with the card named; recording
+  only after delivery; escalation rising across heartbeats; a failure
+  retried exactly twice, recording nothing and leaving one warning that
+  names the session and the fix; a repeat not piling up.
+- Two harness bugs of my own, both caught by the test failing: `scalar`
+  on a function returning an empty list gave `undef` rather than 0, and
+  counting log lines counted a multi-line message as several calls.
+- `t/51` is the only test that spawns anything, so it untaints its
+  paths explicitly to pass the `prove -T` gate.
+- Functional PASS `Files=52, Tests=2004`; coverage `100.0%` all three
+  modules; `prove -T` PASS; `cover_db` cleaned.

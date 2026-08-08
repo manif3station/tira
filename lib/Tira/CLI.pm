@@ -1083,6 +1083,9 @@ sub _invoke {
     return $tira->warning_add(%args) if $command eq 'warning.add';
     return $tira->warning_clear( %args, all => $option->{all} ) if $command eq 'warning.clear';
     return $tira->notification_message( project => $args{project} ) if $command eq 'notify.compose';
+    return $tira->collector_entry(%args) if $command eq 'collector.show';
+    return $tira->collector_install(%args) if $command eq 'collector.install';
+    return $tira->collector_remove(%args) if $command eq 'collector.remove';
     if ( $command =~ /\Anotify\.(record|list)\z/ ) {
         my $action = $1;
         my %notify = ( project => $args{project}, ref => $option->{ref_list} );

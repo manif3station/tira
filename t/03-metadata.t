@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=0\.70$/m, '.env stores version 0.70' );
+like( $env_text, qr/^VERSION=0\.71$/m, '.env stores version 0.71' );
 
 open my $skills, '<', 'SKILLS.md' or die "Cannot read SKILLS.md: $!";
 my $skills_text = do { local $/; <$skills> };
@@ -46,7 +46,7 @@ unlike( $skills_text, qr/--project|TIRA_HOME|\.tira\/|project selector/i, 'SKILL
 
 use lib 'lib';
 use Tira;
-is( $Tira::VERSION, '0.70', 'module version matches .env' );
+is( $Tira::VERSION, '0.71', 'module version matches .env' );
 unlike( $skills_text, qr/\bSpecified\b/i, 'every documented command and use case is implemented' );
 
 my @perl_files = ( 'lib/Tira.pm', 'lib/Tira/CLI.pm' );
@@ -60,7 +60,7 @@ for my $file (@perl_files) {
     is( podchecker($file), 0, "$file has valid POD" );
 }
 my @commands = grep { m{(?:\A|/)cli/[^/]+\z} && -x $_ } @perl_files;
-is( scalar @commands, 95, 'release ships exactly 95 executable CLI entrypoints' );
+is( scalar @commands, 98, 'release ships exactly 98 executable CLI entrypoints' );
 
 done_testing;
 

@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.70):** shipped, executable, and covered by tests.
+- **Implemented (0.71):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.70.
+All commands and use cases in this manual ship in release 0.71.
 
 ## Global invocation grammar
 
@@ -450,6 +450,18 @@ is listed with `basis: none` and **no duration** rather than a guessed one, and
 `--older-than MINUTES` never returns it — an unmeasured card is unknown, not
 old. An unreadable stamp yields `basis: unknown` instead of failing the board,
 and a column renamed underneath a card does not disturb its measurement.
+The reminder job is **Implemented (DD-463)**: `tira.collector.show`
+computes the background job for this project and
+`tira.collector.install` registers it, merging into the machine's own
+configuration without disturbing anything else already there and
+refusing to take over a name another project registered. No heartbeat
+means no job. The sending itself lives outside the command surface, so
+Tira still runs no shell and no external process; it delivers one
+message covering every stale card, records them only once the message
+has actually arrived, retries a failed delivery once, and then leaves a
+warning rather than failing silently. Nothing stale, no agent installed
+and no session configured are all quiet no-ops rather than errors.
+
 Reminder settings are **Implemented (DD-464)**: the project records how
 long a card may sit still by default, which coding agent to remind, its
 session, how often to check, and the name of the job that does it.
@@ -639,6 +651,9 @@ tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since T
 tira.diff (--since TIMESTAMP|--snapshot FILE) [--type TYPE] [--fields LIST] [--count] [-o FORMAT]
 tira.stale [--type TYPE] [--stale] [--with-level] [--older-than MINUTES] [-o FORMAT]
 tira.notify.compose [-o FORMAT]
+tira.collector.show [-o FORMAT]
+tira.collector.install [-o FORMAT]
+tira.collector.remove [-o FORMAT]
 tira.project.update [--notify-after MINUTES] [--collector NAME] [--agent NAME]
                     [--session ID] [--heartbeat MINUTES] [-o FORMAT]
 tira.warning.list [-o FORMAT]

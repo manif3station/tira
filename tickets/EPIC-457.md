@@ -142,7 +142,7 @@ project, so work does not quietly stall.
 
 ## Status
 
-Design closed — all eight questions answered, owner said "All good.
+Built and shipped, 0.65 to 0.71. Design closed — all eight questions answered, owner said "All good.
 Start to build" (message 3051). Building:
 `DD-458` dwell measurement (0.65, done), `DD-459` per-column limits and
 watching (0.66, done), `DD-460` notification history, `DD-461` sticky

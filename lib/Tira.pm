@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.74';
+our $VERSION = '0.75';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -92,6 +92,7 @@ our %AUTOMATION_SETTING = (
 sub project_new {
     my ( $self, %args ) = @_;
     die "Project name is required\n" if !defined $args{name} || $args{name} eq '';
+    $self->_refuse_nesting( $args{dir} // '.', %args );
 
     my @members = _split_list( $args{members} );
     die "Every member needs a name\n"
@@ -149,7 +150,9 @@ sub project_new {
         }
     }
 
-    my $project = eval { $self->create_project( name => $args{name}, dir => $args{dir} // '.' ) };
+    # project_new has already judged nesting for this directory; the inner
+    # call must not re-judge it and refuse what was deliberately allowed.
+    my $project = eval { $self->create_project( name => $args{name}, dir => $args{dir} // '.', nested => 1 ) };
     if ( !defined $project ) {
         my $error = $@ || 'Unknown project creation failure';
         die $error if $error !~ /already exists/;
@@ -221,12 +224,42 @@ sub _wanted_members {
     return scalar grep { defined } ( ref $values eq 'ARRAY' ? @{$values} : $values );
 }
 
+# DD-447: creation without a directory happens where the person is standing,
+# and project discovery walks upward - so a project made inside another is
+# buried, and afterwards either one may answer depending on where a command
+# runs. Nobody is ever told, which is what makes it worth refusing.
+sub _enclosing_project {
+    my ( $self, $dir ) = @_;
+    my $cursor = File::Spec->rel2abs($dir);
+    my $previous = '';
+    while ( $cursor ne $previous ) {
+        my $file = File::Spec->catfile( $cursor, '.tira', 'project.yml' );
+        return $cursor if -f $file;
+        ( $previous, $cursor ) = ( $cursor, dirname($cursor) );
+    }
+    return undef;
+}
+
+sub _refuse_nesting {
+    my ( $self, $dir, %args ) = @_;
+    return if $args{nested};
+
+    # A directory that is itself a project is adoption, which has its own rules.
+    return if -f File::Spec->catfile( File::Spec->rel2abs($dir), '.tira', 'project.yml' );
+    my $enclosing = $self->_enclosing_project( dirname( File::Spec->rel2abs($dir) ) ) or return;
+    my $name = eval { $self->project_show( project => $enclosing )->{name} } // 'a Tira project';
+    die "That directory is inside '$name' at $enclosing. Creating a project there would "
+      . "bury it, and later commands could address either one. Choose a directory outside "
+      . "it, or pass --nested if you really mean to.\n";
+}
+
 sub create_project {
     my ( $self, %args ) = @_;
     my $name = $args{name};
     die "Project name is required\n" if !defined $name || $name eq '';
     my $dir = defined $args{dir} && $args{dir} ne '' ? $args{dir} : '.';
     $dir = $self->_safe_path_input( $dir, 'project directory' );
+    $self->_refuse_nesting( $dir, %args );
 
     make_path($dir) if !-d $dir;
     my $root = $self->_canonical_path( $dir, "project directory '$dir'" );

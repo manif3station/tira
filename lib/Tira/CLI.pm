@@ -38,6 +38,7 @@ sub run {
         'id=s' => \$option{id}, 'email=s' => \$option{email},
         'message=s' => \$option{message}, 'all' => \$option{all},
         'columns-json=s' => \$option{columns_json},
+        'nested' => \$option{nested},
         'collector=s' => \$option{collector}, 'agent=s' => \$option{agent},
         'session=s' => \$option{session}, 'heartbeat=s' => \$option{heartbeat},
         'outward=s' => \$option{outward}, 'inward=s' => \$option{inward},
@@ -967,7 +968,7 @@ sub _attachment_content_type {
 sub _invoke {
     my ( $tira, $command, $record_type, $option ) = @_;
     my %args = %{$option};
-    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty older_than stale with_level all columns_json members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
+    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty older_than stale with_level all columns_json nested members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
     if ( defined $option->{field_selection} || defined $option->{exclude_fields}
         || $option->{include_empty} || defined $option->{since}
         || $option->{brief} || defined $option->{truncate} ) {
@@ -1008,6 +1009,8 @@ sub _invoke {
       if $option->{all} && $command ne 'warning.clear';
     die "A column layout belongs to the column.apply command\n"
       if defined $option->{columns_json} && $command ne 'column.apply';
+    die "Nested belongs to the project.new, project.create and onboard commands\n"
+      if $option->{nested} && $command !~ /\A(?:project\.(?:new|create)|onboard)\z/;
     die "Watch is available on the column.update command\n"
       if defined $option->{watched} && $command ne 'column.update';
     die "Notify-after is available on the column.update, project.update, project.new and onboard commands\n"
@@ -1094,8 +1097,9 @@ sub _invoke {
             ( defined $option->{digits} ? ( digits => $option->{digits} ) : () ),
             map( { ( "${_}_prefix" => $option->{"${_}_prefix"} ) }
                 grep { defined $option->{"${_}_prefix"} } qw(sow epic ticket) ),
-            map { ( $_ => $option->{$_} ) }
-              grep { defined $option->{$_} } qw(notify_after collector agent session heartbeat),
+            map( { ( $_ => $option->{$_} ) }
+                grep { defined $option->{$_} } qw(notify_after collector agent session heartbeat) ),
+            ( $option->{nested} ? ( nested => 1 ) : () ),
         );
     }
     return $tira->warning_list(%args) if $command eq 'warning.list';

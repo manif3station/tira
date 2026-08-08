@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.74):** shipped, executable, and covered by tests.
+- **Implemented (0.75):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.74.
+All commands and use cases in this manual ship in release 0.75.
 
 ## Global invocation grammar
 
@@ -450,6 +450,13 @@ is listed with `basis: none` and **no duration** rather than a guessed one, and
 `--older-than MINUTES` never returns it — an unmeasured card is unknown, not
 old. An unreadable stamp yields `basis: unknown` instead of failing the board,
 and a column renamed underneath a card does not disturb its measurement.
+Nesting refusal is **Implemented (DD-447)**: creating a project in a
+directory that sits inside an existing project is refused, naming the
+project that is in the way and where it is. Project discovery walks
+upward, so a buried project means later commands may address either
+one, and nothing would ever say so. Pass `--nested` to do it
+deliberately.
+
 Serialised mutations are **Implemented (DD-444)**: comments,
 checklists, gates, evidence and attachment references used to read a
 record, change it and write it back with no lock held, so two changes

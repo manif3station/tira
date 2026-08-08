@@ -1577,3 +1577,19 @@ report, message 2915 — three connected findings).
   guessing a fourth time.
 - Functional PASS `Files=54, Tests=2074`; coverage `100.0%` all three
   modules; `prove -T` PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-447`
+
+- Red-first `t/54-nesting.t` (17 checks): refusal straight inside a
+  project and buried three directories down, the message naming both
+  the project and its path, nothing written in either case, the older
+  `create_project` guarded identically, `--nested` really creating the
+  project, creating beside a project and with nothing above still
+  working, re-running on an existing project unchanged, and the CLI
+  refusing with exit 2 then allowing it when asked.
+- The test caught that `project_new` calls `create_project` inside
+  itself, so a deliberate `--nested` was refused by the inner call
+  after the outer one had allowed it. The inner call no longer
+  re-judges a decision already made.
+- Functional PASS `Files=55, Tests=2092`; coverage `100.0%` all three
+  modules; `prove -T` PASS; `cover_db` cleaned.

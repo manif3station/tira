@@ -3,13 +3,13 @@ package Tira::DashboardWeb;
 use strict;
 use warnings;
 
-our $VERSION = '0.63';
+our $VERSION = '0.64';
 
-use Encode qw(encode_utf8);
+use Encode qw(decode_utf8 encode_utf8);
 use JSON::PP ();
 use Dancer2 appname => 'TiraDashboard';
 
-our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $COMMENT_ADD, $COMMENT_UPDATE, $COMMENT_REMOVE, $PEOPLE,
+our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $SEARCH, $COMMENT_ADD, $COMMENT_UPDATE, $COMMENT_REMOVE, $PEOPLE,
       $ATTACHMENT_FETCH, $ATTACHMENT_ADD, $ATTACHMENT_REMOVE, $CHECKLIST_ADD, $CHECKLIST_UPDATE,
       $LINK_TYPES, $HIERARCHY_LINK, $HIERARCHY_UNLINK, $SUBITEM_LINK, $SUBITEM_UNLINK, $LINK_ADD, $LINK_REMOVE );
 
@@ -63,6 +63,19 @@ post '/subitem/link' => sub { return _mutation( \$SUBITEM_LINK ) };
 post '/subitem/unlink' => sub { return _mutation( \$SUBITEM_UNLINK ) };
 post '/link/add' => sub { return _mutation( \$LINK_ADD ) };
 post '/link/remove' => sub { return _mutation( \$LINK_REMOVE ) };
+
+get '/search' => sub {
+    my %query;
+    for my $pair ( split /&/, request->env->{QUERY_STRING} // '' ) {
+        my ( $key, $value ) = split /=/, $pair, 2;
+        next if !defined $value;
+        $value =~ tr/+/ /;
+        $value =~ s/%([0-9A-Fa-f]{2})/chr hex $1/ge;
+        $query{$key} = decode_utf8($value);
+    }
+    content_type 'application/json; charset=UTF-8';
+    return _response_bytes( $SEARCH->( \%query ) );
+};
 
 get '/link-types' => sub {
     content_type 'application/json; charset=UTF-8';
@@ -149,6 +162,7 @@ my @PROVIDERS = (
     [ move => \$MOVE, 'move provider' ],
     [ detail => \$DETAIL, 'detail provider' ],
     [ create => \$CREATE, 'create provider' ],
+    [ search => \$SEARCH, 'search provider' ],
     [ update => \$UPDATE, 'update provider' ],
     [ comment_add => \$COMMENT_ADD, 'comment add provider' ],
     [ comment_update => \$COMMENT_UPDATE, 'comment update provider' ],

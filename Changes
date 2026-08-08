@@ -1,5 +1,17 @@
 Revision history for Tira
 
+0.64  2026-08-08
+    - Columns now show ten cards with a button to reveal ten more at a
+      time, saying how many remain (owner request). The count beside the
+      column name stays the column's real total rather than the visible
+      slice.
+    - The board control gained a keyword filter. It asks the server, so
+      a word that appears only in a card's description still finds it;
+      the box is debounced, an empty box clears the filter, a failed
+      request narrows to nothing rather than quietly showing
+      everything, and filtering restarts paging at the first ten
+      matches.
+
 0.63  2026-08-08
     - Bulk card moves (owner request): shift-click selects and
       deselects, dragging any selected card carries the whole selection

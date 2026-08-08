@@ -54,6 +54,11 @@ like( $live_html, qr/renderCard/, 'the dialog builds its sections from the recor
 like( $live_html, qr/card-status/, 'the dialog header offers the column dropdown' );
 like( $live_html, qr/querySelector\("\.column__name"\)/,
     'the column dropdown labels come from the column name, not the whole header (DD-445)' );
+like( $live_html, qr/class="board-filter"/, 'the board control offers a keyword filter (DD-456)' );
+like( $live_html, qr{fetch\("/search\?type="}, 'the filter asks the server, so it matches beyond the visible title' );
+like( $live_html, qr/const pageSize=10;/, 'columns start with ten cards' );
+like( $live_html, qr/Show "\+Math\.min\(remaining,pageSize\)\+" more of "\+remaining/,
+    'and offer to reveal the next ten, saying how many remain' );
 like( $live_html, qr/data-add-card=/, 'each column offers an add-card control (DD-441)' );
 like( $live_html, qr/const openNewCard=/, 'the dialog has a new-card mode' );
 like( $live_html, qr/reference assigned on save/, 'new cards show no ref until they are saved' );
@@ -148,6 +153,16 @@ for my $payload ( undef, [], { ref => 'TKT-001' } ) {
     like( $error, qr/payload|requires/i, 'malformed comment removal payloads are refused' );
 }
 
+# DD-456: the board filter asks the engine, so it matches description text too
+my $filter_hits = decode_json( $calls->[0]{search}->( { type => 'ticket', text => 'Renamed' } ) );
+is( ref $filter_hits, 'ARRAY', 'the search provider returns a flat ref list' );
+ok( scalar( grep { $_ eq 'TKT-001' } @{$filter_hits} ), 'it finds the matching card' );
+is_deeply( decode_json( $calls->[0]{search}->( { type => 'ticket', text => 'nothingmatchesthis' } ) ), [],
+    'a query with no matches returns an empty list, not everything' );
+is_deeply( decode_json( $calls->[0]{search}->( { text => '' } ) ), [],
+    'an empty query returns nothing rather than the whole board' );
+is_deeply( decode_json( $calls->[0]{search}->( {} ) ), [], 'a missing query is handled the same way' );
+
 # DD-441: creating a card from a column through the browser
 my $made = decode_json(
     $calls->[0]{create}->( { type => 'ticket', column => 'in-progress', title => 'Made from the board' } )
@@ -205,6 +220,7 @@ like( $error, qr/plain value/, 'structured bases are refused' );
 my %providers = (
     render => sub { '<!doctype html>' }, data => sub { '{}' },
     move => sub { '{}' }, detail => sub { '{}' },
+    search => sub { '[]' },
     create => sub { '{"ok":true,"record":{"ref":"TKT-009"}}' },
     update => sub { '{"ok":true}' },
     comment_add => sub { '{"ok":true}' },
@@ -236,6 +252,7 @@ for my $missing (qw(update comment_add comment_update comment_remove people)) {
 my %received;
 my $app = Tira::DashboardWeb->build_psgi_app(
     %providers,
+    search => sub { $received{search} = $_[0]; return '["TKT-001"]' },
     create => sub { $received{create} = $_[0]; return '{"ok":true,"record":{"ref":"TKT-009"}}' },
     update => sub {
         $received{update} = $_[0];
@@ -265,6 +282,12 @@ test_psgi $app, sub {
     is( decode_json( $update_response->content )->{record}{title}, $pound,
         'the update route returns the provider result' );
     is( $received{update}{value}, "New ${pound} title", 'the update payload decodes UTF-8 text' );
+
+    my $search_response = $client->( GET '/search?type=ticket&text=hello%20world' );
+    is( $search_response->code, 200, 'the search route responds' );
+    like( $search_response->header('Content-Type'), qr{application/json}, 'filter results are JSON' );
+    is( $received{search}{text}, 'hello world', 'the query is decoded from the URL' );
+    is( $received{search}{type}, 'ticket', 'the board type is passed through' );
 
     my $create_response = $client->(
         POST '/create', Content_Type => 'application/json',

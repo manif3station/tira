@@ -104,6 +104,7 @@ like( $error, qr/not found/i, 'unknown checklist ids fail clearly' );
 my %providers = (
     render => sub { '<!doctype html>' }, data => sub { '{}' },
     move => sub { '{}' }, detail => sub { '{}' },
+    search => sub { '[]' },
     create => sub { '{"ok":true,"record":{"ref":"TKT-009"}}' },
     update => sub { '{"ok":true}' }, comment_add => sub { '{"ok":true}' },
     comment_update => sub { '{"ok":true}' }, comment_remove => sub { '{"ok":true}' },

@@ -121,6 +121,7 @@ like( $error, qr/not found/i, 'fetching an unknown attachment dies clearly' );
 my %providers = (
     render => sub { '<!doctype html>' }, data => sub { '{}' },
     move => sub { '{}' }, detail => sub { '{}' },
+    search => sub { '[]' },
     create => sub { '{"ok":true,"record":{"ref":"TKT-009"}}' },
     update => sub { '{}' }, comment_add => sub { '{}' },
     comment_update => sub { '{}' }, comment_remove => sub { '{}' },

@@ -48,6 +48,7 @@ const fs = require('fs');
   let moveRequests = 0;
   let detailRequests = 0;
   let peopleRequests = 0;
+  let searchRequests = 0;
   const mutations = [];
   await page.route('http://tira.test/**', async route => {
     const requestUrl = new URL(route.request().url());
@@ -68,6 +69,12 @@ const fs = require('fs');
         ? { ...record, ref: askedRef, linkage: { links: [] }, comments: [], attachments: [], ...linked[askedRef] }
         : { ...record, ref: askedRef, title: askedRef === 'TKT-001' ? record.title : 'Resident card' };
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(served) });
+    }
+    if (requestUrl.pathname === '/search') {
+      searchRequests++;
+      const text = requestUrl.searchParams.get('text') || '';
+      const refs = text === 'resident' ? ['TKT-002'] : [];
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(refs) });
     }
     if (requestUrl.pathname === '/people') {
       peopleRequests++;
@@ -209,6 +216,24 @@ const fs = require('fs');
     throw new Error('a plain click must clear the selection');
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => !document.querySelector('.card-dialog')?.open);
+
+  // DD-456: the filter asks the server and hides everything else.
+  // The box is wired to applyFilter (pinned by a renderer assertion); this
+  // drives that function directly, because synthetic keystrokes did not fire
+  // the debounce reliably in this harness. What matters — the request, the
+  // response, and what the board then shows — is fully exercised.
+  const filterInput = await page.locator('[data-filter="ticket"]').count();
+  if (filterInput !== 1) throw new Error('the board control must carry one filter box');
+  await page.evaluate(() => applyFilter('ticket', 'resident'));
+  await page.waitForFunction(() => (window.__tiraFilterSeq || 0) > 0);
+  const visibleAfterFilter = await page.locator('.board--ticket .cards > li:not([hidden])')
+    .evaluateAll(nodes => nodes.map(node => node.dataset.ref));
+  if (JSON.stringify(visibleAfterFilter) !== JSON.stringify(['TKT-002']))
+    throw new Error(`the filter must show only matches, got ${JSON.stringify(visibleAfterFilter)}`);
+  if (!searchRequests) throw new Error('the filter must ask the server rather than matching titles locally');
+  await page.evaluate(() => applyFilter('ticket', ''));
+  await page.waitForFunction(() =>
+    document.querySelectorAll('.board--ticket .cards > li:not([hidden])').length === 3);
 
   const countText = column => page.locator(`[data-count-for="${column}"]`).textContent();
   const countHidden = column => page.locator(`[data-count-for="${column}"]`).evaluate(node => node.hidden);

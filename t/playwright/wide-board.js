@@ -57,6 +57,25 @@ if (!htmlPath) {
   over = await spills();
   if (over.length) throw new Error(`cards spilled in fit mode by ${JSON.stringify(over)}px`);
 
+  // DD-456: a column shows ten cards and offers the rest in batches.
+  const visibleCards = column => page.locator(`[data-column="${column}"] > li:not([hidden])`).count();
+  const backlogTotal = await page.locator('[data-column="backlog"] > li').count();
+  if (backlogTotal <= 10) throw new Error(`this fixture needs more than ten cards to page, has ${backlogTotal}`);
+  if (await visibleCards('backlog') !== 10)
+    throw new Error(`a column must start with ten cards, showing ${await visibleCards('backlog')}`);
+  const moreLabel = await page.locator('[data-more-for="backlog"]').textContent();
+  if (!/Show \d+ more of \d+/.test(moreLabel))
+    throw new Error(`the reveal button must say how many remain, got "${moreLabel}"`);
+  if (await page.locator('[data-more-for="planning"]').evaluate(node => node.hidden) !== true)
+    throw new Error('a column with nothing hidden must not offer to show more');
+  await page.locator('[data-more-for="backlog"]').click();
+  const revealed = await visibleCards('backlog');
+  if (revealed !== Math.min(20, backlogTotal))
+    throw new Error(`revealing must add ten more, showing ${revealed} of ${backlogTotal}`);
+  const badge = await page.locator('[data-count-for="backlog"]').textContent();
+  if (badge !== String(backlogTotal))
+    throw new Error(`the count must stay the column total, got ${badge} for ${backlogTotal}`);
+
   if (screenshotPath) await page.screenshot({ path: screenshotPath });
   await browser.close();
   console.log('wide board Playwright PASS');

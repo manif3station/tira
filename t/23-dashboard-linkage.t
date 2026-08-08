@@ -107,6 +107,7 @@ like( $error, qr/requires/i, 'link add payloads need from, type, and to' );
 my %providers = (
     render => sub { '<!doctype html>' }, data => sub { '{}' },
     move => sub { '{}' }, detail => sub { '{}' },
+    search => sub { '[]' },
     create => sub { '{"ok":true,"record":{"ref":"TKT-009"}}' },
     update => sub { '{"ok":true}' }, comment_add => sub { '{"ok":true}' },
     comment_update => sub { '{"ok":true}' }, comment_remove => sub { '{"ok":true}' },

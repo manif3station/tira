@@ -287,6 +287,17 @@ sub browser_providers {
             );
             return $json->encode($record);
         },
+        search => sub {
+            my ($query) = @_;
+            return $json->encode( [] ) if !defined $query->{text} || $query->{text} eq '';
+            return $json->encode(
+                $tira->search(
+                    project => $project, text => $query->{text},
+                    ( defined $query->{type} && $query->{type} ne '' ? ( type => $query->{type} ) : () ),
+                    refs_only => 1,
+                )
+            );
+        },
         create => sub {
             my ($payload) = @_;
             die "Create payload must be an object\n" if ref($payload) ne 'HASH';

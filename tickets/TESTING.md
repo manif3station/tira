@@ -1354,3 +1354,26 @@ report, message 2915 — three connected findings).
 - Functional PASS `Files=44, Tests=1641`; coverage `100.0%` all three
   modules; `prove -T` PASS; `wide-board.js` green; main browser guard
   green ×3; fixtures and `cover_db` cleaned.
+
+## Latest Verification For `DD-456`
+
+- Paging guarded end to end in `wide-board.js` on a 26-card column: ten
+  visible at first, the button reading "Show N more of M", a column
+  with nothing hidden showing no button, pressing it revealing ten
+  more, and the count badge still reporting the column total.
+- Filter guarded in the main pass: the request reaches the server, only
+  matching cards remain visible, and clearing restores the board.
+  Recorded honestly — that guard drives the function the input is bound
+  to rather than the keystroke, because synthetic key events did not
+  fire the debounce reliably in this harness; a renderer assertion pins
+  the box being wired to that function.
+- Provider and route covered in `t/19`: refs-only results, an empty
+  query returning nothing rather than everything, a missing query
+  handled the same way, and the URL-decoded text and type reaching the
+  provider.
+- One drag flake appeared during the run ("drag move request missing")
+  and did not recur across five consecutive runs after the batch path
+  was hardened to fall back to the dragged card when no selection list
+  is present.
+- Functional PASS `Files=44, Tests=1654`; coverage `100.0%` all three
+  modules; `prove -T` PASS; fixtures and `cover_db` cleaned.

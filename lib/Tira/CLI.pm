@@ -951,6 +951,7 @@ sub _invoke {
     return $tira->warning_list(%args) if $command eq 'warning.list';
     return $tira->warning_add(%args) if $command eq 'warning.add';
     return $tira->warning_clear( %args, all => $option->{all} ) if $command eq 'warning.clear';
+    return $tira->notification_message( project => $args{project} ) if $command eq 'notify.compose';
     if ( $command =~ /\Anotify\.(record|list)\z/ ) {
         my $action = $1;
         my %notify = ( project => $args{project}, ref => $option->{ref_list} );

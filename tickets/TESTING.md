@@ -1441,3 +1441,17 @@ report, message 2915 — three connected findings).
   keep its payload clean.
 - Functional PASS `Files=48, Tests=1803`; coverage `100.0%` all three
   modules; `prove -T` PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-462`
+
+- Red-first `t/48-escalation.t` (61 checks): every duration phrasing
+  including both singulars, nothing-stale composing nothing, each of
+  the five tones in turn, the final tone repeating with a rising count
+  and still saying something new, all four lower tones distinct, the
+  worst card setting the tone while each card keeps its own count, an
+  unwatched column composing nothing however old its cards, and the
+  CLI surface.
+- The five messages were rendered against a real project and sent to
+  the owner for approval before anything can send them.
+- Functional PASS `Files=49, Tests=1866`; coverage `100.0%` all three
+  modules; `prove -T` PASS; `cover_db` cleaned.

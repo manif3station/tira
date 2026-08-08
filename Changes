@@ -1,5 +1,18 @@
 Revision history for Tira
 
+0.69  2026-08-08
+    - The escalating reminder itself (EPIC-457, fifth piece). One
+      message covers every card past its column's limit, and its tone
+      rises with how often those cards have already been chased where
+      they stand: plain, tense, angry, shouting, then a final tone that
+      keeps counting instead of running out of words. The most-chased
+      card sets the tone, so a long-stuck card is never softened by
+      newer company, while each line states its own count, its column
+      and how long it has sat there. Nothing stale composes nothing at
+      all. `tira.notify.compose` returns the whole thing in one call.
+      The wording is proposed, not final - nothing sends until the
+      owner has approved it.
+
 0.68  2026-08-08
     - Unattended failures now have somebody to tell (EPIC-457, fourth
       piece). A failure that background work cannot resolve is recorded

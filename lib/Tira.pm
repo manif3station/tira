@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.68';
+our $VERSION = '0.69';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -504,6 +504,79 @@ sub link_type_remove {
 # DD-459: a column is watched unless it has been switched off. The default is
 # applied on READ so every board created before this release behaves correctly
 # without a migration.
+# DD-462: the reminder escalates with how often a card has already been chased
+# where it stands. Wording proposed for the owner to approve or replace.
+sub _duration_phrase {
+    my ($seconds) = @_;
+    return 'less than a minute' if $seconds < 60;
+    for my $unit ( [ 60 * 60 * 24, 'day' ], [ 60 * 60, 'hour' ], [ 60, 'minute' ] ) {
+        my ( $size, $name ) = @{$unit};
+        next if $seconds < $size;
+        my $count = int( $seconds / $size );
+        return "$count $name" . ( $count == 1 ? '' : 's' );
+    }
+}
+
+sub _escalation_template {
+    my ($level) = @_;
+    my @templates = (
+        [ plain => 'Some cards have not moved for a while. Please pick each one up '
+              . 'and carry on with it, or move it to where it actually belongs.' ],
+        [ tense => 'These cards still have not moved since the last reminder. '
+              . 'They need dealing with now rather than later.' ],
+        [ angry => 'Third reminder. These cards have not moved at all and nothing has '
+              . 'been said about why. Stop what else you are doing and deal with them.' ],
+        [ shouting => 'FOURTH REMINDER AND NOTHING HAS CHANGED. Deal with these cards '
+              . 'before anything else. If one genuinely cannot move, say so on the card '
+              . 'itself, because a reminder nobody answers is worse than no reminder.' ],
+
+        # Beyond the last tone the wording holds and the count keeps rising, so
+        # escalation never runs out of words or invents a sixth voice.
+        [ final => 'These cards have now been chased %d times and are still sitting '
+              . 'exactly where they were. Nothing else on this project matters until '
+              . 'each one is moved on, or moved out of a column that is being watched.' ],
+    );
+    my ( $tone, $text ) = @{ $templates[ $level > @templates ? $#templates : $level - 1 ] };
+    $text = sprintf( $text, $level ) if index( $text, '%d' ) >= 0;
+    return ( $tone, $text );
+}
+
+sub notification_message {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my @cards;
+    for my $entry ( @{ $self->dwell_list( project => $root, stale => 1, with_level => 1 ) } ) {
+        my $record = eval {
+            $self->record_show( project => $root, type => $entry->{type}, ref => $entry->{ref} );
+        };
+        push @cards, {
+            ref => $entry->{ref}, type => $entry->{type}, column => $entry->{column},
+            dwell_seconds => $entry->{dwell_seconds},
+            title => $record ? $record->{title} : '',
+
+            # The level of the reminder being composed, not of the last one sent.
+            level => $entry->{level} + 1,
+        };
+    }
+
+    # Nothing stale sends nothing: an all-clear on every heartbeat is noise.
+    return { level => 0, tone => 'quiet', text => '', cards => [] } if !@cards;
+
+    # The most-nagged card sets the tone, so a chronically stuck card is never
+    # softened by newer company; each line still states its own count.
+    my $level = 0;
+    for my $card (@cards) { $level = $card->{level} if $card->{level} > $level }
+    my ( $tone, $preamble ) = _escalation_template($level);
+    my $text = "$preamble\n\n"
+      . join( '',
+        map { sprintf( "  %s  %s - %s, %s (reminder %d)\n",
+                $_->{ref}, $_->{title}, $_->{column},
+                _duration_phrase( $_->{dwell_seconds} ), $_->{level} ) } @cards )
+      . "\nFor each card: move it on, move it back, or leave a comment saying "
+      . "what it is waiting for.\n";
+    return { level => $level, tone => $tone, text => $text, cards => \@cards };
+}
+
 # DD-461: a collector runs unattended, so a failure it hits has nobody to tell.
 # It is stored here and shown under the next command anybody runs. Kept beside
 # the project file rather than in the notification database, because every

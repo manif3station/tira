@@ -36,6 +36,7 @@ sub run {
         'description=s' => \$option{description}, 'project=s' => \$option{project},
         'output|o=s' => \$option{output}, 'help' => \$option{help},
         'id=s' => \$option{id}, 'email=s' => \$option{email},
+        'message=s' => \$option{message}, 'all' => \$option{all},
         'outward=s' => \$option{outward}, 'inward=s' => \$option{inward},
         'type=s' => \$option{type}, 'label=s@' => \$option{labels},
         'after=s' => \$option{after}, 'before=s' => \$option{before},
@@ -202,17 +203,36 @@ sub run {
 
     if ( $option{output} eq 'human' && $option{count} && ref $result eq 'HASH' ) {
         print "$result->{count}\n";
-        return 0;
+        return _finish( $tira, \%option, $command, 0 );
     }
     if ( $option{output} eq 'human' && $option{refs_only} && ref $result eq 'ARRAY' ) {
         print map { "$_\n" } @{$result};
-        return 0;
+        return _finish( $tira, \%option, $command, 0 );
     }
     my $formatted = eval { $tira->format_output( $result, output => $option{output}, project => $option{project} ) };
     return _error( $tira, 'toon', $@ || 'Unable to format output' ) if !defined $formatted;
     print _utf8_bytes($formatted);
     my $status = ( defined $option{if_changed} && ref $result eq 'HASH' && $result->{unchanged} ) ? 1 : 0;
     _cache_store( $cache, $formatted, $status ) if $cache;
+    return _finish( $tira, \%option, $command, $status );
+}
+
+# DD-461: whatever the command was, an unresolved collector failure is shown
+# under its output, because the collector itself had nobody to tell.
+sub _finish {
+    my ( $tira, $option, $command, $status ) = @_;
+    return $status if $command =~ /\Awarning\./;
+    my $warnings = eval { $tira->warning_list( project => $option->{project} ) } || [];
+    return $status if !@{$warnings};
+    my $banner = "\nAttention:\n"
+      . join( '', map { "  [$_->{id}] $_->{at} $_->{message}\n" } @{$warnings} )
+      . "Fix the cause, then clear with: tira.warning.clear --id <ID>"
+      . " (or --all). Until then this shows under every command.\n";
+
+    # A machine payload must stay parseable, so the banner goes where a human
+    # and a coding agent both still read it without corrupting the output.
+    if ( $option->{output} eq 'human' ) { print _utf8_bytes($banner) }
+    else { print {*STDERR} _utf8_bytes($banner) }
     return $status;
 }
 
@@ -805,7 +825,7 @@ sub _attachment_content_type {
 sub _invoke {
     my ( $tira, $command, $record_type, $option ) = @_;
     my %args = %{$option};
-    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty older_than stale with_level members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
+    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty older_than stale with_level all members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
     if ( defined $option->{field_selection} || defined $option->{exclude_fields}
         || $option->{include_empty} || defined $option->{since}
         || $option->{brief} || defined $option->{truncate} ) {
@@ -842,6 +862,8 @@ sub _invoke {
       if $option->{stale} && $command ne 'stale';
     die "With-level is available on the stale command\n"
       if $option->{with_level} && $command ne 'stale';
+    die "All is available on the warning.clear command\n"
+      if $option->{all} && $command ne 'warning.clear';
     die "Watch is available on the column.update command\n"
       if defined $option->{watched} && $command ne 'column.update';
     die "Notify-after is available on the column.update and project.update commands\n"
@@ -926,6 +948,9 @@ sub _invoke {
               grep { defined $option->{"${_}_prefix"} } qw(sow epic ticket),
         );
     }
+    return $tira->warning_list(%args) if $command eq 'warning.list';
+    return $tira->warning_add(%args) if $command eq 'warning.add';
+    return $tira->warning_clear( %args, all => $option->{all} ) if $command eq 'warning.clear';
     if ( $command =~ /\Anotify\.(record|list)\z/ ) {
         my $action = $1;
         my %notify = ( project => $args{project}, ref => $option->{ref_list} );

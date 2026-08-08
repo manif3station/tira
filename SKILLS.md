@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.67):** shipped, executable, and covered by tests.
+- **Implemented (0.68):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.67.
+All commands and use cases in this manual ship in release 0.68.
 
 ## Global invocation grammar
 
@@ -450,6 +450,15 @@ is listed with `basis: none` and **no duration** rather than a guessed one, and
 `--older-than MINUTES` never returns it — an unmeasured card is unknown, not
 old. An unreadable stamp yields `basis: unknown` instead of failing the board,
 and a column renamed underneath a card does not disturb its measurement.
+Unattended failures are **Implemented (DD-461)**: background work has
+nobody in the room to tell when it breaks, so a failure it cannot
+resolve is recorded once and then shown underneath the output of
+whatever command anybody runs next, naming the exact command that
+clears it. The same failure recurring leaves the standing warning
+alone rather than piling up copies, and it keeps appearing until it is
+cleared. Human output carries it on standard output; every machine
+format carries it on standard error so the payload stays parseable.
+
 Notification history is **Implemented (DD-460)**: every reminder that is
 actually delivered writes one row recording the card, the column it was
 sitting in, and the time. How urgent a reminder is comes from counting
@@ -608,6 +617,9 @@ tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]
 tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--count] [--brief] [--truncate N|--full] [--where CLAUSE ...] [-o FORMAT]
 tira.diff (--since TIMESTAMP|--snapshot FILE) [--type TYPE] [--fields LIST] [--count] [-o FORMAT]
 tira.stale [--type TYPE] [--stale] [--with-level] [--older-than MINUTES] [-o FORMAT]
+tira.warning.list [-o FORMAT]
+tira.warning.add --message TEXT [-o FORMAT]
+tira.warning.clear {--id ID | --all} [-o FORMAT]
 tira.notify.record --ref REF [--ref REF ...] --column SLUG [-o FORMAT]
 tira.notify.list [--ref REF ...] [-o FORMAT]
 tira.column.update --type TYPE --name SLUG [--notify-after MINUTES] [--watch|--no-watch] [-o FORMAT]

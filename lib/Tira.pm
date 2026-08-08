@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.67';
+our $VERSION = '0.68';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -504,6 +504,67 @@ sub link_type_remove {
 # DD-459: a column is watched unless it has been switched off. The default is
 # applied on READ so every board created before this release behaves correctly
 # without a migration.
+# DD-461: a collector runs unattended, so a failure it hits has nobody to tell.
+# It is stored here and shown under the next command anybody runs. Kept beside
+# the project file rather than in the notification database, because every
+# command must be able to read it and none of them should need SQLite to do so.
+sub _warning_path {
+    my ( $self, $root ) = @_;
+    return File::Spec->catfile( $root, '.tira', 'warnings.json' );
+}
+
+# Read raw: _read_json normalises card fields, and a warning list is not a card.
+sub _warning_read {
+    my ( $self, $root ) = @_;
+    my $path = $self->_warning_path($root);
+    return [] if !-f $path;
+    open my $fh, '<:raw', $path or die "Cannot read warnings '$path': $!\n";
+    my $content = do { local $/; <$fh> };
+    close $fh or die "Cannot close warnings '$path': $!\n";
+    return json_object()->utf8->decode($content);
+}
+
+sub warning_list {
+    my ( $self, %args ) = @_;
+    return $self->_warning_read( $self->discover_project(%args) );
+}
+
+sub warning_add {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $message = $args{message};
+    die "A warning message is required\n" if !defined $message || $message !~ /\S/;
+    return $self->_with_project_lock( $root, sub {
+        my $warnings = $self->_warning_read($root);
+
+        # The same failure recurring must not pile up: the warning already
+        # standing keeps its number and the time it was first seen.
+        my ($existing) = grep { $_->{message} eq $message } @{$warnings};
+        return $existing if $existing;
+        my $id = 0;
+        for my $warning ( @{$warnings} ) { $id = $warning->{id} if $warning->{id} > $id }
+        my $added = { id => $id + 1, at => $self->{clock}->(), message => $message };
+        push @{$warnings}, $added;
+        $self->_write_json( $self->_warning_path($root), $warnings );
+        return $added;
+    } );
+}
+
+sub warning_clear {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    die "Say which warning to clear with --id, or clear every one with --all\n"
+      if !defined $args{id} && !$args{all};
+    return $self->_with_project_lock( $root, sub {
+        my $warnings = $self->_warning_read($root);
+        my @removed = $args{all} ? @{$warnings} : grep { $_->{id} eq $args{id} } @{$warnings};
+        die "Warning '$args{id}' not found\n" if !@removed;
+        my %gone = map { $_->{id} => 1 } @removed;
+        $self->_write_json( $self->_warning_path($root), [ grep { !$gone{ $_->{id} } } @{$warnings} ] );
+        return \@removed;
+    } );
+}
+
 # DD-460: the escalation level is derived, never stored on the card. One row
 # per delivered notification; the level is how many rows that card already has
 # in the column it is sitting in, so a move resets escalation for free.

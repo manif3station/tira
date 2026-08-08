@@ -1,5 +1,17 @@
 Revision history for Tira
 
+0.68  2026-08-08
+    - Unattended failures now have somebody to tell (EPIC-457, fourth
+      piece). A failure that background work cannot resolve is recorded
+      once and shown under the output of whatever command anybody runs
+      next, naming the command that clears it, and it keeps appearing
+      until somebody does. The same failure recurring leaves the
+      standing warning alone instead of piling up copies.
+      `tira.warning.list`, `tira.warning.add` and `tira.warning.clear`
+      manage them. Human output carries the notice on standard output;
+      machine formats carry it on standard error, so a JSON or TOON
+      payload stays parseable for the agent reading it.
+
 0.67  2026-08-08
     - Notification history in SQLite beside the project file
       (EPIC-457, third piece). One row per delivered reminder holding

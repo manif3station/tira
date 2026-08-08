@@ -1423,3 +1423,21 @@ report, message 2915 — three connected findings).
   before the run.
 - Functional PASS `Files=47, Tests=1753`; coverage `100.0%` all three
   modules; `prove -T` PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-461`
+
+- Red-first `t/47-warning.t` (44 checks): a quiet project reading no
+  file and printing nothing, a warning surviving under an unrelated
+  command, the same message not piling up, a different message adding a
+  second, the banner naming the identifier and the clearing command,
+  the JSON and default TOON payloads staying parseable with the notice
+  on standard error, clearing by identifier and by all, an unknown
+  identifier refused without changing anything, and the scope guard.
+- Two of my own expectations were wrong and I corrected the test rather
+  than the code: the helper drove `ticket.list`, which the installed
+  dispatcher *builds* from a path but `Tira::CLI` does not accept, and
+  I had assumed the default output format was human when it is TOON —
+  which matters, because it means the default path is the one that must
+  keep its payload clean.
+- Functional PASS `Files=48, Tests=1803`; coverage `100.0%` all three
+  modules; `prove -T` PASS; `cover_db` cleaned.

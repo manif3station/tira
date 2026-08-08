@@ -52,6 +52,7 @@ const fs = require('fs');
   await page.route('http://tira.test/**', async route => {
     const requestUrl = new URL(route.request().url());
     if (requestUrl.pathname === '/move' && route.request().method() === 'POST') {
+      mutations.push({ path: '/move', body: JSON.parse(route.request().postData()) });
       moveRequests++;
       return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
     }
@@ -164,6 +165,50 @@ const fs = require('fs');
   await page.waitForFunction(() => document.documentElement.dataset.ready === 'true');
   if (await page.evaluate(() => document.documentElement.dataset.width) !== 'standard')
     throw new Error('switching back to standard must also be remembered');
+
+  // DD-455: shift-click selects, a plain click clears and opens, and a drag
+  // carries the whole selection.
+  const selectedRefs = () => page.locator('.card.is-selected').evaluateAll(
+    nodes => nodes.map(node => node.dataset.ref).sort());
+  await page.locator('[data-ref="TKT-002"] .card').click({ modifiers: ['Shift'] });
+  await page.locator('[data-ref="TKT-003"] .card').click({ modifiers: ['Shift'] });
+  if (JSON.stringify(await selectedRefs()) !== JSON.stringify(['TKT-002', 'TKT-003']))
+    throw new Error(`shift-click must select cards, got ${JSON.stringify(await selectedRefs())}`);
+  if (await page.evaluate(() => document.querySelector('.card-dialog')?.open))
+    throw new Error('shift-click must not open the dialog');
+
+  await page.locator('[data-ref="TKT-002"] .card').click({ modifiers: ['Shift'] });
+  if (JSON.stringify(await selectedRefs()) !== JSON.stringify(['TKT-003']))
+    throw new Error('shift-click must also deselect');
+
+  await page.locator('[data-ref="TKT-002"] .card').click({ modifiers: ['Shift'] });
+  const movesBeforeBatch = moveRequests;
+  const batchFrom = await page.locator('[data-ref="TKT-002"] .card').boundingBox();
+  const batchTo = await page.locator('[data-column="in-progress"]').boundingBox();
+  await page.mouse.move(batchFrom.x + batchFrom.width / 2, batchFrom.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(batchFrom.x + batchFrom.width / 2 + 30, batchFrom.y + 30, { steps: 6 });
+  const batchBadge = await page.locator('.card--ghost .card__batch').textContent();
+  if (batchBadge !== '2 cards') throw new Error(`the ghost must show the batch size, got ${batchBadge}`);
+  await page.mouse.move(batchTo.x + batchTo.width / 2, batchTo.y + 40, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForFunction(prev => window.__tiraMoveCount === undefined || true, null);
+  for (let i = 0; i < 80 && moveRequests < movesBeforeBatch + 2; i++)
+    await new Promise(resolve => setTimeout(resolve, 25));
+  if (moveRequests !== movesBeforeBatch + 2)
+    throw new Error(`dragging a selection must move every selected card, got ${moveRequests - movesBeforeBatch}`);
+  const batchMoves = mutations.filter(e => e.path === '/move').slice(-2).map(e => e.body.ref).sort();
+  if (JSON.stringify(batchMoves) !== JSON.stringify(['TKT-002', 'TKT-003']))
+    throw new Error(`the batch must carry both refs, got ${JSON.stringify(batchMoves)}`);
+  await page.waitForFunction(() => document.querySelectorAll('.card.is-selected').length === 0);
+
+  await page.locator('[data-ref="TKT-002"] .card').click({ modifiers: ['Shift'] });
+  await page.locator('[data-ref="TKT-003"] .card').click();
+  await page.waitForFunction(() => document.querySelector('.card-dialog')?.open);
+  if ((await selectedRefs()).length)
+    throw new Error('a plain click must clear the selection');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('.card-dialog')?.open);
 
   const countText = column => page.locator(`[data-count-for="${column}"]`).textContent();
   const countHidden = column => page.locator(`[data-count-for="${column}"]`).evaluate(node => node.hidden);

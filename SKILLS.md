@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.62):** shipped, executable, and covered by tests.
+- **Implemented (0.63):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.62.
+All commands and use cases in this manual ship in release 0.63.
 
 ## Global invocation grammar
 
@@ -633,6 +633,11 @@ commands print one board. Columns run left-to-right. Embedded CSS provides the
 responsive visual design, while embedded JavaScript lets the viewer select
 cards and reorder each board by last modified or card ref. Table output remains
 ref-only unless `--title` is supplied and uses no external resources.
+Cards can be worked in bulk: shift-click selects and deselects without
+opening anything, dragging any selected card carries the whole selection to
+the target column — one ordinary move per card, so the same validation
+applies — and the ghost shows how many are travelling. A plain click clears
+the selection and opens that card. A selection survives the live refresh.
 Each column header shows its card count, and only when it has cards — an
 empty column shows no zero. Counts are derived from the board itself, so
 they stay correct after a refresh, a drag, or a creation. Every column

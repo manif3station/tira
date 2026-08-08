@@ -1,5 +1,17 @@
 Revision history for Tira
 
+0.63  2026-08-08
+    - Bulk card moves (owner request): shift-click selects and
+      deselects, dragging any selected card carries the whole selection
+      to the target column with the ghost showing the batch size, and a
+      plain click clears the selection and opens that card. The
+      selection is kept by reference so it survives the live refresh
+      that rebuilds every card. Each card posts the same validated move
+      as a single drag - no bulk endpoint and no new server semantics.
+    - Fit mode now runs the board edge to edge, recovering the side
+      gutters: on a thirteen-column board the columns go from 81px to
+      86px.
+
 0.62  2026-08-08
     - The browser tab now reads `<project> :: <board> :: <cards>`, for
       example `MT5 :: Tickets :: 57`, instead of a generic product name

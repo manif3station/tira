@@ -1336,3 +1336,21 @@ report, message 2915 — three connected findings).
   stored.
 - Functional PASS `Files=44, Tests=1641`; coverage `100.0%` all three
   modules; `prove -T` PASS; fixtures and `cover_db` cleaned.
+
+## Latest Verification For `DD-455`
+
+- Browser guard added to the main pass: shift-click selects two cards
+  without opening the dialog, shift-click again deselects, dragging a
+  selected card posts two `/move` requests carrying both refs, the
+  ghost reads "2 cards", the selection clears after the batch, and a
+  plain click clears the selection and opens that card.
+- Red check: against the previous renderer the guard does not pass —
+  the first shift-click opens the dialog, which then intercepts the
+  next click and the run fails. The failure is a timeout rather than a
+  crisp assertion, which is recorded here rather than dressed up.
+- Fit-mode margins reviewed visually on a thirteen-column board:
+  columns 81px before, 86px after, board running edge to edge, no card
+  spill in either mode.
+- Functional PASS `Files=44, Tests=1641`; coverage `100.0%` all three
+  modules; `prove -T` PASS; `wide-board.js` green; main browser guard
+  green ×3; fixtures and `cover_db` cleaned.

@@ -1285,3 +1285,22 @@ report, message 2915 — three connected findings).
 - Functional PASS `Files=44, Tests=1638`; coverage `100.0%` statement
   and subroutine on all three modules with no exclusions; `prove -T`
   PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-451`
+
+- Owner photo (3005): cards overlapping the next column on the
+  nine-column MT5 board. Root-caused to `table-layout: fixed` taking
+  column widths from the header row, where only a `min-width` was set.
+- Measured before and after on a rebuilt nine-column, 102-card board:
+  header widths `[134 × 9]` before, `[272 × 9]` after in Standard, and
+  `[122 × 9]` in Fit, with zero card spill in either mode.
+- New guard `t/playwright/wide-board.js`, verified to FAIL against the
+  pre-fix stylesheet (`standard columns must keep their full width, got
+  [134,...]`), green ×3 after.
+- Main browser gate: 6 of 7 runs green. One run timed out on a
+  `waitForFunction`; it did not reproduce across four consecutive runs
+  afterwards and the change is stylesheet-only, but it is recorded here
+  rather than dismissed, since this suite has timing-dependent waits.
+- Functional PASS `Files=44, Tests=1638`; coverage `100.0%` statement
+  and subroutine on all three modules; `prove -T` PASS; `cover_db` and
+  fixtures cleaned.

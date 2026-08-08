@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.66';
+our $VERSION = '0.67';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -504,6 +504,113 @@ sub link_type_remove {
 # DD-459: a column is watched unless it has been switched off. The default is
 # applied on READ so every board created before this release behaves correctly
 # without a migration.
+# DD-460: the escalation level is derived, never stored on the card. One row
+# per delivered notification; the level is how many rows that card already has
+# in the column it is sitting in, so a move resets escalation for free.
+sub _sqlite_available {
+    return eval { require DBI; require DBD::SQLite; 1 } ? 1 : 0;
+}
+
+sub _notification_path {
+    my ( $self, $root ) = @_;
+    my $path = File::Spec->catfile( $root, '.tira', 'notification.db' );
+    ($path) = $path =~ /\A(.*)\z/s;
+    return $path;
+}
+
+sub _notification_dbh {
+    my ( $self, $root, %opt ) = @_;
+    my $path = $self->_notification_path($root);
+
+    # Reading must cost nothing: a project that has never notified answers
+    # without a database, and so without needing SQLite installed at all.
+    return undef if !$opt{create} && !-e $path;
+    die "Notifications need SQLite. Install DBD::SQLite (for example: "
+      . "cpanm DBD::SQLite) and run this again.\n"
+      if !_sqlite_available();
+    my $dbh = DBI->connect(
+        "dbi:SQLite:dbname=$path", '', '',
+        { RaiseError => 1, PrintError => 0, AutoCommit => 1 },
+    );
+    $dbh->do( 'CREATE TABLE IF NOT EXISTS notifications ('
+          . 'id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT NOT NULL, '
+          . 'column_name TEXT NOT NULL, sent_at TEXT NOT NULL)' );
+    $dbh->do( 'CREATE INDEX IF NOT EXISTS notifications_ref_column '
+          . 'ON notifications (ref, column_name)' );
+    return $dbh;
+}
+
+sub _notification_count {
+    my ( $dbh, $ref, $column ) = @_;
+    my ($count) = $dbh->selectrow_array(
+        'SELECT COUNT(*) FROM notifications WHERE ref = ? AND column_name = ?',
+        undef, $ref, $column,
+    );
+    return 0 + $count;
+}
+
+sub notification_record {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $many = ref $args{ref} eq 'ARRAY';
+    my @refs = $many ? @{ $args{ref} } : defined $args{ref} ? ( $args{ref} ) : ();
+    die "A card reference is required\n" if !@refs;
+    my $column = $args{column};
+    die "A column is required\n" if !defined $column || $column !~ /\S/;
+    my $at = $self->{clock}->();
+    my $dbh = $self->_notification_dbh( $root, create => 1 );
+    my @rows;
+
+    # One message covers many cards, so the batch is all or nothing: a bad
+    # reference anywhere leaves no rows behind, not even the good ones.
+    $dbh->begin_work;
+    my $written = eval {
+        for my $ref (@refs) {
+            die "A card reference is required\n" if !defined $ref || $ref !~ /\S/;
+            $dbh->do( 'INSERT INTO notifications (ref, column_name, sent_at) VALUES (?, ?, ?)',
+                undef, $ref, $column, $at );
+            push @rows, {
+                ref => $ref, column => $column, at => $at,
+                level => _notification_count( $dbh, $ref, $column ),
+            };
+        }
+        $dbh->commit;
+        1;
+    };
+    if ( !$written ) {
+        my $error = $@;
+        eval { $dbh->rollback };
+        $dbh->disconnect;
+        die $error;
+    }
+    $dbh->disconnect;
+    return $many ? \@rows : $rows[0];
+}
+
+sub notification_level {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $dbh = $self->_notification_dbh($root) or return 0;
+    my $level = _notification_count( $dbh, $args{ref}, $args{column} );
+    $dbh->disconnect;
+    return $level;
+}
+
+sub notification_list {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $dbh = $self->_notification_dbh($root) or return [];
+    my @refs = ref $args{ref} eq 'ARRAY' ? @{ $args{ref} }
+      : defined $args{ref} && length $args{ref} ? ( $args{ref} ) : ();
+    my $where = @refs ? ' WHERE ref IN (' . join( ',', ('?') x @refs ) . ')' : '';
+    my $rows = $dbh->selectall_arrayref(
+        "SELECT ref, column_name, sent_at FROM notifications$where ORDER BY id",
+        { Slice => {} }, @refs,
+    );
+    $dbh->disconnect;
+    return [ map { { ref => $_->{ref}, column => $_->{column_name}, at => $_->{sent_at} } } @{$rows} ];
+}
+
 sub _column_defaults {
     my ($columns) = @_;
     return [ map { { %{$_}, watched => exists $_->{watched} ? ( $_->{watched} ? 1 : 0 ) : 1 } } @{$columns} ];
@@ -1123,6 +1230,7 @@ sub dwell_list {
     my ( $self, %args ) = @_;
     my $older_than = delete $args{older_than};
     my $stale = delete $args{stale};
+    my $with_level = delete $args{with_level};
     if ( defined $older_than ) {
         die "Older-than must be a positive number of minutes\n"
           if $older_than !~ /\A[0-9]+(?:\.[0-9]+)?\z/ || $older_than <= 0;
@@ -1174,6 +1282,11 @@ sub dwell_list {
       if defined $older_than;
     @cards = grep { defined $_->{dwell_seconds} && $_->{dwell_seconds} >= $_->{notify_after} * 60 } @cards
       if $stale;
+    if ($with_level) {
+        $_->{level} = $self->notification_level(
+            project => $root, ref => $_->{ref}, column => $_->{column} )
+          for @cards;
+    }
     return \@cards;
 }
 

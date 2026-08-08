@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.66):** shipped, executable, and covered by tests.
+- **Implemented (0.67):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.66.
+All commands and use cases in this manual ship in release 0.67.
 
 ## Global invocation grammar
 
@@ -450,6 +450,16 @@ is listed with `basis: none` and **no duration** rather than a guessed one, and
 `--older-than MINUTES` never returns it — an unmeasured card is unknown, not
 old. An unreadable stamp yields `basis: unknown` instead of failing the board,
 and a column renamed underneath a card does not disturb its measurement.
+Notification history is **Implemented (DD-460)**: every reminder that is
+actually delivered writes one row recording the card, the column it was
+sitting in, and the time. How urgent a reminder is comes from counting
+those rows, so **moving a card resets its escalation** — later rows
+carry a different column name and the count starts again. The card
+itself is never rewritten, so reminders never touch its stamp, its hash
+or its history. `tira.stale --stale --with-level` reports each stale
+card with the level it has already reached, which is enough to compose
+a whole reminder in one call. Reading history creates nothing.
+
 Staleness limits are **Implemented (DD-459)**: every column carries its own
 limit in minutes and its own watched flag, both set by `tira.column.update` and
 reported by `tira.column.list`. A column is watched unless switched off, so
@@ -597,7 +607,9 @@ tira.gate.add --ref REF --gate TEXT --result pass|fail|blocked --details TEXT [-
 tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]
 tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--count] [--brief] [--truncate N|--full] [--where CLAUSE ...] [-o FORMAT]
 tira.diff (--since TIMESTAMP|--snapshot FILE) [--type TYPE] [--fields LIST] [--count] [-o FORMAT]
-tira.stale [--type TYPE] [--stale] [--older-than MINUTES] [-o FORMAT]
+tira.stale [--type TYPE] [--stale] [--with-level] [--older-than MINUTES] [-o FORMAT]
+tira.notify.record --ref REF [--ref REF ...] --column SLUG [-o FORMAT]
+tira.notify.list [--ref REF ...] [-o FORMAT]
 tira.column.update --type TYPE --name SLUG [--notify-after MINUTES] [--watch|--no-watch] [-o FORMAT]
 tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [-o FORMAT]
 tira.import --file FILE [--dry-run] [-o FORMAT]

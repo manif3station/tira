@@ -90,19 +90,38 @@ project, so work does not quietly stall.
     from the board. Blank stays blank when nobody is chosen, so nothing
     is invented.
 
-## Open, asked or to ask
+## Settled by the owner (question 8, message 3048)
 
-- **Q8 (asked, last):** when delivery fails — stale session id, missing
-  `claude`, busy agent — is the notification still recorded? It decides
-  whether escalation is honest: a row written for an undelivered
-  message escalates a card to shouting while the owner has heard
-  nothing, and the first message he ever sees is a furious one about a
-  card nobody told him about. Recommended: record only on success, and
-  have the collector report its own failure once rather than going
-  silent.
-- Whether the eye (watched) state lives in the board config (shared) or
-  per browser (local). Not yet asked.
-- Escalation template wording for each level.
+17. **Storage confirmed**: the board's config file holds each column's
+    order and its own notification time; a column with no time of its
+    own uses the project default. Columns have no config file of their
+    own — the owner accepted the correction explicitly. Shipped in
+    0.66 (DD-459).
+18. **No coding agent installed, no collector.** If `claude` is not
+    there, nothing can be done: the collector **stops itself** rather
+    than burning resources retrying. Onboarding should catch it first —
+    when no agent is installed, that part of onboarding never appears.
+19. **A mid-flight failure retries once.** A session id that has gone
+    stale gets one more attempt; if that fails too, a warning is
+    written rather than the failure passing silently.
+20. **The warning is surfaced through the CLI.** A collector has nobody
+    to tell — so the warning is stored and **appended at the bottom of
+    whatever any Tira command prints**, after the table or list, where
+    the next coding agent or human to run a command will see it. It
+    keeps appearing until it is cleared.
+21. **Identical warnings are not repeated.** If the same failure
+    happens again and the message would be the same, the existing one
+    stands rather than a second copy being added.
+22. **The warning must say how to remove it**, so whoever sorts the
+    problem out can clear it, and so an agent reading it knows the
+    message is actionable rather than decorative.
+
+## Open
+
+- Escalation template wording for each level — to be shown to the owner
+  before anything can send.
+- Whether the eye (watched) state should also be per browser. Shipped
+  shared on the board config, which is what point 7 asked for.
 
 ## Research already done (2026-08-08)
 
@@ -123,5 +142,9 @@ project, so work does not quietly stall.
 
 ## Status
 
-Design in progress; questions 1 to 7 answered, question 8 outstanding.
-No implementation until it closes.
+Design closed — all eight questions answered, owner said "All good.
+Start to build" (message 3051). Building:
+`DD-458` dwell measurement (0.65, done), `DD-459` per-column limits and
+watching (0.66, done), `DD-460` notification history, `DD-461` sticky
+collector warning, `DD-462` escalation wording (owner must approve
+before anything sends), `DD-463` the collector, `DD-464` onboarding.

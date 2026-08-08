@@ -1,5 +1,18 @@
 Revision history for Tira
 
+0.67  2026-08-08
+    - Notification history in SQLite beside the project file
+      (EPIC-457, third piece). One row per delivered reminder holding
+      the card, its column and the time; the escalation level is how
+      many rows that card already has in the column it is sitting in,
+      so a move resets escalation for free and the card is never
+      rewritten. `tira.notify.record` and `tira.notify.list` expose it,
+      and `tira.stale --stale --with-level` reports each stale card
+      with the level it has reached. Reading creates no database, so a
+      project that has never notified needs SQLite for nothing; when it
+      is needed and missing, the message says to install SQLite rather
+      than showing a Perl module failing to load.
+
 0.66  2026-08-08
     - Per-column staleness limits and watching (EPIC-457, second
       piece). Each column carries its own limit in minutes and its own

@@ -1408,3 +1408,18 @@ report, message 2915 — three connected findings).
   limit, so it could never have exercised the fallback.
 - Functional PASS `Files=46, Tests=1711`; coverage `100.0%` all three
   modules; `prove -T` PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-460`
+
+- Red-first `t/46-notification.t` (39 checks): level 0 and an empty
+  history with no database created by asking, escalation 1→2→3, a
+  different column starting again at 1 while the old column's history
+  stands, batch recording, every refused input, an all-or-nothing batch
+  proven by a bad reference rolling back a good one, filtered history,
+  `stale --with-level`, the SQLite-missing message, and the CLI surface
+  including exit 2 and the scope guard.
+- `DBD::SQLite` added to `cpanfile` and to the shared test image
+  (`docker/testing/Dockerfile`), which did not have it; image rebuilt
+  before the run.
+- Functional PASS `Files=47, Tests=1753`; coverage `100.0%` all three
+  modules; `prove -T` PASS; `cover_db` cleaned.

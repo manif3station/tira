@@ -77,6 +77,7 @@ sub run {
         'older-than=s' => \$option{older_than},
         'notify-after=s' => \$option{notify_after},
         'watch!' => \$option{watched}, 'stale' => \$option{stale},
+        'with-level' => \$option{with_level},
         'cache-ttl=i' => \$option{cache_ttl}, 'no-cache' => \$option{no_cache},
         'with=s' => \$option{with}, 'note=s' => \$option{note},
         'reporter=s' => \$option{reporter}, 'due-date=s' => \$option{due_date},
@@ -804,7 +805,7 @@ sub _attachment_content_type {
 sub _invoke {
     my ( $tira, $command, $record_type, $option ) = @_;
     my %args = %{$option};
-    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty older_than stale members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
+    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty older_than stale with_level members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
     if ( defined $option->{field_selection} || defined $option->{exclude_fields}
         || $option->{include_empty} || defined $option->{since}
         || $option->{brief} || defined $option->{truncate} ) {
@@ -839,6 +840,8 @@ sub _invoke {
       if defined $option->{older_than} && $command ne 'stale';
     die "Stale is available on the stale command\n"
       if $option->{stale} && $command ne 'stale';
+    die "With-level is available on the stale command\n"
+      if $option->{with_level} && $command ne 'stale';
     die "Watch is available on the column.update command\n"
       if defined $option->{watched} && $command ne 'column.update';
     die "Notify-after is available on the column.update and project.update commands\n"
@@ -923,6 +926,13 @@ sub _invoke {
               grep { defined $option->{"${_}_prefix"} } qw(sow epic ticket),
         );
     }
+    if ( $command =~ /\Anotify\.(record|list)\z/ ) {
+        my $action = $1;
+        my %notify = ( project => $args{project}, ref => $option->{ref_list} );
+        $notify{column} = $option->{column} if defined $option->{column};
+        return $tira->notification_list(%notify) if $action eq 'list';
+        return $tira->notification_record(%notify);
+    }
     return $tira->create_record(%args) if $command eq 'record.create';
     return $tira->export_records(%args) if $command eq 'export';
     return $tira->diff_records(%args) if $command eq 'diff';
@@ -931,6 +941,7 @@ sub _invoke {
         $dwell{type} = $args{type} if defined $args{type};
         $dwell{older_than} = $option->{older_than} if defined $option->{older_than};
         $dwell{stale} = 1 if $option->{stale};
+        $dwell{with_level} = 1 if $option->{with_level};
         return $tira->dwell_list(%dwell);
     }
     if ( $command eq 'history.list' ) {

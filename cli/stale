@@ -1,0 +1,16 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use File::Spec;
+use FindBin;
+unshift @INC, File::Spec->catdir( $FindBin::Bin, '..', 'lib' );
+require Tira::CLI;
+exit Tira::CLI->run( command => 'stale', argv => \@ARGV );
+__END__
+=head1 NAME
+Tira stale - Report how long each card has sat in its column
+=head1 DESCRIPTION
+First-class change detection: added, changed, and removed records with
+per-field before and after values in snapshot mode, and new-comment ids,
+small enough to act on without a further read. Never writes.
+=cut

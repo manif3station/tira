@@ -74,6 +74,7 @@ sub run {
         'sow-prefix=s' => \$option{sow_prefix}, 'epic-prefix=s' => \$option{epic_prefix},
         'ticket-prefix=s' => \$option{ticket_prefix},
         'snapshot=s' => \$option{snapshot},
+        'older-than=s' => \$option{older_than},
         'cache-ttl=i' => \$option{cache_ttl}, 'no-cache' => \$option{no_cache},
         'with=s' => \$option{with}, 'note=s' => \$option{note},
         'reporter=s' => \$option{reporter}, 'due-date=s' => \$option{due_date},
@@ -801,7 +802,7 @@ sub _attachment_content_type {
 sub _invoke {
     my ( $tira, $command, $record_type, $option ) = @_;
     my %args = %{$option};
-    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
+    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty older_than members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
     if ( defined $option->{field_selection} || defined $option->{exclude_fields}
         || $option->{include_empty} || defined $option->{since}
         || $option->{brief} || defined $option->{truncate} ) {
@@ -832,6 +833,8 @@ sub _invoke {
       if $option->{count} && $command !~ /\A(?:record\.list|export|search|comment\.list|attachment\.list|gate\.list|evidence\.list|history\.list|diff)\z/;
     die "Snapshot baselines are available on the diff command\n"
       if defined $option->{snapshot} && $command ne 'diff';
+    die "Older-than is available on the stale command\n"
+      if defined $option->{older_than} && $command ne 'stale';
     die "Dashboard address options belong to the project.update command\n"
       if $command ne 'project.update'
       && grep { defined $option->{$_} } qw(dashboard_host dashboard_port listen);
@@ -915,6 +918,12 @@ sub _invoke {
     return $tira->create_record(%args) if $command eq 'record.create';
     return $tira->export_records(%args) if $command eq 'export';
     return $tira->diff_records(%args) if $command eq 'diff';
+    if ( $command eq 'stale' ) {
+        my %dwell = ( project => $args{project} );
+        $dwell{type} = $args{type} if defined $args{type};
+        $dwell{older_than} = $option->{older_than} if defined $option->{older_than};
+        return $tira->dwell_list(%dwell);
+    }
     if ( $command eq 'history.list' ) {
         my %history = %args;
         delete $history{fields};

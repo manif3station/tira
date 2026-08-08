@@ -1,5 +1,17 @@
 Revision history for Tira
 
+0.65  2026-08-08
+    - New `tira.stale` (EPIC-457, the first piece): how long every card
+      has sat in the column it is in now, measured from its most recent
+      recorded column move, across all three boards in one call.
+      `--older-than MINUTES` filters to the ones past a limit. A card
+      whose column entry was never recorded is reported with no
+      duration rather than a guessed one and never counts as old -
+      history only began in 0.53, and inventing an entry time would put
+      most of an existing board into the first report. Unreadable
+      stamps degrade to unknown instead of failing the board, and a
+      column renamed underneath a card leaves its measurement intact.
+
 0.64  2026-08-08
     - Columns now show ten cards with a button to reveal ten more at a
       time, saying how many remain (owner request). The count beside the

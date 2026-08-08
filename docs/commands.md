@@ -135,6 +135,13 @@ skipped so re-running is safe, and everything is validated before the first writ
 a rejected call leaves nothing behind. Prefixes are applied before any record can be
 created, because board counters never rewind.
 
+`tira.stale` answers how long each card has sat in the column it is in now,
+reading each card's history backwards and stopping at its most recent column
+move. Cards whose entry predates the history are reported without a duration
+rather than with an invented one, so they never appear in an `--older-than`
+result. One pass over the boards costs a few milliseconds; asking per card
+through the API or the CLI costs a hundred to a thousand times more.
+
 `tira.diff` is the watcher: `--since T` lists added/changed records with
 their current column, gate, title, and new-comment ids plus `now` for the
 next poll; `--snapshot FILE` (a saved `tira.export --include-empty -o json`)

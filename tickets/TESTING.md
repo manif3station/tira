@@ -1377,3 +1377,19 @@ report, message 2915 — three connected findings).
   is present.
 - Functional PASS `Files=44, Tests=1654`; coverage `100.0%` all three
   modules; `prove -T` PASS; fixtures and `cover_db` cleaned.
+
+## Latest Verification For `DD-458`
+
+- Red-first `t/44-dwell.t` (26 checks) with the clock fixed so dwell is
+  arithmetic rather than a race: measurement from the latest move, a
+  twice-moved card measuring from its most recent move, a never-moved
+  card reported as `basis: none` with no duration, a renamed column
+  leaving the measurement intact, an unreadable stamp degrading to
+  `unknown` without taking the board down, `--older-than` excluding
+  unmeasured cards, all three boards in one call and a single board on
+  request, plus the CLI surface and its exit-2 on a non-numeric age.
+- The taint gate caught a tainted `glob` path in the new test before
+  release; untainted explicitly, as in `t/27`.
+- Functional PASS `Files=45, Tests=1682`; coverage `100.0%` statement
+  and subroutine on all three modules; `prove -T` PASS; `cover_db`
+  cleaned. No browser surface in this ticket.

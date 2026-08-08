@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.64';
+our $VERSION = '0.65';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -1056,6 +1056,73 @@ sub record_list {
     return { count => scalar @{$sorted} } if $args{count};
     return [ map { $_->{ref} } @{$sorted} ] if $args{refs_only};
     return $sorted;
+}
+
+# DD-458 (EPIC-457): how long has each card sat in the column it is in now?
+# One board walk plus a backwards journal scan per card. Reading backwards and
+# testing each line as a string before decoding it is what keeps this at a few
+# milliseconds for a whole board and keeps it flat as journals grow; the
+# per-card API route measured a hundred times slower and the per-card CLI route
+# a thousand.
+sub _dwell_start {
+    my ( $self, $root, $ref ) = @_;
+    my $path = $self->_journal_path( $root, $ref );
+    return ( undef, 'none' ) if !-f $path;
+    open my $fh, '<:raw', $path or return ( undef, 'none' );
+    my @lines = <$fh>;
+    close $fh;
+    for my $line ( reverse @lines ) {
+        # The column a move names is deliberately not compared with the card's
+        # current column: column_rename and column_remove relocate cards without
+        # journaling, so demanding a match would read as "never moved".
+        next if index( $line, '"field":"column"' ) < 0 || index( $line, '"op":"move"' ) < 0;
+        my $entry = eval { json_decode($line) } or return ( undef, 'unknown' );
+        my $epoch = eval { _epoch_of_datetime( $entry->{at}, 'History stamp' ) };
+        return ( undef, 'unknown' ) if !defined $epoch;
+        return ( $entry->{at}, 'move' );
+    }
+    return ( undef, 'none' );
+}
+
+sub dwell_list {
+    my ( $self, %args ) = @_;
+    my $older_than = delete $args{older_than};
+    if ( defined $older_than ) {
+        die "Older-than must be a positive number of minutes\n"
+          if $older_than !~ /\A[0-9]+(?:\.[0-9]+)?\z/ || $older_than <= 0;
+    }
+    my $root = $self->discover_project(%args);
+    my $now = eval { _epoch_of_datetime( $self->{clock}->(), 'Clock' ) };
+    my @cards;
+    for my $type ( defined $args{type} ? ( $args{type} ) : qw(sow epic ticket) ) {
+        my $board = File::Spec->catdir( $root, '.tira', $self->_valid_type($type) );
+        next if !-d $board;
+        find( { no_chdir => 1, wanted => sub {
+            return if !-f $File::Find::name;
+            my $file = basename($File::Find::name);
+            return if $file !~ /\A([A-Z][A-Z0-9-]{0,31}-\d{1,12})\.json\z/;
+            my $ref = $1;
+            my $column = basename( dirname($File::Find::name) );
+            my ( $since, $basis ) = $self->_dwell_start( $root, $ref );
+            my $seconds;
+            if ( $basis eq 'move' && defined $now ) {
+                my $started = eval { _epoch_of_datetime( $since, 'History stamp' ) };
+                $seconds = defined $started ? $now - $started : undef;
+                $basis = 'unknown' if !defined $seconds;
+            }
+            push @cards, {
+                ref => $ref, type => $type, column => $column, basis => $basis,
+                ( defined $since && $basis eq 'move' ? ( since => $since ) : () ),
+                ( defined $seconds ? ( dwell_seconds => $seconds ) : () ),
+            };
+        } }, $board );
+    }
+    @cards = sort { $a->{ref} cmp $b->{ref} } @cards;
+    # An unmeasured card is never "old": it is unknown, and guessing would put
+    # ninety percent of a real board into the first report.
+    @cards = grep { defined $_->{dwell_seconds} && $_->{dwell_seconds} >= $older_than * 60 } @cards
+      if defined $older_than;
+    return \@cards;
 }
 
 sub export_records {

@@ -818,12 +818,20 @@ sub _project_wizard {
     # The directory comes first because everything else can be pre-filled from
     # the project already living there. Asking it second would mean offering
     # one project's answers while writing to another.
-    my ( $stored, $default ) = _wizard_all_defaults( $tira, $option->{dir}, $option );
-    my $dir = _ask( $in, 'Project directory', $option->{dir} // '.' );
+    # Asking first is only useful if it can answer itself: offer whatever
+    # project is already resolvable rather than making somebody type the path
+    # before any of the pre-filling can help.
+    my $suggested = $option->{dir}
+      // eval {
+        $tira->discover_project( defined $option->{project} ? ( project => $option->{project} ) : () );
+      }
+      // '.';
+    my ( $stored, $default ) = _wizard_all_defaults( $tira, $suggested, $option );
+    my $dir = _ask( $in, 'Project directory', $suggested );
     return ( undef, 2 ) if !defined $dir;
     $answers{dir} = _expand_home($dir);
     ( $stored, $default ) = _wizard_all_defaults( $tira, $answers{dir}, $option )
-      if $answers{dir} ne ( $option->{dir} // '' );
+      if $answers{dir} ne $suggested;
     print "\nEditing the project already at that directory — press enter to keep each answer.\n\n"
       if %{$stored};
 
@@ -928,19 +936,15 @@ sub _project_wizard {
             $answers{collector} = $collector;
             last;
         }
-        while (1) {
-            my $heartbeat = _ask( $in, 'Minutes between reminder checks (blank for no reminders)',
-                $default->{heartbeat} );
-            return ( undef, 2 ) if !defined $heartbeat;
-            last if $heartbeat eq '';
-            if ( $heartbeat !~ /\A[0-9]+(?:\.[0-9]+)?\z/ || $heartbeat <= 0 ) {
-                print "  That must be a positive number of minutes.\n";
-                next;
-            }
-            $answers{heartbeat} = $heartbeat;
-            last;
-        }
     }
+
+    # One number of minutes, not two. The owner read the second as a repeat of
+    # the first, and he was right to: there is no point looking more often than
+    # the shortest window that could make anything stale. An explicit
+    # --heartbeat still wins for anyone who wants to tune it.
+    $answers{heartbeat} = $option->{heartbeat} // $answers{notify_after}
+      if defined $answers{session}
+      && defined( $option->{heartbeat} // $answers{notify_after} );
 
     print "\nAbout to create:\n";
     print "  name       $answers{name}\n";
@@ -1089,7 +1093,7 @@ sub _invoke {
 
     return $tira->create_project( name => $option->{name}, dir => $option->{dir} // '.' ) if $command eq 'project.create';
     if ( $command eq 'project.new' || $command eq 'onboard' ) {
-        return $tira->project_new(
+        my $summary = $tira->project_new(
             name => $option->{name}, dir => $option->{dir} // '.',
             members => $option->{members}, columns => $option->{columns},
             map( { ( "${_}_columns" => $option->{"${_}_columns"} ) }
@@ -1101,6 +1105,20 @@ sub _invoke {
                 grep { defined $option->{$_} } qw(notify_after collector agent session heartbeat) ),
             ( $option->{nested} ? ( nested => 1 ) : () ),
         );
+
+        # DD-467: collecting the settings and leaving the job unregistered
+        # looked like it had worked. Onboarding registers it, and reports the
+        # name it will really answer to, which is not the name that was typed.
+        if ( $command eq 'onboard' && defined $summary->{project}{heartbeat} ) {
+            # project_show carries no root, so use the directory that was created.
+            my $job = eval { $tira->collector_install( project => $option->{dir} // '.' ) };
+            if ($job) {
+                print "\nRegistered the reminder job as '$job->{name}'.\n"
+                  . "Start it with: dashboard collector start $job->{name}\n\n";
+                $summary->{collector} = $job;
+            }
+        }
+        return $summary;
     }
     return $tira->warning_list(%args) if $command eq 'warning.list';
     return $tira->warning_add(%args) if $command eq 'warning.add';

@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.76):** shipped, executable, and covered by tests.
+- **Implemented (0.77):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.76.
+All commands and use cases in this manual ship in release 0.77.
 
 ## Global invocation grammar
 
@@ -502,6 +502,15 @@ message covering every stale card, records them only once the message
 has actually arrived, retries a failed delivery once, and then leaves a
 warning rather than failing silently. Nothing stale, no agent installed
 and no session configured are all quiet no-ops rather than errors.
+
+Onboarding registers the job itself **(DD-467)**: filling in the
+reminder details now creates the background job as well as recording
+them, and reports the name it will really answer to along with the
+command that starts it. It asks for a number of minutes once — how long
+a card may sit still — and the heartbeat follows that answer, since
+looking more often than the shortest staleness window finds nothing
+new; `--heartbeat` still tunes it. The directory question offers
+whatever project is already resolvable rather than making you type it.
 
 Reminder settings are **Implemented (DD-464)**: the project records how
 long a card may sit still by default, which coding agent to remind, its

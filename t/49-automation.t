@@ -136,7 +136,6 @@ Backlog, Doing
 claude
 session-999
 
-10
 y
 ANSWERS
 is( $status, 0, 'onboarding completes with a coding agent installed' );
@@ -144,7 +143,8 @@ like( $out, qr/session id/i, 'and asks for the session id' );
 my $automation = $tira->project_show( project => $wired );
 is( $automation->{agent}, 'claude', 'the agent is stored' );
 is( $automation->{session}, 'session-999', 'the session id is stored' );
-is( $automation->{heartbeat}, 10, 'the heartbeat is stored' );
+is( $automation->{heartbeat}, 60,
+    'the heartbeat follows the staleness answer rather than being asked for twice' );
 is( $automation->{collector}, 'wired', 'the collector name defaults from the project name' );
 
 # Every new question rejects a bad answer and asks again rather than storing it.
@@ -167,8 +167,6 @@ has space
 sess1
 Not A Slug
 good-slug
-soon
-20
 y
 ANSWERS
 is( $status, 0, 'the flow survives a bad answer to every new question' );
@@ -180,7 +178,7 @@ my $corrected = $tira->project_show( project => $picky );
 is( $corrected->{notify_after}, 90, 'and the corrected threshold is what is stored' );
 is( $corrected->{session}, 'sess1', 'and the corrected session id' );
 is( $corrected->{collector}, 'good-slug', 'and the corrected collector name' );
-is( $corrected->{heartbeat}, 20, 'and the corrected heartbeat' );
+is( $corrected->{heartbeat}, 90, 'and the heartbeat that followed the corrected threshold' );
 
 ( $status, $out ) = run_cli( 'ticket.list', '--project', $root, '--collector', 'x', '-o', 'json' );
 is( $status, 2, 'the reminder settings are refused on commands they do not belong to' );
@@ -195,7 +193,6 @@ my $before = $tira->project_show( project => $wired );
 
 
 y
-
 
 
 
@@ -216,8 +213,6 @@ is_deeply( [ map { $_->{name} } @{ $tira->column_list( project => $wired, type =
 # Naming a different project reloads its settings rather than carrying these over.
 ( $status, $out ) = run_wizard( <<"ANSWERS", 1, '--dir', $wired, '-o', 'json' );
 $bare
-
-
 
 
 

@@ -1,5 +1,22 @@
 Revision history for Tira
 
+0.77  2026-08-08
+    - Onboarding collected the reminder settings and then did nothing
+      with them: the collector name went into the project file and
+      registering the job was a separate command that nothing called,
+      so filling it in produced no collector anywhere while looking
+      like it had worked. Onboarding now registers it, and reports the
+      name it will really answer to - `tira.<name>`, not the bare name
+      that was typed - together with the command that starts it.
+    - The interval is asked once instead of twice. The staleness
+      threshold is the meaningful number, and the heartbeat follows it,
+      because there is no point looking more often than the shortest
+      window that could make anything stale. An explicit `--heartbeat`
+      still wins.
+    - The directory question offers whatever project is already
+      resolvable, so re-running onboarding from anywhere pre-fills
+      instead of asking for the path first.
+
 0.76  2026-08-08
     - Fit all now wraps the columns onto more than one row. With the
       overflow defects fixed, thirteen columns across a 1280px window

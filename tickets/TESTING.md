@@ -1619,3 +1619,21 @@ report, message 2915 — three connected findings).
   counts, paging button and add-card all correct.
 - Functional PASS `Files=55, Tests=2094`; coverage `100.0%` all three
   modules; `prove -T` PASS; fixtures cleaned.
+
+## Latest Verification For `DD-467`
+
+- All four of the owner's problems reproduced before anything changed:
+  the prompt list printed from a real run showed both minute questions,
+  the Developer Dashboard config was empty after onboarding, and the
+  directory question offered `.` rather than the project.
+- Red-first `t/55-onboard-collector.t` (19 checks): a number of minutes
+  asked exactly once, the heartbeat following the staleness answer, an
+  explicit `--heartbeat` still winning, the job registered with the
+  right name, working directory and interval in seconds, the reported
+  name and start command, nothing registered when there is nothing to
+  deliver to, and other collectors left alone.
+- `t/49` and `t/41` answer scripts updated for the removed question,
+  and two expectations corrected rather than the code: the heartbeat is
+  now the threshold, which is the point of the change.
+- Functional PASS `Files=56, Tests=2114`; coverage `100.0%` all three
+  modules; `prove -T` PASS; `cover_db` cleaned.

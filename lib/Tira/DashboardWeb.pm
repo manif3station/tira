@@ -3,7 +3,7 @@ package Tira::DashboardWeb;
 use strict;
 use warnings;
 
-our $VERSION = '0.71';
+our $VERSION = '0.72';
 
 use Encode qw(decode_utf8 encode_utf8);
 use JSON::PP ();
@@ -11,7 +11,8 @@ use Dancer2 appname => 'TiraDashboard';
 
 our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $SEARCH, $COMMENT_ADD, $COMMENT_UPDATE, $COMMENT_REMOVE, $PEOPLE,
       $ATTACHMENT_FETCH, $ATTACHMENT_ADD, $ATTACHMENT_REMOVE, $CHECKLIST_ADD, $CHECKLIST_UPDATE,
-      $LINK_TYPES, $HIERARCHY_LINK, $HIERARCHY_UNLINK, $SUBITEM_LINK, $SUBITEM_UNLINK, $LINK_ADD, $LINK_REMOVE );
+      $LINK_TYPES, $HIERARCHY_LINK, $HIERARCHY_UNLINK, $SUBITEM_LINK, $SUBITEM_UNLINK, $LINK_ADD, $LINK_REMOVE,
+      $COLUMNS, $COLUMN_APPLY );
 
 get '/' => sub {
     content_type 'text/html; charset=UTF-8';
@@ -49,6 +50,7 @@ get '/people' => sub {
 };
 
 post '/create' => sub { return _mutation( \$CREATE ) };
+post '/columns/apply' => sub { return _mutation( \$COLUMN_APPLY ) };
 post '/update' => sub { return _mutation( \$UPDATE ) };
 post '/comment/add' => sub { return _mutation( \$COMMENT_ADD ) };
 post '/comment/update' => sub { return _mutation( \$COMMENT_UPDATE ) };
@@ -63,6 +65,12 @@ post '/subitem/link' => sub { return _mutation( \$SUBITEM_LINK ) };
 post '/subitem/unlink' => sub { return _mutation( \$SUBITEM_UNLINK ) };
 post '/link/add' => sub { return _mutation( \$LINK_ADD ) };
 post '/link/remove' => sub { return _mutation( \$LINK_REMOVE ) };
+
+get '/columns' => sub {
+    my ($type) = ( request->env->{QUERY_STRING} // '' ) =~ /(?:\A|&)type=([^&]*)/;
+    content_type 'application/json; charset=UTF-8';
+    return _response_bytes( $COLUMNS->( { type => $type } ) );
+};
 
 get '/search' => sub {
     my %query;
@@ -163,6 +171,8 @@ my @PROVIDERS = (
     [ detail => \$DETAIL, 'detail provider' ],
     [ create => \$CREATE, 'create provider' ],
     [ search => \$SEARCH, 'search provider' ],
+    [ columns => \$COLUMNS, 'columns provider' ],
+    [ column_apply => \$COLUMN_APPLY, 'column layout provider' ],
     [ update => \$UPDATE, 'update provider' ],
     [ comment_add => \$COMMENT_ADD, 'comment add provider' ],
     [ comment_update => \$COMMENT_UPDATE, 'comment update provider' ],

@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.71):** shipped, executable, and covered by tests.
+- **Implemented (0.72):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.71.
+All commands and use cases in this manual ship in release 0.72.
 
 ## Global invocation grammar
 
@@ -450,6 +450,16 @@ is listed with `basis: none` and **no duration** rather than a guessed one, and
 `--older-than MINUTES` never returns it — an unmeasured card is unknown, not
 old. An unreadable stamp yields `basis: unknown` instead of failing the board,
 and a column renamed underneath a card does not disturb its measurement.
+Whole-layout column edits are **Implemented (DD-465)**:
+`tira.column.apply` takes the column list a board should have — order,
+labels, per-column thresholds and watched flags — and works out the
+difference itself, adding what is missing and removing what is gone.
+Cards in a removed column land in Discard exactly as removing one at a
+time puts them there. A protected column left out is refused and
+nothing changes. The call reports what it added, removed and
+reordered, because removals happen one at a time and a run that fails
+partway will already have made some of them.
+
 The reminder job is **Implemented (DD-463)**: `tira.collector.show`
 computes the background job for this project and
 `tira.collector.install` registers it, merging into the machine's own
@@ -651,6 +661,7 @@ tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since T
 tira.diff (--since TIMESTAMP|--snapshot FILE) [--type TYPE] [--fields LIST] [--count] [-o FORMAT]
 tira.stale [--type TYPE] [--stale] [--with-level] [--older-than MINUTES] [-o FORMAT]
 tira.notify.compose [-o FORMAT]
+tira.column.apply --type TYPE --columns-json JSON [-o FORMAT]
 tira.collector.show [-o FORMAT]
 tira.collector.install [-o FORMAT]
 tira.collector.remove [-o FORMAT]

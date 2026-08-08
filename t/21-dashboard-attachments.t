@@ -122,6 +122,8 @@ my %providers = (
     render => sub { '<!doctype html>' }, data => sub { '{}' },
     move => sub { '{}' }, detail => sub { '{}' },
     search => sub { '[]' },
+    columns => sub { '[]' },
+    column_apply => sub { '{}' },
     create => sub { '{"ok":true,"record":{"ref":"TKT-009"}}' },
     update => sub { '{}' }, comment_add => sub { '{}' },
     comment_update => sub { '{}' }, comment_remove => sub { '{}' },

@@ -163,6 +163,29 @@ is_deeply( decode_json( $calls->[0]{search}->( { text => '' } ) ), [],
     'an empty query returns nothing rather than the whole board' );
 is_deeply( decode_json( $calls->[0]{search}->( {} ) ), [], 'a missing query is handled the same way' );
 
+# DD-465: the board reads and writes its own column layout
+my $layout = decode_json( $calls->[0]{columns}->( { type => 'ticket' } ) );
+is( ref $layout, 'ARRAY', 'the columns provider returns the board layout' );
+ok( scalar( grep { $_->{name} eq 'backlog' } @{$layout} ), 'including the protected columns' );
+ok( exists $layout->[0]{watched}, 'and whether each column is watched' );
+
+my $reordered = decode_json(
+    $calls->[0]{column_apply}->( {
+        type => 'ticket',
+        columns => [ reverse map { { name => $_->{name} } } @{$layout} ],
+    } )
+);
+is_deeply( $reordered->{added}, [], 'applying a reordering adds nothing' );
+ok( $reordered->{reordered}, 'and reports that it reordered' );
+is( $tira->column_list( project => $root, type => 'ticket' )->[0]{name},
+    $layout->[-1]{name}, 'the board really is in the new order' );
+$calls->[0]{column_apply}->( { type => 'ticket', columns => [ map { { name => $_->{name} } } @{$layout} ] } );
+
+for my $payload ( undef, [], { type => 'ticket' }, { type => 'ticket', columns => {} } ) {
+    $error = eval { $calls->[0]{column_apply}->($payload); 1 } ? '' : $@;
+    like( $error, qr/layout|object/i, 'a malformed column layout is refused' );
+}
+
 # DD-441: creating a card from a column through the browser
 my $made = decode_json(
     $calls->[0]{create}->( { type => 'ticket', column => 'in-progress', title => 'Made from the board' } )
@@ -221,6 +244,8 @@ my %providers = (
     render => sub { '<!doctype html>' }, data => sub { '{}' },
     move => sub { '{}' }, detail => sub { '{}' },
     search => sub { '[]' },
+    columns => sub { '[]' },
+    column_apply => sub { '{}' },
     create => sub { '{"ok":true,"record":{"ref":"TKT-009"}}' },
     update => sub { '{"ok":true}' },
     comment_add => sub { '{"ok":true}' },
@@ -253,6 +278,8 @@ my %received;
 my $app = Tira::DashboardWeb->build_psgi_app(
     %providers,
     search => sub { $received{search} = $_[0]; return '["TKT-001"]' },
+    columns => sub { $received{columns} = $_[0]; return '[{"name":"backlog","label":"Backlog","protected":true,"watched":1}]' },
+    column_apply => sub { $received{column_apply} = $_[0]; return '{"added":[],"removed":[],"reordered":false}' },
     create => sub { $received{create} = $_[0]; return '{"ok":true,"record":{"ref":"TKT-009"}}' },
     update => sub {
         $received{update} = $_[0];

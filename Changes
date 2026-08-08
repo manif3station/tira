@@ -1,5 +1,19 @@
 Revision history for Tira
 
+0.72  2026-08-08
+    - `tira.column.apply` takes a whole column layout in one call and
+      works out the difference itself: what to add, what to remove,
+      what order to sit in, and which labels, thresholds and watched
+      flags to carry. An editor knows the layout it wants, not the
+      sequence of steps that reaches it, so that work belongs here
+      rather than in the browser. Available to the dashboard through
+      its own provider and route.
+    - Reordering, labels, thresholds and watched flags apply as a
+      single write; removals move cards and each takes the project
+      lock, which is not reentrant, so they run first and one at a
+      time. The result says what was done, because a run that fails
+      partway through several removals will already have made some.
+
 0.71  2026-08-08
     - The reminder job itself (EPIC-457, last piece).
       `tira.collector.show` computes the background job for a project

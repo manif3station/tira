@@ -37,6 +37,7 @@ sub run {
         'output|o=s' => \$option{output}, 'help' => \$option{help},
         'id=s' => \$option{id}, 'email=s' => \$option{email},
         'message=s' => \$option{message}, 'all' => \$option{all},
+        'columns-json=s' => \$option{columns_json},
         'collector=s' => \$option{collector}, 'agent=s' => \$option{agent},
         'session=s' => \$option{session}, 'heartbeat=s' => \$option{heartbeat},
         'outward=s' => \$option{outward}, 'inward=s' => \$option{inward},
@@ -312,6 +313,22 @@ sub browser_providers {
                 project => $project, type => $payload->{type}, ref => $payload->{ref},
             );
             return $json->encode($record);
+        },
+        columns => sub {
+            my ($query) = @_;
+            return $json->encode(
+                $tira->column_list( project => $project, type => $query->{type} ) );
+        },
+        column_apply => sub {
+            my ($payload) = @_;
+            die "Column layout must be an object with a type and columns\n"
+              if ref($payload) ne 'HASH' || ref $payload->{columns} ne 'ARRAY';
+            return $json->encode(
+                $tira->column_apply(
+                    project => $project, type => $payload->{type},
+                    columns => $payload->{columns},
+                )
+            );
         },
         search => sub {
             my ($query) = @_;
@@ -950,7 +967,7 @@ sub _attachment_content_type {
 sub _invoke {
     my ( $tira, $command, $record_type, $option ) = @_;
     my %args = %{$option};
-    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty older_than stale with_level all members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
+    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty older_than stale with_level all columns_json members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
     if ( defined $option->{field_selection} || defined $option->{exclude_fields}
         || $option->{include_empty} || defined $option->{since}
         || $option->{brief} || defined $option->{truncate} ) {
@@ -989,6 +1006,8 @@ sub _invoke {
       if $option->{with_level} && $command ne 'stale';
     die "All is available on the warning.clear command\n"
       if $option->{all} && $command ne 'warning.clear';
+    die "A column layout belongs to the column.apply command\n"
+      if defined $option->{columns_json} && $command ne 'column.apply';
     die "Watch is available on the column.update command\n"
       if defined $option->{watched} && $command ne 'column.update';
     die "Notify-after is available on the column.update, project.update, project.new and onboard commands\n"
@@ -1136,6 +1155,11 @@ sub _invoke {
     return $tira->column_reorder(%args) if $command eq 'column.reorder';
     return $tira->column_remove(%args) if $command eq 'column.remove';
     return $tira->column_update(%args) if $command eq 'column.update';
+    if ( $command eq 'column.apply' ) {
+        my $layout = eval { JSON::PP->new->utf8->decode( $option->{columns_json} // '' ) };
+        die "A column layout must be JSON: a list of objects with a name\n" if ref $layout ne 'ARRAY';
+        return $tira->column_apply( project => $args{project}, type => $args{type}, columns => $layout );
+    }
     return $tira->column_sync( %args, apply => $option->{apply} ) if $command eq 'column.sync';
 
     if ( $command =~ /\Arecord\.(show|list|update|move|discard|restore|clone)\z/ ) {

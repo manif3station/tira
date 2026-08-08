@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.71';
+our $VERSION = '0.72';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -917,6 +917,74 @@ sub column_list {
     my ( $self, %args ) = @_;
     my ( undef, $config ) = $self->_board_data(%args);
     return _column_defaults( $config->{columns} );
+}
+
+# DD-465: an editor knows the layout it wants, not the steps that reach it.
+# Removals move cards between folders and each takes the project lock, which is
+# not reentrant, so they run first and one at a time; everything else is a
+# single write. The result says what was done, because a run that fails partway
+# through several removals will already have made some of them.
+sub column_apply {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $wanted = $args{columns};
+    die "A layout needs at least one column\n" if ref $wanted ne 'ARRAY' || !@{$wanted};
+
+    my %seen;
+    my @plan;
+    for my $column ( @{$wanted} ) {
+        my $name = $self->_valid_slug( $column->{name} );
+        die "Column '$name' is named twice in the same layout\n" if $seen{$name}++;
+        push @plan, {
+            %{$column}, name => $name,
+            ( defined $column->{notify_after}
+                ? ( notify_after => _valid_minutes( $column->{notify_after}, 'Notify-after' ) ) : () ),
+        };
+    }
+
+    my $current = $self->column_list( project => $root, type => $args{type} );
+    for my $column ( @{$current} ) {
+        die "Column '$column->{name}' is protected and cannot be left out of the layout\n"
+          if $column->{protected} && !$seen{ $column->{name} };
+    }
+
+    my %present = map { $_->{name} => 1 } @{$current};
+    my @removed = grep { !$seen{$_} } map { $_->{name} } @{$current};
+    $self->column_remove( project => $root, type => $args{type}, name => $_ ) for @removed;
+
+    my @added = grep { !$present{$_} } map { $_->{name} } @plan;
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $config ) = $self->_board_data( project => $root, type => $args{type} );
+        my %existing = map { $_->{name} => $_ } @{ $config->{columns} };
+        my @columns;
+        for my $column (@plan) {
+            my $entry = $existing{ $column->{name} }
+              // { name => $column->{name}, label => $column->{name}, protected => JSON::PP::false };
+            $entry->{label} = $column->{label} if defined $column->{label};
+            $entry->{notify_after} = $column->{notify_after} if defined $column->{notify_after};
+            $entry->{watched} = $column->{watched} ? JSON::PP::true : JSON::PP::false
+              if defined $column->{watched};
+            push @columns, $entry;
+        }
+        my $reordered = join( "\0", map { $_->{name} } @{ $config->{columns} } )
+          ne join( "\0", map { $_->{name} } @columns );
+        $config->{columns} = \@columns;
+
+        # A column is a folder as well as a config entry: without this an added
+        # column exists on the board and nothing can be moved into it.
+        my @created = map { File::Spec->catdir( dirname($path), $_ ) } @added;
+        make_path($_) for @created;
+        eval { $self->_write_yaml( $path, $config ); 1 } or do {
+            my $error = $@ || 'Unknown column layout failure';
+            rmdir $_ for @created;
+            die $error;
+        };
+        return {
+            added => \@added, removed => \@removed,
+            reordered => $reordered ? JSON::PP::true : JSON::PP::false,
+            columns => _column_defaults( \@columns ),
+        };
+    } );
 }
 
 sub column_update {

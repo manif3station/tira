@@ -1505,3 +1505,24 @@ report, message 2915 — three connected findings).
   paths explicitly to pass the `prove -T` gate.
 - Functional PASS `Files=52, Tests=2004`; coverage `100.0%` all three
   modules; `prove -T` PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-465`
+
+- Red-first `t/52-column-apply.t` (35 checks): applying the current
+  layout changing nothing, reorder plus label plus threshold plus
+  watched in one call, cards not moved by reordering, add and remove
+  together, a removed column's cards landing in Discard, every refusal
+  leaving the board byte-identical, the CLI taking the layout as JSON,
+  and the folder made for a new column being taken back when the write
+  then fails.
+- One expectation of mine was wrong and I corrected the test, not the
+  code: I assumed a removed column's cards went to Backlog. They go to
+  Discard, which is what `column_remove` has always done.
+- `t/19-dashboard-dialog.t` extended to drive the two new browser
+  providers, including four malformed payloads.
+- Five dashboard tests build their provider hashes by hand and had to
+  gain the two new entries — the `serve` guard refusing an incomplete
+  set is the reason they failed loudly rather than silently serving a
+  board with a missing route.
+- Functional PASS `Files=53, Tests=2052`; coverage `100.0%` all three
+  modules; `prove -T` PASS; `cover_db` cleaned.

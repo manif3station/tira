@@ -1304,3 +1304,22 @@ report, message 2915 — three connected findings).
 - Functional PASS `Files=44, Tests=1638`; coverage `100.0%` statement
   and subroutine on all three modules; `prove -T` PASS; `cover_db` and
   fixtures cleaned.
+
+## Latest Verification For `DD-452`
+
+- Owner photo (3007): cards still overlapping after 0.60. Checked the
+  obvious explanation first and rejected it — the installed copy was
+  0.60 (written 01:32) and his dashboard process started at 05:26, so
+  he was running the fix. The remaining defect was a different one.
+- Root cause: grid items default to `min-width: auto` and will not
+  shrink below their content. DD-451 fixed the columns; the cards
+  themselves still had a floor, so in Fit mode past about ten columns
+  they drew over their neighbours. `overflow-wrap: break-word` cannot
+  help here, since it does not change minimum content size.
+- Measured at thirteen columns, 1280px, Fit: 81px cells holding 96px
+  cards, 21px spill before; no spill after, with Standard still 272px.
+- Guard: `wide-board.js` now also runs the thirteen-column fixture and
+  fails against the pre-fix stylesheet (`cards spilled in fit mode by
+  [14…]px`), green ×3 after.
+- Functional PASS `Files=44, Tests=1638`; coverage `100.0%` all three
+  modules; `prove -T` PASS; fixtures and `cover_db` cleaned.

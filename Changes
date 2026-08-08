@@ -1,5 +1,14 @@
 Revision history for Tira
 
+0.61  2026-08-08
+    - Fixed cards still drawing over the next column on boards with many
+      columns (owner photo, message 3007) — a different defect from
+      0.60's, in a different mode. The card list is a CSS grid, and a
+      grid item refuses to shrink below its own content by default, so
+      once a column is narrower than a card's longest word the card
+      overflowed. 0.60 fixed the columns; this fixes the cards. The
+      wide-board guard now also runs a thirteen-column board.
+
 0.60  2026-08-08
     - Fixed board columns collapsing and cards spilling into the next
       column on boards with many columns (owner photo, message 3005).

@@ -1393,3 +1393,18 @@ report, message 2915 — three connected findings).
 - Functional PASS `Files=45, Tests=1682`; coverage `100.0%` statement
   and subroutine on all three modules; `prove -T` PASS; `cover_db`
   cleaned. No browser surface in this ticket.
+
+## Latest Verification For `DD-459`
+
+- Red-first `t/45-column-watch.t` (27 checks): defaults applied on read
+  so pre-existing boards need no migration, limit and watched flag
+  persisting, invalid values refused without changing what is stored,
+  per-column judging, the project-wide fallback, an unwatched column
+  excluded however old its cards are, a board with no limits anywhere
+  reporting nothing, and the CLI surface including exit-2 on a bad
+  value.
+- One test of my own was wrong and I corrected it rather than the code:
+  the fallback case placed its card in a column that already had a
+  limit, so it could never have exercised the fallback.
+- Functional PASS `Files=46, Tests=1711`; coverage `100.0%` all three
+  modules; `prove -T` PASS; `cover_db` cleaned.

@@ -75,6 +75,8 @@ sub run {
         'ticket-prefix=s' => \$option{ticket_prefix},
         'snapshot=s' => \$option{snapshot},
         'older-than=s' => \$option{older_than},
+        'notify-after=s' => \$option{notify_after},
+        'watch!' => \$option{watched}, 'stale' => \$option{stale},
         'cache-ttl=i' => \$option{cache_ttl}, 'no-cache' => \$option{no_cache},
         'with=s' => \$option{with}, 'note=s' => \$option{note},
         'reporter=s' => \$option{reporter}, 'due-date=s' => \$option{due_date},
@@ -802,7 +804,7 @@ sub _attachment_content_type {
 sub _invoke {
     my ( $tira, $command, $record_type, $option ) = @_;
     my %args = %{$option};
-    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty older_than members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
+    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty older_than stale members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
     if ( defined $option->{field_selection} || defined $option->{exclude_fields}
         || $option->{include_empty} || defined $option->{since}
         || $option->{brief} || defined $option->{truncate} ) {
@@ -835,6 +837,12 @@ sub _invoke {
       if defined $option->{snapshot} && $command ne 'diff';
     die "Older-than is available on the stale command\n"
       if defined $option->{older_than} && $command ne 'stale';
+    die "Stale is available on the stale command\n"
+      if $option->{stale} && $command ne 'stale';
+    die "Watch is available on the column.update command\n"
+      if defined $option->{watched} && $command ne 'column.update';
+    die "Notify-after is available on the column.update and project.update commands\n"
+      if defined $option->{notify_after} && $command !~ /\A(?:column\.update|project\.update)\z/;
     die "Dashboard address options belong to the project.update command\n"
       if $command ne 'project.update'
       && grep { defined $option->{$_} } qw(dashboard_host dashboard_port listen);
@@ -922,6 +930,7 @@ sub _invoke {
         my %dwell = ( project => $args{project} );
         $dwell{type} = $args{type} if defined $args{type};
         $dwell{older_than} = $option->{older_than} if defined $option->{older_than};
+        $dwell{stale} = 1 if $option->{stale};
         return $tira->dwell_list(%dwell);
     }
     if ( $command eq 'history.list' ) {
@@ -955,6 +964,7 @@ sub _invoke {
     return $tira->column_rename(%args) if $command eq 'column.rename';
     return $tira->column_reorder(%args) if $command eq 'column.reorder';
     return $tira->column_remove(%args) if $command eq 'column.remove';
+    return $tira->column_update(%args) if $command eq 'column.update';
     return $tira->column_sync( %args, apply => $option->{apply} ) if $command eq 'column.sync';
 
     if ( $command =~ /\Arecord\.(show|list|update|move|discard|restore|clone)\z/ ) {

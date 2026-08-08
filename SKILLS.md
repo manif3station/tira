@@ -37,10 +37,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.65):** shipped, executable, and covered by tests.
+- **Implemented (0.66):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.65.
+All commands and use cases in this manual ship in release 0.66.
 
 ## Global invocation grammar
 
@@ -450,6 +450,13 @@ is listed with `basis: none` and **no duration** rather than a guessed one, and
 `--older-than MINUTES` never returns it — an unmeasured card is unknown, not
 old. An unreadable stamp yields `basis: unknown` instead of failing the board,
 and a column renamed underneath a card does not disturb its measurement.
+Staleness limits are **Implemented (DD-459)**: every column carries its own
+limit in minutes and its own watched flag, both set by `tira.column.update` and
+reported by `tira.column.list`. A column is watched unless switched off, so
+existing boards need no configuring. `tira.stale --stale` judges each card by
+its own column's limit, falls back to the project default set with
+`tira.project.update --notify-after`, skips unwatched columns however old their
+cards are, and — with no limit anywhere — reports nothing.
 Indexed log reads are **Implemented (DD-434)** on the gate and evidence
 lists, whose entries are append-only and stored newest-last: `--last N`
 is the recent history (`--last 1` answers "what did it last pass?" at
@@ -590,7 +597,8 @@ tira.gate.add --ref REF --gate TEXT --result pass|fail|blocked --details TEXT [-
 tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]
 tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--count] [--brief] [--truncate N|--full] [--where CLAUSE ...] [-o FORMAT]
 tira.diff (--since TIMESTAMP|--snapshot FILE) [--type TYPE] [--fields LIST] [--count] [-o FORMAT]
-tira.stale [--type TYPE] [--older-than MINUTES] [-o FORMAT]
+tira.stale [--type TYPE] [--stale] [--older-than MINUTES] [-o FORMAT]
+tira.column.update --type TYPE --name SLUG [--notify-after MINUTES] [--watch|--no-watch] [-o FORMAT]
 tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [-o FORMAT]
 tira.import --file FILE [--dry-run] [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [--count] [--refs-only] [-o FORMAT]

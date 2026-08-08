@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.65';
+our $VERSION = '0.66';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -373,6 +373,9 @@ sub project_update {
         my $path = File::Spec->catfile( $root, '.tira', 'project.yml' );
         my $data = $self->{yaml}->load_file($path);
         $data->{name} = $args{name} if defined $args{name};
+        if ( defined $args{notify_after} ) {
+            $data->{notify_after} = _valid_minutes( $args{notify_after}, 'Notify-after' );
+        }
         if ( defined $args{dashboard_host} ) {
             my $host = $args{dashboard_host} eq 'any' ? '0.0.0.0' : $args{dashboard_host};
             die "Dashboard host must be localhost, 0.0.0.0, 127.0.0.1, or any\n"
@@ -498,10 +501,42 @@ sub link_type_remove {
     } );
 }
 
+# DD-459: a column is watched unless it has been switched off. The default is
+# applied on READ so every board created before this release behaves correctly
+# without a migration.
+sub _column_defaults {
+    my ($columns) = @_;
+    return [ map { { %{$_}, watched => exists $_->{watched} ? ( $_->{watched} ? 1 : 0 ) : 1 } } @{$columns} ];
+}
+
+sub _valid_minutes {
+    my ( $value, $label ) = @_;
+    die "$label must be a positive number of minutes\n"
+      if !defined $value || $value !~ /\A[0-9]+(?:\.[0-9]+)?\z/ || $value <= 0;
+    return 0 + $value;
+}
+
 sub column_list {
     my ( $self, %args ) = @_;
     my ( undef, $config ) = $self->_board_data(%args);
-    return $config->{columns};
+    return _column_defaults( $config->{columns} );
+}
+
+sub column_update {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $notify_after = defined $args{notify_after}
+      ? _valid_minutes( $args{notify_after}, 'Notify-after' ) : undef;
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $config ) = $self->_board_data( %args, project => $root );
+        my ($column) = grep { $_->{name} eq ( $args{name} // '' ) } @{ $config->{columns} };
+        die "Column '" . ( $args{name} // '' ) . "' not found\n" if !$column;
+        $column->{notify_after} = $notify_after if defined $notify_after;
+        $column->{watched} = $args{watched} ? JSON::PP::true : JSON::PP::false
+          if defined $args{watched};
+        $self->_write_yaml( $path, $config );
+        return _column_defaults( [$column] )->[0];
+    } );
 }
 
 sub board_show {
@@ -1087,16 +1122,29 @@ sub _dwell_start {
 sub dwell_list {
     my ( $self, %args ) = @_;
     my $older_than = delete $args{older_than};
+    my $stale = delete $args{stale};
     if ( defined $older_than ) {
         die "Older-than must be a positive number of minutes\n"
           if $older_than !~ /\A[0-9]+(?:\.[0-9]+)?\z/ || $older_than <= 0;
     }
     my $root = $self->discover_project(%args);
     my $now = eval { _epoch_of_datetime( $self->{clock}->(), 'Clock' ) };
+    my $project_default = $stale
+      ? eval { $self->project_show( project => $root )->{notify_after} } : undef;
+    my %limit;
     my @cards;
     for my $type ( defined $args{type} ? ( $args{type} ) : qw(sow epic ticket) ) {
         my $board = File::Spec->catdir( $root, '.tira', $self->_valid_type($type) );
         next if !-d $board;
+        if ($stale) {
+            for my $column ( @{ $self->column_list( project => $root, type => $type ) } ) {
+                # An unwatched column is out of scope entirely, however old its
+                # cards are; a column with no limit of its own uses the project's.
+                next if !$column->{watched};
+                my $minutes = $column->{notify_after} // $project_default;
+                $limit{"$type/$column->{name}"} = $minutes if defined $minutes;
+            }
+        }
         find( { no_chdir => 1, wanted => sub {
             return if !-f $File::Find::name;
             my $file = basename($File::Find::name);
@@ -1110,8 +1158,10 @@ sub dwell_list {
                 $seconds = defined $started ? $now - $started : undef;
                 $basis = 'unknown' if !defined $seconds;
             }
+            return if $stale && !exists $limit{"$type/$column"};
             push @cards, {
                 ref => $ref, type => $type, column => $column, basis => $basis,
+                ( $stale ? ( notify_after => $limit{"$type/$column"} ) : () ),
                 ( defined $since && $basis eq 'move' ? ( since => $since ) : () ),
                 ( defined $seconds ? ( dwell_seconds => $seconds ) : () ),
             };
@@ -1122,6 +1172,8 @@ sub dwell_list {
     # ninety percent of a real board into the first report.
     @cards = grep { defined $_->{dwell_seconds} && $_->{dwell_seconds} >= $older_than * 60 } @cards
       if defined $older_than;
+    @cards = grep { defined $_->{dwell_seconds} && $_->{dwell_seconds} >= $_->{notify_after} * 60 } @cards
+      if $stale;
     return \@cards;
 }
 

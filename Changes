@@ -1,5 +1,17 @@
 Revision history for Tira
 
+0.66  2026-08-08
+    - Per-column staleness limits and watching (EPIC-457, second
+      piece). Each column carries its own limit in minutes and its own
+      watched flag on the board config, set with the new
+      `tira.column.update`; `tira.project.update --notify-after` sets
+      the project-wide default a column falls back to.
+      `tira.stale --stale` then judges each card by its own column's
+      limit and skips unwatched columns entirely, so a hundred-card
+      backlog or a finished column can be kept out of the report. A
+      column is watched unless switched off, so boards created before
+      this release need no migration.
+
 0.65  2026-08-08
     - New `tira.stale` (EPIC-457, the first piece): how long every card
       has sat in the column it is in now, measured from its most recent

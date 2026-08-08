@@ -50,20 +50,59 @@ project, so work does not quietly stall.
     what the project already stores, so a project onboarded earlier can
     gain the new settings by pressing enter through it.
 
+## Settled since (questions 4 to 7)
+
+11. **The escalation count lives in SQLite.** A `notification.db`
+    beside `project.yml`, one row per notification holding the card
+    reference, the time, and the column, indexed on reference and
+    column. The level is `SELECT COUNT(*)` for that reference in its
+    current column, so a move resets it for free — new rows carry a
+    different column name. The owner chose this over writing the count
+    onto the card, which also removes the whole question of
+    notifications polluting the card's hash, stamp and history: the
+    card is never rewritten at all.
+12. **SQLite becomes a real dependency** (`DBD::SQLite`), declared in
+    the cpanfile and added to the test container, which does not have
+    it today. When it is missing, Tira must say plainly that SQLite
+    needs installing rather than dying on a missing module. Noted for
+    the record: this is the first thing in Tira that is not the
+    filesystem, and the owner accepted that trade knowingly after being
+    shown the alternative (an append-only text file, no dependency).
+13. **Onboarding asks four things**, not three: the collector's own
+    name (defaulted from the workspace reference, editable — note DD
+    prefixes it, so the stored name becomes `tira.<name>`), the coding
+    agent, the session id, and the heartbeat. It also asks once for a
+    **default staleness threshold**.
+14. **The threshold is per column**, falling back to that project
+    default. Storage correction made to the owner and accepted unless
+    he objects: column folders have no config file of their own, so the
+    threshold goes on the column's existing entry in the board config
+    rather than in a new per-folder file.
+15. **A column editor** is wanted: a button on each board control
+    opening a modal shaped like the card modal but showing the board's
+    structure — add, remove, reorder by dragging, and set each column's
+    notification time. Scoped out as **its own ticket**: it is a board
+    structure editor, not notification work. The notification ships
+    first with the setting storable; the editor then becomes its UI.
+16. **Attribution proposal** (stated, not yet confirmed): the board
+    remembers which of the project's people you are, chosen once and
+    kept locally like the width setting, and stamps that on moves made
+    from the board. Blank stays blank when nobody is chosen, so nothing
+    is invented.
+
 ## Open, asked or to ask
 
-- **Q4 (asked):** with no collector state, is the escalation level
-  derived from dwell time, or is a count stored somewhere after all?
-  Those two cannot both be true as stated.
-- Attribution: a browser drag records the move but leaves *who* blank,
-  because the board does not know who is using it. Flagged to the owner;
-  needs its own decision.
-- Threshold value and whether it differs per column; relationship
-  between threshold and beat interval.
-- Delivery when the session is busy or the id is stale; what the
-  collector does on failure.
-- Whether the eye state lives in the project config (shared) or per
-  browser (local).
+- **Q8 (asked, last):** when delivery fails — stale session id, missing
+  `claude`, busy agent — is the notification still recorded? It decides
+  whether escalation is honest: a row written for an undelivered
+  message escalates a card to shouting while the owner has heard
+  nothing, and the first message he ever sees is a furious one about a
+  card nobody told him about. Recommended: record only on success, and
+  have the collector report its own failure once rather than going
+  silent.
+- Whether the eye (watched) state lives in the board config (shared) or
+  per browser (local). Not yet asked.
+- Escalation template wording for each level.
 
 ## Research already done (2026-08-08)
 
@@ -84,4 +123,5 @@ project, so work does not quietly stall.
 
 ## Status
 
-Design in progress. No implementation until the open questions close.
+Design in progress; questions 1 to 7 answered, question 8 outstanding.
+No implementation until it closes.

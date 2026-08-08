@@ -1,5 +1,22 @@
 Revision history for Tira
 
+0.70  2026-08-08
+    - Reminder settings and re-runnable onboarding (EPIC-457, sixth
+      piece). The project records the default staleness threshold, the
+      coding agent, its session, the heartbeat and the name of the job;
+      all of them settable on `tira.project.update` as well as through
+      `tira.onboard`. Onboarding now asks the directory first, which is
+      what lets it be run again on an existing project with every
+      answer pre-filled - and naming a different directory reloads that
+      project's own settings instead of carrying the first one's over.
+      With no coding agent installed, the questions about one never
+      appear. An empty value clears a setting; no heartbeat means no
+      reminders.
+    - The reminder ladder now has ten levels rather than five, and the
+      upper ones are far more forceful. The audience is a coding agent
+      rather than a person, so the top of the ladder is absolute about
+      priority in a way a message to a human would not be.
+
 0.69  2026-08-08
     - The escalating reminder itself (EPIC-457, fifth piece). One
       message covers every card past its column's limit, and its tone

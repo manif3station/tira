@@ -27,6 +27,11 @@ sub run_wizard {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+
+    # Pin the coding-agent seam so this proves the wizard, not whatever
+    # happens to be installed on the machine running it.
+    no warnings 'redefine';
+    local *Tira::CLI::_agent_available = sub { 0 };
     my $status = Tira::CLI->run(
         command => 'onboard', argv => \@argv, input => answers($script),
     );
@@ -35,14 +40,15 @@ sub run_wizard {
 
 my $home = File::Spec->catdir( $tmp, 'guided' );
 my ( $status, $out, $err ) = run_wizard( <<"ANSWERS", '-o', 'json' );
-MT5
 $home
+MT5
 K-Bot, Michael
 M5S
 M5E
 M5T
 y
 Backlog, Planning, Documenting, Ready, In Progress, Vulnerability Scanner, Unit Testing, E2E Testing, Done / Release
+
 y
 ANSWERS
 is( $status, 0, 'the guided flow completes' );
@@ -67,8 +73,8 @@ for my $type (qw(sow epic ticket)) {
 # Answering "no" to the shared-columns question must actually mean something.
 my $split = File::Spec->catdir( $tmp, 'split' );
 ( $status, $out, $err ) = run_wizard( <<"ANSWERS", '-o', 'json' );
-Split
 $split
+Split
 ada
 SPS
 SPE
@@ -77,6 +83,7 @@ n
 Shaping
 Breaking Down
 Doing, Reviewing
+
 y
 ANSWERS
 is( $status, 0, 'the per-board flow completes' );
@@ -90,9 +97,9 @@ is_deeply( [ map { $_->{name} } @{ $tira->column_list( project => $split, type =
 # Bad answers re-ask rather than abort.
 my $retry = File::Spec->catdir( $tmp, 'retry' );
 ( $status, $out, $err ) = run_wizard( <<"ANSWERS", '-o', 'json' );
+$retry
 
 Retried
-$retry
 ada
 lower
 RTS
@@ -100,6 +107,7 @@ RTE
 RTT
 y
 Doing
+
 y
 ANSWERS
 is( $status, 0, 'the flow survives bad answers' );
@@ -110,14 +118,15 @@ is( $tira->board_refs( project => $retry, type => 'sow' )->{prefix}, 'RTS', 'the
 # Declining the confirmation creates nothing.
 my $declined = File::Spec->catdir( $tmp, 'declined' );
 ( $status, $out, $err ) = run_wizard( <<"ANSWERS" );
-Declined
 $declined
+Declined
 ada
 DCS
 DCE
 DCT
 y
 Doing
+
 n
 ANSWERS
 is( $status, 1, 'declining exits 1' );
@@ -125,21 +134,22 @@ ok( !-e $declined, 'declining creates nothing' );
 
 # End of input aborts cleanly.
 my $abandoned = File::Spec->catdir( $tmp, 'abandoned' );
-( $status, $out, $err ) = run_wizard("Abandoned\n$abandoned\n");
+( $status, $out, $err ) = run_wizard("$abandoned\nAbandoned\n");
 isnt( $status, 0, 'running out of input does not report success' );
 ok( !-e $abandoned, 'an abandoned flow creates nothing' );
 
 # Flags pre-fill the questions they answer.
 my $prefilled = File::Spec->catdir( $tmp, 'prefilled' );
 ( $status, $out, $err ) = run_wizard( <<"ANSWERS", '--name', 'Prefilled', '--sow-prefix', 'PFS', '-o', 'json' );
-
 $prefilled
+
 ada
 
 PFE
 PFT
 y
 Doing
+
 y
 ANSWERS
 is( $status, 0, 'a partly-filled command line completes through the flow' );
@@ -149,14 +159,16 @@ is( $tira->board_refs( project => $prefilled, type => 'sow' )->{prefix}, 'PFS',
 
 # Every abandonment point must leave nothing behind, not just the first.
 for my $case (
-    [ "Stopped\n", 'the directory question' ],
-    [ "Stopped\n$tmp/stop-a\n", 'the people question' ],
-    [ "Stopped\n$tmp/stop-b\nada\n", 'the first prefix question' ],
-    [ "Stopped\n$tmp/stop-c\nada\nSTA\nSTB\nSTC\n", 'the shared-columns question' ],
-    [ "Stopped\n$tmp/stop-d\nada\nSTA\nSTB\nSTC\ny\n", 'the columns question' ],
-    [ "Stopped\n$tmp/stop-e\nada\nSTA\nSTB\nSTC\nn\n", 'the first per-board columns question' ],
-    [ "Stopped\n$tmp/stop-f\nada\nSTA\nSTB\nSTC\nn\nDoing\n", 'a later per-board columns question' ],
-    [ "Stopped\n$tmp/stop-g\nada\nSTA\nSTB\nSTC\ny\nDoing\n", 'the confirmation' ],
+    [ "", 'the directory question' ],
+    [ "$tmp/stop-a\n", 'the name question' ],
+    [ "$tmp/stop-b\nStopped\n", 'the people question' ],
+    [ "$tmp/stop-c\nStopped\nada\n", 'the first prefix question' ],
+    [ "$tmp/stop-d\nStopped\nada\nSTA\nSTB\nSTC\n", 'the shared-columns question' ],
+    [ "$tmp/stop-e\nStopped\nada\nSTA\nSTB\nSTC\ny\n", 'the columns question' ],
+    [ "$tmp/stop-f\nStopped\nada\nSTA\nSTB\nSTC\nn\n", 'the first per-board columns question' ],
+    [ "$tmp/stop-h\nStopped\nada\nSTA\nSTB\nSTC\nn\nDoing\n", 'a later per-board columns question' ],
+    [ "$tmp/stop-i\nStopped\nada\nSTA\nSTB\nSTC\ny\nDoing\n", 'the staleness question' ],
+    [ "$tmp/stop-g\nStopped\nada\nSTA\nSTB\nSTC\ny\nDoing\n\n", 'the confirmation' ],
 ) {
     my ( $script, $where ) = @{$case};
     my ( $stopped_status ) = run_wizard($script);
@@ -165,8 +177,8 @@ for my $case (
 ok( !-e "$tmp/stop-g", 'no abandoned run leaves a project behind' );
 
 my ( $nonsense_status, $nonsense_out ) = run_wizard( <<"ANSWERS", '-o', 'json' );
-Nonsense
 $tmp/nonsense
+Nonsense
 ada
 NSA
 NSB
@@ -175,6 +187,7 @@ maybe
 sure
 y
 Doing
+
 y
 ANSWERS
 is( $nonsense_status, 0, 'an unclear yes/no answer is re-asked rather than guessed' );
@@ -182,7 +195,7 @@ like( $nonsense_out, qr/answer yes or no/i, 'and the re-ask says what is expecte
 
 # Flags for every question, accepted by pressing enter through the flow.
 my $filled = File::Spec->catdir( $tmp, 'filled' );
-( $status, $out, $err ) = run_wizard( "\n$filled\n\n\n\n\n\n\n\ny\n",
+( $status, $out, $err ) = run_wizard( "$filled\n\n\n\n\n\n\n\n\ny\n",
     '--name', 'Filled', '--members', 'ada, grace',
     '--columns', 'Doing, Shipped', '-o', 'json' );
 is( $status, 0, 'a fully pre-filled flow completes on enter alone' );
@@ -192,7 +205,7 @@ is_deeply( [ map { $_->{name} } @{ $tira->column_list( project => $filled, type 
     [qw(backlog doing shipped discard)], 'the columns flag becomes the default answer' );
 
 my $per_board = File::Spec->catdir( $tmp, 'per-board' );
-( $status, $out, $err ) = run_wizard( "\n$per_board\nada\n\n\n\nn\n\n\n\ny\n",
+( $status, $out, $err ) = run_wizard( "$per_board\n\nada\n\n\n\nn\n\n\n\n\ny\n",
     '--name', 'PerBoard', '--sow-columns', 'Shaping',
     '--epic-columns', 'Breaking Down', '--ticket-columns', 'Doing', '-o', 'json' );
 is( $status, 0, 'per-board column flags complete on enter alone' );
@@ -204,14 +217,15 @@ is_deeply( [ map { $_->{name} } @{ $tira->column_list( project => $per_board, ty
 {
     local $ENV{HOME} = $tmp;
     my ( $tilde_status ) = run_wizard( <<"ANSWERS", '-o', 'json' );
-Tilde home
 ~/under-home
+Tilde home
 ada
 THS
 THE
 THT
 y
 Doing
+
 y
 ANSWERS
     is( $tilde_status, 0, 'a tilde answer is accepted' );
@@ -224,14 +238,15 @@ ANSWERS
 {
     my $nobody = File::Spec->catdir( $tmp, 'nobody' );
     my ( $skip_status ) = run_wizard( <<"ANSWERS", '-o', 'json' );
-Nobody
 $nobody
+Nobody
 
 NBS
 NBE
 NBT
 y
 Doing
+
 y
 ANSWERS
     is( $skip_status, 0, 'skipping the people question is allowed' );

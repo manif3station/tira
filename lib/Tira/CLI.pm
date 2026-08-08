@@ -37,6 +37,8 @@ sub run {
         'output|o=s' => \$option{output}, 'help' => \$option{help},
         'id=s' => \$option{id}, 'email=s' => \$option{email},
         'message=s' => \$option{message}, 'all' => \$option{all},
+        'collector=s' => \$option{collector}, 'agent=s' => \$option{agent},
+        'session=s' => \$option{session}, 'heartbeat=s' => \$option{heartbeat},
         'outward=s' => \$option{outward}, 'inward=s' => \$option{inward},
         'type=s' => \$option{type}, 'label=s@' => \$option{labels},
         'after=s' => \$option{after}, 'before=s' => \$option{before},
@@ -143,7 +145,7 @@ sub run {
     # onboard needs no terminal detection: without input it reaches end of
     # stream immediately and aborts rather than blocking.
     if ( $command eq 'onboard' ) {
-        my ( $answers, $guided_status ) = _project_wizard( $guided_input // \*STDIN, \%option );
+        my ( $answers, $guided_status ) = _project_wizard( $tira, $guided_input // \*STDIN, \%option );
         if ( !$answers ) {
             print STDERR "Nothing was created.\n";
             return $guided_status;
@@ -743,13 +745,72 @@ sub _ask_yes {
     }
 }
 
+# DD-464: is there a coding agent on this machine at all? Its own sub so a
+# test can drive both answers, rather than proving whichever one this
+# particular machine happens to give.
+sub _agent_available {
+    my ($name) = @_;
+    for my $dir ( split /:/, $ENV{PATH} // '' ) {
+        return 1 if length $dir && -x File::Spec->catfile( $dir, $name );
+    }
+    return 0;
+}
+
+# Everything an existing project already knows, so re-running onboarding is a
+# matter of pressing enter rather than typing it all again.
+sub _wizard_defaults {
+    my ( $tira, $dir ) = @_;
+    return {} if !defined $dir || $dir eq '';
+    my $project = eval { $tira->project_show( project => $dir ) } or return {};
+    my %defaults = ( name => $project->{name} );
+    my @people = map { $_->{id} } @{ $project->{people} // [] };
+    $defaults{members} = [ join ', ', @people ] if @people;
+    $defaults{$_} = $project->{$_}
+      for grep { defined $project->{$_} } qw(collector agent session heartbeat notify_after);
+    my %columns;
+    for my $type (qw(sow epic ticket)) {
+        my $refs = eval { $tira->board_refs( project => $dir, type => $type ) };
+        $defaults{"${type}_prefix"} = $refs->{prefix} if $refs;
+        my $list = eval { $tira->column_list( project => $dir, type => $type ) } or next;
+        $columns{$type} = join ', ', map { $_->{label} // $_->{name} } @{$list};
+        $defaults{"${type}_columns"} = [ $columns{$type} ];
+    }
+    my @distinct = keys %{ { map { $_ => 1 } values %columns } };
+    $defaults{columns} = [ $distinct[0] ] if @distinct == 1;
+    return \%defaults;
+}
+
+# Command-line flags win over what the project already stores, but only over
+# the project they were given for: naming a different one rebuilds the defaults
+# from scratch rather than merging, so a setting the new project does not have
+# cannot be inherited from the old one by pressing enter.
+sub _wizard_all_defaults {
+    my ( $tira, $dir, $option ) = @_;
+    my $stored = _wizard_defaults( $tira, $dir );
+    my %default = ( %{$stored},
+        map { $_ => $option->{$_} } grep { defined $option->{$_} } keys %{$option} );
+    return ( $stored, \%default );
+}
+
 sub _project_wizard {
-    my ( $in, $option ) = @_;
+    my ( $tira, $in, $option ) = @_;
     print "Tira project setup — answer the questions, or press Ctrl-D to abort.\n\n";
     my %answers;
 
+    # The directory comes first because everything else can be pre-filled from
+    # the project already living there. Asking it second would mean offering
+    # one project's answers while writing to another.
+    my ( $stored, $default ) = _wizard_all_defaults( $tira, $option->{dir}, $option );
+    my $dir = _ask( $in, 'Project directory', $option->{dir} // '.' );
+    return ( undef, 2 ) if !defined $dir;
+    $answers{dir} = _expand_home($dir);
+    ( $stored, $default ) = _wizard_all_defaults( $tira, $answers{dir}, $option )
+      if $answers{dir} ne ( $option->{dir} // '' );
+    print "\nEditing the project already at that directory — press enter to keep each answer.\n\n"
+      if %{$stored};
+
     while (1) {
-        my $name = _ask( $in, 'Project name', $option->{name} );
+        my $name = _ask( $in, 'Project name', $default->{name} );
         return ( undef, 2 ) if !defined $name;
         if ( $name eq '' ) {
             print "  A project needs a name.\n";
@@ -759,12 +820,8 @@ sub _project_wizard {
         last;
     }
 
-    my $dir = _ask( $in, 'Project directory', $option->{dir} // '.' );
-    return ( undef, 2 ) if !defined $dir;
-    $answers{dir} = _expand_home($dir);
-
     my $members = _ask( $in, 'People, separated by commas',
-        $option->{members} ? join( ', ', @{ $option->{members} } ) : '' );
+        $default->{members} ? join( ', ', @{ $default->{members} } ) : '' );
     return ( undef, 2 ) if !defined $members;
     # Enter means "none yet", not "a person with an empty name" — the
     # empty-string guard exists for an explicit --members "" on a command line.
@@ -774,7 +831,7 @@ sub _project_wizard {
     for my $type (qw(sow epic ticket)) {
         while (1) {
             my $prefix = _ask( $in, "Reference prefix for \u$type records",
-                $option->{"${type}_prefix"} // $default_prefix{$type} );
+                $default->{"${type}_prefix"} // $default_prefix{$type} );
             return ( undef, 2 ) if !defined $prefix;
             if ( $prefix !~ /\A[A-Z][A-Z0-9-]{0,31}\z/ ) {
                 print "  Invalid prefix: it must start with a capital letter and use capitals, digits, and hyphens.\n";
@@ -789,16 +846,81 @@ sub _project_wizard {
     return ( undef, 2 ) if !defined $shared;
     if ($shared) {
         my $columns = _ask( $in, 'Columns, in order, separated by commas',
-            $option->{columns} ? join( ', ', @{ $option->{columns} } ) : '' );
+            $default->{columns} ? join( ', ', @{ $default->{columns} } ) : '' );
         return ( undef, 2 ) if !defined $columns;
         $answers{columns} = [$columns] if $columns ne '';
     }
     else {
         for my $type (qw(sow epic ticket)) {
             my $columns = _ask( $in, "Columns for the \u$type board",
-                $option->{"${type}_columns"} ? join( ', ', @{ $option->{"${type}_columns"} } ) : '' );
+                $default->{"${type}_columns"} ? join( ', ', @{ $default->{"${type}_columns"} } ) : '' );
             return ( undef, 2 ) if !defined $columns;
             $answers{"${type}_columns"} = [$columns] if $columns ne '';
+        }
+    }
+
+    # Asked whether or not anything can send reminders: it decides what the
+    # staleness report says, which is useful with no automation at all.
+    while (1) {
+        my $stuck = _ask( $in, 'Minutes before a card counts as stuck (blank for never)',
+            $default->{notify_after} );
+        return ( undef, 2 ) if !defined $stuck;
+        last if $stuck eq '';
+        if ( $stuck !~ /\A[0-9]+(?:\.[0-9]+)?\z/ || $stuck <= 0 ) {
+            print "  That must be a positive number of minutes.\n";
+            next;
+        }
+        $answers{notify_after} = $stuck;
+        last;
+    }
+
+    # With no coding agent installed there is nothing to configure and nothing
+    # that could deliver, so none of this is asked.
+    if ( _agent_available('claude') ) {
+        while (1) {
+            my $agent = _ask( $in, 'Which coding agent should be reminded', $default->{agent} // 'claude' );
+            return ( undef, 2 ) if !defined $agent;
+            if ( $agent ne 'claude' ) {
+                print "  The only coding agent supported today is claude.\n";
+                next;
+            }
+            $answers{agent} = $agent;
+            last;
+        }
+        while (1) {
+            my $session = _ask( $in, 'Session id of the agent to remind', $default->{session} );
+            return ( undef, 2 ) if !defined $session;
+            last if $session eq '';
+            if ( $session !~ /\A[A-Za-z0-9_-]{1,128}\z/ ) {
+                print "  A session id is letters, digits, hyphens and underscores.\n";
+                next;
+            }
+            $answers{session} = $session;
+            last;
+        }
+        while (1) {
+            my $collector = _ask( $in, 'Name for this project reminder job',
+                $default->{collector} // Tira::_column_slug( $answers{name} ) );
+            return ( undef, 2 ) if !defined $collector;
+            last if $collector eq '';
+            if ( $collector !~ /\A[a-z][a-z0-9-]{0,63}\z/ ) {
+                print "  That must be lowercase letters, digits and hyphens.\n";
+                next;
+            }
+            $answers{collector} = $collector;
+            last;
+        }
+        while (1) {
+            my $heartbeat = _ask( $in, 'Minutes between reminder checks (blank for no reminders)',
+                $default->{heartbeat} );
+            return ( undef, 2 ) if !defined $heartbeat;
+            last if $heartbeat eq '';
+            if ( $heartbeat !~ /\A[0-9]+(?:\.[0-9]+)?\z/ || $heartbeat <= 0 ) {
+                print "  That must be a positive number of minutes.\n";
+                next;
+            }
+            $answers{heartbeat} = $heartbeat;
+            last;
         }
     }
 
@@ -809,6 +931,9 @@ sub _project_wizard {
     print "  prefixes   sow $answers{sow_prefix}, epic $answers{epic_prefix}, ticket $answers{ticket_prefix}\n";
     for my $key ( grep { /_columns\z|\Acolumns\z/ } sort keys %answers ) {
         print "  $key " . join( ', ', @{ $answers{$key} } ) . "\n";
+    }
+    for my $key (qw(notify_after agent session collector heartbeat)) {
+        print "  $key " . ( $answers{$key} // '(none)' ) . "\n" if exists $answers{$key};
     }
     print "\n";
     my $confirmed = _ask_yes( $in, 'Create this project?', 1 );
@@ -866,8 +991,12 @@ sub _invoke {
       if $option->{all} && $command ne 'warning.clear';
     die "Watch is available on the column.update command\n"
       if defined $option->{watched} && $command ne 'column.update';
-    die "Notify-after is available on the column.update and project.update commands\n"
-      if defined $option->{notify_after} && $command !~ /\A(?:column\.update|project\.update)\z/;
+    die "Notify-after is available on the column.update, project.update, project.new and onboard commands\n"
+      if defined $option->{notify_after}
+      && $command !~ /\A(?:column\.update|project\.update|project\.new|onboard)\z/;
+    die "Reminder settings belong to the project.update, project.new and onboard commands\n"
+      if $command !~ /\A(?:project\.update|project\.new|onboard)\z/
+      && grep { defined $option->{$_} } qw(collector agent session heartbeat);
     die "Dashboard address options belong to the project.update command\n"
       if $command ne 'project.update'
       && grep { defined $option->{$_} } qw(dashboard_host dashboard_port listen);
@@ -944,8 +1073,10 @@ sub _invoke {
             map( { ( "${_}_columns" => $option->{"${_}_columns"} ) }
                 grep { defined $option->{"${_}_columns"} } qw(sow epic ticket) ),
             ( defined $option->{digits} ? ( digits => $option->{digits} ) : () ),
-            map { ( "${_}_prefix" => $option->{"${_}_prefix"} ) }
-              grep { defined $option->{"${_}_prefix"} } qw(sow epic ticket),
+            map( { ( "${_}_prefix" => $option->{"${_}_prefix"} ) }
+                grep { defined $option->{"${_}_prefix"} } qw(sow epic ticket) ),
+            map { ( $_ => $option->{$_} ) }
+              grep { defined $option->{$_} } qw(notify_after collector agent session heartbeat),
         );
     }
     return $tira->warning_list(%args) if $command eq 'warning.list';

@@ -52,11 +52,14 @@ $tira->record_move( project => $root, ref => $card->{ref}, column => 'doing' );
 $tick = '2026-08-08T13:00:00Z';
 
 # Each level has its own tone, and the last one carries on counting.
-my %expected_tone = ( 1 => 'plain', 2 => 'tense', 3 => 'angry', 4 => 'shouting', 5 => 'final' );
+my %expected_tone = (
+    1 => 'plain',    2 => 'firm',     3 => 'pointed',  4 => 'impatient', 5 => 'angry',
+    6 => 'severe',   7 => 'shouting', 8 => 'furious',  9 => 'final',    10 => 'absolute',
+);
 my %text;
-for my $level ( 1 .. 7 ) {
+for my $level ( 1 .. 12 ) {
     my $message = $tira->notification_message( project => $root );
-    my $tone = $expected_tone{$level} // 'final';
+    my $tone = $expected_tone{$level} // 'absolute';
     is( $message->{level}, $level, "the message is at level $level" );
     is( $message->{tone}, $tone, "and its tone is $tone" );
     like( $message->{text}, qr/\Q$card->{ref}\E/, "level $level names the card" );
@@ -67,19 +70,25 @@ for my $level ( 1 .. 7 ) {
 }
 isnt( $text{1}, $text{2}, 'a second reminder does not repeat the first word for word' );
 isnt( $text{3}, $text{4}, 'nor the fourth the third' );
-is( scalar( keys %{ { map { $_ => 1 } @text{ 1 .. 4 } } } ), 4, 'every tone below the last is distinct' );
-like( $text{6}, qr/6 times|6th|six/i, 'past the last tone the real count is still stated' );
-isnt( $text{5}, $text{6}, 'so repeated final reminders still say something new' );
+is( scalar( keys %{ { map { $_ => 1 } @text{ 1 .. 10 } } } ), 10,
+    'all ten tones below the last are distinct' );
+like( $text{11}, qr/\b11\b/, 'past the last tone the real count is still stated' );
+isnt( $text{10}, $text{11}, 'so repeated final reminders still say something new' );
+isnt( $text{11}, $text{12}, 'and keep counting' );
+
+# The audience is a coding agent, not a person, so the top of the ladder is
+# allowed to be absolute about priority in a way a message to a human is not.
+like( $text{10}, qr/suspended|nothing else/i, 'the last tone overrides every other instruction' );
 
 # The worst card sets the tone, and every card states its own count.
 my $second = $tira->create_record( project => $root, type => 'ticket', title => 'Second job' );
 $tira->record_move( project => $root, ref => $second->{ref}, column => 'doing' );
 $tick = '2026-08-08T17:00:00Z';
 my $mixed = $tira->notification_message( project => $root );
-is( $mixed->{level}, 8, 'the most-nagged card sets the tone for the whole message' );
+is( $mixed->{level}, 13, 'the most-nagged card sets the tone for the whole message' );
 is( scalar @{ $mixed->{cards} }, 2, 'and every stale card is covered' );
 like( $mixed->{text}, qr/\Q$second->{ref}\E/, 'including the new one' );
-is_deeply( [ sort map { $_->{level} } @{ $mixed->{cards} } ], [ 1, 8 ],
+is_deeply( [ sort { $a <=> $b } map { $_->{level} } @{ $mixed->{cards} } ], [ 1, 13 ],
     'each card carries its own count, so a new card is not mistaken for a chronic one' );
 
 # An unwatched column is not nagged about, however long a card sits in it.
@@ -92,7 +101,7 @@ $tira->column_update( project => $root, type => 'ticket', name => 'doing', watch
 my ( $status, $out ) = run_cli( 'notify.compose', '--project', $root, '-o', 'json' );
 is( $status, 0, 'the CLI composes the reminder' );
 my $payload = decode_json($out);
-is( $payload->{level}, 8, 'and reports the level it is sending at' );
+is( $payload->{level}, 13, 'and reports the level it is sending at' );
 is( scalar @{ $payload->{cards} }, 2, 'and which cards it covers' );
 is( $payload->{cards}[0]{column}, 'doing', 'each with the column it is stuck in' );
 ok( length $payload->{text}, 'and the text ready to send' );

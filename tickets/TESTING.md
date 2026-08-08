@@ -1455,3 +1455,29 @@ report, message 2915 — three connected findings).
   the owner for approval before anything can send them.
 - Functional PASS `Files=49, Tests=1866`; coverage `100.0%` all three
   modules; `prove -T` PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-464`
+
+- Red-first `t/49-automation.t` (53 checks): every setting stored and
+  read back, every invalid value refused without disturbing what was
+  already there, clearing by empty value, the CLI surface and its scope
+  guard, the coding-agent probe driven for real as well as mocked, the
+  wizard with and without an agent installed, every new question
+  rejecting a bad answer and storing the correction, re-running with
+  everything pre-filled, and naming a different directory.
+- `t/41-project-wizard.t` rewritten for the new question order. The
+  directory now comes first, which is what makes pre-filling possible
+  at all: asked second, it would mean offering one project's answers
+  while writing to another.
+- The test caught a real defect in my own first fix: merging the
+  reloaded defaults over the old ones let a setting the new project
+  does not have be inherited from the previous one. Rebuilt from
+  scratch instead.
+- I also misread an empty `grep` of `prove` output as a pass when the
+  module was in fact failing to compile — logged as `EMPTY-GREEN` in
+  `MISTAKE.md`. Filtered test output is not evidence of success.
+- Ten-level ladder verified in `t/48-escalation.t` (88 checks): all ten
+  tones distinct, the last one repeating with a rising count, and the
+  top of the ladder absolute about priority.
+- Functional PASS `Files=50, Tests=1949`; coverage `100.0%` all three
+  modules; `prove -T` PASS; `cover_db` cleaned.

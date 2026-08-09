@@ -1907,3 +1907,17 @@ report, message 2915 — three connected findings).
   colours cannot silently converge.
 - Functional PASS `Files=66, Tests=2612`; coverage `100.0%` all three
   modules; `prove -T` PASS.
+
+## Latest Verification For The Greyed-Out Card (`0.91`)
+
+- Assertions pin the fade and the desaturation, and assert the orange
+  is gone, so the two states cannot converge again.
+- **Eyeballed on a six-card board** rather than judged from CSS: one
+  yellow card dominates, two handed-off cards recede, three ordinary
+  cards unaffected. A colour decision is exactly the thing to look at
+  rather than assert.
+- `t/64` failed twice during this change — once for the wording, once
+  for a line reflow — and both times it was right to. The guard is
+  doing what it was written for.
+- Functional PASS `Files=66, Tests=2614`; coverage `100.0%` all three
+  modules; `prove -T` PASS.

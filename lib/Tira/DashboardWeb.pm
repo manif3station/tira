@@ -3,7 +3,7 @@ package Tira::DashboardWeb;
 use strict;
 use warnings;
 
-our $VERSION = '0.90';
+our $VERSION = '0.91';
 
 use Encode qw(decode_utf8 encode_utf8);
 use JSON::PP ();

@@ -1,150 +1,109 @@
-# REPORT 2026-08-09: `tira.question.list -o human` shows no questions, and every human render warns
+# Tira bugs still open against 0.90
 
-## Where this came from
+Written 2026-08-09 by the developer-dashboard project. **The file was cleaned first,
+as instructed.** Everything previously here has been re-verified against the
+installed Tira 0.90 (`lib/Tira.pm`, 3965 lines — identical to the copy in
+`~/projects/skills/skills/tira`, so the installed one IS the latest). Anything that
+now passes has been removed rather than left to age.
 
-Raised by the **developer-dashboard** project, which has just adopted the question
-commands as its only channel for asking its owner things. It is filed as a report
-rather than as a `DD-NNN` ticket on purpose: this board allocates those numbers and
-its `.tira/project.yml` is owned by `root` with mode `600`, so a normal user cannot
-read the board to find the next free one. Claiming a number blind would collide.
+## Already fixed in 0.90 — removed from this file
 
-Also copied to `/tmp/tira-bugs.md` at the owner's request.
+- **Human renders no longer warn.** `tira.ticket.show -o human` produced an
+  uninitialized-value warning from `Tira.pm` line 3551. Re-run today: zero warnings.
+- **`tira.question.list -o human` works.** It used to print the card with an empty
+  title and no questions at all. It now renders the heading, each question with its
+  status, the `_Why:_` reason, and the numbered options. Verified on Q-003/DD-522:
+  the question, its reason and all three options are shown.
 
-## Objective
-
-Make the human view of questions show the questions, and stop every human render
-warning.
-
-## Two defects, both in the human renderer only
-
-JSON is correct in every case below, which is what localises them.
-
-### 1. Every `-o human` render warns from `Tira.pm` line 3551
-
-    $ d2 tira.ticket.show --ref DD-531 -o human
-    Use of uninitialized value in string ne at .../Tira.pm line 3551.
-    # DD-531: tira.question.list renders nothing useful in human output: ...
-
-The card itself renders correctly, so this is cosmetic — but it is on stderr of
-every human read, which teaches people to ignore this tool's warnings. That is the
-real cost of it.
-
-### 2. `tira.question.list -o human` renders the CARD, with an empty title, and no questions
-
-The damaging one. On a card that genuinely has a question (`Q-003` on `DD-522`):
-
-    $ d2 tira.question.list --ref DD-522 -o human
-    Use of uninitialized value in string ne at .../Tira.pm line 3551.
-    Use of uninitialized value in concatenation (.) or string at .../Tira.pm line 3570, <$fh> line 36.
-    Use of uninitialized value in concatenation (.) or string at .../Tira.pm line 3570, <$fh> line 36.
-    Use of uninitialized value in concatenation (.) or string at .../Tira.pm line 3570, <$fh> line 36.
-    # DD-522:
-
-...and nothing further. No question, no answer, and the card's title is empty where
-the same card renders its title correctly through `ticket.show`. The same three
-warnings appear on a card with **no** questions at all (checked on two), so the
-warning count is not the question count.
-
-The data is intact:
-
-    $ d2 tira.question.list --ref DD-522 -o json
-    {"instruction":"If an answer settles it, ...","questions":[{"id":"Q-003","status":"new",...}]}
-
-## Why this matters more than a cosmetic bug
-
-`UC-101` and `UC-102` exist so that a card carrying an unanswered question is
-visibly waiting on the person who owns the decision. That person reads human
-output, not JSON. As it stands they see an empty card and four warnings, so the one
-workflow these commands were added for does not reach its intended reader.
-
-## Acceptance criteria
-
-- `tira.question.list -o human` lists each question with its answer underneath, and
-  its `instruction` line.
-- The card's title renders in that view as it does in `ticket.show`.
-- No uninitialized-value warning on any `-o human` render.
-- A card with no questions says so, rather than printing an empty card.
-
-## Reproduction environment
-
-- Tira at `~/.developer-dashboard/skills/tira` as installed for developer-dashboard.
-- Warnings cite `lib/Tira.pm` lines 3551 and 3570.
-- `-o json` correct throughout; asking, answering, marking and discarding all work.
-
-## Separate finding while filing this
-
-`/home/mv/projects/skills/skills/tira/.tira/` is owned by `root` and
-`project.yml` is `-rw-------`, so this project's own board cannot be read by the
-user who owns the checkout. Whatever created it ran as root. It is likely to block
-this project's own tooling too, so it is worth checking rather than assuming it was
-deliberate.
+You were right that these were fixed. They are recorded here only so nobody
+re-reports them.
 
 ---
 
-# BUG 3 (the serious one): `collector/tira-remind` takes no lock, so overlapping runs put two agents on one board
+# STILL OPEN 1 (the serious one) — `collector/tira-remind` takes no lock
 
-Added 2026-08-09 after the owner pointed out this report covered only the
-renderer. This is the defect that actually caused damage; the two above are
-cosmetic beside it.
+Re-checked today against 0.90. The file is still 91 lines and
+`grep -nE 'lock|flock|LOCK|pidfile|already running|O_EXCL'` over it returns
+**nothing**.
 
-## What the source does
+It spawns the agent synchronously, once per collector tick:
 
-`collector/tira-remind` (91 lines) does this, once per collector tick:
+    my $status = system( $agent_binary, '-p', '--resume', $session, $message->{text} );
 
-    my $message = $tira->notification_message( project => $root );
-    exit 0 if !$message->{level};
-    for my $attempt ( 1 .. 2 ) {
-        my $status = system( $agent_binary, '-p', '--resume', $session, $message->{text} );
-        ...
-    }
+**Why that is a defect rather than a scheduling choice.** `system()` blocks, so a run
+lasts as long as the agent does, and a real agent session routinely outruns the
+collector interval — 900 seconds here. When it does, the next tick starts a second
+agent against the same board with the same session while the first is still working.
+Tira has nothing to stop it because it assumes the scheduler serialises runs; the
+scheduler's own overlap protection applies to one supervisor loop and says nothing
+about a second loop existing. **Neither side owns the assumption.**
 
-There is no lock, no pid file, and no check for an already-running agent anywhere
-in the file — `grep -nE 'lock|flock|singleton|pgrep|running'` returns nothing.
+**Observed damage** on this project in one day: a ticket's edits to five files made,
+left uncommitted for minutes, and gone; a coverage pass discarded because the tree
+changed underneath it; two commits landed mid-edit; and one card moved and given
+five comments by a second agent while the first was writing about that same card.
 
-## Why that is a defect rather than a scheduling choice
+**Correction to how this has been described elsewhere, including by me:** it is one
+agent per RUN, not one per card. `notification_message` aggregates every stale card
+into a single message. The multiplication comes from overlapping runs, and that
+distinction decides what the fix must be.
 
-`system()` is synchronous, so a run lasts as long as the agent does. A real agent
-session routinely runs longer than the collector interval, which is 900 seconds
-here. When it does, the next tick starts a **second** agent against the **same
-board**, with the same session, while the first is still working. Nothing in Tira
-prevents it, because Tira assumes the scheduler guarantees one at a time.
+**Suggested fix.** Take a lock inside `tira-remind` itself, keyed on the project
+root, and exit quietly when it is already held — a skipped reminder is not a fault.
+That makes the guarantee Tira's own rather than borrowed from whatever invokes it.
 
-The scheduler does not guarantee that. Overlap protection lives in whatever runs
-the collector, applies to one supervisor loop, and says nothing about a second loop
-existing — and second loops do occur. So the assumption is unowned: neither side
-holds it.
-
-## The damage, observed rather than theorised
-
-Two agents on one board and one checkout overwrite each other. On the
-developer-dashboard project, in a single day: a ticket's edits to five files were
-made, left uncommitted for a few minutes, and were gone; a coverage pass had to be
-discarded because the tree changed underneath it; two commits landed mid-edit; and
-a card was moved and given five comments by a second agent while the first was
-writing about that same card.
-
-## Correction to what was reported elsewhere
-
-It has been described as "one agent per card". That is not what the code does, and
-the distinction matters for the fix: `notification_message` aggregates every stale
-card into ONE message, so a run spawns one agent carrying the whole list. The
-multiplication comes from overlapping RUNS, not from the card count.
-
-## Suggested fix, for the maintainers to weigh
-
-Take a lock in `tira-remind` itself, keyed on the project root, and exit quietly
-when it is already held. That makes the guarantee Tira's own rather than borrowed
-from whatever happens to invoke it, and it is a few lines. If a lock is unwanted,
-the alternative is to document explicitly that the caller must serialise runs — but
-silence has already cost a day's work on one project.
-
-Note on detecting a running agent, learned the hard way here: matching command
-lines with `pgrep -f` also matches the guard doing the matching, and any shell that
+**Trap worth passing on**, since it has now bitten twice here: detecting a running
+agent with `pgrep -f` also matches the guard doing the matching, and any shell that
 merely mentions the pattern. It jams shut and looks like it is working. Read
 `/proc/<pid>/exe` and skip your own process tree.
 
-## Acceptance criteria
+**Acceptance:** two concurrent runs produce exactly one agent; the second exits 0,
+not as an error; a stale lock from a killed run does not block reminders for ever.
 
-- Two `tira-remind` runs started concurrently result in exactly one agent.
-- The second exits quietly, not as an error: a skipped reminder is not a fault.
-- A stale lock left by a killed run does not block reminders for ever.
+---
+
+# STILL OPEN 2 — a new board leaves the protected `discard` column watched
+
+Reproduced today on a throwaway board created with `tira.project.create`:
+
+    backlog      watched=1 protected=True
+    discard      watched=1 protected=True
+
+Discarding a card is itself a move, so the one action that ends a card's life starts
+its reminder clock. Every newly created board therefore chases its own discarded
+cards for ever, until somebody notices and sets `watched` false by hand.
+
+This board is already immune — `watched: false` is set explicitly on all three board
+types and checked hourly — so nothing here is broken. The defect is what the NEXT
+board anyone creates inherits.
+
+**Suggested fix:** create `discard` with `watched` false, or treat an absent
+`watched` on a protected terminal column as false rather than true.
+
+---
+
+# STILL OPEN 3 — a comment does not reset a card's reminder clock
+
+Confirmed in the source rather than by waiting. `_dwell_start` (Tira.pm:1670) walks
+the journal backwards and accepts an entry only when both hold:
+
+    next if index( $line, '"field":"column"' ) < 0 || index( $line, '"op":"move"' ) < 0;
+
+So only a column move restarts the clock. A comment is not a move, and nothing else
+in `dwell_list` consults comment activity.
+
+**Why it matters:** the reminder's own advice is to leave a comment saying what the
+card is waiting for. Doing exactly that reads as activity to a person and as nothing
+at all to the reminder, so a card being actively discussed keeps being chased.
+
+**Suggested fix:** let the latest comment stamp count as activity too, or say
+explicitly in the reminder text that only a move will silence it.
+
+---
+
+## Verification note
+
+Every claim above was re-run today against 0.90 rather than carried forward: the two
+fixed items by running the commands, open item 1 by grepping the shipped script, open
+item 2 by creating a fresh board and reading its columns, open item 3 by reading
+`_dwell_start`. Nothing here is inherited from an earlier report.

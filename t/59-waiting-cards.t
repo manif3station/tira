@@ -124,8 +124,12 @@ my $html = $tira->format_output(
     $tira->dashboard( project => $root, type => 'ticket' ),
     output => 'table', project => $root, with_title => 1 );
 like( $html, qr/class="card card--waiting"/, 'a card waiting on the owner is drawn differently' );
-like( $html, qr/\.card--to-review\{border-color:rgba\(251,146,60/,
-    'and a card waiting on the agent is orange rather than the same yellow' );
+like( $html, qr/\.card--to-review\{opacity:\.55/,
+    'and a card handed to the agent is greyed out, not a second bright colour' );
+like( $html, qr/\.card--to-review\{[^}]*saturate/,
+    'faded rather than merely dimmed, so it reads as off the owner\'s plate' );
+unlike( $html, qr/\.card--to-review\{[^}]*rgba\(251,146,60/,
+    'nothing left of the orange that competed with the yellow for attention' );
 like( $html, qr/class="card"/, 'and an ordinary card exactly as before' );
 like( $html, qr/\.card--waiting\{/, 'the stylesheet says what that looks like' );
 

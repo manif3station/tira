@@ -1,5 +1,12 @@
 Revision history for Tira
 
+0.91  2026-08-09
+    - A card handed to the agent is greyed out rather than a second
+      bright colour. The board is read by the owner: yellow is work he
+      owes, and a card he has already answered is off his plate. Two
+      bright colours competed for the same attention, and on a board
+      with no yellow at all the orange stopped meaning anything.
+
 0.90  2026-08-09
     - A card's colour now says **whose move it is** rather than only
       that somebody is waiting. Yellow: a question nobody has answered,

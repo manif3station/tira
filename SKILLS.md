@@ -41,10 +41,10 @@ use it — run `dashboard tira.usage`.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.90):** shipped, executable, and covered by tests.
+- **Implemented (0.91):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.90.
+All commands and use cases in this manual ship in release 0.91.
 
 ## Global invocation grammar
 
@@ -1183,7 +1183,7 @@ without revealing or creating a storage location.
 **Implemented.** Give the reason and the options with the question, not just the question: `dashboard tira.question.ask --ref TKT-001 --text "Which store should the importer write to?" --reason "Both are configured and the runbook names neither." --option "The staging bucket" --option "The live bucket" --option "Neither, block until told"`. Both are optional and a bare question still works, but an owner answering without them is composing an answer from nothing; with them he can reply "the staging one" in seconds. They render under the question in the human view and in the card's Questions section on the dashboard, where he can answer and mark without leaving the board.
 
 ### UC-109: Find the answers you have not judged yet
-**Implemented.** On the live dashboard, the **Answers to review** toggle in a board control narrows it to exactly the **orange** cards: every question answered, at least one answer not yet ticked or crossed. It starts off, so the board shows all the work until you narrow it, and switching it off restores everything. Yellow cards are left out on purpose — those are questions the owner has not answered, so they are his move, not yours. Marking an answer either way clears the card, because a cross is a judgement too.
+**Implemented.** On the live dashboard, the **Answers to review** toggle in a board control narrows it to exactly the **greyed-out** cards: every question answered, at least one answer not yet ticked or crossed. It starts off, so the board shows all the work until you narrow it, and switching it off restores everything. Yellow cards are left out on purpose — those are questions the owner has not answered, so they are his move, not yours. Marking an answer either way clears the card, because a cross is a judgement too.
 
 ### UC-108: Take an old crammed question apart
 **Implemented.** A question asked before reason and choices existed has all three squeezed into its text, and those are exactly the ones that most need splitting. Revisit it and decompose it: `dashboard tira.question.update --id Q-007 --text "Which store should this write to?" --reason "Both are configured and the runbook names neither." --option Staging --option Live` does it in one command, or set one piece at a time as you work it out — **only what you name changes**, so a reason on its own leaves the question and the choices untouched. An explicitly empty value clears that piece if you decide it was wrong. The question keeps its reference and its original time, so anybody who quoted it is not stranded.
@@ -1195,7 +1195,7 @@ without revealing or creating a storage location.
 **Implemented.** `dashboard tira.question.list --ref TKT-001 -o json` returns every question with its answer underneath, and reading them is what marks them read — you do nothing extra. Each list carries an `instruction` naming your next step. If an answer settles the matter, `dashboard tira.question.mark --id Q-007 --mark ok`. If it does not, mark it `not-ok` **and** ask a new one: a cross on its own settles nothing, and there are no follow-up threads.
 
 ### UC-105: See at a glance whose move a card is waiting on
-**Implemented.** On the HTML and live dashboards a card's colour says **whose turn it is**, not merely that somebody is waiting. **Yellow** means a question nobody has answered: the owner owes the next move. **Orange** means every question has been answered and at least one answer has not been ticked or crossed: the agent owes the next move. A card is never both, so the board never says two people owe the same thing at once, and it returns to its ordinary colour when every question is settled — discarded, or answered and marked. Knowing this means reading the card, so the colour appears wherever a person is looking at a board (`-o table`, `-o browser`, `-o json`, or with `--title`); the ref-only fast path still opens no files and stays as cheap as it was.
+**Implemented.** On the HTML and live dashboards a card's appearance says **whose turn it is**, not merely that somebody is waiting. **Yellow** means a question nobody has answered: the owner owes the next move, and it is the only thing on the board competing for his attention. **Greyed out** means every question has been answered and at least one has not been ticked or crossed: it is off his plate and with the agent. A card is never both, so the board never says two people owe the same thing at once, and it returns to its ordinary appearance when every question is settled — discarded, or answered and marked. Knowing this means reading the card, so the colour appears wherever a person is looking at a board (`-o table`, `-o browser`, `-o json`, or with `--title`); the ref-only fast path still opens no files and stays as cheap as it was.
 
 ### UC-104: Find the card a question was asked on
 **Implemented.** A question reference belongs to the project, not to a board, so quoting it is enough: `dashboard tira.search --text Q-007 -o json` returns the card it lives on whichever board that is. Search also matches the words in a question and the words in its answer, so `--text credentials` finds the card somebody asked about credentials on. A discarded question is still found, because it still happened. On the dashboard the keyword box does the same thing across all three boards at once — typing a question reference on one board empties it and shows the card on the board that owns it.

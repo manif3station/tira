@@ -1,5 +1,27 @@
 Revision history for Tira
 
+0.80  2026-08-09
+    - Questions on cards (EPIC-469, first part). An agent that cannot
+      move a card can still ask about it, and the answer lives on the
+      card rather than in whatever file that agent happened to keep.
+      `tira.question.ask`, `.list`, `.answer`, `.update`, `.mark` and
+      `.discard`.
+    - References are project-wide with a `Q` prefix - one sequence
+      across all three boards - so `Q-007` reaches a question without
+      anybody naming the card it was asked on. Cards are addressed by
+      their own reference alone for the same reason: the reference
+      already names the board.
+    - Status is derived rather than stored, so it cannot drift: no
+      answer is `new`, an answer is `answered`, set aside is
+      `discarded`. Nothing is ever really deleted - a discarded
+      question keeps its answer underneath it.
+    - Listing the answers is what marks them read, and writes only when
+      something actually changed. The mark on an answer is separate
+      from having read it, and a cross settles nothing on its own.
+      Every list carries the instruction for what to do next.
+    - Documented in `docs/commands.md` and as use cases UC-101 to
+      UC-103, so an agent meeting Tira through either manual finds it.
+
 0.79  2026-08-09
     - `tira.usage` prints the command reference, the way `tira.skills`
       prints the agent manual. The reference lists every command and

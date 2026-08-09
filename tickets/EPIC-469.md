@@ -145,6 +145,22 @@ that with one asked-and-answered surface that lives on the card.
     the agent's marks would let an agent avoid reminders forever by
     never marking anything.
 
+17. **Question references are project-wide with a `Q` prefix** (message
+    3146). One sequence across all three boards, so `Q-007` is enough
+    to reach a question and nobody has to say which card it was asked
+    on. The counter lives on the project and never rewinds.
+18. **Discarding is an illusion, not a deletion** (message 3144).
+    Nothing in Tira is ever really deleted: the question stays, its
+    answer stays under it, its status becomes `discarded`, and the
+    board draws it struck through. He chose `discard` over `deleted`
+    for consistency with the Discard column.
+19. **The keyword filter is project-wide and searches questions**
+    (message 3147). Typing in any board's filter filters all three —
+    each board simply carries a copy of the same control. It matches
+    question text, answer text and question reference, so typing
+    `Q-234` on the ticket board empties it and shows the epic card that
+    question belongs to.
+
 ## Design closed
 
 Every question answered. Nothing below is guesswork.

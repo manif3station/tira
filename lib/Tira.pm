@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.79';
+our $VERSION = '0.80';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -2107,6 +2107,226 @@ sub comment_list {
     return $comments;
 }
 
+# EPIC-469: an agent working a card often cannot move it but can ask about a
+# detail. This replaces the open-decision file every agent kept in its own
+# format. Addressed by card reference alone - the reference already names the
+# board through its prefix, and prefixes cannot collide inside a project.
+our @QUESTION_MARKS = qw(ok not-ok);
+
+sub _type_for_ref {
+    my ( $self, $root, $ref ) = @_;
+    die "A card reference is required\n" if !defined $ref || $ref !~ /\S/;
+    for my $type (qw(sow epic ticket)) {
+        my $prefix = eval { $self->board_refs( project => $root, type => $type )->{prefix} } or next;
+        return $type if $ref =~ /\A\Q$prefix\E-[0-9]+\z/;
+    }
+    die "No board in this project uses the reference '$ref'\n";
+}
+
+# Status is derived rather than stored: a question with an answer is answered,
+# one without is new. Nothing to keep in step, so nothing can drift.
+sub _question_view {
+    my ($entry) = @_;
+    my $status = $entry->{discarded_at} ? 'discarded'
+      : $entry->{answer} ? 'answered' : 'new';
+    return { %{$entry}, status => $status };
+}
+
+sub _question_changed_at {
+    my ($entry) = @_;
+    my $answer = $entry->{answer} or return $entry->{asked_at};
+    return $answer->{updated_at} // $answer->{answered_at} // $entry->{asked_at};
+}
+
+sub _question_entry {
+    my ( $record, $id ) = @_;
+    die "A question reference is required\n" if !defined $id || $id !~ /\S/;
+    my ($entry) = grep { $_->{id} eq $id } @{ $record->{questions} // [] };
+    die "Question '$id' not found on this card\n" if !$entry;
+    return $entry;
+}
+
+# References are project-wide with a Q prefix, one sequence across all three
+# boards, so quoting Q-007 is enough to reach it: nobody has to say which card
+# it was asked on. The counter lives on the project and never rewinds.
+sub _next_question_id {
+    my ( $self, $root ) = @_;
+    my ( $path, $data ) = $self->_project_data($root);
+    my $number = ( $data->{questions_issued} // 0 ) + 1;
+    $data->{questions_issued} = $number;
+    $self->_write_yaml( $path, $data );
+    return sprintf( 'Q-%03d', $number );
+}
+
+# Find the card a question was asked on. Walks the boards rather than keeping
+# an index, because an index is another thing that can disagree with the truth.
+sub _find_question {
+    my ( $self, $root, $id ) = @_;
+    die "A question reference is required\n" if !defined $id || $id !~ /\S/;
+    my $found;
+    for my $type (qw(sow epic ticket)) {
+        my $board = File::Spec->catdir( $root, '.tira', $type );
+        next if !-d $board;
+        find( { no_chdir => 1, wanted => sub {
+            return if $found || !-f $File::Find::name;
+            my $file = basename($File::Find::name);
+            return if $file !~ /\A([A-Z][A-Z0-9-]{0,31}-\d{1,12})\.json\z/;
+            my $ref = $1;
+            my $record = eval { $self->_read_json($File::Find::name) } or return;
+            return if !grep { ( $_->{id} // '' ) eq $id } @{ $record->{questions} // [] };
+            $found = { type => $type, ref => $ref };
+        } }, $board );
+        last if $found;
+    }
+    die "Question '$id' was not found on any card in this project\n" if !$found;
+    return @{$found}{qw(type ref)};
+}
+
+sub question_add {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $text = $args{text};
+    die "A question needs some text\n" if !defined $text || $text !~ /\S/;
+    my $type = $self->_type_for_ref( $root, $args{ref} );
+    return $self->_with_project_lock( $root, sub {
+        my $record = $self->record_show( project => $root, type => $type, ref => $args{ref} );
+        my $entry = {
+            id => $self->_next_question_id($root), text => $text,
+            author => $args{author}, asked_at => $self->{clock}->(), answer => undef,
+        };
+        push @{ $record->{questions} }, $entry;
+        $self->_replace_record( project => $root, type => $type, ref => $args{ref}, record => $record );
+        return _question_view($entry);
+    } );
+}
+
+sub question_update {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my ( $found_type, $found_ref ) = $self->_find_question( $root, $args{id} );
+    @args{qw(type ref)} = ( $found_type, $found_ref );
+    my $text = $args{text};
+    die "A question needs some text\n" if !defined $text || $text !~ /\S/;
+    my $type = $args{type};
+    return $self->_with_project_lock( $root, sub {
+        my $record = $self->record_show( project => $root, type => $type, ref => $args{ref} );
+        my $entry = _question_entry( $record, $args{id} );
+        $entry->{text} = $text;
+        $self->_replace_record( project => $root, type => $type, ref => $args{ref}, record => $record );
+        return _question_view($entry);
+    } );
+}
+
+# Nothing in Tira is ever really deleted, and questions are no exception: the
+# record of having asked is the point. Discarding is the same illusion the
+# Discard column gives a card - the question stays, its answer stays under it,
+# and the board draws it struck through.
+sub question_discard {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my ( $found_type, $found_ref ) = $self->_find_question( $root, $args{id} );
+    @args{qw(type ref)} = ( $found_type, $found_ref );
+    my $type = $args{type};
+    return $self->_with_project_lock( $root, sub {
+        my $record = $self->record_show( project => $root, type => $type, ref => $args{ref} );
+        my $entry = _question_entry( $record, $args{id} );
+        die "Question '$args{id}' is already discarded\n" if $entry->{discarded_at};
+        $entry->{discarded_at} = $self->{clock}->();
+        $self->_replace_record( project => $root, type => $type, ref => $args{ref}, record => $record );
+        return _question_view($entry);
+    } );
+}
+
+sub question_answer {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my ( $found_type, $found_ref ) = $self->_find_question( $root, $args{id} );
+    @args{qw(type ref)} = ( $found_type, $found_ref );
+    my $text = $args{text};
+    die "An answer needs some text\n" if !defined $text || $text !~ /\S/;
+    my $type = $args{type};
+    return $self->_with_project_lock( $root, sub {
+        my $record = $self->record_show( project => $root, type => $type, ref => $args{ref} );
+        my $entry = _question_entry( $record, $args{id} );
+        die "Question '$args{id}' has been discarded\n" if $entry->{discarded_at};
+        my $now = $self->{clock}->();
+
+        # The question keeps the stamp of when it was asked. Editing an answer
+        # stamps the answer, never the question.
+        if ( $entry->{answer} ) {
+            $entry->{answer}{text} = $text;
+            $entry->{answer}{updated_at} = $now;
+        }
+        else {
+            $entry->{answer} = {
+                text => $text, author => $args{author}, answered_at => $now,
+                read_at => undef, mark => undef,
+            };
+        }
+        $self->_replace_record( project => $root, type => $type, ref => $args{ref}, record => $record );
+        return _question_view($entry);
+    } );
+}
+
+sub question_mark {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my ( $found_type, $found_ref ) = $self->_find_question( $root, $args{id} );
+    @args{qw(type ref)} = ( $found_type, $found_ref );
+    my $mark = $args{mark} // '';
+    die "A mark is either ok or not-ok\n" if !grep { $_ eq $mark } @QUESTION_MARKS;
+    my $type = $args{type};
+    return $self->_with_project_lock( $root, sub {
+        my $record = $self->record_show( project => $root, type => $type, ref => $args{ref} );
+        my $entry = _question_entry( $record, $args{id} );
+        die "Question '$args{id}' has not been answered yet\n" if !$entry->{answer};
+        $entry->{answer}{mark} = $mark;
+        $self->_replace_record( project => $root, type => $type, ref => $args{ref}, record => $record );
+        return _question_view($entry);
+    } );
+}
+
+sub question_list {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $status = $args{status};
+    die "Status is one of new, answered or discarded\n"
+      if defined $status && $status !~ /\A(?:new|answered|discarded)\z/;
+    my $since = defined $args{since} ? _epoch_of_datetime( $args{since}, 'Since' ) : undef;
+    my $type = $self->_type_for_ref( $root, $args{ref} );
+
+    return $self->_with_project_lock( $root, sub {
+        my $record = $self->record_show( project => $root, type => $type, ref => $args{ref} );
+
+        # Reading is what marks an answer read - the agent does nothing extra.
+        # Written only when something actually changed, so listing twice does
+        # not keep rewriting the card.
+        my $now = $self->{clock}->();
+        my $marked = 0;
+        for my $entry ( @{ $record->{questions} } ) {
+            next if $entry->{discarded_at};
+            next if !$entry->{answer} || defined $entry->{answer}{read_at};
+            $entry->{answer}{read_at} = $now;
+            $marked++;
+        }
+        $self->_replace_record( project => $root, type => $type, ref => $args{ref}, record => $record )
+          if $marked;
+
+        my @questions = map { _question_view($_) } @{ $record->{questions} };
+        @questions = grep { $_->{status} eq $status } @questions if defined $status;
+        @questions = grep {
+            ( eval { _epoch_of_datetime( _question_changed_at($_), 'Question stamp' ) } // 0 ) >= $since
+        } @questions if defined $since;
+        return {
+            ref => $args{ref}, type => $type, questions => \@questions,
+            instruction => 'If an answer settles it, run tira.question.mark --mark ok. '
+              . 'If it does not, run tira.question.mark --mark not-ok AND ask a new one '
+              . 'with tira.question.ask - a cross on its own settles nothing. '
+              . 'Unanswered questions are waiting on the owner, not on you.',
+        };
+    } );
+}
+
 sub comment_add {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
@@ -3096,6 +3316,7 @@ sub _read_json {
         $entry->{annotations} //= [];
     }
     $record->{checklist} = [] if !exists $record->{checklist};
+    $record->{questions} = [] if !exists $record->{questions};
     $record->{parent} = $record->{linkage}{"parent_$record->{type}_ref"}
       // $record->{linkage}{sow_ref} // $record->{linkage}{epic_ref};
     return $record;

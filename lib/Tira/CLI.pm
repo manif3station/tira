@@ -39,6 +39,7 @@ sub run {
         'message=s' => \$option{message}, 'all' => \$option{all},
         'columns-json=s' => \$option{columns_json},
         'nested' => \$option{nested},
+        'mark=s' => \$option{mark},
         'collector=s' => \$option{collector}, 'agent=s' => \$option{agent},
         'session=s' => \$option{session}, 'heartbeat=s' => \$option{heartbeat},
         'outward=s' => \$option{outward}, 'inward=s' => \$option{inward},
@@ -972,7 +973,7 @@ sub _attachment_content_type {
 sub _invoke {
     my ( $tira, $command, $record_type, $option ) = @_;
     my %args = %{$option};
-    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty older_than stale with_level all columns_json nested members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
+    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty older_than stale with_level all columns_json nested mark members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
     if ( defined $option->{field_selection} || defined $option->{exclude_fields}
         || $option->{include_empty} || defined $option->{since}
         || $option->{brief} || defined $option->{truncate} ) {
@@ -1015,6 +1016,8 @@ sub _invoke {
       if defined $option->{columns_json} && $command ne 'column.apply';
     die "Nested belongs to the project.new, project.create and onboard commands\n"
       if $option->{nested} && $command !~ /\A(?:project\.(?:new|create)|onboard)\z/;
+    die "A mark belongs to the question.mark command\n"
+      if defined $option->{mark} && $command ne 'question.mark';
     die "Watch is available on the column.update command\n"
       if defined $option->{watched} && $command ne 'column.update';
     die "Notify-after is available on the column.update, project.update, project.new and onboard commands\n"
@@ -1119,6 +1122,23 @@ sub _invoke {
             }
         }
         return $summary;
+    }
+    if ( $command =~ /\Aquestion\.(ask|list|answer|update|mark|discard)\z/ ) {
+        my $action = $1;
+
+        # By card reference alone: the reference already names the board, so
+        # asking for the board as well would be asking for what is known.
+        my %question = ( project => $args{project} );
+        $question{ref} = $option->{ref_list}[0] if $option->{ref_list};
+        $question{$_} = $option->{$_} for grep { defined $option->{$_} } qw(id text mark author);
+        $question{status} = $option->{status} if defined $option->{status};
+        $question{since} = $option->{since} if defined $option->{since};
+        return $tira->question_add(%question) if $action eq 'ask';
+        return $tira->question_list(%question) if $action eq 'list';
+        return $tira->question_answer(%question) if $action eq 'answer';
+        return $tira->question_update(%question) if $action eq 'update';
+        return $tira->question_discard(%question) if $action eq 'discard';
+        return $tira->question_mark(%question);
     }
     return $tira->warning_list(%args) if $command eq 'warning.list';
     return $tira->warning_add(%args) if $command eq 'warning.add';

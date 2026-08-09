@@ -9,6 +9,26 @@ Dashboard entrypoints. The shared `Tira::CLI` parser applies TOON-first output,
 pretty JSON, Markdown, repeatable options, JSON-array replacement, raw
 attachment output, and consistent structured failures.
 
+## Questions on cards
+
+An agent working a card often cannot move it but can ask about a procedure or
+a detail. These commands replace the open-decision file each agent used to keep
+in its own format. Every question reference is project-wide with a `Q` prefix,
+so `Q-007` reaches it without naming the card it was asked on.
+
+| Command | Arguments | What it is for |
+| --- | --- | --- |
+| `tira.question.ask` | `--ref CARD` (required), `--text TEXT` (required), `--author WHO` | Ask about a card. The reference names the board through its prefix, so no board argument is needed. |
+| `tira.question.list` | `--ref CARD`, `--status new\|answered\|discarded`, `--since STAMP` | List questions with their answers underneath. **Reading marks the answers read**, so the owner can see they were seen. Carries an `instruction` naming the next step. `--since` reads the answer's stamp when answered and the question's when not. |
+| `tira.question.answer` | `--id Q-NNN` (required), `--text TEXT` (required), `--author WHO` | Answer a question, or reword an existing answer. Answering stamps the answer; the question keeps the stamp of when it was asked. |
+| `tira.question.update` | `--id Q-NNN` (required), `--text TEXT` (required) | Reword a question. |
+| `tira.question.mark` | `--id Q-NNN` (required), `--mark ok\|not-ok` (required) | Say whether the answer settles it. A cross settles nothing on its own — ask a new question as well. |
+| `tira.question.discard` | `--id Q-NNN` (required) | Set a question aside. Nothing is ever really deleted: it stays, its answer stays under it, and the board draws it struck through. |
+
+A question with no answer is `new`, one with an answer is `answered`, one set
+aside is `discarded`. The status is derived rather than stored, so it cannot
+drift from the facts.
+
 ## Capability groups
 
 - Project metadata, people, custom reciprocal link types, and validation.

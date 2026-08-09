@@ -41,10 +41,10 @@ use it — run `dashboard tira.usage`.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.79):** shipped, executable, and covered by tests.
+- **Implemented (0.80):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.79.
+All commands and use cases in this manual ship in release 0.80.
 
 ## Global invocation grammar
 
@@ -1175,6 +1175,15 @@ without revealing or creating a storage location.
 
 ### UC-100: Render dashboard
 **Implemented.** `dashboard tira.dashboard --type all` is the ref-only fast path; add `--title` for titles, `--include-discard` for archived cards, `-o json` for complete records, `-o table` for self-contained interactive HTML, or `-o browser` for the live Dancer2 view. Type-specific table/browser commands are `tira.dashboard.sow`, `.epic`, and `.ticket`.
+
+### UC-101: Ask about a card without moving it
+**Implemented.** An agent that cannot move a card can still ask about it: `dashboard tira.question.ask --ref TKT-001 --text "Which credentials should this use?"`. The reference alone names the board, so no board argument is needed. The question is answered by whoever owns the decision, and until it is, the card is waiting on them rather than on you. Replaces keeping open decisions in a file of your own.
+
+### UC-102: Read the answers, and say whether they settle it
+**Implemented.** `dashboard tira.question.list --ref TKT-001 -o json` returns every question with its answer underneath, and reading them is what marks them read — you do nothing extra. Each list carries an `instruction` naming your next step. If an answer settles the matter, `dashboard tira.question.mark --id Q-007 --mark ok`. If it does not, mark it `not-ok` **and** ask a new one: a cross on its own settles nothing, and there are no follow-up threads.
+
+### UC-103: Catch up on what changed without re-reading everything
+**Implemented.** `dashboard tira.question.list --ref TKT-001 --status new -o json` shows only what is still unanswered; `--status answered` only what has been answered, and `--status discarded` what was set aside. `--since 2026-08-09T09:00:00Z` reads the answer's stamp when there is an answer and the question's when there is not, so a newly answered question shows up as newly changed. A question reference is project-wide, so `--id Q-007` reaches it from anywhere without naming the card.
 
 ## Safety contract
 

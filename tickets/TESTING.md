@@ -1669,3 +1669,24 @@ report, message 2915 — three connected findings).
   first.
 - Functional PASS `Files=57, Tests=2131`; coverage `100.0%` all three
   modules; `prove -T` PASS.
+
+## Latest Verification For `DD-471`
+
+- Red-first `t/57-questions.t` (54 checks): asking by card reference
+  alone on all three boards, a reference no board owns refused, every
+  bad input refused, answering stamping the answer while the question
+  keeps when it was asked, listing marking answers read, a second read
+  changing nothing, the two marks and their refusals, discard keeping
+  the question and its answer, status and time filters, a question
+  reached by its project-wide reference alone, and the CLI surface.
+- Two defects the tests caught rather than me: removing a question let
+  its number be reused, so a quoted reference would have pointed at a
+  different question — Tira's rule is that references never rewind; and
+  the owner then changed the scheme entirely to project-wide `Q`
+  references mid-build, which the suite carried without argument.
+- Robustness covered deliberately: a board whose config cannot be read
+  does not stop references on other boards resolving, and a question
+  whose stamp cannot be parsed is left out of a time filter rather than
+  reported as recent.
+- Functional PASS `Files=58, Tests=2192`; coverage `100.0%` all three
+  modules; `prove -T` PASS.

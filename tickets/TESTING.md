@@ -1637,3 +1637,20 @@ report, message 2915 — three connected findings).
   now the threshold, which is the point of the change.
 - Functional PASS `Files=56, Tests=2114`; coverage `100.0%` all three
   modules; `prove -T` PASS; `cover_db` cleaned.
+
+## Latest Verification For `DD-468`
+
+- Root cause confirmed in the source rather than guessed: no `use utf8`
+  in `lib/Tira.pm`, and the four icons were the only literal non-ASCII
+  characters in the editor script.
+- Guard added to `t/16-dashboard-table.t`: every embedded script and
+  stylesheet must be pure ASCII in **both** the static and the live
+  rendering. **Verified in the failing direction** by putting a literal
+  glyph back — `Failed test 39` — then restored and green.
+- My first version of that guard checked only the static rendering,
+  where the editor script does not exist, so it passed against the
+  broken build. Caught because the icons were still visibly wrong.
+- Browser-checked: the dialog now reports its glyphs as the intended
+  characters and the column-editor guard is green.
+- Functional PASS `Files=56, Tests=2120`; coverage `100.0%` all three
+  modules; `prove -T` PASS; fixtures cleaned.

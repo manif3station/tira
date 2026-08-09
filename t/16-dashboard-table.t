@@ -80,6 +80,23 @@ like( $html, qr/&lt;script&gt;alert\(&quot;x&quot;\)&lt;\/script&gt;/,
 unlike( $html, qr/<script>alert/, 'record data cannot inject executable HTML' );
 unlike( $html, qr/<(?:link|img|iframe)\b|https?:\/\//i, 'table has no external resources' );
 
+# DD-468: the renderer has no `use utf8`, so a literal glyph in the embedded
+# script is read as bytes and encoded a second time on the way out, reaching
+# the browser as mojibake. Escapes are the only safe way to write one.
+for my $rendering (
+    [ static => $html ],
+    [ live => $tira->format_output(
+            $tira->dashboard( project => $root ), output => 'table', project => $root, live => 1 ) ],
+) {
+    my ( $kind, $document ) = @{$rendering};
+    my ($script) = $document =~ /<script>(.*)<\/script>/s;
+    ok( defined $script, "the $kind dashboard embeds a script" );
+    is_deeply( [ $script =~ /([^\x00-\x7f])/g ], [],
+        "the $kind script is pure ASCII, so no glyph can reach the browser double-encoded" );
+    my ($style) = $document =~ /<style>(.*)<\/style>/s;
+    is_deeply( [ $style =~ /([^\x00-\x7f])/g ], [], "and so is the $kind stylesheet" );
+}
+
 ( $status, $html, $err ) = cli( 'dashboard.ticket', '--project', $root, '-o', 'table' );
 is( $status, 0, 'type-specific table dashboard succeeds' );
 is( scalar( () = $html =~ /class="board board--/g ), 1, 'type-specific command renders one board' );

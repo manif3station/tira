@@ -41,10 +41,10 @@ use it — run `dashboard tira.usage`.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.86):** shipped, executable, and covered by tests.
+- **Implemented (0.87):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.86.
+All commands and use cases in this manual ship in release 0.87.
 
 ## Global invocation grammar
 
@@ -1181,6 +1181,12 @@ without revealing or creating a storage location.
 
 ### UC-106: Ask a question the owner can answer quickly
 **Implemented.** Give the reason and the options with the question, not just the question: `dashboard tira.question.ask --ref TKT-001 --text "Which store should the importer write to?" --reason "Both are configured and the runbook names neither." --option "The staging bucket" --option "The live bucket" --option "Neither, block until told"`. Both are optional and a bare question still works, but an owner answering without them is composing an answer from nothing; with them he can reply "the staging one" in seconds. They render under the question in the human view and in the card's Questions section on the dashboard, where he can answer and mark without leaving the board.
+
+### UC-108: Take an old crammed question apart
+**Implemented.** A question asked before reason and choices existed has all three squeezed into its text, and those are exactly the ones that most need splitting. Revisit it and decompose it: `dashboard tira.question.update --id Q-007 --text "Which store should this write to?" --reason "Both are configured and the runbook names neither." --option Staging --option Live` does it in one command, or set one piece at a time as you work it out — **only what you name changes**, so a reason on its own leaves the question and the choices untouched. An explicitly empty value clears that piece if you decide it was wrong. The question keeps its reference and its original time, so anybody who quoted it is not stranded.
+
+### UC-107: Answer a question from the board in one click
+**Implemented.** Open the card on the live dashboard and its **Questions** section shows each question, its choices, why it was asked, its status (`new`, `answered` or `discarded`) and its answer. Click a choice and that is the answer — no typing. Use **Other…** to write something else, or edit an answer already given and save it. Mark it as settling the matter or not from the same place. A discarded question stays visible, struck through, because it still happened. Every action there runs the same engine subroutine as the matching command, so answering from the board has exactly the consequences answering from a terminal does: the card stops waiting, the reminder clock restarts from your answer, and the agent is told the card is back with it.
 
 ### UC-102: Read the answers, and say whether they settle it
 **Implemented.** `dashboard tira.question.list --ref TKT-001 -o json` returns every question with its answer underneath, and reading them is what marks them read — you do nothing extra. Each list carries an `instruction` naming your next step. If an answer settles the matter, `dashboard tira.question.mark --id Q-007 --mark ok`. If it does not, mark it `not-ok` **and** ask a new one: a cross on its own settles nothing, and there are no follow-up threads.

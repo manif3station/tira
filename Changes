@@ -1,5 +1,32 @@
 Revision history for Tira
 
+0.87  2026-08-09
+    - The card's Questions panel now carries all five things the owner
+      asked for: the question, its choices, why it was asked, its
+      status - including discarded, which was being filtered out
+      entirely so that status could never appear - and its answer,
+      which can now be edited rather than only read.
+    - Choices are buttons. Clicking one answers with it, because
+      picking a choice is the whole answer; the text box stays hidden
+      behind `Other...` so typing is the exception. A discarded
+      question stays visible, struck through, because it still
+      happened.
+    - `tira.question.update` takes `--text`, `--reason` and `--option`
+      in any combination, so an agent can revisit a question asked
+      before those fields existed - with all three crammed into the
+      text - and take it apart in one command or three. Only what is
+      named changes; an explicitly empty value clears that piece.
+    - The complete question surface is documented in `docs/commands.md`
+      and as use cases UC-101 to UC-108, and a test now enumerates the
+      commands and options **from the code** and fails if either manual
+      omits one, so the documentation cannot drift silently.
+    - A test enforces that the dashboard and the command line are one
+      path underneath, by doing the same work from both sides and
+      comparing every consequence. If the board ever took a shortcut, a
+      trigger would fire for one card and not the other.
+    - Coverage is back to 100% on all three modules: the statement that
+      had been stuck at 2670/2671 is now exercised, closing `DD-477`.
+
 0.86  2026-08-09
     - The waiting yellow appeared for about a second and then vanished.
       The page is served with the colour already painted, and the live

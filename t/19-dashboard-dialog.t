@@ -205,10 +205,32 @@ for my $payload ( undef, [], { type => 'ticket' }, { type => 'ticket', columns =
 
 # DD-479: the owner reads and answers questions where he reads the card
 like( $live_html, qr/const renderQuestions=/, 'the dialog builds a questions section' );
-like( $live_html, qr/card-question__reason/, 'showing why the question was asked' );
-like( $live_html, qr/card-question__options/, 'and the options the agent could see' );
-like( $live_html, qr{mutate\("/question/answer"}, 'the owner can answer from the dialog' );
-like( $live_html, qr{mutate\("/question/mark"}, 'and say whether the answer settles it' );
+
+# The owner named five things this panel must carry.
+like( $live_html, qr/card-question__text/, 'one: the question itself' );
+like( $live_html, qr/card-question__choice/, 'two: its choices' );
+like( $live_html, qr/card-question__reason/, 'three: why it was asked' );
+like( $live_html, qr/card-question__status/, 'four: its status' );
+like( $live_html, qr/question\.discarded_at\?"discarded"/,
+    'including discarded, which is one of the three he named' );
+like( $live_html, qr{mutate\("/question/answer"}, 'five: an answer can be added' );
+like( $live_html, qr/question\.answer\?"Save answer":"Answer"/,
+    'and an existing one edited rather than only read' );
+like( $live_html, qr/box\.value=question\.answer\?question\.answer\.text:""/,
+    'with the current answer loaded for editing' );
+
+# Picking a choice is the whole answer; typing is only for anything else.
+like( $live_html, qr/pick\.onclick=\(\)=>answerWith\(choice\)/,
+    'clicking a choice answers with it in one click' );
+like( $live_html, qr/Other\\u2026/, 'with an Other button for a different answer' );
+like( $live_html, qr/typed\.hidden=/, 'and the box stays out of the way until it is wanted' );
+like( $live_html, qr{mutate\("/question/mark"}, 'and the owner can say whether it settles it' );
+
+# A discarded question is shown struck through rather than hidden.
+like( $live_html, qr/const all=record\.questions\|\|\[\]/,
+    'every question is rendered, discarded ones included' );
+like( $live_html, qr/card-question\[data-status="discarded"\] \.card-question__text\{text-decoration:line-through\}/,
+    'and a discarded one is struck through' );
 
 my $board_question = $tira->question_add(
     project => $root, ref => 'TKT-001', text => 'Asked from the board test' );

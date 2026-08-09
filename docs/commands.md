@@ -13,25 +13,138 @@ attachment output, and consistent structured failures.
 
 An agent working a card often cannot move it but can ask about a procedure or
 a detail. These commands replace the open-decision file each agent used to keep
-in its own format. Every question reference is project-wide with a `Q` prefix,
-so `Q-007` reaches it without naming the card it was asked on.
+in its own format.
 
-| Command | Arguments | What it is for |
+**References.** Every question reference is project-wide with a `Q` prefix, on
+one sequence across all three boards, so `Q-007` reaches a question without
+naming the card it was asked on. Cards are addressed by their own reference
+alone (`--ref TKT-001`) — the reference names the board through its prefix, and
+prefixes cannot collide inside a project, so there is never a board argument.
+
+**Statuses.** `new` (no answer), `answered` (has one), `discarded` (set aside).
+Derived from the facts rather than stored, so a status cannot drift from what
+is actually there. There is no follow-up status: pressing further is a new
+question.
+
+### `tira.question.ask`
+
+Ask about a card.
+
+| Argument | Required | What it is for |
 | --- | --- | --- |
-| `tira.question.ask` | `--ref CARD` (required), `--text TEXT` (required), `--reason TEXT`, `--option TEXT` (repeatable), `--author WHO` | Ask about a card. The reference names the board through its prefix, so no board argument is needed. `--reason` says why you are asking — what you are blocked on, what you already tried. `--option` gives one choice you can see; repeat it for each. Both are optional, but an owner answering a question with neither is composing an answer from nothing. |
-| `tira.question.list` | `--ref CARD`, `--status new\|answered\|discarded`, `--since STAMP` | List questions with their answers underneath. **Reading marks the answers read**, so the owner can see they were seen. Carries an `instruction` naming the next step. `--since` reads the answer's stamp when answered and the question's when not. |
-| `tira.question.answer` | `--id Q-NNN` (required), `--text TEXT` (required), `--author WHO` | Answer a question, or reword an existing answer. Answering stamps the answer; the question keeps the stamp of when it was asked. |
-| `tira.question.update` | `--id Q-NNN` (required), `--text TEXT` (required) | Reword a question. |
-| `tira.question.mark` | `--id Q-NNN` (required), `--mark ok\|not-ok` (required) | Say whether the answer settles it. A cross settles nothing on its own — ask a new question as well. |
-| `tira.question.discard` | `--id Q-NNN` (required) | Set a question aside. Nothing is ever really deleted: it stays, its answer stays under it, and the board draws it struck through. |
+| `--ref CARD` | yes | The card to ask about, e.g. `TKT-001`. No board argument. |
+| `--text TEXT` | yes | The question itself. Keep it to the question. |
+| `--reason TEXT` | no | Why you are asking: what you are blocked on, what you already tried. |
+| `--option TEXT` | no | One choice you can see. **Repeat it** for each. On the dashboard these become buttons the owner clicks. |
+| `--author WHO` | no | Who is asking. |
+| `-o FORMAT` | no | `toon` (default), `json`, `json-pretty`, `human`. |
 
-A question with no answer is `new`, one with an answer is `answered`, one set
-aside is `discarded`. The status is derived rather than stored, so it cannot
-drift from the facts.
+Both `--reason` and `--option` are optional, but an owner answering a question
+with neither is composing an answer from nothing. With them he can pick a
+choice in one click.
 
-On the live dashboard a card's dialog carries a **Questions** section showing
-each open question with its reason and options, and the owner answers or marks
-it there rather than going to a terminal.
+### `tira.question.list`
+
+List the questions on a card, with their answers underneath. **Reading is what
+marks the answers read** — you do nothing extra, and the owner can see they
+were seen. Writes only when there is something to mark. Every list carries an
+`instruction` naming your next step.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--ref CARD` | yes | The card whose questions to list. |
+| `--status STATUS` | no | Only `new`, only `answered`, or only `discarded`. |
+| `--since STAMP` | no | Only what has changed since then. Reads the **answer's** stamp when there is an answer and the question's when there is not, so a newly answered question shows as newly changed. |
+| `-o FORMAT` | no | As above. `human` renders each question, its reason, its numbered choices and its answer. |
+
+### `tira.question.answer`
+
+Answer a question, or reword an answer already given.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--id Q-NNN` | yes | The question. Project-wide, so the card need not be named. |
+| `--text TEXT` | yes | The answer, in your own words. |
+| `--author WHO` | no | Who answered. |
+| `-o FORMAT` | no | As above. |
+
+Answering the first time stamps `answered_at`; answering again stamps
+`updated_at` and leaves the first stamp alone. The question keeps the time it
+was asked, always.
+
+### `tira.question.update`
+
+Reword a question, or **take a crammed one apart**. Questions asked before
+`--reason` and `--option` existed have all three in the text; give all three
+here to split them in one command, or one at a time as you work them out.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--id Q-NNN` | yes | The question. |
+| `--text TEXT` | one of these three | The question itself. |
+| `--reason TEXT` | one of these three | Why it is being asked. |
+| `--option TEXT` | one of these three | A choice; repeat for each. |
+| `-o FORMAT` | no | As above. |
+
+**Only what you name changes.** A reason on its own leaves the text and the
+choices alone. An explicitly empty `--reason` clears it; `--option ""` alone
+clears the choices. The question keeps its reference and its original time, so
+anybody quoting it is not stranded. Naming none of the three is refused.
+
+### `tira.question.mark`
+
+Say whether an answer settles the matter. Separate from having read it: reading
+is not agreeing.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--id Q-NNN` | yes | The question. |
+| `--mark MARK` | yes | `ok` or `not-ok`, and nothing else. |
+| `-o FORMAT` | no | As above. |
+
+**A cross settles nothing on its own.** If an answer does not do it, mark it
+`not-ok` *and* ask a new question. An unanswered question cannot be marked.
+
+### `tira.question.discard`
+
+Set a question aside.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--id Q-NNN` | yes | The question. |
+| `-o FORMAT` | no | As above. |
+
+Nothing in Tira is ever really deleted: the question stays, its answer stays
+underneath it, its status becomes `discarded`, and the board draws it struck
+through. Discarding twice is refused, and a discarded question cannot be
+answered.
+
+### What questions do to the rest of Tira
+
+- **A card with an unanswered question is not chased.** While it waits it is in
+  the owner's hands, not the agent's, so the stale-card reminder leaves it
+  alone however long it sits.
+- **Answering the last one restarts the clock from that answer**, not from the
+  move that put the card in its column, and escalation restarts at level one —
+  the agent was blocked, not idle.
+- **An all-clear** then tells the agent every question is answered and the card
+  is back with it, once per round of questions.
+- **The card is yellow** on the dashboard while anybody is waiting: unanswered
+  waits on the owner, an answer not yet read and marked waits on the agent.
+- **Search matches** question text, answer text and question references, so
+  `tira.search --text Q-007` finds the card it lives on.
+
+### On the dashboard
+
+A card's dialog carries a **Questions** section. Each question shows five
+things: the question, its choices, why it was asked, its status, and its
+answer. A choice is a button — clicking one answers with it, and the text box
+stays hidden until **Other…** is chosen. An answer already given can be edited
+and saved there, and marked as settling the matter or not.
+
+Everything done on the dashboard runs the same engine subroutine as the
+matching command. The interface differs; the behaviour does not, so no
+consequence of an action is skipped by taking one route rather than the other.
 
 ## Capability groups
 

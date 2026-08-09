@@ -1816,3 +1816,34 @@ report, message 2915 — three connected findings).
   point. Fixed and the assertion tightened.
 - Functional PASS `Files=62, Tests=2309`; coverage 100% CLI and web,
   engine at the known 2670/2671; `prove -T` PASS.
+
+## Latest Verification For `DD-481`, `DD-482` And `DD-483`
+
+- `t/19` asserts all five elements the owner named, that discarded
+  questions render rather than being filtered away, that clicking a
+  choice answers with it, that `Other...` reveals the box, and that an
+  existing answer loads for editing.
+- `t/62-same-engine.t` does the same work from the command line and
+  from the board and compares every consequence — the stored answer,
+  its stamp, whether the card still counts as waiting, whether an
+  all-clear is owed, when the reminder resumes. It caught a fault on
+  its first run: `Tira::CLI->run` builds its own engine, so I was
+  comparing two clocks rather than two interfaces.
+- `t/63-question-decompose.t` proves only what is named changes, that
+  an empty value clears a piece while an absent one leaves it alone,
+  and that a decomposed question keeps its reference and its original
+  stamp.
+- `t/64-question-docs.t` enumerates the commands and options **from the
+  code** and checks both manuals. **Verified in both failing
+  directions**: renaming a documented command fails it, and removing an
+  option from the question tables fails it. The first version did *not*
+  catch the missing option, because flags like `--since` appear
+  elsewhere in the reference and it searched the whole file; scoped to
+  the questions section, it has teeth.
+- A POD guard was added after the third em-dash failure today: any
+  non-ASCII character in a file's POD now fails the metadata test,
+  since `podchecker` rejects it without an `=encoding`.
+- **Coverage is 100% on all three modules.** The statement stuck at
+  2670/2671 since `DD-475` is exercised by the new tests, closing
+  `DD-477` without ever having to identify it by line number.
+- Functional PASS `Files=65, Tests=2576`; `prove -T` PASS.

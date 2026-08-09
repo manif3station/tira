@@ -1045,8 +1045,9 @@ sub _invoke {
       if $option->{nested} && $command !~ /\A(?:project\.(?:new|create)|onboard)\z/;
     die "A mark belongs to the question.mark command\n"
       if defined $option->{mark} && $command ne 'question.mark';
-    die "A reason and options belong to the question.ask command\n"
-      if ( defined $option->{reason} || $option->{options} ) && $command ne 'question.ask';
+    die "A reason and options belong to the question.ask and question.update commands\n"
+      if ( defined $option->{reason} || $option->{options} )
+      && $command !~ /\Aquestion\.(?:ask|update)\z/;
     die "Watch is available on the column.update command\n"
       if defined $option->{watched} && $command ne 'column.update';
     die "Notify-after is available on the column.update, project.update, project.new and onboard commands\n"

@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.82';
+our $VERSION = '0.83';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -730,6 +730,44 @@ sub _escalation_template {
     return ( $tone, $text );
 }
 
+# An all-clear is owed when every question on a card has been answered and the
+# newest answer is newer than the last all-clear sent for it. Derived, like the
+# level, so there is no flag to keep in step with the truth.
+sub clearance_list {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $dbh = $self->_notification_dbh($root);
+    my %cleared;
+    if ($dbh) {
+        my $rows = $dbh->selectall_arrayref(
+            "SELECT ref, MAX(sent_at) FROM notifications WHERE kind = 'cleared' GROUP BY ref" );
+        %cleared = map { $_->[0] => $_->[1] } @{$rows};
+        $dbh->disconnect;
+    }
+    my @owed;
+    for my $type (qw(sow epic ticket)) {
+        my $board = File::Spec->catdir( $root, '.tira', $type );
+        next if !-d $board;
+        find( { no_chdir => 1, wanted => sub {
+            return if !-f $File::Find::name;
+            my $file = basename($File::Find::name);
+            return if $file !~ /\A([A-Z][A-Z0-9-]{0,31}-\d{1,12})\.json\z/;
+            my $ref = $1;
+            my $record = eval { $self->_read_json($File::Find::name) } or return;
+            return if !grep { !$_->{discarded_at} } @{ $record->{questions} // [] };
+            my $answered = _card_unblocked_at($record) or return;
+            my $told = $cleared{$ref};
+            return if defined $told && $told ge $answered;
+            push @owed, {
+                ref => $ref, type => $type,
+                column => basename( dirname($File::Find::name) ),
+                title => $record->{title}, answered_at => $answered,
+            };
+        } }, $board );
+    }
+    return [ sort { $a->{ref} cmp $b->{ref} } @owed ];
+}
+
 sub notification_message {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
@@ -748,8 +786,16 @@ sub notification_message {
         };
     }
 
-    # Nothing stale sends nothing: an all-clear on every heartbeat is noise.
-    return { level => 0, tone => 'quiet', text => '', cards => [] } if !@cards;
+    my $cleared = $self->clearance_list( project => $root );
+    my $clearance = @{$cleared}
+      ? "Every question on these cards has been answered. They are back with you.\n"
+      . join( '', map { "  $_->{ref}  $_->{title}\n" } @{$cleared} ) . "\n"
+      : '';
+
+    # Nothing stale sends nothing - except an all-clear, which is news.
+    return {
+        level => 0, tone => 'quiet', text => $clearance, cards => [], cleared => $cleared
+    } if !@cards;
 
     # The most-nagged card sets the tone, so a chronically stuck card is never
     # softened by newer company; each line still states its own count.
@@ -763,7 +809,10 @@ sub notification_message {
                 _duration_phrase( $_->{dwell_seconds} ), $_->{level} ) } @cards )
       . "\nFor each card: move it on, move it back, or leave a comment saying "
       . "what it is waiting for.\n";
-    return { level => $level, tone => $tone, text => $text, cards => \@cards };
+    return {
+        level => $level, tone => $tone, text => $clearance . $text,
+        cards => \@cards, cleared => $cleared,
+    };
 }
 
 # DD-461: a collector runs unattended, so a failure it hits has nobody to tell.
@@ -857,17 +906,30 @@ sub _notification_dbh {
     );
     $dbh->do( 'CREATE TABLE IF NOT EXISTS notifications ('
           . 'id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT NOT NULL, '
-          . 'column_name TEXT NOT NULL, sent_at TEXT NOT NULL)' );
+          . 'column_name TEXT NOT NULL, sent_at TEXT NOT NULL, '
+          . "kind TEXT NOT NULL DEFAULT 'reminder')" );
+
+    # A database written before all-clears existed has no kind column. Add it
+    # rather than making the owner start again.
+    my $columns = $dbh->selectall_arrayref('PRAGMA table_info(notifications)');
+    if ( !grep { $_->[1] eq 'kind' } @{$columns} ) {
+        $dbh->do("ALTER TABLE notifications ADD COLUMN kind TEXT NOT NULL DEFAULT 'reminder'");
+    }
     $dbh->do( 'CREATE INDEX IF NOT EXISTS notifications_ref_column '
           . 'ON notifications (ref, column_name)' );
     return $dbh;
 }
 
+# Counting starts after the last all-clear, so a card that was blocked and then
+# released begins again at one rather than resuming where it left off.
 sub _notification_count {
     my ( $dbh, $ref, $column ) = @_;
+    my ($since) = $dbh->selectrow_array(
+        "SELECT MAX(id) FROM notifications WHERE ref = ? AND kind = 'cleared'", undef, $ref );
     my ($count) = $dbh->selectrow_array(
-        'SELECT COUNT(*) FROM notifications WHERE ref = ? AND column_name = ?',
-        undef, $ref, $column,
+        'SELECT COUNT(*) FROM notifications WHERE ref = ? AND column_name = ?'
+          . " AND kind = 'reminder' AND id > ?",
+        undef, $ref, $column, $since // 0,
     );
     return 0 + $count;
 }
@@ -890,8 +952,8 @@ sub notification_record {
     my $written = eval {
         for my $ref (@refs) {
             die "A card reference is required\n" if !defined $ref || $ref !~ /\S/;
-            $dbh->do( 'INSERT INTO notifications (ref, column_name, sent_at) VALUES (?, ?, ?)',
-                undef, $ref, $column, $at );
+            $dbh->do( 'INSERT INTO notifications (ref, column_name, sent_at, kind) VALUES (?, ?, ?, ?)',
+                undef, $ref, $column, $at, $args{kind} // 'reminder' );
             push @rows, {
                 ref => $ref, column => $column, at => $at,
                 level => _notification_count( $dbh, $ref, $column ),
@@ -1658,7 +1720,15 @@ sub dwell_list {
             return if $file !~ /\A([A-Z][A-Z0-9-]{0,31}-\d{1,12})\.json\z/;
             my $ref = $1;
             my $column = basename( dirname($File::Find::name) );
+            my $record = $stale ? eval { $self->_read_json($File::Find::name) } : undef;
+
+            # Waiting on the owner is not the agent's fault, so it is not chased.
+            return if $record && _card_blocked($record);
             my ( $since, $basis ) = $self->_dwell_start( $root, $ref );
+            if ( $record && ( my $cleared = _card_unblocked_at($record) ) ) {
+                ( $since, $basis ) = ( $cleared, 'move' )
+                  if !defined $since || $cleared gt $since;
+            }
             my $seconds;
             if ( $basis eq 'move' && defined $now ) {
                 my $started = eval { _epoch_of_datetime( $since, 'History stamp' ) };
@@ -2958,6 +3028,36 @@ sub replace_records {
 # Yellow means somebody is waiting, in either direction: a question nobody has
 # answered waits on the owner, and an answer nobody has read and marked waits on
 # the agent. A discarded question settles nothing further - it was set aside.
+# The exemption is about who holds the card, so it turns on answers alone: a
+# question nobody has answered is waiting on the owner. Whether the agent has
+# since marked the answer is its own business, and waiting for that would let an
+# agent dodge reminders forever by never marking anything.
+sub _card_blocked {
+    my ($record) = @_;
+    for my $question ( @{ $record->{questions} // [] } ) {
+        next if $question->{discarded_at};
+        return 1 if !$question->{answer};
+    }
+    return 0;
+}
+
+# When the block clears, the clock starts again from the answer rather than the
+# move: otherwise answering after three days makes the card instantly overdue
+# and blames the agent for the delay.
+sub _card_unblocked_at {
+    my ($record) = @_;
+    my $latest;
+    for my $question ( @{ $record->{questions} // [] } ) {
+        next if $question->{discarded_at};
+        my $answer = $question->{answer} or return undef;
+
+        # An answer always carries answered_at, so there is nothing to guard.
+        my $at = $answer->{updated_at} // $answer->{answered_at};
+        $latest = $at if !defined $latest || $at gt $latest;
+    }
+    return $latest;
+}
+
 sub _card_waiting {
     my ($record) = @_;
     for my $question ( @{ $record->{questions} // [] } ) {

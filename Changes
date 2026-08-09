@@ -1,5 +1,25 @@
 Revision history for Tira
 
+0.83  2026-08-09
+    - A card with a question nobody has answered is no longer chased.
+      While it waits it is in the owner's hands, not the agent's, and
+      chasing the agent for it is the fastest way to teach an agent
+      that the reminders are noise.
+    - When the last question is answered the clock starts from the
+      answer rather than the move, so answering after three days does
+      not make the card instantly overdue and blame the agent for the
+      delay. Escalation restarts at level one, because the agent was
+      blocked rather than idle.
+    - An all-clear tells the agent every question on the card is
+      answered and it is back with them. It is owed once per round of
+      questions, and both it and the level are derived by counting
+      rows rather than stored, so there is no flag to fall out of step.
+    - None of this waits on the agent marking the answers: that is its
+      own business, and waiting for it would let an agent dodge the
+      reminders forever by never marking anything.
+    - Notification databases written before this release are migrated
+      in place rather than started again.
+
 0.82  2026-08-09
     - A card waiting on somebody is drawn yellow, in either direction: a
       question nobody has answered waits on the owner, an answer nobody

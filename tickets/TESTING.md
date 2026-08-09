@@ -1729,3 +1729,26 @@ report, message 2915 — three connected findings).
   the documentation edits.
 - Functional PASS `Files=60, Tests=2224`; coverage `100.0%` all three
   modules; `prove -T` PASS.
+
+## Latest Verification For `DD-475`
+
+- Red-first `t/60-blocked-cards.t` (24 checks): both cards overdue to
+  begin with, a question taking one out of scope however long it waits,
+  answering handing it back without it being instantly overdue,
+  escalation restarting at one, an all-clear owed once and then not
+  again until new questions are asked and answered, the all-clear
+  reaching the composed message, a discarded question blocking nothing,
+  an agent unable to dodge reminders by never marking, a project
+  missing a board still readable, and a pre-release database migrated
+  in place rather than discarded.
+- One ordering fault of my own: the test recorded an all-clear before
+  checking one was owed, so the check was answered by the test's own
+  bookkeeping. Reordered.
+- **Coverage is 2670/2671 statements, one short of the mandatory 100%,
+  and I am reporting it rather than rounding it away.** Subroutine
+  coverage is 100% and `prove -T` passes. I could not locate the single
+  statement: the HTML report renders 2177 line-rows for 2671
+  statements, so the uncovered one shares a line with a covered one,
+  and the `Devel::Cover::DB` API failed against this version. Four
+  guesses were wrong. Raised as `DD-477` rather than guessed at a fifth
+  time.

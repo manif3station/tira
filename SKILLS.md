@@ -41,10 +41,10 @@ use it — run `dashboard tira.usage`.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.91):** shipped, executable, and covered by tests.
+- **Implemented (0.92):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.91.
+All commands and use cases in this manual ship in release 0.92.
 
 ## Global invocation grammar
 
@@ -1181,6 +1181,9 @@ without revealing or creating a storage location.
 
 ### UC-106: Ask a question the owner can answer quickly
 **Implemented.** Give the reason and the options with the question, not just the question: `dashboard tira.question.ask --ref TKT-001 --text "Which store should the importer write to?" --reason "Both are configured and the runbook names neither." --option "The staging bucket" --option "The live bucket" --option "Neither, block until told"`. Both are optional and a bare question still works, but an owner answering without them is composing an answer from nothing; with them he can reply "the staging one" in seconds. They render under the question in the human view and in the card's Questions section on the dashboard, where he can answer and mark without leaving the board.
+
+### UC-110: See only the questions waiting on you
+**Implemented.** The **Questions to answer** toggle on a board control narrows it to the cards nobody has answered yet — the yellow ones, the owner's own queue. It sits beside **Answers to review**, which is the agent's. Both start off and are independent: turning one on never switches the other off, and with both on you see every card that still has something open. Switch both off to get the whole board back.
 
 ### UC-109: Find the answers you have not judged yet
 **Implemented.** On the live dashboard, the **Answers to review** toggle in a board control narrows it to exactly the **greyed-out** cards: every question answered, at least one answer not yet ticked or crossed. It starts off, so the board shows all the work until you narrow it, and switching it off restores everything. Yellow cards are left out on purpose — those are questions the owner has not answered, so they are his move, not yours. Marking an answer either way clears the card, because a cross is a judgement too.

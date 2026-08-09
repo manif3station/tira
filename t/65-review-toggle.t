@@ -75,13 +75,18 @@ ok( flags('marked')->{to_review}, 'and then there is' );
 my $html = $tira->format_output(
     $tira->dashboard( project => $root, type => 'ticket', summary => 1, with_questions => 1 ),
     output => 'table', project => $root, live => 1 );
-like( $html, qr/class="board-review"/, 'the board control offers the toggle' );
-like( $html, qr/aria-pressed="false"/, 'switched off, so the board shows everything to begin with' );
+like( $html, qr/data-queue="review"/, 'the board control offers the review toggle' );
+like( $html, qr/data-queue="answer"/, 'and one for the questions still to answer' );
+like( $html, qr/Questions to answer/, 'named for whose queue it is' );
+like( $html, qr/Answers to review/, 'as is the other' );
+is( scalar( () = $html =~ /aria-pressed="false"/g ), 2,
+    'both switched off, so the board shows everything to begin with' );
 like( $html, qr/card--to-review/, 'a card with an answer to judge is marked as such' );
-like( $html, qr/let reviewOnly=false/, 'and the filter starts off' );
-like( $html, qr/\Q!reviewOnly||item.querySelector(".card--to-review")\E/,
-    'the toggle narrows the same render that owns filtering, paging and counts' );
-like( $html, qr/data-review/, 'every board carries the control' );
+like( $html, qr/queues=\{answer:false,review:false\}/, 'and both filters start off' );
+like( $html, qr/queueClass=\{answer:"\.card--waiting",review:"\.card--to-review"\}/,
+    'each queue is one of the two card states, so a button cannot mean something else' );
+like( $html, qr/on\.some\(name=>item\.querySelector\(queueClass\[name\]\)\)/,
+    'and both narrow the same render that owns filtering, paging and counts' );
 
 done_testing;
 

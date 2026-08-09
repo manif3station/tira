@@ -1921,3 +1921,17 @@ report, message 2915 — three connected findings).
   doing what it was written for.
 - Functional PASS `Files=66, Tests=2614`; coverage `100.0%` all three
   modules; `prove -T` PASS.
+
+## Latest Verification For `DD-487`
+
+- `t/65` asserts both buttons, both named for whose queue they are,
+  both starting off, and the mapping from each queue to its card state
+  so a button cannot come to mean something else.
+- Browser guard extended: the owner's queue shows exactly the yellow
+  cards, turning one on does not switch the other off, both on shows
+  the union, both off restores the board.
+- **Both new guards verified in the failing direction**: pointing the
+  answer queue at the wrong card class fails it, and making the buttons
+  mutually exclusive fails it. Green twice on the real build.
+- Functional PASS `Files=66, Tests=2617`; coverage `100.0%` all three
+  modules; `prove -T` PASS; fixtures cleaned.

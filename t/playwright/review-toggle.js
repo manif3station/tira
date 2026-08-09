@@ -34,8 +34,10 @@ process.on('unhandledRejection', e => { console.error('FAIL: ' + (e && e.message
   if (reviewable.length !== 2) fail('expected two cards awaiting judgement, got ' + reviewable.length);
 
   // Off by default: a board must show all the work until somebody narrows it.
-  const button = page.locator('.board--ticket .board-review');
+  const button = page.locator('.board--ticket [data-queue="review"]');
+  const answerButton = page.locator('.board--ticket [data-queue="answer"]');
   if (await button.count() !== 1) { fail('the board control has no review toggle'); await browser.close(); return; }
+  if (await answerButton.count() !== 1) { fail('the board control has no questions-to-answer toggle'); await browser.close(); return; }
   if (await button.getAttribute('aria-pressed') !== 'false') fail('the toggle should start off');
 
   await button.click();
@@ -56,6 +58,32 @@ process.on('unhandledRejection', e => { console.error('FAIL: ' + (e && e.message
   await page.waitForTimeout(150);
   const restored = await visible();
   if (restored.length !== everything.length) fail('switching off did not restore every card');
+
+  // The owner's own queue: the cards waiting on him, which is the yellow ones.
+  const waitingOnOwner = await page.locator('.board--ticket .card--waiting').evaluateAll(
+    nodes => nodes.map(n => n.dataset.ref));
+  if (!waitingOnOwner.length) fail('this fixture needs a card waiting on the owner');
+  await answerButton.click();
+  await page.waitForTimeout(150);
+  const mine = await visible();
+  if (mine.sort().join(',') !== waitingOnOwner.sort().join(','))
+    fail('questions-to-answer showed ' + mine.join(',') + ' rather than ' + waitingOnOwner.join(','));
+
+  // Both on means every card with something still open, and neither button
+  // silently switches the other off.
+  await button.click();
+  await page.waitForTimeout(150);
+  if (await answerButton.getAttribute('aria-pressed') !== 'true')
+    fail('turning on one queue switched the other off');
+  const both = await visible();
+  const expected = [...new Set([...waitingOnOwner, ...reviewable])];
+  if (both.sort().join(',') !== expected.sort().join(','))
+    fail('both queues showed ' + both.join(',') + ' rather than ' + expected.join(','));
+
+  await button.click();
+  await answerButton.click();
+  await page.waitForTimeout(150);
+  if ((await visible()).length !== everything.length) fail('turning both off did not restore the board');
 
   await browser.close();
   if (!process.exitCode) console.log('review toggle: all checks passed (' + reviewable.length + ' of ' + everything.length + ')');

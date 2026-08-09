@@ -137,12 +137,19 @@ answered.
 - **Search matches** question text, answer text and question references, so
   `tira.search --text Q-007` finds the card it lives on.
 
-### Finding answers you have not judged yet
+### Finding the work that is yours
 
-A board control carries an **Answers to review** toggle. Switched on, the board
-shows only cards whose questions have been answered but **not yet marked** —
-the answers waiting for you to accept or reject. Switched off, which is how it
-starts, the board shows everything.
+A board control carries two toggles, one for each side of a question:
+
+- **Questions to answer** — the cards nobody has answered yet. The owner's
+  queue: these are the yellow ones.
+- **Answers to review** — every question answered, at least one not yet ticked
+  or crossed. The agent's queue: these are the greyed-out ones.
+
+Both start off, so a board shows all the work until somebody narrows it. They
+are independent, so turning one on never silently turns the other off: with
+both on you get every card that still has something open, which is the third
+useful view rather than an accident.
 
 These are exactly the **greyed-out** cards: everything answered, something
 still unjudged. Yellow cards — questions the owner has not answered — are his

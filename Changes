@@ -1,5 +1,21 @@
 Revision history for Tira
 
+0.98  2026-08-09
+    - `tira.question.voice` accepts `--file`, which is what every other
+      command in Tira calls a path. Inventing `--voice` for this one
+      was my inconsistency, and an agent's correct instinct failed
+      twenty-seven times against it. `--voice` still works.
+    - `tira.attachment.list` counts every file on a card, wherever it
+      is attached: to the card, to a comment, or as a voice note on a
+      question. Each entry says which. It counted only the first, so a
+      card whose files hung off comments reported zero and was read as
+      broken - a count that says zero when files exist is a lie by
+      omission.
+    - Every example in both manuals is now run through the real parser
+      against a project containing the references the examples name.
+      Checking that a flag was mentioned somewhere had passed happily
+      against an example that could never work.
+
 0.97  2026-08-09
     - Creating a record now says what it still owes: no description, no
       reporter, no gate, and no question where something is unclear.

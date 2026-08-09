@@ -1195,11 +1195,11 @@ sub _invoke {
         return $summary;
     }
     if ( $command eq 'question.voice' ) {
-        die "Use only one of --file or --remove\n"
-          if defined $option->{voice} && $option->{remove};
+        my $path = $option->{file} // $option->{voice};
+        die "Use only one of --file or --remove\n" if defined $path && $option->{remove};
         return $tira->question_voice(
             project => $args{project}, id => $option->{id},
-            file => $option->{voice}, remove => $option->{remove} );
+            file => $path, remove => $option->{remove} );
     }
     if ( $command =~ /\Aquestion\.(ask|list|answer|update|mark|discard)\z/ ) {
         my $action = $1;

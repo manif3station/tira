@@ -2001,3 +2001,31 @@ report, message 2915 — three connected findings).
   it, so the data contract is intact and agents still get the advice.
 - Functional PASS `Files=69, Tests=2712`; coverage `100.0%` all three
   modules; `prove -T` PASS.
+
+## Latest Verification For `DD-493`
+
+- `t/69-attachment-count.t` (9 checks): a card whose only file hangs off
+  a comment not reporting zero, a voice note on a question counting,
+  all three counted together, each entry naming where it lives, the
+  plain list agreeing with the count, a genuinely empty card still
+  reporting zero, and a discarded question keeping its recording
+  counted because the file still exists.
+- `t/70-doc-examples.t` runs every example in both manuals through the
+  real parser. **It took three attempts to make it catch the actual
+  bug, and each failure was worth recording**: checking the flag exists
+  anywhere is useless (`--file` always existed, just not on that
+  command); checking for a rejection is useless (nothing was rejected —
+  the flag was ignored and the file reported missing); checking for the
+  *contradiction* works. The fixture also had to contain `TKT-001` and
+  `Q-007`, or every example failed on a missing reference before
+  reaching the flag under test — which is how the first version passed
+  against the very build it was written to catch.
+- **Verified in the failing direction**: with `--file` support removed
+  it fails with `passes --file yet is told it is missing -> A voice
+  note needs a file`.
+- A coverage run again reported low numbers because a backgrounded gate
+  was writing to the same `cover_db`. Re-measured clean: 100% on all
+  three. That is the third time today; overlapping coverage runs are
+  never trustworthy.
+- Functional PASS `Files=71, Tests=2732`; coverage `100.0%` all three
+  modules; `prove -T` PASS.

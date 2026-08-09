@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.97';
+our $VERSION = '0.98';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -2784,6 +2784,26 @@ sub _attachment_content_type {
     return 'application/octet-stream';
 }
 
+# DD-493: a file on a card can live in three places - on the card, on a comment,
+# or as a voice note on a question. Counting only the first meant a card whose
+# files all hung off comments reported zero, and an agent read that zero as
+# failure and went looking for a bug that was not there. A count that says zero
+# when files exist is a lie by omission, so this looks everywhere and says where
+# each one was found.
+sub _record_attachments {
+    my ($record) = @_;
+    my @found = map { { %{$_}, attached_to => 'card' } } @{ $record->{attachments} // [] };
+    for my $comment ( @{ $record->{comments} // [] } ) {
+        push @found, map { { %{$_}, attached_to => "comment $comment->{id}" } }
+          @{ $comment->{attachments} // [] };
+    }
+    for my $question ( @{ $record->{questions} // [] } ) {
+        next if !$question->{voice};
+        push @found, { %{ $question->{voice} }, attached_to => "question $question->{id}" };
+    }
+    return \@found;
+}
+
 sub attachment_list {
     my ( $self, %args ) = @_;
     my $meta_only = delete $args{meta_only};
@@ -2804,7 +2824,7 @@ sub attachment_list {
             }
             $keep = { map { $_ => 1 } @names };
         }
-        my $references = $self->record_show(%args)->{attachments};
+        my $references = _record_attachments( $self->record_show(%args) );
         if ( defined $since ) {
             my $threshold = _epoch_of_datetime( $since, 'Since' );
             $references = [ grep {
@@ -2839,7 +2859,7 @@ sub attachment_list {
         $total_size += $_->{size} // 0 for @entries;
         return { attachments => \@entries, count => scalar @entries, total_size => $total_size };
     }
-    return $self->record_show(%args)->{attachments} if defined $args{ref};
+    return _record_attachments( $self->record_show(%args) ) if defined $args{ref};
     my $root = $self->discover_project(%args);
     my $dir = File::Spec->catdir( $root, '.tira', 'attachments' );
     opendir my $dh, $dir or die "Cannot read attachments: $!\n";

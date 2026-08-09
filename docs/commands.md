@@ -102,7 +102,7 @@ Tira keeps it and serves it.
 | Argument | Required | What it is for |
 | --- | --- | --- |
 | `--id Q-NNN` | yes | The question. |
-| `--voice FILE` | one of these two | A local path to the recording. `mp3`, `wav`, `m4a`, `ogg`, `oga`, `opus` or `flac`. |
+| `--file FILE` | one of these two | A local path to the recording. `mp3`, `wav`, `m4a`, `ogg`, `oga`, `opus` or `flac`. `--voice` is accepted as well. |
 | `--remove` | one of these two | Take the recording off, for when it is simply wrong. |
 | `-o FORMAT` | no | As above. |
 
@@ -157,6 +157,14 @@ takes the recording too, precisely so this never needs to be two.
 
 A question that owes nothing carries no reminder at all. One that is always
 there is furniture, and gets ignored like furniture.
+
+### Where a card's files actually live
+
+`tira.attachment.list --ref TKT-001` counts every file on the card, wherever it
+is attached: to the card itself, to one of its comments, or as a voice note on
+one of its questions. Each entry carries `attached_to` saying which. A count of
+zero therefore means there is genuinely nothing, rather than nothing in the
+first of three places.
 
 ### Reminders on a new record
 

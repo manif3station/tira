@@ -1,5 +1,17 @@
 Revision history for Tira
 
+0.86  2026-08-09
+    - The waiting yellow appeared for about a second and then vanished.
+      The page is served with the colour already painted, and the live
+      refresh then rebuilds every card from `/data` - but that payload
+      was assembled with its own options and never asked for question
+      state, so every rebuilt card came back unmarked. The refresh now
+      carries it, and an explicit request beats the format guess.
+    - The question view named only the card's reference. The report
+      asked for its title as `ticket.show` renders it, so somebody
+      reading the questions knows which card they belong to. It does
+      now.
+
 0.85  2026-08-09
     - A question can now carry the reason it is being asked and the
       options the agent can see, not just its text. Both optional, both

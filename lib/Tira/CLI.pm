@@ -192,6 +192,7 @@ sub run {
             my %data_option = %option;
             $data_option{output} = 'toon';
             $data_option{include_mtime} = 1;
+            $data_option{with_questions} = 1;
             my $dashboard = _invoke( $tira, $command, $type, \%data_option );
             return $tira->format_output( $dashboard, output => 'json', project => $option{project} );
         };
@@ -1279,7 +1280,8 @@ sub _invoke {
         # A board somebody is looking at must show which cards are waiting,
         # whether or not they asked for titles. The ref-only path an agent
         # queries stays untouched.
-        $args{with_questions} = $option->{output} eq 'table' || $option->{output} =~ /\Abrowser(?:=|\z)/;
+        $args{with_questions} = $option->{with_questions}
+          // ( $option->{output} eq 'table' || $option->{output} =~ /\Abrowser(?:=|\z)/ );
         $args{include_mtime} = $option->{include_mtime} || $option->{output} eq 'table' || $option->{output} =~ /\Abrowser(?:=|\z)/;
     }
     $args{include_deleted} = $option->{include_deleted} if $command eq 'attachment.list';

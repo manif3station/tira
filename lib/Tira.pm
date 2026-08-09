@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.85';
+our $VERSION = '0.86';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -2402,7 +2402,8 @@ sub question_list {
             ( eval { _epoch_of_datetime( _question_changed_at($_), 'Question stamp' ) } // 0 ) >= $since
         } @questions if defined $since;
         return {
-            ref => $args{ref}, type => $type, questions => \@questions,
+            ref => $args{ref}, type => $type, title => $record->{title},
+            questions => \@questions,
             instruction => 'If an answer settles it, run tira.question.mark --mark ok. '
               . 'If it does not, run tira.question.mark --mark not-ok AND ask a new one '
               . 'with tira.question.ask - a cross on its own settles nothing. '
@@ -3687,7 +3688,9 @@ sub _markdown {
     # record and drawn as a card with no title. The person who owns the
     # decision reads this view, not the JSON, so it is the one that matters.
     if ( ref($data) eq 'HASH' && ref( $data->{questions} ) eq 'ARRAY' && exists $data->{instruction} ) {
-        my $heading = "# Questions on $data->{ref}\n\n";
+        my $heading = '# Questions on ' . $data->{ref}
+          . ( defined $data->{title} && $data->{title} ne '' ? ": $data->{title}" : '' )
+          . "\n\n";
         return $heading . "_No questions have been asked about this card._\n"
           if !@{ $data->{questions} };
         my $body = '';

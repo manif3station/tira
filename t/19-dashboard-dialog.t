@@ -190,6 +190,19 @@ for my $payload ( undef, [], { type => 'ticket' }, { type => 'ticket', columns =
     like( $error, qr/layout|object/i, 'a malformed column layout is refused' );
 }
 
+# DD-480: the live refresh rebuilds every card, so if its payload omits the
+# waiting flag the yellow the page was served with is wiped a second later.
+{
+    my $asked = $tira->question_add(
+        project => $root, ref => 'TKT-001', text => 'Does the refresh keep the colour?' );
+    my $refreshed = decode_json( $calls->[0]{data}->() );
+    my ($card) = grep { $_->{ref} eq 'TKT-001' }
+      map { @{$_} } values %{ $refreshed->{ticket} };
+    ok( $card, 'the refresh payload carries the card' );
+    ok( $card->{waiting}, 'and says it is waiting, so the colour survives the refresh' );
+    $tira->question_discard( project => $root, id => $asked->{id} );
+}
+
 # DD-479: the owner reads and answers questions where he reads the card
 like( $live_html, qr/const renderQuestions=/, 'the dialog builds a questions section' );
 like( $live_html, qr/card-question__reason/, 'showing why the question was asked' );

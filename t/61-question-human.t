@@ -42,7 +42,8 @@ my $question = $tira->question_add( project => $root, ref => $card->{ref},
 @warnings = ();
 my $listed = human( $tira->question_list( project => $root, ref => $card->{ref} ) );
 is_deeply( \@warnings, [], 'listing questions warns about nothing' );
-like( $listed, qr/# Questions on \Q$card->{ref}\E/, 'the heading says what this is' );
+like( $listed, qr/# Questions on \Q$card->{ref}\E: Importer work/,
+    'the heading names the card the way ticket.show does, title and all' );
 unlike( $listed, qr/- Type:/, 'and it is not drawn as a card, which is what it was doing' );
 like( $listed, qr/\Q$question->{id}\E/, 'the question is named' );
 like( $listed, qr/Which credentials should this use\?/, 'the question is shown' );
@@ -69,7 +70,8 @@ like( human( $tira->question_list( project => $root, ref => $card->{ref} ) ), qr
 # A card nobody asked about should say that, not print an empty card.
 @warnings = ();
 my $empty = human( $tira->question_list( project => $root, ref => $bare->{ref} ) );
-like( $empty, qr/# Questions on \Q$bare->{ref}\E/, 'a card with no questions still names itself' );
+like( $empty, qr/# Questions on \Q$bare->{ref}\E: Nothing asked/,
+    'a card with no questions still names itself, with its title' );
 like( $empty, qr/No questions have been asked/, 'and says there are none' );
 unlike( $empty, qr/- Type:|- Assignee:/, 'rather than printing a blank card' );
 is_deeply( \@warnings, [], 'and warns about nothing' );

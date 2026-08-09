@@ -1793,3 +1793,26 @@ report, message 2915 — three connected findings).
   re-measure: 100% CLI and web, engine at the known 2670/2671. This is
   the second time today; two coverage runs must never overlap.
 - Functional PASS `Files=62, Tests=2303`; `prove -T` PASS.
+
+## Latest Verification For `DD-480`
+
+- `t/59-waiting-cards.t` gained the case that matters: a board served
+  through the real command with **no** `--title`, its refresh payload
+  inspected for the waiting flag, and asserted to carry no titles
+  nobody asked for.
+- **Verified in the failing direction**: with the one-line fix removed
+  the new case fails; restored, it passes.
+- **My first guard for this was worthless and I caught it before
+  trusting it.** It used the dialog fixture, which passes `--title` —
+  and titles already force the read that computes the flag — so it
+  passed with the fix removed. That is the third guard this session
+  that needed checking in the failing direction before it meant
+  anything.
+- Re-read `tickets/REPORT-2026-08-09-question-list-human-output.md`
+  against a live run of all four criteria rather than against my
+  memory of them. Three were met; the second was not — the view named
+  the card's reference but not its title, and my own test had asserted
+  the reference alone, so it passed while missing the criterion's
+  point. Fixed and the assertion tightened.
+- Functional PASS `Files=62, Tests=2309`; coverage 100% CLI and web,
+  engine at the known 2670/2671; `prove -T` PASS.

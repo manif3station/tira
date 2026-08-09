@@ -5,10 +5,12 @@ use warnings;
 
 use File::Spec;
 use File::Temp qw(tempdir);
+use JSON::PP qw(decode_json);
 use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $tick = '2026-08-09T09:00:00Z';
@@ -121,6 +123,34 @@ like( $html, qr/\.card--waiting\{/, 'the stylesheet says what that looks like' )
     $counting->dashboard( project => $root, type => 'ticket', summary => 1, with_title => 1 );
     is_deeply( [ grep { $opened{$_} > 1 } keys %opened ], [],
         'no card is read twice to fetch its title and its state' );
+}
+
+# DD-480: the owner opens a board without asking for titles, the page paints
+# yellow from the server-rendered HTML, and a second later the refresh rebuilds
+# every card from /data. If that payload omits the flag the colour vanishes -
+# which is exactly what he saw.
+{
+    my $captured;
+    my ( $out, $err ) = ( '', '' );
+    open my $stdout, '>', \$out or die $!;
+    open my $stderr, '>', \$err or die $!;
+    {
+        local *STDOUT = $stdout;
+        local *STDERR = $stderr;
+        Tira::CLI->run(
+            command => 'dashboard', type => 'ticket',
+            argv => [ '--project', $root, '-o', 'browser' ],
+            browser_server => sub { my %given = @_; $captured = \%given; return 1 },
+        );
+    }
+    ok( $captured, 'the board was served without titles being asked for' );
+    my $payload = decode_json( $captured->{data}->() );
+    my ($card) = grep { $_->{ref} eq $asked->{ref} }
+      map { @{$_} } values %{ $payload->{ticket} };
+    ok( $card, 'the refresh payload carries the waiting card' );
+    ok( $card->{waiting},
+        'and still says it is waiting, so the refresh does not wipe the colour' );
+    ok( !exists $card->{title}, 'without having fetched titles nobody asked for' );
 }
 
 done_testing;

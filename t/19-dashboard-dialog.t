@@ -55,7 +55,11 @@ like( $live_html, qr/card-status/, 'the dialog header offers the column dropdown
 like( $live_html, qr/querySelector\("\.column__name"\)/,
     'the column dropdown labels come from the column name, not the whole header (DD-445)' );
 like( $live_html, qr/class="board-filter"/, 'the board control offers a keyword filter (DD-456)' );
-like( $live_html, qr{fetch\("/search\?type="}, 'the filter asks the server, so it matches beyond the visible title' );
+like( $live_html, qr{fetch\("/search\?text="}, 'the filter asks the server, so it matches beyond the visible title' );
+unlike( $live_html, qr{fetch\("/search\?type="},
+    'and asks about the whole project rather than one board, because a question reference can name a card on any of them (DD-472)' );
+like( $live_html, qr/document\.querySelectorAll\("\[data-filter\]"\)\.forEach/,
+    'every board box shows the same text, since there is only one filter' );
 like( $live_html, qr/const pageSize=10;/, 'columns start with ten cards' );
 like( $live_html, qr/Show "\+Math\.min\(remaining,pageSize\)\+" more of "\+remaining/,
     'and offer to reveal the next ten, saying how many remain' );

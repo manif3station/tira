@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.80';
+our $VERSION = '0.81';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -1559,7 +1559,15 @@ sub record_list {
             my $parent = $record->{parent} // '';
             return if defined $args{parent} && $parent ne $args{parent};
             if ( defined $args{text} ) {
-                my $haystack = join ' ', $record->{ref}, $record->{title}, $record->{description};
+
+                # Questions are searchable too: their text, their answers, and
+                # their references, so quoting Q-007 finds the card it lives on
+                # without anybody remembering which one that was.
+                my $haystack = join ' ', $record->{ref}, $record->{title}, $record->{description},
+                  map {
+                    ( $_->{id} // '' ), ( $_->{text} // '' ),
+                      ( $_->{answer} ? $_->{answer}{text} // '' : '' )
+                  } @{ $record->{questions} // [] };
                 return if index( lc $haystack, lc $args{text} ) < 0;
             }
             return if defined $threshold && !_changed_since( $record, $threshold );
@@ -3506,7 +3514,7 @@ CSS
       . '</main>' . $dialog
       . q~<script>const pageSize=10;const pageState=new Map();const filterState=new Map();const columnKey=list=>list.closest(".board").dataset.type+"::"+list.dataset.column;
 const renderColumns=()=>{document.querySelectorAll(".board").forEach(board=>{const matches=filterState.get(board.dataset.type);board.querySelectorAll(".cards").forEach(list=>{const key=columnKey(list);const limit=pageState.get(key)||pageSize;const items=[...list.children];const matched=items.filter(item=>!matches||matches.has(item.dataset.ref));items.forEach(item=>{item.hidden=true});matched.slice(0,limit).forEach(item=>{item.hidden=false});const cell=list.parentElement;let more=cell.querySelector(".column__more");if(!more){more=document.createElement("button");more.type="button";more.className="column__more";more.setAttribute("data-more-for",list.dataset.column);more.onclick=()=>{pageState.set(key,(pageState.get(key)||pageSize)+pageSize);renderColumns()};list.insertAdjacentElement("afterend",more)}const remaining=matched.length-Math.min(limit,matched.length);more.textContent="Show "+Math.min(remaining,pageSize)+" more of "+remaining;more.hidden=remaining<=0;const badge=board.querySelector('[data-count-for="'+list.dataset.column+'"]');if(badge){const total=matched.length;badge.textContent=total?String(total):"";badge.hidden=total===0}})})};
-const applyFilter=(type,text)=>{const board=document.querySelector(".board--"+type);if(!board)return Promise.resolve();pageState.clear();if(!text){filterState.delete(type);renderColumns();return Promise.resolve()}return fetch("/search?type="+encodeURIComponent(type)+"&text="+encodeURIComponent(text),{cache:"no-store"}).then(response=>{if(!response.ok)throw new Error("filter failed");return response.json()}).then(refs=>{filterState.set(type,new Set(refs));window.__tiraFilterSeq=(window.__tiraFilterSeq||0)+1;renderColumns()}).catch(()=>{filterState.set(type,new Set());renderColumns()})};
+const applyFilter=(type,text)=>{document.querySelectorAll("[data-filter]").forEach(box=>{if(box.value!==text)box.value=text});pageState.clear();if(!text){filterState.clear();renderColumns();return Promise.resolve()}return fetch("/search?text="+encodeURIComponent(text),{cache:"no-store"}).then(response=>{if(!response.ok)throw new Error("filter failed");return response.json()}).then(refs=>{const found=new Set(refs);document.querySelectorAll(".board").forEach(board=>filterState.set(board.dataset.type,found));window.__tiraFilterSeq=(window.__tiraFilterSeq||0)+1;renderColumns()}).catch(()=>{filterState.clear();renderColumns()})};
 const updateColumnCounts=()=>renderColumns();const sortBoard=(board,mode)=>{board.querySelectorAll(".cards").forEach(list=>{const cards=[...list.children];cards.sort((a,b)=>mode==="ref"?a.dataset.ref.localeCompare(b.dataset.ref):(Number(b.dataset.mtime)-Number(a.dataset.mtime)||a.dataset.ref.localeCompare(b.dataset.ref)));cards.forEach(card=>list.appendChild(card))});board.querySelectorAll("[data-sort]").forEach(button=>button.classList.toggle("is-active",button.dataset.sort===mode));document.documentElement.dataset.sort=mode};const widthStorageKey="tira-column-width";const readStoredWidth=()=>{try{return localStorage.getItem(widthStorageKey)}catch(error){return null}};const storeWidth=mode=>{try{localStorage.setItem(widthStorageKey,mode)}catch(error){}};const applyWidth=(mode,persist)=>{const chosen=mode==="fit"?"fit":"standard";document.documentElement.dataset.width=chosen;document.querySelectorAll("[data-width]").forEach(button=>button.classList.toggle("is-active",button.dataset.width===chosen));if(persist)storeWidth(chosen)};~ . $live_helpers . $column_editor
       . q~const bindBoards=()=>{document.querySelectorAll(".card").forEach(card=>{~ . $card_binding
       . q~});document.querySelectorAll(".board").forEach(board=>board.querySelectorAll("[data-sort]").forEach(button=>button.onclick=()=>sortBoard(board,button.dataset.sort)));document.querySelectorAll("[data-width]").forEach(button=>button.onclick=()=>applyWidth(button.dataset.width,true));document.querySelectorAll("[data-add-card]").forEach(button=>button.onclick=()=>openNewCard(button.closest(".board").dataset.type,button.dataset.addCard));document.querySelectorAll("[data-filter]").forEach(input=>{if(input.dataset.bound)return;input.dataset.bound="1";let timer=null;input.oninput=()=>{if(timer)clearTimeout(timer);timer=setTimeout(()=>applyFilter(input.dataset.filter,input.value.trim()),200)}})};const markUpdated=()=>{document.querySelector(".last-updated").textContent=`Last updated: ${new Date().toLocaleString()}`};document.documentElement.dataset.sort="mtime";bindBoards();updateColumnCounts();applyWidth(readStoredWidth(),false);document.documentElement.dataset.ready="true";markUpdated();const params=new URLSearchParams(location.search);const rawRefresh=params.get("refresh");const refreshSeconds=/^\d+$/.test(rawRefresh||"")?Math.max(1,Number(rawRefresh)):60;document.documentElement.dataset.refresh=String(refreshSeconds);document.querySelector(".refresh-status").textContent=`Refresh ${refreshSeconds}s`;const refreshDashboard=()=>~ . $refresh_action

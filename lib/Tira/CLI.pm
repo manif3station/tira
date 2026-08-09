@@ -334,6 +334,9 @@ sub browser_providers {
         },
         search => sub {
             my ($query) = @_;
+
+            # No type: the board filter searches the whole project, because a
+            # question reference can name a card on any board.
             return $json->encode( [] ) if !defined $query->{text} || $query->{text} eq '';
             return $json->encode(
                 $tira->search(

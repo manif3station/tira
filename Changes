@@ -1,5 +1,17 @@
 Revision history for Tira
 
+0.81  2026-08-09
+    - Search matches questions: their text, their answers and their
+      references, alongside everything it matched before. A question
+      reference belongs to the project rather than a board, so quoting
+      `Q-007` finds the card it lives on without anybody remembering
+      which board that was. A discarded question is still found,
+      because it still happened.
+    - The dashboard keyword box now filters all three boards at once.
+      Each board keeps its own input for convenience and they stay in
+      step, so typing a question reference on the ticket board empties
+      it and shows the epic card that owns the question.
+
 0.80  2026-08-09
     - Questions on cards (EPIC-469, first part). An agent that cannot
       move a card can still ask about it, and the answer lives on the

@@ -41,10 +41,10 @@ use it — run `dashboard tira.usage`.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.80):** shipped, executable, and covered by tests.
+- **Implemented (0.81):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.80.
+All commands and use cases in this manual ship in release 0.81.
 
 ## Global invocation grammar
 
@@ -1181,6 +1181,9 @@ without revealing or creating a storage location.
 
 ### UC-102: Read the answers, and say whether they settle it
 **Implemented.** `dashboard tira.question.list --ref TKT-001 -o json` returns every question with its answer underneath, and reading them is what marks them read — you do nothing extra. Each list carries an `instruction` naming your next step. If an answer settles the matter, `dashboard tira.question.mark --id Q-007 --mark ok`. If it does not, mark it `not-ok` **and** ask a new one: a cross on its own settles nothing, and there are no follow-up threads.
+
+### UC-104: Find the card a question was asked on
+**Implemented.** A question reference belongs to the project, not to a board, so quoting it is enough: `dashboard tira.search --text Q-007 -o json` returns the card it lives on whichever board that is. Search also matches the words in a question and the words in its answer, so `--text credentials` finds the card somebody asked about credentials on. A discarded question is still found, because it still happened. On the dashboard the keyword box does the same thing across all three boards at once — typing a question reference on one board empties it and shows the card on the board that owns it.
 
 ### UC-103: Catch up on what changed without re-reading everything
 **Implemented.** `dashboard tira.question.list --ref TKT-001 --status new -o json` shows only what is still unanswered; `--status answered` only what has been answered, and `--status discarded` what was set aside. `--since 2026-08-09T09:00:00Z` reads the answer's stamp when there is an answer and the question's when there is not, so a newly answered question shows up as newly changed. A question reference is project-wide, so `--id Q-007` reaches it from anywhere without naming the card.

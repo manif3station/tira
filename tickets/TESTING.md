@@ -1690,3 +1690,23 @@ report, message 2915 — three connected findings).
   reported as recent.
 - Functional PASS `Files=58, Tests=2192`; coverage `100.0%` all three
   modules; `prove -T` PASS.
+
+## Latest Verification For `DD-472`
+
+- Red-first `t/58-question-search.t` (10 checks): question text, answer
+  text and question reference each finding the card; a card with no
+  questions not dragged in; a discarded question still findable; titles
+  and card references still matching; and an unreadable card not
+  stopping a question being found on another one.
+- `t/19` updated: the filter now asks `/search?text=` with no board, and
+  every board's box shows the same text. The old assertion pinned the
+  per-board URL, so it failed loudly — which is what it was for.
+- **Coverage discipline:** the run sat at 99.9% and I guessed wrong
+  about the cause four times before parsing the coverage report
+  properly, which found it in one command: the branch in
+  `question_answer` that rewords an existing answer was never
+  exercised. Covering it also pinned the stamping rule — rewording
+  stamps `updated_at`, leaves `answered_at` alone, and never touches
+  the question's `asked_at`.
+- Functional PASS `Files=59, Tests=2209`; coverage `100.0%` all three
+  modules; `prove -T` PASS.

@@ -78,6 +78,18 @@ is( $answered->{asked_at}, '2026-08-09T09:00:00Z',
     'and the question stamp never changes, because it is when it was asked' );
 ok( !defined $answered->{answer}{read_at}, 'nobody has read it yet' );
 
+# Answering again rewords the answer: it stamps the answer, never the question.
+$tick = '2026-08-09T11:30:00Z';
+my $reworded = $tira->question_answer(
+    project => $root, id => 'Q-001', text => 'Use the read-only account, not the admin one.' );
+is( $reworded->{answer}{text}, 'Use the read-only account, not the admin one.',
+    'answering again replaces the answer' );
+is( $reworded->{answer}{updated_at}, $tick, 'and stamps when it was changed' );
+is( $reworded->{answer}{answered_at}, '2026-08-09T11:00:00Z',
+    'while when it was first answered stands' );
+is( $reworded->{asked_at}, '2026-08-09T09:00:00Z',
+    'and the question still says when it was asked' );
+
 # Reading is what marks it read - the agent does nothing extra.
 $tick = '2026-08-09T12:00:00Z';
 my $listed = $tira->question_list( project => $root, ref => $card->{ref} );

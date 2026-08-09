@@ -32,8 +32,8 @@ ok( $questions, 'the reference has a questions section to check' );
 # Every question command that actually ships, taken from the entrypoints.
 my @commands = sort map { ( File::Spec->splitdir($_) )[-1] }
   grep { -f } glob 'skills/question/cli/*';
-is_deeply( \@commands, [qw(answer ask discard list mark update)],
-    'the question commands are the six that ship' );
+is_deeply( \@commands, [qw(answer ask discard list mark update voice)],
+    'the question commands are the seven that ship' );
 
 for my $command (@commands) {
     like( $questions, qr/\Qtira.question.$command\E/,
@@ -52,7 +52,7 @@ delete @passed{qw(project)};
 my %flag = (
     ref => '--ref', id => '--id', text => '--text', reason => '--reason',
     options => '--option', mark => '--mark', author => '--author',
-    status => '--status', since => '--since',
+    status => '--status', since => '--since', voice => '--voice',
 );
 for my $key ( sort keys %passed ) {
     my $flag = $flag{$key} or next;
@@ -75,6 +75,8 @@ my %explained = (
     'the agent\'s cards being greyed out' => qr/Greyed out: everything\s+answered/s,
     'clicking a choice to answer' => qr/clicking one answers\s+with it/is,
     'the board and CLI being one path' => qr/same engine\s+subroutine/s,
+    'Tira not making the recording itself' => qr/Tira does not make the\s+recording/s,
+    'the reminders an agent will be given' => qr/Reminders you will be given/,
 );
 for my $what ( sort keys %explained ) {
     like( $questions, $explained{$what}, "the reference explains $what" );

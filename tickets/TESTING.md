@@ -1960,3 +1960,27 @@ report, message 2915 — three connected findings).
   and better than wiping it.
 - Functional PASS `Files=67, Tests=2633`; coverage `100.0%` all three
   modules; `prove -T` PASS.
+
+## Latest Verification For `DD-490` And `DD-491`
+
+- `t/67-question-voice.t` (47 checks): a recording attached while
+  asking and afterwards, kept in the ordinary attachment store byte for
+  byte, the same recording on two questions stored once, replacement
+  leaving the old bytes alone because another question still points at
+  them, removal, and every refusal — not audio, empty, no file, no such
+  question.
+- **A bad recording fails the recording, not the question.** Asserted
+  directly: the question is still asked, because losing it because the
+  audio was wrong would be the wrong trade.
+- Reminders: all three gaps named at once in one line, the reason and
+  the choices sharing a single fix command because they live on one,
+  each gap settling independently, `voice(stale)` after a change,
+  silence when nothing is owed, and the line asserted to be single-line
+  and under 200 characters — because every character is somebody's
+  tokens.
+- **The owner corrected my first version**, which wrote prose for a
+  human reader. These lines are read by an LLM and Tira exists to spend
+  fewer tokens than Jira, so prose was precisely the cost the tool is
+  meant to avoid. Rewritten terse; the length assertion now guards it.
+- Functional PASS `Files=68, Tests=2691`; coverage `100.0%` all three
+  modules; `prove -T` PASS.

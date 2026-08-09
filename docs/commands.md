@@ -91,6 +91,26 @@ choices alone. An explicitly empty `--reason` clears it; `--option ""` alone
 clears the choices. The question keeps its reference and its original time, so
 anybody quoting it is not stranded. Naming none of the three is refused.
 
+### `tira.question.voice`
+
+Attach a recording of the question, so it can be played from the board rather
+than read. **Tira does not make the recording** — it runs no external process,
+which is the rule that lets it be trusted inside another tool. You record it,
+Tira keeps it and serves it.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--id Q-NNN` | yes | The question. |
+| `--voice FILE` | one of these two | A local path to the recording. `mp3`, `wav`, `m4a`, `ogg`, `oga`, `opus` or `flac`. |
+| `--remove` | one of these two | Take the recording off, for when it is simply wrong. |
+| `-o FORMAT` | no | As above. |
+
+`tira.question.ask --voice FILE` attaches one in the same breath as asking. The
+recording is copied into the project's ordinary attachment store and
+deduplicated there, so the same recording on ten questions is one file. A
+recording is never deleted when it is replaced, because another question may be
+pointing at it.
+
 ### `tira.question.mark`
 
 Say whether an answer settles the matter. Separate from having read it: reading
@@ -118,6 +138,24 @@ Nothing in Tira is ever really deleted: the question stays, its answer stays
 underneath it, its status becomes `discarded`, and the board draws it struck
 through. Discarding twice is refused, and a discarded question cannot be
 answered.
+
+### Reminders you will be given
+
+A question that still owes something carries a `reminder` in the response to
+whatever you just did — asking, updating, answering, marking or listing. It is
+one terse line, written for the agent reading it rather than for a person:
+
+    missing: reason,options,voice | fix: tira.question.update --id Q-007 --reason TEXT --option TEXT --option TEXT; tira.question.voice --id Q-007 --file FILE
+
+`missing` names the gaps: `reason` (whoever answers has to guess what you are
+blocked on), `options` (without them the owner composes an answer instead of
+picking one), `voice` or `voice(stale)` (no recording, or one made before the
+question last changed and so reading an older wording). `fix` is the commands
+that settle them, references filled in, on one line — the reason and the
+choices share a command because they live on one.
+
+A question that owes nothing carries no reminder at all. One that is always
+there is furniture, and gets ignored like furniture.
 
 ### What questions do to the rest of Tira
 

@@ -1,5 +1,24 @@
 Revision history for Tira
 
+0.95  2026-08-09
+    - A question can carry a voice note, so the owner can hear it
+      instead of reading it. `tira.question.ask --voice FILE` attaches
+      one while asking; `tira.question.voice` adds, replaces or removes
+      one afterwards. **Tira does not make the recording** - it runs no
+      external process, and that rule is worth more than the
+      convenience. The agent records; Tira stores it in the ordinary
+      content-addressed attachment store, where the same recording on
+      ten questions is one file, and the board plays it through the
+      route that already serves attachments.
+    - A question that still owes something now says so, in the response
+      to whatever was just done: no reason, no choices, no recording,
+      or a recording made before the question last changed. It is one
+      terse line naming every gap and the commands that close them,
+      references filled in - written for the agent reading it rather
+      than for a person, because these lines cost tokens and spending
+      fewer of them is what Tira is for.
+    - A question that owes nothing carries no reminder at all.
+
 0.94  2026-08-09
     - The questions section sat under the comments, so on a card with
       twenty comments the one part needing an answer was the part you

@@ -43,6 +43,7 @@ sub run {
         'nested' => \$option{nested},
         'mark=s' => \$option{mark},
         'reason=s' => \$option{reason}, 'option=s@' => \$option{options},
+        'voice=s' => \$option{voice}, 'remove' => \$option{remove},
         'collector=s' => \$option{collector}, 'agent=s' => \$option{agent},
         'session=s' => \$option{session}, 'heartbeat=s' => \$option{heartbeat},
         'outward=s' => \$option{outward}, 'inward=s' => \$option{inward},
@@ -1084,6 +1085,10 @@ sub _invoke {
     die "A reason and options belong to the question.ask and question.update commands\n"
       if ( defined $option->{reason} || $option->{options} )
       && $command !~ /\Aquestion\.(?:ask|update)\z/;
+    die "A voice note belongs to the question.ask and question.voice commands\n"
+      if defined $option->{voice} && $command !~ /\Aquestion\.(?:ask|voice)\z/;
+    die "Remove belongs to the question.voice command\n"
+      if $option->{remove} && $command ne 'question.voice';
     die "Watch is available on the column.update command\n"
       if defined $option->{watched} && $command ne 'column.update';
     die "Notify-after is available on the column.update, project.update, project.new and onboard commands\n"
@@ -1188,6 +1193,13 @@ sub _invoke {
             }
         }
         return $summary;
+    }
+    if ( $command eq 'question.voice' ) {
+        die "Use only one of --file or --remove\n"
+          if defined $option->{voice} && $option->{remove};
+        return $tira->question_voice(
+            project => $args{project}, id => $option->{id},
+            file => $option->{voice}, remove => $option->{remove} );
     }
     if ( $command =~ /\Aquestion\.(ask|list|answer|update|mark|discard)\z/ ) {
         my $action = $1;

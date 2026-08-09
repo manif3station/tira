@@ -1,5 +1,17 @@
 Revision history for Tira
 
+0.94  2026-08-09
+    - The questions section sat under the comments, so on a card with
+      twenty comments the one part needing an answer was the part you
+      scrolled furthest to reach. It now sits second, directly after
+      the card's details: what the card is, then what is blocking it,
+      then everything else. The owner asked for it above the comments;
+      checking the real order in a browser showed a dozen sections
+      between the top and the comments, so that alone would not have
+      fixed what he was complaining about.
+    - Dialog sections are named in the markup, so one can be found
+      without matching on its heading text.
+
 0.93  2026-08-09
     - A live dashboard now picks up a new Tira by itself. Ten boards
       open used to mean ten to go and restart after every update, which

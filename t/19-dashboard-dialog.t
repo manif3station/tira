@@ -203,6 +203,17 @@ for my $payload ( undef, [], { type => 'ticket' }, { type => 'ticket', columns =
     $tira->question_discard( project => $root, id => $asked->{id} );
 }
 
+# DD-489: questions sat under the comments, so on a card with twenty of them
+# the one section needing an answer was the furthest to scroll to.
+like( $live_html, qr/box\.dataset\.section=title\.toLowerCase\(\)/,
+    'each section is named, so one can be found without matching its heading text' );
+like( $live_html, qr/sectionsHost\.insertBefore\(section\("Questions",host\)/,
+    'and the questions are placed rather than appended at the end' );
+like( $live_html, qr/\(details&&details\.nextSibling\)\|\|comments\|\|null/,
+    'right after what the card is, because a dozen sections sit between the top and the comments' );
+unlike( $live_html, qr/sectionsHost\.appendChild\(section\("Questions"/,
+    'with nothing left that would put them back at the bottom' );
+
 # DD-484: answering wiped the whole questions panel. The reload rebuilds the
 # card's sections from scratch, so anything only the first render added is gone
 # the moment anybody changes something.

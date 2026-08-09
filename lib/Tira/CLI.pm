@@ -1234,7 +1234,15 @@ sub _invoke {
         return $tira->notification_list(%notify) if $action eq 'list';
         return $tira->notification_record(%notify);
     }
-    return $tira->create_record(%args) if $command eq 'record.create';
+    if ( $command eq 'record.create' ) {
+
+        # The record itself stays exactly what is stored - an agent can trust
+        # that what it holds is what is on disk. The advice about it belongs to
+        # the layer that talks to agents, not to the data.
+        my $created = $tira->create_record(%args);
+        my $reminder = $tira->record_reminder($created);
+        return defined $reminder ? { %{$created}, reminder => $reminder } : $created;
+    }
     return $tira->export_records(%args) if $command eq 'export';
     return $tira->diff_records(%args) if $command eq 'diff';
     if ( $command eq 'stale' ) {

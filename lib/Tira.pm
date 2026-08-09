@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.96';
+our $VERSION = '0.97';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -2208,6 +2208,45 @@ sub _type_for_ref {
 # not prose: what is missing, then the commands that fix it on one line. Derived
 # rather than stored, and absent entirely when nothing is owed, because a
 # reminder that always appears is furniture.
+# DD-492: the same rule as questions, applied to a record. What it still owes,
+# derived from its own state, in one terse line for the agent reading it. The
+# owner chose these four: they are about who owns the work and how it will be
+# judged, rather than about how it is written.
+sub record_reminder {
+    my ( $self, $record ) = @_;
+    my $ref = $record->{ref} or return undef;
+    my $type = $record->{type} // 'ticket';
+    my ( @missing, @update, @fix );
+
+    if ( !defined $record->{description} || $record->{description} !~ /\S/ ) {
+        push @missing, 'description';
+        push @update, '--description TEXT';
+    }
+    if ( !defined $record->{reporter} || $record->{reporter} !~ /\S/ ) {
+
+        # Whoever asked for it, or yourself when you found it: a ticket with no
+        # reporter cannot be traced back to why it exists.
+        push @missing, 'reporter';
+        push @update, '--reporter NAME';
+    }
+    push @fix, "tira.$type.update --ref $ref " . join( ' ', @update ) if @update;
+
+    if ( !@{ $record->{gate_passing_log} // [] } ) {
+        push @missing, 'gate';
+        push @fix, "tira.gate.add --ref $ref --gate NAME --result pass --details TEXT";
+    }
+    if ( !grep { !$_->{discarded_at} } @{ $record->{questions} // [] } ) {
+
+        # Not a defect - most tickets need no question. It is here because
+        # guessing at something unclear is the expensive mistake, and an agent
+        # that is never told it may ask will not ask.
+        push @missing, 'questions(if unclear)';
+        push @fix, "tira.question.ask --ref $ref --text TEXT --reason TEXT --option TEXT";
+    }
+    return undef if !@missing;
+    return 'missing: ' . join( ',', @missing ) . ' | fix: ' . join( '; ', @fix );
+}
+
 sub _question_reminder {
     my ($entry) = @_;
     return undef if $entry->{discarded_at};

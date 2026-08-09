@@ -41,10 +41,10 @@ use it — run `dashboard tira.usage`.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.96):** shipped, executable, and covered by tests.
+- **Implemented (0.97):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.96.
+All commands and use cases in this manual ship in release 0.97.
 
 ## Global invocation grammar
 
@@ -1181,6 +1181,9 @@ without revealing or creating a storage location.
 
 ### UC-106: Ask a question the owner can answer quickly
 **Implemented.** Give the reason and the options with the question, not just the question: `dashboard tira.question.ask --ref TKT-001 --text "Which store should the importer write to?" --reason "Both are configured and the runbook names neither." --option "The staging bucket" --option "The live bucket" --option "Neither, block until told"`. Both are optional and a bare question still works, but an owner answering without them is composing an answer from nothing; with them he can reply "the staging one" in seconds. They render under the question in the human view and in the card's Questions section on the dashboard, where he can answer and mark without leaving the board.
+
+### UC-114: Be told what a new ticket still owes
+**Implemented.** Creating a record hands back a `reminder` in the same terse line: `missing: description,reporter,gate,questions(if unclear) | fix: tira.ticket.update --ref TKT-001 --description TEXT --reporter NAME; …`. A title alone is not a ticket. The reporter is whoever asked for it — name the owner if he did, name yourself if you found the bug or the enhancement. A gate records how the work will be judged. And a question is offered because guessing at something unclear is the expensive mistake, not because every ticket needs one. Fields that share a command share one, the fix names the board the record lives on, and a record that owes nothing says nothing.
 
 ### UC-112: Let the owner hear the question instead of reading it
 **Implemented.** Record the question, its reason and its choices, and attach the audio: `dashboard tira.question.ask --ref TKT-001 --text "..." --reason "..." --option A --option B --voice /tmp/question.ogg`, or `dashboard tira.question.voice --id Q-007 --file /tmp/question.ogg` afterwards. `--remove` takes a wrong recording off. **Tira does not make the recording** — it runs no external process, so you record it and Tira keeps it, in the ordinary attachment store where the same recording on ten questions is one file. The board shows a play control on the question.

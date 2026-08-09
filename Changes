@@ -1,5 +1,16 @@
 Revision history for Tira
 
+0.97  2026-08-09
+    - Creating a record now says what it still owes: no description, no
+      reporter, no gate, and no question where something is unclear.
+      The owner chose those four - they are about who owns the work and
+      how it will be judged rather than how it is written, which is a
+      better list than the one I would have guessed.
+    - The record itself is unchanged by this. An existing test insisted
+      that what you get back is exactly what is on disk, and it was
+      right to: the advice is computed from the record and attached
+      where agents are spoken to, rather than baked into the data.
+
 0.96  2026-08-09
     - `tira.question.update` now takes `--voice` alongside the text,
       the reason and the choices, so everything a question owes is

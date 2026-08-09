@@ -158,6 +158,25 @@ takes the recording too, precisely so this never needs to be two.
 A question that owes nothing carries no reminder at all. One that is always
 there is furniture, and gets ignored like furniture.
 
+### Reminders on a new record
+
+Creating a record returns a `reminder` in the same terse form, naming what it
+still owes and the commands that settle it:
+
+    missing: description,reporter,gate,questions(if unclear) | fix: tira.ticket.update --ref TKT-001 --description TEXT --reporter NAME; tira.gate.add --ref TKT-001 --gate NAME --result pass --details TEXT; tira.question.ask --ref TKT-001 --text TEXT --reason TEXT --option TEXT
+
+- **description** — a title alone is not a ticket.
+- **reporter** — whoever asked for it. If the owner did, name the owner; if you
+  found the bug, the gap or the enhancement yourself, name yourself.
+- **gate** — a ticket with no gate has recorded nothing about how it will be
+  judged.
+- **questions(if unclear)** — not a defect, and most tickets need none. It is
+  there because guessing at something unclear is the expensive mistake, and an
+  agent never told it may ask will not ask.
+
+Fields that share a command share one, and the fix names the board the record
+actually lives on. A record that owes nothing carries no reminder.
+
 ### What questions do to the rest of Tira
 
 - **A card with an unanswered question is not chased.** While it waits it is in

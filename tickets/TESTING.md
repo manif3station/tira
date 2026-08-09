@@ -1984,3 +1984,20 @@ report, message 2915 — three connected findings).
   meant to avoid. Rewritten terse; the length assertion now guards it.
 - Functional PASS `Files=68, Tests=2691`; coverage `100.0%` all three
   modules; `prove -T` PASS.
+
+## Latest Verification For `DD-492`
+
+- `t/68-record-reminder.t` (14 checks): a title-only ticket told all
+  four gaps at once, the description and reporter sharing one command,
+  the gate and the question having their own, a complete ticket told
+  only what remains, each gap settling independently, a discarded
+  question not counting as having asked, and the fix naming the board
+  the record actually lives on.
+- **An existing invariant caught a design mistake of mine.**
+  `t/00-foundation.t` asserts the returned record is byte-identical to
+  what is stored, and attaching the reminder to it broke that. The test
+  was right — weakening a real guarantee to bolt on advice is the wrong
+  trade. The engine now offers `record_reminder` and the CLI attaches
+  it, so the data contract is intact and agents still get the advice.
+- Functional PASS `Files=69, Tests=2712`; coverage `100.0%` all three
+  modules; `prove -T` PASS.

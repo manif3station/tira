@@ -66,6 +66,28 @@ ok( waiting_for( $settled->{ref} ), 'and the new question it obliges puts the ca
 $tira->question_discard( project => $root, id => $dropped->{id} );
 ok( !waiting_for( $set_aside->{ref} ), 'a discarded question leaves the card settled' );
 
+# A board somebody is looking at shows this without being asked for titles:
+# that is the whole point of the colour.
+{
+    my $board = $tira->dashboard(
+        project => $root, type => 'ticket', summary => 1, with_questions => 1 );
+    my %waiting;
+    for my $column ( values %{ $board->{ticket} } ) {
+        $waiting{ $_->{ref} } = $_->{waiting} for @{$column};
+    }
+    ok( $waiting{ $set_aside->{ref} } == 0, 'the settled card is not waiting' );
+    ok( !exists $board->{ticket}{backlog}[0]{title},
+        'and no titles were fetched, because none were asked for' );
+}
+
+# SOW's accent must not be the colour that means somebody is waiting.
+{
+    my $style = $tira->format_output(
+        $tira->dashboard( project => $root ), output => 'table', project => $root );
+    my ($sow) = $style =~ /\.board--sow\{--accent:(#[0-9a-f]{6})\}/;
+    unlike( $sow, qr/\A#f/i, 'the sow board is not amber, which read as the waiting yellow' );
+}
+
 # The board draws it.
 my $html = $tira->format_output(
     $tira->dashboard( project => $root, type => 'ticket' ),

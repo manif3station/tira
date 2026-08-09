@@ -1752,3 +1752,27 @@ report, message 2915 — three connected findings).
   and the `Devel::Cover::DB` API failed against this version. Four
   guesses were wrong. Raised as `DD-477` rather than guessed at a fifth
   time.
+
+## Latest Verification For `DD-478`
+
+- Red-first `t/61-question-human.t` (24 checks), driven from the
+  reporter's own acceptance criteria: questions listed with answers
+  underneath and the instruction line, a card with none saying so
+  rather than printing an empty card, discarded questions visible, and
+  **every human render asserted silent** by trapping warnings — a card
+  with no description, a question list, an answered one, and an empty
+  one.
+- `t/59` extended: the board reports waiting without titles being
+  asked for, and fetches no titles when none were requested; the SOW
+  accent is asserted not to be in the amber family that reads as the
+  waiting yellow.
+- The reporter's second finding was real: `.tira/` in this checkout was
+  root-owned with `project.yml` at `0600`. It held zero cards and was
+  already gitignored, so it was an empty skeleton from a container run.
+  Removed with a disposable container, never `sudo`.
+- **A coverage run reported 77.9% and I nearly believed it.** An
+  earlier gate had been backgrounded and was writing to the same
+  `cover_db` concurrently. Re-measured clean afterwards: 100% on both
+  CLI and web, engine at the known 2670/2671. Never trust a coverage
+  figure taken while another run is in flight.
+- Functional PASS `Files=62, Tests=2277`; `prove -T` PASS.

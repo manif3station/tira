@@ -1249,6 +1249,11 @@ sub _invoke {
         $args{include_discard} = $option->{include_discard};
         $args{summary} = $option->{output} ne 'json';
         $args{with_title} = defined $option->{title};
+
+        # A board somebody is looking at must show which cards are waiting,
+        # whether or not they asked for titles. The ref-only path an agent
+        # queries stays untouched.
+        $args{with_questions} = $option->{output} eq 'table' || $option->{output} =~ /\Abrowser(?:=|\z)/;
         $args{include_mtime} = $option->{include_mtime} || $option->{output} eq 'table' || $option->{output} =~ /\Abrowser(?:=|\z)/;
     }
     $args{include_deleted} = $option->{include_deleted} if $command eq 'attachment.list';

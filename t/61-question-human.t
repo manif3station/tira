@@ -83,6 +83,39 @@ like( $aside, qr/discarded/, 'a discarded question shows its status' );
 like( $aside, qr/Set aside/, 'and when it was set aside' );
 is_deeply( \@warnings, [], 'quietly' );
 
+# A question worth answering says why it is being asked and what the agent can
+# see, so the owner is not composing an answer from nothing.
+@warnings = ();
+my $rich = $tira->question_add(
+    project => $root, ref => $bare->{ref},
+    text => 'Which store should the importer write to?',
+    reason => 'Both are configured and the runbook names neither.',
+    options => [ 'The staging bucket', 'The live bucket', 'Neither, block until told' ],
+);
+is( $rich->{reason}, 'Both are configured and the runbook names neither.', 'a question keeps its reason' );
+is_deeply( $rich->{options},
+    [ 'The staging bucket', 'The live bucket', 'Neither, block until told' ],
+    'and the options the agent could see' );
+my $shown_rich = human( $tira->question_list( project => $root, ref => $bare->{ref} ) );
+like( $shown_rich, qr/_Why:_ Both are configured/, 'the reason renders under the question' );
+like( $shown_rich, qr/1\. The staging bucket/, 'the options render as a numbered list' );
+like( $shown_rich, qr/3\. Neither, block until told/, 'all of them' );
+is_deeply( \@warnings, [], 'and none of it warns' );
+
+# Both stay optional: a bare question is still a question.
+my $bare_q = $tira->question_add( project => $root, ref => $bare->{ref}, text => 'Plain one?' );
+ok( !defined $bare_q->{reason}, 'a question without a reason has none' );
+is_deeply( $bare_q->{options}, [], 'and no options' );
+my $plain = human( $tira->question_list( project => $root, ref => $bare->{ref} ) );
+like( $plain, qr/Plain one\?/, 'and still renders' );
+unlike( $plain, qr/_Why:_\s*\n/, 'without an empty reason line' );
+
+# An empty reason is the same as none, rather than a blank line in the output.
+my $blank = $tira->question_add(
+    project => $root, ref => $bare->{ref}, text => 'Blank reason?', reason => '   ', options => [ '', 'Real' ] );
+ok( !defined $blank->{reason}, 'whitespace is not a reason' );
+is_deeply( $blank->{options}, ['Real'], 'and an empty option is dropped rather than numbered' );
+
 done_testing;
 
 __END__

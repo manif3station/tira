@@ -1776,3 +1776,20 @@ report, message 2915 — three connected findings).
   CLI and web, engine at the known 2670/2671. Never trust a coverage
   figure taken while another run is in flight.
 - Functional PASS `Files=62, Tests=2277`; `prove -T` PASS.
+
+## Latest Verification For `DD-479`
+
+- `t/61-question-human.t` extended: a question keeping its reason and
+  options, both rendering under the question with the options numbered,
+  both staying optional so a bare question still works, and whitespace
+  treated as no reason rather than printing an empty line.
+- `t/19-dashboard-dialog.t` extended: the dialog builds a Questions
+  section showing the reason and the options, the owner can answer and
+  mark from it, and both providers refuse malformed payloads. The
+  provider under test is the real one, so it answers a question created
+  for the purpose rather than a made-up reference.
+- **A coverage run reported 61.7% and I did not believe it this time.**
+  A backgrounded gate was still writing to the same `cover_db`. Clean
+  re-measure: 100% CLI and web, engine at the known 2670/2671. This is
+  the second time today; two coverage runs must never overlap.
+- Functional PASS `Files=62, Tests=2303`; `prove -T` PASS.

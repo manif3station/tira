@@ -106,6 +106,8 @@ my %providers = (
     move => sub { '{}' }, detail => sub { '{}' },
     search => sub { '[]' },
     columns => sub { '[]' },
+    question_answer => sub { '{"ok":true}' },
+    question_mark => sub { '{"ok":true}' },
     column_apply => sub { '{}' },
     create => sub { '{"ok":true,"record":{"ref":"TKT-009"}}' },
     update => sub { '{"ok":true}' }, comment_add => sub { '{"ok":true}' },

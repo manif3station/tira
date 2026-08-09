@@ -1,5 +1,17 @@
 Revision history for Tira
 
+0.85  2026-08-09
+    - A question can now carry the reason it is being asked and the
+      options the agent can see, not just its text. Both optional, both
+      shown under the question. An owner answering a question stripped
+      of its context is composing an answer from nothing; given the
+      reason and the choices he can reply in seconds.
+    - The card dialog has a Questions section at last, so the person who
+      owns the decision reads and answers a question where he already
+      reads the card, instead of being sent to a terminal. He can mark
+      an answer as settling it or not from there too.
+    - Documented in `docs/commands.md` and as use case UC-106.
+
 0.84  2026-08-09
     - `tira.question.list -o human` showed a blank card, four warnings
       and no questions, while the JSON was correct. The payload carries

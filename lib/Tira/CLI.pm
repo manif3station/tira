@@ -40,6 +40,7 @@ sub run {
         'columns-json=s' => \$option{columns_json},
         'nested' => \$option{nested},
         'mark=s' => \$option{mark},
+        'reason=s' => \$option{reason}, 'option=s@' => \$option{options},
         'collector=s' => \$option{collector}, 'agent=s' => \$option{agent},
         'session=s' => \$option{session}, 'heartbeat=s' => \$option{heartbeat},
         'outward=s' => \$option{outward}, 'inward=s' => \$option{inward},
@@ -315,6 +316,28 @@ sub browser_providers {
                 project => $project, type => $payload->{type}, ref => $payload->{ref},
             );
             return $json->encode($record);
+        },
+        question_answer => sub {
+            my ($payload) = @_;
+            die "Answering needs a question and some text\n"
+              if ref($payload) ne 'HASH' || !defined $payload->{id} || !defined $payload->{text};
+            return $json->encode( {
+                ok => JSON::PP::true,
+                question => $tira->question_answer(
+                    project => $project, id => $payload->{id},
+                    text => $payload->{text}, author => $payload->{author},
+                ),
+            } );
+        },
+        question_mark => sub {
+            my ($payload) = @_;
+            die "Marking needs a question and a mark\n"
+              if ref($payload) ne 'HASH' || !defined $payload->{id} || !defined $payload->{mark};
+            return $json->encode( {
+                ok => JSON::PP::true,
+                question => $tira->question_mark(
+                    project => $project, id => $payload->{id}, mark => $payload->{mark} ),
+            } );
         },
         columns => sub {
             my ($query) = @_;
@@ -1021,6 +1044,8 @@ sub _invoke {
       if $option->{nested} && $command !~ /\A(?:project\.(?:new|create)|onboard)\z/;
     die "A mark belongs to the question.mark command\n"
       if defined $option->{mark} && $command ne 'question.mark';
+    die "A reason and options belong to the question.ask command\n"
+      if ( defined $option->{reason} || $option->{options} ) && $command ne 'question.ask';
     die "Watch is available on the column.update command\n"
       if defined $option->{watched} && $command ne 'column.update';
     die "Notify-after is available on the column.update, project.update, project.new and onboard commands\n"
@@ -1133,7 +1158,8 @@ sub _invoke {
         # asking for the board as well would be asking for what is known.
         my %question = ( project => $args{project} );
         $question{ref} = $option->{ref_list}[0] if $option->{ref_list};
-        $question{$_} = $option->{$_} for grep { defined $option->{$_} } qw(id text mark author);
+        $question{$_} = $option->{$_} for grep { defined $option->{$_} } qw(id text mark author reason);
+        $question{options} = $option->{options} if $option->{options};
         $question{status} = $option->{status} if defined $option->{status};
         $question{since} = $option->{since} if defined $option->{since};
         return $tira->question_add(%question) if $action eq 'ask';

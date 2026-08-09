@@ -190,6 +190,32 @@ for my $payload ( undef, [], { type => 'ticket' }, { type => 'ticket', columns =
     like( $error, qr/layout|object/i, 'a malformed column layout is refused' );
 }
 
+# DD-479: the owner reads and answers questions where he reads the card
+like( $live_html, qr/const renderQuestions=/, 'the dialog builds a questions section' );
+like( $live_html, qr/card-question__reason/, 'showing why the question was asked' );
+like( $live_html, qr/card-question__options/, 'and the options the agent could see' );
+like( $live_html, qr{mutate\("/question/answer"}, 'the owner can answer from the dialog' );
+like( $live_html, qr{mutate\("/question/mark"}, 'and say whether the answer settles it' );
+
+my $board_question = $tira->question_add(
+    project => $root, ref => 'TKT-001', text => 'Asked from the board test' );
+my $answered_from_board = decode_json(
+    $calls->[0]{question_answer}->( { id => $board_question->{id}, text => 'From the board' } ) );
+ok( $answered_from_board->{ok}, 'the answer provider succeeds' );
+is( $answered_from_board->{question}{answer}{text}, 'From the board',
+    'and the answer really lands on the question' );
+ok( decode_json( $calls->[0]{question_mark}->(
+        { id => $board_question->{id}, mark => 'ok' } ) )->{ok},
+    'and it can be marked from the board' );
+for my $payload ( undef, [], { id => $board_question->{id} } ) {
+    $error = eval { $calls->[0]{question_answer}->($payload); 1 } ? '' : $@;
+    like( $error, qr/question|text/i, 'a malformed answer payload is refused' );
+}
+for my $payload ( undef, [], { id => $board_question->{id} } ) {
+    $error = eval { $calls->[0]{question_mark}->($payload); 1 } ? '' : $@;
+    like( $error, qr/question|mark/i, 'a malformed mark payload is refused' );
+}
+
 # DD-441: creating a card from a column through the browser
 my $made = decode_json(
     $calls->[0]{create}->( { type => 'ticket', column => 'in-progress', title => 'Made from the board' } )
@@ -249,6 +275,8 @@ my %providers = (
     move => sub { '{}' }, detail => sub { '{}' },
     search => sub { '[]' },
     columns => sub { '[]' },
+    question_answer => sub { '{"ok":true}' },
+    question_mark => sub { '{"ok":true}' },
     column_apply => sub { '{}' },
     create => sub { '{"ok":true,"record":{"ref":"TKT-009"}}' },
     update => sub { '{"ok":true}' },
@@ -283,6 +311,8 @@ my $app = Tira::DashboardWeb->build_psgi_app(
     %providers,
     search => sub { $received{search} = $_[0]; return '["TKT-001"]' },
     columns => sub { $received{columns} = $_[0]; return '[{"name":"backlog","label":"Backlog","protected":true,"watched":1}]' },
+    question_answer => sub { $received{question_answer} = $_[0]; return '{"ok":true}' },
+    question_mark => sub { $received{question_mark} = $_[0]; return '{"ok":true}' },
     column_apply => sub { $received{column_apply} = $_[0]; return '{"added":[],"removed":[],"reordered":false}' },
     create => sub { $received{create} = $_[0]; return '{"ok":true,"record":{"ref":"TKT-009"}}' },
     update => sub {

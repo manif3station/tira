@@ -18,7 +18,7 @@ so `Q-007` reaches it without naming the card it was asked on.
 
 | Command | Arguments | What it is for |
 | --- | --- | --- |
-| `tira.question.ask` | `--ref CARD` (required), `--text TEXT` (required), `--author WHO` | Ask about a card. The reference names the board through its prefix, so no board argument is needed. |
+| `tira.question.ask` | `--ref CARD` (required), `--text TEXT` (required), `--reason TEXT`, `--option TEXT` (repeatable), `--author WHO` | Ask about a card. The reference names the board through its prefix, so no board argument is needed. `--reason` says why you are asking — what you are blocked on, what you already tried. `--option` gives one choice you can see; repeat it for each. Both are optional, but an owner answering a question with neither is composing an answer from nothing. |
 | `tira.question.list` | `--ref CARD`, `--status new\|answered\|discarded`, `--since STAMP` | List questions with their answers underneath. **Reading marks the answers read**, so the owner can see they were seen. Carries an `instruction` naming the next step. `--since` reads the answer's stamp when answered and the question's when not. |
 | `tira.question.answer` | `--id Q-NNN` (required), `--text TEXT` (required), `--author WHO` | Answer a question, or reword an existing answer. Answering stamps the answer; the question keeps the stamp of when it was asked. |
 | `tira.question.update` | `--id Q-NNN` (required), `--text TEXT` (required) | Reword a question. |
@@ -28,6 +28,10 @@ so `Q-007` reaches it without naming the card it was asked on.
 A question with no answer is `new`, one with an answer is `answered`, one set
 aside is `discarded`. The status is derived rather than stored, so it cannot
 drift from the facts.
+
+On the live dashboard a card's dialog carries a **Questions** section showing
+each open question with its reason and options, and the owner answers or marks
+it there rather than going to a terminal.
 
 ## Capability groups
 

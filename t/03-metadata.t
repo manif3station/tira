@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=0\.92$/m, '.env stores version 0.92' );
+like( $env_text, qr/^VERSION=0\.93$/m, '.env stores version 0.93' );
 
 open my $skills, '<', 'SKILLS.md' or die "Cannot read SKILLS.md: $!";
 my $skills_text = do { local $/; <$skills> };
@@ -35,18 +35,18 @@ for my $section (
     like( $skills_text, qr/^## \Q$section\E$/m, "SKILLS.md contains $section" );
 }
 my @use_cases = $skills_text =~ /^### UC-\d{3}:/mg;
-is( scalar @use_cases, 110, 'SKILLS.md contains exactly 110 numbered use cases' );
+is( scalar @use_cases, 111, 'SKILLS.md contains exactly 111 numbered use cases' );
 my %seen;
 while ( $skills_text =~ /^### UC-(\d{3}):/mg ) {
     $seen{$1}++;
 }
-is_deeply( [ sort keys %seen ], [ map { sprintf '%03d', $_ } 1 .. 110 ], 'use cases are numbered UC-001 through UC-110' );
+is_deeply( [ sort keys %seen ], [ map { sprintf '%03d', $_ } 1 .. 111 ], 'use cases are numbered UC-001 through UC-111' );
 unlike( $skills_text, qr{/home/[A-Za-z0-9._-]+/}, 'SKILLS.md contains no hard-coded home-directory path' );
 unlike( $skills_text, qr/--project|TIRA_HOME|\.tira\/|project selector/i, 'SKILLS.md does not disclose project location or selectors' );
 
 use lib 'lib';
 use Tira;
-is( $Tira::VERSION, '0.92', 'module version matches .env' );
+is( $Tira::VERSION, '0.93', 'module version matches .env' );
 unlike( $skills_text, qr/\bSpecified\b/i, 'every documented command and use case is implemented' );
 
 my @perl_files = ( 'lib/Tira.pm', 'lib/Tira/CLI.pm' );

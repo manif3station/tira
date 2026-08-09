@@ -1,5 +1,20 @@
 Revision history for Tira
 
+0.93  2026-08-09
+    - A live dashboard now picks up a new Tira by itself. Ten boards
+      open used to mean ten to go and restart after every update, which
+      is a chore that grows with how useful the tool is.
+    - Both halves had to move: a page reload alone would have been
+      served by the old code still in memory. The server notices the
+      installed version no longer matches its own and re-executes into
+      the new code with the same arguments and port; the page reloads
+      only once it sees a version it was not built by, so it can never
+      fetch the old page again. The cost is one skipped refresh cycle.
+    - A version that cannot be read counts as no change, so an
+      unreadable install cannot put a board into a restart loop.
+    - The restart hands the new process a known-safe search path rather
+      than laundering whatever it inherited.
+
 0.92  2026-08-09
     - A **Questions to answer** toggle beside the review one, so both
       sides of a question have a way to find their own work: the owner

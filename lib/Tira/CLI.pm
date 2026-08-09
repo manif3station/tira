@@ -16,8 +16,10 @@ sub run {
     my $argv = $args{argv} || [];
     my $tira = $args{tira} || Tira->new( path_resolver => _dd_path_resolver() );
     my $browser_server = $args{browser_server} || \&_serve_browser;
+    my $restarter = $args{restarter} || \&_restart_into;
     my $guided_input = $args{input};
     my %option = ( output => 'toon' );
+    our @RESTART_ARGV = @{$argv};
     my $environment_project;
     my $decoded = eval {
         for my $argument ( @{$argv} ) {
@@ -194,6 +196,13 @@ sub run {
             $data_option{include_mtime} = 1;
             $data_option{with_questions} = 1;
             my $dashboard = _invoke( $tira, $command, $type, \%data_option );
+
+            # A dashboard left open is running whatever Tira it started with.
+            # Rather than making somebody visit every open board after an
+            # update, the server notices and restarts itself into the new code;
+            # the page then reloads when it sees a version it was not built by.
+            _restart_if_updated( $restarter, $command, $type );
+            $dashboard->{_version} = $Tira::VERSION;
             return $tira->format_output( $dashboard, output => 'json', project => $option{project} );
         };
         my %providers = browser_providers( tira => $tira, project => $option{project} );
@@ -269,6 +278,33 @@ sub _browser_endpoint {
     my ( $host, $port ) = ( $1, defined $2 ? 0 + $2 : 7899 );
     die "Browser port must be between 1 and 65535\n" if $port < 1 || $port > 65535;
     return ( $host, $port );
+}
+
+# Through a seam so a test can watch the decision without a process replacing
+# itself mid-suite. exec swaps this process for a new one - nothing is forked,
+# and no shell is involved.
+sub _restart_into {
+    my (@argv) = @_;
+    my ($perl) = $^X =~ /\A([^\x00-\x1f\x7f]+)\z/ or return 0;
+    my ($script) = $0 =~ /\A([^\x00-\x1f\x7f]+)\z/ or return 0;
+
+    # Both the interpreter and the script are absolute here, so the search path
+    # is never consulted to find them; taint mode objects to it regardless.
+    # Handing the restarted process a known-safe path is better than laundering
+    # whatever this one happened to inherit, and better than wiping it.
+    local $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
+    delete local @ENV{qw(IFS CDPATH ENV BASH_ENV)};
+    exec( $perl, $script, @argv );
+}
+
+sub _restart_if_updated {
+    my ( $restarter, $command, $type ) = @_;
+    my $installed = Tira::installed_version();
+
+    # Unreadable means unknown, and restarting on unknown would loop forever.
+    return 0 if !defined $installed || $installed eq $Tira::VERSION;
+    my @argv = map { /\A([^\x00-\x1f\x7f]*)\z/ ? $1 : () } @Tira::CLI::RESTART_ARGV;
+    return $restarter->(@argv);
 }
 
 sub _serve_browser {

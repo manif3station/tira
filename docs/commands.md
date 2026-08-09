@@ -157,6 +157,20 @@ move, not yours, so the toggle leaves them out rather than making you scroll
 past work you cannot act on. A mark of either kind clears a card from the list,
 since a cross is a judgement too, and a discarded question needs none.
 
+### Leaving a board open across an update
+
+A live dashboard (`-o browser`) keeps working when Tira is updated underneath
+it. The running server notices that the installed version no longer matches the
+one it started with, re-executes itself into the new code with the same
+arguments and on the same port, and the page reloads once it sees a version it
+was not built by. Nothing has to be restarted by hand, however many boards are
+open.
+
+The page reloads only after the new code is genuinely serving, so it can never
+fetch the old page again; the cost is one skipped refresh cycle. A version that
+cannot be read is treated as no change, so an unreadable install never puts a
+board into a restart loop.
+
 ### On the dashboard
 
 A card's dialog carries a **Questions** section. Each question shows five

@@ -1935,3 +1935,28 @@ report, message 2915 — three connected findings).
   mutually exclusive fails it. Green twice on the real build.
 - Functional PASS `Files=66, Tests=2617`; coverage `100.0%` all three
   modules; `prove -T` PASS; fixtures cleaned.
+
+## Latest Verification For `DD-488`
+
+- `t/66-self-restart.t` (14 checks): the data payload naming the
+  version actually serving, an unchanged version restarting nothing, a
+  changed one restarting **with the same arguments it was started
+  with**, an unreadable version treated as no change so a board cannot
+  loop, the page carrying the version that built it and reloading only
+  on a difference, and the static board not carrying a check it could
+  never satisfy.
+- **The real `exec` is exercised, not just the seam.** A forked child
+  calls `_restart_into` and is genuinely replaced; the test asserts it
+  did not return and that the new process received the arguments. A
+  mocked restarter alone would have proven only that a function was
+  called.
+- Two faults of my own, both caught here: the mocked version was scoped
+  outside the closure being tested, so the first version of the test
+  proved nothing; and the generated child script interpolated the
+  *test's* empty `@ARGV` at write time rather than the child's.
+- Taint mode rejected the `exec` over `$ENV{PATH}`. Fixed in the
+  product rather than the test: the restart hands the new process a
+  known-safe path, which is better than laundering what it inherited
+  and better than wiping it.
+- Functional PASS `Files=67, Tests=2633`; coverage `100.0%` all three
+  modules; `prove -T` PASS.

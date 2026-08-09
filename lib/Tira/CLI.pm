@@ -1085,8 +1085,8 @@ sub _invoke {
     die "A reason and options belong to the question.ask and question.update commands\n"
       if ( defined $option->{reason} || $option->{options} )
       && $command !~ /\Aquestion\.(?:ask|update)\z/;
-    die "A voice note belongs to the question.ask and question.voice commands\n"
-      if defined $option->{voice} && $command !~ /\Aquestion\.(?:ask|voice)\z/;
+    die "A voice note belongs to the question.ask, question.update and question.voice commands\n"
+      if defined $option->{voice} && $command !~ /\Aquestion\.(?:ask|update|voice)\z/;
     die "Remove belongs to the question.voice command\n"
       if $option->{remove} && $command ne 'question.voice';
     die "Watch is available on the column.update command\n"
@@ -1209,6 +1209,7 @@ sub _invoke {
         my %question = ( project => $args{project} );
         $question{ref} = $option->{ref_list}[0] if $option->{ref_list};
         $question{$_} = $option->{$_} for grep { defined $option->{$_} } qw(id text mark author reason);
+        $question{voice} = $option->{voice} if defined $option->{voice} && $action eq 'update';
         $question{options} = $option->{options} if $option->{options};
         $question{status} = $option->{status} if defined $option->{status};
         $question{since} = $option->{since} if defined $option->{since};

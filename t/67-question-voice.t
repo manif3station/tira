@@ -143,10 +143,9 @@ like( $html, qr/if\(question\.voice\)\{/, 'and a question without a recording sh
     my $owed = $bare->{reminder};
     like( $owed, qr/\Amissing: reason,options,voice \| fix: /,
         'all three gaps are named at once, in one machine-readable line' );
-    like( $owed, qr/\Qtira.question.update --id $bare->{id} --reason TEXT --option TEXT --option TEXT\E/,
-        'the reason and the choices are fixed by one command, because they live on one' );
-    like( $owed, qr/\Q; tira.question.voice --id $bare->{id} --file FILE\E/,
-        'and the second command follows on the same line, separated by a semicolon' );
+    like( $owed, qr/\Qfix: tira.question.update --id $bare->{id} --reason TEXT --option TEXT --option TEXT --voice FILE\E/,
+        'and one command settles all three, because needing two would be the command surface telling on itself' );
+    unlike( $owed, qr/;/, 'so there is no second command to run' );
     unlike( $owed, qr/\n/, 'the whole reminder is a single line' );
     ok( length($owed) < 200, 'and short, because every character is somebody\'s tokens' );
 
@@ -161,6 +160,15 @@ like( $html, qr/if\(question\.voice\)\{/, 'and a question without a recording sh
     my $with_options = $tira->question_update(
         project => $root, id => $bare->{id}, options => [ 'One', 'Two' ] );
     like( $with_options->{reminder}, qr/\Amissing: voice \|/, 'and the choices settle theirs' );
+
+    # Everything at once, in the single command the reminder offered.
+    my $swept = $tira->question_update(
+        project => $root, id => $bare->{id}, reason => 'Fresh reason',
+        options => [ 'X', 'Y' ], voice => $note );
+    is( $swept->{reminder}, undef, 'one command can settle a question that owed all three' );
+    is( $swept->{reason}, 'Fresh reason', 'setting the reason' );
+    is_deeply( $swept->{options}, [ 'X', 'Y' ], 'the choices' );
+    ok( $swept->{voice}, 'and the recording together' );
 
     my $complete = $tira->question_voice(
         project => $root, id => $bare->{id}, file => $note );
@@ -178,8 +186,8 @@ like( $html, qr/if\(question\.voice\)\{/, 'and a question without a recording sh
         project => $root, id => $recorded->{id}, text => 'Reworded entirely' );
     like( $reworded->{reminder}, qr/\Amissing: voice\(stale\) \|/,
         'rewording marks the recording stale rather than merely absent' );
-    like( $reworded->{reminder}, qr/\Qtira.question.voice --id $recorded->{id} --file FILE\E/,
-        'with the command that replaces it' );
+    like( $reworded->{reminder}, qr/\Qtira.question.update --id $recorded->{id} --voice FILE\E/,
+        'with the one command that replaces it' );
 
     my $fixed = $tira->question_voice(
         project => $root, id => $recorded->{id}, file => recording( 'fresh.ogg', 'OggS-fresh' ) );

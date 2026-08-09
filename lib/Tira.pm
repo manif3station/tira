@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '0.95';
+our $VERSION = '0.96';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -2212,7 +2212,7 @@ sub _question_reminder {
     my ($entry) = @_;
     return undef if $entry->{discarded_at};
     my $id = $entry->{id};
-    my ( @missing, @fix, @update );
+    my ( @missing, @update );
 
     if ( !defined $entry->{reason} || $entry->{reason} !~ /\S/ ) {
         push @missing, 'reason';
@@ -2223,16 +2223,18 @@ sub _question_reminder {
         push @update, '--option TEXT --option TEXT';
     }
 
-    # Both live on one command, so they cost one command rather than two.
-    push @fix, "tira.question.update --id $id " . join( ' ', @update ) if @update;
-
     my $voice = $entry->{voice};
     if ( !$voice || $voice->{stale} ) {
         push @missing, $voice ? 'voice(stale)' : 'voice';
-        push @fix, "tira.question.voice --id $id --file FILE";
+        push @update, '--voice FILE';
     }
     return undef if !@missing;
-    return 'missing: ' . join( ',', @missing ) . ' | fix: ' . join( '; ', @fix );
+
+    # One command, always. Needing two would mean reading twice and typing
+    # twice for one situation, and that is the command surface's problem to fix
+    # rather than the reminder's to describe.
+    return 'missing: ' . join( ',', @missing )
+      . " | fix: tira.question.update --id $id " . join( ' ', @update );
 }
 
 sub _question_view {
@@ -2335,12 +2337,12 @@ sub question_update {
     my $root = $self->discover_project(%args);
     my ( $found_type, $found_ref ) = $self->_find_question( $root, $args{id} );
     @args{qw(type ref)} = ( $found_type, $found_ref );
-    die "Give some text, a reason, or options to change\n"
-      if !grep { defined $args{$_} } qw(text reason options);
+    die "Give some text, a reason, options, or a voice note to change\n"
+      if !grep { defined $args{$_} } qw(text reason options voice);
     die "A question needs some text\n"
       if defined $args{text} && $args{text} !~ /\S/;
     my $type = $args{type};
-    return $self->_with_project_lock( $root, sub {
+    my $updated = $self->_with_project_lock( $root, sub {
         my $record = $self->record_show( project => $root, type => $type, ref => $args{ref} );
         my $entry = _question_entry( $record, $args{id} );
         $entry->{updated_at} = $self->{clock}->();
@@ -2359,6 +2361,12 @@ sub question_update {
         $self->_replace_record( project => $root, type => $type, ref => $args{ref}, record => $record );
         return _question_view($entry);
     } );
+
+    # A recording given here replaces the one this change just made stale, so
+    # everything a question owes is settled by a single command.
+    return $self->question_voice( project => $root, id => $args{id}, file => $args{voice} )
+      if defined $args{voice};
+    return $updated;
 }
 
 # Nothing in Tira is ever really deleted, and questions are no exception: the

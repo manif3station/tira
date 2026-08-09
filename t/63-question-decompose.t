@@ -85,7 +85,8 @@ is( $step->{text}, 'Just the question now?', 'still leaving the question itself'
 
 # Nothing named is a mistake worth saying out loud.
 eval { $tira->question_update( project => $root, id => $second->{id} ) };
-like( $@, qr/text, a reason, or options/, 'an update that changes nothing is refused' );
+like( $@, qr/text, a reason, options, or a voice note/,
+    'an update that changes nothing is refused, naming everything it could have changed' );
 eval { $tira->question_update( project => $root, id => $second->{id}, text => '  ' ) };
 like( $@, qr/needs some text/, 'and a question cannot be blanked' );
 

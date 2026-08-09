@@ -81,9 +81,10 @@ here to split them in one command, or one at a time as you work them out.
 | Argument | Required | What it is for |
 | --- | --- | --- |
 | `--id Q-NNN` | yes | The question. |
-| `--text TEXT` | one of these three | The question itself. |
-| `--reason TEXT` | one of these three | Why it is being asked. |
-| `--option TEXT` | one of these three | A choice; repeat for each. |
+| `--text TEXT` | one of these four | The question itself. |
+| `--reason TEXT` | one of these four | Why it is being asked. |
+| `--option TEXT` | one of these four | A choice; repeat for each. |
+| `--voice FILE` | one of these four | A recording, replacing any the change just made stale. Everything a question owes can therefore be settled in one command. |
 | `-o FORMAT` | no | As above. |
 
 **Only what you name changes.** A reason on its own leaves the text and the
@@ -145,14 +146,14 @@ A question that still owes something carries a `reminder` in the response to
 whatever you just did — asking, updating, answering, marking or listing. It is
 one terse line, written for the agent reading it rather than for a person:
 
-    missing: reason,options,voice | fix: tira.question.update --id Q-007 --reason TEXT --option TEXT --option TEXT; tira.question.voice --id Q-007 --file FILE
+    missing: reason,options,voice | fix: tira.question.update --id Q-007 --reason TEXT --option TEXT --option TEXT --voice FILE
 
 `missing` names the gaps: `reason` (whoever answers has to guess what you are
 blocked on), `options` (without them the owner composes an answer instead of
 picking one), `voice` or `voice(stale)` (no recording, or one made before the
-question last changed and so reading an older wording). `fix` is the commands
-that settle them, references filled in, on one line — the reason and the
-choices share a command because they live on one.
+question last changed and so reading an older wording). `fix` is **one
+command**, references filled in, that settles all of them — `question.update`
+takes the recording too, precisely so this never needs to be two.
 
 A question that owes nothing carries no reminder at all. One that is always
 there is furniture, and gets ignored like furniture.

@@ -1,5 +1,14 @@
 Revision history for Tira
 
+0.96  2026-08-09
+    - `tira.question.update` now takes `--voice` alongside the text,
+      the reason and the choices, so everything a question owes is
+      settled by one command rather than two.
+    - That came from the reminders: a fix line needing two commands is
+      not a formatting problem, it is the command surface telling on
+      itself. An agent reading twice and typing twice for one situation
+      is exactly the cost Tira exists to avoid.
+
 0.95  2026-08-09
     - A question can carry a voice note, so the owner can hear it
       instead of reading it. `tira.question.ask --voice FILE` attaches

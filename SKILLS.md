@@ -41,10 +41,10 @@ use it — run `dashboard tira.usage`.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.95):** shipped, executable, and covered by tests.
+- **Implemented (0.96):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.95.
+All commands and use cases in this manual ship in release 0.96.
 
 ## Global invocation grammar
 
@@ -1186,7 +1186,7 @@ without revealing or creating a storage location.
 **Implemented.** Record the question, its reason and its choices, and attach the audio: `dashboard tira.question.ask --ref TKT-001 --text "..." --reason "..." --option A --option B --voice /tmp/question.ogg`, or `dashboard tira.question.voice --id Q-007 --file /tmp/question.ogg` afterwards. `--remove` takes a wrong recording off. **Tira does not make the recording** — it runs no external process, so you record it and Tira keeps it, in the ordinary attachment store where the same recording on ten questions is one file. The board shows a play control on the question.
 
 ### UC-113: Be told what a question still owes
-**Implemented.** You will not be left to remember any of this. A question missing its reason, its choices or its recording carries a `reminder` in the response to whatever you just did — one terse line naming every gap at once and the commands that close them, references filled in: `missing: reason,options,voice | fix: tira.question.update --id Q-007 --reason TEXT --option TEXT --option TEXT; tira.question.voice --id Q-007 --file FILE`. It is written for you to act on, not for a person to read, so it is short. Change the wording, the reason or the choices and it reports `voice(stale)` until you re-record. A question that owes nothing says nothing: a reminder that is always there is furniture.
+**Implemented.** You will not be left to remember any of this. A question missing its reason, its choices or its recording carries a `reminder` in the response to whatever you just did — one terse line naming every gap at once and the commands that close them, references filled in: `missing: reason,options,voice | fix: tira.question.update --id Q-007 --reason TEXT --option TEXT --option TEXT --voice FILE`. It is written for you to act on, not for a person to read, so it is short, and the fix is always **one** command — `question.update` takes the recording too, so settling three gaps never costs three commands. Change the wording, the reason or the choices and it reports `voice(stale)` until you re-record. A question that owes nothing says nothing: a reminder that is always there is furniture.
 
 ### UC-111: Leave a board open across an update
 **Implemented.** A live dashboard picks up a new Tira by itself. The server notices the installed version no longer matches the one it is running, re-executes itself into the new code with the same arguments and the same port, and the page reloads once it sees a version it was not built by. Ten boards open means ten that update themselves, rather than ten to go and restart. The reload waits until the new code is actually serving, so it never just fetches the old page again, and a version it cannot read is treated as no change rather than a reason to restart.

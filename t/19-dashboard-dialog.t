@@ -203,6 +203,14 @@ for my $payload ( undef, [], { type => 'ticket' }, { type => 'ticket', columns =
     $tira->question_discard( project => $root, id => $asked->{id} );
 }
 
+# DD-484: answering wiped the whole questions panel. The reload rebuilds the
+# card's sections from scratch, so anything only the first render added is gone
+# the moment anybody changes something.
+like( $live_html, qr/renderCard\(record\);renderQuestions\(record\);return record/,
+    'reloading the card rebuilds its questions too, so answering does not erase them' );
+is( scalar( () = $live_html =~ /renderQuestions\(record\)/g ), 2,
+    'and every path that renders a card renders them: the first open and every reload' );
+
 # DD-479: the owner reads and answers questions where he reads the card
 like( $live_html, qr/const renderQuestions=/, 'the dialog builds a questions section' );
 

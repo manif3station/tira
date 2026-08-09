@@ -1847,3 +1847,29 @@ report, message 2915 — three connected findings).
   2670/2671 since `DD-475` is exercised by the new tests, closing
   `DD-477` without ever having to identify it by line number.
 - Functional PASS `Files=65, Tests=2576`; `prove -T` PASS.
+
+## Latest Verification For `DD-484`
+
+- Guard asserts the reload renders the questions **and** that there are
+  exactly two call sites — the first open and every reload — because
+  having only one is precisely the defect.
+- Verified in the failing direction: with the reload's call removed the
+  test fails; restored, it passes.
+- Same shape as `DD-480` earlier today: something painted once and then
+  wiped by the refresh that follows. I have logged the pattern rather
+  than just the instance — on this dashboard, anything added outside
+  the render that every path shares survives only until the next
+  change.
+
+## Agent Session Resumption (owner question, 2026-08-09)
+
+- He asked directly whether the all-clear notification resumes the
+  stored session or starts a blank agent. Audited: there is **exactly
+  one** place in the whole skill that runs a coding agent,
+  `collector/tira-remind`, and it has always passed
+  `--resume <session>`. The all-clear is composed into the same message
+  the reminders travel in, so it goes out on the same resumed session.
+- Now enforced rather than merely true: `t/51` proves the all-clear
+  reaches the configured session by name, and scans the collector
+  source to assert there is one agent invocation and that it resumes.
+  A second path added without `--resume` fails the suite.

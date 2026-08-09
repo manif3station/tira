@@ -1,5 +1,21 @@
 Revision history for Tira
 
+0.88  2026-08-09
+    - Confirmed and now guarded: every call out to a coding agent
+      resumes the session this project configured, rather than starting
+      a blank one. There is exactly one place that runs an agent, the
+      all-clear travels through it like every other reminder, and a
+      test fails if a second path ever appears without `--resume`. An
+      agent that does not remember the card is being handed a
+      stranger's work.
+    - Answering a question erased the whole questions panel. Every
+      change in the dialog reloads the card and rebuilds its sections,
+      and the questions were appended afterwards by the function that
+      opens the dialog rather than being part of the render every path
+      goes through - so the panel survived exactly as long as nobody
+      touched anything. Answering, the one thing it exists for, was
+      enough to wipe it.
+
 0.87  2026-08-09
     - The card's Questions panel now carries all five things the owner
       asked for: the question, its choices, why it was asked, its

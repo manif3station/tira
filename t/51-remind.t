@@ -124,6 +124,44 @@ is( scalar @{ $tira->warning_list( project => $root ) }, 1, 'a repeated failure 
 # A project that cannot be read at all.
 is( remind( File::Spec->catdir( $tmp, 'nowhere' ) ), 0, 'an unreadable project exits cleanly' );
 
+# The owner asked directly: when the last question is answered and the agent is
+# told, does that resume its session or start a blank agent? It must resume -
+# an agent that does not remember the card is being handed a stranger's work.
+{
+    $tick = '2026-08-08T14:00:00Z';
+    my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Asked about' );
+    $tira->record_move( project => $root, ref => $card->{ref}, column => 'doing' );
+    my $question = $tira->question_add(
+        project => $root, ref => $card->{ref}, text => 'Which one?' );
+    # Other stale work exists, so the test is whether THIS card is chased.
+    is( remind($root), 0, 'the heartbeat still runs' );
+    my @during = calls();
+    ok( !grep( { /\Q$card->{ref}\E/ } @during ),
+        'but the blocked card is not chased, because it is not the agent being waited on' );
+
+    $tira->question_answer( project => $root, id => $question->{id}, text => 'That one.' );
+    $tick = '2026-08-08T15:00:00Z';
+    is( remind($root), 0, 'once answered, the agent is told' );
+    my @sent = calls();
+    is( scalar @sent, 1, 'exactly once' );
+    like( $sent[0], qr/--resume\x1fsess-1/,
+        'resuming the configured session, not starting a blank agent' );
+    like( $sent[0], qr/back with you/, 'and the message says the card is theirs again' );
+    like( $sent[0], qr/\Q$card->{ref}\E/, 'naming the card' );
+}
+
+# There must be no second way to reach an agent that forgets to resume.
+{
+    open my $fh, '<:raw', 'collector/tira-remind' or die $!;
+    my $source = do { local $/; <$fh> };
+    close $fh;
+    my @invocations = $source =~ /^\s*(?:my \$\w+ = )?system\(([^)]*)\)/mg;
+    is( scalar @invocations, 1, 'there is exactly one place that runs the coding agent' );
+    like( $invocations[0], qr/--resume/,
+        'and it resumes the stored session, so no path reaches a blank agent' );
+    like( $invocations[0], qr/\$session/, 'with the session this project configured' );
+}
+
 done_testing;
 
 __END__

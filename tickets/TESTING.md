@@ -1710,3 +1710,22 @@ report, message 2915 — three connected findings).
   the question's `asked_at`.
 - Functional PASS `Files=59, Tests=2209`; coverage `100.0%` all three
   modules; `prove -T` PASS.
+
+## Latest Verification For `DD-473`
+
+- Red-first `t/59-waiting-cards.t` (14 checks): unanswered waits;
+  answered-but-unread waits; read-but-unmarked still waits, because
+  reading is not agreeing; read and marked settles; a cross settles the
+  question it is on while the new question it obliges puts the card
+  back to waiting; a discarded question settles; a card with no
+  questions is never waiting; the board draws both kinds; and the
+  ref-only dashboard opens no card files while the titles path reads
+  each card exactly once.
+- **`0.81` shipped with a failing test.** I ran its gate, then added a
+  use case to `SKILLS.md` in the next command and pushed without
+  re-running, so the count assertion was broken in the released commit.
+  Fixed here and logged as `GATE-THEN-EDIT` in `MISTAKE.md`: the last
+  thing before committing is the full suite, not the last thing before
+  the documentation edits.
+- Functional PASS `Files=60, Tests=2224`; coverage `100.0%` all three
+  modules; `prove -T` PASS.

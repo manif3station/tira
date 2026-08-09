@@ -1,5 +1,20 @@
 Revision history for Tira
 
+0.82  2026-08-09
+    - A card waiting on somebody is drawn yellow, in either direction: a
+      question nobody has answered waits on the owner, an answer nobody
+      has read and marked waits on the agent. It returns to its ordinary
+      colour only once every question is settled. Reading an answer is
+      not the same as agreeing with it, so a read-but-unmarked answer
+      still shows as waiting.
+    - Knowing this means opening the card, so the flag is computed
+      wherever the card is read anyway. The ref-only dashboard still
+      opens nothing and is as cheap as it always was. While here, the
+      titles path had been reading every card twice; now once.
+    - Fixes a use-case count assertion that 0.81 shipped broken: the
+      documentation was edited after its gate ran and the suite was not
+      re-run before pushing.
+
 0.81  2026-08-09
     - Search matches questions: their text, their answers and their
       references, alongside everything it matched before. A question

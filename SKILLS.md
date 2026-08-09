@@ -41,10 +41,10 @@ use it — run `dashboard tira.usage`.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.81):** shipped, executable, and covered by tests.
+- **Implemented (0.82):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.81.
+All commands and use cases in this manual ship in release 0.82.
 
 ## Global invocation grammar
 
@@ -1181,6 +1181,9 @@ without revealing or creating a storage location.
 
 ### UC-102: Read the answers, and say whether they settle it
 **Implemented.** `dashboard tira.question.list --ref TKT-001 -o json` returns every question with its answer underneath, and reading them is what marks them read — you do nothing extra. Each list carries an `instruction` naming your next step. If an answer settles the matter, `dashboard tira.question.mark --id Q-007 --mark ok`. If it does not, mark it `not-ok` **and** ask a new one: a cross on its own settles nothing, and there are no follow-up threads.
+
+### UC-105: See at a glance which cards are waiting on somebody
+**Implemented.** On the HTML and live dashboards a card is drawn yellow while anybody is waiting on it, in either direction: a question nobody has answered is waiting on the owner, and an answer nobody has read and marked is waiting on the agent. It returns to its ordinary colour once every question is settled — discarded, or answered with the answer read and marked. Knowing this means reading the card, so the colour appears wherever titles do (`--title`, `-o table`, `-o browser`, `-o json`); the ref-only fast path still opens no files and stays as cheap as it was.
 
 ### UC-104: Find the card a question was asked on
 **Implemented.** A question reference belongs to the project, not to a board, so quoting it is enough: `dashboard tira.search --text Q-007 -o json` returns the card it lives on whichever board that is. Search also matches the words in a question and the words in its answer, so `--text credentials` finds the card somebody asked about credentials on. A discarded question is still found, because it still happened. On the dashboard the keyword box does the same thing across all three boards at once — typing a question reference on one board empties it and shows the card on the board that owns it.

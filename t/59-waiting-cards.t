@@ -29,6 +29,17 @@ my $open = $tira->question_add( project => $root, ref => $asked->{ref}, text => 
 my $done = $tira->question_add( project => $root, ref => $settled->{ref}, text => 'And this?' );
 my $dropped = $tira->question_add( project => $root, ref => $set_aside->{ref}, text => 'Never mind' );
 
+sub reviewing {
+    my ($ref) = @_;
+    my $board = $tira->dashboard( project => $root, type => 'ticket' );
+    for my $column ( values %{ $board->{ticket} } ) {
+        for my $card ( @{$column} ) {
+            return $card->{to_review} if $card->{ref} eq $ref;
+        }
+    }
+    return undef;
+}
+
 sub waiting_for {
     my ($ref) = @_;
     my $board = $tira->dashboard( project => $root, type => 'ticket' );
@@ -44,23 +55,41 @@ sub waiting_for {
 ok( waiting_for( $asked->{ref} ), 'a card with an unanswered question is waiting' );
 ok( !waiting_for( $silent->{ref} ), 'a card with no questions is not' );
 
-# Answered, but the agent has not looked: still waiting, on the agent now.
+# Answered: the card stops waiting on the owner, because it is no longer his
+# move. It becomes the agent's, which is a different colour rather than the same
+# one - the board should say whose turn it is, not merely that somebody is
+# waiting.
 $tira->question_answer( project => $root, id => $done->{id}, text => 'That one.' );
-ok( waiting_for( $settled->{ref} ), 'an answer nobody has read leaves the card waiting' );
+ok( !waiting_for( $settled->{ref} ),
+    'once answered the card is no longer waiting on the owner' );
+ok( reviewing( $settled->{ref} ),
+    'it is waiting on the agent instead, which the board draws differently' );
 
-# Read, but not marked: still waiting, because reading is not agreeing.
+# Reading is not agreeing, so it is still the agent's move.
 $tira->question_list( project => $root, ref => $settled->{ref} );
-ok( waiting_for( $settled->{ref} ),
+ok( reviewing( $settled->{ref} ),
     'reading an answer is not the same as saying whether it settles anything' );
 
-# Read and marked: settled.
+# Marked: settled, and no colour at all.
 $tira->question_mark( project => $root, id => $done->{id}, mark => 'ok' );
-ok( !waiting_for( $settled->{ref} ), 'once the answer is read and marked the card is settled' );
+ok( !waiting_for( $settled->{ref} ), 'once marked the card is settled' );
+ok( !reviewing( $settled->{ref} ), 'and there is nothing left to review' );
 
-# A cross is still a mark: it settles this question, and the new one that must
-# follow is what keeps the card waiting.
+# A cross is a judgement too.
 $tira->question_mark( project => $root, id => $done->{id}, mark => 'not-ok' );
-ok( !waiting_for( $settled->{ref} ), 'a cross settles this question too' );
+ok( !reviewing( $settled->{ref} ), 'a cross settles this question too' );
+
+# A card can never be both colours at once: that would be the board saying two
+# different people owe the next move.
+{
+    my $mixed = $tira->create_record( project => $root, type => 'ticket', title => 'Both at once?' );
+    my $first = $tira->question_add( project => $root, ref => $mixed->{ref}, text => 'One' );
+    $tira->question_answer( project => $root, id => $first->{id}, text => 'Answered' );
+    $tira->question_add( project => $root, ref => $mixed->{ref}, text => 'Two, unanswered' );
+    ok( waiting_for( $mixed->{ref} ), 'an unanswered question keeps the card the owner\'s' );
+    ok( !reviewing( $mixed->{ref} ),
+        'and it is not the agent\'s until every question has been answered' );
+}
 $tira->question_add( project => $root, ref => $settled->{ref}, text => 'Then what about this?' );
 ok( waiting_for( $settled->{ref} ), 'and the new question it obliges puts the card back to waiting' );
 
@@ -94,7 +123,9 @@ ok( !waiting_for( $set_aside->{ref} ), 'a discarded question leaves the card set
 my $html = $tira->format_output(
     $tira->dashboard( project => $root, type => 'ticket' ),
     output => 'table', project => $root, with_title => 1 );
-like( $html, qr/class="card card--waiting"/, 'a waiting card is drawn differently' );
+like( $html, qr/class="card card--waiting"/, 'a card waiting on the owner is drawn differently' );
+like( $html, qr/\.card--to-review\{border-color:rgba\(251,146,60/,
+    'and a card waiting on the agent is orange rather than the same yellow' );
 like( $html, qr/class="card"/, 'and an ordinary card exactly as before' );
 like( $html, qr/\.card--waiting\{/, 'the stylesheet says what that looks like' );
 

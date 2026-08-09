@@ -1,5 +1,21 @@
 Revision history for Tira
 
+0.90  2026-08-09
+    - A card's colour now says **whose move it is** rather than only
+      that somebody is waiting. Yellow: a question nobody has answered,
+      so the owner owes the next move. Orange: every question answered
+      with at least one not yet ticked or crossed, so the agent does.
+      No colour once everything is settled.
+    - The two are mutually exclusive by construction - a card with any
+      unanswered question cannot be orange, however many of its other
+      answers are unjudged - so the board never claims two people owe
+      the same thing at once.
+    - The Answers to review toggle is now exactly "show me the orange
+      ones", which is a rule somebody can hold in their head.
+    - Removed a duplication introduced a release earlier: the colour
+      rule and the collector's blocking rule had identical bodies in
+      two places. One rule now, asked by both.
+
 0.89  2026-08-09
     - An **Answers to review** toggle on each board control narrows it
       to cards whose questions have been answered but not yet marked -

@@ -129,8 +129,10 @@ answered.
   the agent was blocked, not idle.
 - **An all-clear** then tells the agent every question is answered and the card
   is back with it, once per round of questions.
-- **The card is yellow** on the dashboard while anybody is waiting: unanswered
-  waits on the owner, an answer not yet read and marked waits on the agent.
+- **The card's colour says whose move it is.** Yellow: a question nobody has
+  answered, so the owner owes the next move. Orange: everything answered and
+  something not yet ticked or crossed, so the agent does. Never both at once,
+  and no colour once every question is settled.
 - **Search matches** question text, answer text and question references, so
   `tira.search --text Q-007` finds the card it lives on.
 
@@ -141,11 +143,11 @@ shows only cards whose questions have been answered but **not yet marked** —
 the answers waiting for you to accept or reject. Switched off, which is how it
 starts, the board shows everything.
 
-This is not the same as the yellow card. Yellow means somebody is waiting, in
-either direction, including questions the owner has not answered at all — those
-are his to deal with, not yours. The toggle narrows to just your side of it. A
-mark of either kind clears a card from the list, since a cross is a judgement
-too, and a discarded question needs none.
+These are exactly the **orange** cards: everything answered, something still
+unjudged. Yellow cards — questions the owner has not answered — are his move,
+not yours, so the toggle leaves them out rather than making you scroll past
+work you cannot act on. A mark of either kind clears a card from the list,
+since a cross is a judgement too, and a discarded question needs none.
 
 ### On the dashboard
 

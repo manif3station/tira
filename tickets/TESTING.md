@@ -1891,3 +1891,19 @@ report, message 2915 — three connected findings).
   it fails with all six cards still visible.
 - Functional PASS `Files=66, Tests=2605`; coverage `100.0%` all three
   modules; `prove -T` PASS; fixtures cleaned.
+
+## Latest Verification For `DD-486`
+
+- `t/59` reworked for the two-colour model: answered stops the card
+  being the owner's and makes it the agent's, reading is still not
+  agreeing, either mark settles it, and **a card with one answered and
+  one unanswered question is yellow and never orange** — the case that
+  proves the two states cannot both be true.
+- `t/64` caught my own documentation edit: I changed the wording of the
+  colour explanation and the guard failed until both manuals matched
+  the new model. That is exactly what it was written for, and it fired
+  within the same release rather than months later.
+- The stylesheet assertion pins orange to its actual value, so the two
+  colours cannot silently converge.
+- Functional PASS `Files=66, Tests=2612`; coverage `100.0%` all three
+  modules; `prove -T` PASS.

@@ -70,7 +70,9 @@ my %explained = (
     'only what you name changing' => qr/[Oo]nly what you name\s+changes/s,
     'a blocked card not being chased' => qr/not chased|leaves it\s+alone/is,
     'the clock restarting from the answer' => qr/restarts the clock\s+from that answer/s,
-    'the yellow card' => qr/card is yellow/is,
+    'what each card colour means' => qr/colour says whose move/is,
+    'yellow being the owner\'s move' => qr/Yellow: a question nobody has\s+answered/s,
+    'orange being the agent\'s' => qr/Orange: everything answered/s,
     'clicking a choice to answer' => qr/clicking one answers\s+with it/is,
     'the board and CLI being one path' => qr/same engine\s+subroutine/s,
 );

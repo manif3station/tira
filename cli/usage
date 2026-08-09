@@ -1,0 +1,28 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use FindBin;
+use File::Spec;
+
+my $reference = File::Spec->catfile( $FindBin::Bin, '..', 'docs', 'commands.md' );
+open my $fh, '<:raw', $reference or die "Cannot read Tira command reference: $!\n";
+print while <$fh>;
+close $fh or die "Cannot close Tira command reference: $!\n";
+
+__END__
+
+=head1 NAME
+
+tira.usage - Print the raw Tira command reference
+
+=head1 SYNOPSIS
+
+  dashboard tira.usage
+
+=head1 DESCRIPTION
+
+Prints C<docs/commands.md>: every command, every argument, what it is for
+and when to use it. The companion to C<dashboard tira.skills>, which prints
+the use-case manual.
+
+=cut

@@ -5,6 +5,10 @@ Dashboard. It manages projects, SOWs, epics, tickets, columns, relationships,
 people, comments, evidence, gates, and content-addressed attachments without a
 server or hidden database. Never edit Tira-managed YAML or JSON directly.
 
+This manual is the use cases: what to do, and which command does it. For the
+command reference — every command, every argument, what it is for and when to
+use it — run `dashboard tira.usage`.
+
 ## Availability legend
 
 - **Implemented (0.01):** shipped, executable, and covered by tests.
@@ -37,10 +41,10 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.78):** shipped, executable, and covered by tests.
+- **Implemented (0.79):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.78.
+All commands and use cases in this manual ship in release 0.79.
 
 ## Global invocation grammar
 

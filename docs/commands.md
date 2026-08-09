@@ -1,5 +1,9 @@
 # Complete Command Ecosystem
 
+This is the reference: every command and argument, what it is for and when to
+use it. For the use cases — the workflows these commands serve, and which one
+to reach for — run `dashboard tira.skills`.
+
 Release 0.16 implements every workflow in `SKILLS.md` through 83 Developer
 Dashboard entrypoints. The shared `Tira::CLI` parser applies TOON-first output,
 pretty JSON, Markdown, repeatable options, JSON-array replacement, raw

@@ -1654,3 +1654,18 @@ report, message 2915 — three connected findings).
   characters and the column-editor guard is green.
 - Functional PASS `Files=56, Tests=2120`; coverage `100.0%` all three
   modules; `prove -T` PASS; fixtures cleaned.
+
+## Latest Verification For `DD-470`
+
+- Red-first `t/56-usage.t` (9 checks): the entrypoint ships executable,
+  prints `docs/commands.md` byte for byte, exits 0, each manual names
+  the other, the manual's cross-reference discloses no project
+  selection, and the entrypoint dies rather than printing nothing when
+  the file is unreadable.
+- Two of my own faults, both caught by the test rather than by me: the
+  assertion assumed the cross-reference sat on a single line when it
+  wraps, and the test runs a shipped entrypoint as a real program, so
+  under `prove -T` it had to prove its own `PATH` and interpreter clean
+  first.
+- Functional PASS `Files=57, Tests=2131`; coverage `100.0%` all three
+  modules; `prove -T` PASS.

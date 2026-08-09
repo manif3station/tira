@@ -1,5 +1,20 @@
 Revision history for Tira
 
+0.89  2026-08-09
+    - An **Answers to review** toggle on each board control narrows it
+      to cards whose questions have been answered but not yet marked -
+      the answers waiting on the agent to accept or reject. Off by
+      default, because a board must show all the work until somebody
+      narrows it.
+    - Deliberately narrower than the yellow card, which also covers
+      questions the owner has not answered: those are his to deal with,
+      not the agent's, and mixing them would mean scrolling past work
+      that cannot be acted on. Either mark clears a card, since a cross
+      is a judgement too.
+    - The toggle narrows the same render that already owns filtering,
+      paging and the counts, so the counts cannot disagree with what is
+      on screen - verified in the browser rather than assumed.
+
 0.88  2026-08-09
     - Confirmed and now guarded: every call out to a coding agent
       resumes the session this project configured, rather than starting

@@ -1873,3 +1873,21 @@ report, message 2915 — three connected findings).
   reaches the configured session by name, and scans the collector
   source to assert there is one agent invocation and that it resumes.
   A second path added without `--resume` fails the suite.
+
+## Latest Verification For `DD-485`
+
+- `t/65-review-toggle.t` (15 checks) covers one card of every state a
+  question can leave behind: unanswered, answered-unmarked, marked,
+  discarded, and never-asked. Proves the flag means answered-and-
+  unmarked only, that a cross clears it as surely as a tick, and that
+  it is distinct from `waiting` — a new question on a judged card makes
+  it wait again without giving the agent anything to review until it is
+  answered.
+- New browser guard `t/playwright/review-toggle.js`: six cards, two
+  reviewable, the toggle off by default, exactly the right two
+  surviving, **the column counts agreeing with what is shown**, and
+  everything restored when switched off. Green twice.
+- **Verified in the failing direction**: with the filter clause removed
+  it fails with all six cards still visible.
+- Functional PASS `Files=66, Tests=2605`; coverage `100.0%` all three
+  modules; `prove -T` PASS; fixtures cleaned.

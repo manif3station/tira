@@ -41,10 +41,10 @@ use it — run `dashboard tira.usage`.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.88):** shipped, executable, and covered by tests.
+- **Implemented (0.89):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.88.
+All commands and use cases in this manual ship in release 0.89.
 
 ## Global invocation grammar
 
@@ -1181,6 +1181,9 @@ without revealing or creating a storage location.
 
 ### UC-106: Ask a question the owner can answer quickly
 **Implemented.** Give the reason and the options with the question, not just the question: `dashboard tira.question.ask --ref TKT-001 --text "Which store should the importer write to?" --reason "Both are configured and the runbook names neither." --option "The staging bucket" --option "The live bucket" --option "Neither, block until told"`. Both are optional and a bare question still works, but an owner answering without them is composing an answer from nothing; with them he can reply "the staging one" in seconds. They render under the question in the human view and in the card's Questions section on the dashboard, where he can answer and mark without leaving the board.
+
+### UC-109: Find the answers you have not judged yet
+**Implemented.** On the live dashboard, the **Answers to review** toggle in a board control narrows it to cards whose questions have been answered but not yet marked — exactly the answers waiting on you to accept or reject. It starts off, so the board shows all the work until you narrow it, and switching it off restores everything. This is narrower than the yellow card, which also covers questions the owner has not answered: those are waiting on him. Marking an answer either way clears the card from the list, because a cross is a judgement too.
 
 ### UC-108: Take an old crammed question apart
 **Implemented.** A question asked before reason and choices existed has all three squeezed into its text, and those are exactly the ones that most need splitting. Revisit it and decompose it: `dashboard tira.question.update --id Q-007 --text "Which store should this write to?" --reason "Both are configured and the runbook names neither." --option Staging --option Live` does it in one command, or set one piece at a time as you work it out — **only what you name changes**, so a reason on its own leaves the question and the choices untouched. An explicitly empty value clears that piece if you decide it was wrong. The question keeps its reference and its original time, so anybody who quoted it is not stranded.

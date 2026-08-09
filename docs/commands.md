@@ -134,6 +134,19 @@ answered.
 - **Search matches** question text, answer text and question references, so
   `tira.search --text Q-007` finds the card it lives on.
 
+### Finding answers you have not judged yet
+
+A board control carries an **Answers to review** toggle. Switched on, the board
+shows only cards whose questions have been answered but **not yet marked** —
+the answers waiting for you to accept or reject. Switched off, which is how it
+starts, the board shows everything.
+
+This is not the same as the yellow card. Yellow means somebody is waiting, in
+either direction, including questions the owner has not answered at all — those
+are his to deal with, not yours. The toggle narrows to just your side of it. A
+mark of either kind clears a card from the list, since a cross is a judgement
+too, and a discarded question needs none.
+
 ### On the dashboard
 
 A card's dialog carries a **Questions** section. Each question shows five

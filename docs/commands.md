@@ -241,8 +241,14 @@ board into a restart loop.
 
 A card's dialog carries a **Questions** section, placed directly after the
 card's details rather than at the bottom: it is the part that needs an answer,
-so it should not be the part you scroll furthest to reach. Each question shows
-five
+so it should not be the part you scroll furthest to reach.
+
+They are ordered by what still needs doing — unanswered first, then answered
+but not yet judged, then judged, then set aside. A question that has been
+marked collapses to its question, its answer and a tick or a cross, since
+everything else is only in the way once it is settled.
+
+An open question shows five
 things: the question, its choices, why it was asked, its status, and its
 answer. A choice is a button — clicking one answers with it, and the text box
 stays hidden until **Other…** is chosen. An answer already given can be edited

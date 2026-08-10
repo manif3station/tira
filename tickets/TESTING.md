@@ -2029,3 +2029,21 @@ report, message 2915 — three connected findings).
   never trustworthy.
 - Functional PASS `Files=71, Tests=2732`; coverage `100.0%` all three
   modules; `prove -T` PASS.
+
+## Latest Verification For `DD-495` And `DD-496`
+
+- Order verified in a browser on a card deliberately built worst-first:
+  `Q-004 open | Q-003 open | Q-001 settled | Q-002 settled`. Sorted on
+  a copy, so displaying a card never reorders the card.
+- Collapse measured rather than assumed: settled blocks 113px against
+  398px for one still needing attention, and the verdicts render as
+  `✅` and `❌` — written as escapes, because literal glyphs in this
+  renderer arrive double-encoded (`DD-468`).
+- **Eyeballing caught a defect every test passed.** The answer box was
+  meant to wait behind `Other…` and was on screen throughout: a
+  `display: flex` rule beats the `hidden` attribute. A test can only
+  check what somebody thought to assert, and nobody asserts what they
+  have not noticed — which is the whole argument for looking at a
+  layout change. Now asserted so it cannot come back.
+- Functional PASS `Files=71, Tests=2741`; coverage `100.0%` all three
+  modules; `prove -T` PASS; fixtures cleaned.

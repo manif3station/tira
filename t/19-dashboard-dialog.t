@@ -214,6 +214,33 @@ like( $live_html, qr/\(details&&details\.nextSibling\)\|\|comments\|\|null/,
 unlike( $live_html, qr/sectionsHost\.appendChild\(section\("Questions"/,
     'with nothing left that would put them back at the bottom' );
 
+# The box waits behind Other, and a display rule would otherwise beat the
+# hidden attribute and leave it on screen - which is exactly what it did until
+# somebody looked at the panel rather than at the tests.
+like( $live_html, qr/\.card-question__typed\[hidden\][^}]*\{display:none\}/,
+    'hiding the answer box actually hides it' );
+
+# DD-496: what still needs doing comes first, what is finished sinks.
+like( $live_html, qr/const questionRank=question=>question\.discarded_at\?3:!question\.answer\?0:!question\.answer\.mark\?1:2/,
+    'unanswered ranks first, then answered but unjudged, then judged, then set aside' );
+like( $live_html, qr/all\.sort\(\(a,b\)=>questionRank\(a\)-questionRank\(b\)\)/,
+    'and the panel is ordered by it' );
+like( $live_html, qr/const all=\[\.\.\.\(record\.questions\|\|\[\]\)\]/,
+    'on a copy, so sorting for display never reorders the card itself' );
+
+# DD-495: a judged question is finished business. It keeps the question, the
+# answer and the verdict as an icon, and drops the apparatus for acting on it,
+# which is only in the way once there is nothing left to do.
+like( $live_html, qr/const settled=!!\(question\.answer&&question\.answer\.mark\)/,
+    'a question counts as settled once its answer carries a mark' );
+like( $live_html, qr/card-question__verdict/, 'which is shown as a verdict rather than a word' );
+like( $live_html, qr/question\.answer\.mark==="ok"\?"\\u2705":"\\u274c"/,
+    'a tick or a cross, written as escapes so they cannot arrive double-encoded (DD-468)' );
+like( $live_html, qr/if\(settled\)\{block\.appendChild\(el\("blockquote","card-question__answer",question\.answer\.text\)\);host\.appendChild\(block\);return\}/,
+    'and a settled question stops there: question, answer, verdict, nothing else' );
+like( $live_html, qr/\.card-question\[data-settled="1"\]\{padding:\.5rem/,
+    'drawn tighter than one still needing attention' );
+
 # DD-484: answering wiped the whole questions panel. The reload rebuilds the
 # card's sections from scratch, so anything only the first render added is gone
 # the moment anybody changes something.
@@ -246,7 +273,7 @@ like( $live_html, qr/typed\.hidden=/, 'and the box stays out of the way until it
 like( $live_html, qr{mutate\("/question/mark"}, 'and the owner can say whether it settles it' );
 
 # A discarded question is shown struck through rather than hidden.
-like( $live_html, qr/const all=record\.questions\|\|\[\]/,
+like( $live_html, qr/const all=\[\.\.\.\(record\.questions\|\|\[\]\)\]/,
     'every question is rendered, discarded ones included' );
 like( $live_html, qr/card-question\[data-status="discarded"\] \.card-question__text\{text-decoration:line-through\}/,
     'and a discarded one is struck through' );

@@ -1,5 +1,19 @@
 Revision history for Tira
 
+0.99  2026-08-10
+    - A question that has been marked collapses to its question, its
+      answer and a tick or a cross. Everything else - the reason, the
+      choices, the play control, the answer box, the mark buttons - is
+      only in the way once there is nothing left to do. On a real card
+      that is 113 pixels against 398.
+    - The panel is ordered by what still needs doing: unanswered,
+      answered but unjudged, judged, set aside. Sorted on a copy, so
+      displaying a card never reorders the card itself.
+    - Fixes a defect found by looking at the panel rather than at its
+      tests: the answer box was meant to wait behind `Other...` and was
+      on screen the whole time, because a display rule beats the hidden
+      attribute. Every assertion passed and the panel was still wrong.
+
 0.98  2026-08-09
     - `tira.question.voice` accepts `--file`, which is what every other
       command in Tira calls a path. Inventing `--voice` for this one

@@ -41,10 +41,10 @@ use it — run `dashboard tira.usage`.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.98):** shipped, executable, and covered by tests.
+- **Implemented (0.99):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.98.
+All commands and use cases in this manual ship in release 0.99.
 
 ## Global invocation grammar
 
@@ -1181,6 +1181,9 @@ without revealing or creating a storage location.
 
 ### UC-106: Ask a question the owner can answer quickly
 **Implemented.** Give the reason and the options with the question, not just the question: `dashboard tira.question.ask --ref TKT-001 --text "Which store should the importer write to?" --reason "Both are configured and the runbook names neither." --option "The staging bucket" --option "The live bucket" --option "Neither, block until told"`. Both are optional and a bare question still works, but an owner answering without them is composing an answer from nothing; with them he can reply "the staging one" in seconds. They render under the question in the human view and in the card's Questions section on the dashboard, where he can answer and mark without leaving the board.
+
+### UC-116: Read a card's questions in the order they need you
+**Implemented.** The Questions panel puts what still needs doing first: unanswered, then answered but not yet judged, then judged, then set aside. A question you have already marked collapses to its question, its answer and a tick or a cross — everything else is only in the way once it is settled — so a card with a long history stays readable.
 
 ### UC-115: Find every file on a card, wherever it is attached
 **Implemented.** `dashboard tira.attachment.list --ref TKT-001 -o json` counts and lists every file belonging to the card: attached to the card itself, to one of its comments, or recorded as a voice note on one of its questions. Each entry says which in `attached_to`. A zero means there is genuinely nothing there — it used to mean nothing on the card itself, which read as failure when the files were one level down.

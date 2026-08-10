@@ -32,12 +32,18 @@ ok( $questions, 'the reference has a questions section to check' );
 # Every question command that actually ships, taken from the entrypoints.
 my @commands = sort map { ( File::Spec->splitdir($_) )[-1] }
   grep { -f } glob 'skills/question/cli/*';
-is_deeply( \@commands, [qw(answer ask discard list mark update voice)],
-    'the question commands are the seven that ship' );
+is_deeply( \@commands, [qw(answer ask attach discard list mark update voice)],
+    'the question commands are the eight that ship' );
 
 for my $command (@commands) {
     like( $questions, qr/\Qtira.question.$command\E/,
         "the reference documents tira.question.$command" );
+
+    # The manual is what an agent reads first, so a command absent from it is
+    # a command most agents will never find, however well the reference
+    # describes it.
+    like( $manual, qr/\Qtira.question.$command\E/,
+        "and the manual names tira.question.$command too" );
 }
 
 # Every option the dispatcher actually passes through to a question command.

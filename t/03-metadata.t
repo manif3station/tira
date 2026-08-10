@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=0\.99$/m, '.env stores version 0.99' );
+like( $env_text, qr/^VERSION=1\.00$/m, '.env stores version 1.00' );
 
 open my $skills, '<', 'SKILLS.md' or die "Cannot read SKILLS.md: $!";
 my $skills_text = do { local $/; <$skills> };
@@ -35,18 +35,18 @@ for my $section (
     like( $skills_text, qr/^## \Q$section\E$/m, "SKILLS.md contains $section" );
 }
 my @use_cases = $skills_text =~ /^### UC-\d{3}:/mg;
-is( scalar @use_cases, 116, 'SKILLS.md contains exactly 116 numbered use cases' );
+is( scalar @use_cases, 117, 'SKILLS.md contains exactly 117 numbered use cases' );
 my %seen;
 while ( $skills_text =~ /^### UC-(\d{3}):/mg ) {
     $seen{$1}++;
 }
-is_deeply( [ sort keys %seen ], [ map { sprintf '%03d', $_ } 1 .. 116 ], 'use cases are numbered UC-001 through UC-116' );
+is_deeply( [ sort keys %seen ], [ map { sprintf '%03d', $_ } 1 .. 117 ], 'use cases are numbered UC-001 through UC-117' );
 unlike( $skills_text, qr{/home/[A-Za-z0-9._-]+/}, 'SKILLS.md contains no hard-coded home-directory path' );
 unlike( $skills_text, qr/--project|TIRA_HOME|\.tira\/|project selector/i, 'SKILLS.md does not disclose project location or selectors' );
 
 use lib 'lib';
 use Tira;
-is( $Tira::VERSION, '0.99', 'module version matches .env' );
+is( $Tira::VERSION, '1.00', 'module version matches .env' );
 unlike( $skills_text, qr/\bSpecified\b/i, 'every documented command and use case is implemented' );
 
 my @perl_files = ( 'lib/Tira.pm', 'lib/Tira/CLI.pm' );
@@ -66,7 +66,7 @@ for my $file (@perl_files) {
         "$file keeps its POD ASCII, which podchecker requires without an =encoding" );
 }
 my @commands = grep { m{(?:\A|/)cli/[^/]+\z} && -x $_ } @perl_files;
-is( scalar @commands, 107, 'release ships exactly 107 executable CLI entrypoints' );
+is( scalar @commands, 108, 'release ships exactly 108 executable CLI entrypoints' );
 
 done_testing;
 

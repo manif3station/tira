@@ -44,6 +44,7 @@ sub run {
         'mark=s' => \$option{mark},
         'reason=s' => \$option{reason}, 'option=s@' => \$option{options},
         'voice=s' => \$option{voice}, 'remove' => \$option{remove},
+        'question=s@' => \$option{questions}, 'filename=s' => \$option{filename},
         'collector=s' => \$option{collector}, 'agent=s' => \$option{agent},
         'session=s' => \$option{session}, 'heartbeat=s' => \$option{heartbeat},
         'outward=s' => \$option{outward}, 'inward=s' => \$option{inward},
@@ -366,6 +367,34 @@ sub browser_providers {
                     text => $payload->{text}, author => $payload->{author},
                 ),
             } );
+        },
+        question_attach => sub {
+            my ($payload) = @_;
+            die "Attaching needs a question, a filename and content\n"
+              if ref($payload) ne 'HASH' || !defined $payload->{id}
+              || !defined $payload->{filename} || !defined $payload->{content_base64};
+            require MIME::Base64;
+            my $content = MIME::Base64::decode_base64( $payload->{content_base64} );
+            die "That upload is empty\n" if !length $content;
+
+            # The browser hands over bytes rather than a path, so they are
+            # written somewhere the engine can take a path to and then removed.
+            require File::Temp;
+            my ( $fh, $path ) = File::Temp::tempfile(
+                SUFFIX => ( $payload->{filename} =~ /(\.[A-Za-z0-9]+)\z/ ? $1 : '.bin' ) );
+            binmode $fh;
+            print {$fh} $content;
+            close $fh;
+            my $question = eval {
+                $tira->question_attach(
+                    project => $project, id => $payload->{id},
+                    file => $path, to => $payload->{to},
+                    filename => $payload->{filename} );
+            };
+            my $error = $@;
+            unlink $path;
+            die $error if !$question;
+            return $json->encode( { ok => JSON::PP::true, question => $question } );
         },
         question_mark => sub {
             my ($payload) = @_;
@@ -1087,8 +1116,10 @@ sub _invoke {
       && $command !~ /\Aquestion\.(?:ask|update)\z/;
     die "A voice note belongs to the question.ask, question.update and question.voice commands\n"
       if defined $option->{voice} && $command !~ /\Aquestion\.(?:ask|update|voice)\z/;
-    die "Remove belongs to the question.voice command\n"
-      if $option->{remove} && $command ne 'question.voice';
+    die "Remove belongs to the question.voice and question.attach commands\n"
+      if $option->{remove} && $command !~ /\Aquestion\.(?:voice|attach)\z/;
+    die "Naming a question belongs to the attachment.list command\n"
+      if $option->{questions} && $command ne 'attachment.list';
     die "Watch is available on the column.update command\n"
       if defined $option->{watched} && $command ne 'column.update';
     die "Notify-after is available on the column.update, project.update, project.new and onboard commands\n"
@@ -1194,6 +1225,12 @@ sub _invoke {
         }
         return $summary;
     }
+    if ( $command eq 'question.attach' ) {
+        return $tira->question_attach(
+            project => $args{project}, id => $option->{id},
+            file => $option->{file}, to => $option->{to},
+            filename => $option->{filename}, remove => $option->{remove} );
+    }
     if ( $command eq 'question.voice' ) {
         my $path = $option->{file} // $option->{voice};
         die "Use only one of --file or --remove\n" if defined $path && $option->{remove};
@@ -1210,6 +1247,7 @@ sub _invoke {
         $question{ref} = $option->{ref_list}[0] if $option->{ref_list};
         $question{$_} = $option->{$_} for grep { defined $option->{$_} } qw(id text mark author reason);
         $question{voice} = $option->{voice} if defined $option->{voice} && $action eq 'update';
+        $question{file} = $option->{file} if defined $option->{file} && $action eq 'answer';
         $question{options} = $option->{options} if $option->{options};
         $question{status} = $option->{status} if defined $option->{status};
         $question{since} = $option->{since} if defined $option->{since};
@@ -1343,6 +1381,7 @@ sub _invoke {
         $args{include_mtime} = $option->{include_mtime} || $option->{output} eq 'table' || $option->{output} =~ /\Abrowser(?:=|\z)/;
     }
     $args{include_deleted} = $option->{include_deleted} if $command eq 'attachment.list';
+    $args{questions} = $option->{questions} if $command eq 'attachment.list' && $option->{questions};
     if ( $command =~ /\Acomment\.(?:add|update)\z/ && defined $option->{file} ) {
         die "Use only one of --text or --file\n" if defined $option->{text};
         $args{text} = _text_input( $option->{file}, utf8 => 1 );

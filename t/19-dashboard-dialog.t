@@ -220,6 +220,18 @@ unlike( $live_html, qr/sectionsHost\.appendChild\(section\("Questions"/,
 like( $live_html, qr/\.card-question__typed\[hidden\][^}]*\{display:none\}/,
     'hiding the answer box actually hides it' );
 
+# DD-497: evidence where the question is, and a place to drop more.
+like( $live_html, qr/fileList\(question\.attachments,"Asked with:"\)/,
+    'what the question was asked with is shown on it' );
+like( $live_html, qr/fileList\(question\.answer&&question\.answer\.attachments,"Answered with:"\)/,
+    'and what came back with the answer, under the same question' );
+like( $live_html, qr/card-question__drop/, 'with somewhere to drop another file' );
+like( $live_html, qr{mutate\("/question/attach"}, 'which uploads it against that question' );
+like( $live_html, qr/to:question\.answer\?"answer":"question"/,
+    'onto the answer once there is one, since that is who is attaching by then' );
+like( $live_html, qr/box\.style\.height=Math\.min\(box\.scrollHeight,420\)\+"px"/,
+    'and the answer box grows with what is typed rather than hiding the start of it' );
+
 # DD-496: what still needs doing comes first, what is finished sinks.
 like( $live_html, qr/const questionRank=question=>question\.discarded_at\?3:!question\.answer\?0:!question\.answer\.mark\?1:2/,
     'unanswered ranks first, then answered but unjudged, then judged, then set aside' );
@@ -358,6 +370,7 @@ my %providers = (
     columns => sub { '[]' },
     question_answer => sub { '{"ok":true}' },
     question_mark => sub { '{"ok":true}' },
+    question_attach => sub { '{"ok":true}' },
     column_apply => sub { '{}' },
     create => sub { '{"ok":true,"record":{"ref":"TKT-009"}}' },
     update => sub { '{"ok":true}' },
@@ -394,6 +407,7 @@ my $app = Tira::DashboardWeb->build_psgi_app(
     columns => sub { $received{columns} = $_[0]; return '[{"name":"backlog","label":"Backlog","protected":true,"watched":1}]' },
     question_answer => sub { $received{question_answer} = $_[0]; return '{"ok":true}' },
     question_mark => sub { $received{question_mark} = $_[0]; return '{"ok":true}' },
+    question_attach => sub { $received{question_attach} = $_[0]; return '{"ok":true}' },
     column_apply => sub { $received{column_apply} = $_[0]; return '{"added":[],"removed":[],"reordered":false}' },
     create => sub { $received{create} = $_[0]; return '{"ok":true,"record":{"ref":"TKT-009"}}' },
     update => sub {

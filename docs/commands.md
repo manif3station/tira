@@ -92,6 +92,23 @@ choices alone. An explicitly empty `--reason` clears it; `--option ""` alone
 clears the choices. The question keeps its reference and its original time, so
 anybody quoting it is not stranded. Naming none of the three is refused.
 
+### `tira.question.attach`
+
+Hang evidence on a question, or on its answer: a screenshot, a log, whatever
+makes the question answerable.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--id Q-NNN` | yes | The question. |
+| `--file FILE` | to attach | A local path. Any kind of file. |
+| `--to answer` | no | Attach to the answer rather than the question. Refused before there is an answer. |
+| `--filename NAME` with `--remove` | to remove | Take one off by its name. |
+| `-o FORMAT` | no | As above. |
+
+`tira.question.answer --file FILE` attaches while answering, so answering and
+showing your working are one action. The same file attached twice is one
+reference, not two rows saying the same thing.
+
 ### `tira.question.voice`
 
 Attach a recording of the question, so it can be played from the board rather
@@ -161,10 +178,19 @@ there is furniture, and gets ignored like furniture.
 ### Where a card's files actually live
 
 `tira.attachment.list --ref TKT-001` counts every file on the card, wherever it
-is attached: to the card itself, to one of its comments, or as a voice note on
-one of its questions. Each entry carries `attached_to` saying which. A count of
-zero therefore means there is genuinely nothing, rather than nothing in the
-first of three places.
+is attached: to the card, to a comment, to a question, or to a question's
+answer. Each entry carries `attached_to` saying which. A count of zero
+therefore means there is genuinely nothing, rather than nothing in the first of
+several places.
+
+Add `--question Q-007` to narrow it to one question — its own evidence and the
+evidence that came back with its answer, together, because somebody reading a
+question wants everything bearing on it. Repeat the flag for several. Naming
+none shows the lot.
+
+Fetching needs only the reference: `tira.attachment.get --sha SHA --extension
+EXT` takes no card and no question, because a reference already identifies the
+file.
 
 ### Reminders on a new record
 

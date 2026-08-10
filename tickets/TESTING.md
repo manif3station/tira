@@ -2047,3 +2047,24 @@ report, message 2915 — three connected findings).
   layout change. Now asserted so it cannot come back.
 - Functional PASS `Files=71, Tests=2741`; coverage `100.0%` all three
   modules; `prove -T` PASS; fixtures cleaned.
+
+## Latest Verification For `DD-497`
+
+- `t/71-question-attachments.t` (31 checks): evidence on a question,
+  another question inheriting none of it, answering with evidence in
+  one action, all of it listed together under that question, naming a
+  question narrowing to it, naming none showing every file on the card,
+  each entry saying where it hangs, the same file twice being one
+  reference, removal by name, evidence refused before there is an
+  answer, and fetching by reference alone.
+- **The browser upload is tested through the real provider, not a
+  mock**, and that caught a defect a mock would have hidden: a file
+  dropped as `dropped.png` was stored under the temporary filename it
+  arrived in. The name now travels with the bytes.
+- **Documentation alignment, as asked**: every one of the eight
+  question commands is named in `docs/commands.md` *and* in
+  `SKILLS.md`, and `t/64` now requires both. `question.discard` was in
+  the reference but had never been named in the manual, so an agent
+  reading the manual first would never have found it.
+- Functional PASS `Files=72, Tests=2791`; coverage `100.0%` all three
+  modules; `prove -T` PASS.

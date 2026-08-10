@@ -41,10 +41,10 @@ use it — run `dashboard tira.usage`.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (0.99):** shipped, executable, and covered by tests.
+- **Implemented (1.00):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 0.99.
+All commands and use cases in this manual ship in release 1.00.
 
 ## Global invocation grammar
 
@@ -1182,6 +1182,9 @@ without revealing or creating a storage location.
 ### UC-106: Ask a question the owner can answer quickly
 **Implemented.** Give the reason and the options with the question, not just the question: `dashboard tira.question.ask --ref TKT-001 --text "Which store should the importer write to?" --reason "Both are configured and the runbook names neither." --option "The staging bucket" --option "The live bucket" --option "Neither, block until told"`. Both are optional and a bare question still works, but an owner answering without them is composing an answer from nothing; with them he can reply "the staging one" in seconds. They render under the question in the human view and in the card's Questions section on the dashboard, where he can answer and mark without leaving the board.
 
+### UC-117: Show your working when you ask, and when you answer
+**Implemented.** Hang evidence on a question with `dashboard tira.question.attach --id Q-007 --file /tmp/screen.png`, and answer with evidence in one action using `dashboard tira.question.answer --id Q-007 --text "That one." --file /tmp/proof.pdf`. Both belong to the question: `dashboard tira.attachment.list --ref TKT-001 --question Q-007 -o json` returns what you asked with and what came back together, because somebody reading a question wants everything bearing on it. Naming no question lists every file on the card, each saying where it hangs. Fetching needs only the reference — no card, no question, nothing to choose.
+
 ### UC-116: Read a card's questions in the order they need you
 **Implemented.** The Questions panel puts what still needs doing first: unanswered, then answered but not yet judged, then judged, then set aside. A question you have already marked collapses to its question, its answer and a tick or a cross — everything else is only in the way once it is settled — so a card with a long history stays readable.
 
@@ -1222,7 +1225,7 @@ without revealing or creating a storage location.
 **Implemented.** A question reference belongs to the project, not to a board, so quoting it is enough: `dashboard tira.search --text Q-007 -o json` returns the card it lives on whichever board that is. Search also matches the words in a question and the words in its answer, so `--text credentials` finds the card somebody asked about credentials on. A discarded question is still found, because it still happened. On the dashboard the keyword box does the same thing across all three boards at once — typing a question reference on one board empties it and shows the card on the board that owns it.
 
 ### UC-103: Catch up on what changed without re-reading everything
-**Implemented.** `dashboard tira.question.list --ref TKT-001 --status new -o json` shows only what is still unanswered; `--status answered` only what has been answered, and `--status discarded` what was set aside. `--since 2026-08-09T09:00:00Z` reads the answer's stamp when there is an answer and the question's when there is not, so a newly answered question shows up as newly changed. A question reference is project-wide, so `--id Q-007` reaches it from anywhere without naming the card.
+**Implemented.** Set a question aside with `dashboard tira.question.discard --id Q-007` when it stops mattering — nothing is deleted, it keeps its answer and shows struck through. `dashboard tira.question.list --ref TKT-001 --status new -o json` shows only what is still unanswered; `--status answered` only what has been answered, and `--status discarded` what was set aside. `--since 2026-08-09T09:00:00Z` reads the answer's stamp when there is an answer and the question's when there is not, so a newly answered question shows up as newly changed. A question reference is project-wide, so `--id Q-007` reaches it from anywhere without naming the card.
 
 ## Safety contract
 

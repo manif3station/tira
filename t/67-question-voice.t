@@ -86,7 +86,7 @@ like( $@, qr/no voice note/i, 'and removing one that is not there says so' );
 # What is refused.
 for my $case (
     [ { id => $asked->{id}, file => recording( 'notes.txt', 'words' ) }, qr/must be audio/, 'a file that is not audio' ],
-    [ { id => $asked->{id}, file => recording( 'empty.ogg', '' ) }, qr/cannot be empty/, 'an empty recording' ],
+    [ { id => $asked->{id}, file => recording( 'empty.ogg', '' ) }, qr/is empty/, 'an empty recording' ],
     [ { id => $asked->{id} }, qr/needs a file/, 'no file at all' ],
     [ { id => 'Q-404', file => $note }, qr/Q-404/, 'a question that does not exist' ],
 ) {

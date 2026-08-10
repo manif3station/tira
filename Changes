@@ -1,5 +1,17 @@
 Revision history for Tira
 
+1.01  2026-08-10
+    - The Discard column now appears on a board somebody is looking at.
+      Every board is created with a Backlog and a Discard; the owner
+      saw the first and never the second, so discarding a card made it
+      vanish from the only view he uses. `--include-discard` would have
+      shown it, but nobody passes a flag for something they do not know
+      is missing.
+    - Drawn faded and marked as set aside, so it reads as an archive
+      rather than as more work outstanding. The ref-only listing an
+      agent queries still leaves it out, because that path exists to be
+      cheap, and the machine formats are unchanged unless asked.
+
 1.00  2026-08-10
     - Evidence belongs with the question it explains. An agent hangs
       files on a question with `tira.question.attach`, the owner

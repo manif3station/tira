@@ -41,10 +41,10 @@ use it — run `dashboard tira.usage`.
 - **Implemented (0.29):** shipped, executable, and covered by tests.
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
-- **Implemented (1.00):** shipped, executable, and covered by tests.
+- **Implemented (1.01):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
 
-All commands and use cases in this manual ship in release 1.00.
+All commands and use cases in this manual ship in release 1.01.
 
 ## Global invocation grammar
 
@@ -1181,6 +1181,9 @@ without revealing or creating a storage location.
 
 ### UC-106: Ask a question the owner can answer quickly
 **Implemented.** Give the reason and the options with the question, not just the question: `dashboard tira.question.ask --ref TKT-001 --text "Which store should the importer write to?" --reason "Both are configured and the runbook names neither." --option "The staging bucket" --option "The live bucket" --option "Neither, block until told"`. Both are optional and a bare question still works, but an owner answering without them is composing an answer from nothing; with them he can reply "the staging one" in seconds. They render under the question in the human view and in the card's Questions section on the dashboard, where he can answer and mark without leaving the board.
+
+### UC-118: See where discarded work went
+**Implemented.** A board somebody is looking at — `-o table` or `-o browser` — shows the Discard column alongside the live ones, faded and marked as set aside so it reads as an archive rather than as more work outstanding. Discarding a card no longer makes it vanish from the only view most people use. The ref-only listing an agent queries still leaves it out, because that path exists to be cheap; `--include-discard` forces it either way, and machine formats are unchanged unless asked.
 
 ### UC-117: Show your working when you ask, and when you answer
 **Implemented.** Hang evidence on a question with `dashboard tira.question.attach --id Q-007 --file /tmp/screen.png`, and answer with evidence in one action using `dashboard tira.question.answer --id Q-007 --text "That one." --file /tmp/proof.pdf`. Both belong to the question: `dashboard tira.attachment.list --ref TKT-001 --question Q-007 -o json` returns what you asked with and what came back together, because somebody reading a question wants everything bearing on it. Naming no question lists every file on the card, each saying where it hangs. Fetching needs only the reference — no card, no question, nothing to choose.

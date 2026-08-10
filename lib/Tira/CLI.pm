@@ -1369,7 +1369,12 @@ sub _invoke {
     $args{recursive} = $option->{recursive} if $command eq 'hierarchy.show';
     if ( $command =~ /\Adashboard(?:\.(sow|epic|ticket))?\z/ ) {
         $args{type} = $1 if defined $1;
-        $args{include_discard} = $option->{include_discard};
+        # DD-474: every board is created with Backlog and Discard, and the
+        # owner saw one and never the other. A person looking at a board should
+        # see where discarded work went; the ref-only path an agent queries is
+        # untouched, so nobody pays for cards they did not ask about.
+        $args{include_discard} = $option->{include_discard}
+          // ( $option->{output} eq 'table' || $option->{output} =~ /\Abrowser(?:=|\z)/ );
         $args{summary} = $option->{output} ne 'json';
         $args{with_title} = defined $option->{title};
 

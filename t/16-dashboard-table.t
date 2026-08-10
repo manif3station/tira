@@ -60,8 +60,10 @@ like( $html, qr/\.column__head\{position:sticky/,
     'and each column keeps its own sticky heading, now that it owns one' );
 like( $html, qr/\@media\(max-width:720px\)\{html\[data-width="fit"\] \.board__scroll\{overflow-x:auto\}/,
     'narrow screens keep scrollable columns while the preference is preserved' );
-is( scalar( () = $html =~ /class="column__count"/g ), 4,
-    'every rendered column carries a count badge — sow, epic, and both ticket columns, Discard excluded as always (DD-441)' );
+is( scalar( () = $html =~ /class="column__count"/g ), 7,
+    'every rendered column carries a count badge, Discard now among them (DD-474): two on each of sow and epic, three on ticket' );
+like( $html, qr/class="column column--discard"/,
+    'and Discard is drawn as set aside rather than as live work' );
 like( $html, qr/data-count-for="backlog" hidden/, 'count badges start hidden and are filled from the board' );
 like( $html, qr/badge\.hidden=total===0/, 'an empty column shows no zero' );
 like( $html, qr/badge\.textContent=total\?String\(total\):""/, 'a populated column shows its number' );

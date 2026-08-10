@@ -175,6 +175,15 @@ takes the recording too, precisely so this never needs to be two.
 A question that owes nothing carries no reminder at all. One that is always
 there is furniture, and gets ignored like furniture.
 
+### The Discard column
+
+Every board is created with a Backlog and a Discard. A board rendered for a
+person — `-o table` or `-o browser` — shows Discard among the columns, faded
+and marked as set aside, so discarded work is visible as an archive rather than
+disappearing. The ref-only listing an agent queries leaves it out by default,
+since that path exists to be cheap. `--include-discard` forces it on any
+format, and the machine formats are otherwise unchanged.
+
 ### Where a card's files actually live
 
 `tira.attachment.list --ref TKT-001` counts every file on the card, wherever it

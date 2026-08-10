@@ -2068,3 +2068,23 @@ report, message 2915 — three connected findings).
   reading the manual first would never have found it.
 - Functional PASS `Files=72, Tests=2791`; coverage `100.0%` all three
   modules; `prove -T` PASS.
+
+## Latest Verification For `DD-474`
+
+- `t/72-discard-column.t` (9 checks): the table board showing Discard
+  and the card in it without losing the live work, the column marked
+  and drawn faded, the ref-only board still leaving it out so an agent
+  pays nothing for cards it did not ask about, explicit
+  `include_discard` still working, and the JSON surface unchanged
+  unless asked.
+- `t/16` had encoded the old behaviour literally — "Discard excluded as
+  always" — which is exactly what this reverses. Updated to state the
+  new truth rather than relaxed.
+- **Three coverage runs today reported nonsense because stale
+  `perl-test` containers from earlier backgrounded gates were still
+  alive and writing to the same `cover_db`.** Killed them; the clean
+  run then reported 100% on all three modules. The rule is not merely
+  "do not overlap coverage runs" but "make sure the previous one is
+  actually dead".
+- Functional PASS `Files=73, Tests=2803`; coverage `100.0%` all three
+  modules; `prove -T` PASS.

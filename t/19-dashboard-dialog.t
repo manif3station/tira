@@ -232,6 +232,16 @@ like( $live_html, qr/to:question\.answer\?"answer":"question"/,
 like( $live_html, qr/box\.style\.height=Math\.min\(box\.scrollHeight,420\)\+"px"/,
     'and the answer box grows with what is typed rather than hiding the start of it' );
 
+# DD-499: a question that has been set aside cannot be added to, so offering a
+# place to drop a file on one offers something that does nothing. Its existing
+# files still show, because they still happened.
+like( $live_html, qr/if\(!question\.discarded_at\)\{const drop=el\("div","card-question__drop"/,
+    'the drop zone is only offered on a question that can still be added to' );
+like( $live_html, qr/fileList\(question\.attachments,"Asked with:"\)/,
+    'while the files already on it are listed whatever its state' );
+like( $live_html, qr/if\(!files\|\|!files\.length\)return/,
+    'and a question with no files shows no file area at all' );
+
 # DD-496: what still needs doing comes first, what is finished sinks.
 like( $live_html, qr/const questionRank=question=>question\.discarded_at\?3:!question\.answer\?0:!question\.answer\.mark\?1:2/,
     'unanswered ranks first, then answered but unjudged, then judged, then set aside' );

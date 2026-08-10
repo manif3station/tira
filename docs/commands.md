@@ -154,7 +154,8 @@ Set a question aside.
 
 Nothing in Tira is ever really deleted: the question stays, its answer stays
 underneath it, its status becomes `discarded`, and the board draws it struck
-through. Discarding twice is refused, and a discarded question cannot be
+through. It offers no place to attach anything, since nothing more will happen
+to it; files already on it still show, because they still happened. Discarding twice is refused, and a discarded question cannot be
 answered.
 
 ### Reminders you will be given

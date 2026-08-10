@@ -2107,3 +2107,12 @@ report, message 2915 — three connected findings).
   mechanism under conditions the mechanism never meets in the field.
 - Functional PASS `Files=73, Tests=2812`; coverage `100.0%` all three
   modules; `prove -T` PASS.
+
+## Latest Verification For `DD-499`
+
+- Checked in a browser on one card holding all three states at once:
+  live keeps its drop zone, discarded-with-a-file shows the file and no
+  drop zone, discarded-with-nothing shows neither. That is the whole
+  requirement and it is easier to see than to assert.
+- `t/19` pins the gate, that files are listed whatever the state, and
+  that a question with no files renders no file area at all.

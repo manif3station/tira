@@ -1,5 +1,12 @@
 Revision history for Tira
 
+1.04  2026-08-10
+    - The Discard column was offering an add-card control. Showing the
+      column in `1.01` brought its controls with it, and inviting
+      somebody to create work directly into the discard pile is not an
+      invitation worth making. The column is still shown; only the
+      control is gone.
+
 1.03  2026-08-10
     - A question that had been set aside was still showing somewhere to
       drop a file. The drop zone is an invitation, and on a question

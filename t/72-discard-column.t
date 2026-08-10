@@ -66,6 +66,18 @@ ok( !exists $json->{ticket}{discard}, 'the machine view is unchanged' );
 my $json_asked = decode_json( board_html( '-o', 'json', '--include-discard' ) );
 ok( exists $json_asked->{ticket}{discard}, 'until it is asked for' );
 
+# Showing the column brought its add-card control with it, which invites
+# somebody to create work directly into the discard pile.
+{
+    my $board = $tira->format_output(
+        $tira->dashboard( project => $root, type => 'ticket', summary => 1, include_discard => 1 ),
+        output => 'table', project => $root, live => 1 );
+    like( $board, qr/data-add-card="backlog"/, 'a working column offers a way to add a card' );
+    unlike( $board, qr/data-add-card="discard"/,
+        'the discard column does not, because nobody creates work straight into it' );
+    like( $board, qr/class="column column--discard"/, 'while still being shown' );
+}
+
 done_testing;
 
 __END__

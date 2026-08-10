@@ -181,7 +181,8 @@ there is furniture, and gets ignored like furniture.
 Every board is created with a Backlog and a Discard. A board rendered for a
 person — `-o table` or `-o browser` — shows Discard among the columns, faded
 and marked as set aside, so discarded work is visible as an archive rather than
-disappearing. The ref-only listing an agent queries leaves it out by default,
+disappearing. It offers no add-card control, because nobody creates work
+straight into the discard pile. The ref-only listing an agent queries leaves it out by default,
 since that path exists to be cheap. `--include-discard` forces it on any
 format, and the machine formats are otherwise unchanged.
 

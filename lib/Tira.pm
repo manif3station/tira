@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '1.03';
+our $VERSION = '1.04';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -3822,7 +3822,10 @@ sub _dashboard_table {
               . '"><h3 class="column__head"><span class="column__name">' . $slug
               . '</span><span class="column__count" data-count-for="' . $slug . '" hidden></span></h3>'
               . '<div class="column__body"><ol class="cards" data-column="' . $slug . '">' . $cards . '</ol>'
-              . ( $args{live}
+              . ( $args{live} && $column ne 'discard'
+
+                # Nobody creates work straight into the discard pile. Offering
+                # it there was a side effect of showing the column at all.
                 ? '<button class="column__add" type="button" data-add-card="' . $slug . '">+ Add card</button>'
                 : '' )
               . '</div></section>';

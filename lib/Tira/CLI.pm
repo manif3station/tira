@@ -5,6 +5,8 @@ use warnings;
 
 use Encode qw(decode encode_utf8 FB_CROAK);
 use Cwd qw(cwd);
+use File::Basename qw(dirname);
+use File::Spec;
 use Getopt::Long qw(GetOptionsFromArray);
 use JSON::PP ();
 use Tira;
@@ -203,7 +205,7 @@ sub run {
             # Rather than making somebody visit every open board after an
             # update, the server notices and restarts itself into the new code;
             # the page then reloads when it sees a version it was not built by.
-            _restart_if_updated( $restarter, $command, $type );
+            _restart_if_updated( $restarter, $command, $type, $option{project} );
             $dashboard->{_version} = $Tira::VERSION;
             return $tira->format_output( $dashboard, output => 'json', project => $option{project} );
         };
@@ -285,10 +287,29 @@ sub _browser_endpoint {
 # Through a seam so a test can watch the decision without a process replacing
 # itself mid-suite. exec swaps this process for a new one - nothing is forked,
 # and no shell is involved.
+# The entrypoint this command was reached through. $0 is not reliable: under
+# the dashboard dispatcher it is the dispatcher, so restarting on it re-ran the
+# wrong program and the board died instead of updating. Derived from the module
+# path and the command, and checked before anything is replaced.
+sub _entrypoint_for {
+    my ($command) = @_;
+    my $here = __FILE__;
+    $here =~ /\A([^\x00-\x1f\x7f]+)\z/ or return undef;
+    my $root = File::Spec->rel2abs(
+        File::Spec->catdir( dirname( dirname($1) ), File::Spec->updir ) );
+    my @parts = split /\./, $command;
+    my $action = pop @parts;
+    my $path = @parts
+      ? File::Spec->catfile( $root, 'skills', @parts, 'cli', $action )
+      : File::Spec->catfile( $root, 'cli', $action );
+    ($path) = $path =~ /\A([^\x00-\x1f\x7f]+)\z/ or return undef;
+    return -x $path ? $path : undef;
+}
+
 sub _restart_into {
     my (@argv) = @_;
     my ($perl) = $^X =~ /\A([^\x00-\x1f\x7f]+)\z/ or return 0;
-    my ($script) = $0 =~ /\A([^\x00-\x1f\x7f]+)\z/ or return 0;
+    my $script = shift @argv or return 0;
 
     # Both the interpreter and the script are absolute here, so the search path
     # is never consulted to find them; taint mode objects to it regardless.
@@ -300,13 +321,28 @@ sub _restart_into {
 }
 
 sub _restart_if_updated {
-    my ( $restarter, $command, $type ) = @_;
+    my ( $restarter, $command, $type, $project ) = @_;
     my $installed = Tira::installed_version();
 
     # Unreadable means unknown, and restarting on unknown would loop forever.
     return 0 if !defined $installed || $installed eq $Tira::VERSION;
-    my @argv = map { /\A([^\x00-\x1f\x7f]*)\z/ ? $1 : () } @Tira::CLI::RESTART_ARGV;
-    return $restarter->(@argv);
+
+    # A restart that cannot work is worse than a stale board, because it turns
+    # "running slightly old code" into "not running". So the target is checked
+    # first, and if anything is missing the board simply carries on.
+    my $script = _entrypoint_for( defined $type ? "$command.$type" : $command )
+      // _entrypoint_for($command)
+      or return 0;
+    my @argv = grep { defined }
+      map { /\A([^\x00-\x1f\x7f]*)\z/ ? $1 : undef } @Tira::CLI::RESTART_ARGV;
+    return 0 if @argv != @Tira::CLI::RESTART_ARGV;
+
+    # The project is passed explicitly rather than left to be rediscovered, so
+    # the new process does not depend on a working directory or an environment
+    # variable that may not survive the way it was launched.
+    push @argv, '--project', $project
+      if defined $project && $project =~ /\S/ && !grep { $_ eq '--project' } @argv;
+    return $restarter->( $script, @argv );
 }
 
 sub _serve_browser {

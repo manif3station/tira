@@ -2088,3 +2088,22 @@ report, message 2915 — three connected findings).
   actually dead".
 - Functional PASS `Files=73, Tests=2803`; coverage `100.0%` all three
   modules; `prove -T` PASS.
+
+## Latest Verification For `DD-498`
+
+- Reproduced the owner's failure first: `$0` set to a dispatcher path
+  and no `--project`, which is exactly how he launched it. Before the
+  fix that restarts the dispatcher; after it, the restart resolves
+  `cli/dashboard`, confirms it is executable, and passes
+  `--project <root>` explicitly.
+- `t/66` extended: the entrypoint following the command *and its type*,
+  the resolved script really existing, the project named exactly once,
+  a board started without `--project` still coming back pointing at the
+  same project, and **no restart at all when no entrypoint can be
+  found** — because turning "running old code" into "not running" is
+  the worse failure.
+- **The lesson recorded in the ticket**: my original test called the
+  code directly, where `$0` is the test file, so it proved the
+  mechanism under conditions the mechanism never meets in the field.
+- Functional PASS `Files=73, Tests=2812`; coverage `100.0%` all three
+  modules; `prove -T` PASS.

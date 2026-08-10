@@ -65,8 +65,64 @@ sub serve {
 {
     my ( $status, $served, $restarted ) = serve( installed => '9.99' );
     is( scalar @{$restarted}, 1, 'a new version on disk restarts the server' );
-    is_deeply( $restarted->[0], [ '--project', $root, '-o', 'browser' ],
-        'with the same arguments it was started with, so it comes back the same board' );
+    my ( $script, @argv ) = @{ $restarted->[0] };
+
+    # $0 is the dispatcher when the board is launched through it, so restarting
+    # on $0 re-ran the wrong program and the board died instead of updating.
+    # The entrypoint is derived from the command rather than assumed.
+    # A board opened as tira.dashboard.ticket must come back as that board,
+    # not as the combined one, so the entrypoint follows the type too.
+    like( $script, qr{/skills/dashboard/cli/ticket\z},
+        'it restarts the entrypoint for the exact command that was running' );
+    ok( -x $script, 'which really exists and can be run' );
+    is_deeply( [ @argv[ 0 .. 3 ] ], [ '--project', $root, '-o', 'browser' ],
+        'with the arguments it was started with' );
+
+    # Passed explicitly rather than rediscovered, because the new process may
+    # not inherit the working directory or environment that found it first.
+    is( scalar( grep { $_ eq '--project' } @argv ), 1,
+        'and the project named once, not twice' );
+}
+
+# A board launched without --project must still come back pointing at the same
+# project: this is what failed in the field, where the restart lost it and died
+# with an empty selector.
+{
+    my @restarted;
+    my ( $out, $err ) = ( '', '' );
+    open my $stdout, '>', \$out or die $!;
+    open my $stderr, '>', \$err or die $!;
+    {
+        local *STDOUT = $stdout;
+        local *STDERR = $stderr;
+        local $ENV{TIRA_HOME} = $root;
+        no warnings 'redefine';
+        local *Tira::installed_version = sub { '9.99' };
+        my $captured;
+        Tira::CLI->run(
+            command => 'dashboard', type => 'ticket',
+            argv => [ '-o', 'browser' ], tira => $tira,
+            browser_server => sub { my %given = @_; $captured = \%given; return 1 },
+            restarter => sub { push @restarted, [@_]; return 1 },
+        );
+        $captured->{data}->() if $captured;
+    }
+    is( scalar @restarted, 1, 'a board started without --project still restarts' );
+    my ( $script, @argv ) = @{ $restarted[0] };
+    ok( scalar( grep { $_ eq '--project' } @argv ),
+        'and is told which project, rather than being left to rediscover it' );
+    my ($named) = grep { $_ ne '--project' && $_ =~ /\Q$root\E/ } @argv;
+    ok( $named, 'naming the project it was actually serving' );
+}
+
+# A restart that cannot work is worse than a stale board: it turns running old
+# code into not running at all.
+{
+    no warnings 'redefine';
+    local *Tira::CLI::_entrypoint_for = sub { undef };
+    my ( $status, $served, $restarted ) = serve( installed => '9.99' );
+    is_deeply( $restarted, [],
+        'with no entrypoint to restart into, the board carries on rather than dying' );
 }
 
 # An unreadable .env must not put the server in a restart loop.
@@ -110,8 +166,7 @@ unlike( $static, qr/data\._version/,
     if ( !$pid ) {
         open my $out, '>', $marker or exit 1;
         open STDOUT, '>&', $out or exit 1;
-        local $0 = $script;
-        Tira::CLI::_restart_into( 'one', 'two' );
+        Tira::CLI::_restart_into( $script, 'one', 'two' );
         exit 99;    # only reached if exec failed to replace us
     }
     waitpid $pid, 0;
@@ -124,12 +179,14 @@ unlike( $static, qr/data\._version/,
         'and re-ran the command with the arguments it was given' );
 }
 
-# A path it cannot vouch for is refused rather than executed.
-{
-    no warnings 'redefine';
-    local $0 = "bad\x00path";
-    is( Tira::CLI::_restart_into('x'), 0, 'an unsafe script path refuses to restart' );
-}
+# Nothing to restart into is a refusal rather than a broken exec.
+is( Tira::CLI::_restart_into(), 0, 'with no script named, nothing is replaced' );
+
+# And the entrypoint really is found for a plain command as well as a typed one.
+like( Tira::CLI::_entrypoint_for('dashboard'), qr{/cli/dashboard\z},
+    'a command with no type resolves to its own entrypoint' );
+is( Tira::CLI::_entrypoint_for('no.such.command'), undef,
+    'and a command that ships no entrypoint resolves to nothing, rather than a guess' );
 
 done_testing;
 

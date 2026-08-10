@@ -1,5 +1,22 @@
 Revision history for Tira
 
+1.02  2026-08-10
+    - The self-restart added in `0.93` killed the very dashboard it was
+      meant to keep current. It re-executed `$0`, which is the
+      dispatcher rather than the Tira entrypoint when the board is
+      launched through one, so upgrading under a running board re-ran
+      the wrong program and the process exited.
+    - The entrypoint is now derived from the command being run, checked
+      before anything is replaced, and the project is passed explicitly
+      so the new process does not have to rediscover it from a working
+      directory or an environment variable. If no valid entrypoint can
+      be found the board simply carries on: a restart that cannot work
+      is worse than a stale board.
+    - My test had called the code directly, where `$0` is the test
+      file, so the assumption held and it passed. It proved the
+      mechanism under conditions the mechanism never meets. The
+      reproduction now sets `$0` to a dispatcher path deliberately.
+
 1.01  2026-08-10
     - The Discard column now appears on a board somebody is looking at.
       Every board is created with a Backlog and a Discard; the owner

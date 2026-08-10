@@ -272,6 +272,12 @@ fetch the old page again; the cost is one skipped refresh cycle. A version that
 cannot be read is treated as no change, so an unreadable install never puts a
 board into a restart loop.
 
+The restart works out its own entrypoint from the command it is running, and
+passes the project explicitly, so it does not depend on how the board was
+launched or on what the new process inherits. If it cannot find a valid
+entrypoint it does not restart at all: running slightly old code is better than
+not running.
+
 ### On the dashboard
 
 A card's dialog carries a **Questions** section, placed directly after the

@@ -354,6 +354,191 @@ precedence over an alias of the same spelling. Alias lookup uses Developer
 Dashboard's registry and layered config directly; it does not spawn a command,
 parse human output, or disclose the resolved target in Tira output and errors.
 
+### `tira.dashboard`
+
+Render the board. `tira.dashboard.sow`, `.epic` and `.ticket` render one board
+rather than all three.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `-o FORMAT` | no | `toon` (default), `json`, `table` for a page, `browser` to serve it live. |
+| `--title` | no | Show card titles as well as references. |
+| `--include-discard` | no | Force the Discard column in or out; shown by default in the formats a person looks at. |
+| `--with-questions` | no | Mark cards that are waiting on somebody; on by default in the formats a person looks at. |
+
+The default output is deliberately cheap: references only, because that is the
+path an agent queries. The formats a person looks at carry titles, the Discard
+column and the waiting marks, since somebody reading a board wants to see where
+things are rather than the smallest possible answer.
+
+`-o browser` serves it and keeps working when Tira is upgraded underneath it -
+the server notices and restarts into the new code. **The browser dashboard is
+behind a login**; see the sign-in section below.
+
+### `tira.usage`
+
+Prints this document. One command, so an agent can read the whole reference
+without knowing where the file lives or that it is a file at all.
+
+`tira.policies` does the same for the policy guide.
+
+## Signing in to the browser dashboard
+
+The board is behind a login. A person claims a password the first time they
+use it and must match it afterwards. Only a salted, iterated digest is ever
+stored - never the password.
+
+**Over plain HTTP the password and the session cookie travel in clear.** This
+login is good against somebody wandering past an open board; it is not good
+against somebody watching the network. There is no lockout on repeated wrong
+guesses, and the first person to claim an unregistered name gets it - so it
+assumes a trusted network.
+
+### `tira.login.register`
+
+Claim a password for a person who has never signed in.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--id PERSON` | yes | Who is claiming it. |
+| `--password TEXT` | yes | What they are claiming. Stored only as a salted, iterated digest. |
+| `-o FORMAT` | no | `toon` (default), `json`, `json-pretty`, `human`. |
+
+Refused for an unknown person, an inactive person, an empty password, a person
+who already has one, and **anybody whose id or name contains "bot"** - machines
+drive the board through the command line, not a browser.
+
+**Forgotten a password?** There is no reset command by design. Delete the
+`password` block from that person in the project file by hand; they are
+unregistered again and the next sign-in claims a new one.
+
+### `tira.login.check`
+
+Ask whether a password is right. Exits clean either way, because being wrong is
+an answer. A wrong password and a person who does not exist are answered
+identically, so this cannot be used to find out who is on a project.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--id PERSON` | yes | Who to check. |
+| `--password TEXT` | yes | What to check. |
+
+### `tira.login.status`
+
+Who is signed in. Says the person, when they signed in and when they were last
+active - never the token, because a token is the credential itself.
+
+### `tira.login.logout`
+
+End sessions.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--id PERSON` | one of | End every session that person holds. |
+| `--all` | one of | End everybody's. |
+
+A session lasts ten minutes from the last deliberate action, not from signing
+in, so an afternoon of work is never interrupted. The board's own background
+poll reads a session without extending it - a tab left open overnight does not
+keep itself signed in.
+
+## Policies, and the police that follow them
+
+The agent declares what a project cares about; the owner runs police in a
+terminal of their own; the agent tails a bridge and acts on what arrives.
+Police never writes to the board - it watches read-only and writes only to a
+log it owns.
+
+`d2 tira.policies` prints the whole guide, including a hundred worked use
+cases. Read that before setting anything.
+
+### `tira.policy.add`
+
+Declare a policy.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--rule NAME` | yes | What to watch for. `tira.policies` lists them all. |
+| `--action NAME` | yes | `bridge-reminder` to the agent, `print-reminder` to the owner's terminal, `log-only` while tuning. |
+| `--enter COLUMN` | per rule | The column a card must have its detail by. |
+| `--enter-role ROLE` | per rule | The same, said as a role rather than a column name. |
+| `--before-column COLUMN` | per rule | The column that means the work has moved on. |
+| `--before-role ROLE` | per rule | The same, as a role. |
+| `--column COLUMN` | per rule | The column a rule watches. |
+| `--age DURATION` | per rule | That rule's grace: `30s`, `10m`, `2h`, `7d`. |
+| `--max N` | per rule | A limit, for `wip-limit`. |
+| `--pattern TEXT` | per rule | What to match, for `leftover-process`. |
+| `--sandbox PATH` | per rule | Where worktrees live, for `card-sandbox-missing`. |
+| `--require FIELDS` | per rule | Comma-separated fields, for `card-metrics`. |
+| `--message TEXT` | no | What to say instead of Tira's own wording. |
+| `--type TYPE` | no | Declare it for one board only. |
+| `--on-column COLUMN` | no | Declare it for one column only. |
+| `--ref CARD` | no | Declare it for one card only. |
+
+Anything a rule cannot work without is refused when the policy is set, rather
+than discovered later by police - a policy police cannot follow is worse than
+no policy, because it reads as cover.
+
+**Where a policy is declared decides how narrow it is.** A policy on a card
+beats one on its column, which beats one on its board, which beats one on the
+project. Resolution is per rule, so a card that overrides one rule keeps every
+other rule the project set.
+
+### `tira.policy.list` / `tira.policy.remove`
+
+See them, or remove one by `--id POL-nnn`. Numbers are never reused.
+
+### `tira.police`
+
+**The owner runs this**, in a terminal they can leave open.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--once` | no | One pass, then exit. |
+| `--interval SECONDS` | no | How often to look. Thirty by default. |
+| `--rounds N` | no | Stop after this many passes. |
+| `--store PATH` | no | Where police keeps its own state. |
+
+With no policies set it exits and prints what to paste to the agent, rather
+than running and guarding nothing.
+
+Every violation carries a `VIO-nnnn`. The same problem keeps its number, counts
+its repeats and climbs four tones - note, warning, urgent, critical. Past five
+repeats it also appears in this terminal with a message the owner can paste
+straight to the agent. Fixing the cause silences it on the next pass, with
+nothing to acknowledge.
+
+### `tira.policy.bridge`
+
+**The agent runs this** and acts on what arrives. One way: police speaks, the
+agent listens. Shows what is already outstanding when it starts, not only what
+happens next.
+
+**A policy set without the bridge running is worse than no policy**, because it
+looks like cover.
+
+### `tira.policies`
+
+Prints `docs/POLICIES.md`: the onboarding walk-through, every rule and action,
+and a hundred worked use cases. Answers the same way with `--help`.
+
+### `tira.column.roles`
+
+Say which column plays which role, so a rule can be written against what a
+column means rather than what it is called - and still works after somebody
+renames it.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--type TYPE` | yes | Which board. |
+| `--role NAME=COLUMN` | no | Repeatable. With none, reads the roles back. |
+
+The vocabulary is the project's own; Tira matches a role without needing to
+understand it. Every role is optional - most projects have a column for very
+few of them, and the absence of one is not a problem. A role naming a column
+that does not exist is refused, because a role pointing at nothing would make
+every rule written against it match nothing at all, silently.
+
 ## Accumulating record fields
 
 On record update, repeated `--key-detail`, `--deliverable`, `--acceptance`,

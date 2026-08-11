@@ -44,6 +44,28 @@ def tira(*args):
     return json.loads(done.stdout)
 
 
+def premature(record):
+    """A card in a finished column with work still unticked.
+
+    Found on 2026-08-11 when TKT-008 was moved to done with "restore proven
+    from the backup" still pending, and this check said nothing - it only
+    looked for the opposite mistake. A board that catches you moving too late
+    but not too early is only half a check, and the half it misses is the one
+    that overstates progress.
+    """
+    checklist = record.get('checklist') or []
+    if not checklist:
+        return None
+    column = record.get('column')
+    if column not in ('done', 'push'):
+        return None
+    waiting = [c for c in checklist if c.get('status') != 'done']
+    if not waiting:
+        return None
+    return (f"is in {column} with {len(waiting)} checklist item(s) unfinished: "
+            + '; '.join(c.get('item', '?') for c in waiting[:3]))
+
+
 def stalled(record):
     """A card whose checklist is done but whose column says otherwise.
 
@@ -102,6 +124,10 @@ def main():
             if behind:
                 failures += 1
                 print(f"{row['ref']}: {behind}")
+            early = premature(record)
+            if early:
+                failures += 1
+                print(f"{row['ref']} {early}")
 
     if failures:
         print(f'\n{failures} card(s) incomplete. Fill them in before pushing.')
@@ -109,6 +135,8 @@ def main():
               'or how it will be proved is not a ticket - it is a title.')
         print('A card whose checklist is finished while its column says otherwise '
               'is a board that reports the wrong thing to whoever is reading it.')
+        print('A card in done with work still unticked is the same lie told the '
+              'other way round, and it is the one that overstates progress.')
         return 1
 
     print('every live card is complete')

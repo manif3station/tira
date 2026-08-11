@@ -35,12 +35,12 @@ for my $section (
     like( $skills_text, qr/^## \Q$section\E$/m, "SKILLS.md contains $section" );
 }
 my @use_cases = $skills_text =~ /^### UC-\d{3}:/mg;
-is( scalar @use_cases, 118, 'SKILLS.md contains exactly 118 numbered use cases' );
+is( scalar @use_cases, 125, 'SKILLS.md contains exactly 125 numbered use cases' );
 my %seen;
 while ( $skills_text =~ /^### UC-(\d{3}):/mg ) {
     $seen{$1}++;
 }
-is_deeply( [ sort keys %seen ], [ map { sprintf '%03d', $_ } 1 .. 118 ], 'use cases are numbered UC-001 through UC-118' );
+is_deeply( [ sort keys %seen ], [ map { sprintf '%03d', $_ } 1 .. 125 ], 'use cases are numbered UC-001 through UC-125' );
 unlike( $skills_text, qr{/home/[A-Za-z0-9._-]+/}, 'SKILLS.md contains no hard-coded home-directory path' );
 unlike( $skills_text, qr/--project|TIRA_HOME|\.tira\/|project selector/i, 'SKILLS.md does not disclose project location or selectors' );
 
@@ -66,7 +66,41 @@ for my $file (@perl_files) {
         "$file keeps its POD ASCII, which podchecker requires without an =encoding" );
 }
 my @commands = grep { m{(?:\A|/)cli/[^/]+\z} && -x $_ } @perl_files;
-is( scalar @commands, 121, 'release ships exactly 121 executable CLI entrypoints' );
+
+# Twenty-one entrypoints shipped in 1.05 with not one of them named in the
+# command reference or in SKILLS.md. Every documentation guard passed, because
+# each checked that what was written was correct and none checked that what
+# existed was written. An agent reads these documents before it reads anything
+# else, so a command missing from them is a command nobody will find, however
+# well it works.
+my $documented = '';
+for my $document (qw(docs/commands.md SKILLS.md docs/POLICIES.md)) {
+    open my $fh, '<', $document or die "Cannot read $document: $!";
+    $documented .= do { local $/; <$fh> };
+    close $fh;
+}
+
+my @undocumented;
+for my $command (@commands) {
+    my $dotted = $command;
+    $dotted =~ s{\Acli/}{};
+    $dotted =~ s{/cli/}{/};
+
+    # The dispatcher drops every 'skills' segment, so the command an agent
+    # types is not the path the file sits at. Deriving it any other way
+    # invents commands that do not exist and then reports them missing.
+    $dotted = join '.', grep { $_ ne 'skills' } split m{/}, $dotted;
+    $dotted = "tira.$dotted";
+
+    # The three record boards share one set of verbs, documented once.
+    next if $dotted =~ /\Atira\.(?:sow|epic|ticket)\./;
+    next if $dotted =~ /\Atira\.dashboard\./;
+    push @undocumented, $dotted if index( $documented, $dotted ) < 0;
+}
+is_deeply( \@undocumented, [],
+    'every command that ships is named in a document an agent reads' );
+
+is( scalar @commands, 119, 'release ships exactly 119 executable CLI entrypoints' );
 
 done_testing;
 

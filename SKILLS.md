@@ -1177,6 +1177,27 @@ without revealing or creating a storage location.
 ### UC-106: Ask a question the owner can answer quickly
 **Implemented.** Give the reason and the options with the question, not just the question: `dashboard tira.question.ask --ref TKT-001 --text "Which store should the importer write to?" --reason "Both are configured and the runbook names neither." --option "The staging bucket" --option "The live bucket" --option "Neither, block until told"`. Both are optional and a bare question still works, but an owner answering without them is composing an answer from nothing; with them he can reply "the staging one" in seconds. They render under the question in the human view and in the card's Questions section on the dashboard, where he can answer and mark without leaving the board.
 
+### UC-125: Say which column is which, so a rule survives a rename
+**Implemented.** `dashboard tira.column.roles --type ticket --role in-progress=implement --role done=archived` says what each column means. A policy written against a role follows the meaning rather than the name, so renaming the column does not quietly stop the rule protecting anything. The vocabulary is yours — Tira matches a role without needing to understand it — and every role is optional, because most projects have a column for very few of them. A role naming a column that does not exist is refused, since a role pointing at nothing makes every rule written against it match nothing at all, silently.
+
+### UC-124: Let the agent be told when it stops keeping the board honest
+**Implemented.** The agent runs `dashboard tira.policy.bridge` and leaves it running. Police writes one line per violation, carrying the issue number, how loudly it is being said, the card, what is wrong, and the command that fixes it. Nothing arrives when nothing is wrong — silence is the signal, because a channel that announces all-clear every thirty seconds is one you stop reading. A policy set without the bridge running is worse than none at all, because it looks like cover.
+
+### UC-123: Watch a project without ever touching it
+**Implemented.** The owner runs `dashboard tira.police` in a terminal he leaves open. It reads the board and reports; it never writes to it. With no policies set it exits and prints what to paste to the agent rather than running and guarding nothing. Every violation keeps one issue number and climbs four tones as it persists, so one lasting problem reads as one problem getting louder rather than as noise repeating; past five repeats it appears in his own terminal with a message he can hand straight to the agent. Fixing the cause silences it on the next pass, with nothing to acknowledge and nothing to clear by hand.
+
+### UC-122: Declare what this project actually cares about
+**Implemented.** `dashboard tira.policy.add --rule card-full-details --enter implement --action bridge-reminder` tells police what to watch for. Twenty rules cover a card that left the backlog as a title, a checklist finished while the column says otherwise, a question answered and never acted on, a commit naming no card, and a test container nobody stopped. Anything a rule cannot work without is refused when the policy is set, rather than discovered later. Declaring it on a card beats declaring it on the column, which beats the board, which beats the project — per rule, so one exception cannot switch the rest off. `dashboard tira.policies` prints the whole guide with a hundred worked examples.
+
+### UC-121: Know who is looking at the board
+**Implemented.** The browser dashboard is behind a login. A person claims a password the first time they use it — whatever they type becomes theirs — and must match it afterwards. Only a salted, iterated digest is stored, never the password. Anybody whose name or id contains "bot" cannot sign in at all, because machines drive the board through the command line. Every route is behind the gate: an unknown visitor gets the login page and nothing else.
+
+### UC-120: Stay signed in while you are working, and not a minute after
+**Implemented.** A session lives in a cookie for ten minutes from the last thing you did, not from when you signed in, so an afternoon of work is never interrupted. The board's own background refresh reads your session without extending it — a tab left open overnight does not keep itself signed in. Sessions survive Tira being upgraded, so shipping a new version does not sign everybody out.
+
+### UC-119: Get back in when you have forgotten your password
+**Implemented.** There is no reset command, deliberately: anything that resets a password from outside is a way in. Delete that person's `password` block from the project file by hand and they are unregistered again, so the next sign-in claims a new one. Over plain HTTP the password and the cookie travel in clear — this login is good against somebody wandering past an open board, not against somebody watching the network, and there is no lockout on repeated guesses.
+
 ### UC-118: See where discarded work went
 **Implemented.** A board somebody is looking at — `-o table` or `-o browser` — shows the Discard column alongside the live ones, faded and marked as set aside so it reads as an archive rather than as more work outstanding. Discarding a card no longer makes it vanish from the only view most people use. The ref-only listing an agent queries still leaves it out, because that path exists to be cheap; `--include-discard` forces it either way, and machine formats are unchanged unless asked.
 

@@ -1,0 +1,192 @@
+#!/usr/bin/env python3
+"""Rebuild a board from a backup, into a directory that has none.
+
+The board lives outside git by design, so a backup is the only thing between a
+mistake and losing the work. This project lost its board once already, and the
+backup that was taken afterwards was never proved to restore - which makes it a
+comfort rather than a safeguard. A backup nobody has restored is a backup
+nobody knows works.
+
+Refuses to touch a directory that already has a board. Restoring over live work
+would turn a recovery tool into a second way to lose everything.
+
+Usage: tools/board-restore <backup-directory> <destination>
+"""
+
+import json
+import os
+import subprocess
+import sys
+
+
+def read(backup, name):
+    path = os.path.join(backup, name)
+    if not os.path.exists(path):
+        raise SystemExit(f'board-restore: {path} is missing - this is not a complete backup')
+    with open(path, encoding='utf-8') as handle:
+        return json.load(handle)
+
+
+def tira(*args, project=None):
+    command = ['d2', args[0]]
+    if project:
+        command += ['--project', project]
+    command += list(args[1:])
+    done = subprocess.run(command, capture_output=True, text=True)
+    if '"error"' in done.stdout:
+        raise SystemExit(f'board-restore: {" ".join(args)} failed: {done.stdout.strip()}')
+    return done.stdout
+
+
+def main():
+    if len(sys.argv) != 3:
+        raise SystemExit(__doc__.strip().splitlines()[-1])
+    backup, destination = sys.argv[1], sys.argv[2]
+
+    if os.path.exists(os.path.join(destination, '.tira')):
+        raise SystemExit(
+            f'board-restore: {destination} already has a board. Restoring over live work '
+            'would make this a second way to lose everything - restore somewhere empty '
+            'and move what you need.')
+
+    project = read(backup, 'project.json')
+    records = read(backup, 'records.json')
+    columns = {kind: read(backup, f'columns-{kind}.json') for kind in ('sow', 'epic', 'ticket')}
+    refs = {kind: read(backup, f'refs-{kind}.json') for kind in ('sow', 'epic', 'ticket')}
+
+    os.makedirs(destination, exist_ok=True)
+    create = ['tira.project.new', '--name', project['name'], '--dir', destination]
+    for person in project.get('people', []):
+        create += ['--members', person['id']]
+    for kind in ('sow', 'epic', 'ticket'):
+        names = [c['name'] for c in columns[kind] if c['name'] != 'discard']
+        create += [f'--{kind}-columns', ', '.join(names)]
+        create += [f'--{kind}-prefix', refs[kind]['prefix']]
+    tira(*create, '-o', 'json')
+
+    # Settings the board carries that are not columns or people.
+    dashboard = project.get('dashboard') or {}
+    if dashboard.get('port'):
+        tira('tira.project.update', '--dashboard-port', str(dashboard['port']),
+             '--dashboard-host', dashboard.get('host', '127.0.0.1'), '-o', 'json',
+             project=destination)
+
+    for policy in project.get('policies', []):
+        declare = ['tira.policy.add', '--rule', policy['rule'], '--action', policy['action']]
+        for field, flag in (
+            ('enter', '--enter'), ('before', '--before-column'), ('column', '--column'),
+            ('age', '--age'), ('max', '--max'), ('pattern', '--pattern'),
+            ('message', '--message'), ('require', '--require'), ('sandbox', '--sandbox'),
+            ('require_link', '--require-link'), ('link_to', '--link-to'),
+        ):
+            if policy.get(field):
+                declare += [flag, str(policy[field])]
+        tira(*declare, '-o', 'json', project=destination)
+
+    # bulk_import only updates records that already exist - it cannot create
+    # one. The first version of this script handed it a list of records into an
+    # empty board, printed "restored 31 records" because that was the number it
+    # had read, and left a board with nothing on it. The count came from the
+    # input rather than the outcome, which is the whole reason this tool now
+    # reads the board back before it claims anything.
+    ordered = sorted(records['records'], key=lambda r: (r['type'], int(r['ref'].rsplit('-', 1)[1])))
+
+    for record in ordered:
+        # Each board has its own create verb; there is no record.create to call.
+        made = json.loads(tira(f"tira.{record['type']}.create",
+                               '--title', record['title'], '-o', 'json', project=destination))
+        if made['ref'] != record['ref']:
+            raise SystemExit(
+                f"board-restore: rebuilding produced {made['ref']} where the backup has "
+                f"{record['ref']}. The board would be a shifted copy of itself, with every "
+                "reference pointing at the wrong card. Refusing rather than restoring "
+                "something that looks right and is not.")
+
+    # Everything the import surface will accept, in one pass.
+    fields = ('title description key_details problem_or_feature solution_needed deliverables '
+              'scope source acceptance_criteria test_steps bdd atdd assignee reporter labels '
+              'due_date start_date sdlc_gate lifecycle priority fix_version affects_versions '
+              'comments checklist').split()
+    changes = {}
+    for record in ordered:
+        change = {f: record[f] for f in fields if record.get(f) not in (None, [], '')}
+        if change:
+            changes[record['ref']] = change
+
+    written = os.path.join(destination, '.tira-restore-changes.json')
+    with open(written, 'w', encoding='utf-8') as handle:
+        json.dump(changes, handle)
+    tira('tira.import', '--file', written, '-o', 'json', project=destination)
+    os.unlink(written)
+
+    # Column, hierarchy and links are not import fields, so they are replayed.
+    for record in ordered:
+        if record.get('column') and record['column'] != 'backlog':
+            tira(f"tira.{record['type']}.move", '--ref', record['ref'],
+                 '--column', record['column'], '-o', 'json', project=destination)
+        if record.get('parent'):
+            tira('tira.hierarchy.link', '--parent', record['parent'],
+                 '--child', record['ref'], '-o', 'json', project=destination)
+        for link in (record.get('linkage') or {}).get('links', []):
+            tira('tira.link.add', '--from', record['ref'], '--type', link['type'],
+                 '--to', link['ref'], '-o', 'json', project=destination)
+
+    # Questions are not an import field, so they are replayed - and they are
+    # the part that matters most on an epic, where the entire design
+    # conversation lives in them. Comparing record counts alone said the
+    # restore was perfect while fifteen questions were missing.
+    for record in sorted(ordered, key=lambda r: min(
+            (q['asked_at'] for q in (r.get('questions') or [])), default='9999')):
+        for question in sorted(record.get('questions') or [], key=lambda q: q['asked_at']):
+            ask = ['tira.question.ask', '--ref', record['ref'], '--text', question['text']]
+            if question.get('author'):
+                ask += ['--author', question['author']]
+            if question.get('reason'):
+                ask += ['--reason', question['reason']]
+            for option in question.get('options') or []:
+                ask += ['--option', option]
+            made = json.loads(tira(*ask, '-o', 'json', project=destination))
+
+            answer = question.get('answer')
+            if answer and answer.get('text') is not None:
+                tira('tira.question.answer', '--id', made['id'], '--text', answer['text'],
+                     '-o', 'json', project=destination)
+                if answer.get('mark'):
+                    tira('tira.question.mark', '--id', made['id'], '--mark', answer['mark'],
+                         '-o', 'json', project=destination)
+            if question.get('discarded_at'):
+                tira('tira.question.discard', '--id', made['id'], '-o', 'json', project=destination)
+
+    # Read the board back rather than trusting any of the above. A restore that
+    # reports what it was given rather than what it achieved is how a backup
+    # becomes a comfort instead of a safeguard.
+    back = json.loads(tira('tira.export', '-o', 'json', project=destination))
+    if back['count'] != records['count']:
+        raise SystemExit(
+            f"board-restore: {records['count']} records went in and {back['count']} came back. "
+            "Refusing to report a restore that did not happen.")
+
+    # Counting records alone reported a perfect restore while fifteen questions
+    # were missing, so what is inside them is counted too.
+    def questions(records_list):
+        return sum(len(r.get('questions') or []) for r in records_list)
+
+    def comments(records_list):
+        return sum(len(r.get('comments') or []) for r in records_list)
+
+    for name, expected, got in (
+        ('questions', questions(records['records']), questions(back['records'])),
+        ('comments', comments(records['records']), comments(back['records'])),
+    ):
+        if expected != got:
+            raise SystemExit(
+                f"board-restore: {expected} {name} went in and {got} came back. "
+                "The cards are there and their contents are not.")
+
+    print(f'restored {back["count"]} records into {destination}, counted by reading the board back, '
+          f'with {questions(back["records"])} questions and {comments(back["records"])} comments')
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

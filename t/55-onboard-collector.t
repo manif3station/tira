@@ -149,7 +149,7 @@ __END__
 
 =head1 NAME
 
-55-onboard-collector.t - DD-467 onboarding that collected settings and did nothing with them
+55-onboard-collector.t - onboarding that collected settings and did nothing with them
 
 =head1 DESCRIPTION
 

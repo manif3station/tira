@@ -120,7 +120,7 @@ __END__
 
 =head1 NAME
 
-27-changed-since.t - DD-426 changed-since filtering (CA04)
+27-changed-since.t - changed-since filtering (CA04)
 
 =head1 DESCRIPTION
 

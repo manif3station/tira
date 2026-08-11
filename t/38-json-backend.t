@@ -93,7 +93,7 @@ __END__
 
 =head1 NAME
 
-38-json-backend.t - DD-442 optional XS JSON acceleration
+38-json-backend.t - optional XS JSON acceleration
 
 =head1 DESCRIPTION
 

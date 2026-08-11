@@ -12,7 +12,8 @@ use MIME::Base64 qw(encode_base64);
 use Plack::Test;
 use Test::More;
 
-use lib 'lib';
+use lib 'lib', 't/lib';
+use GatedApp qw(signed_in);
 use Tira;
 use Tira::CLI;
 use Tira::DashboardWeb;
@@ -119,6 +120,7 @@ $error = eval { $calls->[0]{attachment_fetch}->( { ref => 'TKT-001', sha => 'f' 
 like( $error, qr/not found/i, 'fetching an unknown attachment dies clearly' );
 
 my %providers = (
+    signed_in(),
     render => sub { '<!doctype html>' }, data => sub { '{}' },
     move => sub { '{}' }, detail => sub { '{}' },
     search => sub { '[]' },
@@ -191,6 +193,7 @@ test_psgi $app, sub {
 };
 
 my $missing_fetch = Tira::DashboardWeb->build_psgi_app(
+    signed_in(),
     %providers, attachment_fetch => sub { die "Attachment 'ff' not found\n" },
 );
 test_psgi $missing_fetch, sub {

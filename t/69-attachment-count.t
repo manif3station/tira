@@ -80,7 +80,7 @@ __END__
 
 =head1 NAME
 
-69-attachment-count.t - DD-493 counting files wherever they actually are
+69-attachment-count.t - counting files wherever they actually are
 
 =head1 DESCRIPTION
 

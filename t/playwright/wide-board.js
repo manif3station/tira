@@ -1,4 +1,4 @@
-// DD-451 guard. The main browser fixture has two columns, and with only two
+// The main browser fixture has two columns, and with only two
 // columns a broken column width is invisible: the table is narrower than the
 // viewport either way. This board has nine, which is what the owner runs and
 // what exposed the defect.
@@ -57,7 +57,7 @@ if (!htmlPath) {
   over = await spills();
   if (over.length) throw new Error(`cards spilled in fit mode by ${JSON.stringify(over)}px`);
 
-  // DD-456: a column shows ten cards and offers the rest in batches.
+  // a column shows ten cards and offers the rest in batches.
   const visibleCards = column => page.locator(`[data-column="${column}"] > li:not([hidden])`).count();
   const backlogTotal = await page.locator('[data-column="backlog"] > li').count();
   if (backlogTotal <= 10) throw new Error(`this fixture needs more than ten cards to page, has ${backlogTotal}`);

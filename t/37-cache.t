@@ -115,7 +115,7 @@ __END__
 
 =head1 NAME
 
-37-cache.t - DD-436 opt-in read-through cache (CA18)
+37-cache.t - opt-in read-through cache (CA18)
 
 =head1 DESCRIPTION
 

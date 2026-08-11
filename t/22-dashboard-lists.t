@@ -10,7 +10,8 @@ use JSON::PP qw(decode_json);
 use Plack::Test;
 use Test::More;
 
-use lib 'lib';
+use lib 'lib', 't/lib';
+use GatedApp qw(signed_in);
 use Tira;
 use Tira::CLI;
 use Tira::DashboardWeb;
@@ -102,6 +103,7 @@ $error = eval { $calls->[0]{checklist_update}->( { ref => 'TKT-001', id => 'CHK-
 like( $error, qr/not found/i, 'unknown checklist ids fail clearly' );
 
 my %providers = (
+    signed_in(),
     render => sub { '<!doctype html>' }, data => sub { '{}' },
     move => sub { '{}' }, detail => sub { '{}' },
     search => sub { '[]' },

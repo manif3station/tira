@@ -120,7 +120,7 @@ __END__
 
 =head1 NAME
 
-29-count-refs.t - DD-428 count-only and refs-only reads (CA07, CA17)
+29-count-refs.t - count-only and refs-only reads (CA07, CA17)
 
 =head1 DESCRIPTION
 

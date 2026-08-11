@@ -17,7 +17,7 @@ const fs = require('fs');
   const record = {
     ref: 'TKT-001', type: 'ticket', column: 'in-progress', title: 'Live browser card',
     description: 'Full popup detail', problem_or_feature: 'Popup must read like Jira',
-    solution_needed: 'Sectioned dialog', source: 'DD-406', priority: 5,
+    solution_needed: 'Sectioned dialog', source: 'a board defect', priority: 5,
     assignee: 'ada', reporter: 'ada', labels: ['browser', 'dialog'],
     start_date: '2026-08-01T09:00:00+0100', due_date: '2026-08-15T17:00:00+0100',
     sdlc_gate: 'E2E Testing', lifecycle: 'build', fix_version: '0.17',
@@ -137,8 +137,8 @@ const fs = require('fs');
   const boardBox = await page.locator('.board--ticket').boundingBox();
   await page.mouse.move(dragFrom.x + dragFrom.width / 2, dragFrom.y + 15);
   await page.mouse.down();
-  // drop BELOW the column's content but inside the board stripe: the exact
-  // dead zone that bounced drops on populated columns (DD-413)
+  // Drop BELOW the column's content but inside the board stripe: the exact
+  // dead zone that bounced drops on populated columns
   await page.mouse.move(dragTo.x + dragTo.width / 2, boardBox.y + boardBox.height - 25, { steps: 8 });
   const midDrag = await page.evaluate(() => ({ ghost: document.querySelectorAll('.card--ghost').length, target: document.querySelectorAll('.is-drop-target').length }));
   await page.mouse.up();
@@ -175,7 +175,7 @@ const fs = require('fs');
   if (await page.evaluate(() => document.documentElement.dataset.width) !== 'standard')
     throw new Error('switching back to standard must also be remembered');
 
-  // DD-455: shift-click selects, a plain click clears and opens, and a drag
+  // Shift-click selects, a plain click clears and opens, and a drag
   // carries the whole selection.
   const selectedRefs = () => page.locator('.card.is-selected').evaluateAll(
     nodes => nodes.map(node => node.dataset.ref).sort());
@@ -219,7 +219,7 @@ const fs = require('fs');
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => !document.querySelector('.card-dialog')?.open);
 
-  // DD-456: the filter asks the server and hides everything else.
+  // The filter asks the server and hides everything else.
   // The box is wired to applyFilter (pinned by a renderer assertion); this
   // drives that function directly, because synthetic keystrokes did not fire
   // the debounce reliably in this harness. What matters — the request, the

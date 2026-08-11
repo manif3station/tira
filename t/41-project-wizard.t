@@ -253,7 +253,7 @@ ANSWERS
     is( scalar @{ Tira->new->person_list( project => $nobody ) }, 0, 'and adds nobody' );
 }
 
-# project.new itself must never prompt: it is what scripts and agents call.
+# Project.new itself must never prompt: it is what scripts and agents call.
 ( my $bare_status, $out, $err ) = do {
     my ( $o, $e ) = ( '', '' );
     open my $so, '>', \$o or die $!;
@@ -272,7 +272,7 @@ __END__
 
 =head1 NAME
 
-41-project-wizard.t - DD-448 tira.onboard guided setup
+41-project-wizard.t - tira.onboard guided setup
 
 =head1 DESCRIPTION
 

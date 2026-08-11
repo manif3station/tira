@@ -18,7 +18,7 @@ use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
 use YAML::PP;
 
-our $VERSION = '1.04';
+our $VERSION = '1.05';
 
 my %TYPE_PREFIX = (
     sow    => 'SOW',
@@ -35,7 +35,7 @@ sub new {
     }, $class;
 }
 
-# DD-446: one-command bootstrap. The project lock is not re-entrant, so this
+# One-command bootstrap. The project lock is not re-entrant, so this
 # sequences ordinary locked engine calls rather than nesting them — which
 # means every input must be validated BEFORE the first write, or a rejected
 # invocation would leave half a project behind and break the documented
@@ -150,7 +150,7 @@ sub project_new {
         }
     }
 
-    # project_new has already judged nesting for this directory; the inner
+    # Project_new has already judged nesting for this directory; the inner
     # call must not re-judge it and refuse what was deliberately allowed.
     my $project = eval { $self->create_project( name => $args{name}, dir => $args{dir} // '.', nested => 1 ) };
     if ( !defined $project ) {
@@ -195,7 +195,7 @@ sub project_new {
         }
     }
 
-    # DD-464: onboarding collects the reminder settings too, and applies them
+    # Onboarding collects the reminder settings too, and applies them
     # through the same validated path a command-line update uses.
     my %settings = map { $_ => $args{$_} }
       grep { defined $args{$_} } ( 'notify_after', keys %AUTOMATION_SETTING );
@@ -224,7 +224,7 @@ sub _wanted_members {
     return scalar grep { defined } ( ref $values eq 'ARRAY' ? @{$values} : $values );
 }
 
-# DD-447: creation without a directory happens where the person is standing,
+# Creation without a directory happens where the person is standing,
 # and project discovery walks upward - so a project made inside another is
 # buried, and afterwards either one may answer depending on where a command
 # runs. Nobody is ever told, which is what makes it worth refusing.
@@ -440,7 +440,7 @@ sub project_update {
             $data->{notify_after} = _valid_minutes( $args{notify_after}, 'Notify-after' );
         }
 
-        # DD-464: the settings the reminder automation needs. An empty value
+        # The settings the reminder automation needs. An empty value
         # clears a setting, which is how the collector is turned off again.
         for my $setting ( sort keys %AUTOMATION_SETTING ) {
             next if !defined $args{$setting};
@@ -575,10 +575,10 @@ sub link_type_remove {
     } );
 }
 
-# DD-459: a column is watched unless it has been switched off. The default is
+# a column is watched unless it has been switched off. The default is
 # applied on READ so every board created before this release behaves correctly
 # without a migration.
-# DD-463: what Developer Dashboard needs in order to run the reminder job. A
+# what Developer Dashboard needs in order to run the reminder job. A
 # structure only - computing and installing spawn nothing, which is what keeps
 # the no-external-process guarantee in docs/foundation.md true. The sending
 # itself lives in collector/tira-remind, outside the command surface.
@@ -670,7 +670,7 @@ sub collector_remove {
     return $mine;
 }
 
-# DD-462: the reminder escalates with how often a card has already been chased
+# The reminder escalates with how often a card has already been chased
 # where it stands. Wording proposed for the owner to approve or replace.
 sub _duration_phrase {
     my ($seconds) = @_;
@@ -815,7 +815,7 @@ sub notification_message {
     };
 }
 
-# DD-461: a collector runs unattended, so a failure it hits has nobody to tell.
+# a collector runs unattended, so a failure it hits has nobody to tell.
 # It is stored here and shown under the next command anybody runs. Kept beside
 # the project file rather than in the notification database, because every
 # command must be able to read it and none of them should need SQLite to do so.
@@ -876,7 +876,7 @@ sub warning_clear {
     } );
 }
 
-# DD-460: the escalation level is derived, never stored on the card. One row
+# The escalation level is derived, never stored on the card. One row
 # per delivered notification; the level is how many rows that card already has
 # in the column it is sitting in, so a move resets escalation for free.
 sub _sqlite_available {
@@ -1014,7 +1014,7 @@ sub column_list {
     return _column_defaults( $config->{columns} );
 }
 
-# DD-465: an editor knows the layout it wants, not the steps that reach it.
+# An editor knows the layout it wants, not the steps that reach it.
 # Removals move cards between folders and each takes the project lock, which is
 # not reentrant, so they run first and one at a time; everything else is a
 # single write. The result says what was done, because a run that fails partway
@@ -1661,7 +1661,7 @@ sub record_list {
     return $sorted;
 }
 
-# DD-458 (EPIC-457): how long has each card sat in the column it is in now?
+# (EPIC-457): how long has each card sat in the column it is in now?
 # One board walk plus a backwards journal scan per card. Reading backwards and
 # testing each line as a string before decoding it is what keeps this at a few
 # milliseconds for a whole board and keeps it flat as journals grow; the
@@ -2203,12 +2203,12 @@ sub _type_for_ref {
 
 # Status is derived rather than stored: a question with an answer is answered,
 # one without is new. Nothing to keep in step, so nothing can drift.
-# DD-491: what this question still owes. Read by an LLM, not by a person, and
+# what this question still owes. Read by an LLM, not by a person, and
 # Tira exists to spend fewer tokens than Jira - so this is a terse machine line,
 # not prose: what is missing, then the commands that fix it on one line. Derived
 # rather than stored, and absent entirely when nothing is owed, because a
 # reminder that always appears is furniture.
-# DD-492: the same rule as questions, applied to a record. What it still owes,
+# the same rule as questions, applied to a record. What it still owes,
 # derived from its own state, in one terse line for the agent reading it. The
 # owner chose these four: they are about who owns the work and how it will be
 # judged, rather than about how it is written.
@@ -2367,7 +2367,7 @@ sub question_add {
     return $added;
 }
 
-# DD-482: a question asked before reason and options existed has all three
+# a question asked before reason and options existed has all three
 # crammed into its text, because that was the only field there was. An agent
 # must be able to go back and take it apart - in one command or three - so only
 # what is named changes. Rewriting a question is not the same as decomposing it.
@@ -2466,13 +2466,13 @@ sub question_answer {
     return $answered;
 }
 
-# DD-490: the agent records the audio and hands over a path; Tira stores and
+# The agent records the audio and hands over a path; Tira stores and
 # serves it. Tira never speaks the text itself, because it runs no external
 # process - that rule is why the engine passes under taint mode and can be
 # trusted inside another tool, and it is not worth spending for a convenience.
 our %QUESTION_VOICE_TYPES = ( mp3 => 1, wav => 1, m4a => 1, ogg => 1, oga => 1, opus => 1, flac => 1 );
 
-# DD-497: one place that takes a path and returns a stored reference, shared by
+# One place that takes a path and returns a stored reference, shared by
 # voice notes and by the evidence hung on a question or its answer. Content
 # addressed like every other attachment, so the same file in three places is one
 # file and the route that already serves attachments serves these.
@@ -2583,6 +2583,7 @@ sub question_mark {
         my $entry = _question_entry( $record, $args{id} );
         die "Question '$args{id}' has not been answered yet\n" if !$entry->{answer};
         $entry->{answer}{mark} = $mark;
+        $entry->{answer}{marked_at} = $self->{clock}->();
         $self->_replace_record( project => $root, type => $type, ref => $args{ref}, record => $record );
         return _question_view($entry);
     } );
@@ -2841,7 +2842,7 @@ sub _attachment_content_type {
     return 'application/octet-stream';
 }
 
-# DD-493: a file on a card can live in three places - on the card, on a comment,
+# a file on a card can live in three places - on the card, on a comment,
 # or as a voice note on a question. Counting only the first meant a card whose
 # files all hung off comments reported zero, and an agent read that zero as
 # failure and went looking for a bug that was not there. A count that says zero
@@ -3414,6 +3415,1213 @@ sub _set_person_active {
     } );
 }
 
+# A password that can be read back out of the project config is not a password,
+# so only a salted, iterated digest is ever written. The iteration count is
+# stored beside the hash rather than assumed, so raising it later does not
+# invalidate everyone's existing password.
+our $PASSWORD_ALGORITHM = 'pbkdf2-hmac-sha256';
+our $PASSWORD_ITERATIONS = 210_000;
+
+sub _password_derive {
+    my ( $password, $salt, $iterations ) = @_;
+    my $bytes = utf8::is_utf8($password) ? encode_utf8($password) : $password;
+    my $block = Digest::SHA::hmac_sha256( pack( 'H*', $salt ) . pack( 'N', 1 ), $bytes );
+    my $result = $block;
+    for ( 2 .. $iterations ) {
+        $block = Digest::SHA::hmac_sha256( $block, $bytes );
+        $result ^= $block;
+    }
+    return unpack 'H*', $result;
+}
+
+# Comparing with eq would answer faster the sooner the two differ, which over
+# enough attempts tells an attacker how much of a guess was right. This looks
+# at every byte whatever happens.
+sub _secret_equals {
+    my ( $left, $right ) = @_;
+    return 0 if length($left) != length($right);
+    my $difference = 0;
+    $difference |= ord( substr $left, $_, 1 ) ^ ord( substr $right, $_, 1 )
+      for 0 .. length($left) - 1;
+    return $difference == 0;
+}
+
+# Named rather than hard-coded so the Windows path below can be exercised on a
+# machine that does have /dev/urandom. A fallback nobody has ever run is a
+# fallback nobody knows works.
+our $URANDOM = '/dev/urandom';
+
+sub _random_hex {
+    my ($bytes) = @_;
+    if ( open my $fh, '<:raw', $URANDOM ) {
+        my $buffer = '';
+        my $read = read $fh, $buffer, $bytes;
+        close $fh;
+        return unpack 'H*', $buffer if ( $read // 0 ) == $bytes;
+    }
+
+    # Windows has no /dev/urandom. Stirring several unrelated sources through
+    # SHA-512 is weaker than the kernel pool and is documented as such, but it
+    # beats returning something predictable.
+    my $anchor = [];
+    my $pool = join '|', $$, time, "$anchor", map { rand } 1 .. 32;
+    return substr Digest::SHA::sha512_hex($pool), 0, $bytes * 2;
+}
+
+# His rule: a person whose name says "bot" is a machine, and machines drive the
+# board through the command line, not through a browser session. The id is
+# checked as well as the display name so renaming one does not open a door.
+sub _person_is_bot {
+    my ($person) = @_;
+    return 1 if ( $person->{id} // '' ) =~ /bot/i;
+    return 1 if ( $person->{name} // '' ) =~ /bot/i;
+    return 0;
+}
+
+sub _login_person {
+    my ( $self, $root, $id ) = @_;
+    my ( undef, $data ) = $self->_project_data($root);
+    my ($person) = grep { $_->{id} eq ( $id // '' ) } @{ $data->{people} };
+    return $person;
+}
+
+sub login_register {
+    my ( $self, %args ) = @_;
+    my $id = $args{id} // '';
+    die "Password is required\n" if !defined $args{password} || $args{password} eq '';
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $data ) = $self->_project_data($root);
+        my ($person) = grep { $_->{id} eq $id } @{ $data->{people} };
+        die "Person '$id' not found\n" if !$person;
+        die "Person '$id' is not active\n" if !$person->{active};
+        die "Person '$id' is a bot and cannot sign in\n" if _person_is_bot($person);
+        die "Person '$id' already has a password\n" if ref $person->{password} eq 'HASH';
+        my $salt = _random_hex(16);
+        $person->{password} = {
+            algorithm => $PASSWORD_ALGORITHM,
+            iterations => $PASSWORD_ITERATIONS,
+            salt => $salt,
+            hash => _password_derive( $args{password}, $salt, $PASSWORD_ITERATIONS ),
+        };
+        $data->{last_updated} = $self->{clock}->();
+        $self->_write_yaml( $path, $data );
+        return $person;
+    } );
+}
+
+sub login_verify {
+    my ( $self, %args ) = @_;
+    return 0 if !defined $args{password} || $args{password} eq '';
+    my $root = $self->discover_project(%args);
+    my $person = $self->_login_person( $root, $args{id} );
+    return 0 if !$person;
+    return 0 if !$person->{active};
+
+    # Checked before the stored hash is consulted, so a hash written into the
+    # file by hand is not a way around the rule.
+    return 0 if _person_is_bot($person);
+    my $stored = $person->{password};
+    return 0 if ref $stored ne 'HASH';
+    return 0 if ( $stored->{algorithm} // '' ) ne $PASSWORD_ALGORITHM;
+    return 0 if !defined $stored->{salt} || !defined $stored->{hash};
+    my $candidate = _password_derive( $args{password}, $stored->{salt}, $stored->{iterations} );
+    return _secret_equals( $candidate, $stored->{hash} );
+}
+
+# Ten minutes of doing nothing, counted from the last deliberate action rather
+# than from the login. The board polls itself in the background, so that poll
+# reads a session without touching this clock - otherwise a tab left open
+# overnight would keep itself signed in for ever.
+our $SESSION_IDLE_SECONDS = 600;
+
+sub _sessions_dir {
+    my ( $self, $root ) = @_;
+    return File::Spec->catdir( $root, '.tira', 'sessions' );
+}
+
+# The token names the file it lives in, so anything that is not plain lowercase
+# hex is refused before it is ever joined to a path. A token is generated, never
+# typed, so there is nothing to be gained by being generous about the shape.
+sub _valid_session_token {
+    my ($token) = @_;
+    return undef if !defined $token;
+    return $token =~ /\A([0-9a-f]{32,128})\z/ ? $1 : undef;
+}
+
+sub _session_path {
+    my ( $self, $root, $token ) = @_;
+    my $safe = _valid_session_token($token) or return undef;
+    return File::Spec->catfile( $self->_sessions_dir($root), "$safe.json" );
+}
+
+sub _session_read {
+    my ( $self, $path ) = @_;
+    open my $fh, '<:raw', $path or return undef;
+    my $content = do { local $/; <$fh> };
+    close $fh;
+    my $session = eval { json_decode($content) };
+    return ref $session eq 'HASH' ? $session : undef;
+}
+
+sub _session_expired {
+    my ( $self, $session ) = @_;
+    my $seen = eval { _epoch_of_datetime( $session->{last_seen_at}, 'Session last seen' ) };
+
+    # A session whose stamp cannot be read is treated as dead. Guessing in the
+    # other direction would turn a corrupt file into a session that never ends.
+    return 1 if !defined $seen;
+    my $now = eval { _epoch_of_datetime( $self->{clock}->(), 'Clock' ) };
+    return 1 if !defined $now;
+    return $now - $seen > $SESSION_IDLE_SECONDS ? 1 : 0;
+}
+
+sub _session_write {
+    my ( $self, $path, $session ) = @_;
+    $self->_atomic_write( $path, json_object()->canonical->encode($session) );
+    chmod 0600, $path;
+    return 1;
+}
+
+sub _session_sweep {
+    my ( $self, $root ) = @_;
+    my $dir = $self->_sessions_dir($root);
+    opendir my $dh, $dir or return [];
+    my @names = readdir $dh;
+    closedir $dh;
+    my @alive;
+    for my $name (@names) {
+        my ($safe) = $name =~ /\A([0-9a-f]{32,128}\.json)\z/ or next;
+        my $path = File::Spec->catfile( $dir, $safe );
+        my $session = $self->_session_read($path);
+        if ( !$session || $self->_session_expired($session) ) {
+            unlink $path;
+            next;
+        }
+        push @alive, { %{$session}, token => ( $safe =~ s/\.json\z//r ) };
+    }
+    return [ sort { $a->{started_at} cmp $b->{started_at} || $a->{token} cmp $b->{token} } @alive ];
+}
+
+sub login_start {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    die "Sign-in failed\n" if !$self->login_verify(%args);
+    my $dir = $self->_sessions_dir($root);
+    make_path($dir) if !-d $dir;
+    my $now = $self->{clock}->();
+
+    # 24 bytes, so a token cannot be arrived at by trying, and derived from the
+    # random source alone - never from the person or the clock, either of which
+    # an outsider could work out.
+    my $token = _random_hex(24);
+    $self->_session_write(
+        $self->_session_path( $root, $token ),
+        { person => $args{id}, started_at => $now, last_seen_at => $now },
+    );
+    return $token;
+}
+
+sub _session_load {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $path = $self->_session_path( $root, $args{token} ) or return ();
+    my $session = $self->_session_read($path) or return ();
+    if ( $self->_session_expired($session) ) {
+        unlink $path;
+        return ();
+    }
+    return ( $root, $path, $session );
+}
+
+sub session_peek {
+    my ( $self, %args ) = @_;
+    my ( undef, undef, $session ) = $self->_session_load(%args);
+    return $session;
+}
+
+sub session_resume {
+    my ( $self, %args ) = @_;
+    my ( undef, $path, $session ) = $self->_session_load(%args);
+    return undef if !$session;
+    $session->{last_seen_at} = $self->{clock}->();
+    $self->_session_write( $path, $session );
+    return $session;
+}
+
+sub session_end {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $path = $self->_session_path( $root, $args{token} );
+    die "Session not found\n" if !defined $path || !-f $path;
+    unlink $path or die "Cannot end session: $!\n";
+    return { ended => 1 };
+}
+
+sub session_list {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_session_sweep($root);
+}
+
+# The one page a stranger can reach. It names nobody, because the login page is
+# the only thing outside the gate and a list of people is half of a login. The
+# markup is self-contained - no font, stylesheet or script from anywhere else -
+# and deliberately pure ASCII, because this renderer has no `use utf8` and a
+# literal glyph here has produced mojibake before.
+sub login_page_html {
+    my ( $self, %args ) = @_;
+    my $name = $self->_html_escape( $args{name} // 'Tira' );
+    my $style = <<'CSS';
+:root{color-scheme:light dark;--ink:#0f172a;--dim:#64748b;--line:#cbd5e1;--card:#fff;--bg:#eef2f7;--accent:#2563eb}
+@media(prefers-color-scheme:dark){:root{--ink:#e2e8f0;--dim:#94a3b8;--line:#334155;--card:#111827;--bg:#0b1220;--accent:#60a5fa}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);
+font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.card{width:min(92vw,25rem);background:var(--card);border:1px solid var(--line);border-radius:14px;
+padding:2rem 1.75rem;box-shadow:0 10px 30px rgba(15,23,42,.10)}
+h1{margin:0;font-size:1.35rem;letter-spacing:-.01em}
+.sub{margin:.35rem 0 1.5rem;color:var(--dim);font-size:.875rem}
+label{display:block;font-size:.8rem;font-weight:600;color:var(--dim);margin:0 0 .35rem}
+input{width:100%;padding:.6rem .7rem;margin:0 0 1rem;border:1px solid var(--line);border-radius:8px;
+background:transparent;color:inherit;font:inherit}
+input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+button{width:100%;padding:.65rem;border:0;border-radius:8px;background:var(--accent);color:#fff;
+font:600 15px/1 inherit;cursor:pointer}
+button:disabled{opacity:.6;cursor:default}
+.note{margin:1rem 0 0;font-size:.8rem;color:var(--dim)}
+.msg{margin:0 0 1rem;padding:.6rem .7rem;border-radius:8px;font-size:.85rem;display:none}
+.msg.bad{display:block;background:rgba(220,38,38,.12);color:#dc2626}
+.msg.good{display:block;background:rgba(22,163,74,.12);color:#16a34a}
+CSS
+    my $script = <<'JS';
+var form=document.getElementById("f"),msg=document.getElementById("m"),go=document.getElementById("go");
+form.addEventListener("submit",function(e){
+  e.preventDefault();
+  msg.className="msg";go.disabled=true;
+  fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({id:form.id_.value,password:form.pw.value})})
+  .then(function(r){return r.json().then(function(b){return{ok:r.ok,body:b}})})
+  .then(function(r){
+    if(!r.ok){
+      // One message for a wrong password and for somebody who is not here at
+      // all, so this page cannot be used to find out who is on the project.
+      msg.textContent="That did not match. Check the name and try again.";
+      msg.className="msg bad";go.disabled=false;form.pw.value="";form.pw.focus();return;
+    }
+    msg.textContent=r.body.claimed?"Password set. Signing you in.":"Signing you in.";
+    msg.className="msg good";
+    location.href="/";
+  })
+  .catch(function(){msg.textContent="The board did not answer. Try again.";msg.className="msg bad";go.disabled=false});
+});
+form.id_.focus();
+JS
+    return join '',
+      '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
+      "<title>Sign in \x{2014} $name</title>",
+      "<style>$style</style>",
+      '<div class="card">',
+      "<h1>$name</h1>",
+      '<p class="sub">Sign in to use this board.</p>',
+      '<p class="msg" id="m"></p>',
+      '<form id="f" autocomplete="on">',
+      '<label for="id_">Name</label>',
+      '<input id="id_" name="id_" autocomplete="username" autocapitalize="off" spellcheck="false" required>',
+      '<label for="pw">Password</label>',
+      '<input id="pw" name="pw" type="password" autocomplete="current-password" required>',
+      '<button id="go" type="submit">Sign in</button>',
+      '</form>',
+      '<p class="note">First time here? Whatever you type becomes your password.</p>',
+      '</div>',
+      "<script>$script</script>";
+}
+
+# What police can be told to watch for. Every rule here traces to something
+# that actually went wrong rather than something imagined, and each names the
+# parameters it cannot work without - so a policy police could not follow is
+# refused when it is set rather than discovered later, when it has been reading
+# as cover the whole time.
+my %POLICY_RULES = (
+    'card-full-details'         => { needs => ['enter'] },
+    'card-metrics'              => { needs => [ 'enter', 'require' ] },
+    'card-duration'             => { needs => [ 'column', 'age' ] },
+    'card-stalled'              => { needs => ['before'] },
+    'checklist-idle'            => { needs => [ 'column', 'age' ] },
+    'orphan-card'               => { needs => [] },
+    'question-unanswered'       => { needs => ['age'] },
+    'answer-unjudged'           => { needs => ['age'] },
+    'answer-ok-not-folded'      => { needs => ['age'] },
+    'answer-not-ok-no-followup' => { needs => ['age'] },
+    'wip-limit'                 => { needs => [ 'column', 'max' ] },
+    'commit-without-card'       => { needs => [] },
+    'work-without-card'         => { needs => ['age'] },
+    'unpushed-work'             => { needs => ['age'] },
+    'board-unbacked'            => { needs => ['age'] },
+    'gate-missing'              => { needs => ['column'] },
+    'discard-unexplained'       => { needs => [] },
+    'leftover-process'          => { needs => [ 'pattern', 'age' ] },
+    'leftover-container'        => { needs => ['age'] },
+    'card-sandbox-missing'      => { needs => [ 'enter', 'sandbox' ] },
+);
+
+# Police speaks in exactly three ways: down the bridge the agent tails, in the
+# owner's own terminal, and quietly into the log for a rule being tuned.
+my %POLICY_ACTIONS = map { $_ => 1 } qw(bridge-reminder print-reminder log-only);
+
+# Parameters a policy may carry, beyond the rule and the action.
+my @POLICY_FIELDS = qw(enter before column age max pattern message require sandbox base);
+
+# Where a policy was declared. A policy with none of these is the project's;
+# each one named makes it narrower, and the narrowest wins.
+my @POLICY_SCOPE = qw(type on_column ref);
+
+# A rule may say which column it means, or which role.
+my @POLICY_ROLE_FIELDS = qw(enter_role before_role column_role);
+
+sub policy_rules { return [ sort keys %POLICY_RULES ] }
+sub policy_actions { return [ sort keys %POLICY_ACTIONS ] }
+
+sub _valid_duration {
+    my ($value) = @_;
+    return undef if !defined $value;
+    return $value =~ /\A(\d+)([smhd])\z/ ? $value : undef;
+}
+
+sub policy_add {
+    my ( $self, %args ) = @_;
+    my $rule = $args{rule} // '';
+    my $spec = $POLICY_RULES{$rule}
+      or die "Unknown policy rule '$rule'. Rules: " . join( ', ', @{ policy_rules() } ) . "\n";
+
+    my $action = $args{action} // '';
+    die "Policy action is required. Actions: " . join( ', ', @{ policy_actions() } ) . "\n"
+      if $action eq '';
+    die "Unknown policy action '$action'. Actions: " . join( ', ', @{ policy_actions() } ) . "\n"
+      if !$POLICY_ACTIONS{$action};
+
+    for my $needed ( @{ $spec->{needs} } ) {
+        next if defined $args{"${needed}_role"} && $args{"${needed}_role"} ne '';
+        die "Policy rule '$rule' needs --$needed\n"
+          if !defined $args{$needed} || $args{$needed} eq '';
+    }
+    if ( defined $args{age} ) {
+        _valid_duration( $args{age} )
+          or die "An age must be a duration like 10m, 2h or 30s, not '$args{age}'\n";
+    }
+    if ( defined $args{max} ) {
+        $args{max} =~ /\A\d+\z/ or die "A limit must be a whole number, not '$args{max}'\n";
+    }
+
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $data ) = $self->_project_data($root);
+        my $policies = $data->{policies} ||= [];
+
+        my %policy = ( rule => $rule, action => $action );
+        for my $field ( @POLICY_SCOPE, @POLICY_FIELDS, @POLICY_ROLE_FIELDS ) {
+            $policy{$field} = "$args{$field}" if defined $args{$field} && $args{$field} ne '';
+        }
+
+        # The same rule watching a different column is a different intention,
+        # not a duplicate. Only an identical declaration is the same policy.
+        for my $existing ( @{$policies} ) {
+            my $same = 1;
+            for my $field ( 'rule', 'action', @POLICY_SCOPE, @POLICY_FIELDS, @POLICY_ROLE_FIELDS ) {
+                $same = 0 if ( $existing->{$field} // '' ) ne ( $policy{$field} // '' );
+            }
+            return $existing if $same;
+        }
+
+        # Numbers are never reused, so a reference in an old log always means
+        # the policy it meant when it was written.
+        my $next = ( $data->{policy_counter} // 0 ) + 1;
+        $data->{policy_counter} = $next;
+        $policy{id} = sprintf 'POL-%03d', $next;
+        $policy{declared_at} = $self->{clock}->();
+
+        push @{$policies}, \%policy;
+        $data->{last_updated} = $self->{clock}->();
+        $self->_write_yaml( $path, $data );
+        return \%policy;
+    } );
+}
+
+sub policy_list {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my ( undef, $data ) = $self->_project_data($root);
+    return $data->{policies} // [];
+}
+
+sub policy_remove {
+    my ( $self, %args ) = @_;
+    my $id = $args{id} // '';
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $data ) = $self->_project_data($root);
+        my @kept = grep { $_->{id} ne $id } @{ $data->{policies} // [] };
+        die "Policy '$id' not found\n" if @kept == @{ $data->{policies} // [] };
+        $data->{policies} = \@kept;
+        $data->{last_updated} = $self->{clock}->();
+        $self->_write_yaml( $path, $data );
+        return { removed => $id };
+    } );
+}
+
+# Working out what is wrong without touching anything. Every rule here is a
+# pure function of the board and the clock: nothing is written, no shell is
+# invoked, and the six rules that need git or the process table are handed in
+# as facts by police rather than looked up here.
+my %POLICY_DURATION_SECONDS = ( s => 1, m => 60, h => 3600, d => 86_400 );
+
+sub _duration_seconds {
+    my ($value) = @_;
+    my ( $count, $unit ) = ( $value // '' ) =~ /\A(\d+)([smhd])\z/ or return undef;
+    return $count * $POLICY_DURATION_SECONDS{$unit};
+}
+
+sub _policy_older_than {
+    my ( $self, $stamp, $age ) = @_;
+    my $seconds = _duration_seconds($age) // return 0;
+    my $then = eval { _epoch_of_datetime( $stamp, 'Stamp' ) } // return 0;
+    my $now = eval { _epoch_of_datetime( $self->{clock}->(), 'Clock' ) } // return 0;
+    return $now - $then > $seconds;
+}
+
+# The fields a card must carry to be real work rather than a title. Kept here
+# rather than in a rule so one answer serves the engine, the reminder surface
+# and anything else that later asks the same question.
+my @POLICY_DETAIL_FIELDS = qw(
+  description problem_or_feature solution_needed key_details deliverables
+  acceptance_criteria test_steps bdd atdd priority
+);
+
+sub _policy_missing_detail {
+    my ($record) = @_;
+    my @missing;
+    for my $field (@POLICY_DETAIL_FIELDS) {
+        my $value = $record->{$field};
+        push @missing, $field
+          if ( ref $value eq 'ARRAY' ? !@{$value} : !defined $value || $value eq '' );
+    }
+    my $scope = $record->{scope} || {};
+    push @missing, 'scope_in' if !@{ $scope->{included} // [] };
+    push @missing, 'scope_out' if !@{ $scope->{excluded} // [] };
+    return \@missing;
+}
+
+sub _policy_last_detail_change {
+    my ( $self, %args ) = @_;
+
+    # The history journal already records every field write, so asking it when
+    # a detail last changed is exact rather than inferred - and it is the only
+    # way to tell a card that was updated from one that merely had a comment
+    # added, which is the whole point of the folding rules.
+    my $history = eval { $self->history_list( %args, ref => $args{ref} ) } || [];
+    my %detail = map { $_ => 1 } @POLICY_DETAIL_FIELDS, 'scope', 'description', 'title';
+    my $latest;
+    for my $entry ( @{$history} ) {
+        next if !$detail{ $entry->{field} // '' };
+        $latest = $entry->{at} if !defined $latest || ( $entry->{at} // '' ) gt $latest;
+    }
+    return $latest;
+}
+
+sub _policy_questions {
+    my ($record) = @_;
+    return grep { !$_->{discarded_at} } @{ $record->{questions} // [] };
+}
+
+sub policy_evaluate {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $policies = $self->policy_list( project => $root );
+    return [] if !@{$policies};
+
+    my $all = $self->record_list( project => $root, include_discard => 1 );
+
+    # Discarded work is set aside, not neglected. Holding it to the same
+    # standard as live work would teach an agent to read past the whole
+    # channel, which is the one failure a warning system cannot survive. The
+    # exception is the rule that exists to ask why it was set aside.
+    my $records = [ grep { ( $_->{column} // '' ) ne 'discard' } @{$all} ];
+    my @violations;
+
+    my $report = sub {
+        my ( $policy, $record, $detail ) = @_;
+        push @violations, {
+            rule => $policy->{rule},
+            policy => $policy->{id},
+            ref => ref $record ? $record->{ref} : ( $record // '' ),
+            detail => $detail,
+            message => $policy->{message},
+            action => $policy->{action},
+        };
+    };
+
+    # Each card is judged by the policies that resolved for IT, so an override
+    # on one card cannot change what applies to another.
+    my %for_record;
+    for my $record ( @{$all} ) {
+        $for_record{ $record->{ref} } =
+          { map { $_->{rule} => $_ } @{ $self->policy_resolve( project => $root, record => $record ) } };
+    }
+    my $resolved_for = sub {
+        my ( $policy, $record ) = @_;
+        my $winner = $for_record{ $record->{ref} }{ $policy->{rule} };
+        return defined $winner && ( $winner->{id} // '' ) eq ( $policy->{id} // '' ) ? $winner : undef;
+    };
+
+    for my $policy ( @{$policies} ) {
+        my $rule = $policy->{rule};
+
+        if ( $rule eq 'card-full-details' ) {
+            for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
+                my $enter = $self->_policy_column_for(
+                    project => $root, policy => $policy, field => 'enter', record => $record );
+                next if ( $record->{column} // '' ) ne ( $enter // '' );
+                my $missing = _policy_missing_detail($record);
+                next if !@{$missing};
+                $report->( $policy, $record, 'missing: ' . join( ',', @{$missing} ) );
+            }
+        }
+        elsif ( $rule eq 'card-metrics' ) {
+            my @wanted = split /\s*,\s*/, $policy->{require} // '';
+            for my $record ( @{$records} ) {
+                next if ( $record->{column} // '' ) ne ( $policy->{enter} // '' );
+                my @missing = grep {
+                    my $value = $record->{$_};
+                    ref $value eq 'ARRAY' ? !@{$value} : !defined $value || $value eq '';
+                } @wanted;
+                next if !@missing;
+                $report->( $policy, $record, 'missing: ' . join( ',', @missing ) );
+            }
+        }
+        elsif ( $rule eq 'card-duration' ) {
+            for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
+                next if ( $record->{column} // '' ) ne ( $policy->{column} // '' );
+                my ($since) = $self->_dwell_start( $root, $record->{ref} );
+                next if !defined $since;
+                next if !$self->_policy_older_than( $since, $policy->{age} );
+                $report->( $policy, $record, "in $policy->{column} since $since" );
+            }
+        }
+        elsif ( $rule eq 'card-stalled' ) {
+            for my $record ( @{$records} ) {
+                my $checklist = $record->{checklist} // [];
+                next if !@{$checklist};
+                next if grep { ( $_->{status} // '' ) ne 'done' } @{$checklist};
+                my $before = $self->_policy_column_for(
+                    project => $root, policy => $policy, field => 'before', record => $record );
+                next if !$self->_policy_before_column( $root, $record, $before );
+                $report->( $policy, $record,
+                    "every checklist item is done but the card is still in $record->{column}" );
+            }
+        }
+        elsif ( $rule eq 'checklist-idle' ) {
+            for my $record ( @{$records} ) {
+                next if ( $record->{column} // '' ) ne ( $policy->{column} // '' );
+                my $checklist = $record->{checklist} // [];
+                next if !@{$checklist};
+                my ($latest) = sort { $b cmp $a } map { $_->{last_updated} } @{$checklist};
+                next if !$self->_policy_older_than( $latest, $policy->{age} );
+                $report->( $policy, $record, "no checklist movement since $latest" );
+            }
+        }
+        elsif ( $rule eq 'orphan-card' ) {
+            for my $record ( @{$records} ) {
+                next if ( $record->{type} // '' ) eq 'sow';
+                next if defined $record->{parent} && $record->{parent} ne '';
+                $report->( $policy, $record, 'no parent' );
+            }
+        }
+        elsif ( $rule eq 'question-unanswered' ) {
+            for my $record ( @{$records} ) {
+                for my $question ( _policy_questions($record) ) {
+                    next if $question->{answer};
+                    next if !$self->_policy_older_than( $question->{asked_at}, $policy->{age} );
+                    $report->( $policy, $record,
+                        "$question->{id} has been waiting since $question->{asked_at}" );
+                }
+            }
+        }
+        elsif ( $rule eq 'answer-unjudged' ) {
+            for my $record ( @{$records} ) {
+                for my $question ( _policy_questions($record) ) {
+                    my $answer = $question->{answer} or next;
+                    next if defined $answer->{mark};
+                    next if !$self->_policy_older_than( $answer->{answered_at}, $policy->{age} );
+                    $report->( $policy, $record,
+                        "$question->{id} was answered and never marked" );
+                }
+            }
+        }
+        elsif ( $rule eq 'answer-ok-not-folded' || $rule eq 'answer-not-ok-no-followup' ) {
+            my $wanted = $rule eq 'answer-ok-not-folded' ? 'ok' : 'not-ok';
+            for my $record ( @{$records} ) {
+                my @questions = _policy_questions($record);
+                for my $question (@questions) {
+                    my $answer = $question->{answer} or next;
+                    next if ( $answer->{mark} // '' ) ne $wanted;
+                    my $marked = $answer->{marked_at} // $answer->{answered_at};
+                    next if !$self->_policy_older_than( $marked, $policy->{age} );
+
+                    if ( $wanted eq 'ok' ) {
+                        # A comment is not documentation. Only a detail field
+                        # changing after the mark counts as folding it in.
+                        my $changed = $self->_policy_last_detail_change(
+                            project => $root, ref => $record->{ref} );
+                        next if defined $changed && $changed gt $marked;
+                        $report->( $policy, $record,
+                            "$question->{id} was marked ok and nothing was folded into the card" );
+                    }
+                    else {
+                        # A cross on its own settles nothing.
+                        next if grep { ( $_->{asked_at} // '' ) gt $marked } @questions;
+                        $report->( $policy, $record,
+                            "$question->{id} was marked not-ok and nothing further was asked" );
+                    }
+                }
+            }
+        }
+        elsif ( $rule eq 'wip-limit' ) {
+            my @in = grep { ( $_->{column} // '' ) eq ( $policy->{column} // '' ) } @{$records};
+            next if @in <= ( $policy->{max} // 0 );
+            $report->( $policy, undef,
+                scalar(@in) . " cards in $policy->{column}, limit is $policy->{max}: "
+                  . join( ',', map { $_->{ref} } @in ) );
+        }
+        elsif ( $rule eq 'gate-missing' ) {
+            for my $record ( @{$records} ) {
+                next if ( $record->{column} // '' ) ne ( $policy->{column} // '' );
+                next if @{ $record->{gate_passing_log} // [] };
+                $report->( $policy, $record, "reached $policy->{column} with no gate recorded" );
+            }
+        }
+        elsif ( $rule eq 'discard-unexplained' ) {
+            for my $record ( @{$all} ) {
+                next if ( $record->{column} // '' ) ne 'discard';
+                next if @{ $record->{comments} // [] };
+                $report->( $policy, $record, 'discarded with no reason given' );
+            }
+        }
+
+        # The remaining rules are about the world outside the board. Police
+        # evaluates those and hands them in, because this module invokes no
+        # shell and is not going to start.
+    }
+
+    return \@violations;
+}
+
+# Whether a card sits before the column the policy names. Which column means
+# "the work has moved on" is the project's decision, not Tira's - every board
+# names its columns differently, and a rule that guesses is a rule that fires
+# wrongly on somebody else's board.
+sub _policy_before_column {
+    my ( $self, $root, $record, $marker ) = @_;
+    return 0 if ( $record->{column} // '' ) eq 'discard';
+    my $columns = $self->column_list( project => $root, type => $record->{type} );
+    my @names = map { $_->{name} } @{$columns};
+    my ($here) = grep { $names[$_] eq ( $record->{column} // '' ) } 0 .. $#names;
+    my ($there) = grep { $names[$_] eq ( $marker // '' ) } 0 .. $#names;
+    return 0 if !defined $here || !defined $there;
+    return $here < $there ? 1 : 0;
+}
+
+# One problem getting louder, rather than fifty problems. A warning system
+# dies by repetition: fifty numbers for one condition is noise, and noise is
+# what gets ignored. One number that rises in tone is a fact.
+#
+# The ledger lives in police's own store rather than in the project. That is
+# not tidiness - a ledger inside the board would make police a second writer,
+# and two writers on one board is what destroyed this project's own board on
+# the day this was designed.
+my @VIOLATION_TONES = qw(note warning urgent critical);
+our $VIOLATION_ESCALATES_AT = 5;
+
+sub _violation_key {
+    my ($violation) = @_;
+    return join '|', map { $violation->{$_} // '' } qw(rule policy ref);
+}
+
+sub _violation_ledger_path {
+    my ( $self, $store ) = @_;
+    make_path($store) if !-d $store;
+    return File::Spec->catfile( $store, 'violations.json' );
+}
+
+sub _violation_ledger {
+    my ( $self, $store ) = @_;
+    my $path = $self->_violation_ledger_path($store);
+    return { counter => 0, open => {} } if !-f $path;
+    open my $fh, '<:raw', $path or return { counter => 0, open => {} };
+    my $content = do { local $/; <$fh> };
+    close $fh;
+    my $ledger = eval { json_decode($content) };
+    return ref $ledger eq 'HASH' ? $ledger : { counter => 0, open => {} };
+}
+
+# A count of one is a note; by five it has been ignored long enough to be
+# critical. The ladder only ever climbs, so a persistent problem never quietly
+# softens just because it has been around a while.
+sub _violation_tone {
+    my ($seen) = @_;
+    return $VIOLATION_TONES[0] if $seen <= 1;
+    return $VIOLATION_TONES[1] if $seen <= 3;
+    return $VIOLATION_TONES[2] if $seen < $VIOLATION_ESCALATES_AT;
+    return $VIOLATION_TONES[-1];
+}
+
+# What the owner sees in his own terminal when the agent has demonstrably
+# stopped listening. It carries everything he needs to act without going and
+# looking anything up, including a command he can paste straight to the agent.
+sub _violation_terminal_notice {
+    my ( $entry, $violation ) = @_;
+    my $ref = $violation->{ref} // '';
+    my $fix = $ref =~ /\A(SOW|EPC)-/
+      ? 'd2 tira.' . ( $1 eq 'SOW' ? 'sow' : 'epic' ) . ".show --ref $ref"
+      : ( $ref ne '' ? "d2 tira.ticket.show --ref $ref" : 'd2 tira.policy.list' );
+    return join ' | ',
+      $entry->{last_seen},
+      $entry->{id},
+      ( $ref ne '' ? $ref : 'the board' ),
+      ( $violation->{detail} // $violation->{rule} ),
+      "seen $entry->{seen} times, needs your attention",
+      "paste to the agent: $fix";
+}
+
+sub violation_record {
+    my ( $self, %args ) = @_;
+    my $store = $args{store} or die "A violation store is required\n";
+    my $now = $self->{clock}->();
+    my $ledger = $self->_violation_ledger($store);
+    my %still;
+
+    my @view;
+    for my $violation ( @{ $args{violations} // [] } ) {
+        my $key = _violation_key($violation);
+        $still{$key} = 1;
+        my $entry = $ledger->{open}{$key};
+
+        if ( !$entry ) {
+            # Numbers are never reused, so a number in an old log always means
+            # the problem it meant when it was written.
+            my $closed = $ledger->{closed}{$key};
+            $ledger->{counter} = ( $ledger->{counter} // 0 ) + 1 if !$closed;
+            $entry = $closed || {
+                id => sprintf( 'VIO-%04d', $ledger->{counter} ),
+                first_seen => $now,
+                seen => 0,
+            };
+            $entry->{returned} = 1 if $closed;
+            delete $ledger->{closed}{$key};
+            $ledger->{open}{$key} = $entry;
+        }
+
+        $entry->{seen}++;
+        $entry->{last_seen} = $now;
+        $entry->{tone} = _violation_tone( $entry->{seen} );
+
+        # Said once, at the moment it becomes true. Repeating it on every pass
+        # afterwards would turn the escalation itself into the noise it exists
+        # to rise above.
+        my $escalate = $entry->{seen} == $VIOLATION_ESCALATES_AT && !$entry->{escalated};
+        $entry->{escalated} = 1 if $escalate;
+
+        push @view, {
+            %{$violation},
+            id => $entry->{id},
+            seen => $entry->{seen},
+            tone => $entry->{tone},
+            first_seen => $entry->{first_seen},
+            last_seen => $entry->{last_seen},
+            ( $entry->{returned} ? ( returned => 1 ) : () ),
+            ( $escalate ? ( escalate => 1 ) : () ),
+            terminal => _violation_terminal_notice( $entry, $violation ),
+        };
+    }
+
+    # A condition that is no longer true stops being reported at once. There is
+    # nothing to acknowledge and nothing to clear by hand, because anything an
+    # agent has to remember to dismiss becomes something it dismisses without
+    # reading.
+    for my $key ( keys %{ $ledger->{open} } ) {
+        next if $still{$key};
+        my $entry = delete $ledger->{open}{$key};
+        $entry->{closed_at} = $now;
+        $ledger->{closed}{$key} = $entry;
+    }
+
+    $self->_atomic_write(
+        $self->_violation_ledger_path($store),
+        json_object()->canonical->encode($ledger) );
+    return \@view;
+}
+
+# The six rules that are about the world rather than the board. Police gathers
+# the facts and hands them in; this module invokes no shell and is not going to
+# start. That also makes every one of these testable without a repository, a
+# container or a running process anywhere near the test.
+sub _police_environment_violations {
+    my ( $self, %args ) = @_;
+    my $policies = $args{policies};
+    my $records = $args{records};
+    my $world = $args{world} || {};
+    my @violations;
+
+    my $report = sub {
+        my ( $policy, $ref, $detail ) = @_;
+        push @violations, {
+            rule => $policy->{rule}, policy => $policy->{id}, ref => $ref // '',
+            detail => $detail, message => $policy->{message}, action => $policy->{action},
+        };
+    };
+
+    for my $policy ( @{$policies} ) {
+        my $rule = $policy->{rule};
+
+        if ( $rule eq 'card-sandbox-missing' ) {
+            my %branch = map { $_ => 1 } @{ $world->{branches} // [] };
+            my %worktree = map { $_ => 1 } @{ $world->{worktrees} // [] };
+            for my $record ( @{$records} ) {
+                next if ( $record->{column} // '' ) ne ( $policy->{enter} // '' );
+                my @missing;
+                push @missing, 'branch' if !$branch{ $record->{ref} };
+                push @missing, 'sandbox worktree'
+                  if !$worktree{ ( $policy->{sandbox} // '' ) . '/' . $record->{ref} };
+                next if !@missing;
+
+                # One card, one branch, one worktree. Two cards in one tree
+                # means two sets of changes interleaved, and the first failing
+                # test cannot say which card caused it.
+                $report->( $policy, $record->{ref},
+                    'missing ' . join( ' and ', @missing ) . " for $record->{ref}" );
+            }
+        }
+        elsif ( $rule eq 'leftover-process' ) {
+            for my $process ( @{ $world->{processes} // [] } ) {
+                next if index( $process->{command} // '', $policy->{pattern} // '' ) < 0;
+                next if !$self->_policy_older_than( $process->{started_at}, $policy->{age} );
+                $report->( $policy, undef, "still running: $process->{command}" );
+            }
+        }
+        elsif ( $rule eq 'leftover-container' ) {
+            for my $container ( @{ $world->{containers} // [] } ) {
+                next if !$self->_policy_older_than( $container->{started_at}, $policy->{age} );
+                $report->( $policy, undef, "still up: $container->{name}" );
+            }
+        }
+        elsif ( $rule eq 'commit-without-card' ) {
+            for my $commit ( @{ $world->{commits} // [] } ) {
+                next if ( $commit->{subject} // '' ) =~ /\b[A-Z]{2,}-\d{3,}\b/;
+                $report->( $policy, undef,
+                    "$commit->{sha} names no card: $commit->{subject}" );
+            }
+        }
+        elsif ( $rule eq 'work-without-card' ) {
+            next if !$world->{working_since};
+            next if $world->{card_in_progress};
+            next if !$self->_policy_older_than( $world->{working_since}, $policy->{age} );
+            $report->( $policy, undef,
+                "the tree has been changing since $world->{working_since} with no card at a working gate" );
+        }
+        elsif ( $rule eq 'unpushed-work' ) {
+            next if !$world->{unpushed_since};
+            next if !$self->_policy_older_than( $world->{unpushed_since}, $policy->{age} );
+            $report->( $policy, undef,
+                "commits unpushed since $world->{unpushed_since}, and push is part of done" );
+        }
+        elsif ( $rule eq 'board-unbacked' ) {
+            my $when = $world->{backed_up_at};
+            next if defined $when && !$self->_policy_older_than( $when, $policy->{age} );
+            $report->( $policy, undef,
+                defined $when ? "last backup was $when" : 'the board has never been backed up' );
+        }
+    }
+    return \@violations;
+}
+
+# One pass. The loop that calls this lives in the command, so that everything
+# worth testing can be tested without waiting for a timer.
+sub police_pass {
+    my ( $self, %args ) = @_;
+    my $store = $args{store} or die "A violation store is required\n";
+    my $policies = eval { $self->policy_list(%args) } || [];
+
+    # A board nobody asked to be watched is not a board with no problems.
+    # Running while guarding nothing would be worse than not running, because
+    # the presence of a watcher reads as cover.
+    return {
+        watching => 0,
+        violations => [],
+        terminal => [],
+        advice => 'No policies are set on this project, so police has nothing to follow. '
+          . 'Ask the agent to set some: d2 tira.policy.add --rule <rule> --action bridge-reminder '
+          . '(d2 tira.policies lists every rule and what it needs).',
+    } if !@{$policies};
+
+    my ( $found, $error );
+    my $ok = eval {
+        my $records = $self->record_list( %args, include_discard => 1 );
+        $found = [
+            @{ $self->policy_evaluate(%args) },
+            @{ $self->_police_environment_violations(
+                    %args, policies => $policies, records => $records ) },
+        ];
+        1;
+    };
+    if ( !$ok ) {
+        # A board mid-write or a lock held for a moment is not a reason to die,
+        # and it is not a reason to invent an answer either. Police guessing is
+        # worse than police silent.
+        $error = $@ || 'Unknown failure reading the board';
+        $error =~ s/\s+\z//;
+        $found = [];
+    }
+
+    my $view = $self->violation_record( store => $store, violations => $found );
+    return {
+        watching => 1,
+        violations => $view,
+        terminal => [ map { $_->{terminal} } grep { $_->{escalate} } @{$view} ],
+        ( defined $error ? ( error => $error ) : () ),
+    };
+}
+
+# A supervisor that dies quietly is worse than none at all, because its silence
+# reads as everything being fine.
+sub police_farewell {
+    my ( $self, %args ) = @_;
+    my $reason = $args{reason} // 'unknown';
+    return "police is stopping: $reason. Nothing is watching this board now - "
+      . 'no longer watching means no violations will be reported until it is started again.';
+}
+
+# The one-way channel. Police writes here, the agent tails it, nothing comes
+# back. Same shape as the Telegram bridge, which is the pattern that already
+# works on this machine.
+#
+# Every line is one line. An LLM reads these, so a paragraph costs tokens on
+# every pass and gets skimmed rather than parsed - and a warning without a fix
+# beside it is a warning that gets deferred.
+sub bridge_log_path {
+    my ( $self, %args ) = @_;
+    my $store = $args{store} or die "A police store is required\n";
+    make_path($store) if !-d $store;
+    return File::Spec->catfile( $store, 'bridge.log' );
+}
+
+sub _bridge_line {
+    my ( $self, $violation ) = @_;
+    my @parts = (
+        $self->{clock}->(),
+        uc( $violation->{tone} // 'note' ),
+        $violation->{id} // 'VIO-0000',
+        ( $violation->{ref} // '' ) ne '' ? $violation->{ref} : 'board',
+        'seen ' . ( $violation->{seen} // 1 ),
+        $violation->{message} // $violation->{detail} // $violation->{rule} // 'unspecified',
+    );
+    my $ref = $violation->{ref} // '';
+    my $fix = $ref =~ /\A(SOW|EPC)-/
+      ? 'd2 tira.' . ( $1 eq 'SOW' ? 'sow' : 'epic' ) . ".show --ref $ref"
+      : ( $ref ne '' ? "d2 tira.ticket.show --ref $ref" : 'd2 tira.policy.list' );
+    return join( ' | ', @parts ) . " | fix: $fix";
+}
+
+sub bridge_write {
+    my ( $self, %args ) = @_;
+    my $path = $self->bridge_log_path(%args);
+    my @lines;
+
+    for my $violation ( @{ $args{violations} // [] } ) {
+        # Only what the policy asked for reaches the agent. A rule set to
+        # log-only is being tuned and stays out of the way; one set to
+        # print-reminder belongs in the owner's terminal instead.
+        next if ( $violation->{action} // '' ) ne 'bridge-reminder';
+        push @lines, $self->_bridge_line($violation);
+    }
+
+    # Police may say when it is unsure. Guessing would make it wrong, and
+    # silence would let an under-specified policy read as cover.
+    for my $notice ( @{ $args{notices} // [] } ) {
+        push @lines, join ' | ', $self->{clock}->(), 'UNRESOLVED',
+          ( $notice->{kind} // 'unresolved' ), ( $notice->{detail} // '' ),
+          'fix: make the policy specific, or ask the owner';
+    }
+
+    # A pass with nothing wrong writes nothing at all. Announcing that
+    # everything is fine, every thirty seconds, is how a channel becomes noise.
+    return 0 if !@lines;
+
+    # Appended, and the file is recreated if it has been taken away - a stream
+    # that stops silently leaves the agent believing all is well, which is the
+    # worst failure this channel could have.
+    open my $fh, '>>:raw', $path or die "Cannot write the bridge log: $!\n";
+    print {$fh} map { "$_\n" } @lines;
+    close $fh;
+    return scalar @lines;
+}
+
+# What the bridge shows on arrival. An agent restarting its bridge must see
+# what is already outstanding, not only what happens next.
+sub bridge_backlog {
+    my ( $self, %args ) = @_;
+    my $path = $self->bridge_log_path(%args);
+    return [] if !-f $path;
+    open my $fh, '<:raw', $path or return [];
+    my @lines = <$fh>;
+    close $fh;
+    chomp @lines;
+    my $wanted = $args{lines} // 20;
+    splice @lines, 0, @lines - $wanted if @lines > $wanted;
+    return \@lines;
+}
+
+# The smaller config is king. A policy declared on a card beats one on its
+# column, which beats one on its board, which beats one on the project.
+#
+# Resolution is per RULE rather than per list: a card that overrides one rule
+# keeps every other rule the project declared. The alternative would let a
+# single exception switch everything else off, which is exactly the class of
+# quiet failure this subsystem exists to catch.
+sub _policy_specificity {
+    my ($policy) = @_;
+    return 3 if defined $policy->{ref} && $policy->{ref} ne '';
+    return 2 if defined $policy->{on_column} && $policy->{on_column} ne '';
+    return 1 if defined $policy->{type} && $policy->{type} ne '';
+    return 0;
+}
+
+sub _policy_applies_to {
+    my ( $policy, $record ) = @_;
+    return 0 if defined $policy->{ref} && $policy->{ref} ne ''
+      && $policy->{ref} ne ( $record->{ref} // '' );
+    return 0 if defined $policy->{type} && $policy->{type} ne ''
+      && $policy->{type} ne ( $record->{type} // '' );
+    return 0 if defined $policy->{on_column} && $policy->{on_column} ne ''
+      && $policy->{on_column} ne ( $record->{column} // '' );
+    return 1;
+}
+
+sub policy_resolve {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $record = $args{record};
+    if ( !$record && defined $args{ref} ) {
+        $record = eval { $self->record_show( project => $root, ref => $args{ref} ) };
+    }
+    return [] if !$record;
+
+    my %winner;
+    for my $policy ( @{ $self->policy_list( project => $root ) } ) {
+        next if !_policy_applies_to( $policy, $record );
+        my $rule = $policy->{rule};
+        my $rank = _policy_specificity($policy);
+        next if exists $winner{$rule} && _policy_specificity( $winner{$rule} ) > $rank;
+        $winner{$rule} = $policy;
+    }
+    return [ map { $winner{$_} } sort keys %winner ];
+}
+
+# What police could not work out. Guessing would make it wrong and silence
+# would let an under-specified policy read as cover, so it says so instead.
+sub policy_unresolved {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my @unresolved;
+    for my $policy ( @{ $self->policy_list( project => $root ) } ) {
+        for my $field ( qw(enter before column on_column), @POLICY_ROLE_FIELDS ) {
+            my $wanted = $policy->{$field};
+            next if !defined $wanted || $wanted eq '';
+            my $is_role = $field =~ /_role\z/;
+            my $seen = 0;
+            if ($is_role) {
+                for my $type ( defined $policy->{type} && $policy->{type} ne ''
+                    ? ( $policy->{type} ) : qw(sow epic ticket) )
+                {
+                    my $roles = eval { $self->column_roles( project => $root, type => $type ) } || {};
+                    $seen = 1 if exists $roles->{$wanted};
+                }
+                next if $seen;
+                push @unresolved, {
+                    policy => $policy->{id},
+                    detail => "$policy->{id} names a role no column carries: $wanted"
+                      . " (--$field). Say which column plays it with tira.column.roles.",
+                };
+                next;
+            }
+            for my $type ( defined $policy->{type} && $policy->{type} ne ''
+                ? ( $policy->{type} ) : qw(sow epic ticket) )
+            {
+                my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
+                $seen = 1 if grep { $_->{name} eq $wanted } @{$columns};
+            }
+            next if $seen;
+            push @unresolved, {
+                policy => $policy->{id},
+                detail => "$policy->{id} names a column that is not on this board: $wanted"
+                  . " (--$field). Name a column that exists, or add it.",
+            };
+        }
+    }
+    return \@unresolved;
+}
+
+# Which column is the backlog, which is in progress, which is deployed to
+# production. A rule that names a column outright is tied to one board's
+# vocabulary - it says nothing on a project that uses different words, and
+# nothing at all the moment somebody renames the column. A role follows the
+# meaning instead.
+#
+# The vocabulary belongs to the project. Tira matches a role without needing to
+# understand it, and anything police must say about a card going forwards or
+# backwards comes from the column order rather than from the role's name.
+sub column_roles {
+    my ( $self, %args ) = @_;
+    my ( undef, $config ) = $self->_board_data(%args);
+    return $config->{roles} // {};
+}
+
+sub column_roles_set {
+    my ( $self, %args ) = @_;
+    my $wanted = $args{roles} || {};
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $config ) = $self->_board_data( %args, project => $root );
+        my %columns = map { $_->{name} => 1 } @{ $config->{columns} };
+
+        # A role pointing at nothing would make every rule written against it
+        # match nothing at all, silently, while somebody believed it was
+        # protecting them. Refusing is the only safe answer.
+        for my $role ( sort keys %{$wanted} ) {
+            my $column = $wanted->{$role};
+            die "No column named '$column' on this board, so '$role' cannot mean it\n"
+              if !$columns{ $column // '' };
+        }
+
+        $config->{roles} = { %{ $config->{roles} // {} }, %{$wanted} };
+        $self->_write_yaml( $path, $config );
+        return $config->{roles};
+    } );
+}
+
+# A rule may name a column or a role. Naming a role is resolved here, once,
+# rather than in every rule that accepts one.
+sub _policy_column_for {
+    my ( $self, %args ) = @_;
+    my ( $policy, $field, $record ) = @args{qw(policy field record)};
+    my $role = $policy->{"${field}_role"};
+    return $policy->{$field} if !defined $role || $role eq '';
+    my $roles = eval {
+        $self->column_roles( project => $args{project}, type => $record->{type} );
+    } || {};
+    return $roles->{$role};
+}
+
 sub _replace_record {
     my ( $self, %args ) = @_;
     my ( $path, undef, $column ) = $self->_record_data(%args);
@@ -3547,7 +4755,7 @@ sub _record_data {
 my @JSON_BACKENDS = qw(Cpanel::JSON::XS JSON::PP);
 my $JSON_BACKEND;
 
-# DD-488: the version actually installed on disk, which is not necessarily the
+# The version actually installed on disk, which is not necessarily the
 # one this process loaded. A dashboard left open for a week is running whatever
 # Tira it started with until something notices.
 sub installed_version {
@@ -3579,7 +4787,7 @@ sub json_object { return json_backend()->new }
 # Drop-in for JSON::PP::decode_json: UTF-8 bytes in, characters out.
 sub json_decode { return json_object()->utf8->decode( $_[0] ) }
 
-# DD-443: per-field history. Every record write funnels through
+# Per-field history. Every record write funnels through
 # _write_json, so the diff is taken there rather than in twenty commands
 # — a command added later cannot escape history by forgetting to call
 # something. Entries buffer for the duration of the locked operation and
@@ -3597,7 +4805,7 @@ sub _journal_attribution {
     return $self->_require_person( %args, person => $args{author} );
 }
 
-# DD-443 reads reuse the CA20 window semantics and the CA09 truncation.
+# Reads reuse the CA20 window semantics and the CA09 truncation.
 sub history_list {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
@@ -3969,7 +5177,7 @@ sub _empty_linkage {
 sub _markdown {
     my ( $self, $data, %args ) = @_;
 
-    # DD-478: a question list carries a ref, so without this it was taken for a
+    # a question list carries a ref, so without this it was taken for a
     # record and drawn as a card with no title. The person who owns the
     # decision reads this view, not the JSON, so it is the one that matters.
     if ( ref($data) eq 'HASH' && ref( $data->{questions} ) eq 'ARRAY' && exists $data->{instruction} ) {
@@ -4060,7 +5268,7 @@ sub _markdown {
 sub _with_project_lock {
     my ( $self, $root, $code ) = @_;
 
-    # DD-444: reentrant. Two handles on one file are two lock entries even in
+    # Reentrant. Two handles on one file are two lock entries even in
     # the same process, so a locked operation taking the lock again used to
     # deadlock against itself - which is why the comment, checklist, gate and
     # evidence writers ran outside it and could lose a concurrent write. A root

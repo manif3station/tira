@@ -93,7 +93,7 @@ __END__
 
 =head1 NAME
 
-68-record-reminder.t - DD-492 what a newly created record still owes
+68-record-reminder.t - what a newly created record still owes
 
 =head1 DESCRIPTION
 

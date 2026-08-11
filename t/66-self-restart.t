@@ -194,7 +194,7 @@ __END__
 
 =head1 NAME
 
-66-self-restart.t - DD-488 a dashboard that picks up a new Tira by itself
+66-self-restart.t - a dashboard that picks up a new Tira by itself
 
 =head1 DESCRIPTION
 

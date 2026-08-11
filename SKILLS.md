@@ -80,7 +80,7 @@ and `--set-*` for the same field are mutually exclusive.
 
 - Default and `-o toon`: `Data::TOON` output.
 - `-o json`: canonical compact JSON — stable key order, raw UTF-8, one
-  line. **Implemented (DD-435)**; identical information to every other
+  line. **Implemented.**; identical information to every other
   format.
 - `-o json-pretty`: the indented JSON shape, for human reading.
 - `-o human`: Markdown summary.
@@ -240,7 +240,7 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   Name required; directory defaults to `.`; existing projects are preserved.
 - `tira.project.new --name TEXT [--dir DIR] [--members LIST] [--columns LIST]
   [--sow-prefix PREFIX] [--epic-prefix PREFIX] [--ticket-prefix PREFIX]
-  [--digits N] [-o FORMAT]` — **Implemented (DD-446).** Creates a project, its
+  [--digits N] [-o FORMAT]` — **Implemented.** Creates a project, its
   people, each board's reference prefix, and one shared column set in a single
   call. `--members` and `--columns` take comma-separated human text and repeat, and
   `--sow-columns`, `--epic-columns`, and `--ticket-columns` give one board its
@@ -254,7 +254,7 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   applied before any record can exist, which matters because a board counter
   never goes backwards: set a prefix after the first record and the next
   reference is `002`.
-- `tira.onboard [-o FORMAT]` — **Implemented (DD-448).** The guided version of
+- `tira.onboard [-o FORMAT]` — **Implemented.** The guided version of
   `tira.project.new`: it asks for the name, the directory, the people, each
   board's reference prefix, whether all three boards share one column set, and
   the columns, then shows a summary and creates everything once confirmed. Any
@@ -269,8 +269,7 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   so piping answers in behaves exactly as before.
 - `tira.project.show [-o FORMAT]` — **Implemented.**
 - `tira.project.update [--name TEXT] [--dashboard-host HOST] [--dashboard-port PORT]
-  [-o FORMAT]` — **Implemented.** Renames a project, and **Implemented
-  (DD-449)** remembers the address its live board should listen on:
+  [-o FORMAT]` — **Implemented.** Renames a project, and **Implemented.** remembers the address its live board should listen on:
   `--dashboard-host` takes `localhost`, `127.0.0.1`, `0.0.0.0`, or `any` as the
   plain-language form of every interface, and `--dashboard-port` takes 1-65535.
   Both are checked where they are set, so a bad value is refused then rather
@@ -295,7 +294,7 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
 
 ### Boards and columns
 
-All are **Implemented (DD-389)** and require `--type sow|epic|ticket`:
+All are **Implemented.** and require `--type sow|epic|ticket`:
 
 ```text
 tira.board.show --type TYPE [-o FORMAT]
@@ -315,7 +314,7 @@ Prefix/digit changes affect future refs and never lower `next_number`.
 
 ### Records
 
-These create commands are **Implemented**:
+These create commands are **Implemented.**
 
 ```text
 tira.sow.create --title TEXT [record field arguments] [-o FORMAT]
@@ -324,7 +323,7 @@ tira.ticket.create --title TEXT [record field arguments] [-o FORMAT]
 ```
 
 They create independent Backlog records with empty linkage. These symmetric
-forms are **Implemented (DD-389)** for each `TYPE`:
+forms are **Implemented.** for each `TYPE`:
 
 ```text
 tira.TYPE.show (--ref REF ...|--refs LIST) [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--brief] [--truncate N|--full] [-o FORMAT]
@@ -338,14 +337,14 @@ tira.TYPE.clone --ref REF --title TEXT [-o FORMAT]
 
 List filters use AND. Parent means the generated immediate parent ref. Discard
 is movement, not deletion; restore defaults to Backlog.
-Field projection is **Implemented (DD-424)** on show, list, and export:
+Field projection is **Implemented.** on show, list, and export:
 `--fields` and `--exclude-fields` take comma-separated lists, repeat and
 accumulate, and never alter stored data. Selection always keeps `ref`;
 exclusion applies after selection. An unknown or empty field name exits 2
 naming the offender — a typo can never quietly return an empty object.
 Selected fields that are null stay visibly null. On any other command
 either flag exits 2.
-Empty omission is **Implemented (DD-425)** on the same three commands: by
+Empty omission is **Implemented.** on the same three commands: by
 default a returned record omits keys whose value is null, an empty
 string, an empty array, or a hash of only such values; `--include-empty`
 restores every key. An omitted key therefore always means "empty or
@@ -353,7 +352,7 @@ unset" — `false` and `0` are values and are never omitted, and a field
 named in `--fields` is always present even when empty. The record schema
 section above lists every possible key, so omission costs no
 discoverability.
-Changed-since filtering is **Implemented (DD-426)** on the same three
+Changed-since filtering is **Implemented.** on the same three
 commands: `--since` takes an ISO 8601 timestamp (`Z`, `±HH:MM`, or
 `±HHMM`; a missing offset reads as UTC) and returns only records whose
 `last_updated` is at or after that instant — compared as instants, never
@@ -364,7 +363,7 @@ can be missed). A future timestamp returns empty with exit 0; a
 malformed one exits 2; `show` returns `{}` for an unchanged record; a
 record whose stored stamp is unreadable is always returned, never
 hidden.
-Content hashes and conditional reads are **Implemented (DD-427)**.
+Content hashes and conditional reads are **Implemented.**
 Selecting the computed `content_hash` field returns an opaque stable
 token covering every meaningful field including placement and excluding
 only `last_updated`, so a no-op write keeps its hash; only equality is
@@ -375,7 +374,7 @@ export returns `{"unchanged": true}` with exit 1 when nothing differs
 question), exits 2 on a malformed hash rather than treating it as
 changed, composes with `--fields`, and when combined with `--since` the
 stricter suppression wins. Conditional reads never write.
-Count and refs-only are **Implemented (DD-428)**: `--count` (list,
+Count and refs-only are **Implemented.** `--count` (list,
 export, search) returns `{"count": N}` alone — zero is an answer, not an
 error — and `--refs-only` (list, search) returns a flat ref array in
 stable ref order, deduplicated for field-scoped search hits. Count wins
@@ -383,7 +382,7 @@ over refs-only wins over `--fields`, documented rather than guessed, and
 field names are still validated loudly even when projection is moot.
 With `-o human`, count prints a bare number and refs-only prints one ref
 per line, so both pipe straight into a shell.
-Brief and truncation are **Implemented (DD-429)** on show, list, and
+Brief and truncation are **Implemented.** on show, list, and
 export. `--brief` is exactly `ref,title,column,sdlc_gate,assignee` — a
 shorthand for the equivalent `--fields` list, never a special case — with
 the title cut at a stable 72 characters plus an ellipsis and a null
@@ -398,7 +397,7 @@ the limit, `--truncate 0` omits the text while still marking it present,
 Truncation is presentation only: `content_hash` is computed from the
 full record. The board dashboard is already a summary view and takes no
 brief flag.
-Comment and attachment reads are **Implemented (DD-430)**. Comments are
+Comment and attachment reads are **Implemented.** Comments are
 stored newest-last, so `--last N` is the recent thread and `--first N`
 the original framing (contradictory together, exit 2; a zero window or
 `--count` returns `{"count": N}` alone; an oversize window returns
@@ -413,7 +412,7 @@ and `sha`, in an envelope with `count` and `total_size`; attachment
 `--fields` keeps `sha`; `--since` filters by `added_at`; these options
 require `--ref`. The computed record field `attachment_count` is
 selectable via `--fields` for board-wide evidence coverage.
-Server-side filtering is **Implemented (DD-431)** on list and export:
+Server-side filtering is **Implemented.** on list and export:
 `--where` is repeatable and clauses combine with AND. `FIELD=VALUE` is
 string equality; `FIELD=` (empty value) matches a field that is empty or
 unset by the same emptiness rule as omission; `FIELD!=VALUE` excludes;
@@ -423,7 +422,7 @@ nothing rather than erroring. Computed fields (`content_hash`,
 `attachment_count`, `column`, `parent`) are filterable. An unknown field
 or an operatorless clause exits 2 — a typo can never read as "none
 exist". Composes with `--fields`, `--count`, and `--since`.
-Batch reads are **Implemented (DD-432)** on show: repeat `--ref` or pass
+Batch reads are **Implemented.** on show: repeat `--ref` or pass
 `--refs A,B,C` (both compose) and the response is
 `{records, order, count}` — records keyed by ref, `order` preserving the
 request, duplicates collapsed. A missing ref is an explicit
@@ -434,7 +433,7 @@ error beyond, never silent truncation), compose with every read option
 except `--if-changed`, which is refused with exit 2 in favor of the
 cheaper `export --fields ref,content_hash` poll. Multiple refs on any
 other command exit 2.
-A first-class diff is **Implemented (DD-433)**: `tira.diff --since T`
+A first-class diff is **Implemented.** `tira.diff --since T`
 reports every record changed at or after that instant with its kind
 (`added`/`changed`), current column, gate, and title, plus new-comment
 ids — enough to act without a further read — and `now` for chaining.
@@ -446,7 +445,7 @@ ids — enough to act without a further read — and `now` for chaining.
 snapshot comparison; `--count` answers whether to look; an empty diff is
 an explicit empty result. Exactly one baseline is required; diff never
 writes, and storing a snapshot is the separate export call.
-Column dwell is **Implemented (DD-458)**: `tira.stale` reports every card
+Column dwell is **Implemented.** `tira.stale` reports every card
 with the column it is in now, when it entered that column, and how long it has
 been there, across all three boards in one call. Entry time comes from the
 card's most recent recorded column move. A card whose entry was never recorded
@@ -454,21 +453,21 @@ is listed with `basis: none` and **no duration** rather than a guessed one, and
 `--older-than MINUTES` never returns it — an unmeasured card is unknown, not
 old. An unreadable stamp yields `basis: unknown` instead of failing the board,
 and a column renamed underneath a card does not disturb its measurement.
-Wrapping wide boards is **Implemented (DD-453)**: each column now owns
+Wrapping wide boards is **Implemented.** each column now owns
 its own heading rather than sitting in a table row, so **Fit all wraps
 the columns onto as many rows as it takes** at a readable width instead
 of squeezing every one of them onto a single line. Standard is
 unchanged: one row, full-width columns, scrolling sideways. Drag and
 drop, paging, filtering, counts and the column editor are unaffected.
 
-Nesting refusal is **Implemented (DD-447)**: creating a project in a
+Nesting refusal is **Implemented.** creating a project in a
 directory that sits inside an existing project is refused, naming the
 project that is in the way and where it is. Project discovery walks
 upward, so a buried project means later commands may address either
 one, and nothing would ever say so. Pass `--nested` to do it
 deliberately.
 
-Serialised mutations are **Implemented (DD-444)**: comments,
+Serialised mutations are **Implemented.** comments,
 checklists, gates, evidence and attachment references used to read a
 record, change it and write it back with no lock held, so two changes
 made at the same moment could silently lose one — while this manual
@@ -477,7 +476,7 @@ reentrant, and each of those methods holds it across the read as well
 as the write. The guarantee stated here is now true rather than
 aspirational.
 
-The column editor is **Implemented (DD-466)**: each board control has a
+The column editor is **Implemented.** each board control has a
 Columns button opening a modal that shows that board's own columns —
 drag a row by its grip to reorder, edit its label, set how many minutes
 a card may sit there, turn its eye off to stop it being chased, remove
@@ -485,7 +484,7 @@ it, or add a new one before Discard. Saving sends the whole layout at
 once. Reordering uses pointer events like the rest of the board, so the
 grip works on a phone.
 
-Whole-layout column edits are **Implemented (DD-465)**:
+Whole-layout column edits are **Implemented.**
 `tira.column.apply` takes the column list a board should have — order,
 labels, per-column thresholds and watched flags — and works out the
 difference itself, adding what is missing and removing what is gone.
@@ -495,7 +494,7 @@ nothing changes. The call reports what it added, removed and
 reordered, because removals happen one at a time and a run that fails
 partway will already have made some of them.
 
-The reminder job is **Implemented (DD-463)**: `tira.collector.show`
+The reminder job is **Implemented.** `tira.collector.show`
 computes the background job for this project and
 `tira.collector.install` registers it, merging into the machine's own
 configuration without disturbing anything else already there and
@@ -507,7 +506,7 @@ has actually arrived, retries a failed delivery once, and then leaves a
 warning rather than failing silently. Nothing stale, no agent installed
 and no session configured are all quiet no-ops rather than errors.
 
-Onboarding registers the job itself **(DD-467)**: filling in the
+Onboarding registers the job itself ****: filling in the
 reminder details now creates the background job as well as recording
 them, and reports the name it will really answer to along with the
 command that starts it. It asks for a number of minutes once — how long
@@ -516,7 +515,7 @@ looking more often than the shortest staleness window finds nothing
 new; `--heartbeat` still tunes it. The directory question offers
 whatever project is already resolvable rather than making you type it.
 
-Reminder settings are **Implemented (DD-464)**: the project records how
+Reminder settings are **Implemented.** the project records how
 long a card may sit still by default, which coding agent to remind, its
 session, how often to check, and the name of the job that does it.
 `tira.onboard` collects them and can be **run again on an existing
@@ -526,7 +525,7 @@ project's own settings rather than carrying the first one's across. With
 no coding agent installed those questions never appear. An empty value
 clears a setting, and no heartbeat means no reminders at all.
 
-Escalating reminders are **Implemented (DD-462)**: one message covers
+Escalating reminders are **Implemented.** one message covers
 every card that is past its column's limit, and its tone rises with how
 often those cards have already been chased where they stand — plain,
 tense, angry, shouting, then a final tone that keeps counting rather
@@ -537,7 +536,7 @@ sat there. Nothing stale composes nothing at all.
 `tira.notify.compose` returns the level, the tone, the text and the
 cards it covers in one call.
 
-Unattended failures are **Implemented (DD-461)**: background work has
+Unattended failures are **Implemented.** background work has
 nobody in the room to tell when it breaks, so a failure it cannot
 resolve is recorded once and then shown underneath the output of
 whatever command anybody runs next, naming the exact command that
@@ -546,7 +545,7 @@ alone rather than piling up copies, and it keeps appearing until it is
 cleared. Human output carries it on standard output; every machine
 format carries it on standard error so the payload stays parseable.
 
-Notification history is **Implemented (DD-460)**: every reminder that is
+Notification history is **Implemented.** every reminder that is
 actually delivered writes one row recording the card, the column it was
 sitting in, and the time. How urgent a reminder is comes from counting
 those rows, so **moving a card resets its escalation** — later rows
@@ -556,14 +555,14 @@ or its history. `tira.stale --stale --with-level` reports each stale
 card with the level it has already reached, which is enough to compose
 a whole reminder in one call. Reading history creates nothing.
 
-Staleness limits are **Implemented (DD-459)**: every column carries its own
+Staleness limits are **Implemented.** every column carries its own
 limit in minutes and its own watched flag, both set by `tira.column.update` and
 reported by `tira.column.list`. A column is watched unless switched off, so
 existing boards need no configuring. `tira.stale --stale` judges each card by
 its own column's limit, falls back to the project default set with
 `tira.project.update --notify-after`, skips unwatched columns however old their
 cards are, and — with no limit anywhere — reports nothing.
-Indexed log reads are **Implemented (DD-434)** on the gate and evidence
+Indexed log reads are **Implemented.** on the gate and evidence
 lists, whose entries are append-only and stored newest-last: `--last N`
 is the recent history (`--last 1` answers "what did it last pass?" at
 constant cost), `--first N` the origins, a zero window or `--count`
@@ -573,7 +572,7 @@ replacing the unbounded text with `details_length`/`summary_length` and
 `annotation_count`. `--where` filters entries (`result=fail` is the one
 that matters) with the same loud unknown-field rule. Annotations always
 ride with their parent entry; reads never mutate the logs.
-Per-field history is **Implemented (DD-443)**. Every record write is
+Per-field history is **Implemented.** Every record write is
 journaled field by field, whichever command performed it: creation seeds
 one entry per set field so a field's timeline starts at its birth value,
 edits record `before` and `after`, moves record the column change, and
@@ -588,13 +587,13 @@ semantics as the other logs; `--field` narrows to one field's timeline
 and an unknown name exits 2. History lives outside the boards, so it
 never alters a record, a `content_hash`, or a board read, and reading it
 never writes.
-Compact JSON is **Implemented (DD-435)**: `-o json` emits canonical
+Compact JSON is **Implemented.** `-o json` emits canonical
 one-line JSON with stable key order and unescaped UTF-8 — measurably
 smaller, identical information — while `-o json-pretty` keeps the
 indented shape. Formats are presentation only, and errors always go to
 stderr in the selected structured format, so stdout can never carry a
 corrupted payload.
-An opt-in read-through cache is **Implemented (DD-436)** and disabled by
+An opt-in read-through cache is **Implemented.** and disabled by
 default: `--cache-ttl N` (seconds, at least 1) enables it per call on
 read commands only, `--no-cache` is the explicit bypass. Entries key on
 the full argument set and are valid only while both the ttl holds and a
@@ -610,9 +609,7 @@ adds reciprocal clone links.
 
 ### Hierarchy and typed links
 
-All are **Implemented (DD-389)**, with immediate-parent projection updated by
-DD-390:
-
+All are **Implemented.**, with immediate-parent projection updated by
 ```text
 tira.hierarchy.link --parent REF --child REF [-o FORMAT]
 tira.hierarchy.unlink --parent REF --child REF [-o FORMAT]
@@ -636,10 +633,8 @@ Typed links may cross types. Built-ins are `blocks`/`is-blocked-by`,
 
 ### Assignments and comments
 
-All are **Implemented (DD-389)**, with singular assignment semantics updated
-by DD-390:
-
-```text
+All are **Implemented.**, with singular assignment semantics updated
+by ```text
 tira.assign.list --ref REF [-o FORMAT]
 tira.assign.add --ref REF --person ID [-o FORMAT]
 tira.assign.remove --ref REF --person ID [-o FORMAT]
@@ -663,7 +658,7 @@ timestamp; comment ids keep increasing and are never reused.
 
 ### Attachments
 
-All are **Implemented (DD-389)**:
+All are **Implemented.**
 
 ```text
 tira.attachment.add --ref REF --file PATH [--comment ID] [-o FORMAT]
@@ -688,7 +683,7 @@ references.
 
 ### Checklists, evidence, gates, migration, search, and dashboard
 
-All are **Implemented (DD-389)**:
+All are **Implemented.**
 
 ```text
 tira.checklist.list --ref REF [-o FORMAT]
@@ -788,7 +783,7 @@ on save. Only the title is required; description, priority, and assignee
 are optional there and every remaining field is editable on the card
 once it exists. Creating posts to the same validated engine path as the
 CLI, so an unknown column or assignee is refused, and the dialog then
-switches to the created card. **Implemented (DD-441).**
+switches to the created card. **Implemented.**
 
 Each board header carries a column-width toggle: Standard (the default) keeps
 fixed-width scrollable columns, Fit all shrinks every column so a wide board

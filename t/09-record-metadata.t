@@ -149,7 +149,7 @@ ok( $tira->project_show( project => $root )->{people}[1]{active}, 'legacy person
 $tira->person_update( project => $root, id => 'grace', email => 'grace@example.test' );
 ok( $tira->project_show( project => $root )->{people}[1]{active}, 'legacy person active default persists on mutation' );
 
-# DD-423: optimistic concurrency — expect is a compare-and-swap under the lock
+# Optimistic concurrency — expect is a compare-and-swap under the lock
 $ticket = $tira->record_update( project => $root, ref => $ticket->{ref}, title => 'Concurrency base' );
 eval {
     $tira->record_update(
@@ -185,7 +185,7 @@ __END__
 
 =head1 NAME
 
-09-record-metadata.t - DD-390 record metadata and inactive-person acceptance
+09-record-metadata.t - record metadata and inactive-person acceptance
 
 =head1 DESCRIPTION
 

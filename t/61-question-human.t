@@ -124,7 +124,7 @@ __END__
 
 =head1 NAME
 
-61-question-human.t - DD-478 the human view of questions
+61-question-human.t - the human view of questions
 
 =head1 DESCRIPTION
 

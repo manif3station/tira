@@ -206,7 +206,7 @@ __END__
 
 =head1 DESCRIPTION
 
-Runs every DD-389 command family through the shared CLI parser, including
+Runs every command family through the shared CLI parser, including
 repeatable, replacement, raw-content, path, and repair option combinations.
 
 =cut

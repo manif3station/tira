@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+#
+# The release gate, as a gate rather than as a habit.
+#
+# Push is part of "done" in this workspace, so this is the last moment anything
+# can be caught. Everything here was previously "something I always do", and on
+# 2026-08-11 the owner found, in one morning: a card with no fields moving
+# between columns, a card whose checklist was finished while its column said
+# otherwise, tickets that were all orphans because an argument was silently
+# ignored, and a board destroyed with no backup to restore from. None of those
+# were caught by a habit. They are caught here.
+#
+# Every check fails closed. A missing tool is a failure, not a skip - a gate
+# that disappears when you delete a file is not a gate.
+
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$root"
+workspace="$(cd "$root/../.." && pwd)"
+
+step() { printf '\n\033[1mpre-push: %s\033[0m\n' "$1"; }
+fail() { printf '\n\033[31mpre-push: %s\033[0m\n' "$1" >&2; exit 1; }
+
+# --- the board is backed up before anything else ------------------------
+#
+# The board is deliberately outside git, so a push is the natural moment to
+# take a copy. It costs a second and it is the difference between losing
+# minutes and losing the morning.
+step 'backing up the board'
+[ -x tools/board-backup ] || fail 'tools/board-backup is missing - refusing to push without a backup'
+tools/board-backup >/dev/null || fail 'the board backup failed'
+
+# --- every live card is real work ---------------------------------------
+step 'checking the board for incomplete or stalled cards'
+[ -x tools/card-holes ] || fail 'tools/card-holes is missing - refusing to push without the card check'
+tools/card-holes || fail 'fill the cards in, or discard what is not real work'
+
+# --- the suite and the coverage gate ------------------------------------
+#
+# Run last and run here, because documentation edits made after a manual gate
+# run have shipped a broken build before. Nothing can be edited between this
+# passing and the push happening.
+step 'running the full suite with coverage (this takes a few minutes)'
+compose="$workspace/docker-compose.testing.yml"
+[ -f "$compose" ] || fail "cannot find $compose - refusing to push untested"
+
+output="$(mktemp)"
+trap 'rm -f "$output"' EXIT
+docker compose -f "$compose" run --rm perl-test bash -lc '
+  cd /workspace/skills/tira &&
+  rm -rf cover_db .test-tmp &&
+  cpanm --quiet --notest --installdeps . >/dev/null 2>&1 &&
+  HARNESS_PERL_SWITCHES=-MDevel::Cover prove -lr t 2>&1 | tail -4 &&
+  cover -ignore_covered_err -report text \
+    -select lib/Tira.pm -select lib/Tira/CLI.pm -select lib/Tira/DashboardWeb.pm \
+    -coverage statement -coverage subroutine 2>/dev/null | grep -E "^lib|^Total"
+  rm -rf cover_db
+' >"$output" 2>&1 || fail "the suite did not run: $(tail -3 "$output")"
+
+grep -q '^Result: PASS' "$output" || fail "the suite failed:
+$(grep -E 'Failed|Result:' "$output" | head -10)"
+
+# A module that is not listed has not been measured, which must not read as a
+# pass. Each of the three has to appear AND be at 100.
+for module in 'lib/Tira.pm' 'lib/Tira/CLI.pm' 'lib/Tira/DashboardWeb.pm'; do
+  line="$(grep -F "$module" "$output" | grep -E '[0-9]+\.[0-9]' || true)"
+  [ -n "$line" ] || fail "no coverage was measured for $module"
+  echo "$line" | grep -qE '100\.0[[:space:]]+100\.0[[:space:]]+100\.0' \
+    || fail "coverage is below 100% for $module: $line"
+done
+
+step 'suite passed, coverage is 100% on all three modules, board backed up'

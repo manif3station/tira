@@ -39,14 +39,14 @@ like( $html, qr/<style>.*linear-gradient/s, 'table embeds a styled gradient surf
 like( $html, qr/<script>.*onclick/s, 'table embeds local interaction JavaScript' );
 like( $html, qr/data-sort="mtime".*data-sort="ref"/s, 'table provides mtime and ref sorting controls' );
 like( $html, qr{<title>Table project :: Kanban :: 3</title>},
-    'the tab reads project, board and card count; all three boards read as Kanban (DD-454)' );
+    'the tab reads project, board and card count; all three boards read as Kanban' );
 unlike( $html, qr{<title>Tira Kanban</title>}, 'and no longer shows the generic product name' );
 like( $html, qr/class="refresh-status"/, 'table displays its active refresh interval' );
 like( $html, qr/>Refresh 60s</, 'the default refresh interval is 60 seconds' );
 like( $html, qr/Math\.max\(1,Number\(rawRefresh\)\):60;/,
     'the script falls back to the 60-second default for missing or invalid values' );
 is( scalar( () = $html =~ /class="widther"/g ), 3,
-    'every board header offers the column-width toggle (DD-440)' );
+    'every board header offers the column-width toggle' );
 like( $html, qr/data-width="standard" class="is-active"/, 'standard width is the shipped default' );
 like( $html, qr/data-width="fit"/, 'fit-all is the alternative' );
 like( $html, qr/localStorage\.setItem\(widthStorageKey/, 'the width choice persists to browser storage' );
@@ -61,7 +61,7 @@ like( $html, qr/\.column__head\{position:sticky/,
 like( $html, qr/\@media\(max-width:720px\)\{html\[data-width="fit"\] \.board__scroll\{overflow-x:auto\}/,
     'narrow screens keep scrollable columns while the preference is preserved' );
 is( scalar( () = $html =~ /class="column__count"/g ), 7,
-    'every rendered column carries a count badge, Discard now among them (DD-474): two on each of sow and epic, three on ticket' );
+    'every rendered column carries a count badge, Discard now among them: two on each of sow and epic, three on ticket' );
 like( $html, qr/class="column column--discard"/,
     'and Discard is drawn as set aside rather than as live work' );
 like( $html, qr/data-count-for="backlog" hidden/, 'count badges start hidden and are filled from the board' );
@@ -82,7 +82,7 @@ like( $html, qr/&lt;script&gt;alert\(&quot;x&quot;\)&lt;\/script&gt;/,
 unlike( $html, qr/<script>alert/, 'record data cannot inject executable HTML' );
 unlike( $html, qr/<(?:link|img|iframe)\b|https?:\/\//i, 'table has no external resources' );
 
-# DD-468: the renderer has no `use utf8`, so a literal glyph in the embedded
+# The renderer has no `use utf8`, so a literal glyph in the embedded
 # script is read as bytes and encoded a second time on the way out, reaching
 # the browser as mojibake. Escapes are the only safe way to write one.
 for my $rendering (
@@ -129,6 +129,6 @@ __END__
 
 Guards combined and type-specific raw HTML rendering, board/column order,
 embedded styling and interaction, escaping, offline behavior, and output scope
-for DD-403.
+for.
 
 =cut

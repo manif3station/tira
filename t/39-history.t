@@ -172,7 +172,7 @@ __END__
 
 =head1 NAME
 
-39-history.t - DD-443 per-field record history
+39-history.t - per-field record history
 
 =head1 DESCRIPTION
 

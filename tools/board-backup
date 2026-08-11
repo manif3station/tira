@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Back up this project's Tira board using only Tira's own commands.
+#
+# On 2026-08-11 the dev board was destroyed and there was nothing to restore
+# from, because the board lives outside git by design. This is the answer to
+# that: a backup that reads through the CLI rather than reaching into the
+# files, so it stays correct even if the on-disk layout changes.
+#
+# Usage: tools/board-backup [destination-directory]
+
+set -euo pipefail
+
+here="$(cd "$(dirname "$0")/.." && pwd)"
+dest="${1:-$HOME/.tira-backups}"
+stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+
+# Namespaced by the absolute project path, so two projects on this machine
+# never write over each other's backups.
+slug="$(printf '%s' "$here" | tr -c 'A-Za-z0-9' '-' | sed 's/--*/-/g; s/^-//; s/-$//')"
+out="$dest/$slug/$stamp"
+mkdir -p "$out"
+
+cd "$here"
+d2 tira.export -o json                > "$out/records.json"
+d2 tira.project.show -o json          > "$out/project.json"
+for type in sow epic ticket; do
+  d2 tira.column.list --type "$type" -o json > "$out/columns-$type.json"
+  d2 tira.board.refs  --type "$type" -o json > "$out/refs-$type.json"
+done
+
+count="$(python3 -c "import json,sys; print(json.load(open('$out/records.json'))['count'])")"
+echo "$out"
+echo "$count records"

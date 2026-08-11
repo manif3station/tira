@@ -168,7 +168,7 @@ __END__
 
 =head1 NAME
 
-51-remind.t - DD-463 the reminder collector, driven against a stub agent
+51-remind.t - the reminder collector, driven against a stub agent
 
 =head1 DESCRIPTION
 

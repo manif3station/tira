@@ -10,7 +10,8 @@ use JSON::PP qw(decode_json);
 use Plack::Test;
 use Test::More;
 
-use lib 'lib';
+use lib 'lib', 't/lib';
+use GatedApp qw(signed_in);
 use Tira;
 use Tira::CLI;
 use Tira::DashboardWeb;
@@ -105,6 +106,7 @@ $error = eval { $calls->[0]{link_add}->( { from => 'TKT-001', type => 'blocks' }
 like( $error, qr/requires/i, 'link add payloads need from, type, and to' );
 
 my %providers = (
+    signed_in(),
     render => sub { '<!doctype html>' }, data => sub { '{}' },
     move => sub { '{}' }, detail => sub { '{}' },
     search => sub { '[]' },

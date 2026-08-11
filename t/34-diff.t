@@ -142,7 +142,7 @@ __END__
 
 =head1 NAME
 
-34-diff.t - DD-433 first-class diff (CA13)
+34-diff.t - first-class diff (CA13)
 
 =head1 DESCRIPTION
 

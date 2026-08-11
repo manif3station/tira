@@ -164,7 +164,7 @@ __END__
 
 =head1 NAME
 
-31-comment-attachment-meta.t - DD-430 comment windows and metadata reads (CA10-CA12)
+31-comment-attachment-meta.t - comment windows and metadata reads (CA10-CA12)
 
 =head1 DESCRIPTION
 

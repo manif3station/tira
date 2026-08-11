@@ -116,7 +116,7 @@ __END__
 
 =head1 NAME
 
-48-escalation.t - DD-462 the escalating reminder
+48-escalation.t - the escalating reminder
 
 =head1 DESCRIPTION
 

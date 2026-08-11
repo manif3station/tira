@@ -140,6 +140,6 @@ __END__
 =head1 DESCRIPTION
 
 Proves project creation and discovery, board configuration, record allocation,
-filesystem persistence, and output formatting for DD-388.
+filesystem persistence, and output formatting for.
 
 =cut

@@ -11,7 +11,8 @@ use JSON::PP qw(decode_json);
 use Plack::Test;
 use Test::More;
 
-use lib 'lib';
+use lib 'lib', 't/lib';
+use GatedApp qw(signed_in);
 use Tira;
 use Tira::CLI;
 use Tira::DashboardWeb;
@@ -53,17 +54,17 @@ unlike( $live_html, qr/JSON\.stringify\(record,\s*null/,
 like( $live_html, qr/renderCard/, 'the dialog builds its sections from the record' );
 like( $live_html, qr/card-status/, 'the dialog header offers the column dropdown' );
 like( $live_html, qr/querySelector\("\.column__name"\)/,
-    'the column dropdown labels come from the column name, not the whole header (DD-445)' );
-like( $live_html, qr/class="board-filter"/, 'the board control offers a keyword filter (DD-456)' );
+    'the column dropdown labels come from the column name, not the whole header' );
+like( $live_html, qr/class="board-filter"/, 'the board control offers a keyword filter' );
 like( $live_html, qr{fetch\("/search\?text="}, 'the filter asks the server, so it matches beyond the visible title' );
 unlike( $live_html, qr{fetch\("/search\?type="},
-    'and asks about the whole project rather than one board, because a question reference can name a card on any of them (DD-472)' );
+    'and asks about the whole project rather than one board, because a question reference can name a card on any of them' );
 like( $live_html, qr/document\.querySelectorAll\("\[data-filter\]"\)\.forEach/,
     'every board box shows the same text, since there is only one filter' );
 like( $live_html, qr/const pageSize=10;/, 'columns start with ten cards' );
 like( $live_html, qr/Show "\+Math\.min\(remaining,pageSize\)\+" more of "\+remaining/,
     'and offer to reveal the next ten, saying how many remain' );
-like( $live_html, qr/data-add-card=/, 'each column offers an add-card control (DD-441)' );
+like( $live_html, qr/data-add-card=/, 'each column offers an add-card control' );
 like( $live_html, qr/const openNewCard=/, 'the dialog has a new-card mode' );
 like( $live_html, qr/reference assigned on save/, 'new cards show no ref until they are saved' );
 like( $live_html, qr/fetch\("\/create"/, 'creating posts to the create route' );
@@ -77,7 +78,7 @@ like( $live_html, qr/card-linkage__title/, 'linkage rows carry the linked title'
 like( $live_html, qr/card-linkage__status/, 'linkage rows carry the linked status' );
 like( $live_html, qr/priorityRank/, 'linkage rows sort by priority' );
 like( $live_html, qr/data-linkage-row/, 'linkage rows are addressable for tooling' );
-like( $live_html, qr/lastDialogRecordJson/, 'the dialog keeps a rendered-content snapshot (DD-438)' );
+like( $live_html, qr/lastDialogRecordJson/, 'the dialog keeps a rendered-content snapshot' );
 like( $live_html, qr/JSON\.stringify\(record\)===lastDialogRecordJson/,
     'an identical refresh repaints nothing' );
 like( $live_html, qr/\|\|dialogEditingActive\(\)\)return/,
@@ -157,7 +158,7 @@ for my $payload ( undef, [], { ref => 'TKT-001' } ) {
     like( $error, qr/payload|requires/i, 'malformed comment removal payloads are refused' );
 }
 
-# DD-456: the board filter asks the engine, so it matches description text too
+# The board filter asks the engine, so it matches description text too
 my $filter_hits = decode_json( $calls->[0]{search}->( { type => 'ticket', text => 'Renamed' } ) );
 is( ref $filter_hits, 'ARRAY', 'the search provider returns a flat ref list' );
 ok( scalar( grep { $_ eq 'TKT-001' } @{$filter_hits} ), 'it finds the matching card' );
@@ -167,7 +168,7 @@ is_deeply( decode_json( $calls->[0]{search}->( { text => '' } ) ), [],
     'an empty query returns nothing rather than the whole board' );
 is_deeply( decode_json( $calls->[0]{search}->( {} ) ), [], 'a missing query is handled the same way' );
 
-# DD-465: the board reads and writes its own column layout
+# The board reads and writes its own column layout
 my $layout = decode_json( $calls->[0]{columns}->( { type => 'ticket' } ) );
 is( ref $layout, 'ARRAY', 'the columns provider returns the board layout' );
 ok( scalar( grep { $_->{name} eq 'backlog' } @{$layout} ), 'including the protected columns' );
@@ -190,7 +191,7 @@ for my $payload ( undef, [], { type => 'ticket' }, { type => 'ticket', columns =
     like( $error, qr/layout|object/i, 'a malformed column layout is refused' );
 }
 
-# DD-480: the live refresh rebuilds every card, so if its payload omits the
+# The live refresh rebuilds every card, so if its payload omits the
 # waiting flag the yellow the page was served with is wiped a second later.
 {
     my $asked = $tira->question_add(
@@ -203,7 +204,7 @@ for my $payload ( undef, [], { type => 'ticket' }, { type => 'ticket', columns =
     $tira->question_discard( project => $root, id => $asked->{id} );
 }
 
-# DD-489: questions sat under the comments, so on a card with twenty of them
+# Questions sat under the comments, so on a card with twenty of them
 # the one section needing an answer was the furthest to scroll to.
 like( $live_html, qr/box\.dataset\.section=title\.toLowerCase\(\)/,
     'each section is named, so one can be found without matching its heading text' );
@@ -220,7 +221,7 @@ unlike( $live_html, qr/sectionsHost\.appendChild\(section\("Questions"/,
 like( $live_html, qr/\.card-question__typed\[hidden\][^}]*\{display:none\}/,
     'hiding the answer box actually hides it' );
 
-# DD-497: evidence where the question is, and a place to drop more.
+# Evidence where the question is, and a place to drop more.
 like( $live_html, qr/fileList\(question\.attachments,"Asked with:"\)/,
     'what the question was asked with is shown on it' );
 like( $live_html, qr/fileList\(question\.answer&&question\.answer\.attachments,"Answered with:"\)/,
@@ -232,7 +233,7 @@ like( $live_html, qr/to:question\.answer\?"answer":"question"/,
 like( $live_html, qr/box\.style\.height=Math\.min\(box\.scrollHeight,420\)\+"px"/,
     'and the answer box grows with what is typed rather than hiding the start of it' );
 
-# DD-499: a question that has been set aside cannot be added to, so offering a
+# a question that has been set aside cannot be added to, so offering a
 # place to drop a file on one offers something that does nothing. Its existing
 # files still show, because they still happened.
 like( $live_html, qr/if\(!question\.discarded_at\)\{const drop=el\("div","card-question__drop"/,
@@ -242,7 +243,7 @@ like( $live_html, qr/fileList\(question\.attachments,"Asked with:"\)/,
 like( $live_html, qr/if\(!files\|\|!files\.length\)return/,
     'and a question with no files shows no file area at all' );
 
-# DD-496: what still needs doing comes first, what is finished sinks.
+# What still needs doing comes first, what is finished sinks.
 like( $live_html, qr/const questionRank=question=>question\.discarded_at\?3:!question\.answer\?0:!question\.answer\.mark\?1:2/,
     'unanswered ranks first, then answered but unjudged, then judged, then set aside' );
 like( $live_html, qr/all\.sort\(\(a,b\)=>questionRank\(a\)-questionRank\(b\)\)/,
@@ -250,20 +251,20 @@ like( $live_html, qr/all\.sort\(\(a,b\)=>questionRank\(a\)-questionRank\(b\)\)/,
 like( $live_html, qr/const all=\[\.\.\.\(record\.questions\|\|\[\]\)\]/,
     'on a copy, so sorting for display never reorders the card itself' );
 
-# DD-495: a judged question is finished business. It keeps the question, the
+# a judged question is finished business. It keeps the question, the
 # answer and the verdict as an icon, and drops the apparatus for acting on it,
 # which is only in the way once there is nothing left to do.
 like( $live_html, qr/const settled=!!\(question\.answer&&question\.answer\.mark\)/,
     'a question counts as settled once its answer carries a mark' );
 like( $live_html, qr/card-question__verdict/, 'which is shown as a verdict rather than a word' );
 like( $live_html, qr/question\.answer\.mark==="ok"\?"\\u2705":"\\u274c"/,
-    'a tick or a cross, written as escapes so they cannot arrive double-encoded (DD-468)' );
+    'a tick or a cross, written as escapes so they cannot arrive double-encoded' );
 like( $live_html, qr/if\(settled\)\{block\.appendChild\(el\("blockquote","card-question__answer",question\.answer\.text\)\);host\.appendChild\(block\);return\}/,
     'and a settled question stops there: question, answer, verdict, nothing else' );
 like( $live_html, qr/\.card-question\[data-settled="1"\]\{padding:\.5rem/,
     'drawn tighter than one still needing attention' );
 
-# DD-484: answering wiped the whole questions panel. The reload rebuilds the
+# Answering wiped the whole questions panel. The reload rebuilds the
 # card's sections from scratch, so anything only the first render added is gone
 # the moment anybody changes something.
 like( $live_html, qr/renderCard\(record\);renderQuestions\(record\);return record/,
@@ -271,7 +272,7 @@ like( $live_html, qr/renderCard\(record\);renderQuestions\(record\);return recor
 is( scalar( () = $live_html =~ /renderQuestions\(record\)/g ), 2,
     'and every path that renders a card renders them: the first open and every reload' );
 
-# DD-479: the owner reads and answers questions where he reads the card
+# The owner reads and answers questions where he reads the card
 like( $live_html, qr/const renderQuestions=/, 'the dialog builds a questions section' );
 
 # The owner named five things this panel must carry.
@@ -319,7 +320,7 @@ for my $payload ( undef, [], { id => $board_question->{id} } ) {
     like( $error, qr/question|mark/i, 'a malformed mark payload is refused' );
 }
 
-# DD-441: creating a card from a column through the browser
+# Creating a card from a column through the browser
 my $made = decode_json(
     $calls->[0]{create}->( { type => 'ticket', column => 'in-progress', title => 'Made from the board' } )
 );
@@ -358,7 +359,7 @@ like( $error, qr/bob/, 'an unknown assignee is refused' );
 $error = eval { $calls->[0]{create}->('nope'); 1 } ? '' : $@;
 like( $error, qr/payload must be an object/, 'malformed create payloads are refused' );
 
-# DD-423: optimistic concurrency through the update provider
+# Optimistic concurrency through the update provider
 my $cas = decode_json(
     $calls->[0]{update}->( { ref => 'TKT-001', field => 'title', value => 'CAS write', base => 'Renamed card' } )
 );
@@ -412,6 +413,7 @@ for my $missing (qw(update comment_add comment_update comment_remove people)) {
 
 my %received;
 my $app = Tira::DashboardWeb->build_psgi_app(
+    signed_in(),
     %providers,
     search => sub { $received{search} = $_[0]; return '["TKT-001"]' },
     columns => sub { $received{columns} = $_[0]; return '[{"name":"backlog","label":"Backlog","protected":true,"watched":1}]' },

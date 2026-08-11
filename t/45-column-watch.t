@@ -120,7 +120,7 @@ __END__
 
 =head1 NAME
 
-45-column-watch.t - DD-459 per-column staleness limits and watching
+45-column-watch.t - per-column staleness limits and watching
 
 =head1 DESCRIPTION
 

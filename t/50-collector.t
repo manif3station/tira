@@ -128,7 +128,7 @@ __END__
 
 =head1 NAME
 
-50-collector.t - DD-463 registering the reminder job
+50-collector.t - registering the reminder job
 
 =head1 DESCRIPTION
 

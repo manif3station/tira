@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+#
+# Install this repository's gates into .git/hooks.
+#
+# The hooks themselves are tracked under tools/hooks so they survive a fresh
+# clone and can be reviewed like any other code. .git/hooks is not tracked by
+# git, so a gate that lives only there is a gate that vanishes the moment
+# somebody clones the repository - which is not a gate, it is a local habit
+# with a shell script around it.
+
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+
+hooks_dir="$(git rev-parse --git-path hooks)"
+mkdir -p "$hooks_dir"
+
+for hook in tools/hooks/*; do
+  name="$(basename "$hook")"
+  target="$hooks_dir/$name"
+
+  # A relative symlink, so the installed hook is always the tracked file and
+  # the two cannot drift apart.
+  ln -sf "$(realpath --relative-to="$hooks_dir" "$hook")" "$target"
+  echo "installed $name -> $hook"
+done
+
+echo
+echo 'Gates now in force:'
+echo '  commit-msg  every commit names a live card that is at a working gate'
+echo '  pre-push    board backup, card audit, full suite, 100% coverage'

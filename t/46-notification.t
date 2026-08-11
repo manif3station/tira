@@ -148,7 +148,7 @@ __END__
 
 =head1 NAME
 
-46-notification.t - DD-460 notification history and escalation counting
+46-notification.t - notification history and escalation counting
 
 =head1 DESCRIPTION
 

@@ -119,6 +119,6 @@ __END__
 =head1 DESCRIPTION
 
 Exercises hierarchy, subitems, typed links, assignment, comments, attachments,
-cloning, evidence, gates, search, and dashboard behavior for DD-389.
+cloning, evidence, gates, search, and dashboard behavior for.
 
 =cut

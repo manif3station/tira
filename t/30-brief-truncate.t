@@ -139,7 +139,7 @@ __END__
 
 =head1 NAME
 
-30-brief-truncate.t - DD-429 brief preset and long-text truncation (CA08, CA09)
+30-brief-truncate.t - brief preset and long-text truncation (CA08, CA09)
 
 =head1 DESCRIPTION
 

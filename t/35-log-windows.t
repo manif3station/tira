@@ -127,7 +127,7 @@ __END__
 
 =head1 NAME
 
-35-log-windows.t - DD-434 indexed gate log and evidence reads (CA20)
+35-log-windows.t - indexed gate log and evidence reads (CA20)
 
 =head1 DESCRIPTION
 

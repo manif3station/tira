@@ -120,7 +120,7 @@ __END__
 
 =head1 NAME
 
-63-question-decompose.t - DD-482 taking a crammed question apart
+63-question-decompose.t - taking a crammed question apart
 
 =head1 DESCRIPTION
 

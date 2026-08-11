@@ -105,7 +105,7 @@ __END__
 
 =head1 NAME
 
-43-line-editing.t - DD-450 tilde answers and line editing at prompts
+43-line-editing.t - tilde answers and line editing at prompts
 
 =head1 DESCRIPTION
 

@@ -134,7 +134,7 @@ like( $html, qr/attachmentUrl\(question\.voice\.sha,question\.voice\.extension\)
     'served by the route that already serves attachments' );
 like( $html, qr/if\(question\.voice\)\{/, 'and a question without a recording shows no control' );
 
-# DD-491: an agent will not use a feature nobody tells it about. These lines
+# An agent will not use a feature nobody tells it about. These lines
 # are read by an LLM and Tira exists to spend fewer tokens than Jira, so they
 # are terse and mechanical rather than prose, and the fixes go on one line.
 {
@@ -224,7 +224,7 @@ __END__
 
 =head1 NAME
 
-67-question-voice.t - DD-490 a voice note on a question
+67-question-voice.t - a voice note on a question
 
 =head1 DESCRIPTION
 

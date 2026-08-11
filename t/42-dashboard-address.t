@@ -150,7 +150,7 @@ __END__
 
 =head1 NAME
 
-42-dashboard-address.t - DD-449 remembered dashboard address
+42-dashboard-address.t - remembered dashboard address
 
 =head1 DESCRIPTION
 

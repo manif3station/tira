@@ -160,7 +160,7 @@ like( $html, qr/\.card--waiting\{/, 'the stylesheet says what that looks like' )
         'no card is read twice to fetch its title and its state' );
 }
 
-# DD-480: the owner opens a board without asking for titles, the page paints
+# The owner opens a board without asking for titles, the page paints
 # yellow from the server-rendered HTML, and a second later the refresh rebuilds
 # every card from /data. If that payload omits the flag the colour vanishes -
 # which is exactly what he saw.
@@ -194,7 +194,7 @@ __END__
 
 =head1 NAME
 
-59-waiting-cards.t - DD-473 a card waiting on somebody looks like it
+59-waiting-cards.t - a card waiting on somebody looks like it
 
 =head1 DESCRIPTION
 

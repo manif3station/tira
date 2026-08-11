@@ -102,7 +102,7 @@ __END__
 
 =head1 NAME
 
-26-omit-empty.t - DD-425 omit empty fields by default (CA15)
+26-omit-empty.t - omit empty fields by default (CA15)
 
 =head1 DESCRIPTION
 

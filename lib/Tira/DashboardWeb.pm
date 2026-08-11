@@ -3,7 +3,7 @@ package Tira::DashboardWeb;
 use strict;
 use warnings;
 
-our $VERSION = '1.04';
+our $VERSION = '1.05';
 
 use Encode qw(decode_utf8 encode_utf8);
 use JSON::PP ();
@@ -12,7 +12,99 @@ use Dancer2 appname => 'TiraDashboard';
 our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $SEARCH, $COMMENT_ADD, $COMMENT_UPDATE, $COMMENT_REMOVE, $PEOPLE,
       $ATTACHMENT_FETCH, $ATTACHMENT_ADD, $ATTACHMENT_REMOVE, $CHECKLIST_ADD, $CHECKLIST_UPDATE,
       $LINK_TYPES, $HIERARCHY_LINK, $HIERARCHY_UNLINK, $SUBITEM_LINK, $SUBITEM_UNLINK, $LINK_ADD, $LINK_REMOVE,
-      $COLUMNS, $COLUMN_APPLY, $QUESTION_ANSWER, $QUESTION_MARK, $QUESTION_ATTACH );
+      $COLUMNS, $COLUMN_APPLY, $QUESTION_ANSWER, $QUESTION_MARK, $QUESTION_ATTACH,
+      $LOGIN_START, $LOGIN_REGISTER, $SESSION_RESUME, $SESSION_PEEK, $SESSION_END, $LOGIN_PAGE );
+
+our $COOKIE = 'tira_session';
+
+# The board fetches its own routes from its own scripts. A stranger there must
+# get a refusal they can react to, not a login page rendered into a card - so
+# only the front door serves the page, and everything else answers 401 JSON.
+my %PUBLIC = map { $_ => 1 } qw(/login /logout);
+
+# The board polls this on a timer whether anybody is at the keyboard or not.
+# Reading a session through it must not push the expiry out, or a tab left open
+# overnight would keep itself signed in for ever.
+my %POLLED = ( '/data' => 1 );
+
+sub _cookie_token {
+    my $header = request->header('Cookie') // '';
+    my ($token) = $header =~ /(?:\A|;)\s*\Q$COOKIE\E=([^;]*)/;
+    return $token;
+}
+
+sub _session_cookie {
+    my ( $value, %args ) = @_;
+    my @parts = ( "$COOKIE=$value", 'Path=/', 'HttpOnly', 'SameSite=Lax' );
+    push @parts, 'Max-Age=0', 'Expires=Thu, 01 Jan 1970 00:00:00 GMT' if $args{clear};
+    return join '; ', @parts;
+}
+
+sub _refuse {
+    my ($message) = @_;
+    status 401;
+    content_type 'application/json; charset=UTF-8';
+    return _response_bytes(
+        Tira::json_object()->canonical->encode(
+            { ok => JSON::PP::false, error => $message // 'Sign in required' } ) );
+}
+
+hook before => sub {
+    my $path = request->path;
+    return if $PUBLIC{$path};
+    my $token = _cookie_token();
+    my $reader = $POLLED{$path} ? $SESSION_PEEK : $SESSION_RESUME;
+    # Asked even when there is no cookie at all, so the one place that decides
+    # whether somebody is signed in is the session layer rather than this hook.
+    # An absent or empty token resolves to nobody there, which is what the
+    # stranger checks in the gate test prove.
+    my $session = Tira::json_decode( $reader->( { token => $token // '' } ) );
+    return if ref $session eq 'HASH' && defined $session->{person};
+
+    # The front door is the one place a person rather than a script is
+    # looking, so it gets the login page instead of a refusal.
+    if ( $path eq '/' ) {
+        content_type 'text/html; charset=UTF-8';
+
+        # Handed over as characters rather than bytes. A halted response is
+        # encoded by Dancer2 on its way out, so encoding it here as well is
+        # what turns an em dash into mojibake - which is exactly how
+        # went wrong, in a different place.
+        halt( $LOGIN_PAGE->() );
+    }
+    halt( _refuse() );
+};
+
+post '/login' => sub {
+    my $payload = eval { Tira::json_decode( request->body // '' ) };
+    $payload = {} if ref $payload ne 'HASH';
+    content_type 'application/json; charset=UTF-8';
+
+    # Trust on first use, which is what he asked for: a person who has never
+    # signed in claims a password by typing one, and is signed in with it
+    # rather than being made to type it twice.
+    my $answer = Tira::json_decode( $LOGIN_START->($payload) );
+    if ( !$answer->{ok} ) {
+        my $claimed = Tira::json_decode( $LOGIN_REGISTER->($payload) );
+        $answer = $claimed if $claimed->{ok};
+    }
+
+    # A person who does not exist and a wrong password answer identically, so
+    # the page cannot be used to find out who is on the project.
+    return _refuse('Sign in failed') if !$answer->{ok};
+    response->header( 'Set-Cookie' => _session_cookie( $answer->{token} ) );
+    return _response_bytes(
+        Tira::json_object()->canonical->encode(
+            { ok => JSON::PP::true, claimed => $answer->{claimed} ? JSON::PP::true : JSON::PP::false } ) );
+};
+
+post '/logout' => sub {
+    my $token = _cookie_token();
+    $SESSION_END->( { token => $token } ) if defined $token;
+    response->header( 'Set-Cookie' => _session_cookie( '', clear => 1 ) );
+    content_type 'application/json; charset=UTF-8';
+    return _response_bytes( Tira::json_object()->canonical->encode( { ok => JSON::PP::true } ) );
+};
 
 get '/' => sub {
     content_type 'text/html; charset=UTF-8';
@@ -196,6 +288,12 @@ my @PROVIDERS = (
     [ subitem_unlink => \$SUBITEM_UNLINK, 'subitem unlink provider' ],
     [ link_add => \$LINK_ADD, 'link add provider' ],
     [ link_remove => \$LINK_REMOVE, 'link remove provider' ],
+    [ login_start => \$LOGIN_START, 'login start provider' ],
+    [ login_register => \$LOGIN_REGISTER, 'login register provider' ],
+    [ session_resume => \$SESSION_RESUME, 'session resume provider' ],
+    [ session_peek => \$SESSION_PEEK, 'session peek provider' ],
+    [ session_end => \$SESSION_END, 'session end provider' ],
+    [ login_page => \$LOGIN_PAGE, 'login page provider' ],
 );
 
 sub build_psgi_app {

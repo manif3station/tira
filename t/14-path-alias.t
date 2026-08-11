@@ -77,6 +77,6 @@ __END__
 =head1 DESCRIPTION
 
 Proves DD-native alias resolution for both CLI project-selection routes,
-direct-path precedence, exit status, and resolved-target secrecy for DD-401.
+direct-path precedence, exit status, and resolved-target secrecy for.
 
 =cut

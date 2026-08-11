@@ -173,7 +173,7 @@ __END__
 
 =head1 NAME
 
-71-question-attachments.t - DD-497 evidence on a question and on its answer
+71-question-attachments.t - evidence on a question and on its answer
 
 =head1 DESCRIPTION
 

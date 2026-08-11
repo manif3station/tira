@@ -234,7 +234,7 @@ __END__
 
 =head1 NAME
 
-57-questions.t - DD-471 questions on cards
+57-questions.t - questions on cards
 
 =head1 DESCRIPTION
 

@@ -1,4 +1,4 @@
-// DD-453 guard. Fit all used to squeeze every column onto one row, so thirteen
+// Fit all used to squeeze every column onto one row, so thirteen
 // columns meant 81px each - readable arithmetic, unreadable board. Fit now
 // wraps them onto as many rows as it takes at a usable minimum width. Standard
 // must be unchanged: one row, full-width columns, horizontal scroll.

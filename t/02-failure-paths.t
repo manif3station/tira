@@ -266,6 +266,6 @@ __END__
 =head1 DESCRIPTION
 
 Exercises defensive persistence, discovery, formatting, linkage factory, and
-CLI help paths required by the DD-388 coverage and security gates.
+CLI help paths required by the coverage and security gates.
 
 =cut

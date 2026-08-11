@@ -124,7 +124,7 @@ __END__
 
 =head1 NAME
 
-53-lock.t - DD-444 mutations that bypassed the project lock
+53-lock.t - mutations that bypassed the project lock
 
 =head1 DESCRIPTION
 

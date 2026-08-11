@@ -125,7 +125,7 @@ __END__
 
 =head1 NAME
 
-33-batch.t - DD-432 batch reads (CA19)
+33-batch.t - batch reads (CA19)
 
 =head1 DESCRIPTION
 

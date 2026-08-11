@@ -78,7 +78,7 @@ __END__
 
 =head1 NAME
 
-36-compact-json.t - DD-435 compact JSON by default (CA14)
+36-compact-json.t - compact JSON by default (CA14)
 
 =head1 DESCRIPTION
 

@@ -134,7 +134,7 @@ __END__
 
 =head1 NAME
 
-25-field-selection.t - DD-424 field selection and exclusion (CA01-CA03)
+25-field-selection.t - field selection and exclusion (CA01-CA03)
 
 =head1 DESCRIPTION
 

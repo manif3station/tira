@@ -174,7 +174,7 @@ __END__
 
 =head1 NAME
 
-40-project-new.t - DD-446 one-command project bootstrap
+40-project-new.t - one-command project bootstrap
 
 =head1 DESCRIPTION
 

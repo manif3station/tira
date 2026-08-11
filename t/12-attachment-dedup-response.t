@@ -42,7 +42,7 @@ ok( $second->{deduped}, 'duplicate reports record-level deduplication' );
 is_deeply( $tira->attachment_list( project => $root, ref => $ticket->{ref} ),
     [ { sha => $first->{sha}, extension => 'txt', original_filename => 'first-name.txt',
         added_at => '2026-08-05T17:00:00Z', attached_to => 'card' } ],
-    'record stores one truthful reference, and says where it hangs (DD-493)' );
+    'record stores one truthful reference, and says where it hangs' );
 
 $tira->attachment_remove( project => $root, sha => $first->{sha}, extension => 'txt' );
 my $restored = $tira->attachment_add( project => $root, ref => $ticket->{ref}, file => $second_file );

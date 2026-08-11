@@ -79,7 +79,7 @@ __END__
 
 =head1 NAME
 
-58-question-search.t - DD-472 questions are searchable
+58-question-search.t - questions are searchable
 
 =head1 DESCRIPTION
 

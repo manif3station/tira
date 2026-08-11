@@ -150,7 +150,7 @@ __END__
 
 =head1 NAME
 
-52-column-apply.t - DD-465 applying a whole column layout in one call
+52-column-apply.t - applying a whole column layout in one call
 
 =head1 DESCRIPTION
 

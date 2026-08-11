@@ -131,7 +131,7 @@ __END__
 
 =head1 NAME
 
-28-content-hash.t - DD-427 content hashes and conditional reads (CA05, CA06)
+28-content-hash.t - content hashes and conditional reads (CA05, CA06)
 
 =head1 DESCRIPTION
 

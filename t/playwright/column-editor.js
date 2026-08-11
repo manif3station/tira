@@ -1,4 +1,4 @@
-// DD-466 guard. The column editor is the only place a person changes the
+// The column editor is the only place a person changes the
 // board's own shape, so it has to be driven the way a person drives it:
 // open it, drag a row by its grip, toggle the eye, type a threshold, add a
 // column, remove one, and check that what is sent is what was on screen.

@@ -11,7 +11,8 @@ use JSON::PP qw(decode_json);
 use Plack::Test;
 use Test::More;
 
-use lib 'lib';
+use lib 'lib', 't/lib';
+use GatedApp qw(signed_in);
 use Tira;
 use Tira::CLI;
 use Tira::DashboardWeb;
@@ -103,6 +104,7 @@ like( $err, qr/Browser output is available only for dashboard commands/,
 my $renders = 0;
 my $pound = chr 0xA3;
 my $app = Tira::DashboardWeb->build_psgi_app(
+    signed_in(),
     render => sub { $renders++; return '<!doctype html><p>Live ' . $pound . '</p>' },
     data => sub { return '{"ticket":{"backlog":[{"title":"\\u00a3"}]}}' },
     move => sub { return '{"ok":true}' },
@@ -180,6 +182,7 @@ like( $@, qr/Missing dashboard detail provider/, 'PSGI builder requires a detail
     ok(
         Tira::DashboardWeb->serve(
             host => 'localhost', port => 4567,
+            signed_in(),
             render => sub { '<!doctype html>' },
             data => sub { '{}' },
             move => sub { '{}' },

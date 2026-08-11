@@ -115,7 +115,7 @@ __END__
 
 =head1 NAME
 
-64-question-docs.t - DD-483 the question surface is documented completely
+64-question-docs.t - the question surface is documented completely
 
 =head1 DESCRIPTION
 

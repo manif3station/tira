@@ -84,7 +84,7 @@ __END__
 
 =head1 NAME
 
-72-discard-column.t - DD-474 the Discard column nobody could see
+72-discard-column.t - the Discard column nobody could see
 
 =head1 DESCRIPTION
 

@@ -86,7 +86,7 @@ __END__
 
 =head1 NAME
 
-54-nesting.t - DD-447 creating a project inside another one
+54-nesting.t - creating a project inside another one
 
 =head1 DESCRIPTION
 

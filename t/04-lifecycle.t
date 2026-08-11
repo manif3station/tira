@@ -86,6 +86,6 @@ __END__
 
 =head1 DESCRIPTION
 
-Exercises the first complete-command slice defined by DD-389.
+Exercises the first complete-command slice defined by.
 
 =cut

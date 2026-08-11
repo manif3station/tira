@@ -238,7 +238,7 @@ __END__
 
 =head1 NAME
 
-49-automation.t - DD-464 automation settings and re-runnable onboarding
+49-automation.t - automation settings and re-runnable onboarding
 
 =head1 DESCRIPTION
 

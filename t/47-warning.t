@@ -140,7 +140,7 @@ __END__
 
 =head1 NAME
 
-47-warning.t - DD-461 collector failures that nobody would otherwise see
+47-warning.t - collector failures that nobody would otherwise see
 
 =head1 DESCRIPTION
 

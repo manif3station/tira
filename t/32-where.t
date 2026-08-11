@@ -109,7 +109,7 @@ __END__
 
 =head1 NAME
 
-32-where.t - DD-431 server-side field filtering (CA16)
+32-where.t - server-side field filtering (CA16)
 
 =head1 DESCRIPTION
 

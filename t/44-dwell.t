@@ -118,7 +118,7 @@ __END__
 
 =head1 NAME
 
-44-dwell.t - DD-458 column dwell and the stale report
+44-dwell.t - column dwell and the stale report
 
 =head1 DESCRIPTION
 

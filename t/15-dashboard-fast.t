@@ -95,6 +95,6 @@ __END__
 
 Proves metadata-free default dashboard reads, filesystem mtime ordering,
 optional title reads, stable ties, valid filename filtering, and full JSON
-compatibility for DD-402.
+compatibility for.
 
 =cut

@@ -69,7 +69,7 @@ __END__
 
 =head1 NAME
 
-56-usage.t - DD-470 the command reference has a command of its own
+56-usage.t - the command reference has a command of its own
 
 =head1 DESCRIPTION
 

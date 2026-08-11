@@ -1,5 +1,51 @@
 Revision history for Tira
 
+1.05  2026-08-11
+    - A login in front of the browser dashboard. A person claims a
+      password the first time they use the board and must match it
+      afterwards; only a salted, iterated digest is ever stored, and
+      never the password. A person whose id or name says "bot" cannot
+      sign in at all, checked before the stored hash is consulted so a
+      hash written by hand is not a way around it. Sessions live on
+      disk and survive the dashboard restarting itself, expiring after
+      ten minutes of no activity - the board's own background poll
+      reads a session without extending it, so a tab left open
+      overnight does not keep itself signed in. Every route is behind
+      the gate: the front door serves the login page and everything
+      else refuses with JSON, because the board fetches its own routes
+      and a login page rendered into a card is worse than an error.
+      Over plain HTTP the password and cookie travel in clear, which
+      the documentation says plainly rather than leaving to be found.
+
+    - A self-governing subsystem. The agent declares what a project
+      cares about with `tira.policy`; the owner runs `tira.police` in a
+      terminal of their own and it reports what it finds; the agent
+      runs `tira.policy.bridge` and acts on it. Police never writes to
+      the board - it watches read-only and writes only to a log it
+      owns, because two writers in one board is how this project lost
+      its own board on the day the subsystem was designed. Twenty
+      rules, from a card that left the backlog as a title to a test
+      container nobody stopped. Every violation carries a number,
+      keeps it, and climbs four tones as it persists; past five
+      repeats it reaches the owner's terminal with a message he can
+      paste straight to the agent. Fixing the cause silences it on the
+      next pass, with nothing to acknowledge.
+
+    - Policies can be declared on the project, a board, a column or a
+      single card, and the most specific one wins - per rule, so a card
+      that overrides one keeps every other rule the project set.
+
+    - Columns can be told what they mean. A rule written against a role
+      follows the meaning rather than the name, so it still applies
+      after somebody renames the column. The vocabulary belongs to the
+      project; Tira matches a role without needing to understand it.
+
+    - `docs/POLICIES.md`, printed by `tira.policies`, with an
+      onboarding walk-through and a hundred worked use cases. Every
+      command in it is run by the test suite rather than read, because
+      a document full of examples that do not work teaches an agent
+      that the surface is unreliable.
+
 1.04  2026-08-10
     - The Discard column was offering an add-card control. Showing the
       column in `1.01` brought its controls with it, and inviting

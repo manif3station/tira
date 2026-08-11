@@ -80,6 +80,17 @@ sub run {
         'where=s@' => \$option{where},
         'members=s@' => \$option{members}, 'columns=s@' => \$option{columns},
         'listen=s' => \$option{listen},
+        'password=s' => \$option{password}, 'token=s' => \$option{token},
+        'rule=s' => \$option{rule}, 'action=s' => \$option{action},
+        'enter=s' => \$option{enter}, 'before-column=s' => \$option{before_column},
+        'age=s' => \$option{age},
+        'max=i' => \$option{max}, 'require=s' => \$option{require},
+        'once' => \$option{once}, 'interval=i' => \$option{interval},
+        'on-column=s' => \$option{on_column},
+        'role=s@' => \$option{roles},
+        'enter-role=s' => \$option{enter_role}, 'before-role=s' => \$option{before_role},
+        'rounds=i' => \$option{rounds},
+        'store=s' => \$option{store},
         'dashboard-host=s' => \$option{dashboard_host},
         'dashboard-port=s' => \$option{dashboard_port},
         'sow-columns=s@' => \$option{sow_columns}, 'epic-columns=s@' => \$option{epic_columns},
@@ -120,8 +131,8 @@ sub run {
     $option{ref} = $option{ref_list}[-1] if $option{ref_list};
     $option{$_} = _expand_home( $option{$_} ) for grep { defined $option{$_} } qw(dir project);
 
-    if ( $option{help} ) {
-        print _usage( $command, $type );
+    if ( $option{help} || $command eq 'policies' ) {
+        print $command eq 'policies' ? _policy_help() : _usage( $command, $type );
         return 0;
     }
 
@@ -237,7 +248,7 @@ sub run {
     return _finish( $tira, \%option, $command, $status );
 }
 
-# DD-461: whatever the command was, an unresolved collector failure is shown
+# Whatever the command was, an unresolved collector failure is shown
 # under its output, because the collector itself had nobody to tell.
 sub _finish {
     my ( $tira, $option, $command, $status ) = @_;
@@ -391,6 +402,53 @@ sub browser_providers {
                 project => $project, type => $payload->{type}, ref => $payload->{ref},
             );
             return $json->encode($record);
+        },
+        # The browser goes through the same subroutines the command line goes
+        # through, so a rule cannot be enforced in one and forgotten in the
+        # other. A failed sign-in answers ok => false rather than dying,
+        # because the login page has to show a message, not a stack trace.
+        login_page => sub {
+            my $project_name = eval { $tira->project_show( project => $project )->{name} };
+            return $tira->login_page_html( name => $project_name );
+        },
+        login_start => sub {
+            my ($payload) = @_;
+            my $token = eval {
+                $tira->login_start(
+                    project => $project, id => $payload->{id},
+                    password => $payload->{password},
+                );
+            };
+            return $json->encode( { ok => JSON::PP::false } ) if !defined $token;
+            return $json->encode( { ok => JSON::PP::true, token => $token } );
+        },
+        login_register => sub {
+            my ($payload) = @_;
+            my $person = eval {
+                $tira->login_register(
+                    project => $project, id => $payload->{id},
+                    password => $payload->{password},
+                );
+            };
+            return $json->encode( { ok => JSON::PP::false } ) if !$person;
+            my $token = $tira->login_start(
+                project => $project, id => $payload->{id}, password => $payload->{password} );
+            return $json->encode( { ok => JSON::PP::true, token => $token, claimed => JSON::PP::true } );
+        },
+        session_resume => sub {
+            my ($payload) = @_;
+            my $session = $tira->session_resume( project => $project, token => $payload->{token} );
+            return $json->encode( $session ? { %{$session} } : { person => undef } );
+        },
+        session_peek => sub {
+            my ($payload) = @_;
+            my $session = $tira->session_peek( project => $project, token => $payload->{token} );
+            return $json->encode( $session ? { %{$session} } : { person => undef } );
+        },
+        session_end => sub {
+            my ($payload) = @_;
+            my $ended = eval { $tira->session_end( project => $project, token => $payload->{token} ) };
+            return $json->encode( { ok => $ended ? JSON::PP::true : JSON::PP::false } );
         },
         question_answer => sub {
             my ($payload) = @_;
@@ -776,12 +834,12 @@ sub _cache_store {
     return;
 }
 
-# DD-448: the guided setup behind tira.onboard. Plain reads and writes — no terminal control
+# The guided setup behind tira.onboard. Plain reads and writes — no terminal control
 # codes, no new dependency, nothing spawned — so the command stays taint-clean.
 # It is only ever entered deliberately (see the caller): a wizard that reads
 # standard input would otherwise hang every script and agent that runs the
 # command without arguments, which is most of them.
-# DD-450: a leading ~ means the user's home directory wherever it is typed.
+# a leading ~ means the user's home directory wherever it is typed.
 # The shell expands it for an unquoted command-line argument, but never for an
 # answer typed at a prompt or for a quoted flag — which is how a directory
 # literally named '~' gets created.
@@ -893,7 +951,7 @@ sub _ask_yes {
     }
 }
 
-# DD-464: is there a coding agent on this machine at all? Its own sub so a
+# Is there a coding agent on this machine at all? Its own sub so a
 # test can drive both answers, rather than proving whichever one this
 # particular machine happens to give.
 sub _agent_available {
@@ -1139,8 +1197,12 @@ sub _invoke {
       if $option->{stale} && $command ne 'stale';
     die "With-level is available on the stale command\n"
       if $option->{with_level} && $command ne 'stale';
-    die "All is available on the warning.clear command\n"
-      if $option->{all} && $command ne 'warning.clear';
+    die "All is available on the warning.clear and login.logout commands\n"
+      if $option->{all} && $command ne 'warning.clear' && $command ne 'login.logout';
+    die "A password belongs to the login.register and login.check commands\n"
+      if defined $option->{password} && $command !~ /\Alogin\.(?:register|check)\z/;
+    die "A token belongs to the login commands\n"
+      if defined $option->{token} && $command !~ /\Alogin\./;
     die "A column layout belongs to the column.apply command\n"
       if defined $option->{columns_json} && $command ne 'column.apply';
     die "Nested belongs to the project.new, project.create and onboard commands\n"
@@ -1247,11 +1309,11 @@ sub _invoke {
             ( $option->{nested} ? ( nested => 1 ) : () ),
         );
 
-        # DD-467: collecting the settings and leaving the job unregistered
+        # Collecting the settings and leaving the job unregistered
         # looked like it had worked. Onboarding registers it, and reports the
         # name it will really answer to, which is not the name that was typed.
         if ( $command eq 'onboard' && defined $summary->{project}{heartbeat} ) {
-            # project_show carries no root, so use the directory that was created.
+            # Project_show carries no root, so use the directory that was created.
             my $job = eval { $tira->collector_install( project => $option->{dir} // '.' ) };
             if ($job) {
                 print "\nRegistered the reminder job as '$job->{name}'.\n"
@@ -1366,6 +1428,22 @@ sub _invoke {
     }
     return $tira->column_sync( %args, apply => $option->{apply} ) if $command eq 'column.sync';
 
+    if ( $command eq 'column.roles' ) {
+        return $tira->column_roles(%args) if !$option->{roles};
+
+        # Written the way he says it: which column is the backlog, which is
+        # in progress. Each --role takes name=column, and any role may be
+        # left unset because most projects have a column for very few of them.
+        my %roles;
+        for my $pair ( @{ $option->{roles} } ) {
+            my ( $role, $column ) = split /=/, $pair, 2;
+            die "A role is written as name=column, not '$pair'\n"
+              if !defined $column || $column eq '' || $role eq '';
+            $roles{$role} = $column;
+        }
+        return $tira->column_roles_set( %args, roles => \%roles );
+    }
+
     if ( $command =~ /\Arecord\.(show|list|update|move|discard|restore|clone)\z/ ) {
         my $action = $1;
         return $tira->record_show_many(%args) if $action eq 'show' && $args{refs};
@@ -1376,6 +1454,78 @@ sub _invoke {
         return $tira->record_discard(%args) if $action eq 'discard';
         return $tira->record_restore(%args) if $action eq 'restore';
         return $tira->record_clone(%args);
+    }
+
+    if ( $command eq 'police' || $command eq 'policy.bridge' ) {
+        my $store = $option->{store} // _police_store( $args{project} );
+
+        if ( $command eq 'policy.bridge' ) {
+            my $backlog = $tira->bridge_backlog( store => $store, lines => 200 );
+            print map { "$_\n" } @{$backlog};
+            _bridge_follow( $tira, $store, rounds => $option->{rounds},
+                interval => $option->{interval}, sleeper => $option->{sleeper} )
+              if !$option->{once};
+            return { streamed => scalar @{$backlog} };
+        }
+
+        my $result = $tira->police_pass( %args, store => $store, world => _police_world() );
+        die "$result->{advice}\n" if !$result->{watching};
+        $tira->bridge_write( store => $store, violations => $result->{violations} );
+        print {*STDERR} map { "$_\n" } @{ $result->{terminal} };
+        return $result if $option->{once};
+        return _police_follow( $tira, \%args, $store, $option );
+    }
+
+    if ( $command =~ /\Apolicy\.(add|list|remove)\z/ ) {
+        my $action = $1;
+        return $tira->policy_list(%args) if $action eq 'list';
+        return $tira->policy_remove(%args) if $action eq 'remove';
+        my %policy = map { $_ => $option->{$_} }
+          grep { defined $option->{$_} }
+          qw(rule action enter column age max pattern message require);
+
+        # Where the policy is declared decides how narrow it is: naming a
+        # board, a column or a card each makes it beat the level above.
+        $policy{type} = $option->{type} if defined $option->{type};
+        $policy{on_column} = $option->{on_column} if defined $option->{on_column};
+        $policy{ref} = $args{ref} if defined $args{ref};
+        $policy{enter_role} = $option->{enter_role} if defined $option->{enter_role};
+        $policy{before_role} = $option->{before_role} if defined $option->{before_role};
+
+        # --before already means a date filter elsewhere, so the column form
+        # is spelled out rather than overloading a flag that means something
+        # different on every other command.
+        $policy{before} = $option->{before_column} if defined $option->{before_column};
+        return $tira->policy_add( %args, %policy );
+    }
+
+    if ( $command =~ /\Alogin\.(register|check|status|logout)\z/ ) {
+        my $action = $1;
+        return $tira->login_register( %args, password => $option->{password} )
+          if $action eq 'register';
+
+        # A wrong password and a person who does not exist must look the same
+        # from outside, or the command becomes a way to find out who is here.
+        return { ok => $tira->login_verify( %args, password => $option->{password} )
+              ? JSON::PP::true : JSON::PP::false }
+          if $action eq 'check';
+
+        # The listing says who, never what they are holding: a token is the
+        # credential itself.
+        return [ map { { person => $_->{person}, started_at => $_->{started_at},
+                         last_seen_at => $_->{last_seen_at} } }
+                 @{ $tira->session_list(%args) } ]
+          if $action eq 'status';
+
+        die "Use --id PERSON or --all to say whose sessions to end\n"
+          if !$option->{all} && ( !defined $args{id} || $args{id} eq '' );
+        my $ended = 0;
+        for my $session ( @{ $tira->session_list(%args) } ) {
+            next if !$option->{all} && $session->{person} ne $args{id};
+            $tira->session_end( %args, token => $session->{token} );
+            $ended++;
+        }
+        return { ended => $ended };
     }
 
     my %method = (
@@ -1405,7 +1555,7 @@ sub _invoke {
     $args{recursive} = $option->{recursive} if $command eq 'hierarchy.show';
     if ( $command =~ /\Adashboard(?:\.(sow|epic|ticket))?\z/ ) {
         $args{type} = $1 if defined $1;
-        # DD-474: every board is created with Backlog and Discard, and the
+        # Every board is created with Backlog and Discard, and the
         # owner saw one and never the other. A person looking at a board should
         # see where discarded work went; the ref-only path an agent queries is
         # untouched, so nobody pays for cards they did not ask about.
@@ -1433,6 +1583,118 @@ sub _invoke {
         return $tira->comment_list(%args)->[-1];
     }
     return $tira->$method(%args);
+}
+
+# Police keeps its state outside the project it watches, so that it can never
+# become a second writer to the board - which is what destroyed this project's
+# own board on the day the subsystem was designed.
+sub _police_store {
+    my ($project) = @_;
+    my $home = $ENV{HOME} // File::Spec->tmpdir;
+    my $slug = defined $project ? $project : 'here';
+    $slug =~ s/[^A-Za-z0-9]+/-/g;
+    $slug =~ s/\A-|-\z//g;
+    return File::Spec->catdir( $home, '.tira-police', $slug );
+}
+
+# The world police needs and the engine will not touch. Gathered here, handed
+# in as plain facts, so that Tira itself still invokes no shell.
+sub _police_world {
+    return {
+        branches => [], worktrees => [], processes => [], containers => [], commits => [],
+    };
+}
+
+# A loop that never ends cannot be called by anything, including a test - so
+# the number of rounds and the waiting are both injectable. Left alone it runs
+# for ever, which is what an agent tailing a bridge wants.
+sub _bridge_follow {
+    my ( $tira, $store, %args ) = @_;
+    my $rounds = $args{rounds};
+    my $wait = $args{sleeper} || sub { sleep $_[0] if $_[0] };
+    my $every = defined $args{interval} ? $args{interval} : 2;
+    my $path = $tira->bridge_log_path( store => $store );
+    my $seen = -f $path ? scalar @{ $tira->bridge_backlog( store => $store, lines => 1_000_000 ) } : 0;
+    my $done = 0;
+    while ( !defined $rounds || $done < $rounds ) {
+        $done++;
+        $wait->($every);
+        my $all = $tira->bridge_backlog( store => $store, lines => 1_000_000 );
+        next if @{$all} <= $seen;
+        print map { "$_\n" } @{$all}[ $seen .. $#{$all} ];
+        $seen = scalar @{$all};
+    }
+    return $seen;
+}
+
+sub _police_follow {
+    my ( $tira, $args, $store, $option ) = @_;
+    my $interval = defined $option->{interval} ? $option->{interval} : 30;
+    my $rounds = $option->{rounds};
+    my $wait = $option->{sleeper} || sub { sleep $_[0] if $_[0] };
+
+    # A supervisor that dies quietly is worse than none, because its silence
+    # reads as everything being fine.
+    # How it leaves is injectable, so that what it says on the way out can be
+    # proved by calling the handler rather than by killing the process - a
+    # handler nothing has ever run is a handler nobody knows works.
+    my $leave = $option->{leave} || sub { exit 0 };
+    for my $signal (qw(INT TERM HUP)) {
+        $SIG{$signal} = sub { _police_goodbye( $tira, $signal ); $leave->() };
+    }
+    my $done = 0;
+    while ( !defined $rounds || $done < $rounds ) {
+        $done++;
+        my $result = eval { $tira->police_pass( %{$args}, store => $store, world => _police_world() ) };
+        if ( !$result ) {
+            # Transient trouble is not a reason to stop watching.
+            print {*STDERR} 'police could not read the board: ' . ( $@ || 'unknown' ) . "\n";
+        }
+        else {
+            $tira->bridge_write( store => $store, violations => $result->{violations} );
+            print {*STDERR} map { "$_\n" } @{ $result->{terminal} };
+        }
+        $wait->($interval);
+    }
+    return { rounds => $done };
+}
+
+# Split out from the signal handler so that what police says on its way out can
+# be called and checked, rather than only reached by killing the process.
+sub _police_goodbye {
+    my ( $tira, $signal ) = @_;
+    print {*STDERR} $tira->police_farewell( reason => "signal $signal" ) . "\n";
+    return 1;
+}
+
+sub _policy_help {
+    my (%args) = @_;
+    my $here = __FILE__;
+    $here =~ /\A([^\x00-\x1f\x7f]+)\z/ or return '';
+    my $doc = $args{document}
+      // File::Spec->catfile( dirname( dirname( dirname($1) ) ), 'docs', 'POLICIES.md' );
+    if ( -f $doc && open my $fh, '<:raw', $doc ) {
+        my $text = do { local $/; <$fh> };
+        close $fh;
+        return $text;
+    }
+    return _policy_help_fallback();
+}
+
+# Said when the document is not there. An installation missing its docs should
+# still be able to tell an agent what exists, rather than answering nothing.
+sub _policy_help_fallback {
+    return join "\n",
+      'Tira policies',
+      '',
+      'Rules: ' . join( ', ', @{ Tira::policy_rules() } ),
+      'Actions: ' . join( ', ', @{ Tira::policy_actions() } ),
+      '',
+      'Declare one:  d2 tira.policy.add --rule <rule> --action <action> [parameters]',
+      'See them:     d2 tira.policy.list',
+      'Watch:        d2 tira.police            (the owner runs this)',
+      'Listen:       d2 tira.policy.bridge     (the agent runs this)',
+      '';
 }
 
 sub _text_input {

@@ -153,7 +153,7 @@ __END__
 
 =head1 NAME
 
-60-blocked-cards.t - DD-475 not chasing an agent for a card waiting on the owner
+60-blocked-cards.t - not chasing an agent for a card waiting on the owner
 
 =head1 DESCRIPTION
 

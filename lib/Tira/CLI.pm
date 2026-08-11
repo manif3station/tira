@@ -391,6 +391,7 @@ sub browser_providers {
             }
             my $record = $tira->record_move(
                 project => $project, type => $payload->{type},
+                ( defined $payload->{_signed_in} ? ( author => $payload->{_signed_in} ) : () ),
                 ref => $payload->{ref}, column => $payload->{column},
             );
             return $json->encode( { ok => JSON::PP::true, record => $record } );
@@ -539,16 +540,21 @@ sub browser_providers {
                   if !defined $payload->{$key} || ref $payload->{$key} || $payload->{$key} eq '';
             }
             my %optional;
-            for my $field (qw(description priority assignee)) {
+            for my $field (qw(description priority assignee reporter)) {
                 next if !defined $payload->{$field} || $payload->{$field} eq '';
                 die "Field '$field' requires a plain value\n" if ref $payload->{$field};
                 $optional{$field} = $payload->{$field};
             }
+            $optional{reporter} = $payload->{_signed_in}
+              if !defined $optional{reporter} && defined $payload->{_signed_in};
             my $record = $tira->create_record(
-                project => $project, type => $payload->{type}, title => $payload->{title}, %optional,
+                project => $project, type => $payload->{type}, title => $payload->{title},
+                ( defined $payload->{_signed_in} ? ( author => $payload->{_signed_in} ) : () ),
+                %optional,
             );
             $record = $tira->record_move(
                 project => $project, ref => $record->{ref}, column => $payload->{column},
+                ( defined $payload->{_signed_in} ? ( author => $payload->{_signed_in} ) : () ),
             ) if $payload->{column} ne 'backlog';
             return $json->encode( { ok => JSON::PP::true, record => $record } );
         },
@@ -655,6 +661,8 @@ sub browser_providers {
         comment_add => sub {
             my ($payload) = @_;
             die "Comment payload must be an object\n" if ref($payload) ne 'HASH';
+            $payload->{author} = $payload->{_signed_in}
+              if !defined $payload->{author} && defined $payload->{_signed_in};
             for my $key (qw(ref author text)) {
                 die "Comment payload requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
             }
@@ -1198,6 +1206,16 @@ sub _invoke {
       if $option->{stale} && $command ne 'stale';
     die "With-level is available on the stale command\n"
       if $option->{with_level} && $command ne 'stale';
+    # Accepted and ignored is the worst of the three outcomes. An error is
+    # fixed in seconds; doing the work would be right; answering with a
+    # successful record while doing nothing cost this project every ticket's
+    # parent and was invisible until somebody looked at a card.
+    if ( defined $option->{parent} && $command =~ /\A(?:record|sow|epic|ticket)\.(?:update|create)\z/ ) {
+        my $child = $option->{ref} // '<this record>';
+        die "A parent is set with hierarchy.link, not by updating the record:\n"
+          . "  tira.hierarchy.link --parent $option->{parent} --child $child\n";
+    }
+
     die "All is available on the warning.clear and login.logout commands\n"
       if $option->{all} && $command ne 'warning.clear' && $command ne 'login.logout';
     die "A password belongs to the login.register and login.check commands\n"

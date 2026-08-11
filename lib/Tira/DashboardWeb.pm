@@ -59,7 +59,10 @@ hook before => sub {
     # An absent or empty token resolves to nobody there, which is what the
     # stranger checks in the gate test prove.
     my $session = Tira::json_decode( $reader->( { token => $token // '' } ) );
-    return if ref $session eq 'HASH' && defined $session->{person};
+    if ( ref $session eq 'HASH' && defined $session->{person} ) {
+        var signed_in => $session->{person};
+        return;
+    }
 
     # The front door is the one place a person rather than a script is
     # looking, so it gets the login page instead of a refusal.
@@ -120,7 +123,7 @@ post '/move' => sub {
     my $payload = Tira::json_decode( request->body // '' );
     die "Invalid move payload\n" if ref($payload) ne 'HASH';
     content_type 'application/json; charset=UTF-8';
-    return _response_bytes( $MOVE->($payload) );
+    return _response_bytes( $MOVE->( _attributed($payload) ) );
 };
 
 get '/record' => sub {
@@ -241,7 +244,8 @@ sub _mutation {
     my $result = eval {
         my $body = request->body // '';
         my $payload = Tira::json_decode( utf8::is_utf8($body) ? encode_utf8($body) : $body );
-        ${$provider}->($payload);
+
+        ${$provider}->( _attributed($payload) );
     };
     if ( !defined $result ) {
         my $error = $@ || 'Mutation failed';
@@ -252,6 +256,21 @@ sub _mutation {
         return _response_bytes( Tira::json_object()->canonical->encode( \%failure ) );
     }
     return _response_bytes($result);
+}
+
+# Who is signed in travels with every change made through the board, so the
+# engine can record who acted. An author or reporter named explicitly still
+# wins - an agent acting on somebody's behalf is a real case, and this is a
+# default rather than a straitjacket.
+#
+# Every route that changes something goes through here. The move route once
+# did not, and so the one thing the owner most wanted recorded - who moved a
+# card - was the one thing that stayed anonymous.
+sub _attributed {
+    my ($payload) = @_;
+    $payload->{_signed_in} = var('signed_in')
+      if ref $payload eq 'HASH' && defined var('signed_in');
+    return $payload;
 }
 
 sub _response_bytes {

@@ -126,6 +126,7 @@ missing, at the moment you declare the policy rather than later.
 | `work-without-card` | `--age` | a tree changing while nothing is at a working gate |
 | `unpushed-work` | `--age` | commits sitting unpushed |
 | `board-unbacked` | `--age` | a board with no recent backup |
+| `card-unlinked` | `--require-link` | a card with no dependency link, optionally to a named card |
 | `card-sandbox-missing` | `--enter --sandbox` | a card being implemented with no branch or worktree of its own |
 | `leftover-process` | `--pattern --age` | something started and never stopped |
 | `leftover-container` | `--age` | a container still running |
@@ -784,3 +785,31 @@ d2 tira.policy.add --rule discard-unexplained --action bridge-reminder
 ```
 
 <!-- 100 use cases -->
+
+### Dependencies that exist only in the words
+
+**101.** A release gate every card must wait on, and nobody remembers to link
+to it.
+
+```
+d2 tira.policy.add --rule card-unlinked --require-link is-blocked-by --link-to TKT-026 --action bridge-reminder
+```
+
+**102.** A project where every card should relate to something, so nothing
+floats unattached.
+
+```
+d2 tira.policy.add --rule card-unlinked --require-link relates-to --action print-reminder
+```
+
+**103.** Watching the habit before enforcing it.
+
+```
+d2 tira.policy.add --rule card-unlinked --require-link is-blocked-by --action log-only
+```
+
+A card is never asked to depend on itself, and work in the column carrying the
+`done` role is left alone - it shipped before the gate existed and cannot be
+linked to it retrospectively. If no column carries that role, nothing is
+skipped, because guessing which column means finished would be worse than
+asking.

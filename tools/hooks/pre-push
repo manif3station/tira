@@ -70,4 +70,13 @@ for module in 'lib/Tira.pm' 'lib/Tira/CLI.pm' 'lib/Tira/DashboardWeb.pm'; do
     || fail "coverage is below 100% for $module: $line"
 done
 
-step 'suite passed, coverage is 100% on all three modules, board backed up'
+# --- the documentation describes what actually ships ---------------------
+#
+# Last, deliberately. Documentation edited after a gate has shipped a broken
+# build here twice, so anything that runs before the edits proves nothing about
+# what goes out. This is the final thing that can stop a release.
+step 'checking the documentation against the code'
+[ -x tools/docs-match-code ] || fail 'tools/docs-match-code is missing - refusing to push undocumented'
+tools/docs-match-code || fail 'the documentation and the code disagree'
+
+step 'suite passed, coverage is 100% on all three modules, documentation agrees, board backed up'

@@ -3763,6 +3763,7 @@ my %POLICY_RULES = (
     'leftover-process'          => { needs => [ 'pattern', 'age' ] },
     'leftover-container'        => { needs => ['age'] },
     'card-sandbox-missing'      => { needs => [ 'enter', 'sandbox' ] },
+    'card-unlinked'             => { needs => ['require_link'] },
 );
 
 # Police speaks in exactly three ways: down the bridge the agent tails, in the
@@ -3770,7 +3771,7 @@ my %POLICY_RULES = (
 my %POLICY_ACTIONS = map { $_ => 1 } qw(bridge-reminder print-reminder log-only);
 
 # Parameters a policy may carry, beyond the rule and the action.
-my @POLICY_FIELDS = qw(enter before column age max pattern message require sandbox base);
+my @POLICY_FIELDS = qw(enter before column age max pattern message require sandbox base require_link link_to);
 
 # Where a policy was declared. A policy with none of these is the project's;
 # each one named makes it narrower, and the narrowest wins.
@@ -3802,7 +3803,11 @@ sub policy_add {
 
     for my $needed ( @{ $spec->{needs} } ) {
         next if defined $args{"${needed}_role"} && $args{"${needed}_role"} ne '';
-        die "Policy rule '$rule' needs --$needed\n"
+        # Named the way it is typed. A message telling somebody to pass a
+        # flag that does not exist is worse than no message: they try it,
+        # it fails differently, and they stop trusting what the tool says.
+        ( my $flag = $needed ) =~ tr/_/-/;
+        die "Policy rule '$rule' needs --$flag\n"
           if !defined $args{$needed} || $args{$needed} eq '';
     }
     if ( defined $args{age} ) {
@@ -4029,6 +4034,38 @@ sub policy_evaluate {
                 my ($latest) = sort { $b cmp $a } map { $_->{last_updated} } @{$checklist};
                 next if !$self->_policy_older_than( $latest, $policy->{age} );
                 $report->( $policy, $record, "no checklist movement since $latest" );
+            }
+        }
+        elsif ( $rule eq 'card-unlinked' ) {
+            # Work that has shipped cannot be linked to a gate it went through
+            # before the gate existed, and chasing it teaches an agent to read
+            # past the channel. If this board has said which column means done,
+            # that column is left alone; if it has not, nothing is skipped,
+            # because guessing which column means finished would be worse.
+            my $finished = eval {
+                $self->column_roles( project => $root, type => 'ticket' )->{done};
+            };
+            for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
+                next if defined $finished && ( $record->{column} // '' ) eq $finished;
+                my $wanted = $policy->{require_link};
+                my $to = $policy->{link_to};
+
+                # A card cannot be its own dependency, so the card a policy
+                # points everything at is never in breach of pointing at
+                # itself.
+                next if defined $to && $to ne '' && $to eq ( $record->{ref} // '' );
+                my @links = @{ $record->{linkage}{links} // [] };
+                next if grep {
+                    ( $_->{type} // '' ) eq $wanted
+                      && ( !defined $to || $to eq '' || ( $_->{ref} // '' ) eq $to )
+                } @links;
+
+                # A dependency written only in a description is a dependency
+                # nobody can see and nothing can act on.
+                $report->( $policy, $record,
+                    "no '$wanted' link" . ( defined $to && $to ne '' ? " to $to" : '' )
+                      . ' - a dependency that exists only in the words is one nothing can act on' );
             }
         }
         elsif ( $rule eq 'orphan-card' ) {

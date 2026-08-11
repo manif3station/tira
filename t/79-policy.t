@@ -146,6 +146,7 @@ my %needs = (
     'discard-unexplained'       => {},
     'leftover-process'          => { pattern => 'tail -f', age => '30m' },
     'leftover-container'        => { age => '30m' },
+    'card-unlinked'             => { require_link => 'is-blocked-by' },
     'card-sandbox-missing'      => { enter => 'implement', sandbox => '~/sandboxes' },
 );
 my $scratch = File::Spec->catdir( $tmp, 'scratch' );

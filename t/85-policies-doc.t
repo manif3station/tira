@@ -40,8 +40,9 @@ like( $text, qr/d2 tira\.policy\.bridge/, 'and what the agent runs' );
 # --- one hundred of them --------------------------------------------------
 
 my @numbered = $text =~ /^\*\*(\d+)\.\*\* /mg;
-is( scalar @numbered, 100, 'there are exactly one hundred use cases' );
-is_deeply( \@numbered, [ 1 .. 100 ], 'numbered one to a hundred with none missing or repeated' );
+ok( scalar @numbered >= 100, 'there are at least a hundred use cases' );
+is_deeply( \@numbered, [ 1 .. scalar @numbered ],
+    'numbered from one with none missing or repeated' );
 
 # --- every rule is shown at least once ------------------------------------
 
@@ -72,7 +73,8 @@ $tira->project_new(
 );
 
 my @commands = $text =~ /^(d2 tira\.policy\.add .+)$/mg;
-ok( scalar @commands >= 100, 'the document carries a command for every use case' );
+ok( scalar @commands >= scalar @numbered,
+    'the document carries a command for every use case' );
 
 my $ran = 0;
 my $failed = 0;

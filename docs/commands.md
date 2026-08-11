@@ -470,6 +470,8 @@ Declare a policy.
 | `--pattern TEXT` | per rule | What to match, for `leftover-process`. |
 | `--sandbox PATH` | per rule | Where worktrees live, for `card-sandbox-missing`. |
 | `--require FIELDS` | per rule | Comma-separated fields, for `card-metrics`. |
+| `--require-link TYPE` | per rule | The link a card must carry, for `card-unlinked`. |
+| `--link-to CARD` | no | Narrows `card-unlinked` to a link pointing at one card. |
 | `--message TEXT` | no | What to say instead of Tira's own wording. |
 | `--type TYPE` | no | Declare it for one board only. |
 | `--on-column COLUMN` | no | Declare it for one column only. |

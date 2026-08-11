@@ -308,6 +308,41 @@ is( scalar( grep { $_->{ref} eq $shipped->{ref} } fired('gate-missing') ), 0,
         'while the rule that asks why it was set aside still applies' );
 }
 
+# --- dependencies that exist only in the words ---------------------------
+
+# Michael's point on 2026-08-11, after finding a card described as the final
+# gate before every release, linked to nothing it gated: an agent can skip the
+# linkage and nothing notices. A dependency written only in a description is a
+# dependency nobody can see and nothing can act on.
+{
+    my $gate = card( title => 'The gate everything waits on' );
+    $tira->policy_add( project => $root, rule => 'card-unlinked',
+        require_link => 'is-blocked-by', link_to => $gate->{ref}, action => 'bridge-reminder' );
+
+    my $unlinked = card( title => 'Raised in a hurry' );
+    ok( scalar( grep { $_->{ref} eq $unlinked->{ref} } fired('card-unlinked') ),
+        'a card with no link to what gates it is reported' );
+
+    $tira->link_add( project => $root, from => $gate->{ref},
+        type => 'blocks', to => $unlinked->{ref} );
+    is( scalar( grep { $_->{ref} eq $unlinked->{ref} } fired('card-unlinked') ), 0,
+        'and linking it silences the rule' );
+
+    # A card cannot be its own dependency.
+    is( scalar( grep { $_->{ref} eq $gate->{ref} } fired('card-unlinked') ), 0,
+        'the card everything points at is never asked to point at itself' );
+
+    # Work that shipped before a gate existed cannot be linked to it, and
+    # chasing it teaches an agent to read past the channel.
+    my $shipped_early = card( title => 'Shipped before the gate existed' );
+    ok( scalar( grep { $_->{ref} eq $shipped_early->{ref} } fired('card-unlinked') ),
+        'a live card without the link is still reported' );
+    $tira->column_roles_set( project => $root, type => 'ticket', roles => { done => 'done' } );
+    $tira->record_move( project => $root, ref => $shipped_early->{ref}, column => 'done' );
+    is( scalar( grep { $_->{ref} eq $shipped_early->{ref} } fired('card-unlinked') ), 0,
+        'and once it is done, it is left alone - which the board says, rather than the rule guessing' );
+}
+
 # --- what a violation carries --------------------------------------------
 
 my ($any) = @{ violations() };

@@ -62,6 +62,7 @@ my %declare = (
     'work-without-card'         => { age => '15m' },
     'unpushed-work'             => { age => '1h' },
     'board-unbacked'            => { age => '2h' },
+    'card-unlinked'             => { require_link => 'is-blocked-by' },
     'card-sandbox-missing'      => { enter => 'implement', sandbox => '/sandboxes' },
     'leftover-process'          => { pattern => 'sleep', age => '30m' },
     'leftover-container'        => { age => '30m' },

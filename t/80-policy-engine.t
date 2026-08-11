@@ -343,6 +343,41 @@ is( scalar( grep { $_->{ref} eq $shipped->{ref} } fired('gate-missing') ), 0,
         'and once it is done, it is left alone - which the board says, rather than the rule guessing' );
 }
 
+# --- a policy saying what it wants said ----------------------------------
+
+# His point on 2026-08-11, and his analogy for it: an option is a coat. If it
+# is warm you do not need it, but if it is cold and you did not bring one you
+# are stuck. So the option exists whether or not anybody uses it - without it,
+# an agent that wants particular wording simply cannot have it.
+{
+    my $spoken = card( title => 'Wants its own words' );
+    $tira->record_move( project => $root, ref => $spoken->{ref}, column => 'implement' );
+    $tira->policy_add( project => $root, rule => 'card-metrics', enter => 'implement',
+        require => 'due_date', ref => $spoken->{ref}, action => 'bridge-reminder',
+        message => '{ref} in {column} still has no due date - {detail}' );
+
+    my ($said) = grep { $_->{ref} eq $spoken->{ref} } fired('card-metrics');
+    ok( $said, 'the rule fires' );
+    like( $said->{message}, qr/\Q$spoken->{ref}\E/, 'the card is filled into the message' );
+    like( $said->{message}, qr/in implement/, 'and where it is' );
+    like( $said->{message}, qr/due_date/, 'and what the rule found, through the detail' );
+
+    # An unknown parameter is left visible rather than blanked, because a
+    # message that quietly loses half its text is worse than one showing a
+    # placeholder somebody can see and fix.
+    $tira->policy_add( project => $root, rule => 'orphan-card', ref => $spoken->{ref},
+        action => 'bridge-reminder', message => 'about {ref}, and {nonsense}' );
+    my ($odd) = grep { $_->{ref} eq $spoken->{ref} } fired('orphan-card');
+    like( $odd->{message}, qr/\{nonsense\}/, 'an unknown parameter is left alone, not blanked' );
+    like( $odd->{message}, qr/\Q$spoken->{ref}\E/, 'while the ones it knows are still filled in' );
+
+    # Saying nothing stays the default. The option is there; using it is not
+    # an obligation.
+    my ($plain) = grep { $_->{rule} eq 'card-stalled' } @{ violations() };
+    ok( !defined( $plain->{message} ), 'a policy with no message of its own says nothing extra' )
+      if $plain;
+}
+
 # --- what a violation carries --------------------------------------------
 
 my ($any) = @{ violations() };

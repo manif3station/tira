@@ -139,6 +139,33 @@ missing, at the moment you declare the policy rather than later.
 | `print-reminder` | the owner's police terminal | you want the owner to see it |
 | `log-only` | recorded, said to nobody | you are tuning a rule and do not want the noise yet |
 
+## Saying it in your own words
+
+`--message` replaces Tira's wording with yours, and a few things can be filled
+in. Every parameter is optional, and using none of them is perfectly normal -
+the option is there so that an agent that wants particular wording can have it,
+not because anybody must.
+
+| Parameter | What it becomes |
+| --- | --- |
+| `{ref}` | the card |
+| `{title}` | its title |
+| `{column}` | where it is |
+| `{assignee}` / `{reporter}` | who it belongs to |
+| `{rule}` / `{policy}` | which rule fired, and which policy said so |
+| `{detail}` | what the rule actually found |
+| `{age}` / `{max}` | the rule's own age or limit |
+
+```
+d2 tira.policy.add --rule card-duration --column implement --age 2h \
+  --action bridge-reminder \
+  --message "{ref} has been in {column} for over {age} - {title}"
+```
+
+A parameter Tira does not know is left visible rather than blanked, so a typo
+shows up as `{noSuchThing}` in the message instead of quietly deleting half of
+it.
+
 ## Ages
 
 `--age` takes `30s`, `10m`, `2h` or `7d`. It is that rule's grace: a card

@@ -510,6 +510,27 @@ repeats it also appears in this terminal with a message the owner can paste
 straight to the agent. Fixing the cause silences it on the next pass, with
 nothing to acknowledge.
 
+### `tira.gates.install`
+
+Install Tira's gates into this project's repository.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `-o FORMAT` | no | `toon` (default), `json`. |
+
+Two hooks. `commit-msg` refuses a commit that names no card on this board, or
+names one that is sitting in backlog, discard or done - if the work is real
+enough to commit, the card is real enough to have been moved. `pre-push` asks
+police about the board and refuses the push if it has anything to say.
+
+Both fail closed: if `d2` is not on the path, or police cannot read the board,
+the gate refuses rather than skipping. A gate that disappears when something is
+missing is not a gate.
+
+The commit gate asks the board which references are cards rather than assuming
+what a reference looks like, so it works on a project whose boards are named
+anything at all. Installing twice is safe.
+
 ### `tira.police.suspend`
 
 Ask police to look away for a set number of seconds, so the agent can

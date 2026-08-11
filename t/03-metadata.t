@@ -100,7 +100,7 @@ for my $command (@commands) {
 is_deeply( \@undocumented, [],
     'every command that ships is named in a document an agent reads' );
 
-is( scalar @commands, 121, 'release ships exactly 121 executable CLI entrypoints' );
+is( scalar @commands, 122, 'release ships exactly 122 executable CLI entrypoints' );
 
 done_testing;
 

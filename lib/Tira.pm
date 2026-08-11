@@ -3938,6 +3938,40 @@ sub _policy_questions {
     return grep { !$_->{discarded_at} } @{ $record->{questions} // [] };
 }
 
+# A policy may say what it wants said, in its own words, with a few things
+# filled in. Every parameter is optional and an unknown one is left alone
+# rather than blanked, because a message that quietly loses half its text is
+# worse than one that shows a placeholder somebody can see and fix.
+#
+# The option exists whether or not anybody uses it. Without it an agent that
+# wants a particular wording simply cannot have one; with it, saying nothing is
+# a choice rather than a limit.
+my %POLICY_MESSAGE_FIELDS = (
+    ref => sub { $_[0] },
+    rule => sub { $_[1]{rule} // '' },
+    policy => sub { $_[1]{id} // '' },
+    detail => sub { $_[2] // '' },
+    column => sub { ref $_[3] ? ( $_[3]{column} // '' ) : '' },
+    title => sub { ref $_[3] ? ( $_[3]{title} // '' ) : '' },
+    assignee => sub { ref $_[3] ? ( $_[3]{assignee} // '' ) : '' },
+    reporter => sub { ref $_[3] ? ( $_[3]{reporter} // '' ) : '' },
+    age => sub { $_[1]{age} // '' },
+    max => sub { $_[1]{max} // '' },
+);
+
+sub policy_message_fields { return [ sort keys %POLICY_MESSAGE_FIELDS ] }
+
+sub _policy_message {
+    my ( $policy, $record, $detail, $ref ) = @_;
+    my $message = $policy->{message};
+    return undef if !defined $message;
+    $message =~ s{\{(\w+)\}}{
+        my $field = $POLICY_MESSAGE_FIELDS{$1};
+        $field ? $field->( $ref, $policy, $detail, $record ) : "{$1}";
+    }ge;
+    return $message;
+}
+
 sub policy_evaluate {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
@@ -3955,12 +3989,13 @@ sub policy_evaluate {
 
     my $report = sub {
         my ( $policy, $record, $detail ) = @_;
+        my $ref = ref $record ? $record->{ref} : ( $record // '' );
         push @violations, {
             rule => $policy->{rule},
             policy => $policy->{id},
-            ref => ref $record ? $record->{ref} : ( $record // '' ),
+            ref => $ref,
             detail => $detail,
-            message => $policy->{message},
+            message => _policy_message( $policy, $record, $detail, $ref ),
             action => $policy->{action},
         };
     };
@@ -3995,6 +4030,7 @@ sub policy_evaluate {
         elsif ( $rule eq 'card-metrics' ) {
             my @wanted = split /\s*,\s*/, $policy->{require} // '';
             for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
                 next if ( $record->{column} // '' ) ne ( $policy->{enter} // '' );
                 my @missing = grep {
                     my $value = $record->{$_};
@@ -4016,6 +4052,7 @@ sub policy_evaluate {
         }
         elsif ( $rule eq 'card-stalled' ) {
             for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
                 my $checklist = $record->{checklist} // [];
                 next if !@{$checklist};
                 next if grep { ( $_->{status} // '' ) ne 'done' } @{$checklist};
@@ -4028,6 +4065,7 @@ sub policy_evaluate {
         }
         elsif ( $rule eq 'checklist-idle' ) {
             for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
                 next if ( $record->{column} // '' ) ne ( $policy->{column} // '' );
                 my $checklist = $record->{checklist} // [];
                 next if !@{$checklist};
@@ -4070,6 +4108,7 @@ sub policy_evaluate {
         }
         elsif ( $rule eq 'orphan-card' ) {
             for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
                 next if ( $record->{type} // '' ) eq 'sow';
                 next if defined $record->{parent} && $record->{parent} ne '';
                 $report->( $policy, $record, 'no parent' );
@@ -4077,6 +4116,7 @@ sub policy_evaluate {
         }
         elsif ( $rule eq 'question-unanswered' ) {
             for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
                 for my $question ( _policy_questions($record) ) {
                     next if $question->{answer};
                     next if !$self->_policy_older_than( $question->{asked_at}, $policy->{age} );
@@ -4087,6 +4127,7 @@ sub policy_evaluate {
         }
         elsif ( $rule eq 'answer-unjudged' ) {
             for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
                 for my $question ( _policy_questions($record) ) {
                     my $answer = $question->{answer} or next;
                     next if defined $answer->{mark};
@@ -4099,6 +4140,7 @@ sub policy_evaluate {
         elsif ( $rule eq 'answer-ok-not-folded' || $rule eq 'answer-not-ok-no-followup' ) {
             my $wanted = $rule eq 'answer-ok-not-folded' ? 'ok' : 'not-ok';
             for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
                 my @questions = _policy_questions($record);
                 for my $question (@questions) {
                     my $answer = $question->{answer} or next;
@@ -4133,6 +4175,7 @@ sub policy_evaluate {
         }
         elsif ( $rule eq 'gate-missing' ) {
             for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
                 next if ( $record->{column} // '' ) ne ( $policy->{column} // '' );
                 next if @{ $record->{gate_passing_log} // [] };
                 $report->( $policy, $record, "reached $policy->{column} with no gate recorded" );
@@ -4805,6 +4848,142 @@ sub police_suspended {
 sub _iso_from_epoch {
     my ($epoch) = @_;
     return strftime( '%Y-%m-%dT%H:%M:%SZ', gmtime $epoch );
+}
+
+# The gates a project runs, written by Tira rather than by each agent that
+# adopts it. They lived as shell scripts in one repository on one machine,
+# which is scaffolding: another project got none of it, and another agent
+# writing its own would get it subtly different.
+#
+# Everything they call is a Tira command, so an installed gate works on a
+# machine that has never seen this repository.
+my $COMMIT_GATE = <<'HOOK';
+#!/usr/bin/env bash
+#
+# A commit must name the card it belongs to, and that card must be somewhere
+# that means "being worked on".
+#
+# The push gate catches a board that has drifted, but hours after the drift
+# began. A commit is the frequent, unavoidable moment - so this is where the
+# board is forced to be current. If the work is real enough to commit, the card
+# is real enough to have been moved.
+#
+# Installed by: d2 tira.gates.install
+set -euo pipefail
+
+message="$(cat "$1")"
+
+case "$message" in
+  Merge\ *|Revert\ *|fixup!\ *|squash!\ *) exit 0 ;;
+esac
+
+# Prefixes belong to the project, not to Tira. Hard-coding this project's
+# own three meant the gate refused every commit on a board that names its
+# boards anything else - which is the whole difference between scaffolding
+# and a product, and it only showed up by installing it somewhere real.
+refs="$(grep -oE '\b[A-Z][A-Z0-9]*-[0-9]{3,}\b' <<<"$message" | sort -u || true)"
+if [ -z "$refs" ]; then
+  echo "commit-msg: name the card this commit belongs to, e.g. TKT-001." >&2
+  echo "A commit with no card is work the board cannot account for." >&2
+  exit 1
+fi
+
+command -v d2 >/dev/null || {
+  echo "commit-msg: d2 is not on PATH, so the card cannot be checked - refusing rather than skipping." >&2
+  exit 1
+}
+
+named=0
+for ref in $refs; do
+  card=""
+  kind=""
+  # Which board a reference belongs to is the board's business. Asking each in
+  # turn costs three calls and works on every project.
+  for try in ticket epic sow; do
+    found="$(d2 "tira.$try.show" --ref "$ref" -o json 2>/dev/null || true)"
+    if [ -n "$found" ] && ! grep -q '"error"' <<<"$found"; then
+      card="$found"; kind="$try"; break
+    fi
+  done
+  if [ -z "$card" ]; then
+    continue    # not a card on this board; somebody's issue tracker, or a version
+  fi
+  named=1
+  column="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("column",""))' <<<"$card")"
+  case "$column" in
+    backlog|discard|done)
+      echo "commit-msg: $ref is in '$column'." >&2
+      echo "Move it to the gate the work is at before committing against it:" >&2
+      echo "  d2 tira.$kind.move --ref $ref --column implement" >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [ "$named" = "0" ]; then
+  echo "commit-msg: none of the references in this message are on the board." >&2
+  echo "A commit with no card is work the board cannot account for." >&2
+  exit 1
+fi
+HOOK
+
+my $PUSH_GATE = <<'HOOK';
+#!/usr/bin/env bash
+#
+# The release gate. Push is part of "done", so this is the last moment anything
+# can be caught, and everything here fails closed - a missing tool is a failure
+# rather than a skip, because a gate that disappears when you delete a file is
+# not a gate.
+#
+# Installed by: d2 tira.gates.install
+set -euo pipefail
+
+fail() { printf '\npre-push: %s\n' "$1" >&2; exit 1; }
+
+command -v d2 >/dev/null || fail 'd2 is not on PATH - refusing rather than skipping'
+
+echo "pre-push: asking police about the board"
+if ! d2 tira.police --once -o json >/tmp/tira-police.$$ 2>/tmp/tira-police-err.$$; then
+  cat /tmp/tira-police-err.$$ >&2
+  rm -f /tmp/tira-police.$$ /tmp/tira-police-err.$$
+  fail 'police could not read the board'
+fi
+
+count="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get("violations",[])))' /tmp/tira-police.$$ 2>/dev/null || echo missing)"
+[ "$count" = "missing" ] && { rm -f /tmp/tira-police.$$ /tmp/tira-police-err.$$; fail 'could not read what police said'; }
+
+if [ "$count" != "0" ]; then
+  python3 -c 'import json,sys
+d = json.load(open(sys.argv[1]))
+for v in d.get("violations", []):
+    print("  {} {} {}".format(v.get("id",""), v.get("ref",""), v.get("detail","")))' /tmp/tira-police.$$ >&2
+  rm -f /tmp/tira-police.$$ /tmp/tira-police-err.$$
+  fail "police has $count things to say about this board - fix them, or discard what is not real work"
+fi
+rm -f /tmp/tira-police.$$ /tmp/tira-police-err.$$
+
+echo "pre-push: the board is in order"
+HOOK
+
+sub gates_install {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $git = File::Spec->catdir( $root, '.git' );
+    die "There is no git repository at '$root', so a gate would never run\n"
+      if !-d $git;
+
+    my $hooks = File::Spec->catdir( $git, 'hooks' );
+    make_path($hooks) if !-d $hooks;
+
+    my %gate = ( 'commit-msg' => $COMMIT_GATE, 'pre-push' => $PUSH_GATE );
+    my @installed;
+    for my $name ( sort keys %gate ) {
+        my $path = File::Spec->catfile( $hooks, $name );
+        $self->_atomic_write( $path, $gate{$name} );
+        chmod 0755, $path;
+        push @installed, $name;
+    }
+    return { installed => \@installed, into => $hooks };
 }
 
 sub _replace_record {

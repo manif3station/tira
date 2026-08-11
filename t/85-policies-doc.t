@@ -58,6 +58,25 @@ is_deeply( [ sort grep { !$real{$_} } keys %shown ], [],
 is_deeply( [ sort grep { !$shown{$_} } keys %real ], [],
     'and every rule that exists is shown at least once' );
 
+# --- the message parameters are real --------------------------------------
+
+# Both directions again. A parameter documented but not implemented leaves a
+# literal {placeholder} in somebody's message; one implemented but not
+# documented is a feature nobody knows to use.
+# Read from the parameter table only. The document also shows what a typo
+# looks like, and treating that example as a promise would report a gap that
+# is really the document doing its job.
+my %documented_parameter;
+for my $row ( $text =~ /^\|\s*(`\{\w+\}`(?:\s*\/\s*`\{\w+\}`)*)\s*\|/mg ) {
+    $documented_parameter{$1}++ while $row =~ /`\{(\w+)\}`/g;
+}
+my %real_parameter = map { $_ => 1 } @{ Tira::policy_message_fields() };
+
+is_deeply( [ sort grep { !$real_parameter{$_} } keys %documented_parameter ], [],
+    'every message parameter the document offers actually exists' );
+is_deeply( [ sort grep { !$documented_parameter{$_} } keys %real_parameter ], [],
+    'and every one that exists is documented' );
+
 # --- every command in it runs ---------------------------------------------
 
 # The commands are run for real against a scratch project. A document full of
@@ -72,7 +91,12 @@ $tira->project_new(
     sow_prefix => 'DCS', epic_prefix => 'DCE', ticket_prefix => 'DCT',
 );
 
-my @commands = $text =~ /^(d2 tira\.policy\.add .+)$/mg;
+# A command may be written across several lines with a backslash, which is how
+# anybody would write a long one - and how somebody would paste it. Reading
+# only the first line tests a truncated command that nobody would ever run.
+my $joined = $text;
+$joined =~ s/\\\n\s*/ /g;
+my @commands = $joined =~ /^(d2 tira\.policy\.add .+)$/mg;
 ok( scalar @commands >= scalar @numbered,
     'the document carries a command for every use case' );
 

@@ -1477,6 +1477,8 @@ sub _invoke {
         return $tira->record_clone(%args);
     }
 
+    return $tira->gates_install(%args) if $command eq 'gates.install';
+
     if ( $command eq 'police.suspend' || $command eq 'police.log' ) {
         my $store = $option->{store} // _police_store( $args{project} );
         return $tira->enforcement_log( %args, store => $store )

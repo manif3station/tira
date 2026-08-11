@@ -267,6 +267,34 @@ SKIP: {
     like( $err, qr/name=column/, 'with the shape it wanted' );
 }
 
+# --- asking for quiet, and reading what was said --------------------------
+
+# The suspension is the escape hatch, so it is the part most likely to be
+# abused - by the agent. Driven here through the dispatcher rather than the
+# engine, because the argument guards are where it would be abused from.
+{
+    my $store = File::Spec->catdir( $tmp, 'quiet' );
+    ( $status, my $out, my $err ) = run( 'police.suspend', '--seconds', '60',
+        '--reason', 'chasing one failing test', '--store', $store, '-o', 'json' );
+    is( $status, 0, 'a suspension can be asked for' );
+    like( $err, qr/SUSPENSION/, 'and appears in the owner\'s terminal as it happens' );
+    like( $err, qr/chasing one failing test/, 'with the reason given' );
+
+    ( $status, undef, my $no_reason ) =
+      run( 'police.suspend', '--seconds', '60', '--store', $store, '-o', 'json' );
+    isnt( $status, 0, 'without a reason it is refused' );
+    like( $no_reason, qr/reason/, 'saying so' );
+
+    ( $status, undef, my $too_long ) = run( 'police.suspend', '--seconds', '99999',
+        '--reason', 'a very long think', '--store', $store, '-o', 'json' );
+    isnt( $status, 0, 'and past the ceiling it is refused' );
+
+    ( $status, my $log ) = run( 'police.log', '--store', $store, '-o', 'json' );
+    is( $status, 0, 'the enforcement log can be read' );
+    like( $log, qr/chasing one failing test/,
+        'and carries the reason, written there by police rather than by the agent' );
+}
+
 # --- the help an agent needs ----------------------------------------------
 
 # The agent needs one command to learn the whole surface. Reading source to

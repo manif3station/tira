@@ -510,6 +510,39 @@ repeats it also appears in this terminal with a message the owner can paste
 straight to the agent. Fixing the cause silences it on the next pass, with
 nothing to acknowledge.
 
+### `tira.police.suspend`
+
+Ask police to look away for a set number of seconds, so the agent can
+concentrate on one thing without the bridge interrupting.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--seconds N` | yes | How long. There is no open-ended form; enforcement resumes by itself. |
+| `--reason TEXT` | yes | Why. At most 500 characters, refused rather than trimmed. |
+| `--store PATH` | no | Police's own state, if it is not in the usual place. |
+
+Ten minutes is the ceiling. A second suspension within the hour is reported to
+the owner's terminal as a renewal, with the day's running quiet time beside it -
+because a ceiling on its own is defeated by asking again the moment each one
+expires.
+
+Every suspension appears in the owner's terminal as it happens, and the reason
+is written into the enforcement log **by police**, on the agent's behalf.
+
+### `tira.police.log`
+
+Read the enforcement log: what police has had to say, and every suspension that
+was asked for.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--ref CARD` | no | Only what concerns one card. With none, everything. |
+
+**There is no command to write, change or remove an entry, and that is
+deliberate.** A log that exists to hold somebody to account cannot be one they
+can write - which is why even the agent's own words about its own suspension
+reach the record through police rather than around it.
+
 ### `tira.policy.bridge`
 
 **The agent runs this** and acts on what arrives. One way: police speaks, the

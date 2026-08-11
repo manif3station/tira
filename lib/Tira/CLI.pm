@@ -86,6 +86,7 @@ sub run {
         'age=s' => \$option{age},
         'max=i' => \$option{max}, 'require=s' => \$option{require},
         'once' => \$option{once}, 'interval=i' => \$option{interval},
+        'seconds=i' => \$option{seconds},
         'on-column=s' => \$option{on_column},
         'role=s@' => \$option{roles},
         'require-link=s' => \$option{require_link}, 'link-to=s' => \$option{link_to},
@@ -1228,9 +1229,10 @@ sub _invoke {
       if $option->{nested} && $command !~ /\A(?:project\.(?:new|create)|onboard)\z/;
     die "A mark belongs to the question.mark command\n"
       if defined $option->{mark} && $command ne 'question.mark';
-    die "A reason and options belong to the question.ask and question.update commands\n"
+    die "A reason and options belong to the question.ask and question.update commands, and to police.suspend\n"
       if ( defined $option->{reason} || $option->{options} )
-      && $command !~ /\Aquestion\.(?:ask|update)\z/;
+      && $command !~ /\Aquestion\.(?:ask|update)\z/
+      && $command ne 'police.suspend';
     die "A voice note belongs to the question.ask, question.update and question.voice commands\n"
       if defined $option->{voice} && $command !~ /\Aquestion\.(?:ask|update|voice)\z/;
     die "Remove belongs to the question.voice and question.attach commands\n"
@@ -1473,6 +1475,20 @@ sub _invoke {
         return $tira->record_discard(%args) if $action eq 'discard';
         return $tira->record_restore(%args) if $action eq 'restore';
         return $tira->record_clone(%args);
+    }
+
+    if ( $command eq 'police.suspend' || $command eq 'police.log' ) {
+        my $store = $option->{store} // _police_store( $args{project} );
+        return $tira->enforcement_log( %args, store => $store )
+          if $command eq 'police.log';
+        my $quiet = $tira->police_suspend(
+            %args, store => $store,
+            seconds => $option->{seconds}, reason => $option->{reason} );
+
+        # The owner sees every suspension as it happens, so quiet is never
+        # something that simply occurs.
+        print {*STDERR} "$quiet->{terminal}\n";
+        return $quiet;
     }
 
     if ( $command eq 'police' || $command eq 'policy.bridge' ) {

@@ -4420,7 +4420,18 @@ sub police_pass {
         $found = [];
     }
 
+    if ( $self->police_suspended( store => $store ) ) {
+        return { watching => 1, suspended => 1, violations => [], terminal => [] };
+    }
+
     my $view = $self->violation_record( store => $store, violations => $found );
+
+    # What police has said about a card belongs on that card, written by police
+    # and by nobody else.
+    $self->_enforcement_record( store => $store, kind => 'violation',
+        ref => $_->{ref}, detail => "$_->{id} $_->{detail}" )
+      for grep { $_->{seen} == 1 } @{$view};
+
     return {
         watching => 1,
         violations => $view,
@@ -4657,6 +4668,143 @@ sub _policy_column_for {
         $self->column_roles( project => $args{project}, type => $record->{type} );
     } || {};
     return $roles->{$role};
+}
+
+# Asking police to look away, without anybody losing sight of the fact that it
+# was asked. There is no open-ended off switch: a duration is required, the
+# ceiling is short, and enforcement resumes on its own with nothing to
+# remember and nothing to undo.
+#
+# The escape hatch is the part most likely to be abused, and by the agent. A
+# ceiling alone is defeated by asking again the moment each one expires, so a
+# renewal inside the hour is an event in its own right and the running total
+# makes a pattern visible - without ever blocking work, because an obstacle
+# gets worked around and this must not become one.
+our $SUSPENSION_CEILING_SECONDS = 600;
+our $SUSPENSION_REASON_LIMIT = 500;
+
+sub _enforcement_path {
+    my ( $self, $store ) = @_;
+    make_path($store) if !-d $store;
+    return File::Spec->catfile( $store, 'enforcement.json' );
+}
+
+sub _enforcement_read {
+    my ( $self, $store ) = @_;
+    my $path = $self->_enforcement_path($store);
+    return { entries => [], suspended_until => undef } if !-f $path;
+    open my $fh, '<:raw', $path or return { entries => [], suspended_until => undef };
+    my $content = do { local $/; <$fh> };
+    close $fh;
+    my $log = eval { json_decode($content) };
+    return ref $log eq 'HASH' ? $log : { entries => [], suspended_until => undef };
+}
+
+sub _enforcement_write {
+    my ( $self, $store, $log ) = @_;
+    $self->_atomic_write( $self->_enforcement_path($store),
+        json_object()->canonical->encode($log) );
+    return 1;
+}
+
+# Police writes here and nobody else does. There is deliberately no command to
+# add, change or remove an entry: a log that exists to hold somebody to account
+# cannot be one they can write, and that includes the agent's own words about
+# its own suspension, which reach the record through police rather than around
+# it.
+sub _enforcement_record {
+    my ( $self, %args ) = @_;
+    my $store = $args{store} or die "A police store is required\n";
+    my $log = $self->_enforcement_read($store);
+    push @{ $log->{entries} }, {
+        at => $self->{clock}->(),
+        kind => $args{kind},
+        ref => $args{ref} // '',
+        detail => $args{detail} // '',
+    };
+    $self->_enforcement_write( $store, $log );
+    return 1;
+}
+
+sub enforcement_log {
+    my ( $self, %args ) = @_;
+    my $store = $args{store} or die "A police store is required\n";
+    my $log = $self->_enforcement_read($store);
+    my $wanted = $args{ref};
+    return [ grep { !defined $wanted || ( $_->{ref} // '' ) eq $wanted }
+             @{ $log->{entries} // [] } ];
+}
+
+sub police_suspend {
+    my ( $self, %args ) = @_;
+    my $store = $args{store} or die "A police store is required\n";
+    my $seconds = $args{seconds};
+    die "How many seconds? A suspension has to end by itself\n"
+      if !defined $seconds || $seconds !~ /\A\d+\z/ || $seconds == 0;
+    die "A suspension of $seconds seconds is past the ceiling of "
+      . "$SUSPENSION_CEILING_SECONDS (ten minutes)\n"
+      if $seconds > $SUSPENSION_CEILING_SECONDS;
+
+    my $reason = $args{reason};
+    die "A reason is required - a silence nobody can account for is worse than the noise\n"
+      if !defined $reason || $reason eq '';
+    die 'A reason must be at most ' . $SUSPENSION_REASON_LIMIT
+      . " characters, and is not trimmed for you\n"
+      if length($reason) > $SUSPENSION_REASON_LIMIT;
+
+    my $now = $self->{clock}->();
+    my $at = _epoch_of_datetime( $now, 'Clock' );
+    my $log = $self->_enforcement_read($store);
+
+    # A renewal is any suspension asked for within the hour of the last one.
+    my ($previous) = grep { ( $_->{kind} // '' ) eq 'suspension' }
+      reverse @{ $log->{entries} // [] };
+    my $renewal = 0;
+    my $quiet_so_far = 0;
+    if ($previous) {
+        my $then = eval { _epoch_of_datetime( $previous->{at}, 'Stamp' ) };
+        $renewal = 1 if defined $then && $at - $then <= 3600;
+    }
+    for my $entry ( @{ $log->{entries} // [] } ) {
+        next if ( $entry->{kind} // '' ) ne 'suspension';
+        my $then = eval { _epoch_of_datetime( $entry->{at}, 'Stamp' ) } // next;
+        next if $at - $then > 86_400;
+        $quiet_so_far += $1 if ( $entry->{detail} // '' ) =~ /(\d+)s\b/;
+    }
+    $quiet_so_far += $seconds;
+
+    my $until = _iso_from_epoch( $at + $seconds );
+    $log->{suspended_until} = $until;
+    $self->_enforcement_write( $store, $log );
+    $self->_enforcement_record(
+        store => $store, kind => 'suspension', ref => $args{ref},
+        detail => "${seconds}s: $reason" );
+
+    my $terminal = join ' | ', $now,
+      ( $renewal ? 'SUSPENSION RENEWAL' : 'SUSPENSION' ),
+      "${seconds}s until $until", $reason,
+      "quiet time in the last day: ${quiet_so_far}s";
+
+    return {
+        seconds => $seconds, until => $until, reason => $reason,
+        renewal => $renewal, quiet_seconds_today => $quiet_so_far,
+        terminal => $terminal,
+    };
+}
+
+sub police_suspended {
+    my ( $self, %args ) = @_;
+    my $store = $args{store} or return 0;
+    my $log = $self->_enforcement_read($store);
+    my $until = $log->{suspended_until} or return 0;
+    my $now = eval { _epoch_of_datetime( $self->{clock}->(), 'Clock' ) } // return 0;
+    my $ends = eval { _epoch_of_datetime( $until, 'Stamp' ) } // return 0;
+    return $now < $ends ? 1 : 0;
+}
+
+sub _iso_from_epoch {
+    my ($epoch) = @_;
+    return strftime( '%Y-%m-%dT%H:%M:%SZ', gmtime $epoch );
 }
 
 sub _replace_record {

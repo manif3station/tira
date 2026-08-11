@@ -295,6 +295,22 @@ SKIP: {
         'and carries the reason, written there by police rather than by the agent' );
 }
 
+# --- what happened to a card ----------------------------------------------
+
+{
+    my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Watched' );
+    $tira->comment_add( project => $root, ref => $card->{ref},
+        author => 'michael', text => 'a note about it' );
+
+    ( $status, my $log ) = run( 'worklog.show', '--ref', $card->{ref}, '-o', 'json' );
+    is( $status, 0, 'a card\'s work log can be read from the command line' );
+    like( $log, qr/commented/, 'and says what happened' );
+    like( $log, qr/a note about it/, 'including what was said' );
+
+    ( $status, undef, my $err ) = run( 'worklog.show', '-o', 'json' );
+    isnt( $status, 0, 'and it needs to be told which card' );
+}
+
 # --- the help an agent needs ----------------------------------------------
 
 # The agent needs one command to learn the whole surface. Reading source to

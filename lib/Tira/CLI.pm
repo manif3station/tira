@@ -410,6 +410,15 @@ sub browser_providers {
         # through, so a rule cannot be enforced in one and forgotten in the
         # other. A failed sign-in answers ok => false rather than dying,
         # because the login page has to show a message, not a stack trace.
+        # Fetched only when somebody expands the section. A card has a great
+        # deal happen to it, and loading all of it whenever a card is opened
+        # would bury everything else on the card.
+        work_log => sub {
+            my ($payload) = @_;
+            die "A card reference is required\n" if !defined $payload->{ref};
+            return $json->encode(
+                $tira->work_log( project => $project, ref => $payload->{ref} ) );
+        },
         login_page => sub {
             my $project_name = eval { $tira->project_show( project => $project )->{name} };
             return $tira->login_page_html( name => $project_name );
@@ -1478,6 +1487,7 @@ sub _invoke {
     }
 
     return $tira->gates_install(%args) if $command eq 'gates.install';
+    return $tira->work_log(%args) if $command eq 'worklog.show';
 
     if ( $command eq 'police.suspend' || $command eq 'police.log' ) {
         my $store = $option->{store} // _police_store( $args{project} );

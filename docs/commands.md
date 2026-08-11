@@ -510,6 +510,24 @@ repeats it also appears in this terminal with a message the owner can paste
 straight to the agent. Fixing the cause silences it on the next pass, with
 nothing to acknowledge.
 
+### `tira.worklog.show`
+
+What has actually happened to a card: raised, moved, edited, commented, asked,
+answered, marked - in order, with who did it where the board knows.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--ref CARD` | yes | Which card. |
+
+**There is no command to write an entry, and there never will be.** The log is
+derived from what the engine already records, so adding a comment *is* the
+entry and changing a title logs itself. An agent that has to remember to log
+keeps a log worth nothing.
+
+On the browser dashboard it is a collapsed section in the card dialog, fetched
+only when somebody expands it - a card has a great deal happen to it, and
+loading all of it whenever a card opens would bury everything else.
+
 ### `tira.gates.install`
 
 Install Tira's gates into this project's repository.

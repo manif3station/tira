@@ -267,10 +267,32 @@ like( $live_html, qr/\.card-question\[data-settled="1"\]\{padding:\.5rem/,
 # Answering wiped the whole questions panel. The reload rebuilds the
 # card's sections from scratch, so anything only the first render added is gone
 # the moment anybody changes something.
-like( $live_html, qr/renderCard\(record\);renderQuestions\(record\);return record/,
-    'reloading the card rebuilds its questions too, so answering does not erase them' );
+like( $live_html, qr/renderCard\(record\);renderQuestions\(record\);renderWorkLog\(record\);return record/,
+    'reloading the card rebuilds its questions and its work log too, so answering does not erase them' );
 is( scalar( () = $live_html =~ /renderQuestions\(record\)/g ), 2,
     'and every path that renders a card renders them: the first open and every reload' );
+
+# --- the work log, collapsed and fetched only when asked for --------------
+
+# A card has a great deal happen to it. Loading all of it whenever a card is
+# opened would bury everything else, so the section renders closed and the
+# request only goes out when somebody expands it - which is also the whole
+# difference between a card that opens instantly and one that does not.
+like( $live_html, qr/const renderWorkLog=/, 'the dialog builds a work log section' );
+like( $live_html, qr/card-worklog__toggle/, 'with something to click' );
+like( $live_html, qr/body\.hidden=true/, 'starting closed' );
+like( $live_html, qr/if\(!open\|\|loaded\)return/,
+    'and it fetches once, on expanding, rather than on every click' );
+
+{
+    # The request must sit inside the click handler. If it were anywhere else
+    # the section would look lazy while loading eagerly, which is the failure
+    # that would never show up by reading the rendered page.
+    my ($handler) = $live_html =~ /head\.addEventListener\("click",\(\)=>\{(.*?)\}\);box\.appendChild/s;
+    ok( $handler, 'the toggle has a click handler' );
+    like( $handler // '', qr{fetch\("/worklog\?ref="},
+        'and the fetch is inside it, so opening a card asks for nothing' );
+}
 
 # The owner reads and answers questions where he reads the card
 like( $live_html, qr/const renderQuestions=/, 'the dialog builds a questions section' );

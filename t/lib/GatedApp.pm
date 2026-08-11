@@ -22,6 +22,7 @@ sub signed_in {
         session_resume => sub { return '{"person":"tester"}' },
         session_peek => sub { return '{"person":"tester"}' },
         session_end => sub { return '{"ok":true}' },
+        work_log => sub { return '[]' },
     );
 }
 

@@ -13,7 +13,8 @@ our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $SEARCH, $COMMENT_ADD, $
       $ATTACHMENT_FETCH, $ATTACHMENT_ADD, $ATTACHMENT_REMOVE, $CHECKLIST_ADD, $CHECKLIST_UPDATE,
       $LINK_TYPES, $HIERARCHY_LINK, $HIERARCHY_UNLINK, $SUBITEM_LINK, $SUBITEM_UNLINK, $LINK_ADD, $LINK_REMOVE,
       $COLUMNS, $COLUMN_APPLY, $QUESTION_ANSWER, $QUESTION_MARK, $QUESTION_ATTACH,
-      $LOGIN_START, $LOGIN_REGISTER, $SESSION_RESUME, $SESSION_PEEK, $SESSION_END, $LOGIN_PAGE );
+      $LOGIN_START, $LOGIN_REGISTER, $SESSION_RESUME, $SESSION_PEEK, $SESSION_END, $LOGIN_PAGE,
+      $WORK_LOG );
 
 our $COOKIE = 'tira_session';
 
@@ -137,6 +138,15 @@ get '/record' => sub {
     }
     content_type 'application/json; charset=UTF-8';
     return _response_bytes( $DETAIL->( \%query ) );
+};
+
+# Its own route, asked for when the section is expanded rather than when the
+# card is opened.
+get '/worklog' => sub {
+    my ($ref) = ( request->env->{QUERY_STRING} // '' ) =~ /(?:\A|&)ref=([^&]*)/;
+    $ref =~ s/%([0-9A-Fa-f]{2})/chr hex $1/ge if defined $ref;
+    content_type 'application/json; charset=UTF-8';
+    return _response_bytes( $WORK_LOG->( { ref => $ref } ) );
 };
 
 get '/people' => sub {
@@ -313,6 +323,7 @@ my @PROVIDERS = (
     [ session_peek => \$SESSION_PEEK, 'session peek provider' ],
     [ session_end => \$SESSION_END, 'session end provider' ],
     [ login_page => \$LOGIN_PAGE, 'login page provider' ],
+    [ work_log => \$WORK_LOG, 'work log provider' ],
 );
 
 sub build_psgi_app {

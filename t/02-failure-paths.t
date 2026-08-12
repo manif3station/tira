@@ -16,7 +16,7 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use Cwd qw(realpath);
 use Test::More;
-use YAML::PP;
+use YAML::XS ();
 
 use lib 'lib';
 use Tira;
@@ -89,7 +89,7 @@ ok(
     'record JSON is removed when its counter update fails',
 );
 
-my $yaml = YAML::PP->new;
+my $yaml = Tira::Yaml->new;
 my $config_path = File::Spec->catfile( $project, '.tira', 'ticket', 'config.yml' );
 my $config = read_yaml($config_path);
 $config->{next_number} = 'invalid';
@@ -255,7 +255,7 @@ like( $direct_err, qr/Unsupported output format/, 'format failure falls back to 
 }
 like( $direct_err, qr/"error"\s*:\s*"Unsupported Tira command/, 'emergency formatter emits JSON' );
 
-# YAML::PP's load_file leaves the handle open, and on Windows an open handle
+# the YAML reader's load_file left the handle open, and on Windows an open handle
 # makes a file impossible to replace - so a test that reads a config and then
 # asks Tira to write it fails there and nowhere else. Reading it as a string
 # closes the file when this says so.

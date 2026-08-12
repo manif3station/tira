@@ -185,6 +185,16 @@ refuses when the destination exists; the replacement stays atomic rather than
 becoming a delete followed by a rename. The full suite and every shipped Perl
 entrypoint pass under taint mode.
 
+Tira uses compiled parsers and requires them: `Cpanel::JSON::XS` for JSON and
+`YAML::XS` for YAML. A missing one is refused with the command to install it
+rather than replaced by a pure-Perl fallback — decoding a mature board cost
+1992ms with the pure-Perl parser against 6ms with the compiled one, where
+reading the same files without parsing costs 2ms. That means a compiler is an
+install requirement, which is proved on the macOS and Windows labs rather than
+assumed. Booleans are `JSON::PP::Boolean` — the class, not the parser — which
+is what both compiled parsers produce, so stored records never rewrite and no
+content hash drifts.
+
 Every change to a card is recorded on it, and says who made it where anybody
 said. The browser knows, because there is a login in front of it; the command
 line takes `TIRA_AUTHOR` from the environment, so whoever is running it says so

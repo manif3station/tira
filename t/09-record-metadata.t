@@ -6,9 +6,9 @@ use utf8;
 
 use File::Spec;
 use File::Temp qw(tempdir);
-use JSON::PP qw(decode_json);
+use Cpanel::JSON::XS qw(decode_json);
 use Test::More;
-use YAML::PP;
+use YAML::XS ();
 
 use lib 'lib';
 use Tira;
@@ -115,7 +115,7 @@ close $legacy_in;
 delete @{$legacy_data}{qw(assignee reporter labels due_date start_date sdlc_gate lifecycle priority fix_version affects_versions parent checklist)};
 $legacy_data->{assignees} = ['ada'];
 open my $legacy_out, '>:raw', $legacy_path or die $!;
-print {$legacy_out} JSON::PP->new->canonical->pretty->encode($legacy_data);
+print {$legacy_out} Cpanel::JSON::XS->new->canonical->pretty->encode($legacy_data);
 close $legacy_out;
 my $migrated = $tira->record_show( project => $root, ref => $legacy->{ref} );
 is( $migrated->{assignee}, 'ada', 'legacy assignee array migrates to singular assignee' );
@@ -126,7 +126,7 @@ $legacy_data->{comments} = [{
     id => 'CMT-001', author => 'ada', format => 'markdown', body => 'Cost £523',
     attachments => [], created_at => '2026-08-05T13:30:00Z', last_updated => '2026-08-05T13:30:00Z',
 }];
-my $legacy_bytes = JSON::PP->new->canonical->pretty->utf8->encode($legacy_data);
+my $legacy_bytes = Cpanel::JSON::XS->new->canonical->pretty->utf8->encode($legacy_data);
 $legacy_bytes =~ s/\xC2\xA3/\xA3/ or die 'Could not create legacy pound-byte fixture';
 open $legacy_out, '>:raw', $legacy_path or die $!;
 print {$legacy_out} $legacy_bytes;
@@ -140,7 +140,7 @@ close $legacy_in;
 is( decode_json($repaired_bytes)->{comments}[0]{body}, 'Cost £523', 'next mutation persists repaired valid UTF-8 JSON' );
 like( $repaired_bytes, qr/\xC2\xA3/, 'repaired JSON contains canonical UTF-8 pound bytes' );
 
-my $yaml = YAML::PP->new( boolean => 'JSON::PP' );
+my $yaml = Tira::Yaml->new;
 my $project_path = File::Spec->catfile( $root, '.tira', 'project.yml' );
 my $project_data = read_yaml($project_path);
 delete $project_data->{people}[1]{active};
@@ -179,7 +179,7 @@ $ticket = $tira->record_update( project => $root, ref => $ticket->{ref}, priorit
 $ticket = $tira->record_update( project => $root, ref => $ticket->{ref}, priority => 4, expect => { priority => 3 } );
 is( $ticket->{priority}, 4, 'numeric bases compare by value' );
 
-# YAML::PP's load_file leaves the handle open, and on Windows an open handle
+# the YAML reader's load_file left the handle open, and on Windows an open handle
 # makes a file impossible to replace - so a test that reads a config and then
 # asks Tira to write it fails there and nowhere else. Reading it as a string
 # closes the file when this says so.

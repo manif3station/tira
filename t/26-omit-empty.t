@@ -5,7 +5,7 @@ use warnings;
 
 use File::Spec;
 use File::Temp qw(tempdir);
-use JSON::PP qw(decode_json);
+use Cpanel::JSON::XS qw(decode_json);
 use Test::More;
 
 use lib 'lib';
@@ -92,7 +92,7 @@ ok( exists decode_json($out)->{records}[0]{evidence}, 'export include-empty rest
 is( $status, 2, 'include-empty on a mutation exits 2 instead of being ignored' );
 like( $err, qr/show, list, and export/, 'the error explains where it applies' );
 
-ok( !Tira::_is_empty_value( JSON::PP::false() ), 'boolean false is a value, never emptiness' );
+ok( !Tira::_is_empty_value( Cpanel::JSON::XS::false() ), 'boolean false is a value, never emptiness' );
 ok( !Tira::_is_empty_value(0), 'zero is a value, never emptiness' );
 ok( Tira::_is_empty_value( { nested => [], further => { deep => '' } } ), 'emptiness recurses through nested hashes' );
 

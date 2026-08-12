@@ -5,7 +5,7 @@ use warnings;
 
 use File::Spec;
 use File::Temp qw(tempdir);
-use JSON::PP ();
+use Cpanel::JSON::XS ();
 use Test::More;
 
 use lib 'lib';
@@ -45,7 +45,7 @@ sub run {
 sub json_of {
     my ( $command, @argv ) = @_;
     my ( $status, $out, $err ) = run( $command, @argv, '-o', 'json' );
-    return ( $status, ( $status == 0 ? JSON::PP->new->decode($out) : $err ) );
+    return ( $status, ( $status == 0 ? Cpanel::JSON::XS->new->decode($out) : $err ) );
 }
 
 # --- claiming a password -------------------------------------------------
@@ -54,7 +54,7 @@ my ( $status, $claimed ) = json_of( 'login.register', '--id', 'michael', '--pass
 is( $status, 0, 'login.register exits clean' );
 is( $claimed->{id}, 'michael', 'and answers with the person who claimed it' );
 ok( !exists $claimed->{password}{plaintext}, 'the answer carries no plaintext' );
-unlike( JSON::PP->new->canonical->encode($claimed), qr/hunter2/,
+unlike( Cpanel::JSON::XS->new->canonical->encode($claimed), qr/hunter2/,
     'and the password appears nowhere in what is printed back' );
 
 ( $status, my $again ) = json_of( 'login.register', '--id', 'michael', '--password', 'other' );
@@ -93,7 +93,7 @@ is( $listed->[0]{person}, 'michael', 'as the person holding it' );
 
 # Listing who is signed in must not hand out the tokens themselves - the
 # listing is for the owner, and a token is the credential.
-unlike( JSON::PP->new->canonical->encode($listed), qr/\Q$token\E/,
+unlike( Cpanel::JSON::XS->new->canonical->encode($listed), qr/\Q$token\E/,
     'and the token itself is not printed' );
 
 # --- signing out ---------------------------------------------------------
@@ -143,15 +143,15 @@ for my $name (qw(login_start session_resume session_peek session_end)) {
     is( ref $providers->{$name}, 'CODE', "the browser is given a $name provider" );
 }
 
-my $opened = JSON::PP->new->decode(
+my $opened = Cpanel::JSON::XS->new->decode(
     $providers->{login_start}->( { id => 'ada', password => 'correct horse' } ) );
 ok( $opened->{ok}, 'the browser can open a session' );
 ok( $opened->{token}, 'and is handed the token to put in a cookie' );
 
-my $resumed = JSON::PP->new->decode( $providers->{session_resume}->( { token => $opened->{token} } ) );
+my $resumed = Cpanel::JSON::XS->new->decode( $providers->{session_resume}->( { token => $opened->{token} } ) );
 is( $resumed->{person}, 'ada', 'and can resume it' );
 
-my $refused = JSON::PP->new->decode(
+my $refused = Cpanel::JSON::XS->new->decode(
     $providers->{login_start}->( { id => 'buildbot', password => 'beep' } ) );
 ok( !$refused->{ok}, 'a bot is refused through the browser too' );
 
@@ -162,7 +162,7 @@ ok( !$refused->{ok}, 'a bot is refused through the browser too' );
 $tira->person_update( project => $root, id => 'ada', name => 'Ada Botwright' );
 ok( $tira->login_verify( project => $root, id => 'ada', password => 'correct horse' ) == 0,
     'a person renamed into a bot stops verifying even though the password still matches' );
-my $renamed = JSON::PP->new->decode(
+my $renamed = Cpanel::JSON::XS->new->decode(
     $providers->{login_start}->( { id => 'ada', password => 'correct horse' } ) );
 ok( !$renamed->{ok},
     'and the browser refuses them, so the bot rule is what is doing the refusing' );
@@ -171,30 +171,30 @@ ok( !$renamed->{ok},
 # one, and be handed a session in the same breath - otherwise a first-time
 # visitor would have to type the same password twice.
 $tira->person_add( project => $root, id => 'grace', name => 'Grace' );
-my $first = JSON::PP->new->decode(
+my $first = Cpanel::JSON::XS->new->decode(
     $providers->{login_register}->( { id => 'grace', password => 'first time' } ) );
 ok( $first->{ok}, 'the browser can claim a password on a first visit' );
 ok( $first->{claimed}, 'and says that is what happened' );
 is( $tira->session_peek( project => $root, token => $first->{token} )->{person}, 'grace',
     'handing back a session so nobody types their password twice' );
 
-my $twice = JSON::PP->new->decode(
+my $twice = Cpanel::JSON::XS->new->decode(
     $providers->{login_register}->( { id => 'grace', password => 'again' } ) );
 ok( !$twice->{ok}, 'claiming a second time is refused rather than overwriting' );
 
 # The board's background poll goes through peek, so it must never push the
 # expiry out - the same rule the engine enforces, checked at the seam the
 # browser actually uses.
-my $peeked = JSON::PP->new->decode( $providers->{session_peek}->( { token => $first->{token} } ) );
+my $peeked = Cpanel::JSON::XS->new->decode( $providers->{session_peek}->( { token => $first->{token} } ) );
 is( $peeked->{person}, 'grace', 'the browser can peek at a session' );
-is( JSON::PP->new->decode( $providers->{session_peek}->( { token => 'nope' } ) )->{person}, undef,
+is( Cpanel::JSON::XS->new->decode( $providers->{session_peek}->( { token => 'nope' } ) )->{person}, undef,
     'and peeking at nothing says nobody rather than failing' );
 
-my $signed_out = JSON::PP->new->decode( $providers->{session_end}->( { token => $first->{token} } ) );
+my $signed_out = Cpanel::JSON::XS->new->decode( $providers->{session_end}->( { token => $first->{token} } ) );
 ok( $signed_out->{ok}, 'the browser can sign somebody out' );
-is( JSON::PP->new->decode( $providers->{session_resume}->( { token => $first->{token} } ) )->{person},
+is( Cpanel::JSON::XS->new->decode( $providers->{session_resume}->( { token => $first->{token} } ) )->{person},
     undef, 'after which the token is worth nothing' );
-ok( !JSON::PP->new->decode( $providers->{session_end}->( { token => 'never-existed' } ) )->{ok},
+ok( !Cpanel::JSON::XS->new->decode( $providers->{session_end}->( { token => 'never-existed' } ) )->{ok},
     'and signing out a session that was never there says so rather than dying' );
 
 done_testing;

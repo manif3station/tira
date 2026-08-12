@@ -7,7 +7,7 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use Encode qw(decode_utf8);
 use HTTP::Request::Common qw(GET POST);
-use JSON::PP qw(decode_json);
+use Cpanel::JSON::XS qw(decode_json);
 use Plack::Test;
 use Test::More;
 
@@ -153,7 +153,7 @@ my @warnings;
         POST '/move', Content_Type => 'application/json', Content => '{"type":"ticket","ref":"TKT-001","column":"done"}'
     );
     is( $move_response->code, 200, 'PSGI move route returns success' );
-    is( decode_json( $move_response->content )->{ok}, JSON::PP::true,
+    is( decode_json( $move_response->content )->{ok}, Cpanel::JSON::XS::true,
         'move route returns the provider result' );
     my $detail_response = $client->( GET '/record?type=ticket&ref=TKT-001' );
     is( $detail_response->code, 200, 'PSGI detail route returns success' );

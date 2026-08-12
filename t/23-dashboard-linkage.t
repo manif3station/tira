@@ -6,7 +6,7 @@ use warnings;
 use File::Spec;
 use File::Temp qw(tempdir);
 use HTTP::Request::Common qw(GET POST);
-use JSON::PP qw(decode_json);
+use Cpanel::JSON::XS qw(decode_json);
 use Plack::Test;
 use Test::More;
 

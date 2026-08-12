@@ -102,7 +102,7 @@ is( slurp($path), "second\n", 'and written again over itself, which is the case 
 
 # --- the second Windows bug, which the first one hid -----------------------
 
-# YAML::PP's load_file leaves the handle open. On Linux that is untidy and
+# the YAML reader's load_file left the handle open. On Linux that is untidy and
 # harmless; on Windows an open handle makes a file impossible to replace, so
 # every board config write failed with "Access is denied" immediately after the
 # config had been read. Nothing about it is visible on Linux, which is why it

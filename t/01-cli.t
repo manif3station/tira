@@ -14,7 +14,7 @@ BEGIN {
 use File::Spec;
 use File::Temp qw(tempdir);
 use IPC::Open3;
-use JSON::PP qw(decode_json);
+use Cpanel::JSON::XS qw(decode_json);
 use Symbol qw(gensym);
 use Test::More;
 

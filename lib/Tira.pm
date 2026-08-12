@@ -13,12 +13,44 @@ use File::Find qw(find);
 use File::Path qw(make_path);
 use File::Spec;
 use File::Temp qw(tempfile);
-use JSON::PP ();
+use Cpanel::JSON::XS ();
 use POSIX qw(strftime);
 use Time::Local qw(timegm_modern);
-use YAML::PP;
+use YAML::XS ();
 
-our $VERSION = '1.07';
+{
+    # YAML::XS is a function interface; the engine and its tests speak to an
+    # object with dump_string and load_string, which is the shape everything
+    # here already uses. Booleans come back as JSON::PP::Boolean, which is the
+    # same class Cpanel::JSON::XS produces - so true stays true across both
+    # parsers, which is the part that would have gone wrong silently.
+    package Tira::Yaml;
+
+    use Encode qw(encode_utf8);
+
+    sub new { return bless {}, shift }
+
+    # Bytes, both ways. libyaml does its own UTF-8: Dump hands back encoded
+    # bytes and Load expects them, so handing Load a decoded character string
+    # makes it read the second byte of a two-byte character as a leading octet
+    # and refuse the file. A project with a pound sign in a person's name was
+    # unreadable until this was got right, which is the sort of thing that
+    # looks like a corrupt board rather than a parser swap.
+    sub dump_string {
+        my ( undef, @data ) = @_;
+        local $YAML::XS::Boolean = 'JSON::PP';
+        return YAML::XS::Dump(@data);
+    }
+
+    sub load_string {
+        my ( undef, $text ) = @_;
+        local $YAML::XS::Boolean = 'JSON::PP';
+        $text = encode_utf8($text) if utf8::is_utf8($text);
+        return YAML::XS::Load($text);
+    }
+}
+
+our $VERSION = '1.08';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -35,7 +67,7 @@ sub new {
     my ( $class, %args ) = @_;
     return bless {
         clock => $args{clock} || \&_now,
-        yaml  => YAML::PP->new( boolean => 'JSON::PP' ),
+        yaml  => Tira::Yaml->new,
         path_resolver => $args{path_resolver},
     }, $class;
 }
@@ -286,8 +318,8 @@ sub create_project {
                 digits      => 3,
                 next_number => 1,
                 columns     => [
-                    { name => 'backlog', label => 'Backlog', protected => JSON::PP::true },
-                    { name => 'discard', label => 'Discard', protected => JSON::PP::true },
+                    { name => 'backlog', label => 'Backlog', protected => Cpanel::JSON::XS::true },
+                    { name => 'discard', label => 'Discard', protected => Cpanel::JSON::XS::true },
                 ],
             },
         );
@@ -303,10 +335,10 @@ sub create_project {
             last_updated   => $created_at,
             people         => [],
             link_types     => [
-                { outward => 'blocks', inward => 'is-blocked-by', protected => JSON::PP::true },
-                { outward => 'clones', inward => 'is-cloned-by', protected => JSON::PP::true },
-                { outward => 'duplicates', inward => 'is-duplicated-by', protected => JSON::PP::true },
-                { outward => 'relates-to', inward => 'relates-to', protected => JSON::PP::true },
+                { outward => 'blocks', inward => 'is-blocked-by', protected => Cpanel::JSON::XS::true },
+                { outward => 'clones', inward => 'is-cloned-by', protected => Cpanel::JSON::XS::true },
+                { outward => 'duplicates', inward => 'is-duplicated-by', protected => Cpanel::JSON::XS::true },
+                { outward => 'relates-to', inward => 'relates-to', protected => Cpanel::JSON::XS::true },
             ],
         },
     );
@@ -429,7 +461,7 @@ sub project_show {
     my $root = $self->discover_project(%args);
     my $data = $self->_load_yaml( File::Spec->catfile( $root, '.tira', 'project.yml' ) );
     for my $person ( @{ $data->{people} } ) {
-        $person->{active} = JSON::PP::true if !exists $person->{active};
+        $person->{active} = Cpanel::JSON::XS::true if !exists $person->{active};
     }
     return $data;
 }
@@ -487,7 +519,7 @@ sub person_add {
     return $self->_with_project_lock( $root, sub {
         my ( $path, $data ) = $self->_project_data($root);
         die "Person '$args{id}' already exists\n" if grep { $_->{id} eq $args{id} } @{ $data->{people} };
-        my $person = { id => $args{id}, name => $args{name}, email => $args{email} // '', active => JSON::PP::true };
+        my $person = { id => $args{id}, name => $args{name}, email => $args{email} // '', active => Cpanel::JSON::XS::true };
         push @{ $data->{people} }, $person;
         $data->{last_updated} = $self->{clock}->();
         $self->_write_yaml( $path, $data );
@@ -534,12 +566,12 @@ sub person_remove {
 
 sub person_activate {
     my ( $self, %args ) = @_;
-    return $self->_set_person_active( %args, active => JSON::PP::true );
+    return $self->_set_person_active( %args, active => Cpanel::JSON::XS::true );
 }
 
 sub person_deactivate {
     my ( $self, %args ) = @_;
-    return $self->_set_person_active( %args, active => JSON::PP::false );
+    return $self->_set_person_active( %args, active => Cpanel::JSON::XS::false );
 }
 
 sub link_type_list {
@@ -555,7 +587,7 @@ sub link_type_add {
         die "Link type names are required\n" if !$args{outward} || !$args{inward};
         die "Link type '$args{outward}' already exists\n"
           if grep { $_->{outward} eq $args{outward} || $_->{inward} eq $args{outward} } @{ $data->{link_types} };
-        my $link = { outward => $args{outward}, inward => $args{inward}, protected => JSON::PP::false };
+        my $link = { outward => $args{outward}, inward => $args{inward}, protected => Cpanel::JSON::XS::false };
         push @{ $data->{link_types} }, $link;
         $self->_write_yaml( $path, $data );
         return $link;
@@ -1059,10 +1091,10 @@ sub column_apply {
         my @columns;
         for my $column (@plan) {
             my $entry = $existing{ $column->{name} }
-              // { name => $column->{name}, label => $column->{name}, protected => JSON::PP::false };
+              // { name => $column->{name}, label => $column->{name}, protected => Cpanel::JSON::XS::false };
             $entry->{label} = $column->{label} if defined $column->{label};
             $entry->{notify_after} = $column->{notify_after} if defined $column->{notify_after};
-            $entry->{watched} = $column->{watched} ? JSON::PP::true : JSON::PP::false
+            $entry->{watched} = $column->{watched} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false
               if defined $column->{watched};
             push @columns, $entry;
         }
@@ -1081,7 +1113,7 @@ sub column_apply {
         };
         return {
             added => \@added, removed => \@removed,
-            reordered => $reordered ? JSON::PP::true : JSON::PP::false,
+            reordered => $reordered ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false,
             columns => _column_defaults( \@columns ),
         };
     } );
@@ -1097,7 +1129,7 @@ sub column_update {
         my ($column) = grep { $_->{name} eq ( $args{name} // '' ) } @{ $config->{columns} };
         die "Column '" . ( $args{name} // '' ) . "' not found\n" if !$column;
         $column->{notify_after} = $notify_after if defined $notify_after;
-        $column->{watched} = $args{watched} ? JSON::PP::true : JSON::PP::false
+        $column->{watched} = $args{watched} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false
           if defined $args{watched};
         $self->_write_yaml( $path, $config );
         return _column_defaults( [$column] )->[0];
@@ -1118,7 +1150,7 @@ sub column_add {
         my ( $path, $config ) = $self->_board_data( project => $root, type => $args{type} );
         die "Column '$args{name}' already exists\n" if grep { $_->{name} eq $args{name} } @{ $config->{columns} };
         die "Use only one of --after or --before\n" if defined $args{after} && defined $args{before};
-        my $column = { name => $args{name}, label => $args{label} // $args{name}, protected => JSON::PP::false };
+        my $column = { name => $args{name}, label => $args{label} // $args{name}, protected => Cpanel::JSON::XS::false };
         my $position = @{ $config->{columns} } - 1;
         for my $i ( 0 .. $#{ $config->{columns} } ) {
             $position = $i + 1 if defined $args{after} && $config->{columns}[$i]{name} eq $args{after};
@@ -1269,7 +1301,7 @@ sub _truncate_text_slot {
         return if $length == 0;
         delete $container->{$key};
     }
-    $container->{"${key}_truncated"} = JSON::PP::true;
+    $container->{"${key}_truncated"} = Cpanel::JSON::XS::true;
     $container->{"${key}_length"} = $length;
     return;
 }
@@ -1457,7 +1489,7 @@ sub record_show {
     }
     my $full = { %{$record}, column => $column };
     if ( defined $args{if_changed} ) {
-        return { unchanged => JSON::PP::true } if _record_content_hash($full) eq $args{if_changed};
+        return { unchanged => Cpanel::JSON::XS::true } if _record_content_hash($full) eq $args{if_changed};
     }
     $full->{content_hash} = _record_content_hash($full)
       if $plan && $plan->{fields} && $plan->{fields}{content_hash};
@@ -1561,13 +1593,13 @@ sub diff_records {
                     my %known = map { ( $_->{id} // '' ) => 1 } @{ $before->{comments} // [] };
                     my @added = map { $_->{id} } grep { !$known{ $_->{id} // '' } } @{ $new // [] };
                     push @field_changes,
-                      { field => 'comments', ( @added ? ( added => \@added ) : ( changed => JSON::PP::true ) ) };
+                      { field => 'comments', ( @added ? ( added => \@added ) : ( changed => Cpanel::JSON::XS::true ) ) };
                 }
                 elsif ( !ref $old && !ref $new ) {
                     push @field_changes, { field => $field, before => $old, after => $new };
                 }
                 else {
-                    push @field_changes, { field => $field, changed => JSON::PP::true };
+                    push @field_changes, { field => $field, changed => Cpanel::JSON::XS::true };
                 }
             }
             push @changes, { ref => $record->{ref}, kind => 'changed', fields => \@field_changes }
@@ -1595,7 +1627,7 @@ sub record_show_many {
         next if exists $by_ref{$ref};
         push @order, $ref;
         my $record = eval { $self->record_show( %args, ref => $ref ) };
-        $by_ref{$ref} = defined $record ? $record : { ref => $ref, not_found => JSON::PP::true };
+        $by_ref{$ref} = defined $record ? $record : { ref => $ref, not_found => Cpanel::JSON::XS::true };
     }
     return { records => \%by_ref, order => \@order, count => scalar @order };
 }
@@ -1782,7 +1814,7 @@ sub export_records {
         my %full_args = %args;
         delete @full_args{qw(fields exclude_fields omit_empty if_changed)};
         $board_hash = _board_hash( $self->record_list(%full_args) );
-        return { unchanged => JSON::PP::true }
+        return { unchanged => Cpanel::JSON::XS::true }
           if defined $args{if_changed} && $board_hash eq $args{if_changed};
     }
     my %list_args = %args;
@@ -1914,7 +1946,7 @@ sub project_validate {
         push @issues, map { "$type: missing directory $_" } grep { !$actual{$_} } sort keys %configured;
         push @issues, map { "$type: unconfigured directory $_" } grep { !$configured{$_} } sort keys %actual;
     }
-    return { valid => @issues ? JSON::PP::false : JSON::PP::true, issues => \@issues };
+    return { valid => @issues ? Cpanel::JSON::XS::false : Cpanel::JSON::XS::true, issues => \@issues };
 }
 
 sub column_sync {
@@ -1933,12 +1965,12 @@ sub column_sync {
         make_path( File::Spec->catdir( $board, $_ ) ) for grep { $configured{$_}{protected} } @missing;
         my @columns = grep { $actual{ $_->{name} } || $_->{protected} } @{ $config->{columns} };
         my $discard = pop @columns;
-        push @columns, map { { name => $_, label => $_, protected => JSON::PP::false } } @unconfigured;
+        push @columns, map { { name => $_, label => $_, protected => Cpanel::JSON::XS::false } } @unconfigured;
         push @columns, $discard;
         $config->{columns} = \@columns;
         $self->_write_yaml( $path, $config );
     }
-    return { missing => \@missing, unconfigured => \@unconfigured, applied => $args{apply} ? JSON::PP::true : JSON::PP::false };
+    return { missing => \@missing, unconfigured => \@unconfigured, applied => $args{apply} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false };
 }
 
 sub hierarchy_link {
@@ -1993,7 +2025,7 @@ sub hierarchy_unlink {
         $parent->{linkage}{$down} = [ grep { $_ ne $child->{ref} } @{ $parent->{linkage}{$down} } ];
         $child->{last_updated} = $parent->{last_updated} = $self->{clock}->();
         $self->_write_json_transaction( [ [ $parent_path, $parent ], [ $child_path, $child ] ] );
-        return { parent => $parent->{ref}, child => $child->{ref}, unlinked => JSON::PP::true };
+        return { parent => $parent->{ref}, child => $child->{ref}, unlinked => Cpanel::JSON::XS::true };
     } );
 }
 
@@ -2060,7 +2092,7 @@ sub subitem_unlink {
         $parent->{linkage}{$down} = [ grep { $_ ne $child->{ref} } @{ $parent->{linkage}{$down} } ];
         $child->{last_updated} = $parent->{last_updated} = $self->{clock}->();
         $self->_write_json_transaction( [ [ $parent_path, $parent ], [ $child_path, $child ] ] );
-        return { parent => $parent->{ref}, child => $child->{ref}, unlinked => JSON::PP::true };
+        return { parent => $parent->{ref}, child => $child->{ref}, unlinked => Cpanel::JSON::XS::true };
     } );
 }
 
@@ -2090,7 +2122,7 @@ sub link_remove {
         $from->{linkage}{links} = [ grep { !( $_->{type} eq $args{type} && $_->{ref} eq $to->{ref} ) } @{ $from->{linkage}{links} } ];
         $to->{linkage}{links} = [ grep { !( $_->{type} eq $reciprocal && $_->{ref} eq $from->{ref} ) } @{ $to->{linkage}{links} } ];
         $self->_write_json_transaction( [ [ $from_path, $from ], [ $to_path, $to ] ] );
-        return { removed => JSON::PP::true };
+        return { removed => Cpanel::JSON::XS::true };
     } );
 }
 
@@ -2391,7 +2423,7 @@ sub question_update {
         my $record = $self->record_show( project => $root, type => $type, ref => $args{ref} );
         my $entry = _question_entry( $record, $args{id} );
         $entry->{updated_at} = $self->{clock}->();
-        $entry->{voice}{stale} = JSON::PP::true if $entry->{voice};
+        $entry->{voice}{stale} = Cpanel::JSON::XS::true if $entry->{voice};
         $entry->{text} = $args{text} if defined $args{text};
 
         # An explicitly empty value clears that piece, the same rule the
@@ -2741,7 +2773,7 @@ sub attachment_add_content {
         $self->_replace_record( project => $root, ref => $args{ref}, record => $record );
         return {
             %{$retained}, supplied_filename => $name,
-            deduped => $deduped ? JSON::PP::true : JSON::PP::false,
+            deduped => $deduped ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false,
         };
     } );
 }
@@ -2789,8 +2821,8 @@ sub attachment_detach {
             $removed = 1;
         }
         return {
-            detached => JSON::PP::true, sha => $sha, extension => $extension,
-            removed_from_store => $removed ? JSON::PP::true : JSON::PP::false,
+            detached => Cpanel::JSON::XS::true, sha => $sha, extension => $extension,
+            removed_from_store => $removed ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false,
         };
     } );
 }
@@ -2944,7 +2976,7 @@ sub attachment_list {
     if ( $args{include_deleted} ) {
         my $log_path = File::Spec->catfile( $root, '.tira', 'attachments', 'delete.log.yml' );
         if ( -f $log_path ) {
-            push @items, map { { %{$_}, deleted => JSON::PP::true } } @{ $self->_load_yaml($log_path) || [] };
+            push @items, map { { %{$_}, deleted => Cpanel::JSON::XS::true } } @{ $self->_load_yaml($log_path) || [] };
         }
     }
     return \@items;
@@ -3339,7 +3371,7 @@ sub bulk_import {
         $self->_write_json_transaction( \@updates ) if @updates && !$args{dry_run};
         my %changed = map { $_->{ref} => 1 } @diffs;
         return {
-            dry_run => $args{dry_run} ? JSON::PP::true : JSON::PP::false,
+            dry_run => $args{dry_run} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false,
             changed_records => scalar keys %changed, changes => \@diffs,
             requested_changes => $changes,
         };
@@ -3382,7 +3414,7 @@ sub replace_records {
         }
         $self->_write_json_transaction( \@updates ) if @updates && !$args{dry_run};
         my %changed = map { $_->{ref} => 1 } @diffs;
-        return { dry_run => $args{dry_run} ? JSON::PP::true : JSON::PP::false,
+        return { dry_run => $args{dry_run} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false,
           changed_records => scalar keys %changed, changes => \@diffs };
     } );
 }
@@ -3501,7 +3533,7 @@ sub _project_data {
     my $path = File::Spec->catfile( $root, '.tira', 'project.yml' );
     my $data = $self->_load_yaml($path);
     for my $person ( @{ $data->{people} } ) {
-        $person->{active} = JSON::PP::true if !exists $person->{active};
+        $person->{active} = Cpanel::JSON::XS::true if !exists $person->{active};
     }
     return ( $path, $data );
 }
@@ -5472,14 +5504,20 @@ sub _record_data {
     return ( $path, $self->_read_json($path), basename( dirname($path) ) );
 }
 
-# JSON::PP is core but pure Perl: decoding a mature board costs seconds
-# (measured on 138 records averaging 32KB — 1992ms with JSON::PP, 6ms with
-# an XS backend, while reading the same files without parsing costs 2ms).
-# Cpanel::JSON::XS is used when installed and JSON::PP otherwise. The two
-# emit byte-identical canonical and pretty output and share
-# JSON::PP::Boolean, so stored records never rewrite and content hashes
-# never drift — t/38 proves that against whichever backend is present.
-my @JSON_BACKENDS = qw(Cpanel::JSON::XS JSON::PP);
+# The measurement behind the rule: decoding a mature board of 138 records
+# averaging 32KB cost 1992ms with the pure-Perl parser and 6ms with the
+# compiled one, while reading the same files without parsing costs 2ms. The
+# parser was the board walk.
+#
+# Cpanel::JSON::XS is required rather than preferred. Its booleans are
+# JSON::PP::Boolean - the class, not the parser - which is what keeps stored
+# records byte-identical across the change, so nothing rewrites and no content
+# hash drifts. t/38 proves that.
+# Owner's rule, 2026-08-12: no pure-Perl parsers where a compiled one exists.
+# A board walk parses every card, so the parser is not a detail of the walk -
+# it is the walk. Required outright rather than preferred, which is his
+# decision on Q-017: speed over an easy install.
+my @JSON_BACKENDS = qw(Cpanel::JSON::XS);
 my $JSON_BACKEND;
 
 # The version actually installed on disk, which is not necessarily the
@@ -5501,7 +5539,12 @@ sub _select_json_backend {
         ( my $file = $class ) =~ s{::}{/}g;
         return $class if eval { require "$file.pm"; 1 };
     }
-    return 'JSON::PP';
+
+    # No falling back to a pure-Perl parser. A machine without it is a machine
+    # this will not run on, and saying so here is better than running slowly
+    # everywhere so that one machine can run at all.
+    die "Tira needs Cpanel::JSON::XS. Install it (for example: cpanm Cpanel::JSON::XS)\n"
+      . "and run this again.\n";
 }
 
 sub json_backend {
@@ -5600,7 +5643,7 @@ sub _journal_changes {
         my ( $before, $after ) = ( $previous->{$field}, $current->{$field} );
         next if _values_equal( $before, $after );
         if ( ref $before || ref $after ) {
-            push @entries, { field => $field, changed => JSON::PP::true };
+            push @entries, { field => $field, changed => Cpanel::JSON::XS::true };
         }
         else {
             push @entries, { field => $field, before => $before, after => $after };
@@ -5629,7 +5672,11 @@ sub _journal_flush {
     for my $ref ( sort keys %grouped ) {
         my $path = $self->_journal_path( $root, $ref );
         open my $fh, '>>:raw', $path or die "Cannot append history for '$ref': $!\n";
-        print {$fh} map { json_object()->canonical->encode($_) . "\n" } @{ $grouped{$ref} }
+        # Bytes, like every other write here. This encoded characters and wrote
+        # them to a raw handle, so a card with a pound sign or any non-ASCII
+        # text put a "Wide character" warning on stderr and broken bytes in the
+        # journal - which is what the work log reads.
+        print {$fh} map { json_object()->canonical->utf8->encode($_) . "\n" } @{ $grouped{$ref} }
           or die "Cannot write history for '$ref': $!\n";
         close $fh or die "Cannot close history for '$ref': $!\n";
     }

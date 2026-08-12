@@ -5,7 +5,7 @@ use warnings;
 
 use File::Spec;
 use File::Temp qw(tempdir);
-use JSON::PP qw(decode_json);
+use Cpanel::JSON::XS qw(decode_json);
 use Test::More;
 
 use lib 'lib';
@@ -60,7 +60,7 @@ is( $tira->export_records( project => $root, fields => ['content_hash'] )->{boar
     $board, 'consecutive exports without writes agree on the board hash' );
 
 my $conditional = $tira->record_show( project => $root, ref => $ref, if_changed => $after_move );
-is_deeply( $conditional, { unchanged => JSON::PP::true }, 'a matching hash returns the unchanged marker' );
+is_deeply( $conditional, { unchanged => Cpanel::JSON::XS::true }, 'a matching hash returns the unchanged marker' );
 $conditional = $tira->record_show( project => $root, ref => $ref, if_changed => $baseline );
 is( $conditional->{title}, 'Hash subject, revised', 'a stale hash returns the full record' );
 
@@ -73,7 +73,7 @@ eval { $tira->record_show( project => $root, ref => $ref, if_changed => 'zz-not-
 like( $@, qr/If-changed hash is malformed/, 'a malformed hash dies rather than meaning changed' );
 
 my $board_conditional = $tira->export_records( project => $root, if_changed => $board );
-is_deeply( $board_conditional, { unchanged => JSON::PP::true }, 'a matching board hash collapses the whole export' );
+is_deeply( $board_conditional, { unchanged => Cpanel::JSON::XS::true }, 'a matching board hash collapses the whole export' );
 $tira->record_update( project => $root, ref => $ref, description => 'Board moved on' );
 $board_conditional = $tira->export_records( project => $root, if_changed => $board );
 is( $board_conditional->{count}, 1, 'a stale board hash returns the full envelope' );

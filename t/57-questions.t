@@ -5,7 +5,7 @@ use warnings;
 
 use File::Spec;
 use File::Temp qw(tempdir);
-use JSON::PP qw(decode_json);
+use Cpanel::JSON::XS qw(decode_json);
 use Test::More;
 
 use lib 'lib';
@@ -189,7 +189,7 @@ is( scalar @{ $since->{questions} }, 1, 'a newly answered question shows up as n
     $record->{questions}[0]{asked_at} = 'not a date at all';
     $record->{questions}[0]{answer} = undef;
     open my $out, '>:raw', $path or die $!;
-    print {$out} JSON::PP->new->canonical->pretty->encode($record);
+    print {$out} Cpanel::JSON::XS->new->canonical->pretty->encode($record);
     close $out;
     my $filtered = $tira->question_list(
         project => $root, ref => $card->{ref}, since => '2020-01-01T00:00:00Z' );

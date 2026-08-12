@@ -5,7 +5,7 @@ use warnings;
 
 use File::Spec;
 use File::Temp qw(tempdir);
-use JSON::PP qw(decode_json);
+use Cpanel::JSON::XS qw(decode_json);
 use Test::More;
 
 use lib 'lib';
@@ -125,7 +125,7 @@ like( $@, qr/not found/, 'unknown annotation target is rejected' );
 local $ENV{TIRA_HOME} = $root;
 my $import_file = File::Spec->catfile( $tmp, 'changes.json' );
 open my $import_fh, '>:raw', $import_file or die $!;
-print {$import_fh} JSON::PP->new->canonical->utf8->encode({ $ticket->{ref} => { title => 'CLI preview title' } });
+print {$import_fh} Cpanel::JSON::XS->new->canonical->utf8->encode({ $ticket->{ref} => { title => 'CLI preview title' } });
 close $import_fh;
 my $array_file = File::Spec->catfile( $tmp, 'array.json' );
 open my $array_fh, '>:raw', $array_file or die $!;

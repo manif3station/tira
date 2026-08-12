@@ -6,7 +6,7 @@ use warnings;
 use File::Spec;
 use File::Temp qw(tempdir);
 use HTTP::Request::Common qw(GET POST);
-use JSON::PP ();
+use Cpanel::JSON::XS ();
 use Plack::Test;
 use Test::More;
 
@@ -47,7 +47,7 @@ test_psgi $app, sub {
     # The whole reason the login was worth building, in his words: once we know
     # who they are, the person is pre-selected when they leave a comment.
     my $commented = $http->( POST '/comment/add', Cookie => $as_michael,
-        Content => JSON::PP->new->encode(
+        Content => Cpanel::JSON::XS->new->encode(
             { type => 'ticket', ref => $card->{ref}, text => 'Looks right to me' } ) );
     is( $commented->code, 200, 'a comment can be left from the board' );
 
@@ -58,7 +58,7 @@ test_psgi $app, sub {
     # An agent acting on somebody's behalf is a real case, so an explicit
     # author still wins - the session is a default, not a straitjacket.
     $http->( POST '/comment/add', Cookie => $as_michael,
-        Content => JSON::PP->new->encode(
+        Content => Cpanel::JSON::XS->new->encode(
             { type => 'ticket', ref => $card->{ref}, author => 'claude',
               text => 'Recording this for Michael' } ) );
     my $both = $tira->record_show( project => $root, type => 'ticket', ref => $card->{ref} );
@@ -68,10 +68,10 @@ test_psgi $app, sub {
     # --- a card created from the board is reported by them ----------------
 
     my $created = $http->( POST '/create', Cookie => $as_michael,
-        Content => JSON::PP->new->encode(
+        Content => Cpanel::JSON::XS->new->encode(
             { type => 'ticket', column => 'backlog', title => 'Raised from the board' } ) );
     is( $created->code, 200, 'a card can be created from the board' );
-    my $new_ref = JSON::PP->new->decode( $created->content )->{record}{ref};
+    my $new_ref = Cpanel::JSON::XS->new->decode( $created->content )->{record}{ref};
     is( $tira->record_show( project => $root, type => 'ticket', ref => $new_ref )->{reporter},
         'michael', 'and the signed-in person is its reporter by default' );
 
@@ -80,7 +80,7 @@ test_psgi $app, sub {
     # The board recorded what happened and never who did it. That was not a
     # design choice - there was nobody to name until somebody could sign in.
     $http->( POST '/move', Cookie => $as_michael,
-        Content => JSON::PP->new->encode(
+        Content => Cpanel::JSON::XS->new->encode(
             { type => 'ticket', ref => $card->{ref}, column => 'implement' } ) );
     my @moves = grep { ( $_->{field} // '' ) eq 'column' }
       @{ $tira->history_list( project => $root, ref => $card->{ref} ) };

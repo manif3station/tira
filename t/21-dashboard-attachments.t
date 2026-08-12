@@ -7,7 +7,7 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use Encode qw(decode_utf8 encode_utf8);
 use HTTP::Request::Common qw(GET POST);
-use JSON::PP qw(decode_json);
+use Cpanel::JSON::XS qw(decode_json);
 use MIME::Base64 qw(encode_base64);
 use Plack::Test;
 use Test::More;

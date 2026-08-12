@@ -53,13 +53,13 @@ is( scalar( grep { defined $_->{added_at} } @{$listed} ), 3, 'every stored refer
 # editing its own fixture directly - something real agents must never do.
 {
     use File::Find ();
-    use JSON::PP ();
+    use Cpanel::JSON::XS ();
     use POSIX ();
     my $record_path;
     File::Find::find( { no_chdir => 1, wanted => sub { $record_path = $File::Find::name if /TKT-001\.json\z/ } }, $root );
     $record_path =~ /\A(.+)\z/s or die 'no record path';
     $record_path = $1;
-    my $json = JSON::PP->new->canonical;
+    my $json = Cpanel::JSON::XS->new->canonical;
     open my $in, '<:raw', $record_path or die $!;
     my $record = $json->decode( do { local $/; <$in> } );
     close $in;

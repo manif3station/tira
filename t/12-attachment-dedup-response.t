@@ -6,7 +6,7 @@ use warnings;
 use File::Path qw(make_path);
 use File::Spec;
 use File::Temp qw(tempdir);
-use JSON::PP qw(decode_json);
+use Cpanel::JSON::XS qw(decode_json);
 use Test::More;
 
 use lib 'lib';

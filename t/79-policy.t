@@ -5,7 +5,7 @@ use warnings;
 
 use File::Spec;
 use File::Temp qw(tempdir);
-use JSON::PP ();
+use Cpanel::JSON::XS ();
 use Test::More;
 
 use lib 'lib';
@@ -213,24 +213,24 @@ for my $action (qw(bridge-reminder print-reminder log-only)) {
     my ( $status, $out ) = $run->( 'policy.add', '--rule', 'card-stalled',
         '--before', 'verify', '--action', 'bridge-reminder', '-o', 'json' );
     is( $status, 0, 'policy.add exits clean' );
-    my $added = JSON::PP->new->decode($out);
+    my $added = Cpanel::JSON::XS->new->decode($out);
     is( $added->{rule}, 'card-stalled', 'and answers with the policy it declared' );
 
     ( $status, $out ) = $run->( 'policy.add', '--rule', 'card-duration',
         '--column', 'implement', '--age', '10m', '--action', 'print-reminder',
         '--message', 'still on this one?', '-o', 'json' );
-    is( JSON::PP->new->decode($out)->{message}, 'still on this one?',
+    is( Cpanel::JSON::XS->new->decode($out)->{message}, 'still on this one?',
         'every parameter reaches the engine, including the message' );
 
     ( $status, $out ) = $run->( 'policy.list', '-o', 'json' );
-    is( scalar @{ JSON::PP->new->decode($out) }, 2, 'policy.list returns them' );
+    is( scalar @{ Cpanel::JSON::XS->new->decode($out) }, 2, 'policy.list returns them' );
 
     ( $status, my $toon ) = $run->('policy.list');
     unlike( $toon, qr/"rule"\s*:/, 'and answers TOON by default like every other command' );
 
     ( $status, $out ) = $run->( 'policy.remove', '--id', 'POL-001', '-o', 'json' );
     is( $status, 0, 'policy.remove exits clean' );
-    is( scalar @{ JSON::PP->new->decode( ( $run->( 'policy.list', '-o', 'json' ) )[1] ) },
+    is( scalar @{ Cpanel::JSON::XS->new->decode( ( $run->( 'policy.list', '-o', 'json' ) )[1] ) },
         1, 'and the policy is gone' );
 
     ( $status, undef, my $err ) = $run->( 'policy.add', '--rule', 'nope',

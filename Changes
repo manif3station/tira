@@ -1,6 +1,33 @@
 Revision history for Tira
 
-1.07  2026-08-12
+1.08  2026-08-12
+    - No pure-Perl parsers. `Cpanel::JSON::XS` and `YAML::XS` are
+      required rather than preferred, and a missing one is refused with
+      the command to install it instead of falling back to something
+      slow. The measurement behind the owner's rule: decoding a mature
+      board of 138 records averaging 32KB cost 1992ms with the
+      pure-Perl parser and 6ms with the compiled one, while reading the
+      same files without parsing costs 2ms - the parser was the board
+      walk. Nothing on disk moves: a record written, read back and
+      written again is byte-identical, and booleans stay
+      `JSON::PP::Boolean`, which is the class both compiled parsers
+      produce. Proved on macOS and Windows, because requiring a
+      compiled module makes a compiler an install requirement.
+
+    - A project whose text is not ASCII can be read again. libyaml does
+      its own UTF-8 - it hands back encoded bytes and expects them -
+      and Tira was decoding before handing them over, so the second
+      byte of a two-byte character was read as a leading octet and the
+      file was refused. A project with a pound sign in a person's name
+      was unreadable, which reads as a corrupt board rather than a
+      parser fault.
+
+    - The journal writes bytes. It encoded characters and wrote them to
+      a raw handle, so any card with non-ASCII text put a warning on
+      stderr and broken bytes into the journal - which is what the work
+      log reads. Silent under the old parser and loud under the new
+      one, and wrong under both.
+
     - The work log says who. Every entry except a comment recorded
       what happened and not who did it, so the log could not answer
       the question it exists to answer: whether the agent did the work

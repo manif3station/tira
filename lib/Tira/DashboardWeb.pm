@@ -6,7 +6,7 @@ use warnings;
 our $VERSION = '1.05';
 
 use Encode qw(decode_utf8 encode_utf8);
-use JSON::PP ();
+use Cpanel::JSON::XS ();
 use Dancer2 appname => 'TiraDashboard';
 
 our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $SEARCH, $COMMENT_ADD, $COMMENT_UPDATE, $COMMENT_REMOVE, $PEOPLE,
@@ -47,7 +47,7 @@ sub _refuse {
     content_type 'application/json; charset=UTF-8';
     return _response_bytes(
         Tira::json_object()->canonical->encode(
-            { ok => JSON::PP::false, error => $message // 'Sign in required' } ) );
+            { ok => Cpanel::JSON::XS::false, error => $message // 'Sign in required' } ) );
 }
 
 hook before => sub {
@@ -99,7 +99,7 @@ post '/login' => sub {
     response->header( 'Set-Cookie' => _session_cookie( $answer->{token} ) );
     return _response_bytes(
         Tira::json_object()->canonical->encode(
-            { ok => JSON::PP::true, claimed => $answer->{claimed} ? JSON::PP::true : JSON::PP::false } ) );
+            { ok => Cpanel::JSON::XS::true, claimed => $answer->{claimed} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false } ) );
 };
 
 post '/logout' => sub {
@@ -107,7 +107,7 @@ post '/logout' => sub {
     $SESSION_END->( { token => $token } ) if defined $token;
     response->header( 'Set-Cookie' => _session_cookie( '', clear => 1 ) );
     content_type 'application/json; charset=UTF-8';
-    return _response_bytes( Tira::json_object()->canonical->encode( { ok => JSON::PP::true } ) );
+    return _response_bytes( Tira::json_object()->canonical->encode( { ok => Cpanel::JSON::XS::true } ) );
 };
 
 get '/' => sub {
@@ -261,8 +261,8 @@ sub _mutation {
         my $error = $@ || 'Mutation failed';
         $error =~ s/(?: at \S+ line \d+\.?)?\s*\z//s;
         status 422;
-        my %failure = ( ok => JSON::PP::false, error => $error );
-        $failure{conflict} = JSON::PP::true if $error =~ /\AConflict:/;
+        my %failure = ( ok => Cpanel::JSON::XS::false, error => $error );
+        $failure{conflict} = Cpanel::JSON::XS::true if $error =~ /\AConflict:/;
         return _response_bytes( Tira::json_object()->canonical->encode( \%failure ) );
     }
     return _response_bytes($result);

@@ -8,7 +8,7 @@ use Cwd qw(cwd);
 use File::Basename qw(dirname);
 use File::Spec;
 use Getopt::Long qw(GetOptionsFromArray);
-use JSON::PP ();
+use Cpanel::JSON::XS ();
 use Tira;
 
 # PATH separators, executable extensions and the absence of an execute bit are
@@ -425,7 +425,7 @@ sub browser_providers {
                 ( defined $payload->{_signed_in} ? ( author => $payload->{_signed_in} ) : () ),
                 ref => $payload->{ref}, column => $payload->{column},
             );
-            return $json->encode( { ok => JSON::PP::true, record => $record } );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, record => $record } );
         },
         detail => sub {
             my ($payload) = @_;
@@ -461,8 +461,8 @@ sub browser_providers {
                     password => $payload->{password},
                 );
             };
-            return $json->encode( { ok => JSON::PP::false } ) if !defined $token;
-            return $json->encode( { ok => JSON::PP::true, token => $token } );
+            return $json->encode( { ok => Cpanel::JSON::XS::false } ) if !defined $token;
+            return $json->encode( { ok => Cpanel::JSON::XS::true, token => $token } );
         },
         login_register => sub {
             my ($payload) = @_;
@@ -472,10 +472,10 @@ sub browser_providers {
                     password => $payload->{password},
                 );
             };
-            return $json->encode( { ok => JSON::PP::false } ) if !$person;
+            return $json->encode( { ok => Cpanel::JSON::XS::false } ) if !$person;
             my $token = $tira->login_start(
                 project => $project, id => $payload->{id}, password => $payload->{password} );
-            return $json->encode( { ok => JSON::PP::true, token => $token, claimed => JSON::PP::true } );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, token => $token, claimed => Cpanel::JSON::XS::true } );
         },
         session_resume => sub {
             my ($payload) = @_;
@@ -490,14 +490,14 @@ sub browser_providers {
         session_end => sub {
             my ($payload) = @_;
             my $ended = eval { $tira->session_end( project => $project, token => $payload->{token} ) };
-            return $json->encode( { ok => $ended ? JSON::PP::true : JSON::PP::false } );
+            return $json->encode( { ok => $ended ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false } );
         },
         question_answer => sub {
             my ($payload) = @_;
             die "Answering needs a question and some text\n"
               if ref($payload) ne 'HASH' || !defined $payload->{id} || !defined $payload->{text};
             return $json->encode( {
-                ok => JSON::PP::true,
+                ok => Cpanel::JSON::XS::true,
                 question => $tira->question_answer(
                     project => $project, id => $payload->{id},
                     text => $payload->{text}, author => $payload->{author},
@@ -530,14 +530,14 @@ sub browser_providers {
             my $error = $@;
             unlink $path;
             die $error if !$question;
-            return $json->encode( { ok => JSON::PP::true, question => $question } );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, question => $question } );
         },
         question_mark => sub {
             my ($payload) = @_;
             die "Marking needs a question and a mark\n"
               if ref($payload) ne 'HASH' || !defined $payload->{id} || !defined $payload->{mark};
             return $json->encode( {
-                ok => JSON::PP::true,
+                ok => Cpanel::JSON::XS::true,
                 question => $tira->question_mark(
                     project => $project, id => $payload->{id}, mark => $payload->{mark} ),
             } );
@@ -596,7 +596,7 @@ sub browser_providers {
                 project => $project, ref => $record->{ref}, column => $payload->{column},
                 ( defined $payload->{_signed_in} ? ( author => $payload->{_signed_in} ) : () ),
             ) if $payload->{column} ne 'backlog';
-            return $json->encode( { ok => JSON::PP::true, record => $record } );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, record => $record } );
         },
         update => sub {
             my ($payload) = @_;
@@ -620,7 +620,7 @@ sub browser_providers {
                     $change{ $list_editable{$field} } = $value;
                 }
                 my $record = $tira->record_update( project => $project, ref => $payload->{ref}, %change );
-                return $json->encode( { ok => JSON::PP::true, record => $record } );
+                return $json->encode( { ok => Cpanel::JSON::XS::true, record => $record } );
             }
             die "Field '$field' is not editable\n" if !$editable{$field};
             die "Field '$field' requires a plain value\n" if ref $value;
@@ -629,7 +629,7 @@ sub browser_providers {
                 project => $project, ref => $payload->{ref}, $field => $value,
                 ( exists $payload->{base} ? ( expect => { $field => $payload->{base} } ) : () ),
             );
-            return $json->encode( { ok => JSON::PP::true, record => $record } );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, record => $record } );
         },
         link_types => sub {
             return $json->encode(
@@ -648,7 +648,7 @@ sub browser_providers {
                 my $result = $tira->$method(
                     project => $project, parent => $payload->{parent}, child => $payload->{child},
                 );
-                return $json->encode( { ok => JSON::PP::true, result => $result } );
+                return $json->encode( { ok => Cpanel::JSON::XS::true, result => $result } );
             } );
         } ( [ hierarchy_link => 'hierarchy_link' ], [ hierarchy_unlink => 'hierarchy_unlink' ],
             [ subitem_link => 'subitem_link' ], [ subitem_unlink => 'subitem_unlink' ] ) ),
@@ -661,7 +661,7 @@ sub browser_providers {
                 project => $project, from => $payload->{from},
                 type => $payload->{type}, to => $payload->{to},
             );
-            return $json->encode( { ok => JSON::PP::true, link => $link } );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, link => $link } );
         },
         link_remove => sub {
             my ($payload) = @_;
@@ -672,7 +672,7 @@ sub browser_providers {
                 project => $project, from => $payload->{from},
                 type => $payload->{type}, to => $payload->{to},
             );
-            return $json->encode( { ok => JSON::PP::true, result => $result } );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, result => $result } );
         },
         checklist_add => sub {
             my ($payload) = @_;
@@ -684,7 +684,7 @@ sub browser_providers {
                 project => $project, ref => $payload->{ref},
                 item => $payload->{item}, status => $payload->{status},
             );
-            return $json->encode( { ok => JSON::PP::true, entry => $entry } );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, entry => $entry } );
         },
         checklist_update => sub {
             my ($payload) = @_;
@@ -696,7 +696,7 @@ sub browser_providers {
                 ( defined $payload->{item} ? ( item => $payload->{item} ) : () ),
                 ( defined $payload->{status} ? ( status => $payload->{status} ) : () ),
             );
-            return $json->encode( { ok => JSON::PP::true, entry => $entry } );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, entry => $entry } );
         },
         comment_add => sub {
             my ($payload) = @_;
@@ -713,7 +713,7 @@ sub browser_providers {
                 project => $project, ref => $payload->{ref},
                 author => $payload->{author}, text => $payload->{text},
             );
-            return $json->encode( { ok => JSON::PP::true, comment => $comment } );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, comment => $comment } );
         },
         comment_update => sub {
             my ($payload) = @_;
@@ -725,7 +725,7 @@ sub browser_providers {
                 project => $project, ref => $payload->{ref},
                 comment => $payload->{comment}, text => $payload->{text},
             );
-            return $json->encode( { ok => JSON::PP::true, comment => $comment } );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, comment => $comment } );
         },
         comment_remove => sub {
             my ($payload) = @_;
@@ -736,7 +736,7 @@ sub browser_providers {
             my $removed = $tira->comment_remove(
                 project => $project, ref => $payload->{ref}, comment => $payload->{comment},
             );
-            return $json->encode( { ok => JSON::PP::true, removed => $removed } );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, removed => $removed } );
         },
         people => sub {
             return $json->encode(
@@ -778,7 +778,7 @@ sub browser_providers {
                 filename => $payload->{filename}, content => $content,
                 ( defined $payload->{comment} ? ( comment => $payload->{comment} ) : () ),
             );
-            return $json->encode( { ok => JSON::PP::true, attachment => $attachment } );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, attachment => $attachment } );
         },
         attachment_remove => sub {
             my ($payload) = @_;
@@ -789,7 +789,7 @@ sub browser_providers {
                 ( defined $payload->{extension} ? ( extension => $payload->{extension} ) : () ),
                 ( defined $payload->{comment} ? ( comment => $payload->{comment} ) : () ),
             );
-            return $json->encode( { ok => JSON::PP::true, %{$result} } );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, %{$result} } );
         },
     );
 }
@@ -1535,7 +1535,7 @@ sub _invoke {
     return $tira->column_remove(%args) if $command eq 'column.remove';
     return $tira->column_update(%args) if $command eq 'column.update';
     if ( $command eq 'column.apply' ) {
-        my $layout = eval { JSON::PP->new->utf8->decode( $option->{columns_json} // '' ) };
+        my $layout = eval { Tira::json_object()->utf8->decode( $option->{columns_json} // '' ) };
         die "A column layout must be JSON: a list of objects with a name\n" if ref $layout ne 'ARRAY';
         return $tira->column_apply( project => $args{project}, type => $args{type}, columns => $layout );
     }
@@ -1646,7 +1646,7 @@ sub _invoke {
         # A wrong password and a person who does not exist must look the same
         # from outside, or the command becomes a way to find out who is here.
         return { ok => $tira->login_verify( %args, password => $option->{password} )
-              ? JSON::PP::true : JSON::PP::false }
+              ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false }
           if $action eq 'check';
 
         # The listing says who, never what they are holding: a token is the

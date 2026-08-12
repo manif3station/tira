@@ -6,7 +6,7 @@ use utf8;
 
 use File::Spec;
 use File::Temp qw(tempdir);
-use JSON::PP qw(decode_json);
+use Cpanel::JSON::XS qw(decode_json);
 use Encode qw(encode_utf8);
 use Test::More;
 

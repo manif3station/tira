@@ -14,9 +14,9 @@ BEGIN {
 use Cwd qw(realpath);
 use File::Spec;
 use File::Temp qw(tempdir);
-use JSON::PP qw(decode_json);
+use Cpanel::JSON::XS qw(decode_json);
 use Test::More;
-use YAML::PP;
+use YAML::XS ();
 
 use lib 'lib';
 use Tira;
@@ -128,7 +128,7 @@ like( $@, qr/Unsupported record type/, 'record creation rejects unknown types' )
 eval { $tira->discover_project( start => $tmp ) };
 like( $@, qr/No Tira project found/, 'project discovery reports a missing project' );
 
-# YAML::PP's load_file leaves the handle open, and on Windows an open handle
+# the YAML reader's load_file left the handle open, and on Windows an open handle
 # makes a file impossible to replace - so a test that reads a config and then
 # asks Tira to write it fails there and nowhere else. Reading it as a string
 # closes the file when this says so.
@@ -137,7 +137,7 @@ sub read_yaml {
     open my $fh, '<:encoding(UTF-8)', $path or die "Cannot read '$path': $!";
     my $body = do { local $/; <$fh> };
     close $fh;
-    return YAML::PP->new( boolean => 'JSON::PP' )->load_string($body);
+    return Tira::Yaml->new->load_string($body);
 }
 
 done_testing;

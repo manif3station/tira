@@ -5,7 +5,7 @@ use warnings;
 
 use File::Spec;
 use File::Temp qw(tempdir);
-use JSON::PP qw(decode_json);
+use Cpanel::JSON::XS qw(decode_json);
 use Test::More;
 
 use lib 'lib';
@@ -24,7 +24,7 @@ $tira->column_add( project => $root, type => 'ticket', name => 'doing', label =>
 
 my $snapshot_path = File::Spec->catfile( $tmp, 'state.json' );
 open my $snap, '>:raw', $snapshot_path or die $!;
-print {$snap} JSON::PP->new->encode( $tira->export_records( project => $root ) );
+print {$snap} Cpanel::JSON::XS->new->encode( $tira->export_records( project => $root ) );
 close $snap;
 
 $tick = '2026-08-07T11:00:00Z';
@@ -73,7 +73,7 @@ is_deeply( [ map { $_->{field} } @{ $by_ref{ $mover->{ref} }{fields} } ], ['colu
 
 my $structural_snapshot = File::Spec->catfile( $tmp, 'structural.json' );
 open my $structural, '>:raw', $structural_snapshot or die $!;
-print {$structural} JSON::PP->new->encode( $tira->export_records( project => $root ) );
+print {$structural} Cpanel::JSON::XS->new->encode( $tira->export_records( project => $root ) );
 close $structural;
 $tira->record_update( project => $root, ref => $mover->{ref}, labels => ['sieved'] );
 $tira->comment_update(
@@ -91,7 +91,7 @@ ok( $edited_comments->{changed} && !exists $edited_comments->{added},
 
 my $removed_snapshot = File::Spec->catfile( $tmp, 'ghost.json' );
 open my $ghost, '>:raw', $removed_snapshot or die $!;
-print {$ghost} JSON::PP->new->encode( { records => [ { ref => 'TKT-777', type => 'ticket', title => 'Ghost' } ] } );
+print {$ghost} Cpanel::JSON::XS->new->encode( { records => [ { ref => 'TKT-777', type => 'ticket', title => 'Ghost' } ] } );
 close $ghost;
 my $ghost_diff = $tira->diff_records( project => $root, snapshot => $removed_snapshot );
 my ($removal) = grep { $_->{kind} eq 'removed' } @{ $ghost_diff->{changes} };

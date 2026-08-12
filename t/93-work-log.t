@@ -5,7 +5,8 @@ use warnings;
 
 use File::Spec;
 use File::Temp qw(tempdir);
-use JSON::PP ();
+use Cpanel::JSON::XS ();
+use Encode ();
 use Test::More;
 
 use lib 'lib';
@@ -158,7 +159,7 @@ ok( !Tira->can('work_log_remove'), 'nor to remove one' );
     my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
     ok( ref $providers{work_log} eq 'CODE', 'the browser is given a work log provider' );
 
-    my $answered = JSON::PP->new->decode( $providers{work_log}->( { ref => $card->{ref} } ) );
+    my $answered = Cpanel::JSON::XS->new->decode( $providers{work_log}->( { ref => $card->{ref} } ) );
     ok( scalar @{$answered}, 'and it answers with what happened' );
     is( $answered->[0]{kind}, 'created', 'starting at the beginning' );
 
@@ -278,6 +279,35 @@ ok( !Tira->can('work_log_remove'), 'nor to remove one' );
         'and it stays open when the card behind it is redrawn' );
     like( $html, qr/if\(!open\|\|loaded\)return/,
         'while a log nobody has opened still fetches nothing' );
+}
+
+# --- a card whose words are not ASCII -------------------------------------
+
+# The journal is what the work log reads, and it encoded characters and wrote
+# them to a raw handle - so a card with a pound sign or a Chinese character put
+# a warning on stderr and broken bytes on disk. Found by swapping the parser,
+# which made the warning loud; the broken bytes had been going in quietly.
+{
+    my $accented = $tira->create_record( project => $root, type => 'ticket',
+        title => "Caf\x{e9} \x{4e2d}\x{6587} \x{a3}523" );
+
+    at('2026-08-11T14:00:00Z');
+    $tira->comment_add( project => $root, ref => $accented->{ref},
+        author => 'claude', text => "co\x{fb}t \x{a3}523" );
+
+    my $journal = $tira->_journal_path( $root, $accented->{ref} );
+    open my $fh, '<:raw', $journal or die $!;
+    my $bytes = do { local $/; <$fh> };
+    close $fh;
+
+    ok( length $bytes, 'the journal has something in it' );
+    ok( eval { Encode::decode( 'UTF-8', $bytes, Encode::FB_CROAK() ); 1 },
+        'and it is valid UTF-8, so the work log can read it back' );
+
+    my ($said) = grep { $_->{kind} eq 'commented' }
+      @{ $tira->work_log( project => $root, ref => $accented->{ref} ) };
+    like( $said->{detail}, qr/\x{a3}523/,
+        'and the pound sign comes back as a pound sign' );
 }
 
 # --- a card nothing has happened to ---------------------------------------

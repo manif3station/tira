@@ -5,7 +5,7 @@ use warnings;
 
 use File::Spec;
 use File::Temp qw(tempdir);
-use JSON::PP ();
+use Cpanel::JSON::XS ();
 use Test::More;
 
 use lib 'lib';
@@ -63,7 +63,7 @@ $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement'
 
 ( $status, $out ) = run( 'police', '--once', '-o', 'json' );
 is( $status, 0, 'with a policy set, one pass succeeds' );
-my $pass = JSON::PP->new->decode($out);
+my $pass = Cpanel::JSON::XS->new->decode($out);
 ok( $pass->{watching}, 'and says it is watching' );
 is( scalar @{ $pass->{violations} }, 1, 'reporting what it found' );
 

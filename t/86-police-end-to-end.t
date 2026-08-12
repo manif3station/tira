@@ -66,6 +66,7 @@ my %declare = (
     'card-sandbox-missing'      => { enter => 'implement', sandbox => '/sandboxes' },
     'leftover-process'          => { pattern => 'sleep', age => '30m' },
     'leftover-container'        => { age => '30m' },
+    'parent-ahead-of-children'  => {},
 );
 is_deeply( [ sort keys %declare ], [ sort @{ Tira::policy_rules() } ],
     'this test declares every rule the tool offers, so none can be forgotten here' );
@@ -115,6 +116,16 @@ $tira->record_move( project => $root, ref => $shipped->{ref}, column => 'done' )
 
 my $dropped = $tira->create_record( project => $root, type => 'ticket', title => 'Dropped in silence' );
 $tira->record_discard( project => $root, ref => $dropped->{ref} );
+
+# A parent saying it is finished above a child that is not - the board
+# overstating progress in the one direction nobody checks by looking at a card
+# on its own. Which column means finished is declared, because guessing at a
+# name would make this rule silent on any project that calls it something else.
+$tira->column_roles_set( project => $root, type => 'epic', roles => { done => 'done' } );
+my $premature = $tira->create_record( project => $root, type => 'epic', title => 'Claims to be finished' );
+my $underneath = $tira->create_record( project => $root, type => 'ticket', title => 'Still open underneath it' );
+$tira->hierarchy_link( project => $root, parent => $premature->{ref}, child => $underneath->{ref} );
+$tira->record_move( project => $root, ref => $premature->{ref}, column => 'done' );
 
 # Everything above happened at nine; now it is late enough for every age to
 # have passed.

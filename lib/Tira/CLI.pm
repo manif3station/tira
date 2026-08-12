@@ -60,6 +60,14 @@ sub run {
         'reason=s' => \$option{reason}, 'option=s@' => \$option{options},
         'voice=s' => \$option{voice}, 'remove' => \$option{remove},
         'question=s@' => \$option{questions}, 'filename=s' => \$option{filename},
+
+        # Both of these were documented and neither could be passed: the
+        # dashboard read with_questions from an option nothing ever set, and
+        # card-sandbox-missing needs a sandbox the command line could not
+        # take. Found by widening the documentation check to read the argument
+        # tables, which is where almost every flag here is written down.
+        'with-questions!' => \$option{with_questions},
+        'sandbox=s' => \$option{sandbox},
         'collector=s' => \$option{collector}, 'agent=s' => \$option{agent},
         'session=s' => \$option{session}, 'heartbeat=s' => \$option{heartbeat},
         'outward=s' => \$option{outward}, 'inward=s' => \$option{inward},
@@ -1242,6 +1250,17 @@ sub _attachment_content_type {
 
 sub _invoke {
     my ( $tira, $command, $record_type, $option ) = @_;
+    # Who is running this, said once in the environment rather than remembered
+    # on every command. Moves and edits from the command line went into the
+    # work log attributed to nobody - the log knew what happened and never who,
+    # which is most of what a work log is for. The browser has always known,
+    # because there is a login in front of it. Absent both, the entry says
+    # nobody rather than guessing at a name.
+    if ( !defined $option->{author} && defined $ENV{TIRA_AUTHOR} && $ENV{TIRA_AUTHOR} ne '' ) {
+        $option->{author} = utf8::is_utf8( $ENV{TIRA_AUTHOR} )
+          ? $ENV{TIRA_AUTHOR} : decode( 'UTF-8', $ENV{TIRA_AUTHOR}, FB_CROAK );
+    }
+
     my %args = %{$option};
     delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty older_than stale with_level all columns_json nested mark members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
     if ( defined $option->{field_selection} || defined $option->{exclude_fields}
@@ -1579,6 +1598,15 @@ sub _invoke {
             return { streamed => scalar @{$backlog} };
         }
 
+        # Before anything is reported: what to hand the agent. Police watching a
+        # board nobody has set up finds nothing, and that silence looks exactly
+        # like compliance - so the owner gets something to copy across rather
+        # than writing the instructions himself every time. Printed on every
+        # run, because remembering which run was the first is the sort of thing
+        # he should not have to do.
+        my $prompt = eval { $tira->police_prompt(%args) };
+        print {*STDERR} "\n$prompt\n" if defined $prompt;
+
         my $result = $tira->police_pass( %args, store => $store, world => _police_world() );
         die "$result->{advice}\n" if !$result->{watching};
         $tira->bridge_write( store => $store, violations => $result->{violations} );
@@ -1593,7 +1621,7 @@ sub _invoke {
         return $tira->policy_remove(%args) if $action eq 'remove';
         my %policy = map { $_ => $option->{$_} }
           grep { defined $option->{$_} }
-          qw(rule action enter column age max pattern message require require_link link_to);
+          qw(rule action enter column age max pattern message require require_link link_to sandbox);
 
         # Where the policy is declared decides how narrow it is: naming a
         # board, a column or a card each makes it beat the level above.

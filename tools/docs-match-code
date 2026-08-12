@@ -82,7 +82,12 @@ def check_everything_written_exists(text, commands, problems):
     after `dashboard`/`d2` - so ordinary prose mentioning a family name is not
     mistaken for a promise.
     """
+    # Written as a command line, and written as a heading. The command
+    # reference documents every command as a heading - ### `tira.column.roles`
+    # - so looking only for command lines left the primary form unchecked, and
+    # a heading promising a command that does not exist sailed through.
     promised = set(re.findall(r'(?:dashboard|d2)\s+(tira\.[a-z0-9.-]+)', text))
+    promised |= set(re.findall(r'^#{2,4}\s+`(tira\.[a-z0-9.-]+)`', text, re.M))
     for command in sorted(promised):
         command = command.rstrip('.,')
         if in_a_family(command):
@@ -93,14 +98,43 @@ def check_everything_written_exists(text, commands, problems):
             problems.append(f'{command} is documented and does not exist')
 
 
+def flags_in_tables(text):
+    """Flags documented in a command's argument table.
+
+    The command reference gives each command a heading and then a table of its
+    arguments, which is where almost every flag in this project is documented -
+    and none of them were being checked, because only flags written on a
+    command line were looked at. A whole table of invented arguments passed.
+    """
+    found = []
+    command = None
+    for line in text.splitlines():
+        heading = re.match(r'^#{2,4}\s+`(tira\.[a-z0-9.-]+)`', line)
+        if heading:
+            command = heading.group(1)
+            continue
+        if re.match(r'^#{1,4}\s', line):
+            command = None
+            continue
+        if command and line.startswith('|'):
+            for one in re.findall(r'`--([a-z-]+)', line):
+                found.append((command, one))
+    return found
+
+
 def check_documented_flags_are_accepted(text, problems):
     """A flag documented against a command the command does not take.
 
     Checked by asking the command itself rather than by reading the source, so
     this stays true when the source moves.
     """
-    for command, flag in re.findall(r'(?:dashboard|d2)\s+(tira\.[a-z0-9.-]+)((?:\s+--[a-z-]+)*)', text):
-        for one in re.findall(r'--([a-z-]+)', flag):
+    written = re.findall(r'(?:dashboard|d2)\s+(tira\.[a-z0-9.-]+)((?:\s+--[a-z-]+)*)', text)
+    pairs = [(command, one) for command, flag in written
+             for one in re.findall(r'--([a-z-]+)', flag)]
+    pairs += flags_in_tables(text)
+
+    for command, one in sorted(set(pairs)):
+        if True:
             if one in ('help',):
                 continue
             probe = subprocess.run(

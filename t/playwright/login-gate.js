@@ -15,6 +15,18 @@ if (!base) {
 }
 
 const fail = message => { console.error('FAIL: ' + message); process.exitCode = 1; };
+
+// Something happens to the card, through the board's own routes - the way it
+// happens when somebody else is working while this page is open.
+const fetch_comment = (page, base) => page.evaluate(async ({ base }) => {
+  const dialog = document.querySelector('.card-dialog');
+  await fetch('/comment/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: dialog.dataset.type, ref: dialog.dataset.ref,
+                           author: 'michael', text: 'something else happened' }),
+  });
+}, { base });
 const pass = message => console.log('ok - ' + message);
 
 process.on('unhandledRejection', error => {
@@ -84,6 +96,12 @@ process.on('unhandledRejection', error => {
 
   // --- a card, and its work log -------------------------------------------
 
+  // Refreshing every second rather than every minute, because what is being
+  // watched here is whether an open work log follows the card - and a test
+  // that waits a minute to find out is a test nobody runs.
+  await page.goto(base + '/?refresh=1', { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.board', { timeout: 8000 });
+
   const card = page.locator('.card').first();
   if (await card.count()) {
     await card.click();
@@ -102,6 +120,46 @@ process.on('unhandledRejection', error => {
       const after = await page.locator('.card-worklog__entry').count();
       pass(`expanding it fetches the log: ${after} entries`);
     }
+  }
+
+  // --- the work log follows the card --------------------------------------
+
+  // Michael, watching a card he had moved himself: "I still can't see how you
+  // moved it to push but it does not show up in the work log." The log fetched
+  // once when it was expanded and never again, so a log opened before a move
+  // showed the card as it was when it was opened, for as long as the dialog
+  // stayed open.
+  {
+    const before = await page.locator('.card-worklog__entry').count();
+
+    // Something happens to the card while its log is open, the way it does
+    // when the agent is working and he is watching.
+    await fetch_comment(page, base);
+
+    // Polled rather than waited on, so a failure can say what it saw.
+    let after = before;
+    for (let tries = 0; tries < 20 && after <= before; tries++) {
+      await page.waitForTimeout(750);
+      after = await page.locator('.card-worklog__entry').count();
+    }
+    if (after > before) {
+      pass(`an open work log shows what has just happened, without being closed and reopened: ${before} to ${after}`);
+    } else {
+      fail(`the open work log never noticed the card had changed: still ${after} entries`);
+    }
+
+    // Looked at, not only counted. Two defects on this project passed every
+    // assertion and were obvious the moment somebody looked at the screen -
+    // and a screenshot of the top of a dialog whose work log is at the bottom
+    // is a picture of nothing, so it is scrolled to first.
+    await page.locator('.card-section--worklog').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: process.env.TIRA_WORKLOG_SHOT || '/tmp/worklog.png' });
+
+    const named = await page.locator('.card-worklog__who').count();
+    const rows = await page.locator('.card-worklog__entry').count();
+    if (named === rows) pass('and every row has a name cell, so none of them slide out of shape');
+    else fail(`only ${named} of ${rows} work log rows carry a name cell`);
   }
 
   // --- a board that loses its session ------------------------------------

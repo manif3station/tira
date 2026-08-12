@@ -1,5 +1,43 @@
 Revision history for Tira
 
+1.07  2026-08-12
+    - The work log says who. Every entry except a comment recorded
+      what happened and not who did it, so the log could not answer
+      the question it exists to answer: whether the agent did the work
+      or somebody else did. The browser always knew, because there is
+      a login in front of it; the command line now takes TIRA_AUTHOR
+      from the environment, said once rather than remembered on every
+      command, and `--author` still beats it. With nobody named
+      anywhere an entry says nobody rather than inventing a name.
+
+    - A work log left open follows the card. It fetched once when
+      somebody expanded it and never again - but underneath that, the
+      background refresh redrew the card alone, and redrawing the card
+      rebuilds the sections the questions and the work log live in. So
+      both sections were wiped on every refresh and never put back, and
+      an owner watching a card saw nothing happen while it was
+      happening. A refresh now redraws all three, the log keeps its
+      open state, and a log nobody has opened still fetches nothing.
+
+    - An entry with nobody named keeps its shape. The name cell was
+      left out rather than left blank, so the detail slid into the
+      name column and the row read as though it were broken.
+
+    - Police notices a parent that says it is finished while its
+      children are not - a statement of work above its epics, an epic
+      above its tickets, or a ticket above its sub-tickets. Every other
+      check looks at a card on its own, so nothing saw it. Which column
+      means finished comes from the board's roles; a board that has
+      never said is reported as unresolved rather than guessed at. The
+      push gate refuses it too.
+
+    - Two flags the documentation promised and the command line never
+      accepted: `--with-questions` on the dashboard and `--sandbox` on
+      `tira.policy.add`. Both were found by teaching the documentation
+      check to read headings and argument tables, which is where almost
+      every flag in this project is written down and none of them were
+      being checked.
+
 1.06  2026-08-12
     - A search index that cannot disagree with the files.
       `tira.search.index` builds one, and searching then skips a card

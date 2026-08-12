@@ -3,3 +3,4 @@
 /.tira/
 *.bak
 /.pw-fixtures/
+.prove-the-gate.lock

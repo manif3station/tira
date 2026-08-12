@@ -21,6 +21,7 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -88,6 +89,13 @@ def main():
     # Removed however this ends. This runs from the push gate, so a scratch
     # board left behind is not one directory - it is one per release, and a
     # failing gate would leave more litter than a passing one.
+    # A killed process runs no finally, and the gate does get interrupted - a
+    # timeout during one run of this is what left the board that was found in
+    # /tmp after the cleanup was supposedly fixed. Turning the signal into an
+    # exception means even that path tidies up.
+    for interruption in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(interruption, lambda *_: sys.exit(130))
+
     scratch = tempfile.mkdtemp(prefix='tira-doc-examples-')
     try:
         return check(scratch)

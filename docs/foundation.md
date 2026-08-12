@@ -185,6 +185,12 @@ refuses when the destination exists; the replacement stays atomic rather than
 becoming a delete followed by a rename. The full suite and every shipped Perl
 entrypoint pass under taint mode.
 
+Every change to a card is recorded on it, and says who made it where anybody
+said. The browser knows, because there is a login in front of it; the command
+line takes `TIRA_AUTHOR` from the environment, so whoever is running it says so
+once rather than on every command. `--author` on the command itself beats both.
+With nobody named anywhere the entry says nobody rather than inventing a name.
+
 Output leaves the process as the bytes Tira produced. The text-mode layer Perl
 puts on standard output on Windows is removed at the command-line entry point,
 so a command produces the same bytes on every platform - which matters because

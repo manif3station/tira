@@ -148,6 +148,7 @@ my %needs = (
     'leftover-container'        => { age => '30m' },
     'card-unlinked'             => { require_link => 'is-blocked-by' },
     'card-sandbox-missing'      => { enter => 'implement', sandbox => '~/sandboxes' },
+    'parent-ahead-of-children'  => {},
 );
 my $scratch = File::Spec->catdir( $tmp, 'scratch' );
 $tira->project_new(

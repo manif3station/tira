@@ -166,6 +166,120 @@ ok( !Tira->can('work_log_remove'), 'nor to remove one' );
         'asking about no card is refused rather than answered with everything' );
 }
 
+# --- who did it, from the command line ------------------------------------
+
+# Michael moved a card back himself and it was the only entry on that card that
+# said who: every one of mine said nobody. The browser has always known, because
+# there is a login in front of it; the command line never said, so the log knew
+# what happened and never who - which is most of what a work log is for.
+{
+    require Tira::CLI;
+
+    sub run_cli {
+        my (@argv) = @_;
+        my ( $out, $err ) = ( '', '' );
+        open my $so, '>', \$out or die $!;
+        open my $se, '>', \$err or die $!;
+        my $status = do {
+            local *STDOUT = $so;
+            local *STDERR = $se;
+            Tira::CLI->run( command => shift(@argv), tira => $tira,
+                argv => [ '--project', $root, @argv ] );
+        };
+        return ( $status, $out, $err );
+    }
+
+    sub last_move {
+        my ($ref) = @_;
+        my @moves = grep { $_->{kind} eq 'moved' }
+          @{ $tira->work_log( project => $root, ref => $ref ) };
+        return $moves[-1];
+    }
+
+    my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Who moved it' );
+
+    at('2026-08-11T13:00:00Z');
+    run_cli( 'record.move', '--type', 'ticket', '--ref', $card->{ref},
+        '--column', 'implement', '--author', 'michael', '-o', 'json' );
+    is( last_move( $card->{ref} )->{who}, 'michael',
+        'a move named on the command line is recorded against that person' );
+
+    # Said once in the environment rather than remembered on every command.
+    at('2026-08-11T13:10:00Z');
+    {
+        local $ENV{TIRA_AUTHOR} = 'claude';
+        run_cli( 'record.move', '--type', 'ticket', '--ref', $card->{ref},
+            '--column', 'done', '-o', 'json' );
+    }
+    is( last_move( $card->{ref} )->{who}, 'claude',
+        'and one nobody named is recorded against whoever the environment says is running it' );
+
+    at('2026-08-11T13:20:00Z');
+    {
+        local $ENV{TIRA_AUTHOR} = 'claude';
+        run_cli( 'record.move', '--type', 'ticket', '--ref', $card->{ref},
+            '--column', 'backlog', '--author', 'michael', '-o', 'json' );
+    }
+    is( last_move( $card->{ref} )->{who}, 'michael',
+        'somebody who says who they are beats the environment' );
+
+    # And with neither, it says nobody rather than inventing one.
+    at('2026-08-11T13:30:00Z');
+    {
+        local $ENV{TIRA_AUTHOR};
+        delete $ENV{TIRA_AUTHOR};
+        run_cli( 'record.move', '--type', 'ticket', '--ref', $card->{ref},
+            '--column', 'implement', '-o', 'json' );
+    }
+    is( last_move( $card->{ref} )->{who}, undef,
+        'and with nobody named anywhere it claims nobody' );
+
+    # An edit is a change to the card exactly as a move is.
+    at('2026-08-11T13:40:00Z');
+    {
+        local $ENV{TIRA_AUTHOR} = 'claude';
+        run_cli( 'record.update', '--type', 'ticket', '--ref', $card->{ref},
+            '--description', 'now it says something', '-o', 'json' );
+    }
+    my ($edit) = grep { $_->{kind} eq 'changed' && ( $_->{detail} // '' ) =~ /description/ }
+      @{ $tira->work_log( project => $root, ref => $card->{ref} ) };
+    is( $edit->{who}, 'claude', 'an edit says who made it too' );
+}
+
+# --- what the browser draws -----------------------------------------------
+
+# Two faults he could see and no assertion could. The log fetched once when it
+# was expanded and never again, so a log opened before a move showed the card as
+# it was when it was opened for as long as the dialog stayed open. And an entry
+# with nobody named had its name cell left out rather than left blank, so the
+# detail slid into the name column and the row read as though it were broken.
+{
+    require Tira::CLI;
+    my @calls;
+    my ( $out, $err ) = ( '', '' );
+    open my $so, '>', \$out or die $!;
+    open my $se, '>', \$err or die $!;
+    {
+        local *STDOUT = $so;
+        local *STDERR = $se;
+        Tira::CLI->run(
+            command => 'dashboard.ticket', tira => $tira,
+            argv => [ '--project', $root, '-o', 'browser' ],
+            browser_server => sub { push @calls, {@_}; return 1 },
+        );
+    }
+    my $html = $calls[0]{render}->();
+
+    like( $html, qr/card-worklog__who",entry\.who\|\|dash/,
+        'an entry with nobody named still gets its name cell, so the row keeps its columns' );
+    like( $html, qr/worklogRefresh=\(\)=>\{if\(loaded&&!body\.hidden\)readLog\(\)\}/,
+        'an open work log is re-read rather than left as it was when it was opened' );
+    like( $html, qr/if\(worklogOpen\)\{/,
+        'and it stays open when the card behind it is redrawn' );
+    like( $html, qr/if\(!open\|\|loaded\)return/,
+        'while a log nobody has opened still fetches nothing' );
+}
+
 # --- a card nothing has happened to ---------------------------------------
 
 my $untouched = $tira->create_record( project => $root, type => 'ticket', title => 'Just made' );

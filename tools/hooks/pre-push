@@ -22,6 +22,37 @@ workspace="$(cd "$root/../.." && pwd)"
 step() { printf '\n\033[1mpre-push: %s\033[0m\n' "$1"; }
 fail() { printf '\n\033[31mpre-push: %s\033[0m\n' "$1" >&2; exit 1; }
 
+# --- a release nobody would receive -------------------------------------
+#
+# Developer Dashboard installs a skill by comparing versions: same version, no
+# update. Tira's own self-restart compares the installed version with the
+# running one and does the same. So a push that changes shipped code without
+# changing VERSION is in the repository and on nobody's machine.
+#
+# That trap cost hours in one night: the board was being driven by an installed
+# copy at 1.04 while the working tree was well past it, so commands that existed
+# answered "not found" and features that were built had never arrived.
+step 'checking the version against what is being shipped'
+
+# What is being pushed, found without asking for an upstream branch: this
+# repository has no tracking branch configured, so the first version of this
+# check asked for one, found none, and quietly did nothing - a gate that
+# disappears, which is the exact failure everything else here is written to
+# avoid. The remote ref is what git actually has; where there is none, every
+# file counts as changed and the check still runs.
+branch="$(git rev-parse --abbrev-ref HEAD)"
+base="$(git rev-parse --verify --quiet "origin/$branch" || true)"
+[ -n "$base" ] || base="$(git hash-object -t tree /dev/null)"
+
+changed="$(git diff --name-only "$base"..HEAD -- lib cli skills collector dashboard.psgi cpanfile || true)"
+if [ -n "$changed" ]; then
+    version_changed="$(git diff --name-only "$base"..HEAD -- .env || true)"
+    [ -n "$version_changed" ] || fail "shipped files changed and VERSION did not:
+$(printf '%s' "$changed" | head -5)
+An install compares versions, so this release would reach nobody. Bump VERSION
+in .env, and lib/Tira.pm and t/03-metadata.t with it."
+fi
+
 # --- the board is backed up before anything else ------------------------
 #
 # The board is deliberately outside git, so a push is the natural moment to

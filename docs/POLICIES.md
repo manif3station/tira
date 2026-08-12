@@ -102,6 +102,34 @@ listening. Keep the bridge running for as long as you are working.
 **6. Add rules as you find you need them.** The best time to add a rule is
 just after something went wrong that it would have caught.
 
+## What police tells you to hand the agent
+
+Police watches the board. It cannot declare anything — that is the agent's job,
+and an agent that has never been told does not know there is anything to do.
+
+So every time it starts, police prints a prompt for you to copy straight across
+to the agent. Which one depends on what the board already has:
+
+- **Nothing declared yet.** The prompt teaches: read `tira.skills`,
+  `tira.usage` and `tira.policies`, decide what *this* project needs rather
+  than copying somebody else's set, declare it, and start
+  `tira.policy.bridge` and keep it running the way the Telegram bridge is kept
+  running.
+- **Declared, but before rules that now exist.** The catalogue grows, and a
+  rule nobody has declared is silent in exactly the way a rule being obeyed is.
+  The prompt names the rules this project is not using — by name, because
+  "something new exists" is not something anybody can act on — and says to
+  declare the ones that fit and leave out the ones that do not.
+- **Using everything.** Nothing is printed. Nagging somebody who has already
+  done it is how a prompt stops being read.
+
+Both prompts end the same way: gather every question into one ticket in the
+backlog rather than asking them one at a time, each with the reason it is being
+asked and a voice note attached, and the owner answers them together.
+
+It prints on every run rather than only the first, because remembering which
+run was the first is exactly the sort of thing the owner should not have to do.
+
 ## The rules
 
 Every rule needs an `--action`. Parameters marked required are refused if
@@ -115,6 +143,7 @@ missing, at the moment you declare the policy rather than later.
 | `card-stalled` | `--before-column` | a finished checklist on a card that has not moved |
 | `checklist-idle` | `--column --age` | a card being worked with no checklist movement |
 | `orphan-card` | — | a card with no parent |
+| `parent-ahead-of-children` | — | a parent saying it is finished above a child that is not |
 | `question-unanswered` | `--age` | a question waiting on the owner |
 | `answer-unjudged` | `--age` | an answer nobody marked |
 | `answer-ok-not-folded` | `--age` | settled in name only: marked ok, nothing written down |
@@ -840,3 +869,36 @@ A card is never asked to depend on itself, and work in the column carrying the
 linked to it retrospectively. If no column carries that role, nothing is
 skipped, because guessing which column means finished would be worse than
 asking.
+
+### A parent that says it is finished before its children are
+
+**104.** An epic marked done with a ticket under it still open, which is the
+board overstating progress in the one direction nobody checks.
+
+```
+d2 tira.policy.add --rule parent-ahead-of-children --action bridge-reminder
+```
+
+**105.** The same, reported into the owner's own terminal rather than to the
+agent.
+
+```
+d2 tira.policy.add --rule parent-ahead-of-children --action print-reminder
+```
+
+**106.** Watching before enforcing, on a board where parents are moved early
+on purpose.
+
+```
+d2 tira.policy.add --rule parent-ahead-of-children --action log-only
+```
+
+The violation is reported against the parent, because that is the card telling
+the lie, and it names every child still open so nobody has to go looking. A
+discarded child is settled - discarding is a decision, not unfinished work.
+
+Which column means finished comes from the board's roles rather than from a
+name, so a project that calls it `archived` or `shipped` is watched exactly the
+same. A board that has never said which column that is does not get guessed at:
+the policy is reported as unresolved, so the silence can be seen instead of
+being mistaken for approval.

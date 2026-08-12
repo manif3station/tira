@@ -29,8 +29,39 @@ cd "$root"
 hook="$root/tools/hooks/pre-push"
 [ -x "$hook" ] || { echo "prove-the-gate: $hook is missing"; exit 1; }
 
+# One at a time. This moves real files aside and puts a real card on the real
+# board, so two running at once corrupt each other - which is exactly what
+# happened: one run hid a tool the other was looking for, and each reported the
+# gate broken when the only broken thing was running it twice. The same lesson
+# as never running two test containers at once, made mechanical.
+lock="$root/.prove-the-gate.lock"
+exec 9>"$lock"
+flock -n 9 || {
+    echo "prove-the-gate: another run is in progress. This moves files aside and puts a card on the board, so two at once would corrupt each other."
+    exit 1
+}
+
 sandbox="$(mktemp -d)"
-trap 'rm -rf "$sandbox"' EXIT
+
+# The probe card is discarded on the way out however this ends. An interrupted
+# run used to leave a hollow card on the real board, and every later run then
+# failed at the card check for a reason that had nothing to do with what it was
+# testing - a check that leaves the thing it checks in a worse state.
+hollow=""
+cleanup() {
+    [ -n "$hollow" ] && d2 tira.ticket.discard --ref "$hollow" -o json >/dev/null 2>&1
+    rm -rf "$sandbox"
+    rm -f "$lock"
+}
+trap cleanup EXIT INT TERM
+
+# And it will not start against a board that is already wrong, because then
+# every check before the card probe fails for that reason instead of its own.
+if ! ./tools/card-holes >/dev/null 2>&1; then
+    echo "prove-the-gate: the board has an incomplete card, so every check here would fail for that reason:"
+    ./tools/card-holes
+    exit 1
+fi
 
 passed=0
 failed=0
@@ -126,6 +157,7 @@ hollow="$(d2 tira.ticket.create --title 'Probe: a hollow card the gate must refu
 if [ -n "$hollow" ]; then
     refuses "a hollow card on the board ($hollow)" 'fill the cards in' run_hook "$PASSING_SUITE"
     d2 tira.ticket.discard --ref "$hollow" -o json >/dev/null
+    hollow=""
 else
     printf 'NOT PROVED - could not raise a probe card\n'
     failed=$(( failed + 1 ))
@@ -146,10 +178,45 @@ rm -f "$probe"
 #
 # His requirement, and the one that found an example the validator refuses.
 # A real example is broken on purpose here, in the real document, and put back.
-cp "$root/SKILLS.md" "$sandbox/SKILLS.md.original"
-printf '\n`dashboard tira.project.create --name "Probe" --a-flag-that-does-not-exist`\n' >>"$root/SKILLS.md"
-refuses 'a documented example the command refuses' 'not what the command accepts' run_hook "$PASSING_SUITE"
-cp "$sandbox/SKILLS.md.original" "$root/SKILLS.md"
+# Staged in a clone, not in the real document. The first version of this
+# appended a broken example to SKILLS.md and put it back afterwards - and when
+# a run was interrupted the putting back never happened, so the broken example
+# sat in the shipped documentation and was committed with everything else. A
+# check that can damage what it is checking is worse than no check, and this
+# is the second time this file has taught me that.
+example_probe() {
+    local clone="$sandbox/clone-example"
+    rm -rf "$clone"
+    git clone --quiet --no-hardlinks "$root" "$clone" 2>/dev/null || {
+        printf 'NOT PROVED - could not clone the repository to stage a broken example\n'
+        failed=$(( failed + 1 ))
+        return
+    }
+    cp "$root/tools/docs-examples-run" "$clone/tools/docs-examples-run"
+    printf '\n`dashboard tira.project.create --name "Probe" --a-flag-that-does-not-exist`\n' >>"$clone/SKILLS.md"
+
+    local bin="$sandbox/bin"
+    rm -rf "$bin"
+    mkdir -p "$bin"
+    printf '#!/usr/bin/env bash\ncat <<%s\n%s\n%s\n' 'SUITE_EOF' "$PASSING_SUITE" 'SUITE_EOF' >"$bin/docker"
+    chmod +x "$bin/docker"
+
+    out="$(cd "$clone" && PATH="$bin:$PATH" ./tools/docs-examples-run 2>&1)"
+    local status=$?
+    rm -rf "$clone"
+
+    if [ "$status" -eq 0 ]; then
+        printf 'NOT PROVED - a documented example the command refuses was accepted\n'
+        failed=$(( failed + 1 ))
+    elif ! printf '%s' "$out" | grep -qiE 'not what the command accepts'; then
+        printf 'NOT PROVED - it refused the example without saying why: %s\n' "$(printf '%s' "$out" | tail -2)"
+        failed=$(( failed + 1 ))
+    else
+        printf 'proved - a documented example the command refuses is refused\n'
+        passed=$(( passed + 1 ))
+    fi
+}
+example_probe
 
 # --- and it passes when everything is right -------------------------------
 #
@@ -161,6 +228,76 @@ else
     printf 'NOT PROVED - the gate refused a clean tree: %s\n' "$(printf '%s' "$out" | tail -3)"
     failed=$(( failed + 1 ))
 fi
+
+# --- a release nobody would receive ---------------------------------------
+#
+# An install compares versions: same version, no update. A push that changes
+# shipped code without changing VERSION is in the repository and on nobody's
+# machine, which is how a board spent a night being driven by a version four
+# releases behind the working tree.
+#
+# Staged in a throwaway clone rather than in this repository. The first version
+# of this probe committed to the real one and undid it afterwards, and when the
+# run was interrupted halfway the undoing never happened - a check that can
+# damage what it is checking is worse than no check.
+version_probe() {
+    local what="$1" shipped_file="$2" expect="$3"
+    local clone="$sandbox/clone-$what"
+    git clone --quiet --no-hardlinks "$root" "$clone" 2>/dev/null || {
+        printf 'NOT PROVED - could not clone the repository to stage %s\n' "$what"
+        failed=$(( failed + 1 ))
+        return
+    }
+
+    # The clone's origin is this repository, so origin/<branch> is exactly what
+    # the gate compares against.
+    # A clone carries committed history, and the gate being proved may not be
+    # committed yet - the first version of this probe tested the old hook and
+    # reported that the new rule did not work. The tools under test are copied
+    # in as they are now.
+    cp "$root/tools/hooks/pre-push" "$clone/tools/hooks/pre-push"
+    cp "$root/tools/docs-examples-run" "$clone/tools/docs-examples-run"
+
+    ( cd "$clone" && printf '\n# probe\n' >>"$shipped_file" &&
+      git commit --quiet --no-verify -m "probe: $what" -- "$shipped_file" ) || return
+
+    local bin="$sandbox/bin"
+    rm -rf "$bin"
+    mkdir -p "$bin"
+    printf '#!/usr/bin/env bash\ncat <<%s\n%s\n%s\n' 'SUITE_EOF' "$PASSING_SUITE" 'SUITE_EOF' >"$bin/docker"
+    chmod +x "$bin/docker"
+
+    out="$(cd "$clone" && PATH="$bin:$PATH" ./tools/hooks/pre-push 2>&1)"
+    local status=$?
+
+    if [ "$expect" = 'refused' ]; then
+        if [ "$status" -eq 0 ]; then
+            printf 'NOT PROVED - the gate allowed %s\n' "$what"
+            failed=$(( failed + 1 ))
+        elif ! printf '%s' "$out" | grep -qiE 'VERSION did not|reach nobody'; then
+            printf 'NOT PROVED - it refused %s without saying why: %s\n' "$what" "$(printf '%s' "$out" | tail -2)"
+            failed=$(( failed + 1 ))
+        else
+            printf 'proved - %s is refused\n' "$what"
+            passed=$(( passed + 1 ))
+        fi
+    else
+        # A clone has no board, so the later steps of the gate cannot run there
+        # and their refusal says nothing about this rule. What is proved is
+        # that the version step let it past, which is the whole claim.
+        if printf '%s' "$out" | grep -qiE 'VERSION did not|reach nobody'; then
+            printf 'NOT PROVED - the version check refused %s\n' "$what"
+            failed=$(( failed + 1 ))
+        else
+            printf 'proved - %s is allowed through\n' "$what"
+            passed=$(( passed + 1 ))
+        fi
+    fi
+    rm -rf "$clone"
+}
+
+version_probe 'a shipped change with no version bump' 'lib/Tira.pm' refused
+version_probe 'a change no install copies' 't/00-foundation.t' allowed
 
 # --- and it leaves nothing behind -----------------------------------------
 #

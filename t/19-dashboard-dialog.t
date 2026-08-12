@@ -269,8 +269,15 @@ like( $live_html, qr/\.card-question\[data-settled="1"\]\{padding:\.5rem/,
 # the moment anybody changes something.
 like( $live_html, qr/renderCard\(record\);renderQuestions\(record\);renderWorkLog\(record\);return record/,
     'reloading the card rebuilds its questions and its work log too, so answering does not erase them' );
-is( scalar( () = $live_html =~ /renderQuestions\(record\)/g ), 2,
-    'and every path that renders a card renders them: the first open and every reload' );
+# Three paths, not two. The background refresh rendered only the card, which
+# wipes the sections the other two draw into - so the questions and the work log
+# vanished on every refresh, and a work log somebody had open never showed them
+# what had just happened. That was the fault the owner could see and no
+# assertion here could.
+is( scalar( () = $live_html =~ /renderQuestions\(record\)/g ), 3,
+    'and every path that renders a card renders them: the first open, every reload, and every refresh' );
+like( $live_html, qr/renderCard\(record\);renderQuestions\(record\);renderWorkLog\(record\)\}\)\.catch/,
+    'including the background refresh, which used to redraw the card alone' );
 
 # --- the work log, collapsed and fetched only when asked for --------------
 
@@ -280,18 +287,24 @@ is( scalar( () = $live_html =~ /renderQuestions\(record\)/g ), 2,
 # difference between a card that opens instantly and one that does not.
 like( $live_html, qr/const renderWorkLog=/, 'the dialog builds a work log section' );
 like( $live_html, qr/card-worklog__toggle/, 'with something to click' );
-like( $live_html, qr/body\.hidden=true/, 'starting closed' );
+like( $live_html, qr/let worklogOpen=false/, 'starting closed' );
+like( $live_html, qr/body\.hidden=!worklogOpen/, 'and drawn closed unless somebody had it open' );
 like( $live_html, qr/if\(!open\|\|loaded\)return/,
     'and it fetches once, on expanding, rather than on every click' );
 
 {
-    # The request must sit inside the click handler. If it were anywhere else
-    # the section would look lazy while loading eagerly, which is the failure
-    # that would never show up by reading the rendered page.
-    my ($handler) = $live_html =~ /head\.addEventListener\("click",\(\)=>\{(.*?)\}\);box\.appendChild/s;
+    # The request must be reached from the click handler and from nowhere that
+    # runs while a card is merely being opened. If it were anywhere else the
+    # section would look lazy while loading eagerly, which is the failure that
+    # would never show up by reading the rendered page.
+    my ($handler) = $live_html =~ /head\.addEventListener\("click",\(\)=>\{(.*?)\}\);if\(worklogOpen\)/s;
     ok( $handler, 'the toggle has a click handler' );
-    like( $handler // '', qr{fetch\("/worklog\?ref="},
-        'and the fetch is inside it, so opening a card asks for nothing' );
+    like( $handler // '', qr/readLog\(\)/,
+        'which is what reads the log, so opening a card asks for nothing' );
+
+    # One place fetches it, so there is one place to be wrong about when.
+    my $fetches = () = $live_html =~ m{fetch\("/worklog\?ref="}g;
+    is( $fetches, 1, 'and exactly one place in the page fetches a work log' );
 }
 
 # It renders into the sections host, so it scrolls with everything else. Put

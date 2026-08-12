@@ -87,6 +87,41 @@ def stalled(record):
     return f'every checklist item is done but the card is still in {column}'
 
 
+# Past this point a card is making a claim about work that happened, and a
+# claim with nothing attached is a sentence. Michael, watching the work log:
+# "you have not updated everything on the card, just the checklist - I know you
+# are lazy about it." He is right that it needs to be mechanical rather than
+# remembered.
+PROVEN_FROM = FLOW.index('verify')
+SHIPPED_FROM = FLOW.index('push')
+
+
+def unproven(record):
+    """A card claiming to be verified with nothing anybody could check."""
+    column = record.get('column')
+    if column not in FLOW or FLOW.index(column) < PROVEN_FROM:
+        return None
+
+    # Not applied backwards. Thirty-five cards shipped before this check
+    # existed, and demanding artefacts nobody kept would block every push for
+    # ever and teach everybody to switch the check off. Anything reaching done
+    # from now on passes through verify, document and push, where this bites.
+    if column == 'done':
+        return None
+
+    said = []
+    if not record.get('gate_passing_log'):
+        said.append('no gate has been recorded')
+    if not record.get('evidence'):
+        said.append('no evidence is attached')
+    if FLOW.index(column) >= SHIPPED_FROM and not record.get('fix_version'):
+        said.append('no fix version')
+    if not said:
+        return None
+    return (f"is in {column} with " + ' and '.join(said)
+            + ' - a claim about work that happened, with nothing anybody could check')
+
+
 def holes(record, kind):
     missing = [f for f in REQUIRED if not record.get(f)]
 
@@ -105,6 +140,47 @@ def holes(record, kind):
         missing.append('parent')
 
     return missing
+
+
+def parents_ahead():
+    """Parents claiming to be finished above children that are not.
+
+    Michael photographed an epic in done with a ticket in backlog underneath
+    it, an hour after he had asked for that ticket, and a statement of work in
+    done above both epics. Every other check here looks at a card on its own,
+    so nothing was ever going to see it - and it is the direction that
+    overstates progress, which is the direction he cannot check without opening
+    every parent himself.
+    """
+    everything = []
+    for kind in ('sow', 'epic', 'ticket'):
+        everything += [dict(row, kind=kind) for row in tira(f'tira.{kind}.list', '-o', 'json')]
+
+    live = {}
+    for row in everything:
+        if row.get('column') not in ('done', 'discard'):
+            live[row['ref']] = row
+
+    problems = []
+    for row in everything:
+        if row.get('column') != 'done':
+            continue
+        record = tira(f"tira.{row['kind']}.show", '--ref', row['ref'], '-o', 'json')
+        open_children = sorted(
+            child['ref'] for child in live.values()
+            if (child.get('parent') or '') == row['ref'])
+
+        # A card that lists children it does not carry a parent link from is
+        # the same thing seen from the other side, so both are read.
+        listed = (record.get('linkage') or {}).get('sub_ticket_refs') or []
+        open_children = sorted(set(open_children) | {r for r in listed if r in live})
+
+        if open_children:
+            problems.append(
+                f"{row['ref']} says it is finished while "
+                f"{', '.join(open_children)} "
+                f"{'are' if len(open_children) > 1 else 'is'} still open")
+    return problems
 
 
 def main():
@@ -128,6 +204,14 @@ def main():
             if early:
                 failures += 1
                 print(f"{row['ref']} {early}")
+            thin = unproven(record)
+            if thin:
+                failures += 1
+                print(f"{row['ref']} {thin}")
+
+    for ahead in parents_ahead():
+        failures += 1
+        print(ahead)
 
     if failures:
         print(f'\n{failures} card(s) incomplete. Fill them in before pushing.')
@@ -137,6 +221,10 @@ def main():
               'is a board that reports the wrong thing to whoever is reading it.')
         print('A card in done with work still unticked is the same lie told the '
               'other way round, and it is the one that overstates progress.')
+        print('A parent in done above a child that is not is that same lie one '
+              'level up, and nobody sees it without opening every parent.')
+        print('A card past verify with no gate and no evidence is a claim about '
+              'work that happened with nothing anybody could check.')
         return 1
 
     print('every live card is complete')

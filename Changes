@@ -1,5 +1,18 @@
 Revision history for Tira
 
+1.24  2026-08-12
+    - The two lines the owner reads now say who. The terminal escalation
+      told him to "paste to the agent" as though there were one; it names
+      the agent holding that card, or the core agent when nobody holds
+      it. The onboarding prompt told him to keep the bridge running
+      without saying who should be tailing it; it now says, and says
+      something different for a chain. Both were found by reading a
+      statement of work's acceptance criteria rather than its children -
+      every child was done and "every place that assumed one agent is
+      found and named" was still unmet, because only the obvious places
+      had been handled. Naming the wrong recipient is worse than naming
+      none, because he acts on it.
+
 1.23  2026-08-12
     - One board is now worked both ways in the suite, and the policies
       guide names what differs. Five releases built the pieces and each

@@ -217,8 +217,8 @@ for my $round ( 1 .. 6 ) {
 is( scalar @terminal, scalar( grep { $_ } @terminal ),
     'nothing empty is ever put in front of the owner' );
 ok( scalar @terminal >= 1, 'a problem ignored long enough reaches his terminal' );
-like( $terminal[0], qr/paste to the agent/,
-    'carrying something he can hand straight back to the agent' );
+like( $terminal[0], qr/hand to (?:the core agent|\w[\w.-]*): d2 tira\./,
+    'carrying who to hand it to - a person by name, or the core agent - and the command to hand them' );
 
 # --- saying why it is going ------------------------------------------------
 

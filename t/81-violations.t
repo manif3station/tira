@@ -100,7 +100,7 @@ like( $notice->{terminal}, qr/TKT-001/, 'and the card' );
 like( $notice->{terminal}, qr/2026-08-11/, 'and when' );
 like( $notice->{terminal}, qr/still in implement/, 'and what happened' );
 like( $notice->{terminal}, qr/d2 tira\./,
-    'and a command the owner can paste to the agent, rather than a description of one' );
+    'and a command the owner can hand on, rather than a description of one' );
 
 # --- fixed means silent, with nothing to dismiss --------------------------
 

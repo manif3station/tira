@@ -245,7 +245,7 @@ SKIP: {
     }
     like( $err, qr/needs your attention/,
         'a violation ignored long enough reaches the terminal from inside the loop' );
-    like( $err, qr/paste to the agent/, 'with something he can hand straight back' );
+    like( $err, qr/hand to (?:the core agent|\w[\w.-]*): d2 tira\./, 'naming who to hand it back to, and the command' );
 }
 
 # --- saying which column is which ------------------------------------------

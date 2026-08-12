@@ -199,7 +199,7 @@ for my $round ( 1 .. 5 ) {
 }
 ok( scalar @seen, 'a problem ignored five times over reaches the owner\'s terminal' );
 like( $seen[0], qr/needs your attention/, 'saying so' );
-like( $seen[0], qr/paste to the agent/, 'and handing him something to give the agent' );
+like( $seen[0], qr/hand to (?:the core agent|\w[\w.-]*): d2 tira\./, 'and handing him who to give it to, with the command to give them' );
 
 # --- and after all of that, still nothing written -------------------------
 

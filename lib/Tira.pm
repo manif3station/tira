@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.23';
+our $VERSION = '1.24';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4755,7 +4755,15 @@ sub _violation_terminal_notice {
       ( $ref ne '' ? $ref : 'the board' ),
       ( $violation->{detail} // $violation->{rule} ),
       "seen $entry->{seen} times, needs your attention",
-      "paste to the agent: $fix";
+
+      # Who to hand it to, by name. It said "the agent" for as long as there
+      # was only ever one, and that is wrong the moment there are two - and
+      # wrong in the worst place, because this is the line he reads with his
+      # own eyes and acts on. A card somebody holds names them; a card nobody
+      # holds is the core agent's, which is who handles it in a chain and is
+      # simply him in a project of one.
+      'hand to ' . ( ( $violation->{assignee} // '' ) ne ''
+          ? $violation->{assignee} : 'the core agent' ) . ": $fix";
 }
 
 sub violation_record {
@@ -4961,6 +4969,16 @@ sub police_prompt {
                         worked examples of what to set and why
 READING
 
+    # Who should be tailing the bridge. It said "you" for as long as there
+    # was only ever one agent to say it to; in a chain the core agent reads it
+    # and walks each line down to the card's manager, and telling the wrong
+    # one is worse than telling nobody, because he acts on it.
+    my $mode = $self->project_mode( project => $root );
+    my $reader = ( $mode // '' ) eq 'chain'
+      ? 'In a chain that is the core agent, which reads every line and walks it'
+        . " down to the agent that owns the card."
+      : 'That is the agent working the board.';
+
     my $questions = <<'QUESTIONS';
 Group every question you have into ONE ticket in the backlog rather than asking
 them one at a time. Each question carries the reason you are asking it and the
@@ -4988,7 +5006,7 @@ like it does.
 
 When the policies are in place, start the bridge so police can reach you, and
 keep it running the way you keep the Telegram bridge running - it is how you
-hear about a violation without me telling you:
+hear about a violation without me telling you. $reader
 
   d2 tira.policy.bridge
 
@@ -5015,7 +5033,7 @@ project actually uses. Leave out the ones that do not fit - a rule declared for
 the sake of a full list is a rule that will be ignored, and that is worse than
 not having it.
 
-Keep the bridge running so police can reach you:
+Keep the bridge running so police can reach you. $reader
 
   d2 tira.policy.bridge
 

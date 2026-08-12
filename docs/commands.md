@@ -372,6 +372,20 @@ path an agent queries. The formats a person looks at carry titles, the Discard
 column and the waiting marks, since somebody reading a board wants to see where
 things are rather than the smallest possible answer.
 
+`--ssl` serves the board over HTTPS. The certificate is the board's own, made
+the first time and reused afterwards — a certificate that changed on every
+restart would make a browser warn every time, which teaches somebody to click
+through warnings. It is made by a library rather than by running `openssl`,
+because Tira invokes no shell or external process and that guarantee is not
+worth spending on a convenience. It lives beside the project rather than inside
+a board, with the key readable by nobody else.
+
+What it gives you and what it does not: it stops somebody reading your password
+and your session cookie off the wire, which over plain HTTP they can. It does
+not stop somebody who can already stand between you and the machine, because
+nothing has vouched for the certificate except the board that made it. Your
+browser will say so the first time and you accept it once.
+
 `--no-session-expire` turns off the idle timeout for the board it serves. A
 session normally ends after ten minutes of inactivity, and the board's own
 refresh does not count as activity — it reads a session without extending it,

@@ -185,6 +185,12 @@ refuses when the destination exists; the replacement stays atomic rather than
 becoming a delete followed by a rename. The full suite and every shipped Perl
 entrypoint pass under taint mode.
 
+The browser dashboard can serve over HTTPS with `--ssl`, using a certificate
+the board makes for itself with a library rather than by running `openssl` —
+the no-shell guarantee holds. It is self-signed: it stops a password being read
+off the wire and does not stop somebody already in the middle, and both are
+said on the terminal the board starts from.
+
 Tira uses compiled parsers and requires them: `Cpanel::JSON::XS` for JSON and
 `YAML::XS` for YAML. A missing one is refused with the command to install it
 rather than replaced by a pure-Perl fallback — decoding a mature board cost

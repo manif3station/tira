@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.10';
+our $VERSION = '1.11';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -2836,6 +2836,57 @@ sub attachment_detach {
 # A discard keeps the reference, stamps it with when and who, and leaves the
 # stored file alone even when it is the last one referring to it. The bytes are
 # shared by content hash and are not this card's to destroy.
+# The board's own certificate, made without running anything. Developer
+# Dashboard shells out to openssl for this; Tira documents that it invokes no
+# shell or external process, and that guarantee is not worth spending on a
+# convenience - IO::Socket::SSL can make one from Perl.
+#
+# Made once and reused. A certificate that changes on every restart is one the
+# browser warns about every time, which teaches somebody to click through
+# warnings - the opposite of the point of having one.
+sub tls_certificate {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+
+    # Beside the project, never inside a board: a scan or a content hash has no
+    # business tripping over a private key.
+    my $dir = File::Spec->catdir( $root, '.tira', 'ssl' );
+    my $certificate_path = File::Spec->catfile( $dir, 'board.crt' );
+    my $key_path = File::Spec->catfile( $dir, 'board.key' );
+
+    if ( -f $certificate_path && -f $key_path ) {
+        return {
+            certificate => $self->_slurp($certificate_path),
+            key => $self->_slurp($key_path),
+            certificate_path => $certificate_path, key_path => $key_path,
+        };
+    }
+
+    eval { require IO::Socket::SSL::Utils; 1 }
+      or die "Serving over HTTPS needs IO::Socket::SSL. Install it (for example: "
+      . "cpanm IO::Socket::SSL) and run this again.\n";
+
+    make_path($dir) if !-d $dir;
+    my ( $certificate, $key ) = IO::Socket::SSL::Utils::CERT_create(
+        subject => { commonName => 'tira-board' },
+        subjectAltNames => [ [ DNS => 'localhost' ], [ IP => '127.0.0.1' ] ],
+        not_after => time + 365 * 24 * 3600,
+    );
+    my $certificate_pem = IO::Socket::SSL::Utils::PEM_cert2string($certificate);
+    my $key_pem = IO::Socket::SSL::Utils::PEM_key2string($key);
+
+    $self->_atomic_write( $certificate_path, $certificate_pem );
+    $self->_atomic_write( $key_path, $key_pem );
+
+    # The filesystem is the only thing protecting the key.
+    chmod 0600, $key_path;
+
+    return {
+        certificate => $certificate_pem, key => $key_pem,
+        certificate_path => $certificate_path, key_path => $key_path,
+    };
+}
+
 sub attachment_discard {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);

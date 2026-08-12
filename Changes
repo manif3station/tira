@@ -1,5 +1,20 @@
 Revision history for Tira
 
+1.11  2026-08-12
+    - The board can be served over HTTPS. `tira.dashboard -o browser
+      --ssl` uses a certificate the board makes for itself the first
+      time and reuses afterwards - a certificate that changed on every
+      restart would make a browser warn every time, which teaches
+      somebody to click through warnings. It is made by a library
+      rather than by running `openssl`, because Tira invokes no shell
+      or external process and that guarantee is not worth spending on
+      a convenience; it lives beside the project rather than inside a
+      board, with the key readable by nobody else. The board says what
+      it is worth on the terminal it starts from: it stops somebody
+      reading your password off the wire, and does not stop somebody
+      who can already stand between you and the machine. That matters
+      more now that a session can be told never to expire.
+
 1.10  2026-08-12
     - An attachment can be taken off a card without losing it.
       `tira.attachment.discard` sets one aside the way everything else

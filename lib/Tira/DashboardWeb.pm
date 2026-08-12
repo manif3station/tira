@@ -345,9 +345,17 @@ sub serve {
     );
     require Plack::Runner;
     my $runner = Plack::Runner->new;
+
+    # Starman speaks TLS and HTTP::Server::PSGI does not, so the server is
+    # chosen by whether a certificate was handed over rather than always being
+    # the same one. Without --ssl nothing about this changes.
+    my @options = $args{ssl_cert}
+      ? ( '--server', 'Starman', '--enable-ssl',
+        '--ssl-cert', $args{ssl_cert}, '--ssl-key', $args{ssl_key} )
+      : ( '--server', 'HTTP::Server::PSGI' );
+
     $runner->parse_options(
-        '--server', 'HTTP::Server::PSGI', '--host', $args{host},
-        '--port', $args{port}, '--env', 'deployment',
+        @options, '--host', $args{host}, '--port', $args{port}, '--env', 'deployment',
     );
     $runner->run($app);
     return 1;

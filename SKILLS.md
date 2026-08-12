@@ -718,7 +718,7 @@ tira.import --file FILE [--dry-run] [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [--count] [--refs-only] [-o FORMAT]
 tira.search.index [-o FORMAT]
 tira.replace --pattern REGEX --with TEXT [--field FIELD ...] [--type TYPE] [--dry-run] [-o FORMAT]
-tira.dashboard [--type TYPE|all] [--include-discard] [--title] [--with-questions] [--no-session-expire] [-o DASHBOARD_FORMAT]
+tira.dashboard [--type TYPE|all] [--include-discard] [--title] [--with-questions] [--no-session-expire] [--ssl] [-o DASHBOARD_FORMAT]
 tira.dashboard.sow [--include-discard] [--title] [-o DASHBOARD_FORMAT]
 tira.dashboard.epic [--include-discard] [--title] [-o DASHBOARD_FORMAT]
 tira.dashboard.ticket [--include-discard] [--title] [-o DASHBOARD_FORMAT]
@@ -1178,6 +1178,9 @@ without revealing or creating a storage location.
 
 ### UC-106: Ask a question the owner can answer quickly
 **Implemented.** Give the reason and the options with the question, not just the question: `dashboard tira.question.ask --ref TKT-001 --text "Which store should the importer write to?" --reason "Both are configured and the runbook names neither." --option "The staging bucket" --option "The live bucket" --option "Neither, block until told"`. Both are optional and a bare question still works, but an owner answering without them is composing an answer from nothing; with them he can reply "the staging one" in seconds. They render under the question in the human view and in the card's Questions section on the dashboard, where he can answer and mark without leaving the board.
+
+### UC-129: Serve the board over HTTPS
+**Implemented.** `dashboard tira.dashboard -o browser --ssl` serves the board over HTTPS with its own certificate, made the first time and reused afterwards. Over plain HTTP a password typed into the login page and the session cookie that follows it both travel in clear — and if sessions never expire, that cookie is a credential with no end date. The certificate is made by a library rather than by running `openssl`, because Tira invokes no shell or external process; it lives beside the project rather than inside a board, and its key is readable by nobody else. It is self-signed, so a browser warns the first time and you accept it once: that stops somebody reading your password off the wire, and does not stop somebody who can already stand between you and the machine. The board says both of those on the terminal it starts from.
 
 ### UC-128: Take an attachment off a card without losing it
 **Implemented.** `dashboard tira.attachment.discard --ref TKT-001 --sha SHA256` sets an attachment aside rather than deleting it. The reference stays on the card stamped with when and by whom, the browser draws it struck through and greyed like every other discarded thing, and the work log carries the event — read off the card by the engine, so it cannot be forgotten and cannot be written by hand. The stored file is untouched even when that was the last reference to it: the bytes are shared by content hash and are not one card's to destroy. Discarding one twice is refused rather than restamped, because the first stamp is the record somebody is relying on. `tira.attachment.remove` still deletes, for when the file itself has to go.

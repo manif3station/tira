@@ -68,6 +68,7 @@ sub run {
         # tables, which is where almost every flag here is written down.
         'with-questions!' => \$option{with_questions},
         'no-session-expire' => \$option{no_session_expire},
+        'ssl' => \$option{ssl},
         'sandbox=s' => \$option{sandbox},
         'collector=s' => \$option{collector}, 'agent=s' => \$option{agent},
         'session=s' => \$option{session}, 'heartbeat=s' => \$option{heartbeat},
@@ -253,11 +254,26 @@ sub run {
               . "Over plain HTTP that cookie is a credential with no end date, so serve it somewhere you trust.\n";
         }
 
+        # Over plain HTTP a password typed into the login page and the cookie
+        # that follows it both travel in clear, which the documentation used to
+        # admit rather than fix. A self-signed certificate stops somebody
+        # reading them off the wire; it does not stop somebody who can already
+        # stand in the middle, and saying so is part of offering it.
+        my %tls;
+        if ( $option{ssl} ) {
+            my $certificate = $tira->tls_certificate( project => $option{project} );
+            %tls = ( ssl_cert => $certificate->{certificate_path}, ssl_key => $certificate->{key_path} );
+            print {*STDERR} "Serving over HTTPS with the board's own certificate.\n"
+              . "It is self-signed, so a browser will warn the first time and you accept it once.\n"
+              . "That stops somebody reading your password off the wire. It does not stop\n"
+              . "somebody who can already stand between you and this machine.\n";
+        }
+
         my %providers = browser_providers( tira => $tira, project => $option{project} );
         my $served = eval {
             $browser_server->(
                 host => $browser_host, port => $browser_port, render => $render, data => $data,
-                %providers,
+                %tls, %providers,
             );
             1;
         };

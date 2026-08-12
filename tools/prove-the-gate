@@ -162,5 +162,19 @@ else
     failed=$(( failed + 1 ))
 fi
 
+# --- and it leaves nothing behind -----------------------------------------
+#
+# The example check makes a scratch board to run against. It runs on every
+# push, so one left behind is not one directory but one per release - twelve of
+# them accumulated in a single night before anybody looked.
+litter="$(ls -d /tmp/tira-doc-examples-* 2>/dev/null | wc -l)"
+if [ "$litter" -eq 0 ]; then
+    printf 'proved - the gate leaves no scratch boards behind\n'
+    passed=$(( passed + 1 ))
+else
+    printf 'NOT PROVED - %s scratch board(s) left in /tmp after running the gate\n' "$litter"
+    failed=$(( failed + 1 ))
+fi
+
 printf '\n%d proved, %d not proved\n' "$passed" "$failed"
 [ "$failed" -eq 0 ]

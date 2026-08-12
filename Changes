@@ -51,6 +51,12 @@ Revision history for Tira
       made was invisible to it. The fingerprint now reads the records
       themselves.
 
+    - The check that runs every documented example no longer leaves a
+      scratch board behind. It runs from the push gate, so one left
+      behind was not one directory but one per release; twelve of them
+      accumulated in a single night. The gate's own prover now counts
+      them and refuses if any survive.
+
     - Reminders reach a coding agent on Windows. The reminder script
       carried its own copy of the search for an installed agent -
       splitting the path on a colon and looking for a name with no

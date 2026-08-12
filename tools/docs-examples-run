@@ -20,6 +20,7 @@ Usage: tools/docs-examples-run
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -84,7 +85,17 @@ def examples():
 
 
 def main():
+    # Removed however this ends. This runs from the push gate, so a scratch
+    # board left behind is not one directory - it is one per release, and a
+    # failing gate would leave more litter than a passing one.
     scratch = tempfile.mkdtemp(prefix='tira-doc-examples-')
+    try:
+        return check(scratch)
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def check(scratch):
     project = os.path.join(scratch, 'board')
     setup = subprocess.run(
         ['d2', 'tira.project.new', '--name', 'Examples', '--dir', project,

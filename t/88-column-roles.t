@@ -109,6 +109,45 @@ my $roles = $tira->column_roles( project => $root, type => 'ticket' );
 is( $roles->{'in-progress'}, 'doing', 'roles stay distinct even when they mean similar things' );
 is( $roles->{'in-progress-too'}, 'shipping', 'and each names its own column' );
 
+# --- asking without naming a board ----------------------------------------
+
+# The owner types this to see what his columns mean. Answering "Unsupported
+# record type ''" names an internal argument he did not use and does not say
+# what to type instead - and there is no need to ask him at all, because the
+# question has an answer for every board.
+{
+    require Tira::CLI;
+
+    $tira->column_roles_set( project => $root, type => 'epic',
+        roles => { 'in-progress' => 'doing' } );
+
+    my $everything = $tira->column_roles( project => $root );
+    is_deeply( [ sort keys %{$everything} ], [qw(epic sow ticket)],
+        'asking without naming a board answers for all three' );
+    is( $everything->{epic}{'in-progress'}, 'doing',
+        'each with its own roles, because columns are per board' );
+    is_deeply( $everything->{sow}, {}, 'and a board that has declared none says so' );
+
+    # Reading is one thing; writing to a board nobody named is another.
+    ok( !eval { $tira->column_roles_set( project => $root,
+                roles => { 'in-progress' => 'doing' } ); 1 },
+        'setting a role without naming a board is refused' );
+    like( $@, qr/--type/, 'and the refusal names the argument that is missing' );
+    like( $@, qr/tira\.column\.roles/, 'in a command that can be run as it stands' );
+
+    my ( $out, $err ) = ( '', '' );
+    open my $so, '>', \$out or die $!;
+    open my $se, '>', \$err or die $!;
+    my $status = do {
+        local *STDOUT = $so;
+        local *STDERR = $se;
+        Tira::CLI->run( command => 'column.roles', tira => $tira,
+            argv => [ '--project', $root, '-o', 'json' ] );
+    };
+    is( $status, 0, 'and the command itself answers rather than failing' );
+    like( $out, qr/"ticket"/, 'with every board named in what it returns' );
+}
+
 done_testing;
 
 __END__

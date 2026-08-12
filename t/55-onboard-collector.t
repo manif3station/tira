@@ -5,6 +5,7 @@ use warnings;
 
 use File::Path qw(make_path);
 use File::Spec;
+use Cwd qw(abs_path);
 use File::Temp qw(tempdir);
 use JSON::PP qw(decode_json);
 use Test::More;
@@ -13,7 +14,13 @@ use lib 'lib';
 use Tira;
 use Tira::CLI;
 
-my $tmp = tempdir( CLEANUP => 1 );
+# Resolved, because this file compares a path Tira reports against a path it
+# built itself. Tira canonicalises a project directory - two ways of spelling
+# the same directory have to be one project, or the collector-name collision
+# guard would let the same project register twice. On macOS /var is a symlink
+# to /private/var, so an unresolved temporary directory made every one of those
+# comparisons fail on the platform lab while passing on Linux for years.
+my $tmp = abs_path( tempdir( CLEANUP => 1 ) );
 my $tira = Tira->new( clock => sub { '2026-08-08T09:00:00Z' } );
 my $home = File::Spec->catdir( $tmp, 'home' );
 my $config = File::Spec->catfile( $home, '.developer-dashboard', 'config', 'config.json' );
@@ -62,6 +69,11 @@ ANSWERS
 };
 is( $status, 0, 'onboarding completes' );
 is( scalar( () = $out =~ /[Mm]inutes/g ), 1, 'a number of minutes is asked for exactly once' );
+
+# Resolved now the project exists, because that is the form Tira reports and
+# the form the wizard offers back. On Windows a resolved path comes back with
+# forward slashes while catdir builds backslashes.
+$root = abs_path($root);
 
 my $project = $tira->project_show( project => $root );
 is( $project->{notify_after}, 45, 'the answer sets how long a card may sit still' );

@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+#
+# Break the pre-push gate on purpose, one check at a time, and confirm each one
+# refuses.
+#
+# A check that has never been seen to fail is not a check, it is a hope. Five
+# times in one session a guard on this project turned out to be passing for
+# free: a hash that never landed in the file it was meant to be read from, a
+# mutation that never applied, a test driving commands that do not exist. Every
+# one of them was green.
+#
+# So the gate is proved the way the code is: by breaking it. This runs the real
+# hook, from the real repository, with one thing wrong at a time.
+#
+# The suite is not run here. `docker` is replaced on PATH by a script that
+# prints whatever this file tells it to, so the gate's judgement about a suite
+# result can be tested in a second rather than in ten minutes. The real suite
+# still runs, for real, on every actual push - what is proved here is that the
+# gate reaches the right verdict about what it is told, which is the part that
+# has silently been wrong before.
+#
+# Usage: tools/prove-the-gate
+
+set -uo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+
+hook="$root/tools/hooks/pre-push"
+[ -x "$hook" ] || { echo "prove-the-gate: $hook is missing"; exit 1; }
+
+sandbox="$(mktemp -d)"
+trap 'rm -rf "$sandbox"' EXIT
+
+passed=0
+failed=0
+
+# A run of the hook with PATH rigged and, optionally, one tool taken away.
+# Returns the hook's exit status; its output lands in $out.
+out=""
+run_hook() {
+    local suite_output="$1" missing="${2:-}"
+    local bin="$sandbox/bin"
+    rm -rf "$bin"
+    mkdir -p "$bin"
+
+    printf '#!/usr/bin/env bash\ncat <<%s\n%s\n%s\n' 'SUITE_EOF' "$suite_output" 'SUITE_EOF' >"$bin/docker"
+    chmod +x "$bin/docker"
+
+    local hidden=""
+    if [ -n "$missing" ]; then
+        hidden="$sandbox/hidden-$(basename "$missing")"
+        mv "$root/$missing" "$hidden"
+    fi
+
+    out="$(PATH="$bin:$PATH" "$hook" 2>&1)"
+    local status=$?
+
+    [ -n "$missing" ] && mv "$hidden" "$root/$missing"
+    return $status
+}
+
+# The gate must refuse, and it must say why in words that name the problem.
+refuses() {
+    local what="$1" expect="$2"
+    shift 2
+    if "$@"; then
+        printf 'NOT PROVED - the gate allowed a push with %s\n' "$what"
+        failed=$(( failed + 1 ))
+        return
+    fi
+    if ! printf '%s' "$out" | grep -qiE "$expect"; then
+        printf 'NOT PROVED - it refused %s, but never said so: %s\n' "$what" "$(printf '%s' "$out" | tail -2)"
+        failed=$(( failed + 1 ))
+        return
+    fi
+    printf 'proved - %s is refused\n' "$what"
+    passed=$(( passed + 1 ))
+}
+
+PASSING_SUITE='Result: PASS
+lib/Tira.pm               100.0  100.0  100.0
+lib/Tira/CLI.pm           100.0  100.0  100.0
+lib/Tira/DashboardWeb.pm  100.0  100.0  100.0'
+
+# --- a missing tool is a failure, not a skip ------------------------------
+#
+# The failure mode that matters most: a gate that disappears when somebody
+# deletes a file looks exactly like a gate that passed.
+for tool in tools/board-backup tools/card-holes tools/docs-match-code; do
+    refuses "a missing $(basename "$tool")" 'missing|refusing' run_hook "$PASSING_SUITE" "$tool"
+done
+
+# --- a failing suite ------------------------------------------------------
+refuses 'a failing suite' 'suite failed' run_hook 'Result: FAIL
+t/01-cli.t (Wstat: 512 Tests: 3 Failed: 1)'
+
+# --- a suite that did not run at all --------------------------------------
+#
+# Silence read as success on this project the same morning this was written:
+# a dependency install printed nothing because it had timed out.
+refuses 'a suite that produced nothing' 'suite failed|did not run' run_hook ''
+
+# --- coverage below the line ----------------------------------------------
+refuses 'coverage below 100%' 'coverage is below' run_hook 'Result: PASS
+lib/Tira.pm               100.0  100.0  100.0
+lib/Tira/CLI.pm            99.9  100.0   99.9
+lib/Tira/DashboardWeb.pm  100.0  100.0  100.0'
+
+# --- a module that was never measured -------------------------------------
+#
+# The quiet one. A module dropped from the -select list is not reported at all,
+# and an absent line reads like a passing line to anything that only greps for
+# numbers below a hundred.
+refuses 'a module with no coverage measured at all' 'no coverage was measured' run_hook 'Result: PASS
+lib/Tira.pm               100.0  100.0  100.0
+lib/Tira/CLI.pm           100.0  100.0  100.0'
+
+# --- the board is checked -------------------------------------------------
+#
+# Not a stub: a real hollow card is put on the real board, the gate is run, and
+# the card is discarded again. Anything less proves the tool runs, not that the
+# gate refuses.
+hollow="$(d2 tira.ticket.create --title 'Probe: a hollow card the gate must refuse' -o json |
+    python3 -c 'import json,sys; print(json.load(sys.stdin)["ref"])')"
+if [ -n "$hollow" ]; then
+    refuses "a hollow card on the board ($hollow)" 'fill the cards in' run_hook "$PASSING_SUITE"
+    d2 tira.ticket.discard --ref "$hollow" -o json >/dev/null
+else
+    printf 'NOT PROVED - could not raise a probe card\n'
+    failed=$(( failed + 1 ))
+fi
+
+# --- the documentation is checked -----------------------------------------
+#
+# An entrypoint that ships undocumented is exactly what happened in 1.05, when
+# twenty-one of them went out with not one named in the documents an agent
+# reads.
+probe="$root/skills/police/cli/undocumented-probe"
+cp "$root/skills/police/cli/suspend" "$probe" 2>/dev/null || cp "$root/cli/police" "$probe"
+chmod +x "$probe"
+refuses 'an entrypoint nobody documented' 'documentation and the code disagree' run_hook "$PASSING_SUITE"
+rm -f "$probe"
+
+# --- and it passes when everything is right -------------------------------
+#
+# A gate that refuses everything is not a gate either. This is the control.
+if run_hook "$PASSING_SUITE"; then
+    printf 'proved - a clean tree is allowed through\n'
+    passed=$(( passed + 1 ))
+else
+    printf 'NOT PROVED - the gate refused a clean tree: %s\n' "$(printf '%s' "$out" | tail -3)"
+    failed=$(( failed + 1 ))
+fi
+
+printf '\n%d proved, %d not proved\n' "$passed" "$failed"
+[ "$failed" -eq 0 ]

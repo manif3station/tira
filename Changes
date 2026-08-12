@@ -1,5 +1,62 @@
 Revision history for Tira
 
+1.06  2026-08-12
+    - A search index that cannot disagree with the files.
+      `tira.search.index` builds one, and searching then skips a card
+      whose text cannot match without parsing it - parsing being what
+      reading a board actually costs. Each row is keyed by the content
+      hash of the file it describes, so a row can only ever describe
+      the exact bytes on disk: edit a card behind Tira's back and
+      search follows the file. There is no stale state to detect and
+      nothing to fall back from. A corrupt, missing or restored-over
+      index is not an error - search reads the files, as it did before
+      any index existed - and a project that never runs the command
+      has no index and needs no SQLite at all.
+
+    - Tira works on Windows. It never did: every write is a write to
+      a temporary file beside the target followed by a rename over
+      it, and `rename` on Windows refuses when the destination
+      exists, so Tira could create a file and never change one. Every
+      card update, board change and config write failed. The
+      replacement is now `MoveFileEx` with `MOVEFILE_REPLACE_EXISTING`
+      there, which is a same-volume atomic replace rather than a
+      delete followed by a rename, so what the documentation promises
+      stays true. Behind that sat a second cause with the same
+      symptom: `YAML::PP`'s `load_file` leaves the file open, and an
+      open handle on Windows makes a file impossible to replace, so
+      every board config write failed immediately after the config
+      had been read. Tira now reads YAML through its own reader and
+      closes the file when it says so. Neither fault was visible on
+      Linux and both were total on Windows; the suite was green
+      throughout.
+
+    - Timestamps, program lookup and output bytes no longer assume a
+      POSIX machine. The default clock computes its offset rather than
+      asking `strftime`, whose `%z` is a numeric offset on Linux and a
+      zone name on Windows, so a record written there carried a stamp
+      nothing could parse. The search for an installed coding agent
+      uses the platform's own path separator and executable
+      extensions instead of a colon and a bare name, so on Windows it
+      finds what is installed rather than reporting nothing. And the
+      command line removes the text-mode layer from its output, so
+      the bytes that leave the process are the bytes Tira produced -
+      which the read cache depends on, because it stores those bytes
+      and serves them back.
+
+    - The read cache can no longer serve a caller its own stale data.
+      It decided whether it was current from the modification times of
+      the board's directories, and a card edited in place adds and
+      removes no name - so on Windows the directory was untouched, the
+      cache was judged current, and the change the caller had just
+      made was invisible to it. The fingerprint now reads the records
+      themselves.
+
+    - A project directory is resolved to its real path, so every way
+      of spelling one directory is one project and the same project
+      cannot register two collectors racing the same board. The
+      behaviour was always there and had never been asserted; the
+      macOS lab found it, where /var is a symlink to /private/var.
+
 1.05  2026-08-11
     - A login in front of the browser dashboard. A person claims a
       password the first time they use the board and must match it

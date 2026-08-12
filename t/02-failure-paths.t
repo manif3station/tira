@@ -91,9 +91,9 @@ ok(
 
 my $yaml = YAML::PP->new;
 my $config_path = File::Spec->catfile( $project, '.tira', 'ticket', 'config.yml' );
-my $config = $yaml->load_file($config_path);
+my $config = read_yaml($config_path);
 $config->{next_number} = 'invalid';
-$yaml->dump_file( $config_path, $config );
+write_yaml( $config_path, $yaml->dump_string($config) );
 eval { $default_clock->create_record( project => $project, type => 'ticket', title => 'Bad counter' ) };
 like( $@, qr/Invalid next_number/, 'invalid persisted counters are rejected' );
 
@@ -254,6 +254,28 @@ like( $direct_err, qr/Unsupported output format/, 'format failure falls back to 
     );
 }
 like( $direct_err, qr/"error"\s*:\s*"Unsupported Tira command/, 'emergency formatter emits JSON' );
+
+# YAML::PP's load_file leaves the handle open, and on Windows an open handle
+# makes a file impossible to replace - so a test that reads a config and then
+# asks Tira to write it fails there and nowhere else. Reading it as a string
+# closes the file when this says so.
+sub read_yaml {
+    my ($path) = @_;
+    open my $fh, '<:encoding(UTF-8)', $path or die "Cannot read '$path': $!";
+    my $body = do { local $/; <$fh> };
+    close $fh;
+    return $yaml->load_string($body);
+}
+
+# dump_file leaves the handle open in the same way load_file does, and a test
+# that writes a file Tira then replaces fails on Windows for that alone.
+sub write_yaml {
+    my ( $path, $body ) = @_;
+    open my $fh, '>:encoding(UTF-8)', $path or die "Cannot write '$path': $!";
+    print {$fh} $body;
+    close $fh;
+    return 1;
+}
 
 done_testing;
 

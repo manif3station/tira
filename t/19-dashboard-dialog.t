@@ -294,6 +294,15 @@ like( $live_html, qr/if\(!open\|\|loaded\)return/,
         'and the fetch is inside it, so opening a card asks for nothing' );
 }
 
+# It renders into the sections host, so it scrolls with everything else. Put
+# outside it, the section pinned itself to the bottom of the dialog and cut off
+# whatever was above - which every assertion in this file passed straight
+# through, and only looking at the screen caught.
+like( $live_html, qr/const host=sectionsHost/,
+    'the work log renders among the sections rather than beside them' );
+unlike( $live_html, qr/<div class="card-worklog"><\/div>/,
+    'with no host of its own outside the scrolling area' );
+
 # The owner reads and answers questions where he reads the card
 like( $live_html, qr/const renderQuestions=/, 'the dialog builds a questions section' );
 

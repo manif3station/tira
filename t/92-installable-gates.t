@@ -58,7 +58,12 @@ my $hooks = File::Spec->catdir( $root, '.git', 'hooks' );
 for my $hook (qw(commit-msg pre-push)) {
     my $path = File::Spec->catfile( $hooks, $hook );
     ok( -e $path, "the $hook gate is in place" );
-    ok( -x $path, "and is executable, which is the only reason git will run it" );
+
+    # Executability is what makes git run a hook on a POSIX system. Windows has
+    # no such bit - git there runs hooks through its own shell - so the thing
+    # worth asserting is different, not absent.
+    ok( ( $^O eq 'MSWin32' ? -s $path : -x $path ),
+        "and is executable, which is the only reason git will run it" );
 }
 
 # --- installing twice ----------------------------------------------------
@@ -68,7 +73,8 @@ for my $hook (qw(commit-msg pre-push)) {
 ( $status ) = run( 'gates.install', '-o', 'json' );
 is( $status, 0, 'installing a second time is safe' );
 for my $hook (qw(commit-msg pre-push)) {
-    ok( -x File::Spec->catfile( $hooks, $hook ), "and the $hook gate is still there" );
+    my $path = File::Spec->catfile( $hooks, $hook );
+    ok( ( $^O eq 'MSWin32' ? -s $path : -x $path ), "and the $hook gate is still there" );
 }
 
 # --- what the gates actually check ---------------------------------------

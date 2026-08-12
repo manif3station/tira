@@ -13,6 +13,14 @@ use Tira;
 
 sub run {
     my ( $class, %args ) = @_;
+
+    # Tira encodes its output to UTF-8 bytes and prints them. Perl puts a
+    # text-mode layer on standard output on Windows, which rewrites every
+    # newline on the way out, so the bytes that left the process were not the
+    # bytes Tira produced - and Tira compares output bytes in its own cache.
+    # Taking the layer off makes the output the same everywhere.
+    binmode $_, ':raw' for ( \*STDOUT, \*STDERR );
+
     my $command = $args{command} // '';
     my $type = $args{type};
     my $argv = $args{argv} || [];
@@ -781,13 +789,39 @@ sub _board_fingerprint {
         File::Spec->catfile( $root, '.tira', 'project.yml' ),
         File::Spec->catdir( $root, '.tira', 'attachments' ),
     );
+
+    # The counter Tira raises on every write. Modification times are the same
+    # for two writes inside one clock tick on Windows - about sixteen
+    # milliseconds - so a caller could be served the board as it was before its
+    # own write. This has no clock in it.
+    my $generation = File::Spec->catfile( $root, '.tira', '.generation' );
+    if ( open my $fh, '<', $generation ) {
+        my $line = <$fh>;
+        close $fh;
+        push @stamps, 'generation=' . ( defined $line ? $line : '' );
+    }
     for my $type (qw(sow epic ticket)) {
         my $board = File::Spec->catdir( $root, '.tira', $type );
         push @paths, $board;
-        if ( opendir my $dh, $board ) {
-            push @paths, map { File::Spec->catdir( $board, $_ ) }
-              sort grep { !/\A\./ } readdir $dh;
-            closedir $dh;
+        my $dh;
+        next if !opendir $dh, $board;
+        my @entries = map { File::Spec->catdir( $board, $_ ) }
+          sort grep { !/\A\./ } readdir $dh;
+        closedir $dh;
+        push @paths, @entries;
+
+        # And the records themselves. A directory's modification time answers a
+        # different question from the one being asked here: it changes when the
+        # set of names changes, not when a file's contents do. A card edited in
+        # place adds and removes no name, so on Windows the directory was
+        # untouched, the cache was judged current, and the caller was served the
+        # board as it was before its own write.
+        for my $column ( grep { -d } @entries ) {
+            my $files;
+            next if !opendir $files, $column;
+            push @paths, map { File::Spec->catfile( $column, $_ ) }
+              sort grep { /\.json\z/ } readdir $files;
+            closedir $files;
         }
     }
     for my $path (@paths) {
@@ -973,10 +1007,27 @@ sub _ask_yes {
 # Is there a coding agent on this machine at all? Its own sub so a
 # test can drive both answers, rather than proving whichever one this
 # particular machine happens to give.
+# PATH is separated by a colon on POSIX and a semicolon on Windows, and a
+# program there is executable because of its extension rather than a mode bit.
+# Splitting on a colon and looking for an extensionless file found nothing on
+# Windows however much was installed, and answered "no agent" rather than
+# failing - so onboarding quietly offered nothing.
+our $WINDOWS = $^O eq 'MSWin32' ? 1 : 0;
+
 sub _agent_available {
     my ($name) = @_;
-    for my $dir ( split /:/, $ENV{PATH} // '' ) {
-        return 1 if length $dir && -x File::Spec->catfile( $dir, $name );
+    my @suffixes = $WINDOWS ? ( split /;/, $ENV{PATHEXT} // '.COM;.EXE;.BAT;.CMD' ) : ('');
+
+    # Split on the separator the platform being described uses, rather than
+    # asking File::Spec, which answers for the platform this is running on and
+    # so cannot be driven from anywhere else.
+    my $separator = $WINDOWS ? ';' : ':';
+    for my $dir ( split /\Q$separator\E/, $ENV{PATH} // '' ) {
+        next if !length $dir;
+        for my $suffix (@suffixes) {
+            my $candidate = File::Spec->catfile( $dir, "$name$suffix" );
+            return 1 if $WINDOWS ? -f $candidate : -x $candidate;
+        }
     }
     return 0;
 }
@@ -1593,7 +1644,7 @@ sub _invoke {
         'gate.annotate' => 'gate_annotate',
         'checklist.list' => 'checklist_list', 'checklist.add' => 'checklist_add',
         'checklist.update' => 'checklist_update',
-        'search' => 'search', 'dashboard' => 'dashboard',
+        'search' => 'search', 'search.index' => 'search_index', 'dashboard' => 'dashboard',
         'dashboard.sow' => 'dashboard', 'dashboard.epic' => 'dashboard', 'dashboard.ticket' => 'dashboard',
     );
     my $method = $method{$command} or die "Unsupported Tira command '$command'\n";

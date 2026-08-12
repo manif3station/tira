@@ -5,6 +5,7 @@ use warnings;
 
 use File::Path qw(make_path);
 use File::Spec;
+use Cwd qw(abs_path);
 use File::Temp qw(tempdir);
 use JSON::PP qw(decode_json encode_json);
 use Test::More;
@@ -13,7 +14,13 @@ use lib 'lib';
 use Tira;
 use Tira::CLI;
 
-my $tmp = tempdir( CLEANUP => 1 );
+# Resolved, because this file compares a path Tira reports against a path it
+# built itself. Tira canonicalises a project directory - two ways of spelling
+# the same directory have to be one project, or the collector-name collision
+# guard would let the same project register twice. On macOS /var is a symlink
+# to /private/var, so an unresolved temporary directory made every one of those
+# comparisons fail on the platform lab while passing on Linux for years.
+my $tmp = abs_path( tempdir( CLEANUP => 1 ) );
 my $tira = Tira->new( clock => sub { '2026-08-08T09:00:00Z' } );
 
 sub run_cli {
@@ -31,6 +38,12 @@ my $home = File::Spec->catdir( $tmp, 'home' );
 my $config = File::Spec->catfile( $home, '.developer-dashboard', 'config', 'config.json' );
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new( name => 'MT5', dir => $root, columns => ['Backlog, Doing'] );
+
+# Resolved once the directory exists, because that is the form Tira reports.
+# On Windows a resolved path comes back with forward slashes while catdir
+# builds backslashes, so every comparison below is against a path this file
+# builds the same way Tira does rather than the way it happened to type it.
+$root = abs_path($root);
 
 # No heartbeat, no collector.
 ok( !defined $tira->collector_entry( project => $root ),
@@ -85,6 +98,36 @@ close $seed;
     $written = decode_json( do { open my $fh, '<', $config or die $!; local $/; <$fh> } );
     ($mine) = grep { $_->{name} eq 'tira.mt5' } @{ $written->{collectors} };
     is( $mine->{cwd}, $root, 'and the entry that was there is untouched' );
+
+    # --- the same project, spelled another way ----------------------------
+
+    # Tira resolves a project directory to its real path, and this is what that
+    # is for: reaching the same project through a symlink has to be the same
+    # project. Without it the guard above would let one project register twice
+    # under two spellings and produce two collectors racing the same board.
+    #
+    # The macOS lab found this the hard way. Its temporary directories live
+    # under /var, which is a symlink to /private/var, so every path comparison
+    # in this file failed there while passing on Linux - the behaviour was
+    # right and had never once been asserted.
+  SKIP: {
+        my $link = File::Spec->catdir( $tmp, 'by-another-name' );
+        skip 'this system does not make symlinks', 2
+          if !eval { symlink( $root, $link ) };
+
+        # Windows can make one and cannot resolve it: realpath there returns the
+        # link rather than what it points at, so this guarantee does not hold
+        # and the documentation says so. Resolving it properly needs
+        # GetFinalPathNameByHandle, which is TKT-035's to decide on.
+        skip 'this system does not resolve symlinks', 2 if $^O eq 'MSWin32';
+
+        is( $tira->discover_project( project => $link ), $root,
+            'a project reached through a symlink is the project it points at' );
+
+        my $through = $tira->collector_entry( project => $link );
+        is( $through->{cwd}, $root,
+            'so its collector names one directory, not two spellings of one' );
+    }
 
     my $removed = $tira->collector_remove( project => $root );
     is( $removed->{name}, 'tira.mt5', 'removing reports what it took out' );

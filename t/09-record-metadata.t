@@ -142,9 +142,9 @@ like( $repaired_bytes, qr/\xC2\xA3/, 'repaired JSON contains canonical UTF-8 pou
 
 my $yaml = YAML::PP->new( boolean => 'JSON::PP' );
 my $project_path = File::Spec->catfile( $root, '.tira', 'project.yml' );
-my $project_data = $yaml->load_file($project_path);
+my $project_data = read_yaml($project_path);
 delete $project_data->{people}[1]{active};
-$yaml->dump_file( $project_path, $project_data );
+write_yaml( $project_path, $yaml->dump_string($project_data) );
 ok( $tira->project_show( project => $root )->{people}[1]{active}, 'legacy person reads as active' );
 $tira->person_update( project => $root, id => 'grace', email => 'grace@example.test' );
 ok( $tira->project_show( project => $root )->{people}[1]{active}, 'legacy person active default persists on mutation' );
@@ -178,6 +178,28 @@ like( $@, qr/\AConflict: fix_version changed/, 'a null base conflicts once the f
 $ticket = $tira->record_update( project => $root, ref => $ticket->{ref}, priority => 3 );
 $ticket = $tira->record_update( project => $root, ref => $ticket->{ref}, priority => 4, expect => { priority => 3 } );
 is( $ticket->{priority}, 4, 'numeric bases compare by value' );
+
+# YAML::PP's load_file leaves the handle open, and on Windows an open handle
+# makes a file impossible to replace - so a test that reads a config and then
+# asks Tira to write it fails there and nowhere else. Reading it as a string
+# closes the file when this says so.
+sub read_yaml {
+    my ($path) = @_;
+    open my $fh, '<:encoding(UTF-8)', $path or die "Cannot read '$path': $!";
+    my $body = do { local $/; <$fh> };
+    close $fh;
+    return $yaml->load_string($body);
+}
+
+# dump_file leaves the handle open in the same way load_file does, and a test
+# that writes a file Tira then replaces fails on Windows for that alone.
+sub write_yaml {
+    my ( $path, $body ) = @_;
+    open my $fh, '>:encoding(UTF-8)', $path or die "Cannot write '$path': $!";
+    print {$fh} $body;
+    close $fh;
+    return 1;
+}
 
 done_testing;
 

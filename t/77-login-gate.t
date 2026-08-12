@@ -198,6 +198,45 @@ test_psgi $app, sub {
         'and an unknown person is answered exactly as a wrong password is' );
 };
 
+# --- a board that has lost its session -------------------------------------
+
+# The board refreshes itself in the background. When the login gate went in, a
+# page that was already open lost its session and every refresh came back
+# refused - and the page, having nothing to do with a failure, kept drawing the
+# cards it last managed to load. The owner photographed a board at five in the
+# morning showing where things were the previous day, and nothing on screen
+# said it was signed out.
+{
+    my @calls;
+    my ( $out, $err ) = ( '', '' );
+    open my $stdout, '>', \$out or die $!;
+    open my $stderr, '>', \$err or die $!;
+    {
+        local *STDOUT = $stdout;
+        local *STDERR = $stderr;
+        Tira::CLI->run(
+            command => 'dashboard.ticket', tira => $tira,
+            argv => [ '--project', $root, '-o', 'browser' ],
+            browser_server => sub { push @calls, {@_}; return 1 },
+        );
+    }
+    my $html = $calls[0]{render}->();
+
+    like( $html, qr/response\.status===401/,
+        'the refresh notices when it is refused for want of a session' );
+    like( $html, qr/response\.status===401\)\{location\.reload\(\)/,
+        'and reloads, which is what puts the sign-in in front of the person' );
+
+    # The refusal is a 401 rather than anything else, so the page above has
+    # something to recognise. This is asserted from the gate's side too,
+    # because the two halves are useless apart.
+    test_psgi $app, sub {
+        my ($http) = @_;
+        my $refused = $http->( GET '/data?type=ticket' );
+        is( $refused->code, 401, 'and the gate refuses a poll with exactly that' );
+    };
+}
+
 done_testing;
 
 __END__

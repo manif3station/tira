@@ -596,6 +596,29 @@ looks like cover.
 Prints `docs/POLICIES.md`: the onboarding walk-through, every rule and action,
 and a hundred worked use cases. Answers the same way with `--help`.
 
+### `tira.search.index`
+
+Builds the search index for a project. Searching then skips a card whose text
+cannot match without parsing it, and parsing is what reading a board costs.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `-o FORMAT` | no | `{indexed, path}`: how many cards, and where the index is. |
+
+The filesystem is the database, and an index is a second copy of the truth. The
+moment a read believes the copy, every guarantee built on that premise is gone
+- so each row is keyed by the content hash of the file it describes. A row can
+never describe anything but the exact bytes on disk, because a changed file has
+a different hash and simply misses. There is no such thing as a stale row to
+detect and nothing to fall back from: the files always win, by construction
+rather than by care.
+
+A corrupt, unreadable or missing index is not an error. Search reads the files,
+exactly as it did before any index existed. Ordinary writes keep it current -
+they already hold the project lock - and rebuilding is deleting it and running
+the command again. A project that never runs it has no index and needs no
+SQLite installed at all.
+
 ### `tira.column.roles`
 
 Say which column plays which role, so a rule can be written against what a
@@ -604,8 +627,14 @@ renames it.
 
 | Argument | Required | What it is for |
 | --- | --- | --- |
-| `--type TYPE` | yes | Which board. |
+| `--type TYPE` | to set | Which board. Reading without it answers for all three. |
 | `--role NAME=COLUMN` | no | Repeatable. With none, reads the roles back. |
+
+Columns are per board, so roles are too - but "which column is the backlog" has
+an answer for every board, and reading without naming one answers for all three
+at once. Setting is different: writing roles onto a board nobody named is a
+surprise, so it is refused, and the refusal is a command that can be run as it
+stands rather than the name of an argument.
 
 The vocabulary is the project's own; Tira matches a role without needing to
 understand it. Every role is optional - most projects have a column for very

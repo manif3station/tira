@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=1\.05$/m, '.env stores version 1.05' );
+like( $env_text, qr/^VERSION=1\.06$/m, '.env stores version 1.06' );
 
 open my $skills, '<', 'SKILLS.md' or die "Cannot read SKILLS.md: $!";
 my $skills_text = do { local $/; <$skills> };
@@ -35,18 +35,18 @@ for my $section (
     like( $skills_text, qr/^## \Q$section\E$/m, "SKILLS.md contains $section" );
 }
 my @use_cases = $skills_text =~ /^### UC-\d{3}:/mg;
-is( scalar @use_cases, 125, 'SKILLS.md contains exactly 125 numbered use cases' );
+is( scalar @use_cases, 126, 'SKILLS.md contains exactly 126 numbered use cases' );
 my %seen;
 while ( $skills_text =~ /^### UC-(\d{3}):/mg ) {
     $seen{$1}++;
 }
-is_deeply( [ sort keys %seen ], [ map { sprintf '%03d', $_ } 1 .. 125 ], 'use cases are numbered UC-001 through UC-125' );
+is_deeply( [ sort keys %seen ], [ map { sprintf '%03d', $_ } 1 .. 126 ], 'use cases are numbered UC-001 through UC-126' );
 unlike( $skills_text, qr{/home/[A-Za-z0-9._-]+/}, 'SKILLS.md contains no hard-coded home-directory path' );
 unlike( $skills_text, qr/--project|TIRA_HOME|\.tira\/|project selector/i, 'SKILLS.md does not disclose project location or selectors' );
 
 use lib 'lib';
 use Tira;
-is( $Tira::VERSION, '1.05', 'module version matches .env' );
+is( $Tira::VERSION, '1.06', 'module version matches .env' );
 unlike( $skills_text, qr/\bSpecified\b/i, 'every documented command and use case is implemented' );
 
 my @perl_files = ( 'lib/Tira.pm', 'lib/Tira/CLI.pm' );
@@ -65,7 +65,11 @@ for my $file (@perl_files) {
     is_deeply( [ ( $pod // '' ) =~ /([^\x00-\x7f])/g ], [],
         "$file keeps its POD ASCII, which podchecker requires without an =encoding" );
 }
-my @commands = grep { m{(?:\A|/)cli/[^/]+\z} && -x $_ } @perl_files;
+# Executability is what makes a file a command on a POSIX system and is not a
+# concept on Windows, where -x answers for the extension rather than the file.
+# Checking it where it means something keeps the guard honest without making
+# the count platform-dependent.
+my @commands = grep { m{(?:\A|/)cli/[^/]+\z} && ( $^O eq 'MSWin32' || -x $_ ) } @perl_files;
 
 # Twenty-one entrypoints shipped in 1.05 with not one of them named in the
 # command reference or in SKILLS.md. Every documentation guard passed, because
@@ -100,7 +104,7 @@ for my $command (@commands) {
 is_deeply( \@undocumented, [],
     'every command that ships is named in a document an agent reads' );
 
-is( scalar @commands, 123, 'release ships exactly 123 executable CLI entrypoints' );
+is( scalar @commands, 124, 'release ships exactly 124 executable CLI entrypoints' );
 
 done_testing;
 

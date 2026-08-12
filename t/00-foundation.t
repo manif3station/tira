@@ -37,8 +37,7 @@ is( $created->{name}, 'Demo Project', 'project creation returns its name' );
 is( $created->{root}, realpath($project_dir), 'project creation returns its canonical root' );
 ok( -f File::Spec->catfile( $project_dir, '.tira', 'project.yml' ), 'project.yml is created inside .tira' );
 
-my $yaml = YAML::PP->new( boolean => 'JSON::PP' );
-my $project = $yaml->load_file( File::Spec->catfile( $project_dir, '.tira', 'project.yml' ) );
+my $project = read_yaml( File::Spec->catfile( $project_dir, '.tira', 'project.yml' ) );
 is( $project->{name}, 'Demo Project', 'project.yml records the project name' );
 is_deeply( $project->{people}, [], 'project.yml starts with no people' );
 ok( ref $project->{link_types} eq 'ARRAY', 'project.yml records configurable link types' );
@@ -48,7 +47,7 @@ for my $type (qw(sow epic ticket)) {
     my $board = File::Spec->catdir( $project_dir, '.tira', $type );
     ok( -d File::Spec->catdir( $board, 'backlog' ), "$type Backlog folder exists" );
     ok( -d File::Spec->catdir( $board, 'discard' ), "$type Discard folder exists" );
-    my $config = $yaml->load_file( File::Spec->catfile( $board, 'config.yml' ) );
+    my $config = read_yaml( File::Spec->catfile( $board, 'config.yml' ) );
     is( $config->{prefix}, $expected_prefix{$type}, "$type prefix is configured" );
     is( $config->{digits}, 3, "$type digit width is configured" );
     is( $config->{next_number}, 1, "$type counter starts at one" );
@@ -111,7 +110,7 @@ my $stored = decode_json( do { local $/; <$record_fh> } );
 close $record_fh;
 is_deeply( $stored, $first, 'stored JSON is the canonical returned record' );
 
-my $ticket_config = $yaml->load_file( File::Spec->catfile( $project_dir, '.tira', 'ticket', 'config.yml' ) );
+my $ticket_config = read_yaml( File::Spec->catfile( $project_dir, '.tira', 'ticket', 'config.yml' ) );
 is( $ticket_config->{next_number}, 3, 'counter persists the next unused number' );
 
 my $toon = $tira->format_output( { records => [ $first, $second ] } );
@@ -128,6 +127,18 @@ eval { $tira->create_record( project => $project_dir, type => 'unknown', title =
 like( $@, qr/Unsupported record type/, 'record creation rejects unknown types' );
 eval { $tira->discover_project( start => $tmp ) };
 like( $@, qr/No Tira project found/, 'project discovery reports a missing project' );
+
+# YAML::PP's load_file leaves the handle open, and on Windows an open handle
+# makes a file impossible to replace - so a test that reads a config and then
+# asks Tira to write it fails there and nowhere else. Reading it as a string
+# closes the file when this says so.
+sub read_yaml {
+    my ($path) = @_;
+    open my $fh, '<:encoding(UTF-8)', $path or die "Cannot read '$path': $!";
+    my $body = do { local $/; <$fh> };
+    close $fh;
+    return YAML::PP->new( boolean => 'JSON::PP' )->load_string($body);
+}
 
 done_testing;
 

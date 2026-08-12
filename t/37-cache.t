@@ -10,6 +10,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Time::HiRes ();
 use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
@@ -108,6 +109,86 @@ like( $mutation_err, qr/read commands/, 'the error says caching is for reads' );
     'export', undef, '--project', $root, '--cache-ttl', '0', '-o', 'json',
 );
 is( $status, 2, 'a zero ttl exits 2 rather than meaning something surprising' );
+
+# --- a record rewritten in place ------------------------------------------
+
+# The fingerprint used to read the modification times of the column
+# directories only. A file rewritten in place changes no name in its directory,
+# so on NTFS the directory's time is untouched, the cache is judged current,
+# and the caller is served the board as it was before its own write.
+#
+# Rewriting in place is the same on every filesystem: no rename, no name added
+# or removed, so no directory time changes anywhere. That makes this the real
+# condition rather than an imitation of it.
+{
+    my $before = Tira::CLI::_board_fingerprint($root);
+
+    my $column = File::Spec->catdir( $root, '.tira', 'ticket', 'backlog' );
+    my ($file) = glob File::Spec->catfile( $column, '*.json' );
+    ok( $file, 'a record file to rewrite' );
+
+    my @directory_before = Time::HiRes::stat($column);
+
+    open my $fh, '<:raw', $file or die $!;
+    my $body = do { local $/; <$fh> };
+    close $fh;
+    $body =~ s/"title" : "[^"]*"/"title" : "Rewritten in place"/;
+    open my $out, '>:raw', $file or die $!;
+    print {$out} $body;
+    close $out;
+
+    my @directory_after = Time::HiRes::stat($column);
+    is( $directory_after[9], $directory_before[9],
+        'rewriting a file in place leaves its directory untouched, which is the whole problem' );
+
+    isnt( Tira::CLI::_board_fingerprint($root), $before,
+        'and the fingerprint changes anyway, because it reads the records themselves' );
+}
+
+# --- two writes inside one tick of the clock -------------------------------
+
+# Modification times are not fine-grained everywhere. Windows hands out the
+# same time to everything written inside one clock tick, about sixteen
+# milliseconds, so a fingerprint made of times alone can say nothing changed
+# while a card was rewritten. Tira raises a counter on every write and the
+# fingerprint reads it, so the answer does not depend on a clock at all.
+SKIP: {
+    # Putting a time back exactly needs sub-second resolution, which
+    # Time::HiRes does not implement everywhere. Where it cannot, this cannot
+    # be staged - and the counter it proves is the same code on every platform.
+    skip 'this system cannot set a time to better than a second', 2
+      if !eval { Time::HiRes::utime( time, time, $root ); 1 };
+
+    my $file = File::Spec->catfile( $root, '.tira', 'ticket', 'backlog',
+        $ticket->{ref} . '.json' );
+    ok( -f $file, 'the card is where it should be' );
+
+    my @watched = (
+        $file, $root,
+        File::Spec->catdir( $root, '.tira' ),
+        File::Spec->catdir( $root, '.tira', 'ticket' ),
+        File::Spec->catdir( $root, '.tira', 'ticket', 'backlog' ),
+        File::Spec->catfile( $root, '.tira', 'project.yml' ),
+    );
+
+    # Taken before the write, so putting them back really does undo the passage
+    # of time rather than restoring what the write had just set.
+    my %was = map { $_ => [ Time::HiRes::stat($_) ] } @watched;
+
+    my $before = Tira::CLI::_board_fingerprint($root);
+    $tira->record_update( project => $root, ref => $ticket->{ref}, title => 'Same tick' );
+
+    # Every modification time put back exactly as it was: the strongest form of
+    # the problem, where nothing about any time has changed anywhere.
+    # Time::HiRes' own utime, because the core one takes whole seconds: putting
+    # a time back to the nearest second changes the fraction and the fingerprint
+    # differs for that alone, which would let this pass without proving
+    # anything.
+    Time::HiRes::utime( $was{$_}[8], $was{$_}[9], $_ ) for @watched;
+
+    isnt( Tira::CLI::_board_fingerprint($root), $before,
+        'a write is still visible when every modification time says otherwise' );
+}
 
 done_testing;
 

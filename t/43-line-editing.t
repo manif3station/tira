@@ -5,8 +5,13 @@ use warnings;
 
 use File::Spec;
 use File::Temp qw(tempdir);
-use IO::Pty;
 use Test::More;
+
+# A real pseudo-terminal, where there is such a thing. Windows has none, and
+# IO::Pty does not build there - so the terminal-driven half of this file skips
+# and the rest still runs, rather than the whole file dying on a use line and
+# taking the parts that have nothing to do with terminals with it.
+my $has_pty = eval { require IO::Pty; 1 } ? 1 : 0;
 
 use lib 'lib';
 use Tira::CLI;
@@ -34,6 +39,9 @@ my $tmp = tempdir( CLEANUP => 1 );
 }
 
 # --- editing, driven through a real terminal ------------------------------
+SKIP: {
+    skip 'this system has no pseudo-terminals', 14 if !$has_pty;
+
 sub edited {
     my ( $keystrokes, %opt ) = @_;
     my $pty = IO::Pty->new;
@@ -82,6 +90,8 @@ is( ( edited("hello\n") )[0], 'hello', 'a newline finishes the line too' );
 is( ( edited("half\x03") )[0], undef, 'Ctrl-C abandons the prompt' );
 is( ( edited("half\x04") )[0], undef, 'Ctrl-D abandons the prompt' );
 is( ( edited( '', closed => 1 ) )[0], undef, 'reaching the end of input abandons the prompt' );
+
+}
 
 # --- away from a terminal, nothing changes --------------------------------
 {

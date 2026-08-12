@@ -77,7 +77,10 @@ is( $payload->{heartbeat}, 30, 'and the heartbeat' );
 is( $status, 2, 'an unsupported agent exits 2' );
 
 # Whether a coding agent is installed is discovered for real, not only mocked.
-ok( Tira::CLI::_agent_available('sh'), 'a program on the path is found' );
+# Something that is certainly on the PATH, which is not the same program
+# everywhere.
+ok( Tira::CLI::_agent_available( $^O eq 'MSWin32' ? 'cmd' : 'sh' ),
+    'a program on the path is found' );
 ok( !Tira::CLI::_agent_available('tira-no-such-agent'), 'and one that is not there is not' );
 {
     local $ENV{PATH} = '';

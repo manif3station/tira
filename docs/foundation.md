@@ -179,8 +179,29 @@ never writes.
 Tira invokes no shell or external process. It validates and untaints canonical
 filesystem paths before mutation, constrains prefixes and numeric widths before
 they influence filenames, uses project locking, writes through same-directory
-temporary files, and atomically renames completed data. The full suite and
-every shipped Perl entrypoint pass under taint mode.
+temporary files, and atomically renames completed data. On Windows that last
+step is `MoveFileEx` with `MOVEFILE_REPLACE_EXISTING`, because `rename` there
+refuses when the destination exists; the replacement stays atomic rather than
+becoming a delete followed by a rename. The full suite and every shipped Perl
+entrypoint pass under taint mode.
+
+Output leaves the process as the bytes Tira produced. The text-mode layer Perl
+puts on standard output on Windows is removed at the command-line entry point,
+so a command produces the same bytes on every platform - which matters because
+the read cache stores output bytes and serves them back.
+
+A project directory is resolved to its real path, so every way of spelling one
+directory is one project. Reaching a project through a symlink finds the
+project it points at, and registering it twice under two spellings is
+impossible — which is what stops two collectors from racing the same board.
+The resolved path is what commands report back, so on macOS a project under
+`/var` is reported under `/private/var`, because that is where it is.
+
+On Windows that resolution stops at a symbolic link: the link is reported
+rather than its target, so a project reached through one is treated as a
+separate project. Registering the same board under both spellings would
+produce two collectors polling it. Use the real path there until this is
+fixed.
 
 ## Agent command contract
 

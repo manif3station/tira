@@ -1629,9 +1629,16 @@ sub _invoke {
         my $store = $option->{store} // _police_store( $args{project} );
 
         if ( $command eq 'policy.bridge' ) {
-            my $backlog = $tira->bridge_backlog( store => $store, lines => 200 );
+
+            # Who is tailing it. One agent per ticket means an agent's concern
+            # is its own cards, so the bridge narrows to whoever says who they
+            # are - by --author, or by TIRA_AUTHOR in the environment, said
+            # once rather than on every command. Nobody named hears everything,
+            # which is how the owner watches the whole board.
+            my $agent = $option->{author};
+            my $backlog = $tira->bridge_backlog( store => $store, lines => 200, agent => $agent );
             print map { "$_\n" } @{$backlog};
-            _bridge_follow( $tira, $store, rounds => $option->{rounds},
+            _bridge_follow( $tira, $store, rounds => $option->{rounds}, agent => $agent,
                 interval => $option->{interval}, sleeper => $option->{sleeper} )
               if !$option->{once};
             return { streamed => scalar @{$backlog} };
@@ -1793,12 +1800,18 @@ sub _bridge_follow {
     my $wait = $args{sleeper} || sub { sleep $_[0] if $_[0] };
     my $every = defined $args{interval} ? $args{interval} : 2;
     my $path = $tira->bridge_log_path( store => $store );
-    my $seen = -f $path ? scalar @{ $tira->bridge_backlog( store => $store, lines => 1_000_000 ) } : 0;
+
+    # Counted through the same filter the agent reads through, or a line
+    # written for somebody else would advance the mark and swallow the next
+    # line that was actually for this one.
+    my %narrow = ( store => $store, lines => 1_000_000,
+        ( defined $args{agent} ? ( agent => $args{agent} ) : () ) );
+    my $seen = -f $path ? scalar @{ $tira->bridge_backlog(%narrow) } : 0;
     my $done = 0;
     while ( !defined $rounds || $done < $rounds ) {
         $done++;
         $wait->($every);
-        my $all = $tira->bridge_backlog( store => $store, lines => 1_000_000 );
+        my $all = $tira->bridge_backlog(%narrow);
         next if @{$all} <= $seen;
         print map { "$_\n" } @{$all}[ $seen .. $#{$all} ];
         $seen = scalar @{$all};

@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.11';
+our $VERSION = '1.12';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4241,6 +4241,13 @@ sub policy_evaluate {
             detail => $detail,
             message => _policy_message( $policy, $record, $detail, $ref ),
             action => $policy->{action},
+
+            # Who is meant to act on it. One agent per ticket means a violation
+            # belongs to whoever is carrying that card, and a bridge that hands
+            # every agent every violation is noise by construction - a channel
+            # everybody learns to read past is the one failure a warning system
+            # cannot survive.
+            assignee => ( ref $record ? $record->{assignee} : undef ),
         };
     };
 
@@ -4866,6 +4873,11 @@ sub _bridge_line {
     my @parts = (
         $self->{clock}->(),
         uc( $violation->{tone} // 'note' ),
+
+        # Whose it is, written into the line: the reader filters on what the
+        # bridge says rather than going back to the board, so a card
+        # reassigned afterwards does not rewrite what was already said.
+        'for ' . ( ( $violation->{assignee} // '' ) ne '' ? $violation->{assignee} : 'anyone' ),
         $violation->{id} // 'VIO-0000',
         ( $violation->{ref} // '' ) ne '' ? $violation->{ref} : 'board',
         'seen ' . ( $violation->{seen} // 1 ),
@@ -4922,6 +4934,14 @@ sub bridge_backlog {
     my @lines = <$fh>;
     close $fh;
     chomp @lines;
+    # An agent hears about its own cards, and about anything belonging to
+    # nobody - filtering that loses the unowned card trades noise for silence,
+    # which is worse, because nobody is watching it by definition. Naming no
+    # agent hears everything, which is how the owner reads the board.
+    if ( defined $args{agent} && $args{agent} ne '' ) {
+        @lines = grep { / \| for (?:\Q$args{agent}\E|anyone) \| / || !/ \| for / } @lines;
+    }
+
     my $wanted = $args{lines} // 20;
     splice @lines, 0, @lines - $wanted if @lines > $wanted;
     return \@lines;

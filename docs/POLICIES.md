@@ -102,6 +102,33 @@ listening. Keep the bridge running for as long as you are working.
 **6. Add rules as you find you need them.** The best time to add a rule is
 just after something went wrong that it would have caught.
 
+## Several agents on one board
+
+One agent per ticket, named for the ticket, is the model the
+`kanban-management` skill sets out — so an agent's concern is exactly one card,
+and a bridge that hands every agent every violation is noise by construction. A
+channel that becomes noise is one everybody learns to read past, which is the
+single failure a warning system cannot survive.
+
+So the bridge narrows to whoever is reading it:
+
+```
+TIRA_AUTHOR=ada d2 tira.policy.bridge      # ada hears about ada's cards
+d2 tira.policy.bridge --author ada         # the same, said on the command
+d2 tira.policy.bridge                      # nobody named: the whole board
+```
+
+Each violation carries who it is for, written into the line, so a card
+reassigned afterwards does not rewrite what was already said. Three things
+reach everybody rather than one agent:
+
+- a card assigned to nobody, because filtering that loses it trades noise for
+  silence and nobody is watching it by definition;
+- anything that is not about a card at all, such as a policy that resolves to
+  nothing;
+- the whole bridge, to anyone who reads it without naming an agent — which is
+  how the owner watches the board.
+
 ## What police tells you to hand the agent
 
 Police watches the board. It cannot declare anything — that is the agent's job,

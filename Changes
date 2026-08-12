@@ -1,5 +1,17 @@
 Revision history for Tira
 
+1.12  2026-08-12
+    - The bridge speaks to whoever is carrying the card. One agent per
+      ticket is the model, so an agent's concern is exactly one card,
+      and a bridge that hands every agent every violation is noise by
+      construction - and a channel that becomes noise is one everybody
+      learns to read past. An agent narrows it by saying who it is,
+      with `--author` or `TIRA_AUTHOR` in the environment. A card
+      assigned to nobody still reaches everybody, because filtering
+      that loses it trades noise for silence; so does anything that is
+      not about a card at all; and reading without naming an agent
+      still shows the whole board, which is how the owner watches it.
+
 1.11  2026-08-12
     - The board can be served over HTTPS. `tira.dashboard -o browser
       --ssl` uses a certificate the board makes for itself the first

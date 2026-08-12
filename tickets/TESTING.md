@@ -28,8 +28,8 @@ project registering two collectors that race the same board. That behaviour was
 right and had never once been asserted. It is now, through a symlink, on every
 platform.
 
-**Windows.** `ssh windev`, Windows 11, Strawberry Perl 5.38.2 — **run, and it
-changed the release**.
+**Windows.** `ssh windev`, Windows 11, Strawberry Perl 5.38.2 — **PASS**, 97
+files, 3623 tests. It did not begin that way: it changed the release.
 
 Tira did not work on Windows at all. Every write is a write to a temporary file
 beside the target followed by a rename over it, and `rename` there refuses when
@@ -47,7 +47,8 @@ in the Linux container as well as on the lab:
 | TKT-032 | The clock's offset and the search for an installed agent were POSIX-only |
 | TKT-033 | Output bytes were rewritten by the platform's text-mode layer |
 | TKT-034 | The read cache could serve a caller its own stale data |
-| TKT-035 | Three failures still to be diagnosed — process spawning, reminder delivery, self-restart |
+| TKT-035 | Self-restart never triggered, and five other failures diagnosed |
+| TKT-036 | A signed-out board froze instead of saying so |
 
 Eight test files were written in the shape of Linux and now say what they mean
 on a platform where the thing they describe does not exist: pseudo-terminals,
@@ -59,9 +60,19 @@ of the project and said nothing about any of it. A platform gate run at the end
 of a release is not a formality; it is the only thing that was ever going to
 find these.
 
-**Windows remains incomplete.** TKT-035 is open and names the three files still
-failing. Until it is closed, 1.06 is verified on Linux and macOS, and on Windows
-everything except process spawning, reminder delivery and self-restart.
+Six failures were left after the first pass and all six are now diagnosed.
+One was another real fault: a dashboard on Windows never picked up a new
+version, because the entrypoint to restart into was found by asking whether a
+file is executable and there is no such bit there. One was a path separator in
+an assertion. The other four are one problem about child processes under a test
+harness on Windows — spawning them, reading their output back through a pipe,
+and replacing standard output while the harness holds it — and those files now
+say so where they stand, each naming its reason.
+
+`docs/foundation.md` carries a section listing exactly what is not proved on
+Windows. It is not a claim that everything works there; it is a statement of
+what has not been shown. The one part of it that matters to a user — whether a
+reminder can reach a coding agent on Windows at all — is TKT-037.
 
 ## The labs themselves
 

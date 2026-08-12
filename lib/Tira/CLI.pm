@@ -11,6 +11,11 @@ use Getopt::Long qw(GetOptionsFromArray);
 use JSON::PP ();
 use Tira;
 
+# PATH separators, executable extensions and the absence of an execute bit are
+# all facts about the platform being described rather than the one this is
+# running on, so they hang off a flag a test can set.
+our $WINDOWS = $^O eq 'MSWin32' ? 1 : 0;
+
 sub run {
     my ( $class, %args ) = @_;
 
@@ -324,7 +329,12 @@ sub _entrypoint_for {
       ? File::Spec->catfile( $root, 'skills', @parts, 'cli', $action )
       : File::Spec->catfile( $root, 'cli', $action );
     ($path) = $path =~ /\A([^\x00-\x1f\x7f]+)\z/ or return undef;
-    return -x $path ? $path : undef;
+
+    # Executability is what makes a file a command on a POSIX system. Windows
+    # has no such bit, and -x there answers about the extension - so asking for
+    # it found nothing, _entrypoint_for returned undef, and a dashboard on
+    # Windows never picked up a new version however many were installed.
+    return ( $WINDOWS ? -f $path : -x $path ) ? $path : undef;
 }
 
 sub _restart_into {
@@ -336,7 +346,11 @@ sub _restart_into {
     # is never consulted to find them; taint mode objects to it regardless.
     # Handing the restarted process a known-safe path is better than laundering
     # whatever this one happened to inherit, and better than wiping it.
-    local $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
+    # Both are absolute, so the search path is never consulted to find them;
+    # this is about what the restarted process inherits. The POSIX directories
+    # mean nothing on Windows, where emptying the path would break the child
+    # rather than protect it, so only the shell variables go there.
+    local $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin' if !$WINDOWS;
     delete local @ENV{qw(IFS CDPATH ENV BASH_ENV)};
     exec( $perl, $script, @argv );
 }
@@ -1012,7 +1026,6 @@ sub _ask_yes {
 # Splitting on a colon and looking for an extensionless file found nothing on
 # Windows however much was installed, and answered "no agent" rather than
 # failing - so onboarding quietly offered nothing.
-our $WINDOWS = $^O eq 'MSWin32' ? 1 : 0;
 
 sub _agent_available {
     my ($name) = @_;

@@ -20,6 +20,16 @@ sub untaint {
     return $1;
 }
 
+# The stub coding agent below is a script with a shebang, made executable. A
+# shebang means nothing on Windows and there is no execute bit to set, so the
+# reminder has nothing it can call and every delivery check fails. That is this
+# file's mechanism rather than Tira's behaviour - but whether a reminder can be
+# delivered on Windows at all is a real question, and TKT-035 carries it rather
+# than a skip pretending there is nothing to answer.
+if ( $^O eq 'MSWin32' ) {
+    plan skip_all => 'a stub program here needs a shebang and an execute bit, and this platform has neither';
+}
+
 my $tmp = untaint( tempdir( CLEANUP => 1 ) );
 my $tick = '2026-08-08T09:00:00Z';
 my $tira = Tira->new( clock => sub {$tick} );

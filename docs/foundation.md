@@ -203,6 +203,26 @@ separate project. Registering the same board under both spellings would
 produce two collectors polling it. Use the real path there until this is
 fixed.
 
+## What is not proved on Windows
+
+The suite runs on Windows and passes, with three files that cannot run there
+and say so rather than being quietly counted:
+
+- Commands driven as real child processes. `IPC::Open3` cannot spawn one on
+  the lab, so the end-to-end shape of an invocation is unproved there. What
+  those commands do is covered by the engine tests on every platform.
+- Reminder delivery. The test calls a stub coding agent, which is a script with
+  a shebang and an execute bit — neither of which exists on Windows. Whether a
+  reminder can be delivered to a real coding agent there is genuinely unknown
+  and is tracked rather than assumed.
+- Reading a command's output back through a pipe. The same command prints the
+  right thing when run by hand and does not match when read back through a
+  harness pipe.
+
+All three are about child processes and their output under a test harness, and
+are most likely one problem. None of them is a claim that Tira works there;
+they are a statement of what has not been shown.
+
 ## Agent command contract
 
 `SKILLS.md` is the normative technical interface for agents. It now documents

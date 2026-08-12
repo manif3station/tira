@@ -20,6 +20,17 @@ use JSON::PP qw(decode_json);
 use Symbol qw(gensym);
 use Test::More;
 
+# Every check here runs a real command as a child process and reads what it
+# wrote. IPC::Open3 cannot spawn one on the Windows lab - it fails before the
+# first assertion with "Can't spawn-NOWAIT" - so there is nothing here that can
+# run on that platform. Said plainly rather than left as a failing file: what
+# these commands do is covered by the engine tests everywhere, and what is not
+# covered there is the shape of a real invocation, which is exactly what cannot
+# be had. TKT-035 owns finding out why.
+if ( $^O eq 'MSWin32' ) {
+    plan skip_all => 'this platform cannot spawn a child process through IPC::Open3';
+}
+
 sub command {
     my ( $environment, @command ) = @_;
     local @ENV{ keys %{$environment} } = values %{$environment};

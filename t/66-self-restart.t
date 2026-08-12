@@ -72,9 +72,12 @@ sub serve {
     # The entrypoint is derived from the command rather than assumed.
     # A board opened as tira.dashboard.ticket must come back as that board,
     # not as the combined one, so the entrypoint follows the type too.
-    like( $script, qr{/skills/dashboard/cli/ticket\z},
+    # Separators are the platform's own: File::Spec builds them, so the
+    # assertion asks for the path it would build rather than a POSIX-shaped one.
+    my $wanted = File::Spec->catfile( qw(skills dashboard cli ticket) );
+    like( $script, qr{\Q$wanted\E\z},
         'it restarts the entrypoint for the exact command that was running' );
-    ok( -x $script, 'which really exists and can be run' );
+    ok( ( $^O eq 'MSWin32' ? -f $script : -x $script ), 'which really exists and can be run' );
     is_deeply( [ @argv[ 0 .. 3 ] ], [ '--project', $root, '-o', 'browser' ],
         'with the arguments it was started with' );
 
@@ -183,10 +186,62 @@ unlike( $static, qr/data\._version/,
 is( Tira::CLI::_restart_into(), 0, 'with no script named, nothing is replaced' );
 
 # And the entrypoint really is found for a plain command as well as a typed one.
-like( Tira::CLI::_entrypoint_for('dashboard'), qr{/cli/dashboard\z},
+my $bare = File::Spec->catfile( qw(cli dashboard) );
+like( Tira::CLI::_entrypoint_for('dashboard'), qr{\Q$bare\E\z},
     'a command with no type resolves to its own entrypoint' );
 is( Tira::CLI::_entrypoint_for('no.such.command'), undef,
     'and a command that ships no entrypoint resolves to nothing, rather than a guess' );
+
+# --- where there is no execute bit ----------------------------------------
+
+# The entrypoint to restart into is found by asking whether a file is
+# executable. Windows has no such bit and -x there answers about the extension,
+# so nothing was ever found, and a dashboard running on Windows never picked up
+# a new version however many were installed. Driven here rather than left to a
+# lab that is visited once a release.
+{
+    # The entrypoint the board would restart into, with its execute bit taken
+    # off for the length of this block: that is the whole of what Windows looks
+    # like to this code, and it cannot be imitated by setting a flag alone.
+    # Both candidates, because the lookup falls back from the type-specific
+    # entrypoint to the general one, and leaving either executable would let
+    # the restart happen for the wrong reason.
+    my @entrypoints = grep { -e } (
+        File::Spec->catfile( 'skills', 'dashboard', 'cli', 'ticket' ),
+        File::Spec->catfile( 'cli', 'dashboard' ),
+    );
+    ok( scalar @entrypoints, 'the entrypoints a restart would use are there to begin with' );
+    my %mode = map { $_ => ( ( stat $_ )[2] & 07777 ) } @entrypoints;
+
+    chmod $mode{$_} & ~0111, $_ for @entrypoints;
+    my $restored = 0;
+    my $guard = Guard::On::Scope->new(
+        sub { chmod $mode{$_}, $_ for @entrypoints; $restored = 1 } );
+
+    {
+        local $Tira::CLI::WINDOWS = 0;
+        my ( undef, undef, $restarted ) = serve( installed => '9.99' );
+        is_deeply( $restarted, [],
+            'a file with no execute bit is not something to restart into on a POSIX system' );
+    }
+    {
+        local $Tira::CLI::WINDOWS = 1;
+        my ( undef, undef, $restarted ) = serve( installed => '9.99' );
+        is( scalar @{$restarted}, 1,
+            'and on Windows, where there is no such bit, it is - which is why a board there never updated itself' );
+    }
+
+    undef $guard;
+    ok( $restored, 'and the files are left exactly as they were found' );
+    is_deeply( [ map { ( stat $_ )[2] & 07777 } @entrypoints ],
+        [ map { $mode{$_} } @entrypoints ], 'with their own modes back' );
+}
+
+{
+    package Guard::On::Scope;
+    sub new { my ( $class, $code ) = @_; return bless { code => $code }, $class }
+    sub DESTROY { $_[0]{code}->() }
+}
 
 done_testing;
 

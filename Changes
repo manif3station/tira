@@ -51,6 +51,18 @@ Revision history for Tira
       made was invisible to it. The fingerprint now reads the records
       themselves.
 
+    - A dashboard on Windows never picked up a new version. The
+      entrypoint to restart into was found by asking whether a file is
+      executable, and there is no such bit there, so nothing was ever
+      found however many versions were installed.
+
+    - A board that loses its session says so. Its background refresh
+      came back refused and the page, having nothing to do with a
+      failure, kept drawing the cards it last managed to load - so a
+      board could sit for a day showing work that had long since
+      moved. A refused refresh now puts the sign-in in front of the
+      person and takes away the board it can no longer vouch for.
+
     - A project directory is resolved to its real path, so every way
       of spelling one directory is one project and the same project
       cannot register two collectors racing the same board. The

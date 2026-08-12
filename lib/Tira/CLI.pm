@@ -1583,6 +1583,7 @@ sub _invoke {
     # Reading and setting are one command, because the answer is one fact and
     # two commands would invite a board where it was set and never read.
     return { mode => $tira->project_mode(%args) } if $command eq 'project.mode';
+    return { max => $tira->project_limit(%args) } if $command eq 'project.limit';
     return $tira->project_update(%args) if $command eq 'project.update';
     return $tira->person_list(%args) if $command eq 'project.people.list';
     return $tira->person_add(%args) if $command eq 'project.people.add';

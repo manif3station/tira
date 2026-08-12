@@ -1,5 +1,16 @@
 Revision history for Tira
 
+1.21  2026-08-12
+    - How much may be in flight at once is the project's answer rather
+      than a number Tira picks. A work-in-progress limit counts the whole
+      board, and no one number is right for both a single agent and a
+      chain of six - two is sensible for one and absurd for the other. So
+      tira.project.limit stores what the owner says, a policy declares its
+      column and leaves the number alone, and the rule reads it when it
+      runs: raising it quiets the rule without touching any policy. A
+      policy may still carry its own --max, which is narrower and wins,
+      and a policy with neither is refused when it is declared.
+
 1.20  2026-08-12
     - A card records the work tree it is being worked in, and
       card-sandbox-missing checks the record rather than a name. A work

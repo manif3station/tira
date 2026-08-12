@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.20';
+our $VERSION = '1.21';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -500,6 +500,33 @@ sub project_mode {
         $data->{mode} = $args{mode};
         $self->_write_yaml( $path, $data );
         return $data->{mode};
+    } );
+}
+
+# How much this project is willing to have in flight at once.
+#
+# There is no number that is right for both kinds of project. A work-in-progress
+# limit counts the whole board rather than the agent, and with one agent per
+# card a small board-wide limit is the thing that stops a chain working at all -
+# two is sensible for one agent and absurd for six. So the project says, and
+# Tira does not guess.
+#
+# Zero is allowed. A board deliberately frozen is a real thing to say, and
+# refusing to let somebody say it would only mean saying it some other way.
+sub project_limit {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_load_yaml( File::Spec->catfile( $root, '.tira', 'project.yml' ) )->{wip_limit}
+      if !defined $args{max};
+
+    die "A work-in-progress limit is a whole number of cards, zero or more\n"
+      if $args{max} !~ /\A(?:0|[1-9][0-9]*)\z/;
+    return $self->_with_project_lock( $root, sub {
+        my $path = File::Spec->catfile( $root, '.tira', 'project.yml' );
+        my $data = $self->_load_yaml($path);
+        $data->{wip_limit} = 0 + $args{max};
+        $self->_write_yaml( $path, $data );
+        return $data->{wip_limit};
     } );
 }
 
@@ -4076,7 +4103,7 @@ my %POLICY_RULES = (
     'answer-unjudged'           => { needs => ['age'] },
     'answer-ok-not-folded'      => { needs => ['age'] },
     'answer-not-ok-no-followup' => { needs => ['age'] },
-    'wip-limit'                 => { needs => [ 'column', 'max' ] },
+    'wip-limit'                 => { needs => ['column'] },
     'commit-without-card'       => { needs => [] },
     'work-without-card'         => { needs => ['age'] },
     'unpushed-work'             => { needs => ['age'] },
@@ -4124,6 +4151,18 @@ sub policy_add {
       if $action eq '';
     die "Unknown policy action '$action'. Actions: " . join( ', ', @{ policy_actions() } ) . "\n"
       if !$POLICY_ACTIONS{$action};
+
+    # The number a work-in-progress limit counts against belongs to the
+    # project, because no one number is right for both a single agent and a
+    # chain of six. A policy may still carry its own, which is narrower and
+    # wins - but a policy with neither, on a project with neither, is refused
+    # here rather than discovered when it silently never fires.
+    if ( $rule eq 'wip-limit' && !defined $args{max} ) {
+        my $stored = eval { $self->project_limit(%args) };
+        die "Policy rule 'wip-limit' needs --max, or a limit set on the project"
+          . " with tira.project.limit --max N\n"
+          if !defined $stored;
+    }
 
     for my $needed ( @{ $spec->{needs} } ) {
         next if defined $args{"${needed}_role"} && $args{"${needed}_role"} ne '';
@@ -4310,6 +4349,10 @@ sub policy_evaluate {
     # exception is the rule that exists to ask why it was set aside.
     my $records = [ grep { ( $_->{column} // '' ) ne 'discard' } @{$all} ];
     my @violations;
+
+    # Read once here rather than in the rule, so it is the project in hand
+    # rather than whatever a rule happens to be able to resolve.
+    my $limit = $self->project_limit( project => $root );
 
     my $report = sub {
         my ( $policy, $record, $detail ) = @_;
@@ -4522,7 +4565,14 @@ sub policy_evaluate {
         }
         elsif ( $rule eq 'wip-limit' ) {
             my @in = grep { ( $_->{column} // '' ) eq ( $policy->{column} // '' ) } @{$records};
-            next if @in <= ( $policy->{max} // 0 );
+
+            # Read when the rule runs rather than copied when the policy was
+            # declared. An owner who raises the number and a rule still using
+            # the old one is the worst of both, because he believes he has
+            # changed it.
+            my $max = $policy->{max} // $limit;
+            next if !defined $max;
+            next if @in <= $max;
             # Who is holding each one. Without it the message reads exactly
             # the same whether three agents have one card each or one agent
             # has three - and those are opposite situations: the first is the
@@ -4531,7 +4581,7 @@ sub policy_evaluate {
             # tell them apart gets its limit raised until it never fires,
             # which is the same as deleting it.
             $report->( $policy, undef,
-                scalar(@in) . " cards in $policy->{column}, limit is $policy->{max}: "
+                scalar(@in) . " cards in $policy->{column}, limit is $max: "
                   . join( ', ', map {
                     $_->{ref} . ' (' . ( ( $_->{assignee} // '' ) ne '' ? $_->{assignee} : 'nobody' ) . ')'
                 } @in ) );

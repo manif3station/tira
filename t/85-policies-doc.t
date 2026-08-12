@@ -96,13 +96,29 @@ $tira->project_new(
 # only the first line tests a truncated command that nobody would ever run.
 my $joined = $text;
 $joined =~ s/\\\n\s*/ /g;
-my @commands = $joined =~ /^(d2 tira\.policy\.add .+)$/mg;
+# Read the way a reader reads it: from the top, in order. A policy example may
+# depend on something the document set two lines above - a work-in-progress
+# limit belongs to the project now, so the example that declares the rule and
+# leaves the number alone is only correct after the number has been set. Taking
+# each policy line in isolation would report that example as broken when
+# anybody following the document would find it works.
+my @steps = $joined =~ /^(d2 tira\.(?:policy\.add|project\.limit) .+)$/mg;
+my @commands = grep { /\Ad2 tira\.policy\.add / } @steps;
 ok( scalar @commands >= scalar @numbered,
     'the document carries a command for every use case' );
 
 my $ran = 0;
 my $failed = 0;
-for my $command (@commands) {
+for my $command (@steps) {
+    if ( $command =~ /\Ad2 tira\.project\.limit\b/ ) {
+        # With a number it is a setup step the examples below depend on;
+        # without one it is the read-back, which changes nothing and is run
+        # here anyway so a documented read that stopped working is caught.
+        $command =~ /--max\s+(\d+)/
+          ? $tira->project_limit( project => $root, max => $1 )
+          : $tira->project_limit( project => $root );
+        next;
+    }
     my %args;
     my @tokens = $command =~ /--(\S+)\s+("[^"]*"|\S+)/g;
     while (@tokens) {

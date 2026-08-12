@@ -773,6 +773,27 @@ already exists is one of those, and none of them should change underneath its
 owner for a setting nobody turned on. `tira.onboard` asks the question before
 it creates anything, and leaving it blank leaves it unset.
 
+### `tira.project.limit`
+
+Says how much this project is willing to have in flight at once, and sets that
+number.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--max N` | no | A whole number of cards, zero or more. Without it, the command reads rather than writes. |
+| `-o FORMAT` | no | As above. |
+
+A work-in-progress limit counts the whole board rather than the agent, and
+there is no one number that is right for both a single agent and a chain of
+six — two is sensible for one and absurd for the other. So the owner is asked
+and the answer is stored here, and a `wip-limit` policy declares its column and
+leaves the number alone.
+
+It is read when the rule runs, not copied when the policy is declared, so
+raising it quiets the rule without touching any policy. Zero is allowed: a
+board deliberately frozen is a real thing to say, and refusing to let somebody
+say it would only mean saying it some other way.
+
 `tira.stale` answers how long each card has sat in the column it is in now,
 reading each card's history backwards and stopping at its most recent column
 move. Cards whose entry predates the history are reported without a duration

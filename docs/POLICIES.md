@@ -131,8 +131,32 @@ reach everybody rather than one agent:
 
 A work-in-progress limit counts the board, not the agent. One agent per ticket
 makes a per-agent limit always one, which measures nothing; counting the board
-measures how much is in flight at once, which is a real thing to bound. The
-violation names who is holding each card:
+measures how much is in flight at once, which is a real thing to bound.
+
+**The number belongs to the project, because no one number is right for both
+kinds of project.** Two is sensible for a single agent and absurd for a chain of
+six, so Tira does not pick one — the owner is asked and the answer is stored:
+
+```
+d2 tira.project.limit --max 6        # set it
+d2 tira.project.limit                # read it back
+```
+
+A policy then declares the column and leaves the number alone:
+
+```
+d2 tira.policy.add --rule wip-limit --column implement --action bridge-reminder
+```
+
+It is read when the rule runs, not copied when the policy is declared, so
+raising it quiets the rule without touching any policy — an owner who raised
+the number while the rule still used the old one would believe he had changed
+it. A policy may still carry its own `--max`, which is narrower and wins; that
+is how a project holds one column tighter than the rest, and it is what every
+board that declared this rule before today already does. A policy with neither,
+on a project with neither, is refused when it is declared.
+
+The violation names who is holding each card:
 
 ```
 4 cards in implement, limit is 2: LDT-001 (ada), LDT-002 (grace), LDT-003 (alan), LDT-004 (nobody)
@@ -230,7 +254,7 @@ missing, at the moment you declare the policy rather than later.
 | `answer-unjudged` | `--age` | an answer nobody marked |
 | `answer-ok-not-folded` | `--age` | settled in name only: marked ok, nothing written down |
 | `answer-not-ok-no-followup` | `--age` | a cross with no further question |
-| `wip-limit` | `--column --max` | too many things being worked at once, across the whole board |
+| `wip-limit` | `--column` and a number, from the policy or the project | too many things being worked at once, across the whole board |
 | `gate-missing` | `--column` | work that reached the end with no gate recorded |
 | `discard-unexplained` | — | work set aside with no reason given |
 | `commit-without-card` | — | a commit that names no card |

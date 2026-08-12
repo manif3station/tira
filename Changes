@@ -1,5 +1,19 @@
 Revision history for Tira
 
+1.25  2026-08-13
+    - A rule can be considered and declined, with the reason, and police
+      stops asking about it. The prompt lists every rule a project has
+      not declared and prints on every run, which is right - but it could
+      not tell "nobody has looked at this" from "somebody looked and said
+      no", so on a board that had made those decisions it asked an
+      answered question for ever. A channel that repeats itself is one
+      everybody learns to read past, and this is the channel that exists
+      to be read. The reason is required: without one this would be a way
+      of silencing the prompt rather than a decision, and a decision with
+      no reason recorded is indistinguishable from having skipped the
+      question. Declaring a rule later clears its declining, and a rule
+      that arrives in a future release is asked about as before.
+
 1.24  2026-08-12
     - The two lines the owner reads now say who. The terminal escalation
       told him to "paste to the agent" as though there were one; it names

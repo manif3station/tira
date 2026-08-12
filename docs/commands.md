@@ -746,6 +746,33 @@ skipped so re-running is safe, and everything is validated before the first writ
 a rejected call leaves nothing behind. Prefixes are applied before any record can be
 created, because board counters never rewind.
 
+### `tira.policy.decline` and `tira.policy.declined`
+
+Records that a rule was considered and deliberately not used, and lists what
+has been decided.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--rule NAME` | yes (decline) | The rule being declined. Must be one that exists. |
+| `--reason TEXT` | yes (decline) | Why it does not fit this project. |
+| `--author WHO` | no | Who decided. |
+| `-o FORMAT` | no | As above. |
+
+Police lists the rules a project has not declared, on every run, because a rule
+nobody declared is silent in exactly the way a rule being obeyed is. It could
+not tell a rule nobody had looked at from one somebody had looked at and
+refused, so on a board that had made those decisions it asked an answered
+question indefinitely.
+
+**The reason is required.** Without it this would be a way of silencing the
+prompt rather than a decision, and a decision with no reason recorded is
+indistinguishable from having skipped the question.
+
+Declaring a rule later clears its declining, so a project that changes its mind
+does not carry a record saying the opposite. A rule that arrives in a future
+release is asked about exactly as it is today, and with every rule either
+declared or declined the prompt says nothing at all.
+
 ### `tira.project.mode`
 
 Says whether this project is worked by a single agent or by a chain of them,

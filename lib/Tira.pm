@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.24';
+our $VERSION = '1.25';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4293,6 +4293,60 @@ sub policy_list {
     return $data->{policies} // [];
 }
 
+# Considered, and deliberately not used.
+#
+# The prompt lists every rule a project has not declared, because a rule nobody
+# declared is silent in exactly the way a rule being obeyed is - and it prints
+# on every run, because remembering which run was the first is not the owner's
+# job. What it could not tell was "nobody has looked at this" from "somebody
+# looked and said no", so on a board that has made those decisions it asked an
+# answered question for ever. A channel that repeats itself is one everybody
+# learns to read past, and this is the channel that exists to be read.
+#
+# The reason is required. A decision with none recorded is indistinguishable
+# from having skipped the question, which is the thing this whole subsystem
+# exists to remove - and it would turn this into a way of silencing the prompt,
+# which is exactly what it must not become.
+sub policy_decline {
+    my ( $self, %args ) = @_;
+    my $rule = $args{rule} // '';
+    die "Unknown policy rule '$rule'. Rules: " . join( ', ', @{ policy_rules() } ) . "\n"
+      if !$POLICY_RULES{$rule};
+
+    my $reason = $args{reason} // '';
+    $reason =~ s/\A\s+|\s+\z//g;
+    die "Declining a rule needs a reason - without one it is not a decision, "
+      . "it is a way of silencing the prompt\n"
+      if $reason eq '';
+
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $data ) = $self->_project_data($root);
+        my @kept = grep { ( $_->{rule} // '' ) ne $rule } @{ $data->{declined_policies} // [] };
+        my $entry = {
+            rule => $rule, reason => $reason,
+            declined_at => $self->{clock}->(),
+            ( defined $args{author} ? ( author => $args{author} ) : () ),
+        };
+        $data->{declined_policies} = [ @kept, $entry ];
+        $data->{last_updated} = $self->{clock}->();
+        $self->_write_yaml( $path, $data );
+        return $entry;
+    } );
+}
+
+sub policy_declined {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my ( undef, $data ) = $self->_project_data($root);
+    my %declared = map { ( $_->{rule} // '' ) => 1 } @{ $data->{policies} // [] };
+
+    # A rule that has since been declared is no longer declined, whatever the
+    # file says. A project that changed its mind would otherwise carry a record
+    # saying it had decided the opposite, which is worse than carrying nothing.
+    return [ grep { !$declared{ $_->{rule} // '' } } @{ $data->{declined_policies} // [] } ];
+}
+
 sub policy_remove {
     my ( $self, %args ) = @_;
     my $id = $args{id} // '';
@@ -4958,7 +5012,13 @@ sub police_prompt {
     my $root = $self->discover_project(%args);
     my @declared = @{ $self->policy_list( project => $root ) };
     my %using = map { ( $_->{rule} // '' ) => 1 } @declared;
-    my @unused = grep { !$using{$_} } @{ policy_rules() };
+
+    # A rule somebody looked at and said no to is answered, and asking again
+    # would make this a channel that repeats itself - which is the one failure
+    # a warning system cannot survive.
+    my %answered = ( %using,
+        map { ( $_->{rule} // '' ) => 1 } @{ $self->policy_declined( project => $root ) } );
+    my @unused = grep { !$answered{$_} } @{ policy_rules() };
 
     return undef if @declared && !@unused;
 

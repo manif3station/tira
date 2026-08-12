@@ -1381,10 +1381,12 @@ sub _invoke {
       if $option->{nested} && $command !~ /\A(?:project\.(?:new|create)|onboard)\z/;
     die "A mark belongs to the question.mark command\n"
       if defined $option->{mark} && $command ne 'question.mark';
-    die "A reason and options belong to the question.ask and question.update commands, and to police.suspend\n"
+    die "A reason and options belong to the question.ask and question.update commands, "
+      . "to police.suspend, and to policy.decline\n"
       if ( defined $option->{reason} || $option->{options} )
       && $command !~ /\Aquestion\.(?:ask|update)\z/
-      && $command ne 'police.suspend';
+      && $command ne 'police.suspend'
+      && $command ne 'policy.decline';
     die "A voice note belongs to the question.ask, question.update and question.voice commands\n"
       if defined $option->{voice} && $command !~ /\Aquestion\.(?:ask|update|voice)\z/;
     die "Remove belongs to the question.voice and question.attach commands\n"
@@ -1696,6 +1698,9 @@ sub _invoke {
         return $result if $option->{once};
         return _police_follow( $tira, \%args, $store, $option );
     }
+
+    return $tira->policy_decline(%args) if $command eq 'policy.decline';
+    return $tira->policy_declined(%args) if $command eq 'policy.declined';
 
     if ( $command =~ /\Apolicy\.(add|list|remove)\z/ ) {
         my $action = $1;

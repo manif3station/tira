@@ -230,6 +230,31 @@ went missing while everything reported success.
 
 
 
+## Saying no to a rule
+
+Police lists the rules this project has not declared, every run, because a rule
+nobody declared is silent in exactly the way a rule being obeyed is — and
+remembering which run was the first is not your job.
+
+That leaves one gap: it cannot tell "nobody has looked at this" from "somebody
+looked and said no". So say no, and give the reason:
+
+```
+d2 tira.policy.decline --rule card-sandbox-missing \
+  --reason "nothing here uses work trees, so it would fire on every card being worked"
+d2 tira.policy.declined        # what has been decided, and why
+```
+
+Police stops asking about that rule. Declaring it later clears the declining,
+so a project that changes its mind does not carry a record saying the opposite.
+A rule that arrives in a future release is asked about exactly as it is today.
+
+**The reason is required**, and that is the whole design. Without it this would
+be a way of silencing the prompt, and a decision with no reason recorded is
+indistinguishable from having skipped the question — which is the thing this
+subsystem exists to remove. With every rule either declared or declined, the
+prompt has nothing to say and says nothing.
+
 ## What police tells you to hand the agent
 
 Police watches the board. It cannot declare anything — that is the agent's job,

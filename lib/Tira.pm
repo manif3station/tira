@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.18';
+our $VERSION = '1.19';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -2017,6 +2017,34 @@ sub column_sync {
         $self->_write_yaml( $path, $config );
     }
     return { missing => \@missing, unconfigured => \@unconfigured, applied => $args{apply} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false };
+}
+
+# The path down to a card, top first. In a chain the core agent is the only
+# reader of the bridge and does not hand a message to a ticket agent directly -
+# it hands it to that agent's manager, who hands it on. So a line has to say
+# the way down, and it has to say it at the moment it was written: a card
+# reparented afterwards must not rewrite what was already said, which is the
+# whole reason the bridge repeats what it knows instead of pointing at the
+# board.
+#
+# A card with nothing above it is its own path rather than an empty one. Found
+# work arrives that way, and in a chain it means the core agent keeps it.
+sub card_path {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my @path;
+    my $ref = $args{ref};
+    my %seen;
+
+    # Guarded against a cycle it should never see. A hierarchy that pointed at
+    # itself would hang the bridge rather than fail it, and a channel that
+    # stops is worse than one that says something wrong.
+    while ( defined $ref && $ref ne '' && !$seen{$ref}++ ) {
+        my $record = eval { $self->record_show( project => $root, ref => $ref ) } or last;
+        unshift @path, $record->{ref};
+        $ref = $record->{linkage}{epic_ref} // $record->{linkage}{sow_ref};
+    }
+    return \@path;
 }
 
 sub hierarchy_link {
@@ -4941,6 +4969,13 @@ sub _bridge_line {
         # bridge says rather than going back to the board, so a card
         # reassigned afterwards does not rewrite what was already said.
         'for ' . ( ( $violation->{assignee} // '' ) ne '' ? $violation->{assignee} : 'anyone' ),
+
+        # The way down to the card, for the reader that has to walk it. In a
+        # chain the core agent is the only one reading this, and it tells the
+        # card's manager rather than the card's agent. Written now rather than
+        # looked up later, so a card reparented afterwards does not rewrite
+        # what was already said.
+        ( defined $violation->{path} ? 'via ' . $violation->{path} : () ),
         $violation->{id} // 'VIO-0000',
         ( $violation->{ref} // '' ) ne '' ? $violation->{ref} : 'board',
         'seen ' . ( $violation->{seen} // 1 ),
@@ -4971,7 +5006,19 @@ sub bridge_write {
         next if $for ne '' && $args{store}
           && $self->police_suspended( store => $args{store}, agent => $for );
 
-        push @lines, $self->_bridge_line($violation);
+        # The path is worked out here, once, where the project is still in
+        # hand. A violation about no card at all carries none, because there
+        # is nothing to walk down.
+        my %about = %{$violation};
+        if ( ( $about{ref} // '' ) ne '' ) {
+            my $path = eval {
+                $self->card_path( %args, project => $about{project} // $args{project},
+                    ref => $about{ref} );
+            } // [];
+            my @above = @{$path}[ 0 .. $#{$path} - 1 ];
+            $about{path} = @above ? join( ' > ', @above ) : 'nobody';
+        }
+        push @lines, $self->_bridge_line( \%about );
     }
 
     # Police may say when it is unsure. Guessing would make it wrong, and

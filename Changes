@@ -1,5 +1,15 @@
 Revision history for Tira
 
+1.19  2026-08-12
+    - Every bridge line about a card says the way down to it, so the one
+      reader in a chain can route it. In a chain of agents the core agent
+      is the only one reading the bridge and hands a message to the
+      card's manager rather than to the card's agent, and working out who
+      that is by going back to the board is what the bridge exists to
+      avoid - a card reparented since would rewrite what was already
+      said. A card with nothing above it says so; a violation about no
+      card at all carries no path. What a single agent sees is unchanged.
+
 1.18  2026-08-12
     - A project can say whether one agent works it or a chain of them
       does, and tira.onboard asks before it creates anything. Multi-agent

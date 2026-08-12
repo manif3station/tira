@@ -157,6 +157,24 @@ The ceiling, the required reason and the enforcement log are exactly as they
 were; what changed is who stops hearing. A suspension with nobody named is
 still board-wide, because that is what it meant before anybody could be named.
 
+In a chain of agents the bridge has one reader: the core agent at the top. It
+does not hand a message to a ticket agent directly — it hands it to that
+agent's manager, who hands it on, and the answer comes back the same way. So
+every line about a card says the way down to it:
+
+```
+... | for ada | via SOW-002 > EPC-003 | VIO-0001 | TKT-077 | seen 1 | ...
+```
+
+`via nobody` means the card has nothing above it, which in a chain means the
+core agent keeps it rather than passing it on. A line about no card at all — a
+leftover container, a board never backed up — carries no path, because there is
+nothing to walk down.
+
+The path is written when the line is written, not looked up when it is read. A
+card reparented afterwards must not rewrite what was already said, which is the
+same reason the line repeats whose card it is instead of pointing at the board.
+
 The bridge carries the words on the card, whatever they are. A board worked in
 two languages puts both on it, so the log is written and read as UTF-8 and a
 card titled in Chinese reaches the agent as the title somebody typed. Until

@@ -216,10 +216,15 @@ like( $@, qr/Missing dashboard detail provider/, 'PSGI builder requires a detail
         ),
         'serve completes when its PSGI runner exits'
     );
+    # Starman rather than HTTP::Server::PSGI, and with workers. The single
+    # connection server stopped answering entirely while one connection was
+    # held open - his board was found listening, its process alive, and
+    # returning nothing at all, which looks exactly like a board that is fine
+    # until somebody tries to load it.
     is_deeply(
         \@options,
-        [ '--server', 'HTTP::Server::PSGI', '--host', 'localhost', '--port', 4567, '--env', 'deployment' ],
-        'serve configures the requested PSGI listener'
+        [ '--server', 'Starman', '--workers', 5, '--host', 'localhost', '--port', 4567, '--env', 'deployment' ],
+        'serve configures a listener that keeps answering while one connection is slow'
     );
     ok( $ran, 'serve passes a PSGI application to the runner' );
 }

@@ -185,6 +185,14 @@ refuses when the destination exists; the replacement stays atomic rather than
 becoming a delete followed by a rename. The full suite and every shipped Perl
 entrypoint pass under taint mode.
 
+The browser dashboard is served by Starman, plain or over TLS. It used to use
+the single-connection server without TLS, which stopped answering entirely
+while one connection was held open — a board was found listening, its process
+alive and returning nothing at all, which looks exactly like a board that is
+fine until somebody tries to load it. A board polls itself, fetches a work log
+when somebody expands it, and sits open on a phone; one server that keeps
+answering is the only sane choice for that.
+
 The browser dashboard can serve over HTTPS with `--ssl`, using a certificate
 the board makes for itself with a library rather than by running `openssl` —
 the no-shell guarantee holds. It is self-signed: it stops a password being read

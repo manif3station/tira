@@ -346,13 +346,19 @@ sub serve {
     require Plack::Runner;
     my $runner = Plack::Runner->new;
 
-    # Starman speaks TLS and HTTP::Server::PSGI does not, so the server is
-    # chosen by whether a certificate was handed over rather than always being
-    # the same one. Without --ssl nothing about this changes.
-    my @options = $args{ssl_cert}
-      ? ( '--server', 'Starman', '--enable-ssl',
-        '--ssl-cert', $args{ssl_cert}, '--ssl-key', $args{ssl_key} )
-      : ( '--server', 'HTTP::Server::PSGI' );
+    # One server, whether or not there is a certificate. It used to be
+    # HTTP::Server::PSGI without TLS, which handles one connection at a time -
+    # a reasonable choice when a board was a page somebody loaded now and then,
+    # and the wrong one now that the board polls itself every sixty seconds,
+    # fetches a work log when somebody expands it, and sits open on a phone.
+    #
+    # His board was found listening, its process alive, and answering nothing:
+    # one connection that never finished its request had stopped everything
+    # behind it. A board that accepts a connection and never answers looks
+    # exactly like a board that is fine, until somebody tries to load it.
+    my @options = ( '--server', 'Starman', '--workers', 5 );
+    push @options, '--enable-ssl', '--ssl-cert', $args{ssl_cert}, '--ssl-key', $args{ssl_key}
+      if $args{ssl_cert};
 
     $runner->parse_options(
         @options, '--host', $args{host}, '--port', $args{port}, '--env', 'deployment',

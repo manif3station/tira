@@ -3,6 +3,12 @@ requires 'YAML::XS', '0.83';
 requires 'Dancer2', '1.1.2';
 requires 'Plack', '1.0051';
 
+# The board is served by Starman, plain or over TLS. The single-connection
+# server it used to use stopped answering entirely while one connection was
+# held open, and a board that accepts a connection and never answers looks
+# exactly like a board that is fine.
+requires 'Starman', '0.4014';
+
 # EPIC-457 records notification history beside the project file, so the
 # escalation level can be counted rather than written onto the card.
 requires 'DBD::SQLite', '1.70';

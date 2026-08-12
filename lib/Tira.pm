@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.21';
+our $VERSION = '1.22';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -443,6 +443,16 @@ sub create_record {
                 # tree existing on the machine says nothing about which card
                 # it belongs to.
                 sandbox              => $args{sandbox},
+
+                # What its parent needs to wake it. A card agent closes when
+                # its turn ends, and a fresh one works everything out again -
+                # so the handle to resume outlives the agent by living here.
+                agent_session        => $args{agent_session},
+
+                # What passed between the user and whoever was working this
+                # card. A manager that cannot see what happened at the bottom
+                # of its own chain is managing something it cannot see.
+                conversation         => [],
                 affects_versions     => $affects_versions,
                 parent               => undef,
                 comments             => [],
@@ -1351,7 +1361,7 @@ my @RECORD_FIELDS = qw(
     gate_passing_log evidence attachments checklist subtasks linkage assignee
     reporter labels due_date start_date sdlc_gate lifecycle priority
     fix_version affects_versions parent comments created_at last_updated column
-    content_hash attachment_count sandbox
+    content_hash attachment_count sandbox agent_session conversation
 );
 my %RECORD_FIELD = map { $_ => 1 } @RECORD_FIELDS;
 
@@ -1925,10 +1935,10 @@ sub record_update {
                 die "Conflict: $field changed while you were editing\n";
             }
         }
-        for my $field (qw(title description problem_or_feature solution_needed source sdlc_gate lifecycle fix_version sandbox)) {
+        for my $field (qw(title description problem_or_feature solution_needed source sdlc_gate lifecycle fix_version sandbox agent_session)) {
             $record->{$field} = $args{$field} if defined $args{$field};
         }
-        for my $field (qw(sdlc_gate lifecycle fix_version sandbox)) {
+        for my $field (qw(sdlc_gate lifecycle fix_version sandbox agent_session)) {
             $record->{$field} = undef if defined $args{$field} && $args{$field} eq '';
         }
         for my $field (qw(assignee reporter)) {
@@ -2774,6 +2784,67 @@ sub question_list {
               . 'Unanswered questions are waiting on the owner, not on you.',
         };
     } );
+}
+
+# What passed between the user and whoever was working this card.
+#
+# His design: the user talks only to the core agent, which decides which direct
+# report hears what, and the conversation is reflected onto the card by the
+# agent that owns it. Without that, a manager knows only what it said downward
+# and nothing of what came back - it is managing something it cannot see.
+#
+# Separate from comments on purpose. A comment is somebody writing on the card;
+# this is a record of something that was said elsewhere, with who heard it, and
+# conflating the two would make the card's own discussion harder to read for
+# exactly the people who need it.
+sub conversation_add {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        $self->_require_person( %args, person => $args{author} );
+        local $self->{_journal_author} = $args{author};
+        my $record = $self->record_show(%args);
+        my $number = 1;
+        for my $existing ( @{ $record->{conversation} // [] } ) {
+            $number = $1 + 1 if $existing->{id} =~ /\ACNV-(\d+)\z/ && $1 >= $number;
+        }
+        my $entry = {
+            id => sprintf( 'CNV-%03d', $number ),
+            author => $args{author},
+            heard => $args{heard},
+            said => $args{said} // '',
+            created_at => $self->{clock}->(),
+        };
+        push @{ $record->{conversation} }, $entry;
+        $self->_replace_record( %args, record => $record );
+        return $entry;
+    } );
+}
+
+sub conversation_list {
+    my ( $self, %args ) = @_;
+    return $self->record_show(%args)->{conversation} // [];
+}
+
+# Every child of this card and what it would take to wake each one. Read off
+# the board rather than from whatever spawned them, because the thing that
+# spawned them is the thing that closes - which is the whole problem.
+#
+# A child with no agent yet is listed with nothing to resume. Leaving it out
+# would make the answer read as "these are all your children" when it is not.
+sub agent_sessions {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $record = $self->record_show(%args);
+    my @children = (
+        @{ $record->{linkage}{epic_refs} // [] },
+        @{ $record->{linkage}{ticket_refs} // [] },
+        @{ $record->{linkage}{sub_ticket_refs} // [] },
+    );
+    return [ map {
+        my $child = $self->record_show( project => $root, ref => $_ );
+        { ref => $child->{ref}, agent_session => $child->{agent_session} }
+    } @children ];
 }
 
 sub comment_add {

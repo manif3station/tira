@@ -125,6 +125,8 @@ sub run {
         'snapshot=s' => \$option{snapshot},
         'older-than=s' => \$option{older_than},
         'notify-after=s' => \$option{notify_after}, 'mode=s' => \$option{mode},
+        'said=s' => \$option{said}, 'heard=s' => \$option{heard},
+        'agent-session=s' => \$option{agent_session},
         'watch!' => \$option{watched}, 'stale' => \$option{stale},
         'with-level' => \$option{with_level},
         'cache-ttl=i' => \$option{cache_ttl}, 'no-cache' => \$option{no_cache},
@@ -1584,6 +1586,9 @@ sub _invoke {
     # two commands would invite a board where it was set and never read.
     return { mode => $tira->project_mode(%args) } if $command eq 'project.mode';
     return { max => $tira->project_limit(%args) } if $command eq 'project.limit';
+    return $tira->conversation_add(%args) if $command eq 'conversation.add';
+    return $tira->conversation_list(%args) if $command eq 'conversation.list';
+    return $tira->agent_sessions(%args) if $command eq 'agent.sessions';
     return $tira->project_update(%args) if $command eq 'project.update';
     return $tira->person_list(%args) if $command eq 'project.people.list';
     return $tira->person_add(%args) if $command eq 'project.people.add';

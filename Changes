@@ -1,5 +1,24 @@
 Revision history for Tira
 
+1.22  2026-08-12
+    - A card outlives the agent working it. A card agent closes when its
+      turn ends, and waking it has to be a resume rather than a fresh
+      agent - a fresh one works everything out again, which costs tokens
+      and produces answers inconsistent with what the card already says.
+      So the handle to resume lives on the card, read off the board by
+      the parent that may wake it, because the thing that spawned the
+      agent is the thing that closes. A child with no agent yet is listed
+      with nothing to resume, so the answer is every child rather than
+      only the started ones.
+    - And what passed between the user and whoever was working a card is
+      recorded on it. In a chain the user talks only to the core agent,
+      so without this a manager knows what it said downward and nothing
+      of what came back - it is managing something it cannot see. Kept
+      separate from comments, which are somebody writing on the card
+      rather than a record of something said elsewhere.
+    - Tira spawns nothing and resumes nothing. It records what the thing
+      that does needs to find.
+
 1.21  2026-08-12
     - How much may be in flight at once is the project's answer rather
       than a number Tira picks. A work-in-progress limit counts the whole

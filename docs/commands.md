@@ -773,6 +773,52 @@ already exists is one of those, and none of them should change underneath its
 owner for a setting nobody turned on. `tira.onboard` asks the question before
 it creates anything, and leaving it blank leaves it unset.
 
+### `tira.conversation.add` and `tira.conversation.list`
+
+Records what passed between the user and whoever was working a card, so the
+chain above it can see what happened at the bottom.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--ref CARD` | yes | The card it happened on. |
+| `--author WHO` | yes (add) | Who said it. Must be somebody the board knows. |
+| `--heard WHO` | no | Who it was said to. |
+| `--said TEXT` | yes (add) | What was said. |
+| `-o FORMAT` | no | As above. |
+
+Separate from comments on purpose. A comment is somebody writing on the card;
+this is a record of something said elsewhere, with who heard it. Conflating the
+two would make the card's own discussion harder to read for exactly the people
+who need it.
+
+In a chain the user talks only to the core agent, which decides which direct
+report hears what — so without this a manager knows what it said downward and
+nothing of what came back.
+
+### `tira.agent.sessions`
+
+Lists every child of a card and what it would take to wake each one.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--ref CARD` | yes | The parent. |
+| `-o FORMAT` | no | As above. |
+
+A card agent closes when its turn ends, and waking it must be a resume rather
+than a fresh agent — a fresh one works everything out again, which costs tokens
+and produces answers inconsistent with what the card already says. Who may wake
+it is its parent, because the chain runs one-to-many downward and never the
+other way.
+
+The handle lives on the card, set with `tira.ticket.update --agent-session`,
+and is read off the board rather than from whatever spawned the agent — because
+the thing that spawned it is the thing that closes. A child with no agent yet is
+listed with nothing to resume, so the answer is every child rather than only the
+started ones.
+
+**Tira spawns nothing and resumes nothing.** It records what the thing that does
+needs to find, which is the same boundary that keeps it invoking no shell.
+
 ### `tira.project.limit`
 
 Says how much this project is willing to have in flight at once, and sets that

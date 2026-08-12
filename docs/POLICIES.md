@@ -129,6 +129,21 @@ reach everybody rather than one agent:
 - the whole bridge, to anyone who reads it without naming an agent — which is
   how the owner watches the board.
 
+Quiet belongs to the agent that asked for it:
+
+```
+d2 tira.police.suspend --seconds 300 --reason "chasing one failing test" --author ada
+```
+
+Ada stops being written to for five minutes. Every other agent carries on
+hearing about its own cards, and police in the owner's terminal keeps reporting
+everything — an agent is not entitled to silence the person watching the board.
+The ceiling, the required reason and the enforcement log are exactly as they
+were; what changed is who stops hearing. A suspension with nobody named is
+still board-wide, because that is what it meant before anybody could be named.
+
+
+
 ## What police tells you to hand the agent
 
 Police watches the board. It cannot declare anything — that is the agent's job,

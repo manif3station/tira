@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.12';
+our $VERSION = '1.13';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4900,6 +4900,14 @@ sub bridge_write {
         # log-only is being tuned and stays out of the way; one set to
         # print-reminder belongs in the owner's terminal instead.
         next if ( $violation->{action} // '' ) ne 'bridge-reminder';
+
+        # An agent that asked for quiet is not written to while it lasts. The
+        # others are, because their work is not its business - and the owner
+        # watching police in his own terminal sees everything either way.
+        my $for = $violation->{assignee} // '';
+        next if $for ne '' && $args{store}
+          && $self->police_suspended( store => $args{store}, agent => $for );
+
         push @lines, $self->_bridge_line($violation);
     }
 
@@ -5241,7 +5249,18 @@ sub police_suspend {
     $quiet_so_far += $seconds;
 
     my $until = _iso_from_epoch( $at + $seconds );
-    $log->{suspended_until} = $until;
+
+    # Quiet belongs to the agent that asked for it. One agent per ticket means
+    # a board-wide switch lets one agent stop the others being told about their
+    # own work, which is the opposite of what an escape hatch is for. A
+    # suspension with nobody named is still board-wide, because that is what it
+    # meant before anybody was named and somebody may be relying on it.
+    if ( defined $args{author} && $args{author} ne '' ) {
+        $log->{suspended}{ $args{author} } = $until;
+    }
+    else {
+        $log->{suspended_until} = $until;
+    }
     $self->_enforcement_write( $store, $log );
     $self->_enforcement_record(
         store => $store, kind => 'suspension', ref => $args{ref},
@@ -5263,7 +5282,14 @@ sub police_suspended {
     my ( $self, %args ) = @_;
     my $store = $args{store} or return 0;
     my $log = $self->_enforcement_read($store);
-    my $until = $log->{suspended_until} or return 0;
+
+    # Asked about an agent: only that agent's own quiet counts. Asked about
+    # nobody: only a board-wide suspension counts, so one agent going quiet
+    # never reads as the board going quiet.
+    my $until = defined $args{agent} && $args{agent} ne ''
+      ? ( $log->{suspended}{ $args{agent} } // $log->{suspended_until} )
+      : $log->{suspended_until};
+    $until or return 0;
     my $now = eval { _epoch_of_datetime( $self->{clock}->(), 'Clock' ) } // return 0;
     my $ends = eval { _epoch_of_datetime( $until, 'Stamp' ) } // return 0;
     return $now < $ends ? 1 : 0;

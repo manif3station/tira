@@ -1,5 +1,17 @@
 Revision history for Tira
 
+1.13  2026-08-12
+    - Quiet belongs to the agent that asked for it. Suspension was one
+      switch for the whole board, so an agent asking for five minutes
+      to concentrate stopped every other agent hearing about its own
+      work - and stopped the owner seeing anything at all, which was
+      the sharper half of it. The quiet is applied at the bridge rather
+      than at the sweep, so police still finds everything and still
+      reports to the owner's terminal; only what is written to that one
+      agent changes. The ceiling, the reason, the renewal marking and
+      the enforcement log are exactly as they were, and a suspension
+      naming nobody is still board-wide.
+
 1.12  2026-08-12
     - The bridge speaks to whoever is carrying the card. One agent per
       ticket is the model, so an agent's concern is exactly one card,

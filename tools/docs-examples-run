@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""Run every example in the documentation, rather than reading it.
+
+Exit 0 when every documented example is understood by the command it names,
+1 when any is not.
+
+Michael's requirement, in his words: every documented example has to be run
+rather than read. The policies document shipped with an example the validator
+refuses, and nothing but executing it would have found that.
+
+What counts as a failure is narrow on purpose. An example naming TKT-001 on a
+scratch board fails because that card is not there, and that says nothing about
+the documentation. What it must never do is fail because the command does not
+exist, because an option is not accepted, or because a value is refused - those
+are the documentation describing something Tira will not do.
+
+Usage: tools/docs-examples-run
+"""
+
+import os
+import re
+import shlex
+import subprocess
+import sys
+import tempfile
+
+DOCUMENTS = ('SKILLS.md', 'docs/commands.md', 'docs/POLICIES.md')
+
+# An example is a backticked command line beginning with the dispatcher, or a
+# bare tira.<verb> line inside a fenced block - the policies document is
+# written the second way.
+BACKTICKED = re.compile(r'`(dashboard tira\.[^`]+)`')
+FENCED = re.compile(r'^\s{0,2}(tira\.[a-z][a-z0-9.-]*(?:\s+--?[^\n]*)?)$', re.M)
+
+# Anything in quotes is a value somebody typed, whatever it looks like. "MT5"
+# is a project name, not a shape - and treating it as one skipped the example
+# silently, which is how a deliberately broken example passed this check.
+QUOTED = re.compile(r'"[^"]*"|\'[^\']*\'')
+
+# A reference is a real value, not a placeholder: TKT-001 is something to type.
+REFERENCE = re.compile(r'\b[A-Z][A-Z0-9-]*-\d+\b')
+
+# Everything else in capitals, or in angle or square brackets, is a shape a
+# reader is meant to replace. Listing them by name missed SHA256 and EXT and
+# reported three examples as broken that were perfectly correct - so the rule
+# is the shape rather than a list somebody has to keep up to date.
+PLACEHOLDER = re.compile(r'<[^>]+>|\[[^\]]+\]|\b[A-Z][A-Z0-9_]{1,}\b|\.\.\.')
+
+# Commands that are meant never to return: police watches until it is stopped,
+# the bridge tails, a browser dashboard serves, and onboarding waits for
+# somebody to type. Running one of those here would hang the check for ever,
+# which is what happened the first time this was run. They are named rather
+# than detected by timeout, because a timeout would also hide a real hang.
+FOREVER = ('tira.police', 'tira.policy.bridge', 'tira.onboard')
+
+# The failures that mean the documentation is wrong, rather than the scratch
+# board being empty.
+FATAL = (
+    'Unsupported Tira command',
+    'Unknown option',
+    'Invalid command-line options',
+    'not found in skill',
+    'Usage:',
+)
+
+
+def examples():
+    """Every runnable example, with where it came from."""
+    found = []
+    for document in DOCUMENTS:
+        if not os.path.exists(document):
+            continue
+        with open(document, encoding='utf-8') as handle:
+            text = handle.read()
+        for pattern in (BACKTICKED, FENCED):
+            for match in pattern.finditer(text):
+                line = match.group(1).strip()
+                line = re.sub(r'^dashboard\s+', '', line)
+                bare = REFERENCE.sub( '', QUOTED.sub( '', line ) )
+                if PLACEHOLDER.search(bare):
+                    continue
+                found.append((document, line))
+    return found
+
+
+def main():
+    scratch = tempfile.mkdtemp(prefix='tira-doc-examples-')
+    project = os.path.join(scratch, 'board')
+    setup = subprocess.run(
+        ['d2', 'tira.project.new', '--name', 'Examples', '--dir', project,
+         '--members', 'michael', '--columns', 'backlog, implement, done',
+         '--sow-prefix', 'DXS', '--epic-prefix', 'DXE', '--ticket-prefix', 'TKT',
+         '-o', 'json'],
+        capture_output=True, text=True)
+    if setup.returncode != 0:
+        raise SystemExit(f'docs-examples-run: could not make a scratch board: {setup.stderr.strip()}')
+
+    # A card and a question to quote, so an example naming TKT-001 is about the
+    # documentation rather than about an empty board.
+    subprocess.run(['d2', 'tira.ticket.create', '--project', project,
+                    '--title', 'A card', '-o', 'json'], capture_output=True, text=True)
+
+    ran = 0
+    problems = []
+    for document, line in examples():
+        try:
+            argv = shlex.split(line)
+        except ValueError:
+            problems.append((document, line, 'this is not a command line anybody could type'))
+            continue
+        if not argv:
+            continue
+        if argv[0].startswith(FOREVER) or 'browser' in line:
+            continue
+        command = ['d2', argv[0], '--project', project] + argv[1:]
+        try:
+            done = subprocess.run(command, capture_output=True, text=True,
+                                  stdin=subprocess.DEVNULL, timeout=30)
+        except subprocess.TimeoutExpired:
+            problems.append((document, line, 'this example never returned'))
+            continue
+        ran += 1
+        output = (done.stdout or '') + (done.stderr or '')
+        for fatal in FATAL:
+            if fatal in output:
+                problems.append((document, line, output.strip().splitlines()[0]))
+                break
+
+    for document, line, why in problems:
+        print(f'{document}: {line}\n    {why}')
+
+    if problems:
+        print(f'\n{len(problems)} documented example(s) of {ran} are not what the command accepts.')
+        return 1
+
+    print(f'docs-examples-run: {ran} documented examples run, and every one was understood')
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

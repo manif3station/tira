@@ -87,7 +87,7 @@ lib/Tira/DashboardWeb.pm  100.0  100.0  100.0'
 #
 # The failure mode that matters most: a gate that disappears when somebody
 # deletes a file looks exactly like a gate that passed.
-for tool in tools/board-backup tools/card-holes tools/docs-match-code; do
+for tool in tools/board-backup tools/card-holes tools/docs-match-code tools/docs-examples-run; do
     refuses "a missing $(basename "$tool")" 'missing|refusing' run_hook "$PASSING_SUITE" "$tool"
 done
 
@@ -141,6 +141,15 @@ cp "$root/skills/police/cli/suspend" "$probe" 2>/dev/null || cp "$root/cli/polic
 chmod +x "$probe"
 refuses 'an entrypoint nobody documented' 'documentation and the code disagree' run_hook "$PASSING_SUITE"
 rm -f "$probe"
+
+# --- the examples are run rather than read --------------------------------
+#
+# His requirement, and the one that found an example the validator refuses.
+# A real example is broken on purpose here, in the real document, and put back.
+cp "$root/SKILLS.md" "$sandbox/SKILLS.md.original"
+printf '\n`dashboard tira.project.create --name "Probe" --a-flag-that-does-not-exist`\n' >>"$root/SKILLS.md"
+refuses 'a documented example the command refuses' 'not what the command accepts' run_hook "$PASSING_SUITE"
+cp "$sandbox/SKILLS.md.original" "$root/SKILLS.md"
 
 # --- and it passes when everything is right -------------------------------
 #

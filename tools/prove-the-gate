@@ -48,7 +48,14 @@ sandbox="$(mktemp -d)"
 # failed at the card check for a reason that had nothing to do with what it was
 # testing - a check that leaves the thing it checks in a worse state.
 hollow=""
+hidden_from=""
+hidden_to=""
 cleanup() {
+    # A tool moved aside is put back however this ends. An interrupted run used
+    # to leave a shipped file missing from the working tree, which is the third
+    # time this file has damaged the thing it was checking - and the worst of
+    # the three, because the next run then reports a check broken that is not.
+    [ -n "$hidden_to" ] && [ -f "$hidden_to" ] && mv "$hidden_to" "$hidden_from"
     [ -n "$hollow" ] && d2 tira.ticket.discard --ref "$hollow" -o json >/dev/null 2>&1
     rm -rf "$sandbox"
     rm -f "$lock"
@@ -78,16 +85,20 @@ run_hook() {
     printf '#!/usr/bin/env bash\ncat <<%s\n%s\n%s\n' 'SUITE_EOF' "$suite_output" 'SUITE_EOF' >"$bin/docker"
     chmod +x "$bin/docker"
 
-    local hidden=""
     if [ -n "$missing" ]; then
-        hidden="$sandbox/hidden-$(basename "$missing")"
-        mv "$root/$missing" "$hidden"
+        hidden_from="$root/$missing"
+        hidden_to="$sandbox/hidden-$(basename "$missing")"
+        mv "$hidden_from" "$hidden_to"
     fi
 
     out="$(PATH="$bin:$PATH" "$hook" 2>&1)"
     local status=$?
 
-    [ -n "$missing" ] && mv "$hidden" "$root/$missing"
+    if [ -n "$missing" ]; then
+        mv "$hidden_to" "$hidden_from"
+        hidden_from=""
+        hidden_to=""
+    fi
     return $status
 }
 

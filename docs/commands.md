@@ -746,6 +746,33 @@ skipped so re-running is safe, and everything is validated before the first writ
 a rejected call leaves nothing behind. Prefixes are applied before any record can be
 created, because board counters never rewind.
 
+### `tira.project.mode`
+
+Says whether this project is worked by a single agent or by a chain of them,
+and sets that answer.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--mode MODE` | no | `single` or `chain`, and nothing else. Without it, the command reads rather than writes. |
+| `-o FORMAT` | no | As above. |
+
+Multi-agent is built on single agent rather than beside it. A single agent is
+the one somebody types into a terminal, and it owns everything: cheapest in
+context and tokens, slowest, because every request goes through it. A chain is
+that same agent stepping out of the work and onto the top of a chain of
+command, with one agent per card, each named for the card and managed by the
+agent that owns its parent.
+
+Several rules mean different things between the two, which is why the answer is
+written down rather than inferred. Reading it off the board would be wrong the
+first day one agent assigns two cards to two names.
+
+**A project that has never been asked answers with nothing, and behaves exactly
+as it always has.** That is the case that matters most: every board that
+already exists is one of those, and none of them should change underneath its
+owner for a setting nobody turned on. `tira.onboard` asks the question before
+it creates anything, and leaving it blank leaves it unset.
+
 `tira.stale` answers how long each card has sat in the column it is in now,
 reading each card's history backwards and stopping at its most recent column
 move. Cards whose entry predates the history are reported without a duration

@@ -1,5 +1,16 @@
 Revision history for Tira
 
+1.18  2026-08-12
+    - A project can say whether one agent works it or a chain of them
+      does, and tira.onboard asks before it creates anything. Multi-agent
+      is built on single agent rather than beside it: one agent per card,
+      each named for the card and managed by the agent that owns its
+      parent. Several rules mean different things between the two and
+      nothing recorded which, so reading it off the board would have been
+      wrong the first day one agent assigned two cards to two names. A
+      project that has never been asked answers with nothing and behaves
+      exactly as it always has, which is every board that already exists.
+
 1.17  2026-08-12
     - leftover-container no longer reports every container on the
       machine. It took an age and nothing else, so the first time police

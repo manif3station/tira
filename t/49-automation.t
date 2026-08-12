@@ -113,6 +113,7 @@ BRT
 y
 Backlog, Doing
 120
+single
 y
 ANSWERS
 is( $status, 0, 'onboarding completes with no coding agent installed' );
@@ -139,6 +140,7 @@ Backlog, Doing
 claude
 session-999
 
+single
 y
 ANSWERS
 is( $status, 0, 'onboarding completes with a coding agent installed' );
@@ -170,6 +172,7 @@ has space
 sess1
 Not A Slug
 good-slug
+single
 y
 ANSWERS
 is( $status, 0, 'the flow survives a bad answer to every new question' );
@@ -201,6 +204,7 @@ y
 
 
 
+single
 y
 ANSWERS
 is( $status, 0, 're-running onboarding on an existing project completes' );
@@ -227,6 +231,7 @@ $bare
 
 
 
+single
 y
 ANSWERS
 is( $status, 0, 'answering a different directory completes' );

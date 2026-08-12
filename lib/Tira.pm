@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.17';
+our $VERSION = '1.18';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -464,6 +464,52 @@ sub project_show {
         $person->{active} = Cpanel::JSON::XS::true if !exists $person->{active};
     }
     return $data;
+}
+
+# The two kinds of project there are. Multi-agent is built on single agent
+# rather than beside it: the single agent is the one somebody types into a
+# terminal and it owns everything, and a chain is that same agent stepping out
+# of the work and onto the top of a chain of command, with an agent per card.
+my %PROJECT_MODE = map { $_ => 1 } qw(single chain);
+
+# Which of the two this project is. Several rules mean different things between
+# them, and reading it off the board would be wrong the first day one agent
+# assigns two cards to two names.
+#
+# Answering with nothing is deliberate and is the case that matters most: a
+# project nobody has asked behaves exactly as it does today. Every board that
+# exists is one of those, and none of them should change underneath its owner
+# for a feature nobody turned on.
+sub project_mode {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_load_yaml( File::Spec->catfile( $root, '.tira', 'project.yml' ) )->{mode}
+      if !defined $args{mode};
+
+    die "A project is worked by a single agent or by a chain of them\n"
+      if !$PROJECT_MODE{ $args{mode} };
+    return $self->_with_project_lock( $root, sub {
+        my $path = File::Spec->catfile( $root, '.tira', 'project.yml' );
+        my $data = $self->_load_yaml($path);
+        $data->{mode} = $args{mode};
+        $self->_write_yaml( $path, $data );
+        return $data->{mode};
+    } );
+}
+
+# What onboarding must ask before anything else happens. Kept here rather than
+# in the wizard so that what gets asked is a fact the engine owns and a test
+# can read, instead of a sequence of prints somebody has to run to inspect.
+sub onboarding_questions {
+    return [ {
+        id => 'mode',
+        text => 'Is this project worked by a single agent, or by a chain of agents?',
+        options => [ 'single', 'chain' ],
+        why => 'A single agent does everything itself. A chain has one agent per card, '
+          . 'each named for the card, managed by the agent that owns its parent. '
+          . 'Several rules mean different things between the two.',
+        default => 'single',
+    } ];
 }
 
 sub project_update {

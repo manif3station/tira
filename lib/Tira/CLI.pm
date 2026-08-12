@@ -124,7 +124,7 @@ sub run {
         'ticket-prefix=s' => \$option{ticket_prefix},
         'snapshot=s' => \$option{snapshot},
         'older-than=s' => \$option{older_than},
-        'notify-after=s' => \$option{notify_after},
+        'notify-after=s' => \$option{notify_after}, 'mode=s' => \$option{mode},
         'watch!' => \$option{watched}, 'stale' => \$option{stale},
         'with-level' => \$option{with_level},
         'cache-ttl=i' => \$option{cache_ttl}, 'no-cache' => \$option{no_cache},
@@ -1264,6 +1264,25 @@ sub _project_wizard {
       if defined $answers{session}
       && defined( $option->{heartbeat} // $answers{notify_after} );
 
+    # Which kind of project this is, asked rather than assumed. The questions
+    # are the engine's, so what onboarding asks can be read by a test instead
+    # of inferred from a sequence of prints. Left unanswered it stays unset,
+    # and an unset project behaves exactly as every project does today.
+    for my $question ( @{ $tira->onboarding_questions } ) {
+        print "\n$question->{why}\n";
+        while (1) {
+            my $answer = _ask( $in, $question->{text}, $stored->{ $question->{id} } );
+            return ( undef, 2 ) if !defined $answer;
+            last if $answer eq '';
+            if ( !grep { $_ eq $answer } @{ $question->{options} } ) {
+                print '  Answer with ' . join( ' or ', @{ $question->{options} } ) . ".\n";
+                next;
+            }
+            $answers{ $question->{id} } = $answer;
+            last;
+        }
+    }
+
     print "\nAbout to create:\n";
     print "  name       $answers{name}\n";
     print "  directory  $answers{dir}\n";
@@ -1272,7 +1291,7 @@ sub _project_wizard {
     for my $key ( grep { /_columns\z|\Acolumns\z/ } sort keys %answers ) {
         print "  $key " . join( ', ', @{ $answers{$key} } ) . "\n";
     }
-    for my $key (qw(notify_after agent session collector heartbeat)) {
+    for my $key (qw(mode notify_after agent session collector heartbeat)) {
         print "  $key " . ( $answers{$key} // '(none)' ) . "\n" if exists $answers{$key};
     }
     print "\n";
@@ -1461,6 +1480,12 @@ sub _invoke {
             ( $option->{nested} ? ( nested => 1 ) : () ),
         );
 
+        # Written after the project exists, because it is a fact about the
+        # project rather than one of the things that makes one. Unanswered
+        # leaves it unset, and unset is every board that exists today.
+        $tira->project_mode( project => $option->{dir} // '.', mode => $option->{mode} )
+          if defined $option->{mode};
+
         # Collecting the settings and leaving the job unregistered
         # looked like it had worked. Onboarding registers it, and reports the
         # name it will really answer to, which is not the name that was typed.
@@ -1554,6 +1579,10 @@ sub _invoke {
     }
     return $tira->replace_records( %args, dry_run => $option->{dry_run} ) if $command eq 'replace';
     return $tira->project_show(%args) if $command eq 'project.show';
+
+    # Reading and setting are one command, because the answer is one fact and
+    # two commands would invite a board where it was set and never read.
+    return { mode => $tira->project_mode(%args) } if $command eq 'project.mode';
     return $tira->project_update(%args) if $command eq 'project.update';
     return $tira->person_list(%args) if $command eq 'project.people.list';
     return $tira->person_add(%args) if $command eq 'project.people.add';

@@ -49,6 +49,7 @@ M5T
 y
 Backlog, Planning, Documenting, Ready, In Progress, Vulnerability Scanner, Unit Testing, E2E Testing, Done / Release
 
+single
 y
 ANSWERS
 is( $status, 0, 'the guided flow completes' );
@@ -84,6 +85,7 @@ Shaping
 Breaking Down
 Doing, Reviewing
 
+single
 y
 ANSWERS
 is( $status, 0, 'the per-board flow completes' );
@@ -108,6 +110,7 @@ RTT
 y
 Doing
 
+single
 y
 ANSWERS
 is( $status, 0, 'the flow survives bad answers' );
@@ -127,6 +130,7 @@ DCT
 y
 Doing
 
+single
 n
 ANSWERS
 is( $status, 1, 'declining exits 1' );
@@ -150,6 +154,7 @@ PFT
 y
 Doing
 
+single
 y
 ANSWERS
 is( $status, 0, 'a partly-filled command line completes through the flow' );
@@ -188,14 +193,40 @@ sure
 y
 Doing
 
+single
 y
 ANSWERS
 is( $nonsense_status, 0, 'an unclear yes/no answer is re-asked rather than guessed' );
 like( $nonsense_out, qr/answer yes or no/i, 'and the re-ask says what is expected' );
 
+# An answer to the mode question that is neither of the two is re-asked rather
+# than stored or guessed - the same treatment every other unclear answer gets.
+# A wizard that quietly accepted "multi" would leave a project configured in a
+# word nothing understands, which reads as set while behaving as unset.
+my $unclear = File::Spec->catdir( $tmp, 'unclear-mode' );
+my ( $mode_status, $mode_out ) = run_wizard( <<"ANSWERS", '-o', 'json' );
+$unclear
+Unclear
+ada
+UNS
+UNE
+UNT
+y
+Backlog, Done
+
+multi
+chain
+y
+ANSWERS
+is( $mode_status, 0, 'an answer that is neither kind is re-asked rather than guessed' );
+like( $mode_out, qr/Answer with single or chain/,
+    'and the re-ask says what the two answers are' );
+is( $tira->project_mode( project => $unclear ), 'chain',
+    'and the answer that follows is the one that is kept' );
+
 # Flags for every question, accepted by pressing enter through the flow.
 my $filled = File::Spec->catdir( $tmp, 'filled' );
-( $status, $out, $err ) = run_wizard( "$filled\n\n\n\n\n\n\n\n\ny\n",
+( $status, $out, $err ) = run_wizard( "$filled\n\n\n\n\n\n\n\n\n\ny\n",
     '--name', 'Filled', '--members', 'ada, grace',
     '--columns', 'Doing, Shipped', '-o', 'json' );
 is( $status, 0, 'a fully pre-filled flow completes on enter alone' );
@@ -205,7 +236,7 @@ is_deeply( [ map { $_->{name} } @{ $tira->column_list( project => $filled, type 
     [qw(backlog doing shipped discard)], 'the columns flag becomes the default answer' );
 
 my $per_board = File::Spec->catdir( $tmp, 'per-board' );
-( $status, $out, $err ) = run_wizard( "$per_board\n\nada\n\n\n\nn\n\n\n\n\ny\n",
+( $status, $out, $err ) = run_wizard( "$per_board\n\nada\n\n\n\nn\n\n\n\n\n\ny\n",
     '--name', 'PerBoard', '--sow-columns', 'Shaping',
     '--epic-columns', 'Breaking Down', '--ticket-columns', 'Doing', '-o', 'json' );
 is( $status, 0, 'per-board column flags complete on enter alone' );
@@ -226,6 +257,7 @@ THT
 y
 Doing
 
+single
 y
 ANSWERS
     is( $tilde_status, 0, 'a tilde answer is accepted' );
@@ -247,6 +279,7 @@ NBT
 y
 Doing
 
+single
 y
 ANSWERS
     is( $skip_status, 0, 'skipping the people question is allowed' );

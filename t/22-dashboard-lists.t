@@ -118,6 +118,7 @@ my %providers = (
     people => sub { '[]' },
     attachment_fetch => sub { return {} }, attachment_add => sub { '{"ok":true}' },
     attachment_remove => sub { '{"ok":true}' },
+    attachment_discard => sub { '{"ok":true}' },
     checklist_add => sub { return '{"ok":true,"entry":{"id":"CHK-001"}}' },
     checklist_update => sub { die "Checklist entry 'CHK-404' not found\n" },
     link_types => sub { '[]' },

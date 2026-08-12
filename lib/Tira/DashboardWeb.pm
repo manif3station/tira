@@ -10,7 +10,7 @@ use Cpanel::JSON::XS ();
 use Dancer2 appname => 'TiraDashboard';
 
 our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $SEARCH, $COMMENT_ADD, $COMMENT_UPDATE, $COMMENT_REMOVE, $PEOPLE,
-      $ATTACHMENT_FETCH, $ATTACHMENT_ADD, $ATTACHMENT_REMOVE, $CHECKLIST_ADD, $CHECKLIST_UPDATE,
+      $ATTACHMENT_FETCH, $ATTACHMENT_ADD, $ATTACHMENT_REMOVE, $ATTACHMENT_DISCARD, $CHECKLIST_ADD, $CHECKLIST_UPDATE,
       $LINK_TYPES, $HIERARCHY_LINK, $HIERARCHY_UNLINK, $SUBITEM_LINK, $SUBITEM_UNLINK, $LINK_ADD, $LINK_REMOVE,
       $COLUMNS, $COLUMN_APPLY, $QUESTION_ANSWER, $QUESTION_MARK, $QUESTION_ATTACH,
       $LOGIN_START, $LOGIN_REGISTER, $SESSION_RESUME, $SESSION_PEEK, $SESSION_END, $LOGIN_PAGE,
@@ -165,6 +165,7 @@ post '/comment/update' => sub { return _mutation( \$COMMENT_UPDATE ) };
 post '/comment/remove' => sub { return _mutation( \$COMMENT_REMOVE ) };
 post '/attachment/add' => sub { return _mutation( \$ATTACHMENT_ADD ) };
 post '/attachment/remove' => sub { return _mutation( \$ATTACHMENT_REMOVE ) };
+post '/attachment/discard' => sub { return _mutation( \$ATTACHMENT_DISCARD ) };
 post '/checklist/add' => sub { return _mutation( \$CHECKLIST_ADD ) };
 post '/checklist/update' => sub { return _mutation( \$CHECKLIST_UPDATE ) };
 post '/hierarchy/link' => sub { return _mutation( \$HIERARCHY_LINK ) };
@@ -308,6 +309,7 @@ my @PROVIDERS = (
     [ attachment_fetch => \$ATTACHMENT_FETCH, 'attachment fetch provider' ],
     [ attachment_add => \$ATTACHMENT_ADD, 'attachment add provider' ],
     [ attachment_remove => \$ATTACHMENT_REMOVE, 'attachment remove provider' ],
+    [ attachment_discard => \$ATTACHMENT_DISCARD, 'attachment discard provider' ],
     [ checklist_add => \$CHECKLIST_ADD, 'checklist add provider' ],
     [ checklist_update => \$CHECKLIST_UPDATE, 'checklist update provider' ],
     [ link_types => \$LINK_TYPES, 'link types provider' ],

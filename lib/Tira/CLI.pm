@@ -790,6 +790,19 @@ sub browser_providers {
             );
             return $json->encode( { ok => Cpanel::JSON::XS::true, attachment => $attachment } );
         },
+        attachment_discard => sub {
+            my ($payload) = @_;
+            die "Discard payload must be an object\n" if ref($payload) ne 'HASH';
+            my $reference = $tira->attachment_discard(
+                project => $project, ref => $payload->{ref}, sha => $payload->{sha},
+                extension => $payload->{extension},
+                ( defined $payload->{comment} ? ( comment => $payload->{comment} ) : () ),
+                ( defined $payload->{_signed_in} ? ( author => $payload->{_signed_in} ) : () ),
+            );
+            return Tira::json_object()->canonical->encode(
+                { ok => Cpanel::JSON::XS::true, attachment => $reference } );
+        },
+
         attachment_remove => sub {
             my ($payload) = @_;
             die "Attachment removal requires ref and sha\n"
@@ -1689,6 +1702,7 @@ sub _invoke {
         'attachment.add' => 'attachment_add', 'attachment.list' => 'attachment_list',
         'attachment.get' => 'attachment_get', 'attachment.remove' => 'attachment_remove',
         'attachment.detach' => 'attachment_detach',
+        'attachment.discard' => 'attachment_discard',
         'evidence.list' => 'evidence_list', 'evidence.add' => 'evidence_add',
         'evidence.annotate' => 'evidence_annotate',
         'gate.list' => 'gate_list', 'gate.add' => 'gate_add',

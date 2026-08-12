@@ -1,6 +1,19 @@
 Revision history for Tira
 
-1.09  2026-08-12
+1.10  2026-08-12
+    - An attachment can be taken off a card without losing it.
+      `tira.attachment.discard` sets one aside the way everything else
+      in Tira is set aside: the reference stays on the card stamped
+      with when and by whom, the browser draws it struck through and
+      greyed, and the work log reads the event off the card rather
+      than being told - so it cannot be forgotten and cannot be
+      written by hand. The stored file is untouched even when that was
+      the last reference to it, because the bytes are shared by
+      content hash and are not one card's to destroy. The cross on a
+      chip in the browser now discards rather than deletes; deleting
+      is still possible from the command line, where somebody has said
+      they mean it.
+
     - A board can be told to stop expiring its sessions.
       `tira.dashboard -o browser --no-session-expire` serves one whose
       sign-in lasts until somebody signs out. The default is unchanged

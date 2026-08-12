@@ -54,7 +54,12 @@ my $live_html = $calls->[0]{render}->();
 like( $live_html, qr/card-attachment/, 'the dialog renders attachment chips' );
 like( $live_html, qr{"/attachment\?}, 'the viewer sources bytes from the attachment route' );
 like( $live_html, qr{mutate\("/attachment/add"}, 'uploads post to the attachment add route' );
-like( $live_html, qr{mutate\("/attachment/remove"}, 'deletion posts to the attachment remove route' );
+# The × on a chip sets an attachment aside rather than destroying it, which is
+# how everything else on this board works. Deleting the stored bytes is still
+# possible from the command line, where somebody has said they mean it.
+like( $live_html, qr{mutate\("/attachment/discard"}, 'the chip posts to the discard route, not the delete one' );
+unlike( $live_html, qr{mutate\("/attachment/remove"},
+    'nothing in the browser deletes an attachment outright' );
 like( $live_html, qr/card-viewer/, 'the dialog includes the overlay viewer' );
 like( $live_html, qr/FileReader/, 'uploads read the picked file in the browser' );
 
@@ -136,6 +141,7 @@ my %providers = (
     attachment_fetch => sub { return { content => "BYTES ${pound}", content_type => 'text/plain; charset=UTF-8', filename => 'a.txt' } },
     attachment_add => sub { return '{"ok":true,"attachment":{"sha":"00"}}' },
     attachment_remove => sub { die "Attachment 'ff' is not attached\n" },
+    attachment_discard => sub { '{"ok":true}' },
     checklist_add => sub { return '{"ok":true}' },
     checklist_update => sub { return '{"ok":true}' },
     link_types => sub { '[]' },

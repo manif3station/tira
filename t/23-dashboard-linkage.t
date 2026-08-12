@@ -121,6 +121,7 @@ my %providers = (
     people => sub { '[]' },
     attachment_fetch => sub { return {} }, attachment_add => sub { '{"ok":true}' },
     attachment_remove => sub { '{"ok":true}' },
+    attachment_discard => sub { '{"ok":true}' },
     checklist_add => sub { '{"ok":true}' }, checklist_update => sub { '{"ok":true}' },
     link_types => sub { '[{"outward":"blocks","inward":"is-blocked-by"}]' },
     hierarchy_link => sub { '{"ok":true}' }, hierarchy_unlink => sub { '{"ok":true}' },

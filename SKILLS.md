@@ -665,6 +665,7 @@ tira.attachment.add --ref REF --file PATH [--comment ID] [-o FORMAT]
 tira.attachment.list [--ref REF] [--include-deleted] [--meta-only] [--fields LIST] [--since TIMESTAMP] [--count] [-o FORMAT]
 tira.attachment.get --sha SHA256 [--extension EXT]
 tira.attachment.remove --sha SHA256 [--extension EXT] [-o FORMAT]
+tira.attachment.discard --ref REF --sha SHA256 [--extension EXT] [--comment ID] [--author NAME] [-o FORMAT]
 tira.attachment.detach --ref REF --sha SHA256 [--extension EXT] [--comment ID] [-o FORMAT]
 ```
 
@@ -1177,6 +1178,9 @@ without revealing or creating a storage location.
 
 ### UC-106: Ask a question the owner can answer quickly
 **Implemented.** Give the reason and the options with the question, not just the question: `dashboard tira.question.ask --ref TKT-001 --text "Which store should the importer write to?" --reason "Both are configured and the runbook names neither." --option "The staging bucket" --option "The live bucket" --option "Neither, block until told"`. Both are optional and a bare question still works, but an owner answering without them is composing an answer from nothing; with them he can reply "the staging one" in seconds. They render under the question in the human view and in the card's Questions section on the dashboard, where he can answer and mark without leaving the board.
+
+### UC-128: Take an attachment off a card without losing it
+**Implemented.** `dashboard tira.attachment.discard --ref TKT-001 --sha SHA256` sets an attachment aside rather than deleting it. The reference stays on the card stamped with when and by whom, the browser draws it struck through and greyed like every other discarded thing, and the work log carries the event — read off the card by the engine, so it cannot be forgotten and cannot be written by hand. The stored file is untouched even when that was the last reference to it: the bytes are shared by content hash and are not one card's to destroy. Discarding one twice is refused rather than restamped, because the first stamp is the record somebody is relying on. `tira.attachment.remove` still deletes, for when the file itself has to go.
 
 ### UC-127: Leave the board open all day without signing in again
 **Implemented.** `dashboard tira.dashboard -o browser --no-session-expire` serves a board whose sign-in lasts until somebody signs out. By default a session ends after ten minutes of inactivity, and the board's own refresh does not count as activity — it reads a session without extending it — so a board you are watching expires exactly as fast as one nobody is looking at, and every refresh after that is refused. That default is right on a shared machine and wrong for a board you read from a phone instead of asking for progress, so it is a choice you make rather than a behaviour that changes. The board tells you on the terminal it starts from that sessions never expire, and what that costs: over plain HTTP the cookie is a credential with no end date.

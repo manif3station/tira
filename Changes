@@ -51,6 +51,15 @@ Revision history for Tira
       made was invisible to it. The fingerprint now reads the records
       themselves.
 
+    - Reminders reach a coding agent on Windows. The reminder script
+      carried its own copy of the search for an installed agent -
+      splitting the path on a colon and looking for a name with no
+      extension - so it decided nothing was installed however much
+      was, exited quietly, and a user would have set reminders up and
+      never heard anything. It asks the same subroutine the command
+      line asks now, and the delivery is proved on the lab with an
+      agent standing up the way Windows has one.
+
     - A dashboard on Windows never picked up a new version. The
       entrypoint to restart into was found by asking whether a file is
       executable, and there is no such bit there, so nothing was ever

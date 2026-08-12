@@ -211,10 +211,11 @@ and say so rather than being quietly counted:
 - Commands driven as real child processes. `IPC::Open3` cannot spawn one on
   the lab, so the end-to-end shape of an invocation is unproved there. What
   those commands do is covered by the engine tests on every platform.
-- Reminder delivery. The test calls a stub coding agent, which is a script with
-  a shebang and an execute bit — neither of which exists on Windows. Whether a
-  reminder can be delivered to a real coding agent there is genuinely unknown
-  and is tracked rather than assumed.
+- Reminder delivery *by that test*. It calls a stub coding agent, which is a
+  script with a shebang and an execute bit — neither of which exists on
+  Windows. Whether a reminder actually reaches a coding agent there was proved
+  separately on the lab, with an agent standing up the way Windows has one: it
+  does.
 - Reading a command's output back through a pipe. The same command prints the
   right thing when run by hand and does not match when read back through a
   harness pipe.

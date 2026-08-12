@@ -36,7 +36,13 @@ my $project = eval { $tira->project_show( project => $root ) }
 # error indicator and feeds the watchdog, for a situation that is not a fault.
 my $session = $project->{session};
 exit 0 if !defined $session || !length $session;
-exit 0 if !grep { -x File::Spec->catfile( $_, $agent_binary ) } grep { length } split /:/, $ENV{PATH} // '';
+# Asked of the same subroutine the command line uses. This was a second copy
+# of that search, splitting PATH on a colon and looking for a name with no
+# extension - so on Windows it found nothing however much was installed and
+# exited quietly, and the reminder simply never arrived. Two copies of one
+# question is how a fix reaches one of them and not the other.
+require Tira::CLI;
+exit 0 if !Tira::CLI::_agent_available($agent_binary);
 
 my $message = $tira->notification_message( project => $root );
 exit 0 if !$message->{level};

@@ -30,6 +30,24 @@ if ( $^O eq 'MSWin32' ) {
     plan skip_all => 'a stub program here needs a shebang and an execute bit, and this platform has neither';
 }
 
+# Whether the reminder can find an agent at all is a different question from
+# whether it can call one, and it is the question that had the wrong answer on
+# Windows: this search was a second copy of the command line's, splitting PATH
+# on a colon and looking for a name with no extension, so it found nothing
+# there however much was installed and the reminder exited quietly. Asserted
+# here as one search rather than two, because two copies of a question is how a
+# fix reaches one of them and not the other.
+{
+    open my $script, '<', 'collector/tira-remind' or die $!;
+    my $body = do { local $/; <$script> };
+    close $script;
+
+    like( $body, qr/Tira::CLI::_agent_available/,
+        'the reminder asks the same subroutine the command line asks' );
+    unlike( $body, qr/split\s*\/:\/,\s*\$ENV\{PATH\}/,
+        'rather than carrying its own copy of the search' );
+}
+
 my $tmp = untaint( tempdir( CLEANUP => 1 ) );
 my $tick = '2026-08-08T09:00:00Z';
 my $tira = Tira->new( clock => sub {$tick} );

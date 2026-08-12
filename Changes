@@ -1,5 +1,17 @@
 Revision history for Tira
 
+1.23  2026-08-12
+    - One board is now worked both ways in the suite, and the policies
+      guide names what differs. Five releases built the pieces and each
+      proved its own in isolation; nothing had run the same board as a
+      single agent and then as a chain and shown that every rule whose
+      meaning changes behaves correctly in each. Three rules differ -
+      wip-limit reads the project's number, card-sandbox-missing becomes
+      real, and the bridge is read unfiltered at the top of a chain - and
+      that list is now short, written down, and asserted. The rules that
+      do not change are asserted not to, because "this rule is
+      unaffected" is a claim too.
+
 1.22  2026-08-12
     - A card outlives the agent working it. A card agent closes when its
       turn ends, and waking it has to be a resume rather than a fresh

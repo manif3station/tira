@@ -102,6 +102,28 @@ listening. Keep the bridge running for as long as you are working.
 **6. Add rules as you find you need them.** The best time to add a rule is
 just after something went wrong that it would have caught.
 
+## What is different between the two kinds of project
+
+A project is worked by a single agent or by a chain of them, and it says which
+(`tira.project.mode`). Almost everything means the same thing either way. These
+are the exceptions, and they are the whole list — if a rule is not here, it does
+not change:
+
+| Rule | Single agent | Chain |
+| --- | --- | --- |
+| `wip-limit` | The policy carries `--max`. | The number is the project's (`tira.project.limit`), because no one number fits both. It still counts the whole board. |
+| `card-sandbox-missing` | Usually not declared — most single-agent projects use no work trees. | Real: every card gets a work tree named after it, and the card records which. |
+| The bridge | Each agent names itself and hears its own cards. | The core agent reads it unfiltered and walks each line down; every line carries the way down to its card. |
+
+Two things follow from that list being short.
+
+**A project that has never been asked which kind it is behaves exactly as it
+always has.** That is every board that existed before this was written, and none
+of them should change underneath their owner for a setting nobody turned on.
+
+**The single-agent path needs nothing new.** It is the common case. A chain adds
+a setting, a number and a way of reading the bridge; it takes nothing away.
+
 ## Several agents on one board
 
 One agent per ticket, named for the ticket, is the model the

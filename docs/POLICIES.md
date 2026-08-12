@@ -129,6 +129,21 @@ reach everybody rather than one agent:
 - the whole bridge, to anyone who reads it without naming an agent — which is
   how the owner watches the board.
 
+A work-in-progress limit counts the board, not the agent. One agent per ticket
+makes a per-agent limit always one, which measures nothing; counting the board
+measures how much is in flight at once, which is a real thing to bound. The
+violation names who is holding each card:
+
+```
+4 cards in implement, limit is 2: LDT-001 (ada), LDT-002 (grace), LDT-003 (alan), LDT-004 (nobody)
+```
+
+Without the names the message reads exactly the same whether three agents have
+one card each or one agent has three — and those are opposite situations. The
+first is the board working as intended; the second is somebody who should
+finish something before starting another. A rule that cannot tell them apart
+gets its limit raised until it never fires, which is the same as deleting it.
+
 Quiet belongs to the agent that asked for it:
 
 ```
@@ -190,7 +205,7 @@ missing, at the moment you declare the policy rather than later.
 | `answer-unjudged` | `--age` | an answer nobody marked |
 | `answer-ok-not-folded` | `--age` | settled in name only: marked ok, nothing written down |
 | `answer-not-ok-no-followup` | `--age` | a cross with no further question |
-| `wip-limit` | `--column --max` | too many things being worked at once |
+| `wip-limit` | `--column --max` | too many things being worked at once, across the whole board |
 | `gate-missing` | `--column` | work that reached the end with no gate recorded |
 | `discard-unexplained` | — | work set aside with no reason given |
 | `commit-without-card` | — | a commit that names no card |

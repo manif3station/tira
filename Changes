@@ -1,5 +1,14 @@
 Revision history for Tira
 
+1.14  2026-08-12
+    - A work-in-progress limit says who is holding what. It already
+      counted the board rather than the agent, which is the useful
+      meaning when one agent carries one ticket - but the message read
+      exactly the same whether three agents had one card each or one
+      agent had three, and those are opposite situations. It now names
+      the holder of every card, and says `nobody` for a card nobody is
+      carrying rather than letting it look owned.
+
 1.13  2026-08-12
     - Quiet belongs to the agent that asked for it. Suspension was one
       switch for the whole board, so an agent asking for five minutes

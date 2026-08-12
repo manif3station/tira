@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.13';
+our $VERSION = '1.14';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4443,9 +4443,18 @@ sub policy_evaluate {
         elsif ( $rule eq 'wip-limit' ) {
             my @in = grep { ( $_->{column} // '' ) eq ( $policy->{column} // '' ) } @{$records};
             next if @in <= ( $policy->{max} // 0 );
+            # Who is holding each one. Without it the message reads exactly
+            # the same whether three agents have one card each or one agent
+            # has three - and those are opposite situations: the first is the
+            # board working as intended, the second is somebody who should
+            # finish something before starting another. A rule that cannot
+            # tell them apart gets its limit raised until it never fires,
+            # which is the same as deleting it.
             $report->( $policy, undef,
                 scalar(@in) . " cards in $policy->{column}, limit is $policy->{max}: "
-                  . join( ',', map { $_->{ref} } @in ) );
+                  . join( ', ', map {
+                    $_->{ref} . ' (' . ( ( $_->{assignee} // '' ) ne '' ? $_->{assignee} : 'nobody' ) . ')'
+                } @in ) );
         }
         elsif ( $rule eq 'gate-missing' ) {
             for my $record ( @{$records} ) {

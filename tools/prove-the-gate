@@ -50,13 +50,36 @@ sandbox="$(mktemp -d)"
 hollow=""
 hidden_from=""
 hidden_to=""
+
+# Why this card is on the board, written before it is set aside. A discarded
+# card with no reason is indistinguishable from abandoned work - twenty of them
+# accumulated here, one per release, and the discard-unexplained rule reported
+# every one of them for ever. A tool that makes work for the rules it is
+# checking is not a check, it is a source of noise.
+say_why() {
+    # A comment needs a person the board knows. This tool ships, and a board
+    # with no "claude" on it is an ordinary board - so the author is whoever
+    # this board actually has, falling back to its first member. Getting this
+    # wrong would leave the card silent and then fail the very push that was
+    # trying to be tidy.
+    who="$(d2 tira.project.show -o json | python3 -c '
+import json, sys
+people = [p["id"] for p in json.load(sys.stdin).get("people", []) if p.get("active", True)]
+print("claude" if "claude" in people else (people[0] if people else ""))' 2>/dev/null)"
+    [ -n "$who" ] || return 0
+    d2 tira.comment.add --ref "$1" --author "$who" -o json \
+        --text 'Raised by tools/prove-the-gate to prove the push gate refuses a card with nothing on it, then set aside. Not abandoned work - this card existed for the length of one gate run, and its being refused is the check passing.' \
+        >/dev/null 2>&1 || true
+}
+
 cleanup() {
     # A tool moved aside is put back however this ends. An interrupted run used
     # to leave a shipped file missing from the working tree, which is the third
     # time this file has damaged the thing it was checking - and the worst of
     # the three, because the next run then reports a check broken that is not.
     [ -n "$hidden_to" ] && [ -f "$hidden_to" ] && mv "$hidden_to" "$hidden_from"
-    [ -n "$hollow" ] && d2 tira.ticket.discard --ref "$hollow" -o json >/dev/null 2>&1
+    [ -n "$hollow" ] && say_why "$hollow" \
+        && d2 tira.ticket.discard --ref "$hollow" -o json >/dev/null 2>&1
     rm -rf "$sandbox"
     rm -f "$lock"
 }
@@ -167,6 +190,7 @@ hollow="$(d2 tira.ticket.create --title 'Probe: a hollow card the gate must refu
     python3 -c 'import json,sys; print(json.load(sys.stdin)["ref"])')"
 if [ -n "$hollow" ]; then
     refuses "a hollow card on the board ($hollow)" 'fill the cards in' run_hook "$PASSING_SUITE"
+    say_why "$hollow"
     d2 tira.ticket.discard --ref "$hollow" -o json >/dev/null
     hollow=""
 else

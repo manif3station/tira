@@ -195,8 +195,16 @@ def main():
     for kind in ('sow', 'epic', 'ticket'):
         for row in tira(f'tira.{kind}.list', '-o', 'json'):
             # Discarded work is set aside, not planned. Holding it to the same
-            # standard would only teach people to ignore this check.
+            # standard would only teach people to ignore this check - but it
+            # still has to say why it was set aside. Twenty probe cards from
+            # this very gate accumulated in discard with nothing on them,
+            # indistinguishable from work somebody gave up on, and the police
+            # rule reported all twenty on every run for ever.
             if row.get('column') == 'discard':
+                record = tira(f'tira.{kind}.show', '--ref', row['ref'], '-o', 'json')
+                if not record.get('comments'):
+                    failures += 1
+                    print(f"{row['ref']} was discarded with no reason given")
                 continue
             record = tira(f'tira.{kind}.show', '--ref', row['ref'], '-o', 'json')
             missing = holes(record, kind)
@@ -232,6 +240,8 @@ def main():
               'level up, and nobody sees it without opening every parent.')
         print('A card past verify with no gate and no evidence is a claim about '
               'work that happened with nothing anybody could check.')
+        print('A discarded card with no reason on it is indistinguishable from '
+              'work somebody abandoned, and it stays that way for ever.')
         return 1
 
     print('every live card is complete')

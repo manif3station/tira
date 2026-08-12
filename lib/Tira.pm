@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.15';
+our $VERSION = '1.16';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4935,8 +4935,14 @@ sub bridge_write {
     # Appended, and the file is recreated if it has been taken away - a stream
     # that stops silently leaves the agent believing all is well, which is the
     # worst failure this channel could have.
+    # Bytes, deliberately, the way the YAML shim and the journal already write
+    # them. This board is worked in English and in Cantonese, and the raw layer
+    # with text printed straight into it warned "Wide character in print" on the
+    # owner's own screen while police was running - eight times in one pass -
+    # and wrote bytes nobody could read back. The raw layer stays: it is what
+    # keeps this file byte-identical on every platform.
     open my $fh, '>>:raw', $path or die "Cannot write the bridge log: $!\n";
-    print {$fh} map { "$_\n" } @lines;
+    print {$fh} map { encode_utf8("$_\n") } @lines;
     close $fh;
     return scalar @lines;
 }
@@ -4951,6 +4957,12 @@ sub bridge_backlog {
     my @lines = <$fh>;
     close $fh;
     chomp @lines;
+    # Decoded back into text, because the file holds bytes. A line written in
+    # Cantonese and read as bytes is a line the agent cannot match its own name
+    # against, and a filter that quietly matches nothing is the worst thing this
+    # channel could do. FB_QUIET rather than a die: a corrupted byte somewhere
+    # in the log must not stop the agent hearing the rest of it.
+    @lines = map { decode( 'UTF-8', $_, FB_QUIET ) } @lines;
     # An agent hears about its own cards, and about anything belonging to
     # nobody - filtering that loses the unowned card trades noise for silence,
     # which is worse, because nobody is watching it by definition. Naming no

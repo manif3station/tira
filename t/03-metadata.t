@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=1\.15$/m, '.env stores version 1.15' );
+like( $env_text, qr/^VERSION=1\.16$/m, '.env stores version 1.16' );
 
 open my $skills, '<', 'SKILLS.md' or die "Cannot read SKILLS.md: $!";
 my $skills_text = do { local $/; <$skills> };
@@ -46,8 +46,22 @@ unlike( $skills_text, qr/--project|TIRA_HOME|\.tira\/|project selector/i, 'SKILL
 
 use lib 'lib';
 use Tira;
-is( $Tira::VERSION, '1.15', 'module version matches .env' );
+is( $Tira::VERSION, '1.16', 'module version matches .env' );
 unlike( $skills_text, qr/\bSpecified\b/i, 'every documented command and use case is implemented' );
+
+# A count written in prose goes stale the moment a rule is added, and nothing
+# says so - SKILLS.md claimed twenty while twenty-two shipped. Every rule is
+# also named in the policies guide, so a rule added without being documented is
+# caught by name rather than by arithmetic.
+my $rules = Tira->new->policy_rules;
+my ($claimed) = $skills_text =~ /(\d+) rules cover/;
+is( $claimed, scalar @{$rules}, 'SKILLS.md says how many rules there really are' );
+
+open my $policies_doc, '<', 'docs/POLICIES.md' or die "Cannot read docs/POLICIES.md: $!";
+my $policies_text = do { local $/; <$policies_doc> };
+close $policies_doc;
+my @rules_undocumented = grep { $policies_text !~ /\Q$_\E/ } @{$rules};
+is_deeply( \@rules_undocumented, [], 'every rule is named in the policies guide' );
 
 my @perl_files = ( 'lib/Tira.pm', 'lib/Tira/CLI.pm' );
 find( { no_chdir => 1, wanted => sub {

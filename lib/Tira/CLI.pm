@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use Encode qw(decode encode_utf8 FB_CROAK);
-use Cwd qw(cwd);
+use Cwd qw(abs_path cwd);
 use File::Basename qw(dirname);
 use File::Spec;
 use Getopt::Long qw(GetOptionsFromArray);
@@ -1653,7 +1653,8 @@ sub _invoke {
         my $prompt = eval { $tira->police_prompt(%args) };
         print {*STDERR} "\n$prompt\n" if defined $prompt;
 
-        my $result = $tira->police_pass( %args, store => $store, world => _police_world() );
+        my $result = $tira->police_pass( %args, store => $store,
+            world => _police_world( tira => $tira, project => $tira->discover_project(%args) ) );
         die "$result->{advice}\n" if !$result->{watching};
         $tira->bridge_write( store => $store, violations => $result->{violations} );
         print {*STDERR} map { "$_\n" } @{ $result->{terminal} };
@@ -1785,10 +1786,270 @@ sub _police_store {
 
 # The world police needs and the engine will not touch. Gathered here, handed
 # in as plain facts, so that Tira itself still invokes no shell.
+#
+# It used to return five empty lists and nothing else. Six declared rules read
+# this - leftover-process, leftover-container, commit-without-card,
+# work-without-card, unpushed-work and board-unbacked - and every one of them
+# evaluated against nothing and stayed silent. A rule that is silent because it
+# was shown nothing looks exactly like a rule being obeyed, which is the very
+# sentence police prints to the owner when a rule is missing entirely. Found on
+# 2026-08-12, when board-unbacked said the board had never been backed up while
+# the backups the push gate writes sat in ~/.tira-backups.
 sub _police_world {
-    return {
-        branches => [], worktrees => [], processes => [], containers => [], commits => [],
+    my (%args) = @_;
+    my $root = $args{project};
+    my $where = defined $root && -d $root ? $root : undef;
+
+    my $world = {
+        branches   => _git_branches($where),
+        worktrees  => _git_worktrees($where),
+        processes  => _running_processes(),
+        containers => _running_containers(),
+        commits    => _unpushed_commits($where),
     };
+    $world->{unpushed_since} = @{ $world->{commits} } ? $world->{commits}[-1]{at} : undef;
+    $world->{working_since} = _tree_changing_since($where);
+    $world->{backed_up_at} = _last_backup( $args{backups} // _backup_home($where) );
+    $world->{card_in_progress} = exists $args{card_in_progress}
+      ? $args{card_in_progress}
+      : _card_in_progress( $args{tira}, $root );
+    return $world;
+}
+
+# Whether anything on the board is being worked. work-without-card asks it the
+# other way round - a tree that is changing while nothing is at a working gate
+# is work nobody can see - so getting this wrong makes that rule accuse the
+# agent of exactly what it is in the middle of doing properly.
+sub _card_in_progress {
+    my ( $tira, $root ) = @_;
+    return undef if !$tira || !defined $root;
+    my $working = 0;
+    for my $type (qw(sow epic ticket)) {
+        my $roles = eval { $tira->column_roles( project => $root, type => $type ) } || {};
+        my $records = eval { $tira->record_list( project => $root, type => $type ) } || [];
+        my $moving = $roles->{'in-progress'};
+        for my $record ( @{$records} ) {
+            my $column = $record->{column} // '';
+            $working++, last
+              if defined $moving
+              ? $column eq $moving
+              : $column !~ /\A(?:backlog|done|discard)\z/;
+        }
+        last if $working;
+    }
+    return $working ? 1 : 0;
+}
+
+# Every external command runs through here, in list form so no shell is
+# involved even in this module - a card title with a semicolon in it is a
+# perfectly ordinary card title. A command that is not installed is not a
+# failure: a machine with no Docker has no leftover containers.
+sub _reading {
+    my (@command) = @_;
+
+    # List form: the program is named separately from its arguments, so this is
+    # always "run this program" and never "ask a shell what was meant" - a card
+    # title with a semicolon in it is an ordinary card title. A program that is
+    # not installed is not a failure either: a machine with no Docker has no
+    # leftover containers, and everything else carries on being watched.
+    # Asked for by name first. Perl warns "Can't exec" when a program is not
+    # there, and a machine with no Docker is not an error worth printing into
+    # the middle of whatever the owner was reading.
+    return [] if !_program_exists( $command[0] );
+
+    my @lines;
+    if ( open my $handle, '-|', @command ) {
+        @lines = <$handle>;
+        close $handle;
+    }
+    chomp @lines;
+    return \@lines;
+}
+
+sub _program_exists {
+    my ($program) = @_;
+    return -x $program ? 1 : 0 if $program =~ m{[/\\]};
+    for my $directory ( File::Spec->path ) {
+        return 1 if -x File::Spec->catfile( $directory, $program );
+    }
+    return 0;
+}
+
+# Asking git about somewhere that is not a repository makes git say so, on
+# standard error, in the middle of whatever the owner was reading. Nothing here
+# silences it, because silencing the whole program's standard error would take
+# it away from whoever else was using it - a test capturing it, most obviously.
+# So it is not provoked in the first place.
+sub _is_repository {
+    my ($where) = @_;
+    return 0 if !defined $where;
+    my $here = abs_path($where) // $where;
+    my $last = '';
+    while ( $here ne $last ) {
+        return 1 if -e File::Spec->catfile( $here, '.git' );
+        ( $last, $here ) = ( $here, dirname($here) );
+    }
+    return 0;
+}
+
+# -C rather than chdir, so the whole of this module stays in one directory and
+# nothing has to be put back afterwards.
+sub _git_branches {
+    my ($where) = @_;
+    return [] if !_is_repository($where);
+    return _reading( 'git', '-C', $where, 'branch', '--format=%(refname:short)' );
+}
+
+sub _git_worktrees {
+    my ($where) = @_;
+    return [] if !_is_repository($where);
+    return [ map { s/\Aworktree\s+//r } grep { /\Aworktree\s/ }
+          @{ _reading( 'git', '-C', $where, 'worktree', 'list', '--porcelain' ) } ];
+}
+
+# The process table, with when each one started, because every rule about a
+# leftover asks how long it has been there rather than whether it exists.
+sub _running_processes {
+    return _processes_from( _reading( 'ps', '-eo', 'pid=,lstart=,args=' ) );
+}
+
+# Reading the table is kept apart from asking for it, so what this understands
+# can be proved against real ps output on a machine where the answer is known.
+sub _processes_from {
+    my ($lines) = @_;
+    my @processes;
+    for my $line ( @{$lines} ) {
+        next if $line !~ /\A\s*(\d+)\s+(\w{3}\s+\w{3}\s+\d+\s+[\d:]+\s+\d{4})\s+(.*)\z/;
+        my ( $pid, $started, $command ) = ( $1, $2, $3 );
+        next if $pid == $$;
+        push @processes,
+          { pid => $pid, started_at => _stamp_from_ps($started), command => $command };
+    }
+    return \@processes;
+}
+
+sub _stamp_from_ps {
+    my ($text) = @_;
+    my %month = do { my $n = 0; map { $_ => ++$n } qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec) };
+    return undef if $text !~ /\A\w{3}\s+(\w{3})\s+(\d+)\s+(\d+):(\d+):(\d+)\s+(\d{4})\z/;
+    return undef if !$month{$1};
+    return sprintf '%04d-%02d-%02dT%02d:%02d:%02d', $6, $month{$1}, $2, $3, $4, $5;
+}
+
+sub _running_containers {
+    return _containers_from(
+        _reading( 'docker', 'ps', '--format', '{{.Names}}\t{{.CreatedAt}}' ) );
+}
+
+# Kept apart from asking Docker for the same reason: the suite runs inside a
+# container with no Docker in it, so asking would prove nothing about whether
+# the answer is understood. This is proved against real docker ps output.
+sub _containers_from {
+    my ($lines) = @_;
+    my @containers;
+    for my $line ( @{$lines} ) {
+        my ( $name, $created ) = split /\t/, $line, 2;
+        next if !defined $name || $name eq '';
+        push @containers, { name => $name, started_at => _stamp_from_docker($created) };
+    }
+    return \@containers;
+}
+
+sub _stamp_from_docker {
+    my ($text) = @_;
+    return undef if !defined $text;
+    return $text =~ /(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/
+      ? "$1-$2-$3T$4:$5:$6"
+      : undef;
+}
+
+# Where this branch was last pushed to. Asking git for @{upstream} was the
+# obvious way and the wrong one: this very repository has origin/master and one
+# unpushed commit, and no upstream configured for the branch - so git answered
+# "fatal: no upstream configured", loudly, on somebody else's terminal, and
+# both rules that depend on this went quiet on the one board that most needed
+# them. --verify --quiet asks without complaining, and the remote the branch
+# names is tried when the usual one is not there.
+sub _tracking_branch {
+    my ( $where, $branch ) = @_;
+    my ($configured) =
+      @{ _reading( 'git', '-C', $where, 'rev-parse', '--abbrev-ref', '--verify', '--quiet',
+            "$branch\@{upstream}" ) };
+    return $configured if defined $configured && $configured ne '';
+
+    my @remotes = ('origin');
+    my ($named) = @{ _reading( 'git', '-C', $where, 'config', '--get', "branch.$branch.remote" ) };
+    unshift @remotes, $named if defined $named && $named ne '';
+    for my $remote (@remotes) {
+        my ($found) = @{ _reading( 'git', '-C', $where, 'rev-parse', '--verify', '--quiet',
+                "$remote/$branch" ) };
+        return "$remote/$branch" if defined $found && $found ne '';
+    }
+    return undef;
+}
+
+# Commits this branch has and the branch it is pushed to does not. Nowhere to
+# have been pushed means nothing is sitting unpushed - a branch nobody has ever
+# pushed is not the same as work left waiting.
+sub _unpushed_commits {
+    my ($where) = @_;
+    return [] if !_is_repository($where);
+    my ($branch) = @{ _reading( 'git', '-C', $where, 'rev-parse', '--abbrev-ref', 'HEAD' ) };
+    return [] if !defined $branch || $branch eq '' || $branch eq 'HEAD';
+    my $upstream = _tracking_branch( $where, $branch );
+    return [] if !defined $upstream || $upstream eq '';
+    my $lines = _reading( 'git', '-C', $where, 'log', '--format=%H%x09%cI%x09%s', "$upstream..HEAD" );
+    return [ map { my ( $sha, $at, $subject ) = split /\t/, $_, 3;
+            { sha => $sha, at => $at, subject => $subject // '' } } @{$lines} ];
+}
+
+# When the working tree last changed, which is what work-without-card means by
+# work. A clean tree is not work in progress, so it answers with nothing.
+sub _tree_changing_since {
+    my ($where) = @_;
+    return undef if !_is_repository($where);
+    my $changed = _reading( 'git', '-C', $where, 'status', '--porcelain' );
+    return undef if !@{$changed};
+    my $oldest;
+    for my $line ( @{$changed} ) {
+        next if $line !~ /\A.{3}(.+)\z/;
+        my $path = File::Spec->catfile( $where, $1 );
+        next if !-e $path;
+        my $when = ( stat $path )[9];
+        $oldest = $when if !defined $oldest || $when < $oldest;
+    }
+    return undef if !defined $oldest;
+    my @when = gmtime $oldest;
+    return sprintf '%04d-%02d-%02dT%02d:%02d:%02dZ',
+      $when[5] + 1900, $when[4] + 1, @when[ 3, 2, 1, 0 ];
+}
+
+# Where tools/board-backup writes: one directory per project, named for the
+# absolute path so two projects on one machine never write over each other.
+sub _backup_home {
+    my ($where) = @_;
+    return undef if !defined $where;
+    my $home = $ENV{HOME} // $ENV{USERPROFILE};
+    return undef if !defined $home;
+    my $slug = abs_path($where) // $where;
+    $slug =~ s/[^A-Za-z0-9]+/-/g;
+    $slug =~ s/\A-|-\z//g;
+    return File::Spec->catdir( $home, '.tira-backups', $slug );
+}
+
+# The most recent backup, read from the stamp in its name. The newest one is
+# the only one the rule cares about - it asks how long it has been since the
+# last one, not how many there have ever been.
+sub _last_backup {
+    my ($directory) = @_;
+    return undef if !defined $directory || !-d $directory;
+    opendir my $handle, $directory or return undef;
+    my @stamps = sort grep { /\A\d{8}T\d{6}Z\z/ } readdir $handle;
+    closedir $handle;
+    return undef if !@stamps;
+    return $stamps[-1] =~ /\A(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z\z/
+      ? "$1-$2-$3T$4:$5:$6Z"
+      : undef;
 }
 
 # A loop that never ends cannot be called by anything, including a test - so
@@ -1837,7 +2098,12 @@ sub _police_follow {
     my $done = 0;
     while ( !defined $rounds || $done < $rounds ) {
         $done++;
-        my $result = eval { $tira->police_pass( %{$args}, store => $store, world => _police_world() ) };
+        # Gathered every round, not once at the start: a container that comes up
+        # an hour into a watch is exactly the kind of thing this is for.
+        my $result = eval {
+            $tira->police_pass( %{$args}, store => $store,
+                world => _police_world( tira => $tira, project => $tira->discover_project( %{$args} ) ) );
+        };
         if ( !$result ) {
             # Transient trouble is not a reason to stop watching.
             print {*STDERR} 'police could not read the board: ' . ( $@ || 'unknown' ) . "\n";

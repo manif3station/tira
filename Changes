@@ -1,5 +1,40 @@
 Revision history for Tira
 
+1.16  2026-08-12
+    - Police looks at the machine it was always meant to look at. Six
+      rules read the world rather than the board - leftover processes
+      and containers, commits naming no card, a tree changing with
+      nothing on the board, unpushed work, and how long since the last
+      backup - and the command handed the engine five empty lists and
+      nothing else. Every one of them evaluated against nothing and
+      reported nothing, on every run, while passing every test it had,
+      because the tests handed the engine a world of their own. Found
+      when board-unbacked said the board had never been backed up while
+      the backups the push gate writes on every release sat in place.
+      The facts are now gathered where a shell is allowed, so Tira
+      itself still invokes none, and each rule is proved by making the
+      condition real: a repository with commits nobody pushed, a process
+      actually running, a tree actually dirty. Running it against this
+      repository then found the same silence one level in: git was
+      asked for a branch's upstream, which errors on a repository that
+      has origin/master and no upstream configured - so unpushed work
+      and commits naming no card went unreported on the board that most
+      needed them, and git said so on somebody else's terminal. It now
+      asks quietly and falls back to the branch it was actually pushed
+      to.
+    - The policy bridge carries words that are not plain ASCII. It was
+      written raw, so a card titled in Chinese warned "Wide character in
+      print" on the owner's own terminal and wrote bytes that an agent's
+      name could not be matched against - a line lost while everything
+      reported success. Written and read as UTF-8 now, like every other
+      file here.
+    - The push gate no longer litters the board it checks. Its probe
+      card - deliberately hollow, raised to prove the gate refuses it -
+      was discarded in silence, so twenty of them accumulated looking
+      exactly like work somebody had given up on. It says why before it
+      sets one aside, and card-holes refuses a discard with no reason,
+      so the gate catches this the way it catches every other hole.
+
 1.15  2026-08-12
     - The board keeps answering while one connection is slow. It was
       served by a listener that handles one connection at a time, so a

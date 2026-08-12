@@ -157,6 +157,13 @@ The ceiling, the required reason and the enforcement log are exactly as they
 were; what changed is who stops hearing. A suspension with nobody named is
 still board-wide, because that is what it meant before anybody could be named.
 
+The bridge carries the words on the card, whatever they are. A board worked in
+two languages puts both on it, so the log is written and read as UTF-8 and a
+card titled in Chinese reaches the agent as the title somebody typed. Until
+2026-08-12 it was written as raw text, which warned on the owner's terminal and
+wrote bytes the filter could not match an agent's name against — a line that
+went missing while everything reported success.
+
 
 
 ## What police tells you to hand the agent
@@ -277,6 +284,33 @@ That message is asking you to be more specific.
 Policies live in the project config, so they travel with the project and
 anybody can read them. Police keeps its own state — the violation ledger, the
 bridge log — outside the project entirely.
+
+## Where the facts come from
+
+Most rules read the board. Six read the machine instead: `leftover-process`,
+`leftover-container`, `commit-without-card`, `work-without-card`,
+`unpushed-work` and `board-unbacked`.
+
+Tira itself never looks. It invokes no shell and no external process, which is
+the guarantee that lets it be trusted inside another tool — so the `tira.police`
+command gathers those facts and hands them over as plain values, and the rules
+reason about what they are given. The process table comes from `ps`, containers
+from `docker ps`, branches, work trees, commits and the state of the tree from
+`git`, and the last backup from where `tools/board-backup` writes. A program
+that is not installed is not a failure: a machine with no Docker has no
+leftover containers, and everything else carries on being watched.
+
+They are gathered again on every pass rather than once at the start, because a
+container that comes up an hour into a watch is exactly the thing these rules
+are for.
+
+This is worth knowing because of how it failed. The gathering was missing
+entirely until 2026-08-12: the engine was handed five empty lists, so all six
+rules evaluated against nothing and reported nothing, on every run, while
+passing every test they had — the tests handed the engine a world of their own.
+A rule that is silent because nothing was looked at is indistinguishable from a
+rule being obeyed. If you write a rule that reads the machine, prove it fires
+by making the condition real, not by describing it to the engine.
 ## One hundred use cases
 
 Each is an invented situation and the command that answers it. Find the

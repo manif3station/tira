@@ -222,7 +222,7 @@ missing, at the moment you declare the policy rather than later.
 | `card-unlinked` | `--require-link` | a card with no dependency link, optionally to a named card |
 | `card-sandbox-missing` | `--enter --sandbox` | a card being implemented with no branch or worktree of its own |
 | `leftover-process` | `--pattern --age` | something started and never stopped |
-| `leftover-container` | `--age` | a container still running |
+| `leftover-container` | `--pattern --age` | a container still running |
 
 ## The actions
 
@@ -752,25 +752,32 @@ d2 tira.policy.add --rule board-unbacked --age 30m --action bridge-reminder --me
 **71.** Test containers still running, which have corrupted a coverage figure before.
 
 ```
-d2 tira.policy.add --rule leftover-container --age 30m --action bridge-reminder
+d2 tira.policy.add --rule leftover-container --pattern perl-test --age 30m --action bridge-reminder
 ```
+
+The pattern is not optional, and a policy without one is refused. Most machines
+run more than one project: without it this named eleven containers on the
+machine it was written for, of which nine belonged to other projects entirely -
+a trading terminal, two web sites, an Obsidian server. Naming somebody else's
+running work is an invitation to go and stop it, and a rule that reports what
+nobody here can act on is one everybody learns to read past.
 
 **72.** A machine where a container running an hour is normal but two is not.
 
 ```
-d2 tira.policy.add --rule leftover-container --age 2h --action bridge-reminder
+d2 tira.policy.add --rule leftover-container --pattern myproject- --age 2h --action bridge-reminder
 ```
 
 **73.** A shared build machine where nothing should outlive its job by long.
 
 ```
-d2 tira.policy.add --rule leftover-container --age 10m --action bridge-reminder
+d2 tira.policy.add --rule leftover-container --pattern build- --age 10m --action bridge-reminder
 ```
 
-**74.** An owner who wants to know what is still running on his machine.
+**74.** An owner who wants to know what of HIS is still running.
 
 ```
-d2 tira.policy.add --rule leftover-container --age 1h --action print-reminder
+d2 tira.policy.add --rule leftover-container --pattern tira --age 1h --action print-reminder
 ```
 
 **75.** Polling loops left spinning after their output was read.
@@ -830,7 +837,7 @@ d2 tira.policy.add --rule leftover-process --pattern "node" --age 12h --action p
 **84.** A quiet watch on containers while the team decides what is normal.
 
 ```
-d2 tira.policy.add --rule leftover-container --age 30m --action log-only
+d2 tira.policy.add --rule leftover-container --pattern ci- --age 30m --action log-only
 ```
 
 ### Starting sets for different kinds of project
@@ -910,7 +917,7 @@ d2 tira.policy.add --rule answer-unjudged --age 30m --action bridge-reminder
 **97.** A tidy machine, watching what gets left behind.
 
 ```
-d2 tira.policy.add --rule leftover-container --age 30m --action bridge-reminder
+d2 tira.policy.add --rule leftover-container --pattern test- --age 30m --action bridge-reminder
 ```
 
 **98.** ...and processes too.

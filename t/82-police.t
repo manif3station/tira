@@ -92,7 +92,7 @@ is( scalar( grep { $_->{rule} eq 'leftover-process' } @{ $recent->{violations} }
     'and one started recently is left alone, because work in progress is not litter' );
 
 $tira->policy_add( project => $root, rule => 'leftover-container',
-    age => '30m', action => 'bridge-reminder' );
+    pattern => 'perl-test', age => '30m', action => 'bridge-reminder' );
 my $still_up = police( world => { %world,
     containers => [ { name => 'skills-perl-test-run-abc', started_at => '2026-08-11T08:00:00Z' } ] } );
 is( scalar( grep { $_->{rule} eq 'leftover-container' } @{ $still_up->{violations} } ), 1,

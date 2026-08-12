@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.16';
+our $VERSION = '1.17';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4004,7 +4004,7 @@ my %POLICY_RULES = (
     'gate-missing'              => { needs => ['column'] },
     'discard-unexplained'       => { needs => [] },
     'leftover-process'          => { needs => [ 'pattern', 'age' ] },
-    'leftover-container'        => { needs => ['age'] },
+    'leftover-container'        => { needs => [ 'pattern', 'age' ] },
     'card-sandbox-missing'      => { needs => [ 'enter', 'sandbox' ] },
     'card-unlinked'             => { needs => ['require_link'] },
     'parent-ahead-of-children'  => { needs => [] },
@@ -4673,7 +4673,15 @@ sub _police_environment_violations {
             }
         }
         elsif ( $rule eq 'leftover-container' ) {
+
+            # By name, like leftover-process, and for the same reason. Without
+            # it this reported every container on the machine - eleven of them
+            # the first time it could see any, most belonging to other projects
+            # entirely. A rule that names somebody else's running work invites
+            # exactly the thing this machine forbids, and one that reports what
+            # nobody here can act on is one everybody learns to read past.
             for my $container ( @{ $world->{containers} // [] } ) {
+                next if index( $container->{name} // '', $policy->{pattern} // '' ) < 0;
                 next if !$self->_policy_older_than( $container->{started_at}, $policy->{age} );
                 $report->( $policy, undef, "still up: $container->{name}" );
             }

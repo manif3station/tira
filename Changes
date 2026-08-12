@@ -1,5 +1,17 @@
 Revision history for Tira
 
+1.17  2026-08-12
+    - leftover-container no longer reports every container on the
+      machine. It took an age and nothing else, so the first time police
+      could see containers at all it named eleven, of which nine
+      belonged to other projects entirely - a trading terminal, two web
+      sites, an Obsidian server. Naming somebody else's running work is
+      an invitation to go and stop it, and a rule reporting what nobody
+      here can act on is one everybody learns to read past. It now takes
+      a pattern, as leftover-process always has, and a policy declared
+      without one is refused rather than quietly matching everything.
+      An existing declaration with no pattern will need one.
+
 1.16  2026-08-12
     - Police looks at the machine it was always meant to look at. Six
       rules read the world rather than the board - leftover processes

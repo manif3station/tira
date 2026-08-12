@@ -1,5 +1,17 @@
 Revision history for Tira
 
+1.20  2026-08-12
+    - A card records the work tree it is being worked in, and
+      card-sandbox-missing checks the record rather than a name. A work
+      tree existing on the machine says nothing about which card it
+      belongs to: matched by name alone, one left behind by a card
+      finished last week satisfies the rule for a card started this
+      morning. So the agent that makes the tree records it on the card,
+      and the rule says three different things because each wants a
+      different fix - no tree at all, a well-named tree nobody has
+      claimed, or a card claiming a tree that is not there. Tira still
+      makes no work trees.
+
 1.19  2026-08-12
     - Every bridge line about a card says the way down to it, so the one
       reader in a chain can route it. In a chain of agents the core agent

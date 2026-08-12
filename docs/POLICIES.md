@@ -723,6 +723,21 @@ d2 tira.policy.add --rule unpushed-work --age 4h --action print-reminder
 d2 tira.policy.add --rule card-sandbox-missing --enter implement --sandbox ~/sandboxes --action bridge-reminder
 ```
 
+The card records which tree it is being worked in, and the agent that made the
+tree is the one that records it:
+
+```
+d2 tira.ticket.update --ref TKT-001 --sandbox ~/sandboxes/TKT-001
+```
+
+Tira makes no work trees. It checks that a card being worked has one and says
+which, and it says three different things because each wants a different fix:
+no tree at all, a tree with the right name that no card has claimed, or a card
+claiming a tree that is not there. The middle one is why the recording matters
+— a work tree existing on the machine says nothing about which card it belongs
+to, so one left behind by a card finished last week has exactly the right name
+for a card started this morning.
+
 **64.** A team keeping worktrees under the repository's parent directory.
 
 ```

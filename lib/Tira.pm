@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.19';
+our $VERSION = '1.20';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -437,6 +437,12 @@ sub create_record {
                 lifecycle            => $args{lifecycle},
                 priority             => $priority,
                 fix_version          => $args{fix_version},
+
+                # Where the agent working this card is working. Made by
+                # whatever runs the chain and recorded here, because a work
+                # tree existing on the machine says nothing about which card
+                # it belongs to.
+                sandbox              => $args{sandbox},
                 affects_versions     => $affects_versions,
                 parent               => undef,
                 comments             => [],
@@ -1318,7 +1324,7 @@ my @RECORD_FIELDS = qw(
     gate_passing_log evidence attachments checklist subtasks linkage assignee
     reporter labels due_date start_date sdlc_gate lifecycle priority
     fix_version affects_versions parent comments created_at last_updated column
-    content_hash attachment_count
+    content_hash attachment_count sandbox
 );
 my %RECORD_FIELD = map { $_ => 1 } @RECORD_FIELDS;
 
@@ -1892,10 +1898,10 @@ sub record_update {
                 die "Conflict: $field changed while you were editing\n";
             }
         }
-        for my $field (qw(title description problem_or_feature solution_needed source sdlc_gate lifecycle fix_version)) {
+        for my $field (qw(title description problem_or_feature solution_needed source sdlc_gate lifecycle fix_version sandbox)) {
             $record->{$field} = $args{$field} if defined $args{$field};
         }
-        for my $field (qw(sdlc_gate lifecycle fix_version)) {
+        for my $field (qw(sdlc_gate lifecycle fix_version sandbox)) {
             $record->{$field} = undef if defined $args{$field} && $args{$field} eq '';
         }
         for my $field (qw(assignee reporter)) {
@@ -4728,8 +4734,24 @@ sub _police_environment_violations {
                 next if ( $record->{column} // '' ) ne ( $policy->{enter} // '' );
                 my @missing;
                 push @missing, 'branch' if !$branch{ $record->{ref} };
-                push @missing, 'sandbox worktree'
-                  if !$worktree{ ( $policy->{sandbox} // '' ) . '/' . $record->{ref} };
+
+                # Three different things, and each wants a different fix, so
+                # each is said differently. A work tree existing on the machine
+                # says nothing about which card it belongs to: matched by name
+                # alone, one left behind by a card finished last week satisfies
+                # the rule for a card started this morning. The card claiming
+                # it is what makes the claim checkable, and it is what his
+                # design asks for - made by the agent, recorded on the card.
+                my $expected = ( $policy->{sandbox} // '' ) . '/' . $record->{ref};
+                my $claimed = $record->{sandbox};
+                if ( !defined $claimed || $claimed eq '' ) {
+                    push @missing, $worktree{$expected}
+                      ? "a work tree at $expected that is not recorded on the card"
+                      : 'sandbox worktree';
+                }
+                elsif ( !$worktree{$claimed} ) {
+                    push @missing, "the work tree it records, $claimed, which is not there";
+                }
                 next if !@missing;
 
                 # One card, one branch, one worktree. Two cards in one tree

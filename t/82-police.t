@@ -72,11 +72,25 @@ my @with_branch = grep { $_->{rule} eq 'card-sandbox-missing' }
 is( scalar @with_branch, 1, 'a branch on its own is not enough' );
 like( $with_branch[0]{detail}, qr/worktree|sandbox/, 'because the worktree is still missing' );
 
+# A work tree with the right name is not the same as this card's work tree.
+# Matched by name alone, one left behind by a card finished last week satisfies
+# the rule for a card started this morning - so the card has to claim it, which
+# is what the design asks for: made by the agent, recorded on the card.
+my $unclaimed = police( world => {
+    %world, branches => [ $card->{ref} ],
+    worktrees => [ "/sandboxes/$card->{ref}" ] } );
+my @unclaimed = grep { $_->{rule} eq 'card-sandbox-missing' } @{ $unclaimed->{violations} };
+is( scalar @unclaimed, 1, 'a work tree no card has claimed is not enough, however well named' );
+like( $unclaimed[0]{detail}, qr/not recorded on the card/,
+    'and says so, because claiming one is a different fix from making one' );
+
+$tira->record_update( project => $root, ref => $card->{ref},
+    sandbox => "/sandboxes/$card->{ref}" );
 my $equipped = police( world => {
     %world, branches => [ $card->{ref} ],
     worktrees => [ "/sandboxes/$card->{ref}" ] } );
 is( scalar( grep { $_->{rule} eq 'card-sandbox-missing' } @{ $equipped->{violations} } ), 0,
-    'with both, it falls silent' );
+    'with a branch, a tree, and the card claiming it, it falls silent' );
 
 $tira->policy_add( project => $root, rule => 'leftover-process',
     pattern => 'until sleep', age => '30m', action => 'bridge-reminder' );

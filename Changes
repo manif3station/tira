@@ -1,5 +1,18 @@
 Revision history for Tira
 
+1.09  2026-08-12
+    - A board can be told to stop expiring its sessions.
+      `tira.dashboard -o browser --no-session-expire` serves one whose
+      sign-in lasts until somebody signs out. The default is unchanged
+      and deliberate - ten idle minutes ends a session, and the board's
+      own refresh does not count as activity, so a tab left open
+      overnight does not keep itself signed in. What that costs a board
+      somebody watches all day was never measured until now: it expires
+      exactly as fast as a board nobody is looking at, and every
+      refresh after that is refused. The board says on the terminal it
+      starts from that sessions never expire, and what that means over
+      plain HTTP.
+
 1.08  2026-08-12
     - No pure-Perl parsers. `Cpanel::JSON::XS` and `YAML::XS` are
       required rather than preferred, and a missing one is refused with

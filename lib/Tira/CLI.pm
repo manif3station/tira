@@ -67,6 +67,7 @@ sub run {
         # take. Found by widening the documentation check to read the argument
         # tables, which is where almost every flag here is written down.
         'with-questions!' => \$option{with_questions},
+        'no-session-expire' => \$option{no_session_expire},
         'sandbox=s' => \$option{sandbox},
         'collector=s' => \$option{collector}, 'agent=s' => \$option{agent},
         'session=s' => \$option{session}, 'heartbeat=s' => \$option{heartbeat},
@@ -243,6 +244,15 @@ sub run {
             $dashboard->{_version} = $Tira::VERSION;
             return $tira->format_output( $dashboard, output => 'json', project => $option{project} );
         };
+        # His decision, taken here and said out loud. A board serving sessions
+        # that never expire is a different thing from one that does, and
+        # somebody starting it should be able to tell without reading a manual.
+        if ( $option{no_session_expire} ) {
+            $Tira::SESSION_NEVER_EXPIRES = 1;
+            print {*STDERR} "Sessions on this board never expire: a sign-in lasts until somebody signs out.\n"
+              . "Over plain HTTP that cookie is a credential with no end date, so serve it somewhere you trust.\n";
+        }
+
         my %providers = browser_providers( tira => $tira, project => $option{project} );
         my $served = eval {
             $browser_server->(

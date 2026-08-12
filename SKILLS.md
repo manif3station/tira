@@ -717,7 +717,7 @@ tira.import --file FILE [--dry-run] [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [--count] [--refs-only] [-o FORMAT]
 tira.search.index [-o FORMAT]
 tira.replace --pattern REGEX --with TEXT [--field FIELD ...] [--type TYPE] [--dry-run] [-o FORMAT]
-tira.dashboard [--type TYPE|all] [--include-discard] [--title] [-o DASHBOARD_FORMAT]
+tira.dashboard [--type TYPE|all] [--include-discard] [--title] [--with-questions] [--no-session-expire] [-o DASHBOARD_FORMAT]
 tira.dashboard.sow [--include-discard] [--title] [-o DASHBOARD_FORMAT]
 tira.dashboard.epic [--include-discard] [--title] [-o DASHBOARD_FORMAT]
 tira.dashboard.ticket [--include-discard] [--title] [-o DASHBOARD_FORMAT]
@@ -1177,6 +1177,9 @@ without revealing or creating a storage location.
 
 ### UC-106: Ask a question the owner can answer quickly
 **Implemented.** Give the reason and the options with the question, not just the question: `dashboard tira.question.ask --ref TKT-001 --text "Which store should the importer write to?" --reason "Both are configured and the runbook names neither." --option "The staging bucket" --option "The live bucket" --option "Neither, block until told"`. Both are optional and a bare question still works, but an owner answering without them is composing an answer from nothing; with them he can reply "the staging one" in seconds. They render under the question in the human view and in the card's Questions section on the dashboard, where he can answer and mark without leaving the board.
+
+### UC-127: Leave the board open all day without signing in again
+**Implemented.** `dashboard tira.dashboard -o browser --no-session-expire` serves a board whose sign-in lasts until somebody signs out. By default a session ends after ten minutes of inactivity, and the board's own refresh does not count as activity — it reads a session without extending it — so a board you are watching expires exactly as fast as one nobody is looking at, and every refresh after that is refused. That default is right on a shared machine and wrong for a board you read from a phone instead of asking for progress, so it is a choice you make rather than a behaviour that changes. The board tells you on the terminal it starts from that sessions never expire, and what that costs: over plain HTTP the cookie is a credential with no end date.
 
 ### UC-126: Make search faster without letting it lie
 **Implemented.** `dashboard tira.search.index` builds a search index for the project, and searching gets faster because a card whose text cannot match is skipped without being parsed — parsing is what reading a board actually costs. The index is keyed by the content of the file it describes, so a row can only ever describe the exact bytes on disk: edit a card behind Tira's back and search follows the file, not the index. Corrupt it, delete it, or restore an old copy over it and search reads the files, which is what it did before any index existed. Ordinary work keeps it current — a card you create or edit updates its own row — and rebuilding it is throwing it away and running the command again, because nothing is in it that did not come from the files. A project that never runs the command has no index, and pays nothing for it.

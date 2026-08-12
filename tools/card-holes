@@ -135,8 +135,15 @@ def holes(record, kind):
         missing.append('priority')
 
     # A statement of work sits at the top of the tree, so it has no parent to
-    # be missing. Everything below one does.
-    if kind != 'sow' and not record.get('parent'):
+    # be missing. Everything below one does - unless it says it stands alone.
+    #
+    # Michael asked for an investigation raised on its own, with no parent,
+    # because what it finds decides where it belongs; filing it under an epic
+    # first would be deciding that before understanding it. A card with no
+    # parent by accident is still a hole, so the difference is declared: the
+    # 'standalone' label says somebody meant it.
+    labels = [str(l).lower() for l in (record.get('labels') or [])]
+    if kind != 'sow' and not record.get('parent') and 'standalone' not in labels:
         missing.append('parent')
 
     return missing

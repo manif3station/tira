@@ -365,11 +365,24 @@ rather than all three.
 | `--title` | no | Show card titles as well as references. |
 | `--include-discard` | no | Force the Discard column in or out; shown by default in the formats a person looks at. |
 | `--with-questions` | no | Mark cards that are waiting on somebody; on by default in the formats a person looks at. |
+| `--no-session-expire` | no | With `-o browser`: a sign-in lasts until somebody signs out. |
 
 The default output is deliberately cheap: references only, because that is the
 path an agent queries. The formats a person looks at carry titles, the Discard
 column and the waiting marks, since somebody reading a board wants to see where
 things are rather than the smallest possible answer.
+
+`--no-session-expire` turns off the idle timeout for the board it serves. A
+session normally ends after ten minutes of inactivity, and the board's own
+refresh does not count as activity — it reads a session without extending it,
+so a tab left open overnight does not keep itself signed in. That is the right
+default on a shared machine and the wrong one for a board somebody watches all
+day from a phone, which is why it is a choice rather than a change.
+
+What it costs: over plain HTTP the session cookie is a credential with no end
+date, and anything on the path between the browser and the board can read it.
+The board says so on the terminal it is started from, so nobody turns it on
+without seeing that.
 
 `-o browser` serves it and keeps working when Tira is upgraded underneath it -
 the server notices and restarts into the new code. **The browser dashboard is

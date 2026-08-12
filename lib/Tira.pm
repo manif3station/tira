@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.08';
+our $VERSION = '1.09';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -3672,6 +3672,13 @@ sub login_verify {
 # overnight would keep itself signed in for ever.
 our $SESSION_IDLE_SECONDS = 600;
 
+# A board left open on a phone all day is no use if it is honest for ten
+# minutes and silent afterwards. The expiry stays the default - a tab left open
+# overnight should not keep itself signed in on a shared machine - so this is a
+# decision the person running the board takes, with --no-session-expire, and it
+# is theirs rather than the board's.
+our $SESSION_NEVER_EXPIRES = 0;
+
 sub _sessions_dir {
     my ( $self, $root ) = @_;
     return File::Spec->catdir( $root, '.tira', 'sessions' );
@@ -3710,6 +3717,11 @@ sub _session_expired {
     return 1 if !defined $seen;
     my $now = eval { _epoch_of_datetime( $self->{clock}->(), 'Clock' ) };
     return 1 if !defined $now;
+
+    # Asked after the unreadable-stamp checks above, not before them: a
+    # session whose stamp cannot be read is still dead, because never expiring
+    # is a decision about idleness and not a reason to trust a corrupt file.
+    return 0 if $SESSION_NEVER_EXPIRES;
     return $now - $seen > $SESSION_IDLE_SECONDS ? 1 : 0;
 }
 

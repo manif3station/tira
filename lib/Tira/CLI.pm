@@ -112,7 +112,7 @@ sub run {
         'password=s' => \$option{password}, 'token=s' => \$option{token},
         'rule=s' => \$option{rule}, 'action=s' => \$option{action},
         'enter=s' => \$option{enter}, 'before-column=s' => \$option{before_column},
-        'age=s' => \$option{age},
+        'age=s' => \$option{age}, 'read-age=s' => \$option{read_age},
         'max=i' => \$option{max}, 'require=s' => \$option{require},
         'once' => \$option{once}, 'interval=i' => \$option{interval},
 
@@ -1886,7 +1886,7 @@ sub _invoke {
         return $tira->policy_remove(%args) if $action eq 'remove';
         my %policy = map { $_ => $option->{$_} }
           grep { defined $option->{$_} }
-          qw(rule action enter column age max pattern message require require_link link_to sandbox);
+          qw(rule action enter column age read_age max pattern message require require_link link_to sandbox);
 
         # Where the policy is declared decides how narrow it is: naming a
         # board, a column or a card each makes it beat the level above.

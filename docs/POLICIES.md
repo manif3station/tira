@@ -303,7 +303,7 @@ missing, at the moment you declare the policy rather than later.
 | `question-unanswered` | `--age` | a question waiting on the owner |
 | `card-unassigned` | — | work in progress with nobody on it. **No column**: the board already says which columns are work. |
 | `answer-waiting` | — | an answer the agent has not read yet. **No age**: the agent could not have acted sooner, so a grace would only delay it. |
-| `answer-unjudged` | `--age` | an answer nobody marked |
+| `answer-unjudged` | `--age`, `--read-age` | an answer nobody marked. The second age is optional and runs from when it was read. |
 | `answer-ok-not-folded` | `--age` | settled in name only: marked ok, nothing written down |
 | `answer-not-ok-no-followup` | `--age` | a cross with no further question |
 | `wip-limit` | `--column` and a number, from the policy or the project | too many things being worked at once, across the whole board |
@@ -707,6 +707,26 @@ d2 tira.policy.add --rule question-unanswered --age 10m --action print-reminder
 ```
 d2 tira.policy.add --rule question-unanswered --age 2h --action bridge-reminder
 ```
+
+### An answer read and left unjudged
+
+Having read an answer removes the excuse for not judging it, and the record
+knows the difference: every answer carries when it was read as well as when it
+was given.
+
+```
+d2 tira.policy.add --rule answer-unjudged --age 2h --read-age 10m --action bridge-reminder
+```
+
+Two hours to notice an answer at all; ten minutes to judge one you have already
+opened. `--read-age` is optional — **a policy with one age behaves exactly as it
+always has**, so nothing changes meaning on upgrade.
+
+Reading it again buys no further grace: reading is what records the read, so a
+rule that reset on it would be silenced by the very act it is chasing somebody
+past. A judged answer is chased by neither clock. And a read age longer than the
+age it sits inside is refused rather than ignored, because a second grace that
+outlasts the first says nothing and would be believed.
 
 ### A card being worked with nobody on it
 

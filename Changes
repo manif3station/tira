@@ -1,5 +1,24 @@
 Revision history for Tira
 
+1.43  2026-08-13
+    - answer-unjudged takes an optional second age, counted from when the
+      answer was read. It waited the same age for an answer nobody had
+      opened and one read ten minutes ago, though the record knows the
+      difference - so an agent that read four answers, folded all four
+      into the card and left the marks off had two hours before anything
+      said so. That happened, and he asked for the sharpening.
+    - One rule with two ages rather than a second rule meaning almost the
+      same thing, because two rules firing on nearly the same condition
+      is how a bridge becomes noise. The second age is optional: a policy
+      with one age behaves exactly as it always has, so nothing changes
+      meaning on upgrade.
+    - Reading it again buys no further grace - reading is what records
+      the read, so a rule that reset on it would be silenced by the act
+      it is chasing somebody past. A judged answer is chased by neither
+      clock. A read age longer than the age it sits inside is refused
+      rather than ignored, because a second grace that outlasts the first
+      says nothing and would be believed.
+
 1.42  2026-08-13
     - The card dialog shows what police has said about the card. Every
       card carries a per-card enforcement log, written by police and by

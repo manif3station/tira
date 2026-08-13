@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.42';
+our $VERSION = '1.43';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4190,6 +4190,11 @@ my %POLICY_RULES = (
     'checklist-idle'            => { needs => [ 'column', 'age' ] },
     'orphan-card'               => { needs => [] },
     'question-unanswered'       => { needs => ['age'] },
+    # An optional second age, counted from when the answer was read. Having
+    # read it removes the excuse for not judging it, and the record already
+    # knows the difference - so this is one rule sharpened rather than a
+    # second that means almost the same thing, which is how a bridge
+    # becomes noise.
     'answer-unjudged'           => { needs => ['age'] },
 
     # No age, deliberately. Every other rule about a question chases
@@ -4225,7 +4230,7 @@ my %POLICY_RULES = (
 my %POLICY_ACTIONS = map { $_ => 1 } qw(bridge-reminder print-reminder log-only);
 
 # Parameters a policy may carry, beyond the rule and the action.
-my @POLICY_FIELDS = qw(enter before column age max pattern message require sandbox base require_link link_to);
+my @POLICY_FIELDS = qw(enter before column age read_age max pattern message require sandbox base require_link link_to);
 
 # Where a policy was declared. A policy with none of these is the project's;
 # each one named makes it narrower, and the narrowest wins.
@@ -4290,6 +4295,14 @@ sub policy_add {
     if ( defined $args{age} ) {
         _valid_duration( $args{age} )
           or die "An age must be a duration like 10m, 2h or 30s, not '$args{age}'\n";
+    }
+    if ( defined $args{read_age} ) {
+        _valid_duration( $args{read_age} )
+          or die "A read age must be a duration like 10m, 2h or 30s, not '$args{read_age}'\n";
+        die "A read age shortens the age it sits inside, so it cannot be longer than it\n"
+          if defined $args{age}
+          && ( _duration_seconds( $args{read_age} ) // 0 )
+          > ( _duration_seconds( $args{age} ) // 0 );
     }
     if ( defined $args{max} ) {
         $args{max} =~ /\A\d+\z/ or die "A limit must be a whole number, not '$args{max}'\n";
@@ -4758,6 +4771,19 @@ sub policy_evaluate {
                 for my $question ( _policy_questions($record) ) {
                     my $answer = $question->{answer} or next;
                     next if defined $answer->{mark};
+
+                    # Two clocks, and the shorter one only runs once somebody
+                    # has looked. An answer nobody has opened waits the age the
+                    # board set for noticing; one that has been read has had its
+                    # excuse removed, and is chased from the moment it was read.
+                    if ( defined $policy->{read_age} && defined $answer->{read_at} ) {
+                        next
+                          if !$self->_policy_older_than( $answer->{read_at}, $policy->{read_age} );
+                        $report->( $policy, $record,
+                            "$question->{id} was read at $answer->{read_at} and never marked" );
+                        next;
+                    }
+
                     next if !$self->_policy_older_than( $answer->{answered_at}, $policy->{age} );
                     $report->( $policy, $record,
                         "$question->{id} was answered and never marked" );

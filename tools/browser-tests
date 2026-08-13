@@ -318,6 +318,7 @@ for test in "$tests"/*.js; do
     case "$name" in
         login-gate.js)        run_one "$name" "http://127.0.0.1:$port" ;;
         dashboard-browser.js) run_one "$name" "$browsing_html" "$live_data" "$scratch/$name.png" ;;
+        stale-board.js)       run_one "$name" "$browsing_html" "$live_data" ;;
         wide-board.js|wrap-board.js)
                               run_one "$name" "$wide_html" "$scratch/$name.png" ;;
         dashboard-table.js)   run_one "$name" "$one_html" "$scratch/$name.png" ;;

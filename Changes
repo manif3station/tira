@@ -1,5 +1,33 @@
 Revision history for Tira
 
+1.32  2026-08-13
+    - Only the process that launched a board may replace it. The version
+      check runs in the closure that serves /data, which under a
+      pre-forked server runs in a worker - and a worker is not the board:
+      the master owns the listening socket, so a worker that re-executed
+      could not bind the port, died, and took the request with it. The
+      master forked a replacement, the next poll did the same thing, and
+      the board never upgraded. Four boards had been doing that every
+      sixty-five seconds for twenty hours, losing one request a minute.
+      Reproduced on an isolated board before it was fixed: no skew and
+      three polls is silent, a skew and ninety idle seconds is silent, a
+      skew and one poll replaces a worker and returns no HTTP response at
+      all, with "Cannot bind and listen to TCP port [Address already in
+      use]" in the log from a process that had been a worker a moment
+      earlier.
+    - A served board therefore does not replace itself, and says so
+      instead of failing quietly. When a different version is installed
+      under it the page shows "Tira <version> is installed - restart this
+      board to run it", beside where it already says when it last
+      updated, and the board keeps working meanwhile. Proved in a real
+      browser: the notice appears on a refresh, names the version, says
+      what to do, and goes away when there is nothing to say.
+    - This is also why the board's own refresh appeared to stop working.
+      The poll was the request that killed the worker, so it returned
+      nothing and the page kept what it had; clicking the browser's
+      refresh button worked because that asks for the page rather than
+      for /data.
+
 1.31  2026-08-13
     - The bridge says a problem once, then leaves time to fix it before
       saying it again. Police passes every thirty seconds and every pass

@@ -282,16 +282,28 @@ since a cross is a judgement too, and a discarded question needs none.
 ### Leaving a board open across an update
 
 A live dashboard (`-o browser`) keeps working when Tira is updated underneath
-it. The running server notices that the installed version no longer matches the
-one it started with, re-executes itself into the new code with the same
-arguments and on the same port, and the page reloads once it sees a version it
-was not built by. Nothing has to be restarted by hand, however many boards are
-open.
+it. The running server notices that the code on disk is no longer the code it
+started with, re-executes itself into it with the same arguments and on the same
+port, and the page reloads once it sees a version it was not built by. Nothing
+has to be restarted by hand.
+
+**Only the process that launched the board may replace it.** A board served by a
+pre-forked server answers each request in a worker, and a worker is not the
+board: the master owns the listening socket, so a worker that re-executes cannot
+bind the port, dies, and takes the request with it. That is not a restart, it is
+a lost request every time the page refreshes, for ever. So a worker does not try.
+
+A served board therefore does not replace itself, and says so rather than
+failing quietly: when a different version is installed under it, the page shows
+`Tira <version> is installed - restart this board to run it` beside the last
+update time. Restart it when it suits you; the board keeps working meanwhile.
 
 The page reloads only after the new code is genuinely serving, so it can never
 fetch the old page again; the cost is one skipped refresh cycle. A version that
-cannot be read is treated as no change, so an unreadable install never puts a
-board into a restart loop.
+cannot be read is treated as no change. So is a version that differs only in
+`.env`: what decides is the module a restart would actually load, because
+re-executing into the same code and disagreeing again is a loop rather than an
+upgrade.
 
 The restart works out its own entrypoint from the command it is running, and
 passes the project explicitly, so it does not depend on how the board was

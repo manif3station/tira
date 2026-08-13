@@ -16,6 +16,12 @@ use Tira;
 # running on, so they hang off a flag a test can set.
 our $WINDOWS = $^O eq 'MSWin32' ? 1 : 0;
 
+# The process that set a served board up, recorded before the server forks.
+# Outside a served board it is simply this process, so a plain command asking
+# the question gets the honest answer rather than a special case.
+our $SERVING_PID;
+sub _serving_pid { return $SERVING_PID // $$ }
+
 sub run {
     my ( $class, %args ) = @_;
 
@@ -223,6 +229,13 @@ sub run {
     }
 
     if ( defined $browser_host ) {
+
+        # Whose board this is, recorded before anything forks. After a
+        # pre-forked server has started there is no way for a process to tell
+        # whether it is the master or a worker by asking itself, and the
+        # difference decides whether a restart can possibly work.
+        local $SERVING_PID = $$;
+
         my $render = sub {
             my %render_option = %option;
             $render_option{output} = 'table';
@@ -243,7 +256,25 @@ sub run {
             # Rather than making somebody visit every open board after an
             # update, the server notices and restarts itself into the new code;
             # the page then reloads when it sees a version it was not built by.
-            _restart_if_updated( $restarter, $command, $type, $option{project} );
+            #
+            # Only the process that launched it may do that. This closure runs
+            # in a worker under a pre-forked server, and a worker is not the
+            # board: the master owns the listening socket, so a worker that
+            # execs into a fresh dashboard cannot bind the port, dies, and is
+            # replaced - taking the request with it. Four boards did exactly
+            # that every sixty-five seconds for twenty hours without ever
+            # upgrading, and it is why the page appeared to stop refreshing on
+            # its own. Proved on an isolated board rather than reasoned about.
+            my $restarted = _serving_pid() == $$
+              && _restart_if_updated( $restarter, $command, $type, $option{project} );
+
+            # And when it cannot, it says so instead of failing quietly once a
+            # minute. The page reads this payload every sixty seconds already.
+            if ( !$restarted ) {
+                my $on_disk = _version_on_disk();
+                $dashboard->{_stale} = $on_disk
+                  if defined $on_disk && $on_disk ne $Tira::VERSION;
+            }
             $dashboard->{_version} = $Tira::VERSION;
             return $tira->format_output( $dashboard, output => 'json', project => $option{project} );
         };

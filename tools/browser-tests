@@ -201,8 +201,10 @@ done
 # that count columns and paging want more cards than the ones that count
 # review queues will tolerate.
 wide="$scratch/wide"
+# planning is here because wide-board checks that a column with nothing to page
+# keeps its "show more" hidden, and uses that column as the example.
 tira project.new --name Wide --dir "$wide" --members michael \
-    --columns 'backlog, ready, tests-red, implement, review, verify, document, staging, push, done' \
+    --columns 'backlog, planning, ready, tests-red, implement, review, verify, document, staging, push, done' \
     --sow-prefix WDS --epic-prefix WDE --ticket-prefix WDT -o json >/dev/null
 build_wide_board "$wide"
 wide_html="$scratch/wide.html"

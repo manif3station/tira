@@ -1,5 +1,16 @@
 Revision history for Tira
 
+1.29  2026-08-13
+    - The two queue toggles on the board page work. They render with
+      titles and aria-pressed on the page a person looks at, and nothing
+      was bound to them: applyQueue was defined and never connected,
+      because the binding line sat inside the column-editor block, which
+      the static page does not include. The other controls of that page -
+      width, sort and filter - are all bound in the shared script, so
+      these two were collateral damage of where one line was written. Two
+      buttons that say what they do and do nothing when clicked. One line
+      moved. Found by a browser test that had never been run.
+
 1.28  2026-08-13
     - Naming the wrong card on a question command is refused rather than
       silently acting on another card. All six - answer, mark, update,

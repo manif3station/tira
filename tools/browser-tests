@@ -21,6 +21,25 @@ cd "$root"
 port="${1:-7841}"
 tests="$root/t/playwright"
 
+# The working tree, not the installed copy. A tool that drives the released
+# version cannot catch a regression before it is released, which is the same
+# trap as a test that never runs - it reports on something other than the thing
+# in front of you. d2 resolves to whatever is installed, so every call here
+# goes through the tree's own lib instead.
+# Through the repository's own entrypoints, which derive their dotted command
+# from where they sit - so this drives exactly the code an install would ship,
+# from the tree rather than from whatever version is installed.
+tira() {
+    local command="$1"; shift
+    local script
+    case "$command" in
+        *.*) script="$root/skills/${command%%.*}/cli/${command#*.}" ;;
+        *)   script="$root/cli/$command" ;;
+    esac
+    [ -f "$script" ] || { echo "browser-tests: no entrypoint for tira.$command" >&2; return 1; }
+    perl -I"$root/lib" "$script" "$@"
+}
+
 [ -d "$tests" ] || { echo "browser-tests: $tests is missing - refusing to report success"; exit 1; }
 
 command -v node >/dev/null 2>&1 || {
@@ -41,8 +60,21 @@ node -e "require.resolve('playwright')" >/dev/null 2>&1 || {
 board=""
 serving=""
 cleanup() {
-    [ -n "$serving" ] && kill "$serving" 2>/dev/null
-    [ -n "$serving" ] && wait "$serving" 2>/dev/null
+    # The whole group, not just the shell that launched it. Starman forks a
+    # master and five workers, and killing the launcher left all six holding
+    # the port - which is how two earlier runs of this very tool left boards
+    # listening on 7841 and 7844, and how the next run failed to bind and
+    # reported the board as never coming up. A tool that leaks the thing it
+    # starts is the fault this project keeps finding, and this one was mine.
+    if [ -n "$serving" ]; then
+        kill "$serving" 2>/dev/null
+        wait "$serving" 2>/dev/null
+    fi
+    # Anything still holding the port, whoever started it.
+    for held in $(ss -ltnp 2>/dev/null | grep ":$port " |
+                  grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u); do
+        kill "$held" 2>/dev/null
+    done
     [ -n "$board" ] && rm -rf "$(dirname "$board")"
     return 0
 }
@@ -56,7 +88,7 @@ board="$scratch/board"
 # it is wider than the window; six tickets, two of them awaiting judgement and
 # one waiting on the owner, because the review queues are counted exactly.
 # Guessing at this is what made six of them fail on their first ever run.
-d2 tira.project.new --name Browser --dir "$board" --members 'michael, ada' \
+tira project.new --name Browser --dir "$board" --members 'michael, ada' \
     --columns 'backlog, ready, tests-red, implement, review, verify, document, staging, push, done' \
     --sow-prefix BRS --epic-prefix BRE --ticket-prefix BRT -o json >/dev/null || {
     echo "browser-tests: could not make a board to drive"
@@ -69,7 +101,7 @@ d2 tira.project.new --name Browser --dir "$board" --members 'michael, ada' \
 # break the other. Nothing recorded that these needed particular boards; it was
 # only discoverable by running them, which nothing did.
 make_card() {
-    d2 tira.ticket.create --project "$1" --title "$2" \
+    tira ticket.create --project "$1" --title "$2" \
         --description "Something for the dialog to show" -o json |
         python3 -c 'import json,sys; print(json.load(sys.stdin)["ref"])'
 }
@@ -80,18 +112,25 @@ build_review_board() {
     for column in backlog ready implement review verify done; do
         local card
         card="$(make_card "$where" "A card in $column")"
-        [ "$column" = backlog ] || d2 tira.ticket.move --project "$where" --ref "$card" \
+        [ "$column" = backlog ] || tira ticket.move --project "$where" --ref "$card" \
             --column "$column" --author michael -o json >/dev/null
         case "$column" in
             review|verify)
-                d2 tira.question.ask --project "$where" --ref "$card" --author ada \
+                # The id the ask returned, not Q-001. Question ids run across
+                # the board rather than per card, so the second card's question
+                # is Q-002 - and hard-coding Q-001 answered the first card
+                # twice, silently, until 1.28 made that a refusal. This fixture
+                # is where that defect was found.
+                local asked
+                asked="$(tira question.ask --project "$where" --ref "$card" --author ada \
                     --text "Is this the right approach?" --reason "two ways to do it" \
-                    --option one --option two -o json >/dev/null
-                d2 tira.question.answer --project "$where" --ref "$card" --id Q-001 \
+                    --option one --option two -o json |
+                    python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
+                tira question.answer --project "$where" --ref "$card" --id "$asked" \
                     --text "the first one" -o json >/dev/null
                 ;;
             implement)
-                d2 tira.question.ask --project "$where" --ref "$card" --author ada \
+                tira question.ask --project "$where" --ref "$card" --author ada \
                     --text "Which way round should this go?" --reason "not obvious from here" \
                     --option this --option that -o json >/dev/null
                 ;;
@@ -117,12 +156,21 @@ build_review_board "$board"
 # login-gate timed out, and it took driving the login by hand to see it.
 #
 # hunter2 is what the test signs in with afterwards, so it has to be that.
-d2 tira.login.register --project "$board" --id michael --password hunter2 -o json >/dev/null || {
+tira login.register --project "$board" --id michael --password hunter2 -o json >/dev/null || {
     echo "browser-tests: could not claim a password for the login test"
     exit 1
 }
 
-d2 tira.dashboard --project "$board" -o "browser=127.0.0.1:$port" >"$scratch/board.log" 2>&1 &
+# Refused rather than fought over. A port already in use means somebody else's
+# board is there - possibly a leaked one of ours - and binding over it is not
+# possible anyway; saying so beats reporting that the board never came up.
+if ss -ltn 2>/dev/null | grep -q ":$port "; then
+    echo "browser-tests: something is already listening on port $port."
+    echo "  Stop it, or pass a different port: tools/browser-tests 7851"
+    exit 1
+fi
+
+tira dashboard --project "$board" -o "browser=127.0.0.1:$port" >"$scratch/board.log" 2>&1 &
 serving=$!
 
 # Waited for, rather than slept at. A fixed sleep is either too short on a busy
@@ -136,7 +184,11 @@ for _ in $(seq 1 60); do
 done
 [ -n "$up" ] || {
     echo "browser-tests: the board never came up on port $port"
-    tail -5 "$scratch/board.log" 2>/dev/null
+    echo "--- what it said:"
+    tail -12 "$scratch/board.log" 2>/dev/null
+    echo "--- the board it was given:"
+    tira ticket.list --project "$board" -o json 2>&1 | head -c 200
+    echo
     exit 1
 }
 
@@ -149,22 +201,22 @@ done
 # that count columns and paging want more cards than the ones that count
 # review queues will tolerate.
 wide="$scratch/wide"
-d2 tira.project.new --name Wide --dir "$wide" --members michael \
+tira project.new --name Wide --dir "$wide" --members michael \
     --columns 'backlog, ready, tests-red, implement, review, verify, document, staging, push, done' \
     --sow-prefix WDS --epic-prefix WDE --ticket-prefix WDT -o json >/dev/null
 build_wide_board "$wide"
 wide_html="$scratch/wide.html"
-d2 tira.dashboard --project "$wide" --title -o table >"$wide_html" 2>/dev/null
+tira dashboard --project "$wide" --title -o table >"$wide_html" 2>/dev/null
 
 html="$scratch/board.html"
-d2 tira.dashboard --project "$board" --title -o table >"$html" 2>/dev/null || {
+tira dashboard --project "$board" --title -o table >"$html" 2>/dev/null || {
     echo "browser-tests: could not render the board to a page"
     exit 1
 }
 [ -s "$html" ] || { echo "browser-tests: the rendered page is empty"; exit 1; }
 
 data="$scratch/board.json"
-d2 tira.export --project "$board" -o json >"$data" 2>/dev/null || true
+tira export --project "$board" -o json >"$data" 2>/dev/null || true
 
 failed=0
 ran=0

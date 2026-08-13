@@ -26,6 +26,7 @@ use warnings;
 
 use File::Find qw(find);
 use File::Spec;
+use File::Temp ();
 use Test::More;
 
 use lib 'lib';
@@ -59,24 +60,57 @@ ok( scalar @entrypoints > 100,
 # The check that was missing. perl -c loads the file and everything it requires
 # and refuses anything it cannot parse.
 
-my $failed = 0;
-for my $script (@entrypoints) {
-    my $output = `$^X -c -Ilib "$script" 2>&1`;
-    my $ok = $? == 0;
-    $failed++ if !$ok;
-    diag("$script does not compile:\n$output") if !$ok;
+# All of them inside one child, not one child each.
+#
+# Devel::Cover instruments every process the harness starts, and a fork from an
+# instrumented process carries that cost - 138 of them took over six minutes
+# under coverage against 2.3 seconds without, and drove the suite into the
+# timeout added in 1.31. That is the timeout doing its job, on a check I added
+# myself. Compiling a script has nothing to do with measuring what the suite
+# covers, so the compiling happens in one plain child that the collector never
+# touches, and this process reads the list of failures it prints.
+my $checker = <<'CHECKER';
+my $bad = 0;
+for my $script (@ARGV) {
+    my $said = `$^X -c -Ilib "$script" 2>&1`;
+    next if $? == 0;
+    $bad++;
+    print "$script\n$said\n";
 }
+exit $bad ? 1 : 0;
+CHECKER
+
+my $complaints = do {
+    local $ENV{PERL5OPT}              = '';
+    local $ENV{HARNESS_PERL_SWITCHES} = '';
+    open my $child, '-|', $^X, '-e', $checker, @entrypoints
+      or die "cannot start the compiler: $!";
+    local $/;
+    <$child>;
+};
+my $failed = ( $complaints // '' ) =~ /\S/ ? 1 : 0;
+diag($complaints) if $failed;
 is( $failed, 0, 'every entrypoint compiles' );
 
-# --- and reaches a handler ------------------------------------------------------
+# --- and names a command the dispatcher has heard of ----------------------------
 #
-# A script that parses and dispatches to something Tira::CLI has never heard of
-# is a doorway into a wall, and it fails in front of whoever typed it. There is
-# no registry to compare against, so the question is asked the only honest way:
-# run the command and see whether the answer is "unsupported".
+# A script that parses and dispatches to something Tira::CLI does not handle is
+# a doorway into a wall, and it fails in front of whoever typed it.
 #
-# Every other failure is fine here. A command that wants a card it has not been
-# given is working correctly; this is only about whether anything is listening.
+# Asked of the source rather than by running the command. The first version ran
+# each one to see whether the answer was "unsupported", and that was wrong twice
+# over: it took minutes under the coverage collector, and it ran real commands
+# against whatever board the working directory resolved to - for tira.backup
+# that means committing it. A test that asks "is anybody listening" must not
+# also be heard. Textual, and it says so: it proves the name appears where
+# commands are dispatched, not that the handler behind it is correct, which is
+# what the rest of the suite is for.
+
+my $dispatcher = do {
+    open my $handle, '<', File::Spec->catfile(qw(lib Tira CLI.pm)) or die $!;
+    local $/;
+    <$handle>;
+};
 
 my @unheard;
 for my $script (@entrypoints) {
@@ -85,23 +119,15 @@ for my $script (@entrypoints) {
     close $handle;
 
     # The dispatcher derives its command from its own path when the script does
-    # not say one, and that derivation is exercised by the commands that do run.
+    # not say one, and that derivation is exercised by every command that runs.
     # Only the ones naming it out loud can be asked here.
     my ($named) = $body =~ /command\s*=>\s*'([a-z][a-z0-9._-]*)'/;
     next if !defined $named;
-
-    my ( $out, $err ) = ( '', '' );
-    open my $so, '>', \$out or die $!;
-    open my $se, '>', \$err or die $!;
-    {
-        local *STDOUT = $so;
-        local *STDERR = $se;
-        eval { Tira::CLI->run( command => $named, argv => [] ); 1 };
-    }
-    push @unheard, "$script names $named" if ( $out . $err ) =~ /Unsupported Tira command/;
+    push @unheard, "$script names $named"
+      if $dispatcher !~ /\Q'$named'\E/;
 }
 is_deeply( \@unheard, [],
-    'every entrypoint that names its command reaches something that handles it' );
+    'every entrypoint that names its command names one the dispatcher handles' );
 
 done_testing;
 

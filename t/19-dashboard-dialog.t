@@ -267,7 +267,7 @@ like( $live_html, qr/\.card-question\[data-settled="1"\]\{padding:\.5rem/,
 # Answering wiped the whole questions panel. The reload rebuilds the
 # card's sections from scratch, so anything only the first render added is gone
 # the moment anybody changes something.
-like( $live_html, qr/renderCard\(record\);renderQuestions\(record\);renderWorkLog\(record\);return record/,
+like( $live_html, qr/renderCard\(record\);renderQuestions\(record\);renderPoliceLog\(record\);renderWorkLog\(record\);return record/,
     'reloading the card rebuilds its questions and its work log too, so answering does not erase them' );
 # Three paths, not two. The background refresh rendered only the card, which
 # wipes the sections the other two draw into - so the questions and the work log
@@ -276,7 +276,7 @@ like( $live_html, qr/renderCard\(record\);renderQuestions\(record\);renderWorkLo
 # assertion here could.
 is( scalar( () = $live_html =~ /renderQuestions\(record\)/g ), 3,
     'and every path that renders a card renders them: the first open, every reload, and every refresh' );
-like( $live_html, qr/renderCard\(record\);renderQuestions\(record\);renderWorkLog\(record\)\}\)\.catch/,
+like( $live_html, qr/renderCard\(record\);renderQuestions\(record\);renderPoliceLog\(record\);renderWorkLog\(record\)\}\)\.catch/,
     'including the background refresh, which used to redraw the card alone' );
 
 # --- the work log, collapsed and fetched only when asked for --------------
@@ -446,6 +446,7 @@ my %providers = (
     subitem_unlink => sub { '{"ok":true}' },
     link_add => sub { '{"ok":true}' },
     link_remove => sub { '{"ok":true}' },
+    police_log => sub { '[]' },
 );
 
 for my $missing (qw(update comment_add comment_update comment_remove people)) {

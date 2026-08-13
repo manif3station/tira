@@ -14,7 +14,7 @@ our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $SEARCH, $COMMENT_ADD, $
       $LINK_TYPES, $HIERARCHY_LINK, $HIERARCHY_UNLINK, $SUBITEM_LINK, $SUBITEM_UNLINK, $LINK_ADD, $LINK_REMOVE,
       $COLUMNS, $COLUMN_APPLY, $QUESTION_ANSWER, $QUESTION_MARK, $QUESTION_ATTACH,
       $LOGIN_START, $LOGIN_REGISTER, $SESSION_RESUME, $SESSION_PEEK, $SESSION_END, $LOGIN_PAGE,
-      $WORK_LOG );
+      $WORK_LOG, $POLICE_LOG );
 
 our $COOKIE = 'tira_session';
 
@@ -147,6 +147,15 @@ get '/worklog' => sub {
     $ref =~ s/%([0-9A-Fa-f]{2})/chr hex $1/ge if defined $ref;
     content_type 'application/json; charset=UTF-8';
     return _response_bytes( $WORK_LOG->( { ref => $ref } ) );
+};
+
+# What police has said about one card. Read-only by construction: there is no
+# route that writes here, because police writes this log and nobody else may.
+get '/policelog' => sub {
+    my ($ref) = ( request->env->{QUERY_STRING} // '' ) =~ /(?:\A|&)ref=([^&]*)/;
+    $ref =~ s/%([0-9A-Fa-f]{2})/chr hex $1/ge if defined $ref;
+    content_type 'application/json; charset=UTF-8';
+    return _response_bytes( $POLICE_LOG->( { ref => $ref } ) );
 };
 
 get '/people' => sub {
@@ -326,6 +335,7 @@ my @PROVIDERS = (
     [ session_end => \$SESSION_END, 'session end provider' ],
     [ login_page => \$LOGIN_PAGE, 'login page provider' ],
     [ work_log => \$WORK_LOG, 'work log provider' ],
+    [ police_log => \$POLICE_LOG, 'police log provider' ],
 );
 
 sub build_psgi_app {

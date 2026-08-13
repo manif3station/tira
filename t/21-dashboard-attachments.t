@@ -151,6 +151,7 @@ my %providers = (
     subitem_unlink => sub { '{"ok":true}' },
     link_add => sub { '{"ok":true}' },
     link_remove => sub { '{"ok":true}' },
+    police_log => sub { '[]' },
 );
 
 for my $missing (qw(attachment_fetch attachment_add attachment_remove)) {

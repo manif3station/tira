@@ -308,7 +308,8 @@ sub run {
               . "somebody who can already stand between you and this machine.\n";
         }
 
-        my %providers = browser_providers( tira => $tira, project => $option{project} );
+        my %providers = browser_providers( tira => $tira, project => $option{project},
+            store => $option{store} );
         my $served = eval {
             $browser_server->(
                 host => $browser_host, port => $browser_port, render => $render, data => $data,
@@ -593,6 +594,25 @@ sub browser_providers {
             die "A card reference is required\n" if !defined $payload->{ref};
             return $json->encode(
                 $tira->work_log( project => $project, ref => $payload->{ref} ) );
+        },
+
+        # What police has said about this card, read when the card opens rather
+        # than when a section is expanded: there is at most one line per thing
+        # police has said, unlike the work log, and the section has to know
+        # whether it has anything before it decides to appear at all.
+        #
+        # A card reference is required. Answering an unnamed card with the whole
+        # board's enforcement log would put every other card's chasing on
+        # whichever card happened to be open.
+        police_log => sub {
+            my ($payload) = @_;
+            die "A card reference is required\n" if !defined $payload->{ref};
+            return $json->encode(
+                $tira->enforcement_log(
+                    project => $project,
+                    store   => $args{store} // _police_store($project),
+                    ref     => $payload->{ref},
+                ) );
         },
         login_page => sub {
             my $project_name = eval { $tira->project_show( project => $project )->{name} };

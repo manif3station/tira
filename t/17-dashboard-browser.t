@@ -110,6 +110,7 @@ my $app = Tira::DashboardWeb->build_psgi_app(
     move => sub { return '{"ok":true}' },
     detail => sub { return '{"ref":"TKT-001","title":"\\u00a3"}' },
     search => sub { '[]' },
+    police_log => sub { '[]' },
     columns => sub { '[]' },
     question_answer => sub { '{"ok":true}' },
     question_mark => sub { '{"ok":true}' },
@@ -134,6 +135,7 @@ my $app = Tira::DashboardWeb->build_psgi_app(
     subitem_unlink => sub { '{"ok":true}' },
     link_add => sub { '{"ok":true}' },
     link_remove => sub { '{"ok":true}' },
+    police_log => sub { '[]' },
 );
 my @warnings;
 {
@@ -183,6 +185,7 @@ like( $@, qr/Missing dashboard detail provider/, 'PSGI builder requires a detail
     ok(
         Tira::DashboardWeb->serve(
             host => 'localhost', port => 4567,
+            police_log => sub { '[]' },
             signed_in(),
             render => sub { '<!doctype html>' },
             data => sub { '{}' },

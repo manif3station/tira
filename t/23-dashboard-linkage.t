@@ -124,6 +124,7 @@ my %providers = (
     attachment_discard => sub { '{"ok":true}' },
     checklist_add => sub { '{"ok":true}' }, checklist_update => sub { '{"ok":true}' },
     link_types => sub { '[{"outward":"blocks","inward":"is-blocked-by"}]' },
+    police_log => sub { '[]' },
     hierarchy_link => sub { '{"ok":true}' }, hierarchy_unlink => sub { '{"ok":true}' },
     subitem_link => sub { '{"ok":true}' }, subitem_unlink => sub { '{"ok":true}' },
     link_add => sub { '{"ok":true}' },

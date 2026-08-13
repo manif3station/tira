@@ -140,6 +140,21 @@ my $again = sweep();
 is( scalar( grep { $_->{rule} eq 'answer-waiting' } @{ $again->{violations} } ), 1,
     'an answer changed after it was read is announced again' );
 
+# --- and an answer already judged is not chased ---------------------------------
+#
+# Marking an answer does not record a read, so a board with history would be
+# chased about every answer it has ever settled. Nobody can judge an answer they
+# have not read, so a mark settles this as surely as a read does. Found the day
+# the rule was first declared on the development board: eleven answers, every
+# one marked ok, every one from days earlier.
+
+$now = '2026-08-13T12:03:45Z';
+$tira->question_mark( project => $root, id => $question->{id}, mark => 'ok' );
+$now = '2026-08-13T12:04:00Z';
+my $judged = sweep();
+is( scalar( grep { $_->{rule} eq 'answer-waiting' } @{ $judged->{violations} } ), 0,
+    'an answer that has been judged is not announced, because judging it means reading it' );
+
 # --- a discarded question is not announced ------------------------------------
 
 $now = '2026-08-13T12:04:00Z';

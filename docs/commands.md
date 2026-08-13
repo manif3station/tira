@@ -761,6 +761,17 @@ This was called `tira.police.log` until 1.41 and that name still answers, so
 nothing breaks on upgrade. It was renamed because the old one said the wrong
 thing: see **Whose command is it** below.
 
+### On the card dialog
+
+Opening a card on the live board shows a **What police has said** section: the
+card's enforcement log, with when, what kind, and what was said, and the number
+of entries in the heading.
+
+It offers nothing to change. Police writes that log and nobody else may - there
+is no command to add an entry, and a button on the page would have been the way
+around that. A card police has never mentioned shows no section rather than an
+empty heading.
+
 ### Whose command is it
 
 Three commands, and the names now say which is which.

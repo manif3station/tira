@@ -1,5 +1,49 @@
 Revision history for Tira
 
+1.42  2026-08-13
+    - The card dialog shows what police has said about the card. Every
+      card carries a per-card enforcement log, written by police and by
+      nobody else; the dialog showed the card's sections, its work log
+      and its questions, and not that. So the one place a person opens to
+      see everything about a card was missing it - and worse than usually,
+      because that log exists precisely so what police said survives the
+      bridge scrolling past. The surviving copy was readable only by an
+      agent running a command.
+    - It offers nothing to change. Police writes that log and nobody else
+      may, which is why there is no command to add an entry either, and a
+      button on the page would have been the way around that. A card
+      police has never mentioned shows no section rather than an empty
+      heading, because a heading on every card is how a section teaches
+      people to skip past it.
+    - Read when the card opens rather than when a section is expanded,
+      unlike the work log: there is at most one line per thing police has
+      said, and the section has to know whether it has anything before it
+      decides whether to appear.
+    - Proved in a browser, and that mattered. The dialog is filled in
+      three places - opening a card, the detail fetch, and the refresh -
+      and the first attempt added the section to one of them. Nothing in
+      the markup would have caught it: the section was present and simply
+      never asked to fill itself. The suite now asserts all three.
+    - answer-waiting no longer chases an answer that has already been
+      judged. He asked why police had not picked up any answered
+      questions; the rule was simply never declared on this board, which
+      was my omission. Declaring it reported eleven answers, and every
+      one of them was marked ok days earlier - what they lacked was a
+      read, because marking an answer does not record one. Nobody can
+      judge an answer they have not read, so a mark settles this as
+      surely as a read does. Without it the rule chases every settled
+      answer a board has ever had, for ever, which is the nagging the
+      quiet ladder was built to end.
+    - The check that every shipped entrypoint compiles no longer runs the
+      commands it finds. It ran each named command to see whether
+      anything handled it, which was wrong twice over: it took over six
+      minutes under the coverage collector against four seconds now, and
+      it ran real commands against whatever board the working directory
+      resolved to - for tira.backup that means committing it. A test that
+      asks "is anybody listening" must not also be heard. The name is
+      checked against the dispatcher's source instead, which is textual
+      and says so.
+
 1.41  2026-08-13
     - The read of the enforcement log is named for what it reads.
       tira.police runs the owner's watching loop; tira.police.log read

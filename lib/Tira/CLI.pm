@@ -1076,6 +1076,14 @@ sub _ask_yes {
 # Windows however much was installed, and answered "no agent" rather than
 # failing - so onboarding quietly offered nothing.
 
+# One search for "is this program here", used by everything that asks.
+#
+# There were two. This one knew that a program on Windows is called name.exe
+# and that -x there answers for the extension rather than the file; the one the
+# world gatherer used knew neither, so it found no git on Windows and every
+# fact built on git came back empty. Two searches for the same thing drift
+# apart the first time somebody fixes only the one they are looking at, which
+# is exactly what happened.
 sub _agent_available {
     my ($name) = @_;
     my @suffixes = $WINDOWS ? ( split /;/, $ENV{PATHEXT} // '.COM;.EXE;.BAT;.CMD' ) : ('');
@@ -1087,8 +1095,17 @@ sub _agent_available {
     for my $dir ( split /\Q$separator\E/, $ENV{PATH} // '' ) {
         next if !length $dir;
         for my $suffix (@suffixes) {
-            my $candidate = File::Spec->catfile( $dir, "$name$suffix" );
-            return 1 if $WINDOWS ? -f $candidate : -x $candidate;
+
+            # PATHEXT is conventionally upper case and the program on disk
+            # conventionally is not. Windows itself does not care, because its
+            # filesystem does not - but the same code runs under WSL, on
+            # network shares, and in NTFS directories with case sensitivity
+            # turned on, where it does. Trying both costs nothing and stops
+            # this depending on which of those it happens to be.
+            for my $spelling ( $suffix, lc $suffix ) {
+                my $candidate = File::Spec->catfile( $dir, "$name$spelling" );
+                return 1 if $WINDOWS ? -f $candidate : -x $candidate;
+            }
         }
     }
     return 0;
@@ -1908,11 +1925,8 @@ sub _reading {
 
 sub _program_exists {
     my ($program) = @_;
-    return -x $program ? 1 : 0 if $program =~ m{[/\\]};
-    for my $directory ( File::Spec->path ) {
-        return 1 if -x File::Spec->catfile( $directory, $program );
-    }
-    return 0;
+    return ( $WINDOWS ? -f $program : -x $program ) ? 1 : 0 if $program =~ m{[/\\]};
+    return _agent_available($program);
 }
 
 # Asking git about somewhere that is not a repository makes git say so, on
@@ -1950,7 +1964,36 @@ sub _git_worktrees {
 # The process table, with when each one started, because every rule about a
 # leftover asks how long it has been there rather than whether it exists.
 sub _running_processes {
-    return _processes_from( _reading( 'ps', '-eo', 'pid=,lstart=,args=' ) );
+    return _processes_from_windows( _reading( _process_command($WINDOWS) ) ) if $WINDOWS;
+    return _processes_from( _reading( _process_command($WINDOWS) ) );
+}
+
+# What to ask for the process table. ps does not exist on Windows, and asking
+# for it there is asking a question that can only be answered with nothing -
+# and nothing is exactly what "no leftover processes" looks like.
+#
+# The platform is a parameter rather than read here, so both answers can be
+# checked from anywhere. A Windows claim that can only be checked on Windows is
+# one that goes unchecked, which is how this shipped eleven times.
+sub _process_command {
+    my ($windows) = @_;
+    return $windows
+      ? ( 'tasklist', '/fo', 'csv', '/nh' )
+      : ( 'ps', '-eo', 'pid=,lstart=,args=' );
+}
+
+# tasklist gives a quoted CSV of name, pid, session, session number and memory,
+# and no start time at all. The time is left undefined rather than invented: a
+# rule that asks how long something has been running can then tell that it does
+# not know, where a made-up time would make every age wrong instead of absent.
+sub _processes_from_windows {
+    my ($lines) = @_;
+    my @processes;
+    for my $line ( @{$lines} ) {
+        next if $line !~ /\A"([^"]*)","(\d+)"/;
+        push @processes, { pid => 0 + $2, command => $1, started_at => undef };
+    }
+    return \@processes;
 }
 
 # Reading the table is kept apart from asking for it, so what this understands

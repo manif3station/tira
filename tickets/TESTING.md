@@ -74,6 +74,55 @@ Windows. It is not a claim that everything works there; it is a statement of
 what has not been shown. The one part of it that matters to a user — whether a
 reminder can reach a coding agent on Windows at all — is TKT-037.
 
+## 1.26 — the world gatherer, on real Windows
+
+Windows lab: `ssh windev`, QEMU Windows 11, Strawberry Perl 5.38.2, MSWin32-x64.
+
+Eleven releases (1.15 to 1.25) shipped platform-dependent code without this gate
+being run once. Running it found that the world gatherer's program lookup could
+not find anything at all on Windows.
+
+The lookup as it was, run on the lab:
+
+```
+  git       NOT FOUND
+  tasklist  NOT FOUND
+  ps        NOT FOUND
+```
+
+`tasklist.exe` is in `C:\Windows\System32`. The lookup searched for a file with
+the exact name given and tested it with `-x`, and on Windows a program is
+`name.exe` while `-x` answers for the extension rather than the file. So every
+world fact came back empty and all six rules that read the world were silent -
+which is the defect the previous release was about, reintroduced inside its own
+fix.
+
+After, on the same lab:
+
+```
+perl: v5.38.2 on MSWin32
+tasklist found: yes
+git found:      no
+processes gathered: 138
+  0    System Idle Process
+  4    System
+  124  Registry
+```
+
+`git` is genuinely not installed on that machine, so reporting it missing is
+correct rather than a failure - a program that is not there contributes nothing,
+and that is the documented behaviour.
+
+`t/118-world-on-windows.t` on the lab: 11 of 11, with the two POSIX checks
+skipped and saying why - the executable bit is not a thing on Windows, so that
+half cannot be simulated there. The Windows half needs no such escape, because
+`-f` means the same everywhere, which is exactly why that was the half that
+broke unnoticed.
+
+macOS lab: not started for this change. What it would add over Linux here is the
+POSIX branch on a second POSIX platform, which the Linux suite already covers -
+the fault was Windows-shaped. Recorded rather than skipped silently.
+
 ## The labs themselves
 
 The Windows lab had no persistent storage: removing the container threw away the

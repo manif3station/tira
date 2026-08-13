@@ -1,5 +1,21 @@
 Revision history for Tira
 
+1.26  2026-08-13
+    - The world gatherer works on Windows. It asked whether a program
+      existed with a search that looked for an exact filename and tested
+      it with -x; on Windows a program is name.exe and -x answers for the
+      extension, so on the lab it found neither git, nor ps, nor
+      tasklist.exe sitting in System32. Every git fact and the process
+      table came back empty, and five of the six rules that read the
+      world were silent there whatever the machine was doing - the defect
+      the previous releases were about, reintroduced inside its own fix.
+      There is one search now rather than two that drift, the process
+      table comes from tasklist on Windows and ps on POSIX with the
+      platform passed in so both can be checked from either side, and
+      PATHEXT is matched in either case for the filesystems that care.
+      Proved on the Windows lab: 138 processes gathered where there were
+      none.
+
 1.25  2026-08-13
     - A rule can be considered and declined, with the reason, and police
       stops asking about it. The prompt lists every rule a project has

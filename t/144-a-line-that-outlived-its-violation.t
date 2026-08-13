@@ -1,0 +1,184 @@
+#!/usr/bin/env perl
+# The bridge says when a violation stops being true.
+#
+# zen-framework reported that a rule was firing on discarded cards: their bridge
+# said "ZSD-140 is Done with no completion date" about a card that was in
+# discard at the time. Their explanation was that entering a column means
+# at-or-past it and discard is stored last, so every discarded card satisfies
+# every --enter requirement.
+#
+# That mechanism does not exist. Entering a column is an exact match and has
+# been since the police subsystem was first written, and the one place that does
+# compare positions - _policy_before_column - opens by excluding discard. Built
+# on their own column shape, police reports the card in done and says nothing
+# about the card in discard.
+#
+# What does happen is this. Police notices perfectly well when a violation stops
+# being true: the ledger moves it out of open, records a closed_at, and the live
+# count drops to zero. The bridge is never told. The original line stays in the
+# log with nothing marking it settled, so an agent tailing the bridge - or
+# replaying the backlog after a restart - reads a demand about a card that dealt
+# with it hours ago.
+#
+# Their whole backlog arrived at once because the bridge was buffered, which is
+# the defect fixed as TKT-132 in 1.50. A pile of old lines about cards that had
+# moved on, arriving together, reads exactly like a rule firing across discard.
+# So 1.50 makes this worse rather than better: now that the bridge flushes,
+# agents will read backlogs, and every stale line in one is an instruction to do
+# work that is already done.
+
+use strict;
+use warnings;
+
+use File::Spec;
+use File::Temp qw(tempdir);
+use Test::More;
+
+use lib 'lib';
+use Tira;
+
+my $tmp = tempdir( CLEANUP => 1 );
+my $now = '2026-08-14T01:00:00Z';
+my $tira = Tira->new( clock => sub {$now} );
+
+my $root = File::Spec->catdir( $tmp, 'proj' );
+$tira->project_new(
+    name => 'Settled', dir => $root, members => [ 'michael', 'ada' ],
+    columns => ['backlog, doing, done, discard'],
+    sow_prefix => 'STS', epic_prefix => 'STE', ticket_prefix => 'STT',
+);
+my $store = File::Spec->catdir( $tmp, 'police' );
+
+$tira->policy_add( project => $root, rule => 'card-metrics',
+    enter => 'done', require => 'due_date', action => 'bridge-reminder' );
+
+my $card = $tira->create_record( project => $root, type => 'ticket',
+    title => 'Finished without a date', assignee => 'ada' );
+$tira->record_move( project => $root, ref => $card->{ref}, column => 'done' );
+
+# Exactly what the police command does: a pass, then the bridge written from
+# what the pass found. Settled violations travel the same way, because a
+# settlement an agent has to ask for is one it will not ask for.
+sub round {
+    my $result = $tira->police_pass( project => $root, store => $store, world => {} );
+    $tira->bridge_write( store => $store, project => $root,
+        violations => $result->{violations}, settled => $result->{settled} );
+    return $result;
+}
+
+sub bridge {
+    my $path = $tira->bridge_log_path( store => $store );
+    return () if !-f $path;
+    open my $fh, '<:raw', $path or die $!;
+    my @lines = <$fh>;
+    close $fh;
+    chomp @lines;
+    return @lines;
+}
+
+# --- the violation is raised ------------------------------------------------
+
+my $raised = round();
+is( scalar @{ $raised->{violations} }, 1, 'the card in done with no date is reported' );
+my ($said) = grep { /\Q$card->{ref}\E/ } bridge();
+ok( $said, 'and the bridge carries it' );
+my ($number) = $said =~ /(VIO-\d+)/;
+ok( $number, 'with a violation number' );
+
+# --- and then the card is set aside -------------------------------------------
+#
+# The exact move zen-framework made. Police stops reporting it at once, which it
+# always did correctly; the question is what the bridge says.
+
+$now = '2026-08-14T01:01:00Z';
+$tira->record_move( project => $root, ref => $card->{ref}, column => 'discard' );
+my $after = round();
+is( scalar @{ $after->{violations} }, 0, 'police stops reporting it the moment it stops being true' );
+
+my @settled = grep { /\Q$number\E/ && /settled/i } bridge();
+is( scalar @settled, 1, 'and the bridge says that violation is settled' );
+like( $settled[0], qr/\Q$card->{ref}\E/, 'naming the card it was about' );
+like( $settled[0], qr/\bfor ada\b/,
+    'and addressed to whoever the original was, so it reaches the same reader' );
+
+# --- said once, not on every pass afterwards ----------------------------------
+#
+# A settlement repeated every thirty seconds is the noise the whole channel
+# exists to rise above, and it would be worse than the stale line it replaces.
+
+for my $minute ( 2 .. 4 ) {
+    $now = sprintf '2026-08-14T01:%02d:00Z', $minute;
+    round();
+}
+is( scalar( grep { /\Q$number\E/ && /settled/i } bridge() ), 1,
+    'and it is said once, however many passes follow' );
+
+# --- a violation that is still true says nothing new ---------------------------
+
+$now = '2026-08-14T01:10:00Z';
+my $second = $tira->create_record( project => $root, type => 'ticket',
+    title => 'Also finished without a date' );
+$tira->record_move( project => $root, ref => $second->{ref}, column => 'done' );
+round();
+$now = '2026-08-14T01:11:00Z';
+round();
+is( scalar( grep { /\Q$second->{ref}\E/ && /settled/i } bridge() ), 0,
+    'a violation that is still true is never announced as settled' );
+
+# --- and it comes back if it comes back ----------------------------------------
+#
+# Numbers are never reused, so a violation that returns carries the number it
+# had. The settlement must not stop the return being said.
+
+$now = '2026-08-14T01:20:00Z';
+$tira->record_update( project => $root, ref => $card->{ref}, due_date => '2026-08-20T00:00:00Z' );
+$tira->record_move( project => $root, ref => $card->{ref}, column => 'done' );
+round();
+$now = '2026-08-14T01:21:00Z';
+$tira->record_update( project => $root, ref => $card->{ref}, due_date => '' );
+my $returned = round();
+is( scalar( grep { $_->{ref} eq $card->{ref} } @{ $returned->{violations} } ), 1,
+    'a violation that becomes true again is reported again' );
+
+# --- and the running watcher carries it too -------------------------------------
+#
+# There are two places that write the bridge from a pass: the single run and the
+# follow loop that is left going for days. The loop is the one that matters
+# here, and fixing only the one a test happens to exercise is how two copies of
+# one decision come apart.
+
+{
+    open my $cli, '<', File::Spec->catfile(qw(lib Tira CLI.pm)) or die $!;
+    my $source = do { local $/; <$cli> };
+    close $cli;
+    my @writes = $source =~ /bridge_write\(([^;]*?)\);/gs;
+    is( scalar @writes, 2, 'the bridge is written from a pass in two places' );
+    is( scalar( grep { /settled\s*=>/ } @writes ), 2,
+        'and both of them carry what has been settled, not just the one under test' );
+}
+
+done_testing;
+
+__END__
+
+=head1 NAME
+
+144-a-line-that-outlived-its-violation.t - the bridge says when a violation stops being true
+
+=head1 DESCRIPTION
+
+Police has always noticed when a violation clears - the ledger moves it out of
+open and records the moment - and never told the bridge. The original line
+stayed in the log with nothing marking it settled, so an agent tailing the
+bridge, or replaying the backlog after a restart, read a demand about a card
+that had dealt with it hours ago.
+
+It was reported as C<--enter> requirements being inherited by discarded cards.
+That mechanism does not exist; what the reporter saw was a buffered bridge
+replaying old lines about cards that had moved on. Fixing the buffering made
+this one matter more, not less.
+
+A settlement is said once, carries the number of the line it settles, and goes
+to the reader the original was addressed to.
+
+=cut

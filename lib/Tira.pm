@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.50';
+our $VERSION = '1.51';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -5107,6 +5107,16 @@ sub violation_record {
         # Still true, so still last seen now - whether or not it is said again.
         $entry->{last_seen} = $now;
 
+        # Enough to announce the settlement when this stops being true. Kept on
+        # the entry rather than looked up then, because by that time the card
+        # may have been reassigned, the policy removed, or the card discarded -
+        # and a settlement addressed to somebody other than the reader who was
+        # told about it reaches nobody.
+        $entry->{about} = {
+            map { defined $violation->{$_} ? ( $_ => $violation->{$_} ) : () }
+              qw(rule ref action assignee project)
+        };
+
         # And said only when there has been time to fix it. seen counts the
         # times it has been SAID rather than the passes it has survived, which
         # is what the line has always claimed: "seen 5 times" now means five
@@ -5157,17 +5167,33 @@ sub violation_record {
     # nothing to acknowledge and nothing to clear by hand, because anything an
     # agent has to remember to dismiss becomes something it dismisses without
     # reading.
-    for my $key ( keys %{ $ledger->{open} } ) {
+    my @settled;
+    for my $key ( sort keys %{ $ledger->{open} } ) {
         next if $still{$key};
         my $entry = delete $ledger->{open}{$key};
         $entry->{closed_at} = $now;
         $ledger->{closed}{$key} = $entry;
+
+        # Said, rather than left to be worked out. Police always knew this the
+        # moment it happened and never told anybody, so the line that raised it
+        # stayed in the log with nothing marking it dealt with - and an agent
+        # replaying a backlog read it as work still to do. Once only: the entry
+        # has left open, so no later pass can find it again.
+        push @settled, {
+            %{ $entry->{about} // {} },
+            id => $entry->{id},
+            seen => $entry->{seen},
+            settled => 1,
+        };
     }
 
     $self->_atomic_write(
         $self->_violation_ledger_path($store),
         json_object()->canonical->encode($ledger) );
-    return \@view;
+
+    # Two answers, and the caller that only wants the violations still gets
+    # exactly what it always did.
+    return wantarray ? ( \@view, \@settled ) : \@view;
 }
 
 # The six rules that are about the world rather than the board. Police gathers
@@ -5437,7 +5463,8 @@ sub police_pass {
         return { watching => 1, suspended => 1, violations => [], terminal => [] };
     }
 
-    my $view = $self->violation_record( store => $store, violations => $found );
+    my ( $view, $settled ) =
+      $self->violation_record( store => $store, violations => $found );
 
     # What police has said about a card belongs on that card, written by police
     # and by nobody else.
@@ -5448,6 +5475,11 @@ sub police_pass {
     return {
         watching => 1,
         violations => $view,
+
+        # What stopped being true on this pass. Handed back rather than left in
+        # the ledger for somebody to notice, because the reader who was told
+        # about it is the one who has to be told it is over.
+        settled => $settled,
         terminal => [ map { $_->{terminal} } grep { $_->{escalate} } @{$view} ],
         ( defined $error ? ( error => $error ) : () ),
     };
@@ -5474,6 +5506,22 @@ sub bridge_log_path {
     my $store = $args{store} or die "A police store is required\n";
     make_path($store) if !-d $store;
     return File::Spec->catfile( $store, 'bridge.log' );
+}
+
+# The end of a violation, in the shape of the line that raised it so a reader
+# scanning one column sees both. Its number is the number that was said, which
+# is the only way to match a settlement to what it settles.
+sub _bridge_settled_line {
+    my ( $self, $done ) = @_;
+    return join ' | ',
+      $self->{clock}->(),
+      'SETTLED',
+      'for ' . ( ( $done->{assignee} // '' ) ne '' ? $done->{assignee} : 'anyone' ),
+      $done->{id} // 'VIO-0000',
+      ( ( $done->{ref} // '' ) ne '' ? $done->{ref} : 'board' ),
+      'said ' . ( $done->{seen} // 0 ) . ' times',
+      ( $done->{rule} // 'a rule' ) . ' no longer applies here',
+      'fix: nothing - this one is over';
 }
 
 sub _bridge_line {
@@ -5539,6 +5587,22 @@ sub bridge_write {
             $about{path} = @above ? join( ' > ', @above ) : 'nobody';
         }
         push @lines, $self->_bridge_line( \%about );
+    }
+
+    # And what has stopped being true. The line that raised it stays in the log
+    # - the log is a record, and rewriting it would be worse - so the settlement
+    # is said beside it, carrying the same number, and an agent replaying a
+    # backlog can see the demand and its end together.
+    #
+    # No quiet ladder here. The ladder exists to stop a standing problem being
+    # repeated; a settlement happens once and is the one thing that stops the
+    # repetition, so delaying it would be delaying the good news.
+    for my $done ( @{ $args{settled} // [] } ) {
+        next if ( $done->{action} // '' ) ne 'bridge-reminder';
+        my $for = $done->{assignee} // '';
+        next if $for ne '' && $args{store}
+          && $self->police_suspended( store => $args{store}, agent => $for );
+        push @lines, $self->_bridge_settled_line($done);
     }
 
     # Police may say when it is unsure. Guessing would make it wrong, and

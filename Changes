@@ -1,5 +1,28 @@
 Revision history for Tira
 
+1.51  2026-08-14
+    - TKT-136: the bridge says when a violation stops being true. Police
+      always knew - the ledger moves the violation out of open and records
+      the moment it closed - and never told the bridge, so the line that
+      raised it stayed in the log with nothing marking it dealt with. An
+      agent tailing the bridge, or replaying the backlog after a restart,
+      read a demand about a card that had settled it hours before.
+    - The settlement carries the number of the line it settles, goes to
+      the reader the original was addressed to, and is said once. The
+      original line stays where it is: the log is a record, and rewriting
+      it would be worse than leaving it.
+    - Reported as discarded cards inheriting every --enter requirement.
+      That mechanism does not exist - entering a column is an exact match
+      and has been since police was first written, and the one place that
+      compares positions already excludes discard by name. Built on the
+      reporter's own column shape, police reports the card in done and
+      says nothing about the card in discard.
+    - What they saw was their buffered bridge (TKT-132) replaying its
+      whole backlog at once: a pile of old lines about cards that had
+      moved on, arriving together, reads exactly like a rule firing
+      across discard. Fixing the buffering made this matter more rather
+      than less, because now the backlogs get read.
+
 1.50  2026-08-13
     - TKT-132: the bridge writes to a file as it goes. tira.policy.bridge
       printed to a standard output nobody had set to flush line by line,

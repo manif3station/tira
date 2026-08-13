@@ -115,6 +115,11 @@ sub run {
         'age=s' => \$option{age},
         'max=i' => \$option{max}, 'require=s' => \$option{require},
         'once' => \$option{once}, 'interval=i' => \$option{interval},
+
+        # Agreeing to lose work. Spelled out rather than a single letter,
+        # because the one command that can destroy a board should not be
+        # reachable by a slip of the hand.
+        'yes' => \$option{yes},
         'seconds=i' => \$option{seconds},
         'on-column=s' => \$option{on_column},
         'role=s@' => \$option{roles},
@@ -1779,6 +1784,7 @@ sub _invoke {
     }
 
     return _backup( $tira, \%args ) if $command eq 'backup';
+    return _backup_restore( $tira, \%args, $option ) if $command eq 'backup.restore';
 
     return $tira->policy_decline(%args) if $command eq 'policy.decline';
     return $tira->policy_declined(%args) if $command eq 'policy.declined';
@@ -2061,6 +2067,65 @@ sub _backup {
         message => $changed
           ? 'The board is backed up.'
           : 'Nothing has changed since the last backup, so it still stands.',
+    };
+}
+
+# Putting a board back. His design: git reset --hard, so a restore is a restore
+# and anything done since the backup is gone.
+#
+# Which is exactly why it says what it is about to discard first and does
+# nothing until that is agreed to. This is the only command in Tira that can
+# lose work, and a command that destroys in silence is one people either stop
+# running or run without reading.
+sub _backup_restore {
+    my ( $tira, $args, $option ) = @_;
+    my $root = $tira->discover_project( %{$args} );
+    my $store = _backup_store($root);
+
+    die "Tira needs git to restore a board, and it is not installed here\n"
+      if !_program_exists('git');
+    die "This board has never been backed up, so there is nothing to restore it to.\n"
+      . "Make one first: d2 tira.backup\n"
+      if !defined _last_backup_commit($store);
+
+    # What would be lost, read before anything is touched. Named rather than
+    # counted: "3 files would be discarded" tells nobody whether it matters.
+    my $changed = _reading( 'git', '-C', $store, 'status', '--porcelain' );
+    my @losing = map { s/\A.{3}//r } @{$changed};
+
+    if ( !$option->{yes} ) {
+
+        # Printed rather than thrown, because a refusal is only useful if it can
+        # be read. A structured error carries one string, and a multi-line
+        # warning inside one arrives as literal backslash-n on the terminal -
+        # which is how the one command that can destroy a board ends up with a
+        # warning nobody reads.
+        print {*STDERR} "Restoring puts this board back to its last backup and discards\n"
+          . "what has happened since. That is:\n\n";
+        print {*STDERR} @losing
+          ? join( '', map { "  $_\n" } @losing )
+          : "  nothing - the board is exactly as it was backed up\n";
+        print {*STDERR} "\nRun it again with --yes if that is what you want.\n\n";
+        die "Nothing was restored, because --yes was not given\n";
+    }
+
+    _running( 'git', '-C', $store, 'reset', '--hard', 'HEAD' )
+      or die "Could not put the board back\n";
+
+    # A file added since the backup is untracked, so reset leaves it exactly
+    # where it was - and a card raised since would survive a restore that
+    # reported success. Cleaning is the half of "put it back" that reset alone
+    # does not do.
+    _running( 'git', '-C', $store, 'clean', '--force', '-d', '--quiet' )
+      or die "Could not clear what was added since the backup\n";
+
+    my ($commit) = @{ _reading( 'git', '-C', $store, 'rev-parse', '--short', 'HEAD' ) };
+    return {
+        commit    => $commit,
+        at        => _last_backup_commit($store),
+        discarded => \@losing,
+        store     => $store,
+        message   => 'The board is back as it was when it was last backed up.',
     };
 }
 

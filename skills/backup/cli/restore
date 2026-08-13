@@ -1,0 +1,34 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use File::Basename qw(dirname);
+use File::Spec;
+use FindBin;
+
+my $cursor = $FindBin::Bin;
+while ( !-f File::Spec->catfile( $cursor, 'lib', 'Tira', 'CLI.pm' ) ) {
+    my $parent = dirname($cursor);
+    die "Cannot locate Tira skill root\n" if $parent eq $cursor;
+    $cursor = $parent;
+}
+$cursor =~ /\A([^\x00-\x1f\x7f]+)\z/ or die "Unsafe Tira skill root\n";
+my $root = $1;
+unshift @INC, File::Spec->catdir( $root, 'lib' );
+require Tira::CLI;
+
+exit Tira::CLI->run( command => 'backup.restore', argv => \@ARGV );
+
+__END__
+
+=head1 NAME
+
+tira.backup.restore - Put the board back to its last backup
+
+=head1 DESCRIPTION
+
+Locates the Tira skill root and delegates to C<Tira::CLI>, which resets the
+board to the last commit Tira made. It says what would be discarded and does
+nothing until C<--yes> is given.
+
+=cut

@@ -628,6 +628,28 @@ because a signing prompt would hang a command police asks for on a schedule.
 Git is run from the command layer. **The engine still invokes no shell or
 external process**, which is what lets Tira be trusted inside another tool.
 
+### `tira.backup.restore`
+
+Put the board back to its last backup.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--yes` | to do it | Agree to lose what has happened since the backup. |
+| `-o FORMAT` | no | `toon` (default), `json`. |
+
+**This is the only command in Tira that can lose work**, so without `--yes` it
+does nothing: it prints what would be discarded, by name, and stops. Named
+rather than counted — "3 files would be discarded" tells nobody whether it
+matters.
+
+A restore is a restore. The cards, the attachments and the reference counters
+come back as they were, and anything done since the backup is gone: a card
+raised afterwards is removed, not merged. A board with no backup is refused
+rather than reported as restored.
+
+The board is still a working board afterwards. It can be added to, and backed
+up again.
+
 ### `tira.gates.install`
 
 Install Tira's gates into this project's repository.

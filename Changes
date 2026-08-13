@@ -1,5 +1,26 @@
 Revision history for Tira
 
+1.46  2026-08-13
+    - A command refuses an option it will not act on. tira.assign.set
+      takes --person and also accepted --assignee, then threw it away:
+      the card came back with the assignee still empty, the command
+      exited zero, and the whole unchanged record was printed as though
+      something had happened. On the one command whose job is setting the
+      assignee, the obvious flag was the one that silently did nothing -
+      and a card sat in implement for an hour with nobody on it before
+      the owner noticed and asked whether a ghost was working on it.
+    - assign.add and assign.remove are covered too. Fixing only the one
+      somebody happened to hit is how two commands that agree today drift
+      apart tomorrow, which this codebase has now been caught doing three
+      times.
+    - Narrow on purpose. There is no per-command list of the options each
+      one uses, and inventing one for every command would refuse things
+      that work today. What is declared is the set where one option names
+      the job another does - the set that misleads, because a wrong name
+      that parses looks accepted rather than unknown. --assignee is
+      untouched on the record commands, where it is what sets a card's
+      assignee.
+
 1.45  2026-08-13
     - The commit gate reads the subject line for the cards a commit is
       against, and treats the body as prose. It took every reference

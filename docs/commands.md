@@ -772,6 +772,27 @@ is no command to add an entry, and a button on the page would have been the way
 around that. A card police has never mentioned shows no section rather than an
 empty heading.
 
+### An option a command will not act on
+
+The argument parser is shared, so every command sees every option. Where one
+option names the job another option does, the command **refuses it and says
+which to use** rather than discarding it:
+
+```
+d2 tira.assign.set --ref TKT-001 --assignee ada
+  assign.set does not act on --assignee. Use --person, which is what it reads.
+```
+
+`tira.assign.set`, `tira.assign.add` and `tira.assign.remove` take `--person`.
+`--assignee` is a real option on the record commands, where it sets the card's
+assignee, and is untouched there.
+
+This is narrow on purpose: there is no per-command list of the options each one
+uses, and inventing one would refuse things that work today. What is declared is
+the set where a wrong name looks accepted rather than unknown — which is the set
+that misleads. A command that reports success without doing anything is worse
+than one that fails.
+
 ### Whose command is it
 
 Three commands, and the names now say which is which.

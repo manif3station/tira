@@ -16,6 +16,15 @@ use Tira;
 # running on, so they hang off a flag a test can set.
 our $WINDOWS = $^O eq 'MSWin32' ? 1 : 0;
 
+# Where one option names the job another option does. Refused rather than
+# silently discarded: a wrong flag that parses looks accepted, and a command
+# that reports success without doing anything is worse than one that fails.
+my %MISLEADING_OPTIONS = (
+    'assign.set'    => [ [ 'assignee', 'person' ] ],
+    'assign.add'    => [ [ 'assignee', 'person' ] ],
+    'assign.remove' => [ [ 'assignee', 'person' ] ],
+);
+
 # The process that set a served board up, recorded before the server forks.
 # Outside a served board it is simply this process, so a plain command asking
 # the question gets the honest answer rather than a special case.
@@ -1955,6 +1964,24 @@ sub _invoke {
         'dashboard.sow' => 'dashboard', 'dashboard.epic' => 'dashboard', 'dashboard.ticket' => 'dashboard',
     );
     my $method = $method{$command} or die "Unsupported Tira command '$command'\n";
+
+    # An option this command will not act on is refused rather than discarded.
+    # The parser is shared, so every command sees every option, and the wrong
+    # name looks accepted instead of unknown - assign.set took --assignee, threw
+    # it away, printed the whole unchanged card and exited zero. A card sat in
+    # implement for an hour with nobody on it because of that.
+    #
+    # Narrow on purpose. There is no per-command list of the options each one
+    # uses, and inventing one for every command would refuse things that work
+    # today. What is declared is the set where one option names the job another
+    # option does, which is the set that misleads.
+    for my $misleading ( @{ $MISLEADING_OPTIONS{$command} // [] } ) {
+        my ( $given, $meant ) = @{$misleading};
+        next if !defined $option->{$given} || $option->{$given} eq '';
+        ( my $flag = $given ) =~ tr/_/-/;
+        ( my $instead = $meant ) =~ tr/_/-/;
+        die "$command does not act on --$flag. Use --$instead, which is what it reads.\n";
+    }
     $args{person} = $option->{people}[0] if $command =~ /\Aassign\.(?:add|remove)\z/ && $option->{people};
     $args{people} = $option->{people} // [] if $command eq 'assign.set';
     $args{recursive} = $option->{recursive} if $command eq 'hierarchy.show';

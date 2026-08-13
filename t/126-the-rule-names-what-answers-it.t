@@ -100,8 +100,13 @@ ok( !unbacked(), 'and the rule goes quiet, on a board that is not Tira\'s own' )
 # Going quiet for ever after one backup would be worse than never firing: it
 # would say a board was safe on the strength of something done in March.
 
-( my $later = $backed_up ) =~ s/T(\d{2})/sprintf 'T%02d', ( $1 + 2 ) % 24/e;
-$now = $later;
+# Two hours later by arithmetic on the time, not on the digits. Adding two to
+# the hour field and taking it modulo twenty-four moves 23:07 to 01:07 the same
+# morning - twenty-two hours backwards - so this passed all day and failed in
+# the push gate at ten at night. A test that is right for twenty-two hours out
+# of twenty-four is a test passing for the wrong reason.
+$now = Tira::_iso_from_epoch(
+    Tira::_epoch_of_datetime( $backed_up, 'Backup' ) + 2 * 60 * 60 );
 ok( unbacked(), 'and speaks again once that backup is older than the rule allows' );
 
 # --- the line names what answers it -------------------------------------------

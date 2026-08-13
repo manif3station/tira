@@ -1,5 +1,22 @@
 Revision history for Tira
 
+1.50  2026-08-13
+    - A test that advanced its clock by two hours did it by adding two to
+      the hour field and taking it modulo twenty-four, so a backup made at
+      eleven at night moved the clock to one in the morning of the same
+      day - twenty-two hours backwards. The rule it was checking stayed
+      correctly quiet and the assertion failed.
+    - It passed every run of the day and failed in the push gate at ten at
+      night, on a commit that touched nothing near it. For twenty-two
+      hours out of twenty-four the arithmetic happened not to wrap and the
+      assertion was met by accident; the two hours where it was wrong were
+      the only two where the test meant anything.
+    - The clock is now advanced by arithmetic on the time rather than on
+      the digits - parse, add the seconds, format back - using the
+      conversions the engine already has, and there is no wrap to get
+      wrong. No other test in the suite moves a clock by editing the text
+      of a stamp.
+
 1.49  2026-08-13
     - A card talked about since it was last written down is reported. A
       card gathers its real content in comments - somebody pastes

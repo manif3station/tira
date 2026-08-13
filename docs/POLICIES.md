@@ -221,6 +221,9 @@ The path is written when the line is written, not looked up when it is read. A
 card reparented afterwards must not rewrite what was already said, which is the
 same reason the line repeats whose card it is instead of pointing at the board.
 
+The path is read from the board police is watching, never from wherever police
+was started, so a line can always be followed to the card it is about.
+
 The bridge carries the words on the card, whatever they are. A board worked in
 two languages puts both on it, so the log is written and read as UTF-8 and a
 card titled in Chinese reaches the agent as the title somebody typed. Until
@@ -298,6 +301,7 @@ missing, at the moment you declare the policy rather than later.
 | `orphan-card` | — | a card with no parent |
 | `parent-ahead-of-children` | — | a parent saying it is finished above a child that is not |
 | `question-unanswered` | `--age` | a question waiting on the owner |
+| `answer-waiting` | — | an answer the agent has not read yet. **No age**: the agent could not have acted sooner, so a grace would only delay it. |
 | `answer-unjudged` | `--age` | an answer nobody marked |
 | `answer-ok-not-folded` | `--age` | settled in name only: marked ok, nothing written down |
 | `answer-not-ok-no-followup` | `--age` | a cross with no further question |
@@ -702,6 +706,25 @@ d2 tira.policy.add --rule question-unanswered --age 10m --action print-reminder
 ```
 d2 tira.policy.add --rule question-unanswered --age 2h --action bridge-reminder
 ```
+
+### An answer nobody has been told about
+
+An agent that stopped to ask something stays stopped until it learns it has been
+answered. Every other rule about a question chases neglect and waits out a
+grace first; this one announces the answer.
+
+```
+d2 tira.policy.add --rule answer-waiting --action bridge-reminder
+```
+
+It takes no `--age`, and one is refused rather than ignored. A grace here would
+only be a delay: the agent could not have acted sooner, because it did not know.
+
+Reading the answer is what stops it — and reading is what records it, so there
+is nothing to dismiss by hand and nothing that goes quiet because somebody said
+it had. An answer reworded after it was read is announced again, because that is
+news the agent has not seen. A question set aside is not announced at all.
+
 
 **43.** An answer given and never marked, so nobody knows if it settled anything.
 

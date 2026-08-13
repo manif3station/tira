@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.33';
+our $VERSION = '1.35';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4191,6 +4191,12 @@ my %POLICY_RULES = (
     'orphan-card'               => { needs => [] },
     'question-unanswered'       => { needs => ['age'] },
     'answer-unjudged'           => { needs => ['age'] },
+
+    # No age, deliberately. Every other rule about a question chases
+    # neglect and needs a grace, or it is nagging. This one announces that
+    # an answer arrived, and the agent could not have acted sooner because
+    # it did not know - so a grace here would only be a delay.
+    'answer-waiting'            => { needs => [], forbids => ['age'] },
     'answer-ok-not-folded'      => { needs => ['age'] },
     'answer-not-ok-no-followup' => { needs => ['age'] },
     'wip-limit'                 => { needs => ['column'] },
@@ -4263,6 +4269,17 @@ sub policy_add {
         die "Policy rule '$rule' needs --$flag\n"
           if !defined $args{$needed} || $args{$needed} eq '';
     }
+    # What a rule cannot accept is refused where it is set, like everything a
+    # rule cannot work without. A grace on a rule whose whole point is that
+    # there is none would be accepted, ignored, and believed - which is the
+    # shape of a setting that does nothing and looks like it does.
+    for my $refused ( @{ $spec->{forbids} // [] } ) {
+        ( my $flag = $refused ) =~ tr/_/-/;
+        die "Policy rule '$rule' takes no --$flag: it reports the moment there is "
+          . "something to say, and a grace would only delay it\n"
+          if defined $args{$refused} && $args{$refused} ne '';
+    }
+
     if ( defined $args{age} ) {
         _valid_duration( $args{age} )
           or die "An age must be a duration like 10m, 2h or 30s, not '$args{age}'\n";
@@ -4468,6 +4485,17 @@ my %POLICY_MESSAGE_FIELDS = (
 
 sub policy_message_fields { return [ sort keys %POLICY_MESSAGE_FIELDS ] }
 
+# Whether one stamp is later than another. Both are written by Tira in the same
+# shape, and a stamp that cannot be read is treated as not later - guessing here
+# would announce an answer somebody had already dealt with.
+sub _policy_stamp_after {
+    my ( $stamp, $mark ) = @_;
+    return 0 if !defined $stamp || !defined $mark;
+    my $one = eval { _epoch_of_datetime( $stamp, 'Answer' ) } // return 0;
+    my $two = eval { _epoch_of_datetime( $mark, 'Read at' ) } // return 0;
+    return $one > $two ? 1 : 0;
+}
+
 sub _policy_message {
     my ( $policy, $record, $detail, $ref ) = @_;
     my $message = $policy->{message};
@@ -4663,6 +4691,30 @@ sub policy_evaluate {
                     next if !$self->_policy_older_than( $question->{asked_at}, $policy->{age} );
                     $report->( $policy, $record,
                         "$question->{id} has been waiting since $question->{asked_at}" );
+                }
+            }
+        }
+        elsif ( $rule eq 'answer-waiting' ) {
+
+            # An answer nobody has read yet. Reading is recorded by reading, so
+            # this stops when the agent has actually seen it rather than when
+            # somebody says it has - and an answer reworded afterwards is news
+            # again, because it is news the agent has not seen.
+            for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
+                for my $question ( _policy_questions($record) ) {
+                    next if ( $question->{status} // '' ) eq 'discarded';
+                    my $answer = $question->{answer} or next;
+                    my $said = $answer->{updated_at} // $answer->{answered_at};
+
+                    # Read, and not reworded since. An answer amended after the
+                    # agent read it is news the agent has not seen, so the
+                    # comparison is against when it was last said rather than
+                    # against whether it was ever read.
+                    next if defined $answer->{read_at}
+                      && !_policy_stamp_after( $said, $answer->{read_at} );
+                    $report->( $policy, $record,
+                        "$question->{id} was answered at $said and nobody has read it" );
                 }
             }
         }

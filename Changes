@@ -1,5 +1,42 @@
 Revision history for Tira
 
+1.34  2026-08-13
+    - An answer reaches the agent that was waiting for it. He raised it:
+      a question gets answered, police is running, and nothing appears on
+      the bridge to get the agent's attention. He was right, and the
+      reason is that all four rules about questions chase neglect after a
+      grace - question-unanswered wants an answer, answer-unjudged fires
+      when one has sat unmarked past its age, answer-ok-not-folded when a
+      settled answer was never written down, answer-not-ok-no-followup
+      when a cross had no follow-up. None of them announced that an
+      answer had arrived. On his board, where answer-unjudged is set at
+      two hours, an answer produced nothing for two hours and then only a
+      complaint that it had not been marked. An agent that stopped to ask
+      something stayed stopped.
+    - answer-waiting announces it on the next pass and takes no --age. An
+      age is refused rather than ignored, because a grace here would only
+      be a delay: the agent could not have acted sooner, it did not know.
+      A rule may now declare what it cannot accept as well as what it
+      cannot work without, since a setting that is accepted, ignored and
+      believed is worse than one that is refused.
+    - Reading the answer is what stops it, and reading is what records
+      it, so there is nothing to dismiss by hand and nothing that goes
+      quiet because somebody said it had. An answer reworded after it was
+      read is announced again - it is news the agent has not seen - and a
+      question set aside is not announced at all.
+    - A bridge line describes the board police is watching rather than the
+      one it is standing in. Every line carries the way down to its card,
+      so the core agent can walk a violation to whoever holds it - and
+      that path was looked up on whatever Tira project the process
+      happened to be in, because the police command wrote the bridge
+      without saying which board it was about. Found while proving the
+      rule above end to end: the message was right and its address was
+      not, naming a statement of work and an epic that do not exist on
+      the board the violation came from. Proved by running the same pass
+      from two directories and getting two different answers. It was
+      invisible on the one board where it cannot go wrong - this
+      repository, where police runs from the project it watches.
+
 1.33  2026-08-13
     - A board can be backed up with a command that ships. board-unbacked
       had been reporting "the board has never been backed up" while Tira

@@ -1762,10 +1762,17 @@ sub _invoke {
         my $prompt = eval { $tira->police_prompt(%args) };
         print {*STDERR} "\n$prompt\n" if defined $prompt;
 
+        # Discovered once and handed to both. The bridge line carries the way
+        # down to its card, and that path used to be looked up from the working
+        # directory because this call did not say which board it was about - so
+        # a violation on one board was reported with a hierarchy from whichever
+        # Tira project the process happened to be standing in.
+        my $watching = $tira->discover_project(%args);
         my $result = $tira->police_pass( %args, store => $store,
-            world => _police_world( tira => $tira, project => $tira->discover_project(%args) ) );
+            world => _police_world( tira => $tira, project => $watching ) );
         die "$result->{advice}\n" if !$result->{watching};
-        $tira->bridge_write( store => $store, violations => $result->{violations} );
+        $tira->bridge_write( store => $store, project => $watching,
+            violations => $result->{violations} );
         print {*STDERR} map { "$_\n" } @{ $result->{terminal} };
         return $result if $option->{once};
         return _police_follow( $tira, \%args, $store, $option );
@@ -2360,20 +2367,30 @@ sub _police_follow {
         $SIG{$signal} = sub { _police_goodbye( $tira, $signal ); $leave->() };
     }
     my $done = 0;
+
+    # Which board this round is about, so the bridge can be told. Set inside the
+    # eval that discovers it and cleared at the top of every round, because a
+    # round that could not read the board must not write a line about the last
+    # one.
+    my $watched_board;
     while ( !defined $rounds || $done < $rounds ) {
         $done++;
+        undef $watched_board;
         # Gathered every round, not once at the start: a container that comes up
         # an hour into a watch is exactly the kind of thing this is for.
         my $result = eval {
+            my $watching = $tira->discover_project( %{$args} );
+            $watched_board = $watching;
             $tira->police_pass( %{$args}, store => $store,
-                world => _police_world( tira => $tira, project => $tira->discover_project( %{$args} ) ) );
+                world => _police_world( tira => $tira, project => $watching ) );
         };
         if ( !$result ) {
             # Transient trouble is not a reason to stop watching.
             print {*STDERR} 'police could not read the board: ' . ( $@ || 'unknown' ) . "\n";
         }
         else {
-            $tira->bridge_write( store => $store, violations => $result->{violations} );
+            $tira->bridge_write( store => $store, project => $watched_board,
+                violations => $result->{violations} );
             print {*STDERR} map { "$_\n" } @{ $result->{terminal} };
         }
         $wait->($interval);

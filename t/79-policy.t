@@ -134,6 +134,7 @@ my %needs = (
     'checklist-idle'            => { column => 'implement', age => '30m' },
     'orphan-card'               => {},
     'question-unanswered'       => { age => '1h' },
+    'answer-waiting'            => {},
     'answer-unjudged'           => { age => '10m' },
     'answer-ok-not-folded'      => { age => '10m' },
     'answer-not-ok-no-followup' => { age => '10m' },

@@ -217,6 +217,13 @@ tira dashboard --project "$board" --title -o table >"$html" 2>/dev/null || {
 }
 [ -s "$html" ] || { echo "browser-tests: the rendered page is empty"; exit 1; }
 
+# A page with one board on it. dashboard-table checks the page a person looks
+# at when they want a single board - it asserts exactly one .board - and the
+# combined render carries three. Nothing recorded that; it was discoverable
+# only by reading the assertion after running it.
+one_html="$scratch/one-board.html"
+tira dashboard.ticket --project "$board" --title -o table >"$one_html" 2>/dev/null
+
 data="$scratch/board.json"
 tira export --project "$board" -o json >"$data" 2>/dev/null || true
 
@@ -240,7 +247,7 @@ for test in "$tests"/*.js; do
         dashboard-browser.js) run_one "$name" "$html" "$data" "$scratch/$name.png" ;;
         wide-board.js|wrap-board.js)
                               run_one "$name" "$wide_html" "$scratch/$name.png" ;;
-        dashboard-table.js)   run_one "$name" "$html" "$scratch/$name.png" ;;
+        dashboard-table.js)   run_one "$name" "$one_html" "$scratch/$name.png" ;;
         *)                    run_one "$name" "$html" ;;
     esac
 done

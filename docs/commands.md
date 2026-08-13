@@ -593,6 +593,41 @@ On the browser dashboard it is a collapsed section in the card dialog, fetched
 only when somebody expands it - a card has a great deal happen to it, and
 loading all of it whenever a card opens would bury everything else.
 
+### `tira.backup`
+
+Back the board up. A backup is a commit in a git repository Tira manages inside
+the board's own storage, beside the project file.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `-o FORMAT` | no | `toon` (default), `json`. |
+
+**The repository is created the first time you back up**, so nobody has to run
+`git init` to obey a rule, and a board that never backs up has none — reading
+never makes one.
+
+It has **no remote**, deliberately. A board that lives on a filesystem should
+not need somebody else's machine to be backed up, and a backup that can fail
+because a server is down is one that stops being made.
+
+Attachments are in it. A backup is everything or it is not a backup.
+
+**Backing up an unchanged board is not an error.** It says nothing had changed
+and names the backup that still stands, because `board-unbacked` asks for one on
+a schedule and a command that failed on a quiet afternoon would teach whoever
+reads the bridge to ignore it.
+
+The lock file is the one thing left out. A restored lock is somebody else's
+half-finished write, restored.
+
+The commit is made with an identity given on the command rather than written
+into the repository, so backing up neither depends on your git being configured
+nor changes what it would do — and signing is switched off for that commit,
+because a signing prompt would hang a command police asks for on a schedule.
+
+Git is run from the command layer. **The engine still invokes no shell or
+external process**, which is what lets Tira be trusted inside another tool.
+
 ### `tira.gates.install`
 
 Install Tira's gates into this project's repository.

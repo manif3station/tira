@@ -1771,6 +1771,8 @@ sub _invoke {
         return _police_follow( $tira, \%args, $store, $option );
     }
 
+    return _backup( $tira, \%args ) if $command eq 'backup';
+
     return $tira->policy_decline(%args) if $command eq 'policy.decline';
     return $tira->policy_declined(%args) if $command eq 'policy.declined';
 
@@ -1921,7 +1923,14 @@ sub _police_world {
     };
     $world->{unpushed_since} = @{ $world->{commits} } ? $world->{commits}[-1]{at} : undef;
     $world->{working_since} = _tree_changing_since($where);
-    $world->{backed_up_at} = _last_backup( $args{backups} // _backup_home($where) );
+    # The board's own repository first, because that is what tira.backup writes
+    # and what any board can have. The old answer was a directory of stamps
+    # under the home directory that only one repository on earth wrote to, so
+    # every other board was told it had never been backed up and had no way to
+    # change that. It is still read, so a board backed up by the old tool is not
+    # suddenly told it never was.
+    $world->{backed_up_at} = _last_backup_commit( _backup_store($where) )
+      // _last_backup( $args{backups} // _backup_home($where) );
     $world->{card_in_progress} = exists $args{card_in_progress}
       ? $args{card_in_progress}
       : _card_in_progress( $args{tira}, $root );
@@ -1976,6 +1985,104 @@ sub _reading {
     }
     chomp @lines;
     return \@lines;
+}
+
+# Running a program for its effect rather than its words. _reading throws the
+# exit status away, which is right for reading the machine - a box with no
+# Docker has no containers - and wrong for a backup, where "it did not work" is
+# the only answer that matters.
+# An identity given on the command rather than written into the repository. A
+# backup must not depend on whoever runs it having configured git, and must not
+# quietly change what their own git would do.
+my @BACKUP_AUTHOR = (
+    '-c', 'user.name=Tira', '-c', 'user.email=tira@localhost',
+    '-c', 'commit.gpgsign=false',
+);
+
+# A backup is a commit. His design, and the right one: the board is a directory
+# of files, git is what keeps a directory of files, and a repository with no
+# remote cannot fail because somebody else's machine is down.
+#
+# Nothing exists until the first backup, so a board that leaves the policy out
+# is untouched on disk - and nobody has to run git init to obey a rule, because
+# a command that works only after an invisible setup step is one that leaves the
+# rule firing anyway.
+sub _backup {
+    my ( $tira, $args ) = @_;
+    my $root = $tira->discover_project( %{$args} );
+    my $store = _backup_store($root);
+
+    die "Tira needs git to back a board up, and it is not installed here\n"
+      if !_program_exists('git');
+
+    my $created = -d File::Spec->catdir( $store, '.git' ) ? 0 : 1;
+    if ($created) {
+        _running( 'git', '-C', $store, 'init', '--quiet' )
+          or die "Could not start a repository for this board at $store\n";
+
+        # The lock is about right now rather than about the board, and a
+        # restored lock is a wedged board. Everything else under here is state
+        # worth having back.
+        my $ignore = File::Spec->catfile( $store, '.gitignore' );
+        open my $handle, '>', $ignore or die "Could not write $ignore: $!\n";
+        print {$handle} ".lock\n";
+        close $handle;
+    }
+
+    _running( 'git', '-C', $store, 'add', '--all' )
+      or die "Could not read the board into the backup\n";
+
+    my $pending = _reading( 'git', '-C', $store, 'status', '--porcelain' );
+    my $changed = @{$pending} ? 1 : 0;
+
+    if ($changed) {
+        my $count = scalar @{$pending};
+        my $message = $created
+          ? 'The board as it stands, backed up for the first time'
+          : "$count " . ( $count == 1 ? 'thing' : 'things' ) . ' changed since the last backup';
+        _running( 'git', '-C', $store, @BACKUP_AUTHOR, 'commit', '--quiet', '-m', $message )
+          or die "Could not record the backup\n";
+    }
+
+    my ($commit) = @{ _reading( 'git', '-C', $store, 'rev-parse', '--short', 'HEAD' ) };
+    return {
+        commit  => $commit,
+        at      => _last_backup_commit($store),
+        created => $created,
+        changed => $changed,
+        store   => $store,
+        message => $changed
+          ? 'The board is backed up.'
+          : 'Nothing has changed since the last backup, so it still stands.',
+    };
+}
+
+sub _running {
+    my (@command) = @_;
+    return 0 if !_program_exists( $command[0] );
+    my $pid = open my $handle, '-|', @command or return 0;
+    my @said = <$handle>;
+    close $handle;
+    return $? == 0 ? 1 : 0;
+}
+
+# The board's own storage, which is what gets backed up: everything beside
+# project.yml, because that is where he said the repository goes.
+sub _backup_store {
+    my ($root) = @_;
+    return undef if !defined $root;
+    return File::Spec->catdir( $root, '.tira' );
+}
+
+# When the last backup was, read from the repository rather than from a
+# directory of stamps that only one machine on earth ever wrote to. Nothing is
+# created by asking: a board that has never been backed up answers undef and is
+# left exactly as it was.
+sub _last_backup_commit {
+    my ($store) = @_;
+    return undef if !defined $store || !-d File::Spec->catdir( $store, '.git' );
+    my ($when) = @{ _reading( 'git', '-C', $store, 'log', '-1', '--format=%cI' ) };
+    return defined $when && $when =~ /\A(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/ ? $1 . 'Z' : undef;
 }
 
 sub _program_exists {

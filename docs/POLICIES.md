@@ -307,7 +307,7 @@ missing, at the moment you declare the policy rather than later.
 | `commit-without-card` | — | a commit that names no card |
 | `work-without-card` | `--age` | a tree changing while nothing is at a working gate |
 | `unpushed-work` | `--age` | commits sitting unpushed |
-| `board-unbacked` | `--age` | a board with no recent backup |
+| `board-unbacked` | `--age` | a board with no recent backup. `tira.backup` clears it, and the line says so. |
 | `card-unlinked` | `--require-link` | a card with no dependency link, optionally to a named card |
 | `card-sandbox-missing` | `--enter --sandbox` | a card being implemented with no branch or worktree of its own |
 | `leftover-process` | `--pattern --age` | something started and never stopped |
@@ -421,7 +421,8 @@ the guarantee that lets it be trusted inside another tool — so the `tira.polic
 command gathers those facts and hands them over as plain values, and the rules
 reason about what they are given. The process table comes from `ps`, containers
 from `docker ps`, branches, work trees, commits and the state of the tree from
-`git`, and the last backup from where `tools/board-backup` writes. A program
+`git`, and the last backup from the board's own repository - what `tira.backup`
+writes. A program
 that is not installed is not a failure: a machine with no Docker has no
 leftover containers, and everything else carries on being watched.
 

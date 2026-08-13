@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.32';
+our $VERSION = '1.33';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4842,13 +4842,32 @@ sub _violation_tone {
 
 # What the owner sees in his own terminal when the agent has demonstrably
 # stopped listening. It carries everything he needs to act without going and
+# What to run about a violation. One expression, because two that agree today
+# drift apart the first time somebody fixes only the one they were looking at -
+# the fault this project has now found in its program lookup, in its message
+# substitution, and here, where the bridge line and the owner's terminal each
+# wrote it out.
+#
+# A rule about the board itself can name the command that answers it. Until
+# 2026-08-13 every one of them ended in "list your policies", so board-unbacked
+# said the board had never been backed up and then told whoever read it to go
+# and read the policy list, which backs nothing up.
+our %VIOLATION_FIX = ( 'board-unbacked' => 'd2 tira.backup' );
+
+sub _violation_fix {
+    my ($violation) = @_;
+    my $ref = $violation->{ref} // '';
+    return 'd2 tira.' . ( $1 eq 'SOW' ? 'sow' : 'epic' ) . ".show --ref $ref"
+      if $ref =~ /\A(SOW|EPC)-/;
+    return "d2 tira.ticket.show --ref $ref" if $ref ne '';
+    return $VIOLATION_FIX{ $violation->{rule} // '' } // 'd2 tira.policy.list';
+}
+
 # looking anything up, including a command he can paste straight to the agent.
 sub _violation_terminal_notice {
     my ( $entry, $violation ) = @_;
     my $ref = $violation->{ref} // '';
-    my $fix = $ref =~ /\A(SOW|EPC)-/
-      ? 'd2 tira.' . ( $1 eq 'SOW' ? 'sow' : 'epic' ) . ".show --ref $ref"
-      : ( $ref ne '' ? "d2 tira.ticket.show --ref $ref" : 'd2 tira.policy.list' );
+    my $fix = _violation_fix($violation);
     return join ' | ',
       $entry->{last_seen},
       $entry->{id},
@@ -5282,9 +5301,7 @@ sub _bridge_line {
         $violation->{message} // $violation->{detail} // $violation->{rule} // 'unspecified',
     );
     my $ref = $violation->{ref} // '';
-    my $fix = $ref =~ /\A(SOW|EPC)-/
-      ? 'd2 tira.' . ( $1 eq 'SOW' ? 'sow' : 'epic' ) . ".show --ref $ref"
-      : ( $ref ne '' ? "d2 tira.ticket.show --ref $ref" : 'd2 tira.policy.list' );
+    my $fix = _violation_fix($violation);
     return join( ' | ', @parts ) . " | fix: $fix";
 }
 

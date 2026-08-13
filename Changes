@@ -1,5 +1,49 @@
 Revision history for Tira
 
+1.33  2026-08-13
+    - A board can be backed up with a command that ships. board-unbacked
+      had been reporting "the board has never been backed up" while Tira
+      shipped nothing that could back one up: the backups it read were
+      written by a development tool inside Tira's own repository, run by
+      its push gate. On that repository the rule worked; on every other
+      board it fired, the escalation line pointed at tira.policy.list,
+      which backs nothing up, and no command would clear it. A rule that
+      can only be obeyed by switching it off teaches whoever reads the
+      bridge that some lines are not worth acting on, which is the
+      failure police exists to prevent. He read it off his own bridge and
+      asked what backup.
+    - tira.backup makes a commit in a git repository Tira manages inside
+      the board's own storage, beside the project file. It is created the
+      first time you back up, so nobody has to run git init to obey a
+      rule, and a board that never backs up has none - reading never
+      makes one. No remote: a board that lives on a filesystem should not
+      need somebody else's machine to be backed up. Attachments are in
+      it, because a backup is everything or it is not a backup, and the
+      lock file is the one thing left out, because a restored lock is
+      somebody else's half-finished write. Backing up an unchanged board
+      is not an error - it says nothing had changed and names the backup
+      that still stands, since a command that failed on a quiet afternoon
+      would teach whoever reads the bridge to ignore it.
+    - The commit carries an identity given on the command rather than
+      written into the repository, and signing is switched off for it, so
+      backing up neither depends on the runner's git being configured nor
+      changes what it would do, and a signing prompt cannot hang a
+      command police asks for on a schedule. Git is run from the command
+      layer: the engine still invokes no shell or external process.
+    - board-unbacked reads that repository, so backing a board up is what
+      makes it go quiet. It read a directory under the home folder that
+      only tools/board-backup ever wrote to, which made the rule
+      satisfiable on exactly one board on earth and permanently
+      unsatisfiable everywhere else. The old place is still read, so a
+      board backed up by the old tool is not suddenly told it never was.
+    - And the line names the command that clears it. Every rule about the
+      board itself ended in "fix: d2 tira.policy.list", so the loudest
+      tone board-unbacked can reach still told whoever read it to go and
+      list their policies, which backs nothing up. The fix line was built
+      by the same expression written out twice - once for the bridge and
+      once for the owner's terminal - which is the shape that has now
+      drifted three times in this codebase. It is one place now.
+
 1.32  2026-08-13
     - Only the process that launched a board may replace it. The version
       check runs in the closure that serves /data, which under a

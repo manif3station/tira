@@ -1,5 +1,53 @@
 Revision history for Tira
 
+1.31  2026-08-13
+    - The bridge says a problem once, then leaves time to fix it before
+      saying it again. Police passes every thirty seconds and every pass
+      wrote every violation that was still true, so a problem nobody had
+      got to yet said the same thing twice a minute indefinitely - the
+      owner's own bridge carried one violation eighty-three times, still
+      climbing, thirty seconds apart. A channel that repeats itself is one
+      the reader learns to skim, and this is the channel that has to be
+      read. A violation is now written at most once per quiet period, on a
+      ladder of 5m, 15m, 30m and then an hour, so a problem that persists
+      gets quieter rather than buzzing at one rate. What police reports as
+      true is unchanged: a violation waiting out its quiet is still in the
+      pass, marked quiet, because one that vanished while waiting would
+      read as fixed. Nothing delays good news - a problem that has been
+      fixed goes silent on the very next pass - and each violation has its
+      own clock, so a new one is said at once whatever else is waiting.
+    - "seen N times" counts the times it was said rather than the passes
+      it survived, which is what the line has always claimed. "seen 5
+      times, needs your attention" used to mean two and a half minutes of
+      a thirty-second loop; it now means five tellings, and escalation to
+      the owner's terminal follows the same count.
+    - An agent that asks police for quiet spends no tellings while it
+      lasts. It is not being told, so it is not being counted - otherwise
+      it would come back from five minutes of silence owing the longest
+      gap on the ladder for a problem nobody had mentioned to it.
+    - A board restarts into new code, not into itself. The dashboard
+      restarts when a new version is installed, and it decided that by
+      comparing the label in .env against the version compiled into the
+      module it had loaded - two things a restart cannot reconcile,
+      because exec loads the same module again and disagrees again. When
+      a label moved without its code, every check fired and every restart
+      achieved nothing, for ever. It now asks whether restarting would
+      run different code, by reading the version out of the module on
+      disk, which is the file exec would load. Unknown on either side
+      restarts nothing, as an unreadable .env already did.
+    - The push gate runs the suite under a timeout. A test that leaked a
+      web server left prove waiting on a pipe nothing would close - no
+      output, no CPU and no end, which looks exactly like a slow run. A
+      gate that can block for ever is one that gets skipped, so it fails
+      instead.
+    - A custom message on one of the six rules that read the machine has
+      its parameters filled in. Two paths built a violation and only one
+      substituted, so "the board has not been backed up in {age}" reached
+      the bridge with the brace still in it - visible on the owner's own
+      screen. Both paths now go through one expression, so they cannot
+      drift apart again. Boards that never set a message saw nothing
+      wrong, because the default wordings carry no parameters.
+
 1.30  2026-08-13
     - The page saved to disk no longer offers a Columns button. It
       carried the button and the whole dialog with neither the script

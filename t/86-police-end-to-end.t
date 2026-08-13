@@ -192,8 +192,11 @@ ok( !$still{'card-stalled'}, 'and a card that was moved on stops being reported'
 
 my $terminal = File::Spec->catdir( $tmp, 'terminal' );
 my @seen;
+# An hour apart, because being ignored is now measured in time rather than in
+# passes: the same problem is left alone for a growing quiet period before it is
+# said again, so five rounds a minute apart are one telling, not five.
 for my $round ( 1 .. 5 ) {
-    at( sprintf '2026-08-11T12:%02d:00Z', $round );
+    at( sprintf '2026-08-11T%02d:00:00Z', 11 + $round );
     my $result = $tira->police_pass( project => $root, store => $terminal, world => $world );
     push @seen, @{ $result->{terminal} };
 }

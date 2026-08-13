@@ -236,16 +236,43 @@ SKIP: {
     my $store = File::Spec->catdir( $tmp, 'escalating-loop' );
     my $bare = $tira->create_record( project => $root, type => 'ticket', title => 'Ignored' );
     $tira->record_move( project => $root, ref => $bare->{ref}, column => 'implement' );
+    # The clock moves between rounds, because escalation now follows tellings
+    # rather than passes: the same problem is left alone for a growing quiet
+    # period before it is said again, so six rounds at one instant say one
+    # thing. Sleeping is what the loop does with the time; here it is where the
+    # time passes.
+    my @clock = map { sprintf '2026-08-11T%02d:00:00Z', $_ } 10 .. 20;
     my $err = '';
     open my $se, '>', \$err or die $!;
     {
         local *STDERR = $se;
         Tira::CLI::_police_follow( $tira, { project => $root }, $store,
-            { rounds => 6, interval => 0 } );
+            { rounds => 8, interval => 0, sleeper => sub { $now = shift @clock if @clock } } );
     }
     like( $err, qr/needs your attention/,
         'a violation ignored long enough reaches the terminal from inside the loop' );
     like( $err, qr/hand to (?:the core agent|\w[\w.-]*): d2 tira\./, 'naming who to hand it back to, and the command' );
+}
+
+# And from a single pass too, which is the other way he runs it. The loop and
+# --once print the terminal message through different lines, and only one of
+# them was ever exercised - so a change to the single-pass path would have gone
+# out with the suite green and his terminal silent.
+{
+    my $store = File::Spec->catdir( $tmp, 'escalating-once' );
+    my $bare = $tira->create_record( project => $root, type => 'ticket', title => 'Ignored once' );
+    $tira->record_move( project => $root, ref => $bare->{ref}, column => 'implement' );
+
+    # Five tellings, spread past each rung of the quiet ladder. Five passes at
+    # one instant would be one telling, and nothing would ever be escalated.
+    my $said = '';
+    for my $hour ( 10 .. 16 ) {
+        $now = sprintf '2026-08-12T%02d:00:00Z', $hour;
+        my ( undef, undef, $err ) = run( 'police', '--once', '--store', $store );
+        $said .= $err;
+    }
+    like( $said, qr/needs your attention/,
+        'a single pass prints escalation to the owner\'s terminal as the loop does' );
 }
 
 # --- saying which column is which ------------------------------------------

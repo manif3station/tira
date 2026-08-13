@@ -47,12 +47,15 @@ is( $first->[0]{first_seen}, '2026-08-11T09:00:00Z', 'and remembers when it star
 
 # One persistent problem must read as one problem getting louder. Fifty
 # numbers for one condition is noise, and noise is what gets ignored.
-at('2026-08-11T09:01:00Z');
+# Past the first rung of the quiet ladder, because a repeat is now something
+# said rather than a pass survived - a minute later the same problem is
+# deliberately not said again, which is what TKT-099 was raised for.
+at('2026-08-11T09:10:00Z');
 my $again = seen( condition() );
 is( $again->[0]{id}, $first->[0]{id}, 'the same condition keeps its number' );
 is( $again->[0]{seen}, 2, 'and counts the repeat' );
 is( $again->[0]{first_seen}, '2026-08-11T09:00:00Z', 'while still remembering when it started' );
-is( $again->[0]{last_seen}, '2026-08-11T09:01:00Z', 'and when it was last true' );
+is( $again->[0]{last_seen}, '2026-08-11T09:10:00Z', 'and when it was last true' );
 
 my $other = seen( condition(), condition( ref => 'TKT-002' ) );
 my %ids = map { $_->{ref} => $_->{id} } @{$other};
@@ -66,7 +69,7 @@ is( scalar @{$other_rule}, 2, 'and so is a different rule on the same card' );
 my $fresh_store = File::Spec->catdir( $tmp, 'tone' );
 my @tones;
 for my $pass ( 1 .. 6 ) {
-    at( sprintf '2026-08-11T10:%02d:00Z', $pass );
+    at( sprintf '2026-08-%02dT10:00:00Z', 10 + $pass );
     my $view = $tira->violation_record( store => $fresh_store, violations => [ condition() ] );
     push @tones, $view->[0]{tone};
 }
@@ -85,8 +88,11 @@ sub _rank {
 
 my $escalating = File::Spec->catdir( $tmp, 'escalate' );
 my @escalated;
+# A day between passes, so each one is a telling. Five tellings reach the
+# owner, not five passes of a thirty-second loop - which is the whole of
+# TKT-099 in one line.
 for my $pass ( 1 .. 6 ) {
-    at( sprintf '2026-08-11T11:%02d:00Z', $pass );
+    at( sprintf '2026-08-%02dT11:00:00Z', 20 + $pass );
     my $view = $tira->violation_record( store => $escalating, violations => [ condition() ] );
     push @escalated, $view->[0]{escalate} ? 1 : 0;
 }
@@ -97,7 +103,10 @@ my $view = $tira->violation_record( store => $escalating, violations => [ condit
 my $notice = $view->[0];
 like( $notice->{terminal}, qr/\Q$notice->{id}\E/, 'the terminal notice carries the issue number' );
 like( $notice->{terminal}, qr/TKT-001/, 'and the card' );
-like( $notice->{terminal}, qr/2026-08-11/, 'and when' );
+# The shape rather than one particular day: the check is that the notice says
+# when, and pinning the date meant the assertion broke the moment the clock in
+# this file moved for an unrelated reason.
+like( $notice->{terminal}, qr/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/, 'and when' );
 like( $notice->{terminal}, qr/still in implement/, 'and what happened' );
 like( $notice->{terminal}, qr/d2 tira\./,
     'and a command the owner can hand on, rather than a description of one' );

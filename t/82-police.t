@@ -208,8 +208,11 @@ is_deeply( fingerprint(), $before, 'a full police pass changes not one byte of t
 
 my $escalating = File::Spec->catdir( $tmp, 'escalate' );
 my @terminal;
+# An hour apart. Being ignored is measured in time now rather than in passes:
+# the same problem is left alone for a growing quiet period before it is said
+# again, so six rounds a minute apart are one telling.
 for my $round ( 1 .. 6 ) {
-    at( sprintf '2026-08-11T10:%02d:00Z', $round );
+    at( sprintf '2026-08-11T%02d:00:00Z', 9 + $round );
     my $result = $tira->police_pass(
         project => $root, store => $escalating, world => {%world} );
     push @terminal, @{ $result->{terminal} };

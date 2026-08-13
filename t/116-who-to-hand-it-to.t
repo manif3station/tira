@@ -25,7 +25,8 @@ use lib 'lib';
 use Tira;
 
 my $tmp = tempdir( CLEANUP => 1 );
-my $tira = Tira->new( clock => sub {'2026-08-13T11:00:00Z'} );
+my $now = '2026-08-13T11:00:00Z';
+my $tira = Tira->new( clock => sub {$now} );
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
@@ -51,8 +52,13 @@ sub terminal {
     # Escalation happens on the pass where the count reaches the threshold and
     # never again - keeping only the last pass would find nothing, which is a
     # test that fails for a reason that has nothing to do with what it checks.
+    # A day between passes. Escalation follows tellings rather than passes now,
+    # and the same problem is deliberately left alone for a growing quiet
+    # period before it is said again - so eight passes at one instant are one
+    # telling, and nothing would ever reach his terminal.
     my @said;
-    for ( 1 .. 8 ) {
+    for my $day ( 1 .. 8 ) {
+        $now = sprintf '2026-08-%02dT11:00:00Z', 12 + $day;
         my $pass = $tira->police_pass( project => $root, store => $store, world => {
             branches => [], worktrees => [], processes => [], containers => [], commits => [] } );
         push @said, @{ $pass->{terminal} };

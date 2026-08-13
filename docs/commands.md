@@ -551,10 +551,17 @@ With no policies set it exits and prints what to paste to the agent, rather
 than running and guarding nothing.
 
 Every violation carries a `VIO-nnnn`. The same problem keeps its number, counts
-its repeats and climbs four tones - note, warning, urgent, critical. Past five
-repeats it also appears in this terminal with a message the owner can paste
-straight to the agent. Fixing the cause silences it on the next pass, with
-nothing to acknowledge.
+the times it has been said and climbs four tones - note, warning, urgent,
+critical. Past five tellings it also appears in this terminal with a message the
+owner can paste straight to the agent. Fixing the cause silences it on the next
+pass, with nothing to acknowledge.
+
+A problem is written to the bridge once when it is found and then not again
+until there has been time to act on it - five minutes, then fifteen, then
+thirty, then an hour - so one that persists gets quieter rather than repeating
+every thirty seconds for ever. A violation waiting out its quiet is still
+reported by the pass, a fixed one goes silent immediately, and a new one is
+said at once whatever else is waiting.
 
 ### `tira.worklog.show`
 

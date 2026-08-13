@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.30';
+our $VERSION = '1.31';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4780,6 +4780,33 @@ sub _policy_before_column {
 my @VIOLATION_TONES = qw(note warning urgent critical);
 our $VIOLATION_ESCALATES_AT = 5;
 
+# How long the same problem is left alone before it is said again, and it grows.
+#
+# The owner raised this: "the same issue been seen many times within few
+# seconds... becomes spammy and the core agent might ignore the repeated ones
+# and also wasting the LLM token or credit too." Police runs every thirty
+# seconds and every pass wrote every violation still true, so a problem nobody
+# had got to yet said the same thing twice a minute for ever.
+#
+# It grows because a problem that persists should get quieter rather than keep
+# buzzing at one rate - the first repeat is a nudge, the fifth is a different
+# kind of message and deserves a different spacing. The last entry is the
+# spacing from then on.
+our @VIOLATION_QUIET_LADDER = ( '5m', '15m', '30m', '60m' );
+
+# When a problem may be said again: never before the ladder says so, and always
+# at once the first time, because nobody has been told yet.
+sub _violation_may_speak {
+    my ( $self, $entry, $now ) = @_;
+    return 1 if !defined $entry->{said_at};
+    my $step = $entry->{seen} // 1;
+    $step = @VIOLATION_QUIET_LADDER if $step > @VIOLATION_QUIET_LADDER;
+    my $quiet = _duration_seconds( $VIOLATION_QUIET_LADDER[ $step - 1 ] ) // 0;
+    my $then = eval { _epoch_of_datetime( $entry->{said_at}, 'Said at' ) } // return 1;
+    my $clock = eval { _epoch_of_datetime( $now, 'Clock' ) } // return 1;
+    return $clock - $then >= $quiet ? 1 : 0;
+}
+
 sub _violation_key {
     my ($violation) = @_;
     return join '|', map { $violation->{$_} // '' } qw(rule policy ref);
@@ -4867,14 +4894,34 @@ sub violation_record {
             $ledger->{open}{$key} = $entry;
         }
 
-        $entry->{seen}++;
+        # Still true, so still last seen now - whether or not it is said again.
         $entry->{last_seen} = $now;
+
+        # And said only when there has been time to fix it. seen counts the
+        # times it has been SAID rather than the passes it has survived, which
+        # is what the line has always claimed: "seen 5 times" now means five
+        # tellings rather than two and a half minutes of a thirty-second loop.
+        #
+        # An agent that asked for quiet is not told at all, so its violations
+        # must not spend a telling either. Counting them would leave an agent
+        # coming back from five minutes of silence owing the longest gap on the
+        # ladder for a problem nobody ever mentioned to it - and would let a
+        # short suspension carry a violation all the way to his terminal
+        # without the agent having had one chance to fix it.
+        my $for = $violation->{assignee} // '';
+        my $muted = $for ne ''
+          && $self->police_suspended( store => $store, agent => $for );
+        my $speak = !$muted && $self->_violation_may_speak( $entry, $now );
+        if ($speak) {
+            $entry->{seen}++;
+            $entry->{said_at} = $now;
+        }
         $entry->{tone} = _violation_tone( $entry->{seen} );
 
         # Said once, at the moment it becomes true. Repeating it on every pass
         # afterwards would turn the escalation itself into the noise it exists
         # to rise above.
-        my $escalate = $entry->{seen} == $VIOLATION_ESCALATES_AT && !$entry->{escalated};
+        my $escalate = $speak && $entry->{seen} == $VIOLATION_ESCALATES_AT && !$entry->{escalated};
         $entry->{escalated} = 1 if $escalate;
 
         push @view, {
@@ -4886,6 +4933,12 @@ sub violation_record {
             last_seen => $entry->{last_seen},
             ( $entry->{returned} ? ( returned => 1 ) : () ),
             ( $escalate ? ( escalate => 1 ) : () ),
+
+            # Reported as true either way - what police knows is wrong must not
+            # change - but only written to the bridge when it may speak. A
+            # violation that vanished from the pass while it was quiet would
+            # read as fixed to anybody looking at the pass itself.
+            ( $speak ? () : ( quiet => 1 ) ),
             terminal => _violation_terminal_notice( $entry, $violation ),
         };
     }
@@ -4922,7 +4975,14 @@ sub _police_environment_violations {
         my ( $policy, $ref, $detail ) = @_;
         push @violations, {
             rule => $policy->{rule}, policy => $policy->{id}, ref => $ref // '',
-            detail => $detail, message => $policy->{message}, action => $policy->{action},
+            detail => $detail, action => $policy->{action},
+
+            # Through the same substitution the board rules use, rather than
+            # passing the wording along untouched. These six shipped their
+            # placeholders raw, so a policy that had been written to say how
+            # long it had been said "backed up in {age}" on the bridge - which
+            # he read, in the lines he pasted as evidence of something else.
+            message => _policy_message( $policy, undef, $detail, $ref // '' ),
         };
     };
 
@@ -5238,6 +5298,11 @@ sub bridge_write {
         # log-only is being tuned and stays out of the way; one set to
         # print-reminder belongs in the owner's terminal instead.
         next if ( $violation->{action} // '' ) ne 'bridge-reminder';
+
+        # Not again yet. The problem is still true and police still reports it;
+        # this is only about how often the bridge repeats itself, which is the
+        # difference between a channel that is read and one that is skimmed.
+        next if $violation->{quiet};
 
         # An agent that asked for quiet is not written to while it lasts. The
         # others are, because their work is not its business - and the owner

@@ -391,12 +391,36 @@ sub _restart_into {
     exec( $perl, $script, @argv );
 }
 
+# The version in the module a restart would load. installed_version() reads a
+# label out of .env, and a label is not what exec changes - the file is. Asking
+# the file is the only way to know whether restarting would run different code
+# or the same code again.
+sub _version_on_disk {
+    my ($path) = @_;
+    $path //= $INC{'Tira.pm'};
+    return undef if !defined $path;
+    $path =~ /\A([^\x00-\x1f\x7f]+)\z/ or return undef;
+    open my $fh, '<:raw', $1 or return undef;
+    my $body = do { local $/; <$fh> };
+    close $fh;
+    return $body =~ /^our \$VERSION = '([^']+)';/m ? $1 : undef;
+}
+
 sub _restart_if_updated {
     my ( $restarter, $command, $type, $project ) = @_;
     my $installed = Tira::installed_version();
 
     # Unreadable means unknown, and restarting on unknown would loop forever.
-    return 0 if !defined $installed || $installed eq $Tira::VERSION;
+    return 0 if !defined $installed;
+
+    # And so would restarting into the code already running. This used to
+    # compare .env against the running version - two things a restart cannot
+    # reconcile, because exec loads the same module again and disagrees with
+    # .env again. His four boards did that every sixty seconds for twenty
+    # hours, and the test suite did it once and hung for ever. The question is
+    # not whether the label moved but whether the code did.
+    my $on_disk = _version_on_disk();
+    return 0 if !defined $on_disk || $on_disk eq $Tira::VERSION;
 
     # A restart that cannot work is worse than a stale board, because it turns
     # "running slightly old code" into "not running". So the target is checked

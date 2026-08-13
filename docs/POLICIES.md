@@ -348,6 +348,10 @@ A parameter Tira does not know is left visible rather than blanked, so a typo
 shows up as `{noSuchThing}` in the message instead of quietly deleting half of
 it.
 
+The same substitution applies to the six rules that read the machine rather than
+the board, so `--message "the board has not been backed up in {age}"` on
+`board-unbacked` says how long it has been, on the bridge as everywhere else.
+
 ## Ages
 
 `--age` takes `30s`, `10m`, `2h` or `7d`. It is that rule's grace: a card
@@ -357,12 +361,44 @@ one number for everything would make the whole channel unbearable.
 ## What happens when a rule fires
 
 Every violation gets a number, `VIO-0001`. The same problem keeps its number,
-counts its repeats, and rises through four tones: note, warning, urgent,
-critical. Past five repeats it also reaches the owner's terminal with a message
-he can paste straight to the agent.
+counts the times it has been said, and rises through four tones: note, warning,
+urgent, critical. Past five tellings it also reaches the owner's terminal with a
+message he can paste straight to the agent.
 
 Fixing the cause silences it on the next pass. There is nothing to acknowledge
 and nothing to clear by hand.
+
+## Said once, then time to fix it
+
+Police passes every thirty seconds, and most problems take longer than thirty
+seconds to fix. So a problem is written to the bridge once when it is found,
+and then not again until there has been time to act on it:
+
+| Telling | Then quiet for |
+| --- | --- |
+| the first | 5 minutes |
+| the second | 15 minutes |
+| the third | 30 minutes |
+| the fourth and after | an hour |
+
+A problem that persists gets quieter, rather than repeating at one rate for
+ever. `seen 5 times` therefore means five tellings spread over that ladder, not
+five passes of a thirty-second loop — which is what the line always claimed.
+
+Three things the quiet period does not do:
+
+- **It does not change what police knows.** A violation waiting out its quiet
+  is still in the pass, marked `quiet`, because one that disappeared while
+  waiting would read as fixed.
+- **It does not delay good news.** A problem that has been fixed goes silent on
+  the very next pass, with no waiting at all.
+- **It does not hold back anything new.** Each violation has its own clock, so a
+  new problem is said the moment it is found whatever else is waiting.
+
+An agent that has asked for quiet with `tira.police.suspend` spends no tellings
+while it lasts. It is not being told, so it is not being counted — otherwise it
+would come back from five minutes of silence owing the longest gap on the ladder
+for a problem nobody had mentioned to it.
 
 If police cannot work out which policy applies — a rule naming a column that
 does not exist, for instance — it says so on the bridge rather than guessing.

@@ -39,6 +39,12 @@ sub serve {
         local *STDERR = $stderr;
         no warnings 'redefine';
         local *Tira::installed_version = sub { $args{installed} } if exists $args{installed};
+
+        # Installing a new Tira replaces the module as well as the label in
+        # .env, and it is the module that decides now - a label that moves on
+        # its own is a restart into the same code, which is what looped his
+        # boards for twenty hours. See t/123.
+        local *Tira::CLI::_version_on_disk = sub { $args{installed} } if exists $args{installed};
         $status = Tira::CLI->run(
             command => 'dashboard', type => 'ticket',
             argv => [ '--project', $root, '-o', 'browser' ],
@@ -101,6 +107,7 @@ sub serve {
         local $ENV{TIRA_HOME} = $root;
         no warnings 'redefine';
         local *Tira::installed_version = sub { '9.99' };
+        local *Tira::CLI::_version_on_disk = sub { '9.99' };
         my $captured;
         Tira::CLI->run(
             command => 'dashboard', type => 'ticket',

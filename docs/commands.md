@@ -743,7 +743,7 @@ expires.
 Every suspension appears in the owner's terminal as it happens, and the reason
 is written into the enforcement log **by police**, on the agent's behalf.
 
-### `tira.police.log`
+### `tira.policy.bridge.logs`
 
 Read the enforcement log: what police has had to say, and every suspension that
 was asked for.
@@ -756,6 +756,31 @@ was asked for.
 deliberate.** A log that exists to hold somebody to account cannot be one they
 can write - which is why even the agent's own words about its own suspension
 reach the record through police rather than around it.
+
+This was called `tira.police.log` until 1.41 and that name still answers, so
+nothing breaks on upgrade. It was renamed because the old one said the wrong
+thing: see **Whose command is it** below.
+
+### Whose command is it
+
+Three commands, and the names now say which is which.
+
+| Command | Whose | What it is |
+| --- | --- | --- |
+| `tira.police` | **the owner's** | The watching loop, run in a terminal they leave open. An agent never starts or restarts it. |
+| `tira.policy.bridge` | the agent's | The channel it listens on, kept running while it works. |
+| `tira.policy.bridge.logs` | the agent's | A read of what police wrote. It changes nothing. |
+
+`tira.police.suspend` is the agent's too: it is the agent asking police for
+quiet, and it keeps its name because it is asking *police* for something —
+unlike the read, which is not asking police for anything at all.
+
+This is written down because leaving it unwritten was expensive. An agent told
+"police is mine" gave up the log as well, which is the honest reading of a
+shared prefix, and stopped seeing every suspension and escalation ever recorded.
+It took three corrections to get the boundary right, and it was wrong in both
+directions on the way. **Giving up the read fails silently**: a read nobody
+makes and a log with nothing in it look exactly the same.
 
 ### `tira.policy.bridge`
 

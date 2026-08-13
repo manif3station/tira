@@ -1782,10 +1782,19 @@ sub _invoke {
     return $tira->gates_install(%args) if $command eq 'gates.install';
     return $tira->work_log(%args) if $command eq 'worklog.show';
 
-    if ( $command eq 'police.suspend' || $command eq 'police.log' ) {
+    # policy.bridge.logs is the name; police.log is what it was called until
+    # 1.41 and still answers, because renaming a shipped command breaks every
+    # board that used it. tira.police runs the owner's watching loop and this
+    # reads what that loop wrote - they shared a prefix and nothing else, which
+    # cost another project's agent three corrections and, in between, every
+    # suspension and escalation it should have been reading.
+    if (   $command eq 'police.suspend'
+        || $command eq 'police.log'
+        || $command eq 'policy.bridge.logs' )
+    {
         my $store = $option->{store} // _police_store( $args{project} );
         return $tira->enforcement_log( %args, store => $store )
-          if $command eq 'police.log';
+          if $command eq 'police.log' || $command eq 'policy.bridge.logs';
         my $quiet = $tira->police_suspend(
             %args, store => $store,
             seconds => $option->{seconds}, reason => $option->{reason} );

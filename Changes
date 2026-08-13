@@ -1,5 +1,31 @@
 Revision history for Tira
 
+1.41  2026-08-13
+    - The read of the enforcement log is named for what it reads.
+      tira.police runs the owner's watching loop; tira.police.log read
+      what that loop had written and changed nothing. They shared a
+      prefix and nothing else, and he sent the transcript of another
+      project's agent working that out over three corrections - wrong in
+      both directions on the way, by its own summary. An agent told
+      "police is mine" gives up the read too, which is the honest reading
+      of the name, and stops seeing every suspension and escalation ever
+      recorded. It fails silently: a read nobody makes and a log with
+      nothing in it look exactly the same.
+    - It is tira.policy.bridge.logs now, beside tira.policy.bridge, which
+      that agent had already been told was its own. tira.police is left
+      meaning one thing. The old name still answers, so no board breaks
+      on upgrade, and the documents still mention it because somebody
+      reading an existing script will meet it - it is simply not the name
+      the reference teaches.
+    - police.suspend is decided and kept rather than overlooked. It has
+      the same prefix and not the same fault: it is the agent asking
+      police for something, so being named after police is accurate.
+      Renaming it would have been change for symmetry rather than for
+      meaning.
+    - And the reference now says whose each command is, in a table. The
+      name made the confusion expensive; nothing stating the boundary is
+      what made it possible.
+
 1.40  2026-08-13
     - A card being worked says who is working on it. He sent a screenshot
       of a card reading "implement" with the assignee showing a dash:

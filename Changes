@@ -1,5 +1,28 @@
 Revision history for Tira
 
+1.40  2026-08-13
+    - A card being worked says who is working on it. He sent a screenshot
+      of a card reading "implement" with the assignee showing a dash:
+      "implementing but no assignee? a ghost working on it?" It was true
+      of every card moved into a gate that day - the board said work was
+      in progress and could not say by whom, for hours, with
+      twenty-three rules watching and none of them asking.
+    - card-unassigned reports a card that is neither waiting nor finished
+      and has nobody on it. It takes no column, and one is refused rather
+      than ignored: the board already says which columns are work,
+      because every board is created with its backlog and discard columns
+      marked protected. So a column added tomorrow is covered the day it
+      exists.
+    - That is why it is a rule rather than configuration, which was
+      checked before a line was written. card-metrics --enter implement
+      --require assignee already reported the same thing for one named
+      column - and stops covering the board the moment somebody adds
+      another, silently, which is the failure this rule exists to avoid.
+    - A card waiting in the backlog is not reported, because that is what
+      a backlog is; neither is one set aside, nor one that is done. A
+      finished card with nobody on it is history, and chasing it would
+      mean chasing every card the board has ever finished.
+
 1.39  2026-08-13
     - An agent working on something else can report a fault in Tira.
       Every project on this machine uses it and none of them could:

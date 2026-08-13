@@ -301,6 +301,7 @@ missing, at the moment you declare the policy rather than later.
 | `orphan-card` | — | a card with no parent |
 | `parent-ahead-of-children` | — | a parent saying it is finished above a child that is not |
 | `question-unanswered` | `--age` | a question waiting on the owner |
+| `card-unassigned` | — | work in progress with nobody on it. **No column**: the board already says which columns are work. |
 | `answer-waiting` | — | an answer the agent has not read yet. **No age**: the agent could not have acted sooner, so a grace would only delay it. |
 | `answer-unjudged` | `--age` | an answer nobody marked |
 | `answer-ok-not-folded` | `--age` | settled in name only: marked ok, nothing written down |
@@ -706,6 +707,30 @@ d2 tira.policy.add --rule question-unanswered --age 10m --action print-reminder
 ```
 d2 tira.policy.add --rule question-unanswered --age 2h --action bridge-reminder
 ```
+
+### A card being worked with nobody on it
+
+A card in a working column with no assignee says work is happening and cannot
+say by whom.
+
+```
+d2 tira.policy.add --rule card-unassigned --action bridge-reminder
+```
+
+It takes no column, and one is refused rather than ignored. The board already
+says which columns are work: every board is created with its backlog and discard
+columns marked protected, and everything else is somewhere work happens. So a
+column added tomorrow is covered the day it exists.
+
+That is the whole reason it is a rule. `card-metrics --enter implement --require
+assignee` reports the same thing for one named column, and stops covering the
+board the moment somebody adds another - silently, which is the failure this
+rule exists to avoid.
+
+A card waiting in the backlog is not reported, because that is what a backlog
+is. Neither is one that was set aside, nor one that is done: a finished card
+with nobody on it is history, and chasing it would mean chasing every card the
+board has ever finished.
 
 ### An answer nobody has been told about
 

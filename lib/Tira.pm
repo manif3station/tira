@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.39';
+our $VERSION = '1.40';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4197,6 +4197,13 @@ my %POLICY_RULES = (
     # an answer arrived, and the agent could not have acted sooner because
     # it did not know - so a grace here would only be a delay.
     'answer-waiting'            => { needs => [], forbids => ['age'] },
+
+    # No column, because the board already says which ones are work. Every
+    # board is created with backlog and discard marked protected, and a
+    # policy naming one column would stop covering the board the moment
+    # somebody added another - silently, which is the shape of every check
+    # this project has found not firing.
+    'card-unassigned'           => { needs => [], forbids => [ 'column', 'enter' ] },
     'answer-ok-not-folded'      => { needs => ['age'] },
     'answer-not-ok-no-followup' => { needs => ['age'] },
     'wip-limit'                 => { needs => ['column'] },
@@ -4692,6 +4699,24 @@ sub policy_evaluate {
                     $report->( $policy, $record,
                         "$question->{id} has been waiting since $question->{asked_at}" );
                 }
+            }
+        }
+        elsif ( $rule eq 'card-unassigned' ) {
+
+            # Neither waiting nor finished, and nobody holding it. The columns
+            # Tira owns are marked protected on every board, so they are asked
+            # for rather than named here; done is reasoned about instead,
+            # because a finished card with nobody on it is history, and chasing
+            # it would mean chasing every card the board has ever finished.
+            my %resting = map { $_->{name} => 1 }
+              grep { $_->{protected} } @{ $self->column_list( project => $root, type => 'ticket' ) };
+            for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
+                my $column = $record->{column} // '';
+                next if $column eq '' || $resting{$column} || $column eq 'done';
+                next if defined $record->{assignee} && $record->{assignee} ne '';
+                $report->( $policy, $record,
+                    "in $column with nobody on it - work in progress needs an assignee" );
             }
         }
         elsif ( $rule eq 'answer-waiting' ) {

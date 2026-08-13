@@ -1,6 +1,62 @@
 Revision history for Tira
 
-1.34  2026-08-13
+1.37  2026-08-13
+    - A backup can leave the machine. The repository a backup lives in
+      sits inside the board's own storage, so it survives a bad edit and
+      not a lost disk - whatever destroys the board destroys the backup
+      with it. tira.backup.export writes a git bundle: one file holding
+      the whole history and every attachment, to be kept somewhere the
+      board is not. tira.backup.import lays it out again in a folder that
+      was not a board, and what arrives is a working board - it issues
+      its own references and can be backed up again where it landed.
+    - Import takes its folder as given rather than searching upwards for
+      one, because importing is how a board comes into existence
+      somewhere and searching would find somebody else's board and write
+      into it. Importing over a board that already exists replaces it, so
+      without --yes it says what is there and does nothing.
+    - A bundle claiming a newer schema than this Tira reads is refused,
+      and nothing is written when it is. Tira has no migrations and needs
+      none in the other direction: an older board reads correctly because
+      defaults are applied on read. A newer one holds shapes these
+      readers have never seen, and refusing is honest where migrating is
+      impossible.
+    - Verifying a bundle needs a repository, which the destination is not
+      yet, so it is checked in a scratch repository of its own and the
+      destination is untouched until the bundle is known to be good.
+    - The version gate checks the changelog too. It compared .env against
+      the module and the metadata test and never against the top entry in
+      this file, so two releases shipped naming themselves one version
+      behind and nothing said a word. A changelog that names the wrong
+      version is worse than none: it is the file somebody reads to find
+      out what they are running.
+
+1.36  2026-08-13
+    - A board can be put back. tira.backup.restore returns it to its last
+      backup: the cards, the attachments and the reference counters as
+      they were, with anything done since removed rather than merged. Two
+      things that only showed up by running it. git reset --hard alone is
+      not a restore - a card raised since the backup is untracked, so
+      reset leaves it where it is and the command reports success with
+      the card still there. And the board has to still be a board
+      afterwards, which is the check nobody thinks to make: it can be
+      added to and backed up again, and the next card takes the reference
+      the restore gave back.
+    - It is the only command in Tira that can lose work, so without --yes
+      it does nothing but print what would be discarded, by name.
+      Counted would tell nobody whether it matters. The warning is
+      printed rather than thrown, because a structured error carries one
+      string and a multi-line warning inside one reaches the terminal as
+      literal backslash-n - which is how the one command that can destroy
+      a board ends up with a warning nobody reads.
+    - Restoring a board that has never been backed up is refused and says
+      so, rather than reporting success about nothing. This exists
+      because a backup nobody has restored from is a directory.
+
+1.35  2026-08-13
+    - (This entry was labelled 1.34 until 1.37. The changelog heading and
+      .env had drifted apart because nothing checked them against each
+      other, so a release named itself one version behind for two
+      releases. The gate now does; see the note under 1.37.)
     - An answer reaches the agent that was waiting for it. He raised it:
       a question gets answered, police is running, and nothing appears on
       the bridge to get the agent's attention. He was right, and the

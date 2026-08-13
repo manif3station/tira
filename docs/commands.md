@@ -650,6 +650,31 @@ rather than reported as restored.
 The board is still a working board afterwards. It can be added to, and backed
 up again.
 
+### `tira.backup.export` and `tira.backup.import`
+
+Get a backup off the machine, and bring one back.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--file FILE` | yes | The bundle to write, or to read. |
+| `--project DIR` | on import | Where the board should go. Import is how a board arrives somewhere, so the folder is taken as given rather than searched for. |
+| `--yes` | to replace | Agree to replace a board that is already there. |
+| `--claiming-schema N` | no | What schema the bundle says it holds. A newer one is refused. |
+| `-o FORMAT` | no | `toon` (default), `json`. |
+
+The repository `tira.backup` keeps lives inside the board's own storage, so it
+survives a bad edit and **not a lost disk**. A bundle is one file holding the
+whole history and every attachment — keep it somewhere the board is not.
+
+Import lays a board out in a folder that was not one. Importing over a board
+that already exists replaces it, so without `--yes` it says what is there and
+does nothing.
+
+**A bundle from a newer Tira is refused rather than half-restored.** Tira has no
+migrations: an older board reads correctly because defaults are applied on read,
+and a newer one holds shapes these readers have never seen. Nothing is written
+when it is refused.
+
 ### `tira.gates.install`
 
 Install Tira's gates into this project's repository.

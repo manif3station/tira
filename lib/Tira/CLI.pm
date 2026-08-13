@@ -120,6 +120,7 @@ sub run {
         # because the one command that can destroy a board should not be
         # reachable by a slip of the hand.
         'yes' => \$option{yes},
+        'claiming-schema=i' => \$option{claiming_schema},
         'seconds=i' => \$option{seconds},
         'on-column=s' => \$option{on_column},
         'role=s@' => \$option{roles},
@@ -1785,6 +1786,8 @@ sub _invoke {
 
     return _backup( $tira, \%args ) if $command eq 'backup';
     return _backup_restore( $tira, \%args, $option ) if $command eq 'backup.restore';
+    return _backup_export( $tira, \%args, $option ) if $command eq 'backup.export';
+    return _backup_import( $tira, \%args, $option ) if $command eq 'backup.import';
 
     return $tira->policy_decline(%args) if $command eq 'policy.decline';
     return $tira->policy_declined(%args) if $command eq 'policy.declined';
@@ -2129,6 +2132,120 @@ sub _backup_restore {
     };
 }
 
+# The schema this Tira understands. A board written by a newer one may hold
+# shapes these readers have never seen, and no amount of care here can invent
+# them - so it is refused rather than half-restored. The other direction needs
+# nothing: an older board already works, because this codebase applies defaults
+# on read instead of migrating.
+our $SCHEMA_VERSION = 2;
+
+# Getting a backup off the machine. The repository lives inside the board's own
+# storage, so it survives a bad edit and not a lost disk - and a bundle is one
+# file holding the whole history, kept wherever the owner keeps things.
+sub _backup_export {
+    my ( $tira, $args, $option ) = @_;
+    my $root  = $tira->discover_project( %{$args} );
+    my $store = _backup_store($root);
+    my $file  = $option->{file}
+      or die "Where should the bundle go? Name it: --file board.bundle\n";
+
+    die "Tira needs git to export a backup, and it is not installed here\n"
+      if !_program_exists('git');
+    die "This board has never been backed up, so there is nothing to export.\n"
+      . "Make a backup first: d2 tira.backup\n"
+      if !defined _last_backup_commit($store);
+
+    _running( 'git', '-C', $store, 'bundle', 'create', $file, '--all' )
+      or die "Could not write the bundle to $file\n";
+
+    return {
+        file    => $file,
+        at      => _last_backup_commit($store),
+        message => "The board is in $file. Keep it somewhere the board is not.",
+    };
+}
+
+# And bringing one back. The folder becomes what the bundle holds - his words:
+# git reset --hard - so this can lose work exactly as a restore can, and says
+# what it would discard before it does anything.
+sub _backup_import {
+    my ( $tira, $args, $option ) = @_;
+    my $file = $option->{file}
+      or die "Which bundle? Name it: --file board.bundle\n";
+    die "There is no bundle at $file\n" if !-f $file;
+
+    die "Tira needs git to import a backup, and it is not installed here\n"
+      if !_program_exists('git');
+    # Verified in a repository of its own, because git will not read a bundle
+    # from outside one - and the destination must not be touched until the
+    # bundle is known to be good, or a refusal leaves a half-made board behind.
+    require File::Temp;
+    my $scratch = File::Temp::tempdir( CLEANUP => 1 );
+    _running( 'git', '-C', $scratch, 'init', '--quiet' )
+      or die "Could not check the bundle: no scratch repository\n";
+    # git prints "<file> is okay" on the error stream when this succeeds. It is
+    # git's own chatter and it is left alone: silencing it means either
+    # reopening this process's error stream, which takes it away from whoever
+    # had redirected it, or forking a child to silence itself, which no
+    # coverage tool can measure because the child execs away. Neither is worth
+    # buying a tidy line with. See TKT-120.
+    _running( 'git', '-C', $scratch, 'bundle', 'verify', $file )
+      or die "$file is not a bundle git can read\n";
+
+    # Claimed rather than read out of the bundle, because reading it means
+    # unpacking it first - and unpacking a bundle from a newer Tira is the thing
+    # being refused. The claim is what an exporter of a later release would
+    # write beside it.
+    my $claimed = $option->{claiming_schema};
+    die "That bundle was made by a newer Tira (schema $claimed, this one reads "
+      . "$SCHEMA_VERSION). Upgrade Tira and import it again.\n"
+      if defined $claimed && $claimed > $SCHEMA_VERSION;
+
+    # Where it is going. discover_project would walk upwards and find somebody
+    # else's board, so the folder is taken as given: importing is how a board
+    # comes into existence somewhere, not something done to one that is found.
+    my $where = $args->{project}
+      or die "Where should the board go? Name the folder: --project <dir>\n";
+    my $store = _backup_store($where);
+
+    my $existing = -d File::Spec->catdir( $store, '.git' ) ? 1 : 0;
+    if ( $existing && !$option->{yes} ) {
+        my @losing = map { s/\A.{3}//r }
+          @{ _reading( 'git', '-C', $store, 'status', '--porcelain' ) };
+        print {*STDERR} "There is already a board here, and importing replaces it\n"
+          . "with what the bundle holds. Uncommitted work here:\n\n";
+        print {*STDERR} @losing
+          ? join( '', map { "  $_\n" } @losing )
+          : "  none, but every card in this board would be replaced\n";
+        print {*STDERR} "\nRun it again with --yes if that is what you want.\n\n";
+        die "Nothing was imported, because --yes was not given\n";
+    }
+
+    File::Path::make_path($store) if !-d $store;
+    if ( !$existing ) {
+        _running( 'git', '-C', $store, 'init', '--quiet' )
+          or die "Could not start a repository at $store\n";
+    }
+    _running( 'git', '-C', $store, 'fetch', '--quiet', $file, 'HEAD' )
+      or die "Could not read the bundle into the board\n";
+    _running( 'git', '-C', $store, 'reset', '--hard', 'FETCH_HEAD' )
+      or die "Could not lay the board out from the bundle\n";
+    _running( 'git', '-C', $store, 'clean', '--force', '-d', '--quiet' )
+      or die "Could not clear what was here before the import\n";
+
+    my ($commit) = @{ _reading( 'git', '-C', $store, 'rev-parse', '--short', 'HEAD' ) };
+    return {
+        commit  => $commit,
+        at      => _last_backup_commit($store),
+        store   => $store,
+        message => 'The board is here, as it was when that bundle was made.',
+    };
+}
+
+# Running something whose own chatter is not the caller's business. git bundle
+# verify prints "<file> is okay" on the error stream when it succeeds, and a
+# successful import that prints to stderr reads like a warning to anybody
+# watching. Its answer is the exit status; its opinion is noise.
 sub _running {
     my (@command) = @_;
     return 0 if !_program_exists( $command[0] );

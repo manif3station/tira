@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=1\.36$/m, '.env stores version 1.36' );
+like( $env_text, qr/^VERSION=1\.37$/m, '.env stores version 1.37' );
 
 open my $skills, '<', 'SKILLS.md' or die "Cannot read SKILLS.md: $!";
 my $skills_text = do { local $/; <$skills> };
@@ -35,18 +35,28 @@ for my $section (
     like( $skills_text, qr/^## \Q$section\E$/m, "SKILLS.md contains $section" );
 }
 my @use_cases = $skills_text =~ /^### UC-\d{3}:/mg;
-is( scalar @use_cases, 131, 'SKILLS.md contains exactly 131 numbered use cases' );
+is( scalar @use_cases, 132, 'SKILLS.md contains exactly 132 numbered use cases' );
 my %seen;
 while ( $skills_text =~ /^### UC-(\d{3}):/mg ) {
     $seen{$1}++;
 }
-is_deeply( [ sort keys %seen ], [ map { sprintf '%03d', $_ } 1 .. 131 ], 'use cases are numbered UC-001 through UC-131' );
+is_deeply( [ sort keys %seen ], [ map { sprintf '%03d', $_ } 1 .. 132 ], 'use cases are numbered UC-001 through UC-132' );
 unlike( $skills_text, qr{/home/[A-Za-z0-9._-]+/}, 'SKILLS.md contains no hard-coded home-directory path' );
 unlike( $skills_text, qr/--project|TIRA_HOME|\.tira\/|project selector/i, 'SKILLS.md does not disclose project location or selectors' );
 
 use lib 'lib';
 use Tira;
-is( $Tira::VERSION, '1.36', 'module version matches .env' );
+is( $Tira::VERSION, '1.37', 'module version matches .env' );
+
+# And the changelog, which nothing checked. .env, the module and this file
+# agreed with each other for two releases while Changes named a version one
+# behind, because no gate compared them - and a changelog that names the wrong
+# version is the file somebody reads to find out what they are running.
+open my $changes, '<', 'Changes' or die "Cannot read Changes: $!";
+my $history = do { local $/; <$changes> };
+close $changes;
+my ($newest) = $history =~ /^(\d+\.\d+)\s/m;
+is( $newest, $Tira::VERSION, 'the changelog names this release at the top' );
 unlike( $skills_text, qr/\bSpecified\b/i, 'every documented command and use case is implemented' );
 
 # A count written in prose goes stale the moment a rule is added, and nothing
@@ -118,7 +128,7 @@ for my $command (@commands) {
 is_deeply( \@undocumented, [],
     'every command that ships is named in a document an agent reads' );
 
-is( scalar @commands, 134, 'release ships exactly 134 executable CLI entrypoints' );
+is( scalar @commands, 136, 'release ships exactly 136 executable CLI entrypoints' );
 
 done_testing;
 

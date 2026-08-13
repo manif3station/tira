@@ -743,6 +743,30 @@ expires.
 Every suspension appears in the owner's terminal as it happens, and the reason
 is written into the enforcement log **by police**, on the agent's behalf.
 
+### `tira.rule.suspend`
+
+Put one rule down for a while, without going deaf to everything else.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--rule RULE` | yes | Which rule. A rule nobody has heard of is refused. |
+| `--seconds N` | yes | How long. There is no open-ended form; it comes back by itself. |
+| `--reason TEXT` | yes | Why. At most 500 characters. |
+| `--ref CARD` | no | Put it down for one card only. With none, the whole board. |
+| `--store PATH` | no | Police's own state, if it is not in the usual place. |
+
+`tira.police.suspend` quiets police entirely, which is right when an agent needs
+to concentrate and wrong when one rule is chasing one card. **Per card is the
+grain that matters**: a card being worked hard collects comments faster than
+anybody can fold them, and silencing the whole bridge to get through that
+afternoon makes the escape hatch worse than the noise it escapes.
+
+Every other rule keeps watching throughout, and the same rule keeps watching
+every other card. It picks itself up when the time runs out — there is nothing
+to switch back on — and every putting-down is in the enforcement log with its
+rule, its card, its length and its reason, because a silence nobody can account
+for is worse than the noise it replaces.
+
 ### `tira.policy.bridge.logs`
 
 Read the enforcement log: what police has had to say, and every suspension that

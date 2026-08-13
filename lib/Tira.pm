@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.47';
+our $VERSION = '1.48';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4546,9 +4546,15 @@ sub policy_evaluate {
     # rather than whatever a rule happens to be able to resolve.
     my $limit = $self->project_limit( project => $root );
 
+    # What has been put down, read once. A rule quieted for a card must leave
+    # the same rule watching every other card, so this is asked per violation
+    # rather than per rule - the grain is what makes it worth having.
+    my $quieted = $args{store} ? $self->_enforcement_read( $args{store} ) : { rules => {} };
+
     my $report = sub {
         my ( $policy, $record, $detail ) = @_;
         my $ref = ref $record ? $record->{ref} : ( $record // '' );
+        return if $self->_rule_suspended( $quieted, $policy->{rule}, $ref );
         push @violations, {
             rule => $policy->{rule},
             policy => $policy->{id},
@@ -5102,8 +5108,15 @@ sub _police_environment_violations {
     my $world = $args{world} || {};
     my @violations;
 
+    # The same reading for the six rules that watch the machine rather than the
+    # board. A rule put down is put down whichever half of police it lives in;
+    # quieting it in one and not the other is the two-copies fault this codebase
+    # has been caught with three times already.
+    my $quieted = $args{store} ? $self->_enforcement_read( $args{store} ) : { rules => {} };
+
     my $report = sub {
         my ( $policy, $ref, $detail ) = @_;
+        return if $self->_rule_suspended( $quieted, $policy->{rule}, $ref // '' );
         push @violations, {
             rule => $policy->{rule}, policy => $policy->{id}, ref => $ref // '',
             detail => $detail, action => $policy->{action},
@@ -5764,6 +5777,79 @@ sub enforcement_log {
     my $wanted = $args{ref};
     return [ grep { !defined $wanted || ( $_->{ref} // '' ) eq $wanted }
              @{ $log->{entries} // [] } ];
+}
+
+# Putting one rule down for a while, instead of going deaf to everything.
+#
+# police.suspend quiets police entirely, which is right when an agent needs to
+# concentrate and wrong when one rule is chasing one card. A card being worked
+# hard collects comments faster than anybody can fold them, and silencing the
+# whole bridge to get through that afternoon makes the escape hatch worse than
+# the noise it escapes.
+#
+# The same promises as police.suspend, for the same reasons: an end that arrives
+# by itself, so there is nothing to remember to switch back on, and a reason
+# that cannot be skipped, because a silence nobody can account for is worse than
+# the noise it replaces.
+sub rule_suspend {
+    my ( $self, %args ) = @_;
+    my $store = $args{store} or die "A police store is required\n";
+
+    my $rule = $args{rule};
+    die "Which rule? Name it: --rule <rule>\n" if !defined $rule || $rule eq '';
+    die "Unknown policy rule '$rule'. Rules: " . join( ', ', @{ policy_rules() } ) . "\n"
+      if !$POLICY_RULES{$rule};
+
+    my $seconds = $args{seconds};
+    die "How many seconds? A rule put down has to come back by itself\n"
+      if !defined $seconds || $seconds !~ /\A\d+\z/ || $seconds == 0;
+    die "Putting a rule down for $seconds seconds is past the ceiling of "
+      . "$SUSPENSION_CEILING_SECONDS (ten minutes)\n"
+      if $seconds > $SUSPENSION_CEILING_SECONDS;
+
+    my $reason = $args{reason};
+    die "A reason is required - a silence nobody can account for is worse than the noise\n"
+      if !defined $reason || $reason eq '';
+    die 'A reason must be at most ' . $SUSPENSION_REASON_LIMIT . " characters\n"
+      if length($reason) > $SUSPENSION_REASON_LIMIT;
+
+    my $ref = $args{ref} // '';
+    my $at = _epoch_of_datetime( $self->{clock}->(), 'Clock' );
+    my $until = _iso_from_epoch( $at + $seconds );
+
+    my $log = $self->_enforcement_read($store);
+
+    # Kept by rule, and within a rule by card. A rule put down for one card must
+    # leave the same rule watching every other card, which is the grain that
+    # makes this worth having at all.
+    $log->{rules}{$rule}{ $ref eq '' ? '' : $ref } = $until;
+    $self->_enforcement_write( $store, $log );
+
+    $self->_enforcement_record(
+        store  => $store,
+        kind   => 'rule-suspension',
+        ref    => $ref,
+        detail => "$rule "
+          . ( $ref eq '' ? 'on this board' : "on $ref" )
+          . " for ${seconds}s: $reason",
+    );
+
+    return { rule => $rule, ref => $ref, until => $until, reason => $reason };
+}
+
+# Whether a rule is down for this card, or for the board. Asked once per rule
+# per pass rather than per violation, because a rule that is down has nothing to
+# say and working that out for every card it would have reported is waste.
+sub _rule_suspended {
+    my ( $self, $log, $rule, $ref ) = @_;
+    my $down = $log->{rules}{$rule} or return 0;
+    my $now = eval { _epoch_of_datetime( $self->{clock}->(), 'Clock' ) } // return 0;
+    for my $scope ( '', ( defined $ref && $ref ne '' ? $ref : () ) ) {
+        my $until = $down->{$scope} or next;
+        my $ends = eval { _epoch_of_datetime( $until, 'Stamp' ) } // next;
+        return 1 if $now < $ends;
+    }
+    return 0;
 }
 
 sub police_suspend {

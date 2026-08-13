@@ -1,5 +1,29 @@
 Revision history for Tira
 
+1.48  2026-08-13
+    - One rule can be put down for a while, without going deaf to
+      everything else. police.suspend quiets police entirely, which is
+      right when an agent needs to concentrate and wrong when one rule is
+      chasing one card. tira.rule.suspend puts a single rule down for a
+      period, board-wide or for named cards.
+    - Per card is the grain that matters, and it is his: a card being
+      worked hard collects comments faster than anybody can fold them,
+      and if the only way through that afternoon is silencing the whole
+      bridge then the escape hatch is worse than the noise it escapes.
+      Every other rule keeps watching, and the same rule keeps watching
+      every other card.
+    - The same promises police.suspend already makes, for the same
+      reasons: an end that arrives by itself, so there is nothing to
+      remember to switch back on, and a reason that cannot be skipped,
+      because a silence nobody can account for is worse than the noise it
+      replaces. Every putting-down is in the enforcement log with its
+      rule, its card, its length and its reason. A rule nobody has heard
+      of is refused rather than quietly accepted.
+    - Both halves of police honour it. The rules that read the board and
+      the six that read the machine each consult the same record, because
+      quieting a rule in one and not the other is the two-copies fault
+      this codebase has been caught with three times already.
+
 1.47  2026-08-13
     - A successful import writes nothing to the error stream. git prints
       "<file> is okay" when a bundle verifies, and a command that worked

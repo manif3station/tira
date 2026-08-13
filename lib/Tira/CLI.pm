@@ -1545,10 +1545,11 @@ sub _invoke {
     die "A mark belongs to the question.mark command\n"
       if defined $option->{mark} && $command ne 'question.mark';
     die "A reason and options belong to the question.ask and question.update commands, "
-      . "to police.suspend, and to policy.decline\n"
+      . "to police.suspend, to rule.suspend, and to policy.decline\n"
       if ( defined $option->{reason} || $option->{options} )
       && $command !~ /\Aquestion\.(?:ask|update)\z/
       && $command ne 'police.suspend'
+      && $command ne 'rule.suspend'
       && $command ne 'policy.decline';
     die "A voice note belongs to the question.ask, question.update and question.voice commands\n"
       if defined $option->{voice} && $command !~ /\Aquestion\.(?:ask|update|voice)\z/;
@@ -1817,6 +1818,13 @@ sub _invoke {
     # reads what that loop wrote - they shared a prefix and nothing else, which
     # cost another project's agent three corrections and, in between, every
     # suspension and escalation it should have been reading.
+    if ( $command eq 'rule.suspend' ) {
+        my $store = $option->{store} // _police_store( $args{project} );
+        return $tira->rule_suspend( %args, store => $store,
+            rule => $option->{rule}, seconds => $option->{seconds},
+            reason => $option->{reason} );
+    }
+
     if (   $command eq 'police.suspend'
         || $command eq 'police.log'
         || $command eq 'policy.bridge.logs' )

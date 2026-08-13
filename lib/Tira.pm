@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.27';
+our $VERSION = '1.28';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -2492,6 +2492,25 @@ sub _find_question {
     return @{$found}{qw(type ref)};
 }
 
+# Where a question lives, checked against where the caller said it lives.
+#
+# Resolving by id alone is the convenience worth keeping: the ids are unique
+# across a board, so an agent should not have to say which card. What must not
+# happen is a card being named and then thrown away - every one of these
+# commands used to do exactly that, so naming one card and another card's
+# question changed the other card and returned success. The card that was named
+# stayed waiting, and nothing anywhere said the answer had landed elsewhere.
+sub _question_owner {
+    my ( $self, $root, %args ) = @_;
+    my ( $type, $ref ) = $self->_find_question( $root, $args{id} );
+    return ( $type, $ref ) if !defined $args{ref} || $args{ref} eq '';
+
+    die "Question '$args{id}' is on $ref, not on $args{ref}. Name that card, or leave "
+      . "the card out and the question will be found on its own\n"
+      if $args{ref} ne $ref;
+    return ( $type, $ref );
+}
+
 sub question_add {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
@@ -2529,7 +2548,7 @@ sub question_add {
 sub question_update {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
-    my ( $found_type, $found_ref ) = $self->_find_question( $root, $args{id} );
+    my ( $found_type, $found_ref ) = $self->_question_owner( $root, %args );
     @args{qw(type ref)} = ( $found_type, $found_ref );
     die "Give some text, a reason, options, or a voice note to change\n"
       if !grep { defined $args{$_} } qw(text reason options voice);
@@ -2570,7 +2589,7 @@ sub question_update {
 sub question_discard {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
-    my ( $found_type, $found_ref ) = $self->_find_question( $root, $args{id} );
+    my ( $found_type, $found_ref ) = $self->_question_owner( $root, %args );
     @args{qw(type ref)} = ( $found_type, $found_ref );
     my $type = $args{type};
     return $self->_with_project_lock( $root, sub {
@@ -2586,7 +2605,7 @@ sub question_discard {
 sub question_answer {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
-    my ( $found_type, $found_ref ) = $self->_find_question( $root, $args{id} );
+    my ( $found_type, $found_ref ) = $self->_question_owner( $root, %args );
     @args{qw(type ref)} = ( $found_type, $found_ref );
     my $text = $args{text};
     die "An answer needs some text\n" if !defined $text || $text !~ /\S/;
@@ -2668,7 +2687,7 @@ sub _store_attachment_file {
 sub question_attach {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
-    my ( $type, $ref ) = $self->_find_question( $root, $args{id} );
+    my ( $type, $ref ) = $self->_question_owner( $root, %args );
     my $reference = $args{remove} ? undef
       : $self->_store_attachment_file( $root, $args{file},
         ( defined $args{filename} ? ( filename => $args{filename} ) : () ) );
@@ -2702,7 +2721,7 @@ sub question_attach {
 sub question_voice {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
-    my ( $type, $ref ) = $self->_find_question( $root, $args{id} );
+    my ( $type, $ref ) = $self->_question_owner( $root, %args );
 
     my $reference;
     if ( !$args{remove} ) {
@@ -2728,7 +2747,7 @@ sub question_voice {
 sub question_mark {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
-    my ( $found_type, $found_ref ) = $self->_find_question( $root, $args{id} );
+    my ( $found_type, $found_ref ) = $self->_question_owner( $root, %args );
     @args{qw(type ref)} = ( $found_type, $found_ref );
     my $mark = $args{mark} // '';
     die "A mark is either ok or not-ok\n" if !grep { $_ eq $mark } @QUESTION_MARKS;

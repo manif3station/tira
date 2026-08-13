@@ -129,6 +129,25 @@ deduplicated there, so the same recording on ten questions is one file. A
 recording is never deleted when it is replaced, because another question may be
 pointing at it.
 
+### Naming a card on a question command
+
+Every question command takes `--id`, and the ids are unique across a board, so
+the card is optional — the question is found on its own.
+
+**If you do name a card and the question is somewhere else, the command is
+refused**, naming both:
+
+```
+Question 'Q-001' is on TKT-001, not on TKT-002. Name that card, or leave the
+card out and the question will be found on its own.
+```
+
+Until 2026-08-13 the card you named was looked up by id and then overwritten,
+so answering with one card's reference and another card's question changed the
+other card and reported success. The card you named stayed waiting, and nothing
+said the answer had landed anywhere else — the board afterwards looked
+perfectly consistent, because the answer really was on a card.
+
 ### `tira.question.mark`
 
 Say whether an answer settles the matter. Separate from having read it: reading

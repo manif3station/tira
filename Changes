@@ -1,5 +1,18 @@
 Revision history for Tira
 
+1.28  2026-08-13
+    - Naming the wrong card on a question command is refused rather than
+      silently acting on another card. All six - answer, mark, update,
+      discard, attach and voice - looked the question up by id and then
+      overwrote the card the caller had named, so answering with one
+      card's reference and another card's question changed the other card
+      and reported success. The card that was named stayed waiting, and
+      nothing anywhere said so: the board afterwards looked consistent,
+      because the answer really was on a card. Resolving by id alone
+      stays, since the ids are unique across a board; a card that is
+      named and disagrees now gets a refusal saying where the question
+      actually lives.
+
 1.27  2026-08-13
     - The process table is read on macOS. ps prints the month before the
       day on Linux and after it on macOS, and both regexes that read the

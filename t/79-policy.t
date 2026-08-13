@@ -242,6 +242,47 @@ for my $action (qw(bridge-reminder print-reminder log-only)) {
     like( $err, qr/Unknown policy rule/, 'with the engine message intact' );
 }
 
+# --- every declared refusal is exercised somewhere -----------------------------
+#
+# A rule may declare an option it will not honour, and the refusal is real the
+# moment it is written. What is not automatic is anything noticing if it stops:
+# the rule never reads the option, so a lost refusal fails nowhere - it is
+# simply accepted and does nothing.
+#
+# conversation-not-folded shipped with a declared refusal and no test giving it
+# that option, found by a bug hunt rather than by the suite. This is the check
+# that would have found it the day it was written.
+
+{
+    open my $engine, '<', File::Spec->catfile(qw(lib Tira.pm)) or die $!;
+    my $source = do { local $/; <$engine> };
+    close $engine;
+
+    my ($table) = $source =~ /my %POLICY_RULES = \((.*?)\n\);/s;
+    my @declared;
+    while ( $table =~ /'([a-z][a-z0-9-]+)'\s*=>\s*\{[^}]*forbids\s*=>\s*\[([^\]]*)\]/g ) {
+        my ( $rule, $list ) = ( $1, $2 );
+        push @declared, [ $rule, $_ ] for $list =~ /'([a-z_]+)'/g;
+    }
+    ok( scalar @declared, 'some rules declare an option they will not honour' );
+
+    my $tests = '';
+    for my $file ( glob 't/*.t' ) {
+        open my $fh, '<', $file or next;
+        $tests .= do { local $/; <$fh> };
+        close $fh;
+    }
+
+    my @unproved;
+    for my $pair (@declared) {
+        my ( $rule, $option ) = @{$pair};
+        push @unproved, "$rule forbids $option"
+          if $tests !~ /rule\s*=>\s*'\Q$rule\E'[^;]*\b\Q$option\E\s*=>/s;
+    }
+    is_deeply( \@unproved, [],
+        'and every one of them has a test that gives it that option' );
+}
+
 done_testing;
 
 __END__

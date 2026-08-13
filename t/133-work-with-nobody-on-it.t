@@ -123,6 +123,16 @@ my $refused = !eval {
 };
 ok( $refused, 'a column on this rule is refused, because the board already says which are work' );
 
+# And the other way a column can be named. Both are declared as refused and only
+# one was tried, which the check in t/79 found on its first run - the rule
+# refused correctly either way, and nothing would have noticed if it stopped.
+my $entering = !eval {
+    $tira->policy_add( project => $root, rule => 'card-unassigned',
+        enter => 'implement', action => 'bridge-reminder' );
+    1;
+};
+ok( $entering, 'and so is naming a column to enter, for the same reason' );
+
 done_testing;
 
 __END__

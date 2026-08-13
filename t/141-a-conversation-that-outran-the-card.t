@@ -122,6 +122,25 @@ $now = '2026-08-13T23:15:00Z';
 is( scalar( grep { $_->{ref} eq $card->{ref} } @{ outrun() } ), 1,
     'and comes back when the time runs out, with the conversation still unfolded' );
 
+# --- and it takes no age ----------------------------------------------------------
+#
+# A comment that has not been folded in is not neglect that ripens - the card is
+# already carrying two stories - and the quiet ladder is what keeps it from
+# being said twice a minute. An age here would be accepted, ignored and
+# believed, so it is refused.
+#
+# This assertion was missing for a day. The rule refused correctly the whole
+# time and nothing would have noticed if it stopped, which is why every declared
+# refusal is now checked for having a test of its own in t/79.
+
+my $refused = !eval {
+    $tira->policy_add( project => $root, rule => 'conversation-not-folded',
+        age => '10m', action => 'bridge-reminder' );
+    1;
+};
+ok( $refused, 'an age on this rule is refused rather than quietly ignored' );
+like( $@, qr/takes no --age/, 'and says so in the words somebody typing it would read' );
+
 done_testing;
 
 __END__

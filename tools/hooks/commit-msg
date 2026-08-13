@@ -27,9 +27,17 @@ case "$message" in
   Merge\ *|Revert\ *|fixup!\ *|squash!\ *) exit 0 ;;
 esac
 
-refs="$(grep -oE '\b(SOW|EPC|TKT)-[0-9]{3,}\b' <<<"$message" | sort -u || true)"
-[ -n "$refs" ] || fail 'name the card this commit belongs to, e.g. TKT-013.
-A commit with no card is work the board cannot account for.'
+# The subject names what the commit is against; the body is prose. This project
+# quotes bridge lines and card references in commit messages constantly - that
+# is how a commit explains what it found - and reading the whole message made a
+# quoted reference indistinguishable from a worked one. A message describing a
+# defect that mentioned a finished card was refused for working on it, and the
+# way through was to take the evidence out of the message, which is backwards.
+subject="$(head -n 1 <<<"$message")"
+refs="$(grep -oE '\b(SOW|EPC|TKT)-[0-9]{3,}\b' <<<"$subject" | sort -u || true)"
+[ -n "$refs" ] || fail 'name the card this commit belongs to in the subject line, e.g. TKT-013.
+A commit with no card is work the board cannot account for, and only the first
+line is read - so a card quoted in the body is evidence, not a claim of work.'
 
 command -v d2 >/dev/null || fail 'd2 is not on PATH, so the card cannot be checked - refusing rather than skipping'
 

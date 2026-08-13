@@ -341,6 +341,67 @@ version_probe() {
 version_probe 'a shipped change with no version bump' 'lib/Tira.pm' refused
 version_probe 'a change no install copies' 't/00-foundation.t' allowed
 
+# --- the commit gate reads the subject, not the whole message --------------
+#
+# It took every card reference anywhere in a message as a card the commit was
+# against, and this project quotes references in commit messages constantly -
+# that is how a commit explains what it found. A message describing a defect
+# that mentioned a finished card was refused for working on it, and the way
+# through was to take the evidence out of the message.
+#
+# Run for real, against the real board, because a hook that is only read is the
+# thing this whole tool exists to stop.
+
+commit_hook="$root/tools/hooks/commit-msg"
+[ -x "$commit_hook" ] || { echo "prove-the-gate: tools/hooks/commit-msg is missing"; exit 1; }
+
+run_commit_hook() {
+    local message="$1"
+    local file="$sandbox/commit-message"
+    printf '%s\n' "$message" >"$file"
+    out="$("$commit_hook" "$file" 2>&1)"
+    return $?
+}
+
+# A card that is certainly finished, and one that is certainly being worked.
+finished="$(d2 tira.ticket.list -o json 2>/dev/null |
+    python3 -c 'import json,sys
+rows = json.load(sys.stdin)
+rows = rows if isinstance(rows, list) else rows.get("tickets") or rows.get("records") or []
+print(next((r["ref"] for r in rows if r.get("column") == "done"), ""))' 2>/dev/null)"
+working="$(d2 tira.ticket.list -o json 2>/dev/null |
+    python3 -c 'import json,sys
+rows = json.load(sys.stdin)
+rows = rows if isinstance(rows, list) else rows.get("tickets") or rows.get("records") or []
+print(next((r["ref"] for r in rows if r.get("column") not in ("done", "discard", "backlog")), ""))' 2>/dev/null)"
+
+if [ -n "$finished" ] && [ -n "$working" ]; then
+    refuses "a commit against a finished card ($finished)" "in 'done'" \
+        run_commit_hook "$finished the work is over"
+
+    refuses 'a commit naming no card at all' 'name the card' \
+        run_commit_hook 'something happened'
+
+    refuses "a card named only in the body ($working)" 'name the card' \
+        run_commit_hook "no card up here
+
+        the body mentions $working, which is prose"
+
+    if run_commit_hook "$working doing the work
+
+Quoting $finished as evidence, the way every commit here explains what it
+found."; then
+        printf 'proved - a finished card quoted as evidence is allowed through\n'
+        passed=$(( passed + 1 ))
+    else
+        printf 'NOT PROVED - the commit gate refused a quoted reference: %s\n' "$(printf '%s' "$out" | tail -2)"
+        failed=$(( failed + 1 ))
+    fi
+else
+    printf 'NOT PROVED - could not find a finished and a working card to drive the commit gate\n'
+    failed=$(( failed + 1 ))
+fi
+
 # --- and it leaves nothing behind -----------------------------------------
 #
 # The example check makes a scratch board to run against. It runs on every

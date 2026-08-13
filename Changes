@@ -1,5 +1,24 @@
 Revision history for Tira
 
+1.45  2026-08-13
+    - The commit gate reads the subject line for the cards a commit is
+      against, and treats the body as prose. It took every reference
+      anywhere in the message, and this project quotes references
+      constantly - that is how a commit explains what it found. A message
+      describing a defect that mentioned a finished card was refused for
+      working on it, and the way through was to take the evidence out of
+      the message, which is the wrong direction: the message is where the
+      evidence belongs.
+    - Stricter in one direction, deliberately. A card named only in the
+      body is now refused, and the refusal says only the first line is
+      read. A message that hid its card in prose was always ambiguous;
+      making that an error beats guessing.
+    - Proved by running the real hook against the real board rather than
+      by reading it - the existing test only checked the hook's text. A
+      finished card in the subject is refused, no card anywhere is
+      refused, and a finished card quoted in the body while the subject
+      names live work is allowed.
+
 1.44  2026-08-13
     - A column can be ordered by priority. He sent a screenshot of the two
       buttons the board had and asked for one more: priority is the field

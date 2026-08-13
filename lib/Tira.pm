@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.48';
+our $VERSION = '1.49';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4209,6 +4209,11 @@ my %POLICY_RULES = (
     # somebody added another - silently, which is the shape of every check
     # this project has found not firing.
     'card-unassigned'           => { needs => [], forbids => [ 'column', 'enter' ] },
+
+    # No age. A comment that has not been folded in is not neglect that
+    # ripens - the card is already carrying two stories - and the quiet
+    # ladder is what keeps it from being said twice a minute.
+    'conversation-not-folded'   => { needs => [], forbids => ['age'] },
     'answer-ok-not-folded'      => { needs => ['age'] },
     'answer-not-ok-no-followup' => { needs => ['age'] },
     'wip-limit'                 => { needs => ['column'] },
@@ -4527,6 +4532,21 @@ sub _policy_message {
     return $message;
 }
 
+# When the card itself was last written to, ignoring the writes that are the
+# conversation rather than the card: a comment is not the card being brought up
+# to date, and neither is a question or the stamp that every write touches.
+sub _last_card_change {
+    my ( $self, $root, $ref ) = @_;
+    my $latest;
+    for my $write ( @{ $self->history_list( project => $root, ref => $ref ) } ) {
+        my $field = $write->{field} // '';
+        next if $field =~ /\A(?:last_updated|comments|questions)\z/;
+        my $at = $write->{at} // next;
+        $latest = $at if !defined $latest || $at gt $latest;
+    }
+    return $latest;
+}
+
 sub policy_evaluate {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
@@ -4718,6 +4738,33 @@ sub policy_evaluate {
                     $report->( $policy, $record,
                         "$question->{id} has been waiting since $question->{asked_at}" );
                 }
+            }
+        }
+        elsif ( $rule eq 'conversation-not-folded' ) {
+
+            # His answer, and it needed no new field: the work log already
+            # records both halves. A comment later than the newest change to the
+            # card means the conversation has outrun what the card says.
+            #
+            # Any change settles it, including one about something else. He was
+            # asked about that and accepted it: the alternative is a marker
+            # somebody has to remember to set, and a reminder that can be
+            # silenced by forgetting is worse than one an unrelated edit clears.
+            for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
+                my @comments = @{ $record->{comments} // [] };
+                next if !@comments;
+
+                my ($said) = sort { $b cmp $a }
+                  grep { defined } map { $_->{created_at} // $_->{at} } @comments;
+                next if !defined $said;
+
+                my $written = $self->_last_card_change( $root, $record->{ref} );
+                next if defined $written && $written ge $said;
+
+                $report->( $policy, $record,
+                    'the newest comment is later than anything written on the card - '
+                      . 'fold the conversation into the details' );
             }
         }
         elsif ( $rule eq 'card-unassigned' ) {

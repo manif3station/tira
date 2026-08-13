@@ -1,5 +1,28 @@
 Revision history for Tira
 
+1.49  2026-08-13
+    - A card talked about since it was last written down is reported. A
+      card gathers its real content in comments - somebody pastes
+      evidence, answers a question, corrects an assumption - while its
+      own details go on saying what they said when it was raised, so the
+      board carries two stories on one card. TKT-099 was the example that
+      started it: he pasted five bridge lines as a comment, they were the
+      best evidence on the card, and the details did not know until he
+      asked twice.
+    - conversation-not-folded compares two things the work log already
+      records: the newest comment, and the newest change to the card. No
+      new field, no command to run, nothing to mark by hand - which is
+      his answer, given in his own words when asked what a card records
+      to say the folding was done.
+    - Any change to the card settles it, including one about something
+      else. He was asked about exactly that and accepted it: the
+      alternative is a marker somebody has to remember to set, and a
+      reminder that can be silenced by forgetting is worse than one an
+      unrelated edit clears.
+    - A card nobody has commented on is never reported, and the rule can
+      be put down for one card while a long conversation is folded in -
+      the other half of what he asked for, which shipped in 1.48.
+
 1.48  2026-08-13
     - One rule can be put down for a while, without going deaf to
       everything else. police.suspend quiets police entirely, which is

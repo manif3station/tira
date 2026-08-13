@@ -52,6 +52,7 @@ my %declare = (
     'checklist-idle'            => { column => 'implement', age => '30m' },
     'orphan-card'               => {},
     'question-unanswered'       => { age => '1h' },
+    'conversation-not-folded'   => {},
     'card-unassigned'           => {},
     'answer-waiting'            => {},
     'answer-unjudged'           => { age => '10m' },
@@ -92,6 +93,16 @@ $tira->checklist_add( project => $root, ref => $finished->{ref}, item => 'the wo
 my $waiting = $tira->create_record( project => $root, type => 'ticket', title => 'Has a question' );
 my $asked = $tira->question_add( project => $root, ref => $waiting->{ref},
     author => 'claude', text => 'Which way?' );
+
+# A card whose conversation has outrun it: written down, then talked about
+# afterwards, which is the order that matters.
+my $talked = $tira->create_record( project => $root, type => 'ticket', title => 'Talked about since' );
+$tira->record_update( project => $root, ref => $talked->{ref},
+    description => 'what it said when it was raised' );
+$now = '2026-08-11T09:30:00Z';
+$tira->comment_add( project => $root, ref => $talked->{ref}, author => 'michael',
+    body => 'The evidence that is not on the card yet' );
+$now = '2026-08-11T09:00:00Z';
 
 my $settled = $tira->create_record( project => $root, type => 'ticket', title => 'Settled in name only' );
 my $ok_question = $tira->question_add( project => $root, ref => $settled->{ref},

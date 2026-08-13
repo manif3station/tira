@@ -301,6 +301,7 @@ missing, at the moment you declare the policy rather than later.
 | `orphan-card` | — | a card with no parent |
 | `parent-ahead-of-children` | — | a parent saying it is finished above a child that is not |
 | `question-unanswered` | `--age` | a question waiting on the owner |
+| `conversation-not-folded` | — | a card talked about since it was last written down. **No age**: the ladder already keeps it from repeating. |
 | `card-unassigned` | — | work in progress with nobody on it. **No column**: the board already says which columns are work. |
 | `answer-waiting` | — | an answer the agent has not read yet. **No age**: the agent could not have acted sooner, so a grace would only delay it. |
 | `answer-unjudged` | `--age`, `--read-age` | an answer nobody marked. The second age is optional and runs from when it was read. |
@@ -727,6 +728,35 @@ rule that reset on it would be silenced by the very act it is chasing somebody
 past. A judged answer is chased by neither clock. And a read age longer than the
 age it sits inside is refused rather than ignored, because a second grace that
 outlasts the first says nothing and would be believed.
+
+### A conversation that has outrun the card
+
+A card gathers its real content in comments. Somebody pastes evidence, answers a
+question, corrects an assumption — and the card's own details go on saying what
+they said when it was raised, so the board carries two stories on one card: the
+fields an agent reads, and a conversation nobody re-reads.
+
+```
+d2 tira.policy.add --rule conversation-not-folded --action bridge-reminder
+```
+
+It compares two things the work log already records: the newest comment, and the
+newest change to the card. If the comment is later, the conversation has outrun
+the card and whoever holds it is reminded to fold it in.
+
+**Any change to the card settles it**, including one about something else. That
+is deliberate: the alternative is a marker somebody has to remember to set, and a
+reminder that can be silenced by forgetting is worse than one an unrelated edit
+clears. There is no command to run and nothing to mark by hand.
+
+A card nobody has commented on is never reported. And when a card is collecting
+comments faster than anybody can fold them, put the rule down for that card
+alone:
+
+```
+d2 tira.rule.suspend --rule conversation-not-folded --ref TKT-001 \
+  --seconds 300 --reason "folding a long conversation in one pass"
+```
 
 ### A card being worked with nobody on it
 

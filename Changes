@@ -1,5 +1,23 @@
 Revision history for Tira
 
+1.38  2026-08-13
+    - Every script the skill ships is compiled by the suite, and every one
+      that names its command is checked to reach something that handles
+      it. Both backup entrypoints shipped in 1.37 as Perl syntax errors
+      and the suite stayed green: 131 files, 4306 tests and 100 percent
+      statement and subroutine coverage on all three modules, while the
+      two commands an agent would type did not run at all. Nothing caught
+      it because nothing ran them - every test calls the CLI directly and
+      exactly one executed an entrypoint, so the code behind the doorway
+      was measured to the last statement and the doorway was not measured
+      at all.
+    - Proved by breaking it both ways it can break. Broken as the bundle
+      entrypoints were, the check names the file and fails; pointed at a
+      command that does not exist, it names the file and the command and
+      fails. The entrypoints are found rather than listed, because a list
+      is a second place to remember and forgetting to check is the whole
+      fault.
+
 1.37  2026-08-13
     - A backup can leave the machine. The repository a backup lives in
       sits inside the board's own storage, so it survives a bad edit and

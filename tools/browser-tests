@@ -109,6 +109,19 @@ build_wide_board() {
 
 build_review_board "$board"
 
+# A claimed password, because the login test needs a wrong password to be
+# wrong. Tira trusts on first use - a person who has never signed in claims a
+# password by typing one - so on a board where nobody is registered, the
+# "wrong password" the test types is not wrong at all: it claims the password
+# and signs in, and the refusal the test waits for never comes. That is why
+# login-gate timed out, and it took driving the login by hand to see it.
+#
+# hunter2 is what the test signs in with afterwards, so it has to be that.
+d2 tira.login.register --project "$board" --id michael --password hunter2 -o json >/dev/null || {
+    echo "browser-tests: could not claim a password for the login test"
+    exit 1
+}
+
 d2 tira.dashboard --project "$board" -o "browser=127.0.0.1:$port" >"$scratch/board.log" 2>&1 &
 serving=$!
 

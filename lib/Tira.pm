@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.29';
+our $VERSION = '1.30';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -6406,7 +6406,18 @@ sub _dashboard_table {
           . '<button type="button" class="board-review" data-queue="review"'
           . ' aria-pressed="false" title="Show only cards whose answers are waiting to be accepted or rejected">'
           . 'Answers to review</button>'
-          . '<button type="button" class="board-columns" data-columns="' . $type . '">Columns</button></header>'
+          . (
+            # Only where it can work. Editing columns posts to the server, so
+            # on a page saved to disk this was a button that looked live, said
+            # "Columns", and did nothing when clicked - the second such control
+            # found on that page, after the queue toggles, and found the same
+            # way. The toggles could be bound because filtering happens in the
+            # page; this cannot, so the page does not offer it.
+            $args{live}
+            ? '<button type="button" class="board-columns" data-columns="' . $type . '">Columns</button>'
+            : ''
+          )
+          . '</header>'
           . '<div class="board__scroll"><div class="board__columns">'
           . $cells . '</div></div></section>';
     }

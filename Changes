@@ -1,5 +1,17 @@
 Revision history for Tira
 
+1.30  2026-08-13
+    - The page saved to disk no longer offers a Columns button. It
+      carried the button and the whole dialog with neither the script
+      that opens them nor the binding that would, so it said "Columns"
+      and did nothing when clicked - the second such control found on
+      that page, after the queue toggles. Unlike those it could not
+      simply be bound: editing columns posts to a server a saved page
+      does not have, not temporarily but in principle, so the page does
+      not offer it. The served board keeps it and it works there. Written
+      as a rule rather than a fact about one button - every control the
+      page offers is now asserted to be bound as well.
+
 1.29  2026-08-13
     - The two queue toggles on the board page work. They render with
       titles and aria-pressed on the page a person looks at, and nothing

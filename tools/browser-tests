@@ -66,12 +66,12 @@ cleanup() {
     # listening on 7841 and 7844, and how the next run failed to bind and
     # reported the board as never coming up. A tool that leaks the thing it
     # starts is the fault this project keeps finding, and this one was mine.
-    if [ -n "$serving" ]; then
-        kill "$serving" 2>/dev/null
-        wait "$serving" 2>/dev/null
-    fi
+    for launched in $serving ${browsing:-}; do
+        kill "$launched" 2>/dev/null
+        wait "$launched" 2>/dev/null
+    done
     # Anything still holding the port, whoever started it.
-    for held in $(ss -ltnp 2>/dev/null | grep ":$port " |
+    for held in $(ss -ltnp 2>/dev/null | grep -E ":($port|$(( port + 1 ))) " |
                   grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u); do
         kill "$held" 2>/dev/null
     done
@@ -144,6 +144,24 @@ build_wide_board() {
     for spare in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do
         make_card "$where" "Card $spare" >/dev/null
     done
+}
+
+# A board shaped for dashboard-browser, which stands in for the server and
+# asserts particular cards by name: TKT-001 in a column called in-progress, and
+# exactly two in backlog with TKT-003 the most recently modified. The review
+# board cannot also be this - it counts exactly six cards and has no
+# in-progress column - which is the third time these tests have wanted boards
+# that contradict each other.
+build_browser_board() {
+    local where="$1"
+    local first second third
+    first="$(make_card "$where" "Live browser card")"
+    tira ticket.move --project "$where" --ref "$first" --column in-progress --author michael -o json >/dev/null
+    sleep 1
+    second="$(make_card "$where" "Second card")"
+    sleep 1
+    third="$(make_card "$where" "Third card")"
+    tira login.register --project "$where" --id michael --password hunter2 -o json >/dev/null
 }
 
 build_review_board "$board"
@@ -234,6 +252,24 @@ tira dashboard.ticket --project "$board" --title -o table >"$one_html" 2>/dev/nu
 data="$scratch/board.json"
 tira export --project "$board" -o json >"$data" 2>/dev/null || true
 
+# The browser board, served on its own port, so its page and data are the ones
+# dashboard-browser is written against.
+browser_board="$scratch/browser-board"
+browser_port=$(( port + 1 ))
+tira project.new --name Browsing --dir "$browser_board" --members 'michael, ada' \
+    --columns 'backlog, in-progress, done' \
+    --sow-prefix SOW --epic-prefix EPC --ticket-prefix TKT -o json >/dev/null
+build_browser_board "$browser_board"
+
+tira dashboard --project "$browser_board" -o "browser=127.0.0.1:$browser_port" \
+    >"$scratch/browser-board.log" 2>&1 &
+browsing=$!
+for _ in $(seq 1 60); do
+    curl -fsS -o /dev/null -m 2 "http://127.0.0.1:$browser_port/" && break
+    kill -0 "$browsing" 2>/dev/null || break
+    sleep 1
+done
+
 # Signed in, then the page as a person sees it.
 curl -fsS -c "$scratch/jar" -X POST "http://127.0.0.1:$port/login" \
     -H 'Content-Type: application/json' -d '{"id":"michael","password":"hunter2"}' \
@@ -243,6 +279,24 @@ curl -fsS -c "$scratch/jar" -X POST "http://127.0.0.1:$port/login" \
 }
 curl -fsS -b "$scratch/jar" "http://127.0.0.1:$port/" -o "$live_html" 2>/dev/null || {
     echo "browser-tests: could not fetch the live board page"
+    exit 1
+}
+
+curl -fsS -c "$scratch/browserjar" -X POST "http://127.0.0.1:$browser_port/login" \
+    -H 'Content-Type: application/json' -d '{"id":"michael","password":"hunter2"}' \
+    -o /dev/null 2>/dev/null
+browsing_html="$scratch/browsing.html"
+curl -fsS -b "$scratch/browserjar" "http://127.0.0.1:$browser_port/" -o "$browsing_html" 2>/dev/null || {
+    echo "browser-tests: could not fetch the browsing board page"
+    exit 1
+}
+
+# The board's own /data reply, which is what the live page refreshes from -
+# not an export. dashboard-browser stands in for the server and needs the same
+# shape the page would really receive.
+live_data="$scratch/live-data.json"
+curl -fsS -b "$scratch/browserjar" "http://127.0.0.1:$browser_port/data" -o "$live_data" 2>/dev/null || {
+    echo "browser-tests: could not fetch the board data"
     exit 1
 }
 
@@ -263,7 +317,7 @@ for test in "$tests"/*.js; do
     name="$(basename "$test")"
     case "$name" in
         login-gate.js)        run_one "$name" "http://127.0.0.1:$port" ;;
-        dashboard-browser.js) run_one "$name" "$html" "$data" "$scratch/$name.png" ;;
+        dashboard-browser.js) run_one "$name" "$browsing_html" "$live_data" "$scratch/$name.png" ;;
         wide-board.js|wrap-board.js)
                               run_one "$name" "$wide_html" "$scratch/$name.png" ;;
         dashboard-table.js)   run_one "$name" "$one_html" "$scratch/$name.png" ;;

@@ -117,4 +117,17 @@ step 'running every documented example'
 [ -x tools/docs-examples-run ] || fail 'tools/docs-examples-run is missing - refusing to push examples nobody ran'
 tools/docs-examples-run || fail 'a documented example is not what the command accepts'
 
+# And the browser opened, rather than seven files being counted as though it
+# had been. They sat in t/playwright for months: prove reads .t and these are
+# .js, so the suite never saw them, and nothing else ran them either. A check
+# nobody runs is worse than no check, because it is counted - and running them
+# turned up three stale contracts and two dead controls on the page a person
+# looks at.
+#
+# Fails closed. If node or playwright is missing this refuses rather than
+# skipping, because skipping quietly is exactly how they came to be ignored.
+step 'opening a browser on the board'
+[ -x tools/browser-tests ] || fail 'tools/browser-tests is missing - refusing to push with the browser unopened'
+tools/browser-tests || fail 'a browser test failed, or could not be run at all'
+
 step 'suite passed, coverage is 100% on all three modules, documentation agrees, board backed up'

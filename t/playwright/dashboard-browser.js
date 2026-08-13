@@ -425,8 +425,13 @@ const fs = require('fs');
 
   page.once('dialog', dialog => dialog.accept());
   await page.locator(`.card-dialog [data-detach-attachment="${'a'.repeat(64)}.txt"]`).click();
-  await page.waitForFunction(() => window.__tiraLastMutation === '/attachment/remove');
-  const detached = mutations.find(entry => entry.path === '/attachment/remove');
+  // Discard, not remove. The owner asked for taking an attachment off a card to
+  // be a discard like everything else in Tira - crossed out and greyed on the
+  // board rather than gone - and the endpoint was renamed when that shipped.
+  // This test kept waiting for the old one, and nothing noticed, because
+  // nothing ran it.
+  await page.waitForFunction(() => window.__tiraLastMutation === '/attachment/discard');
+  const detached = mutations.find(entry => entry.path === '/attachment/discard');
   if (!detached || detached.body.sha !== 'a'.repeat(64) || detached.body.extension !== 'txt' || detached.body.ref !== 'TKT-001')
     throw new Error(`unexpected attachment remove payload: ${JSON.stringify(detached && detached.body)}`);
 

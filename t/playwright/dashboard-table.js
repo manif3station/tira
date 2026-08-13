@@ -34,8 +34,11 @@ const fs = require('fs');
     }
     if (!await page.locator('.last-updated').textContent()) throw new Error('last-updated timestamp is missing');
   };
-  await assertRefresh('', 5, 5000);
-  await assertRefresh('?refresh=invalid', 5, 5000);
+  // Sixty, not five. The owner asked for a board that refreshes itself every
+  // sixty seconds and the page was changed to match; this test kept asserting
+  // the old default and nothing noticed, because nothing ran it.
+  await assertRefresh('', 60, 60000);
+  await assertRefresh('?refresh=invalid', 60, 60000);
   await assertRefresh('?refresh=0', 1, 1000);
   await assertRefresh('?refresh=60', 60, 60000);
   if (await page.locator('.board').count() !== 1) throw new Error('expected one type-specific board');

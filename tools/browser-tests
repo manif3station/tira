@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+# Run every browser test against a board this starts and stops.
+#
+# t/playwright held seven files and nothing ran one of them. prove reads .t and
+# these are .js, so the suite was never going to see them; neither push hook
+# nor gate prover mentioned playwright anywhere. They were written, they were
+# extended, and no gate ever opened a browser - which is the defect this
+# project keeps finding, in the last place I would have looked for it.
+#
+# Fails closed. If playwright is missing, or a board will not start, or a test
+# fails, this exits non-zero and says which - because skipping quietly is how
+# seven files came to be counted as coverage while covering nothing.
+#
+# Usage: tools/browser-tests [port]
+
+set -uo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+
+port="${1:-7841}"
+tests="$root/t/playwright"
+
+[ -d "$tests" ] || { echo "browser-tests: $tests is missing - refusing to report success"; exit 1; }
+
+command -v node >/dev/null 2>&1 || {
+    echo "browser-tests: node is not installed. The browser tests cannot run, so this refuses"
+    echo "  rather than passing. Install node and playwright, or say so on a card."
+    exit 1
+}
+node -e "require.resolve('playwright')" >/dev/null 2>&1 || {
+    echo "browser-tests: playwright is not installed. The browser tests cannot run, so this"
+    echo "  refuses rather than passing - a check nobody runs is worse than no check, because"
+    echo "  it is counted."
+    exit 1
+}
+
+# The board and its project are removed however this ends. An interrupted run
+# used to be the thing that left a scratch board in /tmp for a week, and a tool
+# that litters the thing it is checking is not a check.
+board=""
+serving=""
+cleanup() {
+    [ -n "$serving" ] && kill "$serving" 2>/dev/null
+    [ -n "$serving" ] && wait "$serving" 2>/dev/null
+    [ -n "$board" ] && rm -rf "$(dirname "$board")"
+    return 0
+}
+trap cleanup EXIT INT TERM
+
+scratch="$(mktemp -d)"
+board="$scratch/board"
+
+# The shape these tests were written against, built here rather than assumed
+# to exist. Ten columns, because two of them are about what a board does when
+# it is wider than the window; six tickets, two of them awaiting judgement and
+# one waiting on the owner, because the review queues are counted exactly.
+# Guessing at this is what made six of them fail on their first ever run.
+d2 tira.project.new --name Browser --dir "$board" --members 'michael, ada' \
+    --columns 'backlog, ready, tests-red, implement, review, verify, document, staging, push, done' \
+    --sow-prefix BRS --epic-prefix BRE --ticket-prefix BRT -o json >/dev/null || {
+    echo "browser-tests: could not make a board to drive"
+    exit 1
+}
+
+# Each test gets a board shaped for it, because they want different ones -
+# review-toggle counts exactly six cards and wide-board refuses with fewer than
+# eleven. One shared fixture cannot satisfy both, and trying made each fix
+# break the other. Nothing recorded that these needed particular boards; it was
+# only discoverable by running them, which nothing did.
+make_card() {
+    d2 tira.ticket.create --project "$1" --title "$2" \
+        --description "Something for the dialog to show" -o json |
+        python3 -c 'import json,sys; print(json.load(sys.stdin)["ref"])'
+}
+
+# Six cards, two of them answered and unjudged, one waiting on the owner.
+build_review_board() {
+    local where="$1"
+    for column in backlog ready implement review verify done; do
+        local card
+        card="$(make_card "$where" "A card in $column")"
+        [ "$column" = backlog ] || d2 tira.ticket.move --project "$where" --ref "$card" \
+            --column "$column" --author michael -o json >/dev/null
+        case "$column" in
+            review|verify)
+                d2 tira.question.ask --project "$where" --ref "$card" --author ada \
+                    --text "Is this the right approach?" --reason "two ways to do it" \
+                    --option one --option two -o json >/dev/null
+                d2 tira.question.answer --project "$where" --ref "$card" --id Q-001 \
+                    --text "the first one" -o json >/dev/null
+                ;;
+            implement)
+                d2 tira.question.ask --project "$where" --ref "$card" --author ada \
+                    --text "Which way round should this go?" --reason "not obvious from here" \
+                    --option this --option that -o json >/dev/null
+                ;;
+        esac
+    done
+}
+
+# More than ten, so the board pages.
+build_wide_board() {
+    local where="$1"
+    for spare in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do
+        make_card "$where" "Card $spare" >/dev/null
+    done
+}
+
+build_review_board "$board"
+
+d2 tira.dashboard --project "$board" -o "browser=127.0.0.1:$port" >"$scratch/board.log" 2>&1 &
+serving=$!
+
+# Waited for, rather than slept at. A fixed sleep is either too short on a busy
+# machine or wasted on an idle one, and when it is too short the failure looks
+# like the test failing rather than the board not being up yet.
+up=""
+for _ in $(seq 1 60); do
+    if curl -fsS -o /dev/null -m 2 "http://127.0.0.1:$port/"; then up=yes; break; fi
+    kill -0 "$serving" 2>/dev/null || break
+    sleep 1
+done
+[ -n "$up" ] || {
+    echo "browser-tests: the board never came up on port $port"
+    tail -5 "$scratch/board.log" 2>/dev/null
+    exit 1
+}
+
+# The seven are two kinds of test and the first runner treated them as one,
+# which is how six of them "failed" on their first ever run for no reason but
+# being handed the wrong argument. login-gate drives a live board through a
+# browser; the rest open a rendered page from disk and inspect it. Each is
+# given what it asks for in its own usage line.
+# A second board, wide enough to page, rendered to its own page - the tests
+# that count columns and paging want more cards than the ones that count
+# review queues will tolerate.
+wide="$scratch/wide"
+d2 tira.project.new --name Wide --dir "$wide" --members michael \
+    --columns 'backlog, ready, tests-red, implement, review, verify, document, staging, push, done' \
+    --sow-prefix WDS --epic-prefix WDE --ticket-prefix WDT -o json >/dev/null
+build_wide_board "$wide"
+wide_html="$scratch/wide.html"
+d2 tira.dashboard --project "$wide" --title -o table >"$wide_html" 2>/dev/null
+
+html="$scratch/board.html"
+d2 tira.dashboard --project "$board" --title -o table >"$html" 2>/dev/null || {
+    echo "browser-tests: could not render the board to a page"
+    exit 1
+}
+[ -s "$html" ] || { echo "browser-tests: the rendered page is empty"; exit 1; }
+
+data="$scratch/board.json"
+d2 tira.export --project "$board" -o json >"$data" 2>/dev/null || true
+
+failed=0
+ran=0
+run_one() {
+    local name="$1"; shift
+    printf '\n--- %s\n' "$name"
+    if node "$tests/$name" "$@"; then
+        ran=$(( ran + 1 ))
+    else
+        echo "FAILED: $name"
+        failed=$(( failed + 1 ))
+    fi
+}
+
+for test in "$tests"/*.js; do
+    name="$(basename "$test")"
+    case "$name" in
+        login-gate.js)        run_one "$name" "http://127.0.0.1:$port" ;;
+        dashboard-browser.js) run_one "$name" "$html" "$data" "$scratch/$name.png" ;;
+        wide-board.js|wrap-board.js)
+                              run_one "$name" "$wide_html" "$scratch/$name.png" ;;
+        dashboard-table.js)   run_one "$name" "$html" "$scratch/$name.png" ;;
+        *)                    run_one "$name" "$html" ;;
+    esac
+done
+
+printf '\n'
+if [ "$failed" -gt 0 ]; then
+    echo "browser-tests: $failed of $(( ran + failed )) browser tests failed"
+    exit 1
+fi
+echo "browser-tests: $ran browser tests ran, and every one passed"

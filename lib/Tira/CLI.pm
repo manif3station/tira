@@ -2002,7 +2002,13 @@ sub _processes_from {
     my ($lines) = @_;
     my @processes;
     for my $line ( @{$lines} ) {
-        next if $line !~ /\A\s*(\d+)\s+(\w{3}\s+\w{3}\s+\d+\s+[\d:]+\s+\d{4})\s+(.*)\z/;
+
+        # Day name, then two fields in whichever order this platform prints
+        # them - Linux gives "Tue May 26" and macOS "Thu 13 Aug". Matching a
+        # month name in a fixed position read 711 of 711 lines on Linux and 0
+        # of 192 on macOS, so leftover-process reported nothing on a Mac
+        # whatever was running.
+        next if $line !~ /\A\s*(\d+)\s+(\w{3}\s+\w+\s+\w+\s+[\d:]+\s+\d{4})\s+(.*)\z/;
         my ( $pid, $started, $command ) = ( $1, $2, $3 );
         next if $pid == $$;
         push @processes,
@@ -2011,12 +2017,25 @@ sub _processes_from {
     return \@processes;
 }
 
+# The month is whichever of the two fields is a month name, and the day is the
+# other one. Deciding by platform would be wrong on the first machine whose
+# locale prints something nobody anticipated; deciding by which field is a
+# month needs no knowledge of where it is running at all.
 sub _stamp_from_ps {
     my ($text) = @_;
     my %month = do { my $n = 0; map { $_ => ++$n } qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec) };
-    return undef if $text !~ /\A\w{3}\s+(\w{3})\s+(\d+)\s+(\d+):(\d+):(\d+)\s+(\d{4})\z/;
-    return undef if !$month{$1};
-    return sprintf '%04d-%02d-%02dT%02d:%02d:%02d', $6, $month{$1}, $2, $3, $4, $5;
+    return undef
+      if $text !~ /\A\w{3}\s+(\w+)\s+(\w+)\s+(\d+):(\d+):(\d+)\s+(\d{4})\z/;
+
+    my ( $first, $second, $hour, $minute, $second_of, $year ) = ( $1, $2, $3, $4, $5, $6 );
+    my ( $name, $day ) =
+        $month{$first}  ? ( $first,  $second )
+      : $month{$second} ? ( $second, $first )
+      :                   ( undef,   undef );
+    return undef if !defined $name || $day !~ /\A\d+\z/;
+
+    return sprintf '%04d-%02d-%02dT%02d:%02d:%02d',
+      $year, $month{$name}, $day, $hour, $minute, $second_of;
 }
 
 sub _running_containers {

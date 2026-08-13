@@ -123,6 +123,50 @@ macOS lab: not started for this change. What it would add over Linux here is the
 POSIX branch on a second POSIX platform, which the Linux suite already covers -
 the fault was Windows-shaped. Recorded rather than skipped silently.
 
+## 1.27 — the process table, on real macOS
+
+macOS lab: `ssh macdev`, QEMU macOS 14.8.5, Homebrew perl 5.42.2 at
+`/usr/local/opt/perl/bin/perl`.
+
+The previous release recorded this lab as not started, reasoning that it would
+only add the POSIX branch on a second POSIX platform that Linux already covered.
+BSD ps is not Linux ps, and one command on the lab settled it:
+
+```
+Linux:   1 Tue May 26 08:06:05 2026 /usr/lib/systemd/systemd
+macOS:   1 Thu 13 Aug 01:52:51 2026 /sbin/launchd
+```
+
+Month before day on one, day before month on the other. Both regexes that read
+the process table required a month name in the second field.
+
+Before, measured on each machine:
+
+```
+macOS   ps produced lines:  192     processes gathered: 0    with a start time: 0
+Linux   ps produced lines:  711     processes gathered: 711  with a start time: 711
+```
+
+After:
+
+```
+macOS   ps produced lines:  178     processes gathered: 177  with a start time: 177
+Linux   ps produced lines:  709     processes gathered: 708  with a start time: 708
+```
+
+Short by one on each is the header line ps prints for itself — short by the
+same one on both, so the platforms agree.
+
+`ps -eo` is correct on macOS: `-e` is identical to `-A` in POSIX mode, and the
+"display the environment" meaning is the legacy BSD form. That doubt is settled
+and needs no further checking.
+
+Windows lab: not started for this change. The Windows reader takes a different
+code path entirely — tasklist, no start times — and was proved on its own lab
+one release ago. Recorded rather than skipped silently.
+
+Both labs stopped.
+
 ## The labs themselves
 
 The Windows lab had no persistent storage: removing the container threw away the

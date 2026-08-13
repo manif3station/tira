@@ -1,5 +1,21 @@
 Revision history for Tira
 
+1.44  2026-08-13
+    - A column can be ordered by priority. He sent a screenshot of the two
+      buttons the board had and asked for one more: priority is the field
+      the whole board is arranged around, and it was the one thing a
+      column could not be ordered by, so a full column had to be read card
+      by card to find what mattered most.
+    - Highest first, because the question a column answers is what to pick
+      up next. A card nobody has prioritised goes last and says so in the
+      markup rather than pretending to a number - unassessed is not the
+      same as lowest.
+    - The priority travels in the refresh payload as well as the first
+      render, so the ordering survives the board rebuilding every card a
+      minute later. A sort that works until the first refresh is the shape
+      of defect this project keeps finding: right on the path anybody
+      checks, wrong on the one nobody does.
+
 1.43  2026-08-13
     - answer-unjudged takes an optional second age, counted from when the
       answer was read. It waited the same age for an answer nobody had

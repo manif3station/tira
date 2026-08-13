@@ -66,12 +66,12 @@ cleanup() {
     # listening on 7841 and 7844, and how the next run failed to bind and
     # reported the board as never coming up. A tool that leaks the thing it
     # starts is the fault this project keeps finding, and this one was mine.
-    for launched in $serving ${browsing:-}; do
+    for launched in $serving ${browsing:-} ${prioritising:-}; do
         kill "$launched" 2>/dev/null
         wait "$launched" 2>/dev/null
     done
     # Anything still holding the port, whoever started it.
-    for held in $(ss -ltnp 2>/dev/null | grep -E ":($port|$(( port + 1 ))) " |
+    for held in $(ss -ltnp 2>/dev/null | grep -E ":($port|$(( port + 1 ))|$(( port + 2 ))) " |
                   grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u); do
         kill "$held" 2>/dev/null
     done
@@ -162,6 +162,19 @@ build_browser_board() {
     sleep 1
     third="$(make_card "$where" "Third card")"
     tira login.register --project "$where" --id michael --password hunter2 -o json >/dev/null
+
+}
+
+# A board of its own for priority-sort, which needs a column holding more than
+# two cards. Adding them to the browsing board broke dashboard-browser, which
+# counts exactly three tickets - the fourth time these tests have wanted boards
+# that contradict each other, and the reason each one gets its own.
+build_priority_board() {
+    local where="$1"
+    for spare in 1 2 3 4; do
+        make_card "$where" "Something to order $spare" >/dev/null
+    done
+    tira login.register --project "$where" --id michael --password hunter2 -o json >/dev/null
 }
 
 build_review_board "$board"
@@ -228,6 +241,12 @@ build_wide_board "$wide"
 wide_html="$scratch/wide.html"
 tira dashboard --project "$wide" --title -o table >"$wide_html" 2>/dev/null
 
+# The same board as JSON, for the tests that drive a refresh. priority-sort
+# needs a column with more than two cards in it, and the browsing board has
+# three cards altogether - which is how that test failed on its first run.
+wide_data="$scratch/wide-data.json"
+tira dashboard --project "$wide" -o json >"$wide_data" 2>/dev/null
+
 html="$scratch/board.html"
 tira dashboard --project "$board" --title -o table >"$html" 2>/dev/null || {
     echo "browser-tests: could not render the board to a page"
@@ -285,6 +304,37 @@ curl -fsS -b "$scratch/jar" "http://127.0.0.1:$port/" -o "$live_html" 2>/dev/nul
 curl -fsS -c "$scratch/browserjar" -X POST "http://127.0.0.1:$browser_port/login" \
     -H 'Content-Type: application/json' -d '{"id":"michael","password":"hunter2"}' \
     -o /dev/null 2>/dev/null
+# The priority board, served, because the sort has to be clicked and then
+# survive a refresh - and only a live page carries the code that rebuilds cards.
+priority_board="$scratch/priority-board"
+priority_port=$(( port + 2 ))
+tira project.new --name Priority --dir "$priority_board" --members michael \
+    --columns 'backlog, done' \
+    --sow-prefix PRS --epic-prefix PRE --ticket-prefix PRT -o json >/dev/null
+build_priority_board "$priority_board"
+
+tira dashboard --project "$priority_board" -o "browser=127.0.0.1:$priority_port" \
+    >"$scratch/priority-board.log" 2>&1 &
+prioritising=$!
+for _ in $(seq 1 60); do
+    curl -fsS -o /dev/null -m 2 "http://127.0.0.1:$priority_port/" && break
+    kill -0 "$prioritising" 2>/dev/null || break
+    sleep 1
+done
+curl -fsS -c "$scratch/priorityjar" -X POST "http://127.0.0.1:$priority_port/login" \
+    -H 'Content-Type: application/json' -d '{"id":"michael","password":"hunter2"}' \
+    -o /dev/null 2>/dev/null
+priority_html="$scratch/priority.html"
+curl -fsS -b "$scratch/priorityjar" "http://127.0.0.1:$priority_port/" -o "$priority_html" 2>/dev/null || {
+    echo "browser-tests: could not fetch the priority board page"
+    exit 1
+}
+priority_data="$scratch/priority-data.json"
+curl -fsS -b "$scratch/priorityjar" "http://127.0.0.1:$priority_port/data" -o "$priority_data" 2>/dev/null || {
+    echo "browser-tests: could not fetch the priority board data"
+    exit 1
+}
+
 browsing_html="$scratch/browsing.html"
 curl -fsS -b "$scratch/browserjar" "http://127.0.0.1:$browser_port/" -o "$browsing_html" 2>/dev/null || {
     echo "browser-tests: could not fetch the browsing board page"
@@ -320,6 +370,7 @@ for test in "$tests"/*.js; do
         dashboard-browser.js) run_one "$name" "$browsing_html" "$live_data" "$scratch/$name.png" ;;
         stale-board.js)       run_one "$name" "$browsing_html" "$live_data" ;;
         police-log.js)        run_one "$name" "$browsing_html" "$live_data" ;;
+        priority-sort.js)     run_one "$name" "$priority_html" "$priority_data" ;;
         wide-board.js|wrap-board.js)
                               run_one "$name" "$wide_html" "$scratch/$name.png" ;;
         dashboard-table.js)   run_one "$name" "$one_html" "$scratch/$name.png" ;;

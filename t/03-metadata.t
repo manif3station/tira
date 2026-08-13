@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=1\.43$/m, '.env stores version 1.43' );
+like( $env_text, qr/^VERSION=1\.44$/m, '.env stores version 1.44' );
 
 open my $skills, '<', 'SKILLS.md' or die "Cannot read SKILLS.md: $!";
 my $skills_text = do { local $/; <$skills> };
@@ -35,18 +35,18 @@ for my $section (
     like( $skills_text, qr/^## \Q$section\E$/m, "SKILLS.md contains $section" );
 }
 my @use_cases = $skills_text =~ /^### UC-\d{3}:/mg;
-is( scalar @use_cases, 134, 'SKILLS.md contains exactly 134 numbered use cases' );
+is( scalar @use_cases, 135, 'SKILLS.md contains exactly 135 numbered use cases' );
 my %seen;
 while ( $skills_text =~ /^### UC-(\d{3}):/mg ) {
     $seen{$1}++;
 }
-is_deeply( [ sort keys %seen ], [ map { sprintf '%03d', $_ } 1 .. 134 ], 'use cases are numbered UC-001 through UC-134' );
+is_deeply( [ sort keys %seen ], [ map { sprintf '%03d', $_ } 1 .. 135 ], 'use cases are numbered UC-001 through UC-135' );
 unlike( $skills_text, qr{/home/[A-Za-z0-9._-]+/}, 'SKILLS.md contains no hard-coded home-directory path' );
 unlike( $skills_text, qr/--project|TIRA_HOME|\.tira\/|project selector/i, 'SKILLS.md does not disclose project location or selectors' );
 
 use lib 'lib';
 use Tira;
-is( $Tira::VERSION, '1.43', 'module version matches .env' );
+is( $Tira::VERSION, '1.44', 'module version matches .env' );
 
 # And the changelog, which nothing checked. .env, the module and this file
 # agreed with each other for two releases while Changes named a version one

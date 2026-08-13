@@ -1,5 +1,27 @@
 Revision history for Tira
 
+1.47  2026-08-13
+    - A successful import writes nothing to the error stream. git prints
+      "<file> is okay" when a bundle verifies, and a command that worked
+      writing to stderr reads like a warning to whoever is watching.
+      --quiet does not silence it; git says it anyway.
+    - Two earlier attempts were reverted and this is the third. Reopening
+      this process's error stream and putting it back looked equivalent
+      and was not: every caller that had redirected it got the real one
+      back, and four assertions about refusal messages went silent while
+      the refusals themselves kept working. Forking a child that silences
+      itself is correct and unmeasurable, because the child execs away
+      before any coverage counter is written. The parent now hands the
+      child a filehandle for its error stream: nothing here is reopened
+      and no Perl runs in the child.
+    - The test that proves it had to be rewritten too. Asserting on a
+      localised STDERR passed while the noise went to the terminal
+      anyway, because a Perl-level redirection does not touch the stream
+      a child process inherits - the check passing for the wrong reason,
+      which is the fault this project keeps finding in its own checks. It
+      captures a real child's stream now, and asserts the other half as
+      well: a later command in the same process still has its own.
+
 1.46  2026-08-13
     - A command refuses an option it will not act on. tira.assign.set
       takes --person and also accepted --assignee, then threw it away:

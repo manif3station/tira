@@ -2298,13 +2298,7 @@ sub _backup_import {
     my $scratch = File::Temp::tempdir( CLEANUP => 1 );
     _running( 'git', '-C', $scratch, 'init', '--quiet' )
       or die "Could not check the bundle: no scratch repository\n";
-    # git prints "<file> is okay" on the error stream when this succeeds. It is
-    # git's own chatter and it is left alone: silencing it means either
-    # reopening this process's error stream, which takes it away from whoever
-    # had redirected it, or forking a child to silence itself, which no
-    # coverage tool can measure because the child execs away. Neither is worth
-    # buying a tidy line with. See TKT-120.
-    _running( 'git', '-C', $scratch, 'bundle', 'verify', $file )
+    _running_quietly( 'git', '-C', $scratch, 'bundle', 'verify', $file )
       or die "$file is not a bundle git can read\n";
 
     # Claimed rather than read out of the bundle, because reading it means
@@ -2361,6 +2355,34 @@ sub _backup_import {
 # verify prints "<file> is okay" on the error stream when it succeeds, and a
 # successful import that prints to stderr reads like a warning to anybody
 # watching. Its answer is the exit status; its opinion is noise.
+# Running something whose own chatter is not the caller's business. git prints
+# "<file> is okay" on the error stream when a bundle verifies, and a successful
+# command that writes to stderr reads like a warning to whoever is watching.
+#
+# The parent hands the child a filehandle for its error stream, so nothing in
+# this process is reopened and no Perl runs in the child. Two other ways were
+# tried and both cost more than the line is worth: reopening this process's
+# stream took it away from every caller that had redirected it, and forking a
+# child that silences itself puts lines in the codebase that no coverage tool
+# can measure, because the child execs away before any counter is written.
+sub _running_quietly {
+    my (@command) = @_;
+    return 0 if !_program_exists( $command[0] );
+    require IPC::Open3;
+    require Symbol;
+    open my $quiet, '>', File::Spec->devnull
+      or die "Cannot open the null device to run $command[0] quietly: $!\n";
+    my $said = Symbol::gensym();
+    my $pid = eval { IPC::Open3::open3( my $nothing, $said, $quiet, @command ) };
+    return 0 if !$pid;
+    my @ignored = <$said>;
+    close $said;
+    waitpid $pid, 0;
+    my $status = $?;
+    close $quiet;
+    return $status == 0 ? 1 : 0;
+}
+
 sub _running {
     my (@command) = @_;
     return 0 if !_program_exists( $command[0] );

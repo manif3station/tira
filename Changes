@@ -43,6 +43,15 @@ Revision history for Tira
       by the same expression written out twice - once for the bridge and
       once for the owner's terminal - which is the shape that has now
       drifted three times in this codebase. It is one place now.
+    - The push gate runs documented examples against the code being
+      pushed rather than against whatever was installed last. It invoked
+      every example through the installed skill, so documentation for a
+      command a commit deletes kept passing and documentation for a
+      command a commit adds was refused - it refused this release for
+      naming tira.backup, which the other half of the same gate requires
+      to be documented. It now resolves each dotted command to this
+      working tree's own entrypoint, mirroring the dispatcher rather than
+      approximating it.
 
 1.32  2026-08-13
     - Only the process that launched a board may replace it. The version

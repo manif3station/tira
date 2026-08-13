@@ -103,21 +103,70 @@ def main():
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+# The repository's own entrypoints, not the installed skill.
+#
+# This ran every example through `d2`, which runs whatever was installed last -
+# so the check asked whether the documentation matched some earlier release and
+# never whether it matched the code about to be pushed. Backwards in both
+# directions: documentation for a command this commit deletes kept passing,
+# because the installed copy still had it, and documentation for a command this
+# commit adds was refused, because the installed copy had never heard of it.
+# That is not a hypothetical - it refused the release that added tira.backup,
+# and the only way through would have been to ship the command undocumented,
+# which the other half of this gate forbids.
+#
+# tools/browser-tests was written to use the repository's entrypoints for
+# exactly this reason. This is the same resolution: a dotted command is
+# cli/<verb>, or skills/<parts>/cli/<verb> when it has a type.
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def entrypoint(dotted):
+    """The script in this working tree that a dotted command runs.
+
+    Mirroring the dispatcher rather than approximating it. It derives the
+    dotted name from the path by dropping every 'skills' directory, so
+    tira.project.people.activate is skills/project/skills/people/cli/activate
+    and tira.backup is cli/backup. Guessing one level of nesting found three
+    families of command that do exist and reported them missing.
+    """
+    verb = dotted[len('tira.'):] if dotted.startswith('tira.') else dotted
+    parts = verb.split('.')
+    action = parts[-1]
+    areas = parts[:-1]
+    if not areas:
+        candidate = os.path.join(ROOT, 'cli', action)
+        return candidate if os.path.isfile(candidate) else None
+    nested = os.path.join(ROOT, 'skills', *[part for area in areas
+                                            for part in (area, 'skills')][:-1],
+                          'cli', action)
+    return nested if os.path.isfile(nested) else None
+
+
+def invoke(dotted, *arguments):
+    """Run a documented command against this working tree."""
+    script = entrypoint(dotted)
+    if script is None:
+        return None
+    return ['perl', '-I' + os.path.join(ROOT, 'lib'), script] + list(arguments)
+
+
 def check(scratch):
     project = os.path.join(scratch, 'board')
     setup = subprocess.run(
-        ['d2', 'tira.project.new', '--name', 'Examples', '--dir', project,
-         '--members', 'michael', '--columns', 'backlog, implement, done',
-         '--sow-prefix', 'DXS', '--epic-prefix', 'DXE', '--ticket-prefix', 'TKT',
-         '-o', 'json'],
+        invoke('tira.project.new', '--name', 'Examples', '--dir', project,
+               '--members', 'michael', '--columns', 'backlog, implement, done',
+               '--sow-prefix', 'DXS', '--epic-prefix', 'DXE', '--ticket-prefix', 'TKT',
+               '-o', 'json'),
         capture_output=True, text=True)
     if setup.returncode != 0:
         raise SystemExit(f'docs-examples-run: could not make a scratch board: {setup.stderr.strip()}')
 
     # A card and a question to quote, so an example naming TKT-001 is about the
     # documentation rather than about an empty board.
-    subprocess.run(['d2', 'tira.ticket.create', '--project', project,
-                    '--title', 'A card', '-o', 'json'], capture_output=True, text=True)
+    subprocess.run(invoke('tira.ticket.create', '--project', project,
+                          '--title', 'A card', '-o', 'json'),
+                   capture_output=True, text=True)
 
     ran = 0
     problems = []
@@ -131,7 +180,11 @@ def check(scratch):
             continue
         if argv[0].startswith(FOREVER) or 'browser' in line:
             continue
-        command = ['d2', argv[0], '--project', project] + argv[1:]
+        command = invoke(argv[0], '--project', project, *argv[1:])
+        if command is None:
+            problems.append((document, line,
+                             f'this working tree ships no entrypoint for {argv[0]}'))
+            continue
         try:
             done = subprocess.run(command, capture_output=True, text=True,
                                   stdin=subprocess.DEVNULL, timeout=30)

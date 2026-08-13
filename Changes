@@ -1,7 +1,41 @@
 Revision history for Tira
 
 1.50  2026-08-13
-    - A test that advanced its clock by two hours did it by adding two to
+    - TKT-132: the bridge writes to a file as it goes. tira.policy.bridge
+      printed to a standard output nobody had set to flush line by line,
+      so Perl buffered it whenever it was not a terminal. Run the natural
+      way for something left going - redirected to a file and tailed -
+      zen-framework measured ZERO BYTES IN SIXTY-EIGHT MINUTES while
+      violations were being raised and escalating to critical. Under a
+      pty the same command replayed the whole backlog at once.
+    - The bridge is an agent's only channel for violations, and the
+      policies guide says a policy set without the bridge running is
+      worse than no policy at all because it looks like cover. That
+      sentence came true through a buffer: twenty-one policies declared,
+      the owner told the board was covered, and the channel writing into
+      four kilobytes nobody would ever read.
+    - Every existing test missed it because they read police's own log
+      file, and because a process flushes what it holds when it exits.
+      The new test reads the file with the bridge still running, and
+      kills it rather than letting it exit, for the same reason.
+    - TKT-131, and TKT-134 reporting it independently: a card is created
+      in the column it was asked for. ticket.create accepted --column,
+      understood it, and threw it away - the card landed in backlog, the
+      command exited zero, and the whole record was printed as though the
+      column had been honoured. Three projects hit it in one evening.
+    - An unknown flag is refused loudly here, so an accepted flag reads
+      as an honoured one. mt5-ai had adopted --column on create precisely
+      to claim cards into a working column before starting, and recorded
+      in two cards' own gate records a column those cards had never
+      occupied. A remedy that fails silently turns a visible gap into a
+      false assurance.
+    - Honoured rather than refused, which was the other candidate. The
+      rules that ship with Tira say backlog means parked on a condition
+      and is not an inbox; forcing every card through it puts every new
+      card in the state those rules forbid. A column that does not exist
+      is refused, so is creating a card straight into discard, and a
+      refused create spends no reference number.
+    - TKT-130: a test that advanced its clock by two hours did it by adding two to
       the hour field and taking it modulo twenty-four, so a backup made at
       eleven at night moved the clock to one in the morning of the same
       day - twenty-two hours backwards. The rule it was checking stayed

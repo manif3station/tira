@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.49';
+our $VERSION = '1.50';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -401,9 +401,28 @@ sub create_record {
         sub {
             my $config_path = File::Spec->catfile( $board, 'config.yml' );
             my $config = $self->_load_yaml($config_path);
+
+            # Where the card starts. This used to be backlog and only backlog,
+            # while --column was accepted, understood and thrown away - so three
+            # projects in one evening believed their cards were somewhere they
+            # had never been. Checked before the counter is touched, so a
+            # refusal leaves no gap in the sequence.
+            my $column = 'backlog';
+            if ( defined $args{column} && $args{column} ne '' ) {
+                $column = $self->_valid_slug( $args{column} );
+                die "Column '$column' not found\n"
+                  if !grep { $_->{name} eq $column } @{ $config->{columns} };
+
+                # discard is where work goes when it is dropped. A card created
+                # there was never work, and nothing downstream would read it as
+                # anything but abandoned.
+                die "A card cannot be created in '$column': it is where work is set aside\n"
+                  if $column eq 'discard';
+            }
+
             my ( $prefix, $digits, $number ) = $self->_validated_counter( $config, $config_path );
             my $ref = sprintf '%s-%0*d', $prefix, $digits, $number;
-            my $record_path = File::Spec->catfile( $board, 'backlog', "$ref.json" );
+            my $record_path = File::Spec->catfile( $board, $column, "$ref.json" );
             die "Record '$ref' already exists\n" if -e $record_path;
 
             my $now = $self->{clock}->();
@@ -467,6 +486,13 @@ sub create_record {
                 unlink $record_path;
                 die $error;
             };
+
+            # Exactly what is on disk, which is this method's promise: an agent
+            # can trust that what it holds is what was stored. The column is the
+            # directory rather than a stored field, so naming it here would be
+            # the engine answering with something it did not write. The layer
+            # that talks to agents adds it, beside the reminder, for the reason
+            # already written there.
             return $record;
         },
     );

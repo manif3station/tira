@@ -1721,8 +1721,24 @@ sub _invoke {
         # that what it holds is what is on disk. The advice about it belongs to
         # the layer that talks to agents, not to the data.
         my $created = $tira->create_record(%args);
+
+        # Where it landed, read from the board rather than repeated from the
+        # request. --column used to be accepted and discarded, and a create that
+        # cannot say where the card is is how three projects came to believe
+        # theirs were somewhere they had never been. Asking the board means the
+        # answer cannot drift from the truth the way a second copy of the
+        # default would.
+        # Only what finds the card. Passing the whole request would hand it the
+        # caller's --fields as well, and a create that asked for two fields
+        # would come back with no column at all.
+        my $column = $tira->record_show(
+            ref => $created->{ref},
+            ( defined $args{project} ? ( project => $args{project} ) : () ),
+        )->{column};
+
         my $reminder = $tira->record_reminder($created);
-        return defined $reminder ? { %{$created}, reminder => $reminder } : $created;
+        return { %{$created}, column => $column,
+            ( defined $reminder ? ( reminder => $reminder ) : () ) };
     }
     return $tira->export_records(%args) if $command eq 'export';
     return $tira->diff_records(%args) if $command eq 'diff';
@@ -1846,6 +1862,21 @@ sub _invoke {
         my $store = $option->{store} // _police_store( $args{project} );
 
         if ( $command eq 'policy.bridge' ) {
+
+            # Line by line, whatever this is attached to. Perl block-buffers
+            # standard output when it is not a terminal, so redirected to a file
+            # - the natural way to leave something running - the bridge wrote
+            # nothing for sixty-eight measured minutes while violations
+            # escalated to critical. The agent's only channel for violations was
+            # silent, and a channel silent because it is buffered looks exactly
+            # like a board that is clean.
+            #
+            # Localised rather than set through the handle. STDOUT->autoflush
+            # was tried first and took the stream away from every later caller
+            # in the process - four test files went quiet at once - which is the
+            # same fault _running_quietly made by reopening it. Nothing here
+            # belongs to this command after it returns.
+            local $| = 1;
 
             # Who is tailing it. One agent per ticket means an agent's concern
             # is its own cards, so the bridge narrows to whoever says who they

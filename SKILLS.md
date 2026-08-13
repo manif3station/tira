@@ -317,13 +317,18 @@ Prefix/digit changes affect future refs and never lower `next_number`.
 These create commands are **Implemented.**
 
 ```text
-tira.sow.create --title TEXT [record field arguments] [-o FORMAT]
-tira.epic.create --title TEXT [record field arguments] [-o FORMAT]
-tira.ticket.create --title TEXT [record field arguments] [-o FORMAT]
+tira.sow.create --title TEXT [--column SLUG] [record field arguments] [-o FORMAT]
+tira.epic.create --title TEXT [--column SLUG] [record field arguments] [-o FORMAT]
+tira.ticket.create --title TEXT [--column SLUG] [record field arguments] [-o FORMAT]
 ```
 
-They create independent Backlog records with empty linkage. These symmetric
-forms are **Implemented.** for each `TYPE`:
+They create independent records with empty linkage. A card lands in Backlog
+unless `--column` names another one, which lets a card be claimed into the
+column the work is in rather than created and then moved. A column that does not
+exist is refused, and so is creating a card directly into Discard: that column
+is where work is set aside, and a card put there before it exists was never
+work. The answer names the column the card is in. These symmetric forms are
+**Implemented.** for each `TYPE`:
 
 ```text
 tira.TYPE.show (--ref REF ...|--refs LIST) [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--brief] [--truncate N|--full] [-o FORMAT]

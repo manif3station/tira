@@ -152,7 +152,14 @@ lib/Tira/DashboardWeb.pm  100.0  100.0  100.0'
 #
 # The failure mode that matters most: a gate that disappears when somebody
 # deletes a file looks exactly like a gate that passed.
-for tool in tools/board-backup tools/card-holes tools/docs-match-code tools/docs-examples-run; do
+#
+# tools/browser-tests is here because the gate grew a step and this tool did
+# not. The browser step was proved to refuse three ways by hand when it was
+# added, and that proof lived only in a card - nothing re-ran it, so somebody
+# could have made the step skip quietly and the gate would still have called
+# itself proved. Hiding the runner exercises the guard without opening a
+# browser, which keeps this tool as cheap as its other checks.
+for tool in tools/board-backup tools/card-holes tools/docs-match-code tools/docs-examples-run tools/browser-tests; do
     refuses "a missing $(basename "$tool")" 'missing|refusing' run_hook "$PASSING_SUITE" "$tool"
 done
 

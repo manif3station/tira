@@ -675,6 +675,34 @@ migrations: an older board reads correctly because defaults are applied on read,
 and a newer one holds shapes these readers have never seen. Nothing is written
 when it is refused.
 
+### `tira.dev.found.bug_or_improvement`
+
+Report a fault or an improvement in Tira itself, from whatever project you are
+working on.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--from PROJECT` | yes | Which project this is coming from. |
+| `--title TEXT` | yes | What you found, in one line. |
+| `--text TEXT` | no | What happened, in as much detail as you have. |
+| `-o FORMAT` | no | `toon` (default), `json`. |
+
+**You do not say where the report goes and you are not told.** The command
+carries that itself, so an agent working on something else can report a fault in
+one command and get back to what it was doing. Your own board is untouched.
+
+`--from` is required, because a report nobody can go back to is one nobody can
+answer. It becomes a label on the card, which is how the report is found again
+and how a question asked on it reaches you.
+
+The card is raised in the backlog under the maintainer's name, because an agent
+in another project is not a member of that board. Where it goes from the backlog
+is that board's decision, the same courtesy any bug report gets.
+
+**A report arrives as an incomplete card, and that is deliberate.** Tira's own
+board refuses a release while any live card is incomplete, so an incoming report
+has to be triaged before the next one goes out. It cannot sit unread.
+
 ### `tira.gates.install`
 
 Install Tira's gates into this project's repository.

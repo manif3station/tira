@@ -1,5 +1,26 @@
 Revision history for Tira
 
+1.39  2026-08-13
+    - An agent working on something else can report a fault in Tira.
+      Every project on this machine uses it and none of them could:
+      reaching the board where Tira is maintained means knowing which
+      board that is, which this skill's instructions deliberately do not
+      say. So a fault found by the agent best placed to describe it went
+      through a human or went nowhere.
+    - tira.dev.found.bug_or_improvement carries the destination itself.
+      The caller gives what it found and --from, its own project name,
+      and is told nothing about where the report went; its own board is
+      untouched. The card is raised in the backlog under the maintainer's
+      name, because an agent elsewhere is not a member of that board, and
+      the origin is a label so the report can be found again and a
+      question asked on it reaches whoever raised it.
+    - --from is required. A report nobody can go back to is a report
+      nobody can answer.
+    - A report arrives as an incomplete card, and that is deliberate: the
+      board refuses a release while any live card is incomplete, so an
+      incoming report has to be triaged before the next one ships. It is
+      documented rather than left to be discovered at a push.
+
 1.38  2026-08-13
     - Every script the skill ships is compiled by the suite, and every one
       that names its command is checked to reach something that handles

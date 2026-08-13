@@ -86,8 +86,8 @@ def check_everything_written_exists(text, commands, problems):
     # reference documents every command as a heading - ### `tira.column.roles`
     # - so looking only for command lines left the primary form unchecked, and
     # a heading promising a command that does not exist sailed through.
-    promised = set(re.findall(r'(?:dashboard|d2)\s+(tira\.[a-z0-9.-]+)', text))
-    promised |= set(re.findall(r'^#{2,4}\s+`(tira\.[a-z0-9.-]+)`', text, re.M))
+    promised = set(re.findall(r'(?:dashboard|d2)\s+(tira\.[a-z0-9._-]+)', text))
+    promised |= set(re.findall(r'^#{2,4}\s+`(tira\.[a-z0-9._-]+)`', text, re.M))
     for command in sorted(promised):
         command = command.rstrip('.,')
         if in_a_family(command):
@@ -109,7 +109,7 @@ def flags_in_tables(text):
     found = []
     command = None
     for line in text.splitlines():
-        heading = re.match(r'^#{2,4}\s+`(tira\.[a-z0-9.-]+)`', line)
+        heading = re.match(r'^#{2,4}\s+`(tira\.[a-z0-9._-]+)`', line)
         if heading:
             command = heading.group(1)
             continue
@@ -128,7 +128,7 @@ def check_documented_flags_are_accepted(text, problems):
     Checked by asking the command itself rather than by reading the source, so
     this stays true when the source moves.
     """
-    written = re.findall(r'(?:dashboard|d2)\s+(tira\.[a-z0-9.-]+)((?:\s+--[a-z-]+)*)', text)
+    written = re.findall(r'(?:dashboard|d2)\s+(tira\.[a-z0-9._-]+)((?:\s+--[a-z-]+)*)', text)
     pairs = [(command, one) for command, flag in written
              for one in re.findall(r'--([a-z-]+)', flag)]
     pairs += flags_in_tables(text)

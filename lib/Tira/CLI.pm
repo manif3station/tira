@@ -355,6 +355,62 @@ sub _finish {
     return $status;
 }
 
+# Where Tira's own board is, asked for by name rather than by path. The
+# dashboard already resolves a skill name to its directory, and on somebody
+# else's machine it resolves to their copy - which is right, because a bug
+# report belongs to whoever owns the Tira that has the bug.
+#
+# Through a seam, so a test can answer the question without a real installation
+# and without the answer ever being a path this skill hands out.
+sub _tira_home {
+    my $resolver = _dd_path_resolver();
+    my $home = eval { $resolver->('tira') };
+    die "Could not find Tira's own board to report this to. Report it to whoever\n"
+      . "maintains Tira instead.\n"
+      if !defined $home || $home eq '';
+    return $home;
+}
+
+# An agent working on something else, reporting a fault in Tira. It knows what
+# it found and which project it is; it is told nothing about where the report
+# goes, which is the whole reason this exists rather than an instruction to go
+# and find the board.
+sub _report_to_tira {
+    my ( $tira, $args, $option ) = @_;
+
+    my $from = $option->{from};
+    die "Which project is this coming from? Say so: --from <project>\n"
+      . "A report nobody can go back to is a report nobody can answer.\n"
+      if !defined $from || $from !~ /\S/;
+
+    my $title = $option->{title};
+    die "What did you find? Give it a title: --title <what happened>\n"
+      if !defined $title || $title !~ /\S/;
+
+    my $card = $tira->create_record(
+        project  => _tira_home(),
+        type     => 'ticket',
+        title    => $title,
+
+        # Raised as the owner. An agent in another project is not a member of
+        # this board, and inventing a member per caller would fill the roster
+        # with names nobody here works with. The origin is a label instead, so
+        # the report can be found again and answered on the card.
+        reporter    => 'michael',
+        labels      => [$from],
+        description => $option->{text} // '',
+        source      => "Reported from $from through tira.dev.found.bug_or_improvement",
+    );
+
+    # What comes back names the card and nothing else. A path here would teach
+    # the caller the one thing this command exists to keep from it.
+    return {
+        ref     => $card->{ref},
+        from    => $from,
+        message => "Reported as $card->{ref}. Somebody will pick it up; ask about it there.",
+    };
+}
+
 sub _dd_path_resolver {
     return sub {
         my ($name) = @_;
@@ -1783,6 +1839,9 @@ sub _invoke {
         return $result if $option->{once};
         return _police_follow( $tira, \%args, $store, $option );
     }
+
+    return _report_to_tira( $tira, \%args, $option )
+      if $command eq 'dev.found.bug_or_improvement';
 
     return _backup( $tira, \%args ) if $command eq 'backup';
     return _backup_restore( $tira, \%args, $option ) if $command eq 'backup.restore';

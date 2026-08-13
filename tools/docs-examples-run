@@ -32,7 +32,7 @@ DOCUMENTS = ('SKILLS.md', 'docs/commands.md', 'docs/POLICIES.md')
 # bare tira.<verb> line inside a fenced block - the policies document is
 # written the second way.
 BACKTICKED = re.compile(r'`(dashboard tira\.[^`]+)`')
-FENCED = re.compile(r'^\s{0,2}(tira\.[a-z][a-z0-9.-]*(?:\s+--?[^\n]*)?)$', re.M)
+FENCED = re.compile(r'^\s{0,2}(tira\.[a-z][a-z0-9._-]*(?:\s+--?[^\n]*)?)$', re.M)
 
 # Anything in quotes is a value somebody typed, whatever it looks like. "MT5"
 # is a project name, not a shape - and treating it as one skipped the example

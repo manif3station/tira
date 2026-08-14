@@ -1455,3 +1455,31 @@ mirror of a check that never fires.
 Both take a reason, like everything else here, and a suspension comes back by
 itself. `tira.policy.add` still refuses them, because there is nothing to
 declare, and they do not appear in `tira.policy.undeclared` for the same reason.
+
+## When Tira itself moves
+
+Installing a new Tira tells the owner and nobody else: police prints its setup
+prompt to his terminal when it starts. The agent — the party that has to read
+what changed, learn the commands that are new, and declare the rules that
+arrived with them — was told nothing at all. A rule nobody has declared is
+silent in exactly the way a rule being obeyed is, so an upgrade nobody mentions
+leaves a board quietly running an older rulebook.
+
+Police now says it on the bridge, addressed to the board's agent:
+
+    2026-08-15T08:00:00Z | UPGRADE | for claude | Tira is now 1.82 - this
+    board last heard 1.81. Read what changed, learn what is new, and see
+    which rules this board has still neither declared nor declined | fix:
+    d2 tira.changes; d2 tira.usage; d2 tira.policy.undeclared
+
+It is written **first**, above the violations, because it changes how they
+should be read: a rule that arrived with this version is one the board has not
+declared yet, and its absence from the lines below is not evidence of anything.
+
+**Once per version, not once per start.** Police restarts in order to pick a new
+version up, so a line written on every start would arrive on a loop for as long
+as nobody upgraded again.
+
+**A version going backwards is a change too.** A board now running something
+older than it last heard about is a board whose agent may be working from a
+rulebook the installed Tira no longer has, and that is worth the same line.

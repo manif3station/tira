@@ -1,5 +1,32 @@
 Revision history for Tira
 
+1.82  2026-08-15
+
+    - TKT-166: the agent is told when Tira has been upgraded under it.
+      His request. When a new version is installed the owner gets the
+      setup prompt in his own terminal and the agent gets nothing -
+      though the agent is the party that has to read what changed, learn
+      the commands that are new, and declare the rules that arrived with
+      them. A rule nobody has declared is silent in exactly the way a
+      rule being obeyed is, so an upgrade nobody mentions leaves a board
+      quietly running an older rulebook.
+    - Police now says it on the bridge, addressed to the board's agent
+      rather than to anyone, naming the version and the three commands
+      that act on it: tira.changes, tira.usage and
+      tira.policy.undeclared. The last of those is the "compare them and
+      see any gaps" half of his message, which has had a command of its
+      own since 1.66 - so nobody is asked to diff two lists by eye.
+    - Written first on the bridge, because it changes how the lines under
+      it should be read: a rule that arrived with this version is one the
+      board has not declared yet, and its absence below is not evidence
+      of anything.
+    - Once per version rather than once per start. Police restarts in
+      order to pick a new version up, so a line on every start would
+      arrive on a loop for as long as nobody upgraded again.
+    - A version going backwards counts as a change and is said the same
+      way. The first test asserted silence there, which would have left
+      an agent working from a rulebook the installed Tira no longer has.
+
 1.81  2026-08-14
 
     - TKT-193: two violations nobody could put down. card-unreadable

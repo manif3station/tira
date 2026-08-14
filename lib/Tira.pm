@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.81';
+our $VERSION = '1.82';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -5803,8 +5803,33 @@ sub police_pass {
         };
     } @unreadable;
 
+    # A new Tira, said to the agent once.
+    #
+    # When a version is installed the owner gets the setup prompt in his own
+    # terminal and the agent gets nothing - though the agent is the party that
+    # has to read what changed, learn the commands that are new, and declare the
+    # rules that arrived with them. A rule nobody has declared is silent in
+    # exactly the way a rule being obeyed is, so an upgrade nobody mentions
+    # leaves a board quietly running an older rulebook.
+    #
+    # Once per version rather than once per start, because police restarts in
+    # order to pick a new version up, and a line written on every start would
+    # arrive on a loop for as long as nobody upgraded again.
+    my $upgraded;
+    {
+        my $told = $quieted->{announced_version};
+        if ( ( $told // '' ) ne $VERSION ) {
+            $upgraded = { to => $VERSION, ( defined $told ? ( from => $told ) : () ) };
+            $quieted->{announced_version} = $VERSION;
+            $self->_enforcement_write( $store, $quieted );
+        }
+    }
+
     if ( $self->police_suspended( store => $store ) ) {
-        return { watching => 1, suspended => 1, violations => [], terminal => [] };
+        return {
+            watching => 1, suspended => 1, violations => [], terminal => [],
+            ( $upgraded ? ( upgraded => $upgraded ) : () ),
+        };
     }
 
     # A pass that failed has not established that anything stopped being true.
@@ -5876,6 +5901,11 @@ sub police_pass {
         # Read, with substitutions. Named so a caller can tell "clean this when
         # you get to it" from "this one was not checked".
         damaged => [ grep { $_->{repaired} } @unreadable ],
+
+        # A version this board has not been told about. Handed back rather than
+        # written here, because what reaches the agent is the bridge's business
+        # and this decides only whether there is anything to say.
+        ( $upgraded ? ( upgraded => $upgraded ) : () ),
         ( defined $error ? ( error => $error ) : () ),
     };
 }
@@ -5950,6 +5980,30 @@ sub bridge_write {
     my ( $self, %args ) = @_;
     my $path = $self->bridge_log_path(%args);
     my @lines;
+
+    # First, because it changes how everything under it should be read: a rule
+    # that arrived with this version is one the board has not declared yet, and
+    # its absence from the lines below is not evidence of anything.
+    #
+    # Addressed to the board's agent rather than to anyone. The owner already
+    # has the setup prompt in his terminal; reading the changes, learning the
+    # commands and filling the policy gaps are the agent's work, and a line
+    # addressed to the wrong party is worse than none because somebody acts on
+    # it. The three commands are named rather than described - a note saying
+    # "Tira has been updated" and leaving the reader to work out what to run is
+    # an interruption rather than an instruction.
+    if ( my $upgraded = $args{upgraded} ) {
+        my $agent = eval { $self->project_show( project => $args{project} )->{agent} };
+        push @lines, join ' | ',
+          $self->{clock}->(),
+          'UPGRADE',
+          'for ' . ( ( $agent // '' ) ne '' ? $agent : 'anyone' ),
+          'Tira is now ' . $upgraded->{to}
+          . ( defined $upgraded->{from} ? " - this board last heard $upgraded->{from}" : '' )
+          . '. Read what changed, learn what is new, and see which rules this'
+          . ' board has still neither declared nor declined',
+          'fix: d2 tira.changes; d2 tira.usage; d2 tira.policy.undeclared';
+    }
 
     for my $violation ( @{ $args{violations} // [] } ) {
         # Only what the policy asked for reaches the agent. A rule set to

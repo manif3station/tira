@@ -1954,7 +1954,8 @@ sub _invoke {
             world => _police_world( tira => $tira, project => $watching ) );
         die "$result->{advice}\n" if !$result->{watching};
         $tira->bridge_write( store => $store, project => $watching,
-            violations => $result->{violations}, settled => $result->{settled} );
+            violations => $result->{violations}, settled => $result->{settled},
+            upgraded => $result->{upgraded} );
         print {*STDERR} map { "$_\n" } @{ $result->{terminal} };
         return $result if $option->{once};
         return _police_follow( $tira, \%args, $store, $option );
@@ -2795,7 +2796,8 @@ sub _police_follow {
         }
         else {
             $tira->bridge_write( store => $store, project => $watched_board,
-                violations => $result->{violations}, settled => $result->{settled} );
+                violations => $result->{violations}, settled => $result->{settled},
+            upgraded => $result->{upgraded} );
             print {*STDERR} map { "$_\n" } @{ $result->{terminal} };
         }
         $wait->($interval);

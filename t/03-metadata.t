@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=1\.51$/m, '.env stores version 1.51' );
+like( $env_text, qr/^VERSION=1\.52$/m, '.env stores version 1.52' );
 
 open my $skills, '<', 'SKILLS.md' or die "Cannot read SKILLS.md: $!";
 my $skills_text = do { local $/; <$skills> };
@@ -46,7 +46,7 @@ unlike( $skills_text, qr/--project|TIRA_HOME|\.tira\/|project selector/i, 'SKILL
 
 use lib 'lib';
 use Tira;
-is( $Tira::VERSION, '1.51', 'module version matches .env' );
+is( $Tira::VERSION, '1.52', 'module version matches .env' );
 
 # And the changelog, which nothing checked. .env, the module and this file
 # agreed with each other for two releases while Changes named a version one
@@ -57,6 +57,20 @@ my $history = do { local $/; <$changes> };
 close $changes;
 my ($newest) = $history =~ /^(\d+\.\d+)\s/m;
 is( $newest, $Tira::VERSION, 'the changelog names this release at the top' );
+
+# And which card it came from. Other projects file bugs here now, and
+# tira.changes exists so they can find out what happened to one - which works
+# only if the entry names the card they raised. An entry that describes the fix
+# in prose leaves the reporter reading and guessing.
+#
+# Only this release is checked. Entries written before the rule existed do not
+# carry a reference and will not be given one from memory: for some the card
+# could be recovered from the commit that names it, for others it could only be
+# guessed, and a guessed reference in the one file whose purpose is traceability
+# is worse than an absent one.
+my ($top) = $history =~ /^\Q$newest\E\s[^\n]*\n(.*?)(?=^\d+\.\d+\s|\z)/ms;
+like( $top, qr/\b(?:TKT|EPC|SOW)-\d+/,
+    'and this release names the card its entries came from, so a reporter can find it' );
 unlike( $skills_text, qr/\bSpecified\b/i, 'every documented command and use case is implemented' );
 
 # A count written in prose goes stale the moment a rule is added, and nothing
@@ -128,7 +142,7 @@ for my $command (@commands) {
 is_deeply( \@undocumented, [],
     'every command that ships is named in a document an agent reads' );
 
-is( scalar @commands, 139, 'release ships exactly 139 executable CLI entrypoints' );
+is( scalar @commands, 140, 'release ships exactly 140 executable CLI entrypoints' );
 
 done_testing;
 

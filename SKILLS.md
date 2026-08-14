@@ -43,6 +43,7 @@ use it — run `dashboard tira.usage`.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
 - **Implemented (1.04):** shipped, executable, and covered by tests.
 - `dashboard tira.skills` is implemented and prints this file as raw Markdown.
+- `dashboard tira.changes` is implemented and prints the changelog as raw text.
 
 All commands and use cases in this manual ship in release 1.04.
 
@@ -51,6 +52,7 @@ All commands and use cases in this manual ship in release 1.04.
 ```text
 dashboard tira.<resource>.<action> [arguments] [-o FORMAT]
 dashboard tira.skills
+dashboard tira.changes
 
 FORMAT := toon | json | human
 DASHBOARD_FORMAT := toon | json | human | table
@@ -88,6 +90,7 @@ and `--set-*` for the same field are mutually exclusive.
 - Mutations return the affected record or operation receipt.
 - `attachment.get` emits raw bytes and never exposes managed storage paths.
 - `tira.skills` emits raw Markdown and accepts no options.
+- `tira.changes` emits the raw changelog and accepts no options.
 
 ## Exit status contract
 
@@ -236,6 +239,12 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
 ### Manual and project
 
 - `tira.skills` — **Implemented.** No arguments; raw manual.
+- `tira.changes` — **Implemented.** No arguments; the raw changelog. The fourth
+  documentation command, beside `tira.skills`, `tira.usage` and `tira.policies`,
+  so an agent wanting one of them need not print several thousand words of the
+  others to reach it. Every entry names the card it came from, so a project that
+  reported something through `tira.dev.found.bug_or_improvement` can find that
+  card's number here and see what happened to it.
 - `tira.project.create --name TEXT [--dir DIR] [-o FORMAT]` — **Implemented.**
   Name required; directory defaults to `.`; existing projects are preserved.
 - `tira.project.new --name TEXT [--dir DIR] [--members LIST] [--columns LIST]

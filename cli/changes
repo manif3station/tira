@@ -1,0 +1,30 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use FindBin;
+use File::Spec;
+
+my $history = File::Spec->catfile( $FindBin::Bin, '..', 'Changes' );
+open my $fh, '<:raw', $history or die "Cannot read the Tira changelog: $!\n";
+print while <$fh>;
+close $fh or die "Cannot close the Tira changelog: $!\n";
+
+__END__
+
+=head1 NAME
+
+tira.changes - Print the Tira changelog
+
+=head1 SYNOPSIS
+
+  dashboard tira.changes
+
+=head1 DESCRIPTION
+
+The fourth documentation command, beside C<tira.skills>, C<tira.usage> and
+C<tira.policies>. Every entry names the card it came from, so a project that
+reported a bug through C<tira.dev.found.bug_or_improvement> can find that card's
+number here and see what happened to it, without printing the whole manual to
+reach it.
+
+=cut

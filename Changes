@@ -1,5 +1,24 @@
 Revision history for Tira
 
+1.52  2026-08-14
+    - TKT-138: tira.changes, the fourth documentation command, beside
+      tira.skills, tira.usage and tira.policies. It prints the changelog
+      and nothing else. Other projects file bugs here now - seven arrived
+      in one evening - and there was no command that told them what
+      happened next; the manual would have answered it in several
+      thousand words of everything else.
+    - TKT-139: every entry names the card it came from. Without that,
+      tira.changes prints prose a reporter has to match to their own
+      report by guessing, and the check that enforces it is on this
+      release rather than on somebody remembering at the end of a long
+      task, which is when attention is lowest.
+    - Entries written before tonight name no card and will not be given
+      one from memory. For some the card could be recovered from the
+      commit whose subject names it; for others it could only be guessed,
+      and a guessed reference in the one file whose purpose is
+      traceability is worse than an absent one. Only the release being
+      made is checked.
+
 1.51  2026-08-14
     - TKT-136: the bridge says when a violation stops being true. Police
       always knew - the ledger moves the violation out of open and records

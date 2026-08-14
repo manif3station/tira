@@ -306,11 +306,11 @@ missing, at the moment you declare the policy rather than later.
 | `column-skipped` | `--enter --require` | a card that arrived in a column without passing through the ones it was supposed to. The required columns are declared rather than inferred from their order, because a card that legitimately skips a step - a documentation-only card with no red test to write - would otherwise be reported for it. The violation names which columns were missed. Police reports it and moves nothing: calling the card back is the agent's. |
 | `answer-waiting` | — | an answer the agent has not read yet. **No age**: the agent could not have acted sooner, so a grace would only delay it. |
 | `answer-unjudged` | `--age`, `--read-age` | an answer nobody marked. The second age is optional and runs from when it was read. |
-| `answer-ok-not-folded` | `--age` | settled in name only: marked ok, nothing written down |
+| `answer-ok-not-folded` | `--age` | settled in name only: marked ok, nothing written down. **Written down means a card field** - a key detail, the description, the acceptance criteria - not a comment. A comment is where a conversation happens; a field is what an agent reads back off the card, which is what folding an answer in means. |
 | `answer-not-ok-no-followup` | `--age` | a cross with no further question |
 | `wip-limit` | `--column` and a number, from the policy or the project | too many things being worked at once, across the whole board |
 | `gate-missing` | `--column` | work that reached the end with no gate recorded |
-| `discard-unexplained` | — | work set aside with no reason given |
+| `discard-unexplained` | — | work set aside with no reason given. **A comment is what this wants**, unlike `answer-ok-not-folded` beside it: a discard reason is a note somebody leaves, not content anybody reads back. |
 | `commit-without-card` | — | a commit that names no card |
 | `work-without-card` | `--age` | a tree changing while nothing is at a working gate |
 | `unpushed-work` | `--age` | commits sitting unpushed |
@@ -1309,3 +1309,22 @@ this guide warns costs a channel its standing.
 A board that marks nothing treats `done` as its ending exactly as before, a
 column added tomorrow is still watched without being named anywhere, and the
 columns consulted are those of the card's own board rather than the tickets'.
+
+## Where an explanation belongs
+
+Two rules in this set ask for an explanation and want it in different places,
+and a project learned that by escalation: they wrote a decision into a comment
+in full - the question, the answer and its consequence - were told again on the
+next pass, escalated to a warning, then wrote the same words into a field with
+`--key-detail` and it settled immediately.
+
+| Rule | Where it wants the explanation |
+| --- | --- |
+| `answer-ok-not-folded` | a card field |
+| `discard-unexplained` | a comment |
+
+The difference is deliberate. A discard reason is a note somebody leaves about
+work that has stopped; a folded answer is content the next agent reads off the
+card, and a comment is not read back that way. What was wrong was that neither
+rule said which it wanted, so learning the convention from one taught the wrong
+thing about the other. Both messages name the place now.

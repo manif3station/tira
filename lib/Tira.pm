@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.71';
+our $VERSION = '1.72';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4994,8 +4994,16 @@ sub policy_evaluate {
                         my $changed = $self->_policy_last_detail_change(
                             project => $root, ref => $record->{ref} );
                         next if defined $changed && $changed gt $marked;
+                        # Where, not just that. A project wrote the whole
+                        # decision into a comment, was told again and escalated
+                        # to a warning, then wrote the same words into a field
+                        # and it settled - and nothing had said which was
+                        # wanted. A comment is where a conversation happens; a
+                        # field is what an agent reads back off the card, which
+                        # is what folding an answer in means.
                         $report->( $policy, $record,
-                            "$question->{id} was marked ok and nothing was folded into the card",
+                            "$question->{id} was marked ok and nothing was folded into the card"
+                              . ' - write the decision into a card field (a comment is not folding it in)',
                             $asker );
                     }
                     else {
@@ -5068,7 +5076,11 @@ sub policy_evaluate {
             for my $record ( @{$all} ) {
                 next if ( $record->{column} // '' ) ne 'discard';
                 next if @{ $record->{comments} // [] };
-                $report->( $policy, $record, 'discarded with no reason given' );
+                # A comment, said so. The rule beside this one wants a field,
+                # and a reader who learns one convention from one rule learns
+                # the wrong thing about the other unless both say which.
+                $report->( $policy, $record,
+                    'discarded with no reason given - leave a comment saying why it was set aside' );
             }
         }
 

@@ -1,5 +1,28 @@
 Revision history for Tira
 
+1.72  2026-08-14
+    - TKT-160: a violation says what would clear it. answer-ok-not-folded
+      reported an answer marked ok with "nothing written down" and never
+      said where. A project wrote the whole decision into a comment - the
+      question, the answer and its consequence - was told again on the
+      next pass, escalated to a warning, then wrote the same words into a
+      field and it settled immediately.
+    - The sharper half was the inconsistency: discard-unexplained,
+      declared minutes earlier on the same board, is cleared by a comment
+      alone. Two rules in one set wanting an explanation in different
+      places, and neither saying which, so learning the convention from
+      one taught the wrong thing about the other.
+    - The difference is deliberate and is now stated rather than
+      discovered. A discard reason is a note somebody leaves about work
+      that has stopped; a folded answer is content the next agent reads
+      off the card, and a comment is not read back that way. Both
+      messages name the place, and the guide carries a table of which
+      rule wants which.
+    - They were explicit that the rule earned its keep: it found seven
+      genuine cases they would never have found - decisions both parties
+      believed were handled that had stopped existing anywhere a person
+      would look. This changes what it says, not what it catches.
+
 1.71  2026-08-14
     - TKT-159: a board can say where its work ends. card-unassigned
       decided which columns are work by asking which are protected, and

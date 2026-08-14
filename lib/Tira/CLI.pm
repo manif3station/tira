@@ -23,6 +23,13 @@ my %MISLEADING_OPTIONS = (
     'assign.set'    => [ [ 'assignee', 'person' ] ],
     'assign.add'    => [ [ 'assignee', 'person' ] ],
     'assign.remove' => [ [ 'assignee', 'person' ] ],
+
+    # Evidence carries a summary, a link and an attachment. --details is
+    # gate.add's, and evidence.add accepted it and threw it away: the entry it
+    # printed looked complete because the summary was there, so nothing said
+    # that half of what was typed had gone nowhere. A night of evidence on this
+    # board lost its reasoning that way.
+    'evidence.add'  => [ [ 'details', 'summary' ] ],
 );
 
 # The process that set a served board up, recorded before the server forks.

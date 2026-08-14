@@ -1,5 +1,26 @@
 Revision history for Tira
 
+1.60  2026-08-14
+    - TKT-147: evidence details are no longer accepted and thrown away.
+      tira.evidence.add took --details, exited zero and stored nothing:
+      the entry carries a summary, a link, an author and an attachment,
+      and details is not one of its fields. The printed entry looked
+      complete because the summary was there, so nothing suggested half
+      of what was typed had gone nowhere. Found by the hourly bug hunt,
+      while reading the record shape for something else.
+    - It cost this board a night of reasoning. Every card worked through
+      the night recorded its evidence with --details and only the
+      summaries survived. That is not recoverable, and reconstructing it
+      from memory would be worse than the gap.
+    - Refused now, naming --summary, beside the assign commands that
+      refuse --assignee. gate.add still stores details, which is where
+      the option belongs and why it exists. Storing it on evidence
+      instead was rejected for the reason base and --token were: it would
+      add a field under cover of a bug fix.
+    - The refusal found a caller immediately - a test written an hour
+      earlier had been losing its evidence details since the day it was
+      written.
+
 1.59  2026-08-14
     - TKT-146: a credential a command never looks at can no longer be
       typed at it. --token was parsed, accepted on the four login

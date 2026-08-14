@@ -88,7 +88,7 @@ is( ( run( 'checklist.add', '--ref', $ref, '--item', 'a step', '--status', 'todo
 is( ( run( 'gate.add', '--ref', $ref, '--author', 'michael', '--gate', 'a gate',
         '--result', 'pass', '--details', 'it passed' ) )[0], 0, 'a gate is recorded' );
 is( ( run( 'evidence.add', '--ref', $ref, '--author', 'michael',
-        '--summary', 's', '--details', 'd' ) )[0], 0, 'evidence is attached' );
+        '--summary', 'the measurement, taken twice' ) )[0], 0, 'evidence is attached' );
 is( ( run( 'assign.set', '--ref', $ref, '--person', 'ada', '--author', 'michael' ) )[0], 0,
     'and somebody takes it' );
 

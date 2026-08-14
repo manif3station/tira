@@ -1,5 +1,27 @@
 Revision history for Tira
 
+1.77  2026-08-14
+    - TKT-174: the gate survives an install in every step rather than the
+      one that failed first. TKT-168 hardened the board audit, and the
+      very next push failed the same way one step earlier: "backing up
+      the board / Command project.show not found in skill tira".
+      board-backup makes four calls and had none of the protection that
+      had just been added beside it.
+    - That is this project's own recurring fault, committed an hour after
+      writing about it: the fix went where the failure appeared rather
+      than where the class lives. Running the backup by hand immediately
+      afterwards wrote 179 records, the same signature as the two audit
+      failures before it.
+    - Both tools call through one small script now. They are shell and
+      python and cannot share a function, so they share a file - one
+      decision in one place rather than the same decision written twice
+      in two dialects that can drift. A tool added tomorrow inherits it
+      instead of learning this the way board-backup just did.
+    - Only the failure that means an install is waited on. Anything else
+      stops the gate at once and is passed on exactly as the command said
+      it, and a call that never resolves fails saying how many attempts
+      were made.
+
 1.76  2026-08-14
     - TKT-172: tira.changes can no longer exit zero having printed
       nothing. He asked why it returned 0 bytes; zen-framework reported

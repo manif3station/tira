@@ -38,8 +38,11 @@ use Tira::CLI;
 
 plan skip_all => 'python3 is not installed here' if !Tira::CLI::_program_exists('python3');
 
-my $audit = File::Spec->catfile(qw(tools card-holes));
-ok( -x $audit, 'the board audit ships and is runnable' );
+# The waiting lives in one shared caller now rather than in the audit - the very
+# next push after this shipped failed the same way in the backup step, which had
+# none of it, so the decision was moved somewhere both tools reach. TKT-174.
+my $audit = File::Spec->catfile(qw(tools tira-call));
+ok( -x $audit, 'the shared caller ships and is runnable' );
 
 open my $fh, '<', $audit or die $!;
 my $source = do { local $/; <$fh> };
@@ -63,7 +66,7 @@ like( $source, qr/for attempt in|range\(/,
 # A retry that swallowed everything would be worse than the flake: the audit
 # would go quiet exactly when the board is broken.
 
-like( $source, qr/raise SystemExit/,
+like( $source, qr/exit 1/,
     'a failure it cannot explain still stops the gate' );
 
 # --- and a second failure is not silent ----------------------------------------------------

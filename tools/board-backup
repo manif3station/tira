@@ -21,11 +21,11 @@ out="$dest/$slug/$stamp"
 mkdir -p "$out"
 
 cd "$here"
-d2 tira.export -o json                > "$out/records.json"
-d2 tira.project.show -o json          > "$out/project.json"
+"$here/tools/tira-call" tira.export -o json                > "$out/records.json"
+"$here/tools/tira-call" tira.project.show -o json          > "$out/project.json"
 for type in sow epic ticket; do
-  d2 tira.column.list --type "$type" -o json > "$out/columns-$type.json"
-  d2 tira.board.refs  --type "$type" -o json > "$out/refs-$type.json"
+  "$here/tools/tira-call" tira.column.list --type "$type" -o json > "$out/columns-$type.json"
+  "$here/tools/tira-call" tira.board.refs  --type "$type" -o json > "$out/refs-$type.json"
 done
 
 count="$(python3 -c "import json,sys; print(json.load(open('$out/records.json'))['count'])")"

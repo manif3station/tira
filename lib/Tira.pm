@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.65';
+our $VERSION = '1.66';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -5388,18 +5388,36 @@ sub _police_environment_violations {
 # "something new exists" is not something anybody can act on. A project using
 # everything is left alone: nagging somebody who has already done it is how a
 # prompt stops being read.
+# What nobody has decided about yet.
+#
+# An agent is the only party that can declare a policy, and it had no way to
+# find out what it had not declared: policy.list answers what is declared,
+# policy.declined what was refused on purpose, and nothing answered the rest. A
+# project lost eighty-four minutes to an owner's answer sitting unread because
+# answer-waiting had never been set - not declined, never considered.
+#
+# A rule somebody looked at and said no to is answered, and asking again would
+# make this a channel that repeats itself, which is the one failure a warning
+# system cannot survive. That is why declining is an answer and why the declined
+# list exists at all: so a deliberate no can be told from an omission.
+#
+# Police prints this for the owner every run and asks it here rather than
+# working it out again, because two answers to one question is what this
+# codebase keeps finding drifted apart.
+sub policy_undeclared {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my %answered = map { ( $_->{rule} // '' ) => 1 }
+      ( @{ $self->policy_list( project => $root ) },
+        @{ $self->policy_declined( project => $root ) } );
+    return [ grep { !$answered{$_} } @{ policy_rules() } ];
+}
+
 sub police_prompt {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
     my @declared = @{ $self->policy_list( project => $root ) };
-    my %using = map { ( $_->{rule} // '' ) => 1 } @declared;
-
-    # A rule somebody looked at and said no to is answered, and asking again
-    # would make this a channel that repeats itself - which is the one failure
-    # a warning system cannot survive.
-    my %answered = ( %using,
-        map { ( $_->{rule} // '' ) => 1 } @{ $self->policy_declined( project => $root ) } );
-    my @unused = grep { !$answered{$_} } @{ policy_rules() };
+    my @unused = @{ $self->policy_undeclared( project => $root ) };
 
     return undef if @declared && !@unused;
 

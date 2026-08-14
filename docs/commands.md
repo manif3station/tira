@@ -987,6 +987,18 @@ has been decided.
 | `--author WHO` | no | Who decided. |
 | `-o FORMAT` | no | As above. |
 
+### `tira.policy.undeclared`
+
+The rules this project has neither declared nor declined - the ones nobody has
+decided about yet. No arguments beyond `-o FORMAT`.
+
+The agent is the only party that can declare a policy, and police prints this
+for the owner rather than for it, once, when it starts. A project lost
+eighty-four minutes to an owner's answer sitting unread because `answer-waiting`
+had never been set: not declined, never considered, and nothing on any board
+said so. A declined rule is answered and does not appear here; a project that
+has decided everything gets an empty list rather than an unknown command.
+
 Police lists the rules a project has not declared, on every run, because a rule
 nobody declared is silent in exactly the way a rule being obeyed is. It could
 not tell a rule nobody had looked at from one somebody had looked at and

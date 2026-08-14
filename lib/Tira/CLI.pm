@@ -1971,6 +1971,10 @@ sub _invoke {
     return $tira->policy_decline(%args) if $command eq 'policy.decline';
     return $tira->policy_declined(%args) if $command eq 'policy.declined';
 
+    # What the agent has not decided about. It is the only party that can
+    # declare a policy, and police prints this for the owner rather than for it.
+    return $tira->policy_undeclared(%args) if $command eq 'policy.undeclared';
+
     if ( $command =~ /\Apolicy\.(add|list|remove)\z/ ) {
         my $action = $1;
         return $tira->policy_list(%args) if $action eq 'list';

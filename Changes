@@ -1,5 +1,32 @@
 Revision history for Tira
 
+1.66  2026-08-14
+    - TKT-158: tira.policy.undeclared answers which rules this project
+      has neither declared nor declined. The agent is the only party that
+      can declare a policy and had no way to discover what it had not:
+      policy.list answers what is declared, policy.declined what was
+      refused on purpose, and nothing answered the rest.
+    - Reported by mt5-ai after a real miss. An owner's answer sat
+      answered-and-unread, then read-and-unmarked, for eighty-four
+      minutes with nothing said, because answer-waiting had never been
+      set - not declined, never considered. Police behaved correctly
+      throughout: an undeclared rule cannot fire.
+    - The fact already existed and went to the wrong reader. Police
+      prints the undeclared rules for the owner to paste across, when it
+      starts - and theirs had been running eight hours, so it was printed
+      once, hours earlier, to somebody asleep. They asked explicitly that
+      the owner's prompt not change, and it has not; police now asks this
+      question rather than working it out a second time.
+    - A declined rule is answered and does not appear, because the
+      declined list exists so a deliberate no can be told from an
+      omission. A project that has decided every rule gets an empty list
+      rather than an unknown command - the three names they tried were
+      all unknown, and an unknown command reads as "this cannot be asked"
+      rather than "there is nothing to say".
+    - Named in the command reference as well as the manual, because
+      mt5-ai have now reported three command families they could not find
+      after capturing only one document.
+
 1.65  2026-08-14
     - TKT-155: a card is no longer shown as empty when it is full.
       ticket.show --fields with -o human narrowed the record correctly and

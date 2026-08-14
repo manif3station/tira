@@ -26,6 +26,20 @@ for hook in tools/hooks/*; do
   echo "installed $name -> $hook"
 done
 
+# The gate takes twenty minutes, and git opens the connection to the remote
+# before it runs the hook. GitHub closes an SSH session that sits idle that
+# long, so the gate would pass, print that everything was fine, and then git
+# would die of SIGPIPE writing to a connection that had gone - reporting
+# success for a release that never left the machine. Measured, with GIT_TRACE:
+# "Connection to github.com closed by remote host" arrives while the hook is
+# still checking the board.
+#
+# Keepalives hold the session open for as long as the gate takes. Set here
+# rather than in anybody's global ssh config, because it belongs to this
+# repository's gate and to nothing else on the machine.
+git config core.sshCommand 'ssh -o ServerAliveInterval=45 -o ServerAliveCountMax=120'
+echo 'configured ssh keepalives so a long gate does not outlive the connection'
+
 echo
 echo 'Gates now in force:'
 echo '  commit-msg  every commit names a live card that is at a working gate'

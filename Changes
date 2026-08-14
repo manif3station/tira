@@ -1,5 +1,29 @@
 Revision history for Tira
 
+1.61  2026-08-14
+    - TKT-148: the gate no longer passes while the release fails to
+      happen. git push was exiting 141 - SIGPIPE - after the pre-push
+      hook finished: the hook printed that the suite passed, coverage was
+      100 percent, documentation agreed and the board was backed up, and
+      nothing was transferred. Three times, with the remote unchanged.
+    - GIT_TRACE gave the cause in one line, arriving while the hook was
+      still checking the board: "Connection to github.com closed by
+      remote host". git opens the connection before it runs the hook, the
+      gate takes twenty minutes, and GitHub closes a session idle that
+      long. The failure therefore lands after every check has passed, and
+      reads exactly like a gate approving a release.
+    - It hid behind a pipe. The pushes were written as git push piped to
+      tail, and a pipeline's status is the last command's, so tail
+      reported success for a push that had been killed.
+    - The first explanation was wrong and is written into the test rather
+      than deleted: that a pre-push hook must read the refs git sends it.
+      It does not read them, and that is not the cause - a hook ignoring
+      them pushes fine, verbose or slow. It had been reasoned about
+      instead of run.
+    - install-hooks now configures ssh keepalives alongside the gate, so
+      the two arrive together, and says what was measured so the next
+      person does not reason about it either.
+
 1.60  2026-08-14
     - TKT-147: evidence details are no longer accepted and thrown away.
       tira.evidence.add took --details, exited zero and stored nothing:

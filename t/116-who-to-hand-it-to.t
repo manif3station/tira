@@ -97,6 +97,8 @@ like( $chained, qr/core agent/,
 
 $tira->project_mode( project => $root, mode => 'single' );
 my $alone = $tira->police_prompt( project => $root );
+# non-empty is the whole claim: that a prompt exists at all is the thing
+# being asserted, and what it must NOT say is pinned on the next line.
 like( $alone, qr/\S/,
     'a single-agent project is still given a prompt' );
 unlike( $alone, qr/core agent/,

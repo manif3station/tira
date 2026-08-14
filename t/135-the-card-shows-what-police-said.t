@@ -83,7 +83,10 @@ is( ref $served->{police_log}, 'CODE', 'and is handed a police log provider, lik
 
 my $shown = decode_json( $served->{police_log}->( { ref => $chased->{ref} } ) );
 is( scalar @{$shown}, scalar @{$entries}, 'which serves what the command serves' );
-like( $shown->[0]{detail}, qr/\S/, 'saying what police said' );
+# What police actually said, not merely that it said something. qr/\S/ under
+# this name would pass on a detail of a single space. TKT-196.
+is( $shown->[0]{detail}, $entries->[0]{detail},
+    'saying what police said, word for word' );
 like( $shown->[0]{at}, qr/\A\d{4}-\d{2}-\d{2}/, 'and when it said it' );
 is( $shown->[0]{kind}, 'violation', 'and what kind of thing it was' );
 

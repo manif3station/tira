@@ -1,5 +1,34 @@
 Revision history for Tira
 
+1.83  2026-08-15
+
+    - TKT-196: assertions that could not fail, named as though they
+      could. Ten across the suite matched qr/\S/ - any non-empty text.
+      Most were honest preconditions and said so in their own names.
+      t/95-windows-replace.t's "and says why" was not: it checked that
+      an error message was non-empty while claiming to check that it
+      explained itself.
+    - Proved by mutation rather than by argument. Stripping the reason
+      out of the message - die "Cannot replace $path" instead of "Cannot
+      replace $path: $error" - left "ok 10 - and says why" passing and
+      the whole file green. The code was right all along; what was wrong
+      was a guard that would not have noticed if it stopped being right.
+    - Found by the hourly hunt. One of the ten had been written an hour
+      earlier, widening an assertion after the failure it described
+      changed shape - which is how they get in: a specific pattern stops
+      matching and the quickest repair is to stop matching anything.
+    - Four now pin what their names promise: the replace error names the
+      reason the system gave, the policy listing names both policies it
+      claims to print, the served police log is compared word for word
+      against what was recorded, and the unreadable reason names the kind
+      of failure. Six that legitimately only need non-empty say so with a
+      named marker beside them, the way t/147 and t/149 already mark
+      their exceptions.
+    - The guard that keeps it that way twice reported itself: first its
+      own header, which quotes the assertion that prompted it, and then
+      the two examples it carries to show it can tell a marked line from
+      an unmarked one. Both are excluded by shape rather than by name.
+
 1.82  2026-08-15
 
     - TKT-166: the agent is told when Tira has been upgraded under it.

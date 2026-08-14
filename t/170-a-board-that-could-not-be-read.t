@@ -149,10 +149,11 @@ is_deeply(
 ok( defined $pass->{unreadable}, 'the pass says something about what it could not read' );
 is_deeply( [ map { $_->{ref} } @{ $pass->{unreadable} // [] } ], [$broken],
     'naming the card whose history could not be decoded' );
-like( $pass->{unreadable}[0]{reason} // '', qr/\S/,
-    'and saying what was wrong with it' );
-unlike( $pass->{unreadable}[0]{reason} // '', qr/\A\s*\z/,
-    'in words rather than an empty string, which is what a reason nobody wrote looks like' );
+# What was wrong, not merely that something was. This was widened to qr/\S/
+# when the damage changed from a bad byte to a half-written line, which is
+# exactly how an assertion stops being able to fail. TKT-196.
+like( $pass->{unreadable}[0]{reason} // '', qr/JSON|garbage|parse|unexpected|malformed|UTF-8/i,
+    'and saying what was wrong with it, in terms of the thing that could not be read' );
 
 # What the owner reads is about his card, not about where the decoder was
 # standing when it gave up.

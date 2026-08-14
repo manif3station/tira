@@ -74,7 +74,8 @@ for my $hour ( 0 .. 11 ) {
     open my $fh, '<:raw', $path or die "$path: $!";
     my $log = do { local $/; <$fh> };
     close $fh;
-    like( $log, qr/\S/, 'police wrote a bridge at all, so the counts below are about a real log' );
+    # non-empty is the whole claim: a precondition for the counts that follow.
+like( $log, qr/\S/, 'police wrote a bridge at all, so the counts below are about a real log' );
     for my $action ( keys %card ) {
         $bridge{$action} = () = $log =~ /\Q$card{$action}\E/g;
     }

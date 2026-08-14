@@ -94,7 +94,13 @@ is( slurp($path), "second\n", 'and written again over itself, which is the case 
     ok( !eval { $tira->_atomic_write( $doomed, "never\n" ); 1 },
         'a replace that fails is an error, not a silent nothing' );
     like( $@, qr/\Q$doomed\E/, 'and the error names the file' );
-    like( $@, qr/\S/, 'and says why' );
+
+    # The reason, not merely some text. This asserted qr/\S/ under the same
+    # name, and stripping "Permission denied" from the message left it passing:
+    # an assertion that promised the error explains itself and could not tell
+    # whether it did. TKT-196.
+    like( $@, qr/Permission denied/i,
+        'and says why, in the words the system gave for the failure' );
 
     my @leftovers = glob File::Spec->catfile( $tmp, '.tira-write-*' );
     is( scalar @leftovers, 0, 'and the temporary file is cleaned up' );

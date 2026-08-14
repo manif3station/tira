@@ -133,6 +133,7 @@ is_deeply( $tira->record_show( project => $home, ref => $second->{ref} )->{label
 # says back. A report that answered with a path would teach the caller the one
 # thing it must not know.
 
+# non-empty is the whole claim: a precondition for the denial that follows.
 like( $out, qr/\S/, 'the command answered at all, so the denial below is about an answer' );
 unlike( $out, qr{\Q$home\E}, 'the answer does not say where the board is' );
 unlike( $err, qr{\Q$home\E}, 'and neither does anything it printed on the way' );

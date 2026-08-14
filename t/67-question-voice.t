@@ -94,6 +94,8 @@ for my $case (
     eval { $tira->question_voice( project => $root, %{$args} ) };
     like( $@, $error, "$label is refused" );
 }
+# non-empty is the whole claim: each case above pins its own message, and
+# this says the last of them was not silent.
 like( $@, qr/\S/, 'every refusal says something' );
 
 # A question with a bad recording is still asked: losing the question because

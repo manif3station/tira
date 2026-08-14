@@ -95,6 +95,7 @@ $tick = '2026-08-09T12:00:00Z';
 my $listed = $tira->question_list( project => $root, ref => $card->{ref} );
 is( scalar @{ $listed->{questions} }, 2, 'both questions are listed' );
 is( $listed->{questions}[0]{answer}{read_at}, $tick, 'listing marks the answer read' );
+# non-empty is the whole claim: the two lines below pin what it must name.
 like( $listed->{instruction}, qr/\S/, 'the list tells the agent what to do next' );
 like( $listed->{instruction}, qr/question\.mark/, 'naming the command that marks an answer' );
 like( $listed->{instruction}, qr/question\.ask/, 'and the one that asks a new question' );

@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.56';
+our $VERSION = '1.57';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -5502,7 +5502,18 @@ sub police_pass {
         # the ledger for somebody to notice, because the reader who was told
         # about it is the one who has to be told it is over.
         settled => $settled,
-        terminal => [ map { $_->{terminal} } grep { $_->{escalate} } @{$view} ],
+        # Only what the policy asked to be said out loud. Escalation decides
+        # WHEN the owner is told; the action decides WHETHER. Without this a
+        # rule set to log-only reached his terminal exactly like one set to
+        # bridge-reminder - and log-only is what somebody reaches for precisely
+        # when they do not want the noise, so it made noise in the one
+        # situation it exists to avoid. The guide had promised otherwise, and
+        # the comment beside the bridge filter had described this design for as
+        # long as nothing implemented it.
+        terminal => [
+            map  { $_->{terminal} }
+            grep { $_->{escalate} && ( $_->{action} // '' ) ne 'log-only' } @{$view}
+        ],
         ( defined $error ? ( error => $error ) : () ),
     };
 }

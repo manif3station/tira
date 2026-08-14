@@ -1,5 +1,25 @@
 Revision history for Tira
 
+1.57  2026-08-14
+    - TKT-145: the three policy actions now mean three things. Only
+      bridge-reminder was ever read - the engine compared the action
+      against that name twice and nowhere else - and what reached the
+      owner's terminal was decided by escalation alone. So a rule set to
+      log-only appeared on his terminal exactly like one set to
+      bridge-reminder, and print-reminder did nothing log-only did not.
+      Found by the hourly bug hunt.
+    - The policies guide states it as a table: print-reminder goes to the
+      owner's police terminal, log-only is recorded and said to nobody,
+      for when you are tuning a rule and do not want the noise yet. The
+      second row was not true, and it was untrue in exactly the situation
+      it exists for - you reach for log-only to stop the noise and it put
+      the rule on his terminal anyway.
+    - Escalation decides when the owner is told; the action now decides
+      whether. A log-only violation is still recorded, because a rule you
+      cannot read back is not one you can tune, and bridge-reminder is
+      unchanged. Proved by running the three side by side past escalation
+      and by removing the filter again.
+
 1.56  2026-08-14
     - TKT-144: a refusal test now proves the refusal it was written for.
       Twenty-five tests capture a refusal as a failed eval and fourteen

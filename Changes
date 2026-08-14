@@ -1,5 +1,43 @@
 Revision history for Tira
 
+1.78  2026-08-14
+    - TKT-180: one card nobody can read no longer silences the whole
+      board. He reported that answering a question raised a bridge note
+      on one of his boards and not on the other, with the same rule
+      declared on both. It was not the answer rule: police was reporting
+      zero violations across 27 declared policies and 359 cards, saying
+      it was watching, and exiting 0 - so an unpoliced board and a clean
+      one produced identical output.
+    - The cause was one byte. Two history files held a raw 0xD7 where a
+      multiplication sign was meant, written as latin-1 rather than
+      UTF-8. History is decoded as strict UTF-8, so the read died inside
+      the rule loop and took every rule with it. Only rules that read a
+      journal reach it - conversation-not-folded, through
+      _last_card_change, and column-skipped - which is why one board was
+      affected and the other was not.
+    - Two real violations had been hidden that way for as long as the
+      byte had been there.
+    - The history read is now guarded in one place both rules share. The
+      third reader in the same file, _policy_last_detail_change, had
+      always guarded its own; this is that decision written once instead
+      of three times with two copies drifting.
+    - A card that cannot be read is named rather than skipped, because
+      skipping quietly is the same fault one level down: an unreadable
+      card would look exactly like a card with nothing wrong. It is
+      returned as `unreadable` and said out loud in the owner's terminal.
+    - An unreadable journal is not an unwritten card, so neither rule
+      accuses it of anything on the strength of a fault of their own.
+    - A pass that failed outright can no longer be presented as a clean
+      pass. The error field it already had was read by nothing: the
+      bridge is written from the violations and the terminal from
+      escalations, so a failure landing in neither was a failure nobody
+      heard about.
+    - Verified against a copy of the reporting board with its own 27
+      policies restored from its git: 0 violations before, 444 after,
+      both damaged cards named with what was wrong. His files were not
+      touched - the fix is in Tira, so the next board with a stray byte
+      is told rather than silenced.
+
 1.77  2026-08-14
     - TKT-176: a test that could fail by chance no longer can. The login
       test asserted that eight random hex tokens joined together contain

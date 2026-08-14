@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.77';
+our $VERSION = '1.78';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4634,16 +4634,56 @@ sub _policy_message {
 # When the card itself was last written to, ignoring the writes that are the
 # conversation rather than the card: a comment is not the card being brought up
 # to date, and neither is a question or the stamp that every write touches.
+# One card's journal, read the way a supervisor has to read it.
+#
+# A board where one card's history held a single byte of invalid UTF-8 reported
+# nothing at all: the decode died inside the rule loop and took every rule on
+# the board down with it - 27 policies, 359 cards, two real violations hidden -
+# while the pass still answered "watching" with an empty list. A board that
+# cannot be read looked exactly like a board with nothing wrong.
+#
+# So the read is guarded here, once, for every rule that needs a journal. The
+# third reader in this file, _policy_last_detail_change, has always guarded its
+# own; this is the same decision written where the other two can share it
+# instead of drifting from it again.
+#
+# Undef means "could not read", which is not the same as "nothing recorded" -
+# every caller has to tell those apart, because a rule that treats an
+# unreadable card as an empty one reports a violation it cannot support.
+#
+# And the card is named rather than quietly skipped. Skipping is the same fault
+# one level down: nobody can act on a card they are not told about.
+sub _police_history {
+    my ( $self, $root, $ref, $unreadable ) = @_;
+    my $entries = eval { $self->history_list( project => $root, ref => $ref ) };
+    return $entries if defined $entries;
+
+    my $why = $@ || 'unknown failure';
+
+    # Perl's own "at Tira.pm line 6813, <$fh> line 3" is where the decoder
+    # stood, not what is wrong with his card. The owner reads this in his
+    # terminal, so what survives is the part he can act on.
+    $why =~ s/\s+at\s+\S+\s+line\s+\d+(?:,\s*<[^>]*>\s*line\s*\d+)?\.?\s*\z//;
+    $why =~ s/\s+\z//;
+    $why =~ s/\.\z//;
+    push @{$unreadable}, { ref => $ref, reason => $why }
+      if $unreadable && !grep { ( $_->{ref} // '' ) eq $ref } @{$unreadable};
+    return undef;
+}
+
 sub _last_card_change {
-    my ( $self, $root, $ref ) = @_;
+    my ( $self, $root, $ref, $unreadable ) = @_;
+    my $entries = $self->_police_history( $root, $ref, $unreadable );
+    return ( 0, undef ) if !defined $entries;
+
     my $latest;
-    for my $write ( @{ $self->history_list( project => $root, ref => $ref ) } ) {
+    for my $write ( @{$entries} ) {
         my $field = $write->{field} // '';
         next if $field =~ /\A(?:last_updated|comments|questions)\z/;
         my $at = $write->{at} // next;
         $latest = $at if !defined $latest || $at gt $latest;
     }
-    return $latest;
+    return ( 1, $latest );
 }
 
 sub policy_evaluate {
@@ -4660,6 +4700,11 @@ sub policy_evaluate {
     # exception is the rule that exists to ask why it was set aside.
     my $records = [ grep { ( $_->{column} // '' ) ne 'discard' } @{$all} ];
     my @violations;
+
+    # Cards whose journal could not be read on this pass. Collected rather than
+    # thrown, so one of them cannot end the pass, and handed back rather than
+    # swallowed, so it cannot be mistaken for a card with nothing wrong.
+    my $unreadable = $args{unreadable} // [];
 
     # Read once here rather than in the rule, so it is the project in hand
     # rather than whatever a rule happens to be able to resolve.
@@ -4867,7 +4912,13 @@ sub policy_evaluate {
                   grep { defined } map { $_->{created_at} // $_->{at} } @comments;
                 next if !defined $said;
 
-                my $written = $self->_last_card_change( $root, $record->{ref} );
+                my ( $readable, $written ) =
+                  $self->_last_card_change( $root, $record->{ref}, $unreadable );
+
+                # An unreadable journal is not an unwritten card. Reporting it
+                # would be this rule inventing a violation out of a fault of
+                # its own, which is the worst of both silences.
+                next if !$readable;
                 next if defined $written && $written ge $said;
 
                 $report->( $policy, $record,
@@ -5030,9 +5081,11 @@ sub policy_evaluate {
                 # anything the card carries - the engine writes that on every
                 # move, and it is the only account of the route that whoever
                 # made the moves did not write themselves.
+                my $journal = $self->_police_history( $root, $record->{ref}, $unreadable );
+                next if !defined $journal;
+
                 my %visited = map { ( $_->{after} // '' ) => 1 }
-                  grep { ( $_->{field} // '' ) eq 'column' }
-                  @{ $self->history_list( project => $root, ref => $record->{ref} ) };
+                  grep { ( $_->{field} // '' ) eq 'column' } @{$journal};
 
                 my @missed = grep { !$visited{$_} } @required;
                 next if !@missed;
@@ -5638,10 +5691,11 @@ sub police_pass {
     } if !@{$policies};
 
     my ( $found, $error );
+    my @unreadable;
     my $ok = eval {
         my $records = $self->record_list( %args, include_discard => 1 );
         $found = [
-            @{ $self->policy_evaluate(%args) },
+            @{ $self->policy_evaluate( %args, unreadable => \@unreadable ) },
             @{ $self->_police_environment_violations(
                     %args, policies => $policies, records => $records ) },
         ];
@@ -5686,9 +5740,34 @@ sub police_pass {
         # the comment beside the bridge filter had described this design for as
         # long as nothing implemented it.
         terminal => [
-            map  { $_->{terminal} }
-            grep { $_->{escalate} && ( $_->{action} // '' ) ne 'log-only' } @{$view}
+            (
+                map  { $_->{terminal} }
+                grep { $_->{escalate} && ( $_->{action} // '' ) ne 'log-only' } @{$view}
+            ),
+
+            # Said out loud, because the only place this used to go was an
+            # error field nothing reads. The bridge is written from the
+            # violations and the terminal from escalations, so a failure
+            # landing in neither is a failure nobody hears about - and that is
+            # how a board sat unpoliced with two real violations on it.
+            (
+                map {
+                    "police could not read $_->{ref}: $_->{reason}. "
+                      . 'Every other card was still checked; nothing on this one was.'
+                } @unreadable
+            ),
+            (
+                defined $error
+                ? ( "police could not finish this pass: $error. "
+                      . 'This is not a board with nothing wrong, it is a board that was not read.' )
+                : ()
+            ),
         ],
+
+        # What could not be read, handed back beside what was. A pass that
+        # skipped a card quietly would be the same fault as the one this
+        # exists to end.
+        unreadable => \@unreadable,
         ( defined $error ? ( error => $error ) : () ),
     };
 }

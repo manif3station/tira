@@ -1353,3 +1353,47 @@ git reported. The message says how many came back, because none is a different
 fault from one being gone: police pointed at a repository that does not hold the
 work trees reports an empty list, and that read exactly like a tree somebody had
 deleted.
+
+## A card police cannot read
+
+A board reported nothing at all: zero violations across twenty-seven declared
+policies and three hundred and fifty-nine cards, `watching` set, exit 0. It was
+not a clean board. Two real violations were sitting on it, and an answered
+question raised no bridge note, which is how it was noticed.
+
+One card's history journal held a single byte that is not valid UTF-8 — a
+multiplication sign written as latin-1. History is decoded strictly, so the read
+died inside the rule loop and stopped every rule on the board at that card.
+
+Only rules that read a journal can reach it: `conversation-not-folded`, which
+asks when the card was last written to, and `column-skipped`, which asks where
+the card has been. A board declaring neither never saw it, which is why the same
+Tira behaved differently on two boards with the same answer rules declared.
+
+**A card that cannot be read is set aside and named, not skipped.** The pass
+carries on and every other card is still checked. What it could not read comes
+back as `unreadable`, with the reason, and is said out loud in the owner's
+terminal:
+
+    police could not read M5T-034: malformed UTF-8 character in JSON string,
+    at character offset 32. Every other card was still checked; nothing on
+    this one was.
+
+Skipping it quietly would be the same fault one level down — a card nobody can
+check would look exactly like a card with nothing wrong.
+
+**An unreadable journal is not an unwritten card.** Neither rule accuses it of
+anything on the strength of their own failure to read it.
+
+**A pass that failed outright is never presentable as a clean pass.** Police has
+always kept the reason in an error field; nothing read it. The bridge is written
+from the violations and the terminal from escalations, so a failure landing in
+neither was a failure nobody heard about. It now reaches the terminal, saying
+what it is:
+
+    police could not finish this pass: <reason>. This is not a board with
+    nothing wrong, it is a board that was not read.
+
+Nothing repairs the bytes. The board is the reporter's and the damage is
+already written; what changed is that Tira works around it and says so, so the
+next board with a stray byte is told rather than silenced.

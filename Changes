@@ -1,5 +1,35 @@
 Revision history for Tira
 
+1.75  2026-08-14
+    - TKT-169: the card dialog's logs are readable on a phone. He sent a
+      photograph of "What police has said" on his own phone reading "was
+      answe / red and never marke / d" - one or two letters a line - and
+      a second of the work log, rows hundreds of pixels tall with nothing
+      visible in them.
+    - One cause, two faces. Both sections lay an entry out as a grid of
+      fixed columns: the police log takes 11rem and 7rem before the
+      detail, which leaves about three on a phone, and the card sets
+      overflow-wrap to anywhere, so three rems is a column of single
+      letters. The work log takes 11rem, 6rem and 7rem - twenty-four rems
+      of fixed columns on a twenty-two rem screen - so its value is
+      pushed outside the card and the rows are tall but look empty.
+    - Both stack on a narrow screen now and break at word boundaries,
+      and the wide layout is untouched.
+    - The browser test that already covered this section passed
+      throughout, because it asks whether the content is there and a
+      column of single letters contains everything. It measures the
+      detail now: with the fix taken out it reports "the police log
+      detail is 12px wide on a phone", which is his photograph in a
+      number.
+    - TKT-168: the board audit survives the skill being installed
+      underneath it. The gate failed twice reporting a shipped command as
+      unknown - tira.epic.show once, tira.ticket.list the next push -
+      because the installed directory was being rewritten inside the
+      gate's window and the dispatcher resolves a command by finding its
+      entrypoint. Only that failure is waited on, anything else still
+      stops the gate at once, and a command that never resolves fails it
+      saying how many times it tried.
+
 1.74  2026-08-14
     - TKT-167: two commands no longer claim to do the same specific
       thing. tira.backup.export and tira.backup.import both described

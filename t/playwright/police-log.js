@@ -102,6 +102,69 @@ const fs = require('fs');
   if (!/violation/i.test(said)) throw new Error('the entry does not say what kind it was');
   if (!/suspension/i.test(said)) throw new Error('a suspension is not shown, and it is in the same log');
 
+  // --- and it can be read on a phone ------------------------------------------
+  //
+  // He sent a photograph of this section on his own phone: "was answe / red and
+  // never marke / d", one or two letters a line. The entry is a grid of 11rem,
+  // 7rem and whatever is left, so on a screen about 22rem wide the detail got
+  // about three - and the card sets overflow-wrap to anywhere, which breaks
+  // words mid-character rather than at spaces.
+  //
+  // Measured rather than eyeballed: the width of the detail column, and whether
+  // the section fits inside the card. The test that already existed passes on a
+  // column of single letters, because it asks whether the content is there.
+  {
+    const phone = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await phone.route('http://tira.test/**', async route => {
+      const url = new URL(route.request().url());
+      if (url.pathname === '/policelog') {
+        return route.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify(chasedLog) });
+      }
+      if (url.pathname === '/data') {
+        return route.fulfill({ status: 200, contentType: 'application/json', body: data });
+      }
+      if (url.pathname === '/record') {
+        return route.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify({ ref: chased, type: 'ticket', title: 'A card',
+            column: 'implement', description: '', comments: [], attachments: [],
+            checklist: [], questions: [], evidence: [], gate_passing_log: [],
+            subtasks: [], labels: [], scope: { included: [], excluded: [] },
+            linkage: { links: [], sub_ticket_refs: [] } }) });
+      }
+      if (['/people', '/worklog', '/link-types'].includes(url.pathname)) {
+        return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+      }
+      return route.fulfill({ status: 200, contentType: 'text/html', body: html });
+    });
+
+    await phone.goto('http://tira.test/');
+    await phone.waitForFunction(() => document.documentElement.dataset.ready === 'true');
+    await phone.click(`[data-ref="${chased}"]`);
+    await phone.waitForSelector('.card-dialog[open]');
+    await phone.waitForFunction(() => {
+      const box = document.querySelector('.card-section--policelog');
+      return box && !box.hidden;
+    }, null, { timeout: 15000 });
+
+    const measured = await phone.evaluate(() => {
+      const detail = document.querySelector('.card-policelog__detail');
+      const section = document.querySelector('.card-section--policelog');
+      return {
+        detail: detail ? detail.getBoundingClientRect().width : 0,
+        section: section ? section.getBoundingClientRect().width : 0,
+      };
+    });
+    if (measured.detail < 150) {
+      throw new Error(`the police log detail is ${Math.round(measured.detail)}px wide on a phone - `
+        + 'that is the column of single letters he photographed');
+    }
+    if (measured.detail > measured.section + 1) {
+      throw new Error('the detail is wider than the section that holds it');
+    }
+    await phone.close();
+  }
+
   // Nothing to change it with. Police writes this and nobody else may, which is
   // why there is no command to add an entry - a button here would be the way
   // round that.

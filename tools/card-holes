@@ -17,6 +17,7 @@ correct if the on-disk layout changes.
 
 import json
 import subprocess
+import time
 import sys
 
 # Columns in the order work passes through them. A card whose checklist is
@@ -37,11 +38,36 @@ REQUIRED = [
 ]
 
 
+ATTEMPTS = 3
+INSTALLING = 'not found in skill'
+
+
 def tira(*args):
-    done = subprocess.run(['d2', *args], capture_output=True, text=True)
-    if done.returncode != 0:
-        raise SystemExit(f'card-holes: {" ".join(args)} failed: {done.stderr.strip()}')
-    return json.loads(done.stdout)
+    """Ask the board, surviving the moment the skill is being written.
+
+    The gate failed twice reporting a command that ships as unknown -
+    tira.epic.show once, tira.ticket.list the next push - and both entrypoints
+    ran fine seconds later. The installed skill directory had been rewritten
+    inside the failing gate's window: the dispatcher resolves a command by
+    finding its entrypoint, and during an install the entrypoint is briefly
+    absent.
+
+    Only that failure is waited on, and only for a moment. Anything else stops
+    the gate at once, because an audit that retried everything would go quiet
+    exactly when the board is broken - and if it never resolves, the gate says
+    how many times it tried rather than reporting the last attempt as though it
+    were the only one.
+    """
+    for attempt in range(ATTEMPTS):
+        done = subprocess.run(['d2', *args], capture_output=True, text=True)
+        if done.returncode == 0:
+            return json.loads(done.stdout)
+        if INSTALLING not in done.stderr:
+            raise SystemExit(f'card-holes: {" ".join(args)} failed: {done.stderr.strip()}')
+        time.sleep(2)
+    raise SystemExit(
+        f'card-holes: {" ".join(args)} still unresolved after {ATTEMPTS} attempts: '
+        f'{done.stderr.strip()}')
 
 
 def premature(record):

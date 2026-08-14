@@ -118,7 +118,7 @@ sub run {
         'where=s@' => \$option{where},
         'members=s@' => \$option{members}, 'columns=s@' => \$option{columns},
         'listen=s' => \$option{listen},
-        'password=s' => \$option{password}, 'token=s' => \$option{token},
+        'password=s' => \$option{password},
         'rule=s' => \$option{rule}, 'action=s' => \$option{action},
         'enter=s' => \$option{enter}, 'before-column=s' => \$option{before_column},
         'age=s' => \$option{age}, 'read-age=s' => \$option{read_age},
@@ -1567,8 +1567,6 @@ sub _invoke {
       if $option->{all} && $command ne 'warning.clear' && $command ne 'login.logout';
     die "A password belongs to the login.register and login.check commands\n"
       if defined $option->{password} && $command !~ /\Alogin\.(?:register|check)\z/;
-    die "A token belongs to the login commands\n"
-      if defined $option->{token} && $command !~ /\Alogin\./;
     die "A column layout belongs to the column.apply command\n"
       if defined $option->{columns_json} && $command ne 'column.apply';
     die "Nested belongs to the project.new, project.create and onboard commands\n"

@@ -1,5 +1,27 @@
 Revision history for Tira
 
+1.59  2026-08-14
+    - TKT-146: a credential a command never looks at can no longer be
+      typed at it. --token was parsed, accepted on the four login
+      commands, and read by nothing. The only place it was ever looked at
+      was the guard refusing it elsewhere, whose message - "A token
+      belongs to the login commands" - sent the caller to the commands
+      where it did nothing. Found by the hourly bug hunt.
+    - login.check --token was the worst of the three: exit zero and a
+      definite no about a credential the command never examined, and a
+      definite no is exactly what a credential check is trusted to mean.
+      login.status ignored it and listed sessions; login.logout refused,
+      but for the missing --id rather than for the token.
+    - Removed rather than implemented. Nothing read it, so this changes
+      no behaviour; ending one named session by token is a plausible
+      thing to want and would be a new feature on its own card. The
+      refusal that pointed at the login commands went with it, because a
+      message telling somebody where an option belongs is a document, and
+      it no longer belongs anywhere.
+    - Sessions still have tokens and a token still ends its own session,
+      which is where a token is really used. The browser flow passes its
+      token in the request body and never through this parser.
+
 1.58  2026-08-14
     - TKT-133: the work log says who changed the card. Every record write
       journals the change and stamps it with the author the engine

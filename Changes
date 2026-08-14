@@ -1,5 +1,41 @@
 Revision history for Tira
 
+1.62  2026-08-14
+    - TKT-149: the documentation check now runs the policies guide's
+      examples at all, and counts what it set aside as well as what it
+      ran. Found by the hourly bug hunt, and the bigger half was found by
+      trying to prove the smaller one: breaking a documented example on
+      purpose and watching the check report everything understood.
+    - Examples were collected as a backticked "dashboard tira...." in
+      prose or a bare "tira...." at the start of a line. The policies
+      guide writes all 132 of its examples as "d2 tira....", which
+      matched neither - so the document with by far the most worked
+      examples in it was listed for checking and contributed none. The
+      docstring still said the guide was written the second way, which
+      had been true when the checker was written; the guide's style moved
+      and the checker did not.
+    - It runs 246 examples now rather than 125, and the first full run
+      found a real one: a trailing "# set it" was being passed as an
+      argument, so a correct example looked broken. A note to the reader
+      is a comment now, and a hash inside quotes still is not.
+    - And it counts what it set aside as well as what it ran. It finds a hundred and ninety example lines,
+      runs a hundred and twenty-five, and used to drop sixty without a
+      word - then print the number it ran as though the documentation had
+      been checked. Nearly a third of it had not been tried. Found by the
+      hourly bug hunt.
+    - Skipping is not the fault: most of the sixty carry a shape a reader
+      is meant to replace, and running those would prove nothing.
+      Reporting them as checked is the fault, and this tool had already
+      been bitten by it once - its own header records that treating a
+      quoted project name as a shape "skipped the example silently, which
+      is how a deliberately broken example passed this check". The
+      quoting was fixed and the silence was left.
+    - Some of the sixty are real examples. A prefix of DEV is dropped for
+      being capitals, and DEV is a value somebody types. Naming them is
+      what makes that visible: TIRA_EXAMPLES_SHOW_SKIPPED=1 lists them.
+    - What the check refuses is unchanged - an example naming a command
+      or an option that does not exist still fails the gate.
+
 1.61  2026-08-14
     - TKT-148: the gate no longer passes while the release fails to
       happen. git push was exiting 141 - SIGPIPE - after the pre-push

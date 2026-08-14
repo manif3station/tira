@@ -29,10 +29,25 @@ import tempfile
 DOCUMENTS = ('SKILLS.md', 'docs/commands.md', 'docs/POLICIES.md')
 
 # An example is a backticked command line beginning with the dispatcher, or a
-# bare tira.<verb> line inside a fenced block - the policies document is
-# written the second way.
+# command line at the start of a line in a fenced block. The dispatcher is
+# written three ways across these documents - `dashboard tira.x` in the
+# manual's prose, a bare `tira.x` in older fenced blocks, and `d2 tira.x`
+# throughout the policies guide - and only the first two were ever collected.
+#
+# That was found by breaking a policies example on purpose and watching the
+# check report everything understood: all 132 of the guide's examples matched
+# neither pattern, so the document with by far the most worked examples in it
+# was listed here and contributed nothing. The docstring above still said the
+# guide was written the second way, which had been true when this was written.
+# The guide's style moved and the checker did not.
 BACKTICKED = re.compile(r'`(dashboard tira\.[^`]+)`')
-FENCED = re.compile(r'^\s{0,2}(tira\.[a-z][a-z0-9._-]*(?:\s+--?[^\n]*)?)$', re.M)
+FENCED = re.compile(r'^\s{0,2}(?:d2\s+|dashboard\s+)?(tira\.[a-z][a-z0-9._-]*(?:\s+--?[^\n]*)?)$', re.M)
+
+# A line ending in a backslash is half a command. Running the half would fail
+# for a reason that says nothing about the documentation, so it is set aside
+# like any other line that cannot be run as it stands - and counted, which is
+# the whole point of this change.
+CONTINUED = re.compile(r'\\\s*$')
 
 # Anything in quotes is a value somebody typed, whatever it looks like. "MT5"
 # is a project name, not a shape - and treating it as one skipped the example
@@ -67,8 +82,17 @@ FATAL = (
 
 
 def examples():
-    """Every runnable example, with where it came from."""
+    """Every example, split into the ones that can be run and the ones that cannot.
+
+    Both are returned. Reporting only the first was how this check came to
+    print a number that read as coverage: sixty of a hundred and ninety lines
+    were dropped by the placeholder rule and never appeared anywhere, so the
+    documentation looked checked when a third of it had not been tried. The
+    header above records the same fault being found once before, for quoted
+    values, and fixed without the silence being fixed with it.
+    """
     found = []
+    set_aside = []
     for document in DOCUMENTS:
         if not os.path.exists(document):
             continue
@@ -78,11 +102,15 @@ def examples():
             for match in pattern.finditer(text):
                 line = match.group(1).strip()
                 line = re.sub(r'^dashboard\s+', '', line)
+                if CONTINUED.search(line):
+                    set_aside.append((document, line))
+                    continue
                 bare = REFERENCE.sub( '', QUOTED.sub( '', line ) )
                 if PLACEHOLDER.search(bare):
+                    set_aside.append((document, line))
                     continue
                 found.append((document, line))
-    return found
+    return found, set_aside
 
 
 def main():
@@ -170,9 +198,13 @@ def check(scratch):
 
     ran = 0
     problems = []
-    for document, line in examples():
+    runnable, skipped = examples()
+    for document, line in runnable:
         try:
-            argv = shlex.split(line)
+            # comments=True so a trailing "# set it" is a note to the reader
+            # rather than an argument. shlex knows a hash inside quotes is not
+            # a comment; a regex over the line would not.
+            argv = shlex.split(line, comments=True)
         except ValueError:
             problems.append((document, line, 'this is not a command line anybody could type'))
             continue
@@ -205,7 +237,17 @@ def check(scratch):
         print(f'\n{len(problems)} documented example(s) of {ran} are not what the command accepts.')
         return 1
 
-    print(f'docs-examples-run: {ran} documented examples run, and every one was understood')
+    # Named, not just counted, when asked. A third of the documentation going
+    # untried is worth knowing about; which third is what makes it actionable -
+    # a real value mistaken for a shape, like a prefix that happens to be
+    # capitals, is only visible by name.
+    if os.environ.get('TIRA_EXAMPLES_SHOW_SKIPPED'):
+        for document, line in skipped:
+            print(f'set aside  {document}: {line}')
+
+    print(f'docs-examples-run: {ran} documented examples run and understood, '
+          f'{len(skipped)} set aside for carrying a shape a reader must replace '
+          f'(TIRA_EXAMPLES_SHOW_SKIPPED=1 names them)')
     return 0
 
 

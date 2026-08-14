@@ -375,6 +375,30 @@ rows = json.load(sys.stdin)
 rows = rows if isinstance(rows, list) else rows.get("tickets") or rows.get("records") or []
 print(next((r["ref"] for r in rows if r.get("column") not in ("done", "discard", "backlog")), ""))' 2>/dev/null)"
 
+# Made rather than found, when the board has none. These five checks used to run
+# only if something happened to be mid-flight, so on a board where everything
+# was finished - which is the state a board is meant to reach - the whole commit
+# gate went unproved and this printed one line about it. Nothing runs this tool,
+# so that line was never read.
+#
+# The same shape as the hollow card above: a real card on the real board, put
+# into a working column so the gate has something true to refuse, and set aside
+# afterwards with a reason, because a discarded card with no reason on it is
+# indistinguishable from work somebody gave up on.
+made_working=""
+if [ -z "$working" ]; then
+    working="$(d2 tira.ticket.create --title 'Probe: a card at a working gate, for the commit hook' -o json |
+        python3 -c 'import json,sys; print(json.load(sys.stdin)["ref"])')"
+    if [ -n "$working" ]; then
+        column="$(d2 tira.board.show --type ticket -o json |
+            python3 -c 'import json,sys
+columns = json.load(sys.stdin)["columns"]
+print(next((c["name"] for c in columns if not c.get("protected")), ""))')"
+        d2 tira.ticket.move --ref "$working" --column "$column" -o json >/dev/null
+        made_working="$working"
+    fi
+fi
+
 if [ -n "$finished" ] && [ -n "$working" ]; then
     refuses "a commit against a finished card ($finished)" "in 'done'" \
         run_commit_hook "$finished the work is over"
@@ -398,8 +422,17 @@ found."; then
         failed=$(( failed + 1 ))
     fi
 else
-    printf 'NOT PROVED - could not find a finished and a working card to drive the commit gate\n'
+    printf 'NOT PROVED - could not raise a card to drive the commit gate\n'
     failed=$(( failed + 1 ))
+fi
+
+# Set aside with a reason, like the hollow card. A probe left at a working gate
+# would read as work in progress on a board whose whole point is saying what is
+# being worked, and the card audit refuses a discard with nothing on it.
+if [ -n "$made_working" ]; then
+    say_why "$made_working"
+    d2 tira.ticket.discard --ref "$made_working" -o json >/dev/null
+    made_working=""
 fi
 
 # --- and it leaves nothing behind -----------------------------------------

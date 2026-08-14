@@ -1,5 +1,24 @@
 Revision history for Tira
 
+1.64  2026-08-14
+    - TKT-151: the tool that proves the gate can now prove the commit
+      gate. Five of its checks looked for a card already sitting in a
+      working column rather than making one, so on a board where
+      everything is finished - the state a board is meant to reach - the
+      whole commit gate went unproved. Found by the hourly bug hunt, by
+      running a tool nothing runs.
+    - It had been printing "NOT PROVED - could not find a finished and a
+      working card" and exiting 1, unread, because nothing in any hook,
+      test or document runs it. Its own opening line is that a check
+      never seen to fail is not a check but a hope; the thing written to
+      stop the gate being a hope had become one.
+    - It raises the card it needs now, the way it already raises the
+      hollow card that proves the card audit, and sets it aside with a
+      reason afterwards - a discard with nothing on it is what the audit
+      itself refuses.
+    - The other sixteen checks pass, including every step of the push
+      gate, and the board is left as it was found.
+
 1.63  2026-08-14
     - TKT-135: search reaches the whole card rather than the front of it.
       mt5-ai searched for a figure, found nothing, and published that it

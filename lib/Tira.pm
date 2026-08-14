@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.72';
+our $VERSION = '1.73';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -5385,7 +5385,29 @@ sub _police_environment_violations {
             for my $record ( @{$records} ) {
                 next if ( $record->{column} // '' ) ne ( $policy->{enter} // '' );
                 my @missing;
-                push @missing, 'branch' if !$branch{ $record->{ref} };
+
+                # What it looked for, and what came back. A project read
+                # "missing branch and the work tree it records, /path, which is
+                # not there" while the directory, the work tree and the branch
+                # all existed on their machine, and had nothing to check the
+                # claim against. A rule that reads the machine has to say what
+                # it asked it.
+                if ( !$branch{ $record->{ref} } ) {
+
+                    # Their case, and it is a real mismatch rather than a
+                    # misreport: this wants a branch named exactly after the
+                    # card, a reference is upper case by construction, and git
+                    # branches are conventionally lower case - so on any project
+                    # following that convention it can never match. Saying which
+                    # branch differs only in case turns an hour of hypothesising
+                    # into a rename.
+                    my ($nearly) = grep { lc $_ eq lc $record->{ref} }
+                      @{ $world->{branches} // [] };
+                    push @missing, $nearly
+                      ? "a branch named $record->{ref} - $nearly differs from it only in case"
+                      : 'a branch named ' . $record->{ref} . ' (the machine reported '
+                        . scalar( @{ $world->{branches} // [] } ) . ' branches)';
+                }
 
                 # Three different things, and each wants a different fix, so
                 # each is said differently. A work tree existing on the machine
@@ -5402,7 +5424,17 @@ sub _police_environment_violations {
                       : 'sandbox worktree';
                 }
                 elsif ( !$worktree{$claimed} ) {
-                    push @missing, "the work tree it records, $claimed, which is not there";
+
+                    # How many came back, because none is a different fault from
+                    # one being gone: police pointed at a repository that does
+                    # not hold the work trees reports an empty list, and that
+                    # read exactly like a tree somebody had deleted.
+                    my $seen = scalar @{ $world->{worktrees} // [] };
+                    push @missing, $seen
+                      ? "the work tree it records, $claimed, which is not among the $seen "
+                        . 'the machine reported'
+                      : "the work tree it records, $claimed - the machine reported no work trees "
+                        . 'at all, which is what police watching the wrong repository looks like';
                 }
                 next if !@missing;
 

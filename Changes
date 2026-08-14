@@ -1,5 +1,26 @@
 Revision history for Tira
 
+1.73  2026-08-14
+    - TKT-161: card-sandbox-missing says what it asked the machine.
+      developer-dashboard read "missing branch and the work tree it
+      records, /home/mv/dd-worktree-sandbox/dd-532, which is not there
+      for DD-532" while the directory, the work tree and the branch all
+      existed - and the message gave them nothing to check it against.
+    - Their hypothesis was right about the branch and they were careful
+      to call it a hypothesis: the check wants a branch named exactly
+      after the card, a reference is upper case by construction, and git
+      branches are conventionally lower case, so on any project following
+      that convention it can never match. The violation now names the
+      branch it wanted and, where one differs only in case, says which -
+      an hour of guessing becomes a rename.
+    - It no longer says a branch is not there when it is there under
+      another case. That sentence was simply false, and a rule that reads
+      the machine cannot afford one.
+    - The work tree half says how many the machine reported. None is a
+      different fault from one being gone: police pointed at a repository
+      that does not hold the work trees reports an empty list, and that
+      read exactly like a tree somebody had deleted.
+
 1.72  2026-08-14
     - TKT-160: a violation says what would clear it. answer-ok-not-folded
       reported an answer marked ok with "nothing written down" and never

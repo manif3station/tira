@@ -1328,3 +1328,28 @@ work that has stopped; a folded answer is content the next agent reads off the
 card, and a comment is not read back that way. What was wrong was that neither
 rule said which it wanted, so learning the convention from one taught the wrong
 thing about the other. Both messages name the place now.
+
+## A rule about the machine says what it asked it
+
+`card-sandbox-missing` reads the world rather than the board: police runs `git
+branch` and `git worktree list` and hands the answers over. A project read this
+off their bridge -
+
+    missing branch and the work tree it records,
+    /home/mv/dd-worktree-sandbox/dd-532, which is not there for DD-532
+
+- while the directory, the work tree and the branch all existed on their
+machine, and had nothing to check the claim against.
+
+**The branch it wants is named exactly after the card**, and a reference is upper
+case by construction. Git branches are conventionally lower case, so on a project
+following that convention the check can never match. The violation now names the
+branch it wanted and, if one differs only in case, says so:
+
+    a branch named DD-532 - dd-532 differs from it only in case
+
+**The work tree it wants is the one recorded on the card**, checked against what
+git reported. The message says how many came back, because none is a different
+fault from one being gone: police pointed at a repository that does not hold the
+work trees reports an empty list, and that read exactly like a tree somebody had
+deleted.

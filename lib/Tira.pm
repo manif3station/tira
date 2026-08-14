@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.54';
+our $VERSION = '1.55';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4279,8 +4279,11 @@ my %POLICY_RULES = (
 # owner's own terminal, and quietly into the log for a rule being tuned.
 my %POLICY_ACTIONS = map { $_ => 1 } qw(bridge-reminder print-reminder log-only);
 
-# Parameters a policy may carry, beyond the rule and the action.
-my @POLICY_FIELDS = qw(enter before column age read_age max pattern message require sandbox base require_link link_to);
+# Parameters a policy may carry, beyond the rule and the action. Every name here
+# is read somewhere, and t/148 fails if one is not: this list has been wrong in
+# both directions - base sat here unread for the life of the file, and read_age
+# was accepted, validated and dropped for being missing from it.
+my @POLICY_FIELDS = qw(enter before column age read_age max pattern message require sandbox require_link link_to);
 
 # Where a policy was declared. A policy with none of these is the project's;
 # each one named makes it narrower, and the narrowest wins.

@@ -1,5 +1,25 @@
 Revision history for Tira
 
+1.55  2026-08-14
+    - TKT-143: a policy can no longer carry a setting that does nothing.
+      POLICY_FIELDS listed thirteen fields a policy may carry and one of
+      them, base, was read by nothing - accepted by the engine, written
+      into the policy record and handed back on every read. git shows it
+      never had a reader in the whole life of the file. Found by the
+      hourly bug hunt.
+    - The same list produced the opposite fault when read_age was
+      accepted, validated and then dropped for being absent from it. One
+      list decides what a policy carries and it has now been wrong in
+      both directions, so removing base is only half of this.
+    - The half that lasts: every field the list admits must be read
+      somewhere in the engine, and the suite names any that is not.
+      Proved by adding a field nothing reads and watching it be named.
+    - The engine still takes the caller's whole request, because the CLI
+      hands it every parsed option and refusing every unstored name there
+      would refuse half the commands. Where a person meets it - typing
+      --base - it was already refused, and that is now asserted rather
+      than assumed.
+
 1.54  2026-08-14
     - TKT-141: a denial now means the thing was there and did not say it.
       unlike on an empty string passes, so twenty-six assertions across

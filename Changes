@@ -1,5 +1,31 @@
 Revision history for Tira
 
+1.74  2026-08-14
+    - TKT-167: two commands no longer claim to do the same specific
+      thing. tira.backup.export and tira.backup.import both described
+      themselves as "Put the board back to its last backup", which is
+      what tira.backup.restore does and what neither of them does -
+      export writes a bundle out, import reads one into a board that has
+      none. Both also carried the same half-finished sentence. Found by
+      the hourly bug hunt.
+    - A wrong-action risk rather than an untidy comment: somebody reading
+      that on the export entrypoint could run export believing it
+      restores, and export is the one that writes a file, so the mistake
+      stays quiet until the day they need the restore they thought they
+      had.
+    - The hunt's first probe passed both files. It asserted that a NAME
+      line contains the command it resolves to, and both do - the fault
+      is in the summary beside it, and the second probe, summaries used
+      by more than one entrypoint, is what found it. That shape is now
+      the guard.
+    - 110 of the 130 entrypoints share the dispatcher's own summary,
+      because those files really are copies of it, and that is allowed by
+      name rather than by a list of files - an exception written as a
+      list is one somebody widens. Giving each of the 110 its own
+      sentence is worth doing and is not this card; since 1.70 the
+      command reference names all 141 with their synopses, which is where
+      a reader is sent.
+
 1.73  2026-08-14
     - TKT-161: card-sandbox-missing says what it asked the machine.
       developer-dashboard read "missing branch and the work tree it

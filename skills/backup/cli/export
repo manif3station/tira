@@ -23,11 +23,12 @@ __END__
 
 =head1 NAME
 
-tira.backup.export - Put the board back to its last backup
+tira.backup.export - Write the board out as a git bundle
 
 =head1 DESCRIPTION
 
-Locates the Tira skill root and delegates to C<Tira::CLI>, which resets the
-a git bundle holding the board's whole history and its attachments.
+Locates the Tira skill root and delegates to C<Tira::CLI>, which writes a
+single git bundle holding the board's whole history and its attachments - one
+file to keep wherever backups are kept. The board itself is untouched.
 
 =cut

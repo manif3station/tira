@@ -23,11 +23,13 @@ __END__
 
 =head1 NAME
 
-tira.backup.import - Put the board back to its last backup
+tira.backup.import - Read a git bundle into a board that has none
 
 =head1 DESCRIPTION
 
-Locates the Tira skill root and delegates to C<Tira::CLI>, which resets the
-a git bundle holding the board's whole history and its attachments.
+Locates the Tira skill root and delegates to C<Tira::CLI>, which unpacks a
+bundle written by C<tira.backup.export> into a project with no board of its own.
+Importing over a board that already exists is refused without agreement, because
+that is a restore and C<tira.backup.restore> is the command for it.
 
 =cut

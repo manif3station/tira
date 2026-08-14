@@ -202,3 +202,18 @@ A card walks:
 `push` is the one that matters most to him: it is the only twenty-minute stretch
 where nothing else moves, and an empty board during it reads exactly like a
 stuck one.
+
+## The order cards are worked (from his correction, 2026-08-14)
+
+"can you also working on the higher priority cards first, i see you randomly
+pick and work on them disregard the card priority."
+
+He was right. TKT-153 had waited from 09:58 while five cards raised after it were
+worked. His own requests were genuinely P1 - they were about his being unable to
+see what was happening at all - but the older P2 reports were skipped rather than
+queued.
+
+The order is **priority first, then oldest first**. No card is worked before one
+that outranks it, and among equals the one that has waited longest goes next. A
+card raised during the work does not jump the queue for being newest; it takes
+its place by priority and age like everything else.

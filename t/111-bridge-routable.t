@@ -73,7 +73,8 @@ $tira->bridge_write(
     } ],
 );
 
-my ($line) = @{ $tira->bridge_backlog( store => $store, lines => 5 ) };
+# The first line introduces the replay; the violation is the one after it.
+my ($line) = grep { /VIO-/ } @{ $tira->bridge_backlog( store => $store, lines => 5 ) };
 like( $line, qr/\Qvia $sow->{ref} > $epic->{ref}\E/,
     'the line says the path down to the card, so the core agent knows who to tell' );
 like( $line, qr/for ada/, 'and still says whose card it is, which is what one agent reads' );
@@ -117,12 +118,13 @@ unlike( $lines[-1], qr/via/,
 # without naming an agent; a single agent names itself and hears its own cards.
 
 my $hers = $tira->bridge_backlog( store => $store, agent => 'ada', lines => 10 );
-is( scalar @{$hers}, 3,
+is( scalar( grep { /VIO-/ } @{$hers} ), 3,
     'ada hears her own card, the unassigned one, and the one about no card at all' );
 ok( ( grep { /for ada/ } @{$hers} ), 'including hers' );
 
 my $everything = $tira->bridge_backlog( store => $store, lines => 10 );
-is( scalar @{$everything}, 3, 'and the core agent, naming nobody, hears all of it' );
+is( scalar( grep { /VIO-/ } @{$everything} ), 3,
+    'and the core agent, naming nobody, hears all of it' );
 
 done_testing();
 

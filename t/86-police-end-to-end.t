@@ -177,6 +177,13 @@ is_deeply( fingerprint(), $before,
 
 $tira->bridge_write( store => $store, violations => $pass->{violations} );
 my $delivered = $tira->bridge_backlog( store => $store, lines => 1_000 );
+
+# The first line introduces the replay and is not a violation, so it is taken
+# off before counting. It carries no fix because there is nothing to fix about
+# it - it says the lines beneath it already happened.
+like( shift @{$delivered}, qr/replaying/,
+    'the replay introduces itself before the violations' );
+
 is( scalar @{$delivered}, scalar @{ $pass->{violations} },
     'every violation reached the bridge, not merely most of them' );
 is( scalar( grep { /fix:/ } @{$delivered} ), scalar @{$delivered},

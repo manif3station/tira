@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.68';
+our $VERSION = '1.69';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -5796,6 +5796,33 @@ sub bridge_backlog {
 
     my $wanted = $args{lines} // 20;
     splice @lines, 0, @lines - $wanted if @lines > $wanted;
+    return \@lines if !@lines;
+
+    # What this pile is, before the pile. A bridge prints what is outstanding
+    # and then live traffic with nothing between them, so old lines about cards
+    # that have moved on read as a storm of new violations - and the project
+    # that asked for this had already filed a false report from exactly that,
+    # and offered it as the evidence.
+    #
+    # A settlement line says a violation stopped being true. It does not say
+    # that the twelve lines in front of you are history. Fixing the buffering
+    # made this matter more rather than less, because now the backlogs get read
+    # and an agent restarting a bridge meets its worst moment first.
+    #
+    # One line, not a mark on every line: an agent parses these, and changing
+    # the shape of all of them for a distinction that only matters at the
+    # boundary costs more than it settles. The count is what this reader will
+    # actually see, because a number about somebody else's work is worse than
+    # no number.
+    my ( $oldest, $newest ) = ( $lines[0], $lines[-1] );
+    ($oldest) = $oldest =~ /\A(\S+)/;
+    ($newest) = $newest =~ /\A(\S+)/;
+    my $span = ( $oldest // '' ) eq ( $newest // '' )
+      ? "at $oldest" : "between $oldest and $newest";
+    unshift @lines, sprintf 'replaying %d outstanding violation%s raised %s - '
+      . 'this is history, not new traffic',
+      scalar @lines, ( @lines == 1 ? '' : 's' ), $span;
+
     return \@lines;
 }
 

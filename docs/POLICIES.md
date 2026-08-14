@@ -1264,3 +1264,23 @@ one they stop reading.
 The route is read from the work log, which the engine writes on every move, so
 the evidence is not written by whoever made the moves. A card still on its way is
 not reported: it has not skipped `verify`, it has not reached it.
+
+## A replay is introduced as a replay
+
+The bridge prints what is outstanding when it starts and then live traffic. With
+nothing between the two, a pile of old lines about cards that have since moved
+reads as a storm of new violations - and the project that asked for this had
+already filed a false report from exactly that, and offered it as the evidence.
+
+    replaying 3 outstanding violations raised between 2026-08-14T09:00:00Z and
+    2026-08-14T10:15:00Z - this is history, not new traffic
+
+One line, not a mark on every line: an agent parses these, and changing the shape
+of all of them for a distinction that only matters at the boundary costs more
+than it settles. The count is what the reading agent will see, because the
+backlog is filtered to whoever is reading it and a number about somebody else's
+work is worse than no number. A bridge with nothing outstanding still says
+nothing at all.
+
+A settlement line says a violation stopped being true. This says the lines in
+front of you already happened. They are different facts and both are needed.

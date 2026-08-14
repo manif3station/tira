@@ -1,5 +1,26 @@
 Revision history for Tira
 
+1.69  2026-08-14
+    - TKT-153: a replayed backlog is introduced as a replay. The bridge
+      prints what is outstanding when it starts and then live traffic,
+      with nothing between them, so a pile of old lines about cards that
+      have since moved reads as a storm of new violations. One line now
+      says how many are outstanding and the span they were raised over.
+    - zen-framework asked for it and offered their own false report as
+      the evidence: they read exactly such a pile as one rule firing
+      across every discarded card, and filed TKT-136 on it. It is the
+      other half of 1.51's settlement lines rather than a substitute - a
+      settlement says a violation stopped being true, and does not say
+      that the twelve lines in front of you are history.
+    - Their second choice, marking every replayed line, was not taken: an
+      agent parses these, and changing the shape of all of them for a
+      distinction that only matters at the boundary costs more than it
+      settles.
+    - The count is what the reading agent will see, because the backlog
+      is filtered to whoever is reading it and a number about somebody
+      else's work is worse than no number. A bridge with nothing
+      outstanding still says nothing.
+
 1.68  2026-08-14
     - TKT-165: column-skipped reports a card that arrived somewhere
       without passing through the columns it was supposed to, and names

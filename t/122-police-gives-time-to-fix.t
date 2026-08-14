@@ -58,7 +58,13 @@ sub sweep {
     $tira->bridge_write( store => $store, project => $root, violations => $result->{violations} );
     return $result;
 }
-sub said { return scalar @{ $tira->bridge_backlog( store => $store, lines => 500 ) } }
+# Violations, not lines. A replay is introduced by a header saying what it is,
+# and counting that as something police said would make every number here one
+# too many.
+sub said {
+    return scalar grep { /VIO-/ }
+      @{ $tira->bridge_backlog( store => $store, lines => 500 ) };
+}
 
 # --- the first time, at once ----------------------------------------------
 #
@@ -108,7 +114,7 @@ is( said(), 3, 'but a longer gap earns it' );
 # passes, so a problem nobody had touched said "seen 5 times" after two and a
 # half minutes.
 
-my ($line) = @{ $tira->bridge_backlog( store => $store, lines => 1 ) };
+my ($line) = grep { /VIO-/ } @{ $tira->bridge_backlog( store => $store, lines => 1 ) };
 like( $line, qr/seen 3\b/, 'the count is the number of times it has been said' );
 
 # --- escalation follows the same clock -------------------------------------

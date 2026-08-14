@@ -60,7 +60,9 @@ is_deeply( \@warnings, [],
 # reporting success.
 
 my $backlog = $tira->bridge_backlog( store => $store, lines => 10 );
-is( scalar @{$backlog}, 2, 'both lines are read back' );
+# The header first, then the lines. Counting it as a line said would make this
+# one too many.
+is( scalar( grep { /VIO-/ } @{$backlog} ), 2, 'both lines are read back' );
 
 ok( ( grep { index( $_, $chinese ) >= 0 } @{$backlog} ),
     'the Chinese title survives the round trip' );

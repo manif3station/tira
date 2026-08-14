@@ -128,7 +128,13 @@ like( $after_rotation[0], qr/VIO-0007/, 'and carries on saying what it has to sa
 # bridge is blind to everything already said.
 say_it( violation( id => 'VIO-0008' ), violation( id => 'VIO-0009' ) );
 my $backlog = $tira->bridge_backlog( store => $store, lines => 2 );
-is( scalar @{$backlog}, 2, 'the bridge can show what was already said' );
+
+# The header first, then the lines asked for. A replay says what it is before it
+# says anything else, so a pile of history cannot be read as a storm of news.
+like( $backlog->[0], qr/replaying 2 outstanding violations/,
+    'the replay says what it is before it says anything else' );
+is( scalar( grep { /VIO-/ } @{$backlog} ), 2,
+    'the bridge can show what was already said' );
 like( $backlog->[-1], qr/VIO-0009/, 'ending with the most recent' );
 
 done_testing;

@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.66';
+our $VERSION = '1.67';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4657,7 +4657,7 @@ sub policy_evaluate {
     my $quieted = $args{store} ? $self->_enforcement_read( $args{store} ) : { rules => {} };
 
     my $report = sub {
-        my ( $policy, $record, $detail ) = @_;
+        my ( $policy, $record, $detail, $for ) = @_;
         my $ref = ref $record ? $record->{ref} : ( $record // '' );
         return if $self->_rule_suspended( $quieted, $policy->{rule}, $ref );
         push @violations, {
@@ -4673,7 +4673,16 @@ sub policy_evaluate {
             # every agent every violation is noise by construction - a channel
             # everybody learns to read past is the one failure a warning system
             # cannot survive.
-            assignee => ( ref $record ? $record->{assignee} : undef ),
+            #
+            # Except where the work is somebody else's whoever holds the card.
+            # The four rules about what happens after an answer are the agent's
+            # follow-through - reading it, judging it, writing it into the card,
+            # asking anything further - and the owner's part ended when he
+            # answered. On a board where he held the card he was told to fold in
+            # his own answer, and the agent read "for Michael" and skipped it. A
+            # violation addressed to the wrong party is not a message in the
+            # wrong envelope; it is an instruction the right party never gets.
+            assignee => ( $for // ( ref $record ? $record->{assignee} : undef ) ),
         };
     };
 
@@ -4899,7 +4908,8 @@ sub policy_evaluate {
                     next if defined $answer->{read_at}
                       && !_policy_stamp_after( $said, $answer->{read_at} );
                     $report->( $policy, $record,
-                        "$question->{id} was answered at $said and nobody has read it" );
+                        "$question->{id} was answered at $said and nobody has read it",
+                        $question->{author} );
                 }
             }
         }
@@ -4918,13 +4928,15 @@ sub policy_evaluate {
                         next
                           if !$self->_policy_older_than( $answer->{read_at}, $policy->{read_age} );
                         $report->( $policy, $record,
-                            "$question->{id} was read at $answer->{read_at} and never marked" );
+                            "$question->{id} was read at $answer->{read_at} and never marked",
+                            $question->{author} );
                         next;
                     }
 
                     next if !$self->_policy_older_than( $answer->{answered_at}, $policy->{age} );
                     $report->( $policy, $record,
-                        "$question->{id} was answered and never marked" );
+                        "$question->{id} was answered and never marked",
+                        $question->{author} );
                 }
             }
         }
@@ -4939,6 +4951,11 @@ sub policy_evaluate {
                     my $marked = $answer->{marked_at} // $answer->{answered_at};
                     next if !$self->_policy_older_than( $marked, $policy->{age} );
 
+                    # Whoever asked has to deal with the answer. A question with
+                    # nobody named on it falls back to the card, because
+                    # addressing it to nobody would be worse.
+                    my $asker = $question->{author};
+
                     if ( $wanted eq 'ok' ) {
                         # A comment is not documentation. Only a detail field
                         # changing after the mark counts as folding it in.
@@ -4946,13 +4963,15 @@ sub policy_evaluate {
                             project => $root, ref => $record->{ref} );
                         next if defined $changed && $changed gt $marked;
                         $report->( $policy, $record,
-                            "$question->{id} was marked ok and nothing was folded into the card" );
+                            "$question->{id} was marked ok and nothing was folded into the card",
+                            $asker );
                     }
                     else {
                         # A cross on its own settles nothing.
                         next if grep { ( $_->{asked_at} // '' ) gt $marked } @questions;
                         $report->( $policy, $record,
-                            "$question->{id} was marked not-ok and nothing further was asked" );
+                            "$question->{id} was marked not-ok and nothing further was asked",
+                            $asker );
                     }
                 }
             }

@@ -1,5 +1,36 @@
 Revision history for Tira
 
+1.67  2026-08-14
+    - TKT-162: an answer's follow-through is addressed to whoever asked,
+      not whoever answered. Every violation went to the card's holder,
+      which is right for the rest of them - one agent per ticket, and a
+      bridge that hands every agent every violation is noise by
+      construction. It is wrong for the four rules about what happens
+      after an answer: reading it, judging it, folding it into the card
+      and asking anything further are the agent's work, and the owner's
+      part ends when he answers.
+    - He read it off his own bridge - "for Michael ... Q-017 was marked ok
+      and nothing was folded into the card", escalating to WARNING on the
+      second telling - and asked why folding in was for the user when it
+      is the agent's job.
+    - It stopped the work rather than merely misdirecting it. His words:
+      the agent confused, that is for me, and they skip to fold in. The
+      agent read the addressee, concluded the folding was the owner's,
+      and did not do it - so the rule escalated about work its own
+      addressing had told the only capable party to ignore. A violation
+      addressed to the wrong party is not a message in the wrong
+      envelope; it is an instruction the right party never receives.
+    - All four are addressed to the author of the question now:
+      answer-waiting, answer-unjudged, answer-ok-not-folded and
+      answer-not-ok-no-followup. Nothing is inferred - a question stores
+      who asked and an answer stores who answered, separately. A question
+      with nobody named on it falls back to the card holder rather than
+      being addressed to nobody, and every other rule is unchanged.
+    - The other twenty-one were examined. question-unanswered is the only
+      one whose actor is the owner rather than the agent, and it is left
+      as it is: the agent is who chases an unanswered question, so the
+      card holder is the right reader for it.
+
 1.66  2026-08-14
     - TKT-158: tira.policy.undeclared answers which rules this project
       has neither declared nor declined. The agent is the only party that

@@ -70,6 +70,7 @@ my %declare = (
     'leftover-process'          => { pattern => 'sleep', age => '30m' },
     'leftover-container'        => { pattern => 'perl-test', age => '30m' },
     'parent-ahead-of-children'  => {},
+    'column-skipped'            => { enter => 'done', require => 'implement' },
 );
 is_deeply( [ sort keys %declare ], [ sort @{ Tira::policy_rules() } ],
     'this test declares every rule the tool offers, so none can be forgotten here' );

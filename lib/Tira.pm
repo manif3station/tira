@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.67';
+our $VERSION = '1.68';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4292,6 +4292,12 @@ my %POLICY_RULES = (
     # this project has found not firing.
     'card-unassigned'           => { needs => [], forbids => [ 'column', 'enter' ] },
 
+    # Arriving somewhere without having done the steps before it. Declared
+    # rather than inferred from the column order: a documentation-only card has
+    # no red test to write, and a rule that assumed the whole sequence would
+    # report every legitimate shortcut, which is the noise that kills a channel.
+    'column-skipped'            => { needs => [ 'enter', 'require' ] },
+
     # No age. A comment that has not been folded in is not neglect that
     # ripens - the card is already carrying two stories - and the quiet
     # ladder is what keeps it from being said twice a minute.
@@ -4974,6 +4980,31 @@ sub policy_evaluate {
                             $asker );
                     }
                 }
+            }
+        }
+        elsif ( $rule eq 'column-skipped' ) {
+            my @required = grep { length } map { s/\A\s+|\s+\z//gr }
+              split /,/, ( $policy->{require} // '' );
+            for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
+
+                # About arriving, not about being on the way. A card still in
+                # implement has not skipped verify; it has not reached it.
+                next if ( $record->{column} // '' ) ne ( $policy->{enter} // '' );
+
+                # Where it has been, read from the work log rather than from
+                # anything the card carries - the engine writes that on every
+                # move, and it is the only account of the route that whoever
+                # made the moves did not write themselves.
+                my %visited = map { ( $_->{after} // '' ) => 1 }
+                  grep { ( $_->{field} // '' ) eq 'column' }
+                  @{ $self->history_list( project => $root, ref => $record->{ref} ) };
+
+                my @missed = grep { !$visited{$_} } @required;
+                next if !@missed;
+                $report->( $policy, $record,
+                    'arrived in ' . $policy->{enter} . ' without passing through '
+                      . join( ', ', @missed ) );
             }
         }
         elsif ( $rule eq 'wip-limit' ) {

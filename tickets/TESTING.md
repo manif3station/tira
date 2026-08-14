@@ -179,3 +179,26 @@ SSH with a working Perl toolchain. The instructions in
 run themselves.
 
 Both labs are stopped after use.
+
+## Working the columns (from TKT-164)
+
+The board defines eight columns and for a long stretch this agent used two:
+`implement`, then `done`. The owner asked what was being worked because his
+board showed TESTS-RED, IMPLEMENT, VERIFY, DOCUMENT and PUSH all empty, and the
+standing instruction is that the board is the report.
+
+A card walks:
+
+| Column | What the card is in it for |
+| --- | --- |
+| `backlog` | raised, detailed, waiting |
+| `tests-red` | the failing test is written and failing |
+| `implement` | the fix is being written |
+| `verify` | the full suite and coverage are being run |
+| `document` | the manual, the reference and Changes are being written |
+| `push` | the release is in the push gate, which takes twenty minutes |
+| `done` | pushed, and the remote has moved |
+
+`push` is the one that matters most to him: it is the only twenty-minute stretch
+where nothing else moves, and an empty board during it reads exactly like a
+stuck one.

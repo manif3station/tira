@@ -303,6 +303,7 @@ missing, at the moment you declare the policy rather than later.
 | `question-unanswered` | `--age` | a question waiting on the owner |
 | `conversation-not-folded` | — | a card talked about since it was last written down. **No age**: the ladder already keeps it from repeating. |
 | `card-unassigned` | — | work in progress with nobody on it. **No column**: the board already says which columns are work. |
+| `column-skipped` | `--enter --require` | a card that arrived in a column without passing through the ones it was supposed to. The required columns are declared rather than inferred from their order, because a card that legitimately skips a step - a documentation-only card with no red test to write - would otherwise be reported for it. The violation names which columns were missed. Police reports it and moves nothing: calling the card back is the agent's. |
 | `answer-waiting` | — | an answer the agent has not read yet. **No age**: the agent could not have acted sooner, so a grace would only delay it. |
 | `answer-unjudged` | `--age`, `--read-age` | an answer nobody marked. The second age is optional and runs from when it was read. |
 | `answer-ok-not-folded` | `--age` | settled in name only: marked ok, nothing written down |
@@ -1239,3 +1240,27 @@ name, so a project that calls it `archived` or `shipped` is watched exactly the
 same. A board that has never said which column that is does not get guessed at:
 the policy is reported as unresolved, so the silence can be seen instead of
 being mistaken for approval.
+
+## A card that skipped the steps
+
+The board defines the columns; nothing checked that a card went through them.
+The owner sent a photograph of his own board - TESTS-RED, IMPLEMENT, VERIFY,
+DOCUMENT and PUSH, every one empty - and asked what was being worked. Nothing was
+wrong with the tool: the agent had been using two of the eight columns, and every
+card went from implement to done in one move, so the columns that exist to say
+what is happening were empty the whole time.
+
+```text
+d2 tira.policy.add --rule column-skipped --enter done \
+  --require "tests-red, implement, verify, document, push" \
+  --action bridge-reminder
+```
+
+A card that arrives in `done` without having been in each of those is reported,
+and the violation names the ones it missed rather than only saying that some were
+missed - a message that sends the reader back to the history to work out what is
+one they stop reading.
+
+The route is read from the work log, which the engine writes on every move, so
+the evidence is not written by whoever made the moves. A card still on its way is
+not reported: it has not skipped `verify`, it has not reached it.

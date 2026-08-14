@@ -1,5 +1,33 @@
 Revision history for Tira
 
+1.68  2026-08-14
+    - TKT-165: column-skipped reports a card that arrived somewhere
+      without passing through the columns it was supposed to, and names
+      which ones it missed. His request, in his words: another policy
+      option the agent sets, so that when a card moves from one column to
+      another and misses the required columns, police shouts and calls it
+      back.
+    - TKT-164: and the reason he asked for it. He sent a photograph of
+      his own board - TESTS-RED, IMPLEMENT, VERIFY, DOCUMENT and PUSH,
+      every one empty - and asked what was being worked. Nothing was
+      wrong with the tool. The board defines eight columns and this agent
+      had been using two of them, implement then done, so the columns
+      that exist to say what is happening were empty through a whole
+      session. The standing instruction is that the board is the report,
+      and it was reporting nothing.
+    - The required columns are declared rather than inferred from the
+      order they sit in: a documentation-only card has no red test to
+      write, and a rule that assumed the whole sequence would report
+      every legitimate shortcut, which is the noise that kills a channel.
+    - The route is read from the work log, which the engine writes on
+      every move, so the evidence is not written by whoever made the
+      moves. A card still on its way is not reported - it has not skipped
+      verify, it has not reached it. Police reports and moves nothing:
+      calling the card back is the agent's.
+    - Adding a twenty-sixth rule made three tests fail at once, which is
+      the design working: two keep a table of every rule and what it
+      needs, and the third counts them in the manual.
+
 1.67  2026-08-14
     - TKT-162: an answer's follow-through is addressed to whoever asked,
       not whoever answered. Every violation went to the card's holder,

@@ -1471,6 +1471,33 @@ sub _attachment_content_type {
     return Tira::_attachment_content_type($extension);
 }
 
+# Who is doing this, for the work log, set once for whatever runs next.
+#
+# Every record write journals the change and stamps it with the author the
+# engine happens to be holding, and only four methods ever set one. So a
+# checklist item, a gate, a piece of evidence and an assignment were all written
+# by nobody - and gate.add and evidence.add collected an author, stored it
+# inside the entry, and did not use it here. A project spent two days on a card
+# that appeared to move by itself, because a headless agent resuming their
+# session moved it every fifteen minutes and the history could not say so.
+#
+# This is the layer that knows: it has already resolved --author, or TIRA_AUTHOR
+# said once rather than on every command. The methods that validate the author
+# themselves still do, and overwrite this with the same answer.
+#
+# A name the board does not know is not recorded. A log that writes down any
+# name is worse than one that writes down none, because an unknown name reads as
+# accounted for - and a command run before its project exists has nobody to be.
+sub _journal_identity {
+    my ( $tira, $args ) = @_;
+    my $author = $args->{author};
+    return undef if !defined $author || $author eq '';
+    return eval {
+        my $root = $tira->discover_project( %{$args} );
+        $tira->_journal_attribution( project => $root, author => $author );
+    };
+}
+
 sub _invoke {
     my ( $tira, $command, $record_type, $option ) = @_;
     # Who is running this, said once in the environment rather than remembered
@@ -1486,6 +1513,10 @@ sub _invoke {
 
     my %args = %{$option};
     delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty older_than stale with_level all columns_json nested mark members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
+
+    # Set here so every command carries it, rather than in each method that
+    # writes - which is how only four of them ever did.
+    local $tira->{_journal_author} = _journal_identity( $tira, \%args );
     if ( defined $option->{field_selection} || defined $option->{exclude_fields}
         || $option->{include_empty} || defined $option->{since}
         || $option->{brief} || defined $option->{truncate} ) {

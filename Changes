@@ -1,5 +1,30 @@
 Revision history for Tira
 
+1.58  2026-08-14
+    - TKT-133: the work log says who changed the card. Every record write
+      journals the change and stamps it with the author the engine
+      happens to be holding, and only four methods ever set one - so a
+      checklist item, a gate, a piece of evidence and an assignment were
+      all recorded as written by nobody.
+    - Worse than an oversight: gate.add and evidence.add took an author,
+      stored it inside the entry, and did not use it for the log. The
+      name was collected and then not used for the one thing the log
+      exists to answer.
+    - Reported from developer-dashboard, where a reminder collector
+      resumed the session an agent was working in every fifteen minutes.
+      A headless copy read that a card was in Todo and moved it to
+      Planning to be helpful; the agent moved it back; it moved it again.
+      The history said nobody had done it, so a write followed by a
+      silent revert looked exactly like a write that had not persisted.
+      Two days, and it was found from a phone screenshot.
+    - Set where identity is known: the command layer already resolves
+      --author, or TIRA_AUTHOR said once rather than on every command,
+      and now sets it for whatever runs next. That is how an unattended
+      writer becomes attributable. A name the board does not know is
+      still not recorded - a log that writes down any name reads as
+      accounted for, which is worse than one that admits it does not
+      know.
+
 1.57  2026-08-14
     - TKT-145: the three policy actions now mean three things. Only
       bridge-reminder was ever read - the engine compared the action

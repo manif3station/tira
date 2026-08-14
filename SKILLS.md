@@ -592,9 +592,13 @@ one entry per set field so a field's timeline starts at its birth value,
 edits record `before` and `after`, moves record the column change, and
 structural fields (comments, attachments, linkage and the like) record
 that they changed without inlining their whole value. Entries carry the
-change time, the record ref, the operation, and an author when the
-command supplied one — an unattributed change is recorded as such rather
-than guessed. A rolled-back operation records nothing, so history never
+change time, the record ref, the operation, and who made the change —
+taken from the author the command was given, or from the identity said
+once in the environment rather than on every command, so anything running
+unattended is attributable as long as it says who it is. A name the board
+does not know is not written down, and neither is a guess: an
+unattributed change is recorded as unattributed, because a log that
+accepts any name reads as accounted for. A rolled-back operation records nothing, so history never
 claims a change that did not happen. `tira.history.list` reads it with
 the same window, `--since`, `--where`, `--count`, and truncation
 semantics as the other logs; `--field` narrows to one field's timeline

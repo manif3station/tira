@@ -1,6 +1,20 @@
 Revision history for Tira
 
 1.77  2026-08-14
+    - TKT-176: a test that could fail by chance no longer can. The login
+      test asserted that eight random hex tokens joined together contain
+      none of "michael", "hunter2" or "2026" - and a year is four hex
+      characters, which appear by chance about once in every hundred and
+      forty runs. It failed exactly that way in a push gate on a release
+      that touched nothing near it, which is the worst thing a check can
+      do: refuse a release for a reason that is not about the release.
+    - It also proved less than it looked like it proved. A token that
+      genuinely was the clock would have passed whenever the year
+      appeared in another form. What refuses a derived token is that
+      eight logins by the same person at the same fixed instant produce
+      eight different tokens, and that assertion is now shown catching a
+      token built from the person and the moment, rather than being
+      trusted because it has never failed.
     - TKT-174: the gate survives an install in every step rather than the
       one that failed first. TKT-168 hardened the board audit, and the
       very next push failed the same way one step earlier: "backing up

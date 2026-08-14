@@ -50,8 +50,37 @@ for ( 1 .. 6 ) {
     $tokens{ $tira->login_start( project => $root, id => 'michael', password => 'hunter2' ) }++;
 }
 is( scalar keys %tokens, 8, 'every session gets its own token' );
-unlike( join( '', keys %tokens ), qr/michael|hunter2|2026/,
-    'and a token gives away neither the person nor the moment it was made' );
+# Independence, not a substring search. This asked that eight random hex tokens
+# joined together contain none of "michael", "hunter2" or "2026" - and the year
+# is four hex characters that occur by chance about once in every hundred and
+# forty runs, which is what happened in the push gate on a release that touched
+# nothing near it. It also proved nothing: a token that WAS the clock would pass
+# whenever the year appeared in another form.
+#
+# The clock here is fixed, so a token derived from it would be identical across
+# all eight - which the count above already catches - and a token derived from
+# the person would be identical for the same person. What is left to check is
+# the shape.
+is( scalar( grep { /\A[0-9a-f]{32,}\z/ } keys %tokens ), 8,
+    'every token is long random hex, giving away neither the person nor the moment' );
+
+# Shown catching what it claims to catch. The shape assertion above would pass a
+# token that was md5(person . moment) - thirty-two hex characters exactly - so
+# the one that refuses a derived token is the count, and a count nobody has ever
+# seen fail is a check that might not be watching anything.
+{
+    my $derived = sub {
+        my ( $person, $moment ) = @_;
+        my $sum = 0;
+        $sum = ( $sum * 31 + ord ) % ( 2**31 ) for split //, "$person$moment";
+        return sprintf '%032x', $sum;
+    };
+    my %derived = map { $derived->( 'michael', $now ) => 1 } 1 .. 8;
+    is( scalar( grep { /\A[0-9a-f]{32,}\z/ } keys %derived ), 1,
+        'a token derived from the person and the moment has the right shape' );
+    isnt( scalar keys %derived, 8,
+        'and eight logins produce one token rather than eight, which is what the count above refuses' );
+}
 
 # --- who is holding it ---------------------------------------------------
 

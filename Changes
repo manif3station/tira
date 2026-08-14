@@ -1,5 +1,30 @@
 Revision history for Tira
 
+1.63  2026-08-14
+    - TKT-135: search reaches the whole card rather than the front of it.
+      mt5-ai searched for a figure, found nothing, and published that it
+      appeared nowhere on a card - and it had been in that card's gate
+      records the whole time. Their words: an absence proven by an
+      instrument that cannot see two thirds of the record is not an
+      absence.
+    - It saw rather less than a third. The searchable text was the ref,
+      the title, the description and the questions. The problem
+      statement, what a solution needs, the key details, deliverables,
+      acceptance criteria, test steps, behaviour, scope, labels,
+      checklist, comments, gate records, evidence, conversation and
+      attachment names were all out of reach - which on a board following
+      the rules Tira ships with is nearly everything a card says, because
+      those rules are what put the substance in those fields.
+    - The gates and the evidence matter most on a finished card: they are
+      append-only observations, so they hold what was measured rather
+      than what was believed at planning, which is when somebody comes
+      looking.
+    - Their second suggestion, that the answer say which parts were
+      searched, is unnecessary now the answer is the card. Both search
+      paths go through one function, so an absence does not depend on
+      whether an index was built, and a string on no card is still not
+      found.
+
 1.62  2026-08-14
     - TKT-149: the documentation check now runs the policies guide's
       examples at all, and counts what it set aside as well as what it

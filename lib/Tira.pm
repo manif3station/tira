@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.62';
+our $VERSION = '1.63';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -3531,13 +3531,50 @@ sub search {
 # Questions are searchable too - their text, their answers and their references
 # - so quoting Q-007 finds the card it lives on without anybody remembering
 # which one that was.
+# What a search can reach. The card, rather than the front of it.
+#
+# This was the ref, the title, the description and the questions. A project
+# searched for a figure, found nothing, and published that it appeared nowhere
+# on a card - and it had been in that card's gate records the whole time. Their
+# words: an absence proven by an instrument that cannot see two thirds of the
+# record is not an absence.
+#
+# It saw rather less than a third. The problem statement, the key details, what
+# a solution needs, the acceptance criteria, the test steps, the deliverables,
+# the scope, the comments, the gates and the evidence were all out of reach -
+# which on a board following the rules Tira ships with is nearly everything a
+# card says, because those rules are what put the substance in those fields.
+#
+# The gates and the evidence matter most on a finished card: they are
+# append-only observations, so they hold what was measured rather than what was
+# believed at planning, which is exactly when somebody comes looking.
 sub _search_haystack {
     my ($record) = @_;
-    return join ' ', grep { defined } $record->{ref}, $record->{title}, $record->{description},
-      map {
-        ( $_->{id} // '' ), ( $_->{text} // '' ),
-          ( $_->{answer} ? $_->{answer}{text} // '' : '' )
-      } @{ $record->{questions} // [] };
+    my @text = grep { defined } $record->{ref}, $record->{title}, $record->{description},
+      $record->{problem_or_feature}, $record->{solution_needed}, $record->{source},
+      $record->{sandbox}, $record->{fix_version};
+
+    push @text, grep { defined } @{ $record->{$_} // [] }
+      for qw(key_details deliverables acceptance_criteria test_steps bdd atdd
+      labels affects_versions);
+
+    push @text, grep { defined } @{ $record->{scope}{included} // [] },
+      @{ $record->{scope}{excluded} // [] };
+
+    push @text, map { grep { defined } ( $_->{id} // '' ), ( $_->{text} // '' ),
+          ( $_->{answer} ? $_->{answer}{text} // '' : '' ) }
+      @{ $record->{questions} // [] };
+
+    push @text, map { grep { defined } $_->{id}, $_->{body} } @{ $record->{comments} // [] };
+    push @text, map { grep { defined } $_->{id}, $_->{gate}, $_->{details}, $_->{result} }
+      @{ $record->{gate_passing_log} // [] };
+    push @text, map { grep { defined } $_->{id}, $_->{summary}, $_->{uri} }
+      @{ $record->{evidence} // [] };
+    push @text, map { grep { defined } $_->{id}, $_->{item} } @{ $record->{checklist} // [] };
+    push @text, map { grep { defined } $_->{said}, $_->{heard} } @{ $record->{conversation} // [] };
+    push @text, map { grep { defined } $_->{original_filename} } @{ $record->{attachments} // [] };
+
+    return join ' ', @text;
 }
 
 # The filesystem is the database. An index is a second copy of the truth, and

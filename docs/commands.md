@@ -1232,7 +1232,7 @@ them; the manual carries the worked use cases behind them.
 
 ### The changelog
 
-- `tira.changes` — the raw changelog, no arguments. The fourth documentation command, beside `tira.skills`, `tira.usage` and `tira.policies`; every entry names the card it came from.
+- `tira.changes` — the raw changelog, no arguments. It never exits zero having printed nothing: an empty or blank changelog is a broken or half-written copy of the skill, and it says so and names the file it read, so a script can tell "nothing changed" from "I could not read it". The fourth documentation command, beside `tira.skills`, `tira.usage` and `tira.policies`; every entry names the card it came from.
 
 
 ### Assignment

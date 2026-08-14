@@ -5,9 +5,27 @@ use FindBin;
 use File::Spec;
 
 my $history = File::Spec->catfile( $FindBin::Bin, '..', 'Changes' );
-open my $fh, '<:raw', $history or die "Cannot read the Tira changelog: $!\n";
-print while <$fh>;
-close $fh or die "Cannot close the Tira changelog: $!\n";
+open my $fh, '<:raw', $history or die "Cannot read the Tira changelog $history: $!\n";
+my $changelog = do { local $/; <$fh> };
+close $fh or die "Cannot close the Tira changelog $history: $!\n";
+
+# Never zero bytes and success. The owner asked why this returned nothing, and a
+# project reported the same thing the same minute with the measurement that
+# mattered: nothing from inside their project directory, the whole file from
+# /tmp, while the three sibling documentation commands were fine from the same
+# place. The cause is on their side and their files are not mine to read - what
+# is fixed here is that a script could not tell "nothing changed" from "I could
+# not read it", and one of theirs reads this hourly to record which version it
+# audited against.
+#
+# The file is named in the failure because that is what tells the next reporter
+# which copy of the skill resolved for them, which is the question nobody could
+# answer from a silent exit.
+die "The Tira changelog $history is empty - nothing to print. "
+  . "This is a broken or half-written copy of the skill, not a release with no changes.\n"
+  if !defined $changelog || $changelog !~ /\S/;
+
+print $changelog;
 
 __END__
 

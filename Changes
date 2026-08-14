@@ -1,5 +1,29 @@
 Revision history for Tira
 
+1.76  2026-08-14
+    - TKT-172: tira.changes can no longer exit zero having printed
+      nothing. He asked why it returned 0 bytes; zen-framework reported
+      the same thing independently the same minute, with the measurement
+      that mattered - nothing from inside their project directory, the
+      whole file from /tmp, while tira.skills, tira.usage and
+      tira.policies were all fine from the same place.
+    - Not reproducible here: it prints the changelog from a fresh Tira
+      project, from this skill's own directory, from /tmp, in every
+      output format. Their files are not this agent's to read, so what is
+      fixed is not the cause but the silence.
+    - An empty or blank changelog now fails and names the file it read.
+      That is what tells the next reporter which copy of the skill
+      resolved for them, which is the question nobody could answer from a
+      silent exit. A real changelog prints byte for byte as before, and a
+      missing one fails as loudly as it always did.
+    - Their framing is this project's oldest lesson and is why it is a
+      P1: an instrument quiet because it is broken looks exactly like one
+      quiet because there is nothing to say. A script cannot tell those
+      apart, and one of theirs reads this command hourly to record which
+      version it audited against - while the command exists so a project
+      that reported a bug can see the fix land, which makes silence read
+      as nothing having changed since they reported it.
+
 1.75  2026-08-14
     - TKT-169: the card dialog's logs are readable on a phone. He sent a
       photograph of "What police has said" on his own phone reading "was

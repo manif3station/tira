@@ -93,7 +93,7 @@ and `--set-*` for the same field are mutually exclusive.
 - Mutations return the affected record or operation receipt.
 - `attachment.get` emits raw bytes and never exposes managed storage paths.
 - `tira.skills` emits raw Markdown and accepts no options.
-- `tira.changes` emits the raw changelog and accepts no options.
+- `tira.changes` emits the raw changelog and accepts no options. It never exits zero having printed nothing — an empty changelog means a broken copy of the skill, and it says so rather than reading as a release with no changes.
 
 ## Exit status contract
 

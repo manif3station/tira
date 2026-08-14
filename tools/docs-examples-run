@@ -80,6 +80,21 @@ FATAL = (
     'Usage:',
 )
 
+# Commands whose whole job is to print a document, judged by whether they
+# succeeded rather than by what the document says.
+#
+# The check above looks for error text anywhere in the output, which is right
+# for a command that answers and wrong for one that recites. The 1.77 changelog
+# describes a bug whose symptom was "Command project.show not found in skill
+# tira" - so printing the changelog contained that sentence, and a release was
+# refused on the grounds that a shipped command does not exist.
+#
+# That is the fault this project keeps meeting from a new direction: a release
+# refused for a reason that is not about the release. A guide that documents an
+# error message will always contain that error message, and a check that cannot
+# tell a quotation from an occurrence would forbid writing about failure at all.
+RECITERS = ('tira.changes', 'tira.skills', 'tira.usage', 'tira.policies')
+
 
 def examples():
     """Every example, split into the ones that can be run and the ones that cannot.
@@ -225,6 +240,15 @@ def check(scratch):
             continue
         ran += 1
         output = (done.stdout or '') + (done.stderr or '')
+
+        if argv[0] in RECITERS:
+            # It recited something. Whether it worked is the exit status, and a
+            # document that mentions an error is a document doing its job.
+            if done.returncode != 0:
+                problems.append((document, line,
+                                 (output.strip().splitlines() or ['it printed nothing'])[0]))
+            continue
+
         for fatal in FATAL:
             if fatal in output:
                 problems.append((document, line, output.strip().splitlines()[0]))

@@ -1,6 +1,29 @@
 Revision history for Tira
 
 1.78  2026-08-14
+    - TKT-185: a changelog that describes an error no longer reads as
+      one. The documented-examples check scans a command's whole output
+      for error text, and tira.changes prints the changelog - which
+      describes a bug whose symptom was "Command project.show not found
+      in skill tira". So printing it contained that sentence and the push
+      gate refused the release, twice, on the grounds that a shipped
+      command does not exist.
+    - Third appearance of one shape, after a test that could fail by
+      chance and a gate that judges uncommitted work: a release refused
+      for a reason that is not about the release. It would have got worse
+      on its own, because every entry written about an error message adds
+      another copy of that message to what the changelog prints.
+    - Commands that recite a document - changes, skills, usage, policies
+      - are now judged by whether they succeeded rather than by what the
+      document says. That is stricter than the scan, not looser: a
+      document that fails to print now fails instead of passing quietly.
+      Every other command is still read for the failures that mean the
+      documentation describes something Tira will not do.
+    - The first attempt named the new list DOCUMENTS, which already named
+      the list of files to scan. The shadow made the check find zero
+      examples, report them all understood and exit 0 - a check passing
+      by having tried nothing, which is the fault it exists to prevent
+      one level down. Its guard asserts a count as well as a status.
     - TKT-180: one card nobody can read no longer silences the whole
       board. He reported that answering a question raised a bridge note
       on one of his boards and not on the other, with the same rule

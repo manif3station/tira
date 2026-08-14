@@ -302,7 +302,7 @@ missing, at the moment you declare the policy rather than later.
 | `parent-ahead-of-children` | — | a parent saying it is finished above a child that is not |
 | `question-unanswered` | `--age` | a question waiting on the owner |
 | `conversation-not-folded` | — | a card talked about since it was last written down. **No age**: the ladder already keeps it from repeating. |
-| `card-unassigned` | — | work in progress with nobody on it. **No column**: the board already says which columns are work. |
+| `card-unassigned` | — | work in progress with nobody on it. **No column**: the board says which columns are work. A board whose work ends in more than one place marks each ending with `tira.column.update --terminal`; one that marks nothing treats `done` as its ending, as before. |
 | `column-skipped` | `--enter --require` | a card that arrived in a column without passing through the ones it was supposed to. The required columns are declared rather than inferred from their order, because a card that legitimately skips a step - a documentation-only card with no red test to write - would otherwise be reported for it. The violation names which columns were missed. Police reports it and moves nothing: calling the card back is the agent's. |
 | `answer-waiting` | — | an answer the agent has not read yet. **No age**: the agent could not have acted sooner, so a grace would only delay it. |
 | `answer-unjudged` | `--age`, `--read-age` | an answer nobody marked. The second age is optional and runs from when it was read. |
@@ -1284,3 +1284,28 @@ nothing at all.
 
 A settlement line says a violation stopped being true. This says the lines in
 front of you already happened. They are different facts and both are needed.
+
+## A board with more than one ending
+
+`card-unassigned` asks the board which columns are work rather than taking a
+column on the policy, because a policy naming its columns stops covering the
+board the moment somebody adds one. It used to answer that question with
+protected-ness - and protected means Tira owns this column, not that work stops
+here.
+
+developer-dashboard's work ends in three places:
+
+```text
+d2 tira.column.update --type ticket --name done-not-released --terminal
+d2 tira.column.update --type ticket --name admin-done --terminal
+d2 tira.column.update --type ticket --name release-to-pause --terminal
+```
+
+Without those, the rule fired on nine shipped cards within a minute of being
+declared - telling them to assign somebody to work that had shipped days
+earlier. Nine notes in one pass, all wrong, on the first run, which is the noise
+this guide warns costs a channel its standing.
+
+A board that marks nothing treats `done` as its ending exactly as before, a
+column added tomorrow is still watched without being named anywhere, and the
+columns consulted are those of the card's own board rather than the tickets'.

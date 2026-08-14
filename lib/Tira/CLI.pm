@@ -155,7 +155,7 @@ sub run {
         'notify-after=s' => \$option{notify_after}, 'mode=s' => \$option{mode},
         'said=s' => \$option{said}, 'heard=s' => \$option{heard},
         'agent-session=s' => \$option{agent_session},
-        'watch!' => \$option{watched}, 'stale' => \$option{stale},
+        'watch!' => \$option{watched}, 'terminal!' => \$option{terminal}, 'stale' => \$option{stale},
         'with-level' => \$option{with_level},
         'cache-ttl=i' => \$option{cache_ttl}, 'no-cache' => \$option{no_cache},
         'with=s' => \$option{with}, 'note=s' => \$option{note},

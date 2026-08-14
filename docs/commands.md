@@ -1276,7 +1276,7 @@ them; the manual carries the worked use cases behind them.
 - `tira.column.rename --type TYPE --name SLUG --new-name SLUG [--label TEXT] [-o FORMAT]`
 - `tira.column.reorder --type TYPE --name SLUG (--after SLUG|--before SLUG) [-o FORMAT]`
 - `tira.column.sync --type TYPE [--apply] [-o FORMAT]`
-- `tira.column.update --type TYPE --name SLUG [--notify-after MINUTES] [--watch|--no-watch] [-o FORMAT]`
+- `tira.column.update --type TYPE --name SLUG [--notify-after MINUTES] [--watch|--no-watch] [--terminal|--no-terminal] [-o FORMAT]` — `--terminal` marks a column as somewhere work ends, which `card-unassigned` asks about; a board that marks nothing treats `done` as its ending.
 
 
 ### Comments

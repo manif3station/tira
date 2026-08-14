@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.70';
+our $VERSION = '1.71';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -1246,6 +1246,14 @@ sub column_update {
         $column->{notify_after} = $notify_after if defined $notify_after;
         $column->{watched} = $args{watched} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false
           if defined $args{watched};
+
+        # Where work ends on this board. Protected says Tira owns a column, not
+        # that work stops there, and a board with three finished columns had
+        # card-unassigned fire on nine shipped cards within a minute of being
+        # declared. A board says which of its columns are endings; one that has
+        # said nothing is unchanged.
+        $column->{terminal} = $args{terminal} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false
+          if defined $args{terminal};
         $self->_write_yaml( $path, $config );
         return _column_defaults( [$column] )->[0];
     } );
@@ -4869,17 +4877,35 @@ sub policy_evaluate {
         }
         elsif ( $rule eq 'card-unassigned' ) {
 
-            # Neither waiting nor finished, and nobody holding it. The columns
-            # Tira owns are marked protected on every board, so they are asked
-            # for rather than named here; done is reasoned about instead,
-            # because a finished card with nobody on it is history, and chasing
-            # it would mean chasing every card the board has ever finished.
-            my %resting = map { $_->{name} => 1 }
-              grep { $_->{protected} } @{ $self->column_list( project => $root, type => 'ticket' ) };
+            # Neither waiting nor finished, and nobody holding it.
+            #
+            # The columns Tira owns are marked protected on every board and are
+            # asked for rather than named here. Protected is not the same
+            # question as "does work happen here", though: it distinguishes the
+            # two columns Tira creates, and a board whose work ends in three
+            # different columns - finished and waiting for a release, finished
+            # and shipping nothing, finished and published - had this fire on
+            # nine shipped cards within a minute of being declared.
+            #
+            # So a board says where work ends and this asks. `done` stays an
+            # ending for a board that has said nothing, because no board should
+            # change underneath anybody.
+            #
+            # Read per board rather than from the tickets. An epic finishing
+            # somewhere the tickets do not was being judged against the wrong
+            # list entirely.
+            my %resting;
+            for my $type (qw(sow epic ticket)) {
+                my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
+                $resting{$type} = { map { $_->{name} => 1 }
+                    grep { $_->{protected} || $_->{terminal} } @{$columns} };
+                $resting{$type}{done} = 1
+                  if !grep { $_->{terminal} } @{$columns};
+            }
             for my $record ( @{$records} ) {
                 next if !$resolved_for->( $policy, $record );
                 my $column = $record->{column} // '';
-                next if $column eq '' || $resting{$column} || $column eq 'done';
+                next if $column eq '' || $resting{ $record->{type} // 'ticket' }{$column};
                 next if defined $record->{assignee} && $record->{assignee} ne '';
                 $report->( $policy, $record,
                     "in $column with nobody on it - work in progress needs an assignee" );

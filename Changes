@@ -1,5 +1,32 @@
 Revision history for Tira
 
+1.71  2026-08-14
+    - TKT-159: a board can say where its work ends. card-unassigned
+      decided which columns are work by asking which are protected, and
+      protected means Tira owns this column rather than that work stops
+      here. developer-dashboard's work ends in three places -
+      done-not-released, admin-done, release-to-pause - and none of them
+      is protected, so within a minute of declaring the rule it fired on
+      nine shipped cards, telling them to assign somebody to work that
+      had shipped days before.
+    - Nine wrong notes in a single pass is not merely annoying: the
+      policies guide's own warning is that a channel which buzzes
+      constantly is one nobody reads, so a rule wrong nine times
+      immediately costs the bridge its standing rather than the rule its
+      credibility.
+    - tira.column.update --terminal marks a column as an ending and the
+      rule asks the board. Still asks the board rather than taking a
+      column on the policy: that reasoning was right when the rule
+      shipped, because a policy naming its columns stops covering the
+      board the moment somebody adds one.
+    - A board that marks nothing treats done as its ending exactly as
+      before, so nothing changes underneath anybody. A column added
+      tomorrow is still watched without being named anywhere.
+    - And the columns consulted are the card's own. The rule read the
+      ticket board's list whatever kind of card it was looking at, so an
+      epic finishing somewhere the tickets do not was judged against the
+      wrong list entirely.
+
 1.70  2026-08-14
     - TKT-156: the command reference names every command that ships, and
       the suite refuses one that does not. It opens with "This is the

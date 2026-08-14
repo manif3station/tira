@@ -1,5 +1,41 @@
 Revision history for Tira
 
+1.81  2026-08-14
+
+    - TKT-193: two violations nobody could put down. card-unreadable
+      shipped in 1.78 and card-damaged in 1.80, and neither was in the
+      rule catalogue - so rule.suspend and policy.decline both refused
+      them with "Unknown policy rule", while every other rule on the
+      board accepted both. A board with permanently damaged files had a
+      violation it could not stop by any means.
+    - Found by the hourly hunt, probing the mirror of a class this
+      project keeps finding: not a check that never fires, but one that
+      fires and cannot be stopped. Two copies of one decision had
+      drifted - what counts as a rule. The catalogue held twenty-six,
+      police raised twenty-eight, and the two extra were pushed straight
+      into the pass rather than declared, so everything reading the
+      catalogue was blind to them.
+    - There was a second half, and it is the one a careless fix would
+      have missed: those two are assembled in police_pass rather than
+      reported through the rule loop, so they never met the suspension
+      check at all. Teaching the command to accept the name without
+      teaching the pass to honour it would have given an agent a
+      suspension that reported success and changed nothing.
+    - Both can now be put down for a while with a reason and declined
+      outright, and the pass honours both. Neither is declarable, because
+      there is nothing to configure, and neither appears among the rules
+      a board has not decided about. A board that has answered neither is
+      still told when a card is damaged - silence about a corrupt record
+      is the fault this whole thread began with.
+    - Proved by breaking each thing it protects: accepting the
+      suspension without honouring it, ignoring a decline, and making
+      damage quiet by default, each caught by a named assertion. The
+      first attempt at those mutations ran without installing
+      dependencies, so a compile failure read as a caught mutation; a
+      later one hit the wrong of two identical lines and caught nothing.
+      Both runs were discarded and the substitutions are verified before
+      the run now.
+
 1.80  2026-08-14
 
     - TKT-191: a card damaged by one byte is read rather than set aside.

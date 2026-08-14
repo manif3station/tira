@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=1\.80$/m, '.env stores version 1.80' );
+like( $env_text, qr/^VERSION=1\.81$/m, '.env stores version 1.81' );
 
 open my $skills, '<', 'SKILLS.md' or die "Cannot read SKILLS.md: $!";
 my $skills_text = do { local $/; <$skills> };
@@ -46,7 +46,7 @@ unlike( $skills_text, qr/--project|TIRA_HOME|\.tira\/|project selector/i, 'SKILL
 
 use lib 'lib';
 use Tira;
-is( $Tira::VERSION, '1.80', 'module version matches .env' );
+is( $Tira::VERSION, '1.81', 'module version matches .env' );
 
 # And the changelog, which nothing checked. .env, the module and this file
 # agreed with each other for two releases while Changes named a version one

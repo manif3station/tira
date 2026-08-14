@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.80';
+our $VERSION = '1.81';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4343,7 +4343,28 @@ my @POLICY_SCOPE = qw(type on_column ref);
 # A rule may say which column it means, or which role.
 my @POLICY_ROLE_FIELDS = qw(enter_role before_role column_role);
 
+# What police reports without being asked to.
+#
+# These are not policies. A policy says what a board wants watched; these two
+# say whether watching was possible at all, so there is nothing to configure and
+# nothing to scope, and a board that has declared nothing still hears them -
+# silence about a corrupt record is the fault the whole of this subsystem exists
+# to prevent.
+#
+# They must still be ANSWERABLE, which is what they were not. Every other rule
+# can be put down for a while with a reason or refused outright; these were
+# raised straight into the pass and so were outside the catalogue that both of
+# those commands validate against. A board with permanently damaged files had a
+# violation it could not stop by any means.
+my %DIAGNOSTIC_RULES = map { $_ => 1 } qw(card-damaged card-unreadable);
+
 sub policy_rules { return [ sort keys %POLICY_RULES ] }
+
+# Everything a board can answer: what it may declare, and what it may only put
+# down or refuse. Offered in the refusal when a rule is not recognised, because
+# a list that omits half the answerable rules teaches the reader they do not
+# exist.
+sub answerable_rules { return [ sort ( keys %POLICY_RULES, keys %DIAGNOSTIC_RULES ) ] }
 sub policy_actions { return [ sort keys %POLICY_ACTIONS ] }
 
 sub _valid_duration {
@@ -4470,8 +4491,8 @@ sub policy_list {
 sub policy_decline {
     my ( $self, %args ) = @_;
     my $rule = $args{rule} // '';
-    die "Unknown policy rule '$rule'. Rules: " . join( ', ', @{ policy_rules() } ) . "\n"
-      if !$POLICY_RULES{$rule};
+    die "Unknown policy rule '$rule'. Rules: " . join( ', ', @{ answerable_rules() } ) . "\n"
+      if !$POLICY_RULES{$rule} && !$DIAGNOSTIC_RULES{$rule};
 
     my $reason = $args{reason} // '';
     $reason =~ s/\A\s+|\s+\z//g;
@@ -5755,17 +5776,32 @@ sub police_pass {
     # "could not read it" call for opposite things from whoever is reading.
     # card-damaged is a file to clean at leisure; card-unreadable is a card
     # nobody is checking right now.
-    push @{$found}, map { {
-        rule   => ( $_->{repaired} ? 'card-damaged' : 'card-unreadable' ),
-        ref    => $_->{ref},
-        action => 'bridge-reminder',
-        detail => (
-            $_->{repaired}
-            ? $_->{reason}
-            : "its history could not be read: $_->{reason}. "
-              . 'Every other card was still checked; nothing on this one was.'
-        ),
-    } } @unreadable;
+    # Answered the same way every other rule is. These are assembled here rather
+    # than reported through the rule loop, so they never met the suspension
+    # check at all - and a command that accepted the name without this would
+    # hand an agent a suspension that reported success and changed nothing,
+    # which is worse than the refusal it replaced.
+    my $quieted = $self->_enforcement_read($store);
+    my $declined = eval { $self->policy_declined(%args) } || [];
+    my %refused = map { ( $_->{rule} // '' ) => 1 } @{$declined};
+
+    push @{$found}, grep { defined } map {
+        my $rule = $_->{repaired} ? 'card-damaged' : 'card-unreadable';
+        my $ref  = $_->{ref};
+          $refused{$rule} ? undef
+        : $self->_rule_suspended( $quieted, $rule, $ref ) ? undef
+        : {
+            rule   => $rule,
+            ref    => $ref,
+            action => 'bridge-reminder',
+            detail => (
+                $_->{repaired}
+                ? $_->{reason}
+                : "its history could not be read: $_->{reason}. "
+                  . 'Every other card was still checked; nothing on this one was.'
+            ),
+        };
+    } @unreadable;
 
     if ( $self->police_suspended( store => $store ) ) {
         return { watching => 1, suspended => 1, violations => [], terminal => [] };
@@ -6320,8 +6356,8 @@ sub rule_suspend {
 
     my $rule = $args{rule};
     die "Which rule? Name it: --rule <rule>\n" if !defined $rule || $rule eq '';
-    die "Unknown policy rule '$rule'. Rules: " . join( ', ', @{ policy_rules() } ) . "\n"
-      if !$POLICY_RULES{$rule};
+    die "Unknown policy rule '$rule'. Rules: " . join( ', ', @{ answerable_rules() } ) . "\n"
+      if !$POLICY_RULES{$rule} && !$DIAGNOSTIC_RULES{$rule};
 
     my $seconds = $args{seconds};
     die "How many seconds? A rule put down has to come back by itself\n"

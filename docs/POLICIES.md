@@ -1430,3 +1430,28 @@ Repairing a file is a separate command somebody runs deliberately.
 **Said once per card, not once per rule.** Two rules read a card's journal by
 different routes, so a board declaring both opens the same damaged file twice in
 a pass. The damage is one fact about one card and is reported as one.
+
+## Two rules a board answers but does not declare
+
+`card-damaged` and `card-unreadable` are not policies. A policy says what a
+board wants watched; these two say whether watching was possible at all. So
+there is nothing to configure, nothing to scope, and **a board that has declared
+nothing still hears them** — silence about a corrupt record is the fault this
+whole section exists to prevent.
+
+They must still be answerable, and for two releases they were not. Every other
+rule can be put down for a while or refused outright; these were raised straight
+into the pass, outside the catalogue both of those commands check against, so a
+board with permanently damaged files had a violation it could not stop by any
+means. Found by probing for a check that fires and cannot be stopped — the
+mirror of a check that never fires.
+
+    d2 tira.rule.suspend --rule card-damaged --seconds 600 \
+      --reason "the repair command does not exist yet"
+
+    d2 tira.policy.decline --rule card-damaged \
+      --reason "these files are known bad and will not be repaired"
+
+Both take a reason, like everything else here, and a suspension comes back by
+itself. `tira.policy.add` still refuses them, because there is nothing to
+declare, and they do not appear in `tira.policy.undeclared` for the same reason.

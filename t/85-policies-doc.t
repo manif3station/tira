@@ -51,12 +51,30 @@ is_deeply( \@numbered, [ 1 .. scalar @numbered ],
 # Both directions are checked, because either one alone would hide the other.
 my %shown;
 $shown{$1}++ while $text =~ /--rule\s+(\S+)/g;
-my %real = map { $_ => 1 } @{ Tira::policy_rules() };
+
+# Everything a board can answer, not only what it can declare. card-damaged and
+# card-unreadable are rules police raises and a board can put down or refuse,
+# and they belong in this guide - but they are not declarable, so checking the
+# document against the declarable catalogue alone called a real rule a broken
+# promise. TKT-193.
+my %real = map { $_ => 1 } @{ Tira::answerable_rules() };
+my %declarable = map { $_ => 1 } @{ Tira::policy_rules() };
 
 is_deeply( [ sort grep { !$real{$_} } keys %shown ], [],
     'every rule the document shows actually exists' );
-is_deeply( [ sort grep { !$shown{$_} } keys %real ], [],
+
+# The other direction stays on the declarable set. A rule nobody can declare
+# has no --rule example to show, and requiring one would make this ask for
+# documentation that would be wrong.
+is_deeply( [ sort grep { !$shown{$_} } keys %declarable ], [],
     'and every rule that exists is shown at least once' );
+
+# Which leaves the two that are answerable and not declarable, checked by name
+# rather than by counting - a rule that quietly stopped being answerable would
+# otherwise pass this file in silence.
+is_deeply( [ sort grep { !$declarable{$_} } @{ Tira::answerable_rules() } ],
+    [ 'card-damaged', 'card-unreadable' ],
+    'and the rules a board answers without declaring are exactly the two diagnostics' );
 
 # --- the message parameters are real --------------------------------------
 

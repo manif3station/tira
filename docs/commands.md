@@ -4,8 +4,10 @@ This is the reference: every command and argument, what it is for and when to
 use it. For the use cases — the workflows these commands serve, and which one
 to reach for — run `dashboard tira.skills`.
 
-Release 0.16 implements every workflow in `SKILLS.md` through 83 Developer
-Dashboard entrypoints. The shared `Tira::CLI` parser applies TOON-first output,
+Every workflow in `SKILLS.md` is implemented through the entrypoints this
+document names, and a command that ships without being named here fails the
+suite - a reader who captured only this file was missing whole families before
+that check existed. The shared `Tira::CLI` parser applies TOON-first output,
 pretty JSON, Markdown, repeatable options, JSON-array replacement, raw
 attachment output, and consistent structured failures.
 
@@ -1220,3 +1222,135 @@ An import dry-run returns one object per changed field:
   "dry_run": true
 }
 ```
+
+## Every other command
+
+Each of these ships and is exercised by the suite. The synopsis is the one the
+manual's own examples are checked against, and `tools/docs-examples-run` runs
+them; the manual carries the worked use cases behind them.
+
+
+### The changelog
+
+- `tira.changes` — the raw changelog, no arguments. The fourth documentation command, beside `tira.skills`, `tira.usage` and `tira.policies`; every entry names the card it came from.
+
+
+### Assignment
+
+- `tira.assign.list --ref REF [-o FORMAT]`
+
+
+### Attachments
+
+- `tira.attachment.add --ref REF --file PATH [--comment ID] [-o FORMAT]`
+- `tira.attachment.discard --ref REF --sha SHA256 [--extension EXT] [--comment ID] [--author NAME] [-o FORMAT]`
+- `tira.attachment.remove --sha SHA256 [--extension EXT] [-o FORMAT]`
+
+
+### Boards
+
+- `tira.board.refs --type TYPE [--prefix PREFIX] [--digits N] [-o FORMAT]`
+- `tira.board.show --type TYPE [-o FORMAT]`
+
+
+### Checklists
+
+- `tira.checklist.add --ref REF --item TEXT --status TEXT [-o FORMAT]`
+- `tira.checklist.list --ref REF [-o FORMAT]`
+- `tira.checklist.update --ref REF --id CHK-NNN [--item TEXT] [--status TEXT] [-o FORMAT]`
+
+
+### Collectors
+
+- `tira.collector.install [-o FORMAT]`
+- `tira.collector.remove [-o FORMAT]`
+- `tira.collector.show [-o FORMAT]`
+
+
+### Columns
+
+- `tira.column.add --type TYPE --name SLUG [--label TEXT] [--after SLUG|--before SLUG] [-o FORMAT]`
+- `tira.column.apply --type TYPE --columns-json JSON [-o FORMAT]`
+- `tira.column.list --type TYPE [-o FORMAT]`
+- `tira.column.remove --type TYPE --name SLUG [-o FORMAT]`
+- `tira.column.rename --type TYPE --name SLUG --new-name SLUG [--label TEXT] [-o FORMAT]`
+- `tira.column.reorder --type TYPE --name SLUG (--after SLUG|--before SLUG) [-o FORMAT]`
+- `tira.column.sync --type TYPE [--apply] [-o FORMAT]`
+- `tira.column.update --type TYPE --name SLUG [--notify-after MINUTES] [--watch|--no-watch] [-o FORMAT]`
+
+
+### Comments
+
+- `tira.comment.add --ref REF --author ID (--text TEXT|--file FILE) [--format markdown|text] [--attach PATH ...] [-o FORMAT]`
+- `tira.comment.attach --ref REF --comment ID --file PATH [-o FORMAT]`
+- `tira.comment.list --ref REF [--last N|--first N] [--meta-only] [--fields LIST] [--since TIMESTAMP] [--count] [-o FORMAT]`
+- `tira.comment.update --ref REF --comment ID (--text TEXT|--file FILE) [--format markdown|text] [-o FORMAT]`
+
+
+### Evidence
+
+- `tira.evidence.add --ref REF --summary TEXT [--uri URI] [--file PATH] [--author ID] [-o FORMAT]`
+- `tira.evidence.annotate --ref REF --id EVD-NNN --note TEXT [--author ID] [-o FORMAT]`
+- `tira.evidence.list --ref REF [--last N|--first N] [--id EVD-NNN] [--meta-only] [--where CLAUSE ...] [--count] [-o FORMAT]`
+
+
+### Gate records
+
+- `tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]`
+- `tira.gate.list --ref REF [--last N|--first N] [--id GATE-NNN] [--meta-only] [--where CLAUSE ...] [--count] [-o FORMAT]`
+
+
+### Hierarchy
+
+- `tira.hierarchy.link --parent REF --child REF [-o FORMAT]`
+- `tira.hierarchy.show --ref REF [--recursive] [-o FORMAT]`
+- `tira.hierarchy.unlink --parent REF --child REF [-o FORMAT]`
+
+
+### The work log
+
+- `tira.history.list --ref REF [--field NAME] [--last N|--first N] [--since TIMESTAMP] [--where CLAUSE ...] [--count] [--truncate N|--full] [-o FORMAT]`
+
+
+### Links
+
+- `tira.link.add --from REF --type NAME --to REF [-o FORMAT]`
+- `tira.link.list --ref REF [--type NAME] [-o FORMAT]`
+- `tira.link.remove --from REF --type NAME --to REF [-o FORMAT]`
+
+
+### Notifications
+
+- `tira.notify.compose [-o FORMAT]`
+- `tira.notify.list [--ref REF ...] [-o FORMAT]`
+- `tira.notify.record --ref REF [--ref REF ...] --column SLUG [-o FORMAT]`
+
+
+### Projects
+
+- `tira.project.create --name TEXT [--dir DIR] [-o FORMAT]`
+- `tira.project.show [-o FORMAT]` — the project as stored: its name, its people, its boards and its settings.
+- `tira.project.validate [--repair-columns] [-o FORMAT]` — Read-only without repair.
+- `tira.project.link-types.add --outward NAME --inward NAME [-o FORMAT]` — Names unique.
+- `tira.project.link-types.list [-o FORMAT]` — the link types this project has, protected and added.
+- `tira.project.link-types.remove --outward NAME [-o FORMAT]` — Protected types remain.
+- `tira.project.people.activate --id ID [-o FORMAT]`
+- `tira.project.people.add --id ID --name TEXT [--email EMAIL] [-o FORMAT]` — adds somebody the board can then assign work to and record as an author.
+- `tira.project.people.deactivate --id ID [-o FORMAT]`
+- `tira.project.people.list [-o FORMAT]` — everyone on the project, active and not.
+- `tira.project.people.remove --id ID [-o FORMAT]` — Fails while historically referenced.
+- `tira.project.people.update --id ID [--name TEXT] [--email EMAIL|""] [-o FORMAT]` — changes a name or an email; the id is what everything else refers to and does not change.
+
+
+### Sub-items
+
+- `tira.subitem.link --parent REF --child REF [-o FORMAT]`
+- `tira.subitem.unlink --parent REF --child REF [-o FORMAT]`
+
+
+### Warnings
+
+- `tira.warning.add --message TEXT [-o FORMAT]`
+- `tira.warning.clear {--id ID | --all} [-o FORMAT]`
+- `tira.warning.list [-o FORMAT]`
+

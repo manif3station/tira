@@ -1,5 +1,32 @@
 Revision history for Tira
 
+1.70  2026-08-14
+    - TKT-156: the command reference names every command that ships, and
+      the suite refuses one that does not. It opens with "This is the
+      reference: every command and argument, what it is for and when to
+      use it" - and named 84 of 141. Fifty-seven were missing, including
+      whole families: every attachment command, every checklist command,
+      every column command, the collectors, board.show, board.refs,
+      assign.list.
+    - Not one of them was undocumented outright, which is exactly why
+      nothing caught it. docs-match-code concatenates the manual, the
+      reference and the policies guide and asks whether a command appears
+      anywhere in that pile - the right question for "is it documented at
+      all" and the wrong one for "can a reader of the reference find it".
+    - mt5-ai reported one instance of it and withdrew the larger claim
+      themselves; the surviving third was real and this is it. Their
+      pattern survived their own correction: three command families they
+      could not find after capturing one document, because a reference
+      captured in part reads as complete.
+    - The synopses are carried across from the manual's own lines, which
+      docs-examples-run already runs, rather than written fresh - there
+      is no per-command list of accepted options in the code, so writing
+      argument tables by hand would be inventing them.
+    - The same header said "Release 0.16" and "83 Developer Dashboard
+      entrypoints" against 1.70 and 141. A count written in prose goes
+      stale the moment anything is added, so it now says what is true
+      without a number to rot.
+
 1.69  2026-08-14
     - TKT-153: a replayed backlog is introduced as a replay. The bridge
       prints what is outstanding when it starts and then live traffic,

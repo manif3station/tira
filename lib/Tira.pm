@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.64';
+our $VERSION = '1.65';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -6823,9 +6823,47 @@ sub format_output {
     }
     return json_object()->canonical->allow_nonref->encode($data) . "\n" if $output eq 'json';
     return json_object()->canonical->allow_nonref->pretty->encode($data) if $output eq 'json-pretty';
+    # A record narrowed to named fields is shown as those fields. The card
+    # template below assumes a whole record and prints an empty placeholder for
+    # every key it does not find, so asking for one field rendered a filled card
+    # as a hollow one and left out the field that was asked for - wrong in both
+    # directions at once, and worst on a board whose rules exist to catch
+    # exactly the hollow card it was drawing.
+    return $self->_markdown_fields( $data, %args )
+      if $output eq 'human' && $args{fields} && @{ $args{fields} };
+
     return $self->_markdown( $data, %args ) if $output eq 'human';
     return $self->_dashboard_table( $data, %args ) if $output eq 'table';
     die "Unsupported output format '$output'\n";
+}
+
+# The narrowed answer: what is here, named, and nothing invented about what is
+# not. Records keep their reference as a heading because that is how a reader
+# tells one from the next; everything else is a line.
+sub _markdown_fields {
+    my ( $self, $data, %args ) = @_;
+    my @records = ref $data eq 'ARRAY' ? @{$data} : ($data);
+    my $text = '';
+    for my $record (@records) {
+        my %shown = %{$record};
+        my $ref = delete $shown{ref};
+        $text .= '# ' . $ref . "\n\n" if defined $ref;
+        for my $field ( sort keys %shown ) {
+            $text .= "- $field: " . _markdown_value( $shown{$field} ) . "\n";
+        }
+        $text .= "\n";
+    }
+    return $text;
+}
+
+sub _markdown_value {
+    my ($value) = @_;
+    return '_None_' if !defined $value;
+    return @{$value} ? join( ', ', map { _markdown_value($_) } @{$value} ) : '_Empty._'
+      if ref $value eq 'ARRAY';
+    return join ', ', map { "$_: " . _markdown_value( $value->{$_} ) } sort keys %{$value}
+      if ref $value eq 'HASH';
+    return $value eq '' ? '_Empty._' : $value;
 }
 
 sub _html_escape {

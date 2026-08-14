@@ -1,5 +1,24 @@
 Revision history for Tira
 
+1.65  2026-08-14
+    - TKT-155: a card is no longer shown as empty when it is full.
+      ticket.show --fields with -o human narrowed the record correctly and
+      then drew the fixed card summary against it, so every key the
+      narrowing had removed printed as its empty placeholder - no
+      description, unassigned, no priority, on a card where all of them
+      were filled - and the field actually asked for appeared nowhere.
+    - Reported by mt5-ai, who put the cost plainly: ignoring the flag
+      would show the whole card, which is merely unhelpful; this showed a
+      filled card as an empty one AND left out what was asked for, wrong
+      in both directions at once. It is worst on a board following the
+      rules Tira ships with, because a reviewer sees exactly the hollow
+      card those rules exist to catch.
+    - The readable format now shows what it was given: the fields asked
+      for, lists as lists, and the two halves of a scope. A field that is
+      genuinely empty is still named when it was asked for, because
+      absence is worth seeing when somebody asked about it. json and toon
+      were correct throughout and are unchanged.
+
 1.64  2026-08-14
     - TKT-151: the tool that proves the gate can now prove the commit
       gate. Five of its checks looked for a card already sitting in a

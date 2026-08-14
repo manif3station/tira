@@ -85,7 +85,10 @@ and `--set-*` for the same field are mutually exclusive.
   line. **Implemented.**; identical information to every other
   format.
 - `-o json-pretty`: the indented JSON shape, for human reading.
-- `-o human`: Markdown summary.
+- `-o human`: Markdown summary. With `--fields` it shows the fields asked for
+  and nothing else — it does not draw the card summary against a narrowed
+  record, which used to print a fully populated card as an empty one and leave
+  out the field that had been requested.
 - Errors use the selected structured format on stderr, never success stdout.
 - Mutations return the affected record or operation receipt.
 - `attachment.get` emits raw bytes and never exposes managed storage paths.

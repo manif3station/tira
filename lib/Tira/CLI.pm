@@ -345,7 +345,14 @@ sub run {
         print map { "$_\n" } @{$result};
         return _finish( $tira, \%option, $command, 0 );
     }
-    my $formatted = eval { $tira->format_output( $result, output => $option{output}, project => $option{project} ) };
+    # What was asked for, so the readable format can show that rather than
+    # drawing its whole card template against a record it no longer has. Asking
+    # for one field used to print a filled card as an empty one - no
+    # description, unassigned, no priority - and leave out the field itself.
+    my $formatted = eval {
+        $tira->format_output( $result, output => $option{output}, project => $option{project},
+            ( defined $option{field_selection} ? ( fields => $option{field_selection} ) : () ) );
+    };
     return _error( $tira, 'toon', $@ || 'Unable to format output' ) if !defined $formatted;
     print _utf8_bytes($formatted);
     my $status = ( defined $option{if_changed} && ref $result eq 'HASH' && $result->{unchanged} ) ? 1 : 0;

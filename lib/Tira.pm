@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.78';
+our $VERSION = '1.79';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -5370,6 +5370,11 @@ sub violation_record {
     my @settled;
     for my $key ( sort keys %{ $ledger->{open} } ) {
         next if $still{$key};
+
+        # Absent from a pass that could not finish is not the same as no longer
+        # true. Asked for by police when its pass failed, so a crash cannot
+        # announce every open violation as fixed.
+        next if $args{keep_open};
         my $entry = delete $ledger->{open}{$key};
         $entry->{closed_at} = $now;
         $ledger->{closed}{$key} = $entry;
@@ -5710,12 +5715,52 @@ sub police_pass {
         $found = [];
     }
 
+    # A card police cannot read is a fact about the board like any other, so it
+    # goes through the ledger rather than around it.
+    #
+    # The first version of this printed to the owner's terminal on every pass.
+    # On a board whose damaged byte is never going to be fixed - the report that
+    # prompted all this is about somebody else's file, six days old - that is a
+    # line every thirty seconds for ever. He read it back within the hour: "I
+    # thought you have a workaround". The workaround worked; the telling of it
+    # was the repetition a warning system dies of, added by the fix for a
+    # silence.
+    #
+    # Through the ledger it gets what every other violation gets: a number, a
+    # count of tellings, the quiet ladder, one escalation to his terminal, and a
+    # settlement line if the card ever becomes readable again.
+    push @{$found}, map { {
+        rule   => 'card-unreadable',
+        ref    => $_->{ref},
+        action => 'bridge-reminder',
+        detail => "its history could not be read: $_->{reason}. "
+          . 'Every other card was still checked; nothing on this one was.',
+    } } @unreadable;
+
     if ( $self->police_suspended( store => $store ) ) {
         return { watching => 1, suspended => 1, violations => [], terminal => [] };
     }
 
-    my ( $view, $settled ) =
-      $self->violation_record( store => $store, violations => $found );
+    # A pass that failed has not established that anything stopped being true.
+    #
+    # An empty violation list means "everything that was open is now resolved",
+    # and a pass that died hands back an empty list - so a crash announced every
+    # open violation as fixed. On his board the last thing the dying pass ever
+    # said was:
+    #
+    #     SETTLED | VIO-0018 | answer-ok-not-folded no longer applies here
+    #     | fix: nothing - this one is over
+    #
+    # nine seconds after the rule that killed it was declared. Silence is
+    # ambiguous; "this one is over" is a false statement, and it is worse.
+    #
+    # So a failed pass leaves the ledger where it is: nothing new is opened,
+    # nothing open is closed, and what was true before the failure is still
+    # what police believes.
+    my ( $view, $settled ) = defined $error
+      ? ( scalar $self->violation_record(
+            store => $store, violations => $found, keep_open => 1 ), [] )
+      : $self->violation_record( store => $store, violations => $found );
 
     # What police has said about a card belongs on that card, written by police
     # and by nobody else.
@@ -5745,17 +5790,6 @@ sub police_pass {
                 grep { $_->{escalate} && ( $_->{action} // '' ) ne 'log-only' } @{$view}
             ),
 
-            # Said out loud, because the only place this used to go was an
-            # error field nothing reads. The bridge is written from the
-            # violations and the terminal from escalations, so a failure
-            # landing in neither is a failure nobody hears about - and that is
-            # how a board sat unpoliced with two real violations on it.
-            (
-                map {
-                    "police could not read $_->{ref}: $_->{reason}. "
-                      . 'Every other card was still checked; nothing on this one was.'
-                } @unreadable
-            ),
             (
                 defined $error
                 ? ( "police could not finish this pass: $error. "

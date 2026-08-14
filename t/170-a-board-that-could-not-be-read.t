@@ -129,8 +129,12 @@ like( $answers[0]{detail}, qr/\Q$question->{id}\E/, 'naming the question' );
 
 # Neither history-reading rule reports it. An unreadable journal is not an
 # unwritten card, and a rule that treated it as one would be inventing a
-# violation out of a fault of its own.
-is_deeply( [ grep { $_->{ref} eq $broken } @{ $pass->{violations} } ], [],
+# violation out of a fault of its own. Being reported as unreadable is a
+# different thing and is exactly what should happen.
+is_deeply(
+    [ grep { $_->{ref} eq $broken && $_->{rule} ne 'card-unreadable' }
+        @{ $pass->{violations} } ],
+    [],
     'and the card nobody could read is not accused of anything on the strength of that' );
 
 ok( defined $pass->{unreadable}, 'the pass says something about what it could not read' );
@@ -150,8 +154,31 @@ unlike( $pass->{unreadable}[0]{reason} // '', qr/\bat \S+ line \d+/,
 # from the violation list and the terminal from escalations, so a failure that
 # lands in neither is a failure nobody hears about.
 
-like( join( "\n", @{ $pass->{terminal} // [] } ), qr/\Q$broken\E/,
-    'the owner is told in his terminal that a card could not be read' );
+my @unreadable = grep { $_->{rule} eq 'card-unreadable' } @{ $pass->{violations} };
+is( scalar @unreadable, 1, 'and says so on the bridge, as a violation like any other' );
+is( $unreadable[0]{ref}, $broken, 'against the card it could not read' );
+like( $unreadable[0]{detail}, qr/UTF-8|malformed/i, 'saying why' );
+ok( defined $unreadable[0]{id}, 'with a number of its own, so it can be referred to' );
+
+# --- said once, not every thirty seconds for ever -----------------------------------------
+#
+# The first version printed this to the terminal on every pass. The byte that
+# prompted it is in somebody else's file and six days old, so that is a line
+# every thirty seconds for the rest of the board's life, and he read it back
+# within the hour: "I thought you have a workaround". The workaround worked -
+# the telling of it was the repetition a warning system dies of, added by the
+# fix for a silence.
+
+{
+    my $again = $tira->police_pass( project => $root, store => $store,
+        world => { branches => [], worktrees => [], processes => [], containers => [] } );
+    my ($repeat) = grep { $_->{rule} eq 'card-unreadable' } @{ $again->{violations} };
+    ok( $repeat, 'it is still true on the next pass, because the byte has not gone anywhere' );
+    ok( $repeat->{quiet}, 'and is not said again, because it is on the quiet ladder like everything else' );
+    is( $repeat->{id}, $unreadable[0]{id}, 'still the same one rather than a new one each pass' );
+    is_deeply( [ grep { /history could not be read/ } @{ $again->{terminal} // [] } ], [],
+        'and nothing reaches the terminal for a fault that has already been reported' );
+}
 
 # --- while a board with nothing wrong with it is unchanged -------------------------------
 #
@@ -191,6 +218,55 @@ like( join( "\n", @{ $pass->{terminal} // [] } ), qr/\Q$broken\E/,
     ok( defined $failed->{error}, 'a pass that could not run says so' );
     like( join( "\n", @{ $failed->{terminal} // [] } ), qr/unreadable|could not/i,
         'and says it where the owner is looking, not only in a field nothing reads' );
+}
+
+# --- and a pass that failed settles nothing -------------------------------------------------
+#
+# The worst of it, and it was live in the release that fixed the silence. An
+# empty violation list means "everything open is now resolved", and a pass that
+# died hands back an empty list - so a crash announced every open violation as
+# fixed. On his board the last thing the dying pass ever said was
+#
+#     SETTLED | VIO-0018 | answer-ok-not-folded no longer applies here
+#     | fix: nothing - this one is over
+#
+# nine seconds after the rule that killed it was declared. Silence is
+# ambiguous. "This one is over" is a false statement about work nobody did.
+
+{
+    my $order = File::Spec->catdir( $tmp, 'settle' );
+    my $ledger = File::Spec->catdir( $tmp, 'police-settle' );
+    $tira->project_new(
+        name => 'Settling', dir => $order, members => ['michael'],
+        columns => ['backlog, done'],
+        sow_prefix => 'SES', epic_prefix => 'SEE', ticket_prefix => 'SET',
+    );
+    $tira->policy_add( project => $order, rule => 'gate-missing', column => 'done',
+        action => 'bridge-reminder' );
+    my $shipped = $tira->create_record( project => $order, type => 'ticket',
+        title => 'Reached the end with nothing recorded' );
+    $tira->record_move( project => $order, ref => $shipped->{ref}, column => 'done' );
+
+    my $world = { branches => [], worktrees => [], processes => [], containers => [] };
+    my $raised = $tira->police_pass( project => $order, store => $ledger, world => $world );
+    is( scalar @{ $raised->{violations} }, 1, 'a real violation is raised while the pass works' );
+    my $id = $raised->{violations}[0]{id};
+
+    my $crashed;
+    {
+        no warnings 'redefine';
+        local *Tira::policy_evaluate = sub { die "the board is unreadable\n" };
+        $crashed = $tira->police_pass( project => $order, store => $ledger, world => $world );
+    }
+    is_deeply( $crashed->{settled}, [],
+        'and a pass that failed settles nothing, because it established nothing' );
+
+    my $after = $tira->police_pass( project => $order, store => $ledger, world => $world );
+    is( scalar @{ $after->{violations} }, 1, 'the violation is still open afterwards' );
+    is( $after->{violations}[0]{id}, $id,
+        'and is the same one, rather than closed by the crash and raised again as new' );
+    ok( !$after->{violations}[0]{returned},
+        'so nobody is told a fixed problem has come back when it never went away' );
 }
 
 done_testing;

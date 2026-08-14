@@ -1,5 +1,36 @@
 Revision history for Tira
 
+1.79  2026-08-14
+
+    - TKT-189: a police pass that crashed no longer announces every open
+      violation as fixed. An empty violation list means "everything that
+      was open is now resolved", and a pass that dies hands back an empty
+      list - so the last thing the dying pass on the reporting board ever
+      said was "SETTLED VIO-0018 answer-ok-not-folded no longer applies
+      here, fix: nothing - this one is over", nine seconds after the rule
+      that killed it was declared.
+    - Still live in 1.78, which fixed the silence and left this. It is
+      worse than the silence: a clean board and a dead one at least look
+      the same, while "this one is over" is a statement that work was
+      done, about work nobody did.
+    - A failed pass now settles nothing. What was open stays open with
+      the same number, and is not announced as having returned, because
+      it never went away. A healthy pass settles what has genuinely
+      stopped being true, exactly as before.
+
+    - TKT-190: the notice naming a card police cannot read is on the
+      quiet ladder with everything else. It was printed to the owner's
+      terminal on every pass - and the byte that causes it sits in a file
+      six days old that nobody is going to repair, so that was a line
+      every thirty seconds for the rest of the board's life. He read it
+      back within the hour: "I thought you have a workaround".
+    - The workaround was working; the telling of it was the repetition a
+      warning system dies of, introduced by the fix for a silence in the
+      same release. Nothing about it was special enough to sit outside
+      the ledger, and it no longer does: it gets a number, a count of
+      tellings, one escalation, and a settlement if the card ever becomes
+      readable again.
+
 1.78  2026-08-14
     - TKT-188: the documented-examples check no longer creates a board
       where the live board lives. It ran every example from whatever

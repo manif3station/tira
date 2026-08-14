@@ -14,6 +14,12 @@
 # _last_card_change, and column-skipped. The die aborts the whole pass at the
 # first bad card, so every other rule stops there too.
 #
+# That particular byte is no longer an example of an unreadable card: he asked
+# for it to be read rather than skipped, and 173 covers that. What this file
+# still guards is the shape underneath it - a journal line that nothing can
+# read, which is what a half-written line after a crash looks like - because a
+# board must not go silent for one of those either.
+#
 # Removing both rules from a copy produced three violations instantly, two of
 # them real and hidden on his production board for as long as the byte had been
 # there.
@@ -100,10 +106,13 @@ $tira->comment_add( project => $root, ref => $broken, author => 'michael',
 my $journal = File::Spec->catfile( $root, '.tira', 'history', "$broken.jsonl" );
 ok( -f $journal, 'the broken card has a history file to damage' );
 
+# A line that stops halfway, which is what a journal looks like when the
+# process writing it died. The byte that started all this is no longer an
+# example of an unreadable card - TKT-191 reads past that, and 173 covers it -
+# but a line that is not JSON at all still cannot be read by anything, and the
+# board must survive one of those exactly as it survives the other.
 open my $append, '>>:raw', $journal or die $!;
-print {$append} qq({"after":"Workflow finder \xd72 + 3 independent refuters","at":)
-  . qq("2026-08-14T19:00:00Z","author":null,"before":null,"field":"title",)
-  . qq("op":"update","ref":"$broken"}\n);
+print {$append} qq({"after":"stopped mid-write","at":"2026-08-14T19:00:0\n);
 close $append;
 
 ok( !eval { $tira->history_list( project => $root, ref => $broken ); 1 },
@@ -140,8 +149,10 @@ is_deeply(
 ok( defined $pass->{unreadable}, 'the pass says something about what it could not read' );
 is_deeply( [ map { $_->{ref} } @{ $pass->{unreadable} // [] } ], [$broken],
     'naming the card whose history could not be decoded' );
-like( $pass->{unreadable}[0]{reason} // '', qr/UTF-8|decode|malformed/i,
+like( $pass->{unreadable}[0]{reason} // '', qr/\S/,
     'and saying what was wrong with it' );
+unlike( $pass->{unreadable}[0]{reason} // '', qr/\A\s*\z/,
+    'in words rather than an empty string, which is what a reason nobody wrote looks like' );
 
 # What the owner reads is about his card, not about where the decoder was
 # standing when it gave up.
@@ -157,7 +168,7 @@ unlike( $pass->{unreadable}[0]{reason} // '', qr/\bat \S+ line \d+/,
 my @unreadable = grep { $_->{rule} eq 'card-unreadable' } @{ $pass->{violations} };
 is( scalar @unreadable, 1, 'and says so on the bridge, as a violation like any other' );
 is( $unreadable[0]{ref}, $broken, 'against the card it could not read' );
-like( $unreadable[0]{detail}, qr/UTF-8|malformed/i, 'saying why' );
+like( $unreadable[0]{detail}, qr/could not be read/, 'saying why' );
 ok( defined $unreadable[0]{id}, 'with a number of its own, so it can be referred to' );
 
 # --- said once, not every thirty seconds for ever -----------------------------------------

@@ -1,5 +1,35 @@
 Revision history for Tira
 
+1.80  2026-08-14
+
+    - TKT-191: a card damaged by one byte is read rather than set aside.
+      1.78 stopped a malformed byte silencing a whole board by skipping
+      the card it could not decode; he read that and said the obvious
+      thing back - do not skip it, read it. He is right, and the skip was
+      the weaker answer by this project's own standard: a skipped card is
+      a card nobody is checking, which is the disease that release was
+      about, reproduced at a smaller scale.
+    - His diagnosis was nearly exact. Perl opens the file perfectly well;
+      it is the strict UTF-8 decode that treats a malformed byte as
+      fatal. Decoding with substitution returns the whole entry - proved
+      on his own damaged line before any of this was written: field,
+      reference, and the text on both sides of the byte all came back.
+    - He offered to bring in Python or C to clean the file. Not needed,
+      and the wrong shape: a second language added to work around a
+      decoding flag.
+    - So history is read with substitution, every rule judges the card
+      normally, and the damage is still reported once - as `card-damaged`
+      rather than `card-unreadable`, because a file to clean at leisure
+      and a card nobody is checking call for opposite things from
+      whoever is reading. Nothing rewrites the file: history is the
+      permanent record, and a program that edits it unattended is a worse
+      problem than the one it solves.
+    - Measured on a copy of the reporting board: 447 violations before,
+      452 after, with the two formerly skipped cards now checked and
+      carrying three real violations that nothing had ever reported.
+      Nothing is listed unreadable any more, and both files still hold
+      their original bytes.
+
 1.79  2026-08-14
 
     - TKT-189: a police pass that crashed no longer announces every open

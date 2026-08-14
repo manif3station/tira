@@ -1397,3 +1397,36 @@ what it is:
 Nothing repairs the bytes. The board is the reporter's and the damage is
 already written; what changed is that Tira works around it and says so, so the
 next board with a stray byte is told rather than silenced.
+
+## A card damaged by one byte
+
+The section above describes a card police could not read at all. Most of the
+time the damage is smaller than that: one byte somewhere in a journal that is
+not valid UTF-8, written by a tool that got the encoding wrong. A single such
+byte — a multiplication sign written as latin-1 — silenced a board of 359 cards.
+
+Skipping that card was the first answer and it was the weaker one. **A skipped
+card is a card nobody is checking**, which is the very thing this section exists
+to prevent, one level down. On the reporting board the two skipped cards were
+carrying three real violations that nothing had ever mentioned.
+
+**So the file is read past the bad byte.** Decoding substitutes rather than
+refuses, the entry comes back whole apart from the byte that was never valid,
+and every rule judges the card exactly as it judges any other.
+
+The damage is still reported, once, on the quiet ladder:
+
+    M5T-034: its history holds 1 byte that is not valid UTF-8, substituted
+    while reading. The card was checked; the file on disk is untouched.
+
+It is `card-damaged` rather than `card-unreadable`, because the two call for
+opposite things from whoever reads them. One is a file to clean when there is
+time. The other is a card nobody is checking right now.
+
+**Nothing rewrites the file.** History is the permanent record of a board, and a
+program that edits it unattended is a worse problem than the one it solves.
+Repairing a file is a separate command somebody runs deliberately.
+
+**Said once per card, not once per rule.** Two rules read a card's journal by
+different routes, so a board declaring both opens the same damaged file twice in
+a pass. The damage is one fact about one card and is reported as one.

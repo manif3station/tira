@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.79';
+our $VERSION = '1.80';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4655,8 +4655,30 @@ sub _policy_message {
 # one level down: nobody can act on a card they are not told about.
 sub _police_history {
     my ( $self, $root, $ref, $unreadable ) = @_;
+
+    # Cleared first, so what is counted belongs to this read rather than to
+    # whatever asked for this card's history earlier in the pass.
+    delete $self->{_history_repaired}{$ref};
     my $entries = eval { $self->history_list( project => $root, ref => $ref ) };
-    return $entries if defined $entries;
+
+    if ( defined $entries ) {
+
+        # Read, and damaged. The card is checked by every rule exactly like any
+        # other - that is the point of reading past the byte rather than
+        # skipping - and the damage is still said once, because a corrupt record
+        # that nothing mentions is the fault this whole thread started with.
+        my $count = delete $self->{_history_repaired}{$ref};
+        push @{$unreadable}, {
+            ref => $ref,
+            repaired => $count,
+            reason => "its history holds $count "
+              . ( $count == 1 ? 'byte that is' : 'bytes that are' )
+              . ' not valid UTF-8, substituted while reading. The card was checked;'
+              . ' the file on disk is untouched',
+        } if $count && $unreadable && !grep { ( $_->{ref} // '' ) eq $ref } @{$unreadable};
+
+        return $entries;
+    }
 
     my $why = $@ || 'unknown failure';
 
@@ -5729,12 +5751,20 @@ sub police_pass {
     # Through the ledger it gets what every other violation gets: a number, a
     # count of tellings, the quiet ladder, one escalation to his terminal, and a
     # settlement line if the card ever becomes readable again.
+    # Two different facts, and they get two names, because "read it anyway" and
+    # "could not read it" call for opposite things from whoever is reading.
+    # card-damaged is a file to clean at leisure; card-unreadable is a card
+    # nobody is checking right now.
     push @{$found}, map { {
-        rule   => 'card-unreadable',
+        rule   => ( $_->{repaired} ? 'card-damaged' : 'card-unreadable' ),
         ref    => $_->{ref},
         action => 'bridge-reminder',
-        detail => "its history could not be read: $_->{reason}. "
-          . 'Every other card was still checked; nothing on this one was.',
+        detail => (
+            $_->{repaired}
+            ? $_->{reason}
+            : "its history could not be read: $_->{reason}. "
+              . 'Every other card was still checked; nothing on this one was.'
+        ),
     } } @unreadable;
 
     if ( $self->police_suspended( store => $store ) ) {
@@ -5801,7 +5831,15 @@ sub police_pass {
         # What could not be read, handed back beside what was. A pass that
         # skipped a card quietly would be the same fault as the one this
         # exists to end.
-        unreadable => \@unreadable,
+        #
+        # A card read past a bad byte does not belong here: it was read, and
+        # every rule judged it. It is reported as damaged instead, which is a
+        # file to clean rather than a card nobody looked at.
+        unreadable => [ grep { !$_->{repaired} } @unreadable ],
+
+        # Read, with substitutions. Named so a caller can tell "clean this when
+        # you get to it" from "this one was not checked".
+        damaged => [ grep { $_->{repaired} } @unreadable ],
         ( defined $error ? ( error => $error ) : () ),
     };
 }
@@ -6852,6 +6890,35 @@ sub json_object { return json_backend()->new }
 # Drop-in for JSON::PP::decode_json: UTF-8 bytes in, characters out.
 sub json_decode { return json_object()->utf8->decode( $_[0] ) }
 
+# The same, for a line somebody else's tool has already damaged.
+#
+# Strict decoding treats a byte that is not valid UTF-8 as fatal, which is
+# correct for anything Tira writes and useless for reading a record written
+# years ago by something that got it wrong. One raw 0xD7 - a multiplication
+# sign written as latin-1 - in one card's journal was enough to stop every rule
+# on a board of 359 cards.
+#
+# His instruction, and it is the right one: read it anyway. Decoding with
+# substitution returns the whole entry; only the byte that was never valid
+# becomes a replacement character. Proved on the damaged line itself before this
+# was written - field, reference and the text on both sides of it all came back.
+#
+# Two things this must not become. It must not be what Tira writes with: a
+# substitution written back into a record turns damage into data, quietly and
+# permanently. And it must not be silent - police reports a file it had to read
+# this way, so a corrupt record cannot pass for a clean one.
+sub json_decode_repaired {
+    my ($bytes) = @_;
+    my $strict = eval { json_decode($bytes) };
+    return wantarray ? ( $strict, 0 ) : $strict if !$@;
+
+    # FB_DEFAULT substitutes rather than dies, so what comes back is characters
+    # with U+FFFD where the bad bytes were, and json decodes characters.
+    my $text = Encode::decode( 'UTF-8', $bytes, Encode::FB_DEFAULT() );
+    my $repaired = json_object()->decode($text);
+    return wantarray ? ( $repaired, 1 ) : $repaired;
+}
+
 # Per-field history. Every record write funnels through
 # _write_json, so the diff is taken there rather than in twenty commands
 # — a command added later cannot escape history by forgetting to call
@@ -6894,7 +6961,13 @@ sub history_list {
         open my $fh, '<:raw', $path or die "Cannot read history: $!\n";
         while ( my $line = <$fh> ) {
             next if $line !~ /\S/;
-            push @entries, json_decode($line);
+
+            # Read past a byte somebody else's tool wrote wrongly, rather than
+            # losing the card. Counted, so police can say the file is damaged
+            # without anybody having to notice a replacement character.
+            my ( $entry, $repaired ) = json_decode_repaired($line);
+            $self->{_history_repaired}{ $record->{ref} }++ if $repaired;
+            push @entries, $entry;
         }
         close $fh or die "Cannot close history: $!\n";
     }

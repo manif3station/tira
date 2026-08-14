@@ -25,6 +25,7 @@
 use strict;
 use warnings;
 
+use File::Spec;
 use Test::More;
 
 use lib 'lib';
@@ -86,6 +87,22 @@ unlike( $source, qr/^DOCUMENTS\s*=\s*\([^)]*tira\./m,
     my ($ran) = $report =~ /(\d+)\s+documented examples run/;
     ok( defined $ran && $ran > 100,
         "and having actually run them - $ran examples, not a silent zero" );
+
+    # And having written nothing here.
+    #
+    # Not every command takes --project. tira.project.create is documented as
+    # creating a project in the current directory and does exactly that with a
+    # --project it has no use for, so running the examples from the repository
+    # root created a board at the root - which is where this project's own live
+    # delivery board sits, and that board was destroyed once already by tests
+    # running against its directory.
+    #
+    # It never did damage because the real board was already there and the
+    # command refused. Running this file at all is what made 74-production-board
+    # notice: it is the first test to invoke this tool inside the suite, and the
+    # mask over the board caught the write immediately.
+    ok( !-e File::Spec->catfile( '.tira', 'project.yml' ),
+        'and having created no board in the directory it was run from' );
 }
 
 # --- while the changelog really does contain the sentence -----------------------------------

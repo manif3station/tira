@@ -233,8 +233,23 @@ def check(scratch):
                              f'this working tree ships no entrypoint for {argv[0]}'))
             continue
         try:
+            # Run from the scratch board, never from the repository root.
+            #
+            # Not every command takes --project. `tira.project.create` is
+            # documented as creating a project in the current directory, and
+            # that is exactly what it does with a --project it has no use for -
+            # so running the examples from here created a .tira at the root of
+            # this repository, which is where this project's own live delivery
+            # board sits. That board is not in git, and it was destroyed once
+            # already, on 2026-08-11, by tests running against the directory it
+            # lives in.
+            #
+            # It never did damage because the board was already there and the
+            # command refused. A guard whose only protection is that the
+            # accident has not lined up yet is not a guard.
             done = subprocess.run(command, capture_output=True, text=True,
-                                  stdin=subprocess.DEVNULL, timeout=30)
+                                  stdin=subprocess.DEVNULL, timeout=30,
+                                  cwd=scratch)
         except subprocess.TimeoutExpired:
             problems.append((document, line, 'this example never returned'))
             continue

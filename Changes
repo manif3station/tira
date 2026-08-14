@@ -1,6 +1,27 @@
 Revision history for Tira
 
 1.78  2026-08-14
+    - TKT-188: the documented-examples check no longer creates a board
+      where the live board lives. It ran every example from whatever
+      directory it was started in, which in the push gate is the root of
+      this repository. Not every command takes --project -
+      tira.project.create is documented as creating a project in the
+      current directory and does exactly that with a --project it has no
+      use for - so the check created a board at the repository root.
+    - It never did damage, and the reason is not reassuring: the real
+      board was already there, so the command refused. That directory is
+      the one destroyed on 2026-08-11 by test containers running against
+      it, with a morning of cards lost and nothing to restore from.
+    - Found by the guard written after that day. The new test above is
+      the first to invoke this tool from inside the suite; the testing
+      compose file masks the board directory with an empty tmpfs, so the
+      write landed in memory and 74-production-board.t failed at once,
+      saying a test run could reach a project at the repository root. A
+      structural repair caught this three months later with nobody
+      watching for it.
+    - The examples now run from the scratch board they were given, and a
+      test asserts the tool creates nothing in the directory it was
+      started from.
     - TKT-185: a changelog that describes an error no longer reads as
       one. The documented-examples check scans a command's whole output
       for error text, and tira.changes prints the changelog - which

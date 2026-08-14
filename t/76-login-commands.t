@@ -131,6 +131,8 @@ like( $toon, qr/michael/, 'and says who is signed in' );
 unlike( $toon, qr/"person"\s*:/, 'in TOON like every other command, not JSON' );
 ( $status, my $empty_toon ) = do { $tira->session_end( project => $root, token => $_->{token} )
       for @{ $tira->session_list( project => $root ) }; run('login.status') };
+# empty is what passes: a listing with no sessions has nothing to print, and
+# what is denied is JSON syntax rather than the absence of rows.
 unlike( $empty_toon, qr/"person"\s*:/, 'and an empty listing is TOON too' );
 
 # --- the browser calls the same subroutines ------------------------------

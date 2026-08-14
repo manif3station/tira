@@ -156,6 +156,7 @@ like( $html, qr/location\.reload\(\);return\}/, 'reloading when they differ' );
 my $static = $tira->format_output(
     $tira->dashboard( project => $root, type => 'ticket', summary => 1 ),
     output => 'table', project => $root );
+like( $static, qr/\S/, 'the static board rendered, so the denial below is about a page' );
 unlike( $static, qr/data\._version/,
     'a static board does not poll for a version it can never be told about' );
 

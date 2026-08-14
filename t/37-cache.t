@@ -36,6 +36,8 @@ my ( $status, $first_out, $err ) = run_cli(
     'export', undef, '--project', $root, '--cache-ttl', '60', '-o', 'json',
 );
 is( $status, 0, 'the first cached-mode read succeeds live' );
+# empty is what passes: a live read says nothing about the cache, so the
+# absence of the notice is the whole answer.
 unlike( $err, qr/served from cache/, 'the first read is not from the cache' );
 
 my ( $second_status, $second_out, $second_err ) = run_cli(
@@ -52,12 +54,16 @@ my ( $bypass_status, $bypass_out, $bypass_err ) = run_cli(
     'export', undef, '--project', $root, '--cache-ttl', '60', '--no-cache', '-o', 'json',
 );
 is( $bypass_status, 0, 'the explicit bypass succeeds' );
+# empty is what passes: a live read says nothing about the cache, so the
+# absence of the notice is the whole answer.
 unlike( $bypass_err, qr/served from cache/, '--no-cache always reads live' );
 
 $tira->record_update( project => $root, ref => $ticket->{ref}, title => 'Rewritten subject' );
 my ( $fresh_status, $fresh_out, $fresh_err ) = run_cli(
     'export', undef, '--project', $root, '--cache-ttl', '60', '-o', 'json',
 );
+# empty is what passes: a live read says nothing about the cache, so the
+# absence of the notice is the whole answer.
 unlike( $fresh_err, qr/served from cache/,
     'a write invalidates immediately: a caller never reads its own stale data' );
 like( $fresh_out, qr/Rewritten subject/, 'the post-write read is the fresh board' );
@@ -77,6 +83,8 @@ sleep 2;
 my ( $expired_status, undef, $expired_err ) = run_cli(
     'export', undef, '--project', $root, '--cache-ttl', '1', '-o', 'json',
 );
+# empty is what passes: a live read says nothing about the cache, so the
+# absence of the notice is the whole answer.
 unlike( $expired_err, qr/served from cache/, 'an entry older than its ttl reads live' );
 
 run_cli( 'export', undef, '--project', $root, '--cache-ttl', '60', '-o', 'json' );

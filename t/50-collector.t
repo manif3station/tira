@@ -162,6 +162,8 @@ close $seed;
 
     ( $status, $out ) = run_cli( 'collector.show', '--help' );
     is( $status, 0, 'the command offers help' );
+    like( $out, qr/Usage/i,
+        'and prints some, so the denial below is about help that exists' );
     unlike( $out, qr/--project|TIRA_HOME/, 'help never discloses project selection' );
 }
 

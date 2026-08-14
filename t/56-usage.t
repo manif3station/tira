@@ -57,6 +57,8 @@ like( $reference, qr/tira\.skills/, 'the command reference names the agent manua
 
 # The manual's secrecy rule applies to the cross-reference too.
 my ($crossref) = $skills =~ /^([^\n]*tira\.usage[^\n]*)$/m;
+like( $crossref, qr/tira\.usage/,
+    'the cross-reference was found at all, so the denial below is about a line that exists' );
 unlike( $crossref, qr/--project|TIRA_HOME|\.tira\//,
     'the cross-reference discloses no project selection' );
 

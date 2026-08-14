@@ -226,6 +226,8 @@ is( $status, 2, 'an unknown reference exits 2' );
 
 ( $status, $out ) = run_cli( 'question.list', '--help' );
 is( $status, 0, 'the command offers help' );
+like( $out, qr/Usage/i,
+    'and prints some, so the denial below is about help that exists' );
 unlike( $out, qr/--project|TIRA_HOME/, 'help never discloses project selection' );
 
 done_testing;

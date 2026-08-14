@@ -108,6 +108,8 @@ ok( length $payload->{text}, 'and the text ready to send' );
 
 ( $status, $out ) = run_cli( 'notify.compose', '--help' );
 is( $status, 0, 'the command offers help' );
+like( $out, qr/Usage/i,
+    'and prints some, so the denial below is about help that exists' );
 unlike( $out, qr/--project|TIRA_HOME/, 'help never discloses project selection' );
 
 done_testing;

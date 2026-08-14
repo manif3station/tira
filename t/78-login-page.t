@@ -60,6 +60,8 @@ unlike( $page, qr/<select/i,
 # login.
 $tira->person_add( project => $root, id => 'grace', name => 'Grace Hopper' );
 my $fresh = $tira->login_page_html( name => 'Gated' );
+like( $fresh, qr/<form|password/i,
+    'the page rendered, so the denial below is about a page and not about nothing' );
 unlike( $fresh, qr/michael|grace|hopper/i, 'the page names nobody on the project' );
 
 # One message covers both a wrong password and somebody who is not here at

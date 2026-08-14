@@ -133,6 +133,8 @@ ok( $refused, 'and it has to be somebody the board knows, like every other autho
 my $engine = do { local $/; open my $fh, '<', 'lib/Tira.pm' or die $!; <$fh> };
 $engine =~ s/^=\w.*?^=cut//gmsx;
 $engine =~ s/^\s*#.*$//gm;
+like( $engine, qr/package Tira/,
+    'the engine source really was read, so the denial below is about code' );
 unlike( $engine,
     qr/(?: qx[\{\(\/] | (?<![.\w]) system \s* \( | (?<![.\w]) exec \s* \( )/x,
     'nothing here spawns or resumes anything - Tira still invokes nothing' );

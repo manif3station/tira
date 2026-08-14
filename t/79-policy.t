@@ -229,6 +229,7 @@ for my $action (qw(bridge-reminder print-reminder log-only)) {
     is( scalar @{ Cpanel::JSON::XS->new->decode($out) }, 2, 'policy.list returns them' );
 
     ( $status, my $toon ) = $run->('policy.list');
+    like( $toon, qr/\S/, 'the default listing prints the two policies' );
     unlike( $toon, qr/"rule"\s*:/, 'and answers TOON by default like every other command' );
 
     ( $status, $out ) = $run->( 'policy.remove', '--id', 'POL-001', '-o', 'json' );

@@ -137,6 +137,8 @@ is( $status, 2, 'a missing reference exits 2' );
 
 ( $status, $out ) = run_cli( 'notify.list', '--help' );
 is( $status, 0, 'the command offers help' );
+like( $out, qr/Usage/i,
+    'and prints some, so the denial below is about help that exists' );
 unlike( $out, qr/--project|TIRA_HOME/, 'help never discloses project selection' );
 
 ( $status, $out ) = run_cli( 'ticket.list', '--project', $root, '--with-level', '-o', 'json' );

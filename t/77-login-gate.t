@@ -189,6 +189,9 @@ test_psgi $app, sub {
     # A stranger reaching the front door must not learn who is on the project,
     # and a failed sign-in must not tell them whether the person exists.
     my $page = $http->( GET '/' )->content;
+    like( $page, qr/<form|password/i,
+        'the login page rendered - a page that failed to would name nobody either, '
+          . 'and this check is the one that would have said so' );
     unlike( $page, qr/michael|grace|buildbot/, 'the login page names nobody' );
 
     my $unknown = decode_json( $http->( POST '/login',

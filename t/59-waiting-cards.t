@@ -116,6 +116,8 @@ ok( !waiting_for( $set_aside->{ref} ), 'a discarded question leaves the card set
     my $style = $tira->format_output(
         $tira->dashboard( project => $root ), output => 'table', project => $root );
     my ($sow) = $style =~ /\.board--sow\{--accent:(#[0-9a-f]{6})\}/;
+    like( $sow, qr/\A#[0-9a-f]{6}\z/i,
+        'the sow board has a colour at all, so the denial below is about one' );
     unlike( $sow, qr/\A#f/i, 'the sow board is not amber, which read as the waiting yellow' );
 }
 

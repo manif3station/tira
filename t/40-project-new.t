@@ -151,6 +151,8 @@ is( $status, 2, 'a missing name exits 2' );
 
 ( $status, $out, $err ) = run_cli( '--help' );
 is( $status, 0, 'the command offers help' );
+like( $out, qr/Usage/i,
+    'and prints some, so the denial below is about help that exists' );
 unlike( $out, qr/--project|TIRA_HOME/, 'help never discloses project selection' );
 
 my ( $scope_status, undef, $scope_err ) = do {

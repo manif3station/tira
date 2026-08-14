@@ -114,6 +114,8 @@ $engine =~ s/^\s*#.*$//gm;
 # JavaScript this module serves contains pattern.exec(text), and a check that
 # reports its own dashboard as a shell invocation is a check nobody will keep -
 # so a preceding dot or word character rules the match out.
+like( $engine, qr/package Tira/,
+    'the engine source really was read, so the denial below is about code' );
 unlike( $engine,
     qr/(?: qx[\{\(\/] | (?<![.\w]) system \s* \( | (?<![.\w]) exec \s* \( | open \s* \( [^)]* \| )/x,
     'the engine still invokes no shell, which is why the world is handed in at all' );

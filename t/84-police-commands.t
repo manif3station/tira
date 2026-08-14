@@ -82,6 +82,8 @@ like( $bridge, qr/fix:/, 'including what to do about it' );
     my $empty = File::Spec->catdir( $tmp, 'nothing-said' );
     ( $status, my $silence ) = run( 'policy.bridge', '--once', '--store', $empty );
     is( $status, 0, 'a bridge with nothing on it succeeds' );
+    # empty is what passes: a bridge with nothing to say prints nothing, and
+    # what is denied here is a bare 0 that would read as a violation.
     unlike( $silence, qr/\A0\s*\z/,
         'and says nothing, rather than printing a number that could be read as a violation' );
 }

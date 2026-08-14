@@ -139,6 +139,8 @@ is_deeply( names($root), [qw(backlog review ready discard)], 'leaving the board 
 
 ( $status, $out ) = run_cli( 'column.apply', '--help' );
 is( $status, 0, 'the command offers help' );
+like( $out, qr/Usage/i,
+    'and prints some, so the denial below is about help that exists' );
 unlike( $out, qr/--project|TIRA_HOME/, 'help never discloses project selection' );
 
 ( $status, $out ) = run_cli( 'ticket.list', '--project', $root, '--columns-json', '[]', '-o', 'json' );

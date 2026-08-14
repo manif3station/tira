@@ -1,5 +1,26 @@
 Revision history for Tira
 
+1.54  2026-08-14
+    - TKT-141: a denial now means the thing was there and did not say it.
+      unlike on an empty string passes, so twenty-six assertions across
+      the suite reported a promise kept whenever their subject failed to
+      exist. Found by the hourly bug hunt rather than by anything failing.
+    - The worst was a privacy check: the login page test denied that the
+      page names anybody, and would have reported exactly that about a
+      page returning an error. Five more denied that --help discloses
+      project selection, and every one of them would have passed on help
+      that printed nothing at all.
+    - It is not hypothetical. Under the autoflush change earlier tonight
+      the bridge went silent and one assertion in t/102 passed on the
+      empty output while its neighbours failed - reporting success about
+      a bridge writing nothing.
+    - Every denial now either establishes its subject or says in the
+      comment above it that empty is what passes, and a check enforces
+      the choice. Emptiness being correct is common and legitimate; what
+      this removes is the case where nobody decided which of the two it
+      was. Proved by emptying the login page: the new assertion fails by
+      name while the privacy denial beside it still passes.
+
 1.53  2026-08-14
     - TKT-137: an add that cannot take is refused rather than reported as
       done. Adding bytes whose hash was discarded on a card deduped onto

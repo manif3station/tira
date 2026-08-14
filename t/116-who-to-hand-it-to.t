@@ -97,6 +97,8 @@ like( $chained, qr/core agent/,
 
 $tira->project_mode( project => $root, mode => 'single' );
 my $alone = $tira->police_prompt( project => $root );
+like( $alone, qr/\S/,
+    'a single-agent project is still given a prompt' );
 unlike( $alone, qr/core agent/,
     'while a project that says it is worked by one agent is not told about a chain it does not have' );
 

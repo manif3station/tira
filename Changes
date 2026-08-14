@@ -1,5 +1,26 @@
 Revision history for Tira
 
+1.56  2026-08-14
+    - TKT-144: a refusal test now proves the refusal it was written for.
+      Twenty-five tests capture a refusal as a failed eval and fourteen
+      of them asserted only that something died. Any death satisfied
+      them: a renamed argument, a moved requirement, a typo in a rule
+      name, an exception thrown three calls deeper. Found by the hourly
+      bug hunt.
+    - Proved rather than argued. Pointing one of them at a rule that does
+      not exist made the death come from "Unknown policy rule" - nothing
+      to do with the column it claims to be about - and the test passed,
+      reporting that a column on that rule is refused. The rule could
+      have been deleted entirely and it would still have passed.
+    - It is the denial fault of 1.54 in its other form: there the subject
+      was never established so emptiness passed, here the reason is never
+      established so any failure passes. Both report a promise kept about
+      something that did not happen.
+    - Every captured refusal now asserts on the message, within sight of
+      the refusal it belongs to, or says in the comment above it that any
+      failure is what it means. A check enforces the choice, and is
+      proved by removing one assertion and watching it be named.
+
 1.55  2026-08-14
     - TKT-143: a policy can no longer carry a setting that does nothing.
       POLICY_FIELDS listed thirteen fields a policy may carry and one of

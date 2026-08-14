@@ -123,6 +123,7 @@ is( $tira->record_show( project => $root, ref => $card->{ref} )->{description},
 
 my $vanished = !eval { $tira->record_show( project => $root, ref => $later->{ref} ); 1 };
 ok( $vanished, 'the card raised after the backup is gone, as he asked for' );
+like( $@, qr/not found/, 'gone because the board no longer has it, not for another reason' );
 
 ok( -f File::Spec->catfile( $gone, $stored ), 'and the deleted attachment is back on the disk' );
 

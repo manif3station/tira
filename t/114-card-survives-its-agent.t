@@ -124,6 +124,7 @@ my $refused = !eval {
     1;
 };
 ok( $refused, 'and it has to be somebody the board knows, like every other authored thing' );
+like( $@, qr/Unknown project person/, 'refused for being nobody, not for something else' );
 
 # --- the boundary ---------------------------------------------------------
 #

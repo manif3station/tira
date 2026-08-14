@@ -83,6 +83,7 @@ my $endless = !eval {
     1;
 };
 ok( $endless, 'and so is one with no end' );
+like( $@, qr/come back by itself/, 'refused for having no end' );
 
 # --- the rule goes quiet, and only that rule ----------------------------------------
 
@@ -139,6 +140,7 @@ my $unknown = !eval {
     1;
 };
 ok( $unknown, 'putting down a rule that does not exist is refused' );
+like( $@, qr/Unknown policy rule/, 'refused for the rule being unknown' );
 
 done_testing;
 

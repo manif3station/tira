@@ -51,10 +51,12 @@ is( $tira->project_limit( project => $root ), 3,
 
 my $refused = !eval { $tira->project_limit( project => $root, max => 'lots' ); 1 };
 ok( $refused, 'a limit that is not a number is refused' );
+like( $@, qr/whole number of cards/, 'and says a limit is a count' );
 is( $tira->project_limit( project => $root ), 3, 'and the number already there is undamaged' );
 
 my $negative = !eval { $tira->project_limit( project => $root, max => -1 ); 1 };
 ok( $negative, 'and neither is a negative one, which would mean nothing may be worked' );
+like( $@, qr/whole number of cards/, 'refused for being a count, not for something else' );
 
 is( $tira->project_limit( project => $root, max => 0 ), 0,
     'zero is allowed, because a board deliberately frozen is a real thing to say' );

@@ -121,6 +121,7 @@ my $aside = !eval {
     1;
 };
 ok( $aside, 'creating a card straight into discard is refused' );
+like( $@, qr/where work is set aside/, 'refused for being discard, not for the column being unknown' );
 
 # --- the counter is not spent by a refusal ------------------------------------
 #

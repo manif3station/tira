@@ -122,6 +122,7 @@ my $refused = !eval {
     1;
 };
 ok( $refused, 'a column on this rule is refused, because the board already says which are work' );
+like( $@, qr/takes no --column/, 'refused for the column: pointed at a rule that does not exist, this passed while proving nothing' );
 
 # And the other way a column can be named. Both are declared as refused and only
 # one was tried, which the check in t/79 found on its first run - the rule
@@ -132,6 +133,7 @@ my $entering = !eval {
     1;
 };
 ok( $entering, 'and so is naming a column to enter, for the same reason' );
+like( $@, qr/takes no --enter/, 'and refused for that, rather than for anything else' );
 
 done_testing;
 

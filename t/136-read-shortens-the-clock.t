@@ -156,6 +156,7 @@ my $refused = !eval {
     1;
 };
 ok( $refused, 'a read age longer than the age it shortens is refused rather than ignored' );
+like( $@, qr/cannot be longer than it/, 'refused for being longer, not for being unknown' );
 
 done_testing;
 

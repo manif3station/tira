@@ -76,6 +76,7 @@ my $empty = !eval {
     1;
 };
 ok( $empty, 'and neither is a reason made of spaces' );
+like( $@, qr/needs a reason/, 'refused for the reason being empty' );
 
 # --- a rule that does not exist -------------------------------------------
 
@@ -84,6 +85,7 @@ my $unknown = !eval {
     1;
 };
 ok( $unknown, 'a rule nobody has heard of cannot be declined' );
+like( $@, qr/Unknown policy rule/, 'refused for the rule, and it lists the ones there are' );
 
 # --- read back ------------------------------------------------------------
 #

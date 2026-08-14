@@ -92,6 +92,7 @@ is_deeply( decode_json( $served->{police_log}->( { ref => $quiet->{ref} } ) ), [
 
 my $refused = !eval { $served->{police_log}->( {} ); 1 };
 ok( $refused, 'and asking without naming a card is refused rather than answered with everything' );
+like( $@, qr/card reference is required/, 'refused for the missing card' );
 
 # --- the page has somewhere to show it ------------------------------------------
 

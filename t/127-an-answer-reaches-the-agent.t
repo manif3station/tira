@@ -195,6 +195,7 @@ my $refused = !eval {
     1;
 };
 ok( $refused, 'an age on this rule is refused, because a grace is the thing it exists without' );
+like( $@, qr/takes no --age/, 'refused for the age, in the words somebody typing it would read' );
 
 done_testing;
 

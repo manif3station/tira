@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.52';
+our $VERSION = '1.53';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -2988,6 +2988,25 @@ sub attachment_add_content {
             $attachments = $record->{attachments};
         }
         my ($retained) = grep { $_->{sha} eq $sha && $_->{extension} eq $extension } @{$attachments};
+
+        # A write that cannot take does not report success. These bytes are set
+        # aside on this card, so deduplication would answer with the discarded
+        # record - original timestamp, discarded_at still on it, deduped true,
+        # exit zero - and create nothing. A project lost ten screenshots to
+        # that: their script counted exit codes and reported ten fresh
+        # attachments having made none, and the only repair left was to change
+        # the bytes until the hash moved.
+        #
+        # Refused rather than revived. Reviving is friendlier, and discard is
+        # described as setting aside rather than deleting, so being unable to
+        # put it back is the surprise - but a refusal cannot lose anything, and
+        # a revive can be added on top of one. It could not be added on top of
+        # silence.
+        die "These bytes were discarded on '$args{ref}' and adding them again "
+          . "will not bring them back. Attach different content, or say so "
+          . "explicitly on the card.\n"
+          if $retained && $retained->{discarded_at};
+
         my $deduped = defined $retained;
         if ( !$deduped ) {
             push @{$attachments}, $reference;

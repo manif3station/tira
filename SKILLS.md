@@ -686,7 +686,12 @@ tira.attachment.detach --ref REF --sha SHA256 [--extension EXT] [--comment ID] [
 Add hashes bytes, stores `sha256.extension`, and records the original filename.
 Many refs may share content. Remove deletes content, appends to
 `delete.log.yml`, and preserves JSON refs. Re-adding identical bytes restores
-the object. Deleted get emits `Deleted at <timestamp>` raw and exits `1`.
+the object after a remove. Discard is not the same thing: it sets a card-scoped
+stamp that outlives the bytes, so re-adding the identical content to that card
+is refused rather than reported as done — attach different content, or say on
+the card that it stands. A project read the restore sentence as general, lost
+ten screenshots to adds that returned success and created nothing, and could
+only repair them by re-rendering until the hash moved. Deleted get emits `Deleted at <timestamp>` raw and exits `1`.
 Managed storage paths are never returned; redirect raw bytes to a destination.
 Attachment deduplication is scoped to the target record or comment list. Add
 returns `original_filename` from the reference actually retained,
@@ -1173,7 +1178,10 @@ without revealing or creating a storage location.
 **Implemented.** `dashboard tira.attachment.remove --sha <64-hex> --extension zip` logs deletion.
 
 ### UC-096: Restore content
-**Implemented.** Re-adding identical bytes restores the shared SHA object.
+**Implemented.** Re-adding identical bytes restores the shared SHA object after
+a remove, which deleted the content. It does not undo a discard, which is
+card-scoped and beats deduplication: re-adding content discarded on that card is
+refused and says so, because an add that cannot take must not report success.
 
 ### UC-097: Add evidence
 **Implemented.** `dashboard tira.evidence.add --ref TKT-001 --summary "CI" --uri https://ci.example.test/1 --file result.xml --author ada`.

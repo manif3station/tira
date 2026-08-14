@@ -1,5 +1,29 @@
 Revision history for Tira
 
+1.53  2026-08-14
+    - TKT-137: an add that cannot take is refused rather than reported as
+      done. Adding bytes whose hash was discarded on a card deduped onto
+      the discarded record and returned it verbatim - the original
+      timestamp, discarded_at still set, deduped true, exit zero - while
+      creating no live attachment.
+    - It cost a project ten screenshots. They discarded twenty-two
+      believing all had changed, ten had not, and their script counted
+      exit codes and reported ten fresh attachments having made none. The
+      only repair was to change the bytes: they re-rendered, and for one
+      file whose pixels were already correct they did a lossless
+      re-encode purely to move the hash.
+    - The manual made it worse. "Re-adding identical bytes restores the
+      object" is true of remove, which deletes the content, and not of
+      discard, which sets a card-scoped stamp that beats deduplication -
+      and the two sentences sit close together. Both places now say which
+      is which.
+    - Refused rather than revived. Reviving is friendlier and discard is
+      described as setting aside rather than deleting, so being unable to
+      put it back is the surprise; but a refusal cannot lose anything and
+      a revive can be built on top of one, where it could not be built on
+      top of silence. The stamp stays card-scoped, so the same bytes
+      still attach to any other card.
+
 1.52  2026-08-14
     - TKT-138: tira.changes, the fourth documentation command, beside
       tira.skills, tira.usage and tira.policies. It prints the changelog

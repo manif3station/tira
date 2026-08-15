@@ -37,7 +37,8 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
 
-use lib 'lib';
+use lib 'lib', 't/lib';
+use Run qw(run_capturing);
 use Tira::CLI;
 
 plan skip_all => 'git is not installed here' if !Tira::CLI::_program_exists('git');
@@ -90,9 +91,14 @@ mkdir $repo;
 # git refusing rather than as the test never asking it anything.
 my $git = sub {
     my $where = shift;
-    my $command = join ' ', map { "'" . ( $_ =~ s/'/'\\''/gr ) . "'" } @_;
-    my $out = `cd '$where' && git $command 2>&1`;
-    return ( $? >> 8, $out );
+
+    # Run rather than described to a shell. This built one string with each
+    # argument single-quoted and ran it through backticks, which is correct
+    # POSIX quoting and no quoting at all on Windows - where cmd.exe read the
+    # quotes as part of the path and every call came back "The filename,
+    # directory name, or volume label syntax is incorrect". -C rather than cd,
+    # for the same reason. TKT-222.
+    return run_capturing( 'git', '-C', $where, @_ );
 };
 
 $git->( $repo, 'init', '-q', '.' );

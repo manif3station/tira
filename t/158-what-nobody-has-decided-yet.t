@@ -32,7 +32,8 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
 
-use lib 'lib';
+use lib 'lib', 't/lib';
+use Shipped qw(runnable_ok);
 use Tira;
 use Tira::CLI;
 
@@ -122,7 +123,7 @@ is_deeply( $tira->policy_undeclared( project => $root ), [],
     is_deeply( Tira::json_decode($out), [], 'and answers with what is left to decide' );
 }
 
-ok( -x File::Spec->catfile(qw(skills policy cli undeclared)),
+runnable_ok( File::Spec->catfile(qw(skills policy cli undeclared)),
     'and it ships as an entrypoint an agent can reach' );
 
 # --- named where a reader of the reference will find it -------------------------------------

@@ -88,7 +88,26 @@ is( slurp($path), "second\n", 'and written again over itself, which is the case 
 {
     local $Tira::WINDOWS = 1;
     no warnings 'redefine';
-    local *Tira::_replace_file = sub { $! = 13; return 0 };
+
+    # The failure is set in the variable the code will actually read, which is
+    # not the same variable on every platform. On the Windows branch the code
+    # reports $^E, deliberately, because $! is meaningless after a Win32 API
+    # call - it once reported "Inappropriate I/O control operation" for a
+    # permission problem. This set only $! and asserted the message says
+    # "Permission denied". On Linux, where this branch is driven by forcing the
+    # flag on, those two read the same and it passed. On Windows they do not:
+    # the code read $^E, which nothing had set, and the message came back with
+    # an empty reason - "Cannot replace ...:" and nothing after the colon. So
+    # the assertion passed here for a reason other than the one it states and
+    # failed on the one platform it exists to protect. Found by running it
+    # there. TKT-222.
+    my $because;
+    local *Tira::_replace_file = sub {
+        if ( $^O eq 'MSWin32' ) { $^E = 5 }    # ERROR_ACCESS_DENIED
+        else                    { $! = 13 }    # EACCES
+        $because = $^O eq 'MSWin32' ? "$^E" : "$!";
+        return 0;
+    };
 
     my $doomed = File::Spec->catfile( $tmp, 'doomed.txt' );
     ok( !eval { $tira->_atomic_write( $doomed, "never\n" ); 1 },
@@ -99,8 +118,13 @@ is( slurp($path), "second\n", 'and written again over itself, which is the case 
     # name, and stripping "Permission denied" from the message left it passing:
     # an assertion that promised the error explains itself and could not tell
     # whether it did. TKT-196.
-    like( $@, qr/Permission denied/i,
+    like( $@, qr/\Q$because\E/,
         'and says why, in the words the system gave for the failure' );
+
+    # Held to a denial rather than to whatever came back, so an empty or
+    # unrelated reason cannot satisfy the assertion above by matching itself.
+    like( $because, qr/denied|permission/i,
+        'which is a refusal of permission, not merely some text that matched itself' );
 
     my @leftovers = glob File::Spec->catfile( $tmp, '.tira-write-*' );
     is( scalar @leftovers, 0, 'and the temporary file is cleaned up' );

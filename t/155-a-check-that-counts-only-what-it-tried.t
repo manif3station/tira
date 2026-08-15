@@ -28,13 +28,14 @@ use warnings;
 use File::Spec;
 use Test::More;
 
-use lib 'lib';
+use lib 'lib', 't/lib';
+use Shipped qw(runnable_ok);
 use Tira::CLI;
 
 plan skip_all => 'python3 is not installed here' if !Tira::CLI::_program_exists('python3');
 
 my $tool = File::Spec->catfile(qw(tools docs-examples-run));
-ok( -x $tool, 'the documentation check ships and is runnable' );
+runnable_ok( $tool, 'the documentation check ships and is runnable' );
 
 open my $fh, '<', $tool or die $!;
 my $source = do { local $/; <$fh> };

@@ -30,7 +30,8 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
 
-use lib 'lib';
+use lib 'lib', 't/lib';
+use Shipped qw(runnable_ok);
 use Tira;
 
 my $tmp = tempdir( CLEANUP => 1 );
@@ -282,7 +283,7 @@ like( $found->[0]{detail}, qr/checklist-idle/,
     ok( exists $answered->{unanswered},      'and what is left to decide' );
 }
 
-ok( -x File::Spec->catfile(qw(skills policy cli review)),
+runnable_ok( File::Spec->catfile(qw(skills policy cli review)),
     'and it ships as an entrypoint an agent can reach' );
 
 for my $document (qw(SKILLS.md docs/commands.md)) {

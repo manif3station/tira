@@ -23,6 +23,9 @@ use warnings;
 use File::Spec;
 use Test::More;
 
+use lib 't/lib';
+use Shipped qw(runnable_ok);
+
 my $root = File::Spec->rel2abs('.');
 
 sub slurp {
@@ -37,7 +40,7 @@ sub slurp {
 
 my $entrypoint = File::Spec->catfile( $root, 'cli', 'changes' );
 ok( -f $entrypoint, 'there is an entrypoint for tira.changes' );
-ok( -x $entrypoint, 'and it is runnable, like the three beside it' );
+runnable_ok( $entrypoint, 'and it is runnable, like the three beside it' );
 
 # --- it prints the changelog and nothing else ----------------------------------
 

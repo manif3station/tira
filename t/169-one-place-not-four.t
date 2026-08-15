@@ -29,11 +29,12 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
 
-use lib 'lib';
+use lib 'lib', 't/lib';
+use Shipped qw(runnable_ok);
 use Tira::CLI;
 
 my $caller = File::Spec->catfile(qw(tools tira-call));
-ok( -x $caller, 'there is one caller the gate tools share' );
+runnable_ok( $caller, 'there is one caller the gate tools share' );
 
 sub slurp {
     my ($path) = @_;
@@ -64,6 +65,23 @@ like( $shared, qr/sleep/, 'and waits rather than failing on the instant' );
 like( $shared, qr/attempts/i, 'and says how many times it tried if it never resolves' );
 
 # --- proved by running it, against a command that vanishes once -----------------------
+#
+# Run only where it can be. The caller is a bash script, the stubs written
+# below are bash scripts, and they are invoked through a POSIX shell with a
+# PATH assignment in front of the command - none of which Windows has. The
+# platform gate found this as four failures in this file, and the first of the
+# four was worth fixing; these are not. What they cover is a gate tool run by
+# the push hook on the machine doing the pushing, and nothing on Windows
+# executes it.
+#
+# Skipped by name rather than left to fail, because the fourth assertion here
+# passed on Windows while the three after it failed - the command never ran, so
+# its exit status was zero and "not fatal" was satisfied by nothing having
+# happened. A test that passes because it did not run is worse than one that
+# fails. TKT-222.
+SKIP: {
+    skip 'the shared caller and its stubs are POSIX shell, which Windows does not run', 5
+      if $^O eq 'MSWin32';
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $marker = File::Spec->catfile( $tmp, 'seen' );
@@ -100,6 +118,7 @@ my $refused = `PATH='$tmp':\$PATH '@{[ File::Spec->rel2abs($caller) ]}' tira.pro
 isnt( $? >> 8, 0, 'a failure it cannot explain still stops the gate' );
 like( $refused, qr/on fire/, 'and passes on what the command actually said' );
 unlike( $refused, qr/attempts/i, 'without pretending it tried repeatedly' );
+}
 
 done_testing;
 

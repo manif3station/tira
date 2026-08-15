@@ -31,27 +31,17 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
 
-use lib 'lib';
+use lib 'lib', 't/lib';
+use Run qw(run_split);
+use Shipped qw(runnable_ok);
 use Tira::CLI;
 
 my $entrypoint = File::Spec->rel2abs( File::Spec->catfile(qw(cli changes)) );
-ok( -x $entrypoint, 'the changelog command ships and is runnable' );
+runnable_ok( $entrypoint, 'the changelog command ships and is runnable' );
 
 sub run_from {
     my ($root) = @_;
-    my $out = File::Spec->catfile( $root, 'out' );
-    my $err = File::Spec->catfile( $root, 'err' );
-    my $status = system "'$^X' '" . File::Spec->catfile( $root, 'cli', 'changes' )
-      . "' >'$out' 2>'$err'";
-    my $read = sub {
-        my ($path) = @_;
-        open my $fh, '<:raw', $path or return '';
-        local $/;
-        my $text = <$fh> // '';
-        close $fh;
-        return $text;
-    };
-    return ( $status >> 8, $read->($out), $read->($err) );
+    return run_split( $^X, File::Spec->catfile( $root, 'cli', 'changes' ) );
 }
 
 sub skill_at {
@@ -87,7 +77,15 @@ my $tmp = tempdir( CLEANUP => 1 );
     my $root = skill_at( File::Spec->catdir( $tmp, 'good' ), $real );
     my ( $status, $out, $err ) = run_from($root);
     is( $status, 0, 'a real changelog is printed and the command succeeds' );
-    is( $out, $real, 'byte for byte, with nothing added' );
+    # Line endings normalised, and nothing else. What this asserts is that
+    # the command adds nothing of its own - no header, no footer, no blank
+    # line - so a project diffing this against its own capture sees nothing
+    # move. On Windows the command's own STDOUT is a text handle and every
+    # newline comes back as CRLF, which is the platform behaving normally and
+    # not the command adding anything. Comparing the bytes made this fail
+    # there for a difference the assertion is not about. TKT-222.
+    ( my $printed = $out ) =~ s/\r\n/\n/g;
+    is( $printed, $real, 'byte for byte, with nothing added' );
     is( $err, '', 'and nothing said on the way' );
 }
 

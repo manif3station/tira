@@ -54,7 +54,14 @@ my %providers = (
 
 # --- a board referred to without its path ----------------------------------
 {
-    is( $tira->discover_project( project => 'hidden-board' ), $root,
+    # Compared as paths rather than as strings. Resolution goes through
+    # abs_path, which on Windows answers in forward slashes while File::Spec
+    # builds the expected value in backslashes - the same directory spelled two
+    # ways, and Windows accepts both. Asserting the string made this fail on the
+    # platform gate for a difference that is not a difference. TKT-222.
+    my $same = sub { my ($path) = @_; $path =~ s{\\}{/}g; return $path };
+    is( $same->( $tira->discover_project( project => 'hidden-board' ) ),
+        $same->($root),
         'a board can be reached without naming where it is' );
 
     my $bare = Tira->new( clock => sub {'2026-08-15T19:00:00Z'} );

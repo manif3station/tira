@@ -33,7 +33,8 @@ use warnings;
 use File::Spec;
 use Test::More;
 
-use lib 'lib';
+use lib 'lib', 't/lib';
+use Shipped qw(runnable_ok);
 use Tira::CLI;
 
 plan skip_all => 'python3 is not installed here' if !Tira::CLI::_program_exists('python3');
@@ -42,7 +43,7 @@ plan skip_all => 'python3 is not installed here' if !Tira::CLI::_program_exists(
 # next push after this shipped failed the same way in the backup step, which had
 # none of it, so the decision was moved somewhere both tools reach. TKT-174.
 my $audit = File::Spec->catfile(qw(tools tira-call));
-ok( -x $audit, 'the shared caller ships and is runnable' );
+runnable_ok( $audit, 'the shared caller ships and is runnable' );
 
 open my $fh, '<', $audit or die $!;
 my $source = do { local $/; <$fh> };

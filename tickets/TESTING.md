@@ -1,5 +1,43 @@
 # Testing record
 
+## 2.11 - the release that got Windows green again
+
+**Linux, in Docker.** The shared `perl-test` container, 211 files, 5437 tests,
+100% statement and subroutine coverage on `lib/Tira.pm`, `lib/Tira/CLI.pm` and
+`lib/Tira/DashboardWeb.pm`.
+
+**Windows.** `ssh windev`, Windows 11, Strawberry Perl - **PASS**, 211 files,
+5308 tests, "All tests successful". The first green run there since 1.06.
+
+The card named three failing files, because three was what the last run had
+reported - against a tree five releases old. The whole suite on the current tree
+failed in eight. Two causes accounted for nearly all of it:
+
+- Five assertions asked `-x`. Executability is what makes a file a command on a
+  POSIX system and is not a concept on Windows, where the answer is about the
+  extension. `t/lib/Shipped.pm` asks it once.
+- Four tests shelled out by building one string for the shell to take apart -
+  `'git' 'init' '-q' '/path' > '/out' 2>&1` and ``cd '$where' && git ...``.
+  Correct POSIX quoting; no quoting at all under cmd, which read the quotes as
+  part of the path. `t/lib/Run.pm` runs them with a list and moves the handles.
+
+The rest were individual: `t/95` set errno where the code reads the Win32 error,
+`t/211` compared a resolved path as a string when Windows answers in forward
+slashes and `File::Spec` builds backslashes, and `t/168` compared bytes where
+the command's own text-mode STDOUT returns CRLF.
+
+Three assertions in `t/169` run bash stubs through a POSIX shell and are skipped
+by name. That was worth doing rather than leaving: on Windows the assertion in
+front of them **passed**, because the command never ran, so its exit status was
+zero and "a failure is not fatal" was satisfied by nothing having happened.
+
+**git** is installed on the lab through winget (2.55.0.windows.3) and verified
+from a fresh session, so every path that shells out to it can be gated there.
+
+**macOS.** Not run for this release. Nothing in it is macOS-specific: the two
+helpers introduced are about Windows behaviour and are no-ops elsewhere, and the
+Linux gate covers the POSIX path they take.
+
 ## 2.02 - the release that found the platform gate had stopped running
 
 **Linux, in Docker.** The shared `perl-test` container, 202 files, 5356 tests,

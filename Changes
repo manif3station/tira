@@ -1,5 +1,33 @@
 Revision history for Tira
 
+2.11  2026-08-15
+
+    - TKT-222: the platform gate runs on Windows again. It had not since
+      1.06, and the suite there had drifted through five releases: eight
+      files failing, against a card that named three because three was
+      what the last run had reported.
+    - Two causes under nearly all of it. Five assertions asked whether a
+      file is executable, which is what makes a file a command on a POSIX
+      system and is not a concept on Windows, where the answer is about
+      the extension. Four tests shelled out by building one string and
+      letting the shell take it apart - correct POSIX quoting, and no
+      quoting at all where cmd reads the quotes as part of the path. Both
+      now have one helper each in t/lib rather than a copy per test.
+    - Three assertions in t/169 run bash stubs through a POSIX shell and
+      are skipped by name. Worth doing rather than leaving: on Windows the
+      assertion in front of them passed, because the command never ran, so
+      its exit status was zero and "a failure is not fatal" was satisfied
+      by nothing having happened.
+    - t/95, which exists to prove Windows file replacement, set errno and
+      asserted the message says so. The code reads the Win32 error there,
+      deliberately, because errno is meaningless after a Win32 API call.
+      On Linux the two read the same and it passed for a reason other than
+      the one it states. It now sets what the code will read, and a second
+      assertion holds the reason to a denial so an empty one cannot
+      satisfy the first by matching itself.
+    - git is on the lab, installed through its own package manager, so
+      every path that shells out to it can be gated there at last.
+
 2.10  2026-08-15
 
     - TKT-233: the command reference names the record verbs. It opens by

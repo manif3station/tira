@@ -38,19 +38,14 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
 
-use lib 'lib';
+use lib 'lib', 't/lib';
+use Run qw(run_quietly);
 use Tira::CLI;
 
 plan skip_all => 'git is not installed here' if !Tira::CLI::_program_exists('git');
 
 my $tmp = tempdir( CLEANUP => 1 );
 
-sub run_quietly {
-    my (@command) = @_;
-    my $out = File::Spec->catfile( $tmp, 'command.out' );
-    my $status = system join ' ', ( map { "'$_'" } @command ), '>', "'$out'", '2>&1';
-    return $status;
-}
 
 # A bare remote and a working copy, so a push is a real push.
 my $remote = File::Spec->catdir( $tmp, 'remote.git' );
@@ -81,8 +76,12 @@ sub install_hook {
 }
 
 sub push_status {
-    my $status = system "git -C '$work' push origin HEAD:refs/heads/probe-$_[0] >/dev/null 2>&1";
-    return $status == -1 ? -1 : ( $status & 127 ? 128 + ( $status & 127 ) : $status >> 8 );
+
+    # Run rather than described to a shell, so nothing has to be quoted for one
+    # and the discarding of output does not depend on a device that exists on
+    # one platform. TKT-222.
+    return run_quietly( 'git', '-C', $work, 'push', 'origin',
+        "HEAD:refs/heads/probe-$_[0]" );
 }
 
 # --- a hook that ignores its input is not the problem -----------------------------

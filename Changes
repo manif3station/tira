@@ -1,5 +1,33 @@
 Revision history for Tira
 
+1.87  2026-08-15
+
+    - TKT-184: the release gate proves the commits being pushed rather
+      than the desk they were written on. The pre-push suite ran against
+      the working directory, so anything lying there judged the release -
+      and this repository's standing state is that the next card's
+      failing test already exists, because the process is write the
+      failing test first and push each card as it finishes.
+    - It refused three pushes for reasons that were not about them, and
+      the third lost 1.85 outright: t/86 requires every declared rule to
+      fire, and the next card had already added one to the catalogue that
+      was not yet implemented. The commit was green when it was made and
+      green again twenty minutes later; only the tree it was judged
+      against was ever wrong. A card sat in done carrying a version
+      nobody could install until it was corrected by hand.
+    - The gate now checks out HEAD into a throwaway work tree, mounts it
+      over the path the container expects, and removes it however the run
+      ends - the failure paths being the common ones.
+    - Stricter than before rather than looser. A commit that passes only
+      because of an uncommitted file - a helper never added, a module
+      still unstaged - now fails at the gate instead of failing for
+      everybody else.
+    - Proved side by side at one moment, with a red test on the desk and
+      not in the commit: the old way FAIL, the new way PASS with the red
+      test simply absent from the release. Then with that same test
+      committed: FAIL again, so a genuinely broken commit is still
+      refused.
+
 1.86  2026-08-15
 
     - TKT-171: priority-skipped. A card being worked while a

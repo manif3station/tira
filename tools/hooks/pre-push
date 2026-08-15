@@ -77,13 +77,43 @@ compose="$workspace/docker-compose.testing.yml"
 [ -f "$compose" ] || fail "cannot find $compose - refusing to push untested"
 
 output="$(mktemp)"
-trap 'rm -f "$output"' EXIT
+
+# --- what is judged: the commits, not the desk ---------------------------
+#
+# The suite used to run against the working directory, so whatever was lying
+# there judged the release. This repository's standing state is that the NEXT
+# card's failing test already exists - write the failing test first, push each
+# card as it finishes - so every release made mid-card met it.
+#
+# It refused three pushes for reasons that were not about them, and the third
+# lost 1.85 outright: t/86 requires every declared rule to fire, and the next
+# card had already added one to the catalogue that was not yet implemented. The
+# commit was green when it was made and green again twenty minutes later. Only
+# the tree it was judged against was ever wrong. Both earlier repairs were to
+# move work in progress out of the way by hand, which is the habit a gate people
+# retry past produces.
+#
+# A checkout of HEAD is stricter than the old way rather than looser. A commit
+# that passes only because of an uncommitted file - a helper never added, a
+# module still unstaged - now fails here instead of failing for everybody else.
+tree="$(mktemp -d)"
+git worktree add --detach --quiet "$tree" HEAD \
+  || fail 'could not check out the commits being pushed'
+
+# However this ends. The failure paths are the common ones, and a gate that
+# leaves a checkout behind on each of them fills the disk of the machine it is
+# protecting.
+trap 'rm -f "$output"; git worktree remove --force "$tree" >/dev/null 2>&1 || true' EXIT
 # Under a timeout, because a suite can stop without failing. A test that leaks
 # a web server leaves prove waiting on a pipe nothing will ever close: no
 # output, no CPU, no end. Eighteen minutes of that looked exactly like a slow
 # run, twice, before anybody looked inside the container. A gate that can block
 # for ever is one that gets skipped, so it fails instead.
-docker compose -f "$compose" run --rm perl-test bash -lc '
+# Mounted over the path the suite expects, so nothing else in the harness needs
+# to know any of this is happening. The compose file's mask over the board
+# directory still applies - the checkout has no board of its own, which is what
+# 74-production-board.t is there to notice.
+docker compose -f "$compose" run --rm -v "$tree:/workspace/skills/tira" perl-test bash -lc '
   cd /workspace/skills/tira &&
   rm -rf cover_db .test-tmp &&
   cpanm --quiet --notest --installdeps . >/dev/null 2>&1 &&

@@ -20,6 +20,12 @@ $tira->project_new(
     sow_prefix => 'PLS', epic_prefix => 'PLE', ticket_prefix => 'PLT',
 );
 
+# card-sandbox-missing reads branches and work trees, and refuses to be
+# declared where no repository can be resolved (TKT-178). This board sits
+# inside one, which is the ordinary case and what a real board declaring
+# that rule looks like.
+mkdir File::Spec->catdir( $root, '.git' );
+
 # --- nothing to begin with -----------------------------------------------
 
 is_deeply( $tira->policy_list( project => $root ), [],
@@ -163,6 +169,12 @@ $tira->project_new(
     columns => ['Backlog, Doing'],
     sow_prefix => 'SCS', epic_prefix => 'SCE', ticket_prefix => 'SCT',
 );
+
+# card-sandbox-missing reads branches and work trees, and refuses to be
+# declared where no repository can be resolved (TKT-178). This board sits
+# inside one, which is the ordinary case and what a real board declaring
+# that rule looks like.
+mkdir File::Spec->catdir( $scratch, '.git' );
 for my $rule ( sort keys %needs ) {
     ok(
         eval {

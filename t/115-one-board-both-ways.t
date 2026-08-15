@@ -32,6 +32,12 @@ $tira->project_new(
     columns => ['backlog, implement, done'],
     sow_prefix => 'BWS', epic_prefix => 'BWE', ticket_prefix => 'BWT',
 );
+
+# card-sandbox-missing reads branches and work trees, and refuses to be
+# declared where no repository can be resolved (TKT-178). This board sits
+# inside one, which is the ordinary case and what a real board declaring
+# that rule looks like.
+mkdir File::Spec->catdir( $root, '.git' );
 my $store = File::Spec->catdir( $tmp, 'police-state' );
 
 my %world = (
@@ -193,6 +199,12 @@ $tira->project_new(
     columns => ['backlog, implement, done'],
     sow_prefix => 'NAS', epic_prefix => 'NAE', ticket_prefix => 'NAT',
 );
+
+# card-sandbox-missing reads branches and work trees, and refuses to be
+# declared where no repository can be resolved (TKT-178). This board sits
+# inside one, which is the ordinary case and what a real board declaring
+# that rule looks like.
+mkdir File::Spec->catdir( $untouched, '.git' );
 my $old = $tira->create_record( project => $untouched, type => 'ticket', title => 'As it always was' );
 $tira->record_move( project => $untouched, ref => $old->{ref}, column => 'implement' );
 $tira->policy_add( project => $untouched, rule => 'wip-limit',

@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.90';
+our $VERSION = '1.91';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -102,7 +102,46 @@ sub _split_list {
       map { split /,/, $_, -1 } ( ref $values eq 'ARRAY' ? @{$values} : $values );
 }
 
+# Whether a path sits inside a git repository, answered by looking rather than
+# by running anything. This module invokes no shell and is not going to start:
+# a .git entry - directory for a clone, file for a work tree - is the whole
+# question, and it is the same one police's own check asks.
+sub _looks_like_repository {
+    my ($where) = @_;
+    return 0 if !defined $where;
+    my $here = abs_path($where) // $where;
+    my $last = '';
+    while ( $here ne $last ) {
+        return 1 if -e File::Spec->catfile( $here, '.git' );
+        $last = $here;
+        $here = dirname($here);
+    }
+    return 0;
+}
+
 our %AUTOMATION_SETTING = (
+
+    # Where the work lives, when that is not where the board lives.
+    #
+    # card-sandbox-missing reads the machine: police runs git and hands the
+    # answers over. It ran them in the directory holding the board, which is the
+    # right guess only when the two are the same place. developer-dashboard's
+    # board is not inside the repository their work happens in, so every
+    # question came back empty - no branches, no work trees - and the rule
+    # reported every card as missing both, on a machine where all of it existed.
+    #
+    # Checked here rather than when police next runs, because a path that is not
+    # a repository is a mistake somebody can fix at the moment they make it, and
+    # a violation nobody can clear is the thing this whole subsystem is for.
+    repo => sub {
+        my ($value) = @_;
+        die "Repository path must not be empty\n" if $value !~ /\S/;
+        die "There is no directory at '$value' to be a repository\n" if !-d $value;
+        die "'$value' is not inside a git repository - police reads it to answer "
+          . "questions about branches and work trees\n"
+          if !_looks_like_repository($value);
+        return $value;
+    },
     collector => sub {
         my ($value) = @_;
         die "Collector name must be lowercase letters, digits and hyphens\n"
@@ -4433,6 +4472,21 @@ sub policy_add {
         die "Policy rule 'wip-limit' needs --max, or a limit set on the project"
           . " with tira.project.limit --max N\n"
           if !defined $stored;
+    }
+
+    # The one rule that reads the machine needs to know which machine. Refused
+    # here rather than discovered later as a violation nobody can clear, which
+    # is their third suggestion and this project's own rule about missing
+    # arguments: a policy police cannot follow is worse than no policy, because
+    # it reads as cover.
+    if ( $rule eq 'card-sandbox-missing' ) {
+        my $root = $self->discover_project(%args);
+        my $declared = eval { $self->project_show( project => $root )->{repo} };
+        die "Policy rule 'card-sandbox-missing' reads branches and work trees from a "
+          . "git repository, and this project is not in one. Say where the work lives "
+          . "with tira.project.update --repo PATH\n"
+          if !( defined $declared && $declared ne '' && _looks_like_repository($declared) )
+          && !_looks_like_repository($root);
     }
 
     for my $needed ( @{ $spec->{needs} } ) {

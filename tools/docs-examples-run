@@ -205,6 +205,15 @@ def check(scratch):
     if setup.returncode != 0:
         raise SystemExit(f'docs-examples-run: could not make a scratch board: {setup.stderr.strip()}')
 
+    # The guide documents card-sandbox-missing, which refuses to be declared
+    # where no repository can be resolved. The scratch board is given one, which
+    # is exactly what a real board declaring that rule has to do - TKT-178.
+    repository = os.path.join(scratch, 'repository')
+    os.makedirs(os.path.join(repository, '.git'), exist_ok=True)
+    subprocess.run(invoke('tira.project.update', '--project', project,
+                          '--repo', repository, '-o', 'json'),
+                   capture_output=True, text=True)
+
     # A card and a question to quote, so an example naming TKT-001 is about the
     # documentation rather than about an empty board.
     subprocess.run(invoke('tira.ticket.create', '--project', project,

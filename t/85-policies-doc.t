@@ -109,6 +109,18 @@ $tira->project_new(
     sow_prefix => 'DCS', epic_prefix => 'DCE', ticket_prefix => 'DCT',
 );
 
+# The guide documents card-sandbox-missing, which refuses to be declared where
+# no repository can be resolved - so a scratch board with no repository cannot
+# run those examples. That refusal is the point of TKT-178 rather than an
+# obstacle to it, so the scratch board is given one, which is what a board
+# declaring that rule has to do anyway.
+{
+    my $repo = File::Spec->catdir( $root, 'repository' );
+    mkdir $repo;
+    mkdir File::Spec->catdir( $repo, '.git' );
+    $tira->project_update( project => $root, repo => $repo );
+}
+
 # A command may be written across several lines with a backslash, which is how
 # anybody would write a long one - and how somebody would paste it. Reading
 # only the first line tests a truncated command that nobody would ever run.

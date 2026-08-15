@@ -1,5 +1,36 @@
 Revision history for Tira
 
+1.91  2026-08-15
+
+    - TKT-178: a project says where its repository is. Reported by
+      developer-dashboard: card-sandbox-missing fired on a card whose
+      branch, directory and work tree all existed, saying "the machine
+      reported 0 branches ... no work trees at all, which is what police
+      watching the wrong repository looks like".
+    - The rule was right and its subject was wrong. Police runs git in
+      the directory holding the board, which is the right guess only when
+      the board and the work live in the same place. Their board does not
+      sit inside the repository their work happens in, so every question
+      came back empty and every card was reported as missing both.
+    - tira.project.update --repo PATH records where the work lives, and
+      police reads that instead. The rule now gives the same verdict
+      wherever the board sits and wherever police was started, which was
+      the actual fault: a check whose subject depends on how it was
+      launched cannot be relied on.
+    - The path is checked when it is set. A directory that is not there,
+      or one not inside a git repository, is refused at that moment.
+    - Their third suggestion is in too: declaring card-sandbox-missing
+      where no repository can be resolved is refused, rather than
+      producing a violation nobody can clear. That is this project's own
+      rule about missing arguments applied to the one rule that reads the
+      machine.
+    - Nothing changes for a board that already sits inside its
+      repository, which is asserted rather than assumed.
+    - Both documentation harnesses needed a repository on their scratch
+      boards, because the guide documents the rule and the rule now
+      refuses a board without one. That is the refusal working, not an
+      obstacle to it - a board declaring this rule has to do the same.
+
 1.90  2026-08-15
 
     - TKT-177: board-still. His request - if nothing has moved for a

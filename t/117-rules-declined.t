@@ -38,6 +38,12 @@ $tira->project_new(
     sow_prefix => 'DCS', epic_prefix => 'DCE', ticket_prefix => 'DCT',
 );
 
+# card-sandbox-missing reads branches and work trees, and refuses to be
+# declared where no repository can be resolved (TKT-178). This board sits
+# inside one, which is the ordinary case and what a real board declaring
+# that rule looks like.
+mkdir File::Spec->catdir( $root, '.git' );
+
 # One rule declared, so this is a project that has been set up and is behind -
 # the case the prompt is really for.
 $tira->policy_add( project => $root, rule => 'card-stalled',

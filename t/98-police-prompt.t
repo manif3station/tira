@@ -20,6 +20,12 @@ $tira->project_new(
     sow_prefix => 'PPS', epic_prefix => 'PPE', ticket_prefix => 'PPT',
 );
 
+# card-sandbox-missing reads branches and work trees, and refuses to be
+# declared where no repository can be resolved (TKT-178). This board sits
+# inside one, which is the ordinary case and what a real board declaring
+# that rule looks like.
+mkdir File::Spec->catdir( $root, '.git' );
+
 # --- a project nobody has set up ------------------------------------------
 
 # Police watches a board with no policies and finds nothing, because there is

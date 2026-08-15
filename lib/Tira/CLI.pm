@@ -92,6 +92,7 @@ sub run {
         'no-session-expire' => \$option{no_session_expire},
         'ssl' => \$option{ssl},
         'sandbox=s' => \$option{sandbox},
+        'repo=s' => \$option{repo},
         'collector=s' => \$option{collector}, 'agent=s' => \$option{agent},
         'session=s' => \$option{session}, 'heartbeat=s' => \$option{heartbeat},
         'outward=s' => \$option{outward}, 'inward=s' => \$option{inward},
@@ -2130,7 +2131,22 @@ sub _police_store {
 sub _police_world {
     my (%args) = @_;
     my $root = $args{project};
-    my $where = defined $root && -d $root ? $root : undef;
+
+    # The repository the project declared, when it declared one. Police used to
+    # run git in the directory holding the board, which is the right guess only
+    # when the two are the same place - and on a board that sits outside its
+    # repository every question came back empty, so card-sandbox-missing
+    # reported every card as missing a branch and a work tree that both existed.
+    #
+    # Declared beats guessed and nothing else changes: a board that does sit
+    # inside its repository still finds it without saying anything.
+    my $declared = eval {
+        Tira->new->project_show( project => $root )->{repo};
+    };
+    my $where =
+        ( defined $declared && $declared ne '' && -d $declared ) ? $declared
+      : ( defined $root && -d $root ) ? $root
+      :                                 undef;
 
     my $world = {
         branches   => _git_branches($where),

@@ -1618,3 +1618,47 @@ leaving the question unanswered —
 — which takes a reason, has a ceiling, is written to the enforcement log, and
 comes back by itself. There is nothing to switch on again afterwards, and the
 silence is accounted for rather than merely absent.
+
+
+## Telling police where the repository is
+
+`card-sandbox-missing` reads the machine rather than the board: police runs
+`git branch` and `git worktree list` and hands the answers over. It ran them in
+the directory holding the board, which is the right guess only when the board
+and the work live in the same place.
+
+A project reported the rule firing on a card whose branch, directory and work
+tree all existed:
+
+    missing a branch named DD-532 (the machine reported 0 branches) and the
+    work tree it records, /home/mv/dd-worktree-sandbox/dd-532 - the machine
+    reported no work trees at all, which is what police watching the wrong
+    repository looks like
+
+The rule was right and its subject was wrong. Their board does not sit inside
+the repository their work happens in, so every question came back empty.
+
+**A project can say where its work lives:**
+
+    d2 tira.project.update --repo /path/to/the/repository
+
+Police reads that instead, so the rule gives the same verdict wherever the board
+sits and wherever police was started — which was the real fault, because a check
+whose subject depends on how it was launched cannot be relied on.
+
+**The path is checked when it is set.** A directory that is not there, or one
+that is not inside a git repository, is refused at that moment rather than
+becoming a violation nobody can clear.
+
+**And the rule refuses to be declared where no repository can be resolved:**
+
+    Policy rule 'card-sandbox-missing' reads branches and work trees from a git
+    repository, and this project is not in one. Say where the work lives with
+    tira.project.update --repo PATH
+
+That is this guide's own rule about missing arguments applied to the one rule
+that reads the machine: a policy police cannot follow is worse than no policy,
+because it reads as cover.
+
+**A board that does sit inside its repository needs to say nothing.** Nothing
+changes underneath a project that has declared no repository.

@@ -257,7 +257,8 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
 - `tira.project.new --name TEXT [--dir DIR] [--members LIST] [--columns LIST]
   [--sow-prefix PREFIX] [--epic-prefix PREFIX] [--ticket-prefix PREFIX]
   [--digits N] [--notify-after MINUTES] [--collector NAME] [--agent NAME]
-  [--session ID] [--heartbeat MINUTES] [-o FORMAT]` — **Implemented.** Creates a project, its
+  [--session ID] [--heartbeat MINUTES] [--repo PATH] [-o FORMAT]` —
+  **Implemented.** Creates a project, its
   people, each board's reference prefix, and one shared column set in a single
   call. `--members` and `--columns` take comma-separated human text and repeat, and
   `--sow-columns`, `--epic-columns`, and `--ticket-columns` give one board its
@@ -287,7 +288,8 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
 - `tira.project.show [-o FORMAT]` — **Implemented.**
 - `tira.project.update [--name TEXT] [--dashboard-host HOST] [--dashboard-port PORT]
   [--listen HOST[:PORT]] [--notify-after MINUTES] [--collector NAME]
-  [--agent NAME] [--session ID] [--heartbeat MINUTES] [-o FORMAT]` —
+  [--agent NAME] [--session ID] [--heartbeat MINUTES] [--repo PATH]
+  [-o FORMAT]` —
   **Implemented.** Renames a project, and **Implemented.** remembers the address its live board should listen on:
   `--dashboard-host` takes `localhost`, `127.0.0.1`, `0.0.0.0`, or `any` as the
   plain-language form of every interface, and `--dashboard-port` takes 1-65535.

@@ -304,6 +304,7 @@ missing, at the moment you declare the policy rather than later.
 | `discard-with-open-questions` | — | a card set aside while it still carries a question nobody answered. **No age**: a question that left with the card is not waiting. |
 | `board-still` | `--age` | a whole board where nothing has moved for that long. The only rule here that is not about a card. |
 | `bridge-unread` | `--age` | police has been writing to the bridge and nobody has read it for that long. |
+| `column-unwatched` | — | a column work happens in that no column-scoped policy mentions at all, which is what adding a column does to policies that were complete when they were written. **No column and no age**: it is about the columns other policies name, and a gap is a gap the moment it opens. |
 | `question-unanswered` | `--age` | a question waiting on the owner |
 | `conversation-not-folded` | — | a card talked about since it was last written down. **No age**: the ladder already keeps it from repeating. |
 | `card-unassigned` | — | work in progress with nobody on it. **No column**: the board says which columns are work. A board whose work ends in more than one place marks each ending with `tira.column.update --terminal`; one that marks nothing treats `done` as its ending, as before. |
@@ -1703,6 +1704,67 @@ decision about how it works: a minute is absurd on a board polled hourly and a
 day is useless on one being worked now.
 
 
+## Adding a column does not silently narrow a rule
+
+A rule that names a column stops covering the board the moment somebody adds
+another. Nobody has to do anything wrong: the policy was complete when it was
+written, and a column added later narrowed it without saying so.
+
+This project did it to itself. `checklist-idle` and `card-duration` were
+declared for one column on a board with five, so a card could sit untouched in
+any of the other four for ever — which is exactly what happened, and the owner
+was the one who noticed a card parked for six hours.
+
+    d2 tira.policy.add --rule column-unwatched --action bridge-reminder
+
+    no policy scoped by column watches document, and card-duration,
+    checklist-idle are declared for other columns - a rule naming a column stops
+    covering the board the moment another is added, silently. Declare what
+    belongs there, or decline the rules that do not
+
+**What is reported is a column nothing watches**, not every rule that fails to
+cover every column. The wider version was written first, and running
+`tira.policy.review` against this project's own board killed it: `gate-missing`
+is declared for `verify`, `push` and `done` deliberately, because a card in
+`tests-red` has no gate to show yet, and the wider check demanded it be declared
+there too. Nothing could have answered that. **A violation nobody can close is
+the fault this guide keeps meeting** — it teaches whoever reads the bridge that
+some lines are not worth acting on.
+
+Which rule belongs on which column is a judgment. A column no column-scoped rule
+mentions at all is not: it is a place work happens that the policies do not know
+exists.
+
+**One violation, however many columns are blind.** This is one state — the board
+has grown past its policies — and it is answered when they catch up.
+
+**Only rules that name a column at all count as watching.** A board-wide policy
+covers every column by construction, so it neither creates this nor closes it.
+
+**And only columns where work happens.** Which those are is the board's own
+answer, the same one `card-unassigned` and `priority-skipped` ask for: not
+protected, and not marked `--terminal`. A rule watching the finished column for
+idleness would report every shipped card for ever.
+
+
+## Reading the whole set in one place
+
+Policies are declared one at a time, over weeks, by whoever was working. Reading
+them back out of `tira.policy.list` means holding the catalogue in your head to
+see what is missing, which is the work this saves:
+
+    d2 tira.policy.review
+
+Every rule in the catalogue appears exactly once, in one of three states —
+declared with the columns it covers, declined with the reason, or unanswered.
+Reading the columns down the declared side shows which of the board's working
+columns nothing names, which is the gap `column-unwatched` reports — visible by
+reading rather than by working out.
+
+`tira.policy.undeclared` answers a narrower question and is what police prints
+for the owner when it starts. This one is for reviewing the whole set at once.
+
+
 ## A scope that means something
 
 Declaring a policy on a card beats declaring it on the column, which beats the
@@ -1718,9 +1780,9 @@ rule uses.
 now reports TKT-001 and nothing else, and the same rule declared without a card
 still reports the whole board.
 
-**A scope a rule cannot act on is refused.** `board-still` and `bridge-unread`
-are about the whole board, so a card scope could never narrow either, and it is
-refused when it is set:
+**A scope a rule cannot act on is refused.** `board-still`, `bridge-unread` and
+`column-unwatched` are about the whole board, so a card scope could never narrow
+any of them, and it is refused when it is set:
 
     Policy rule 'board-still' is about the whole board rather than one card, so
     a card scope could never narrow it. Declare it without --ref

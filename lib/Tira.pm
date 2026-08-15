@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.94';
+our $VERSION = '1.95';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4406,6 +4406,11 @@ my %POLICY_RULES = (
     # rather than something Tira can guess: a minute is absurd on a board polled
     # hourly and a day is useless on one being worked now.
     'bridge-unread'             => { needs => ['age'] },
+
+    # No age and no column of its own. It is about the columns OTHER policies
+    # name, so scoping it to one would be asking it to watch a single place for
+    # a fault that is only visible across the whole board.
+    'column-unwatched'          => { needs => [], forbids => [ 'age', 'column' ] },
 );
 
 # What each of these is about, for the refusal that explains why a card scope
@@ -4420,6 +4425,10 @@ my %POLICY_RULES = (
 my %WHOLE_BOARD_RULE = (
     'board-still'   => 'the whole board',
     'bridge-unread' => 'the whole board',
+
+    # It is about which columns the OTHER policies name. A card cannot narrow
+    # that any more than it can narrow the board being still.
+    'column-unwatched' => 'the whole board',
 );
 
 # Police speaks in exactly three ways: down the bridge the agent tails, in the
@@ -5305,6 +5314,81 @@ sub policy_evaluate {
                 $report->( $policy, $record, "reached $policy->{column} with no gate recorded" );
             }
         }
+        elsif ( $rule eq 'column-unwatched' ) {
+
+            # Adding a column does not silently narrow a rule.
+            #
+            # A rule naming one column stops covering the board the moment
+            # somebody adds another, and nobody has to do anything wrong for
+            # that to happen: the policy was complete when it was written. On
+            # this project's own board checklist-idle and card-duration were
+            # declared for one column out of five, and a card sat untouched in
+            # one of the other four for six hours before he spotted it himself.
+            #
+            # Only rules the board has actually scoped by column. A board-wide
+            # policy already covers everything, and telling somebody to narrow
+            # what is as wide as it can be is noise.
+            my %covered;
+            for my $other ( @{$policies} ) {
+                next if ( $other->{column} // '' ) eq '';
+                $covered{ $other->{rule} }{ $other->{column} } = 1;
+            }
+            next if !keys %covered;
+
+            # Where work happens, asked the way card-unassigned and
+            # priority-skipped ask it: not protected, and not an ending. A board
+            # that has marked nothing terminal ends in `done`, which is the same
+            # fallback those rules use - without it every board would be told
+            # its finished column is unwatched.
+            my %working;
+            for my $type (qw(sow epic ticket)) {
+                my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
+                my %ends = map { $_->{name} => 1 } grep { $_->{terminal} } @{$columns};
+                $ends{done} = 1 if !keys %ends;
+                $working{ $_->{name} } = 1
+                  for grep { !$_->{protected} && !$ends{ $_->{name} } } @{$columns};
+            }
+
+            # A column no column-scoped rule mentions at all.
+            #
+            # Not "a rule that does not cover every column", which is the wider
+            # question and the wrong one. Which rule belongs on which column is
+            # a judgment: gate-missing belongs at the late columns and would be
+            # absurd on tests-red, and demanding it there would raise a
+            # violation nobody could ever close - the exact complaint mt5-ai
+            # made about card-damaged, arriving from the other direction.
+            #
+            # A column that no column-scoped rule names is not a judgment. It
+            # is a place work happens that the board's column-scoped policies
+            # do not know exists, which is what adding a column does and what
+            # happened here: checklist-idle and card-duration named implement
+            # on a board with five working columns, and a card sat in tests-red
+            # for six hours with nothing to say so.
+            #
+            # Found by running the review this card also ships against this
+            # project's own board. The wider version demanded gate-missing be
+            # declared for tests-red, and there would have been no way to
+            # answer it.
+            my %named;
+            $named{$_} = 1 for map { keys %{$_} } values %covered;
+
+            my @blind = sort grep { !$named{$_} } keys %working;
+
+            # One violation, however many columns are blind. A violation is
+            # identified by its rule, its policy and its card, so several of
+            # these would be one issue whose text changed under it - and this is
+            # one state anyway: the board has grown past its policies, and it is
+            # answered when they catch up.
+            $report->( $policy, '',
+                'no policy scoped by column watches '
+                  . join( ', ', @blind )
+                  . ', and ' . join( ', ', sort keys %covered )
+                  . ( keys %covered == 1 ? ' is' : ' are' )
+                  . ' declared for other columns - a rule naming a column stops covering '
+                  . 'the board the moment another is added, silently. Declare what belongs '
+                  . 'there, or decline the rules that do not' )
+              if @blind;
+        }
         elsif ( $rule eq 'bridge-unread' ) {
 
             # Whether anybody is listening. Every other rule here asks whether
@@ -5945,6 +6029,42 @@ sub _police_environment_violations {
 # Police prints this for the owner every run and asks it here rather than
 # working it out again, because two answers to one question is what this
 # codebase keeps finding drifted apart.
+# The whole set in one place, for the review he asked to do.
+#
+# His words: set up the correct policies yourself, then I come round behind and
+# check. Checking means reading it somewhere, and reading it out of policy.list
+# means holding the catalogue in your head to see what is missing - which is the
+# work this is meant to save.
+#
+# Every rule in the catalogue appears exactly once, in one of three states, with
+# the columns a declared rule covers, so a gap can be seen rather than worked
+# out.
+sub policy_review {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+
+    my $declined = $self->policy_declined( project => $root );
+
+    my %columns;
+    my %declared;
+    for my $policy ( @{ $self->policy_list( project => $root ) } ) {
+        my $rule = $policy->{rule} // '';
+        $declared{$rule} = 1;
+        push @{ $columns{$rule} }, $policy->{column}
+          if defined $policy->{column} && $policy->{column} ne '';
+    }
+
+    my @declared = map {
+        { rule => $_, columns => [ sort keys %{ { map { $_ => 1 } @{ $columns{$_} // [] } } } ] }
+    } sort keys %declared;
+
+    return {
+        declared   => \@declared,
+        declined   => [ map { { rule => $_->{rule}, reason => $_->{reason} } } @{$declined} ],
+        unanswered => $self->policy_undeclared( project => $root ),
+    };
+}
+
 sub policy_undeclared {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);

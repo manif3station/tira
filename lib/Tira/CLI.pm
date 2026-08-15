@@ -1983,6 +1983,9 @@ sub _invoke {
     # declare a policy, and police prints this for the owner rather than for it.
     return $tira->policy_undeclared(%args) if $command eq 'policy.undeclared';
 
+    # The whole set in one place, for the review he does behind the agent.
+    return $tira->policy_review(%args) if $command eq 'policy.review';
+
     if ( $command =~ /\Apolicy\.(add|list|remove)\z/ ) {
         my $action = $1;
         return $tira->policy_list(%args) if $action eq 'list';

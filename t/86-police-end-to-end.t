@@ -80,6 +80,7 @@ my %declare = (
     'discard-with-open-questions' => {},
     'board-still'               => { age => '8h' },
     'bridge-unread'             => { age => '30m' },
+    'column-unwatched'          => {},
     'column-skipped'            => { enter => 'done', require => 'implement' },
 );
 is_deeply( [ sort keys %declare ], [ sort @{ Tira::policy_rules() } ],
@@ -87,6 +88,13 @@ is_deeply( [ sort keys %declare ], [ sort @{ Tira::policy_rules() } ],
 
 $tira->policy_add( project => $root, rule => $_, action => 'bridge-reminder', %{ $declare{$_} } )
   for sort keys %declare;
+
+# A column added after the policies were written, which is the whole of
+# column-unwatched: checklist-idle, card-duration and wip-limit name implement
+# and verify, nothing names this one, and nobody did anything wrong - the
+# policies above were complete when they were declared.
+$tira->column_add( project => $root, type => 'ticket', name => 'document',
+    after => 'verify' );
 
 # --- a board with something wrong of every kind ---------------------------
 

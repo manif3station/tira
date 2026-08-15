@@ -1033,6 +1033,26 @@ does not carry a record saying the opposite. A rule that arrives in a future
 release is asked about exactly as it is today, and with every rule either
 declared or declined the prompt says nothing at all.
 
+### `tira.policy.review`
+
+The whole policy set in one place: every rule in the catalogue, exactly once,
+either declared with the columns it covers, declined with the reason, or
+unanswered. No arguments beyond `-o FORMAT`.
+
+    d2 tira.policy.review
+
+Policies are declared one at a time, over weeks, by whoever was working. Reading
+them back out of `tira.policy.list` means holding the catalogue in your head to
+see what is missing - this is for the review somebody does behind the agent,
+where the question is what the set adds up to rather than what one policy says.
+
+Reading the columns down the declared side shows which of the board's working
+columns nothing names, which is what `column-unwatched` reports on the bridge.
+This shows it without waiting for a pass.
+
+`tira.policy.undeclared` answers the narrower question and is what police prints
+for the owner when it starts.
+
 ### `tira.project.mode`
 
 Says whether this project is worked by a single agent or by a chain of them,

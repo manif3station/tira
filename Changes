@@ -1,5 +1,47 @@
 Revision history for Tira
 
+1.95  2026-08-15
+
+    - TKT-195: adding a column no longer silently narrows a rule. A
+      policy that names a column stops covering the board the moment
+      somebody adds another, and nobody has to do anything wrong for
+      that to happen - the policy was complete when it was written.
+    - This project did it to itself. checklist-idle and card-duration
+      were declared for one column on a board with five, so a card could
+      sit untouched in any of the other four for ever, and one did, for
+      six hours, until the owner noticed it rather than the board.
+    - column-unwatched reports a column work happens in that no
+      column-scoped policy mentions at all, naming the column and the
+      rules declared for the others. One violation however many columns
+      are blind, because that is one state - the board has grown past
+      its policies - and it is answered when they catch up.
+    - Narrower than the version written first, which asked whether every
+      column-scoped rule covered every working column. Running the
+      review this release also ships against this project's own board
+      killed that one: gate-missing is declared for verify, push and
+      done deliberately, because a card in tests-red has no gate to show
+      yet, and the wider check demanded it be declared there too.
+      Nothing could have answered that, and a violation nobody can close
+      is the complaint mt5-ai raised the same morning about card-damaged
+      arriving from the other direction.
+    - Which rule belongs on which column is a judgment. A column no
+      column-scoped rule mentions is not: it is a place work happens
+      that the policies do not know exists. Board-wide rules neither
+      create the gap nor close it, and the finished column is never
+      asked for - a rule watching it for idleness would report every
+      shipped card for ever.
+    - It takes no column, no age and no card scope, all three refused
+      when they are set: it is about the columns other policies name, a
+      gap is a gap the moment it opens, and a card cannot narrow it any
+      more than it can narrow the board being still.
+    - tira.policy.review prints the whole set in one place - every rule
+      in the catalogue exactly once, declared with the columns it
+      covers, declined with the reason, or unanswered. Policies are
+      declared one at a time over weeks, and reading them back out of
+      policy.list means holding the catalogue in your head to see what
+      is missing. That is the review he asked to be able to do behind
+      the agent, and it is now one command rather than an exercise.
+
 1.94  2026-08-15
 
     - TKT-192: tira.doctor, which he asked for by name. It finds board

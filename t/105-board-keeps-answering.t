@@ -38,7 +38,11 @@ my @chosen;
     local *Plack::Runner::parse_options = sub { my ( undef, @o ) = @_; @chosen = @o; return };
     local *Plack::Runner::run = sub { return 1 };
 
-    Tira::DashboardWeb->serve( host => '127.0.0.1', port => 7999,
+    # The board is named, because since 2.00 the workers load dashboard.psgi
+    # themselves and read which board to serve from the environment - they
+    # cannot be handed a closure over it. This test already had a board; it
+    # never had to say so.
+    Tira::DashboardWeb->serve( host => '127.0.0.1', port => 7999, project => $root,
         render => sub { '' }, data => sub { '' }, %providers );
 }
 
@@ -57,7 +61,7 @@ is( $option{'--server'}, 'Starman',
     local *Plack::Runner::parse_options = sub { my ( undef, @o ) = @_; @chosen = @o; return };
     local *Plack::Runner::run = sub { return 1 };
 
-    Tira::DashboardWeb->serve( host => '127.0.0.1', port => 7999,
+    Tira::DashboardWeb->serve( host => '127.0.0.1', port => 7999, project => $root,
         render => sub { '' }, data => sub { '' }, %providers,
         ssl_cert => '/tmp/board.crt', ssl_key => '/tmp/board.key' );
     my %secured = @chosen[ 0 .. $#chosen ];

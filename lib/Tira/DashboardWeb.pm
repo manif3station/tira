@@ -6,6 +6,8 @@ use warnings;
 our $VERSION = '1.05';
 
 use Encode qw(decode_utf8 encode_utf8);
+use File::Basename ();
+use File::Spec ();
 use Cpanel::JSON::XS ();
 use Dancer2 appname => 'TiraDashboard';
 
@@ -348,11 +350,68 @@ sub build_psgi_app {
     return __PACKAGE__->to_app;
 }
 
+# The board is served from a file, not from a closure built here.
+#
+# A coderef built in this process is in memory before Starman forks, so its
+# workers inherit it and a HUP reloads nothing - which is why a served board
+# went on running old code after an upgrade, reported by the owner on
+# 2026-08-15. A path is loaded by each worker instead, so a HUP re-forks
+# workers that read the modules from disk again while the master keeps the
+# listening socket.
+#
+# Proved before choosing it: a two-worker Starman serving a .psgi that read a
+# version from a file answered "version one", the file was changed and the
+# master sent HUP, and it answered "version two". Server::Starter is the
+# documented answer for an application that must be preloaded, and is not
+# needed once nothing is.
+#
+# dashboard.psgi has shipped since it was written and nothing referenced it. It
+# builds the same application from TIRA_DASHBOARD_ROOT with the same providers
+# the CLI uses, which is what makes this wiring rather than construction.
+# Where the file lives, relative to this module rather than to whatever
+# directory the board was launched from - a served board is started from
+# anywhere and must find its own application.
+sub _psgi_path {
+    my ($class) = @_;
+    my $here = __FILE__;
+    $here =~ /\A([^\x00-\x1f\x7f]+)\z/ or die "Unsafe module path\n";
+    my $root = File::Spec->rel2abs(
+        File::Spec->catdir( File::Basename::dirname($1), File::Spec->updir, File::Spec->updir ) );
+    my $psgi = File::Spec->catfile( $root, 'dashboard.psgi' );
+    die "The dashboard application is missing at $psgi\n" if !-f $psgi;
+    return $psgi;
+}
+
 sub serve {
     my ( $class, %args ) = @_;
-    my $app = $class->build_psgi_app(
-        map { $_->[0] => $args{ $_->[0] } } @PROVIDERS
-    );
+
+    # Which board, asked first.
+    #
+    # The workers load the file themselves and cannot be handed a closure over
+    # it, so the board travels in the environment - and dashboard.psgi reads
+    # TIRA_DASHBOARD_ROOT and dies without it. Serving without one would start
+    # workers that die on load, in a child whose error stream nobody is
+    # reading, which is the worst place for a message to go.
+    #
+    # Before the providers are checked, because "which board" is the more basic
+    # question: a caller who forgot it should hear that rather than a complaint
+    # about a renderer they never mentioned. Found by writing the test - the
+    # first version asked in the other order and said the wrong thing.
+    my $project = $args{project};
+    die "Serving a board needs to know which one: --project\n"
+      if !defined $project || $project eq '';
+
+    # The providers are still validated here, so that a caller who hands in its
+    # own - every test that stubs one - still gets what it asked for, and so a
+    # missing provider is refused where somebody sees it rather than inside a
+    # worker.
+    $class->build_psgi_app( map { $_->[0] => $args{ $_->[0] } } @PROVIDERS );
+
+    local $ENV{TIRA_DASHBOARD_ROOT} = $project;
+    local $ENV{TIRA_DASHBOARD_TYPE} = $args{type} // '';
+    local $ENV{TIRA_DASHBOARD_TITLE} = $args{with_title} ? '1' : '0';
+
+    my $app = $class->_psgi_path;
     require Plack::Runner;
     my $runner = Plack::Runner->new;
 

@@ -181,10 +181,20 @@ like( $@, qr/Missing dashboard detail provider/, 'PSGI builder requires a detail
     my ( @options, $ran );
     local *Plack::Runner::new = sub { return bless {}, 'Plack::Runner' };
     local *Plack::Runner::parse_options = sub { shift; @options = @_ };
-    local *Plack::Runner::run = sub { my ( $self, $served_app ) = @_; $ran = ref($served_app) eq 'CODE' };
+    # A path, not a coderef, and a board to serve.
+    #
+    # This asserted that serve() hands Plack::Runner an application already
+    # built, which is what it did and what stopped a served board picking up
+    # new code: an app built in the launching process is in memory before
+    # Starman forks, so re-forked workers inherit it and a HUP reloads nothing.
+    # Since 2.00 the runner is handed the path to dashboard.psgi, which each
+    # worker loads for itself - so the assertion moves with the design rather
+    # than being deleted, and serve() now needs to know which board, because
+    # the workers cannot be handed a closure over it.
+    local *Plack::Runner::run = sub { my ( $self, $served_app ) = @_; $ran = !ref($served_app) && $served_app =~ /dashboard\.psgi\z/ };
     ok(
         Tira::DashboardWeb->serve(
-            host => 'localhost', port => 4567,
+            host => 'localhost', port => 4567, project => $root,
             police_log => sub { '[]' },
             signed_in(),
             render => sub { '<!doctype html>' },

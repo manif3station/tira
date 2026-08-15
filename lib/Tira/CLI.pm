@@ -330,6 +330,14 @@ sub run {
         my $served = eval {
             $browser_server->(
                 host => $browser_host, port => $browser_port, render => $render, data => $data,
+
+                # Which board, and how to show it. The workers load the
+                # application themselves and cannot be handed a closure over
+                # any of this, so it travels in the environment - and serve()
+                # refuses without a project rather than starting workers that
+                # die on load.
+                project => $option{project}, type => $type,
+                with_title => $option{with_title},
                 %tls, %providers,
             );
             1;

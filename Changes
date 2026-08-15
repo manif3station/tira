@@ -1,5 +1,39 @@
 Revision history for Tira
 
+2.00  2026-08-15
+
+    - TKT-129 (dashboard half): a served board picks up new code. The
+      other half of the report that began "when installed new Tira in
+      new version, dashboard and police won't reload themselves" - the
+      police half shipped in 1.98.
+    - It was written down here as impossible, and that was reasoned from
+      the failure we hit rather than from the tool. He sent me to
+      Starman's documentation: HUP restarts workers gracefully while the
+      master keeps the listening socket, so nothing has to exec and
+      nothing has to rebind.
+    - What stopped HUP working was ours. serve() built the application
+      in the launching process and handed Plack::Runner a coderef, so
+      the app was in memory before Starman forked and re-forked workers
+      inherited it. The board is now served from dashboard.psgi, which
+      each worker loads for itself, so a HUP re-forks workers that read
+      the modules from disk.
+    - Proved before choosing: a two-worker Starman serving a .psgi that
+      read a version from a file answered "version one"; the file was
+      changed, the master was sent HUP, and it answered "version two" -
+      same master, socket never closed. His decision, given the choice,
+      was to prove that rather than add Server::Starter, which is the
+      documented answer for an application that genuinely must be
+      preloaded and would have put a dependency in every project that
+      installs Tira.
+    - dashboard.psgi has shipped since it was written with nothing
+      referencing it - no test, no command - so a change to the
+      providers could have broken it silently. It is now loaded by the
+      suite, which is how it was found that serve() had never been given
+      the board at all: the workers load the file themselves and cannot
+      be handed a closure over it, so the project, the type and the
+      title travel in the environment, and serving without a project is
+      refused rather than starting workers that die on load.
+
 1.99  2026-08-15
 
     - TKT-187: a card that shipped no release can say so. His decision,

@@ -642,7 +642,8 @@ sub browser_providers {
             return $json->encode(
                 $tira->enforcement_log(
                     project => $project,
-                    store   => $args{store} // _police_store($project),
+                    store   => $args{store}
+                      // _police_store( $tira->discover_project( project => $project ) ),
                     ref     => $payload->{ref},
                 ) );
         },
@@ -1903,7 +1904,8 @@ sub _invoke {
     # cost another project's agent three corrections and, in between, every
     # suspension and escalation it should have been reading.
     if ( $command eq 'rule.suspend' ) {
-        my $store = $option->{store} // _police_store( $args{project} );
+        my $store = $option->{store}
+          // _police_store( $tira->discover_project(%args) );
         return $tira->rule_suspend( %args, store => $store,
             rule => $option->{rule}, seconds => $option->{seconds},
             reason => $option->{reason} );
@@ -1913,7 +1915,8 @@ sub _invoke {
         || $command eq 'police.log'
         || $command eq 'policy.bridge.logs' )
     {
-        my $store = $option->{store} // _police_store( $args{project} );
+        my $store = $option->{store}
+          // _police_store( $tira->discover_project(%args) );
         return $tira->enforcement_log( %args, store => $store )
           if $command eq 'police.log' || $command eq 'policy.bridge.logs';
         my $quiet = $tira->police_suspend(
@@ -1927,7 +1930,8 @@ sub _invoke {
     }
 
     if ( $command eq 'police' || $command eq 'policy.bridge' ) {
-        my $store = $option->{store} // _police_store( $args{project} );
+        my $store = $option->{store}
+          // _police_store( $tira->discover_project(%args) );
 
         if ( $command eq 'policy.bridge' ) {
 
@@ -2149,10 +2153,25 @@ sub _invoke {
 # Police keeps its state outside the project it watches, so that it can never
 # become a second writer to the board - which is what destroyed this project's
 # own board on the day the subsystem was designed.
+# One directory per board, named for it, so two boards never write over each
+# other - the rule _backup_home states forty lines below and this did not keep.
+#
+# It took the --project OPTION and called the answer 'here' when there was none.
+# Police started from inside a project passes no --project, so every board
+# worked that way shared a single store: the version each board last heard, the
+# violation numbering, the escalation counts, the suspensions, and the bridge
+# log they are written to. A board was never told about an upgrade because a
+# different board had already been told about it.
+#
+# Refused rather than invented now. Every caller has a board to hand - police
+# discovers one before it can watch anything - so there is no case where a name
+# has to be made up, and inventing one is what made the sharing silent.
 sub _police_store {
     my ($project) = @_;
+    die "A police store has to belong to a board, and none was given\n"
+      if !defined $project || $project !~ /\S/;
     my $home = $ENV{HOME} // File::Spec->tmpdir;
-    my $slug = defined $project ? $project : 'here';
+    my $slug = $project;
     $slug =~ s/[^A-Za-z0-9]+/-/g;
     $slug =~ s/\A-|-\z//g;
     return File::Spec->catdir( $home, '.tira-police', $slug );

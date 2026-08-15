@@ -1,5 +1,39 @@
 Revision history for Tira
 
+2.05  2026-08-15
+
+    - TKT-227: a board's enforcement store belongs to that board. It was
+      named for the --project OPTION rather than for the board police
+      discovered, and when no option was given it used a directory called
+      "here" - so every board policed from its own directory, which is how
+      the owner starts it, wrote to one shared store.
+    - What they shared was not only the version each board last heard,
+      which is why a board was never told about an upgrade another board
+      had already announced. It was the violation numbering, the
+      escalation counts, the suspensions, and the bridge log they are
+      written to. Measured: policing one board left the shared store
+      saying board MT5 at 2.01, and policing a different board from its
+      own directory left the same file saying board Repro at 2.04.
+    - The correct pattern was forty lines away in the same file the whole
+      time. _backup_home names its directory from the absolute path of the
+      board "so two projects on one machine never write over each other",
+      and returns undef rather than inventing a fallback when it has
+      nothing to name. The store now does both: the discovered board, and
+      a refusal when there is no board to name. Every caller has one -
+      police discovers a board before it can watch anything - so nothing
+      has to be made up, and inventing a name is what made the sharing
+      silent.
+    - This is the second half of the report that produced 2.04, and the
+      half that did not reproduce by hand: passing --project always
+      produces a correct per-board store, so the fault is invisible to
+      anyone who tests that way.
+    - Nothing is migrated. A machine that has been policing boards from
+      their own directories has a .tira-police/here holding whichever
+      boards passed through it, and after this nothing reads or writes it
+      again - each board starts a store of its own. That means the first
+      run after upgrading announces the version to every board that had
+      been sharing, which is right: they were never told the first time.
+
 2.04  2026-08-15
 
     - TKT-225: police says it is watching even when there is nothing left

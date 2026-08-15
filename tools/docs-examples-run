@@ -41,7 +41,24 @@ DOCUMENTS = ('SKILLS.md', 'docs/commands.md', 'docs/POLICIES.md')
 # guide was written the second way, which had been true when this was written.
 # The guide's style moved and the checker did not.
 BACKTICKED = re.compile(r'`(dashboard tira\.[^`]+)`')
-FENCED = re.compile(r'^\s{0,2}(?:d2\s+|dashboard\s+)?(tira\.[a-z][a-z0-9._-]*(?:\s+--?[^\n]*)?)$', re.M)
+# Any indent, and a trailing comment counts as part of the example.
+#
+# It allowed at most two leading spaces while both documents indent their worked
+# examples by four, and it required the next token to begin with a dash while
+# the documents annotate examples - "d2 tira.doctor    # what is damaged, and
+# where". Nineteen distinct examples matched neither pattern and were collected
+# by nothing: not run, not set aside, in neither number, and so invisible in the
+# summary the push gate reads.
+#
+# The trailing comment is the sharper half. The runner has always handled one -
+# shlex.split(line, comments=True), because "a trailing '# set it' is a note to
+# the reader rather than an argument" - so the code that RUNS an example
+# believed examples carry comments while the code that FINDS them could not
+# match a single one.
+#
+# Deliberately not widened to any trailing text. A sentence of prose beginning
+# with a command name would then be collected and run.
+FENCED = re.compile(r'^\s*(?:d2\s+|dashboard\s+)?(tira\.[a-z][a-z0-9._-]*(?:\s+--?[^\n]*|\s*#[^\n]*)?)$', re.M)
 
 # A line ending in a backslash is half a command. Running the half would fail
 # for a reason that says nothing about the documentation, so it is set aside
@@ -94,6 +111,26 @@ FATAL = (
 # error message will always contain that error message, and a check that cannot
 # tell a quotation from an occurrence would forbid writing about failure at all.
 RECITERS = ('tira.changes', 'tira.skills', 'tira.usage', 'tira.policies')
+
+
+
+def collect(document):
+    """Every line in a document that looks like an example, counted independently.
+
+    Deliberately not the same code as examples(): the point is to notice when
+    that code misses something, and a check that shares the thing it checks
+    notices nothing. This one is as blunt as possible - a line whose first
+    non-space content begins a Tira command - so that any refinement of the
+    collector shows up here as a disagreement rather than as silence.
+    """
+    with open(document, encoding='utf-8') as handle:
+        text = handle.read()
+    lines = re.findall(
+        r'^[ \t]*(?:d2\s+|dashboard\s+)?(tira\.[a-z][a-z0-9._-]*(?:[ \t]+--?[^\n]*|[ \t]*#[^\n]*)?)$',
+        text, re.M)
+    # Normalised the way examples() normalises, or the two sides describe the
+    # same line differently and every comparison is noise.
+    return {re.sub(r'^dashboard\s+', '', line.strip()) for line in lines}
 
 
 def examples():
@@ -319,6 +356,28 @@ def check(scratch):
     if os.environ.get('TIRA_EXAMPLES_SHOW_SKIPPED'):
         for document, line in skipped:
             print(f'set aside  {document}: {line}')
+
+    # Every example line accounted for, so a gap cannot hide in the difference.
+    #
+    # Until 1.97 this printed two numbers that did not have to add up to
+    # anything: an example the patterns missed was in neither, so "254 run and
+    # understood" was true about what was found and silent about what was not.
+    # Nineteen were in that gap. Collecting the lines independently and
+    # insisting every one of them was either run or set aside turns the next such gap into a
+    # failure rather than a silence.
+    accounted = {line for _, line in runnable} | {line for _, line in skipped}
+    present = set()
+    for document in DOCUMENTS:
+        if os.path.exists(document):
+            present |= collect(document)
+    unaccounted = sorted(present - accounted)
+    if unaccounted:
+        print(f'docs-examples-run: {len(unaccounted)} example(s) are in the '
+              'documents and were collected by nothing - not run, not set aside, '
+              'and in neither number:')
+        for line in unaccounted:
+            print(f'    {line}')
+        return 1
 
     print(f'docs-examples-run: {ran} documented examples run and understood, '
           f'{len(skipped)} set aside for carrying a shape a reader must replace '

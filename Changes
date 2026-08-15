@@ -1,5 +1,37 @@
 Revision history for Tira
 
+2.03  2026-08-15
+
+    - TKT-211: an example the collector never finds is no longer invisible.
+      tools/docs-examples-run collected a fenced example only if it had at
+      most two leading spaces and the token after the command began with a
+      dash. Both documents indent worked examples by four, and both
+      annotate them - "d2 tira.doctor    # what is damaged, and where" - so
+      nineteen distinct examples were in neither number the summary
+      reports: not run, not set aside, and invisible to the push gate that
+      reads that summary as the documentation having been checked. 278
+      examples now run where 254 did.
+    - The trailing comment is the sharper half. The runner has always
+      handled one - shlex.split(line, comments=True), whose own comment
+      says a trailing "# set it" is a note to the reader rather than an
+      argument - so the code that RUNS an example believed examples carry
+      comments while the code that FINDS them could not match a single
+      one. Two copies of one decision, drifted apart, and the blind half
+      was the half doing the counting.
+    - The pattern is deliberately not widened to any trailing text. A line
+      of prose beginning with a command name would then be collected and
+      run; there is an assertion holding that line.
+    - Widening a pattern fixes one variation and leaves the next to be
+      found the same way - which is how this was found, the previous fix
+      having widened it for the d2 form. So the check now accounts for
+      every example line: an independent reading of the documents, minus
+      everything either run or set aside, must be empty, and whatever is
+      left is named rather than counted.
+    - t/155 selected the summary by being the first statement with that
+      prefix, which held for as long as there was one. There are two now,
+      and it had silently moved onto the other. It selects by what the
+      line says.
+
 2.02  2026-08-15
 
     - TKT-210: a command run quietly is no longer heard by everyone the

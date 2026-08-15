@@ -57,7 +57,14 @@ like( $source, qr/set_aside\.append\(/,
 # The whole statement, because the summary is an f-string spread over several
 # lines and reading only its first fragment is how a check ends up asserting
 # half of what it meant to.
-my ($report) = $source =~ /(print\(f'docs-examples-run: .*?\)\n)/s;
+#
+# The summary is picked out by what it says, not by being the first statement
+# with that prefix. It was written the other way and passed for as long as the
+# tool printed exactly one such line; 1.98 added a second - the report of
+# examples collected by nothing - which comes first because it returns early,
+# and these three assertions silently moved onto it. Selecting by position works
+# until something is added above, and then it does not announce that it moved.
+my ($report) = $source =~ /(print\(f'docs-examples-run: \{ran\}.*?\)\n)/s;
 ok( $report, 'it prints a summary line at the end' );
 like( $report, qr/\{ran\}/, 'saying how many it ran' );
 like( $report, qr/\{len\(skipped\)\}/,

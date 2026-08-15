@@ -45,9 +45,24 @@ $project = eval { $tira->discover_project( project => $project ) }
 
 Tira::DashboardWeb->build_psgi_app(
     render => sub {
+
+        # Discard asked for as well, for the same reason and from the same
+        # cause. Every board is created with Backlog and Discard and the owner
+        # saw one and never the other; the CLI was taught to include it and
+        # said so in his own words, and this file was not. TKT-247.
+        #
+        # Questions asked for, because a board somebody is looking at must show
+        # which cards are waiting whether or not they asked for titles. The CLI
+        # defaults this on for exactly that reason and says so beside the line -
+        # but the CLI does not answer requests, these workers do, and they were
+        # built separately and never given it. In summary mode a card is only
+        # asked whether it is waiting when titles or questions are wanted, so on
+        # a board showing refs only nothing could ever be marked. Reported by
+        # the owner from his phone, three cards waiting and none of them
+        # coloured. TKT-246.
         my %args = (
             project => $project, summary => 1, include_mtime => 1,
-            with_title => $with_title,
+            with_title => $with_title, with_questions => 1, include_discard => 1,
         );
         $args{type} = $type if defined $type && length $type;
         return $tira->format_output(
@@ -56,7 +71,12 @@ Tira::DashboardWeb->build_psgi_app(
         );
     },
     data => sub {
-        my %args = ( project => $project, summary => 1, with_title => $with_title, include_mtime => 1 );
+
+        # The same, for the feed the open page refreshes itself from. A board
+        # that was right when it loaded and wrong a minute later would be the
+        # same fault with a delay on it.
+        my %args = ( project => $project, summary => 1, with_title => $with_title,
+            include_mtime => 1, with_questions => 1, include_discard => 1 );
         $args{type} = $type if defined $type && length $type;
         return $tira->format_output( $tira->dashboard(%args), output => 'json' );
     },

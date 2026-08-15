@@ -1,5 +1,40 @@
 Revision history for Tira
 
+2.13  2026-08-16
+
+    - TKT-246: a card waiting on an answer is yellow on a served board.
+      Reported by the owner with a recording from his phone: three cards
+      carrying questions nobody had answered, none of them marked. The
+      colour was defined and never applied - every card--waiting in the
+      page was stylesheet.
+    - Both ends were right and the middle was not. The engine says a card
+      is waiting; rendering the same structure directly marks it. The
+      workers build their own providers and asked for summary, mtime and
+      titles, and not for questions - and in summary mode a card is only
+      asked whether it is waiting when titles or questions are wanted. So
+      on a board showing refs only, which is how a board is usually run,
+      nothing could ever be marked.
+    - The CLI defaults that argument on for exactly this reason and says so
+      in a comment beside the line. The CLI does not answer requests. That
+      is the third time in one evening that two constructions of one thing
+      drifted, and the second time the workers were the copy nobody
+      checked.
+    - The feed the open page refreshes from asks for it too, since a board
+      that was right on load and wrong a minute later is the same fault
+      with a delay on it.
+    - TKT-247: and the discard column with it, from the same act and for
+      the same reason. Every board is created with Backlog and Discard and
+      the owner saw one and never the other; the CLI was taught to include
+      it and says so in his own words, and dashboard.psgi never got it.
+    - Both losses came from TKT-129 this afternoon, which moved the
+      dashboard into pre-forked workers that load dashboard.psgi. That file
+      had shipped for months as dead code - the commit says so - and making
+      it live carried arguments written before the CLI learned either
+      thing. The same commit claimed it builds the same application with
+      the same providers. It did not, and nothing checked. Proved by
+      serving the same board through the tree from before that change: the
+      discarded card is there and the waiting card is marked.
+
 2.12  2026-08-15
 
     - TKT-223: the push gate enforces for every column the board has, not

@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.08';
+our $VERSION = '2.09';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -5732,6 +5732,20 @@ sub _policy_before_column {
 my @VIOLATION_TONES = qw(note warning urgent critical);
 our $VIOLATION_ESCALATES_AT = 5;
 
+# One rule cannot wait for the fifth telling, because the wait is spent on the
+# thing it is reporting. bridge-unread says nobody is reading the bridge, and
+# the bridge is the only route that carries a violation before it escalates -
+# so it is heard exactly when it is not needed and silent exactly when it is.
+# Measured on this project's own board before this existed: four tellings over
+# sixty-four minutes, at urgent, delivered to neither the agent nor the owner,
+# and closed only because the owner happened to ask for a reader for an
+# unrelated reason.
+#
+# Every other rule keeps the threshold. It is deliberate, it is what stops
+# escalation becoming the noise it exists to rise above, and a rule with a
+# working channel in the meantime loses nothing by waiting.
+my %ESCALATES_SOONER = ( 'bridge-unread' => 1 );
+
 # How long the same problem is left alone before it is said again, and it grows.
 #
 # The owner raised this: "the same issue been seen many times within few
@@ -5919,7 +5933,8 @@ sub violation_record {
         # Said once, at the moment it becomes true. Repeating it on every pass
         # afterwards would turn the escalation itself into the noise it exists
         # to rise above.
-        my $escalate = $speak && $entry->{seen} == $VIOLATION_ESCALATES_AT && !$entry->{escalated};
+        my $at = $ESCALATES_SOONER{ $violation->{rule} // '' } // $VIOLATION_ESCALATES_AT;
+        my $escalate = $speak && $entry->{seen} == $at && !$entry->{escalated};
         $entry->{escalated} = 1 if $escalate;
 
         push @view, {

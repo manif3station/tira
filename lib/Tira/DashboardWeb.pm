@@ -398,7 +398,7 @@ sub serve {
     # about a renderer they never mentioned. Found by writing the test - the
     # first version asked in the other order and said the wrong thing.
     my $project = $args{project};
-    die "Serving a board needs to know which one: --project\n"
+    die "Serving a board needs to know which one, already resolved\n"
       if !defined $project || $project eq '';
 
     # Resolved here, where it can be, rather than in each worker, where it
@@ -422,7 +422,7 @@ sub serve {
     # Says nothing about what it was given or what it wanted. A refusal that
     # quotes the value teaches whoever reads it how boards are referred to here,
     # and that is the one thing this is all arranged to avoid.
-    die "Serving a board needs to know which one: --project\n"
+    die "Serving a board needs to know which one, already resolved\n"
       if !File::Spec->file_name_is_absolute($project);
 
     # The providers are still validated here, so that a caller who hands in its

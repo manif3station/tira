@@ -2557,7 +2557,7 @@ sub _backup_import {
     # else's board, so the folder is taken as given: importing is how a board
     # comes into existence somewhere, not something done to one that is found.
     my $where = $args->{project}
-      or die "Where should the board go? Name the folder: --project <dir>\n";
+      or die "Where should the board go? Name the folder it should be made in.\n";
     my $store = _backup_store($where);
 
     my $existing = -d File::Spec->catdir( $store, '.git' ) ? 1 : 0;

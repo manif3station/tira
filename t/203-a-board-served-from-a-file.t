@@ -91,7 +91,16 @@ ok( -f $psgi, 'the board ships a psgi file to be served from' );
     require Tira::DashboardWeb;
     my $refused = !eval { Tira::DashboardWeb->serve( host => '127.0.0.1', port => 15097 ); 1 };
     ok( $refused, 'serving without a board is refused' );
-    like( $@, qr/--project/, 'and says which option would answer it' );
+
+    # It says what is missing, not how a board is named. This asked for the
+    # selector by name until TKT-232, which is the rule the whole arrangement
+    # exists for: a reader who learns that a flag pointing at a board exists
+    # goes looking for the board. Two of my own tests then wanted opposite
+    # things and the suite is what noticed.
+    like( $@, qr/Serving a board needs to know which one/,
+        'and says what is missing' );
+    unlike( $@, qr/--project|TIRA_HOME/,
+        'without naming how a board is selected, which is not the reader\'s to know' );
 }
 
 # --- and the server is pointed at the file rather than at a closure -----------------

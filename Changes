@@ -1,5 +1,61 @@
 Revision history for Tira
 
+2.09  2026-08-15
+
+    - TKT-229: the browser gate now reaches its board the way everybody
+      else does. It spent its life handing itself a path, which is the one
+      input shape that kept working while the shape every real invocation
+      uses was broken - so the gate passed on the day the dashboard
+      stopped answering, and the owner found that instead.
+    - A board may be named rather than pathed, and the name is turned into
+      a directory by a resolver. The gate now serves one that way: the
+      board is given a name, and a home of its own holding the single
+      alias that resolves it. Its own, because the machine's registry is
+      not a gate's to write to, and because a gate that depends on what
+      somebody happens to have registered passes or fails for reasons that
+      have nothing to do with the code under test.
+    - Setting the environment to the board's directory is not the same
+      thing and would have fixed nothing: an existing directory is used as
+      it stands and the resolver is never reached. Proved by rebuilding
+      the fault this gate missed and running both routes at it - the path
+      route served the broken tree happily, the named route served
+      nothing.
+    - A floor under the suite, so the two files that reach a board through
+      a resolver cannot quietly become none again.
+    - TKT-232: the messages the code prints are a surface too. The board's
+      location is kept from the agent working a project, and that is
+      enforced on SKILLS.md, on three help surfaces and on the question
+      reference - every one of them a document. Nothing read the modules,
+      and it had already drifted there: three messages named the selector,
+      two of them added last release in guards whose own comment says they
+      say nothing about what they were given. They did not quote the
+      value. They named the flag, which tells a reader that a flag
+      pointing at a board exists at all.
+    - Reworded, and a guard added that reads every module and asks the same
+      question of anything it prints. Comments are exempt: a comment has
+      to be able to explain why the rule exists, and nobody is handed a
+      comment. The guard also holds the refusals to still saying
+      something, because a message emptied of content would pass a check
+      for what it must not contain and help nobody - proved by emptying
+      them and watching it fail.
+    - TKT-234: the rule for nobody listening no longer speaks only into the
+      channel nobody is listening to. The owner saw two cards in a column
+      that allows one and asked whether the limit was broken. It was not -
+      police raised it and kept raising it - but its reminders go to the
+      bridge and nothing was reading the bridge. Police found that too,
+      and reported it down the bridge.
+    - Its other route is the owner's terminal, which opens on the pass
+      where a violation has been seen five times. That wait is deliberate
+      and right for every rule with a working channel in the meantime, and
+      wrong for the one rule whose channel is the thing being reported.
+      Measured on this project's own board: four tellings over sixty-four
+      minutes, at urgent, delivered to neither party.
+    - So this rule escalates on its first telling, through a per-rule
+      threshold rather than a special case at the delivery site - the
+      delivery was never the fault. Every other rule keeps the wait it
+      had, and a test holds that: the obvious louder fix, escalating
+      everything at once, fails it.
+
 2.08  2026-08-15
 
     - TKT-228: the served dashboard answers again. Reported by the owner:

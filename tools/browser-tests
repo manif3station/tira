@@ -201,7 +201,27 @@ if ss -ltn 2>/dev/null | grep -q ":$port "; then
     exit 1
 fi
 
-tira dashboard --project "$board" -o "browser=127.0.0.1:$port" >"$scratch/board.log" 2>&1 &
+# Named, not pathed.
+#
+# Real usage refers to a board without naming where it is, and this gate spent
+# its life handing itself a path - so it exercised the one input shape that
+# still worked while the shape everybody uses was broken. TKT-229.
+#
+# A path in TIRA_HOME is not enough to fix that: an existing directory is used
+# as it stands and the resolver is never reached, so the environment route
+# would still prove nothing about resolution. The board is given a name here,
+# and a home of its own holding the one alias that turns that name into a
+# directory. Its own, because the machine's registry is not this gate's to
+# write to, and because a gate that depends on what somebody happens to have
+# registered passes or fails for reasons that have nothing to do with the code.
+gate_home="$scratch/home"
+mkdir -p "$gate_home/.developer-dashboard/config"
+cat >"$gate_home/.developer-dashboard/config/config.json" <<JSON
+{ "path_aliases": { "gate-board": "$board" } }
+JSON
+
+HOME="$gate_home" TIRA_HOME=gate-board tira dashboard -o "browser=127.0.0.1:$port" \
+    >"$scratch/board.log" 2>&1 &
 serving=$!
 
 # Waited for, rather than slept at. A fixed sleep is either too short on a busy

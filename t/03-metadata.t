@@ -22,7 +22,13 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=1\.95$/m, '.env stores version 1.95' );
+like( $env_text, qr/^VERSION=1\.96$/m, '.env stores version 1.96' );
+
+# Read out of .env rather than matched against it, so the module can be
+# compared with what .env actually holds rather than with a literal that
+# happens to appear in two assertions.
+my ($env_version) = $env_text =~ /^VERSION=(\S+)$/m;
+ok( defined $env_version, '.env names a version at all' );
 
 open my $skills, '<', 'SKILLS.md' or die "Cannot read SKILLS.md: $!";
 my $skills_text = do { local $/; <$skills> };
@@ -46,7 +52,14 @@ unlike( $skills_text, qr/--project|TIRA_HOME|\.tira\/|project selector/i, 'SKILL
 
 use lib 'lib';
 use Tira;
-is( $Tira::VERSION, '1.95', 'module version matches .env' );
+# Two assertions, because they promise two different things and used to be one.
+#
+# This one said "module version matches .env" and never read .env: it compared
+# the module against a literal, while another assertion compared .env against
+# the same literal, so they agreed only through a third party. Changing one
+# literal and not the other was caught by luck rather than by this.
+is( $Tira::VERSION, $env_version, 'module version matches .env, which is now read' );
+is( $Tira::VERSION, '1.96', 'and the release being made is the one intended' );
 
 # And the changelog, which nothing checked. .env, the module and this file
 # agreed with each other for two releases while Changes named a version one

@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.95';
+our $VERSION = '1.96';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -2198,7 +2198,17 @@ sub hierarchy_link {
             ( $up, $down ) = ( 'epic_ref', 'ticket_refs' );
         }
         else {
-            die "Hierarchy requires SOW-to-epic or epic-to-ticket\n";
+            # Strict, and not a dead end. Somebody linking two tickets wants
+            # a relationship rather than a parentage, and tira.link.add is the
+            # command for it - naming it here is the difference between a
+            # refusal somebody acts on and a refusal that sends them to write
+            # the relationship into a comment, where nothing can check it.
+            # That is what happened, and it is the same failure as the report
+            # on TKT-194: a message that says no without saying where to go
+            # teaches the reader that the capability does not exist.
+            die "Hierarchy requires SOW-to-epic or epic-to-ticket. To say one "
+              . "record blocks, duplicates or relates to another, use "
+              . "tira.link.add --from A --type blocks --to B\n";
         }
         my $old_parent_ref = $child->{linkage}{$up};
         my @updates;

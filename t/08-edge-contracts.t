@@ -34,6 +34,13 @@ like( $@, qr/still in use/, 'used custom link type cannot be removed' );
 
 eval { $tira->hierarchy_link( project => $root, parent => $sow1->{ref}, child => $ticket1->{ref} ) };
 like( $@, qr/Hierarchy requires/, 'invalid cross-level hierarchy is rejected' );
+
+# And says where to go instead. The refusal was correct and was a dead end: the
+# caller wanted "this ticket blocks that one", which link.add does, and wrote it
+# into a comment instead - where no automated check can see it. The strictness
+# is unchanged; the message gained a sentence.
+like( $@, qr/tira\.link\.add --from A --type blocks --to B/,
+    'and names the command that records a relationship between two tickets' );
 $tira->hierarchy_link( project => $root, parent => $sow1->{ref}, child => $epic->{ref} );
 $tira->hierarchy_link( project => $root, parent => $sow1->{ref}, child => $epic->{ref} );
 $tira->hierarchy_link( project => $root, parent => $sow2->{ref}, child => $epic->{ref} );

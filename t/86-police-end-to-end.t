@@ -79,6 +79,7 @@ my %declare = (
     'priority-skipped'          => {},
     'discard-with-open-questions' => {},
     'board-still'               => { age => '8h' },
+    'bridge-unread'             => { age => '30m' },
     'column-skipped'            => { enter => 'done', require => 'implement' },
 );
 is_deeply( [ sort keys %declare ], [ sort @{ Tira::policy_rules() } ],
@@ -185,6 +186,15 @@ my $world = {
 # LAST did anything, which is the one question that cannot be answered by
 # arranging a single card.
 $now = '2026-08-11T23:00:00Z';
+
+# Traffic on the bridge that nobody reads, which is what bridge-unread is about.
+# A first pass writes it; the mark that records a read is never made, because
+# nothing here tails the bridge - and that is exactly the state being asserted.
+{
+    my $first = $tira->police_pass( project => $root, store => $store, world => $world );
+    $tira->bridge_write( store => $store, project => $root,
+        violations => $first->{violations}, settled => $first->{settled} );
+}
 
 my $before = fingerprint();
 my $pass = $tira->police_pass( project => $root, store => $store, world => $world );

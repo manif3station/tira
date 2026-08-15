@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.91';
+our $VERSION = '1.92';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4401,6 +4401,11 @@ my %POLICY_RULES = (
     # delivery one, so a guess here would fire wrongly on somebody's board
     # rather than usefully on anybody's.
     'board-still'               => { needs => ['age'] },
+
+    # How long an agent may go without looking is a decision about how it works
+    # rather than something Tira can guess: a minute is absurd on a board polled
+    # hourly and a day is useless on one being worked now.
+    'bridge-unread'             => { needs => ['age'] },
 );
 
 # Police speaks in exactly three ways: down the bridge the agent tails, in the
@@ -5274,6 +5279,30 @@ sub policy_evaluate {
                 next if @{ $record->{gate_passing_log} // [] };
                 $report->( $policy, $record, "reached $policy->{column} with no gate recorded" );
             }
+        }
+        elsif ( $rule eq 'bridge-unread' ) {
+
+            # Whether anybody is listening. Every other rule here asks whether
+            # the board is in order; this asks whether the answers are reaching
+            # anyone, which is the question that makes the rest worth anything.
+            #
+            # Only when there is something to read. A bridge with nothing on it
+            # is not unread - sending an agent to look at an empty file is how
+            # it learns to stop looking.
+            my $bridge = $self->bridge_log_path(%args);
+            next if !-s $bridge;
+
+            my $seen = $quieted->{bridge_read_at};
+            next if defined $seen && !$self->_policy_older_than( $seen, $policy->{age} );
+
+            $report->( $policy, '',
+                ( defined $seen
+                    ? "the bridge has not been read since $seen, which is "
+                      . $self->_policy_elapsed($seen)
+                    : 'the bridge has never been read' )
+                  . ', and police has been writing to it. A rule nobody reads is the '
+                  . 'same as a rule that never fired: tail it with d2 tira.policy.bridge '
+                  . 'and keep it running while you work' );
         }
         elsif ( $rule eq 'board-still' ) {
 
@@ -6342,8 +6371,30 @@ sub bridge_write {
 
 # What the bridge shows on arrival. An agent restarting its bridge must see
 # what is already outstanding, not only what happens next.
+# Reading the bridge leaves a mark, so that nobody reading it is a fact rather
+# than an absence.
+#
+# Police raised a violation on this project, escalated it to urgent, and
+# repeated it for two hours while nobody read the channel it was written to. The
+# rule worked and the reader did not exist - and there was no way to observe
+# that, because nothing recorded a read. A board with policies declared and an
+# agent that does not tail the bridge is an unwatched board that looks watched.
+#
+# Stamped here rather than by a command somebody runs to say they have looked:
+# asking for the backlog is what tailing the bridge does, so the mark is made by
+# the reading rather than by a claim about it.
+sub bridge_touch {
+    my ( $self, %args ) = @_;
+    my $store = $args{store} or return 0;
+    my $log = $self->_enforcement_read($store);
+    $log->{bridge_read_at} = $self->{clock}->();
+    $self->_enforcement_write( $store, $log );
+    return 1;
+}
+
 sub bridge_backlog {
     my ( $self, %args ) = @_;
+    $self->bridge_touch(%args);
     my $path = $self->bridge_log_path(%args);
     return [] if !-f $path;
     open my $fh, '<:raw', $path or return [];

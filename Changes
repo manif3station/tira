@@ -1,5 +1,33 @@
 Revision history for Tira
 
+1.92  2026-08-15
+
+    - TKT-183: bridge-unread. Every other rule asks whether the board is
+      in order; this asks whether the answers are reaching anybody, which
+      is the question that makes the rest worth anything.
+    - It exists because of a measured failure on this project's own
+      board. unpushed-work raised VIO-0005 at 17:58, escalated it to
+      urgent, and it was still open at 19:42 while four commits sat
+      unreleased - including a fix another project was waiting on. The
+      rule worked, the escalation worked, police said it four times in
+      the words written for it, and nobody was listening. The owner found
+      it before the agent did.
+    - Nothing recorded that the bridge had been read, so "nobody is
+      listening" was not a fact anybody could observe. Reading it now
+      leaves a mark, made by the reading rather than by a claim about it:
+      asking for the backlog is what tailing the bridge does, and there
+      is deliberately no command to acknowledge it and no flag to set.
+    - A tail left running keeps the mark fresh on every poll, so an agent
+      doing the right thing is never reported for it - asserted by
+      running the real follow loop with its waiting stubbed out and the
+      clock moving on between rounds.
+    - A bridge with nothing on it is not unread. There is nothing to
+      read, and sending an agent to look at an empty file is how it
+      learns to stop looking.
+    - The period is required. How long an agent may go without looking is
+      a decision about how it works: a minute is absurd on a board polled
+      hourly and a day useless on one being worked now.
+
 1.91  2026-08-15
 
     - TKT-178: a project says where its repository is. Reported by

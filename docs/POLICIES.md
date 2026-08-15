@@ -303,6 +303,7 @@ missing, at the moment you declare the policy rather than later.
 | `priority-skipped` | — | a card being worked while a higher-priority card of the same kind waits untouched. **No age**: being passed over does not ripen. |
 | `discard-with-open-questions` | — | a card set aside while it still carries a question nobody answered. **No age**: a question that left with the card is not waiting. |
 | `board-still` | `--age` | a whole board where nothing has moved for that long. The only rule here that is not about a card. |
+| `bridge-unread` | `--age` | police has been writing to the bridge and nobody has read it for that long. |
 | `question-unanswered` | `--age` | a question waiting on the owner |
 | `conversation-not-folded` | — | a card talked about since it was last written down. **No age**: the ladder already keeps it from repeating. |
 | `card-unassigned` | — | work in progress with nobody on it. **No column**: the board says which columns are work. A board whose work ends in more than one place marks each ending with `tira.column.update --terminal`; one that marks nothing treats `done` as its ending, as before. |
@@ -1662,3 +1663,41 @@ because it reads as cover.
 
 **A board that does sit inside its repository needs to say nothing.** Nothing
 changes underneath a project that has declared no repository.
+
+
+## A bridge nobody is reading
+
+Every other rule here asks whether the board is in order. This one asks whether
+the answers are reaching anybody — which is the question that makes the rest
+worth anything.
+
+It exists because of a measured failure on this project's own board.
+`unpushed-work` raised a violation at 17:58, escalated it to urgent, and it was
+still open at 19:42 while four commits sat unreleased. The rule worked. The
+escalation worked. Police said it four times, in the words written for it, and
+nobody was listening. The owner found it before the agent did.
+
+**A rule nobody reads is the same as a rule that never fired.** A board with
+policies declared and an agent that does not tail the bridge is an unwatched
+board that *looks* watched — worse than no policies at all, because the policies
+read as cover.
+
+    d2 tira.policy.add --rule bridge-unread --age 30m --action bridge-reminder
+
+    the bridge has not been read since 2026-08-15T11:00:00Z, which is 2h, and
+    police has been writing to it. A rule nobody reads is the same as a rule
+    that never fired: tail it with d2 tira.policy.bridge and keep it running
+    while you work
+
+**Reading means reading.** There is no command to acknowledge the bridge and no
+flag to set: asking for the backlog is what tailing it does, so the mark is made
+by the reading rather than by a claim about it. A tail left running keeps the
+mark fresh on every poll, so an agent doing the right thing is never reported
+for it.
+
+**A bridge with nothing on it is not unread.** There is nothing to read, and
+sending an agent to look at an empty file is how it learns to stop looking.
+
+**The period is required.** How long an agent may go without looking is a
+decision about how it works: a minute is absurd on a board polled hourly and a
+day is useless on one being worked now.

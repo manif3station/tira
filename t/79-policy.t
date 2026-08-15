@@ -161,6 +161,7 @@ my %needs = (
     'priority-skipped'          => {},
     'discard-with-open-questions' => {},
     'board-still'               => { age => '8h' },
+    'bridge-unread'             => { age => '30m' },
     'column-skipped'            => { enter => 'Doing', require => 'Backlog' },
 );
 my $scratch = File::Spec->catdir( $tmp, 'scratch' );

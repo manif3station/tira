@@ -1421,6 +1421,32 @@ them; the manual carries the worked use cases behind them.
 - `tira.attachment.remove --sha SHA256 [--extension EXT] [-o FORMAT]`
 
 
+### Records: SOWs, epics and tickets
+
+The three boards carry the same eight verbs. `TYPE` below is one of `sow`,
+`epic` or `ticket` — write it out, so `tira.ticket.create`, `tira.epic.move`,
+`tira.sow.discard`. They are listed once here rather than three times because
+there is one set of them and nothing about the verb changes with the board.
+
+Naming them at all is new. They were exempted from the check that this document
+names every command, on the stated grounds that they were documented once as a
+family — and nothing had checked that the family form was present. It was not.
+Nine of the twenty-four were named in no document at all, `tira.ticket.discard`
+among them. TKT-233.
+
+- `tira.TYPE.create --title TEXT [record field arguments] [-o FORMAT]`
+- `tira.TYPE.show --ref REF [-o FORMAT]`
+- `tira.TYPE.list [--column SLUG] [--fields LIST] [-o FORMAT]`
+- `tira.TYPE.update --ref REF [record field arguments] [-o FORMAT]`
+- `tira.TYPE.move --ref REF --column SLUG [--author NAME] [-o FORMAT]`
+- `tira.TYPE.clone --ref REF [--title TEXT] [-o FORMAT]`
+- `tira.TYPE.discard --ref REF [-o FORMAT]` — takes no reason; a discarded card is explained with `tira.comment.add`, which is what `discard-unexplained` looks for
+- `tira.TYPE.restore --ref REF [-o FORMAT]`
+
+The live board offers the same three, one per board: `tira.dashboard.TYPE`
+opens it on that board, and `tira.dashboard` opens it on the default one.
+
+
 ### Boards
 
 - `tira.board.refs --type TYPE [--prefix PREFIX] [--digits N] [-o FORMAT]`

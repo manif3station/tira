@@ -1,5 +1,27 @@
 Revision history for Tira
 
+2.10  2026-08-15
+
+    - TKT-233: the command reference names the record verbs. It opens by
+      promising every command and argument, and it named none of the
+      twenty-four - not create, not move, not discard, on any of the three
+      boards. Both documentation checks stepped around them, in two copies
+      of the same exemption, on the stated grounds that the three boards
+      share one set of verbs and are documented once as TYPE.
+    - That reason was true of the manual and not of the reference, and
+      nothing had checked which. Skipping is not the same as accepting a
+      shorter spelling: the exemption removed the family from the check
+      entirely, so the shorter spelling was never verified to exist
+      anywhere. Both checks now translate a concrete name to the family
+      name and require that.
+    - The synopses were verified against the running commands rather than
+      written from memory, which caught one of my own: discard takes no
+      reason. A discarded card is explained with a comment, which is what
+      discard-unexplained looks for, and the reference says so.
+    - Proved by removing a verb. The test guards the reference and refused
+      when it went from there; the tool guards whether a command is
+      documented at all and refused only once it went from the manual too.
+
 2.09  2026-08-15
 
     - TKT-229: the browser gate now reaches its board the way everybody

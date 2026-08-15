@@ -56,11 +56,18 @@ for my $path (@entrypoints) {
     @parts = grep { $_ ne 'skills' } @parts;
     my $dotted = 'tira.' . join '.', @parts, $action;
 
-    # The three boards share one set of verbs and are documented once as TYPE,
-    # and the dashboard's three forms the same way. Requiring each spelling
-    # would ask the document to repeat itself three times over.
-    next if $dotted =~ /\Atira\.(?:sow|epic|ticket)\./;
-    next if $dotted =~ /\Atira\.dashboard\./;
+    # The three boards share one set of verbs and the dashboard has three
+    # forms of one command, so the document names them once as TYPE rather
+    # than repeating itself three times over. That was the reason given for
+    # skipping them entirely, and skipping is not the same as accepting a
+    # shorter spelling: nothing checked that the shorter spelling was there.
+    # It was not. Nine of the twenty-four record verbs were named in no
+    # document at all, tira.ticket.discard among them, and the family that
+    # was supposedly documented once was documented raggedly, per verb per
+    # board - ticket.update eight times, epic.update once, sow.update never.
+    # TKT-233.
+    $dotted =~ s/\Atira\.(?:sow|epic|ticket)\./tira.TYPE./;
+    $dotted =~ s/\Atira\.dashboard\.(?:sow|epic|ticket)\z/tira.dashboard.TYPE/;
 
     push @missing, $dotted if index( $reference, $dotted ) < 0;
 }

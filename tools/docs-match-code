@@ -22,9 +22,20 @@ import sys
 
 DOCUMENTS = ('SKILLS.md', 'docs/commands.md', 'docs/POLICIES.md')
 
-# The three record boards share one set of verbs and are documented once, and
-# the dashboard's per-board forms are the same command with a type attached.
+# The three record boards share one set of verbs and the dashboard's per-board
+# forms are the same command with a type attached, so the documents name them
+# once as TYPE rather than three times over. That was the reason for skipping
+# them here, and skipping is not the same as accepting a shorter spelling:
+# nothing checked the shorter spelling was present, and it was not. Nine of the
+# twenty-four record verbs were named in no document at all. The family form is
+# now what is required, so the check fires instead of stepping aside. TKT-233.
 FAMILIES = (re.compile(r'^tira\.(sow|epic|ticket)\.'), re.compile(r'^tira\.dashboard\.'))
+
+
+def as_family(command):
+    """The one spelling the documents are expected to carry."""
+    command = re.sub(r'^tira\.(?:sow|epic|ticket)\.', 'tira.TYPE.', command)
+    return re.sub(r'^tira\.dashboard\.(?:sow|epic|ticket)$', 'tira.dashboard.TYPE', command)
 
 
 def shipped():
@@ -69,9 +80,8 @@ def in_a_family(command):
 
 def check_everything_shipped_is_written(text, commands, problems):
     for command in sorted(commands):
-        if in_a_family(command):
-            continue
-        if command not in text:
+        wanted = as_family(command)
+        if wanted not in text:
             problems.append(f'{command} ships and is named in no document')
 
 

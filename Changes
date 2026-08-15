@@ -1,5 +1,72 @@
 Revision history for Tira
 
+1.98  2026-08-15
+
+    - TKT-129 (police half): police watches the board with the code that
+      is installed, not the code it started with. Reported by the owner:
+      "When installed new Tira in new version. Dashboard and police
+      won't reload themselves."
+    - The machinery has existed since the dashboard needed it and
+      nothing in the police loop ever called it, so a police left
+      running through a release kept the rulebook it started with -
+      rules that shipped since were not evaluated, wording that had been
+      corrected was still printed, and it said nothing about either. A
+      watcher reading old rules looks exactly like one reading new ones.
+    - Measured on this project's own board within the hour: a fix that
+      had shipped, passed its gate and reached origin went on being
+      contradicted by the police still running the previous version,
+      which raised the same violation to CRITICAL seven times.
+    - Between rounds, never during a pass, because police writes the
+      bridge and the enforcement ledger and a pass cut in half leaves a
+      violation counted and unsaid. And once: exec never returns, so in
+      a running police this can only happen once by construction, but a
+      restarter that does return now ends the watch rather than trying
+      again every interval - that is the loop four dashboards spent
+      twenty hours in, and a police that has stopped is visible while
+      one restarting on a timer is not.
+    - The dashboard half is not in this release. It was written down as
+      impossible - a served board cannot replace itself - and that was
+      reasoned from the failure we hit rather than from the tool. He
+      sent me to Starman's documentation: HUP restarts workers
+      gracefully while the master keeps the listening socket. Because
+      the app is built in-process before Plack::Runner sees it, the
+      documented answer is Server::Starter holding the socket, which is
+      a dependency and a change to how the board is launched, so it gets
+      its own release rather than riding along here.
+    - TKT-213: a fold written in the same second as the mark is a fold.
+      mt5-ai isolated it by comparing three cards their script had
+      handled identically - marked 10:40:20 written 10:40:21 silent,
+      marked 10:42:33 written 10:42:34 silent, marked 10:44:32 written
+      10:44:32 reported. Only the equal pair fired.
+    - Stamps are second-resolution, so a fold written inside the same
+      second as the mark cannot be strictly later, and the rule asked
+      for strictly later. An agent that marks and folds in one script -
+      which is the correct thing to do and exactly what the rule asks
+      for - lands in the same second whenever the board is quick. So the
+      agents that behave best were the ones most likely to be told they
+      did not, and told unfalsifiably: the message says nothing was
+      written down while the thing is written down.
+    - What it gives up is recorded rather than glossed: a detail written
+      in the same second BEFORE the mark now reads as a fold. That needs
+      an agent to have just written a detail field, which is close to
+      folding anyway, and the alternative is accusing the diligent.
+    - A card marked ok with nothing written into it is still reported,
+      which is the assertion that matters. The first attempt at this fix
+      made the rule stop firing altogether and the test caught it.
+    - TKT-206: card-sandbox-missing can be watched passing. There was no
+      defect - t/195 builds developer-dashboard's exact arrangement and
+      every assertion passes on the shipped code, so DD-532 is a rename:
+      their branch is dd-532 and the card is DD-532, and the check wants
+      a branch named exactly after the card, which the violation has
+      said in those words since 1.73.
+    - What was missing is the half they identified themselves. Five
+      cards cleared that rule on their board in one morning and every
+      one cleared by leaving the column, which the --enter scope makes
+      it stop applying to - so nobody had ever observed it pass. A rule
+      that can only be seen to stop applying is one nobody can trust,
+      whatever the verdict on any single card, and that observation is
+      now a standing test.
+
 1.97  2026-08-15
 
     - TKT-208: the bridge prints UTF-8 rather than whatever Perl

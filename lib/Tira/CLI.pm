@@ -2882,6 +2882,11 @@ sub _police_follow {
     # proved by calling the handler rather than by killing the process - a
     # handler nothing has ever run is a handler nobody knows works.
     my $leave = $option->{leave} || sub { exit 0 };
+
+    # How it replaces itself, injectable for the same reason leaving is: a
+    # restart proved by calling the handler is a restart somebody has watched,
+    # and one proved by execing the test suite is not.
+    my $restarter = $option->{restarter} || \&_restart_into;
     for my $signal (qw(INT TERM HUP)) {
         $SIG{$signal} = sub { _police_goodbye( $tira, $signal ); $leave->() };
     }
@@ -2913,6 +2918,38 @@ sub _police_follow {
             upgraded => $result->{upgraded} );
             print {*STDERR} map { "$_\n" } @{ $result->{terminal} };
         }
+        # Into the code that is installed, between rounds.
+        #
+        # The machinery has existed since the dashboard needed it and nothing
+        # here ever called it, so a police left running through a release kept
+        # the rulebook it started with: rules that shipped since were not
+        # evaluated, wording that had been corrected was still printed, and it
+        # said nothing about either - a watcher reading old rules looks exactly
+        # like a watcher reading new ones. Reported by the owner on 2026-08-15,
+        # and measured on this project's own board an hour later, where a fix
+        # that had shipped, passed its gate and reached origin went on being
+        # contradicted by the police still running the previous version.
+        #
+        # Between rounds, never during a pass: police writes the bridge and the
+        # enforcement ledger, and a pass cut in half would leave a violation
+        # counted and unsaid, or said and uncounted.
+        #
+        # _restart_if_updated asks whether the code differs rather than whether
+        # a label moved, which is what stops this looping - exec loads the same
+        # module again and disagrees with .env again, and four dashboards did
+        # exactly that every sixty seconds for twenty hours.
+        # Once. _restart_into execs and never comes back, so in a running
+        # police this can only happen once by construction - but if it ever
+        # returns, whether because exec failed or because a caller handed in
+        # something that does not exec, carrying on would try again every
+        # interval for ever. That is the shape of the loop this whole mechanism
+        # was built to avoid, so a restart that returns ends the watch instead:
+        # a police that has stopped is visible, and one restarting on a timer
+        # is not.
+        last
+          if defined $watched_board
+          && _restart_if_updated( $restarter, 'police', undef, $watched_board );
+
         $wait->($interval);
     }
     return { rounds => $done };

@@ -964,6 +964,39 @@ in supplied order. Existing values are retained. The corresponding `--set-*`
 JSON-array options remain the explicit wholesale-replacement controls for the
 six content arrays; scope has no replacement option.
 
+## A card that shipped no release
+
+`--fix-version` records which release contains a card's work, and
+`card-metrics --require fix_version` is how a board makes sure the question is
+answered. Some cards have no honest answer: a documentation card, a card whose
+whole deliverable was asking questions and getting them answered, a card that
+was worked and then overtaken. Nothing shipped, so no version is true.
+
+**Write `none`.** It is the reserved word for exactly that, and it satisfies the
+rule the way a version does:
+
+    d2 tira.ticket.update --ref TKT-001 --fix-version none
+
+Two cards on this project's own board reached done that way and sat at CRITICAL
+eighteen times each, because the only alternatives were writing a version that
+was not true or declining the rule for everybody. A violation nobody can close
+is worse than no rule, and it teaches whoever reads the bridge that some lines
+are not worth acting on.
+
+**One word, not several.** `n/a`, `-`, `None` and `not released` all satisfy the
+rule too, because it only tests whether the field is empty - and that is the
+danger. If every card invents its own word, nobody can ask how many cards
+shipped nothing, and `none` quietly becomes a way of switching the rule off one
+card at a time. Which is why it is written down here, and why the cards claiming
+it are countable:
+
+    d2 tira.ticket.list --fields ref,fix_version -o json
+
+**It is not a way to answer the question later.** A card that will ship in a
+release it does not know yet has no version because the work is not finished,
+which is what the rule is for. `none` says the work finished and shipped
+nothing.
+
 ## Which end of the priority scale is urgent
 
 `--priority` takes an integer from 1 to 5, and **5 is the most urgent**. This is

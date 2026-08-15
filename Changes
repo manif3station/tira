@@ -1,5 +1,34 @@
 Revision history for Tira
 
+1.99  2026-08-15
+
+    - TKT-187: a card that shipped no release can say so. His decision,
+      answering a question on the card: 'none' is the reserved value on
+      fix_version, meaning nothing was released for this card.
+    - Two cards on this project's own board had made the case. TKT-006
+      and TKT-071 were in done with every checklist item ticked and no
+      version, and card-metrics reported them eighteen times each,
+      reaching CRITICAL. Neither appears in any commit or in this file,
+      because neither shipped a release - TKT-071's whole deliverable
+      was asking seven questions and getting them answered, and all
+      seven were. Writing a version on either would have put a number on
+      the card that is not true, and a violation nobody can close is the
+      complaint mt5-ai raised the same morning about card-damaged.
+    - The engine needed no change, which reading the rule established
+      before anything was built: card-metrics tests emptiness, so 'none'
+      already satisfied it. What was missing is what makes it an answer
+      rather than a silence, and that is documented here: 'n/a', '-' and
+      'not released' would satisfy the rule too, and if every card
+      invents its own word then nobody can ask how many cards shipped
+      nothing, and 'none' quietly becomes a way of switching the rule
+      off one card at a time.
+    - So the word is written down, the cards claiming it are countable
+      with one command, and the line it must not blur is stated: 'none'
+      says the work finished and shipped nothing, not that the version
+      is not known yet - a card that will ship in a release it cannot
+      name has no version because the work is not done, which is what
+      the rule is for.
+
 1.98  2026-08-15
 
     - TKT-129 (police half): police watches the board with the code that

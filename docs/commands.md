@@ -224,6 +224,13 @@ Fetching needs only the reference: `tira.attachment.get --sha SHA --extension
 EXT` takes no card and no question, because a reference already identifies the
 file.
 
+Taking one off again needs both: `tira.attachment.detach --ref TKT-001 --sha
+SHA256` removes the file from that card, and `--comment CMT-001` takes it off a
+comment instead. The card is named because the same file can be attached in
+several places at once - deduplication stores it once and records each
+attachment - so detaching without saying where would be a guess about which one
+was meant.
+
 ### Reminders on a new record
 
 Creating a record returns a `reminder` in the same terse form, naming what it
@@ -1410,6 +1417,7 @@ them; the manual carries the worked use cases behind them.
 
 - `tira.attachment.add --ref REF --file PATH [--comment ID] [-o FORMAT]`
 - `tira.attachment.discard --ref REF --sha SHA256 [--extension EXT] [--comment ID] [--author NAME] [-o FORMAT]`
+- `tira.attachment.detach --ref REF --sha SHA256 [--extension EXT] [--comment ID] [-o FORMAT]`
 - `tira.attachment.remove --sha SHA256 [--extension EXT] [-o FORMAT]`
 
 
@@ -1450,6 +1458,7 @@ them; the manual carries the worked use cases behind them.
 - `tira.comment.add --ref REF --author ID (--text TEXT|--file FILE) [--format markdown|text] [--attach PATH ...] [-o FORMAT]`
 - `tira.comment.attach --ref REF --comment ID --file PATH [-o FORMAT]`
 - `tira.comment.list --ref REF [--last N|--first N] [--meta-only] [--fields LIST] [--since TIMESTAMP] [--count] [-o FORMAT]`
+- `tira.comment.remove --ref REF --comment ID [-o FORMAT]`
 - `tira.comment.update --ref REF --comment ID (--text TEXT|--file FILE) [--format markdown|text] [-o FORMAT]`
 
 

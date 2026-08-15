@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=2\.05$/m, '.env stores version 2.05' );
+like( $env_text, qr/^VERSION=2\.06$/m, '.env stores version 2.06' );
 
 # Read out of .env rather than matched against it, so the module can be
 # compared with what .env actually holds rather than with a literal that
@@ -59,7 +59,7 @@ use Tira;
 # the same literal, so they agreed only through a third party. Changing one
 # literal and not the other was caught by luck rather than by this.
 is( $Tira::VERSION, $env_version, 'module version matches .env, which is now read' );
-is( $Tira::VERSION, '2.05', 'and the release being made is the one intended' );
+is( $Tira::VERSION, '2.06', 'and the release being made is the one intended' );
 
 # And the changelog, which nothing checked. .env, the module and this file
 # agreed with each other for two releases while Changes named a version one
@@ -155,7 +155,67 @@ for my $command (@commands) {
 is_deeply( \@undocumented, [],
     'every command that ships is named in a document an agent reads' );
 
-is( scalar @commands, 143, 'release ships exactly 143 executable CLI entrypoints' );
+is( scalar @commands, 145, 'release ships exactly 145 executable CLI entrypoints' );
+
+# --- and every command the documents name can be run --------------------------
+#
+# The check above and t/162 both run one way: every command that SHIPS is named
+# in a document. Nothing ran the other way, and two documented signatures -
+# tira.comment.remove with --ref and --comment, tira.attachment.detach with
+# --sha and --extension - pointed at entrypoints that had never existed. The
+# engine methods were there and tested, the CLI dispatched them, and a reader
+# who typed either was told the command does not exist.
+#
+# That is the same failure TKT-194 reported from the other side: somebody
+# concluded a shipped capability was missing. Here the documentation promises
+# one that cannot be typed, and the reasonable conclusion is that the
+# documentation is stale.
+
+{
+    # The dotted name each entrypoint answers to, derived the way the
+    # dispatcher derives it. @commands holds PATHS; comparing those against
+    # documented names would report all 136 as unrunnable, which is what the
+    # first draft of this guard did.
+    #
+    # An entrypoint sitting directly in cli/ is named by its basename. Dropping
+    # 'skills' segments without that branch turns cli/skills into the bare
+    # 'tira.', which then matches the documentation trivially - TKT-224.
+    my %ships;
+    for my $path (@commands) {
+        my $name;
+        if ( $path =~ m{\Acli/([^/]+)\z} ) {
+            $name = $1;
+        }
+        else {
+            ( my $trimmed = $path ) =~ s{/cli/}{/};
+            $name = join '.', grep { $_ ne 'skills' } split m{/}, $trimmed;
+        }
+        $ships{"tira.$name"} = 1;
+    }
+
+    # No translation is needed and none is done. sow, epic and ticket each ship
+    # their own eight verbs - clone, create, discard, list, move, restore, show,
+    # update - so a documented tira.ticket.move resolves directly. An earlier
+    # draft translated a record.* form into the three, on the belief that the
+    # verbs are shared on disk. They are shared in the CLI and in the
+    # documentation, not in the filesystem, and a guard carrying complexity
+    # nobody can justify is a guard nobody trusts to be right.
+
+    my %named;
+    for my $document (qw(SKILLS.md docs/commands.md docs/POLICIES.md)) {
+        open my $fh, '<', $document or die "$document: $!";
+        my $text = do { local $/; <$fh> };
+        close $fh;
+        while ( $text =~ /\b(tira\.[a-z][a-z0-9._-]*)/g ) {
+            ( my $name = $1 ) =~ s/[.-]+\z//;
+            push @{ $named{$name} }, $document;
+        }
+    }
+
+    my @unrunnable = sort grep { !$ships{$_} } keys %named;
+    is_deeply( \@unrunnable, [],
+        'every command the documents name resolves to something that ships' );
+}
 
 done_testing;
 

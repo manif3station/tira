@@ -1,5 +1,29 @@
 Revision history for Tira
 
+2.06  2026-08-15
+
+    - TKT-218: two commands the documents describe in full can now be run.
+      tira.comment.remove and tira.attachment.detach were documented with
+      their arguments and their behaviour, the engine methods existed and
+      were tested, and the CLI dispatched them - but neither shipped an
+      entrypoint, so an agent that typed either was told the command does
+      not exist. The reasonable conclusion from that is that the
+      documentation is stale, which it was not.
+    - The direction nothing checked. t/03 asserts every command that SHIPS
+      is named in a document, and t/162 asserts the reference names every
+      command that ships; both run the same way round. Nothing asked
+      whether every command the documents NAME can be run. It does now,
+      and the list is read from the entrypoints on disk rather than
+      repeated, so a command documented tomorrow is covered without
+      anybody extending it.
+    - Getting that guard right took two corrections worth recording. It
+      first compared documented names against entrypoint PATHS, which
+      would have reported all 136 documented names as unrunnable. And
+      deriving the name needed the branch the dispatcher has: an
+      entrypoint sitting directly in cli/ is named by its basename, or
+      cli/skills reduces to the bare "tira." - which is TKT-224, found
+      while building this.
+
 2.05  2026-08-15
 
     - TKT-227: a board's enforcement store belongs to that board. It was

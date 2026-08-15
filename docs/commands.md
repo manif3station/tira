@@ -633,6 +633,23 @@ the board's own storage, beside the project file.
 `git init` to obey a rule, and a board that never backs up has none — reading
 never makes one.
 
+**Two things are left out.** The lock file, because a restored lock is somebody
+else's half-finished write, and the sessions, because a session is the server
+side of somebody's sign-in and a restored one hands over an identity. That
+exclusion is checked on every backup rather than written once when the store is
+made, so a board created before 1.97 picks it up on its next backup and stops
+carrying sessions from that point.
+
+**What was already committed stays committed.** Only the tracking changes.
+Rewriting the history of a backup is a worse thing to own than the tidiness it
+would buy — a record somebody's tooling quietly rewrites is not evidence any
+more.
+
+**This is what makes `changed: 0` mean something.** A session file is rewritten
+whenever anybody uses the board, so while sessions were kept there was always
+something pending, and two backups seconds apart both reported a change. "Is
+this board already backed up" now has an answer.
+
 It has **no remote**, deliberately. A board that lives on a filesystem should
 not need somebody else's machine to be backed up, and a backup that can fail
 because a server is down is one that stops being made.
@@ -920,7 +937,21 @@ surprise, so it is refused, and the refusal is a command that can be run as it
 stands rather than the name of an argument.
 
 The vocabulary is the project's own; Tira matches a role without needing to
-understand it. Every role is optional - most projects have a column for very
+understand it - with one exception, named here rather than left to be
+discovered. **`done` is read by Tira itself**: `parent-ahead-of-children` asks
+which column means finished, and says so out loud when no board has told it -
+"cannot tell which column means finished on this board. Say so once:
+tira.column.roles --type ticket --role done=COLUMN". Every other role, including
+`in-progress`, is matched rather than understood: a policy can name one with
+`--enter-role`, `--before-role` or `--column-role`, and Tira never reads it on
+its own account.
+
+Until 1.97 `in-progress` was a second exception and a silent one. Whether any
+card was being worked - which `work-without-card` rests on - counted only cards
+in the column that role named, so a board declaring `in-progress=implement` with
+five columns work happens in had four of them reading as nobody working. It now
+asks the board where work happens, the same question `card-unassigned` and
+`priority-skipped` ask: not protected, and not marked `--terminal`. Every role is optional - most projects have a column for very
 few of them, and the absence of one is not a problem. A role naming a column
 that does not exist is refused, because a role pointing at nothing would make
 every rule written against it match nothing at all, silently.

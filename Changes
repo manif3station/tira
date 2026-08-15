@@ -1,5 +1,82 @@
 Revision history for Tira
 
+1.97  2026-08-15
+
+    - TKT-208: the bridge prints UTF-8 rather than whatever Perl
+      guesses. He hit it while tailing the bridge - "Wide character in
+      print at .../lib/Tira/CLI.pm line 1932" - which is the replay
+      handing decoded characters straight to a handle that is
+      deliberately :raw.
+    - Standard output is raw on purpose: Perl's text layer on Windows
+      rewrites every newline, so the bytes leaving the process would not
+      be the bytes Tira produced, and Tira compares output bytes in its
+      own cache. Everything that formats output therefore encodes
+      itself, through _utf8_bytes. Three prints did not - the bridge
+      replay, the bridge follow loop, and the --refs-only listing.
+    - The warning is the milder half. Above U+00FF Perl warns and then
+      writes UTF-8 anyway, so the text arrives intact with a warning
+      stitched into whatever is reading. Between U+0080 and U+00FF there
+      is no warning at all: Perl writes a single latin-1 byte, which is
+      not valid UTF-8. A card title carrying an accented name or a
+      multiplication sign written as U+00D7 put exactly the byte
+      tira.doctor exists to repair into the channel that reports it.
+    - All three now encode like every other output path. The follow loop
+      matters as much as the replay: fixing the first screen and leaving
+      every line after it wrong is the worse half, because a tail is
+      what an agent leaves running.
+    - TKT-205: a backup of a board nobody touched says nothing changed,
+      and stops carrying somebody's sign-in. He noticed tira.backup
+      reporting changed: 1 on runs seconds apart with nothing touched,
+      and guessed the backup wrote a stamp that guaranteed the next one
+      had work to do. Nearly right: nothing the backup writes causes it -
+      a session file under the store is rewritten whenever anybody uses
+      the board, reading included.
+    - The consequence he named is the small one: "is this board already
+      backed up" had no cheap answer. The larger one is what a session
+      is. It is the server side of a sign-in, and it was being committed
+      into the backup history for ever. The manual already made this
+      argument about the only other exclusion - a restored lock is
+      somebody else's half-finished write - and a restored session is
+      somebody else's sign-in, which is worse.
+    - The exclusion is checked on every backup rather than written once
+      when the store is made. It used to be written only at creation, so
+      a line added there would have fixed new boards and left every
+      board that already exists tracking sessions for ever - and every
+      board that exists today was made before this.
+    - A board that already tracked them is told to stop, in the index
+      only. What it has already committed stays committed: rewriting the
+      history of a backup is a worse thing to own than the tidiness it
+      would buy, and the documentation says so rather than implying a
+      backup gets scrubbed.
+    - TKT-202: a card being worked anywhere counts as a card being
+      worked. Whether anything is in progress - which work-without-card
+      rests on - counted only cards in the single column named by the
+      in-progress role. This project's own board declares
+      in-progress=implement and has five columns work happens in, so
+      tests-red, verify, document and push read as nobody working.
+    - Measured here rather than reasoned about: VIO-0013 reached
+      CRITICAL and was said five times while a card sat in verify,
+      assigned, with its suite running and the tree changing under it
+      because that is what working on a card looks like.
+    - It now asks the board where work happens, the same question
+      card-unassigned and priority-skipped ask: not protected, and not
+      marked terminal, with done as the fallback for a board that has
+      marked nothing. A board that declares no roles is unchanged.
+    - The half that mattered more than the fix is that backlog, the
+      ending column and discard still do not count. A rule that never
+      fires would have traded a false alarm for a silent one, which is
+      the worse trade.
+    - The documentation half, which is why this was hard to see. The
+      reference said "the vocabulary is the project's own; Tira matches
+      a role without needing to understand it" while two names were
+      understood and hard-coded. They behaved differently: done says out
+      loud when it cannot find its role, in-progress said nothing - so a
+      board using its own word for it fell through to the wide reading
+      and was watched correctly by accident, while a board using Tira's
+      word was watched in one column out of five. Following the
+      documentation gave the right behaviour. Now only done is read by
+      Tira itself, and the reference says so.
+
 1.96  2026-08-15
 
     - TKT-204: a board that says where its work lives is backed up

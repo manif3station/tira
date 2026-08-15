@@ -144,7 +144,34 @@ def main():
         return check(scratch)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
+        remove_police_store(os.path.join(scratch, 'board'))
 
+
+
+def remove_police_store(project):
+    """Remove the enforcement store the scratch board caused to exist.
+
+    The board is in a temp directory and goes with it. Its police store is not:
+    police keeps its state outside the board it watches, deliberately, so that it
+    can never become a second writer to it - and that state lives in
+    ~/.tira-police under a slug derived from the board's path. Removing the board
+    removes nothing of it.
+
+    Sixty-four of them had accumulated here between 12 and 15 August, one per
+    gate run, each holding the rule suspension the policies guide's own example
+    writes. They outlive the boards they describe by definition, and the
+    directory they sit in is where a person looks when police is behaving oddly -
+    it is where two stores for one board were found on 14 August, by reading a
+    listing. At one per release that listing stops being readable.
+
+    Only this run's store, derived the same way lib/Tira/CLI.pm derives it. Every
+    other entry belongs to a real board.
+    """
+    home = os.environ.get('HOME') or tempfile.gettempdir()
+    slug = re.sub(r'[^A-Za-z0-9]+', '-', project).strip('-')
+    if not slug:
+        return
+    shutil.rmtree(os.path.join(home, '.tira-police', slug), ignore_errors=True)
 
 # The repository's own entrypoints, not the installed skill.
 #

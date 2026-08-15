@@ -343,7 +343,7 @@ sub run {
         return _finish( $tira, \%option, $command, 0 );
     }
     if ( $option{output} eq 'human' && $option{refs_only} && ref $result eq 'ARRAY' ) {
-        print map { "$_\n" } @{$result};
+        print _utf8_bytes( join '', map { "$_\n" } @{$result} );
         return _finish( $tira, \%option, $command, 0 );
     }
     # What was asked for, so the readable format can show that rather than
@@ -1945,7 +1945,15 @@ sub _invoke {
             # which is how the owner watches the whole board.
             my $agent = $option->{author};
             my $backlog = $tira->bridge_backlog( store => $store, lines => 200, agent => $agent );
-            print map { "$_\n" } @{$backlog};
+
+            # Through _utf8_bytes like every other output path. Standard output
+            # is deliberately :raw - Perl's text layer on Windows rewrites
+            # newlines and Tira compares output bytes in its own cache - so a
+            # print of decoded characters warns above U+00FF and, worse, writes
+            # a single latin-1 byte between U+0080 and U+00FF without warning.
+            # A card title carrying a multiplication sign put exactly the byte
+            # tira.doctor repairs into the channel that reports it.
+            print _utf8_bytes( join '', map { "$_\n" } @{$backlog} );
             _bridge_follow( $tira, $store, rounds => $option->{rounds}, agent => $agent,
                 interval => $option->{interval}, sleeper => $option->{sleeper} )
               if !$option->{once};
@@ -2210,17 +2218,35 @@ sub _police_world {
 sub _card_in_progress {
     my ( $tira, $root ) = @_;
     return undef if !$tira || !defined $root;
+    # Where work happens, asked of the board rather than read off one role.
+    #
+    # This counted a card as being worked only if it sat in the single column
+    # named by the in-progress role, when a board declared one. On this project's
+    # own board - in-progress=implement, five columns work happens in - that left
+    # tests-red, verify, document and push reading as nobody working, and
+    # work-without-card raised VIO-0013 to CRITICAL five times while a card sat
+    # in verify with its suite running.
+    #
+    # A setting that names one column stops covering the board the moment work
+    # happens in another, which is the fault column-unwatched reports for
+    # policies. The role was accurate when it was set; the board grew.
+    #
+    # The same question card-unassigned and priority-skipped ask: not protected,
+    # and not an ending. A board that has marked nothing terminal ends in `done`,
+    # which is the fallback those rules use too. The in-progress role is still a
+    # role like any other - a policy can name it with --enter-role - it simply no
+    # longer narrows this silently.
     my $working = 0;
     for my $type (qw(sow epic ticket)) {
-        my $roles = eval { $tira->column_roles( project => $root, type => $type ) } || {};
+        my $columns = eval { $tira->column_list( project => $root, type => $type ) } || [];
         my $records = eval { $tira->record_list( project => $root, type => $type ) } || [];
-        my $moving = $roles->{'in-progress'};
+        my %ends = map { $_->{name} => 1 } grep { $_->{terminal} } @{$columns};
+        $ends{done} = 1 if !keys %ends;
+        my %here = map { $_->{name} => 1 }
+          grep { !$_->{protected} && !$ends{ $_->{name} } } @{$columns};
+
         for my $record ( @{$records} ) {
-            my $column = $record->{column} // '';
-            $working++, last
-              if defined $moving
-              ? $column eq $moving
-              : $column !~ /\A(?:backlog|done|discard)\z/;
+            $working++, last if $here{ $record->{column} // '' };
         }
         last if $working;
     }
@@ -2285,14 +2311,50 @@ sub _backup {
     if ($created) {
         _running( 'git', '-C', $store, 'init', '--quiet' )
           or die "Could not start a repository for this board at $store\n";
+    }
 
-        # The lock is about right now rather than about the board, and a
-        # restored lock is a wedged board. Everything else under here is state
-        # worth having back.
+    # What a backup leaves out, checked on every run rather than at creation.
+    #
+    # The lock is about right now rather than about the board, and a restored
+    # lock is a wedged board. A session is the server side of somebody's
+    # sign-in: a restored one hands over an identity, which is worse than a
+    # stale lock stopping one write. Neither is state worth having back.
+    #
+    # Written every time because it used to be written only when the store was
+    # created, so a board made before a line was added here would never see it -
+    # and every board that exists today was made before this one.
+    #
+    # Sessions are also rewritten whenever anybody uses the board, so while they
+    # were tracked there was always something pending and tira.backup reported
+    # changed: 1 on runs seconds apart with nothing touched. That is what he
+    # noticed, and why "is this board already backed up" had no answer.
+    {
         my $ignore = File::Spec->catfile( $store, '.gitignore' );
-        open my $handle, '>', $ignore or die "Could not write $ignore: $!\n";
-        print {$handle} ".lock\n";
-        close $handle;
+        my %already;
+        if ( open my $read, '<', $ignore ) {
+            while ( my $line = <$read> ) { chomp $line; $already{$line} = 1 }
+            close $read;
+        }
+        my @missing = grep { !$already{$_} } ( '.lock', 'sessions/' );
+        if (@missing) {
+            open my $handle, '>>', $ignore or die "Could not write $ignore: $!\n";
+            print {$handle} "$_\n" for @missing;
+            close $handle;
+
+            # Ignoring a path git is already tracking changes nothing, so a
+            # board that has been backed up before has to be told to stop
+            # carrying them. Only the index: what the history already holds
+            # stays there, because rewriting the history of a backup is a worse
+            # thing to own than the tidiness it buys.
+            # _running, not _running_quietly. git's own --quiet and
+            # --ignore-unmatch already keep it silent, and _running_quietly was
+            # measured to silence everything this process prints afterwards when
+            # standard output is an in-memory handle - which is how every test
+            # in this suite captures output. Raised separately; not worked
+            # around here, because the plain call is also the simpler one.
+            _running( 'git', '-C', $store, 'rm', '-r', '--cached', '--quiet',
+                '--ignore-unmatch', 'sessions' );
+        }
     }
 
     _running( 'git', '-C', $store, 'add', '--all' )
@@ -2799,7 +2861,10 @@ sub _bridge_follow {
         $wait->($every);
         my $all = $tira->bridge_backlog(%narrow);
         next if @{$all} <= $seen;
-        print map { "$_\n" } @{$all}[ $seen .. $#{$all} ];
+        # Encoded here too, and not only in the replay: fixing the first screen
+        # and leaving every line after it wrong is the worse half, because a
+        # tail is what an agent leaves running.
+        print _utf8_bytes( join '', map { "$_\n" } @{$all}[ $seen .. $#{$all} ] );
         $seen = scalar @{$all};
     }
     return $seen;

@@ -1,5 +1,36 @@
 Revision history for Tira
 
+2.02  2026-08-15
+
+    - TKT-210: a command run quietly is no longer heard by everyone the
+      caller was talking to. _running_quietly leaked the child's output
+      onto the process's real standard output whenever the caller had
+      captured its own - which is every test in this suite and the served
+      dashboard collecting a response - so "git version 2.52.0" could
+      arrive in the middle of a command's output.
+    - The cause is on the parent's side of the fork, not the child's.
+      open3 silences a child by reopening the STDOUT and STDERR globs
+      after forking, and that moves descriptors 1 and 2 only while those
+      globs still own them. A captured caller leaves the glob with no
+      descriptor at all, so nothing reaches descriptor 1 and exec passes
+      the real one through. No choice of open3 argument fixes it: a
+      handle, a fileno dup string and a second null device were each
+      tried and each leaked identically. The descriptors themselves are
+      now pointed at the null device around the call and put back after,
+      so the child inherits harmless ones whatever the globs are doing.
+    - The same hole was on the error stream. t/139 never reached it
+      because it reopens STDERR onto a real file, which hands descriptor
+      2 back a real descriptor and hides the fault - the same way an
+      early attempt at the new test went green by aiming descriptor 1 at
+      a file. Both streams are covered now.
+    - The card's own description was wrong and is corrected on the board.
+      It claimed the helper closed the caller's output and that
+      everything printed afterwards was lost; both prints either side of
+      the call arrive intact. Three tests passed while the fault was
+      present before one measured it in the only way that can: with a
+      real descriptor 1 pointed somewhere readable and an in-memory glob
+      at the same time.
+
 2.01  2026-08-15
 
     - TKT-209: a violation says which board it belongs to. Two people

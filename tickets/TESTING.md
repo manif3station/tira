@@ -1,5 +1,38 @@
 # Testing record
 
+## 2.02 - the release that found the platform gate had stopped running
+
+**Linux, in Docker.** The shared `perl-test` container, 202 files, 5356 tests,
+100% statement and subroutine coverage on `lib/Tira.pm`, `lib/Tira/CLI.pm` and
+`lib/Tira/DashboardWeb.pm`. The first run of this gate failed, and usefully:
+`t/03` asserts `podchecker` returns 0 for every `.t` file, and a file with no POD
+at all returns -1, so a new test failed as "has valid POD" when its real fault
+was having none.
+
+**Windows.** `ssh windev`, Windows 11, Strawberry Perl 5.38.2 - **FAIL**, 202
+files, 5100 tests. Failures in `t/169-one-place-not-four.t` (assertions 1 and
+9-11), `t/187-a-column-nobody-is-watching.t` (27) and `t/95-windows-replace.t`
+(10).
+
+This release did not cause them. 2.01 was extracted separately onto the same lab
+and run against those three files: identical failures, same assertion numbers.
+The platform gate had not been run since 1.06, and about fifty releases shipped
+between, so this is accumulated drift. It is raised as TKT-222 rather than
+fixed here, because it belongs to no single change.
+
+Two things are worth writing down beside that. `t/95` exists specifically to
+prove Windows can replace a file, which is the fault that once stopped Tira
+working on that platform at all - so it failing is not cosmetic. And git is not
+installed on the lab, which means every path that shells out to git is
+unreachable there: `_running_quietly`, the helper this release fixes, returns at
+its first line and its descriptor handling never runs. The claim that this
+release also repairs Windows bundle import is therefore reasoned and unproven,
+and stays that way until the lab has git.
+
+**macOS.** Not run for this release. The lab needs 50G of swap-backed memory and
+the host has 15G total, so it runs alone; it is queued behind the Windows work
+above rather than skipped silently.
+
 ## 1.06 — the release the platform labs changed
 
 **Linux, in Docker.** The shared `perl-test` container, 97 files, 100% statement

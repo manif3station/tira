@@ -2570,21 +2570,57 @@ sub _backup_import {
 # stream took it away from every caller that had redirected it, and forking a
 # child that silences itself puts lines in the codebase that no coverage tool
 # can measure, because the child execs away before any counter is written.
+# Move the descriptors, not the globs.
+#
+# open3 silences a child by reopening the STDOUT and STDERR globs after it
+# forks, which moves descriptors 1 and 2 only while those globs still own them.
+# A caller that captured its own output into a string - every test in this
+# suite, and the served dashboard collecting a response - leaves the glob with
+# no descriptor at all, so nothing the child does to it reaches descriptor 1,
+# exec passes the real one through, and the command that was run quietly is
+# heard. Measured rather than reasoned: the pipe open3 set up received nothing
+# and the process's own standard output received "git version 2.52.0".
+#
+# No choice of open3 argument fixes that - a handle, a fileno dup string and a
+# second null device were each tried and each leaked identically - because the
+# fault is on the parent's side of the fork. Pointing the descriptors themselves
+# at the null device first means the child inherits harmless ones whatever the
+# globs are doing.
+#
+# The same hole sits on the error stream. t/139 does not reach it because it
+# reopens STDERR onto a real file, which hands descriptor 2 back a real
+# descriptor and hides the fault - the same way an earlier attempt at t/204
+# went green by aiming descriptor 1 at a file.
+#
+# Both are put back before returning, so a caller keeps the output it had; that
+# is the failure t/139 records, and it is asserted here rather than assumed.
 sub _running_quietly {
     my (@command) = @_;
     return 0 if !_program_exists( $command[0] );
-    require IPC::Open3;
-    require Symbol;
-    open my $quiet, '>', File::Spec->devnull
+    require POSIX;
+    open my $silence, '>', File::Spec->devnull
       or die "Cannot open the null device to run $command[0] quietly: $!\n";
-    my $said = Symbol::gensym();
-    my $pid = eval { IPC::Open3::open3( my $nothing, $said, $quiet, @command ) };
-    return 0 if !$pid;
-    my @ignored = <$said>;
-    close $said;
-    waitpid $pid, 0;
-    my $status = $?;
-    close $quiet;
+    open my $nothing, '<', File::Spec->devnull
+      or die "Cannot open the null device to run $command[0] quietly: $!\n";
+
+    # Remembered as descriptors for the same reason: a glob that has been
+    # captured cannot be duplicated back afterwards.
+    open my $keep_in,  '<&', 0 or die "Cannot remember standard input: $!\n";
+    open my $keep_out, '>&', 1 or die "Cannot remember standard output: $!\n";
+    open my $keep_err, '>&', 2 or die "Cannot remember the error stream: $!\n";
+
+    POSIX::dup2( fileno($nothing), 0 );
+    POSIX::dup2( fileno($silence), 1 );
+    POSIX::dup2( fileno($silence), 2 );
+
+    # The child reads end-of-file rather than blocking on a pipe nobody writes
+    # to, which is what the previous code left it holding.
+    my $status = system(@command);
+
+    POSIX::dup2( fileno($keep_in),  0 );
+    POSIX::dup2( fileno($keep_out), 1 );
+    POSIX::dup2( fileno($keep_err), 2 );
+
     return $status == 0 ? 1 : 0;
 }
 

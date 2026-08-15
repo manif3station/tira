@@ -107,8 +107,15 @@ like( $behind, qr/one ticket|a single ticket|single backlog/i,
     $tira->policy_add( project => $root, rule => $_, action => 'log-only', %{ $needs{$_} } )
       for sort keys %needs;
 
-    is( $tira->police_prompt( project => $root ), undef,
-        'a project using every rule is left alone' );
+    # Left alone in the sense that matters: no instructions, nothing to do.
+    # Not silent, though - silence is what a dead police produces, and a
+    # project that declared every rule is the last one that should be unable to
+    # tell the difference.
+    my $using_everything = $tira->police_prompt( project => $root );
+    like( $using_everything, qr/watching this board/,
+        'a project using every rule is told police is watching and nothing more' );
+    unlike( $using_everything, qr/Bring yourself up to date|not using/,
+        'and is not handed the setup instructions it has already followed' );
 }
 
 # --- and police itself prints it ------------------------------------------

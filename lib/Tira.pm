@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.03';
+our $VERSION = '2.04';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -6160,7 +6160,30 @@ sub police_prompt {
     my @declared = @{ $self->policy_list( project => $root ) };
     my @unused = @{ $self->policy_undeclared( project => $root ) };
 
-    return undef if @declared && !@unused;
+    # A board that has finished setting up still hears that police is here.
+    #
+    # This returned undef, and the reasoning was sound as far as it went: there
+    # is nothing left to ask, and a heading with an empty list under it is
+    # worse than nothing. But nothing is also what a board gets when police has
+    # died, when it cannot read the project, and when nobody started it - so a
+    # fully configured board and a broken one produced identical output, which
+    # is the fault this whole subsystem exists to prevent. The owner reported it
+    # as police saying nothing after a restart, on a board with thirty policies
+    # declared and none outstanding.
+    #
+    # So: no instructions, no empty heading, one line saying what is watching
+    # and against how much. What it does NOT say is as deliberate as what it
+    # does - a board that has finished being told what to do should not be told
+    # again every sixty seconds.
+    if ( @declared && !@unused ) {
+        my $declined = eval { scalar @{ $self->policy_declined( project => $root ) } } // 0;
+        return sprintf
+          "Police is watching this board against %d declared %s%s, with no rule"
+          . " left to declare. Nothing here needs setting up.\n",
+          scalar @declared,
+          ( @declared == 1 ? 'policy' : 'policies' ),
+          ( $declined ? " and $declined declined" : '' );
+    }
 
     my $reading = <<'READING';
   d2 tira.skills      - what Tira is and how a board is meant to be worked

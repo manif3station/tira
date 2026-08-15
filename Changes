@@ -1,5 +1,36 @@
 Revision history for Tira
 
+2.04  2026-08-15
+
+    - TKT-225: police says it is watching even when there is nothing left
+      to set up. Reported by the owner: police restarting on his project
+      printed nothing. police_prompt returned undef the moment a board had
+      declared its policies with no rule left undeclared, so a fully
+      configured board produced no output at all - which is also what a
+      board produces when police has died, when it cannot read the
+      project, and when nobody started it. The boards it happened to were
+      the ones set up most carefully.
+    - The CLI prints that prompt under a comment promising it "on every
+      run, because remembering which run was the first is the sort of
+      thing he should not have to do". Two copies of one decision,
+      disagreeing, and the comment described the behaviour that did not
+      ship. Every state answers now, so the comment is true as written.
+    - What it does not say is as deliberate as what it does. No setup
+      instructions to a board that has followed them, and no heading with
+      an empty list under it - which is what the original undef was
+      protecting against, and it was right about that much. One line:
+      what is watching, and against how many declared and declined rules.
+      It says "no rule left to declare" rather than "unanswered", because
+      the two diagnostic rules always run and are never in that count -
+      a wording that would have been wrong in a way nobody would check.
+    - The other half of the report did not reproduce and is recorded on
+      the card rather than guessed at. Pointing a separate copy at the
+      project and moving its version on disk under the running police
+      restarted it into the new code and announced "Tira is now 2.04 -
+      this board last heard 2.03" on the bridge. The store that remembers
+      what a board last heard is keyed by project path, so a copied
+      project starts with a blank slate and an original does not.
+
 2.03  2026-08-15
 
     - TKT-211: an example the collector never finds is no longer invisible.

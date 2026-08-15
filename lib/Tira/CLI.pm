@@ -1974,6 +1974,12 @@ sub _invoke {
         # than writing the instructions himself every time. Printed on every
         # run, because remembering which run was the first is the sort of thing
         # he should not have to do.
+        #
+        # That was a promise this comment made and the engine did not keep. A
+        # board with every rule declared got undef and printed nothing, so it
+        # looked exactly like a police that had died - and the boards it
+        # happened to were the ones set up most carefully. Every state answers
+        # now, so this line is true as written.
         my $prompt = eval { $tira->police_prompt(%args) };
         print {*STDERR} "\n$prompt\n" if defined $prompt;
 

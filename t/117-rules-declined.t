@@ -111,18 +111,29 @@ $tira->policy_add( project => $root, rule => 'card-sandbox-missing',
 is( scalar @{ $tira->policy_declined( project => $root ) }, 0,
     'declaring a rule clears the note saying it was declined' );
 
-# --- nothing left to say --------------------------------------------------
+# --- nothing left to ask, which is not the same as nothing to say ----------
 #
-# Every rule either declared or declined: the prompt has nothing to ask, and
-# says nothing rather than printing a heading with an empty list under it.
+# Every rule either declared or declined: the prompt has nothing to ASK, and
+# must not print a heading with an empty list under it. That much was right
+# from the start and is still asserted below.
+#
+# It used to return undef, and that went too far. Nothing is also what a board
+# gets when police has died, when it cannot read the project, and when nobody
+# started it, so a finished board and a broken one read identically - the fault
+# this subsystem exists to prevent. Reported by the owner as police saying
+# nothing after a restart, on a board with thirty policies and none
+# outstanding. One line now, saying what is watching and against how much.
 
 for my $rule ( @{ $tira->policy_rules } ) {
     next if grep { ( $_->{rule} // '' ) eq $rule } @{ $tira->policy_list( project => $root ) };
     $tira->policy_decline( project => $root, rule => $rule,
         reason => 'considered and not needed on this project' );
 }
-is( $tira->police_prompt( project => $root ), undef,
-    'with every rule declared or declined, the prompt has nothing to say and says nothing' );
+my $finished = $tira->police_prompt( project => $root );
+like( $finished, qr/watching this board/,
+    'with every rule declared or declined, police still says it is watching' );
+unlike( $finished, qr/Rules this project is not using/,
+    'and does not print the heading with an empty list under it' );
 
 done_testing();
 

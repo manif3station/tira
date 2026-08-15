@@ -72,6 +72,7 @@ my %declare = (
     'parent-ahead-of-children'  => {},
     'priority-skipped'          => {},
     'discard-with-open-questions' => {},
+    'board-still'               => { age => '8h' },
     'column-skipped'            => { enter => 'done', require => 'implement' },
 );
 is_deeply( [ sort keys %declare ], [ sort @{ Tira::policy_rules() } ],
@@ -172,6 +173,12 @@ my $world = {
     working_since => '2026-08-11T09:00:00Z',
     unpushed_since => '2026-08-11T09:00:00Z',
 };
+
+# The clock moves on before the pass, so the board as a whole is old enough to
+# be still. Everything above was built at 09:00; board-still asks when the board
+# LAST did anything, which is the one question that cannot be answered by
+# arranging a single card.
+$now = '2026-08-11T23:00:00Z';
 
 my $before = fingerprint();
 my $pass = $tira->police_pass( project => $root, store => $store, world => $world );

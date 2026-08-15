@@ -1,5 +1,38 @@
 Revision history for Tira
 
+1.90  2026-08-15
+
+    - TKT-177: board-still. His request - if nothing has moved for a
+      period the agent sets, police asks on the bridge why. It is the one
+      rule here that is not about a card: every other rule needs
+      something to attach itself to, so a board where every card sits in
+      the backlog and none has moved for a day looks, to all of them,
+      exactly like a board with nothing wrong.
+    - It says when the board last moved and how long ago, because "over
+      the limit" alone cannot tell a quiet afternoon from a board
+      abandoned on Friday. Everything counts as movement - a card
+      created, a field written, a comment, an answer, a checklist tick, a
+      discard, a column changed - and it is the newest of those anywhere
+      on the board, so one card being worked keeps a board of forgotten
+      ones quiet.
+    - The age is required with no default: an hour of quiet is nothing on
+      a research board and a working day is a crisis on a delivery one.
+    - The other half of his request needed nothing built. tira.rule.suspend
+      already puts one rule down for a while with a reason, has a ceiling
+      and comes back by itself, so the message points at it by name and
+      the documentation shows the planning-afternoon case.
+    - It waited for 1.89. Built on last_updated before a column move
+      stamped the card, this rule would have called a board busy with
+      moves completely still.
+    - Two mutations caught nothing and both were faults in the test
+      rather than in the rule. Reversing the sort from newest to oldest
+      changed no verdict, because every case had a single card - so the
+      choice the whole rule rests on had never been asked, and a
+      two-card case was added. And a `next if !defined` guard for the
+      empty board turned out to be dead code: _policy_older_than already
+      treats a stamp it cannot read as not old. The guard was removed and
+      the real reason written down.
+
 1.89  2026-08-15
 
     - TKT-198: a card whose only change was moving column was invisible

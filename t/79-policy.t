@@ -154,6 +154,7 @@ my %needs = (
     'parent-ahead-of-children'  => {},
     'priority-skipped'          => {},
     'discard-with-open-questions' => {},
+    'board-still'               => { age => '8h' },
     'column-skipped'            => { enter => 'Doing', require => 'Backlog' },
 );
 my $scratch = File::Spec->catdir( $tmp, 'scratch' );

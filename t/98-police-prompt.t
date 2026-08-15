@@ -93,6 +93,7 @@ like( $behind, qr/one ticket|a single ticket|single backlog/i,
         'parent-ahead-of-children'  => {},
         'priority-skipped'          => {},
         'discard-with-open-questions' => {},
+        'board-still'               => { age => '8h' },
         'column-skipped'            => { enter => 'done', require => 'implement' },
     );
     $tira->policy_add( project => $root, rule => $_, action => 'log-only', %{ $needs{$_} } )

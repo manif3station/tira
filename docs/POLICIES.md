@@ -302,6 +302,7 @@ missing, at the moment you declare the policy rather than later.
 | `parent-ahead-of-children` | — | a parent saying it is finished above a child that is not |
 | `priority-skipped` | — | a card being worked while a higher-priority card of the same kind waits untouched. **No age**: being passed over does not ripen. |
 | `discard-with-open-questions` | — | a card set aside while it still carries a question nobody answered. **No age**: a question that left with the card is not waiting. |
+| `board-still` | `--age` | a whole board where nothing has moved for that long. The only rule here that is not about a card. |
 | `question-unanswered` | `--age` | a question waiting on the owner |
 | `conversation-not-folded` | — | a card talked about since it was last written down. **No age**: the ladder already keeps it from repeating. |
 | `card-unassigned` | — | work in progress with nobody on it. **No column**: the board says which columns are work. A board whose work ends in more than one place marks each ending with `tira.column.update --terminal`; one that marks nothing treats `done` as its ending, as before. |
@@ -1573,3 +1574,47 @@ a question can stall:
 
 The first five watch a question while its card is alive. The last watches the
 one moment they can all be escaped at once.
+
+
+## A board where nothing is happening
+
+Every other rule here reports something wrong with a card. This one reports that
+there are no cards doing anything — which no per-card rule can express, because
+it has nothing to attach itself to. **A board where every card sits in the
+backlog and none has moved for a day looks, to every other rule, exactly like a
+board with nothing wrong.** It is the silence-is-not-compliance shape one level
+up.
+
+    d2 tira.policy.add --rule board-still --age 8h --action bridge-reminder
+
+    nothing has moved on this board since 2026-08-15T09:00:00Z, which is 5h -
+    no card created, no field written, no column changed. If that is expected
+    while something is being worked out, put this rule down for a while with a
+    reason rather than leaving it unanswered:
+    d2 tira.rule.suspend --rule board-still --seconds N --reason TEXT
+
+**The age is required and there is no default.** An hour of quiet is nothing on
+a research board and a working day is a crisis on a delivery one, so a guess
+would fire wrongly on somebody's board rather than usefully on anybody's.
+
+**Everything counts as movement**: a card created, a field written, a comment, an
+answer, a checklist tick, a card discarded, a column changed. It is the newest of
+those anywhere on the board, so one card being worked keeps a board of forgotten
+ones quiet — which is right, because somebody is working.
+
+**An empty board is not a stuck board.** Nothing has moved for want of anything
+to move, and greeting a new project with a complaint about work nobody has
+raised would teach its agent to read past this channel on its first day.
+
+### When nothing is meant to move
+
+Planning that has not finished, a decision waiting on a conversation, a day off:
+these are boards that are quiet on purpose. Put the rule down rather than
+leaving the question unanswered —
+
+    d2 tira.rule.suspend --rule board-still --seconds 600 \
+      --reason "planning is not finished, so nothing is meant to move yet"
+
+— which takes a reason, has a ceiling, is written to the enforcement log, and
+comes back by itself. There is nothing to switch on again afterwards, and the
+silence is accounted for rather than merely absent.

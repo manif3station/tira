@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.89';
+our $VERSION = '1.90';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4356,6 +4356,12 @@ my %POLICY_RULES = (
     # waiting for anything, so there is nothing for a grace period to be a
     # grace for.
     'discard-with-open-questions' => { needs => [], forbids => ['age'] },
+
+    # The period is required and there is deliberately no default. An hour of
+    # quiet is nothing on a research board and a working day is a crisis on a
+    # delivery one, so a guess here would fire wrongly on somebody's board
+    # rather than usefully on anybody's.
+    'board-still'               => { needs => ['age'] },
 );
 
 # Police speaks in exactly three ways: down the bridge the agent tails, in the
@@ -4665,6 +4671,21 @@ sub policy_message_fields { return [ sort keys %POLICY_MESSAGE_FIELDS ] }
 # Whether one stamp is later than another. Both are written by Tira in the same
 # shape, and a stamp that cannot be read is treated as not later - guessing here
 # would announce an answer somebody had already dealt with.
+# How long ago, in the shape the ages are written in. "Longer than the limit"
+# is not actionable on its own: the reader has to be able to tell a quiet
+# afternoon from a board abandoned on Friday, and the limit alone says only
+# which side of it they are on.
+sub _policy_elapsed {
+    my ( $self, $stamp ) = @_;
+    my $then = eval { _epoch_of_datetime( $stamp, 'Stamp' ) } // return 'some time';
+    my $now = eval { _epoch_of_datetime( $self->{clock}->(), 'Clock' ) } // return 'some time';
+    my $gap = $now - $then;
+    return $gap . 's' if $gap < 60;
+    return int( $gap / 60 ) . 'm' if $gap < 3600;
+    return int( $gap / 3600 ) . 'h' if $gap < 86400;
+    return int( $gap / 86400 ) . 'd';
+}
+
 sub _policy_stamp_after {
     my ( $stamp, $mark ) = @_;
     return 0 if !defined $stamp || !defined $mark;
@@ -5199,6 +5220,48 @@ sub policy_evaluate {
                 next if @{ $record->{gate_passing_log} // [] };
                 $report->( $policy, $record, "reached $policy->{column} with no gate recorded" );
             }
+        }
+        elsif ( $rule eq 'board-still' ) {
+
+            # The one rule here that is not about a card. Every other rule needs
+            # something to attach itself to, so a board where every card sits
+            # untouched looks to all of them exactly like a board with nothing
+            # wrong - the silence-is-not-compliance shape one level up, and the
+            # reason he asked for it.
+            #
+            # Movement is read from what is already kept: a card created, a
+            # field written, a comment, an answer, a checklist tick and a column
+            # move all stamp last_updated, so the newest one on the board is
+            # when the board last did anything. That was only true of a column
+            # move from 1.89 - before it, a move renamed the file and left the
+            # stamp alone, and this rule built on it would have called a board
+            # busy with moves completely still.
+            #
+            # Discarded cards count. Setting one aside is a decision, and a
+            # board whose only activity was tidying up has still been worked.
+            my ($moved) = sort { $b cmp $a } grep { defined }
+              map { $_->{last_updated} } @{$all};
+
+            # An empty board is not a stuck board: nothing has moved for want of
+            # anything to move, and greeting a new project with a complaint
+            # about work nobody has raised yet would teach its agent to read
+            # past this channel on its first day.
+            #
+            # No guard is written for it. A board with no cards leaves $moved
+            # undefined, and _policy_older_than treats a stamp it cannot read as
+            # not old - the same safe default it applies everywhere. A `next if
+            # !defined` here was tried and removed: mutating it away changed no
+            # verdict and produced no warning, which is a check that exists and
+            # never fires.
+            next if !$self->_policy_older_than( $moved, $policy->{age} );
+
+            $report->( $policy, '',
+                "nothing has moved on this board since $moved, which is "
+                  . $self->_policy_elapsed($moved)
+                  . " - no card created, no field written, no column changed. If that is "
+                  . 'expected while something is being worked out, put this rule down for a '
+                  . 'while with a reason rather than leaving it unanswered: '
+                  . 'd2 tira.rule.suspend --rule board-still --seconds N --reason TEXT' );
         }
         elsif ( $rule eq 'discard-with-open-questions' ) {
 

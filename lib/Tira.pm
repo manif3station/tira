@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.88';
+our $VERSION = '1.89';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -2034,10 +2034,31 @@ sub record_move {
         my $destination = File::Spec->catfile( $root, '.tira', $type, $column, basename($path) );
         my $previous_column = basename( dirname($path) );
         rename $path, $destination or die "Cannot move '$args{ref}': $!\n";
-        $self->_journal_record(
-            ref => $record->{ref}, op => 'move',
-            entries => [ { field => 'column', before => $previous_column, after => $column } ],
-        ) if $previous_column ne $column;
+
+        if ( $previous_column ne $column ) {
+
+            # Stamped, because moving a card is changing it. The column is not a
+            # field in the record - it is which directory the file sits in - so
+            # a move was the one edit that never went through the write that
+            # stamps a card, and every --since filter reads that stamp.
+            #
+            # A card created at 09:00 and moved at 18:00 reported last_updated
+            # 09:00, so record.list --since 12:00 returned nothing and an
+            # incremental export dropped it: against a comment saying
+            # since-filtering "must never hide one", and a reference promising a
+            # poller "can never miss a change".
+            #
+            # The content hash is unaffected - last_updated is deliberately
+            # outside it - so a move still reads as the same card, which is what
+            # anything comparing two boards depends on.
+            $record->{last_updated} = $self->{clock}->();
+            $self->_write_json( $destination, $record );
+
+            $self->_journal_record(
+                ref => $record->{ref}, op => 'move',
+                entries => [ { field => 'column', before => $previous_column, after => $column } ],
+            );
+        }
         return { %{$record}, column => $column };
     } );
 }

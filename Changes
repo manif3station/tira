@@ -1,5 +1,39 @@
 Revision history for Tira
 
+1.89  2026-08-15
+
+    - TKT-198: a card whose only change was moving column was invisible
+      to every since filter. The column is not a field in the record - it
+      is which directory the file sits in - so record_move renamed the
+      file, journalled the move, and never rewrote the record. Every
+      since filter reads last_updated, which stayed where it was.
+    - Measured on both paths. A card created at 09:00 and moved to
+      implement at 18:00 reported last_updated 09:00: record.list --since
+      12:00 returned nothing, and an incremental export returned nothing.
+      The card moved six hours after the threshold and neither saw it.
+    - The code and the reference both said this must not happen. The
+      comment above _changed_since reads "since-filtering may skip quiet
+      records but must never hide one", and the reference promises that a
+      poller passing the export envelope's own clock back as its next
+      --since "can never miss a change". A poller doing exactly that
+      missed every column move.
+    - A move now stamps the card. A move to the column a card is already
+      in still changes nothing at all, so a command that did nothing
+      cannot wake a poller.
+    - Found while building board-still for TKT-177, which needed to know
+      when a board last did anything: the obvious source was the newest
+      last_updated, and a move did not appear in it, so that rule would
+      have called a board busy with moves completely still. TKT-177 is
+      parked on this rather than built on a stamp that does not move.
+    - The test caught itself in the same trap it was written to fix. Its
+      content-hash block asserted that a move leaves the hash alone, and
+      passed - because content_hash is only computed when a field
+      selection asks for it, and record_show without one returns undef,
+      so undef equalled undef. The real contract is the opposite: CA05
+      covers the computed column, so a move alters the hash. Corrected,
+      and proved by dropping the column from the hash and watching it
+      fail. Written an hour after TKT-196, which was about exactly that.
+
 1.88  2026-08-15
 
     - TKT-175: discard-with-open-questions. His request. A card could be

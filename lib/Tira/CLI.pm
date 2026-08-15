@@ -1733,7 +1733,17 @@ sub _invoke {
         my %question = ( project => $args{project} );
         $question{ref} = $option->{ref_list}[0] if $option->{ref_list};
         $question{$_} = $option->{$_} for grep { defined $option->{$_} } qw(id text mark author reason);
-        $question{voice} = $option->{voice} if defined $option->{voice} && $action eq 'update';
+        # ask as well as update. The option was accepted, refused on every
+        # command it does not belong to - "A voice note belongs to the
+        # question.ask, question.update and question.voice commands" - and then
+        # passed through for update alone, so asking with a recording produced a
+        # question whose own reminder told its author to supply the recording
+        # they had just supplied. question_add has always attached it, after the
+        # question exists so a bad recording fails the voice rather than the
+        # question, and the manual has always documented it. Only this line
+        # disagreed.
+        $question{voice} = $option->{voice}
+          if defined $option->{voice} && ( $action eq 'update' || $action eq 'ask' );
         $question{file} = $option->{file} if defined $option->{file} && $action eq 'answer';
         $question{options} = $option->{options} if $option->{options};
         $question{status} = $option->{status} if defined $option->{status};
@@ -2172,8 +2182,21 @@ sub _police_world {
     # every other board was told it had never been backed up and had no way to
     # change that. It is still read, so a board backed up by the old tool is not
     # suddenly told it never was.
-    $world->{backed_up_at} = _last_backup_commit( _backup_store($where) )
-      // _last_backup( $args{backups} // _backup_home($where) );
+    #
+    # Asked about the board, not about $where. Every other question here is
+    # about the repository the work happens in; this one is about the board,
+    # and tira.backup, tira.backup.restore and tira.backup.export all resolve
+    # the store from the board root. Asking it with $where meant that a project
+    # which declared a repository had its backups looked for inside the code -
+    # where there are none - and board-unbacked told it that it had never been
+    # backed up, permanently, whatever anybody did.
+    #
+    # developer-dashboard reported exactly that on 2026-08-15: the rule raised
+    # at 07:55 and escalated twice while the board was backed up three times in
+    # between, against a seven-day age. One variable was answering two
+    # questions, which are the same place until somebody says otherwise.
+    $world->{backed_up_at} = _last_backup_commit( _backup_store($root) )
+      // _last_backup( $args{backups} // _backup_home($root) );
     $world->{card_in_progress} = exists $args{card_in_progress}
       ? $args{card_in_progress}
       : _card_in_progress( $args{tira}, $root );

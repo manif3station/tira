@@ -1665,6 +1665,17 @@ because it reads as cover.
 **A board that does sit inside its repository needs to say nothing.** Nothing
 changes underneath a project that has declared no repository.
 
+**And the backup question is about the board, not about the repository.**
+`tira.backup` writes into the board's own storage and nowhere else, so that is
+where `board-unbacked` looks for it, whatever repository the project has
+declared. Until 1.96 it looked wherever `--repo` pointed, so a board that had
+declared one was told it had never been backed up - permanently, however many
+times anybody backed it up. developer-dashboard reported exactly that: the rule
+raised at 07:55 and escalated twice while the board was backed up three times in
+between, against a seven-day age. Everything else police reads from the machine
+- branches, work trees, unpushed commits, whether the tree is changing - still
+comes from the declared repository, because those are questions about the work.
+
 
 ## A bridge nobody is reading
 

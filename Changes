@@ -1,5 +1,32 @@
 Revision history for Tira
 
+1.85  2026-08-15
+
+    - TKT-197: five options that work on project.new and were documented
+      only for project.update. The CLI's own ownership guard says
+      reminder settings belong to project.update, project.new and
+      onboard; SKILLS.md documented --notify-after, --collector, --agent,
+      --session and --heartbeat against project.update alone, and
+      project.new's signature listed none of them.
+    - All five work there. Measured before anything was written:
+      project.new carrying agent, session, collector, heartbeat and
+      notify-after stores every one, project.show reads them back, and
+      they are in project.yml. Nothing was broken - a real capability was
+      simply unfindable, against a command whose reason for existing is
+      doing the whole of onboarding in a single call.
+    - project.update was documented twice in the same file, in two
+      different shapes, and neither list was complete: a bullet carrying
+      the name and dashboard options, and a fenced block carrying the
+      reminder settings. The bullet now carries all of them.
+    - The guard and the signatures are checked against each other rather
+      than against a third list somebody would have to maintain, so a
+      command added to the guard fails until it is written down.
+    - Found by a hunt probing for the shape of TKT-182 - an option a
+      command is validated as allowed to carry and then drops. That probe
+      came back clean: all seven static suspects were bulk-copied
+      settings that do work, each confirmed by running it. This was the
+      same drift running the other way.
+
 1.84  2026-08-15
 
     - TKT-186: the priority scale says which end is urgent. Tira runs 1

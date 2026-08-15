@@ -23,8 +23,47 @@ import sys
 
 # Columns in the order work passes through them. A card whose checklist is
 # finished must have left the columns that mean "still being done".
-FLOW = ['backlog', 'tests-red', 'implement', 'verify', 'document', 'push', 'done']
-SETTLED_FROM = FLOW.index('verify')
+#
+# Asked of the board rather than carried here. This was a list of the seven
+# columns the tool happened to know, and every column-dependent check began by
+# locating the card in it - so a column the list had never heard of was not in
+# it, the check did not apply, and the card passed. Silently, which is the only
+# way it could have survived: a board that declares a working column lost the
+# gate, evidence and fix-version checks for everything in it, and the push
+# still succeeded. The engine had already learned this and asks the board.
+# TKT-223.
+#
+# discard stays out of the flow, deliberately. A discarded card is not work in
+# progress, and asking it for a gate would be the tool arguing with a decision
+# somebody already made. It is identified by what the board says about it - a
+# protected column that is not the one work starts in - rather than by its name,
+# so a board that calls it something else is still understood.
+def flow_from_board():
+    columns = tira('tira.column.list', '--type', 'ticket', '-o', 'json')
+    roles = tira('tira.column.roles', '-o', 'json').get('ticket', {})
+    starts_in = roles.get('backlog')
+    names = [c['name'] for c in columns
+             if not (c.get('protected') and c.get('name') != starts_in)]
+    return names, roles
+
+
+
+# The milestones, by what the board says they mean rather than by name. A board
+# that calls its testing column something else is still understood; one that has
+# no such column is told so, because guessing which of its columns means proven
+# would be inventing a rule nobody declared.
+def milestone(role, fallback):
+    named = ROLES.get(role)
+    if named in FLOW:
+        return FLOW.index(named)
+    if fallback in FLOW:
+        return FLOW.index(fallback)
+    raise SystemExit(
+        f'card-holes: this board has no {role} column and no {fallback} column, '
+        'so there is no point past which a card is claiming to be proven. '
+        'Declare one, or these checks cannot say anything.')
+
+
 
 REQUIRED = [
     'problem_or_feature',
@@ -64,6 +103,24 @@ def tira(*args):
     if done.returncode != 0:
         raise SystemExit(f'card-holes: {" ".join(args)} failed: {done.stderr.strip()}')
     return json.loads(done.stdout)
+
+
+# The board is asked once, here, because everything below is derived from it.
+# These sat above the caller they use, so the tool died with a NameError before
+# reading a single card - and it died inside a push, because the hook runs this
+# file from the working tree rather than from the copy it is about to push.
+# TKT-223.
+FLOW, ROLES = flow_from_board()
+
+SETTLED_FROM = milestone('testing', 'verify')
+
+PROVEN_FROM = SETTLED_FROM
+
+# Shipping has no role on the board, so the column is named here and the
+# terminal column stands in for a board that does not have it - a card in the
+# column work ends in is shipped by anybody's definition.
+SHIPPED_FROM = (FLOW.index('push') if 'push' in FLOW
+                else milestone('done', 'done'))
 
 
 def premature(record):
@@ -114,8 +171,6 @@ def stalled(record):
 # "you have not updated everything on the card, just the checklist - I know you
 # are lazy about it." He is right that it needs to be mechanical rather than
 # remembered.
-PROVEN_FROM = FLOW.index('verify')
-SHIPPED_FROM = FLOW.index('push')
 
 
 def unproven(record):

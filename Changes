@@ -1,5 +1,28 @@
 Revision history for Tira
 
+2.12  2026-08-15
+
+    - TKT-223: the push gate enforces for every column the board has, not
+      only the seven it knew. It carried its own list, and every
+      column-dependent check began by locating the card in it - so a
+      column the list had never heard of was not in it, the check did not
+      apply, and the card passed. Silently, which is the only way this
+      could have survived: a board that declares a working column lost the
+      gate, evidence and fix-version checks for everything in it, and the
+      push still succeeded.
+    - It asks the board now, as the engine already did. discard stays
+      exempt and is identified by what the board says about it rather than
+      by its name, so a board that calls it something else is still
+      understood. A board with no testing column is told that these checks
+      cannot say anything about it, rather than passing quietly, which is
+      the same fault one level up.
+    - Proved by running the tool. Nothing had: three tests mention it and
+      all three read it as text, which is how a fault in it was found by
+      reading rather than running. The assertion is on the sentence about
+      a gate, because the first version asked only whether the card was
+      named and it was named in both columns by a different check
+      entirely - it passed and proved nothing.
+
 2.11  2026-08-15
 
     - TKT-222: the platform gate runs on Windows again. It had not since

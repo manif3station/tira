@@ -1701,3 +1701,35 @@ sending an agent to look at an empty file is how it learns to stop looking.
 **The period is required.** How long an agent may go without looking is a
 decision about how it works: a minute is absurd on a board polled hourly and a
 day is useless on one being worked now.
+
+
+## A scope that means something
+
+Declaring a policy on a card beats declaring it on the column, which beats the
+board, which beats the project — per rule, so one exception cannot switch the
+rest off. That is the promise. `discard-unexplained` did not keep it: a policy
+declared with `--ref` for one card reported every discarded card, because its
+branch looped every record and never consulted the resolver every other card
+rule uses.
+
+    d2 tira.policy.add --rule discard-unexplained --ref TKT-001 \
+      --action bridge-reminder
+
+now reports TKT-001 and nothing else, and the same rule declared without a card
+still reports the whole board.
+
+**A scope a rule cannot act on is refused.** `board-still` and `bridge-unread`
+are about the whole board, so a card scope could never narrow either, and it is
+refused when it is set:
+
+    Policy rule 'board-still' is about the whole board rather than one card, so
+    a card scope could never narrow it. Declare it without --ref
+
+Storing it instead would leave a policy that reads as narrow and behaves as
+wide, and the natural conclusion on seeing it fire everywhere is that the rule
+is broken rather than that the scope was never read.
+
+`wip-limit` is not one of these, though it looks like one. It counts a column,
+so a card scope seems meaningless — until you notice the cascade uses exactly
+that to give one card a different limit from the rest of its column. It keeps
+its card scope.

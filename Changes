@@ -1,5 +1,36 @@
 Revision history for Tira
 
+1.93  2026-08-15
+
+    - TKT-199: a policy scoped to one card fired on all of them.
+      SKILLS.md promises that declaring a policy on a card beats
+      declaring it on the column, which beats the board.
+      discard-unexplained ignored that entirely: its branch looped every
+      record and never consulted the resolver every other card rule uses,
+      so a policy declared with --ref for one card reported every
+      discarded card on the board.
+    - Measured: two cards discarded, the policy declared for the first
+      only, and both reported. The scope was accepted, stored on the
+      policy, and never read - which is worse than refusing it, because
+      it reads as narrow and behaves as wide, and the natural conclusion
+      on seeing it fire everywhere is that the rule is broken.
+    - Two more rules never consult the scope and cannot: board-still and
+      bridge-unread are about the whole board, so a card scope could
+      never narrow either. It is refused when it is set, saying what the
+      rule is about instead. Both shipped in the last three releases and
+      had the same fault as the one being fixed.
+    - wip-limit looked like a third and is not. It counts a column, so a
+      card scope reads as meaningless until you find that the cascade
+      uses exactly that to give one card a different limit from the rest
+      of its column. Refusing it broke that, and t/87-policy-cascade.t
+      caught it in the same run - the assertion had been written from
+      what the rule looked like rather than from what the suite already
+      proved about it.
+    - Found by the hourly hunt. The probe before it came back clean:
+      every forbids entry in the rule catalogue is genuinely enforced,
+      six of six, checked by declaring each forbidden option and watching
+      it be refused.
+
 1.92  2026-08-15
 
     - TKT-183: bridge-unread. Every other rule asks whether the board is

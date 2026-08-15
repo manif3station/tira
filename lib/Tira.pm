@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.92';
+our $VERSION = '1.93';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4408,6 +4408,20 @@ my %POLICY_RULES = (
     'bridge-unread'             => { needs => ['age'] },
 );
 
+# What each of these is about, for the refusal that explains why a card scope
+# cannot narrow it. Written as the phrase the message needs rather than as a
+# bare flag, so the reader is told what the rule watches instead.
+# wip-limit is deliberately NOT here. It counts a column, so a card scope reads
+# at first like something it could never use - but the cascade uses exactly that
+# to give one card a different limit from the rest of its column, and
+# t/87-policy-cascade.t has asserted it for as long as the cascade has existed.
+# Refusing it broke a working, tested feature, and the assertion claiming it was
+# meaningless was written without reading the test that already disproved it.
+my %WHOLE_BOARD_RULE = (
+    'board-still'   => 'the whole board',
+    'bridge-unread' => 'the whole board',
+);
+
 # Police speaks in exactly three ways: down the bridge the agent tails, in the
 # owner's own terminal, and quietly into the log for a rule being tuned.
 my %POLICY_ACTIONS = map { $_ => 1 } qw(bridge-reminder print-reminder log-only);
@@ -4477,6 +4491,17 @@ sub policy_add {
         die "Policy rule 'wip-limit' needs --max, or a limit set on the project"
           . " with tira.project.limit --max N\n"
           if !defined $stored;
+    }
+
+    # A scope a rule can never act on is refused rather than stored.
+    #
+    # wip-limit counts a column; board-still and bridge-unread are about the
+    # whole board. A card scope cannot narrow any of them, so accepting one
+    # leaves a policy nobody can make sense of: it reads as narrow, behaves as
+    # wide, and the natural conclusion is that the rule is broken.
+    if ( defined $args{ref} && $args{ref} ne '' && $WHOLE_BOARD_RULE{$rule} ) {
+        die "Policy rule '$rule' is about $WHOLE_BOARD_RULE{$rule} rather than one "
+          . "card, so a card scope could never narrow it. Declare it without --ref\n";
     }
 
     # The one rule that reads the machine needs to know which machine. Refused
@@ -5384,6 +5409,13 @@ sub policy_evaluate {
         }
         elsif ( $rule eq 'discard-unexplained' ) {
             for my $record ( @{$all} ) {
+
+                # Narrowed if the policy said so. This branch read every record
+                # and never asked, so a policy declared for one card reported
+                # every discarded card on the board - a scope accepted, stored
+                # on the policy, and never consulted, against a documented
+                # promise that declaring on a card beats declaring on the board.
+                next if !$resolved_for->( $policy, $record );
                 next if ( $record->{column} // '' ) ne 'discard';
                 next if @{ $record->{comments} // [] };
                 # A comment, said so. The rule beside this one wants a field,

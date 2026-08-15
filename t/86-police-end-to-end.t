@@ -123,11 +123,25 @@ $tira->comment_add( project => $root, ref => $talked->{ref}, author => 'michael'
     body => 'The evidence that is not on the card yet' );
 $now = '2026-08-11T09:00:00Z';
 
+# The card exists before the second in which its answer is marked.
+#
+# Everything else on this board is built at one frozen instant, which is fine
+# for every other rule and wrong for this one: creating a card writes its title,
+# a title is a detail field, and since 1.98 a detail written at or after the
+# mark counts as folding the answer in. So a card created in the same second as
+# the mark reads as folded, and this assertion stopped firing.
+#
+# That is an artefact of the frozen clock rather than the rule: on a real board
+# a card is created, and only later does somebody answer a question on it and
+# mark it. mt5-ai's report was about the opposite case - marking and folding in
+# one script, in one second - and the fix has to leave both readings intact.
 my $settled = $tira->create_record( project => $root, type => 'ticket', title => 'Settled in name only' );
 my $ok_question = $tira->question_add( project => $root, ref => $settled->{ref},
     author => 'claude', text => 'This one?' );
 $tira->question_answer( project => $root, ref => $settled->{ref}, id => $ok_question->{id}, text => 'yes' );
+at('2026-08-11T09:00:05Z');
 $tira->question_mark( project => $root, ref => $settled->{ref}, id => $ok_question->{id}, mark => 'ok' );
+at('2026-08-11T09:00:00Z');
 
 my $crossed = $tira->create_record( project => $root, type => 'ticket', title => 'Crossed and dropped' );
 my $no_question = $tira->question_add( project => $root, ref => $crossed->{ref},

@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.97';
+our $VERSION = '1.98';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -5269,7 +5269,34 @@ sub policy_evaluate {
                         # changing after the mark counts as folding it in.
                         my $changed = $self->_policy_last_detail_change(
                             project => $root, ref => $record->{ref} );
-                        next if defined $changed && $changed gt $marked;
+
+                        # At or after the mark, not strictly after it.
+                        #
+                        # Stamps here are second-resolution, so a fold written
+                        # inside the same second as the mark cannot be strictly
+                        # later - and an agent that marks and folds in one
+                        # script, which is the correct thing to do and exactly
+                        # what this rule asks for, lands in the same second
+                        # whenever the board is quick. mt5-ai isolated it by
+                        # comparing three cards their script had handled
+                        # identically: marked 10:40:20 written 10:40:21 silent,
+                        # marked 10:42:33 written 10:42:34 silent, marked
+                        # 10:44:32 written 10:44:32 reported. Only the equal
+                        # pair fired.
+                        #
+                        # So the rule was telling the agents that behave best
+                        # that they had not - and telling them unfalsifiably,
+                        # since the message says nothing was written down while
+                        # the thing is written down. The obvious response is to
+                        # write it again, which changes nothing until a second
+                        # happens to elapse.
+                        #
+                        # What this gives up: a detail written in the same
+                        # second BEFORE the mark now reads as a fold. That
+                        # requires an agent to have just written a detail field,
+                        # which is close to folding anyway - and the alternative
+                        # is accusing the diligent.
+                        next if defined $changed && $changed ge $marked;
                         # Where, not just that. A project wrote the whole
                         # decision into a comment, was told again and escalated
                         # to a warning, then wrote the same words into a field

@@ -71,6 +71,7 @@ my %declare = (
     'leftover-container'        => { pattern => 'perl-test', age => '30m' },
     'parent-ahead-of-children'  => {},
     'priority-skipped'          => {},
+    'discard-with-open-questions' => {},
     'column-skipped'            => { enter => 'done', require => 'implement' },
 );
 is_deeply( [ sort keys %declare ], [ sort @{ Tira::policy_rules() } ],
@@ -140,6 +141,14 @@ $tira->record_move( project => $root, ref => $shipped->{ref}, column => 'done' )
 
 my $dropped = $tira->create_record( project => $root, type => 'ticket', title => 'Dropped in silence' );
 $tira->record_discard( project => $root, ref => $dropped->{ref} );
+
+# A card set aside while a question on it was still waiting - the questions go
+# with the card, and the decision they were waiting on is never made.
+my $orphaned = $tira->create_record( project => $root, type => 'ticket',
+    title => 'Set aside with the question still open' );
+$tira->question_add( project => $root, ref => $orphaned->{ref}, author => 'claude',
+    text => 'Which way?', reason => 'Nothing starts until this is settled' );
+$tira->record_discard( project => $root, ref => $orphaned->{ref}, reason => 'not worth doing' );
 
 # A parent saying it is finished above a child that is not - the board
 # overstating progress in the one direction nobody checks by looking at a card

@@ -92,6 +92,7 @@ like( $behind, qr/one ticket|a single ticket|single backlog/i,
         'card-unlinked'             => { require_link => 'is-blocked-by' },
         'parent-ahead-of-children'  => {},
         'priority-skipped'          => {},
+        'discard-with-open-questions' => {},
         'column-skipped'            => { enter => 'done', require => 'implement' },
     );
     $tira->policy_add( project => $root, rule => $_, action => 'log-only', %{ $needs{$_} } )

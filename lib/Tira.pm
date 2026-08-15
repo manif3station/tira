@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.87';
+our $VERSION = '1.88';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4330,6 +4330,11 @@ my %POLICY_RULES = (
     # age is refused when the policy is declared rather than ignored at run
     # time, because a policy police cannot follow reads as cover.
     'priority-skipped'          => { needs => [], forbids => ['age'] },
+
+    # No age either. A question that left the board with its card is not
+    # waiting for anything, so there is nothing for a grace period to be a
+    # grace for.
+    'discard-with-open-questions' => { needs => [], forbids => ['age'] },
 );
 
 # Police speaks in exactly three ways: down the bridge the agent tails, in the
@@ -5172,6 +5177,42 @@ sub policy_evaluate {
                 next if ( $record->{column} // '' ) ne ( $policy->{column} // '' );
                 next if @{ $record->{gate_passing_log} // [] };
                 $report->( $policy, $record, "reached $policy->{column} with no gate recorded" );
+            }
+        }
+        elsif ( $rule eq 'discard-with-open-questions' ) {
+
+            # His request. A card can be set aside while it still carries
+            # questions nobody answered, and nothing said so: the questions go
+            # with the card - not answered, not withdrawn, not asked anywhere
+            # else - and the decision they were waiting on is never made.
+            #
+            # Read from @{$all} rather than $records, because $records leaves
+            # out exactly the cards this is about.
+            #
+            # Police asks and moves nothing. Whether a question still matters is
+            # a judgement about the work, and a rule that carried questions
+            # between cards on its own would be making that judgement by
+            # machine - where a wrong guess is indistinguishable from a decision
+            # somebody made.
+            for my $record ( @{$all} ) {
+                next if ( $record->{column} // '' ) ne 'discard';
+                next if !$resolved_for->( $policy, $record );
+
+                # Still open means still waiting. An answered question was
+                # settled before the card was, and a withdrawn one is the agent
+                # having already done what this rule asks - _policy_questions
+                # leaves the discarded ones out.
+                my @open = grep { !$_->{answer} } _policy_questions($record);
+                next if !@open;
+
+                # Named, so the reader does not have to open the card to find
+                # out which decision was dropped.
+                my $which = join ', ', map { $_->{id} } @open;
+                $report->( $policy, $record,
+                    "set aside carrying $which, still unanswered - decide whether each "
+                      . 'still matters, ask the ones that do on the card they belong to now, '
+                      . 'and discard them here. There is no command that moves a question: '
+                      . 'asking it where it belongs and discarding it here is the move' );
             }
         }
         elsif ( $rule eq 'discard-unexplained' ) {

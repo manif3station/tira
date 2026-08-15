@@ -153,6 +153,7 @@ my %needs = (
     'card-sandbox-missing'      => { enter => 'implement', sandbox => '~/sandboxes' },
     'parent-ahead-of-children'  => {},
     'priority-skipped'          => {},
+    'discard-with-open-questions' => {},
     'column-skipped'            => { enter => 'Doing', require => 'Backlog' },
 );
 my $scratch = File::Spec->catdir( $tmp, 'scratch' );

@@ -1,5 +1,35 @@
 Revision history for Tira
 
+1.88  2026-08-15
+
+    - TKT-175: discard-with-open-questions. His request. A card could be
+      set aside while it still carried questions nobody had answered, and
+      nothing said so - the questions went with the card, not answered,
+      not withdrawn, not asked anywhere else, and the decision they were
+      waiting on was never made.
+    - The rule reports a card in Discard that still has an unanswered
+      question, names the questions, and says what to do: decide whether
+      each still matters, ask the ones that do on the card they belong to
+      now, and discard them here.
+    - Police asks and moves nothing. Whether a question still matters is
+      a judgement about the work, and a rule that carried questions
+      between cards on its own would be making that judgement by machine,
+      where a wrong guess is indistinguishable from a decision somebody
+      made.
+    - There is no command that moves a question and the message does not
+      pretend otherwise - asking it where it belongs and discarding it
+      here is the move. A message naming a command nobody can run is
+      worse than one that explains itself.
+    - Three things are not this rule: a question answered before the card
+      was set aside, one withdrawn with question.discard, and an
+      unanswered question on a live card, which belongs to
+      question-unanswered. Each is asserted rather than assumed.
+    - Documented as he asked - in the rules table, in a section of its
+      own, and with the onboarding line that declares it beside the five
+      rules watching a question while its card is alive. Those five cover
+      a question while the card lives; this covers the one moment they
+      can all be escaped at once.
+
 1.87  2026-08-15
 
     - TKT-184: the release gate proves the commits being pushed rather

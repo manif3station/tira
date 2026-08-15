@@ -301,6 +301,7 @@ missing, at the moment you declare the policy rather than later.
 | `orphan-card` | — | a card with no parent |
 | `parent-ahead-of-children` | — | a parent saying it is finished above a child that is not |
 | `priority-skipped` | — | a card being worked while a higher-priority card of the same kind waits untouched. **No age**: being passed over does not ripen. |
+| `discard-with-open-questions` | — | a card set aside while it still carries a question nobody answered. **No age**: a question that left with the card is not waiting. |
 | `question-unanswered` | `--age` | a question waiting on the owner |
 | `conversation-not-folded` | — | a card talked about since it was last written down. **No age**: the ladder already keeps it from repeating. |
 | `card-unassigned` | — | work in progress with nobody on it. **No column**: the board says which columns are work. A board whose work ends in more than one place marks each ending with `tira.column.update --terminal`; one that marks nothing treats `done` as its ending, as before. |
@@ -1524,3 +1525,51 @@ thinking about it.
 **No age.** Being passed over does not ripen into being passed over more, and
 the quiet ladder already stops the same line arriving twice a minute. An age is
 refused when the policy is declared rather than ignored when it runs.
+
+
+## Questions that went with the card
+
+A card can be discarded while it still carries questions nobody has answered,
+and nothing said so. The questions go with the card: not answered, not
+withdrawn, not asked anywhere else. They stop being visible, and **the decision
+they were waiting on is never made**.
+
+    d2 tira.policy.add --rule discard-with-open-questions --action bridge-reminder
+
+`discard-with-open-questions` reports a card in Discard that still has an
+unanswered question, and names the questions:
+
+    SAT-001 set aside carrying Q-001, still unanswered - decide whether each
+    still matters, ask the ones that do on the card they belong to now, and
+    discard them here. There is no command that moves a question: asking it
+    where it belongs and discarding it here is the move.
+
+**Police asks and moves nothing.** Whether a question still matters is a
+judgement about the work, and a rule that carried questions between cards on its
+own would be making that judgement by machine — where a wrong guess is
+indistinguishable from a decision somebody made.
+
+**There is no command that moves a question, and the message does not pretend
+otherwise.** Asking it on the card it belongs to now and discarding it on the
+old one *is* the move. A message naming a command nobody can run is worse than
+one that explains itself.
+
+**Three things are not this rule.** A question answered before the card was set
+aside is settled. A question withdrawn with `tira.question.discard` is the agent
+having already done what this asks. And an unanswered question on a *live* card
+is `question-unanswered`'s business, not this one's.
+
+### Onboarding it
+
+Declare it alongside the other question rules, which together cover every place
+a question can stall:
+
+    d2 tira.policy.add --rule question-unanswered --age 2h --action bridge-reminder
+    d2 tira.policy.add --rule answer-waiting --action bridge-reminder
+    d2 tira.policy.add --rule answer-unjudged --age 2h --action bridge-reminder
+    d2 tira.policy.add --rule answer-ok-not-folded --age 10m --action bridge-reminder
+    d2 tira.policy.add --rule answer-not-ok-no-followup --age 2h --action bridge-reminder
+    d2 tira.policy.add --rule discard-with-open-questions --action bridge-reminder
+
+The first five watch a question while its card is alive. The last watches the
+one moment they can all be escaped at once.

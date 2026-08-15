@@ -56,6 +56,7 @@ my %declare = (
     'card-duration'             => { column => 'verify', age => '10m' },
     'card-stalled'              => { before => 'verify' },
     'checklist-idle'            => { column => 'implement', age => '30m' },
+    'checklist-unmoved'         => {},
     'orphan-card'               => {},
     'question-unanswered'       => { age => '1h' },
     'conversation-not-folded'   => {},
@@ -108,6 +109,15 @@ $tira->checklist_add( project => $root, ref => $crowding->{ref}, item => 'starte
 my $finished = $tira->create_record( project => $root, type => 'ticket', title => 'Work all done' );
 $tira->record_move( project => $root, ref => $finished->{ref}, column => 'implement' );
 $tira->checklist_add( project => $root, ref => $finished->{ref}, item => 'the work', status => 'done' );
+
+# checklist-unmoved: a card carried on from one working column to the next with
+# nothing ticked in between. Two moves are needed, because the window a move is
+# judged against reaches back to the move before it - on a card's first move
+# that window includes being raised, and the checklist was written inside it.
+my $dragged = $tira->create_record( project => $root, type => 'ticket', title => 'Carried along' );
+$tira->checklist_add( project => $root, ref => $dragged->{ref}, item => 'never started', status => 'pending' );
+$tira->record_move( project => $root, ref => $dragged->{ref}, column => 'implement' );
+$tira->record_move( project => $root, ref => $dragged->{ref}, column => 'verify' );
 
 my $waiting = $tira->create_record( project => $root, type => 'ticket', title => 'Has a question' );
 my $asked = $tira->question_add( project => $root, ref => $waiting->{ref},

@@ -298,6 +298,7 @@ missing, at the moment you declare the policy rather than later.
 | `card-duration` | `--column --age` | a card sitting in one place too long |
 | `card-stalled` | `--before-column` | a finished checklist on a card that has not moved |
 | `checklist-idle` | `--column --age` | a card being worked with no checklist movement |
+| `checklist-unmoved` | — | a card moved on with nothing ticked since its last move. **No age**: a move has either happened or it has not. |
 | `orphan-card` | — | a card with no parent |
 | `parent-ahead-of-children` | — | a parent saying it is finished above a child that is not |
 | `priority-skipped` | — | a card being worked while a higher-priority card of the same kind waits untouched. **No age**: being passed over does not ripen. |
@@ -595,6 +596,19 @@ d2 tira.policy.add --rule card-duration --column backlog --age 30d --action prin
 
 ```
 d2 tira.policy.add --rule checklist-idle --column implement --age 30m --action bridge-reminder
+
+Watch for the opposite of that: not a checklist standing still, but a card
+moving on while it does. `checklist-idle` asks how long nothing has been ticked
+in one column; this asks whether the card left a column without anything being
+ticked at all.
+
+    d2 tira.policy.add --rule checklist-unmoved --action bridge-reminder
+
+It reports only a move into a column where work happens - never into done or
+discard, where the work is expected to be over - and only while the checklist
+still has something unfinished. Both narrowings matter: without them the rule
+names two thirds of a worked board, almost all of it the last move into done,
+and a rule that fires on two thirds of a board is one somebody switches off.
 ```
 
 **24.** A slower project where a day without progress is the signal.

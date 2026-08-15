@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.06';
+our $VERSION = '2.07';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4348,6 +4348,14 @@ my %POLICY_RULES = (
     'card-duration'             => { needs => [ 'column', 'age' ] },
     'card-stalled'              => { needs => ['before'] },
     'checklist-idle'            => { needs => [ 'column', 'age' ] },
+
+    # No age, deliberately, and this is what separates it from the rule
+    # above. checklist-idle asks how long a checklist has stood still and
+    # needs a grace or it is nagging. This one asks whether the card MOVED
+    # without the checklist moving, which is an event rather than a
+    # duration: the moment it has happened, waiting longer tells nobody
+    # anything they did not already know.
+    'checklist-unmoved'         => { needs => [] },
     'orphan-card'               => { needs => [] },
     'question-unanswered'       => { needs => ['age'] },
     # An optional second age, counted from when the answer was read. Having
@@ -5042,6 +5050,49 @@ sub policy_evaluate {
                 my ($latest) = sort { $b cmp $a } map { $_->{last_updated} } @{$checklist};
                 next if !$self->_policy_older_than( $latest, $policy->{age} );
                 $report->( $policy, $record, "no checklist movement since $latest" );
+            }
+        }
+        elsif ( $rule eq 'checklist-unmoved' ) {
+
+            # The journal is the only account of a move, and column-skipped
+            # already reads it the same way.
+            my $resting = {};
+            for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
+
+                # Nothing to have left behind.
+                my $checklist = $record->{checklist} // [];
+                next if !@{$checklist};
+
+                # And nothing outstanding to have left behind. A card whose
+                # checklist is finished has nothing to tick, and reporting it
+                # would name every card that ever reached done.
+                next if !grep { ( $_->{status} // '' ) ne 'done' } @{$checklist};
+
+                my $type = $record->{type} // 'ticket';
+                $resting->{$type} //= $self->_resting_columns( $root, $type );
+                next if $resting->{$type}{ $record->{column} // '' };
+
+                my $journal = $self->_police_history( $root, $record->{ref}, $unreadable );
+                next if !defined $journal;
+
+                # By position in the journal, not by timestamp. The journal is
+                # append-only and ordered, and its stamps are only accurate to
+                # the second - so a tick and a move made in the same second
+                # cannot be told apart by time, and on a fixed clock they never
+                # can. Asking which came first is the question anyway.
+                my @where_moved = grep { ( $journal->[$_]{field} // '' ) eq 'column' }
+                  0 .. $#{$journal};
+                next if !@where_moved;
+                my $window = @where_moved > 1 ? $where_moved[-2] : -1;
+                next if grep {
+                    ( $journal->[$_]{field} // '' ) eq 'checklist' && $_ > $window
+                } 0 .. $#{$journal};
+                my $moved_into = $journal->[ $where_moved[-1] ]{after};
+
+                $report->( $policy, $record,
+                    "moved into $moved_into with nothing ticked since"
+                      . ( $window >= 0 ? " it entered $journal->[$window]{after}" : ' it was raised' ) );
             }
         }
         elsif ( $rule eq 'card-unlinked' ) {
@@ -6152,6 +6203,21 @@ sub policy_undeclared {
       ( @{ $self->policy_list( project => $root ) },
         @{ $self->policy_declined( project => $root ) } );
     return [ grep { !$answered{$_} } @{ policy_rules() } ];
+}
+
+# The columns a board rests cards in rather than works them in.
+#
+# Read from the board, because a project names its own columns: protected or
+# terminal means resting, with done assumed when nothing is marked terminal.
+# Extracted rather than copied - card-unassigned already made this decision
+# inline, and a second copy of it is the drift this project keeps finding.
+sub _resting_columns {
+    my ( $self, $root, $type ) = @_;
+    my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
+    my %resting = map { $_->{name} => 1 }
+      grep { $_->{protected} || $_->{terminal} } @{$columns};
+    $resting{done} = 1 if !grep { $_->{terminal} } @{$columns};
+    return \%resting;
 }
 
 sub police_prompt {

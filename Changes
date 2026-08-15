@@ -1,5 +1,39 @@
 Revision history for Tira
 
+2.07  2026-08-15
+
+    - TKT-219: a card that moved while its checklist stood still is now
+      reported. Asked for by the owner. checklist-idle asks how long a
+      checklist has not moved inside one column, so it catches a card
+      standing still; this catches the opposite and more misleading case,
+      where the card MOVES and the checklist never does, so progress is
+      claimed by dragging rather than by working.
+    - Two narrowings keep it usable, and both were measured rather than
+      guessed. Reported without them - any move with nothing ticked since
+      the previous one - the rule names 154 of 226 cards on this board,
+      two thirds of it, and almost all are the last move into done where
+      the work finished earlier and there was nothing left to tick. So it
+      reports only a move INTO a column where work happens, never into
+      done or discard, and only while the checklist still has something
+      unfinished. Narrowed that way it names none of them, which is what a
+      board worked properly should give.
+    - No age, deliberately, and that is what separates it from the rule it
+      sits beside. checklist-idle needs a grace or it is nagging. This one
+      asks whether a move happened without the checklist moving, which is
+      an event rather than a duration: once it has happened, waiting
+      longer tells nobody anything new.
+    - Which columns mean work is read from the board - protected or
+      terminal means resting, with done assumed when nothing is marked
+      terminal - through a helper extracted from card-unassigned rather
+      than a second copy of that decision.
+    - The rule compares position in the journal rather than timestamps.
+      The first version compared a checklist entry's time against the
+      previous move's, which works only while the clock advances between
+      writes - and t/86 runs on a fixed clock, so a tick and a move in the
+      same second could not be told apart and the rule could never fire
+      there. The journal is append-only and ordered, and which came first
+      is the question anyway.
+
 2.06  2026-08-15
 
     - TKT-218: two commands the documents describe in full can now be run.

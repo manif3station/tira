@@ -138,6 +138,7 @@ my %needs = (
     'card-duration'             => { column => 'implement', age => '10m' },
     'card-stalled'              => { before => 'verify' },
     'checklist-idle'            => { column => 'implement', age => '30m' },
+    'checklist-unmoved'         => {},
     'orphan-card'               => {},
     'question-unanswered'       => { age => '1h' },
     'conversation-not-folded'   => {},

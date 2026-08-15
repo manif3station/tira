@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.85';
+our $VERSION = '1.86';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4324,6 +4324,12 @@ my %POLICY_RULES = (
     'card-sandbox-missing'      => { needs => [ 'enter', 'sandbox' ] },
     'card-unlinked'             => { needs => ['require_link'] },
     'parent-ahead-of-children'  => { needs => [] },
+
+    # No age. Being passed over does not ripen into being passed over more, and
+    # the quiet ladder already stops the same line arriving twice a minute. An
+    # age is refused when the policy is declared rather than ignored at run
+    # time, because a policy police cannot follow reads as cover.
+    'priority-skipped'          => { needs => [], forbids => ['age'] },
 );
 
 # Police speaks in exactly three ways: down the bridge the agent tails, in the
@@ -5177,6 +5183,80 @@ sub policy_evaluate {
                 # the wrong thing about the other unless both say which.
                 $report->( $policy, $record,
                     'discarded with no reason given - leave a comment saying why it was set aside' );
+            }
+        }
+        elsif ( $rule eq 'priority-skipped' ) {
+
+            # Work taken out of turn, checked by something other than the party
+            # taking it. He caught this by eye once - "you randomly pick and
+            # work on them disregard the card prioity" - and the repair was a
+            # sentence in a document, which is the kind of check this project
+            # has learned not to trust.
+            #
+            # It needs to be a rule for a sharper reason than forgetfulness:
+            # the agent raises its own cards and sets their priority, so "work
+            # the highest first" is a weak promise when the same party decides
+            # what is highest. What a rule can watch is the part that cannot be
+            # marked as its own homework - not what priority was set, but
+            # whether something above the card being worked is being left.
+            #
+            # 5 is the urgent end here. That is stated in the refusal, in
+            # SKILLS.md and in the command reference as of TKT-186, and it had
+            # to be settled before this could be written: the first draft of
+            # this rule's test had the scale inverted and would have enforced
+            # the exact opposite of what was asked for.
+            # Three kinds of column, and the difference matters. Work happens
+            # in the ones a board added; work waits in the protected ones it did
+            # not; work ends in whichever it marked terminal. A card in the last
+            # of those is finished rather than waiting, and reporting a finished
+            # card as passed over would put every board permanently in
+            # violation of its own history.
+            my ( %resting, %waiting_here );
+            for my $type (qw(sow epic ticket)) {
+                my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
+                my $ends = { map { $_->{name} => 1 } grep { $_->{terminal} } @{$columns} };
+                $ends->{done} = 1 if !keys %{$ends};
+
+                $resting{$type} = { %{$ends},
+                    map { $_->{name} => 1 } grep { $_->{protected} } @{$columns} };
+                $waiting_here{$type} = { map { $_->{name} => 1 }
+                    grep { $_->{protected} && !$ends->{ $_->{name} } } @{$columns} };
+            }
+
+            # Untouched means still where it was put. A card already moved into
+            # a working column is being worked, and two of those at once is what
+            # wip-limit is for rather than this.
+            my @waiting = grep {
+                defined $_->{priority}
+                  && $waiting_here{ $_->{type} // 'ticket' }{ $_->{column} // '' }
+            } @{$records};
+
+            for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
+                my $type = $record->{type} // 'ticket';
+                next if $resting{$type}{ $record->{column} // '' };
+                next if !defined $record->{priority};
+
+                for my $above (@waiting) {
+
+                    # Cards of different kinds are not compared. An epic sits in
+                    # the backlog for as long as its tickets take, which is what
+                    # an epic is for, so judging a ticket against one would leave
+                    # every board with a hierarchy permanently in violation.
+                    next if ( $above->{type} // 'ticket' ) ne $type;
+                    next if $above->{priority} <= $record->{priority};
+
+                    # Parked, not skipped. A higher card that cannot start until
+                    # he answers is not being ignored, and reporting it would
+                    # blame the agent for the one delay that is not its doing.
+                    next if grep { !$_->{answer} } _policy_questions($above);
+
+                    $report->( $policy, $record,
+                        "being worked while $above->{ref} waits at priority "
+                          . "$above->{priority}, above this card's "
+                          . ( $record->{priority} // 'none' ) );
+                    last;
+                }
             }
         }
 

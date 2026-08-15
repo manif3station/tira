@@ -70,6 +70,7 @@ my %declare = (
     'leftover-process'          => { pattern => 'sleep', age => '30m' },
     'leftover-container'        => { pattern => 'perl-test', age => '30m' },
     'parent-ahead-of-children'  => {},
+    'priority-skipped'          => {},
     'column-skipped'            => { enter => 'done', require => 'implement' },
 );
 is_deeply( [ sort keys %declare ], [ sort @{ Tira::policy_rules() } ],
@@ -124,6 +125,15 @@ $tira->question_answer( project => $root, ref => $unjudged->{ref}, id => $open_q
 
 my $lingering = $tira->create_record( project => $root, type => 'ticket', title => 'Sitting in verify' );
 $tira->record_move( project => $root, ref => $lingering->{ref}, column => 'verify' );
+
+# Work taken out of turn: a low card being worked while a higher one of the same
+# kind sits untouched where it was raised. 5 is the urgent end, so the waiting
+# card carries 5 and the one being worked carries 2.
+my $urgent = $tira->create_record( project => $root, type => 'ticket',
+    title => 'Should have gone first', priority => 5 );
+my $lesser = $tira->create_record( project => $root, type => 'ticket',
+    title => 'Being worked instead', priority => 2 );
+$tira->record_move( project => $root, ref => $lesser->{ref}, column => 'implement' );
 
 my $shipped = $tira->create_record( project => $root, type => 'ticket', title => 'Done with no gate' );
 $tira->record_move( project => $root, ref => $shipped->{ref}, column => 'done' );

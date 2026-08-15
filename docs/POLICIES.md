@@ -300,6 +300,7 @@ missing, at the moment you declare the policy rather than later.
 | `checklist-idle` | `--column --age` | a card being worked with no checklist movement |
 | `orphan-card` | — | a card with no parent |
 | `parent-ahead-of-children` | — | a parent saying it is finished above a child that is not |
+| `priority-skipped` | — | a card being worked while a higher-priority card of the same kind waits untouched. **No age**: being passed over does not ripen. |
 | `question-unanswered` | `--age` | a question waiting on the owner |
 | `conversation-not-folded` | — | a card talked about since it was last written down. **No age**: the ladder already keeps it from repeating. |
 | `card-unassigned` | — | work in progress with nobody on it. **No column**: the board says which columns are work. A board whose work ends in more than one place marks each ending with `tira.column.update --terminal`; one that marks nothing treats `done` as its ending, as before. |
@@ -1483,3 +1484,43 @@ as nobody upgraded again.
 **A version going backwards is a change too.** A board now running something
 older than it last heard about is a board whose agent may be working from a
 rulebook the installed Tira no longer has, and that is worth the same line.
+
+
+## Work taken out of turn
+
+He caught this by eye: "can you also working on the higher prioity cards first,
+i see you randomly pick and work on them disregard the card prioity". The repair
+at the time was a sentence written into a document, which is the kind of check
+this project has learned not to trust.
+
+It is worth a rule for a sharper reason than forgetfulness. **The agent raises
+its own cards and sets their priority**, so "work the highest first" is a weak
+promise when the same party decides what is highest - anything can be made
+urgent and the order is always satisfied. What a rule can watch is the part that
+cannot be marked as its own homework: not what priority was set, but whether
+something above the card being worked is being left alone.
+
+    d2 tira.policy.add --rule priority-skipped --action bridge-reminder
+
+`priority-skipped` reports a card in a working column while a card of the same
+kind, with a higher priority, sits untouched where it was raised. It names both,
+and the priority that was passed over. **Remember that 5 is the urgent end**;
+that is not this rule's decision but it is the one thing that would invert it.
+
+**A card waiting on an unanswered question is parked, not skipped.** A higher
+card that cannot start until the owner answers is not being ignored, and
+reporting it would blame the agent for the one delay that is not its doing. The
+moment the answer arrives the excuse is gone and the card is reported again.
+
+**Cards of different kinds are not compared.** An epic sits where it was raised
+for as long as its tickets take, which is what an epic is for, so judging a
+ticket against one would leave every board with a hierarchy permanently in
+violation.
+
+**A card with no priority is unassessed, not urgent.** Treating unset as the top
+would stop work on a board the moment somebody raised a card and did not finish
+thinking about it.
+
+**No age.** Being passed over does not ripen into being passed over more, and
+the quiet ladder already stops the same line arriving twice a minute. An age is
+refused when the policy is declared rather than ignored when it runs.

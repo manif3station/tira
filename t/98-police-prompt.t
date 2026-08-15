@@ -91,6 +91,7 @@ like( $behind, qr/one ticket|a single ticket|single backlog/i,
         'card-sandbox-missing'      => { enter => 'implement', sandbox => '/sandboxes' },
         'card-unlinked'             => { require_link => 'is-blocked-by' },
         'parent-ahead-of-children'  => {},
+        'priority-skipped'          => {},
         'column-skipped'            => { enter => 'done', require => 'implement' },
     );
     $tira->policy_add( project => $root, rule => $_, action => 'log-only', %{ $needs{$_} } )

@@ -1,5 +1,36 @@
 Revision history for Tira
 
+1.86  2026-08-15
+
+    - TKT-171: priority-skipped. A card being worked while a
+      higher-priority card of the same kind sits untouched where it was
+      raised is reported, naming both and the priority passed over.
+    - He caught this by eye - "you randomly pick and work on them
+      disregard the card prioity" - and the repair at the time was a
+      sentence in a document. It is worth a rule for a sharper reason
+      than forgetfulness: the agent raises its own cards and sets their
+      priority, so working the highest first is a weak promise when the
+      same party decides what is highest. What a rule can watch is the
+      part that cannot be marked as its own homework.
+    - A higher card waiting on an unanswered question is parked rather
+      than skipped, and is reported again the moment the answer arrives.
+      Cards of different kinds are not compared, because an epic sits
+      where it was raised for as long as its tickets take. A card with no
+      priority is unassessed rather than urgent. No age: being passed
+      over does not ripen, and an age is refused at declaration.
+    - It could not be written until TKT-186 settled which end of the
+      scale is urgent. The first draft had it inverted and asserted a
+      violation on work taken in the correct order - a guard that would
+      have enforced the exact opposite of what was asked for.
+    - Four mutations, each caught by a named assertion: comparing the
+      wrong way round, forgetting that a parked card is not skipped,
+      comparing across kinds, and dropping the check that keeps an unset
+      priority out of the comparison. That last one caught nothing at
+      first, because the only case with no priorities had none on either
+      side and was stopped by a different guard - so the case was added,
+      and with it an assertion that the pass reads no undefined value,
+      which is the only thing that check actually does.
+
 1.85  2026-08-15
 
     - TKT-197: five options that work on project.new and were documented

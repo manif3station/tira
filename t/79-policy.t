@@ -152,6 +152,7 @@ my %needs = (
     'card-unlinked'             => { require_link => 'is-blocked-by' },
     'card-sandbox-missing'      => { enter => 'implement', sandbox => '~/sandboxes' },
     'parent-ahead-of-children'  => {},
+    'priority-skipped'          => {},
     'column-skipped'            => { enter => 'Doing', require => 'Backlog' },
 );
 my $scratch = File::Spec->catdir( $tmp, 'scratch' );

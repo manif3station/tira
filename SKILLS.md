@@ -286,6 +286,17 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   Ctrl-D abandons the prompt. Away from a terminal the prompt is a plain read,
   so piping answers in behaves exactly as before.
 - `tira.project.show [-o FORMAT]` — **Implemented.**
+- `tira.doctor [--repair] [-o FORMAT]` — **Implemented.** Finds board files
+  holding bytes that are not valid UTF-8, and says which file, which byte and at
+  what offset. It looks for bytes rather than for the replacement character:
+  U+FFFD is what a lenient read *produces*, not what is on disk, so a check
+  looking for it would report every damaged file clean.
+  Reports only, until `--repair` is given. A bad byte is repaired by reading it
+  as latin-1 and writing it back as UTF-8, so `0xD7` becomes the multiplication
+  sign somebody meant rather than a replacement mark — substituting one would
+  make the damage permanent. Nothing else in the file moves, and attachments are
+  never touched, being bytes that were never meant to decode.
+
 - `tira.project.update [--name TEXT] [--dashboard-host HOST] [--dashboard-port PORT]
   [--listen HOST[:PORT]] [--notify-after MINUTES] [--collector NAME]
   [--agent NAME] [--session ID] [--heartbeat MINUTES] [--repo PATH]

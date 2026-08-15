@@ -1,5 +1,39 @@
 Revision history for Tira
 
+1.94  2026-08-15
+
+    - TKT-192: tira.doctor, which he asked for by name. It finds board
+      files holding bytes that are not valid UTF-8, says which file and
+      which byte at what offset, and repairs them only when asked.
+    - One correction to what he described, because it changes what the
+      command does. U+FFFD is not in his files - it is what a lenient
+      read PRODUCES when it meets a byte it cannot decode, so it is what
+      he sees in output rather than what is on disk. A doctor searching
+      for it would find nothing and report every damaged file clean,
+      which is the worst answer a repair tool can give. It searches for
+      bytes.
+    - A bad byte is repaired by reading it as latin-1 and writing it back
+      as UTF-8, so 0xD7 becomes the multiplication sign somebody typed.
+      Substituting a replacement character would turn the damage into
+      data permanently, which is what the lenient read is careful never
+      to write back.
+    - Nothing is repaired without being asked, and nothing else in the
+      file moves. Attachments are never touched, being bytes that were
+      never meant to decode.
+    - Proved on a copy of the reporting board: card-damaged 2 before, 0
+      after, and the text reads "Workflow finder x2 + 3 independent
+      refuters" with the multiplication sign restored rather than a
+      replacement mark.
+    - Two faults on the way, both caught by the test. The first offset
+      arithmetic reported byte 0x00 at offset 570 for a file whose only
+      bad byte was 0xD7 near the start, because Encode's FB_QUIET
+      modifies the buffer it is given and every offset after the first
+      was counted twice. And an assertion read ok(!$result->{repaired}),
+      which an empty arrayref satisfies in neither direction - counted
+      instead.
+    - Perl does all of it. He offered another language if one was needed;
+      it was not.
+
 1.93  2026-08-15
 
     - TKT-199: a policy scoped to one card fired on all of them.

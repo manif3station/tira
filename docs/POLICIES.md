@@ -1733,3 +1733,31 @@ is broken rather than that the scope was never read.
 so a card scope seems meaningless — until you notice the cascade uses exactly
 that to give one card a different limit from the rest of its column. It keeps
 its card scope.
+
+
+## Repairing a damaged file
+
+`card-damaged` reports a card whose history holds bytes that are not valid
+UTF-8. Police reads past them so the card is still checked, and never rewrites
+the file: history is the permanent record of a board, and a record somebody's
+tooling quietly rewrites is not evidence any more.
+
+Cleaning it is a command somebody runs on purpose:
+
+    d2 tira.doctor                 # what is damaged, and where
+    d2 tira.doctor --repair        # clean it
+
+    M5T-034.jsonl | byte 0xD7 at offset 280
+    M5T-084.jsonl | byte 0xD7 at offset 288
+
+It searches for **bytes**, not for the replacement character. U+FFFD is what a
+lenient read produces when it meets a byte it cannot decode — what you see in
+output, not what is on disk — so a doctor looking for it would find nothing and
+report every damaged file clean.
+
+A bad byte is repaired by reading it as latin-1 and writing it back as UTF-8, so
+`0xD7` becomes the `×` somebody typed. Substituting a replacement character
+instead would turn the damage into data permanently.
+
+Afterwards `card-damaged` settles by itself, because the file reads strictly
+again.

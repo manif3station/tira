@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=1\.93$/m, '.env stores version 1.93' );
+like( $env_text, qr/^VERSION=1\.94$/m, '.env stores version 1.94' );
 
 open my $skills, '<', 'SKILLS.md' or die "Cannot read SKILLS.md: $!";
 my $skills_text = do { local $/; <$skills> };
@@ -46,7 +46,7 @@ unlike( $skills_text, qr/--project|TIRA_HOME|\.tira\/|project selector/i, 'SKILL
 
 use lib 'lib';
 use Tira;
-is( $Tira::VERSION, '1.93', 'module version matches .env' );
+is( $Tira::VERSION, '1.94', 'module version matches .env' );
 
 # And the changelog, which nothing checked. .env, the module and this file
 # agreed with each other for two releases while Changes named a version one
@@ -142,7 +142,7 @@ for my $command (@commands) {
 is_deeply( \@undocumented, [],
     'every command that ships is named in a document an agent reads' );
 
-is( scalar @commands, 141, 'release ships exactly 141 executable CLI entrypoints' );
+is( scalar @commands, 142, 'release ships exactly 142 executable CLI entrypoints' );
 
 done_testing;
 

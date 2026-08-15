@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.93';
+our $VERSION = '1.94';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -7345,6 +7345,108 @@ sub json_decode { return json_object()->utf8->decode( $_[0] ) }
 # substitution written back into a record turns damage into data, quietly and
 # permanently. And it must not be silent - police reports a file it had to read
 # this way, so a corrupt record cannot pass for a clean one.
+# Finding and repairing bytes that were never valid, on purpose and on request.
+#
+# His request, and his name for it. Two boards carry history files holding a
+# multiplication sign written as latin-1, which silenced twenty-seven rules
+# until 1.78 and has been read past since 1.80. Reading past it keeps a board
+# policed; this is how the file itself gets better.
+#
+# It searches for BYTES rather than for U+FFFD. The replacement character is
+# what a lenient decode produces when it meets a byte it cannot read - what he
+# sees in output, not what is on disk - so a doctor looking for it would find
+# nothing and report every damaged file clean, which is the worst answer a
+# repair tool can give.
+#
+# And it repairs by reading each bad byte as latin-1 and writing it back as
+# UTF-8, so 0xD7 becomes the multiplication sign somebody meant. Substituting
+# U+FFFD instead would turn the damage into data permanently, which is exactly
+# what the lenient read is careful never to write back.
+#
+# Nothing is repaired without being asked. History is the permanent record of a
+# board, and a record somebody's tooling quietly rewrites is not evidence any
+# more - so this reports by default and writes only when told to.
+sub doctor {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $home = File::Spec->catdir( $root, '.tira' );
+
+    my ( @damaged, @repaired );
+    my $look = sub {
+        my $path = $File::Find::name;
+        return if !-f $path;
+
+        # Attachments are bytes that were never meant to decode - a recording,
+        # an image, a bundle. Repairing one would corrupt the thing it was
+        # trying to protect. The notification database is the same.
+        return if $path =~ m{/attachments/};
+        return if $path =~ /\.db\z/;
+        return if $path =~ m{/\.git/};
+
+        open my $fh, '<:raw', $path or return;
+        my $bytes = do { local $/; <$fh> };
+        close $fh;
+        return if !defined $bytes;
+
+        # Every byte the decoder cannot read, found by decoding strictly and
+        # letting it tell us where it stopped, one at a time.
+        # FB_QUIET consumes what it can and leaves the rest in the buffer it
+        # was given - it modifies its argument, which is the whole trick here.
+        # Whatever is left begins with the byte it could not read, so the
+        # position is arithmetic on lengths rather than a guess.
+        #
+        # The first version re-encoded the decoded part to measure how far it
+        # had got, and reported byte 0x00 at offset 570 for a file whose only
+        # bad byte was 0xD7 near the start: FB_QUIET had already advanced the
+        # buffer, so every offset after the first was counted twice.
+        my @bad;
+        my $offset = 0;
+        my $rest = $bytes;
+        while ( length $rest ) {
+            my $remaining = $rest;
+            Encode::decode( 'UTF-8', $remaining, Encode::FB_QUIET() );
+            last if !length $remaining;
+
+            my $used = length($rest) - length($remaining);
+            push @bad, { at => $offset + $used, byte => substr( $remaining, 0, 1 ) };
+            $rest = substr $remaining, 1;
+            $offset += $used + 1;
+        }
+        return if !@bad;
+
+        push @damaged, {
+            path => $path,
+            bytes => scalar @bad,
+            detail => join( ', ',
+                map { sprintf 'byte 0x%02X at offset %d', ord( $_->{byte} ), $_->{at} } @bad ),
+        };
+        return if !$args{repair};
+
+        # Read as latin-1 and written back as UTF-8, which recovers the
+        # character rather than marking its absence.
+        my $mended = $bytes;
+        for my $bad ( reverse @bad ) {
+            substr( $mended, $bad->{at}, 1 ) = Encode::encode( 'UTF-8',
+                Encode::decode( 'ISO-8859-1', $bad->{byte} ) );
+        }
+        $self->_atomic_write( $path, $mended );
+        push @repaired, {
+            path => $path,
+            bytes => scalar @bad,
+            detail => join( ', ',
+                map { sprintf 'byte 0x%02X at offset %d', ord( $_->{byte} ), $_->{at} } @bad ),
+        };
+        return;
+    };
+
+    find( { wanted => $look, no_chdir => 1 }, $home ) if -d $home;
+
+    return {
+        damaged  => [ sort { $a->{path} cmp $b->{path} } @damaged ],
+        repaired => [ sort { $a->{path} cmp $b->{path} } @repaired ],
+    };
+}
+
 sub json_decode_repaired {
     my ($bytes) = @_;
     my $strict = eval { json_decode($bytes) };

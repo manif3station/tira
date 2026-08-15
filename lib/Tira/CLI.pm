@@ -92,7 +92,7 @@ sub run {
         'no-session-expire' => \$option{no_session_expire},
         'ssl' => \$option{ssl},
         'sandbox=s' => \$option{sandbox},
-        'repo=s' => \$option{repo},
+        'repo=s' => \$option{repo}, 'repair!' => \$option{repair},
         'collector=s' => \$option{collector}, 'agent=s' => \$option{agent},
         'session=s' => \$option{session}, 'heartbeat=s' => \$option{heartbeat},
         'outward=s' => \$option{outward}, 'inward=s' => \$option{inward},
@@ -1745,6 +1745,12 @@ sub _invoke {
         return $tira->question_discard(%question) if $action eq 'discard';
         return $tira->question_mark(%question);
     }
+    # Reports by default and writes only when asked. History is the permanent
+    # record of a board, and a record somebody's tooling quietly rewrites is not
+    # evidence any more - so the repair is a flag somebody types, not a default.
+    return $tira->doctor( %args, ( $option->{repair} ? ( repair => 1 ) : () ) )
+      if $command eq 'doctor';
+
     return $tira->warning_list(%args) if $command eq 'warning.list';
     return $tira->warning_add(%args) if $command eq 'warning.add';
     return $tira->warning_clear( %args, all => $option->{all} ) if $command eq 'warning.clear';

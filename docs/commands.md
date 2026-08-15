@@ -1240,6 +1240,26 @@ An import dry-run returns one object per changed field:
 }
 ```
 
+## Repairing a damaged board file
+
+`tira.doctor [--repair] [-o FORMAT]` finds board files holding bytes that are
+not valid UTF-8, naming the file, the byte and its offset. It reports only,
+until `--repair` is given.
+
+    d2 tira.doctor
+    d2 tira.doctor --repair
+
+It searches for **bytes** rather than for U+FFFD. The replacement character is
+what a lenient read produces when it meets a byte it cannot decode — what you
+see in output, not what is on disk — so a check looking for it would find
+nothing and call every damaged file clean.
+
+A bad byte is repaired by reading it as latin-1 and writing it back as UTF-8, so
+`0xD7` becomes the `×` somebody typed; substituting a replacement character
+would make the damage permanent. Nothing else in the file moves. Attachments are
+never touched, being bytes that were never meant to decode, and neither is the
+notification database.
+
 ## Every other command
 
 Each of these ships and is exercised by the suite. The synopsis is the one the

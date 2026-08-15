@@ -1,5 +1,35 @@
 Revision history for Tira
 
+2.01  2026-08-15
+
+    - TKT-209: a violation says which board it belongs to. Two people
+      looked up VIO-0453 on the same morning and got different answers -
+      card-sandbox-missing on DD-532 from one board, column-skipped on
+      M5T-365 from another - and neither had any way to notice.
+    - Every board's store counts its own violations from one, which is
+      right: within a board the number does its job, making one lasting
+      problem read as one problem getting louder rather than as noise
+      repeating. What went wrong is that the number escaped the board,
+      into reports filed between projects and into what an agent pastes
+      to its owner, and three projects file into this board now.
+    - His decision, given three options: a field at the end of the line
+      plus the board named in the replay header. At the end because
+      mt5-ai and developer-dashboard have both written tooling against
+      that line, and a reader splitting the first fields sees exactly
+      what it saw before. Making the numbers unique across boards was
+      rejected - a board's store is its own, and coordinating them is
+      what this design avoids.
+    - The board is remembered by the store when it is written to, rather
+      than passed in at read time, so a tail started an hour later still
+      names it.
+    - And a cost that only appeared once it was built, now documented: a
+      line carries a name somebody chose, so a board called Settled,
+      Done or Urgent matches a grep for that word anywhere in the line.
+      A test whose board is named Settled had three assertions match
+      every line the moment the name arrived. Matchers should key on the
+      field - the line has always been shaped for it - and the reference
+      says so rather than leaving the next reader to find out.
+
 2.00  2026-08-15
 
     - TKT-129 (dashboard half): a served board picks up new code. The

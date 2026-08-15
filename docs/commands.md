@@ -566,7 +566,27 @@ than running and guarding nothing.
 
 Every violation carries a `VIO-nnnn`. The same problem keeps its number, counts
 the times it has been said and climbs four tones - note, warning, urgent,
-critical. Past five tellings it also appears in this terminal with a message the
+critical.
+
+**The number belongs to one board.** Every board's store counts its own
+violations from one, so `VIO-0453` on one board and `VIO-0453` on another are
+unrelated problems - and two people looked that number up on the same morning,
+got different answers, and had no way to notice. So every line ends with the
+board it came from:
+
+    ... | fix: d2 tira.ticket.show --ref DD-532 | board: developer-dashboard
+
+and the line that introduces a replay names it too. It goes last because a
+reader splitting the first fields sees exactly what it saw before. Making the
+numbers unique across boards was rejected: a board's store is its own, and
+coordinating them is what this design avoids.
+
+**Match the field, not the word.** A line now carries a name somebody chose, so
+a board called `Settled`, `Done` or `Urgent` will match a grep for that word
+anywhere in the line. Matchers should key on the field - ` | SETTLED | `, ` |
+for ada | ` - which is what the line has always been shaped for. This is not
+hypothetical: a test whose board is named `Settled` had three assertions match
+every line on it the moment the board's name arrived. Past five tellings it also appears in this terminal with a message the
 owner can paste straight to the agent. Fixing the cause silences it on the next
 pass, with nothing to acknowledge.
 

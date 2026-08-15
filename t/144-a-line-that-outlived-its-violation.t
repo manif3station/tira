@@ -95,7 +95,15 @@ $tira->record_move( project => $root, ref => $card->{ref}, column => 'discard' )
 my $after = round();
 is( scalar @{ $after->{violations} }, 0, 'police stops reporting it the moment it stops being true' );
 
-my @settled = grep { /\Q$number\E/ && /settled/i } bridge();
+# The tone field, not the word anywhere in the line.
+#
+# This board is called 'Settled', and since 2.00 every line ends with the board
+# it belongs to - so a grep for the bare word matches every line on this board.
+# That is a real cost of naming the board rather than a quirk of this test: any
+# board called Settled, Done or Urgent poisons a substring match, including one
+# an agent writes while tailing the bridge. Matching the field is what the line
+# was always shaped for.
+my @settled = grep { /\Q$number\E/ && / \| SETTLED \| / } bridge();
 is( scalar @settled, 1, 'and the bridge says that violation is settled' );
 like( $settled[0], qr/\Q$card->{ref}\E/, 'naming the card it was about' );
 like( $settled[0], qr/\bfor ada\b/,
@@ -110,7 +118,7 @@ for my $minute ( 2 .. 4 ) {
     $now = sprintf '2026-08-14T01:%02d:00Z', $minute;
     round();
 }
-is( scalar( grep { /\Q$number\E/ && /settled/i } bridge() ), 1,
+is( scalar( grep { /\Q$number\E/ && / \| SETTLED \| / } bridge() ), 1,
     'and it is said once, however many passes follow' );
 
 # --- a violation that is still true says nothing new ---------------------------
@@ -122,7 +130,7 @@ $tira->record_move( project => $root, ref => $second->{ref}, column => 'done' );
 round();
 $now = '2026-08-14T01:11:00Z';
 round();
-is( scalar( grep { /\Q$second->{ref}\E/ && /settled/i } bridge() ), 0,
+is( scalar( grep { /\Q$second->{ref}\E/ && / \| SETTLED \| / } bridge() ), 0,
     'a violation that is still true is never announced as settled' );
 
 # --- and it comes back if it comes back ----------------------------------------

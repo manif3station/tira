@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.00';
+our $VERSION = '2.01';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -6466,7 +6466,8 @@ sub _bridge_settled_line {
       ( ( $done->{ref} // '' ) ne '' ? $done->{ref} : 'board' ),
       'said ' . ( $done->{seen} // 0 ) . ' times',
       ( $done->{rule} // 'a rule' ) . ' no longer applies here',
-      'fix: nothing - this one is over';
+      'fix: nothing - this one is over'
+      . ( ( $done->{board} // '' ) ne '' ? " | board: $done->{board}" : '' );
 }
 
 sub _bridge_line {
@@ -6493,13 +6494,57 @@ sub _bridge_line {
     );
     my $ref = $violation->{ref} // '';
     my $fix = _violation_fix($violation);
-    return join( ' | ', @parts ) . " | fix: $fix";
+
+    # Whose board this is, last.
+    #
+    # Every board's enforcement store counts its own violations from one, so
+    # VIO-0453 on one board and VIO-0453 on another are unrelated problems -
+    # and on 2026-08-15 two people looked that number up, got different
+    # answers, and had no way to notice. The number is not the fault: within a
+    # board it does its job, which is that one lasting problem reads as one
+    # problem getting louder rather than as noise repeating. What went wrong is
+    # that it escaped the board - into reports, into questions between
+    # projects, into what an agent pastes to its owner - and three projects
+    # file into this board now.
+    #
+    # Last, because mt5-ai and developer-dashboard have both written tooling
+    # against this line: a reader splitting the first N fields sees exactly
+    # what it saw before.
+    my $board = ( $violation->{board} // '' ) ne '' ? " | board: $violation->{board}" : '';
+    return join( ' | ', @parts ) . " | fix: $fix$board";
+}
+
+# Which board a store belongs to, remembered when it is written and read back
+# whenever a line is built. Kept beside the ledger rather than derived from the
+# store's directory name, which is a slug of an absolute path and not something
+# to show a reader.
+sub _bridge_board {
+    my ( $self, %args ) = @_;
+    return $args{board} if ( $args{board} // '' ) ne '';
+    my $store = $args{store} or return undef;
+    my $ledger = eval { $self->_enforcement_read($store) } || {};
+    return $ledger->{board};
 }
 
 sub bridge_write {
     my ( $self, %args ) = @_;
     my $path = $self->bridge_log_path(%args);
     my @lines;
+
+    # Remembered once, so everything read out of this store afterwards can say
+    # whose it is - including a tail started long after this write, and a line
+    # pasted into a conversation on another project's board.
+    my $board = $args{board};
+    if ( !defined $board && ( $args{project} // '' ) ne '' ) {
+        $board = eval { $self->project_show( project => $args{project} )->{name} };
+    }
+    if ( defined $board && $args{store} ) {
+        my $ledger = eval { $self->_enforcement_read( $args{store} ) } || {};
+        if ( ( $ledger->{board} // '' ) ne $board ) {
+            $ledger->{board} = $board;
+            eval { $self->_enforcement_write( $args{store}, $ledger ) };
+        }
+    }
 
     # First, because it changes how everything under it should be read: a rule
     # that arrived with this version is one the board has not declared yet, and
@@ -6555,6 +6600,7 @@ sub bridge_write {
             my @above = @{$path}[ 0 .. $#{$path} - 1 ];
             $about{path} = @above ? join( ' > ', @above ) : 'nobody';
         }
+        $about{board} = $board if defined $board;
         push @lines, $self->_bridge_line( \%about );
     }
 
@@ -6571,7 +6617,8 @@ sub bridge_write {
         my $for = $done->{assignee} // '';
         next if $for ne '' && $args{store}
           && $self->police_suspended( store => $args{store}, agent => $for );
-        push @lines, $self->_bridge_settled_line($done);
+        push @lines, $self->_bridge_settled_line(
+            { %{$done}, ( defined $board ? ( board => $board ) : () ) } );
     }
 
     # Police may say when it is unsure. Guessing would make it wrong, and
@@ -6672,9 +6719,16 @@ sub bridge_backlog {
     ($newest) = $newest =~ /\A(\S+)/;
     my $span = ( $oldest // '' ) eq ( $newest // '' )
       ? "at $oldest" : "between $oldest and $newest";
-    unshift @lines, sprintf 'replaying %d outstanding violation%s raised %s - '
+    # The board, in the line that introduces the replay, so a tail pasted into a
+    # conversation carries its own identity from its first line.
+    #
+    # Read from the store rather than passed in: bridge_backlog is called by a
+    # tail that may have been started long after the board was last written to.
+    my $whose = $self->_bridge_board(%args);
+    $whose = ( $whose // '' ) ne '' ? " on $whose" : '';
+    unshift @lines, sprintf 'replaying %d outstanding violation%s%s raised %s - '
       . 'this is history, not new traffic',
-      scalar @lines, ( @lines == 1 ? '' : 's' ), $span;
+      scalar @lines, ( @lines == 1 ? '' : 's' ), $whose, $span;
 
     return \@lines;
 }

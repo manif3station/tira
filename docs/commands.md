@@ -595,6 +595,31 @@ On the browser dashboard it is a collapsed section in the card dialog, fetched
 only when somebody expands it - a card has a great deal happen to it, and
 loading all of it whenever a card opens would bury everything else.
 
+## Which of the three you want
+
+Three commands sound alike and are not interchangeable. Another project read
+`tira.backup.export` as the way to back a board up, which is the one reading
+that loses work: an export is a file somebody has to remember to make, and a
+board with exports and no backups has nothing to restore from.
+
+**`tira.backup` is the backup.** It makes a commit in a git repository Tira
+manages inside the board's own storage. It is the one to run often, and the one
+`board-unbacked` is about. If you are reaching for a backup, this is it.
+
+**`tira.backup.restore` is the undo.** It puts the board back to its last
+backup.
+
+**`tira.backup.export` and `tira.backup.import` move a board between machines.**
+Export writes the whole history and every attachment into one file; import lays
+that file out as a board on a machine that has not got one. In his words:
+export when you move a Tira project to another machine, import when the other
+machine receives it, and day-to-day operation uses neither.
+
+The two answer different losses. The repository a backup lives in sits inside
+the board's own storage, so it survives a bad edit and not a lost disk. A bundle
+is what leaves the machine, which is why it is worth keeping one somewhere the
+board is not - but making one is not backing up, and neither replaces the other.
+
 ### `tira.backup`
 
 Back the board up. A backup is a commit in a git repository Tira manages inside

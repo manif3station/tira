@@ -1,5 +1,64 @@
 Revision history for Tira
 
+1.96  2026-08-15
+
+    - TKT-204: a board that says where its work lives is backed up
+      where it lives. developer-dashboard reported board-unbacked
+      raised at 07:55 and escalated twice while the board was backed up
+      three times in between, against a seven-day age.
+    - The cause was one variable answering two questions. _police_world
+      resolves the repository a project declared, falling back to the
+      board directory, and asked everything with it. Branches, work
+      trees, unpushed commits and whether the tree is changing all want
+      the repository. The backup lookup wants the board: the store is
+      <board>/.tira, which is where tira.backup writes and the only
+      place it ever writes, and where restore and export read it from.
+    - So a board that had declared a repository had its backups looked
+      for inside the code, found none, and was told it had never been
+      backed up - permanently, whatever anybody did about it. A board
+      that declared nothing had the two directories in the same place
+      and worked, which is why this project's own board settled the
+      same rule at 07:28 that morning while his could not.
+    - That variable arrived in 1.91 with TKT-178, which taught police to
+      read a declared repository so card-sandbox-missing would stop
+      reporting branches that plainly existed. It fixed exactly the
+      boards it broke, which is why the report could describe one rule
+      settling promptly in the same breath as the other never settling.
+    - His own guess is worth recording as wrong, because it was the
+      reasonable one: that police gathers the machine facts once rather
+      than per round. It gathers them every round, and the loop says so.
+      Acting on the guess would have produced a fix for something that
+      was already right.
+    - TKT-182: a recording handed to tira.question.ask reaches the
+      question. The option was accepted, refused on every command it
+      does not belong to, and then passed through for update alone - so
+      asking with --voice produced a question whose own reminder told
+      its author to supply the recording they had just supplied. The
+      engine had always attached it and the manual had always documented
+      it; one line in the dispatcher disagreed with both.
+    - TKT-152: the hierarchy refusal names the command that does what
+      the caller was reaching for. It correctly refuses ticket-to-ticket
+      parentage and used to stop there, so somebody wanting "this ticket
+      blocks that one" wrote it into a comment, where no automated check
+      can see it. Exactly as strict, one sentence longer.
+    - TKT-170: backup, export and import stop reading as the same
+      thing. Another project read tira.backup.export as the way to back
+      a board up, which is the reading that loses work: an export is a
+      file somebody has to remember to make, and a board with exports
+      and no backups has nothing to restore from. Both documents now say
+      which of the three is the backup, that export and import move a
+      board to another machine and receive it there, and that day-to-day
+      operation uses neither - in his words. A test holds the three
+      passages together, because nothing was stopping them drifting
+      apart and the reading that caused this was somebody doing their
+      best with what was written.
+    - TKT-140: an assertion that claimed to compare the module version
+      with .env now reads .env. It compared the module against a
+      literal, while a second assertion compared .env against the same
+      literal, so the two agreed only through a third party and the name
+      promised a comparison the code never made. Both halves are kept:
+      the release being made is still asserted to be the one intended.
+
 1.95  2026-08-15
 
     - TKT-195: adding a column no longer silently narrows a rule. A

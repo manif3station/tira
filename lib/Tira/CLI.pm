@@ -325,7 +325,20 @@ sub run {
               . "somebody who can already stand between you and this machine.\n";
         }
 
-        my %providers = browser_providers( tira => $tira, project => $option{project},
+        # Resolved here, because here is where the resolver is.
+        #
+        # A board may be referred to by something other than its path, and that
+        # is deliberate: the agent working a project is never told where the
+        # board actually sits. Only this process can turn one into the other -
+        # it holds the resolver - and the workers that serve the board are
+        # started fresh with nothing but the environment. Handing them what was
+        # typed made every request fail inside a worker, with the port bound and
+        # the board apparently up.
+        my $serving = eval { $tira->discover_project( project => $option{project} ) };
+        return _error( $tira, 'toon', $@ || 'Unable to resolve the board to serve' )
+          if !defined $serving;
+
+        my %providers = browser_providers( tira => $tira, project => $serving,
             store => $option{store} );
         my $served = eval {
             $browser_server->(
@@ -336,7 +349,7 @@ sub run {
                 # any of this, so it travels in the environment - and serve()
                 # refuses without a project rather than starting workers that
                 # die on load.
-                project => $option{project}, type => $type,
+                project => $serving, type => $type,
                 with_title => $option{with_title},
                 %tls, %providers,
             );

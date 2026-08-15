@@ -401,6 +401,30 @@ sub serve {
     die "Serving a board needs to know which one: --project\n"
       if !defined $project || $project eq '';
 
+    # Resolved here, where it can be, rather than in each worker, where it
+    # cannot. The workers start fresh and read TIRA_DASHBOARD_ROOT, so whatever
+    # goes in has to be something a process with no other context can open - and
+    # the dispatcher passes a project NAME. The owner's board bound its port and
+    # then answered every request with "Cannot resolve project path 'tira'",
+    # because a name that resolves in the process asked to serve need not
+    # resolve in the processes doing the serving.
+    #
+    # Refused here too, for the same reason the providers are: a board nobody
+    # can find should be said where the caller is looking, not inside a worker
+    # whose error stream nobody is reading.
+    # Resolved by the caller, which is the only party that can. A project may be
+    # named rather than pathed - that is deliberate, so an agent reading the
+    # manual never learns where the board actually sits - and the name is
+    # resolved through a path resolver the CLI installs from the dashboard's own
+    # registry. A Tira built here would not have one, and neither does the one
+    # dashboard.psgi builds: that is exactly why the workers could not resolve
+    # 'tira' and answered every request with "Cannot resolve project path".
+    # Says nothing about what it was given or what it wanted. A refusal that
+    # quotes the value teaches whoever reads it how boards are referred to here,
+    # and that is the one thing this is all arranged to avoid.
+    die "Serving a board needs to know which one: --project\n"
+      if !File::Spec->file_name_is_absolute($project);
+
     # The providers are still validated here, so that a caller who hands in its
     # own - every test that stubs one - still gets what it asked for, and so a
     # missing provider is refused where somebody sees it rather than inside a
@@ -412,6 +436,7 @@ sub serve {
     local $ENV{TIRA_DASHBOARD_TITLE} = $args{with_title} ? '1' : '0';
 
     my $app = $class->_psgi_path;
+
     require Plack::Runner;
     my $runner = Plack::Runner->new;
 

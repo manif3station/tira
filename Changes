@@ -1,5 +1,41 @@
 Revision history for Tira
 
+2.08  2026-08-15
+
+    - TKT-228: the served dashboard answers again. Reported by the owner:
+      "d2 tira.dashboard -o browser" bound its port and then every request
+      died with "Cannot resolve project path 'tira'".
+    - A board may be referred to without its path. That is deliberate: the
+      agent working a project is never told where the board sits, so it
+      cannot go round the CLI and edit the files directly. Such a
+      reference is resolved through a path resolver that the CLI installs.
+      dashboard.psgi builds a plain Tira object, which has none, and
+      serve() passed its argument through untouched - so the parent
+      resolved nothing and the workers, which are the one place that
+      cannot resolve anything for themselves, failed once per request in a
+      child whose errors only reach a log while the port sat listening.
+    - The board is resolved by the process that holds the resolver, and
+      the workers are handed a path they can open. serve() refuses
+      anything else rather than starting workers that will fail. Neither
+      the refusal nor anything else repeats the value it was given: a
+      message that quotes it teaches its reader how boards are referred to
+      here, which is the one thing this arrangement exists to prevent.
+    - Measured against a running server rather than only in the suite,
+      and through the route real usage takes: a reference in the
+      environment with no --project answers HTTP 200 with the board's
+      sign-in page and no resolve errors, where the previous release
+      answers 500 three times.
+    - A worker that cannot open the board it was given now refuses at
+      load instead of becoming a server that fails once per request. That
+      is the shape this went out in: the port bound, the board looked up,
+      and every request died in a child whose errors reach a log nobody
+      is tailing. Whatever started the worker is still watching at load
+      and has nowhere to look afterwards, so the failure belongs there.
+    - dashboard.psgi is now loaded by the suite the way a worker loads
+      it. Nothing loaded it before, and what was checked - that serve()
+      hands the runner a path to it - is equally true of a psgi that
+      cannot build anything at all.
+
 2.07  2026-08-15
 
     - TKT-219: a card that moved while its checklist stood still is now

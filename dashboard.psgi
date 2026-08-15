@@ -15,9 +15,33 @@ use Tira::CLI;
 use Tira::DashboardWeb;
 
 my $project = $ENV{TIRA_DASHBOARD_ROOT} // die "TIRA_DASHBOARD_ROOT is required\n";
+
+# Opened here, at load, or this worker does not start.
+#
+# A worker that cannot reach its board used to become a server anyway and fail
+# once per request, in a child whose errors reach a log nobody is tailing, while
+# the port sat listening and the board looked up. That is how 2.00 went out and
+# stayed out until somebody opened a browser.
+#
+# Whatever started this is still watching at load and has nowhere to look
+# afterwards, so the failure belongs here.
 my $type = $ENV{TIRA_DASHBOARD_TYPE};
 my $with_title = ( $ENV{TIRA_DASHBOARD_TITLE} // '' ) eq '1';
-my $tira = Tira->new;
+# With the same resolver the CLI builds, so a worker is not the one process on
+# the machine that cannot say which board it is serving.
+#
+# The board is resolved before these workers start and TIRA_DASHBOARD_ROOT
+# carries a path, so this is a second line rather than the first. It exists
+# because the first line failing here is invisible: a worker's complaint reaches
+# a log nobody is tailing, once per request, while the port sits listening and
+# the board looks up. That is exactly how this went out - the application moved
+# into the workers, the resolver did not come with it, and every request died
+# with "Cannot resolve project path" against a board whose reference was never a
+# path in the first place.
+my $tira = Tira->new( path_resolver => Tira::CLI::_dd_path_resolver() );
+
+$project = eval { $tira->discover_project( project => $project ) }
+  or die "This worker cannot open the board it was given\n";
 
 Tira::DashboardWeb->build_psgi_app(
     render => sub {

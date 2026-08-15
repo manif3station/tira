@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.96';
+our $VERSION = '1.97';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4845,13 +4845,39 @@ sub _police_history {
         # skipping - and the damage is still said once, because a corrupt record
         # that nothing mentions is the fault this whole thread started with.
         my $count = delete $self->{_history_repaired}{$ref};
+
+        # Which byte, and where, and what to run about it.
+        #
+        # mt5-ai reported two cards raising this with nothing they could do:
+        # the byte is in an old history entry, history is append-only, and the
+        # record-level recovery the changelog documents cannot reach it. Their
+        # words for why it matters past tidiness - "an unfixable violation sits
+        # open for ever and is indistinguishable from one being ignored... a
+        # line that cannot be acted on teaches whoever reads the bridge that
+        # some lines are not worth acting on."
+        #
+        # They asked for the entry and the offset so a human can judge whether
+        # anything was actually lost, which is the right question to be able to
+        # ask of a record: a mangled multiplication sign and a mangled digit in
+        # a figure somebody relies on read exactly alike without it. The file is
+        # scanned by the same subroutine tira.doctor uses, so the two cannot
+        # disagree about where the damage is.
+        my $where = '';
+        if ( $count && open my $fh, '<:raw', $self->_journal_path( $root, $ref ) ) {
+            my $bytes = do { local $/; <$fh> };
+            close $fh;
+            my $bad = _bad_bytes($bytes);
+            $where = ' (' . _bad_byte_detail($bad) . ')' if @{$bad};
+        }
+
         push @{$unreadable}, {
             ref => $ref,
             repaired => $count,
             reason => "its history holds $count "
               . ( $count == 1 ? 'byte that is' : 'bytes that are' )
-              . ' not valid UTF-8, substituted while reading. The card was checked;'
-              . ' the file on disk is untouched',
+              . " not valid UTF-8$where, substituted while reading. The card was"
+              . ' checked; the file on disk is untouched. Repair it with'
+              . ' d2 tira.doctor --repair',
         } if $count && $unreadable && !grep { ( $_->{ref} // '' ) eq $ref } @{$unreadable};
 
         return $entries;
@@ -5700,15 +5726,32 @@ sub _violation_tone {
 # 2026-08-13 every one of them ended in "list your policies", so board-unbacked
 # said the board had never been backed up and then told whoever read it to go
 # and read the policy list, which backs nothing up.
-our %VIOLATION_FIX = ( 'board-unbacked' => 'd2 tira.backup' );
+our %VIOLATION_FIX = (
+    'board-unbacked' => 'd2 tira.backup',
+
+    # The one rule whose remedy is a command rather than a look at the card.
+    # mt5-ai read "fix: d2 tira.ticket.show --ref M5T-034" against a report of
+    # corruption in that card's history - a viewer, which changes nothing about
+    # the byte - and concluded, reasonably, that nothing could be done. The
+    # repair has existed since 1.94.
+    'card-damaged' => 'd2 tira.doctor --repair',
+);
 
 sub _violation_fix {
     my ($violation) = @_;
+
+    # A rule that names its own remedy beats the card, because pointing at the
+    # card is a good default and a bad answer when there is a command to run.
+    # Asked first rather than last, which is the only change: every rule with
+    # nothing of its own still points at its card exactly as before.
+    my $named = $VIOLATION_FIX{ $violation->{rule} // '' };
+    return $named if defined $named;
+
     my $ref = $violation->{ref} // '';
     return 'd2 tira.' . ( $1 eq 'SOW' ? 'sow' : 'epic' ) . ".show --ref $ref"
       if $ref =~ /\A(SOW|EPC)-/;
     return "d2 tira.ticket.show --ref $ref" if $ref ne '';
-    return $VIOLATION_FIX{ $violation->{rule} // '' } // 'd2 tira.policy.list';
+    return 'd2 tira.policy.list';
 }
 
 # looking anything up, including a command he can paste straight to the agent.
@@ -7496,6 +7539,50 @@ sub json_decode { return json_object()->utf8->decode( $_[0] ) }
 # Nothing is repaired without being asked. History is the permanent record of a
 # board, and a record somebody's tooling quietly rewrites is not evidence any
 # more - so this reports by default and writes only when told to.
+# Every byte in a string that UTF-8 cannot read, with where each one is.
+#
+# Asked in two places and therefore written in one. doctor reports and repairs
+# them; card-damaged names them in its violation, so a reader can judge whether
+# anything was actually lost rather than being told only that something was
+# substituted. Two copies of this arithmetic would drift the first time somebody
+# fixed the one they happened to be looking at.
+#
+# FB_QUIET consumes what it can and leaves the rest in the buffer it was given -
+# it modifies its argument, which is the whole trick. Whatever is left begins
+# with the byte it could not read, so the position is arithmetic on lengths
+# rather than a guess.
+#
+# The first version re-encoded the decoded part to measure how far it had got,
+# and reported byte 0x00 at offset 570 for a file whose only bad byte was 0xD7
+# near the start: FB_QUIET had already advanced the buffer, so every offset
+# after the first was counted twice.
+sub _bad_bytes {
+    my ($bytes) = @_;
+    return [] if !defined $bytes;
+
+    my @bad;
+    my $offset = 0;
+    my $rest = $bytes;
+    while ( length $rest ) {
+        my $remaining = $rest;
+        Encode::decode( 'UTF-8', $remaining, Encode::FB_QUIET() );
+        last if !length $remaining;
+
+        my $used = length($rest) - length($remaining);
+        push @bad, { at => $offset + $used, byte => substr( $remaining, 0, 1 ) };
+        $rest = substr $remaining, 1;
+        $offset += $used + 1;
+    }
+    return \@bad;
+}
+
+# One wording for both, because "which byte, and where" is one answer.
+sub _bad_byte_detail {
+    my ($bad) = @_;
+    return join ', ',
+      map { sprintf 'byte 0x%02X at offset %d', ord( $_->{byte} ), $_->{at} } @{$bad};
+}
+
 sub doctor {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
@@ -7529,26 +7616,13 @@ sub doctor {
         # had got, and reported byte 0x00 at offset 570 for a file whose only
         # bad byte was 0xD7 near the start: FB_QUIET had already advanced the
         # buffer, so every offset after the first was counted twice.
-        my @bad;
-        my $offset = 0;
-        my $rest = $bytes;
-        while ( length $rest ) {
-            my $remaining = $rest;
-            Encode::decode( 'UTF-8', $remaining, Encode::FB_QUIET() );
-            last if !length $remaining;
-
-            my $used = length($rest) - length($remaining);
-            push @bad, { at => $offset + $used, byte => substr( $remaining, 0, 1 ) };
-            $rest = substr $remaining, 1;
-            $offset += $used + 1;
-        }
+        my @bad = @{ _bad_bytes($bytes) };
         return if !@bad;
 
         push @damaged, {
             path => $path,
             bytes => scalar @bad,
-            detail => join( ', ',
-                map { sprintf 'byte 0x%02X at offset %d', ord( $_->{byte} ), $_->{at} } @bad ),
+            detail => _bad_byte_detail( \@bad ),
         };
         return if !$args{repair};
 
@@ -7563,8 +7637,7 @@ sub doctor {
         push @repaired, {
             path => $path,
             bytes => scalar @bad,
-            detail => join( ', ',
-                map { sprintf 'byte 0x%02X at offset %d', ord( $_->{byte} ), $_->{at} } @bad ),
+            detail => _bad_byte_detail( \@bad ),
         };
         return;
     };

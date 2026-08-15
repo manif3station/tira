@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '1.83';
+our $VERSION = '1.84';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -6847,7 +6847,13 @@ sub _unique_casefold {
 sub _valid_priority {
     my ( $self, $priority ) = @_;
     return undef if !defined $priority || $priority eq '';
-    die "Priority must be an integer from 1 to 5\n" if $priority !~ /\A([1-5])\z/;
+    # The direction, said here because this is where somebody who typed the
+    # wrong number meets the scale, and for a long time it was said nowhere at
+    # all. Tira runs 5-is-urgent, which is the opposite of the P1 convention
+    # most trackers use, so a reader who assumes rather than checks gets it
+    # exactly backwards - and did, for a whole session, silently.
+    die "Priority must be an integer from 1 to 5, where 5 is the most urgent\n"
+      if $priority !~ /\A([1-5])\z/;
     return 0 + $1;
 }
 

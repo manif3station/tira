@@ -1,5 +1,36 @@
 Revision history for Tira
 
+1.84  2026-08-15
+
+    - TKT-186: the priority scale says which end is urgent. Tira runs 1
+      to 5 with 5 the most urgent, which is the opposite of the P1
+      convention most trackers use - and nothing anywhere said so. The
+      validator gave only the range, neither document mentioned priority,
+      and the direction existed only in a JavaScript label map and a sort
+      inside the browser dashboard.
+    - So it was gettable wrong in silence, and it was got wrong for a
+      whole session: every card raised with --priority 1 meaning "top"
+      was recorded as Low and sorted to the bottom of the column he was
+      reading. He corrected two of them through the dashboard without
+      saying anything - TKT-177 from 1 to 5 within two minutes, TKT-166
+      from 2 to 5 within sixteen - and nothing would have told the agent.
+    - The refusal for an out-of-range value now states the direction,
+      because that is where somebody who typed the wrong number meets the
+      scale without reading documentation. SKILLS.md and the command
+      reference state it too; the reference had not mentioned priority at
+      all.
+    - Three copies of one decision cannot be reduced to one - a browser
+      cannot read a Perl string and a refusal cannot be a JavaScript
+      object - so they are held against each other instead. Flipping the
+      sort, flipping the labels, or dropping the sentence from either the
+      refusal or the reference each fails a named assertion.
+    - The direction itself is not changed and no card is renumbered. A
+      board that upgrades finds its priorities meaning exactly what they
+      meant before.
+    - TKT-171 was blocked on this. Its first draft was written with the
+      scale inverted, which would have shipped a rule enforcing the exact
+      opposite of the order it was asked for, while looking like a guard.
+
 1.83  2026-08-15
 
     - TKT-196: assertions that could not fail, named as though they

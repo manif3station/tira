@@ -157,8 +157,12 @@ tickets.
   `2026-08-05T13:30:00Z`.
 - `sdlc_gate` and `lifecycle`: nullable free-text values. `sdlc_gate` is
   independent of append-only structured gate log entries.
-- `priority`: nullable JSON integer from `1` through `5`. Human output renders
-  `Low`, `Medium Low`, `Medium`, `High`, or `Very High`, respectively.
+- `priority`: nullable JSON integer from `1` through `5`, where **5 is the most
+  urgent** and 1 the least. This is the opposite of the P1 convention most
+  trackers use, so it is worth reading twice before setting one. Human output
+  renders `Low`, `Medium Low`, `Medium`, `High`, or `Very High`, respectively,
+  and a board ordered by priority puts 5 at the top. A card with no priority is
+  unassessed rather than lowest, and sorts last saying so.
 - `fix_version`: one nullable free-text value.
 - `affects_versions`: an array of free-text values, empty by default.
 - `parent`: one generated parent ref or `null`; it is never directly editable.
@@ -228,7 +232,7 @@ tira.project.people.activate --id ID [-o FORMAT]
 | `--start-date DATETIME|""` | no | optional | replace/clear | Zoned ISO 8601 date-time. |
 | `--sdlc-gate TEXT|""` | no | optional | replace/clear | Free-text SDLC state. |
 | `--lifecycle TEXT|""` | no | optional | replace/clear | Free-text lifecycle. |
-| `--priority 1..5|""` | no | optional | replace/clear | Numeric priority. |
+| `--priority 1..5|""` | no | optional | replace/clear | Numeric priority, 5 being the most urgent. |
 | `--fix-version TEXT|""` | no | optional | replace/clear | One target version. |
 | `--affects-version TEXT` | yes | optional | append | Affected version. |
 

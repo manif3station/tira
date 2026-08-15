@@ -908,6 +908,23 @@ in supplied order. Existing values are retained. The corresponding `--set-*`
 JSON-array options remain the explicit wholesale-replacement controls for the
 six content arrays; scope has no replacement option.
 
+## Which end of the priority scale is urgent
+
+`--priority` takes an integer from 1 to 5, and **5 is the most urgent**. This is
+the opposite of the P1 convention most trackers use, so it is the one field on a
+card that a reader can get exactly backwards while being certain they have it
+right.
+
+Everything agrees with that and always has: the browser dashboard labels 5 as
+`Very High` and 1 as `Low`, and a board ordered by priority puts 5 at the top,
+because the question a column answers is what to pick up next. What was missing
+was anybody saying so - the direction lived only in the dashboard's own labels,
+so a reader working from the command line had nothing to check an assumption
+against. The refusal for an out-of-range value now states it too.
+
+A card with no priority is unassessed rather than lowest. It sorts last and says
+so, rather than pretending to a number nobody chose.
+
 ## Attachment response truth
 
 Attachment content remains globally deduplicated by SHA-256, while filenames

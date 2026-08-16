@@ -66,6 +66,36 @@ def main():
         create += [f'--{kind}-prefix', refs[kind]['prefix']]
     tira(*create, '-o', 'json')
 
+    # The board this is about to write to is the one it was given, checked
+    # before anything is written rather than trusted.
+    #
+    # Every command after this names the destination through the environment,
+    # and the dashboard replaces that value with the board the working
+    # directory belongs to - so a restore run from inside any project writes
+    # into that project instead. Measured: restoring a one-card backup into an
+    # empty directory, from inside the Tira skill, created a card on the Tira
+    # board. The safety check further down caught it on the next line and
+    # refused, which is the only reason it stopped at one card, and that check
+    # was written for a different reason entirely.
+    #
+    # A restore is what somebody runs when a board is already lost, and the
+    # likeliest place to run it from is another project's directory. TKT-258.
+    if not os.path.exists(os.path.join(destination, '.tira', 'project.yml')):
+        raise SystemExit(
+            f'board-restore: asked to build a board in {destination} and nothing was '
+            'made there. Commands here name their board through the environment, and '
+            'something is overriding it - the dashboard does that when the working '
+            'directory belongs to a project. Run this from somewhere that belongs to '
+            'no board. Nothing has been written.')
+
+    landed = json.loads(tira('tira.project.show', '-o', 'json', project=destination))
+    if landed.get('name') != project['name']:
+        raise SystemExit(
+            f"board-restore: the commands here are reaching a board called "
+            f"{landed.get('name')!r} and the backup is of {project['name']!r}. "
+            'Run this from somewhere that belongs to no board. Nothing has been '
+            'written to either.')
+
     # Settings the board carries that are not columns or people.
     dashboard = project.get('dashboard') or {}
     if dashboard.get('port'):
@@ -162,6 +192,45 @@ def main():
     # Read the board back rather than trusting any of the above. A restore that
     # reports what it was given rather than what it achieved is how a backup
     # becomes a comfort instead of a safeguard.
+    # The proof, which a rebuild was returning a board without. Gates,
+    # evidence and attachments are not import fields either, and unlike the
+    # parents, links and questions above nothing replayed them - so a restored
+    # board said everything its cards claimed and held no record of any of it
+    # having been proved. Measured on this project: gates missing from 205 of
+    # 256 cards, evidence from 163, attachments from 66. TKT-231.
+    for record in ordered:
+        for gate in record.get('gate_passing_log') or []:
+            replay = ['tira.gate.add', '--ref', record['ref'],
+                      '--gate', gate.get('gate', ''), '--result', gate.get('result', '')]
+            if gate.get('author'):
+                replay += ['--author', gate['author']]
+            if gate.get('details'):
+                replay += ['--details', gate['details']]
+            tira(*replay, '-o', 'json', project=destination)
+
+        for entry in record.get('evidence') or []:
+            replay = ['tira.evidence.add', '--ref', record['ref'],
+                      '--title', entry.get('title', '')]
+            if entry.get('author'):
+                replay += ['--author', entry['author']]
+            if entry.get('summary'):
+                replay += ['--summary', entry['summary']]
+            if entry.get('uri'):
+                replay += ['--uri', entry['uri']]
+            tira(*replay, '-o', 'json', project=destination)
+
+    # Attachments are the one thing a rebuild cannot carry from this backup:
+    # the record names them by digest and the bytes live in the board that was
+    # backed up, which is the board being replaced. Said here rather than left
+    # as a silence, so a reader knows it is a limit of the backup rather than
+    # an oversight in the restore. The bundle that tira.backup.export writes
+    # does carry them, and is what to use when the bytes matter.
+    missing_bytes = sum(len(r.get('attachments') or []) for r in ordered)
+    if missing_bytes:
+        print(f'board-restore: {missing_bytes} attachment(s) are named on these cards and '
+              'are not in this backup - it records what a card says, not the files beside '
+              'it. Use a bundle from tira.backup.export if you need those.')
+
     back = json.loads(tira('tira.export', '-o', 'json', project=destination))
     if back['count'] != records['count']:
         raise SystemExit(

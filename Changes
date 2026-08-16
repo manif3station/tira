@@ -1,5 +1,27 @@
 Revision history for Tira
 
+2.18  2026-08-16
+
+    - TKT-231: a board rebuilt from the gate's backup keeps the gates and
+      evidence that make its cards believable. It returned every claim a
+      card made and no record of any of it having been proved - gates
+      missing from 205 of 256 cards on this board, evidence from 163.
+    - Attachments are the limit rather than the omission, and the tool says
+      so: the backup records what a card says and the bytes live in the
+      board being replaced, so it names the bundle that does carry them
+      instead of leaving a card pointing at nothing.
+    - TKT-258: the restore refuses unless it is reaching the board it was
+      given. Every command names its destination through the environment
+      and the dashboard replaces that with the board the working directory
+      belongs to, so a restore run from inside a project wrote into that
+      project. Found by doing it: restoring a one-card backup from inside
+      this skill put a card on this board.
+    - It stopped at one card because a check written for another reason -
+      the one that refuses a shifted copy - noticed the references did not
+      line up. A restore is what somebody runs when a board is already
+      lost, and the likeliest place to run it from is another project's
+      directory.
+
 2.17  2026-08-16
 
     - TKT-254: where a column sits is worked out once. Two rules needed the

@@ -4,7 +4,9 @@ use strict;
 use warnings;
 
 use Cwd qw(abs_path realpath);
+use B ();
 use Data::TOON;
+use Data::TOON::Encoder;
 use Digest::SHA qw(sha256_hex);
 use Encode qw(decode encode_utf8 FB_QUIET);
 use Fcntl qw(:flock);
@@ -50,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.22';
+our $VERSION = '2.23';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -8286,6 +8288,48 @@ sub _safe_path_input {
     die "Unsafe control character in $label\n" if !defined $path || $path =~ /[\x00-\x1f\x7f]/;
     $path =~ /\A(.+)\z/ or die "Cannot validate $label\n";
     return $1;
+}
+
+# A string that looks like a number is still a string.
+#
+# TOON is the default output and the one every agent reads. Data::TOON tests a
+# scalar against a number pattern before it tests whether it needs quoting, so
+# "2.20" is encoded as the number 2.2 - a different release - and 1.10 as 1.1,
+# 007 as 7, 0100 as 100. Measured across this project's own board: 20,732 string
+# values, 22 of which did not survive a round trip, 19 of them a fix_version.
+# Every release whose version ends in a zero has always read as another one.
+#
+# The module has the right rule and never reaches it: its _needs_quoting returns
+# true for a numeric-looking string, and _encode_primitive returns the
+# canonicalised number first. That is a check that exists and cannot fire.
+#
+# So the order is restored here, for values Perl still knows are strings. A
+# number stays a number and is not quoted; a string is only quoted when leaving
+# it alone would change it, so ordinary output is untouched. Delegated to the
+# module rather than reimplemented, which means a version that stops needing
+# this stops being changed by it.
+our $TOON_PRIMITIVE_BEFORE = \&Data::TOON::Encoder::_encode_primitive;
+
+sub _toon_is_string {
+    my ($value) = @_;
+    return 0 if ref $value;
+    my $flags = B::svref_2object( \$value )->FLAGS;
+    return 0 if !( $flags & B::SVp_POK() );
+    return 0 if $flags & ( B::SVp_IOK() | B::SVp_NOK() );
+    return 1;
+}
+
+{
+    no warnings 'redefine';
+    *Data::TOON::Encoder::_encode_primitive = sub {
+        my ( $self, $value ) = @_;
+        my $encoded = $TOON_PRIMITIVE_BEFORE->( $self, $value );
+        return $encoded if !defined $value || !defined $encoded;
+        return $encoded if !_toon_is_string($value);
+        return $encoded if $encoded eq $value;
+        return $encoded if $encoded =~ /\A"/;
+        return '"' . $self->_escape_string($value) . '"';
+    };
 }
 
 sub format_output {

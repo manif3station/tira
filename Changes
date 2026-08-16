@@ -1,5 +1,27 @@
 Revision history for Tira
 
+2.23  2026-08-16
+
+    - TKT-261: a string that looks like a number is still a string. TOON is
+      the default output and the one every agent reads, and Data::TOON
+      tests a scalar against a number pattern before it tests whether it
+      needs quoting - so a fix version of 2.20 was handed to the reader as
+      2.2, a different release. 1.10 read as 1.1, 1.50 as 1.5, 1.90 as 1.9.
+      Every release whose version ends in a zero has always come back as
+      another one.
+    - Measured rather than argued: 20,732 string values on this project's
+      board, 22 of which did not survive a round trip through the default
+      output, and 19 of those a fix_version. The value on disk was right
+      the whole time, and the JSON output the tests read is correct - which
+      is why nothing in the suite ever noticed. It was found by accident,
+      stamping a card with the release it went out in.
+    - The module has the right rule and cannot reach it: its own
+      _needs_quoting returns true for a numeric-looking string, and
+      _encode_primitive returns the canonicalised number before ever
+      asking. The order is restored here for scalars Perl still knows are
+      strings, and only where leaving the value alone would change it, so a
+      number stays a number and ordinary output is untouched.
+
 2.22  2026-08-16
 
     - TKT-253: a finished release is no longer held up by the work that

@@ -1,5 +1,30 @@
 Revision history for Tira
 
+2.27  2026-08-16
+
+    - TKT-203: every parameter a rule cannot work without is now proved to
+      be refused when it is left out. The other half of the promise TKT-128
+      guarded: that one covered what a rule refuses, and nothing covered
+      what a rule requires. 21 rules declare a required parameter and 14 of
+      those declarations had no test asserting the refusal.
+    - A lost requirement costs more than a lost refusal. A rule declared
+      without its age reaches the comparison with undef, so it either fires
+      on everything the moment it is declared or never fires at all - and
+      both read as the rule being broken rather than the policy being
+      incomplete.
+    - Exercised rather than scanned: all 28 requirements across 21 rules are
+      left out in turn and the refusal asserted, so a rule added tomorrow is
+      covered without anybody extending the guard. The parse is counted
+      against what the table declares - 32 of 32.
+    - Proved by stopping the engine enforcing what a rule requires: the
+      guard fails, names the first rule wrongly accepted, and the file still
+      completes all 81 assertions. That last part is the point. The version
+      of this guard staged yesterday removed its scratch policy by rule name
+      rather than by id, so on the one path that matters - the rule having
+      been wrongly accepted - it died and took every assertion after it out
+      of the file with it. A test that dies does not only lose its own
+      verdict.
+
 2.26  2026-08-16
 
     - TKT-142: every declared refusal is exercised, not just the ones in the

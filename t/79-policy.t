@@ -266,6 +266,87 @@ for my $action (qw(bridge-reminder print-reminder log-only)) {
     like( $err, qr/Unknown policy rule/, 'with the engine message intact' );
 }
 
+# --- every declared requirement is exercised -----------------------------------
+#
+# The other half of the same promise. A rule declares what it cannot work
+# without, and the guide says so in as many words: "Anything a rule cannot work
+# without is refused when the policy is set, rather than discovered later."
+# TKT-128 built the guard for what a rule refuses; nothing proved what a rule
+# requires. Scanned on 2026-08-15: 21 rules declare a required parameter and 14
+# of those declarations had no test asserting the refusal when it is left out.
+#
+# A lost requirement costs more than a lost refusal. A rule declared without its
+# age reaches the comparison with undef, so it either fires on everything the
+# moment it is declared or never fires at all - and both read as the rule being
+# broken rather than the policy being incomplete.
+#
+# Exercised rather than scanned: every requirement is left out in turn and the
+# refusal asserted, so a rule added tomorrow is covered without anybody
+# extending this. The values come from the catalogue above, which already has a
+# good one for every parameter any rule needs.
+
+{
+    open my $engine, '<', File::Spec->catfile(qw(lib Tira.pm)) or die $!;
+    my $source = do { local $/; <$engine> };
+    close $engine;
+
+    my ($table) = $source =~ /my %POLICY_RULES = \((.*?)\n\);/s;
+
+    my ( @required, $entries );
+    while ( $table =~ /'([a-z][a-z0-9-]+)'\s*=>\s*\{(.*?)\},?\s*$/gm ) {
+        my ( $rule, $body ) = ( $1, $2 );
+        $entries++;
+        my ($needs) = $body =~ /needs\s*=>\s*\[([^\]]*)\]/;
+        next if !defined $needs;
+        push @required, [ $rule, $_ ] for $needs =~ /'([a-z_]+)'/g;
+    }
+
+    # Counted rather than trusted. A parser that stops early covers less than
+    # it claims, which is the fault this guard exists to catch one level up -
+    # and TKT-142's guard did exactly that, finding three entries where four
+    # were declared.
+    my $declares = () = $table =~ /^\s*'[a-z][a-z0-9-]+'\s*=>/gm;
+    is( $entries, $declares, 'the parse found every rule the table declares' );
+    cmp_ok( scalar @required, '>=', 20,
+        'and rules declare parameters they cannot work without' );
+
+    my $bare = File::Spec->catdir( $tmp, 'requirements' );
+    $tira->project_new(
+        name => 'Requirements', dir => $bare, members => ['michael'],
+        columns => ['Backlog, implement, verify, done'],
+        sow_prefix => 'RQS', epic_prefix => 'RQE', ticket_prefix => 'RQT',
+    );
+    mkdir File::Spec->catdir( $bare, '.git' );
+
+    my @accepted;
+    for my $requirement (@required) {
+        my ( $rule, $missing ) = @{$requirement};
+        my %supplied = %{ $needs{$rule} // {} };
+
+        # Every other parameter this rule needs, and this one left out.
+        delete $supplied{$missing};
+
+        my $added = eval {
+            $tira->policy_add( project => $bare, rule => $rule,
+                action => 'bridge-reminder', %supplied );
+        };
+        next if !$added;
+
+        push @accepted, "$rule was declared without $missing";
+
+        # Removed by the id the add returned, and never allowed to decide the
+        # verdict. An earlier version of this removed by rule name, which
+        # policy_remove does not take - so on the one path that matters, the
+        # rule having been wrongly accepted, it died and took every assertion
+        # after it out of the file with it. A test that dies does not only lose
+        # its own verdict.
+        eval { $tira->policy_remove( project => $bare, id => $added->{id} ); 1 };
+    }
+
+    is_deeply( \@accepted, [],
+        'every declared requirement is refused when it is left out' );
+}
+
 # --- every declared refusal is exercised somewhere -----------------------------
 #
 # A rule may declare an option it will not honour, and the refusal is real the

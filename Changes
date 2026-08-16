@@ -1,5 +1,26 @@
 Revision history for Tira
 
+2.28  2026-08-16
+
+    - TKT-207: the guard that exists to hold the two priority tables
+      together now reads both of them. The scale is written twice in
+      lib/Tira.pm - a JavaScript label map the browser reads, and a Perl
+      hash the human and markdown renderers print - and t/177 said in its
+      own header that the copies "are checked against each other" while
+      reading exactly one. A claim in a header describing something other
+      than what the file does is the fault that file exists to catch, one
+      level up.
+    - What held the second table was luck: t/09 pins one card's output to
+      'Priority: Very High', so 5 was covered and 1 through 4 were not.
+      Swapping Low and Medium Low in one copy passed the whole suite, and
+      the result is a board that reads one way in the browser and another
+      on the command line - about the one field a reader can already get
+      exactly backwards, which is what this card's ancestor was raised for.
+    - Proved both ways, with each mutation verified to have landed before
+      the run: swapping two labels in the renderers' copy fails the
+      key-for-key comparison, and renaming 5 in the browser's copy fails
+      that and the assertion that five is the high end.
+
 2.27  2026-08-16
 
     - TKT-203: every parameter a rule cannot work without is now proved to

@@ -64,12 +64,24 @@ like( $refusal, qr/1 to 5/, 'and the refusal gives the range' );
 like( $refusal, qr/\b5\b[^\n]*\b(?:urgent|highest|most)\b|\b(?:urgent|highest|most)\b[^\n]*\b5\b/i,
     'and says which end of it is urgent, which is the whole of this card' );
 
-# --- the three copies agree ------------------------------------------------------------
+# --- the copies agree ------------------------------------------------------------------
 #
-# The direction lives in a label map, in a sort, and now in the refusal. Three
-# copies of one decision is what let this drift unnoticed; they cannot be
-# reduced to one - a browser cannot read a Perl string and a refusal cannot be
-# a JavaScript object - so instead they are checked against each other.
+# The direction lives in a label map the browser reads, a second label map the
+# human and markdown renderers print, a sort, and the refusal. Four copies of
+# one decision is what let this drift unnoticed; they cannot be reduced to one
+# - a browser cannot read a Perl string and a refusal cannot be a JavaScript
+# object - so instead they are checked against each other.
+#
+# They were not. This file said that sentence from the day it was written and
+# read exactly one of the two label maps: the browser's. The renderers' table
+# was covered by luck, because t/09 pins one card's output to 'Priority: Very
+# High', so 5 was held and 1 through 4 were not - swapping Low and Medium Low
+# in one copy passed the whole suite, and the result would be a board reading
+# one way in the browser and another on the command line, about the one field a
+# reader can already get exactly backwards.
+#
+# A claim in a header that describes something other than what the file does is
+# the fault this file exists to catch, one level up. TKT-207.
 
 my $source = do {
     open my $fh, '<:raw', 'lib/Tira.pm' or die $!;
@@ -85,6 +97,18 @@ is( scalar keys %label, 5, 'with a word for each of the five' );
 
 like( $label{5}, qr/high/i, 'and five is the high end' );
 like( $label{1}, qr/low/i,  'while one is the low end' );
+
+# The other label map: what the human and markdown renderers print. Read from
+# the same source and compared key for key, because a difference in any one of
+# the five is a board that says two different things about the same card.
+my ($rendered) = $source =~ /my %priority = \(([^)]*)\)/;
+ok( $rendered, 'the renderers still label the scale too' );
+
+my %printed = $rendered =~ /(\d+)\s*=>\s*'([^']+)'/g;
+is( scalar keys %printed, scalar keys %label,
+    'with a word for each of the same five' );
+is_deeply( \%printed, \%label,
+    'and the two copies say exactly the same thing, key for key' );
 
 # The sort has to agree with the labels, or the column reads top-first by one
 # rule and bottom-first by the other.
@@ -144,7 +168,7 @@ in a JavaScript label map and a sort inside the dashboard.
 
 It was got wrong in silence for a whole session, and corrected twice by hand
 without anybody saying why. The refusal now states the direction, both documents
-state it, and the label map and the sort are checked against each other - three
+state it, and both label maps and the sort are checked against each other - four
 copies of one decision that cannot be reduced to one, so they are held together
 instead.
 

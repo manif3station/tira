@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.16';
+our $VERSION = '2.17';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -5156,12 +5156,8 @@ sub policy_evaluate {
                 # in-review, and back again - the inverse of the rule's own
                 # purpose. The board knows its column order, so which way a
                 # move went is answerable without inventing anything. TKT-242.
-                my $order = $ordering->{$type} //= do {
-                    my $columns =
-                      eval { $self->column_list( project => $root, type => $type ) } || [];
-                    my $seen = 0;
-                    +{ map { $_->{name} => $seen++ } @{$columns} };
-                };
+                my $order = $ordering->{$type}
+                  //= $self->_column_positions( $root, $type );
                 my $came_from = $journal->[ $where_moved[-1] ]{before};
                 next
                   if defined $came_from
@@ -5828,10 +5824,9 @@ sub policy_evaluate {
 sub _policy_before_column {
     my ( $self, $root, $record, $marker ) = @_;
     return 0 if ( $record->{column} // '' ) eq 'discard';
-    my $columns = $self->column_list( project => $root, type => $record->{type} );
-    my @names = map { $_->{name} } @{$columns};
-    my ($here) = grep { $names[$_] eq ( $record->{column} // '' ) } 0 .. $#names;
-    my ($there) = grep { $names[$_] eq ( $marker // '' ) } 0 .. $#names;
+    my $order = $self->_column_positions( $root, $record->{type} );
+    my $here  = $order->{ $record->{column} // '' };
+    my $there = $order->{ $marker // '' };
     return 0 if !defined $here || !defined $there;
     return $here < $there ? 1 : 0;
 }
@@ -6341,6 +6336,21 @@ sub policy_undeclared {
 # terminal means resting, with done assumed when nothing is marked terminal.
 # Extracted rather than copied - card-unassigned already made this decision
 # inline, and a second copy of it is the drift this project keeps finding.
+# Where each column sits, which is the board's own order turned into positions.
+#
+# Two rules needed it and each worked it out: one built a list of names to find
+# two indices in, the other built a map of name to position. Different
+# questions - is this card before that marker, did this move go backwards - and
+# one fact underneath. They agreed, which is the condition under which nobody
+# notices there are two, and a change to how the order is read would have
+# reached whichever was edited. TKT-254.
+sub _column_positions {
+    my ( $self, $root, $type ) = @_;
+    my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
+    my $seen = 0;
+    return { map { $_->{name} => $seen++ } @{$columns} };
+}
+
 # The endings alone, which is the other half of the same question: a column
 # somebody marked as where work stops, or done when a board has marked nothing.
 # _resting_columns adds the protected columns to these; two callers want the

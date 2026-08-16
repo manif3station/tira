@@ -282,7 +282,10 @@ def parents_ahead():
     for row in everything:
         if row.get('column') != 'done':
             continue
-        record = tira(f"tira.{row['kind']}.show", '--ref', row['ref'], '-o', 'json')
+        # The row again, not a second reading of it. A list row carries the
+        # linkage this needs, and asking per card was the other half of the
+        # seven minutes every push paid. TKT-251.
+        record = row
         open_children = sorted(
             child['ref'] for child in live.values()
             if (child.get('parent') or '') == row['ref'])
@@ -303,6 +306,14 @@ def parents_ahead():
 def main():
     failures = 0
     for kind in ('sow', 'epic', 'ticket'):
+        # The row is the record. This asked the board for each card again
+        # after fetching them all, once per card and once per process - about
+        # 250 of them on this project, seven minutes that every push paid and
+        # any push refused and retried paid twice. Measured before changing
+        # it: the list and the show return the same 27 fields for the same
+        # card, and there is nothing in the show that the list lacks. It is
+        # also why running the gate prover took forty-four minutes to say one
+        # thing. TKT-251.
         for row in tira(f'tira.{kind}.list', '-o', 'json'):
             # Discarded work is set aside, not planned. Holding it to the same
             # standard would only teach people to ignore this check - but it
@@ -311,7 +322,7 @@ def main():
             # indistinguishable from work somebody gave up on, and the police
             # rule reported all twenty on every run for ever.
             if row.get('column') == 'discard':
-                record = tira(f'tira.{kind}.show', '--ref', row['ref'], '-o', 'json')
+                record = row
                 if not record.get('comments'):
                     failures += 1
                     print(f"{row['ref']} was discarded with no reason given")
@@ -325,7 +336,7 @@ def main():
             # written a hundred lines above this for the gate-and-evidence
             # check, in the same words, for the same situation. A card still
             # being worked is held to the whole definition. TKT-241.
-            record = tira(f'tira.{kind}.show', '--ref', row['ref'], '-o', 'json')
+            record = row
             if row['column'] in ENDINGS:
                 behind = stalled(record)
                 if behind:

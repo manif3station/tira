@@ -100,13 +100,30 @@ failed=0
 # Returns the hook's exit status; its output lands in $out.
 out=""
 run_hook() {
-    local suite_output="$1" missing="${2:-}"
+    local suite_output="$1" missing="${2:-}" browser="${3:-}"
     local bin="$sandbox/bin"
     rm -rf "$bin"
     mkdir -p "$bin"
 
     printf '#!/usr/bin/env bash\ncat <<%s\n%s\n%s\n' 'SUITE_EOF' "$suite_output" 'SUITE_EOF' >"$bin/docker"
     chmod +x "$bin/docker"
+
+    # A browser test that fails, rather than a runner that is absent. Hiding
+    # the runner proves the gate notices a missing tool; it does not prove the
+    # gate notices a test that has started failing, and those are different
+    # refusals. node answers the installed-check as it always did and exits
+    # non-zero for a spec, which is exactly what a broken board looks like to
+    # this step.
+    if [ -n "$browser" ]; then
+        {
+            printf '#!/usr/bin/env bash\n'
+            printf 'case "$1" in\n'
+            printf '  -e) exec %s "$@" ;;\n' "$(command -v node)"
+            printf '  *)  echo "browser check failed on purpose" >&2; exit 1 ;;\n'
+            printf 'esac\n'
+        } >"$bin/node"
+        chmod +x "$bin/node"
+    fi
 
     if [ -n "$missing" ]; then
         hidden_from="$root/$missing"
@@ -126,9 +143,22 @@ run_hook() {
 }
 
 # The gate must refuse, and it must say why in words that name the problem.
+# A refusal that came from an earlier step is not an answer about this one.
+# The hook checks the cards before it runs the suite, the documents or the
+# browser, so anything after that is unreachable while the board carries an
+# incomplete card - and the probe would report the step it was measuring as
+# unproved when what actually happened is that it never ran. TKT-230.
+board_is_clean() {
+    "$root/tools/card-holes" >/dev/null 2>&1
+}
+
 refuses() {
     local what="$1" expect="$2"
     shift 2
+    if ! board_is_clean; then
+        printf 'not proved - %s, because the board carries an incomplete card and the gate refuses there first\n' "$what"
+        return 0
+    fi
     if "$@"; then
         printf 'NOT PROVED - the gate allowed a push with %s\n' "$what"
         failed=$(( failed + 1 ))
@@ -162,6 +192,24 @@ lib/Tira/DashboardWeb.pm  100.0  100.0  100.0'
 for tool in tools/board-backup tools/card-holes tools/docs-match-code tools/docs-examples-run tools/browser-tests; do
     refuses "a missing $(basename "$tool")" 'missing|refusing' run_hook "$PASSING_SUITE" "$tool"
 done
+
+# --- and a browser test that fails rather than a runner that is absent -----
+#
+# Those are different refusals and the second is the one that matters: a runner
+# nobody installed is obvious, a test that has started failing is not. The
+# board carries what that looks like in earnest - removing a flag broke nine
+# places in this gate's own fixtures, the push refused with '3 of 10 browser
+# tests failed' and did not land, and it refused again when the first fix was
+# incomplete. This does deliberately what happened by accident. TKT-230.
+#
+# It costs a real board and a real server, unlike every other probe here, so it
+# runs last of the cheap ones and says so if the machine cannot support it.
+if command -v node >/dev/null 2>&1 && node -e "require.resolve('playwright')" >/dev/null 2>&1; then
+    refuses 'a browser test that fails' 'browser test failed' \
+        run_hook "$PASSING_SUITE" '' failing
+else
+    printf 'not proved - a browser test that fails, because node or playwright is not here\n'
+fi
 
 # --- a failing suite ------------------------------------------------------
 refuses 'a failing suite' 'suite failed' run_hook 'Result: FAIL

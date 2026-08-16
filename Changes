@@ -1,5 +1,32 @@
 Revision history for Tira
 
+2.17  2026-08-16
+
+    - TKT-254: where a column sits is worked out once. Two rules needed the
+      board's order and each derived it - card-stalled built a list of
+      names to find two indices in, checklist-unmoved built a map of name
+      to position. Different questions, one fact underneath.
+    - I wrote the second an hour earlier fixing another card, and had
+      raised a card about this exact shape twenty minutes before that.
+      Finding it in the code I wrote next is the argument for hunting
+      rather than waiting to be told.
+    - Proved by turning the order upside down for the length of a test, so
+      a move that was forward reads as backward. Nothing about the board or
+      the card changes, only the answer to where a column sits - and a rule
+      with its own copy cannot follow, which is what made it red.
+    - TKT-251: the push gate reads the board once. It fetched every card
+      and then asked the board for each of them again, one process at a
+      time - three such reads, not the two first counted: the completeness
+      check, the discard check, and one in the parent check asking for
+      linkage the list row already carries.
+    - Measured on this project's board: about seven minutes before, and
+      seven seconds after. Every push paid that, and any push refused and
+      retried paid it twice. It is also why running the gate's own prover
+      took forty-four minutes to report one thing.
+    - Proved by putting a single read back, which took the check from seven
+      seconds to three minutes twenty-six on the same board in the same
+      minute. One read is enough to lose almost all of it.
+
 2.16  2026-08-16
 
     - TKT-235: asking a record command how to use it no longer answers

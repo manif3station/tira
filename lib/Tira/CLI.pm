@@ -3227,9 +3227,69 @@ sub _json_array_input {
     return $data;
 }
 
+# What supplies the thing a refusal says is missing.
+#
+# The engine raises these messages and has no notion of a command line, which
+# is why they name a thing rather than a flag - "Record reference is required"
+# from forty commands, and not one of them says --ref. Measured by running
+# every entrypoint with no arguments: 83 refusals that name no option at all.
+# The standard is this project's own, and the owner named it: "Policy rule
+# card-sandbox-missing needs --enter" takes no guessing.
+#
+# So the translation lives here, at the boundary where flag names already live,
+# and the engine keeps no table of them. Declared rather than derived, and held
+# honest by a guard that runs every entrypoint: a message reworded out of this
+# table stops naming its option, and the guard says so. TKT-268.
+# Two shapes, because two things can be wrong. A thing that is missing is
+# supplied by an option; a value that is wrong came in through one, and telling
+# somebody to supply what they just supplied would be its own kind of useless.
+my %SUPPLIED_BY = (
+    'Record reference is required'         => [ 'ref',      'supply it with' ],
+    'A card reference is required'         => [ 'ref',      'supply it with' ],
+    'A question reference is required'     => [ 'ref',      'supply it with' ],
+    'An attachment reference is required'  => [ 'ref',      'supply it with' ],
+    'Record title is required'             => [ 'title',    'supply it with' ],
+    'Project name is required'             => [ 'name',     'supply it with' ],
+    'Project person is required'           => [ 'person',   'supply it with' ],
+    'Person id is required'                => [ 'id',       'supply it with' ],
+    'Password is required'                 => [ 'password', 'supply it with' ],
+    'Import file is required'              => [ 'file',     'supply it with' ],
+    'Replacement pattern is required'      => [ 'pattern',  'supply it with' ],
+    'Link type names are required'         => [ 'outward',  'supply it with' ],
+    'Checklist item is required'           => [ 'item',     'supply it with' ],
+    'Checklist item or status is required' => [ 'item',     'supply it with' ],
+    'A warning message is required'        => [ 'message',  'supply it with' ],
+    'Gate annotation note is required'     => [ 'note',     'supply it with' ],
+    'Evidence annotation note is required' => [ 'note',     'supply it with' ],
+    'A question needs some text'           => [ 'text',     'supply it with' ],
+    'An answer needs some text'            => [ 'text',     'supply it with' ],
+    'How many seconds?'                    => [ 'seconds',  'supply it with' ],
+
+    # Given rather than missing: the option carried a value the command will
+    # not take, so it is named rather than asked for.
+    'Invalid column name'                  => [ 'name',         'the option is' ],
+    'Invalid attachment SHA'               => [ 'sha',          'the option is' ],
+    'Invalid gate result'                  => [ 'result',       'the option is' ],
+    'Unknown policy rule'                  => [ 'rule',         'the option is' ],
+    "Policy '' not found"                  => [ 'id',           'the option is' ],
+    'A column layout must be JSON'         => [ 'columns-json', 'the option is' ],
+);
+
+sub _names_the_option {
+    my ($message) = @_;
+    for my $said ( sort keys %SUPPLIED_BY ) {
+        next if index( $message, $said ) < 0;
+        my ( $flag, $phrase ) = @{ $SUPPLIED_BY{$said} };
+        return $message if $message =~ /--\Q$flag\E\b/;
+        return "$message - $phrase --$flag";
+    }
+    return $message;
+}
+
 sub _error {
     my ( $tira, $output, $message ) = @_;
     $message =~ s/\s+\z//;
+    $message = _names_the_option($message);
     my $formatted = eval { $tira->format_output( { error => $message }, output => $output ) };
     $formatted = Tira::json_object()->canonical->pretty->encode( { error => $message } ) if !defined $formatted;
     print STDERR _utf8_bytes($formatted);

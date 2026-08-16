@@ -950,6 +950,25 @@ d2 tira.ticket.update --ref TKT-001 --field "key_details+=What was measured."
   --key-detail, --deliverable, --acceptance, --test-step and the rest.
 ```
 
+### A refusal that names the option
+
+A command that refuses for want of an argument says which option supplies it,
+and one that refuses a value says which option carried it:
+
+```
+d2 tira.assign.list
+  Record reference is required - supply it with --ref
+
+d2 tira.column.add
+  Invalid column name - the option is --name
+```
+
+The engine raises those messages and has no notion of a command line, which is
+why they name a thing rather than a flag; the flag is added where the two meet.
+Three refusals name no option, and none of them is about an argument: a
+collector that is not installed, a project with no heartbeat, and a directory
+that is not a git repository.
+
 This is narrow on purpose: there is no per-command list of the options each one
 uses, and inventing one would refuse things that work today. What is declared is
 the set where a wrong name looks accepted rather than unknown — which is the set

@@ -1,5 +1,31 @@
 Revision history for Tira
 
+2.34  2026-08-16
+
+    - TKT-268: a refusal that says what is missing says what to type.
+      Measured by running every entrypoint with no arguments: 83 refused
+      with a message naming no option at all, forty of them "Record
+      reference is required" and not one of them --ref. The message was
+      right and a reader still had to guess.
+    - The engine raises those messages and has no notion of a command line,
+      which is why they name a thing rather than a flag - so the flag is
+      added at the boundary where flag names already live, and the engine
+      keeps no table of them.
+    - Two shapes, because two things can be wrong: something missing is
+      supplied by an option, and a value the command will not take came in
+      through one, so telling somebody to supply what they just supplied
+      would be its own kind of useless.
+    - 83 down to 3, and the three are refusals about the state of things - a
+      collector that is not installed, a project with no heartbeat, a
+      directory that is not a repository. None of them is about an argument
+      and none has an option to name, so they are left alone and said so.
+    - Held honest by running rather than reading: nine commands a person
+      runs prove the wiring, and every message the table carries is put
+      through the translation by construction, with the parse counted
+      against what the table declares. That counter earned itself on the
+      first run - one key contains the quote character the others are
+      written with, so a pattern built around quoting missed it.
+
 2.33  2026-08-16
 
     - TKT-259: an assertion in a helper is held to the same standard as one

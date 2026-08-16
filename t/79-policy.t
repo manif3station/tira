@@ -224,10 +224,10 @@ for my $action (qw(bridge-reminder print-reminder log-only)) {
         my $status = do {
             local *STDOUT = $so;
             local *STDERR = $se;
-            Tira::CLI->run(
+            do { local $ENV{TIRA_HOME} = $cli_root; Tira::CLI->run(
                 command => shift(@argv), tira => $tira,
-                argv => [ '--project', $cli_root, @argv ],
-            );
+                argv => [ @argv ],
+            ) };
         };
         return ( $status, $out, $err );
     };

@@ -161,10 +161,10 @@ my ( $scope_status, undef, $scope_err ) = do {
     open my $se, '>', \$e or die $!;
     local *STDOUT = $so;
     local *STDERR = $se;
-    my $s = Tira::CLI->run(
+    my $s = do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
         command => 'project.show',
-        argv => [ '--project', $root, '--columns', 'Backlog', '-o', 'json' ],
-    );
+        argv => [ '--columns', 'Backlog', '-o', 'json' ],
+    ) };
     ( $s, $o, $e );
 };
 is( $scope_status, 2, 'the bootstrap options are refused on other commands' );

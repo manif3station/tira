@@ -96,8 +96,8 @@ like( heard_by('grace'), qr/UNRESOLVED/, 'every agent, because it is not about a
         {
             local *STDOUT = $so;
             local *STDERR = $se;
-            Tira::CLI->run( command => 'policy.bridge', tira => $tira,
-                argv => [ '--project', $root, '--store', $store, '--once', @argv ] );
+            do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => 'policy.bridge', tira => $tira,
+                argv => [ '--store', $store, '--once', @argv ] ) };
         }
         return $out;
     }

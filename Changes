@@ -1,5 +1,53 @@
 Revision history for Tira
 
+2.14  2026-08-16
+
+    - TKT-237: what is still outstanding can be asked for.
+      tira.police.outstanding answers with one entry per finding rather
+      than one per telling, carrying the rule, the card, how many times it
+      has been said, when it started and how loud it has become. A finding
+      that was dealt with leaves the list, which is the half that makes it
+      worth reading.
+    - The bridge is a stream and is right to be one, but a stream can only
+      be read from where you joined it: it replays everything on connect
+      and repeats each finding as it climbs. The enforcement log is flat -
+      every row is something that happened, and nothing on a row says
+      whether it is still true. So the question could not be asked, and
+      therefore was not.
+    - Measured on this project's own board before it existed: one finding
+      open two and a half hours, escalating note to critical, read four
+      times and acted on never, and the outstanding set looked at for the
+      first time only because the owner asked why. An answer that depends
+      on somebody remembering to look is what this subsystem exists to
+      remove.
+    - Proved by making it answer with the closed findings as well, which is
+      what the log already does: the assertion that a dealt-with finding
+      leaves the list fails, and nothing else does.
+    - TKT-250: one way to say which board, not three. The owner's
+      instruction: no command takes --project any more, TIRA_HOME is the
+      only selector, it holds a name the machine resolves, and every
+      command resolves it internally.
+    - There were three ways - a flag, the environment, and discovery from
+      the working directory - and three ways to say one thing is three
+      behaviours to keep in agreement. They had already stopped agreeing:
+      the dashboard replaces the environment value from the working
+      directory, so a value passed in was discarded rather than preferred.
+    - 254 uses across 97 test files moved to naming the board the way real
+      usage names it, which is the fault TKT-229 fixed for the browser gate
+      and left everywhere else. The tools moved with them.
+    - Two things name a folder rather than select a board and say so:
+      creating one, and importing one, which now takes --dir like creation
+      does. A board that does not exist yet cannot be resolved from a name.
+    - The restart carries the board in the environment instead of on the
+      command line, set rather than inherited, which is the guarantee the
+      flag used to give.
+    - It uncovered a defect rather than causing one: reading TIRA_HOME
+      emptied it, because Encode::decode consumes its source without
+      LEAVE_SRC. Harmless while a flag could carry the board, and fatal the
+      moment the environment is the only way - the first command in a
+      process took the value and every command after it saw an empty
+      string.
+
 2.13  2026-08-16
 
     - TKT-246: a card waiting on an answer is yellow on a served board.

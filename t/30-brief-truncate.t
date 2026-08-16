@@ -76,6 +76,7 @@ sub run_cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run(
         command => $command, ( defined $type ? ( type => $type ) : () ), argv => \@argv,
     );
@@ -83,51 +84,51 @@ sub run_cli {
 }
 
 my ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root, '--ref', $ref, '-o', 'json',
+    'record.show', 'ticket', '--ref', $ref, '-o', 'json',
 );
 my $payload = decode_json($out);
 is( length $payload->{description}, 2001, 'the CLI truncates long text at 2000 by default' );
 ok( $payload->{description_truncated}, 'the CLI default truncation is marked' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root, '--ref', $ref, '--full', '-o', 'json',
+    'record.show', 'ticket', '--ref', $ref, '--full', '-o', 'json',
 );
 $payload = decode_json($out);
 is( length $payload->{description}, 2500, '--full restores the complete value' );
 ok( !exists $payload->{description_truncated}, '--full carries no markers' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root, '--ref', $ref, '--truncate', '100', '-o', 'json',
+    'record.show', 'ticket', '--ref', $ref, '--truncate', '100', '-o', 'json',
 );
 is( length decode_json($out)->{description}, 101, 'a caller-chosen limit applies' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root, '--ref', $ref,
+    'record.show', 'ticket', '--ref', $ref,
     '--truncate', '100', '--full', '-o', 'json',
 );
 is( $status, 2, 'full and truncate together exit 2' );
 like( $err, qr/--full with --truncate/, 'the contradiction is named' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root, '--ref', $ref, '--truncate', '-5', '-o', 'json',
+    'record.show', 'ticket', '--ref', $ref, '--truncate', '-5', '-o', 'json',
 );
 is( $status, 2, 'a negative limit exits 2' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root, '--ref', $ref, '--brief', '-o', 'json',
+    'record.show', 'ticket', '--ref', $ref, '--brief', '-o', 'json',
 );
 $payload = decode_json($out);
 is_deeply( [ sort keys %{$payload} ], [qw(assignee column ref sdlc_gate title)],
     'CLI brief returns the documented preset' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root, '--ref', $ref,
+    'record.show', 'ticket', '--ref', $ref,
     '--brief', '--fields', 'column', '-o', 'json',
 );
 is( $status, 2, 'brief with fields exits 2' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.update', 'ticket', '--project', $root, '--ref', $ref,
+    'record.update', 'ticket', '--ref', $ref,
     '--title', 'Nope', '--brief', '-o', 'json',
 );
 is( $status, 2, 'brief on a mutation exits 2' );

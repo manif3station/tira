@@ -141,8 +141,8 @@ is( $roles->{'in-progress-too'}, 'shipping', 'and each names its own column' );
     my $status = do {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run( command => 'column.roles', tira => $tira,
-            argv => [ '--project', $root, '-o', 'json' ] );
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => 'column.roles', tira => $tira,
+            argv => [ '-o', 'json' ] ) };
     };
     is( $status, 0, 'and the command itself answers rather than failing' );
     like( $out, qr/"ticket"/, 'with every board named in what it returns' );

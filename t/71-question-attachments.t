@@ -37,6 +37,10 @@ sub file_at {
 }
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
+
+# The board every command here works on, named the one way there is.
+# TKT-250.
+$ENV{TIRA_HOME} = $root;
 $tira->project_new( name => 'Evidence', dir => $root, members => ['ada'], columns => ['Backlog, Doing'],
     sow_prefix => 'EVS', epic_prefix => 'EVE', ticket_prefix => 'EVT' );
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Needs evidence' );
@@ -112,17 +116,16 @@ my $fetched = $tira->attachment_get(
 ok( length $fetched->{content}, 'a file is fetched by its reference alone' );
 
 # The command line.
-my ( $status, $out ) = cli( 'question.attach', '--project', $root,
-    '--id', $second->{id}, '--file', file_at( 'cli.txt', 'from the cli' ), '-o', 'json' );
+my ( $status, $out ) = cli( 'question.attach', '--id', $second->{id}, '--file', file_at( 'cli.txt', 'from the cli' ), '-o', 'json' );
 is( $status, 0, 'the CLI attaches evidence' );
 is( scalar @{ decode_json($out)->{attachments} }, 1, 'and reports it' );
 
-( $status, $out ) = cli( 'attachment.list', '--project', $root, '--ref', $card->{ref},
+( $status, $out ) = cli( 'attachment.list', '--ref', $card->{ref},
     '--question', $second->{id}, '--meta-only', '-o', 'json' );
 is( $status, 0, 'the CLI narrows to one question' );
 is( decode_json($out)->{count}, 1, 'and shows only that question\'s' );
 
-( $status, $out, my $err ) = cli( 'ticket.list', '--project', $root, '--question', 'Q-001', '-o', 'json' );
+( $status, $out, my $err ) = cli( 'ticket.list', '--question', 'Q-001', '-o', 'json' );
 is( $status, 2, 'naming a question is refused where it means nothing' );
 
 # The board uploads bytes rather than a path, so it has its own way in. It must

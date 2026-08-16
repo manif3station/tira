@@ -67,11 +67,11 @@ unlike( $first->{certificate_path}, qr{[\\/](?:sow|epic|ticket)[\\/]},
     {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run(
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
             command => 'dashboard.ticket', tira => $tira,
-            argv => [ '--project', $root, '-o', 'browser', '--ssl' ],
+            argv => [ '-o', 'browser', '--ssl' ],
             browser_server => sub { push @calls, {@_}; return 1 },
-        );
+        ) };
     }
     ok( scalar @calls, 'the browser dashboard takes --ssl' );
     ok( $calls[0]{ssl_cert}, 'and is handed a certificate to serve with' );
@@ -92,11 +92,11 @@ unlike( $first->{certificate_path}, qr{[\\/](?:sow|epic|ticket)[\\/]},
     {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run(
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
             command => 'dashboard.ticket', tira => $tira,
-            argv => [ '--project', $root, '-o', 'browser' ],
+            argv => [ '-o', 'browser' ],
             browser_server => sub { push @calls, {@_}; return 1 },
-        );
+        ) };
     }
     ok( !$calls[0]{ssl_cert}, 'without --ssl the board is served exactly as before' );
 }

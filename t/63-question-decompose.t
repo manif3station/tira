@@ -29,6 +29,10 @@ sub cli {
 }
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
+
+# The board every command here works on, named the one way there is.
+# TKT-250.
+$ENV{TIRA_HOME} = $root;
 $tira->project_new( name => 'Decompose', dir => $root, columns => ['Backlog, Doing'],
     sow_prefix => 'DCS', epic_prefix => 'DCE', ticket_prefix => 'DCT' );
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Importer' );
@@ -96,13 +100,13 @@ is( $tira->question_list( project => $root, ref => $card->{ref} )->{questions}[1
     'answered', 'a decomposed question still answers normally' );
 
 # The command line, in both shapes.
-my ( $status, $out ) = cli( 'question.update', '--project', $root, '--id', $crammed->{id},
+my ( $status, $out ) = cli( 'question.update', '--id', $crammed->{id},
     '--reason', 'Reworded from the CLI', '-o', 'json' );
 is( $status, 0, 'the CLI updates one piece' );
 is( decode_json($out)->{reason}, 'Reworded from the CLI', 'and it lands' );
 is( decode_json($out)->{text}, 'Which store should this write to?', 'leaving the rest alone' );
 
-( $status, $out ) = cli( 'question.update', '--project', $root, '--id', $crammed->{id},
+( $status, $out ) = cli( 'question.update', '--id', $crammed->{id},
     '--text', 'All three at once?', '--reason', 'Because we can',
     '--option', 'Yes', '--option', 'No', '-o', 'json' );
 is( $status, 0, 'and all three at once' );
@@ -111,7 +115,7 @@ is( $all->{text}, 'All three at once?', 'the text' );
 is( $all->{reason}, 'Because we can', 'the reason' );
 is_deeply( $all->{options}, [ 'Yes', 'No' ], 'and the choices' );
 
-( $status, $out ) = cli( 'question.update', '--project', $root, '--id', $crammed->{id}, '-o', 'json' );
+( $status, $out ) = cli( 'question.update', '--id', $crammed->{id}, '-o', 'json' );
 is( $status, 2, 'an update naming nothing exits 2' );
 
 done_testing;

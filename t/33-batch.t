@@ -69,6 +69,7 @@ sub run_cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run(
         command => $command, ( defined $type ? ( type => $type ) : () ), argv => \@argv,
     );
@@ -76,8 +77,7 @@ sub run_cli {
 }
 
 my ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root,
-    '--ref', $one->{ref}, '--ref', $two->{ref}, '-o', 'json',
+    'record.show', 'ticket', '--ref', $one->{ref}, '--ref', $two->{ref}, '-o', 'json',
 );
 is( $status, 0, 'repeated --ref flags batch' );
 my $payload = decode_json($out);
@@ -85,20 +85,18 @@ is( $payload->{records}{ $two->{ref} }{title}, 'Batch two', 'the CLI batch is ke
 is_deeply( $payload->{order}, [ $one->{ref}, $two->{ref} ], 'the CLI batch preserves request order' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root,
-    '--refs', "$one->{ref},TKT-999", '-o', 'json',
+    'record.show', 'ticket', '--refs', "$one->{ref},TKT-999", '-o', 'json',
 );
 is( $status, 0, 'a comma list batches' );
 ok( decode_json($out)->{records}{'TKT-999'}{not_found}, 'CLI missing refs carry the marker' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root, '--ref', $one->{ref}, '-o', 'json',
+    'record.show', 'ticket', '--ref', $one->{ref}, '-o', 'json',
 );
 is( decode_json($out)->{ref}, $one->{ref}, 'a single ref still returns the plain record' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root,
-    '--ref', $one->{ref}, '--refs', "$two->{ref},$epic->{ref}", '-o', 'json',
+    'record.show', 'ticket', '--ref', $one->{ref}, '--refs', "$two->{ref},$epic->{ref}", '-o', 'json',
 );
 is( $status, 0, 'a single --ref composes with a --refs list' );
 $payload = decode_json($out);
@@ -106,15 +104,13 @@ is_deeply( $payload->{order}, [ $one->{ref}, $two->{ref}, $epic->{ref} ],
     'the composed batch keeps --ref first, then the list' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root,
-    '--refs', "$one->{ref},$two->{ref}", '--if-changed', ( 'a' x 64 ), '-o', 'json',
+    'record.show', 'ticket', '--refs', "$one->{ref},$two->{ref}", '--if-changed', ( 'a' x 64 ), '-o', 'json',
 );
 is( $status, 2, 'batches refuse --if-changed' );
 like( $err, qr/content_hash/, 'the refusal points at the cheap alternative' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.move', 'ticket', '--project', $root,
-    '--ref', $one->{ref}, '--ref', $two->{ref}, '--column', 'backlog', '-o', 'json',
+    'record.move', 'ticket', '--ref', $one->{ref}, '--ref', $two->{ref}, '--column', 'backlog', '-o', 'json',
 );
 is( $status, 2, 'multiple refs on a mutation exit 2' );
 like( $err, qr/only.*show/i, 'the error says batches are show-only' );

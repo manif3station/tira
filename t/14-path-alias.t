@@ -48,23 +48,25 @@ sub run_cli {
     return ( $status, $out, $err );
 }
 
-my ( $status, $out, $err ) = run_cli( '--project', 'private_alias', '-o', 'json' );
-is( $status, 0, 'CLI project option accepts a DD path alias' );
-like( $out, qr/Alias project/, 'project option alias reads the selected project' );
-unlike( $out . $err, qr/\Q$root\E/, 'successful alias output does not disclose its target' );
-
+# One way, and this is it. There were three - a flag, the environment, and the
+# working directory - and three ways to say one thing is three behaviours to
+# keep in agreement. They had already stopped agreeing. TKT-250.
+my ( $status, $out, $err );
 {
     local $ENV{TIRA_HOME} = 'private_alias';
     ( $status, $out, $err ) = run_cli( '-o', 'json' );
 }
-is( $status, 0, 'environment project selection accepts a DD path alias' );
-like( $out, qr/Alias project/, 'environment alias reads the selected project' );
-unlike( $out . $err, qr/\Q$root\E/, 'environment alias output does not disclose its target' );
+is( $status, 0, 'the environment selects a board by a name the machine resolves' );
+like( $out, qr/Alias project/, 'and the command works on the board that name resolves to' );
+unlike( $out . $err, qr/\Q$root\E/, 'while saying nothing about where that board actually is' );
 
-( $status, $out, $err ) = run_cli( '--project', 'unknown_alias', '-o', 'json' );
-is( $status, 2, 'unknown alias exits 2' );
-like( $err, qr/unknown_alias/, 'unknown alias error identifies only the selector' );
-unlike( $err, qr/\Q$root\E/, 'unknown alias error does not disclose registered targets' );
+{
+    local $ENV{TIRA_HOME} = 'unknown_alias';
+    ( $status, $out, $err ) = run_cli( '-o', 'json' );
+}
+is( $status, 2, 'a name that resolves to nothing is refused' );
+like( $err, qr/unknown_alias/, 'the refusal identifies the name it was given' );
+unlike( $err, qr/\Q$root\E/, 'and no other board it could have meant' );
 
 done_testing;
 

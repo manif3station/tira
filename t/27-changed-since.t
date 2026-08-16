@@ -65,6 +65,7 @@ sub run_cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run(
         command => $command, ( defined $type ? ( type => $type ) : () ), argv => \@argv,
     );
@@ -72,7 +73,7 @@ sub run_cli {
 }
 
 my ( $status, $out, $err ) = run_cli(
-    'export', undef, '--project', $root, '--since', '2026-08-07T02:30:00Z', '-o', 'json',
+    'export', undef, '--since', '2026-08-07T02:30:00Z', '-o', 'json',
 );
 is( $status, 0, 'CLI since succeeds' );
 my $payload = decode_json($out);
@@ -81,12 +82,12 @@ like( $payload->{now}, qr/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
     'the CLI envelope carries the real server clock' );
 
 ( $status, $out, $err ) = run_cli(
-    'export', undef, '--project', $root, '--since', '2030-01-01T00:00:00Z', '-o', 'json',
+    'export', undef, '--since', '2030-01-01T00:00:00Z', '-o', 'json',
 );
 is( $status, 0, 'a future CLI threshold exits 0' );
 
 ( $status, $out, $err ) = run_cli(
-    'export', undef, '--project', $root, '--since', 'garbage', '-o', 'json',
+    'export', undef, '--since', 'garbage', '-o', 'json',
 );
 is( $status, 2, 'a malformed CLI threshold exits 2' );
 like( $err, qr/ISO 8601/, 'the CLI error names the parse failure' );
@@ -108,7 +109,7 @@ is( $exported->{count}, 1, 'a record with an unreadable stamp is never hidden by
 is( $exported->{records}[0]{ref}, $late->{ref}, 'the unreadable-stamp record is the one returned' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.update', 'ticket', '--project', $root, '--ref', $early->{ref},
+    'record.update', 'ticket', '--ref', $early->{ref},
     '--title', 'Nope', '--since', '2026-08-07T00:00:00Z', '-o', 'json',
 );
 is( $status, 2, 'since on a mutation exits 2 instead of being ignored' );

@@ -109,6 +109,7 @@ sub run_cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run(
         command => $command, ( defined $type ? ( type => $type ) : () ), argv => \@argv,
     );
@@ -116,22 +117,22 @@ sub run_cli {
 }
 
 my ( $status, $out, $err ) = run_cli(
-    'diff', undef, '--project', $root, '--since', '2026-08-07T10:30:00Z', '-o', 'json',
+    'diff', undef, '--since', '2026-08-07T10:30:00Z', '-o', 'json',
 );
 is( $status, 0, 'CLI diff succeeds' );
 my $payload = decode_json($out);
 is( $payload->{count}, 2, 'the CLI reports the change count' );
 
 ( $status, $out, $err ) = run_cli(
-    'diff', undef, '--project', $root, '--snapshot', $snapshot_path, '--count', '-o', 'json',
+    'diff', undef, '--snapshot', $snapshot_path, '--count', '-o', 'json',
 );
 is( decode_json($out)->{count}, 2, 'CLI snapshot diff composes with count' );
 
-( $status, $out, $err ) = run_cli( 'diff', undef, '--project', $root, '-o', 'json' );
+( $status, $out, $err ) = run_cli( 'diff', undef, '-o', 'json' );
 is( $status, 2, 'a baseline-less CLI diff exits 2' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.list', 'ticket', '--project', $root, '--snapshot', $snapshot_path, '-o', 'json',
+    'record.list', 'ticket', '--snapshot', $snapshot_path, '-o', 'json',
 );
 is( $status, 2, 'snapshot outside diff exits 2' );
 like( $err, qr/diff/, 'the error names the diff command' );

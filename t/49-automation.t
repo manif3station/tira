@@ -27,6 +27,10 @@ sub run_cli {
 }
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
+
+# The board every command here works on, named the one way there is.
+# TKT-250.
+$ENV{TIRA_HOME} = $root;
 $tira->project_new( name => 'MT5', dir => $root, columns => ['Backlog, Doing'] );
 
 # Every setting stores and reads back.
@@ -65,15 +69,14 @@ ok( !defined $tira->project_show( project => $root )->{heartbeat},
 $tira->project_update( project => $root, heartbeat => 15 );
 
 # The CLI surface.
-my ( $status, $out ) = run_cli( 'project.update', '--project', $root,
-    '--collector', 'mt-five', '--agent', 'claude', '--session', 'zz9',
+my ( $status, $out ) = run_cli( 'project.update', '--collector', 'mt-five', '--agent', 'claude', '--session', 'zz9',
     '--heartbeat', '30', '--notify-after', '45', '-o', 'json' );
 is( $status, 0, 'the CLI stores every setting' );
 my $payload = decode_json($out);
 is( $payload->{collector}, 'mt-five', 'the collector name comes back' );
 is( $payload->{heartbeat}, 30, 'and the heartbeat' );
 
-( $status, $out ) = run_cli( 'project.update', '--project', $root, '--agent', 'nope', '-o', 'json' );
+( $status, $out ) = run_cli( 'project.update', '--agent', 'nope', '-o', 'json' );
 is( $status, 2, 'an unsupported agent exits 2' );
 
 # Whether a coding agent is installed is discovered for real, not only mocked.
@@ -186,7 +189,7 @@ is( $corrected->{session}, 'sess1', 'and the corrected session id' );
 is( $corrected->{collector}, 'good-slug', 'and the corrected collector name' );
 is( $corrected->{heartbeat}, 90, 'and the heartbeat that followed the corrected threshold' );
 
-( $status, $out ) = run_cli( 'ticket.list', '--project', $root, '--collector', 'x', '-o', 'json' );
+( $status, $out ) = run_cli( 'ticket.list', '--collector', 'x', '-o', 'json' );
 is( $status, 2, 'the reminder settings are refused on commands they do not belong to' );
 
 # Re-running pre-fills everything, so pressing enter changes nothing.

@@ -79,11 +79,11 @@ $tira->login_register( project => $root, id => 'michael', password => 'hunter2' 
     {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run(
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
             command => 'dashboard.ticket', tira => $tira,
-            argv => [ '--project', $root, '-o', 'browser', '--no-session-expire' ],
+            argv => [ '-o', 'browser', '--no-session-expire' ],
             browser_server => sub { push @calls, {@_}; return 1 },
-        );
+        ) };
     }
     ok( scalar @calls, 'the option is accepted by the browser dashboard' );
     ok( $Tira::SESSION_NEVER_EXPIRES,

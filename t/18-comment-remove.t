@@ -59,13 +59,14 @@ sub run_cli {
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
     my $command = shift @argv;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run( command => $command, argv => \@argv, tira => $tira );
     return ( $status, $out, $err );
 }
 
 {
     my ( $status, $out, $err ) =
-      run_cli( 'comment.remove', '--project', $root, '--ref', 'TKT-001', '--comment', 'CMT-003', '-o', 'json' );
+      run_cli( 'comment.remove', '--ref', 'TKT-001', '--comment', 'CMT-003', '-o', 'json' );
     is( $status, 0, 'tira.comment.remove succeeds through the CLI' );
     is( $err, '', 'comment removal has no stderr' );
     is( decode_json($out)->{id}, 'CMT-003', 'the CLI reports the removed comment' );
@@ -75,7 +76,7 @@ sub run_cli {
 
 {
     my ( $status, $out, $err ) =
-      run_cli( 'comment.remove', '--project', $root, '--ref', 'TKT-001', '--comment', 'CMT-042' );
+      run_cli( 'comment.remove', '--ref', 'TKT-001', '--comment', 'CMT-042' );
     is( $status, 2, 'removing a missing comment through the CLI fails' );
     like( $err, qr/Comment 'CMT-042' not found/, 'the CLI failure is actionable' );
 }

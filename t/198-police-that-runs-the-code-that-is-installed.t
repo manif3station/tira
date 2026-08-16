@@ -45,6 +45,10 @@ $tira->project_new(
 );
 my $store = File::Spec->catdir( $tmp, 'police' );
 
+# What the restart hands the new process, which is now an environment rather
+# than an argument. TKT-250.
+my @handover;
+
 sub follow {
     my (%args) = @_;
     my @restarted;
@@ -57,7 +61,7 @@ sub follow {
             $tira, { project => $root }, $store,
             {   rounds => $args{rounds} // 2,
                 sleeper => sub { $rounds++ },
-                restarter => sub { push @restarted, [@_]; return 1 },
+                restarter => sub { push @restarted, [@_]; push @handover, $ENV{TIRA_HOME}; return 1 },
             }
         );
     }
@@ -71,8 +75,10 @@ sub follow {
     is( scalar @{$restarted}, 1, 'police restarts when the code on disk is not the code running' );
     like( $restarted->[0][0], qr/police/, 'into the police entrypoint' );
     my @argv = @{ $restarted->[0] };
-    ok( scalar( grep { $_ eq '--project' } @argv ),
-        'carrying the board it was watching, so it does not have to rediscover one' );
+    is( scalar( grep { $_ eq '--project' } @argv ), 0,
+        'with nothing on the command line naming the board, because there is no such flag' );
+    ok( defined $handover[0] && $handover[0] =~ /\S/,
+        'carrying the board it was watching in the environment, so it does not have to rediscover one' );
 }
 
 # --- and not otherwise ------------------------------------------------------------

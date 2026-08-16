@@ -102,8 +102,8 @@ SKIP: {
 
     my $status = do {
         local *STDOUT = $capture;
-        Tira::CLI->run( command => 'record.create', type => 'ticket',
-            argv => [ '--project', $root, '--title', 'A card', '-o', 'human' ] );
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => 'record.create', type => 'ticket',
+            argv => [ '--title', 'A card', '-o', 'human' ] ) };
     };
     close $capture;
     is( $status, 0, 'a command that prints runs' );

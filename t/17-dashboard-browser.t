@@ -32,6 +32,7 @@ sub browser_cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run(
         command => $command, argv => \@argv, tira => $tira,
         browser_server => sub { push @calls, { @_ }; return 1 },
@@ -40,7 +41,7 @@ sub browser_cli {
 }
 
 my ( $status, $out, $err, $calls ) =
-  browser_cli( 'dashboard.ticket', '--project', $root, '--title', '-o', 'browser' );
+  browser_cli( 'dashboard.ticket', '--title', '-o', 'browser' );
 is( $status, 0, 'browser dashboard succeeds' );
 is( $out, '', 'server mode does not dump HTML to stdout' );
 is( $err, '', 'server mode has no stderr' );
@@ -77,26 +78,26 @@ is( $browser_data->{ticket}{backlog}[0]{title}, 'Live card',
     'browser data callback returns complete JSON records' );
 
 ( $status, $out, $err, $calls ) =
-  browser_cli( 'dashboard.sow', '--project', $root, '-o', 'browser=127.0.0.1:4567' );
+  browser_cli( 'dashboard.sow', '-o', 'browser=127.0.0.1:4567' );
 is( $status, 0, 'explicit browser endpoint succeeds' );
 is( $calls->[0]{host}, '127.0.0.1', 'explicit host is retained' );
 is( $calls->[0]{port}, 4567, 'explicit port is retained' );
 
 for my $endpoint ( 'localhost', '0.0.0.0:1234' ) {
     ( $status, $out, $err, $calls ) =
-      browser_cli( 'dashboard', '--project', $root, '-o', "browser=$endpoint" );
+      browser_cli( 'dashboard', '-o', "browser=$endpoint" );
     is( $status, 0, "$endpoint is accepted" );
 }
 
 for my $endpoint ( 'example.com', 'localhost:0', 'localhost:65536', 'localhost:nope', '127.0.0.1:12:34' ) {
     ( $status, $out, $err, $calls ) =
-      browser_cli( 'dashboard', '--project', $root, '-o', "browser=$endpoint" );
+      browser_cli( 'dashboard', '-o', "browser=$endpoint" );
     is( $status, 2, "$endpoint is rejected" );
     is( scalar @{$calls}, 0, 'invalid endpoint starts no server' );
 }
 
 ( $status, $out, $err, $calls ) =
-  browser_cli( 'project.show', '--project', $root, '-o', 'browser' );
+  browser_cli( 'project.show', '-o', 'browser' );
 is( $status, 2, 'browser output is dashboard-only' );
 like( $err, qr/Browser output is available only for dashboard commands/,
     'scope error is actionable' );
@@ -262,10 +263,10 @@ like( $@, qr/Missing dashboard detail provider/, 'PSGI builder requires a detail
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
-    $status = Tira::CLI->run(
-        command => 'dashboard', argv => [ '--project', $root, '-o', 'browser' ], tira => $tira,
+    $status = do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
+        command => 'dashboard', argv => [ '-o', 'browser' ], tira => $tira,
         browser_server => sub { die "listener unavailable\n" },
-    );
+    ) };
     is( $status, 2, 'server startup failure is structured' );
     like( $err, qr/listener unavailable/, 'server startup error is retained' );
 }

@@ -184,8 +184,8 @@ ok( !Tira->can('work_log_remove'), 'nor to remove one' );
         my $status = do {
             local *STDOUT = $so;
             local *STDERR = $se;
-            Tira::CLI->run( command => shift(@argv), tira => $tira,
-                argv => [ '--project', $root, @argv ] );
+            do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => shift(@argv), tira => $tira,
+                argv => [ @argv ] ) };
         };
         return ( $status, $out, $err );
     }
@@ -263,11 +263,11 @@ ok( !Tira->can('work_log_remove'), 'nor to remove one' );
     {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run(
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
             command => 'dashboard.ticket', tira => $tira,
-            argv => [ '--project', $root, '-o', 'browser' ],
+            argv => [ '-o', 'browser' ],
             browser_server => sub { push @calls, {@_}; return 1 },
-        );
+        ) };
     }
     my $html = $calls[0]{render}->();
 

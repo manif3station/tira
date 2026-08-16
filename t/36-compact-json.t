@@ -46,6 +46,7 @@ sub run_cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run(
         command => $command, ( defined $type ? ( type => $type ) : () ), argv => \@argv,
     );
@@ -53,20 +54,20 @@ sub run_cli {
 }
 
 my ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root, '--ref', $ticket->{ref}, '-o', 'json',
+    'record.show', 'ticket', '--ref', $ticket->{ref}, '-o', 'json',
 );
 is( $status, 0, 'CLI compact json succeeds' );
 unlike( $out, qr/\n./s, 'the CLI default json is compact' );
 is( decode_json($out)->{ref}, $ticket->{ref}, 'the compact payload parses' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root, '--ref', $ticket->{ref}, '-o', 'json-pretty',
+    'record.show', 'ticket', '--ref', $ticket->{ref}, '-o', 'json-pretty',
 );
 is( $status, 0, 'json-pretty is available for humans' );
 like( $out, qr/\n\s+"/, 'the pretty form is the previous shape' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root, '--ref', 'TKT-999', '-o', 'json',
+    'record.show', 'ticket', '--ref', 'TKT-999', '-o', 'json',
 );
 is( $status, 2, 'a failing read exits 2' );
 is( $out, '', 'stdout stays empty on failure so parsers never see corruption' );

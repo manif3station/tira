@@ -95,20 +95,21 @@ sub run_cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run( command => 'stale', argv => \@argv, tira => $tira );
     return ( $status, $out, $err );
 }
 
-my ( $status, $out, $err ) = run_cli( '--project', $root, '-o', 'json' );
+my ( $status, $out, $err ) = run_cli( '-o', 'json' );
 is( $status, 0, 'the stale command succeeds' );
 my $payload = decode_json($out);
 is( ref $payload, 'ARRAY', 'it returns a list' );
 is( scalar @{$payload}, 4, 'covering every card on every board' );
 
-( $status, $out, $err ) = run_cli( '--project', $root, '--older-than', '45', '-o', 'json' );
+( $status, $out, $err ) = run_cli( '--older-than', '45', '-o', 'json' );
 is( scalar @{ decode_json($out) }, 1, 'the CLI filters by age' );
 
-( $status, $out, $err ) = run_cli( '--project', $root, '--older-than', 'soon', '-o', 'json' );
+( $status, $out, $err ) = run_cli( '--older-than', 'soon', '-o', 'json' );
 is( $status, 2, 'a non-numeric age exits 2' );
 like( $err, qr/older-than/i, 'and names the option' );
 

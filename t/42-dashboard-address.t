@@ -56,10 +56,10 @@ sub serve_endpoint {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
-    my $status = Tira::CLI->run(
-        command => 'dashboard', argv => [ '--project', $project, @argv ],
+    my $status = do { local $ENV{TIRA_HOME} = $project; Tira::CLI->run(
+        command => 'dashboard', argv => [ @argv ],
         browser_server => sub { my %a = @_; @served{qw(host port)} = @a{qw(host port)}; return 1 },
-    );
+    ) };
     return ( $status, \%served, $err );
 }
 
@@ -82,11 +82,11 @@ is( $served->{port}, 7899, 'and the default port' );
     open my $se, '>', \$e or die $!;
     local *STDOUT = $so;
     local *STDERR = $se;
-    my $s = Tira::CLI->run(
+    my $s = do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
         command => 'project.update',
-        argv => [ '--project', $root, '--dashboard-host', 'localhost',
+        argv => [ '--dashboard-host', 'localhost',
                   '--dashboard-port', '8100', '-o', 'json' ],
-    );
+    ) };
     ( $s, $o, $e );
 };
 is( $status, 0, 'the CLI sets the address' );
@@ -98,10 +98,10 @@ is( decode_json($out)->{dashboard}{port}, 8100, 'and reports it back' );
     open my $se, '>', \$e or die $!;
     local *STDOUT = $so;
     local *STDERR = $se;
-    my $s = Tira::CLI->run(
+    my $s = do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
         command => 'project.update',
-        argv => [ '--project', $root, '--dashboard-port', '99999', '-o', 'json' ],
-    );
+        argv => [ '--dashboard-port', '99999', '-o', 'json' ],
+    ) };
     ( $s, $o, $e );
 };
 is( $status, 2, 'an out-of-range port exits 2' );
@@ -121,8 +121,8 @@ for my $case (
         open my $se, '>', \$err2 or die $!;
         local *STDOUT = $so;
         local *STDERR = $se;
-        my $st = Tira::CLI->run( command => 'project.update',
-            argv => [ '--project', $root, '--listen', $listen, '-o', 'json' ] );
+        my $st = do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => 'project.update',
+            argv => [ '--listen', $listen, '-o', 'json' ] ) };
         ( $st, $out2, $err2 );
     };
     is( $s, 0, "--listen $listen is accepted ($label)" );
@@ -137,8 +137,8 @@ my ( $bad_status, undef, $bad_err ) = do {
     open my $se, '>', \$err2 or die $!;
     local *STDOUT = $so;
     local *STDERR = $se;
-    my $st = Tira::CLI->run( command => 'project.update',
-        argv => [ '--project', $root, '--listen', 'a:b:c', '-o', 'json' ] );
+    my $st = do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => 'project.update',
+        argv => [ '--listen', 'a:b:c', '-o', 'json' ] ) };
     ( $st, $out2, $err2 );
 };
 is( $bad_status, 2, 'a malformed listen address exits 2' );

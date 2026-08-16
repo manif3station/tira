@@ -3,7 +3,7 @@ package Tira::CLI;
 use strict;
 use warnings;
 
-use Encode qw(decode encode_utf8 FB_CROAK);
+use Encode qw(decode encode_utf8 FB_CROAK LEAVE_SRC);
 use Cwd qw(abs_path cwd);
 use File::Basename qw(dirname);
 use File::Spec;
@@ -62,9 +62,17 @@ sub run {
         for my $argument ( @{$argv} ) {
             $argument = decode( 'UTF-8', $argument, FB_CROAK ) if !utf8::is_utf8($argument);
         }
+        # LEAVE_SRC, because decode consumes what it is given. Reading the
+        # environment used to empty it, and it did not matter while a flag
+        # could carry the board instead: the first command in a process took
+        # the value and every command after it in that process saw an empty
+        # string. With one way to name a board there is nothing to fall back
+        # on, and a suite that runs many commands in one process finds it at
+        # once - which is how this was found. TKT-250.
         if ( defined $ENV{TIRA_HOME} ) {
             $environment_project = utf8::is_utf8( $ENV{TIRA_HOME} )
-              ? $ENV{TIRA_HOME} : decode( 'UTF-8', $ENV{TIRA_HOME}, FB_CROAK );
+              ? $ENV{TIRA_HOME}
+              : decode( 'UTF-8', $ENV{TIRA_HOME}, FB_CROAK | LEAVE_SRC );
         }
         1;
     };
@@ -72,7 +80,7 @@ sub run {
     my $parsed = GetOptionsFromArray(
         $argv,
         'name=s' => \$option{name}, 'dir=s' => \$option{dir}, 'title:s' => \$option{title},
-        'description=s' => \$option{description}, 'project=s' => \$option{project},
+        'description=s' => \$option{description},
         'output|o=s' => \$option{output}, 'help' => \$option{help},
         'id=s' => \$option{id}, 'email=s' => \$option{email},
         'message=s' => \$option{message}, 'all' => \$option{all},
@@ -199,7 +207,12 @@ sub run {
     return _error( $tira, 'toon', 'Browser output is available only for dashboard commands' )
       if $option{output} =~ /\Abrowser(?:=|\z)/ && $command !~ /\Adashboard(?:\.(?:sow|epic|ticket))?\z/;
 
-    $option{project} = $environment_project if !defined $option{project} && defined $environment_project;
+    # One way to say which board: the environment, holding a name the machine
+    # resolves. There were three - a flag, this, and the working directory -
+    # and three ways to say one thing is three behaviours to keep in agreement.
+    # They had already stopped agreeing. The internal name stays because the
+    # engine is told which board it is working on and always was. TKT-250.
+    $option{project} = $environment_project;
 
     my ( $browser_host, $browser_port );
     if ( $option{output} =~ /\Abrowser(?:=(.*))?\z/ ) {
@@ -527,6 +540,7 @@ sub _restart_into {
     # rather than protect it, so only the shell variables go there.
     local $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin' if !$WINDOWS;
     delete local @ENV{qw(IFS CDPATH ENV BASH_ENV)};
+
     exec( $perl, $script, @argv );
 }
 
@@ -571,11 +585,20 @@ sub _restart_if_updated {
       map { /\A([^\x00-\x1f\x7f]*)\z/ ? $1 : undef } @Tira::CLI::RESTART_ARGV;
     return 0 if @argv != @Tira::CLI::RESTART_ARGV;
 
-    # The project is passed explicitly rather than left to be rediscovered, so
-    # the new process does not depend on a working directory or an environment
-    # variable that may not survive the way it was launched.
-    push @argv, '--project', $project
-      if defined $project && $project =~ /\S/ && !grep { $_ eq '--project' } @argv;
+    # The board is handed over explicitly rather than left to be rediscovered,
+    # so the new process does not depend on a working directory. It goes in the
+    # environment because that is the only way to name a board now: there were
+    # three - a flag, the environment and the working directory - and three
+    # ways to say one thing is three behaviours to keep in agreement. It is set
+    # rather than inherited, which is the same guarantee the flag gave.
+    # TKT-250.
+    return $restarter->( $script, @argv )
+      if !defined $project || $project !~ /\S/;
+
+    # Set for the new process rather than left to whatever it inherits, which
+    # is the same guarantee the flag used to give. exec keeps the environment,
+    # so naming it here is naming it there.
+    local $ENV{TIRA_HOME} = $project;
     return $restarter->( $script, @argv );
 }
 
@@ -1924,6 +1947,15 @@ sub _invoke {
             reason => $option->{reason} );
     }
 
+    # What is still true, rather than everything that ever happened. The bridge
+    # is a stream and the log is flat, so neither could answer it and the answer
+    # depended on somebody remembering to look. TKT-237.
+    if ( $command eq 'police.outstanding' ) {
+        my $store = $option->{store}
+          // _police_store( $tira->discover_project(%args) );
+        return $tira->police_outstanding( %args, store => $store );
+    }
+
     if (   $command eq 'police.suspend'
         || $command eq 'police.log'
         || $command eq 'policy.bridge.logs' )
@@ -2553,10 +2585,13 @@ sub _backup_import {
       . "$SCHEMA_VERSION). Upgrade Tira and import it again.\n"
       if defined $claimed && $claimed > $SCHEMA_VERSION;
 
-    # Where it is going. discover_project would walk upwards and find somebody
-    # else's board, so the folder is taken as given: importing is how a board
-    # comes into existence somewhere, not something done to one that is found.
-    my $where = $args->{project}
+    # Where it is going, named as a folder rather than selected as a board.
+    # discover_project would walk upwards and find somebody else's, so the
+    # folder is taken as given: importing is how a board comes into existence
+    # somewhere, not something done to one that is found. That is why this
+    # takes --dir, like creating a board does, while everything that works on
+    # an existing board is told which one in the environment. TKT-250.
+    my $where = $option->{dir} // $args->{project}
       or die "Where should the board go? Name the folder it should be made in.\n";
     my $store = _backup_store($where);
 

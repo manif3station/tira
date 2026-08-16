@@ -108,11 +108,11 @@ like( $@, qr/already discarded/i, 'and says why' );
     {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run(
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
             command => 'dashboard.ticket', tira => $tira,
-            argv => [ '--project', $root, '-o', 'browser' ],
+            argv => [ '-o', 'browser' ],
             browser_server => sub { push @calls, {@_}; return 1 },
-        );
+        ) };
     }
     my $html = $calls[0]{render}->();
 
@@ -174,9 +174,9 @@ like( $@, qr/already discarded/i, 'and says why' );
     my $status = do {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run( command => 'attachment.discard', tira => $tira,
-            argv => [ '--project', $root, '--ref', $third->{ref}, '--sha', $attached->{sha},
-                '--extension', $attached->{extension}, '--author', 'michael', '-o', 'json' ] );
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => 'attachment.discard', tira => $tira,
+            argv => [ '--ref', $third->{ref}, '--sha', $attached->{sha},
+                '--extension', $attached->{extension}, '--author', 'michael', '-o', 'json' ] ) };
     };
     is( $status, 0, 'the command line can discard an attachment' );
     like( $out, qr/discarded_by/, 'and answers with the stamp it wrote' );

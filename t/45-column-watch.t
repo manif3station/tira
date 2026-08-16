@@ -90,28 +90,29 @@ sub run_cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run( command => $command, argv => \@argv, tira => $tira );
     return ( $status, $out, $err );
 }
 
 my ( $status, $out, $err ) = run_cli( 'column.update',
-    '--project', $root, '--type', 'ticket', '--name', 'doing', '--notify-after', '45', '-o', 'json' );
+    '--type', 'ticket', '--name', 'doing', '--notify-after', '45', '-o', 'json' );
 is( $status, 0, 'the CLI sets a column limit' );
 is( decode_json($out)->{notify_after}, 45, 'and reports it back' );
 
 ( $status, $out, $err ) = run_cli( 'column.update',
-    '--project', $root, '--type', 'ticket', '--name', 'doing', '--no-watch', '-o', 'json' );
+    '--type', 'ticket', '--name', 'doing', '--no-watch', '-o', 'json' );
 is( decode_json($out)->{watched}, 0, 'the CLI switches watching off' );
 ( $status, $out, $err ) = run_cli( 'column.update',
-    '--project', $root, '--type', 'ticket', '--name', 'doing', '--watch', '-o', 'json' );
+    '--type', 'ticket', '--name', 'doing', '--watch', '-o', 'json' );
 is( decode_json($out)->{watched}, 1, 'and back on' );
 
-( $status, $out, $err ) = run_cli( 'stale', '--project', $root, '--stale', '-o', 'json' );
+( $status, $out, $err ) = run_cli( 'stale', '--stale', '-o', 'json' );
 is( $status, 0, 'the stale command applies per-column limits' );
 ok( scalar @{ decode_json($out) }, 'and finds the cards that are past them' );
 
 ( $status, $out, $err ) = run_cli( 'column.update',
-    '--project', $root, '--type', 'ticket', '--name', 'doing', '--notify-after', 'soon', '-o', 'json' );
+    '--type', 'ticket', '--name', 'doing', '--notify-after', 'soon', '-o', 'json' );
 is( $status, 2, 'an invalid CLI limit exits 2' );
 
 done_testing;

@@ -174,11 +174,11 @@ like( $html, qr/\.card--waiting\{/, 'the stylesheet says what that looks like' )
     {
         local *STDOUT = $stdout;
         local *STDERR = $stderr;
-        Tira::CLI->run(
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
             command => 'dashboard', type => 'ticket',
-            argv => [ '--project', $root, '-o', 'browser' ],
+            argv => [ '-o', 'browser' ],
             browser_server => sub { my %given = @_; $captured = \%given; return 1 },
-        );
+        ) };
     }
     ok( $captured, 'the board was served without titles being asked for' );
     my $payload = decode_json( $captured->{data}->() );

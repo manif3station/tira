@@ -65,8 +65,8 @@ sub run {
     my $status = do {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run( command => shift(@argv), tira => $tira,
-            argv => [ '--project', $root, '--store', $store, @argv ] );
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => shift(@argv), tira => $tira,
+            argv => [ '--store', $store, @argv ] ) };
     };
     return ( $status, $out, $err );
 }

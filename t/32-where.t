@@ -69,6 +69,7 @@ sub run_cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run(
         command => $command, ( defined $type ? ( type => $type ) : () ), argv => \@argv,
     );
@@ -76,8 +77,7 @@ sub run_cli {
 }
 
 my ( $status, $out, $err ) = run_cli(
-    'record.list', 'ticket', '--project', $root,
-    '--where', 'column=backlog', '--where', 'sdlc_gate=', '-o', 'json',
+    'record.list', 'ticket', '--where', 'column=backlog', '--where', 'sdlc_gate=', '-o', 'json',
 );
 is( $status, 0, 'CLI where succeeds' );
 my $payload = decode_json($out);
@@ -85,19 +85,18 @@ is( scalar @{$payload}, 1, 'the CLI applies every clause' );
 is( $payload->[0]{ref}, $parked->{ref}, 'the parked ticket is the match' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.list', 'ticket', '--project', $root,
-    '--where', 'sdlc_gate=', '--count', '-o', 'json',
+    'record.list', 'ticket', '--where', 'sdlc_gate=', '--count', '-o', 'json',
 );
 is_deeply( decode_json($out), { count => 1 }, 'CLI where composes with count' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.list', 'ticket', '--project', $root, '--where', 'nosuchfield=1', '-o', 'json',
+    'record.list', 'ticket', '--where', 'nosuchfield=1', '-o', 'json',
 );
 is( $status, 2, 'an unknown CLI where field exits 2' );
 like( $err, qr/nosuchfield/, 'the error names the field' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.update', 'ticket', '--project', $root, '--ref', $gated->{ref},
+    'record.update', 'ticket', '--ref', $gated->{ref},
     '--title', 'Nope', '--where', 'column=backlog', '-o', 'json',
 );
 is( $status, 2, 'where on a mutation exits 2' );

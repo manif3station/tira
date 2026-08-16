@@ -55,6 +55,7 @@ sub run_cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run(
         command => $command, ( defined $type ? ( type => $type ) : () ), argv => \@argv,
     );
@@ -62,7 +63,7 @@ sub run_cli {
 }
 
 my ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root, '--ref', $ticket->{ref}, '-o', 'json',
+    'record.show', 'ticket', '--ref', $ticket->{ref}, '-o', 'json',
 );
 is( $status, 0, 'CLI show succeeds' );
 my $payload = decode_json($out);
@@ -71,7 +72,7 @@ ok( !exists $payload->{description} && !exists $payload->{labels},
 is( $payload->{priority}, 3, 'zero-adjacent set values are returned' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root, '--ref', $ticket->{ref},
+    'record.show', 'ticket', '--ref', $ticket->{ref},
     '--include-empty', '-o', 'json',
 );
 is( $status, 0, 'CLI include-empty succeeds' );
@@ -80,13 +81,13 @@ ok( exists $payload->{description} && exists $payload->{labels} && exists $paylo
     '--include-empty restores the previous shape exactly' );
 
 ( $status, $out, $err ) = run_cli(
-    'export', undef, '--project', $root, '--include-empty', '-o', 'json',
+    'export', undef, '--include-empty', '-o', 'json',
 );
 is( $status, 0, 'export accepts include-empty' );
 ok( exists decode_json($out)->{records}[0]{evidence}, 'export include-empty restores keys' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.update', 'ticket', '--project', $root, '--ref', $ticket->{ref},
+    'record.update', 'ticket', '--ref', $ticket->{ref},
     '--title', 'Nope', '--include-empty', '-o', 'json',
 );
 is( $status, 2, 'include-empty on a mutation exits 2 instead of being ignored' );

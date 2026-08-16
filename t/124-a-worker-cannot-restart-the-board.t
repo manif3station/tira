@@ -67,13 +67,13 @@ sub serve {
         local *Tira::installed_version = sub { $args{disk} } if exists $args{disk};
         local *Tira::CLI::_version_on_disk = sub { $args{disk} } if exists $args{disk};
         local *Tira::CLI::_serving_pid = sub { $args{worker} ? -1 : $$ };
-        Tira::CLI->run(
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
             command => 'dashboard', type => 'ticket',
-            argv => [ '--project', $root, '-o', 'browser' ],
+            argv => [ '-o', 'browser' ],
             tira => $tira,
             browser_server => sub { my %given = @_; $captured = \%given; return 1 },
             restarter => sub { push @restarted, [@_]; return 1 },
-        );
+        ) };
         $payload = $captured->{data}->() if $captured;
     }
     return ( \@restarted, decode_json($payload), $err );

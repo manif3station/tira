@@ -37,7 +37,10 @@ tira() {
         *)   script="$root/cli/$command" ;;
     esac
     [ -f "$script" ] || { echo "browser-tests: no entrypoint for tira.$command" >&2; return 1; }
-    perl -I"$root/lib" "$script" "$@"
+
+    # The board is named in the environment, which is the only way to name one.
+    # Every call here used to carry --project and the flag is gone. TKT-250.
+    TIRA_HOME="${TIRA_BOARD:-$board}" perl -I"$root/lib" "$script" "$@"
 }
 
 [ -d "$tests" ] || { echo "browser-tests: $tests is missing - refusing to report success"; exit 1; }
@@ -101,7 +104,8 @@ tira project.new --name Browser --dir "$board" --members 'michael, ada' \
 # break the other. Nothing recorded that these needed particular boards; it was
 # only discoverable by running them, which nothing did.
 make_card() {
-    tira ticket.create --project "$1" --title "$2" \
+    local TIRA_BOARD="$1"; export TIRA_BOARD
+    tira ticket.create --title "$2" \
         --description "Something for the dialog to show" -o json |
         python3 -c 'import json,sys; print(json.load(sys.stdin)["ref"])'
 }
@@ -109,10 +113,11 @@ make_card() {
 # Six cards, two of them answered and unjudged, one waiting on the owner.
 build_review_board() {
     local where="$1"
+    local TIRA_BOARD="$where"; export TIRA_BOARD
     for column in backlog ready implement review verify done; do
         local card
         card="$(make_card "$where" "A card in $column")"
-        [ "$column" = backlog ] || tira ticket.move --project "$where" --ref "$card" \
+        [ "$column" = backlog ] || tira ticket.move --ref "$card" \
             --column "$column" --author michael -o json >/dev/null
         case "$column" in
             review|verify)
@@ -122,15 +127,15 @@ build_review_board() {
                 # twice, silently, until 1.28 made that a refusal. This fixture
                 # is where that defect was found.
                 local asked
-                asked="$(tira question.ask --project "$where" --ref "$card" --author ada \
+                asked="$(tira question.ask --ref "$card" --author ada \
                     --text "Is this the right approach?" --reason "two ways to do it" \
                     --option one --option two -o json |
                     python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
-                tira question.answer --project "$where" --ref "$card" --id "$asked" \
+                tira question.answer --ref "$card" --id "$asked" \
                     --text "the first one" -o json >/dev/null
                 ;;
             implement)
-                tira question.ask --project "$where" --ref "$card" --author ada \
+                tira question.ask --ref "$card" --author ada \
                     --text "Which way round should this go?" --reason "not obvious from here" \
                     --option this --option that -o json >/dev/null
                 ;;
@@ -141,6 +146,7 @@ build_review_board() {
 # More than ten, so the board pages.
 build_wide_board() {
     local where="$1"
+    local TIRA_BOARD="$where"; export TIRA_BOARD
     for spare in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do
         make_card "$where" "Card $spare" >/dev/null
     done
@@ -154,14 +160,15 @@ build_wide_board() {
 # that contradict each other.
 build_browser_board() {
     local where="$1"
+    local TIRA_BOARD="$where"; export TIRA_BOARD
     local first second third
     first="$(make_card "$where" "Live browser card")"
-    tira ticket.move --project "$where" --ref "$first" --column in-progress --author michael -o json >/dev/null
+    tira ticket.move --ref "$first" --column in-progress --author michael -o json >/dev/null
     sleep 1
     second="$(make_card "$where" "Second card")"
     sleep 1
     third="$(make_card "$where" "Third card")"
-    tira login.register --project "$where" --id michael --password hunter2 -o json >/dev/null
+    tira login.register --id michael --password hunter2 -o json >/dev/null
 
 }
 
@@ -174,7 +181,7 @@ build_priority_board() {
     for spare in 1 2 3 4; do
         make_card "$where" "Something to order $spare" >/dev/null
     done
-    tira login.register --project "$where" --id michael --password hunter2 -o json >/dev/null
+    tira login.register --id michael --password hunter2 -o json >/dev/null
 }
 
 build_review_board "$board"
@@ -187,7 +194,7 @@ build_review_board "$board"
 # login-gate timed out, and it took driving the login by hand to see it.
 #
 # hunter2 is what the test signs in with afterwards, so it has to be that.
-tira login.register --project "$board" --id michael --password hunter2 -o json >/dev/null || {
+tira login.register --id michael --password hunter2 -o json >/dev/null || {
     echo "browser-tests: could not claim a password for the login test"
     exit 1
 }
@@ -238,7 +245,7 @@ done
     echo "--- what it said:"
     tail -12 "$scratch/board.log" 2>/dev/null
     echo "--- the board it was given:"
-    tira ticket.list --project "$board" -o json 2>&1 | head -c 200
+    tira ticket.list -o json 2>&1 | head -c 200
     echo
     exit 1
 }
@@ -259,16 +266,16 @@ tira project.new --name Wide --dir "$wide" --members michael \
     --sow-prefix WDS --epic-prefix WDE --ticket-prefix WDT -o json >/dev/null
 build_wide_board "$wide"
 wide_html="$scratch/wide.html"
-tira dashboard --project "$wide" --title -o table >"$wide_html" 2>/dev/null
+tira dashboard --title -o table >"$wide_html" 2>/dev/null
 
 # The same board as JSON, for the tests that drive a refresh. priority-sort
 # needs a column with more than two cards in it, and the browsing board has
 # three cards altogether - which is how that test failed on its first run.
 wide_data="$scratch/wide-data.json"
-tira dashboard --project "$wide" -o json >"$wide_data" 2>/dev/null
+tira dashboard -o json >"$wide_data" 2>/dev/null
 
 html="$scratch/board.html"
-tira dashboard --project "$board" --title -o table >"$html" 2>/dev/null || {
+tira dashboard --title -o table >"$html" 2>/dev/null || {
     echo "browser-tests: could not render the board to a page"
     exit 1
 }
@@ -286,10 +293,10 @@ tira dashboard --project "$board" --title -o table >"$html" 2>/dev/null || {
 live_html="$scratch/live-board.html"
 
 one_html="$scratch/one-board.html"
-tira dashboard.ticket --project "$board" --title -o table >"$one_html" 2>/dev/null
+tira dashboard.ticket --title -o table >"$one_html" 2>/dev/null
 
 data="$scratch/board.json"
-tira export --project "$board" -o json >"$data" 2>/dev/null || true
+tira export -o json >"$data" 2>/dev/null || true
 
 # The browser board, served on its own port, so its page and data are the ones
 # dashboard-browser is written against.
@@ -300,7 +307,7 @@ tira project.new --name Browsing --dir "$browser_board" --members 'michael, ada'
     --sow-prefix SOW --epic-prefix EPC --ticket-prefix TKT -o json >/dev/null
 build_browser_board "$browser_board"
 
-tira dashboard --project "$browser_board" -o "browser=127.0.0.1:$browser_port" \
+tira dashboard -o "browser=127.0.0.1:$browser_port" \
     >"$scratch/browser-board.log" 2>&1 &
 browsing=$!
 for _ in $(seq 1 60); do
@@ -333,7 +340,7 @@ tira project.new --name Priority --dir "$priority_board" --members michael \
     --sow-prefix PRS --epic-prefix PRE --ticket-prefix PRT -o json >/dev/null
 build_priority_board "$priority_board"
 
-tira dashboard --project "$priority_board" -o "browser=127.0.0.1:$priority_port" \
+tira dashboard -o "browser=127.0.0.1:$priority_port" \
     >"$scratch/priority-board.log" 2>&1 &
 prioritising=$!
 for _ in $(seq 1 60); do

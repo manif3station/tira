@@ -30,6 +30,10 @@ sub run_cli {
 }
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
+
+# The board every command here works on, named the one way there is.
+# TKT-250.
+$ENV{TIRA_HOME} = $root;
 $tira->project_new( name => 'Nagged', dir => $root, columns => ['Backlog, Doing, Review'] );
 $tira->column_update( project => $root, type => 'ticket', name => 'doing', notify_after => 30 );
 
@@ -98,7 +102,7 @@ is( $tira->notification_message( project => $root )->{level}, 0,
 $tira->column_update( project => $root, type => 'ticket', name => 'doing', watched => 1 );
 
 # The collector composes and records from one call.
-my ( $status, $out ) = run_cli( 'notify.compose', '--project', $root, '-o', 'json' );
+my ( $status, $out ) = run_cli( 'notify.compose', '-o', 'json' );
 is( $status, 0, 'the CLI composes the reminder' );
 my $payload = decode_json($out);
 is( $payload->{level}, 13, 'and reports the level it is sending at' );

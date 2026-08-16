@@ -101,10 +101,10 @@ sub run_mode {
     {
         local *STDOUT = $so;
         local *STDERR = $se;
-        $status = Tira::CLI->run(
+        $status = do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
             command => 'project.mode', tira => $tira,
-            argv => [ '--project', $root, @arguments, '-o', 'json' ],
-        );
+            argv => [ @arguments, '-o', 'json' ],
+        ) };
     }
     return ( $out . $err, $status );
 }

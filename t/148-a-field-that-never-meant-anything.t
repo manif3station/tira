@@ -60,9 +60,9 @@ ok( !exists $stored_back->{base}, 'and reading it back does not produce one eith
     my $status = do {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run( command => 'policy.add', tira => $tira,
-            argv => [ '--project', $root, '--rule', 'card-full-details',
-                '--enter', 'done', '--base', 'anything', '--action', 'bridge-reminder' ] );
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => 'policy.add', tira => $tira,
+            argv => [ '--rule', 'card-full-details',
+                '--enter', 'done', '--base', 'anything', '--action', 'bridge-reminder' ] ) };
     };
     isnt( $status, 0, 'and typing it is refused outright, which is where a person meets it' );
     like( $err, qr/base/, 'naming the option that does not exist' );

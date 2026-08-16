@@ -137,10 +137,10 @@ open my $stdin, '<', \$stdin_text or die $!;
     local *STDERR = $stderr;
     local *STDIN = $stdin;
     is(
-        Tira::CLI->run(
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
             command => 'record.update', type => 'ticket',
-            argv => [ '--ref', $ticket2->{ref}, '--set-bdd', '-', '--project', $root, '-o', 'json' ],
-        ),
+            argv => [ '--ref', $ticket2->{ref}, '--set-bdd', '-', '-o', 'json' ],
+        ) },
         0,
         'JSON-array replacement accepts stdin',
     );
@@ -154,10 +154,10 @@ open $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
     is(
-        Tira::CLI->run(
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
             command => 'record.update', type => 'ticket',
-            argv => [ '--ref', $ticket2->{ref}, '--bdd', 'append', '--set-bdd', $file1, '--project', $root ],
-        ),
+            argv => [ '--ref', $ticket2->{ref}, '--bdd', 'append', '--set-bdd', $file1],
+        ) },
         2,
         'append and replacement options conflict',
     );

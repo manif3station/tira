@@ -32,6 +32,10 @@ sub names {
 }
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
+
+# The board every command here works on, named the one way there is.
+# TKT-250.
+$ENV{TIRA_HOME} = $root;
 $tira->project_new( name => 'Layout', dir => $root, columns => ['Backlog, Doing, Review'] );
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'A card' );
 $tira->record_move( project => $root, ref => $card->{ref}, column => 'review' );
@@ -108,7 +112,7 @@ for my $case (
 }
 
 # The CLI takes the layout as JSON, which is what the browser will send.
-my ( $status, $out ) = run_cli( 'column.apply', '--project', $root, '--type', 'ticket',
+my ( $status, $out ) = run_cli( 'column.apply', '--type', 'ticket',
     '--columns-json', encode_json( [ { name => 'backlog' }, { name => 'review' },
         { name => 'ready', label => 'Ready' }, { name => 'discard' } ] ),
     '-o', 'json' );
@@ -116,7 +120,7 @@ is( $status, 0, 'the CLI applies a layout' );
 is_deeply( decode_json($out)->{added}, ['ready'], 'and reports what changed' );
 is_deeply( names($root), [qw(backlog review ready discard)], 'and the board matches' );
 
-( $status, $out ) = run_cli( 'column.apply', '--project', $root, '--type', 'ticket',
+( $status, $out ) = run_cli( 'column.apply', '--type', 'ticket',
     '--columns-json', 'not json', '-o', 'json' );
 is( $status, 2, 'a layout that is not JSON exits 2' );
 
@@ -143,7 +147,7 @@ like( $out, qr/Usage/i,
     'and prints some, so the denial below is about help that exists' );
 unlike( $out, qr/--project|TIRA_HOME/, 'help never discloses project selection' );
 
-( $status, $out ) = run_cli( 'ticket.list', '--project', $root, '--columns-json', '[]', '-o', 'json' );
+( $status, $out ) = run_cli( 'ticket.list', '--columns-json', '[]', '-o', 'json' );
 is( $status, 2, 'the layout option is refused on commands it does not belong to' );
 
 done_testing;

@@ -60,8 +60,8 @@ sub create_cli {
     my $status = do {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run( command => 'record.create', type => 'ticket', tira => $tira,
-            argv => [ '--project', $root, '-o', 'json', @argv ] );
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => 'record.create', type => 'ticket', tira => $tira,
+            argv => [ '-o', 'json', @argv ] ) };
     };
     return ( $status, $status == 0 ? Tira::json_decode($out) : {}, $err );
 }

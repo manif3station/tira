@@ -91,6 +91,7 @@ sub run_cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run(
         command => $command, ( defined $type ? ( type => $type ) : () ), argv => \@argv,
     );
@@ -98,13 +99,13 @@ sub run_cli {
 }
 
 my ( $status, $out, $err ) = run_cli(
-    'gate.list', undef, '--project', $root, '--ref', $ref, '--last', '1', '-o', 'json',
+    'gate.list', undef, '--ref', $ref, '--last', '1', '-o', 'json',
 );
 is( $status, 0, 'CLI gate window succeeds' );
 is( decode_json($out)->[0]{gate}, 'G3', 'the CLI returns the newest gate entry' );
 
 ( $status, $out, $err ) = run_cli(
-    'gate.list', undef, '--project', $root, '--ref', $ref,
+    'gate.list', undef, '--ref', $ref,
     '--where', 'result=fail', '--meta-only', '-o', 'json',
 );
 my $payload = decode_json($out);
@@ -112,12 +113,12 @@ is( scalar @{$payload}, 1, 'CLI where composes with meta-only on entries' );
 ok( !exists $payload->[0]{details}, 'the composed result is metadata' );
 
 ( $status, $out, $err ) = run_cli(
-    'evidence.list', undef, '--project', $root, '--ref', $ref, '--id', 'EVD-001', '-o', 'json',
+    'evidence.list', undef, '--ref', $ref, '--id', 'EVD-001', '-o', 'json',
 );
 is( decode_json($out)->{summary}, 'First proof ' . ( 'e' x 150 ), 'CLI evidence read-by-id works' );
 
 ( $status, $out, $err ) = run_cli(
-    'checklist.list', undef, '--project', $root, '--ref', $ref, '--last', '1', '-o', 'json',
+    'checklist.list', undef, '--ref', $ref, '--last', '1', '-o', 'json',
 );
 is( $status, 2, 'windows on the checklist exit 2: the scope is documented' );
 

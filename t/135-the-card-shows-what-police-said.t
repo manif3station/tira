@@ -70,13 +70,13 @@ my $served;
     open my $se, '>', \$err or die $!;
     local *STDOUT = $so;
     local *STDERR = $se;
-    Tira::CLI->run(
+    do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
         command => 'dashboard', type => 'ticket',
-        argv => [ '--project', $root, '-o', 'browser', '--store', $store ],
+        argv => [ '-o', 'browser', '--store', $store ],
         tira => $tira,
         browser_server => sub { my %given = @_; $served = \%given; return 1 },
         restarter => sub {1},
-    );
+    ) };
 }
 ok( $served, 'the board is served' );
 is( ref $served->{police_log}, 'CODE', 'and is handed a police log provider, like every other section' );

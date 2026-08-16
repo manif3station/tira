@@ -24,13 +24,14 @@ sub cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run( command => $command, type => $type, argv => \@argv );
     return ( $status, $out, $err );
 }
 
 my ( $status, $out ) = cli( 'project.create', undef, '--name', 'Matrix', '--dir', $root, '-o', 'json' );
 is( $status, 0, 'matrix project created' );
-my @at = ( '--project', $root, '-o', 'json' );
+my @at = ( '-o', 'json' );
 
 ( $status, $out ) = cli( 'project.show', undef, @at );
 is( decode_json($out)->{name}, 'Matrix', 'project show dispatch' );
@@ -109,7 +110,7 @@ is( decode_json($out)->{children}[0]{description}, 'Full epic description',
     'hierarchy JSON agrees with record show metadata' );
 my $err;
 ( $status, $out, $err ) = cli( 'hierarchy.show', undef, '--ref', 'EPC-001',
-    '--project', $root, '-o', 'human' );
+    '-o', 'human' );
 is( $status, 0, 'hierarchy human view succeeds' );
 is( $err, '', 'hierarchy human view emits no warnings' );
 like( $out, qr/Full epic description/, 'hierarchy human view retains description' );
@@ -154,9 +155,9 @@ cli( 'comment.attach', undef, '--ref', 'TKT-001', '--comment', 'CMT-001', '--fil
 my $attachment = decode_json($out);
 ( $status, $out ) = cli( 'attachment.list', undef, '--ref', 'TKT-001', @at );
 ok( @{ decode_json($out) }, 'record attachments list dispatch' );
-( $status, $out ) = cli( 'attachment.get', undef, '--sha', $attachment->{sha}, '--extension', 'dat', '--project', $root );
+( $status, $out ) = cli( 'attachment.get', undef, '--sha', $attachment->{sha}, '--extension', 'dat');
 is( $out, "matrix\0attachment", 'attachment get emits raw bytes' );
-( $status, $out, my $path_error ) = cli( 'attachment.get', undef, '--sha', $attachment->{sha}, '--extension', 'dat', '--project', $root, '-o', 'path' );
+( $status, $out, my $path_error ) = cli( 'attachment.get', undef, '--sha', $attachment->{sha}, '--extension', 'dat', '-o', 'path' );
 is( $status, 2, 'attachment path output is rejected' );
 is( $out, '', 'rejected path output emits no content' );
 like( $path_error, qr/Unsupported output format 'path'/, 'path rejection is structured' );
@@ -165,7 +166,7 @@ unlike( $path_error, qr/\Q$root\E|\Q$attachment->{sha}\E/, 'path rejection leaks
 is( $status, 2, 'path output is rejected before project or attachment lookup' );
 unlike( $path_error, qr/No Tira project|Attachment/, 'early rejection performs no managed-storage lookup' );
 cli( 'attachment.remove', undef, '--sha', $attachment->{sha}, '--extension', 'dat', @at );
-( $status, $out ) = cli( 'attachment.get', undef, '--sha', $attachment->{sha}, '--extension', 'dat', '--project', $root );
+( $status, $out ) = cli( 'attachment.get', undef, '--sha', $attachment->{sha}, '--extension', 'dat');
 is( $status, 1, 'deleted attachment raw retrieval exits one' );
 ( $status, $out ) = cli( 'attachment.list', undef, '--include-deleted', @at );
 ok( grep( { $_->{deleted} } @{ decode_json($out) } ), 'deleted attachment list dispatch' );
@@ -188,7 +189,7 @@ like( decode_json($out)->{ref}, qr/^TKT-/, 'record clone dispatch' );
 ok( @{ decode_json($out)->{hits} }, 'search dispatch' );
 ( $status, $out ) = cli( 'dashboard', undef, '--type', 'all', '--include-discard', @at );
 ok( exists decode_json($out)->{ticket}{discard}, 'dashboard include-discard dispatch' );
-( $status, $out ) = cli( 'dashboard', undef, '--type', 'ticket', '--project', $root, '-o', 'human' );
+( $status, $out ) = cli( 'dashboard', undef, '--type', 'ticket', '-o', 'human' );
 like( $out, qr/^# Tira Dashboard.*^## TICKET.*^### backlog/ms, 'human dashboard follows explicit column order' );
 
 cli( 'column.remove', undef, '--type', 'ticket', '--name', 'verify', @at );

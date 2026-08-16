@@ -10,6 +10,10 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+
+# What the restart hands the new process, which is now an environment rather
+# than an argument.
+my $handover;
 use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
@@ -45,13 +49,14 @@ sub serve {
         # its own is a restart into the same code, which is what looped his
         # boards for twenty hours. See t/123.
         local *Tira::CLI::_version_on_disk = sub { $args{installed} } if exists $args{installed};
-        $status = Tira::CLI->run(
+        local $ENV{TIRA_HOME} = $root;
+        $status = do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
             command => 'dashboard', type => 'ticket',
-            argv => [ '--project', $root, '-o', 'browser' ],
+            argv => [ '-o', 'browser' ],
             tira => $tira,
             browser_server => sub { my %given = @_; $captured = \%given; return 1 },
-            restarter => sub { push @restarted, [@_]; return 1 },
-        );
+            restarter => sub { $handover = $ENV{TIRA_HOME}; push @restarted, [@_]; return 1 },
+        ) };
         $payload = $captured->{data}->() if $captured;
     }
     return ( $status, $captured, \@restarted, $payload );
@@ -84,13 +89,21 @@ sub serve {
     like( $script, qr{\Q$wanted\E\z},
         'it restarts the entrypoint for the exact command that was running' );
     ok( ( $^O eq 'MSWin32' ? -f $script : -x $script ), 'which really exists and can be run' );
-    is_deeply( [ @argv[ 0 .. 3 ] ], [ '--project', $root, '-o', 'browser' ],
-        'with the arguments it was started with' );
+    # The whole list, not a slice of it. This took the first four because the
+    # flag and its value filled two of them, and a slice that expects padding
+    # goes on passing when the padding becomes undef. TKT-250.
+    is_deeply( \@argv, [ '-o', 'browser' ],
+        'with the arguments it was started with, and nothing else' );
 
-    # Passed explicitly rather than rediscovered, because the new process may
-    # not inherit the working directory or environment that found it first.
-    is( scalar( grep { $_ eq '--project' } @argv ), 1,
-        'and the project named once, not twice' );
+    # Named in the environment rather than on the command line, because the
+    # command line no longer has a place for it - there is one way to say which
+    # board and this is it. Still set rather than inherited, which is the same
+    # guarantee the flag gave: the new process may not have the working
+    # directory that found it first. TKT-250.
+    is( scalar( grep { $_ eq '--project' } @argv ), 0,
+        'and no flag naming the board, because there is no such flag' );
+    is( $handover, $root,
+        'the board named to the new process in the environment' );
 }
 
 # A board launched without --project must still come back pointing at the same
@@ -113,16 +126,16 @@ sub serve {
             command => 'dashboard', type => 'ticket',
             argv => [ '-o', 'browser' ], tira => $tira,
             browser_server => sub { my %given = @_; $captured = \%given; return 1 },
-            restarter => sub { push @restarted, [@_]; return 1 },
+            restarter => sub { $handover = $ENV{TIRA_HOME}; push @restarted, [@_]; return 1 },
         );
         $captured->{data}->() if $captured;
     }
-    is( scalar @restarted, 1, 'a board started without --project still restarts' );
+    is( scalar @restarted, 1, 'a board restarts' );
     my ( $script, @argv ) = @{ $restarted[0] };
-    ok( scalar( grep { $_ eq '--project' } @argv ),
-        'and is told which project, rather than being left to rediscover it' );
-    my ($named) = grep { $_ ne '--project' && $_ =~ /\Q$root\E/ } @argv;
-    ok( $named, 'naming the project it was actually serving' );
+    is( scalar( grep { $_ eq '--project' } @argv ), 0,
+        'with nothing on the command line naming the board' );
+    is( $handover, $root,
+        'and is told which board in the environment, rather than left to rediscover it' );
 }
 
 # A restart that cannot work is worse than a stale board: it turns running old

@@ -123,6 +123,7 @@ sub run_cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run(
         command => $command, ( defined $type ? ( type => $type ) : () ), argv => \@argv,
     );
@@ -130,30 +131,30 @@ sub run_cli {
 }
 
 my ( $status, $out, $err ) = run_cli(
-    'comment.list', undef, '--project', $root, '--ref', $ref, '--last', '1', '-o', 'json',
+    'comment.list', undef, '--ref', $ref, '--last', '1', '-o', 'json',
 );
 is( $status, 0, 'CLI comment window succeeds' );
 my $payload = decode_json($out);
 is( $payload->[0]{body}, 'Comment 3', 'the CLI returns the newest comment' );
 
 ( $status, $out, $err ) = run_cli(
-    'comment.list', undef, '--project', $root, '--ref', $ref, '--meta-only', '-o', 'json',
+    'comment.list', undef, '--ref', $ref, '--meta-only', '-o', 'json',
 );
 ok( !exists decode_json($out)->[0]{body}, 'CLI meta-only omits bodies' );
 
 ( $status, $out, $err ) = run_cli(
-    'attachment.list', undef, '--project', $root, '--ref', $ref, '--meta-only', '-o', 'json',
+    'attachment.list', undef, '--ref', $ref, '--meta-only', '-o', 'json',
 );
 is( decode_json($out)->{attachments}[0]{filename}, 'later.txt', 'CLI attachment metadata works, newest first' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.list', 'ticket', '--project', $root, '--last', '1', '-o', 'json',
+    'record.list', 'ticket', '--last', '1', '-o', 'json',
 );
 is( $status, 2, 'windows outside comment lists exit 2' );
 like( $err, qr/comment, gate, evidence, and history/, 'the window error names every list it applies to' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.update', 'ticket', '--project', $root, '--ref', $ref,
+    'record.update', 'ticket', '--ref', $ref,
     '--title', 'Nope', '--meta-only', '-o', 'json',
 );
 is( $status, 2, 'meta-only on a mutation exits 2' );

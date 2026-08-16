@@ -153,11 +153,11 @@ is( $direct_err, '', 'direct project CLI has no error output' );
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
     is(
-        Tira::CLI->run(
+        do { local $ENV{TIRA_HOME} = $direct_root; Tira::CLI->run(
             command => 'record.create',
             type    => 'ticket',
-            argv    => [ '--project', $direct_root, '--title', 'Direct ticket', '-o', 'json' ],
-        ),
+            argv    => [ '--title', 'Direct ticket', '-o', 'json' ],
+        ) },
         0,
         'direct record CLI execution succeeds',
     );
@@ -172,20 +172,26 @@ $default_clock->create_project( dir => $environment_root, name => 'Environment C
     open my $stderr, '>', \$direct_err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
-    local $ENV{TIRA_HOME} = $environment_root;
+    # There is one way to say which board and this is it. There used to be
+    # three - a flag, the environment, and the working directory - and this
+    # asserted which of them won. Three ways to say one thing is three
+    # behaviours to keep in agreement, and they had stopped agreeing: the
+    # dashboard replaces the environment value from the working directory, so
+    # what a caller passed was discarded rather than preferred. TKT-250.
+    local $ENV{TIRA_HOME} = $direct_root;
     is(
         Tira::CLI->run(
             command => 'record.create', type => 'ticket',
-            argv => [ '--project', $direct_root, '--title', 'Explicit wins', '-o', 'json' ],
+            argv => [ '--title', 'Named board', '-o', 'json' ],
         ),
         0,
-        '--project takes precedence over TIRA_HOME',
+        'the board named in the environment is the board written to',
     );
 }
-like( $direct_out, qr/"ref"\s*:\s*"TKT-002"/, 'explicit project receives the new record' );
+like( $direct_out, qr/"ref"\s*:\s*"TKT-002"/, 'which receives the new record' );
 ok(
     !-e File::Spec->catfile( $environment_root, '.tira', 'ticket', 'backlog', 'TKT-001.json' ),
-    'environment project is untouched when --project is explicit',
+    'and no other board is touched, which is the half of this worth keeping',
 );
 
 ( $direct_out, $direct_err ) = ( '', '' );
@@ -225,10 +231,10 @@ like( $direct_err, qr/UTF-8/, 'invalid UTF-8 argv failure is structured' );
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
     is(
-        Tira::CLI->run(
+        do { local $ENV{TIRA_HOME} = $direct_root; Tira::CLI->run(
             command => 'record.create', type => 'ticket',
-            argv => [ '--project', $direct_root, '--title', 'Bad output', '-o', 'xml' ],
-        ),
+            argv => [ '--title', 'Bad output', '-o', 'xml' ],
+        ) },
         2,
         'output formatting failure returns a structured error',
     );

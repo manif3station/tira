@@ -32,6 +32,10 @@ sub cli {
 }
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
+
+# The board every command here works on, named the one way there is.
+# TKT-250.
+$ENV{TIRA_HOME} = $root;
 $tira->project_new( name => 'Same', dir => $root, columns => ['Backlog, Doing'],
     sow_prefix => 'SMS', epic_prefix => 'SME', ticket_prefix => 'SMT' );
 $tira->column_update( project => $root, type => 'ticket', name => 'doing', notify_after => 30 );
@@ -59,8 +63,7 @@ is_deeply( $tira->dwell_list( project => $root, stale => 1 ), [],
     'a question blocks the reminder whichever way it was asked' );
 
 # Answer one from each side.
-my ( $status ) = cli( 'question.answer', '--project', $root,
-    '--id', $question{cli}, '--text', 'Staging', '-o', 'json' );
+my ( $status ) = cli( 'question.answer', '--id', $question{cli}, '--text', 'Staging', '-o', 'json' );
 is( $status, 0, 'the command line answers' );
 ok( decode_json( $providers{question_answer}->(
         { id => $question{board}, text => 'Staging' } ) )->{ok},
@@ -94,8 +97,7 @@ is_deeply(
     'and both are chased again from the moment they were answered' );
 
 # Marking, the same way.
-( $status ) = cli( 'question.mark', '--project', $root,
-    '--id', $question{cli}, '--mark', 'ok', '-o', 'json' );
+( $status ) = cli( 'question.mark', '--id', $question{cli}, '--mark', 'ok', '-o', 'json' );
 is( $status, 0, 'the command line marks' );
 ok( decode_json( $providers{question_mark}->( { id => $question{board}, mark => 'ok' } ) )->{ok},
     'and so does the board' );

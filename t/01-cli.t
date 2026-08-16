@@ -42,13 +42,18 @@ my ( $status, $stdout, $stderr ) = run_command(
     '--name', 'CLI Project', '--dir', $project,
 );
 is( $status, 0, 'project create exits successfully' );
+
+# From here the board is named the one way there is: in the environment, which
+# every command reads and which subprocesses inherit. Creating a board is the
+# exception and is not a selector - --dir above is where the board is about to
+# be, not which board to work on. TKT-250.
+$ENV{TIRA_HOME} = $project;
 is( $stderr, '', 'project create has no stderr output' );
 like( $stdout, qr/name:\s+"?CLI Project"?/, 'project create defaults to TOON' );
 ok( -f File::Spec->catfile( $project, '.tira', 'project.yml' ), 'CLI creates the canonical project layout' );
 
 ( $status, $stdout, $stderr ) = run_command(
-    @perl, 'skills/sow/cli/create',
-    '--project', $project, '--title', 'CLI SOW', '-o', 'json',
+    @perl, 'skills/sow/cli/create', '--title', 'CLI SOW', '-o', 'json',
 );
 is( $status, 0, 'SOW create exits successfully' );
 my $sow = decode_json($stdout);
@@ -56,15 +61,13 @@ is( $sow->{ref}, 'SOW-001', 'SOW CLI allocates the configured reference' );
 is_deeply( $sow->{linkage}{epic_refs}, [], 'SOW linkage is initially empty' );
 
 ( $status, $stdout, $stderr ) = run_command(
-    @perl, 'skills/epic/cli/create',
-    '--project', $project, '--title', 'CLI Epic', '-o', 'human',
+    @perl, 'skills/epic/cli/create', '--title', 'CLI Epic', '-o', 'human',
 );
 is( $status, 0, 'epic create exits successfully' );
 like( $stdout, qr/^# EPC-001: CLI Epic$/m, 'epic human output is Markdown' );
 
 ( $status, $stdout, $stderr ) = run_command(
-    @perl, 'skills/ticket/cli/create',
-    '--project', $project, '--title', 'CLI Ticket', '--description', 'From the CLI', '-o', 'toon',
+    @perl, 'skills/ticket/cli/create', '--title', 'CLI Ticket', '--description', 'From the CLI', '-o', 'toon',
 );
 is( $status, 0, 'ticket create exits successfully' );
 like( $stdout, qr/ref:\s+"?TKT-001"?/, 'ticket explicit TOON output includes its reference' );
@@ -78,7 +81,7 @@ like( $stdout, qr/ref:\s+"?TKT-001"?/, 'ticket explicit TOON output includes its
 is( $status, 0, 'TIRA_HOME selects the project without --project' );
 is( decode_json($stdout)->{ref}, 'TKT-002', 'environment-selected project advances its ticket sequence' );
 
-( $status, $stdout, $stderr ) = run_command( @perl, 'skills/ticket/cli/create', '--project', $project );
+( $status, $stdout, $stderr ) = run_command( @perl, 'skills/ticket/cli/create');
 isnt( $status, 0, 'invalid CLI request exits nonzero' );
 is( $stdout, '', 'invalid CLI request does not write success output' );
 like( $stderr, qr/error:\s+"?Record title is required/, 'CLI errors use the default TOON format' );

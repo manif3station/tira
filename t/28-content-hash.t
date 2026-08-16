@@ -91,6 +91,7 @@ sub run_cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run(
         command => $command, ( defined $type ? ( type => $type ) : () ), argv => \@argv,
     );
@@ -99,28 +100,28 @@ sub run_cli {
 
 my $latest = current_hash();
 my ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root, '--ref', $ref,
+    'record.show', 'ticket', '--ref', $ref,
     '--if-changed', $latest, '-o', 'json',
 );
 is( $status, 1, 'an unchanged conditional read exits 1, distinct from success-with-content' );
 ok( decode_json($out)->{unchanged}, 'the unchanged marker is printed for parsers too' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root, '--ref', $ref,
+    'record.show', 'ticket', '--ref', $ref,
     '--if-changed', $baseline, '-o', 'json',
 );
 is( $status, 0, 'a changed conditional read exits 0' );
 is( decode_json($out)->{ref}, $ref, 'the changed record is returned in full' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root, '--ref', $ref,
+    'record.show', 'ticket', '--ref', $ref,
     '--if-changed', 'nope', '-o', 'json',
 );
 is( $status, 2, 'a malformed CLI hash exits 2' );
 like( $err, qr/malformed/, 'the CLI error says the hash is malformed' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.list', 'ticket', '--project', $root, '--if-changed', $latest, '-o', 'json',
+    'record.list', 'ticket', '--if-changed', $latest, '-o', 'json',
 );
 is( $status, 2, 'conditional reads are refused on list' );
 like( $err, qr/show and export/, 'the error names where conditional reads apply' );

@@ -116,8 +116,8 @@ is_deeply( $tira->policy_undeclared( project => $root ), [],
     my $status = do {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run( command => 'policy.undeclared', tira => $tira,
-            argv => [ '--project', $root, '-o', 'json' ] );
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => 'policy.undeclared', tira => $tira,
+            argv => [ '-o', 'json' ] ) };
     };
     is( $status, 0, 'the command runs' );
     is_deeply( Tira::json_decode($out), [], 'and answers with what is left to decide' );

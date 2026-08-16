@@ -27,11 +27,12 @@ sub cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run( command => $command, argv => \@argv, tira => $tira );
     return ( $status, $out, $err );
 }
 
-my ( $status, $html, $err ) = cli( 'dashboard', '--project', $root, '--title', '-o', 'table' );
+my ( $status, $html, $err ) = cli( 'dashboard', '--title', '-o', 'table' );
 is( $status, 0, 'combined table dashboard succeeds' );
 is( $err, '', 'combined table dashboard has no stderr' );
 like( $html, qr/\A<!doctype html>/i, 'table output is a raw HTML document' );
@@ -99,7 +100,7 @@ for my $rendering (
     is_deeply( [ $style =~ /([^\x00-\x7f])/g ], [], "and so is the $kind stylesheet" );
 }
 
-( $status, $html, $err ) = cli( 'dashboard.ticket', '--project', $root, '-o', 'table' );
+( $status, $html, $err ) = cli( 'dashboard.ticket', '-o', 'table' );
 is( $status, 0, 'type-specific table dashboard succeeds' );
 is( scalar( () = $html =~ /class="board board--/g ), 1, 'type-specific command renders one board' );
 like( $html, qr/data-type="ticket"/, 'ticket command renders ticket board' );
@@ -109,7 +110,7 @@ like( $html, qr{<title>Table project :: Tickets :: 1</title>},
 like( $html, qr/data-mtime="\d+"/, 'table embeds filesystem mtime for local sorting' );
 unlike( $html, qr/<span class="card__title">/, 'table remains ref-only without title flag' );
 
-( $status, my $out, $err ) = cli( 'project.show', '--project', $root, '-o', 'table' );
+( $status, my $out, $err ) = cli( 'project.show', '-o', 'table' );
 is( $status, 2, 'table output is rejected outside dashboard commands' );
 is( $out, '', 'rejected table output emits no stdout' );
 like( $err, qr/Table output is available only for dashboard commands/,

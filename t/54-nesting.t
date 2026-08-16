@@ -27,6 +27,10 @@ sub run_cli {
 }
 
 my $outer = File::Spec->catdir( $tmp, 'outer' );
+
+# The board every command here works on, named the one way there is.
+# TKT-250.
+$ENV{TIRA_HOME} = $outer;
 $tira->project_new( name => 'Outer', dir => $outer, columns => ['Backlog, Doing'] );
 
 # Straight inside.
@@ -77,7 +81,7 @@ ok( !-e File::Spec->catdir( $outer, 'cli' ), 'and wrote nothing' );
     '--dir', File::Spec->catdir( $outer, 'cli' ), '-o', 'json' );
 is( $status, 0, 'and allows it when asked deliberately' );
 
-( $status, $out, $err ) = run_cli( 'ticket.list', '--project', $outer, '--nested', '-o', 'json' );
+( $status, $out, $err ) = run_cli( 'ticket.list', '--nested', '-o', 'json' );
 is( $status, 2, 'the option is refused on commands it does not belong to' );
 
 done_testing;

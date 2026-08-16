@@ -30,9 +30,9 @@ sub board_html {
     {
         local *STDOUT = $stdout;
         local *STDERR = $stderr;
-        Tira::CLI->run(
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
             command => 'dashboard', type => 'ticket',
-            argv => [ '--project', $root, @argv ], tira => $tira );
+            argv => [ @argv ], tira => $tira ) };
     }
     return $out;
 }

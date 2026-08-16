@@ -138,9 +138,9 @@ like( $behind, qr/one ticket|a single ticket|single backlog/i,
     {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run( command => 'police', tira => $tira,
-            argv => [ '--project', $bare, '--once', '--store',
-                File::Spec->catdir( $tmp, 'police-store' ), '-o', 'json' ] );
+        do { local $ENV{TIRA_HOME} = $bare; Tira::CLI->run( command => 'police', tira => $tira,
+            argv => [ '--once', '--store',
+                File::Spec->catdir( $tmp, 'police-store' ), '-o', 'json' ] ) };
     }
 
     like( $err, qr/tira\.policies/,

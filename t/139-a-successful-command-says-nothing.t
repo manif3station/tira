@@ -55,8 +55,8 @@ sub run {
     my $status = do {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run( command => shift(@argv), tira => $tira,
-            argv => [ '--project', $project, @argv ] );
+        do { local $ENV{TIRA_HOME} = $project; Tira::CLI->run( command => shift(@argv), tira => $tira,
+            argv => [ @argv ] ) };
     };
     return ( $status, $out, $err );
 }
@@ -74,6 +74,10 @@ is( ( run( $root, 'backup.export', '--file', $bundle ) )[0], 0, 'and exported' )
 # finding in its own checks.
 
 my $elsewhere = File::Spec->catdir( $tmp, 'elsewhere' );
+
+# The board every command here works on, named the one way there is.
+# TKT-250.
+$ENV{TIRA_HOME} = $elsewhere;
 my $entrypoint = File::Spec->catfile(qw(skills backup cli import));
 my $noise = File::Spec->catfile( $tmp, 'stderr' );
 
@@ -83,7 +87,7 @@ my $status = do {
     open my $saved, '>&', \*STDERR or die $!;
     open STDERR, '>', $noise or die $!;
     my $ran = system $^X, '-Ilib', $entrypoint,
-      '--project', $elsewhere, '--file', $bundle;
+      '--file', $bundle;
     open STDERR, '>&', $saved or die $!;
     close $saved;
     $ran;

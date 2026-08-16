@@ -64,6 +64,7 @@ sub run_cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run(
         command => $command, ( defined $type ? ( type => $type ) : () ), argv => \@argv,
     );
@@ -71,45 +72,45 @@ sub run_cli {
 }
 
 my ( $status, $out, $err ) = run_cli(
-    'record.list', 'ticket', '--project', $root, '--count', '-o', 'json',
+    'record.list', 'ticket', '--count', '-o', 'json',
 );
 is( $status, 0, 'CLI count succeeds' );
 is_deeply( decode_json($out), { count => 2 }, 'CLI count payload is the number alone' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.list', 'ticket', '--project', $root, '--count', '-o', 'human',
+    'record.list', 'ticket', '--count', '-o', 'human',
 );
 is( $status, 0, 'human count succeeds' );
 is( $out, "2\n", 'human count prints a bare number for the shell' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.list', 'ticket', '--project', $root, '--refs-only', '-o', 'json',
+    'record.list', 'ticket', '--refs-only', '-o', 'json',
 );
 is_deeply( decode_json($out), [ $one->{ref}, $two->{ref} ], 'CLI refs-only is a flat array' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.list', 'ticket', '--project', $root, '--refs-only', '-o', 'human',
+    'record.list', 'ticket', '--refs-only', '-o', 'human',
 );
 is( $out, "$one->{ref}\n$two->{ref}\n", 'human refs-only prints one ref per line' );
 
 ( $status, $out, $err ) = run_cli(
-    'export', undef, '--project', $root, '--count', '-o', 'json',
+    'export', undef, '--count', '-o', 'json',
 );
 is_deeply( decode_json($out), { count => 3 }, 'CLI export count is the board total' );
 
 ( $status, $out, $err ) = run_cli(
-    'search', undef, '--project', $root, '--text', 'audio', '--count', '-o', 'json',
+    'search', undef, '--text', 'audio', '--count', '-o', 'json',
 );
 is_deeply( decode_json($out), { count => 1 }, 'CLI search count works' );
 
 ( $status, $out, $err ) = run_cli(
-    'record.show', 'ticket', '--project', $root, '--ref', $one->{ref}, '--count', '-o', 'json',
+    'record.show', 'ticket', '--ref', $one->{ref}, '--count', '-o', 'json',
 );
 is( $status, 2, 'count on show exits 2' );
 like( $err, qr/list, export, and search/, 'the count error names where it applies' );
 
 ( $status, $out, $err ) = run_cli(
-    'export', undef, '--project', $root, '--refs-only', '-o', 'json',
+    'export', undef, '--refs-only', '-o', 'json',
 );
 is( $status, 2, 'refs-only on export exits 2' );
 like( $err, qr/list and search/, 'the refs-only error names where it applies' );

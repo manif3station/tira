@@ -37,6 +37,10 @@ sub recording {
 }
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
+
+# The board every command here works on, named the one way there is.
+# TKT-250.
+$ENV{TIRA_HOME} = $root;
 $tira->project_new( name => 'Voice', dir => $root, columns => ['Backlog, Doing'],
     sow_prefix => 'VCS', epic_prefix => 'VCE', ticket_prefix => 'VCT' );
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Needs asking' );
@@ -110,21 +114,18 @@ ok( scalar( grep { $_->{text} eq 'Asked despite a bad recording' }
     'but the question itself was still asked, rather than lost with it' );
 
 # The CLI.
-my ( $status, $out ) = cli( 'question.voice', '--project', $root,
-    '--id', $second->{id}, '--voice', $better, '-o', 'json' );
+my ( $status, $out ) = cli( 'question.voice', '--id', $second->{id}, '--voice', $better, '-o', 'json' );
 is( $status, 0, 'the CLI attaches a recording' );
 is( decode_json($out)->{voice}{extension}, 'mp3', 'and reports it' );
 
-( $status, $out ) = cli( 'question.voice', '--project', $root,
-    '--id', $second->{id}, '--remove', '-o', 'json' );
+( $status, $out ) = cli( 'question.voice', '--id', $second->{id}, '--remove', '-o', 'json' );
 is( $status, 0, 'and removes one' );
 
-( $status, $out, my $err ) = cli( 'question.voice', '--project', $root,
-    '--id', $second->{id}, '--voice', $better, '--remove', '-o', 'json' );
+( $status, $out, my $err ) = cli( 'question.voice', '--id', $second->{id}, '--voice', $better, '--remove', '-o', 'json' );
 is( $status, 2, 'asking to both attach and remove exits 2' );
 like( $err, qr/only one/i, 'and says why' );
 
-( $status, $out, $err ) = cli( 'ticket.list', '--project', $root, '--voice', $note, '-o', 'json' );
+( $status, $out, $err ) = cli( 'ticket.list', '--voice', $note, '-o', 'json' );
 is( $status, 2, 'a recording is refused on commands it does not belong to' );
 
 # The board plays it without a second player or a second route.

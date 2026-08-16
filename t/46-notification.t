@@ -28,6 +28,10 @@ sub run_cli {
 }
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
+
+# The board every command here works on, named the one way there is.
+# TKT-250.
+$ENV{TIRA_HOME} = $root;
 $tira->project_new( name => 'Notify', dir => $root, columns => ['Backlog, Doing, Review'] );
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Watched work' );
 my $db = File::Spec->catfile( $root, '.tira', 'notification.db' );
@@ -124,15 +128,15 @@ is( $stale->[0]{level}, 1, 'the stale card carries the level it has already reac
 
 # The CLI surface.
 my ( $status, $out ) = run_cli( 'notify.record',
-    '--project', $root, '--ref', $card->{ref}, '--column', 'doing', '-o', 'json' );
+    '--ref', $card->{ref}, '--column', 'doing', '-o', 'json' );
 is( $status, 0, 'the CLI records a notification' );
 is( decode_json($out)->[0]{level}, 4, 'and reports the level it reached' );
 
-( $status, $out ) = run_cli( 'notify.list', '--project', $root, '--ref', $card->{ref}, '-o', 'json' );
+( $status, $out ) = run_cli( 'notify.list', '--ref', $card->{ref}, '-o', 'json' );
 is( $status, 0, 'the CLI lists history' );
 is( scalar @{ decode_json($out) }, 5, 'the filtered history is complete' );
 
-( $status, $out ) = run_cli( 'notify.record', '--project', $root, '--column', 'doing', '-o', 'json' );
+( $status, $out ) = run_cli( 'notify.record', '--column', 'doing', '-o', 'json' );
 is( $status, 2, 'a missing reference exits 2' );
 
 ( $status, $out ) = run_cli( 'notify.list', '--help' );
@@ -141,7 +145,7 @@ like( $out, qr/Usage/i,
     'and prints some, so the denial below is about help that exists' );
 unlike( $out, qr/--project|TIRA_HOME/, 'help never discloses project selection' );
 
-( $status, $out ) = run_cli( 'ticket.list', '--project', $root, '--with-level', '-o', 'json' );
+( $status, $out ) = run_cli( 'ticket.list', '--with-level', '-o', 'json' );
 is( $status, 2, 'with-level is refused on commands it does not belong to' );
 
 done_testing;

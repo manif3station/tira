@@ -57,6 +57,7 @@ sub ask {
     my $status = do {
         local *STDOUT = $so;
         local *STDERR = $se;
+        local $ENV{TIRA_HOME} = $root;
         Tira::CLI->run( command => 'question.ask', tira => $tira, argv => \@argv );
     };
     return ( $status, $out, $err );
@@ -64,7 +65,7 @@ sub ask {
 
 my ( $status, $out, $err ) = ask(
     '--ref', $card, '--author', 'claude', '--text', 'Which way round is it?',
-    '--voice', $recording, '--project', $root, '-o', 'json' );
+    '--voice', $recording, '-o', 'json' );
 
 is( $status, 0, 'the question is asked' ) or diag($err);
 
@@ -91,7 +92,7 @@ ok( defined $asked->{voice} && $asked->{voice} ne '',
 {
     my ( undef, $plain ) = ask(
         '--ref', $card, '--author', 'claude', '--text', 'And this one has no recording',
-        '--project', $root, '-o', 'json' );
+        '-o', 'json' );
     my $quiet = Tira::json_decode($plain);
     ok( !defined $quiet->{voice} || $quiet->{voice} eq '',
         'a question asked without a recording still has none' );
@@ -108,9 +109,9 @@ ok( defined $asked->{voice} && $asked->{voice} ne '',
         my $st = do {
             local *STDOUT = $so;
             local *STDERR = $se;
-            Tira::CLI->run( command => 'question.update', tira => $tira,
+            do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => 'question.update', tira => $tira,
                 argv => [ '--id', $first->{id}, '--voice', $recording,
-                    '--project', $root, '-o', 'json' ] );
+                    '-o', 'json' ] ) };
         };
         ( $st, $o );
     };

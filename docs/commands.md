@@ -728,7 +728,7 @@ Get a backup off the machine, and bring one back.
 | Argument | Required | What it is for |
 | --- | --- | --- |
 | `--file FILE` | yes | The bundle to write, or to read. |
-| `--project DIR` | on import | Where the board should go. Import is how a board arrives somewhere, so the folder is taken as given rather than searched for. |
+| `--dir DIR` | on import | Where the board should go. Import is how a board arrives somewhere, so the folder is taken as given rather than searched for - a destination, not a way of selecting a board that already exists. |
 | `--yes` | to replace | Agree to replace a board that is already there. |
 | `--claiming-schema N` | no | What schema the bundle says it holds. A newer one is refused. |
 | `-o FORMAT` | no | `toon` (default), `json`. |
@@ -837,6 +837,29 @@ every other card. It picks itself up when the time runs out — there is nothing
 to switch back on — and every putting-down is in the enforcement log with its
 rule, its card, its length and its reason, because a silence nobody can account
 for is worse than the noise it replaces.
+
+### `tira.police.outstanding`
+
+What is still true, rather than everything that ever happened.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--store PATH` | no | Police's own state, if it is not in the usual place. |
+
+One entry per finding rather than one per telling, carrying the rule, the card,
+how many times it has been said, when it started and how loud it has become. A
+finding that was dealt with leaves the list, which is the half that makes it
+worth reading.
+
+The bridge is a stream and is right to be one, but a stream can only be read
+from where you joined it: it replays everything on connect and repeats each
+finding as it climbs. The enforcement log is flat - every row is something that
+happened, and nothing on a row says whether it is still true. So the question
+"what have I not dealt with" could not be asked, and therefore was not: one
+finding on this project's own board stayed open for two and a half hours,
+escalating from note to critical, and was read four times and acted on never.
+An answer that depends on somebody remembering to look is the thing this
+subsystem exists to remove.
 
 ### `tira.policy.bridge.logs`
 

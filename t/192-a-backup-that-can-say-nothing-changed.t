@@ -65,8 +65,8 @@ sub backup {
     my $status = do {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run( command => 'backup', tira => $tira,
-            argv => [ '--project', $root, '-o', 'json' ] );
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => 'backup', tira => $tira,
+            argv => [ '-o', 'json' ] ) };
     };
     die "backup failed (status $status): $err" if $status != 0;
     die "backup printed nothing (status $status, stderr: $err)" if !length $out;
@@ -162,8 +162,8 @@ is_deeply( [ grep { m{\Asessions/} } @{ tracked() } ], [],
     {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run( command => 'backup', tira => $other,
-            argv => [ '--project', $older, '-o', 'json' ] );
+        do { local $ENV{TIRA_HOME} = $older; Tira::CLI->run( command => 'backup', tira => $other,
+            argv => [ '-o', 'json' ] ) };
     }
 
     my $files = Tira::CLI::_reading( 'git', '-C', $store, 'ls-files' );

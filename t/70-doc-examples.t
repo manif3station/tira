@@ -100,9 +100,9 @@ sub attempt {
         local *STDOUT = $stdout;
         local *STDERR = $stderr;
         eval {
-            Tira::CLI->run(
+            do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
                 command => $command, type => $type,
-                argv => [ '--project', $root, @argv ], tira => $tira );
+                argv => [ @argv ], tira => $tira ) };
             1;
         };
     }

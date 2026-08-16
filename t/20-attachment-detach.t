@@ -92,6 +92,7 @@ sub run_cli {
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
     my $command = shift @argv;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run( command => $command, argv => \@argv, tira => $tira );
     return ( $status, $out, $err );
 }
@@ -101,7 +102,7 @@ sub run_cli {
         project => $root, ref => 'TKT-002', filename => 'cli.txt', content => "cli detach\n",
     );
     my ( $status, $out, $err ) = run_cli(
-        'attachment.detach', '--project', $root, '--ref', 'TKT-002',
+        'attachment.detach', '--ref', 'TKT-002',
         '--sha', $cli_stored->{sha}, '--extension', 'txt', '-o', 'json',
     );
     is( $status, 0, 'tira.attachment.detach succeeds through the CLI' );

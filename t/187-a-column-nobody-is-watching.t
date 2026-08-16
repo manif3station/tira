@@ -273,8 +273,8 @@ like( $found->[0]{detail}, qr/checklist-idle/,
     my $status = do {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run( command => 'policy.review', tira => $tira,
-            argv => [ '--project', $root, '-o', 'json' ] );
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => 'policy.review', tira => $tira,
+            argv => [ '-o', 'json' ] ) };
     };
     is( $status, 0, 'the command runs' ) or diag($err);
 

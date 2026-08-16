@@ -28,11 +28,13 @@ def read(backup, name):
 
 
 def tira(*args, project=None):
-    command = ['d2', args[0]]
+    # The board is named in the environment, which is the only way to name one.
+    # This passed --project and the flag is gone. TKT-250.
+    command = ['d2', args[0]] + list(args[1:])
+    environment = dict(os.environ)
     if project:
-        command += ['--project', project]
-    command += list(args[1:])
-    done = subprocess.run(command, capture_output=True, text=True)
+        environment['TIRA_HOME'] = project
+    done = subprocess.run(command, capture_output=True, text=True, env=environment)
     if '"error"' in done.stdout:
         raise SystemExit(f'board-restore: {" ".join(args)} failed: {done.stdout.strip()}')
     return done.stdout

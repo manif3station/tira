@@ -32,6 +32,10 @@ sub run_cli {
 }
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
+
+# The board every command here works on, named the one way there is.
+# TKT-250.
+$ENV{TIRA_HOME} = $root;
 $tira->project_new( name => 'Warned', dir => $root, columns => ['Backlog, Doing'] );
 $tira->create_record( project => $root, type => 'ticket', title => 'Some work' );
 my $store = File::Spec->catfile( $root, '.tira', 'warnings.json' );
@@ -39,7 +43,7 @@ my $store = File::Spec->catfile( $root, '.tira', 'warnings.json' );
 # A quiet project stays quiet.
 is_deeply( $tira->warning_list( project => $root ), [], 'a project with no warnings has none' );
 ok( !-e $store, 'and no warning file is created by asking' );
-my ( $status, $out, $err ) = run_cli( 'ticket.list', '--project', $root );
+my ( $status, $out, $err ) = run_cli( 'ticket.list');
 is( $status, 0, 'an ordinary command succeeds' );
 unlike( $out, qr/Attention/, 'and prints no banner when there is nothing wrong' );
 
@@ -70,7 +74,7 @@ for my $case ( [ {}, 'a missing message' ], [ { message => '' }, 'an empty messa
 is( scalar @{ $tira->warning_list( project => $root ) }, 2, 'and nothing was written by a refused call' );
 
 # It appears under the output of an unrelated command, which is the whole point.
-( $status, $out, $err ) = run_cli( 'ticket.list', '--project', $root, '-o', 'human' );
+( $status, $out, $err ) = run_cli( 'ticket.list', '-o', 'human' );
 is( $status, 0, 'the unrelated command still succeeds' );
 like( $out, qr/\Q$message\E/, 'the warning appears in the output of an unrelated command' );
 like( $out, qr/\[1\]/, 'the banner names the warning identifier' );
@@ -79,19 +83,19 @@ like( $out, qr/Some work/, 'and the command output itself is still there' );
 
 # Every machine payload must stay parseable, so the banner goes to standard
 # error there - including for the default format, which agents parse.
-( $status, $out, $err ) = run_cli( 'ticket.list', '--project', $root, '-o', 'json' );
+( $status, $out, $err ) = run_cli( 'ticket.list', '-o', 'json' );
 is( $status, 0, 'the machine-format command succeeds' );
 my $payload = eval { decode_json($out) };
 ok( $payload, 'the JSON payload is still parseable' );
 unlike( $out, qr/Attention/, 'because the banner is kept out of it' );
 like( $err, qr/\Q$message\E/, 'and written where an agent still reads it' );
 
-( $status, $out, $err ) = run_cli( 'ticket.list', '--project', $root );
+( $status, $out, $err ) = run_cli( 'ticket.list');
 like( $err, qr/\Q$message\E/, 'the default format is treated as machine output too' );
 unlike( $out, qr/Attention/, 'so the default payload stays parseable as well' );
 
 # Listing warnings does not print the banner over its own output.
-( $status, $out, $err ) = run_cli( 'warning.list', '--project', $root, '-o', 'json' );
+( $status, $out, $err ) = run_cli( 'warning.list', '-o', 'json' );
 is( $status, 0, 'the warning list succeeds' );
 is( scalar @{ decode_json($out) }, 2, 'and returns every warning' );
 is( $err, '', 'without repeating itself as a banner' );
@@ -107,23 +111,23 @@ is( $cleared->[0]{id}, 1, 'and reports which' );
 is_deeply( [ map { $_->{id} } @{ $tira->warning_list( project => $root ) } ], [2],
     'leaving the others alone' );
 
-( $status, $out, $err ) = run_cli( 'warning.clear', '--project', $root, '--all', '-o', 'json' );
+( $status, $out, $err ) = run_cli( 'warning.clear', '--all', '-o', 'json' );
 is( $status, 0, 'clearing everything succeeds' );
 is( scalar @{ decode_json($out) }, 1, 'and reports what it removed' );
 is_deeply( $tira->warning_list( project => $root ), [], 'the project is quiet again' );
 
-( $status, $out, $err ) = run_cli( 'ticket.list', '--project', $root, '-o', 'human' );
+( $status, $out, $err ) = run_cli( 'ticket.list', '-o', 'human' );
 unlike( $out, qr/Attention/, 'so ordinary commands stop showing a banner' );
 
 # The CLI surface.
-( $status, $out, $err ) = run_cli( 'warning.add', '--project', $root, '--message', 'From the CLI', '-o', 'json' );
+( $status, $out, $err ) = run_cli( 'warning.add', '--message', 'From the CLI', '-o', 'json' );
 is( $status, 0, 'the CLI adds a warning' );
 is( decode_json($out)->{message}, 'From the CLI', 'and returns it' );
 
-( $status, $out, $err ) = run_cli( 'warning.add', '--project', $root, '-o', 'json' );
+( $status, $out, $err ) = run_cli( 'warning.add', '-o', 'json' );
 is( $status, 2, 'a missing message exits 2' );
 
-( $status, $out, $err ) = run_cli( 'warning.clear', '--project', $root, '-o', 'json' );
+( $status, $out, $err ) = run_cli( 'warning.clear', '-o', 'json' );
 is( $status, 2, 'clearing without saying what exits 2' );
 like( $err, qr/--id|--all/, 'and says which to use' );
 
@@ -131,7 +135,7 @@ like( $err, qr/--id|--all/, 'and says which to use' );
 is( $status, 0, 'the command offers help' );
 unlike( $out, qr/--project|TIRA_HOME/, 'help never discloses project selection' );
 
-( $status, $out, $err ) = run_cli( 'ticket.list', '--project', $root, '--all', '-o', 'json' );
+( $status, $out, $err ) = run_cli( 'ticket.list', '--all', '-o', 'json' );
 is( $status, 2, 'the clearing options are refused on commands they do not belong to' );
 
 done_testing;

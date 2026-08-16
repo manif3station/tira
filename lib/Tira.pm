@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.13';
+our $VERSION = '2.14';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -7081,6 +7081,47 @@ sub _enforcement_record {
     };
     $self->_enforcement_write( $store, $log );
     return 1;
+}
+
+# What is still true, asked as a question.
+#
+# The bridge is a stream and is right to be one, but a stream can only be read
+# from where you joined it: it replays everything on connect and repeats each
+# finding as it climbs its ladder, so what is outstanding sits buried in
+# history and repetition. The enforcement log is flat - every row is something
+# that happened, and nothing on a row says whether it is still true.
+#
+# So the question could not be asked and therefore was not. Measured on this
+# project's own board the night this was written: one finding open for two and
+# a half hours, escalated from note to critical, read four times and acted on
+# never, and the outstanding set looked at for the first time only because the
+# owner asked why. An answer that depends on somebody remembering to look is
+# the thing this whole subsystem exists to remove. TKT-237.
+#
+# One entry per finding rather than one per telling, carrying what it is about,
+# how many times it has been said, when it started and how loud it has become -
+# an hour-old finding reads differently from a new one, and the difference is
+# the whole reason to ask.
+sub police_outstanding {
+    my ( $self, %args ) = @_;
+    my $store = $args{store} or die "A police store is required\n";
+    my $ledger = $self->_violation_ledger($store);
+    my @open;
+    for my $key ( sort keys %{ $ledger->{open} // {} } ) {
+        my $entry = $ledger->{open}{$key};
+        push @open, {
+            id => $entry->{id},
+            rule => $entry->{about}{rule},
+            ref => $entry->{about}{ref} // '',
+            assignee => $entry->{about}{assignee} // '',
+            action => $entry->{about}{action} // '',
+            seen => $entry->{seen},
+            tone => $entry->{tone},
+            first_seen => $entry->{first_seen},
+            last_seen => $entry->{last_seen},
+        };
+    }
+    return \@open;
 }
 
 sub enforcement_log {

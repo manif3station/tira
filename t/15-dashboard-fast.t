@@ -66,21 +66,22 @@ sub cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run( command => 'dashboard', argv => \@argv, tira => DashboardCountingTira->new );
     return ( $status, $out, $err );
 }
 
-my ( $status, $out, $err ) = cli( '--project', $root, '--type', 'ticket', '-o', 'human' );
+my ( $status, $out, $err ) = cli( '--type', 'ticket', '-o', 'human' );
 is( $status, 0, 'default human dashboard succeeds' );
 like( $out, qr/`\Q$third->{ref}\E`/, 'default human dashboard shows refs' );
 unlike( $out, qr/Newest title/, 'default human dashboard omits titles' );
 is( $err, '', 'default human dashboard has no warnings' );
 
-( $status, $out, $err ) = cli( '--project', $root, '--type', 'ticket', '--title', '-o', 'human' );
+( $status, $out, $err ) = cli( '--type', 'ticket', '--title', '-o', 'human' );
 like( $out, qr/`\Q$third->{ref}\E` Newest title/, 'title flag adds titles to human dashboard' );
 is( $err, '', 'title human dashboard has no warnings' );
 
-( $status, $out, $err ) = cli( '--project', $root, '--type', 'ticket', '-o', 'json' );
+( $status, $out, $err ) = cli( '--type', 'ticket', '-o', 'json' );
 ok( exists decode_json($out)->{ticket}{backlog}[0]{description}, 'JSON output remains the full dashboard' );
 
 done_testing;

@@ -56,8 +56,8 @@ sub show {
     my $status = do {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run( command => 'record.show', type => 'ticket', tira => $tira,
-            argv => [ '--project', $root, '--ref', $card->{ref}, @argv ] );
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => 'record.show', type => 'ticket', tira => $tira,
+            argv => [ '--ref', $card->{ref}, @argv ] ) };
     };
     return ( $status, $out, $err );
 }
@@ -134,8 +134,8 @@ like( $emptied, qr/deliverables/, 'and an empty list is named' );
     my $status = do {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run( command => 'record.list', type => 'ticket', tira => $tira,
-            argv => [ '--project', $root, '--fields', 'column', '-o', 'human' ] );
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => 'record.list', type => 'ticket', tira => $tira,
+            argv => [ '--fields', 'column', '-o', 'human' ] ) };
     };
     is( $status, 0, 'a listing narrowed to one field succeeds' );
     like( $out, qr/implement/, 'and says the field for the card it has' );

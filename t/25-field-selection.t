@@ -80,6 +80,7 @@ sub run_cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run(
         command => $command, ( defined $type ? ( type => $type ) : () ), argv => \@argv,
     );
@@ -88,7 +89,7 @@ sub run_cli {
 
 my ( $status, $out, $err ) = run_cli(
     'record.show', 'ticket',
-    '--project', $root, '--ref', $ticket->{ref}, '--fields', 'column', '-o', 'json',
+    '--ref', $ticket->{ref}, '--fields', 'column', '-o', 'json',
 );
 is( $status, 0, 'CLI field selection succeeds' );
 my $payload = decode_json($out);
@@ -96,7 +97,7 @@ is_deeply( [ sort keys %{$payload} ], [qw(column ref)], 'CLI show returns only r
 
 ( $status, $out, $err ) = run_cli(
     'record.show', 'ticket',
-    '--project', $root, '--ref', $ticket->{ref},
+    '--ref', $ticket->{ref},
     '--fields', 'column,sdlc_gate', '--fields', 'assignee', '-o', 'json',
 );
 is( $status, 0, 'repeated --fields flags succeed' );
@@ -105,14 +106,14 @@ is_deeply( [ sort keys %{ decode_json($out) } ], [qw(assignee column ref sdlc_ga
 
 ( $status, $out, $err ) = run_cli(
     'record.show', 'ticket',
-    '--project', $root, '--ref', $ticket->{ref}, '--fields', 'nosuchfield', '-o', 'json',
+    '--ref', $ticket->{ref}, '--fields', 'nosuchfield', '-o', 'json',
 );
 is( $status, 2, 'an unknown CLI field exits 2' );
 like( $err, qr/nosuchfield/, 'the CLI error names the offending field' );
 
 ( $status, $out, $err ) = run_cli(
     'export', undef,
-    '--project', $root, '--exclude-fields', 'description,comments', '-o', 'json',
+    '--exclude-fields', 'description,comments', '-o', 'json',
 );
 is( $status, 0, 'CLI export exclusion succeeds' );
 $payload = decode_json($out);
@@ -123,7 +124,7 @@ ok( exists $payload->{records}[0]{title}, 'export exclusion keeps the rest' );
 
 ( $status, $out, $err ) = run_cli(
     'record.update', 'ticket',
-    '--project', $root, '--ref', $ticket->{ref}, '--title', 'Nope', '--fields', 'column', '-o', 'json',
+    '--ref', $ticket->{ref}, '--title', 'Nope', '--fields', 'column', '-o', 'json',
 );
 is( $status, 2, 'field selection on a mutation exits 2 instead of being ignored' );
 like( $err, qr/show, list, and export/, 'the error explains where selection applies' );

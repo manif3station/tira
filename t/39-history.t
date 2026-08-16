@@ -125,6 +125,7 @@ sub run_cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run(
         command => $command, ( defined $type ? ( type => $type ) : () ), argv => \@argv,
     );
@@ -132,7 +133,7 @@ sub run_cli {
 }
 
 my ( $status, $out, $err ) = run_cli(
-    'history.list', undef, '--project', $root, '--ref', $ref, '--field', 'title', '-o', 'json',
+    'history.list', undef, '--ref', $ref, '--field', 'title', '-o', 'json',
 );
 is( $status, 0, 'the CLI history command succeeds' );
 my $payload = decode_json($out);
@@ -140,12 +141,12 @@ is( scalar @{$payload}, 3, 'the CLI returns the field timeline' );
 is( $payload->[-1]{after}, 'Third title', 'the newest value is last' );
 
 ( $status, $out, $err ) = run_cli(
-    'history.list', undef, '--project', $root, '--ref', $ref, '--count', '-o', 'json',
+    'history.list', undef, '--ref', $ref, '--count', '-o', 'json',
 );
 is( decode_json($out)->{count}, scalar @{$all} + 0, 'CLI count matches the engine' );
 
 ( $status, $out, $err ) = run_cli(
-    'history.list', undef, '--project', $root, '--ref', $ref, '--field', 'nope', '-o', 'json',
+    'history.list', undef, '--ref', $ref, '--field', 'nope', '-o', 'json',
 );
 is( $status, 2, 'an unknown CLI field exits 2' );
 like( $err, qr/nope/, 'the error names the offending field' );
@@ -153,7 +154,7 @@ like( $err, qr/nope/, 'the error names the offending field' );
 $tick = '2026-08-07T12:30:00Z';
 $tira->record_update( project => $root, ref => $ref, description => ( 'L' x 3000 ) );
 ( $status, $out, $err ) = run_cli(
-    'history.list', undef, '--project', $root, '--ref', $ref, '--field', 'description', '-o', 'json',
+    'history.list', undef, '--ref', $ref, '--field', 'description', '-o', 'json',
 );
 my $long = decode_json($out)->[-1];
 is( length $long->{after}, 2001, 'long values truncate on read like every other long text' );
@@ -161,7 +162,7 @@ ok( $long->{after_truncated}, 'the truncation is marked' );
 is( $long->{after_length}, 3000, 'the original length is reported' );
 
 ( $status, $out, $err ) = run_cli(
-    'history.list', undef, '--project', $root, '--ref', $ref,
+    'history.list', undef, '--ref', $ref,
     '--field', 'description', '--full', '-o', 'json',
 );
 is( length decode_json($out)->[-1]{after}, 3000, '--full restores the complete value' );

@@ -28,6 +28,10 @@ sub cli {
 }
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
+
+# The board every command here works on, named the one way there is.
+# TKT-250.
+$ENV{TIRA_HOME} = $root;
 $tira->project_new( name => 'Remind', dir => $root, members => ['michael'], columns => ['Backlog, Doing'],
     sow_prefix => 'RMS', epic_prefix => 'RME', ticket_prefix => 'RMT' );
 
@@ -82,7 +86,7 @@ like( $tira->record_reminder($sow), qr/\Qtira.sow.update --ref $sow->{ref}\E/,
     'the fix names the board the record actually lives on' );
 
 # Through the command line, which is where an agent meets it.
-my ( $status, $out ) = cli( 'record.create', '--project', $root, '--title', 'From the CLI', '-o', 'json' );
+my ( $status, $out ) = cli( 'record.create', '--title', 'From the CLI', '-o', 'json' );
 is( $status, 0, 'the CLI creates a ticket' );
 like( decode_json($out)->{reminder}, qr/missing: description,reporter/,
     'and hands back the same reminder' );

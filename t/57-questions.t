@@ -28,6 +28,10 @@ sub run_cli {
 }
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
+
+# The board every command here works on, named the one way there is.
+# TKT-250.
+$ENV{TIRA_HOME} = $root;
 $tira->project_new(
     name => 'Asked', dir => $root, members => ['michael'], columns => ['Backlog, Doing'],
     sow_prefix => 'ASS', epic_prefix => 'ASE', ticket_prefix => 'AST',
@@ -205,24 +209,21 @@ is( $tira->question_list( project => $root, ref => $epic->{ref} )->{questions}[0
     'The whole importer.', 'and the answer landed on the right card' );
 
 # The CLI surface, by reference with no board argument.
-my ( $status, $out ) = run_cli( 'question.ask', '--project', $root,
-    '--ref', $card->{ref}, '--text', 'From the CLI', '-o', 'json' );
+my ( $status, $out ) = run_cli( 'question.ask', '--ref', $card->{ref}, '--text', 'From the CLI', '-o', 'json' );
 is( $status, 0, 'the CLI asks a question' );
 is( decode_json($out)->{status}, 'new', 'and it starts new' );
 
-( $status, $out ) = run_cli( 'question.list', '--project', $root, '--ref', $card->{ref}, '-o', 'json' );
+( $status, $out ) = run_cli( 'question.list', '--ref', $card->{ref}, '-o', 'json' );
 is( $status, 0, 'the CLI lists them' );
 ok( decode_json($out)->{instruction}, 'with the next-step instruction' );
 
-( $status, $out ) = run_cli( 'question.answer', '--project', $root,
-    '--id', 'Q-005', '--text', 'Answered from the CLI', '-o', 'json' );
+( $status, $out ) = run_cli( 'question.answer', '--id', 'Q-005', '--text', 'Answered from the CLI', '-o', 'json' );
 is( $status, 0, 'the CLI answers one' );
 
-( $status, $out ) = run_cli( 'question.mark', '--project', $root,
-    '--id', 'Q-005', '--mark', 'ok', '-o', 'json' );
+( $status, $out ) = run_cli( 'question.mark', '--id', 'Q-005', '--mark', 'ok', '-o', 'json' );
 is( $status, 0, 'the CLI marks one' );
 
-( $status, $out ) = run_cli( 'question.ask', '--project', $root, '--ref', 'ZZZ-9', '--text', 'x', '-o', 'json' );
+( $status, $out ) = run_cli( 'question.ask', '--ref', 'ZZZ-9', '--text', 'x', '-o', 'json' );
 is( $status, 2, 'an unknown reference exits 2' );
 
 ( $status, $out ) = run_cli( 'question.list', '--help' );

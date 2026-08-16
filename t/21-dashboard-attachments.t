@@ -35,6 +35,7 @@ sub browser_cli {
     open my $stderr, '>', \$err or die $!;
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
+    local $ENV{TIRA_HOME} = $root;
     my $status = Tira::CLI->run(
         command => $command, argv => \@argv, tira => $tira,
         browser_server => sub { push @calls, { @_ }; return 1 },
@@ -43,7 +44,7 @@ sub browser_cli {
 }
 
 my ( $status, undef, undef, $calls ) =
-  browser_cli( 'dashboard.ticket', '--project', $root, '--title', '-o', 'browser' );
+  browser_cli( 'dashboard.ticket', '--title', '-o', 'browser' );
 is( $status, 0, 'browser dashboard starts with attachment providers' );
 
 for my $provider (qw(attachment_fetch attachment_add attachment_remove)) {

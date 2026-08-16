@@ -80,8 +80,8 @@ sub watched_from {
     {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI->run( command => 'police', tira => $tira,
-            argv => [ '--project', $watched, '--once', '--store', $store ] );
+        do { local $ENV{TIRA_HOME} = $watched; Tira::CLI->run( command => 'police', tira => $tira,
+            argv => [ '--once', '--store', $store ] ) };
     }
     chdir $was or die "cannot return to $was: $!";
     return join "\n", @{ $tira->bridge_backlog( store => $store, lines => 50 ) };

@@ -217,11 +217,11 @@ test_psgi $app, sub {
     {
         local *STDOUT = $stdout;
         local *STDERR = $stderr;
-        Tira::CLI->run(
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
             command => 'dashboard.ticket', tira => $tira,
-            argv => [ '--project', $root, '-o', 'browser' ],
+            argv => [ '-o', 'browser' ],
             browser_server => sub { push @calls, {@_}; return 1 },
-        );
+        ) };
     }
     my $html = $calls[0]{render}->();
 

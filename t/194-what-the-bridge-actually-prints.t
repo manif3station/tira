@@ -86,8 +86,8 @@ my ( $out, $warned ) = ( '', '' );
     binmode $handle, ':raw';
     local *STDOUT = $handle;
     local $SIG{__WARN__} = sub { $warned .= shift };
-    Tira::CLI->run( command => 'policy.bridge', tira => $tira,
-        argv => [ '--project', $root, '--store', $store, '--once' ] );
+    do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => 'policy.bridge', tira => $tira,
+        argv => [ '--store', $store, '--once' ] ) };
     close $handle;
 }
 
@@ -153,8 +153,8 @@ is( $warned, '',
         local *STDOUT = $handle;
         # record.list with a type, which is what tira.ticket.list resolves to:
         # the refs-only guard names record.list and search by those names.
-        Tira::CLI->run( command => 'record.list', type => 'ticket', tira => $tira,
-            argv => [ '--project', $root, '--refs-only', '-o', 'human' ] );
+        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => 'record.list', type => 'ticket', tira => $tira,
+            argv => [ '--refs-only', '-o', 'human' ] ) };
     }
     close $handle;
 

@@ -79,8 +79,8 @@ sub unbacked {
 
 # --- then it is backed up ------------------------------------------------------------
 
-Tira::CLI->run( command => 'backup', tira => $tira,
-    argv => [ '--project', $root, '-o', 'json' ] );
+do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run( command => 'backup', tira => $tira,
+    argv => [ '-o', 'json' ] ) };
 
 my ( $found, $world ) = unbacked();
 ok( defined $world->{backed_up_at},
@@ -111,8 +111,8 @@ is_deeply( $found, [],
     );
     $other->policy_add( project => $plain, rule => 'board-unbacked', age => '7d',
         action => 'bridge-reminder' );
-    Tira::CLI->run( command => 'backup', tira => $other,
-        argv => [ '--project', $plain, '-o', 'json' ] );
+    do { local $ENV{TIRA_HOME} = $plain; Tira::CLI->run( command => 'backup', tira => $other,
+        argv => [ '-o', 'json' ] ) };
 
     my $world = Tira::CLI::_police_world( tira => $other, project => $plain );
     ok( defined $world->{backed_up_at},

@@ -37,6 +37,10 @@ sub run_cli {
 my $home = File::Spec->catdir( $tmp, 'home' );
 my $config = File::Spec->catfile( $home, '.developer-dashboard', 'config', 'config.json' );
 my $root = File::Spec->catdir( $tmp, 'proj' );
+
+# The board every command here works on, named the one way there is.
+# TKT-250.
+$ENV{TIRA_HOME} = $root;
 $tira->project_new( name => 'MT5', dir => $root, columns => ['Backlog, Doing'] );
 
 # Resolved once the directory exists, because that is the form Tira reports.
@@ -151,13 +155,13 @@ close $seed;
 # The CLI surface.
 {
     local $ENV{HOME} = $home;
-    my ( $status, $out ) = run_cli( 'collector.show', '--project', $root, '-o', 'json' );
+    my ( $status, $out ) = run_cli( 'collector.show', '-o', 'json' );
     is( $status, 0, 'the CLI shows the entry' );
     is( decode_json($out)->{name}, 'tira.mt5', 'as it would be installed' );
 
-    ( $status, $out ) = run_cli( 'collector.install', '--project', $root, '-o', 'json' );
+    ( $status, $out ) = run_cli( 'collector.install', '-o', 'json' );
     is( $status, 0, 'the CLI installs it' );
-    ( $status, $out ) = run_cli( 'collector.remove', '--project', $root, '-o', 'json' );
+    ( $status, $out ) = run_cli( 'collector.remove', '-o', 'json' );
     is( $status, 0, 'and removes it' );
 
     ( $status, $out ) = run_cli( 'collector.show', '--help' );

@@ -1,5 +1,22 @@
 Revision history for Tira
 
+2.30  2026-08-16
+
+    - TKT-216: eight commands took a required argument straight into a
+      message, a comparison or a path, so a missing one produced a Perl
+      warning naming an internal hash key and a line number - which reads
+      like a crash - followed by a refusal about the empty string it had
+      been given. "Person '' not found" is true and useless.
+    - Nothing was ever damaged by it, and that is asserted here rather than
+      assumed: the value reached a message and the validation underneath
+      still caught it, and a refused removal leaves the people byte for
+      byte as they were. What was wrong was everything the caller was told.
+    - Each is guarded where it stands rather than in whatever it delegates
+      to, so a change to a delegate cannot quietly remove the guard from its
+      caller - which matters for two of the eight, since people.activate and
+      people.deactivate share one implementation and comment.attach is
+      attachment.add under another name.
+
 2.29  2026-08-16
 
     - TKT-215: a command that cannot work without a type now says so in the

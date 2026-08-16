@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.29';
+our $VERSION = '2.30';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -683,8 +683,20 @@ sub person_add {
     } );
 }
 
+# Required before it is used, not after.
+#
+# Eight commands took a required argument straight into a message, a comparison
+# or a path, so a missing one produced a Perl warning naming an internal hash
+# key and a line number - which reads like a crash - followed by a refusal about
+# the empty string it had been given: "Person '' not found", true and useless.
+# Nothing was ever damaged; the validation underneath still caught it. What was
+# wrong was everything the caller was told. TKT-216.
+#
+# Guarded where each stands rather than in whatever it delegates to, so a change
+# to a delegate cannot quietly remove the guard from its caller.
 sub person_update {
     my ( $self, %args ) = @_;
+    die "A person is named by --id\n" if !defined $args{id} || $args{id} eq '';
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         my ( $path, $data ) = $self->_project_data($root);
@@ -700,6 +712,7 @@ sub person_update {
 
 sub person_remove {
     my ( $self, %args ) = @_;
+    die "A person is named by --id\n" if !defined $args{id} || $args{id} eq '';
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         for my $record ( @{ $self->record_list( project => $root ) } ) {
@@ -722,11 +735,13 @@ sub person_remove {
 
 sub person_activate {
     my ( $self, %args ) = @_;
+    die "A person is named by --id\n" if !defined $args{id} || $args{id} eq '';
     return $self->_set_person_active( %args, active => Cpanel::JSON::XS::true );
 }
 
 sub person_deactivate {
     my ( $self, %args ) = @_;
+    die "A person is named by --id\n" if !defined $args{id} || $args{id} eq '';
     return $self->_set_person_active( %args, active => Cpanel::JSON::XS::false );
 }
 
@@ -752,6 +767,7 @@ sub link_type_add {
 
 sub link_type_remove {
     my ( $self, %args ) = @_;
+    die "A link type is named by --outward\n" if !defined $args{outward} || $args{outward} eq '';
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         my ( $path, $data ) = $self->_project_data($root);
@@ -2254,6 +2270,7 @@ sub hierarchy_unlink {
 
 sub hierarchy_show {
     my ( $self, %args ) = @_;
+    die "A card is named by --ref\n" if !defined $args{ref} || $args{ref} eq '';
     my $root = $self->discover_project(%args);
     my %seen;
     my $build;
@@ -3025,11 +3042,13 @@ sub comment_remove {
 
 sub comment_attach {
     my ( $self, %args ) = @_;
+    die "An attachment is a file, given by --file\n" if !defined $args{file} || $args{file} eq '';
     return $self->attachment_add(%args);
 }
 
 sub attachment_add {
     my ( $self, %args ) = @_;
+    die "An attachment is a file, given by --file\n" if !defined $args{file} || $args{file} eq '';
     my $file = $self->_canonical_path( $args{file}, "attachment '$args{file}'" );
     open my $fh, '<:raw', $file or die "Cannot read attachment '$file': $!\n";
     my $content = do { local $/; <$fh> };

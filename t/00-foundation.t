@@ -124,7 +124,7 @@ like( $human, qr/^# TKT-001: First ticket$/m, 'human output is Markdown' );
 eval { $tira->create_record( project => $project_dir, type => 'ticket' ) };
 like( $@, qr/title is required/, 'record creation requires a title' );
 eval { $tira->create_record( project => $project_dir, type => 'unknown', title => 'No' ) };
-like( $@, qr/Unsupported record type/, 'record creation rejects unknown types' );
+like( $@, qr/not a type this board has/, 'record creation rejects unknown types' );
 eval { $tira->discover_project( start => $tmp ) };
 like( $@, qr/No Tira project found/, 'project discovery reports a missing project' );
 

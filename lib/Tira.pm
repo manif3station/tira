@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.28';
+our $VERSION = '2.29';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -8288,10 +8288,23 @@ sub _decode_legacy_utf8 {
     return $characters;
 }
 
+# Refused in the words somebody would type, not in the vocabulary of the thing
+# that noticed. This said "Unsupported record type ''" when the option was
+# simply absent, from five commands - board.refs, board.show, column.list,
+# column.sync and column.update - while their usage line named no option at
+# all. There was no path from the message to --type ticket except guessing, and
+# the usage said the opposite of the truth.
+#
+# The standard is this project's own, and he named it: "Policy rule
+# card-sandbox-missing needs --enter" takes no guessing. So a missing type says
+# which option and what it takes; a type that is not one of the three says what
+# was typed and what would have been accepted.
 sub _valid_type {
     my ( $self, $type ) = @_;
     $type //= '';
-    die "Unsupported record type '$type'\n" if $type !~ /\A(sow|epic|ticket)\z/;
+    die "This command needs --type ticket, epic or sow\n" if $type eq '';
+    die "'$type' is not a type this board has - --type takes ticket, epic or sow\n"
+      if $type !~ /\A(sow|epic|ticket)\z/;
     return $1;
 }
 

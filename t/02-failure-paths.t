@@ -55,7 +55,10 @@ is_deeply( $epic->{linkage}{ticket_refs}, [], 'epic linkage factory is exercised
 eval { $default_clock->format_output( {}, output => 'xml' ) };
 like( $@, qr/Unsupported output format/, 'unsupported output formats are rejected' );
 eval { $default_clock->board_show( project => $project, type => 'unknown' ) };
-like( $@, qr/Unsupported record type/, 'board commands reject unknown entity types' );
+like( $@, qr/not a type this board has/,
+    'board commands reject unknown entity types' );
+like( $@, qr/--type takes ticket, epic or sow/,
+    'and say what they would have taken' );
 like(
     $default_clock->format_output( { result => 'ok' }, output => 'human' ),
     qr/^# Tira Result/m,

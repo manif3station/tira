@@ -1,5 +1,27 @@
 Revision history for Tira
 
+2.29  2026-08-16
+
+    - TKT-215: a command that cannot work without a type now says so in the
+      words somebody would type. Running tira.column.list answered "error:
+      Unsupported record type ''" - an internal concept, for an option that
+      was simply absent - while its usage line named no option at all, so a
+      reader who checked first was told the opposite of the truth. There was
+      no path from the message to --type ticket except guessing.
+    - Five commands, not one: board.refs, board.show, column.list,
+      column.sync and column.update all reach that refusal through one
+      place, so fixing only the one it was reported on would have left four
+      saying the same thing. A missing type now names the option and the
+      values it takes; a type that is not one of the three says what was
+      typed as well.
+    - The standard is this project's own, and he named it: "Policy rule
+      card-sandbox-missing needs --enter" takes no guessing.
+    - Checked for the same shape everywhere rather than assumed, and it is a
+      family: 89 entrypoints refuse with a message that names no option at
+      all. Most of those say what is missing in a reader's words, which is
+      the better half of this fault, so they are raised on their own rather
+      than folded in here.
+
 2.28  2026-08-16
 
     - TKT-207: the guard that exists to hold the two priority tables

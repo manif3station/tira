@@ -3256,10 +3256,18 @@ my %RECORD_USAGE = (
     restore => '--ref REF [--column SLUG]',
 );
 
+# The commands that cannot work without a type. Their usage line named no
+# option at all, so a reader who checked it before running anything was told
+# the opposite of the truth: that the command took nothing. TKT-215.
+my %NEEDS_TYPE = map { $_ => 1 }
+  qw(board.refs board.show column.list column.sync column.update);
+
 sub _usage {
     my ( $command, $type ) = @_;
     return "Usage: dashboard tira.project.create --name NAME [--dir DIR] [-o toon|json|human]\n"
       if $command eq 'project.create';
+    return "Usage: dashboard tira.$command --type ticket|epic|sow [options] [-o toon|json|human]\n"
+      if $NEEDS_TYPE{ $command // '' };
 
     if ( defined $type ) {
         my ($verb) = ( $command // '' ) =~ /\.([a-z]+)\z/;

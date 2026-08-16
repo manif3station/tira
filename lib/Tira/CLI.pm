@@ -3152,12 +3152,48 @@ sub _utf8_bytes {
     return utf8::is_utf8($text) ? encode_utf8($text) : $text;
 }
 
+# What each record verb takes, so asking a command how to use it does not
+# answer about a different one.
+#
+# Every record command shared one line and the line named create, so
+# tira.ticket.move --help said 'Usage: dashboard tira.ticket.create --title
+# TITLE'. 21 of the 24 record verbs answered about a command that was not the
+# one asked about; the three that were right were the three creates. It adapted
+# the board - tira.sow.list answered with tira.sow.create - which is why it read
+# as considered rather than as a fallback, and why it stood. A wrong answer that
+# looks specific is not questioned.
+#
+# The shapes are the ones verified against the running commands when the command
+# reference was given its record section, rather than written from memory: that
+# is how discard was found to take no reason. TKT-235.
+my %RECORD_USAGE = (
+    create  => '--title TEXT [record field arguments]',
+    show    => '--ref REF [--fields LIST] [--brief|--full]',
+    list    => '[--column SLUG] [--assignee ID] [--fields LIST] [--count]',
+    update  => '--ref REF [record field arguments]',
+    move    => '--ref REF --column SLUG [--author NAME]',
+    clone   => '--ref REF --title TEXT',
+    discard => '--ref REF',
+    restore => '--ref REF [--column SLUG]',
+);
+
 sub _usage {
     my ( $command, $type ) = @_;
     return "Usage: dashboard tira.project.create --name NAME [--dir DIR] [-o toon|json|human]\n"
       if $command eq 'project.create';
-    return "Usage: dashboard tira.$type.create --title TITLE [record field options] [-o toon|json|human]\n"
-      if defined $type;
+
+    if ( defined $type ) {
+        my ($verb) = ( $command // '' ) =~ /\.([a-z]+)\z/;
+        my $takes = $RECORD_USAGE{ $verb // '' };
+        return "Usage: dashboard tira.$type.$verb $takes [-o toon|json|human]\n"
+          if defined $takes;
+
+        # A record verb this does not know is named rather than described,
+        # which is still an answer about the command that was asked.
+        return "Usage: dashboard tira.$type." . ( $verb // 'command' )
+          . " [options] [-o toon|json|human]\n";
+    }
+
     return "Usage: dashboard tira.$command [options] [-o toon|json|human]\n";
 }
 

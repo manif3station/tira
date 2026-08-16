@@ -1,5 +1,23 @@
 Revision history for Tira
 
+2.16  2026-08-16
+
+    - TKT-235: asking a record command how to use it no longer answers
+      about a different one. Every one of them shared a usage line naming
+      create, so tira.ticket.move said "Usage: dashboard tira.ticket.create
+      --title TITLE" - 21 of the 24 record verbs answered about a command
+      that was not the one asked about, and the three that were right were
+      the three creates.
+    - It adapted the board, so tira.sow.list answered with tira.sow.create.
+      That is why it read as considered rather than as a fallback and why
+      it stood: a wrong answer that looks specific is not questioned.
+    - Each verb names itself and describes its own arguments, because a
+      line that names the command and then lists create's options is the
+      same fault with the first word changed. The shapes are the ones
+      verified against the running commands when the reference gained its
+      record section, not written from memory - which is how discard was
+      found to take no reason.
+
 2.15  2026-08-16
 
     - TKT-238: conversation-not-folded says nothing about a card whose work

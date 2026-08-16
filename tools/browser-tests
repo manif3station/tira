@@ -178,6 +178,7 @@ build_browser_board() {
 # that contradict each other, and the reason each one gets its own.
 build_priority_board() {
     local where="$1"
+    local TIRA_BOARD="$where"; export TIRA_BOARD
     for spare in 1 2 3 4; do
         make_card "$where" "Something to order $spare" >/dev/null
     done
@@ -266,13 +267,13 @@ tira project.new --name Wide --dir "$wide" --members michael \
     --sow-prefix WDS --epic-prefix WDE --ticket-prefix WDT -o json >/dev/null
 build_wide_board "$wide"
 wide_html="$scratch/wide.html"
-tira dashboard --title -o table >"$wide_html" 2>/dev/null
+TIRA_BOARD="$wide" tira dashboard --title -o table >"$wide_html" 2>/dev/null
 
 # The same board as JSON, for the tests that drive a refresh. priority-sort
 # needs a column with more than two cards in it, and the browsing board has
 # three cards altogether - which is how that test failed on its first run.
 wide_data="$scratch/wide-data.json"
-tira dashboard -o json >"$wide_data" 2>/dev/null
+TIRA_BOARD="$wide" tira dashboard -o json >"$wide_data" 2>/dev/null
 
 html="$scratch/board.html"
 tira dashboard --title -o table >"$html" 2>/dev/null || {
@@ -307,7 +308,7 @@ tira project.new --name Browsing --dir "$browser_board" --members 'michael, ada'
     --sow-prefix SOW --epic-prefix EPC --ticket-prefix TKT -o json >/dev/null
 build_browser_board "$browser_board"
 
-tira dashboard -o "browser=127.0.0.1:$browser_port" \
+TIRA_BOARD="$browser_board" tira dashboard -o "browser=127.0.0.1:$browser_port" \
     >"$scratch/browser-board.log" 2>&1 &
 browsing=$!
 for _ in $(seq 1 60); do
@@ -340,7 +341,7 @@ tira project.new --name Priority --dir "$priority_board" --members michael \
     --sow-prefix PRS --epic-prefix PRE --ticket-prefix PRT -o json >/dev/null
 build_priority_board "$priority_board"
 
-tira dashboard -o "browser=127.0.0.1:$priority_port" \
+TIRA_BOARD="$priority_board" tira dashboard -o "browser=127.0.0.1:$priority_port" \
     >"$scratch/priority-board.log" 2>&1 &
 prioritising=$!
 for _ in $(seq 1 60); do

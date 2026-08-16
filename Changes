@@ -1,5 +1,26 @@
 Revision history for Tira
 
+2.33  2026-08-16
+
+    - TKT-259: an assertion in a helper is held to the same standard as one
+      in a test. Four guards hold this suite to standards it set itself -
+      a denial must establish its subject, a refusal must say which refusal
+      it got, every declared refusal must be exercised, a board must be
+      reached the way real usage reaches one - and each globbed t/*.t.
+      Assertions also live in t/lib, where a helper makes a claim on a
+      test's behalf, and no guard had ever read one of those files.
+    - Nothing was wrong in them, which is why nobody would have noticed: the
+      fault is that nothing was looking. The first of those helpers was
+      written while moving one decision out of nine tests into one place -
+      the right shape - and it quietly moved two assertions outside every
+      check this suite makes of its own.
+    - Which files the guards read is decided in one place now, because four
+      copies of that decision is the same drift shape one level up.
+    - Proved by running: a helper carrying the fault t/147 exists to catch
+      is reported by name, and with the list narrowed back to the tests
+      alone the same fault passes - which is what happened for the life of
+      the suite until now.
+
 2.32  2026-08-16
 
     - TKT-224: no command gets a free pass from the documentation guard. It

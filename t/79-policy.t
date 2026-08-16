@@ -8,7 +8,8 @@ use File::Temp qw(tempdir);
 use Cpanel::JSON::XS ();
 use Test::More;
 
-use lib 'lib';
+use lib 'lib', 't/lib';
+use Suite qw(assertion_files);
 use Tira;
 
 my $tmp = tempdir( CLEANUP => 1 );
@@ -372,7 +373,7 @@ for my $action (qw(bridge-reminder print-reminder log-only)) {
     ok( scalar @declared, 'some rules declare an option they will not honour' );
 
     my $tests = '';
-    for my $file ( glob 't/*.t' ) {
+    for my $file ( assertion_files() ) {
         open my $fh, '<', $file or next;
         $tests .= do { local $/; <$fh> };
         close $fh;

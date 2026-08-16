@@ -27,10 +27,13 @@ use warnings;
 
 use Test::More;
 
+use lib 't/lib';
+use Suite qw(assertion_files);
+
 my $DECLARED = qr/empty is what passes/;
 
 my @bare;
-for my $file ( sort glob 't/*.t' ) {
+for my $file ( assertion_files() ) {
     open my $fh, '<:raw', $file or die "$file: $!";
     my @lines = <$fh>;
     close $fh;

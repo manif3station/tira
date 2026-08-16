@@ -21,7 +21,10 @@ use warnings;
 use File::Spec;
 use Test::More;
 
-my @tests = glob 't/*.t';
+use lib 't/lib';
+use Suite qw(assertion_files);
+
+my @tests = assertion_files();
 cmp_ok( scalar @tests, '>', 100, 'there is a suite to measure' );
 
 my ( $by_reference, $by_environment ) = ( 0, 0 );

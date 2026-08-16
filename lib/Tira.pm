@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.30';
+our $VERSION = '2.31';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -5099,11 +5099,18 @@ sub policy_evaluate {
         elsif ( $rule eq 'card-duration' ) {
             for my $record ( @{$records} ) {
                 next if !$resolved_for->( $policy, $record );
-                next if ( $record->{column} // '' ) ne ( $policy->{column} // '' );
+
+                # By role where one was given, exactly as enter and before are
+                # read. The role was storable and documented and no rule
+                # resolved it, so a policy declared with --column-role watched
+                # a column called nothing. TKT-221.
+                my $watched = $self->_policy_column_for(
+                    project => $root, policy => $policy, field => 'column', record => $record );
+                next if ( $record->{column} // '' ) ne ( $watched // '' );
                 my ($since) = $self->_dwell_start( $root, $record->{ref} );
                 next if !defined $since;
                 next if !$self->_policy_older_than( $since, $policy->{age} );
-                $report->( $policy, $record, "in $policy->{column} since $since" );
+                $report->( $policy, $record, "in $watched since $since" );
             }
         }
         elsif ( $rule eq 'card-stalled' ) {
@@ -5122,7 +5129,9 @@ sub policy_evaluate {
         elsif ( $rule eq 'checklist-idle' ) {
             for my $record ( @{$records} ) {
                 next if !$resolved_for->( $policy, $record );
-                next if ( $record->{column} // '' ) ne ( $policy->{column} // '' );
+                next if ( $record->{column} // '' ) ne ( $self->_policy_column_for(
+                    project => $root, policy => $policy, field => 'column',
+                    record => $record ) // '' );
                 my $checklist = $record->{checklist} // [];
                 next if !@{$checklist};
                 my ($latest) = sort { $b cmp $a } map { $_->{last_updated} } @{$checklist};
@@ -5512,7 +5521,11 @@ sub policy_evaluate {
             }
         }
         elsif ( $rule eq 'wip-limit' ) {
-            my @in = grep { ( $_->{column} // '' ) eq ( $policy->{column} // '' ) } @{$records};
+            my $watched = @{$records}
+              ? $self->_policy_column_for( project => $root, policy => $policy,
+                  field => 'column', record => $records->[0] )
+              : $policy->{column};
+            my @in = grep { ( $_->{column} // '' ) eq ( $watched // '' ) } @{$records};
 
             # Read when the rule runs rather than copied when the policy was
             # declared. An owner who raises the number and a rule still using
@@ -5529,7 +5542,7 @@ sub policy_evaluate {
             # tell them apart gets its limit raised until it never fires,
             # which is the same as deleting it.
             $report->( $policy, undef,
-                scalar(@in) . " cards in $policy->{column}, limit is $max: "
+                scalar(@in) . " cards in $watched, limit is $max: "
                   . join( ', ', map {
                     $_->{ref} . ' (' . ( ( $_->{assignee} // '' ) ne '' ? $_->{assignee} : 'nobody' ) . ')'
                 } @in ) );
@@ -5537,9 +5550,12 @@ sub policy_evaluate {
         elsif ( $rule eq 'gate-missing' ) {
             for my $record ( @{$records} ) {
                 next if !$resolved_for->( $policy, $record );
-                next if ( $record->{column} // '' ) ne ( $policy->{column} // '' );
+                next if ( $record->{column} // '' ) ne ( $self->_policy_column_for(
+                    project => $root, policy => $policy, field => 'column',
+                    record => $record ) // '' );
                 next if @{ $record->{gate_passing_log} // [] };
-                $report->( $policy, $record, "reached $policy->{column} with no gate recorded" );
+                $report->( $policy, $record,
+                    "reached $record->{column} with no gate recorded" );
             }
         }
         elsif ( $rule eq 'column-unwatched' ) {

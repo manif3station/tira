@@ -1,5 +1,28 @@
 Revision history for Tira
 
+2.31  2026-08-16
+
+    - TKT-221: --column-role can be given. The command reference offered it
+      beside --enter-role and --before-role; it was never in the parser, so
+      policy.add answered "Unknown option: column-role" and refused the
+      whole command, while the engine declared the field and stored it.
+    - And no rule read it. The field was storable, documented and evaluated
+      in the loop that saves a policy, but only enter and before were ever
+      resolved through a role - so a policy declared by column role would
+      have watched a column called nothing. Every rule that watches a
+      column now resolves it the same way: card-duration, checklist-idle,
+      wip-limit and gate-missing.
+    - Why 100% coverage did not catch it, which is the more useful half.
+      The loop that stores the three roles has all its statements executed
+      by the tests that set the other two; the pass for this one reaches a
+      covered "next if !defined" and stops. A field can be declared,
+      evaluated, documented and fully covered and still have never once
+      held a value. Coverage says a line ran, not that a case was tried.
+    - Three lines that copied the role fields into the policy are gone.
+      They arrive in the arguments every command passes through and
+      policy_add reads them from there - proved by taking one away and
+      watching nothing change, which is what made it worth removing.
+
 2.30  2026-08-16
 
     - TKT-216: eight commands took a required argument straight into a

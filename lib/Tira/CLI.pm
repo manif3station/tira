@@ -193,6 +193,14 @@ sub run {
         'role=s@' => \$option{roles},
         'require-link=s' => \$option{require_link}, 'link-to=s' => \$option{link_to},
         'enter-role=s' => \$option{enter_role}, 'before-role=s' => \$option{before_role},
+
+        # The third of the three the command reference offers. It was
+        # documented beside the other two and never in this list, so
+        # policy.add answered "Unknown option: column-role" and refused the
+        # whole command - while the engine declared the field and evaluated it
+        # in the same loop as its neighbours. Only the way to give it a value
+        # was missing. TKT-221.
+        'column-role=s' => \$option{column_role},
         'rounds=i' => \$option{rounds},
         'store=s' => \$option{store},
         'dashboard-host=s' => \$option{dashboard_host},
@@ -2137,8 +2145,10 @@ sub _invoke {
         $policy{type} = $option->{type} if defined $option->{type};
         $policy{on_column} = $option->{on_column} if defined $option->{on_column};
         $policy{ref} = $args{ref} if defined $args{ref};
-        $policy{enter_role} = $option->{enter_role} if defined $option->{enter_role};
-        $policy{before_role} = $option->{before_role} if defined $option->{before_role};
+        # The three role fields are not copied here. They arrive in %args
+        # like every other option and policy_add reads them from there, which
+        # was proved by taking the copy away and watching nothing change - so
+        # the line existed to look careful rather than to do anything. TKT-221.
 
         # --before already means a date filter elsewhere, so the column form
         # is spelled out rather than overloading a flag that means something

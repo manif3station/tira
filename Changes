@@ -1,5 +1,25 @@
 Revision history for Tira
 
+2.35  2026-08-16
+
+    - TKT-269: a card that says it stands alone is not an orphan. Whether a
+      card is legitimately parentless is decided in three places and one of
+      them disagreed: the engine's definition of a complete card honours the
+      standalone label, the push gate honours it in the same words, the
+      command reference documents it - and orphan-card had never heard of
+      it, reporting any card with no parent.
+    - Counted on this project's own board: 84 outstanding violations, every
+      one orphan-card, every one critical, every one seen twelve times since
+      that morning, and every one of the 84 carrying the label. The loudest
+      thing on the bridge was a rule shouting about a declaration the rest
+      of the tool accepts, on finished work, for ever - and a rule that
+      reports the same unactionable thing for ever is worse than no rule, on
+      a channel somebody reads.
+    - The rule asks the engine now, which is where the exception was already
+      written down. The same shape as the definition of a complete card,
+      which used to be written twice, and where work ends, which used to be
+      worked out twice.
+
 2.34  2026-08-16
 
     - TKT-268: a refusal that says what is missing says what to type.

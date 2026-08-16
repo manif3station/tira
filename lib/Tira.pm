@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.34';
+our $VERSION = '2.35';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -5258,8 +5258,22 @@ sub policy_evaluate {
         elsif ( $rule eq 'orphan-card' ) {
             for my $record ( @{$records} ) {
                 next if !$resolved_for->( $policy, $record );
-                next if ( $record->{type} // '' ) eq 'sow';
-                next if defined $record->{parent} && $record->{parent} ne '';
+
+                # Asked rather than decided again. A statement of work sits at
+                # the top of the tree and a card labelled standalone is saying
+                # somebody meant it to have no parent - both exceptions are
+                # part of the definition of a complete card, honoured by the
+                # engine, by the push gate and in the command reference, and
+                # this rule had never heard of the second one.
+                #
+                # It cost 84 outstanding violations on this project's own
+                # board: every one orphan-card, every one critical, every one
+                # seen twelve times, and every one of them a card that had
+                # declared it stands alone. A rule reporting the same
+                # unactionable thing for ever is worse than no rule, on a
+                # channel somebody reads. TKT-269.
+                next if !grep { $_ eq 'parent' }
+                  @{ $self->_card_missing_from($record) };
                 $report->( $policy, $record, 'no parent' );
             }
         }

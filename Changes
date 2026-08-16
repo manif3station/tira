@@ -90,6 +90,13 @@ Revision history for Tira
       readers use, and the guard reads the fields from there rather than
       listing them - a test with its own list would be a fourth place for
       this to drift.
+    - The gate gained a field with the definition and 67 cards lacked
+      exactly it. Six were live and were written properly; 61 had already
+      shipped, and inventing summaries of finished work would be
+      fabrication while demanding them would block every push for ever.
+      Cards in an ending column are not re-audited for completeness, which
+      is the reasoning already written in that file for the
+      gate-and-evidence check.
 
 2.14  2026-08-16
 

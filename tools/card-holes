@@ -138,6 +138,10 @@ def tira(*args):
 # TKT-223.
 FLOW, ROLES = flow_from_board()
 
+# The columns where work has ended, from the board rather than by name.
+ENDINGS = {name for name in FLOW
+           if name == ROLES.get('done')} | {ROLES.get('done')} - {None}
+
 SETTLED_FROM = milestone('testing', 'verify')
 
 PROVEN_FROM = SETTLED_FROM
@@ -312,7 +316,22 @@ def main():
                     failures += 1
                     print(f"{row['ref']} was discarded with no reason given")
                 continue
+            # Not asked backwards. The definition of a complete card gained
+            # two fields when it became one definition instead of two, and 61
+            # cards that shipped under the old one lack a description they
+            # were never asked for. Writing those now would be inventing
+            # summaries of work somebody else finished, and demanding them
+            # would block every push for ever - which is the reasoning already
+            # written a hundred lines above this for the gate-and-evidence
+            # check, in the same words, for the same situation. A card still
+            # being worked is held to the whole definition. TKT-241.
             record = tira(f'tira.{kind}.show', '--ref', row['ref'], '-o', 'json')
+            if row['column'] in ENDINGS:
+                behind = stalled(record)
+                if behind:
+                    failures += 1
+                    print(f"{row['ref']}: {behind}")
+                continue
             missing = holes(record, kind)
             if missing:
                 failures += 1

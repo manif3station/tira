@@ -1,5 +1,27 @@
 Revision history for Tira
 
+2.26  2026-08-16
+
+    - TKT-142: every declared refusal is exercised, not just the ones in the
+      rule registry. TKT-128 built that guard because a rule declaring an
+      option it will not honour never reads it, so a refusal that stops
+      firing fails nowhere - conversation-not-folded shipped in exactly that
+      state and a bug hunt found it, not the suite. Two more tables of the
+      same kind sat in the CLI uncovered: the one that refuses an option
+      naming another option's job, and the one added this morning for an
+      option whose readers are known. Of the four pairs declared in the
+      first, two appeared in no test at all.
+    - Run rather than searched for. A scan blesses whatever tests happen to
+      exist; this exercises each declared refusal, so a pair added tomorrow
+      is covered by writing it down.
+    - And the parse is counted against what the table declares. The first
+      version of this guard read to the newline after an entry and never saw
+      the last one, which has no newline after it - three found where four
+      are declared. A guard written to prove every declared refusal is
+      exercised, quietly covering less than it claims, is the fault it
+      exists to catch one level up. It was the guard's own counter that
+      caught it.
+
 2.25  2026-08-16
 
     - TKT-267: where work ends is asked once. The engine reads it from the

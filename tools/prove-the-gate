@@ -93,14 +93,51 @@ if ! ./tools/card-holes >/dev/null 2>&1; then
     exit 1
 fi
 
+# --- what the gate can refuse, and what proves it -------------------------
+#
+# One line per way the hook can refuse, naming either the probe that breaks it
+# or the reason nothing does. t/233 reads the hook for its refusals and this
+# block for the answers, so a gate that grows a step is not covered by a list
+# somebody forgot to extend - which is how the browser refusal went uncovered
+# for its entire life, and how I miscounted this twice while writing it down.
+#
+# The name on the right is the words the probe prints about itself, not a name
+# invented here: delete the probe and the words go with it, leaving the claim
+# naming nothing, which the guard reports.
+#
+# covers: shipped files changed and VERSION did not | a shipped change with no version bump
+# covers: tools/board-backup is missing - refusing to push without a backup | tools/board-backup
+# covers: the board backup failed | a board backup that fails
+# covers: tools/card-holes is missing - refusing to push without the card check | tools/card-holes
+# covers: fill the cards in, or discard what is not real work | a hollow card on the board
+# covers: cannot find | not proved: the compose file is how the gate runs the suite, and a probe that removes it is a probe that breaks the machine the gate runs on. The refusal is one line and its own message; the risk of proving it is a working tree with the test stack deleted under an interrupted run, which this file has already done twice with other files.
+# covers: could not check out the commits being pushed | not proved: provoking it means corrupting the repository the gate is checking, and an interrupted run would leave it that way. The two probes here that stage a repository state do it in a clone; a checkout failure cannot be staged in a clone, because what fails is the checkout of this repository.
+# covers: the suite did not run | a suite that produced nothing
+# covers: the suite failed | a failing suite
+# covers: no coverage was measured for | a module with no coverage measured at all
+# covers: coverage is below 100% for | coverage below 100%
+# covers: tools/docs-match-code is missing - refusing to push undocumented | tools/docs-match-code
+# covers: the documentation and the code disagree | an entrypoint nobody documented
+# covers: tools/docs-examples-run is missing - refusing to push examples nobody ran | tools/docs-examples-run
+# covers: a documented example is not what the command accepts | a documented example the command refuses
+# covers: tools/browser-tests is missing - refusing to push with the browser unopened | tools/browser-tests
+# covers: a browser test failed, or could not be run at all | a browser test that fails
+
 passed=0
 failed=0
+# A probe that could not run is not a probe that passed. Two of them cannot
+# always run - one needs a browser on the machine, one needs a board with no
+# incomplete card on it - and they used to print a line and move on without
+# touching either count, so the closing line read '13 proved, 0 not proved'
+# about a run that had measured twelve. A prover that reports success for what
+# it did not measure is the fault it exists to catch.
+not_measured=0
 
 # A run of the hook with PATH rigged and, optionally, one tool taken away.
 # Returns the hook's exit status; its output lands in $out.
 out=""
 run_hook() {
-    local suite_output="$1" missing="${2:-}" browser="${3:-}"
+    local suite_output="$1" missing="${2:-}" browser="${3:-}" broken="${4:-}"
     local bin="$sandbox/bin"
     rm -rf "$bin"
     mkdir -p "$bin"
@@ -131,11 +168,24 @@ run_hook() {
         mv "$hidden_from" "$hidden_to"
     fi
 
+    # A gate tool that is present and reports a failure, which is a different
+    # refusal from one that is absent: the hook has a line for each and only
+    # the absent one was ever exercised. The real tool is stood aside and a
+    # stub that exits non-zero takes its place, so nothing is backed up, no
+    # browser opens, and the hook sees exactly what a broken step looks like.
+    if [ -n "$broken" ]; then
+        hidden_from="$root/$broken"
+        hidden_to="$sandbox/hidden-$(basename "$broken")"
+        mv "$hidden_from" "$hidden_to"
+        printf '#!/usr/bin/env bash\necho "%s failed on purpose" >&2\nexit 1\n' "$broken" >"$hidden_from"
+        chmod +x "$hidden_from"
+    fi
+
     out="$(PATH="$bin:$PATH" "$hook" 2>&1)"
     local status=$?
 
-    if [ -n "$missing" ]; then
-        mv "$hidden_to" "$hidden_from"
+    if [ -n "$missing" ] || [ -n "$broken" ]; then
+        mv -f "$hidden_to" "$hidden_from"
         hidden_from=""
         hidden_to=""
     fi
@@ -152,11 +202,21 @@ board_is_clean() {
     "$root/tools/card-holes" >/dev/null 2>&1
 }
 
+# Except for the one probe that makes the board incomplete on purpose. The
+# first version of this guard did not have the exception, and the hollow-card
+# probe - the only one that raises a real card on the real board - was skipped
+# every run from the moment the guard was added. A guard that silences the
+# check it was written beside is worse than the reason it was written: the
+# tool went on reporting proved, one probe short, and its own count did not
+# notice because a skip was neither proved nor failed.
+board_may_be_incomplete=0
+
 refuses() {
     local what="$1" expect="$2"
     shift 2
-    if ! board_is_clean; then
-        printf 'not proved - %s, because the board carries an incomplete card and the gate refuses there first\n' "$what"
+    if [ "$board_may_be_incomplete" -eq 0 ] && ! board_is_clean; then
+        printf 'not measured - %s, because the board carries an incomplete card and the gate refuses there first\n' "$what"
+        not_measured=$(( not_measured + 1 ))
         return 0
     fi
     if "$@"; then
@@ -208,8 +268,17 @@ if command -v node >/dev/null 2>&1 && node -e "require.resolve('playwright')" >/
     refuses 'a browser test that fails' 'browser test failed' \
         run_hook "$PASSING_SUITE" '' failing
 else
-    printf 'not proved - a browser test that fails, because node or playwright is not here\n'
+    printf 'not measured - a browser test that fails, because node or playwright is not here\n'
+    not_measured=$(( not_measured + 1 ))
 fi
+
+# --- and a board backup that fails rather than one that is absent ----------
+#
+# The same distinction, one step earlier in the hook and cheaper to reach: the
+# backup runs first, so a stub exiting non-zero is reached immediately. This is
+# the refusal that guards the only copy of the board a push leaves behind.
+refuses 'a board backup that fails' 'the board backup failed' \
+    run_hook "$PASSING_SUITE" '' '' tools/board-backup
 
 # --- a failing suite ------------------------------------------------------
 refuses 'a failing suite' 'suite failed' run_hook 'Result: FAIL
@@ -244,7 +313,9 @@ lib/Tira/CLI.pm           100.0  100.0  100.0'
 hollow="$(d2 tira.ticket.create --title 'Probe: a hollow card the gate must refuse' -o json |
     python3 -c 'import json,sys; print(json.load(sys.stdin)["ref"])')"
 if [ -n "$hollow" ]; then
+    board_may_be_incomplete=1
     refuses "a hollow card on the board ($hollow)" 'fill the cards in' run_hook "$PASSING_SUITE"
+    board_may_be_incomplete=0
     say_why "$hollow"
     d2 tira.ticket.discard --ref "$hollow" -o json >/dev/null
     hollow=""
@@ -497,5 +568,8 @@ else
     failed=$(( failed + 1 ))
 fi
 
-printf '\n%d proved, %d not proved\n' "$passed" "$failed"
-[ "$failed" -eq 0 ]
+printf '\n%d proved, %d not proved, %d not measured\n' "$passed" "$failed" "$not_measured"
+if [ "$not_measured" -gt 0 ]; then
+    printf 'the gate is not proved while anything here could not be measured\n'
+fi
+[ "$failed" -eq 0 ] && [ "$not_measured" -eq 0 ]

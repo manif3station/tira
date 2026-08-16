@@ -1,5 +1,40 @@
 # Testing record
 
+## 2.20 - the release where the gate's own refusals were counted
+
+`tools/prove-the-gate` breaks the push gate one check at a time, because a check
+that has never been seen to fail is not a check, it is a hope. Nobody had ever
+counted how many of the hook's refusals it reaches. I counted by hand three
+times while raising TKT-230 and got it wrong twice, both times in the tool's
+favour, by reading for a pattern instead of reading the file.
+
+The count is now made by `t/233-what-the-gate-can-refuse.t`: it reads
+`tools/hooks/pre-push` for every way the gate can refuse and the prover for what
+answers each one. Seventeen refusals, fifteen provoked, two carrying a written
+reason why they are not.
+
+| Refusal | Proved by |
+| --- | --- |
+| a browser test that runs and fails | a stub `node` that answers the installed-check and fails a spec |
+| a board backup that fails | the real tool stood aside, a stub exiting non-zero in its place |
+| a missing compose file | nothing - the file is how the gate runs the suite, and a probe that removes it breaks the machine the gate runs on |
+| a checkout that fails | nothing - provoking it means corrupting the repository being checked, and it cannot be staged in a clone, because what fails is the checkout of this repository |
+
+The browser one is the one that mattered. It was proved for a runner that is
+ABSENT and never for a test that RUNS AND FAILS, and the second is what happened
+on the release that broke the served dashboard while ten browser tests passed.
+
+The fix also caught a fault in its own earlier half. A guard added so that a
+probe blocked by an incomplete card says so, rather than reporting the gate
+broken for a reason that has nothing to do with it, silenced the one probe that
+makes the board incomplete on purpose - the hollow card, the only probe that
+puts a real card on the real board. It was skipped from the moment the guard was
+written and nothing noticed, because a skip was neither proved nor failed.
+
+Run on 2026-08-16 against the real gate: **22 proved, 0 not proved, 0 not
+measured**, including `a browser test that fails is refused`, `a board backup
+that fails is refused` and `a hollow card on the board (TKT-260) is refused`.
+
 ## 2.11 - the release that got Windows green again
 
 **Linux, in Docker.** The shared `perl-test` container, 211 files, 5437 tests,

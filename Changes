@@ -1,5 +1,34 @@
 Revision history for Tira
 
+2.20  2026-08-16
+
+    - TKT-230: the push gate has seventeen ways to refuse and four of them
+      had never been seen to refuse. The one that mattered: the browser
+      step was proved for a runner that is ABSENT and never for a browser
+      test that RUNS AND FAILS - and a failing browser test is what
+      happened, on the release that broke the served dashboard while ten
+      browser tests passed. Both are now provoked deliberately, along with
+      a board backup that fails rather than one that is missing.
+    - The two that remain unprovoked are a missing compose file and a
+      checkout that fails. Provoking either means damaging the machine the
+      gate runs on, and this file has already twice left the thing it was
+      checking in a worse state, so each carries a written reason instead
+      of a gap.
+    - t/233 makes the count instead of a person making it. It reads the
+      hook for the ways it can refuse and the prover for what answers each
+      one, so a gate that grows a step is not covered by a list somebody
+      forgot to extend. I miscounted this by hand twice while raising the
+      card, both times in the tool's favour.
+    - And it caught a fault in its own first fix. The guard added so that a
+      probe blocked by an incomplete card says so rather than reporting the
+      gate broken also silenced the one probe that makes the board
+      incomplete on purpose - the hollow card, the only probe that puts a
+      real card on the real board. It was skipped from the moment the guard
+      was written, and the tool's count did not notice, because a skip was
+      neither proved nor failed. A probe that could not run is now counted
+      and named in the closing line, and the tool no longer reports success
+      for what it did not measure.
+
 2.19  2026-08-16
 
     - TKT-245: a report another project filed does not stop this one

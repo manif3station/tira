@@ -82,30 +82,33 @@ def milestone(role, fallback):
 REQUIRED = None
 
 
-def required():
-    """The engine's definition of a complete card, read once.
+def from_tree(what, skill, verb, *args):
+    """Ask the engine, from the tree rather than from the installed copy.
 
-    From the tree, not from the installed copy. This gate runs before a push
-    and the push is what makes the new code installable, so asking d2 for a
-    command that arrives with this release would refuse the release that
-    introduces it. It also drives the code being pushed rather than whatever
-    version happens to be installed, which is the argument tools/browser-tests
-    already makes for reaching into the tree the same way.
+    This gate runs before a push and the push is what makes the new code
+    installable, so asking d2 for a command that arrives with this release
+    would refuse the release that introduces it - which is not a hypothetical:
+    it refused the release that added tira.column.endings, the command written
+    to answer one of these very questions. It also drives the code being pushed
+    rather than whatever version happens to be installed, which is the argument
+    tools/browser-tests already makes for reaching into the tree the same way.
     """
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    entrypoint = os.path.join(root, 'skills', skill, 'cli', verb)
+    done = subprocess.run(
+        ['perl', '-I' + os.path.join(root, 'lib'), entrypoint, *args, '-o', 'json'],
+        capture_output=True, text=True)
+    if done.returncode != 0:
+        raise SystemExit(f'card-holes: the tree could not say {what}: '
+                         + done.stderr.strip())
+    return json.loads(done.stdout)
+
+
+def required():
+    """The engine's definition of a complete card, read once."""
     global REQUIRED
     if REQUIRED is None:
-        entrypoint = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            'skills', 'card', 'cli', 'required')
-        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        done = subprocess.run(
-            ['perl', '-I' + os.path.join(root, 'lib'), entrypoint, '-o', 'json'],
-            capture_output=True, text=True)
-        if done.returncode != 0:
-            raise SystemExit(
-                'card-holes: the tree could not say what a complete card is: '
-                + done.stderr.strip())
-        REQUIRED = json.loads(done.stdout)
+        REQUIRED = from_tree('what a complete card is', 'card', 'required')
     return REQUIRED
 
 
@@ -148,9 +151,22 @@ FLOW, ROLES = flow_from_board()
 # have not, so reading only the role left this looking at nothing. TKT-245.
 STARTS_IN = ROLES.get('backlog') or (FLOW[0] if FLOW else None)
 
-# The columns where work has ended, from the board rather than by name.
-ENDINGS = {name for name in FLOW
-           if name == ROLES.get('done')} | {ROLES.get('done')} - {None}
+# The columns where work has ended, asked of the engine rather than worked out
+# here. This read the done column role and nothing else, so it could not read a
+# board that marks its ending with --terminal instead of calling it done - it
+# refused to run on one entirely - and on a board that has declared no roles,
+# which the comment above says most boards are, it came out empty and every
+# finished card was judged as work in progress. The engine reads the column,
+# with done as the fallback for a board that has marked nothing, and it is the
+# one place that decides. TKT-267.
+_ENDINGS = {}
+
+
+def endings(kind):
+    if kind not in _ENDINGS:
+        _ENDINGS[kind] = set(from_tree(
+            f'where {kind} work ends', 'column', 'endings', '--type', kind))
+    return _ENDINGS[kind]
 
 SETTLED_FROM = milestone('testing', 'verify')
 
@@ -159,11 +175,22 @@ PROVEN_FROM = SETTLED_FROM
 # Shipping has no role on the board, so the column is named here and the
 # terminal column stands in for a board that does not have it - a card in the
 # column work ends in is shipped by anybody's definition.
+# Where a card counts as shipped. A board with a push column says so by having
+# one; otherwise the first column work ends in serves, because a card in the
+# column work ends in is shipped by anybody's definition. This used to ask
+# milestone('done', 'done'), which named the same thing twice and told a board
+# that marks its ending to declare a column it may already have.
 SHIPPED_FROM = (FLOW.index('push') if 'push' in FLOW
-                else milestone('done', 'done'))
+                else min((FLOW.index(name) for name in endings('ticket') if name in FLOW),
+                         default=None))
+if SHIPPED_FROM is None:
+    raise SystemExit(
+        'card-holes: this board has no push column and none of the columns it '
+        'says work ends in are in its flow, so there is no point past which a '
+        'card counts as shipped.')
 
 
-def premature(record):
+def premature(record, ended):
     """A card in a finished column with work still unticked.
 
     Found on 2026-08-11 when TKT-008 was moved to done with "restore proven
@@ -176,7 +203,10 @@ def premature(record):
     if not checklist:
         return None
     column = record.get('column')
-    if column not in ('done', 'push'):
+    # An ending as the board defines it, plus a shipping column where a board
+    # has one. 'done' was written here as a name, which is the same decision
+    # this file was making in three other places.
+    if column not in ended and column != 'push':
         return None
     waiting = [c for c in checklist if c.get('status') != 'done']
     if not waiting:
@@ -213,7 +243,7 @@ def stalled(record):
 # remembered.
 
 
-def unproven(record):
+def unproven(record, ended):
     """A card claiming to be verified with nothing anybody could check."""
     column = record.get('column')
     if column not in FLOW or FLOW.index(column) < PROVEN_FROM:
@@ -223,7 +253,7 @@ def unproven(record):
     # existed, and demanding artefacts nobody kept would block every push for
     # ever and teach everybody to switch the check off. Anything reaching done
     # from now on passes through verify, document and push, where this bites.
-    if column == 'done':
+    if column in ended:
         return None
 
     said = []
@@ -393,7 +423,7 @@ def main():
             # check, in the same words, for the same situation. A card still
             # being worked is held to the whole definition. TKT-241.
             record = row
-            if row['column'] in ENDINGS:
+            if row['column'] in endings(kind):
                 behind = stalled(record)
                 if behind:
                     failures += 1
@@ -409,11 +439,11 @@ def main():
             if behind:
                 failures += 1
                 print(f"{row['ref']}: {behind}")
-            early = premature(record)
+            early = premature(record, endings(kind))
             if early:
                 failures += 1
                 print(f"{row['ref']} {early}")
-            thin = unproven(record)
+            thin = unproven(record, endings(kind))
             if thin:
                 failures += 1
                 print(f"{row['ref']} {thin}")

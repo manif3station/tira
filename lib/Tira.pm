@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.24';
+our $VERSION = '2.25';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -6372,6 +6372,18 @@ sub _ending_columns_everywhere {
         $ends{$_} = 1 for keys %{$mine};
     }
     return \%ends;
+}
+
+# The same answer, for anything outside this module that needs it. The push
+# gate worked out where work ends for itself, from the column roles, and could
+# not read a board that marks its ending instead of naming it - so it refused
+# to run on one and judged finished cards as live work on another. The same
+# shape as what a complete card is, which used to be written twice and is now
+# asked for. TKT-267.
+sub column_endings {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return [ sort keys %{ $self->_ending_columns( $root, $args{type} ) } ];
 }
 
 sub _ending_columns {

@@ -855,6 +855,24 @@ Two of the fields carry exceptions that belong to the definition rather than to
 whoever is reading it: a SOW has no parent because it sits at the top of the
 tree, and a card labelled `standalone` is saying somebody meant it to have none.
 
+### `tira.column.endings`
+
+Which columns this board says work ends in, for one record type.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--type TYPE` | yes | `sow`, `epic` or `ticket`. |
+| `-o FORMAT` | no | `toon` (default), `json`. |
+
+A column marked with `tira.column.update --terminal` is an ending; a board that
+has marked nothing ends in one called `done`.
+
+Asked rather than worked out, for the same reason `tira.card.required` exists.
+The push gate had its own answer, read from the `done` column role, and could
+not read a board that marks its ending instead of naming it - it refused to run
+on one - while on a board that had declared no roles its answer came out empty
+and every finished card was judged as work still in progress.
+
 ### `tira.police.outstanding`
 
 What is still true, rather than everything that ever happened.

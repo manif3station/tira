@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=2\.24$/m, '.env stores the version being released' );
+like( $env_text, qr/^VERSION=2\.25$/m, '.env stores the version being released' );
 
 # Read out of .env rather than matched against it, so the module can be
 # compared with what .env actually holds rather than with a literal that
@@ -59,7 +59,7 @@ use Tira;
 # the same literal, so they agreed only through a third party. Changing one
 # literal and not the other was caught by luck rather than by this.
 is( $Tira::VERSION, $env_version, 'module version matches .env, which is now read' );
-is( $Tira::VERSION, '2.24', 'and the release being made is the one intended' );
+is( $Tira::VERSION, '2.25', 'and the release being made is the one intended' );
 
 # And the changelog, which nothing checked. .env, the module and this file
 # agreed with each other for two releases while Changes named a version one
@@ -155,7 +155,7 @@ for my $command (@commands) {
 is_deeply( \@undocumented, [],
     'every command that ships is named in a document an agent reads' );
 
-is( scalar @commands, 147, 'release ships exactly 147 executable CLI entrypoints' );
+is( scalar @commands, 148, 'release ships exactly 148 executable CLI entrypoints' );
 
 # --- and every command the documents name can be run --------------------------
 #

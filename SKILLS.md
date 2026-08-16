@@ -213,7 +213,9 @@ tira.project.people.activate --id ID [-o FORMAT]
 **Create and Update say what the command needs, not what a card needs.** A card
 can be made with a title alone; it cannot be finished with one. Everything a
 complete card carries is listed by `tira.card.required`, and the push gate and
-police both read that same list - so a field marked optional here is optional
+police both read that same list - as they both read `tira.column.endings` for
+which columns this board says work ends in, because a card that has ended is
+not asked what a card still being worked is asked - so a field marked optional here is optional
 to type and required before the card can claim to be done. An agent that fills
 in only what says required will make cards that are refused later, which is
 what happened on 2026-08-15: five cards raised from this table blocked a push
@@ -768,6 +770,7 @@ tira.warning.clear {--id ID | --all} [-o FORMAT]
 tira.notify.record --ref REF [--ref REF ...] --column SLUG [-o FORMAT]
 tira.notify.list [--ref REF ...] [-o FORMAT]
 tira.column.update --type TYPE --name SLUG [--notify-after MINUTES] [--watch|--no-watch] [--terminal|--no-terminal] [-o FORMAT]
+tira.column.endings --type TYPE [-o FORMAT]
 tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [-o FORMAT]
 tira.import --file FILE [--dry-run] [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [--count] [--refs-only] [-o FORMAT]

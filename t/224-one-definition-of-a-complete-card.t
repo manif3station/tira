@@ -64,9 +64,19 @@ for my $field (qw(problem_or_feature solution_needed key_details deliverables
     # It asks the tree rather than the installed copy, because this gate runs
     # before the push that makes the new code installable - asking d2 for a
     # command that arrives with this release would refuse the release that
-    # introduces it.
-    like( $text, qr{skills.,\s*'card',\s*'cli',\s*'required'},
-        'and asks the tree it is gating for the one there is' );
+    # introduces it. That is not a hypothetical: the gate refused the release
+    # that added tira.column.endings, at this very step.
+    #
+    # Asserted as the route rather than as one spelling of the path. This read
+    # the literal 'skills', 'card', 'cli', 'required' and failed the moment a
+    # second question was asked the same way and the two shared a helper - a
+    # test that broke on the code being tidied rather than on the claim
+    # changing, which is the kind of assertion that teaches people to loosen
+    # tests.
+    like( $text, qr/os\.path\.abspath\(__file__\)/,
+        'the gate locates the tree it is gating from its own place in it' );
+    like( $text, qr/def required\(\):.*?'card',\s*'required'/s,
+        'and asks that tree for the one definition there is' );
 }
 
 # --- and asked the way anything else asks it -------------------------------

@@ -1997,6 +1997,9 @@ sub _invoke {
     # The definition of a complete card, for anything that is not this program.
     # The engine owns it; the push gate is python and cannot share a variable,
     # so it asks. TKT-241.
+    if ( $command eq 'column.endings' ) {
+        return $tira->column_endings(%args);
+    }
     if ( $command eq 'card.required' ) {
         return Tira->card_required;
     }

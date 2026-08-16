@@ -1,5 +1,31 @@
 # Testing record
 
+## 2.22 - what the push gate is asked about
+
+The card check was asked about every card on the board at the moment the hook
+ran. That is a different question from whether the commit being pushed is fit
+to go, and its answer changes while the push is running. 2.14 was refused three
+times for cards that had nothing to do with it; 2.21 was refused for TKT-261, a
+card a bug hunt had raised an hour earlier on an unrelated subject.
+
+It now asks about the cards the commits being pushed name, taken from their
+subjects the same way the commit gate takes them. With no remote ref, or no
+commits in the range, it falls back to the whole board - the direction that
+checks more rather than less, and the way the tool is run by hand and by
+`tools/prove-the-gate`.
+
+`tools/prove-the-gate` found two faults in the change that reading it did not:
+
+| What reading missed | What running showed |
+| --- | --- |
+| `grep` exits non-zero when it matches nothing, and the hook runs under `set -e` | The whole gate died silently at the card check; eleven probes reported the gate broken |
+| every probe compared against the output of the last hook run, not of the command it ran | The first probe to run something other than the hook was reported as refusing without saying why |
+
+Both fixed and both proved. Prover run on 2026-08-16 against the real gate:
+**23 proved, 0 not proved, 0 not measured** - one more refusal than 2.20, since
+the hook refusing a card check that fails is now exercised as well as one that
+is absent.
+
 ## 2.20 - the release where the gate's own refusals were counted
 
 `tools/prove-the-gate` breaks the push gate one check at a time, because a check

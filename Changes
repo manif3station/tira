@@ -1,5 +1,32 @@
 Revision history for Tira
 
+2.22  2026-08-16
+
+    - TKT-253: a finished release is no longer held up by the work that
+      follows it. The push gate asked the card check about every card on
+      the board, which is a different question from whether the commit
+      being pushed is fit to go - and the answer changes while the push
+      runs. It refused 2.14 three times for cards that had nothing to do
+      with it, and refused 2.21 for a card a bug hunt had raised an hour
+      earlier on an unrelated subject. The gate now asks about the cards
+      the commits being pushed name, read from their subjects the same way
+      the commit gate reads them. Whether the board as a whole is in order
+      is police's question, asked continuously on a channel somebody
+      reads.
+    - Narrowing what a check looks at is not weakening it: a commit whose
+      own card is a title is refused exactly as before, and a narrowed run
+      says which cards it was asked about, because a check that quietly
+      examines less reads as one that examined everything.
+    - tools/prove-the-gate found two faults in this change that reading it
+      did not. The refs are collected with a grep, and a grep that matches
+      nothing exits non-zero - under the hook's own `set -e` that killed
+      the whole gate silently at the card check, which eleven probes
+      reported as the gate being broken. And every probe here read the
+      output of the last hook run rather than of the command it had just
+      run, so the first probe that ran something other than the hook was
+      reported as refusing without saying why. Both now proved: 23 refusals
+      exercised, none unmeasured.
+
 2.21  2026-08-16
 
     - TKT-249: a board is backed up if anything has backed it up.

@@ -65,7 +65,36 @@ tools/board-backup >/dev/null || fail 'the board backup failed'
 # --- every live card is real work ---------------------------------------
 step 'checking the board for incomplete or stalled cards'
 [ -x tools/card-holes ] || fail 'tools/card-holes is missing - refusing to push without the card check'
-tools/card-holes || fail 'fill the cards in, or discard what is not real work'
+
+# The cards this push is about, read from the subjects of the commits being
+# pushed - the same place and the same way the commit gate reads them.
+#
+# This used to ask about every card on the board, which is a different question
+# from whether this commit is fit to push, and the answer changes while the
+# push runs. It refused 2.14 three times for cards that had nothing to do with
+# it, and 2.21 for a card a bug hunt had raised an hour earlier on an unrelated
+# subject. Whether the board as a whole is in order is police's question, asked
+# continuously on a channel somebody reads. TKT-253.
+#
+# With no remote ref there is no range to read, and with no commits there are no
+# subjects: both fall back to the whole board, which is the direction that
+# checks more rather than less. The second is how this tool is run by hand and
+# by tools/prove-the-gate.
+about=""
+if [ -n "$(git rev-parse --verify --quiet "origin/$branch" || true)" ]; then
+    # The `|| true` is not decoration. Under `set -e` with pipefail, a grep
+    # that matches nothing exits 1 and takes the whole hook with it - silently,
+    # at the card check, with no output at all. That is exactly what happened
+    # the first time this was run: eleven probes reported the gate broken, and
+    # the only broken thing was a range with no commits in it.
+    about="$(git log --format=%s "origin/$branch..HEAD" |
+        grep -oE '[A-Z][A-Z0-9]*-[0-9]+' | sort -u | tr '\n' ' ' || true)"
+fi
+
+# Deliberately unquoted: the refs are separate arguments, and each is a card
+# reference with no whitespace in it.
+# shellcheck disable=SC2086
+tools/card-holes $about || fail 'fill the cards in, or discard what is not real work'
 
 # --- the suite and the coverage gate ------------------------------------
 #

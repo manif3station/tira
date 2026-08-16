@@ -288,7 +288,7 @@ def holes(record, kind):
     return missing
 
 
-def parents_ahead():
+def parents_ahead(wanted=None):
     """Parents claiming to be finished above children that are not.
 
     Michael photographed an epic in done with a ticket in backlog underneath
@@ -324,6 +324,13 @@ def parents_ahead():
         listed = (record.get('linkage') or {}).get('sub_ticket_refs') or []
         open_children = sorted(set(open_children) | {r for r in listed if r in live})
 
+        # Narrowed the same way as everything else, from either end: a pair
+        # is this push's business if the push names the parent or one of the
+        # children it is holding open.
+        if wanted and row['ref'] not in wanted \
+                and not (set(open_children) & wanted):
+            continue
+
         if open_children:
             problems.append(
                 f"{row['ref']} says it is finished while "
@@ -333,6 +340,24 @@ def parents_ahead():
 
 
 def main():
+    # The cards this push is about, named on the command line. Given none, the
+    # whole board - which is what this always did and what somebody running the
+    # tool by hand wants.
+    #
+    # A commit that had passed its own gate used to be refused for cards that
+    # had nothing to do with it: work in progress for the next release, a card
+    # mid-move while the check ran, a report another project filed minutes
+    # earlier. Three refusals of one commit for 2.14, and again for 2.21 by a
+    # card a bug hunt had raised an hour before on an unrelated subject.
+    #
+    # Whether the board as a whole is in order is a real question and police
+    # asks it continuously, on a channel somebody reads. Asking it again at push
+    # time only makes a release wait on it. TKT-253.
+    wanted = {ref.upper() for ref in sys.argv[1:]}
+    if wanted:
+        print('checking ' + ', '.join(sorted(wanted))
+              + ' - the card(s) this push is about')
+
     failures = 0
     for kind in ('sow', 'epic', 'ticket'):
         # The row is the record. This asked the board for each card again
@@ -344,6 +369,8 @@ def main():
         # also why running the gate prover took forty-four minutes to say one
         # thing. TKT-251.
         for row in tira(f'tira.{kind}.list', '-o', 'json'):
+            if wanted and row['ref'] not in wanted:
+                continue
             # Discarded work is set aside, not planned. Holding it to the same
             # standard would only teach people to ignore this check - but it
             # still has to say why it was set aside. Twenty probe cards from
@@ -391,7 +418,7 @@ def main():
                 failures += 1
                 print(f"{row['ref']} {thin}")
 
-    for ahead in parents_ahead():
+    for ahead in parents_ahead(wanted):
         failures += 1
         print(ahead)
 

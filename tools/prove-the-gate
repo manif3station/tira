@@ -109,7 +109,7 @@ fi
 # covers: tools/board-backup is missing - refusing to push without a backup | tools/board-backup
 # covers: the board backup failed | a board backup that fails
 # covers: tools/card-holes is missing - refusing to push without the card check | tools/card-holes
-# covers: fill the cards in, or discard what is not real work | a hollow card on the board
+# covers: fill the cards in, or discard what is not real work | a card check that fails
 # covers: cannot find | not proved: the compose file is how the gate runs the suite, and a probe that removes it is a probe that breaks the machine the gate runs on. The refusal is one line and its own message; the risk of proving it is a working tree with the test stack deleted under an interrupted run, which this file has already done twice with other files.
 # covers: could not check out the commits being pushed | not proved: provoking it means corrupting the repository the gate is checking, and an interrupted run would leave it that way. The two probes here that stage a repository state do it in a clone; a checkout failure cannot be staged in a clone, because what fails is the checkout of this repository.
 # covers: the suite did not run | a suite that produced nothing
@@ -189,6 +189,14 @@ run_hook() {
         hidden_from=""
         hidden_to=""
     fi
+
+    # Printed as well as kept, so a caller can capture it like any other
+    # command. Everything here used to read the global, which quietly meant a
+    # probe could only ever be the hook: the first probe that ran something
+    # else - the card check, asked about one card - was reported as refusing
+    # without saying why, because what it said went to the terminal and the
+    # global still held the previous hook run.
+    printf '%s' "$out"
     return $status
 }
 
@@ -219,7 +227,8 @@ refuses() {
         not_measured=$(( not_measured + 1 ))
         return 0
     fi
-    if "$@"; then
+    out="$( "$@" 2>&1 )"
+    if [ $? -eq 0 ]; then
         printf 'NOT PROVED - the gate allowed a push with %s\n' "$what"
         failed=$(( failed + 1 ))
         return
@@ -314,7 +323,20 @@ hollow="$(d2 tira.ticket.create --title 'Probe: a hollow card the gate must refu
     python3 -c 'import json,sys; print(json.load(sys.stdin)["ref"])')"
 if [ -n "$hollow" ]; then
     board_may_be_incomplete=1
-    refuses "a hollow card on the board ($hollow)" 'fill the cards in' run_hook "$PASSING_SUITE"
+
+    # Asked about the card, because that is what the gate asks about now: the
+    # cards the commits being pushed name, rather than every card there is. Run
+    # through the hook, this probe was proving whatever the current range
+    # happened to contain - a hollow card on a board with nothing to push, and
+    # nothing at all once there was a commit naming a different card. TKT-253.
+    refuses "a hollow card the push is about ($hollow)" 'Fill them in before pushing' \
+        ./tools/card-holes "$hollow"
+
+    # And the hook refusing when that check reports a failure, which is the
+    # step above it and was only ever proved for the check being absent.
+    refuses 'a card check that fails' 'fill the cards in' \
+        run_hook "$PASSING_SUITE" '' '' tools/card-holes
+
     board_may_be_incomplete=0
     say_why "$hollow"
     d2 tira.ticket.discard --ref "$hollow" -o json >/dev/null
@@ -382,7 +404,7 @@ example_probe
 # --- and it passes when everything is right -------------------------------
 #
 # A gate that refuses everything is not a gate either. This is the control.
-if run_hook "$PASSING_SUITE"; then
+if run_hook "$PASSING_SUITE" >/dev/null; then
     printf 'proved - a clean tree is allowed through\n'
     passed=$(( passed + 1 ))
 else
@@ -479,7 +501,9 @@ run_commit_hook() {
     local file="$sandbox/commit-message"
     printf '%s\n' "$message" >"$file"
     out="$("$commit_hook" "$file" 2>&1)"
-    return $?
+    local status=$?
+    printf '%s' "$out"
+    return $status
 }
 
 # A card that is certainly finished, and one that is certainly being worked.

@@ -32,6 +32,48 @@ my %MISLEADING_OPTIONS = (
     'evidence.add'  => [ [ 'details', 'summary' ] ],
 );
 
+# An option the shared parser knows and a few commands read.
+#
+# --field names the field tira.history reports on, and the fields tira.search
+# and tira.replace work over. Every other command took it, stored it and
+# dropped it: a record update given --field exited zero and printed the card
+# back, which reads as confirmation because the card is right there. An hour of
+# this project's own writing went that way - a card raised from a bug hunt,
+# filled in with six of them, and still a title when the push gate refused the
+# release for it.
+#
+# Declared rather than derived, for the same reason %MISLEADING_OPTIONS is:
+# there is no per-command list of the options each command uses, and inventing
+# one would refuse things that work today. What is declared is an option whose
+# readers are known.
+#
+# The readers were counted from the engine rather than from the CLI. Reading
+# only the CLI found one - history.list, which names the option explicitly -
+# and missed search and replace, which receive it in the arguments every
+# command passes through. A refusal written from that count would have broken
+# two working commands.
+my %OPTION_READ_BY = (
+    fields => {
+        flag     => 'field',
+        commands => qr/\A(?:history\.list|search|replace)\z/,
+        instead  => 'the options that set a field - --key-detail, --deliverable,'
+          . ' --acceptance, --test-step and the rest the command reference lists',
+    },
+);
+
+sub _refuse_unread_options {
+    my ( $command, $option ) = @_;
+    for my $name ( sort keys %OPTION_READ_BY ) {
+        my $rule = $OPTION_READ_BY{$name};
+        my $given = $option->{$name};
+        next if !defined $given;
+        next if ref $given eq 'ARRAY' && !@{$given};
+        next if $command =~ $rule->{commands};
+        die "$command does not act on --$rule->{flag}. Use $rule->{instead}.\n";
+    }
+    return;
+}
+
 # The process that set a served board up, recorded before the server forks.
 # Outside a served board it is simply this process, so a plain command asking
 # the question gets the honest answer rather than a special case.
@@ -1570,6 +1612,11 @@ sub _invoke {
         $option->{author} = utf8::is_utf8( $ENV{TIRA_AUTHOR} )
           ? $ENV{TIRA_AUTHOR} : decode( 'UTF-8', $ENV{TIRA_AUTHOR}, FB_CROAK );
     }
+
+    # Before anything is dispatched, because a record command returns long
+    # before the misleading-option table is reached and the whole point is that
+    # nothing acts on an option it will not use.
+    _refuse_unread_options( $command, $option );
 
     my %args = %{$option};
     delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty older_than stale with_level all columns_json nested mark members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};

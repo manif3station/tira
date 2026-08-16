@@ -922,6 +922,16 @@ d2 tira.assign.set --ref TKT-001 --assignee ada
 `--assignee` is a real option on the record commands, where it sets the card's
 assignee, and is untouched there.
 
+The same applies to an option whose readers are known. `--field` names the field
+`tira.history.list` reports on and the fields `tira.search` and `tira.replace`
+work over; anywhere else it is refused, naming the options that do set a field:
+
+```
+d2 tira.ticket.update --ref TKT-001 --field "key_details+=What was measured."
+  record.update does not act on --field. Use the options that set a field -
+  --key-detail, --deliverable, --acceptance, --test-step and the rest.
+```
+
 This is narrow on purpose: there is no per-command list of the options each one
 uses, and inventing one would refuse things that work today. What is declared is
 the set where a wrong name looks accepted rather than unknown — which is the set

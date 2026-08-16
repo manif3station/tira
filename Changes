@@ -1,5 +1,26 @@
 Revision history for Tira
 
+2.24  2026-08-16
+
+    - TKT-262: an option a command will not act on is refused rather than
+      dropped. --field names the field tira.history reports on and the
+      fields tira.search and tira.replace work over. The parser is shared,
+      so every other command took it, stored it and threw it away: a record
+      update given --field exited zero and printed the card back, which
+      reads as confirmation because the card is right there. An hour of
+      this project's own writing went that way - a card raised from a bug
+      hunt, filled in with six of them, still a title when the push gate
+      refused the release for it.
+    - The readers were counted from the engine rather than from the CLI.
+      Reading only the CLI found one, because search and replace receive
+      the option in the arguments every command passes through and never
+      name it. A refusal written from that count would have broken two
+      working commands.
+    - The same shape and the same narrowness as the guard TKT-138 added:
+      there is no per-command list of the options each command uses, and
+      inventing one would refuse things that work today. What is declared
+      is an option whose readers are known.
+
 2.23  2026-08-16
 
     - TKT-261: a string that looks like a number is still a string. TOON is

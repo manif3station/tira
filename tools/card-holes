@@ -41,7 +41,12 @@ import sys
 def flow_from_board():
     columns = tira('tira.column.list', '--type', 'ticket', '-o', 'json')
     roles = tira('tira.column.roles', '-o', 'json').get('ticket', {})
-    starts_in = roles.get('backlog')
+    # Where work starts. A board says so through its roles if it has declared
+    # any, and the first column is where cards start if it has not - which most
+    # boards have not. Reading only the role dropped the first column out of
+    # the flow entirely, because it is protected, so the flow began at the
+    # column after it. TKT-245.
+    starts_in = roles.get('backlog') or (columns[0]['name'] if columns else None)
     names = [c['name'] for c in columns
              if not (c.get('protected') and c.get('name') != starts_in)]
     return names, roles
@@ -138,6 +143,11 @@ def tira(*args):
 # TKT-223.
 FLOW, ROLES = flow_from_board()
 
+# Where work starts. A board says so through its roles if it has declared any,
+# and the first column is where cards start if it has not - which most boards
+# have not, so reading only the role left this looking at nothing. TKT-245.
+STARTS_IN = ROLES.get('backlog') or (FLOW[0] if FLOW else None)
+
 # The columns where work has ended, from the board rather than by name.
 ENDINGS = {name for name in FLOW
            if name == ROLES.get('done')} | {ROLES.get('done')} - {None}
@@ -227,6 +237,25 @@ def unproven(record):
         return None
     return (f"is in {column} with " + ' and '.join(said)
             + ' - a claim about work that happened, with nothing anybody could check')
+
+
+# A report somebody else filed, which nobody here has picked up yet.
+#
+# tira.dev.found.bug_or_improvement fills a title, a description, a source and
+# a reporter, because that is what a reporter knows - they know what they saw,
+# not how this project will fix it. Asking such a card for a solution, test
+# steps, BDD, ATDD, a checklist and a parent is asking the wrong person, and it
+# stops a release that has already passed its suite until somebody writes up
+# another project's report. That happened three times in one evening, with more
+# arriving while the first three were being written.
+#
+# Triage is what turns a report into a ticket, and the board records triage as
+# the card leaving the backlog. Until then nobody has decided what it is; after
+# it, the card is this project's work like any other and is asked for all of
+# it. TKT-245.
+def untriaged_report(record, column, starts_in):
+    source = str(record.get('source') or '')
+    return 'tira.dev.found' in source and column == starts_in
 
 
 def holes(record, kind):
@@ -342,6 +371,8 @@ def main():
                 if behind:
                     failures += 1
                     print(f"{row['ref']}: {behind}")
+                continue
+            if untriaged_report(record, row['column'], STARTS_IN):
                 continue
             missing = holes(record, kind)
             if missing:

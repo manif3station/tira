@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.18';
+our $VERSION = '2.19';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a

@@ -1,5 +1,24 @@
 Revision history for Tira
 
+2.19  2026-08-16
+
+    - TKT-245: a report another project filed does not stop this one
+      shipping. tira.dev.found.bug_or_improvement fills a title, a
+      description, a source and a reporter, because that is what a reporter
+      knows - and the push gate asked such a card for a solution, test
+      steps, BDD, ATDD, a checklist and a parent. A release that had passed
+      its suite waited on somebody writing up somebody else's report: three
+      times in one evening, with more arriving while the first three were
+      being written, one of them a withdrawal of a report just specified.
+    - A card carrying a report's source, still in the column work starts
+      in, is asked what a report can answer. Leaving that column is triage,
+      and after it the card is this project's work like any other.
+    - It uncovered a smaller fault in the gate: the column work starts in
+      was read from a role most boards never declare, and the flow dropped
+      that column entirely because it is protected and only kept when it is
+      the declared role. Both places answer it the same way now, falling
+      back to the first column the board lists.
+
 2.18  2026-08-16
 
     - TKT-231: a board rebuilt from the gate's backup keeps the gates and

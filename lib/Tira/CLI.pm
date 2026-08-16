@@ -1947,6 +1947,13 @@ sub _invoke {
             reason => $option->{reason} );
     }
 
+    # The definition of a complete card, for anything that is not this program.
+    # The engine owns it; the push gate is python and cannot share a variable,
+    # so it asks. TKT-241.
+    if ( $command eq 'card.required' ) {
+        return Tira->card_required;
+    }
+
     # What is still true, rather than everything that ever happened. The bridge
     # is a stream and the log is flat, so neither could answer it and the answer
     # depended on somebody remembering to look. TKT-237.

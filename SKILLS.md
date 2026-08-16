@@ -210,6 +210,15 @@ tira.project.people.activate --id ID [-o FORMAT]
 
 ## Record field arguments
 
+**Create and Update say what the command needs, not what a card needs.** A card
+can be made with a title alone; it cannot be finished with one. Everything a
+complete card carries is listed by `tira.card.required`, and the push gate and
+police both read that same list - so a field marked optional here is optional
+to type and required before the card can claim to be done. An agent that fills
+in only what says required will make cards that are refused later, which is
+what happened on 2026-08-15: five cards raised from this table blocked a push
+that had already passed its suite.
+
 | Argument | Repeatable | Create | Update | Meaning |
 | --- | ---: | ---: | ---: | --- |
 | `--title TEXT` | no | required | optional | Summary. |

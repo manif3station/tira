@@ -273,7 +273,15 @@ $tira->record_update( project => $root, ref => $bare->{ref},
     deliverables => ['a deliverable'], acceptance => ['an acceptance'],
     test_steps => ['a step'], bdd => ['a given'], atdd => ['an outcome'],
     scope_in => ['in'], scope_out => ['out'], priority => 3,
+    labels => ['standalone'],
     due_date => '2026-08-20T09:00:00Z' );
+
+# A complete card now has a checklist and either a parent or a word saying it
+# stands alone. Those were the push gate's requirements and police did not
+# share them, which is the drift TKT-241 removed - so a fixture that was
+# complete by one definition is incomplete by the one there is now.
+$tira->checklist_add( project => $root, ref => $bare->{ref},
+    item => 'the thing to do', status => 'todo' );
 $tira->record_move( project => $root, ref => $finished->{ref}, column => 'verify' );
 
 my $repaired = $tira->police_pass( project => $root, store => $store, world => $world );

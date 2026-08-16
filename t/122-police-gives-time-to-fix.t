@@ -145,7 +145,15 @@ $tira->record_update( project => $root, ref => $card->{ref},
     acceptance => ['it works'], test_steps => ['run it'],
     bdd => ['Given a card, When it is filled in, Then it is not reported'],
     atdd => ['nobody is chased about a card that is finished'],
-    scope_in => ['this'], scope_out => ['that'] );
+    scope_in => ['this'], scope_out => ['that'],
+    labels => ['standalone'] );
+
+# And a checklist, because a complete card has one. That and a parent were the
+# push gate's requirements, which police did not share until the two
+# definitions became one - so a card that was filled in by the old definition
+# is not by the one there is now. TKT-241.
+$tira->checklist_add( project => $root, ref => $card->{ref},
+    item => 'the thing to do', status => 'todo' );
 at('2026-08-13T14:00:00Z');
 my $after = sweep();
 is( scalar @{ $after->{violations} }, 0, 'a card that has been filled in is reported no more' );

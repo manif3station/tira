@@ -90,7 +90,14 @@ my $complete = card(
     test_steps => ['a step'], bdd => ['a given'], atdd => ['an outcome'],
     scope_in => ['in'], scope_out => ['out'], priority => 3,
     description => 'what this card is for',
+    labels => ['standalone'],
 );
+
+# A complete card carries a checklist and either a parent or a word saying it
+# stands alone - the push gate's requirements, which police did not share until
+# the two definitions became one. TKT-241.
+$tira->checklist_add( project => $root, ref => $complete->{ref},
+    item => 'the thing to do', status => 'done' );
 $tira->record_move( project => $root, ref => $complete->{ref}, column => 'implement' );
 is( scalar( grep { $_->{ref} eq $complete->{ref} } fired('card-full-details') ), 0,
     'a card that has its detail is not reported' );

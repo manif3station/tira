@@ -838,6 +838,23 @@ to switch back on — and every putting-down is in the enforcement log with its
 rule, its card, its length and its reason, because a silence nobody can account
 for is worse than the noise it replaces.
 
+### `tira.card.required`
+
+What a complete card is: the fields every card must have before it can claim to
+be finished.
+
+Takes no arguments beyond `-o FORMAT`.
+
+There used to be two definitions - police read one and the push gate kept its
+own - and they disagreed in both directions at once. The same card at the same
+moment was missing a description to one and missing a parent to the other, and
+neither mentioned the other's field. The engine owns it now and anything else
+asks, which is the only arrangement where they cannot drift apart again.
+
+Two of the fields carry exceptions that belong to the definition rather than to
+whoever is reading it: a SOW has no parent because it sits at the top of the
+tree, and a card labelled `standalone` is saying somebody meant it to have none.
+
 ### `tira.police.outstanding`
 
 What is still true, rather than everything that ever happened.

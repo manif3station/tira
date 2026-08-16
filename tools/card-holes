@@ -65,17 +65,43 @@ def milestone(role, fallback):
 
 
 
-REQUIRED = [
-    'problem_or_feature',
-    'solution_needed',
-    'key_details',
-    'deliverables',
-    'acceptance_criteria',
-    'test_steps',
-    'bdd',
-    'atdd',
-    'checklist',
-]
+# What a complete card is, asked rather than kept.
+#
+# This was a list of nine fields and the engine had its own of twelve, and they
+# disagreed in both directions at once: the same card at the same moment was
+# missing a description to police and missing a parent to this, and neither
+# mentioned the other's field. The bridge nagged about a field this called
+# finished, and three pushes died on a field police had never once mentioned.
+# The engine owns the definition now and this asks for it, which is the only
+# arrangement where the two cannot drift apart again. TKT-241.
+REQUIRED = None
+
+
+def required():
+    """The engine's definition of a complete card, read once.
+
+    From the tree, not from the installed copy. This gate runs before a push
+    and the push is what makes the new code installable, so asking d2 for a
+    command that arrives with this release would refuse the release that
+    introduces it. It also drives the code being pushed rather than whatever
+    version happens to be installed, which is the argument tools/browser-tests
+    already makes for reaching into the tree the same way.
+    """
+    global REQUIRED
+    if REQUIRED is None:
+        entrypoint = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'skills', 'card', 'cli', 'required')
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        done = subprocess.run(
+            ['perl', '-I' + os.path.join(root, 'lib'), entrypoint, '-o', 'json'],
+            capture_output=True, text=True)
+        if done.returncode != 0:
+            raise SystemExit(
+                'card-holes: the tree could not say what a complete card is: '
+                + done.stderr.strip())
+        REQUIRED = json.loads(done.stdout)
+    return REQUIRED
 
 
 ATTEMPTS = 3
@@ -200,16 +226,8 @@ def unproven(record):
 
 
 def holes(record, kind):
-    missing = [f for f in REQUIRED if not record.get(f)]
-
+    missing = []
     scope = record.get('scope') or {}
-    if not scope.get('included'):
-        missing.append('scope_in')
-    if not scope.get('excluded'):
-        missing.append('scope_out')
-
-    if not record.get('priority'):
-        missing.append('priority')
 
     # A statement of work sits at the top of the tree, so it has no parent to
     # be missing. Everything below one does - unless it says it stands alone.
@@ -220,8 +238,19 @@ def holes(record, kind):
     # parent by accident is still a hole, so the difference is declared: the
     # 'standalone' label says somebody meant it.
     labels = [str(l).lower() for l in (record.get('labels') or [])]
-    if kind != 'sow' and not record.get('parent') and 'standalone' not in labels:
-        missing.append('parent')
+
+    for field in required():
+        if field == 'scope_in':
+            if not scope.get('included'):
+                missing.append(field)
+        elif field == 'scope_out':
+            if not scope.get('excluded'):
+                missing.append(field)
+        elif field == 'parent':
+            if kind != 'sow' and not record.get('parent') and 'standalone' not in labels:
+                missing.append(field)
+        elif not record.get(field):
+            missing.append(field)
 
     return missing
 

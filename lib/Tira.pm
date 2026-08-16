@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.14';
+our $VERSION = '2.15';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4652,6 +4652,20 @@ sub policy_decline {
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         my ( $path, $data ) = $self->_project_data($root);
+
+        # A rule the project is using cannot also be declined. It was stored
+        # and then hidden: policy_declined filters out any rule that is
+        # declared, which is right and is how declaring a rule clears the note
+        # saying it was declined - so the caller was told a decision had been
+        # recorded and could not read it back in any sense they could check.
+        # Reported from another project, reproduced three times. A
+        # contradiction is refused or resolved; answering with a decision
+        # nobody can read is the third thing and the only one nobody can act
+        # on. TKT-244.
+        die "'$rule' is declared on this project, so it cannot also be "
+          . "declined. Remove the policy first if that is what you meant.\n"
+          if grep { ( $_->{rule} // '' ) eq $rule } @{ $data->{policies} // [] };
+
         my @kept = grep { ( $_->{rule} // '' ) ne $rule } @{ $data->{declined_policies} // [] };
         my $entry = {
             rule => $rule, reason => $reason,
@@ -4719,6 +4733,49 @@ my @POLICY_DETAIL_FIELDS = qw(
   description problem_or_feature solution_needed key_details deliverables
   acceptance_criteria test_steps bdd atdd priority
 );
+
+# What a complete card is, decided here and nowhere else.
+#
+# There were two definitions and they disagreed in both directions at once.
+# Police read the list above and the scope beneath it; the push gate kept its
+# own, which wanted a checklist and a parent and did not want a description.
+# The same card at the same moment was complete to one and incomplete to the
+# other: police said "missing: description" and the gate said "missing:
+# parent", and neither mentioned the other's field. The bridge nagged about a
+# field the gate calls finished, and three pushes died on a field police had
+# never once mentioned. TKT-241.
+#
+# The gate is a separate program in another language, so it cannot share this
+# variable. It asks for it instead, which is the only arrangement where the two
+# cannot drift apart again.
+my @CARD_REQUIRED = ( @POLICY_DETAIL_FIELDS, qw(scope_in scope_out checklist parent) );
+
+sub card_required { return [@CARD_REQUIRED] }
+
+# A parent is not asked of a SOW, which is the top of the hierarchy, nor of a
+# card that says it stands alone - the gate already made both of those
+# exceptions and they are part of the definition rather than of one reader.
+sub card_missing {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $record = $self->record_show( %args, project => $root );
+    return $self->_card_missing_from($record);
+}
+
+sub _card_missing_from {
+    my ( $self, $record ) = @_;
+    my @missing = @{ _policy_missing_detail($record) };
+
+    my $checklist = $record->{checklist} // [];
+    push @missing, 'checklist' if !@{$checklist};
+
+    my $kind = $record->{type} // 'ticket';
+    my %labels = map { lc $_ => 1 } @{ $record->{labels} // [] };
+    push @missing, 'parent'
+      if $kind ne 'sow' && !$record->{parent} && !$labels{standalone};
+
+    return \@missing;
+}
 
 sub _policy_missing_detail {
     my ($record) = @_;
@@ -5000,7 +5057,7 @@ sub policy_evaluate {
                 my $enter = $self->_policy_column_for(
                     project => $root, policy => $policy, field => 'enter', record => $record );
                 next if ( $record->{column} // '' ) ne ( $enter // '' );
-                my $missing = _policy_missing_detail($record);
+                my $missing = $self->_card_missing_from($record);
                 next if !@{$missing};
                 $report->( $policy, $record, 'missing: ' . join( ',', @{$missing} ) );
             }
@@ -5057,6 +5114,7 @@ sub policy_evaluate {
             # The journal is the only account of a move, and column-skipped
             # already reads it the same way.
             my $resting = {};
+            my $ordering = {};
             for my $record ( @{$records} ) {
                 next if !$resolved_for->( $policy, $record );
 
@@ -5089,6 +5147,27 @@ sub policy_evaluate {
                     ( $journal->[$_]{field} // '' ) eq 'checklist' && $_ > $window
                 } 0 .. $#{$journal};
                 my $moved_into = $journal->[ $where_moved[-1] ]{after};
+
+                # Not a card that was sent back. This rule catches a card
+                # advancing while nothing was done; a backwards move claims
+                # nothing, and the checklist has not advanced precisely because
+                # the work is not finished, which is why it went back. Reported
+                # from another project on a card that went in-progress, to
+                # in-review, and back again - the inverse of the rule's own
+                # purpose. The board knows its column order, so which way a
+                # move went is answerable without inventing anything. TKT-242.
+                my $order = $ordering->{$type} //= do {
+                    my $columns =
+                      eval { $self->column_list( project => $root, type => $type ) } || [];
+                    my $seen = 0;
+                    +{ map { $_->{name} => $seen++ } @{$columns} };
+                };
+                my $came_from = $journal->[ $where_moved[-1] ]{before};
+                next
+                  if defined $came_from
+                  && defined $order->{$moved_into}
+                  && defined $order->{$came_from}
+                  && $order->{$moved_into} < $order->{$came_from};
 
                 $report->( $policy, $record,
                     "moved into $moved_into with nothing ticked since"
@@ -5179,8 +5258,29 @@ sub policy_evaluate {
             # asked about that and accepted it: the alternative is a marker
             # somebody has to remember to set, and a reminder that can be
             # silenced by forgetting is worse than one an unrelated edit clears.
+            # Not on a card whose work has ended. Folding a conversation into
+            # the details is how a decision stops living in a comment nobody
+            # reads later; on a finished card there is nothing left to lose and
+            # nothing anybody will read it in. Reported from another project,
+            # where this was the largest group of violations on the board -
+            # thirteen cards, every one of them in a column marked terminal.
+            # The board says which those are and the engine already asks:
+            # checklist-unmoved reads the same thing. TKT-238.
+            # Endings, not resting columns. The first version of this asked
+            # _resting_columns, which counts protected columns as well - and
+            # backlog is protected, so a card waiting to be picked up with a
+            # conversation that had outrun it went unreported. That is a
+            # finding worth making: the card has not ended, it has not
+            # started. Caught by an existing test that builds a board to break
+            # every rule and asserts each one fires. TKT-238.
+            my $ends = {};
             for my $record ( @{$records} ) {
                 next if !$resolved_for->( $policy, $record );
+
+                my $type = $record->{type} // 'ticket';
+                $ends->{$type} //= $self->_ending_columns( $root, $type );
+                next if $ends->{$type}{ $record->{column} // '' };
+
                 my @comments = @{ $record->{comments} // [] };
                 next if !@comments;
 
@@ -5221,14 +5321,11 @@ sub policy_evaluate {
             # Read per board rather than from the tickets. An epic finishing
             # somewhere the tickets do not was being judged against the wrong
             # list entirely.
-            my %resting;
-            for my $type (qw(sow epic ticket)) {
-                my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
-                $resting{$type} = { map { $_->{name} => 1 }
-                    grep { $_->{protected} || $_->{terminal} } @{$columns} };
-                $resting{$type}{done} = 1
-                  if !grep { $_->{terminal} } @{$columns};
-            }
+            # Asked rather than worked out again. This built the helper's
+            # answer inline, and agreed with it, which is the condition under
+            # which nobody notices there are two. TKT-252.
+            my %resting = map { $_ => $self->_resting_columns( $root, $_ ) }
+              qw(sow epic ticket);
             for my $record ( @{$records} ) {
                 next if !$resolved_for->( $policy, $record );
                 my $column = $record->{column} // '';
@@ -5454,13 +5551,30 @@ sub policy_evaluate {
             # that has marked nothing terminal ends in `done`, which is the same
             # fallback those rules use - without it every board would be told
             # its finished column is unwatched.
+            # The endings first, across every board, and only then the columns
+            # work happens in. This worked them out for each type separately
+            # and merged the working columns of all three by name, so a column
+            # marked as an ending for tickets and not for epics was both - and
+            # the merge kept the second answer. A board that had marked three
+            # endings was told about all three. The columns are per type and
+            # the name is shared, so a name marked anywhere is an ending
+            # everywhere: that is what somebody means by marking it. TKT-239.
+            # The endings of every board, not of one. This rule reports column
+            # names rather than cards, and a name marked as an ending on any
+            # board is one wherever it appears - which is what somebody means
+            # by marking it. Asked for, rather than assembled here, so it sits
+            # beside the other answers instead of looking like a copy that
+            # drifted. TKT-252.
+            my %columns_by_type = map {
+                $_ => ( eval { $self->column_list( project => $root, type => $_ ) } || [] )
+            } qw(sow epic ticket);
+            my %ends = %{ $self->_ending_columns_everywhere($root) };
+
             my %working;
             for my $type (qw(sow epic ticket)) {
-                my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
-                my %ends = map { $_->{name} => 1 } grep { $_->{terminal} } @{$columns};
-                $ends{done} = 1 if !keys %ends;
                 $working{ $_->{name} } = 1
-                  for grep { !$_->{protected} && !$ends{ $_->{name} } } @{$columns};
+                  for grep { !$_->{protected} && !$ends{ $_->{name} } }
+                  @{ $columns_by_type{$type} };
             }
 
             # A column no column-scoped rule mentions at all.
@@ -5649,14 +5763,15 @@ sub policy_evaluate {
             # of those is finished rather than waiting, and reporting a finished
             # card as passed over would put every board permanently in
             # violation of its own history.
+            # Asked rather than worked out again, like card-unassigned. This
+            # one also wants the columns a card waits in - protected, and not
+            # an ending - which is the same question with the endings taken
+            # out, so the endings are asked for too. TKT-252.
             my ( %resting, %waiting_here );
             for my $type (qw(sow epic ticket)) {
+                $resting{$type} = $self->_resting_columns( $root, $type );
+                my $ends = $self->_ending_columns( $root, $type );
                 my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
-                my $ends = { map { $_->{name} => 1 } grep { $_->{terminal} } @{$columns} };
-                $ends->{done} = 1 if !keys %{$ends};
-
-                $resting{$type} = { %{$ends},
-                    map { $_->{name} => 1 } grep { $_->{protected} } @{$columns} };
                 $waiting_here{$type} = { map { $_->{name} => 1 }
                     grep { $_->{protected} && !$ends->{ $_->{name} } } @{$columns} };
             }
@@ -6226,6 +6341,35 @@ sub policy_undeclared {
 # terminal means resting, with done assumed when nothing is marked terminal.
 # Extracted rather than copied - card-unassigned already made this decision
 # inline, and a second copy of it is the drift this project keeps finding.
+# The endings alone, which is the other half of the same question: a column
+# somebody marked as where work stops, or done when a board has marked nothing.
+# _resting_columns adds the protected columns to these; two callers want the
+# endings without them. Asked here so a change to what counts as an ending
+# reaches every rule rather than the ones that happen to call the same helper.
+# TKT-252.
+# Every board's endings together, for the one rule that speaks about column
+# names rather than about cards. A name marked as an ending anywhere is one
+# everywhere: that is what marking it means, and computing it per board was how
+# a column terminal for tickets and not for epics came to be reported as a
+# column work happens in. TKT-239, kept here rather than inline. TKT-252.
+sub _ending_columns_everywhere {
+    my ( $self, $root ) = @_;
+    my %ends;
+    for my $type (qw(sow epic ticket)) {
+        my $mine = $self->_ending_columns( $root, $type );
+        $ends{$_} = 1 for keys %{$mine};
+    }
+    return \%ends;
+}
+
+sub _ending_columns {
+    my ( $self, $root, $type ) = @_;
+    my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
+    my %ends = map { $_->{name} => 1 } grep { $_->{terminal} } @{$columns};
+    $ends{done} = 1 if !keys %ends;
+    return \%ends;
+}
+
 sub _resting_columns {
     my ( $self, $root, $type ) = @_;
     my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];

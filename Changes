@@ -1,5 +1,96 @@
 Revision history for Tira
 
+2.15  2026-08-16
+
+    - TKT-238: conversation-not-folded says nothing about a card whose work
+      has ended. Folding a conversation into the details is how a decision
+      stops living in a comment nobody reads later; on a finished card
+      there is nothing left to lose and nothing anybody will read it in.
+      Reported from another project, where it was the largest group of
+      violations on their board - thirteen cards, every one in a column
+      marked terminal. The board says which those are and the engine
+      already asks; this rule did not.
+    - TKT-239: column-unwatched stops naming columns marked as endings. It
+      did check, and got the arithmetic wrong across the three boards: the
+      endings were worked out for each type separately while the working
+      columns of all three were merged by name, so a column terminal for
+      tickets and not for epics was both, and the merge kept the second
+      answer. That is how a board that had marked three endings was told
+      about all three.
+    - The card said the rule did not skip terminal columns. It does.
+      Running it rather than reading it is what found the difference, and
+      the difference was the whole fix.
+    - TKT-242: checklist-unmoved says nothing about a card that was sent
+      back. It catches a card advancing while nothing was done, and was
+      reporting backwards moves - the inverse of its own purpose. A card
+      sent back has an unfinished checklist precisely because the work is
+      not finished, which is why it went back. Reported from another
+      project on a rule one day old, measured on their own card.
+    - The direction comes from the board's own column order, the same
+      question the push gate was taught to ask in 2.12. The rule comes back
+      the moment the card advances again, which a third assertion holds: a
+      card silenced for ever by one backwards move would be worse than the
+      report it replaced.
+    - TKT-252: where work ends is asked once. Four rules need to know
+      which columns are endings and three pieces of code answered it - a
+      helper that two rules called, and inline copies in card-unassigned
+      and priority-skipped. All three agreed, which is the condition under
+      which nobody notices they are three: a change to the helper would
+      have reached half the rules and left the rest behind, silently.
+    - Two more helpers, so each question has one answer: the endings alone,
+      which priority-skipped needs to work out the columns a card waits in,
+      and the endings across every board, which column-unwatched needs
+      because it reports column names rather than cards.
+    - Proved by changing the answer rather than by reading the code: the
+      helper is replaced for the length of a test and every rule that asks
+      has to follow. A rule with its own copy cannot, which is what made it
+      red.
+    - It corrected a test written an hour earlier for TKT-239, which
+      expected done to be named as an unwatched column. With the endings
+      taken across every board, done is an ending on a board whose epics
+      and SOWs have marked none - the rule was right and the assertion was
+      measuring the arithmetic I was about to change.
+    - TKT-241: what a complete card is, decided once. Police read one list
+      and the push gate kept its own, and they disagreed in both
+      directions at once - the same card at the same moment was missing a
+      description to one and missing a parent to the other, and neither
+      mentioned the other's field. The bridge nagged about a field the
+      gate called finished, and three pushes died on a field police had
+      never once mentioned.
+    - The engine owns it and tira.card.required says what it is. The gate
+      asks, from the tree rather than the installed copy: it runs before
+      the push that makes new code installable, so asking for a command
+      that arrives with this release would refuse the release that
+      introduces it.
+    - Police is stricter for it. It now asks for a checklist and a parent,
+      which were the gate's requirements and which it did not share, so
+      boards will see those two named on cards that were quiet before.
+      That is the cost of one definition instead of two, and three fixtures
+      in the suite were completed rather than the definition narrowed back.
+    - TKT-244: declining a rule the project is using is refused rather
+      than answered with a decision nobody can read. It was stored and
+      then hidden: the reader filters out declines for rules that are
+      declared, which is right and is how declaring a rule clears the note
+      saying it was declined - so the caller was told a decision had been
+      recorded and could not read it back in any sense they could check.
+      Reported from another project and reproduced three times.
+    - A contradiction is refused or resolved. Answering with a decision
+      nobody can read is the third thing and the only one nobody can act
+      on. The refusal names the rule and says the policy has to be removed
+      first.
+    - TKT-226: the manual says which question its field table answers. It
+      marks --problem, --solution-needed, --deliverable, --acceptance,
+      --test-step, --bdd and --atdd optional, and the push gate refuses a
+      card that lacks them - both right about different things, and the
+      table said so about neither. Create and Update describe what the
+      command needs; a card can be made with a title alone and cannot be
+      finished with one. Five cards raised from that table blocked a push
+      that had already passed its suite.
+    - It points at tira.card.required, which is the one definition both
+      readers use, and the guard reads the fields from there rather than
+      listing them - a test with its own list would be a fourth place for
+      this to drift.
+
 2.14  2026-08-16
 
     - TKT-237: what is still outstanding can be asked for.

@@ -1,5 +1,25 @@
 Revision history for Tira
 
+2.32  2026-08-16
+
+    - TKT-224: no command gets a free pass from the documentation guard. It
+      derived each command's dotted name by dropping every 'skills' segment,
+      as the dispatcher does - but not the dispatcher's other branch, where
+      an entrypoint sitting directly in cli/ is named by its basename. So
+      cli/skills, the file behind d2 tira.skills, derived to the bare
+      'tira.', which appears in every document, and that command was
+      reported documented without anything having been checked.
+    - Proved by taking it away: with tira.skills removed from SKILLS.md,
+      docs/commands.md and docs/POLICIES.md, the guard as it shipped passed
+      all 806 assertions and said nothing. The check was not weak on that
+      command, it was incapable of failing on it. The same documents against
+      the fixed guard name it in the first failure.
+    - Derived once and called from both places that need it. The guard
+      beside it already had the missing branch, so fixing only the loop
+      would have left one file holding two derivations of one decision -
+      which is the shape this board keeps finding. The derivation itself is
+      now asserted on both forms.
+
 2.31  2026-08-16
 
     - TKT-221: --column-role can be given. The command reference offered it

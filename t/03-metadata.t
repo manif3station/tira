@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=2\.31$/m, '.env stores the version being released' );
+like( $env_text, qr/^VERSION=2\.32$/m, '.env stores the version being released' );
 
 # Read out of .env rather than matched against it, so the module can be
 # compared with what .env actually holds rather than with a literal that
@@ -59,7 +59,7 @@ use Tira;
 # the same literal, so they agreed only through a third party. Changing one
 # literal and not the other was caught by luck rather than by this.
 is( $Tira::VERSION, $env_version, 'module version matches .env, which is now read' );
-is( $Tira::VERSION, '2.31', 'and the release being made is the one intended' );
+is( $Tira::VERSION, '2.32', 'and the release being made is the one intended' );
 
 # And the changelog, which nothing checked. .env, the module and this file
 # agreed with each other for two releases while Changes named a version one
@@ -135,23 +135,43 @@ for my $document (qw(docs/commands.md SKILLS.md docs/POLICIES.md)) {
     close $fh;
 }
 
+# The command an agent types, from the path the file sits at, derived once.
+#
+# The dispatcher drops every 'skills' segment, so the name is not the path -
+# and an entrypoint sitting directly in cli/ is named by its basename instead,
+# which is the branch this used to be missing. Without it, cli/skills - the
+# file behind d2 tira.skills - derived to the bare 'tira.', which appears in
+# every document, so that command was reported documented without anything
+# having been checked. Removing it from all three documents changed nothing:
+# the check was not weak on that command, it was incapable of failing on it.
+#
+# Written once and called from both places that need it, because the guard
+# below already had the branch and holding two derivations of one decision in
+# one file is the shape this project keeps finding. TKT-224.
+sub dotted_command {
+    my ($path) = @_;
+    return "tira.$1" if $path =~ m{\Acli/([^/]+)\z};
+    ( my $trimmed = $path ) =~ s{/cli/}{/};
+    return 'tira.' . join '.', grep { $_ ne 'skills' } split m{/}, $trimmed;
+}
+
 my @undocumented;
 for my $command (@commands) {
-    my $dotted = $command;
-    $dotted =~ s{\Acli/}{};
-    $dotted =~ s{/cli/}{/};
-
-    # The dispatcher drops every 'skills' segment, so the command an agent
-    # types is not the path the file sits at. Deriving it any other way
-    # invents commands that do not exist and then reports them missing.
-    $dotted = join '.', grep { $_ ne 'skills' } split m{/}, $dotted;
-    $dotted = "tira.$dotted";
+    my $dotted = dotted_command($command);
 
     # The three record boards share one set of verbs, documented once.
     next if $dotted =~ /\Atira\.(?:sow|epic|ticket)\./;
     next if $dotted =~ /\Atira\.dashboard\./;
     push @undocumented, $dotted if index( $documented, $dotted ) < 0;
 }
+
+# And the derivation itself, on the one entrypoint that exposed the fault: a
+# guard whose subject is a derived name is only as good as the derivation.
+is( dotted_command('cli/skills'), 'tira.skills',
+    'an entrypoint in cli/ is named by its basename, as the dispatcher names it' );
+is( dotted_command('skills/project/skills/people/cli/remove'),
+    'tira.project.people.remove',
+    'and a nested one drops the segments the dispatcher drops' );
 is_deeply( \@undocumented, [],
     'every command that ships is named in a document an agent reads' );
 
@@ -180,18 +200,7 @@ is( scalar @commands, 148, 'release ships exactly 148 executable CLI entrypoints
     # An entrypoint sitting directly in cli/ is named by its basename. Dropping
     # 'skills' segments without that branch turns cli/skills into the bare
     # 'tira.', which then matches the documentation trivially - TKT-224.
-    my %ships;
-    for my $path (@commands) {
-        my $name;
-        if ( $path =~ m{\Acli/([^/]+)\z} ) {
-            $name = $1;
-        }
-        else {
-            ( my $trimmed = $path ) =~ s{/cli/}{/};
-            $name = join '.', grep { $_ ne 'skills' } split m{/}, $trimmed;
-        }
-        $ships{"tira.$name"} = 1;
-    }
+    my %ships = map { dotted_command($_) => 1 } @commands;
 
     # No translation is needed and none is done. sow, epic and ticket each ship
     # their own eight verbs - clone, create, discard, list, move, restore, show,

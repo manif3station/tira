@@ -1,5 +1,26 @@
 Revision history for Tira
 
+2.21  2026-08-16
+
+    - TKT-249: a board is backed up if anything has backed it up.
+      board-unbacked read the board's own git commit, which is what
+      tira.backup writes, and only looked at the dated export directories
+      when there was no commit at all. The push gate writes those
+      directories on every push - 481 of them for this board, the newest
+      twenty minutes old - and the rule was answering with a commit six
+      hours older, then advising the reader to run the command whose
+      answer it was already using. The later of the two is the answer,
+      because the question is when this board was last backed up rather
+      than which mechanism did it.
+    - The two were also on different clocks, which only mattered once they
+      were compared. The commit time was read as a local wall clock with
+      the offset thrown away and a Z put on the end, so a backup at
+      01:03+01:00 was recorded as 01:03Z - an hour later than it happened,
+      labelled with the one timezone it was not in. Against an age measured
+      in days that was slack; against a gate stamping its directories in
+      real UTC it means the older backup can win. It is read as an instant
+      now.
+
 2.20  2026-08-16
 
     - TKT-230: the push gate has seventeen ways to refuse and four of them

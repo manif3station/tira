@@ -2288,8 +2288,18 @@ sub _police_world {
     # at 07:55 and escalated twice while the board was backed up three times in
     # between, against a seven-day age. One variable was answering two
     # questions, which are the same place until somebody says otherwise.
-    $world->{backed_up_at} = _last_backup_commit( _backup_store($root) )
-      // _last_backup( $args{backups} // _backup_home($root) );
+    #
+    # And both mechanisms, not the first one that answers. `//` meant "the
+    # commit, or the directories if there is no commit", when the question is
+    # when this board was last backed up by anything at all. tools/board-backup
+    # writes the directories on every push and tira.backup writes the commit, so
+    # a board the gate had backed up 481 times was told its last backup was the
+    # one somebody ran by hand six hours earlier - and advised to run that same
+    # command. The later of the two is the answer.
+    $world->{backed_up_at} = _later_backup(
+        _last_backup_commit( _backup_store($root) ),
+        _last_backup( $args{backups} // _backup_home($root) ),
+    );
     $world->{card_in_progress} = exists $args{card_in_progress}
       ? $args{card_in_progress}
       : _card_in_progress( $args{tira}, $root );
@@ -2725,11 +2735,21 @@ sub _backup_store {
 # directory of stamps that only one machine on earth ever wrote to. Nothing is
 # created by asking: a board that has never been backed up answers undef and is
 # left exactly as it was.
+# Asked as an instant rather than as a local wall clock. This read %cI and
+# threw the offset away, so a commit at 01:03+01:00 was recorded as 01:03Z - an
+# hour later than it happened, labelled with the one timezone it was not in.
+# On its own that was an hour of slack in an age measured in days. It stopped
+# being harmless when this answer began to be compared with the gate's, which
+# stamps its directories in real UTC: the same instant read as two times an
+# hour apart, and the wrong one could win.
 sub _last_backup_commit {
     my ($store) = @_;
     return undef if !defined $store || !-d File::Spec->catdir( $store, '.git' );
-    my ($when) = @{ _reading( 'git', '-C', $store, 'log', '-1', '--format=%cI' ) };
-    return defined $when && $when =~ /\A(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/ ? $1 . 'Z' : undef;
+    my ($when) = @{ _reading( 'git', '-C', $store, 'log', '-1', '--format=%ct' ) };
+    return undef if !defined $when || $when !~ /\A(\d+)\z/;
+    my @moment = gmtime($1);
+    return sprintf '%04d-%02d-%02dT%02d:%02d:%02dZ',
+      $moment[5] + 1900, $moment[4] + 1, $moment[3], $moment[2], $moment[1], $moment[0];
 }
 
 sub _program_exists {
@@ -2951,6 +2971,15 @@ sub _backup_home {
 # The most recent backup, read from the stamp in its name. The newest one is
 # the only one the rule cares about - it asks how long it has been since the
 # last one, not how many there have ever been.
+# The later of two answers about the same board, either of which may be
+# missing. Both are written as YYYY-MM-DDTHH:MM:SSZ, so the comparison is the
+# one the strings already support.
+sub _later_backup {
+    my @when = grep { defined && length } @_;
+    return undef if !@when;
+    return ( sort @when )[-1];
+}
+
 sub _last_backup {
     my ($directory) = @_;
     return undef if !defined $directory || !-d $directory;

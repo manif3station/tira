@@ -43,6 +43,10 @@ $tira->project_new(
     sow_prefix => 'WTS', epic_prefix => 'WTE', ticket_prefix => 'WTT',
 );
 
+# The board says which agent works it, which is the fact the rule turns on: an
+# edit by that agent is the board's own work whoever the card is assigned to.
+$tira->project_update( project => $root, agent => 'claude' );
+
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Being worked, and about to be edited underneath', priority => 3,
     assignee => 'claude' );
@@ -111,20 +115,92 @@ $tira->policy_add( project => $root, rule => 'card-changed-by-owner',
         'the agent touching the card settles it, with nothing to remember' );
 }
 
-# --- an unassigned card is still reported ---------------------------------------
+# --- an unassigned card, from both sides ----------------------------------------
 #
-# Nobody in particular to tell is not a reason to say nothing. He edits cards
-# that are waiting, and those are the ones with no assignee.
+# The case that was wrong when this shipped, and it was wrong in the test first:
+# it asserted only that an unassigned card IS reported, which the vacuous
+# version satisfied. With no assignee, "somebody other than the agent working
+# it" is true of everybody, so the board's own agent counted as an outsider and
+# the finding could never settle - the agent's next edit was by the same
+# stranger as the last.
+#
+# Measured on this board within a minute of declaring it: 24 findings, every one
+# of them this board's own work. Zenandi reported the same thing from their side
+# in the same minute, on the two of their four cards that had no assignee.
 
 {
     my $waiting = $tira->create_record( project => $root, type => 'ticket',
         title => 'Waiting, and edited while it waits', priority => 4 );
+
     $now = '2026-08-17T13:00:00Z';
     $tira->record_update( project => $root, ref => $waiting->{ref},
         author => 'michael', priority => 5 );
 
     my ($found) = grep { ( $_->{ref} // '' ) eq $waiting->{ref} } @{ reported() };
-    ok( $found, 'a card nobody is assigned is reported too' );
+    ok( $found, 'a card nobody is assigned is reported too - he edits the waiting ones' );
+
+    # And the agent's own edit to the same card settles it, which is the half
+    # that could not happen: reading it is what the message asks for.
+    $now = '2026-08-17T13:30:00Z';
+    $tira->record_update( project => $root, ref => $waiting->{ref},
+        author => 'claude', solution_needed => 'Read his change and carried on.' );
+
+    my ($still) = grep { ( $_->{ref} // '' ) eq $waiting->{ref} } @{ reported() };
+    ok( !$still,
+        "and the board's own agent touching it settles it, on a card with no assignee" );
+}
+
+# --- the board's agent is never the stranger ------------------------------------
+#
+# Whoever the card is assigned to. An agent acting on somebody else's card is
+# still the agent, and reporting that would tell it to go and read its own work.
+
+{
+    my $hers = $tira->create_record( project => $root, type => 'ticket',
+        title => "Assigned to him, worked by the agent", priority => 3,
+        assignee => 'michael' );
+    $now = '2026-08-17T14:30:00Z';
+    $tira->record_update( project => $root, ref => $hers->{ref},
+        author => 'claude', solution_needed => 'The agent did the work on it.' );
+
+    my ($found) = grep { ( $_->{ref} // '' ) eq $hers->{ref} } @{ reported() };
+    ok( !$found, "the board's agent is not an outside editor on anybody's card" );
+}
+
+# --- a column nobody is watching -------------------------------------------------
+#
+# Reported by Zenandi within minutes of the last one, from the same board: the
+# TKT-287 defect repeating in a rule written after it. Every card rule asks
+# which columns to leave alone and this one did not.
+#
+# The watched flag alone, not the whole resting set. A card waiting in the
+# backlog is exactly the kind he edits - the block above asserts one is
+# reported - so silencing every resting column would silence the case this rule
+# was built for.
+
+{
+    my $reviewed = $tira->create_record( project => $root, type => 'ticket',
+        title => 'Sitting in a column nobody watches', priority => 3,
+        assignee => 'claude' );
+    $tira->record_move( project => $root, ref => $reviewed->{ref}, column => 'done' );
+
+    $now = '2026-08-17T15:00:00Z';
+    $tira->record_update( project => $root, ref => $reviewed->{ref},
+        author => 'michael', key_details => ['Changed it in the browser.'] );
+
+    my ($watched) = grep { ( $_->{ref} // '' ) eq $reviewed->{ref} } @{ reported() };
+    ok( $watched, 'a watched column reports the edit' );
+
+    $tira->column_update( project => $root, type => $_, name => 'done', watched => 0 )
+      for qw(sow epic ticket);
+
+    my ($unwatched) = grep { ( $_->{ref} // '' ) eq $reviewed->{ref} } @{ reported() };
+    ok( !$unwatched, 'and a column set to --no-watch does not' );
+
+    $tira->column_update( project => $root, type => $_, name => 'done', watched => 1 )
+      for qw(sow epic ticket);
+    ok( ( grep { ( $_->{ref} // '' ) eq $reviewed->{ref} } @{ reported() } ),
+        'while watching it again brings it back, so the switch is a switch' );
 }
 
 # --- proved by ignoring who made the change -------------------------------------

@@ -113,6 +113,7 @@ fi
 # covers: cannot find | not proved: the compose file is how the gate runs the suite, and a probe that removes it is a probe that breaks the machine the gate runs on. The refusal is one line and its own message; the risk of proving it is a working tree with the test stack deleted under an interrupted run, which this file has already done twice with other files.
 # covers: could not check out the commits being pushed | not proved: provoking it means corrupting the repository the gate is checking, and an interrupted run would leave it that way. The two probes here that stage a repository state do it in a clone; a checkout failure cannot be staged in a clone, because what fails is the checkout of this repository.
 # covers: the suite did not run | a suite that produced nothing
+# covers: the suite did not finish - killed at the | a suite killed by the timeout
 # covers: the suite failed | a failing suite
 # covers: no coverage was measured for | a module with no coverage measured at all
 # covers: coverage is below 100% for | coverage below 100%
@@ -297,7 +298,15 @@ t/01-cli.t (Wstat: 512 Tests: 3 Failed: 1)'
 #
 # Silence read as success on this project the same morning this was written:
 # a dependency install printed nothing because it had timed out.
-refuses 'a suite that produced nothing' 'suite failed|did not run' run_hook ''
+#
+# The refusal now has to NAME the limit, which is the whole of TKT-323. A run
+# killed by the timeout prints no Result: and no Failed:, so the message used
+# to be a colour code and a blank line - and two pushes were spent working out
+# that the suite had not failed at all, it had run 943 seconds against a 900
+# second limit. A gate that refuses without saying why reads as broken rather
+# than slow.
+refuses 'a suite that produced nothing' 'did not finish' run_hook ''
+refuses 'a suite killed by the timeout' '1800 second limit' run_hook ''
 
 # --- coverage below the line ----------------------------------------------
 refuses 'coverage below 100%' 'coverage is below' run_hook 'Result: PASS

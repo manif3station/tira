@@ -1,5 +1,52 @@
 Revision history for Tira
 
+2.49  2026-08-17
+
+    - TKT-323, found by the push gate refusing with an empty message: the hook
+      killed the suite at 900 seconds and the suite is now 943. Timings this
+      session, in order: 658, 667, 702, 721, 740, 754, 794, 808, 814, 831, 876,
+      943. The limit was right when it was set, on a suite half this size.
+
+    - The refusal said nothing, which cost two pushes to diagnose. A killed run
+      never reaches its summary, so there is no Failed and no Result: to print
+      and the message was a colour code and a blank line - a gate that refuses
+      without saying why reads as broken rather than slow. It names the limit
+      now. Proving that took a || true: grep matching nothing exits 1 and set
+      -e killed the hook before it could speak, which is the same trap this
+      file hit once before with a grep for card references.
+
+    - One number rather than two: the documented gate command already used
+      1800 and the hook was the only place still on 900.
+
+    - TKT-316: card-changed-by-owner reported the board's own agent as an
+      outside editor. Declared on this board a minute after 2.47 shipped and it
+      fired 24 times at once, every one of them this board's own work.
+
+    - The rule asked whether the newest change was made by somebody other than
+      the CARD'S ASSIGNEE, and most cards have none - so with nobody working
+      the card, everybody is somebody else. Worse than noisy: it could never
+      settle, because the agent's next change was by the same stranger as the
+      last, and reading the card is exactly what the message asks for.
+
+    - Zenandi reported the same thing from the other side in the same minute,
+      measured across all four cards it fired on for them: the two with an
+      assignee were the intended case and correct, the two without were
+      vacuous.
+
+    - TKT-318, reported by Zenandi within minutes of the same rule and from the
+      same board: it did not honour --no-watch either, which is the TKT-287
+      defect repeating in a rule written after it. Every card rule asks which
+      columns to leave alone and this one did not ask. It asks the watched flag
+      now - and only that, not the whole resting set, because a card waiting in
+      the backlog is exactly the kind he edits and silencing the backlog would
+      silence the case the rule was built for.
+
+    - It compares against the board's agent as well as the assignee now. An
+      edit by the agent the board says works it is the board's own work
+      whoever the card is assigned to; anybody else is the case that was asked
+      for. The test asserted the unassigned case before and asserted the wrong
+      thing - that it fires - which the vacuous version satisfied.
+
 2.48  2026-08-17
 
     - TKT-308, asked for directly: "on the bridge, each line of message show

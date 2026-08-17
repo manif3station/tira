@@ -142,19 +142,41 @@ trap 'rm -f "$output"; git worktree remove --force "$tree" >/dev/null 2>&1 || tr
 # to know any of this is happening. The compose file's mask over the board
 # directory still applies - the checkout has no board of its own, which is what
 # 74-production-board.t is there to notice.
+# One number, not two. The documented gate command uses 1800 and this used 900,
+# which is the shape this project keeps finding: two copies of one decision, and
+# the one nobody edits is the one that blocks the push. TKT-323.
+SUITE_TIMEOUT=1800
+
 docker compose -f "$compose" run --rm -v "$tree:/workspace/skills/tira" perl-test bash -lc '
   cd /workspace/skills/tira &&
   rm -rf cover_db .test-tmp &&
   cpanm --quiet --notest --installdeps . >/dev/null 2>&1 &&
-  timeout --signal=KILL 900 env HARNESS_PERL_SWITCHES=-MDevel::Cover prove -lr t 2>&1 | tail -4 &&
+  timeout --signal=KILL '"$SUITE_TIMEOUT"' env HARNESS_PERL_SWITCHES=-MDevel::Cover prove -lr t 2>&1 | tail -4 &&
   cover -ignore_covered_err -report text \
     -select lib/Tira.pm -select lib/Tira/CLI.pm -select lib/Tira/DashboardWeb.pm \
     -coverage statement -coverage subroutine 2>/dev/null | grep -E "^lib|^Total"
   rm -rf cover_db
 ' >"$output" 2>&1 || fail "the suite did not run: $(tail -3 "$output")"
 
-grep -q '^Result: PASS' "$output" || fail "the suite failed:
-$(grep -E 'Failed|Result:' "$output" | head -10)"
+# A killed run says so. It was 900 seconds until the suite grew past it, and
+# the message then was a colour code and a blank line - because a killed run
+# never reaches its summary, so there is no Failed and no Result: to print, and
+# a gate that refuses without saying why reads as broken rather than slow.
+# Measured when it happened: 943 seconds against a 900 second limit. TKT-323.
+if ! grep -q '^Result: PASS' "$output"; then
+  # || true, because grep matching nothing exits 1 and set -e would kill the
+  # hook here - silently, before it could say anything, which is precisely the
+  # failure this block exists to end. The same trap this file hit once before,
+  # when a grep for card references in the commit range killed the whole gate.
+  summary="$(grep -E 'Failed|Result:' "$output" | head -10 || true)"
+  if [ -z "$summary" ]; then
+    fail "the suite did not finish - killed at the $SUITE_TIMEOUT second limit,
+or it stopped before printing a summary. The last of what it said:
+$(tail -3 "$output")"
+  fi
+  fail "the suite failed:
+$summary"
+fi
 
 # A module that is not listed has not been measured, which must not read as a
 # pass. Each of the three has to appear AND be at 100.

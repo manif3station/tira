@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.48';
+our $VERSION = '2.49';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -5781,12 +5781,38 @@ sub policy_evaluate {
             # somebody who is not the agent working the card - so it settles by
             # itself the moment the agent touches the card, and there is no
             # stored timestamp to go stale or to be quietly reset. TKT-307.
+            # The board's agent, asked once. Comparing against the card's
+            # assignee alone made this vacuous on an unassigned card: with
+            # nobody working it, everybody is "somebody other than the agent
+            # working it", so the board's own work counted as an outside edit
+            # and the finding could never settle - the agent's next change was
+            # by the same stranger as the last. 24 findings on this board within
+            # a minute of declaring it, every one its own work, and Zenandi
+            # reported the same from their side in the same minute. TKT-316.
+            my $ours = eval { $self->project_show( project => $root )->{agent} } // '';
+
+            # A column nobody is watching is left alone, which is the TKT-287
+            # answer and this rule did not ask it either - Zenandi found that
+            # within minutes of the last one, from the same board. The watched
+            # flag alone, not the whole resting set: a card waiting in the
+            # backlog is exactly the kind he edits, and silencing the backlog
+            # would silence the case this rule was built for. TKT-318.
+            my %limits;
+
             for my $record ( @{$records} ) {
                 next if !$resolved_for->( $policy, $record );
+
+                my $kind = $record->{type} // 'ticket';
+                $limits{$kind} //= $self->_column_limits( $root, $kind );
+                my $column = $record->{column} // '';
+                next
+                  if exists $limits{$kind}{$column}
+                  && !defined $limits{$kind}{$column};
 
                 my $last = $self->_card_last_author( $root, $record );
                 next if !$last;
                 next if ( $record->{assignee} // '' ) eq $last->{author};
+                next if $ours ne '' && $ours eq $last->{author};
 
                 $report->( $policy, $record,
                     "changed by $last->{author}"
@@ -6684,8 +6710,11 @@ sub _card_last_author {
     my $entries = eval {
         $self->history_list( project => $root, ref => $record->{ref}, last => 1 );
     } || [];
-    $entries = $entries->{entries} if ref $entries eq 'HASH';
-    my $newest = ref $entries eq 'ARRAY' ? $entries->[-1] : undef;
+
+    # history_list answers with a list, always - checked by running it rather
+    # than assumed, after a defensive unwrap here cost a statement nothing could
+    # reach and the push gate refused the release for it.
+    my $newest = $entries->[-1];
     return undef if ref $newest ne 'HASH';
     my $author = $newest->{author};
     return undef if !defined $author || $author eq '';
@@ -7403,14 +7432,10 @@ sub bridge_backlog {
         my $outstanding = eval { $self->police_outstanding( store => $args{store} ) };
         $whose{ $_->{id} // '' } = $_->{assignee} // ''
           for @{ $outstanding || [] };
-        my $settled = eval { $self->enforcement_log( store => $args{store} ) };
-        for my $entry ( @{ $settled || [] } ) {
-            next if ref $entry ne 'HASH';
-            my $id = $entry->{id} // '';
-            next if $id eq '' || exists $whose{$id};
-            $whose{$id} = $entry->{assignee} // '';
-        }
-
+        # Only what is still outstanding is looked up. A settled line says a
+        # finding is over, and a reader hearing that about somebody else's card
+        # is told nothing it has to act on - so there is no second lookup for
+        # the settled log, and the four statements that did it are gone.
         # The summary tail carries no VIO id on purpose - every reader tells a
         # violation line from a header by looking for VIO-, so putting one
         # there would have every reader counting the summary as one more

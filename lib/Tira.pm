@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.44';
+our $VERSION = '2.45';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -6582,11 +6582,23 @@ sub work_order {
         # shipped: 15 of the 24 cards offered, and the one named as the answer.
         # Dropped here in the shape police already uses, so the command and the
         # rule are fixed once rather than twice. TKT-295.
+        # Parked, not waiting. A card held on a question nobody has answered
+        # cannot be started, and priority-skipped has refused to name one as
+        # passed over since it was written - "parked, not skipped", in its own
+        # words. The hold was already readable; this is the command reading it.
+        #
+        # Reported by Zenandi, who had a SOW under an explicit order not to be
+        # worked and recorded the hold in seven prose key_details because they
+        # could find nowhere better to put it. There is somewhere better and it
+        # is not a new field: a question names the condition, and the answer
+        # arriving is the release trigger. TKT-296.
         my $records = eval { $self->record_list( project => $root, type => $type ) } || [];
         push @waiting, grep {
-            defined $_->{priority}
-              && $here{ $_->{column} // '' }
-              && ( $_->{column} // '' ) ne 'discard'
+            my $card = $_;    # named, because the inner grep rebinds $_
+            defined $card->{priority}
+              && $here{ $card->{column} // '' }
+              && ( $card->{column} // '' ) ne 'discard'
+              && !grep { !$_->{answer} } _policy_questions($card)
         } @{$records};
     }
 

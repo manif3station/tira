@@ -1377,6 +1377,13 @@ longest, as `{next, then}` - the answer, and what it was chosen over, so a
 caller can check it rather than take it. A board with nothing waiting answers
 with an empty list rather than a card there is no reason to work.
 
+A card held on an unanswered question is never offered either. `priority-skipped`
+has refused to name such a card as passed over since it was written — parked,
+not skipped — so a question is a hold the board can already read: it names the
+condition, and the answer arriving releases the card. Until 2.45 only the rule
+read it, so a card could be parked by the rule and offered by the command in the
+same moment.
+
 Discarded cards are never offered. `discard` is a protected column and is not
 an ending, so it answered "yes" to both halves of what waiting means until
 2.44 - on this project's own board that was 15 of the 24 cards returned,

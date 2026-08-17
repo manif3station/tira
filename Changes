@@ -1,5 +1,28 @@
 Revision history for Tira
 
+2.45  2026-08-17
+
+    - TKT-296, reported by Zenandi the hour tira.next landed: it offered a SOW
+      under an explicit standing order not to be worked. Their account is
+      careful and correct - the command was not wrong. The card was in the
+      backlog with the top priority and had waited longest, so given what it
+      could see, that was the right answer.
+
+    - What it could not see was the hold. They measured that too: the card
+      recorded it in seven of its eighty key_details, every one prose, and they
+      read the whole field list looking for somewhere better to put it.
+
+    - There is somewhere better and it is not a new field. priority-skipped has
+      refused to name a card as passed over while it carries an unanswered
+      question since that rule was written - parked, not skipped, in its own
+      words. A question is a hold a tool can read: it names the condition, and
+      the answer arriving is the release trigger.
+
+    - So the gap was not that a hold cannot be recorded but that work_order did
+      not read the one that can be - the rule parking a card while the command
+      offered it, about the same board at the same moment. It reads it now, in
+      the one place both of them ask.
+
 2.44  2026-08-17
 
     - TKT-295: tira.next offered discarded cards, and named one as the answer

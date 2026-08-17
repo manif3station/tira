@@ -498,6 +498,8 @@ waiting in a protected column with a priority, most urgent first and then the
 one that has waited longest, as `{next, then}` — the answer, and what it was
 chosen over, so a caller can check it rather than take it. A board with nothing
 waiting answers with an empty list, never a card there is no reason to work.
+A card carrying an unanswered question is never offered — a question is a hold
+the board reads, naming the condition, released when the answer arrives.
 Discarded cards are never offered — `discard` is protected and is not an
 ending, so it counted as waiting until 2.44.
 The ordering belongs to `priority-skipped`, which has enforced it since it was

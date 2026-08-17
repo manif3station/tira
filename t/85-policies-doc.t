@@ -158,7 +158,34 @@ for my $command (@steps) {
         $flag = 'before' if $flag eq 'before_column';
         $args{$flag} = $value;
     }
-    my $ok = eval { $tira->policy_add( project => $root, %args ); 1 };
+    # A fresh board per example, because these are illustrations rather than a
+    # script. The guide shows the same rule several times with different
+    # settings - which is how a rule should be documented - and declaring one
+    # twice on the same scope has been refused since TKT-339, so running them
+    # all against one board made 40 of 79 collide with each other rather than
+    # with anything wrong. The check is that each command is accepted as
+    # written, and that is what this now asks.
+    my $scratch = tempdir( CLEANUP => 1 );
+    my $board = File::Spec->catdir( $scratch, 'board' );
+    $tira->project_new(
+        name => 'Guide', dir => $board, members => ['claude'],
+        columns => ['backlog, triage, planning, implement, doing, review, testing, verify, blocked, released, done'],
+        sow_prefix => 'GDS', epic_prefix => 'GDE',
+        ticket_prefix => 'GDT',
+    );
+
+    # The same two things the shared board was given, for the same reasons:
+    # card-sandbox-missing refuses where no repository can be resolved (TKT-178,
+    # and that refusal is the point rather than an obstacle), and wip-limit
+    # refuses without a limit somewhere. A board declaring either rule has to
+    # do both anyway.
+    my $repo = File::Spec->catdir( $board, 'repository' );
+    mkdir $repo;
+    mkdir File::Spec->catdir( $repo, '.git' );
+    $tira->project_update( project => $board, repo => $repo );
+    $tira->project_limit( project => $board, max => 5 );
+
+    my $ok = eval { $tira->policy_add( project => $board, %args ); 1 };
     if ( !$ok ) {
         $failed++;
         diag "did not run: $command\n  $@" if $failed <= 5;

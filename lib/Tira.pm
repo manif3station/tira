@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.52';
+our $VERSION = '2.56';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4561,6 +4561,45 @@ sub _valid_duration {
     return $value =~ /\A(\d+)([smhd])\z/ ? $value : undef;
 }
 
+# A policy already covering the same rule on the same scope.
+#
+# Scope, not settings: two policies differing only in their limit or their
+# action are two answers to one question, and police takes the stricter without
+# saying which. Identical declarations are handled before this is asked, and are
+# a no-op. A method rather than inline so a test can replace it. TKT-339.
+sub _policy_already_declared {
+    my ( $self, $policies, $wanted ) = @_;
+    for my $existing ( @{ $policies || [] } ) {
+        next if ( $existing->{rule} // '' ) ne ( $wanted->{rule} // '' );
+        # Scope is WHAT a policy covers; the settings are HOW STRICTLY. The
+        # split does not follow the field lists - column, pattern and the rest
+        # of what a policy watches live in @POLICY_FIELDS beside age and max.
+        #
+        # Both halves of this were got wrong on the way here and both were
+        # caught by measuring rather than reasoning. Comparing only
+        # @POLICY_SCOPE called two policies on different COLUMNS the same
+        # scope. Adding the column but not the pattern would have refused two
+        # of the three leftover-process policies on this project's own board,
+        # which watch prove-the-gate, 'until timeout' and projects-skills - three
+        # different things, declared board-wide, every one of them meant.
+        #
+        # So: what is watched is scope, and only age, read_age, max and message
+        # are settings. Two policies differing in those alone are two answers
+        # to one question, which is the fault reported. TKT-339.
+        my $same_scope = 1;
+        for my $field (
+            @POLICY_SCOPE, @POLICY_ROLE_FIELDS,
+            qw(column enter before pattern require sandbox require_link link_to)
+          )
+        {
+            $same_scope = 0
+              if ( $existing->{$field} // '' ) ne ( $wanted->{$field} // '' );
+        }
+        return $existing if $same_scope;
+    }
+    return;
+}
+
 sub policy_add {
     my ( $self, %args ) = @_;
     my $rule = $args{rule} // '';
@@ -4658,13 +4697,37 @@ sub policy_add {
         }
 
         # The same rule watching a different column is a different intention,
-        # not a duplicate. Only an identical declaration is the same policy.
+        # not a duplicate. Only an identical declaration is the same policy,
+        # and declaring one twice is a no-op rather than an error.
         for my $existing ( @{$policies} ) {
             my $same = 1;
             for my $field ( 'rule', 'action', @POLICY_SCOPE, @POLICY_FIELDS, @POLICY_ROLE_FIELDS ) {
                 $same = 0 if ( $existing->{$field} // '' ) ne ( $policy{$field} // '' );
             }
             return $existing if $same;
+        }
+
+        # But the same rule on the same scope with DIFFERENT settings is two
+        # policies for one question, and the stricter one wins silently.
+        #
+        # Reported by zen-framework, and the cost was not the duplicate. They
+        # declared wip-limit at 5, the owner changed his mind, they ran
+        # policy.add again with --max 9, and it returned success while leaving
+        # the first active. The stricter one kept firing, so they told the
+        # owner his decision was applied and the finding escalated to URGENT
+        # minutes later. They found it by going back to ask why, not because
+        # anything reported a conflict.
+        #
+        # Refused rather than replaced, which is this codebase's answer to the
+        # same shape elsewhere: a command that quietly does something other
+        # than what the caller meant is worse than one that stops and names
+        # what is in the way. Replacing would also discard a policy somebody
+        # may have wanted, without saying so. TKT-339.
+        if ( my $clash = $self->_policy_already_declared( $policies, \%policy ) ) {
+            die "This rule is already declared for that scope, as $clash->{id}.\n"
+              . "  Change it:  tira.policy.remove --id $clash->{id}"
+              . "  then declare it again\n"
+              . "  See it:     tira.policy.list\n";
         }
 
         # Numbers are never reused, so a reference in an old log always means
@@ -5999,7 +6062,7 @@ sub policy_evaluate {
                     # an epic is for, so judging a ticket against one would leave
                     # every board with a hierarchy permanently in violation.
                     next if ( $above->{type} // 'ticket' ) ne $type;
-                    next if $above->{priority} <= $record->{priority};
+                    next if !$self->_outranks_for_work( $above, $record );
 
                     # Parked, not skipped. A higher card that cannot start until
                     # he answers is not being ignored, and reporting it would
@@ -6600,6 +6663,34 @@ sub column_endings {
 # Named replaces assumed rather than adding to it: a board that has said which
 # column is its queue has answered the question, and a backlog it did not name
 # is not a second answer. TKT-310.
+# Whether a waiting card should have been taken before the one being worked.
+#
+# The board orders work by priority and then by the card that has waited
+# longest, and work_order has sorted by both since it was written. This rule
+# compared only priority, so two cards at the same priority were never compared
+# and the older one could be passed over indefinitely in silence.
+#
+# Measured on this board rather than reasoned: TKT-281, created 01:59:54, was
+# worked before TKT-274, created 23:23:45 the night before, both at priority 3,
+# and nothing was said. It is the TKT-274 shape surviving in the half nobody
+# looked at - the command and the rule agreeing about which cards are waiting
+# and disagreeing about which of two equals should have been taken. TKT-301.
+sub _outranks_for_work {
+    my ( $self, $above, $record ) = @_;
+    my $theirs = $above->{priority}  // 0;
+    my $ours   = $record->{priority} // 0;
+    return 1 if $theirs > $ours;
+    return 0 if $theirs < $ours;
+
+    # Equal urgency, so the one that has waited longer should have gone first.
+    # A card with no creation stamp is not treated as older, because an unknown
+    # age is not evidence of anything and would report a tie nobody can settle.
+    my $their_age = $above->{created_at}  // '';
+    my $our_age   = $record->{created_at} // '';
+    return 0 if $their_age eq '' || $our_age eq '';
+    return $their_age lt $our_age ? 1 : 0;
+}
+
 sub _queue_columns {
     my ( $self, $root, $type ) = @_;
     my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];

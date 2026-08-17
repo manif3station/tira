@@ -112,6 +112,18 @@ my $dispatcher = do {
     <$handle>;
 };
 
+# How many of them were actually asked, so an empty result cannot mean an empty
+# scan. Measured when this was added: 149 entrypoints found, 23 examined - the
+# other 126 skipped by the guard below, for the reason its comment gives. If the
+# pattern stopped matching, a quoting change in the entrypoints or different
+# spacing around the fat comma, all 149 would skip and this file would go green
+# having checked nothing at all.
+#
+# is_deeply(X, []) is satisfied by a collector that ran and by one that never
+# ran, which is the fault t/147 guards for denials, in a positive assertion.
+# Found by the bug hunt. TKT-341.
+my $examined = 0;
+
 my @unheard;
 for my $script (@entrypoints) {
     open my $handle, '<', $script or die "Cannot read $script: $!";
@@ -123,9 +135,17 @@ for my $script (@entrypoints) {
     # Only the ones naming it out loud can be asked here.
     my ($named) = $body =~ /command\s*=>\s*'([a-z][a-z0-9._-]*)'/;
     next if !defined $named;
+    $examined++;
     push @unheard, "$script names $named"
       if $dispatcher !~ /\Q'$named'\E/;
 }
+# A real floor rather than a token greater-than-zero: twenty of them named a
+# command when this was written, and a change that halved that is worth knowing
+# about even if nothing here fails.
+cmp_ok( $examined, '>=', 20,
+    "the scan examined $examined entrypoints, so an empty result below means "
+      . 'nothing wrong rather than nothing looked at' );
+
 is_deeply( \@unheard, [],
     'every entrypoint that names its command names one the dispatcher handles' );
 

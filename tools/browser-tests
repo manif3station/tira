@@ -18,7 +18,25 @@ set -uo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
-port="${1:-7841}"
+# A port this run can have, rather than one it assumes. Given explicitly, it is
+# used as given and a clash is refused - a caller naming a port means it. Given
+# nothing, the first free one from 7841 upwards is taken, so another project
+# holding the default blocks nothing. TKT-344.
+port="${1:-}"
+port_was_given=1
+if [ -z "$port" ]; then
+    port_was_given=0
+    port=7841
+    while ss -ltn 2>/dev/null | grep -q ":$port " ||
+          ss -ltn 2>/dev/null | grep -q ":$(( port + 1 )) " ||
+          ss -ltn 2>/dev/null | grep -q ":$(( port + 2 )) "; do
+        port=$(( port + 10 ))
+        if [ "$port" -gt 7941 ]; then
+            echo "browser-tests: no free port between 7841 and 7941 - something is holding all of them."
+            exit 1
+        fi
+    done
+fi
 tests="$root/t/playwright"
 
 # The working tree, not the installed copy. A tool that drives the released
@@ -73,11 +91,20 @@ cleanup() {
         kill "$launched" 2>/dev/null
         wait "$launched" 2>/dev/null
     done
-    # Anything still holding the port, whoever started it.
-    for held in $(ss -ltnp 2>/dev/null | grep -E ":($port|$(( port + 1 ))|$(( port + 2 ))) " |
-                  grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u); do
-        kill "$held" 2>/dev/null
-    done
+    # Only what this run started. There used to be a sweep here that killed
+    # anything holding the port, whoever started it - written to reap this
+    # tool's own leaked Starman workers, which is a fault it genuinely had
+    # twice, but unable to tell its own litter from somebody else's live work.
+    #
+    # On 2026-08-17 it came within one refusal of killing another project's
+    # Playwright run: zen-e2e-zsd163chromium was holding 7841 and the startup
+    # check refused first, which is luck rather than design. This workspace's
+    # rules say it plainly - never touch another project - and a kill-by-port
+    # on a shared machine is touching whatever happens to be there.
+    #
+    # The leak it was written for is still covered: the leaked processes are
+    # the ones this run started, and the loop above kills the whole group.
+    # TKT-344.
     [ -n "$board" ] && rm -rf "$(dirname "$board")"
     return 0
 }
@@ -203,7 +230,7 @@ tira login.register --id michael --password hunter2 -o json >/dev/null || {
 # Refused rather than fought over. A port already in use means somebody else's
 # board is there - possibly a leaked one of ours - and binding over it is not
 # possible anyway; saying so beats reporting that the board never came up.
-if ss -ltn 2>/dev/null | grep -q ":$port "; then
+if [ "$port_was_given" -eq 1 ] && ss -ltn 2>/dev/null | grep -q ":$port "; then
     echo "browser-tests: something is already listening on port $port."
     echo "  Stop it, or pass a different port: tools/browser-tests 7851"
     exit 1

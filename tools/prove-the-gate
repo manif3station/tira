@@ -306,7 +306,14 @@ t/01-cli.t (Wstat: 512 Tests: 3 Failed: 1)'
 # second limit. A gate that refuses without saying why reads as broken rather
 # than slow.
 refuses 'a suite that produced nothing' 'did not finish' run_hook ''
-refuses 'a suite killed by the timeout' '1800 second limit' run_hook ''
+# The number is read from the hook rather than written here, because a probe
+# carrying its own copy of the limit is the third copy of a decision that
+# already had two - and it would pass while asserting a figure the gate no
+# longer uses. TKT-350 raised it from 1800 to 3600 and this line did not have
+# to change, which is the point.
+hook_timeout="$(grep -oE '^SUITE_TIMEOUT=[0-9]+' "$root/tools/hooks/pre-push" | cut -d= -f2)"
+[ -n "$hook_timeout" ] || { printf 'NOT PROVED - the hook names no suite timeout to check\n'; failed=$(( failed + 1 )); }
+refuses 'a suite killed by the timeout' "$hook_timeout second limit" run_hook ''
 
 # --- coverage below the line ----------------------------------------------
 refuses 'coverage below 100%' 'coverage is below' run_hook 'Result: PASS

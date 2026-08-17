@@ -198,11 +198,24 @@ is_deeply(
     [ sort keys %needs ],
     'and the catalogue the tool offers is exactly the catalogue that was designed' );
 
-for my $action (qw(bridge-reminder print-reminder log-only)) {
+# One scope per action, because declaring the same rule on the same scope with
+# a different action is refused since TKT-339 - and that refusal is the whole
+# of that card: zen-framework changed a wip-limit and got a second policy while
+# the first went on enforcing the old value. Three actions on one scope is
+# three answers to one question, which is precisely what may no longer happen.
+#
+# The claim here is that each action is accepted, and it is unchanged: each is
+# declared on a column of its own.
+my %action_scope = (
+    'bridge-reminder' => 'verify',
+    'print-reminder'  => 'implement',
+    'log-only'        => 'review',
+);
+for my $action ( sort keys %action_scope ) {
     ok(
         eval {
             $tira->policy_add( project => $scratch, rule => 'card-stalled',
-                before => 'verify', action => $action );
+                before => $action_scope{$action}, action => $action );
         },
         "the $action action can be declared" ) or diag $@;
 }

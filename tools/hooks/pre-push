@@ -142,10 +142,22 @@ trap 'rm -f "$output"; git worktree remove --force "$tree" >/dev/null 2>&1 || tr
 # to know any of this is happening. The compose file's mask over the board
 # directory still applies - the checkout has no board of its own, which is what
 # 74-production-board.t is there to notice.
-# One number, not two. The documented gate command uses 1800 and this used 900,
+# One number, not two. The documented gate command used 1800 and this used 900,
 # which is the shape this project keeps finding: two copies of one decision, and
 # the one nobody edits is the one that blocks the push. TKT-323.
-SUITE_TIMEOUT=1800
+#
+# Raised again to 3600, on measurement rather than on feel. Thirteen complete
+# runs today went 658, 667, 702, 721, 740, 754, 794, 808, 814, 831, 876, 906,
+# 1287 seconds; then three consecutive runs exceeded 1800 and were killed. The
+# third of those ran on an idle machine - load 13, the neighbouring project down
+# to 3 processes - and still hit the limit around t/92, so this is the suite
+# growing rather than the machine being busy: 256 files and 6038 tests, against
+# 248 and 5935 when the ceiling last moved eleven hours ago.
+#
+# Raising a timeout treats the symptom. The suite's runtime is the disease and
+# has its own card; a gate that cannot finish blocks everything, so this moves
+# first. TKT-350.
+SUITE_TIMEOUT=3600
 
 docker compose -f "$compose" run --rm -v "$tree:/workspace/skills/tira" perl-test bash -lc '
   cd /workspace/skills/tira &&

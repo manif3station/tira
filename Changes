@@ -1,5 +1,107 @@
 Revision history for Tira
 
+2.56  2026-08-17
+
+    - TKT-350: the suite now exceeds the 1800 second ceiling on an IDLE
+      machine. Three consecutive gate runs were killed today; the third ran at
+      load 13 with the neighbouring project down to 3 processes and still hit
+      the limit around t/92 with no Result line. So this is growth rather than
+      contention - 256 files and 6038 tests, against 248 and 5935 when TKT-323
+      raised the ceiling from 900 eleven hours earlier and recorded that it
+      would keep growing.
+
+    - The cost is worse than waiting. A killed run prints a partial coverage
+      table - the last showed CLI.pm at 99.8 - which looks exactly like a real
+      finding and is not. That figure took time to disbelieve.
+
+    - Raised to 3600, in the one place that carries it. The gate prover now
+      reads the number out of the hook rather than keeping a third copy: it
+      would otherwise pass while asserting a limit the gate no longer used.
+
+    - Said plainly on the card: raising a timeout treats the symptom and the
+      suite's runtime is the disease, which is its own card. A gate that cannot
+      finish blocks everything, so the ceiling moved first.
+
+2.55  2026-08-17
+
+    - TKT-301: the board orders work by priority and then by the card that has
+      waited longest, and priority-skipped enforced one of those. Its
+      comparison was strictly greater priority, so two cards at the same
+      priority were never compared and the older one could be passed over
+      indefinitely without a word.
+
+    - Measured on this board rather than reasoned: TKT-281, created
+      2026-08-17T01:59:54, was worked before TKT-274, created 2026-08-16
+      T23:23:45, both at priority 3, and nothing was reported. It came out of
+      disproving TKT-294, whose larger claim was false - this board had been
+      worked correctly for the whole 7h49m that prompted it - and this tie is
+      the one thing in that window that was not.
+
+    - It is the TKT-274 shape surviving in the half nobody looked at: the
+      command and the rule agreed about which cards are waiting and disagreed
+      about which of two equals should have been taken.
+
+    - A card with no creation stamp is not treated as older, because an unknown
+      age is not evidence and would report a tie nobody could settle.
+
+2.54  2026-08-17
+
+    - TKT-339, reported by zen-framework, and the cost was not the duplicate.
+      They had wip-limit declared at max 5; the owner changed his mind, so they
+      ran policy.add again with --max 9. It returned success, created a second
+      policy, and left the first active. Both then covered the same rule and
+      column with different maxima and the stricter one kept firing - so they
+      told the owner his decision was applied, and the finding escalated to
+      URGENT minutes later. They found it by going back to ask why, not because
+      anything reported a conflict.
+
+    - There was a duplicate check and it only fired when EVERY field matched,
+      settings included, so the one case that matters - same rule, same scope,
+      different settings - was the one it let through.
+
+    - Refused now, naming the policy already there and what to run to change
+      it. Refused rather than replaced, which is this codebase's answer to the
+      same shape elsewhere: replacing would discard a policy somebody may have
+      wanted without saying so.
+
+    - An identical re-declaration is still a no-op rather than an error,
+      because nothing is ambiguous about asking for what is already true. A
+      different column, or a narrowing to one card, is a different scope and
+      still allowed.
+
+2.53  2026-08-17
+
+    - TKT-344, found by the hourly bug hunt because it blocked a real push. The
+      gate refused with "something is already listening on port 7841", and the
+      listener was another project's E2E suite - zen-e2e-zsd163chromium, 24
+      Playwright specs - not anything of ours.
+
+    - Two faults. tools/browser-tests defaulted to 7841 and the hook called it
+      with no argument, so the gate was blocked for as long as a neighbour held
+      that port. It finds the first free port from 7841 upwards now; a port
+      given explicitly is still used as given, and a clash with it still
+      refused, because a caller naming a port means it.
+
+    - The worse one is ours. The cleanup trap killed anything holding the port,
+      whoever started it - written to reap this tool's own leaked Starman
+      workers, a fault it genuinely had twice, but unable to tell its own
+      litter from somebody else's live work. It came within one refusal of
+      killing that Playwright run; the startup check refused first, which is
+      luck rather than design. It reaps only the pids this run started now,
+      which still covers the leak it was written for.
+
+    - This workspace's rules say both halves out loud: never touch another
+      project, and namespace anything global.
+
+    - TKT-341, from the same hunt: t/131 asserted a collector was empty while
+      examining 23 of the 149 entrypoints it found, with nothing asserting any
+      survived its skip. If the pattern it matches stopped matching, all 149
+      would skip and the file would go green having checked nothing. Measured
+      by breaking it: 23 examined becomes 0, and the floor now added fails
+      where the assertion alone passed. is_deeply(X, []) is satisfied by a
+      collector that ran and by one that never ran - the fault t/147 guards for
+      denials, in a positive assertion.
+
 2.52  2026-08-17
 
     - TKT-312 and TKT-299, measured independently on two boards by two projects

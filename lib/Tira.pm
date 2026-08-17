@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.49';
+our $VERSION = '2.50';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -1311,6 +1311,15 @@ sub column_update {
         # said nothing is unchanged.
         $column->{terminal} = $args{terminal} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false
           if defined $args{terminal};
+
+        # Which columns work waits in, said by the board rather than inferred.
+        # protected means Tira owns a column and it was doing duty as a
+        # statement about what a column MEANS - those come apart the moment a
+        # board adds columns of its own, which is what mt5-ai measured: three
+        # cards waiting in columns they created, and tira.next answering with
+        # nothing. TKT-310.
+        $column->{queue} = $args{queue} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false
+          if defined $args{queue};
         $self->_write_yaml( $path, $config );
         return _column_defaults( [$column] )->[0];
     } );
@@ -5661,11 +5670,23 @@ sub policy_evaluate {
             } qw(sow epic ticket);
             my %ends = %{ $self->_ending_columns_everywhere($root) };
 
+            # Where work waits is asked, not decided again. This kept its own
+            # copy - not protected and not an ending - which agreed with the
+            # rest of the engine right up until TKT-310 replaced that
+            # definition, and then disagreed by construction: a column a board
+            # created is never protected, so a queue looked like a place work
+            # happens that no policy mentions. Being asked to declare
+            # gate-missing on a queue is the absurdity this rule's own comment
+            # says it exists to avoid. Found by the bug hunt. TKT-330.
             my %working;
             for my $type (qw(sow epic ticket)) {
+                my $queues = $self->_queue_columns( $root, $type );
                 $working{ $_->{name} } = 1
-                  for grep { !$_->{protected} && !$ends{ $_->{name} } }
-                  @{ $columns_by_type{$type} };
+                  for grep {
+                      !$_->{protected}
+                        && !$ends{ $_->{name} }
+                        && !$queues->{ $_->{name} }
+                  } @{ $columns_by_type{$type} };
             }
 
             # A column no column-scoped rule mentions at all.
@@ -6569,6 +6590,28 @@ sub column_endings {
     return [ sort keys %{ $self->_ending_columns( $root, $args{type} ) } ];
 }
 
+# The columns work waits in.
+#
+# A board that has marked its queues answers with those. A board that has said
+# nothing gets what it has always had - protected and not an ending - because a
+# default is there to be right about the common case, not to be the only answer
+# available. The same shape as the terminal default, and for the same reason.
+#
+# Named replaces assumed rather than adding to it: a board that has said which
+# column is its queue has answered the question, and a backlog it did not name
+# is not a second answer. TKT-310.
+sub _queue_columns {
+    my ( $self, $root, $type ) = @_;
+    my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
+
+    my %named = map { $_->{name} => 1 } grep { $_->{queue} } @{$columns};
+    return \%named if %named;
+
+    my $ends = $self->_ending_columns( $root, $type );
+    return { map { $_->{name} => 1 }
+          grep { $_->{protected} && !$ends->{ $_->{name} } } @{$columns} };
+}
+
 sub _ending_columns {
     my ( $self, $root, $type ) = @_;
     my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
@@ -6645,10 +6688,7 @@ sub work_order {
     my @waiting;
     for my $type (qw(sow epic ticket)) {
         next if defined $args{type} && $args{type} ne $type;
-        my $ends = $self->_ending_columns( $root, $type );
-        my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
-        my %here = map { $_->{name} => 1 }
-          grep { $_->{protected} && !$ends->{ $_->{name} } } @{$columns};
+        my %here = %{ $self->_queue_columns( $root, $type ) };
 
         # Discarded work is not waiting work. discard is protected and is not
         # an ending, so it answers "yes" to both halves of the question above -

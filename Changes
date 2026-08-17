@@ -1,5 +1,39 @@
 Revision history for Tira
 
+2.50  2026-08-17
+
+    - TKT-330, found by the hourly bug hunt probing for two copies of one
+      decision: column-unwatched kept its own answer to what a working column
+      is - not protected and not an ending - the mirror image of the definition
+      TKT-310 replaced. The two agreed until that fix and then disagreed by
+      construction: a column a board created is never protected, so a queue
+      looked like a place work happens that no policy mentions, and the
+      reporting board would have been asked to declare gate-missing on its
+      buglist. It asks where work waits now rather than deciding again.
+
+    - TKT-310, reported by mt5-ai and measured on their board: tira.next
+      answered with nothing while three cards sat waiting, prioritised and
+      fully filled in. Their queue columns are ones they created, so protected
+      is False on both and always will be - protected means Tira owns the
+      column. Waiting was defined as protected-and-not-an-ending, so their
+      waiting cards were invisible by construction rather than by mistake.
+
+    - The consequence they were more worried about, and rightly: work_order is
+      one method serving tira.next and priority-skipped both, so the rule went
+      structurally silent on that board at the same moment. A rule that cannot
+      fire is worse than one that fires wrongly, because nothing tells you.
+
+    - Their diagnosis is the fix, in their words: protected is a statement
+      about WHO OWNS a column and it was doing duty as a statement about what
+      the column MEANS. Those come apart the moment a board adds columns of its
+      own.
+
+    - tira.column.update --queue lets a board say which of its columns work
+      waits in, alongside --terminal and --watch. Named replaces assumed rather
+      than adding to it, and a board that says nothing keeps exactly what it
+      has - the same shape as the terminal default in 2.46, and for the same
+      reason.
+
 2.49  2026-08-17
 
     - TKT-323, found by the push gate refusing with an empty message: the hook

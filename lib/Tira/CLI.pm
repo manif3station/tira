@@ -238,6 +238,7 @@ sub run {
         'said=s' => \$option{said}, 'heard=s' => \$option{heard},
         'agent-session=s' => \$option{agent_session},
         'watch!' => \$option{watched}, 'terminal!' => \$option{terminal}, 'stale' => \$option{stale},
+        'queue!' => \$option{queue},
         'with-level' => \$option{with_level},
         'cache-ttl=i' => \$option{cache_ttl}, 'no-cache' => \$option{no_cache},
         'with=s' => \$option{with}, 'note=s' => \$option{note},
@@ -1732,6 +1733,8 @@ sub _invoke {
       if $option->{questions} && $command ne 'attachment.list';
     die "Watch is available on the column.update command\n"
       if defined $option->{watched} && $command ne 'column.update';
+    die "Queue is available on the column.update command\n"
+      if defined $option->{queue} && $command ne 'column.update';
     die "Notify-after is available on the column.update, project.update, project.new and onboard commands\n"
       if defined $option->{notify_after}
       && $command !~ /\A(?:column\.update|project\.update|project\.new|onboard)\z/;

@@ -493,6 +493,13 @@ ids — enough to act without a further read — and `now` for chaining.
 snapshot comparison; `--count` answers whether to look; an empty diff is
 an explicit empty result. Exactly one baseline is required; diff never
 writes, and storing a snapshot is the separate export call.
+Which columns work waits in is **Implemented.** `tira.column.update --queue`
+lets a board say so. Until 2.50 waiting meant protected-and-not-an-ending, and
+`protected` says *Tira owns this column* rather than what it means — so a board
+queueing work in columns it created had every waiting card invisible, `tira.next`
+answering empty and `priority-skipped` unable to fire at all. A board that marks
+nothing keeps the old assumption exactly.
+
 What to work next is **Implemented.** `tira.next` answers it: the cards
 waiting in a protected column with a priority, most urgent first and then the
 one that has waited longest, as `{next, then}` — the answer, and what it was

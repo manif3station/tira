@@ -58,6 +58,8 @@ my %declare = (
     'checklist-idle'            => { column => 'implement', age => '30m' },
     'checklist-unmoved'         => {},
     'orphan-card'               => {},
+    'rules-undeclared'               => {},
+    'card-still'               => { age => '8h' },
     'question-unanswered'       => { age => '1h' },
     'conversation-not-folded'   => {},
     'card-unassigned'           => {},
@@ -233,12 +235,28 @@ my $pass = $tira->police_pass( project => $root, store => $store, world => $worl
 
 # --- every rule fired -----------------------------------------------------
 
+# One rule cannot fire here, and the reason is this test's own construction.
+# rules-undeclared reports a rule the board has neither declared nor declined,
+# and the board above declares every rule there is - so the condition it watches
+# for is the one thing this test guarantees is absent. A board that has answered
+# everything is exactly where it must be silent.
+#
+# Exempted by name and with the reason, rather than by loosening the assertion
+# for everything: t/247 proves it fires, on a board with rules left unanswered,
+# and proves it settles when they are answered. TKT-276.
+my %cannot_fire_here = ( 'rules-undeclared' => 'this board declares every rule' );
+
 my %fired = map { $_->{rule} => 1 } @{ $pass->{violations} };
 for my $rule ( sort keys %declare ) {
+    next if $cannot_fire_here{$rule};
     ok( $fired{$rule}, "$rule fired against a board that breaks it" );
 }
-is_deeply( [ sort keys %fired ], [ sort keys %declare ],
+is_deeply( [ sort keys %fired ],
+    [ sort grep { !$cannot_fire_here{$_} } keys %declare ],
     'and nothing fired that was not declared' );
+
+is_deeply( [ sort keys %cannot_fire_here ], ['rules-undeclared'],
+    'and exactly one rule is exempt here, so the exemption cannot grow unnoticed' );
 
 # --- and the board is untouched -------------------------------------------
 
@@ -258,10 +276,15 @@ my $delivered = $tira->bridge_backlog( store => $store, lines => 1_000 );
 like( shift @{$delivered}, qr/replaying/,
     'the replay introduces itself before the violations' );
 
-is( scalar @{$delivered}, scalar @{ $pass->{violations} },
+# The tail saying what is still open is a summary of the lines above it, like
+# the replay header, so it is taken off before the violations are counted. It
+# is there because a settlement arriving last reads as an ending - TKT-277.
+my @reported = grep { !/STILL OPEN/ } @{$delivered};
+
+is( scalar @reported, scalar @{ $pass->{violations} },
     'every violation reached the bridge, not merely most of them' );
 is( scalar( grep { /fix:/ } @{$delivered} ), scalar @{$delivered},
-    'and every line carries the command that answers it' );
+    'and every line carries the command that answers it, the tail included' );
 
 # --- fixing things makes it quiet -----------------------------------------
 

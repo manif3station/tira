@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.35';
+our $VERSION = '2.38';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4378,6 +4378,32 @@ my %POLICY_RULES = (
     # anything they did not already know.
     'checklist-unmoved'         => { needs => [] },
     'orphan-card'               => { needs => [] },
+
+    # An upgrade traced to its end rather than announced and forgotten.
+    #
+    # The upgrade notice asks the agent to read what changed, learn what is new
+    # and close the policy gaps, and then it is gone: no reference, no
+    # escalation, nothing that notices whether any of it happened. He tested it
+    # by hand across four agents - "They all answered partially" - and then
+    # watched this one ignore it four times in a single day while a rule sat
+    # undeclared on the board the whole time.
+    #
+    # What is traced is the part that can be observed. Whether the changes were
+    # read cannot be checked, and a rule that settles on a promise is worse than
+    # no rule; a rule this board has neither declared nor declined can be, and
+    # it is the gap the reading is for. TKT-276.
+    'rules-undeclared'          => { needs => [] },
+
+    # A card nothing has happened to, wherever it is sitting. His question:
+    # is there a policy for a card that has been in the same column with no
+    # changes for too long. Partly - card-duration measures dwell in a named
+    # column and says nothing about whether anybody is working it, and
+    # checklist-idle watches the checklist alone. board-still asks the right
+    # question of a whole board and there was no per-card version.
+    #
+    # No column to name: it is about the card being silent, not about where it
+    # is silent, so one policy covers every column work happens in. TKT-278.
+    'card-still'                => { needs => ['age'] },
     'question-unanswered'       => { needs => ['age'] },
     # An optional second age, counted from when the answer was read. Having
     # read it removes the excuse for not judging it, and the record already
@@ -4468,6 +4494,9 @@ my %WHOLE_BOARD_RULE = (
     # It is about which columns the OTHER policies name. A card cannot narrow
     # that any more than it can narrow the board being still.
     'column-unwatched' => 'the whole board',
+
+    # A gap in what this board has considered, which no card can narrow.
+    'rules-undeclared' => 'the whole board',
 );
 
 # Police speaks in exactly three ways: down the bridge the agent tails, in the
@@ -5688,6 +5717,55 @@ sub policy_evaluate {
                   . 'same as a rule that never fired: tail it with d2 tira.policy.bridge '
                   . 'and keep it running while you work' );
         }
+        elsif ( $rule eq 'card-still' ) {
+            my ( %resting, %limits );
+            for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
+
+                # A card resting in the backlog has not started and a card in
+                # an ending is over. Reporting either would put every board
+                # permanently in violation of its own history. Asked per kind
+                # and remembered, the way the rules beside this one do it -
+                # a column can be terminal for tickets and not for epics.
+                my $kind = $record->{type} // 'ticket';
+                $resting{$kind} //= $self->_resting_columns( $root, $kind );
+                next if $resting{$kind}{ $record->{column} // '' };
+
+                # How long is too long, asked of the column the card is in.
+                #
+                # His refinement, and it is the difference between a reminder
+                # and spam: a card may sit in one column far longer than in
+                # another without anything being wrong, and some columns want
+                # no watching at all. Every column already carries its own
+                # limit in minutes and its own watched flag - tira.stale has
+                # judged cards by them since they were added, and no rule ever
+                # has. So this asks the column first, falls back to the age the
+                # policy was declared with, and leaves an unwatched column
+                # alone however old its cards are. TKT-278.
+                $limits{$kind} //= $self->_column_limits( $root, $kind );
+                my $column = $record->{column} // '';
+                next if exists $limits{$kind}{$column} && !defined $limits{$kind}{$column};
+                my $age = $limits{$kind}{$column} // $policy->{age};
+
+                my $touched = $self->_card_last_activity( $root, $record );
+                next if !$self->_policy_older_than( $touched, $age );
+
+                $report->( $policy, $record,
+                    "nothing has happened to this card since $touched, which is "
+                      . $self->_policy_elapsed($touched)
+                      . ", and it is sitting in $column" );
+            }
+        }
+        elsif ( $rule eq 'rules-undeclared' ) {
+            my $unanswered = $self->policy_undeclared( project => $root );
+            next if !@{$unanswered};
+            $report->( $policy, undef,
+                scalar( @{$unanswered} )
+                  . ' rule(s) this board has neither declared nor declined: '
+                  . join( ', ', sort @{$unanswered} )
+                  . ' - see them with d2 tira.policy.undeclared, then declare or'
+                  . ' decline each one' );
+        }
         elsif ( $rule eq 'board-still' ) {
 
             # The one rule here that is not about a card. Every other rule needs
@@ -6443,6 +6521,37 @@ sub _ending_columns {
     return \%ends;
 }
 
+# What each column says about how long is too long, in the form a policy age is
+# written in. A column carries its limit in minutes and a watched flag, both set
+# by tira.column.update; tira.stale has judged cards by them since they arrived
+# and no rule ever has. An unwatched column answers undef, which means leave its
+# cards alone however old they are - told apart from "no limit here" by the key
+# existing at all.
+sub _column_limits {
+    my ( $self, $root, $type ) = @_;
+    my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
+    my %limit;
+    for my $column ( @{$columns} ) {
+        if ( !$column->{watched} ) {
+            $limit{ $column->{name} } = undef;
+            next;
+        }
+        $limit{ $column->{name} } = $column->{notify_after} . 'm'
+          if defined $column->{notify_after};
+    }
+    return \%limit;
+}
+
+# When anything last happened to one card. The same stamp board-still reads for
+# a whole board, and for the same reason: a field written, a comment, an answer,
+# a checklist tick and a column move all touch it, so the newest of them is when
+# the card last did anything. Kept as a method of its own so a test can replace
+# it and show what measuring dwell instead would report.
+sub _card_last_activity {
+    my ( $self, $root, $record ) = @_;
+    return $record->{last_updated};
+}
+
 sub _resting_columns {
     my ( $self, $root, $type ) = @_;
     my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
@@ -6656,6 +6765,19 @@ sub police_pass {
     # Once per version rather than once per start, because police restarts in
     # order to pick a new version up, and a line written on every start would
     # arrive on a loop for as long as nobody upgraded again.
+    # Newer, not merely different. A difference has two directions, and the
+    # documented arrangement is two watchers - police in the owner's terminal
+    # and a bridge the agent tails - each running a pass. When they were at
+    # different versions each saw a value that was not its own, announced an
+    # upgrade and wrote its own, so the record flipped and the notice arrived
+    # for ever. Measured on this board with five watchers running: "Tira is now
+    # 2.35 - this board last heard 2.34" at 23:16:42, and the exact reverse at
+    # 23:16:51.
+    #
+    # A lock would be the wrong answer, because two watchers is the
+    # arrangement. What the board records is the newest version any watcher has
+    # announced; an older watcher is behind rather than upgraded, and has
+    # nothing to say. TKT-273.
     my $upgraded;
     {
         my $told = $quieted->{announced_version};
@@ -6953,6 +7075,68 @@ sub bridge_write {
     # A pass with nothing wrong writes nothing at all. Announcing that
     # everything is fine, every thirty seconds, is how a channel becomes noise.
     return 0 if !@lines;
+
+    # And what is still open, said after whatever this pass had to say.
+    #
+    # His observation, and it is about how a channel is read rather than about
+    # what is in it: "Most agents think the last settle statement as end and all
+    # done and forget everything." A settlement is written in the same shape as
+    # a violation and arrives last, so it reads as a closing statement - and an
+    # agent that has just been told something is over stops looking. This board
+    # had 84 violations outstanding while settlements were landing on the same
+    # channel, and the agent reading it moved on.
+    #
+    # One line, counted first and named after, so a reader who has seen it
+    # before can skim it. Nothing at all when the board is clear, because
+    # silence has to go on meaning silence.
+    #
+    # Filtered exactly as the lines above it are, and for the same reasons: a
+    # rule set to log-only is being tuned, an agent that asked for quiet is not
+    # written to while it lasts, and a violation already held back stays held
+    # back. A summary that reaches a reader the lines themselves do not is a
+    # second channel nobody asked for - three tests said so at once.
+    #
+    # The rules and the cards, not the VIO numbers. Everything that reads this
+    # log tells a violation line from a header by looking for VIO- in it, so a
+    # summary carrying those numbers is counted as one more violation by every
+    # reader there is - which three tests said at once. The numbers are one
+    # command away and the line names it. TKT-277.
+    if ( $args{store} ) {
+        # Only what the policy asked to reach the bridge, the same filter the
+        # violation lines above use. Without it a board whose rules are all
+        # log-only - a policy being tuned, deliberately out of the way - starts
+        # getting bridge lines about them, which t/150 caught immediately and
+        # is exactly the promise this channel makes.
+        my $outstanding = eval { $self->police_outstanding( store => $args{store} ) };
+        my @open = grep {
+            my $violation = $_;
+            my $for = $violation->{assignee} // '';
+            ( $violation->{action} // '' ) eq 'bridge-reminder'
+              && !$violation->{quiet}
+              && !( $for ne ''
+                && $self->police_suspended( store => $args{store}, agent => $for ) );
+        } @{ $outstanding || [] };
+        # One tail per audience, addressed the way every other line is. A
+        # summary addressed to nobody reaches everybody, including an agent
+        # the lines themselves were kept from - which is what a reader of this
+        # channel is entitled not to see. It also makes the line more useful:
+        # what is still open for YOU, rather than for the board at large.
+        my %by_audience;
+        push @{ $by_audience{ $_->{assignee} // '' } }, $_ for @open;
+
+        for my $who ( sort keys %by_audience ) {
+            my @theirs = @{ $by_audience{$who} };
+            push @lines, join ' | ', $self->{clock}->(), 'STILL OPEN',
+              'for ' . ( $who ne '' ? $who : 'anyone' ),
+              scalar(@theirs) . ' violation(s) outstanding: '
+              . join( ', ',
+                map { ( $_->{rule} // '?' )
+                      . ( ( $_->{ref} // '' ) ne '' ? " $_->{ref}" : ' (board)' ) }
+                @theirs[ 0 .. ( $#theirs > 9 ? 9 : $#theirs ) ] )
+              . ( @theirs > 10 ? ' and ' . ( @theirs - 10 ) . ' more' : '' ),
+              'fix: d2 tira.police.outstanding';
+        }
+    }
 
     # Appended, and the file is recreated if it has been taken away - a stream
     # that stops silently leaves the agent believing all is well, which is the

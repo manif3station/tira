@@ -300,9 +300,11 @@ missing, at the moment you declare the policy rather than later.
 | `checklist-idle` | `--column --age` | a card being worked with no checklist movement |
 | `checklist-unmoved` | — | a card moved on with nothing ticked since its last move. **No age**: a move has either happened or it has not. |
 | `orphan-card` | — | a card with no parent |
+| `rules-undeclared` | — | a rule this board has neither declared nor declined, which is what an upgrade leaves behind. **No age**: a gap is a gap the moment it opens. Settles only when every rule has an answer — declining one counts, because the point is that nothing is left unconsidered. |
 | `parent-ahead-of-children` | — | a parent saying it is finished above a child that is not |
 | `priority-skipped` | — | a card being worked while a higher-priority card of the same kind waits untouched. **No age**: being passed over does not ripen. |
 | `discard-with-open-questions` | — | a card set aside while it still carries a question nobody answered. **No age**: a question that left with the card is not waiting. |
+| `card-still` | `--age` | a card nothing has happened to for that long, in any column work happens in. Dwell is not the question: `card-duration` says how long a card has been somewhere, this says whether anybody has touched it. No column to name, so one policy covers the board — and each column may set its own limit with `tira.column.update --notify-after MINUTES`, or be left out entirely with `--no-watch`, which is how a column where cards legitimately wait stops being a source of reminders. `--age` is the fallback for columns that have said nothing. |
 | `board-still` | `--age` | a whole board where nothing has moved for that long. The only rule here that is not about a card. |
 | `bridge-unread` | `--age` | police has been writing to the bridge and nobody has read it for that long. |
 | `column-unwatched` | — | a column work happens in that no column-scoped policy mentions at all, which is what adding a column does to policies that were complete when they were written. **No column and no age**: it is about the columns other policies name, and a gap is a gap the moment it opens. |
@@ -648,6 +650,17 @@ d2 tira.policy.add --rule wip-limit --column implement --max 2 --action bridge-r
 ### Work that is not connected to anything
 
 **29.** Tickets created in a hurry with no epic above them.
+
+```
+d2 tira.policy.add --rule card-still --action bridge-reminder --age 4h
+d2 tira.policy.add --rule rules-undeclared --action bridge-reminder
+```
+
+Declare that one and an upgrade stops being a line nobody finishes: any rule
+this board has neither declared nor declined is reported with a reference, and
+it escalates and settles like everything else here. Answering some of them
+leaves it open, which is the point — four agents asked by hand all answered
+partially.
 
 ```
 d2 tira.policy.add --rule orphan-card --action bridge-reminder

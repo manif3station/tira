@@ -114,7 +114,12 @@ is( said(), 3, 'but a longer gap earns it' );
 # passes, so a problem nobody had touched said "seen 5 times" after two and a
 # half minutes.
 
-my ($line) = grep { /VIO-/ } @{ $tira->bridge_backlog( store => $store, lines => 1 ) };
+# The newest violation line, not the newest line. Every pass now ends with a
+# summary of what is still open - a settlement arriving last used to read as an
+# ending - so the last line in the log is that summary rather than the violation
+# this assertion is about. TKT-277.
+my ($line) = reverse grep { /VIO-/ }
+  @{ $tira->bridge_backlog( store => $store, lines => 500 ) };
 like( $line, qr/seen 3\b/, 'the count is the number of times it has been said' );
 
 # --- escalation follows the same clock -------------------------------------

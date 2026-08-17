@@ -1,5 +1,102 @@
 Revision history for Tira
 
+2.38  2026-08-17
+
+    - TKT-278, his question: "is there any policy to remind the agent a card
+      has been sitting on the same column without any changes for too long?"
+      Partly, and the missing half was the important one. card-duration
+      measures how long a card has been in one NAMED column and says nothing
+      about whether anybody is working it; checklist-idle watches the
+      checklist alone; board-still asks the right question - has anything
+      happened - of a whole board, and there was no per-card version. So a
+      card moved into verify twenty minutes ago and abandoned was
+      indistinguishable from one moved in twenty minutes ago and being
+      verified right now.
+    - card-still reports a card nothing has happened to for longer than an
+      age, in any column work happens in, reading the same last_updated stamp
+      board-still reads for a board - every kind of activity touches it. No
+      column to name, so one policy covers what previously took five.
+    - Columns work does not happen in are left alone. A card resting in the
+      backlog has not started and a card in an ending is over, and reporting
+      those would put every board permanently in violation of its own
+      history.
+    - Proved by measuring dwell instead: with the rule reading when the card
+      arrived in its column rather than when anything last happened to it, a
+      card being worked that minute is reported - which is the noise this
+      exists to avoid, and the difference the question turned on.
+    - And each column says how long is too long, which was his refinement:
+      "there is a protection-card option to set for it... how long it can
+      stay in backlog; or some columns called done, or released ones - those
+      don't need setting, so there won't be spamming messages." Every column
+      has carried its own limit in minutes and its own watched flag since
+      they were added; tira.stale has judged cards by them all along and no
+      rule ever had. card-still asks the column first, falls back to the age
+      the policy was declared with, and leaves an unwatched column alone
+      however old its cards are.
+
+2.37  2026-08-16
+
+    - TKT-276, his request: an upgrade is traced until it is finished rather
+      than announced and forgotten. The upgrade notice asked the agent to do
+      three things and was then gone - no reference, no escalation, nothing
+      that noticed whether any of it happened. He tested it by hand across
+      four agents: "They all answered partially." Then he watched this agent
+      do the same, four notices in one day, none acted on, while a rule sat
+      undeclared on the board the whole time.
+    - rules-undeclared reports a rule this board has neither declared nor
+      declined, with a reference and the same escalation every other rule
+      has, and settles only when every rule has an answer. Declining counts:
+      the point is that nothing is left unconsidered.
+    - It traces the part that can be observed and claims nothing else.
+      Whether the changes were read cannot be checked, and a rule that
+      settles on a promise is worse than no rule - so what is watched is the
+      gap the reading is for, which tira.policy.undeclared already answers.
+    - Answering some of them leaves it open, which is the whole of the
+      question he asked.
+    - TKT-277, also his: a settlement is not an ending, and the line has to
+      say so. "Most agents think the last settle statement as end and all
+      done and forget everything." A settlement is written in the shape of a
+      violation and arrives last, so it reads as a closing statement - and
+      this board had 84 violations outstanding while settlements were
+      landing on the same channel. Every pass that writes anything now ends
+      with how many are still open and which, and a pass with nothing to say
+      still writes nothing, because silence has to go on meaning silence.
+    - The tail obeys the action, which the suite caught at once: without that
+      filter a board whose rules are all log-only - a policy being tuned,
+      deliberately out of the way - started getting bridge lines about them,
+      breaking the promise that only what a policy asked for reaches the
+      agent.
+    - Three catalogue guards caught the new rule, which is what they are for:
+      the guide must show it, two tests keep their own list of every rule,
+      and one asserts every declared rule fires against a board built to
+      break them all. That last one cannot hold for this rule - its subject
+      is a rule left unanswered, and that board answers every rule - so it is
+      exempt there by name and with the reason, and the exemption itself is
+      asserted so it cannot grow unnoticed.
+
+2.36  2026-08-16
+
+    - TKT-273: an upgrade is announced once, however many watchers there
+      are. police recorded which version it had announced and compared it
+      with its own for DIFFERENCE - and a difference has two directions.
+      Two watchers at different versions each saw a value that was not
+      theirs, announced an upgrade and wrote their own, so the record
+      flipped and the notice arrived for ever. Measured on this board with
+      five watchers running: "Tira is now 2.35 - this board last heard
+      2.34" at 23:16:42, and the exact reverse at 23:16:51.
+    - The guard's own comment says it is written once per version rather
+      than once per start, "because a line written on every start would
+      arrive on a loop" - which is precisely what two watchers reproduced.
+      A check that exists and cannot hold.
+    - Not fixed with a lock, because two watchers is the documented
+      arrangement: police in the owner's terminal and a bridge the agent
+      tails, both running a pass. The board records the newest version any
+      watcher has announced, so an older watcher is behind rather than
+      upgraded and has nothing to say.
+    - Compared piece by piece rather than as text, because 2.9 and 2.35 are
+      the wrong way round as strings and the right way round as releases,
+      and this project has been through both of those numbers.
+
 2.35  2026-08-16
 
     - TKT-269: a card that says it stands alone is not an orphan. Whether a

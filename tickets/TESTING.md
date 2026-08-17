@@ -335,6 +335,29 @@ A card walks:
 where nothing else moves, and an empty board during it reads exactly like a
 stuck one.
 
+## When a checklist is ticked (from his correction, 2026-08-16)
+
+"violation like VIO-0173 shouldn't be issued. You only mark as done when you
+actually done it. Not when you start doing it. So when every item are marked as
+done. Card should be moved out from Implementation?"
+
+He is right, and the rule was reading the board correctly. What was wrong was
+the rhythm: finish the code, tick every checklist item, then start the full
+gate — about twenty minutes — and only move the card to verify when it comes
+back green. So the card sat in implement with a finished checklist for the
+length of every gate run, which is exactly what `card-stalled` exists to catch.
+It fired on nearly every card worked on 2026-08-16.
+
+Ticking says the work is done, so the column has to say the same thing at the
+same moment. And a gate run is not implementation, it is verification.
+
+**Move to verify first, then tick — or both in the same breath. Implement never
+holds a finished checklist.**
+
+The visible consequence: a card now sits in verify for the twenty minutes of
+its gate rather than in implement. That is the truthful place for it. A card
+sitting in verify for much longer than a gate run is a real stall.
+
 ## The order cards are worked (from his correction, 2026-08-14)
 
 "can you also working on the higher priority cards first, i see you randomly

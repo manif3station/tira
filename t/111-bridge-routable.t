@@ -77,7 +77,14 @@ $tira->bridge_write(
 my ($line) = grep { /VIO-/ } @{ $tira->bridge_backlog( store => $store, lines => 5 ) };
 like( $line, qr/\Qvia $sow->{ref} > $epic->{ref}\E/,
     'the line says the path down to the card, so the core agent knows who to tell' );
-like( $line, qr/for ada/, 'and still says whose card it is, which is what one agent reads' );
+# Whose the card is used to be written into the line as well, inferred from
+# the assignee. TKT-308 took it out: it was a guess, and a wrong one gave every
+# other reader a reason to skip the line. The line still carries the reference
+# and the command that shows the card, so whose it is comes from the card -
+# exactly, where the guess was only usually right.
+unlike( $line, qr/ \| for /, 'and names nobody, because that part was a guess' );
+like( $line, qr/\Q$ticket->{ref}\E/,
+    'while carrying the card, which is what whose-is-it is looked up from' );
 
 # --- a card with nobody above it ------------------------------------------
 #
@@ -120,7 +127,8 @@ unlike( $lines[-1], qr/via/,
 my $hers = $tira->bridge_backlog( store => $store, agent => 'ada', lines => 10 );
 is( scalar( grep { /VIO-/ } @{$hers} ), 3,
     'ada hears her own card, the unassigned one, and the one about no card at all' );
-ok( ( grep { /for ada/ } @{$hers} ), 'including hers' );
+ok( ( grep { /\Q$ticket->{ref}\E/ } @{$hers} ),
+    'including hers, which she is given by the routing rather than by a name in the text' );
 
 my $everything = $tira->bridge_backlog( store => $store, lines => 10 );
 is( scalar( grep { /VIO-/ } @{$everything} ), 3,

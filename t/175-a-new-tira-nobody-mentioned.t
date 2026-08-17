@@ -106,8 +106,10 @@ ok( !$third->{upgraded}, 'and nor does a third' );
     my ($note) = grep { /UPGRADE/ } @{$lines};
     ok( $note, 'and it reaches the bridge' ) or diag( join "\n", @{$lines} );
 
-    like( $note, qr/\bfor claude\b/,
-        'addressed to the agent, who is the one who has to act on it' );
+    # It named the agent until TKT-308. A wrong addressee gave every other
+    # reader a reason to skip the line, and this one is the least skippable
+    # thing police says - it is the line that tells a board its rulebook moved.
+    unlike( $note, qr/ \| for /, 'naming nobody, so nobody can decide it is not theirs' );
     like( $note, qr/\Q$Tira::VERSION\E/, 'naming the version' );
     like( $note, qr/tira\.changes/,      'pointing at what changed' );
     like( $note, qr/tira\.usage/,        'and at the commands that are new' );

@@ -106,8 +106,16 @@ is( scalar @{ $after->{violations} }, 0, 'police stops reporting it the moment i
 my @settled = grep { /\Q$number\E/ && / \| SETTLED \| / } bridge();
 is( scalar @settled, 1, 'and the bridge says that violation is settled' );
 like( $settled[0], qr/\Q$card->{ref}\E/, 'naming the card it was about' );
-like( $settled[0], qr/\bfor ada\b/,
-    'and addressed to whoever the original was, so it reaches the same reader' );
+# It reaches the same reader as the original, which is what this always meant -
+# but no line names anybody now (TKT-308), so it is asserted by reading it as
+# that agent rather than by looking for a name in the text. Whose a line is
+# comes from the store via the reference it carries, which is the field this
+# line was always shaped around.
+like( join( "\n", @{ $tira->bridge_backlog( store => $store, lines => 500, agent => 'ada' ) } ),
+    qr/\Q$number\E/,
+    'and reaches whoever the original did, so it settles for the same reader' );
+unlike( $settled[0], qr/ \| for /,
+    'while naming nobody, because that guess is what taught readers to skip lines' );
 
 # --- said once, not on every pass afterwards ----------------------------------
 #

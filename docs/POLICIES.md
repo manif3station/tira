@@ -209,8 +209,14 @@ agent's manager, who hands it on, and the answer comes back the same way. So
 every line about a card says the way down to it:
 
 ```
-... | for ada | via SOW-002 > EPC-003 | VIO-0001 | TKT-077 | seen 1 | ...
+... | via SOW-002 > EPC-003 | VIO-0001 | TKT-077 | seen 1 | ...
 ```
+
+A line names nobody. It used to carry `for <who>`, inferred from the card —
+the assignee if there was one and `anyone` if there was not — and that guess
+cost more than it paid: a wrong addressee does not merely fail to help, it
+gives every other reader a reason to skip the line. The path stays, because a
+path is read from the board rather than guessed.
 
 `via nobody` means the card has nothing above it, which in a chain means the
 core agent keeps it rather than passing it on. A line about no card at all — a
@@ -1502,9 +1508,9 @@ arrived with them — was told nothing at all. A rule nobody has declared is
 silent in exactly the way a rule being obeyed is, so an upgrade nobody mentions
 leaves a board quietly running an older rulebook.
 
-Police now says it on the bridge, addressed to the board's agent:
+Police now says it on the bridge:
 
-    2026-08-15T08:00:00Z | UPGRADE | for claude | Tira is now 1.82 - this
+    2026-08-15T08:00:00Z | UPGRADE | Tira is now 1.82 - this
     board last heard 1.81. Read what changed, learn what is new, and see
     which rules this board has still neither declared nor declined | fix:
     d2 tira.changes; d2 tira.usage; d2 tira.policy.undeclared

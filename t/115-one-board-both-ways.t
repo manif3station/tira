@@ -112,8 +112,20 @@ my $ada = $tira->bridge_backlog( store => $store, agent => 'ada', lines => 50 );
 my $everything = $tira->bridge_backlog( store => $store, lines => 50 );
 ok( scalar @{$ada} < scalar @{$everything},
     'one agent naming itself hears less than the whole board, which is the point of the filter' );
-ok( ( grep { /for ada/ } @{$ada} ), 'and hears its own' );
-ok( !( grep { /for grace/ } @{$ada} ), 'and not somebody else\'s' );
+# Read by what reaches her rather than by a name in the text (TKT-308): the
+# filter routes from the store now, so hearing her own and not grace's is
+# asserted on the cards, which is what the routing is actually keyed on.
+my %ada_refs = map { $_->{ref} => 1 }
+  grep { ( $_->{assignee} // '' ) eq 'ada' }
+  @{ $tira->police_outstanding( store => $store ) };
+my %grace_refs = map { $_->{ref} => 1 }
+  grep { ( $_->{assignee} // '' ) eq 'grace' }
+  @{ $tira->police_outstanding( store => $store ) };
+
+ok( ( grep { my $l = $_; grep { $l =~ /\Q$_\E/ } keys %ada_refs } @{$ada} ),
+    'and hears its own' );
+ok( !( grep { my $l = $_; grep { $l =~ /\Q$_\E/ } keys %grace_refs } @{$ada} ),
+    'and not somebody else\'s' );
 
 # ==========================================================================
 # The same board, declared a chain
@@ -165,7 +177,13 @@ only_policies( { rule => 'card-full-details', enter => 'implement', action => 'b
 my $core = $tira->bridge_backlog( store => $store, lines => 50 );
 ok( ( grep { /via \Q$epic->{ref}\E/ } @{$core} ),
     'the core agent, naming nobody, is told the way down to each card' );
-ok( ( grep { /for ada/ } @{$core} ), 'and who each one belongs to, so it can walk it there' );
+# The line named the owner too until TKT-308, inferred from the card. A core
+# agent walking a message down still has what it needs - the path and the
+# reference - and reads whose it is off the card, which is exact where the
+# inference was a guess that "never guessed right".
+ok( ( grep { / \| for / } @{$core} ) == 0, 'and names nobody, because that was inferred' );
+ok( ( grep { /\Q$cards[0]{ref}\E/ } @{$core} ),
+    'while carrying the card it is about, which is what it walks down to' );
 
 # ==========================================================================
 # What did not change

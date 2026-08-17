@@ -1,5 +1,32 @@
 Revision history for Tira
 
+2.48  2026-08-17
+
+    - TKT-308, asked for directly: "on the bridge, each line of message show
+      for <who> - it never guessed right, and when wrong the agent ignores it
+      instead of inspecting it first. can you remove that part of the line."
+
+    - The failure mode is the one that matters. A wrong addressee does not
+      merely fail to help: it gives every other reader a reason to skip the
+      line, so a guess that was right most of the time would still cost more
+      than it saves - the cost lands entirely on the times it is wrong.
+
+    - And it was a guess: inferred from the card, the assignee if there was one
+      and "anyone" if there was not, which is why lines about cards nobody was
+      assigned to read "for anyone" and were skipped by everybody.
+
+    - Gone from every line, including the STILL OPEN tail, where it was most
+      misleading - that line's whole job is to stop things being forgotten and
+      it was addressed to a name a reader could decide was not theirs.
+
+    - Which reader a line reaches is deliberately unchanged, and keeping it
+      that way was most of the work: the routing was reading the addressee
+      back out of the line, so removing the words would have quietly stopped
+      every agent-scoped read from filtering at all. Three tests caught it.
+      Whose a line is now comes from the store, through the reference the line
+      already carries - and the summary tail, which carries no reference on
+      purpose, is routed on the cards it names.
+
 2.47  2026-08-17
 
     - TKT-307, asked for directly: if the owner changes a card on the HTML

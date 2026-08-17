@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.47';
+our $VERSION = '2.48';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -7082,7 +7082,7 @@ sub _bridge_settled_line {
     return join ' | ',
       $self->{clock}->(),
       'SETTLED',
-      'for ' . ( ( $done->{assignee} // '' ) ne '' ? $done->{assignee} : 'anyone' ),
+      $self->_bridge_audience( $done->{assignee} ),
       $done->{id} // 'VIO-0000',
       ( ( $done->{ref} // '' ) ne '' ? $done->{ref} : 'board' ),
       'said ' . ( $done->{seen} // 0 ) . ' times',
@@ -7100,7 +7100,7 @@ sub _bridge_line {
         # Whose it is, written into the line: the reader filters on what the
         # bridge says rather than going back to the board, so a card
         # reassigned afterwards does not rewrite what was already said.
-        'for ' . ( ( $violation->{assignee} // '' ) ne '' ? $violation->{assignee} : 'anyone' ),
+        $self->_bridge_audience( $violation->{assignee} ),
 
         # The way down to the card, for the reader that has to walk it. In a
         # chain the core agent is the only one reading this, and it tells the
@@ -7147,6 +7147,23 @@ sub _bridge_board {
     return $ledger->{board};
 }
 
+# Who a bridge line is for, which is nobody.
+#
+# Every line used to carry "for <who>", inferred from the card - the assignee if
+# there was one, "anyone" if there was not. He watched what that does: "it never
+# guessed right, and when wrong the agent ignores it instead of inspecting it
+# first." A wrong addressee does not merely fail to help, it gives every other
+# reader a reason to skip the line, so a guess that was right most of the time
+# would still cost more than it saves.
+#
+# Returning an empty list rather than deleting four call sites, so the shape of
+# each line stays visible and a test can put the addressee back to prove that
+# taking it out is what changed. Which reader a line REACHES is untouched: that
+# is a different question and he asked about the words. TKT-308.
+sub _bridge_audience {
+    return ();
+}
+
 sub bridge_write {
     my ( $self, %args ) = @_;
     my $path = $self->bridge_log_path(%args);
@@ -7183,7 +7200,7 @@ sub bridge_write {
         push @lines, join ' | ',
           $self->{clock}->(),
           'UPGRADE',
-          'for ' . ( ( $agent // '' ) ne '' ? $agent : 'anyone' ),
+          $self->_bridge_audience( $agent ),
           'Tira is now ' . $upgraded->{to}
           . ( defined $upgraded->{from} ? " - this board last heard $upgraded->{from}" : '' )
           . '. Read what changed, learn what is new, and see which rules this'
@@ -7305,7 +7322,7 @@ sub bridge_write {
         for my $who ( sort keys %by_audience ) {
             my @theirs = @{ $by_audience{$who} };
             push @lines, join ' | ', $self->{clock}->(), 'STILL OPEN',
-              'for ' . ( $who ne '' ? $who : 'anyone' ),
+              $self->_bridge_audience( $who ),
               scalar(@theirs) . ' violation(s) outstanding: '
               . join( ', ',
                 map { ( $_->{rule} // '?' )
@@ -7373,8 +7390,54 @@ sub bridge_backlog {
     # nobody - filtering that loses the unowned card trades noise for silence,
     # which is worse, because nobody is watching it by definition. Naming no
     # agent hears everything, which is how the owner reads the board.
+    #
+    # Whose a line is comes from the store rather than from the words in the
+    # line. It used to be read back out of "for <who>", which meant the one
+    # thing he asked to have removed was also the thing doing the routing -
+    # taking the words out would have quietly stopped every agent-scoped read
+    # from filtering at all, and three tests caught exactly that. The store
+    # already knows whose each violation is, so the reference in the line is
+    # enough to ask. TKT-308.
     if ( defined $args{agent} && $args{agent} ne '' ) {
-        @lines = grep { / \| for (?:\Q$args{agent}\E|anyone) \| / || !/ \| for / } @lines;
+        my %whose;
+        my $outstanding = eval { $self->police_outstanding( store => $args{store} ) };
+        $whose{ $_->{id} // '' } = $_->{assignee} // ''
+          for @{ $outstanding || [] };
+        my $settled = eval { $self->enforcement_log( store => $args{store} ) };
+        for my $entry ( @{ $settled || [] } ) {
+            next if ref $entry ne 'HASH';
+            my $id = $entry->{id} // '';
+            next if $id eq '' || exists $whose{$id};
+            $whose{$id} = $entry->{assignee} // '';
+        }
+
+        # The summary tail carries no VIO id on purpose - every reader tells a
+        # violation line from a header by looking for VIO-, so putting one
+        # there would have every reader counting the summary as one more
+        # violation (TKT-277). It names rules and cards instead, so it is
+        # routed on the cards it names: a tail listing nothing of this agent's
+        # is a tail built for somebody else.
+        my %card_of;
+        push @{ $card_of{ $_->{ref} // '' } }, $_->{assignee} // ''
+          for @{ $outstanding || [] };
+
+        @lines = grep {
+            my $line = $_;
+            my ($id) = $line =~ /\b(VIO-\d+)\b/;
+            if ( defined $id ) {
+                my $for = $whose{$id} // '';
+                $for eq '' || $for eq $args{agent};
+            }
+            elsif ( $line =~ /STILL OPEN/ ) {
+                my @named = grep { exists $card_of{$_} }
+                  ( $line =~ /\b([A-Z][A-Z0-9]*-\d+)\b/g );
+                !@named || grep {
+                    my $ref = $_;
+                    grep { $_ eq '' || $_ eq $args{agent} } @{ $card_of{$ref} };
+                } @named;
+            }
+            else { 1 }
+        } @lines;
     }
 
     my $wanted = $args{lines} // 20;

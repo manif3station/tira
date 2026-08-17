@@ -1,5 +1,25 @@
 Revision history for Tira
 
+2.44  2026-08-17
+
+    - TKT-295: tira.next offered discarded cards, and named one as the answer
+      on its first real call. Found by using the command rather than reading
+      it - minutes after installing 2.43 on this project's own board, it
+      returned 24 cards of which 15 were discarded, and the single card it
+      named as what to work next was TKT-240, discarded two days earlier.
+
+    - One word in the definition of waiting. work_order counted a card as
+      waiting if its column was protected and not an ending; discard is
+      protected and is not an ending, so every abandoned card qualified.
+
+    - It reached priority-skipped too, because 2.43 pointed the rule at
+      work_order: the rule could name a discarded card as one that was passed
+      over. That is the cost of one definition serving both, and it is still
+      the right trade - one exclusion fixes both and they cannot drift apart.
+
+    - Fixed in the shape police already uses, which never had this problem
+      because it filters discard out before any rule sees a card.
+
 2.43  2026-08-17
 
     - TKT-274: nothing answered "what should I work next", and the board had

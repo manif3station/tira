@@ -1377,6 +1377,13 @@ longest, as `{next, then}` - the answer, and what it was chosen over, so a
 caller can check it rather than take it. A board with nothing waiting answers
 with an empty list rather than a card there is no reason to work.
 
+Discarded cards are never offered. `discard` is a protected column and is not
+an ending, so it answered "yes" to both halves of what waiting means until
+2.44 - on this project's own board that was 15 of the 24 cards returned,
+including the one named as the answer. Work the board abandoned is not work
+that is waiting, and the rule stopped naming it at the same moment for the same
+reason.
+
 The ordering is not this command's. `priority-skipped` has enforced it since it
 was written, and asks the same method, so the rule and the command cannot
 disagree about the same board. Without it a caller read every card - 1.95 MB of

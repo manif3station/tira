@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.43';
+our $VERSION = '2.44';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -6576,9 +6576,17 @@ sub work_order {
         my %here = map { $_->{name} => 1 }
           grep { $_->{protected} && !$ends->{ $_->{name} } } @{$columns};
 
+        # Discarded work is not waiting work. discard is protected and is not
+        # an ending, so it answers "yes" to both halves of the question above -
+        # which made every abandoned card part of the queue. Measured when 2.43
+        # shipped: 15 of the 24 cards offered, and the one named as the answer.
+        # Dropped here in the shape police already uses, so the command and the
+        # rule are fixed once rather than twice. TKT-295.
         my $records = eval { $self->record_list( project => $root, type => $type ) } || [];
         push @waiting, grep {
-            defined $_->{priority} && $here{ $_->{column} // '' }
+            defined $_->{priority}
+              && $here{ $_->{column} // '' }
+              && ( $_->{column} // '' ) ne 'discard'
         } @{$records};
     }
 

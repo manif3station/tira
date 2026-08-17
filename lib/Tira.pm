@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.46';
+our $VERSION = '2.47';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4404,6 +4404,12 @@ my %POLICY_RULES = (
     # No column to name: it is about the card being silent, not about where it
     # is silent, so one policy covers every column work happens in. TKT-278.
     'card-still'                => { needs => ['age'] },
+
+    # No age. He asked for a reminder that the card changed under the agent,
+    # and a change is not more or less true an hour later - waiting would only
+    # decide how long the agent works from a card somebody has already
+    # rewritten. TKT-307.
+    'card-changed-by-owner'     => {},
     'question-unanswered'       => { needs => ['age'] },
     # An optional second age, counted from when the answer was read. Having
     # read it removes the excuse for not judging it, and the record already
@@ -5765,6 +5771,30 @@ sub policy_evaluate {
                       . ", and it is sitting in $column" );
             }
         }
+        elsif ( $rule eq 'card-changed-by-owner' ) {
+
+            # Asked for directly: the card is the one place he has been told to
+            # put instructions for the agent, and an edit made in the browser
+            # was invisible until the agent happened to re-read it.
+            #
+            # Compared rather than remembered - the newest change was made by
+            # somebody who is not the agent working the card - so it settles by
+            # itself the moment the agent touches the card, and there is no
+            # stored timestamp to go stale or to be quietly reset. TKT-307.
+            for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
+
+                my $last = $self->_card_last_author( $root, $record );
+                next if !$last;
+                next if ( $record->{assignee} // '' ) eq $last->{author};
+
+                $report->( $policy, $record,
+                    "changed by $last->{author}"
+                      . ( defined $last->{at} ? " at $last->{at}" : '' )
+                      . ( defined $last->{field} ? " - $last->{field}" : '' )
+                      . ' - read it before carrying on, it may not say what it did' );
+            }
+        }
         elsif ( $rule eq 'rules-undeclared' ) {
             my $unanswered = $self->policy_undeclared( project => $root );
             next if !@{$unanswered};
@@ -6642,6 +6672,26 @@ sub work_order {
 # judged cards by it all along. Answering it here rather than in each rule is
 # the point: fixing only the rule they happened to declare would have sent the
 # next report about the next rule. TKT-287.
+# Who last changed a card, from what the journal already records. The browser
+# dashboard puts the signed-in person on every change it makes - that is what
+# _attributed is for - so an edit made there carries an author and an edit made
+# from the CLI does not. Nothing new is stored; this only reads it.
+#
+# A method rather than inline, so a test can replace it and so the one question
+# has one answer. TKT-307.
+sub _card_last_author {
+    my ( $self, $root, $record ) = @_;
+    my $entries = eval {
+        $self->history_list( project => $root, ref => $record->{ref}, last => 1 );
+    } || [];
+    $entries = $entries->{entries} if ref $entries eq 'HASH';
+    my $newest = ref $entries eq 'ARRAY' ? $entries->[-1] : undef;
+    return undef if ref $newest ne 'HASH';
+    my $author = $newest->{author};
+    return undef if !defined $author || $author eq '';
+    return { author => $author, field => $newest->{field}, at => $newest->{at} };
+}
+
 sub _resting_columns {
     my ( $self, $root, $type ) = @_;
     my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];

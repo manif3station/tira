@@ -80,6 +80,7 @@ my %declare = (
     'leftover-container'        => { pattern => 'perl-test', age => '30m' },
     'parent-ahead-of-children'  => {},
     'priority-skipped'          => {},
+    'card-changed-by-owner'     => {},
     'discard-with-open-questions' => {},
     'board-still'               => { age => '8h' },
     'bridge-unread'             => { age => '30m' },

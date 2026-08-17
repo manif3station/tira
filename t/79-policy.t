@@ -163,6 +163,7 @@ my %needs = (
     'card-sandbox-missing'      => { enter => 'implement', sandbox => '~/sandboxes' },
     'parent-ahead-of-children'  => {},
     'priority-skipped'          => {},
+    'card-changed-by-owner'     => {},
     'discard-with-open-questions' => {},
     'board-still'               => { age => '8h' },
     'bridge-unread'             => { age => '30m' },

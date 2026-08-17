@@ -304,6 +304,7 @@ missing, at the moment you declare the policy rather than later.
 | `parent-ahead-of-children` | — | a parent saying it is finished above a child that is not |
 | `priority-skipped` | — | a card being worked while a higher-priority card of the same kind waits untouched. **No age**: being passed over does not ripen. |
 | `discard-with-open-questions` | — | a card set aside while it still carries a question nobody answered. **No age**: a question that left with the card is not waiting. |
+| `card-changed-by-owner` | — | a card whose newest change was made by somebody other than the agent working it. The browser dashboard records who is signed in on every change it makes, so an edit made there carries an author and an edit made from the CLI does not — the card is where instructions for the agent are left, and an edit there used to be invisible until the agent happened to re-read it. No age: a change is not more or less true an hour later, and waiting would only decide how long the agent works from a card somebody has already rewritten. It settles when the agent touches the card, because the agent's own change becomes the newest one — nothing is stored, so there is no timestamp to go stale. |
 | `card-still` | `--age` | a card nothing has happened to for that long, in any column work happens in. Dwell is not the question: `card-duration` says how long a card has been somewhere, this says whether anybody has touched it. No column to name, so one policy covers the board — and each column may set its own limit with `tira.column.update --notify-after MINUTES`, or be left out entirely with `--no-watch`, which is how a column where cards legitimately wait stops being a source of reminders. `--age` is the fallback for columns that have said nothing. |
 | `board-still` | `--age` | a whole board where nothing has moved for that long. The only rule here that is not about a card. |
 | `bridge-unread` | `--age` | police has been writing to the bridge and nobody has read it for that long. |
@@ -1865,3 +1866,19 @@ instead would turn the damage into data permanently.
 
 Afterwards `card-damaged` settles by itself, because the file reads strictly
 again.
+
+**107.** The owner edits a card in the browser while the agent works from the
+command line, and the agent should go and read it.
+
+```
+d2 tira.policy.add --rule card-changed-by-owner --action bridge-reminder
+```
+
+The dashboard records who is signed in on every change it makes, so an edit
+made there carries an author and an edit made from the CLI does not. The rule
+compares rather than remembers — the newest change on the card was made by
+somebody who is not the agent working it — so it settles the moment the agent
+touches the card, and there is no stored timestamp to go stale. No `--age`: a
+change is not more or less true an hour later, and waiting would only decide
+how long the agent works from a card somebody has already rewritten.
+

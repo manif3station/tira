@@ -1,5 +1,24 @@
 Revision history for Tira
 
+2.47  2026-08-17
+
+    - TKT-307, asked for directly: if the owner changes a card on the HTML
+      dashboard, police should say so on the bridge so the agent goes and
+      reads it. The card is the one place instructions for the agent are left,
+      and an edit made in the browser was invisible until the agent happened
+      to re-read the card.
+
+    - The signal was already recorded and nothing read it. Every route on the
+      browser dashboard puts the signed-in person on the change, so the engine
+      records who acted and history entries carry an author: an edit made
+      there has one, an edit made from the CLI does not.
+
+    - card-changed-by-owner compares rather than remembers - the newest change
+      on a card was made by somebody who is not the agent working it - so it
+      settles the moment the agent touches the card, and there is no stored
+      timestamp to go stale or be quietly reset. No age, because a change is
+      not more or less true an hour later.
+
 2.46  2026-08-17
 
     - TKT-300, reported by mt5-ai as background to the discard fault and the

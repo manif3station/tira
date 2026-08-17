@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.40';
+our $VERSION = '2.41';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -5126,8 +5126,17 @@ sub policy_evaluate {
             }
         }
         elsif ( $rule eq 'card-duration' ) {
+            my %resting;
             for my $record ( @{$records} ) {
                 next if !$resolved_for->( $policy, $record );
+
+                # This rule names its column outright, so it never asked which
+                # columns to leave alone - and a board that switches a column
+                # off means it for every rule, not only the ones that happened
+                # to ask. TKT-287.
+                my $kind = $record->{type} // 'ticket';
+                $resting{$kind} //= $self->_resting_columns( $root, $kind );
+                next if $resting{$kind}{ $record->{column} // '' };
 
                 # By role where one was given, exactly as enter and before are
                 # read. The role was storable and documented and no rule
@@ -6552,11 +6561,24 @@ sub _card_last_activity {
     return $record->{last_updated};
 }
 
+# The columns a card rule leaves alone: work has not started there, or it has
+# ended there, or the board has said it does not want that column watched.
+#
+# The third was missing and cost a project nine reminders it could not act on.
+# Zenandi set their review column to --no-watch, moved a card into it fourteen
+# minutes later, and checklist-unmoved reported it two minutes after that -
+# while card-still, declared at the same moment against the same column, said
+# nothing, because card-still was the only rule that had ever read the flag.
+#
+# The flag has existed as long as columns have carried it and tira.stale has
+# judged cards by it all along. Answering it here rather than in each rule is
+# the point: fixing only the rule they happened to declare would have sent the
+# next report about the next rule. TKT-287.
 sub _resting_columns {
     my ( $self, $root, $type ) = @_;
     my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
     my %resting = map { $_->{name} => 1 }
-      grep { $_->{protected} || $_->{terminal} } @{$columns};
+      grep { $_->{protected} || $_->{terminal} || !$_->{watched} } @{$columns};
     $resting{done} = 1 if !grep { $_->{terminal} } @{$columns};
     return \%resting;
 }

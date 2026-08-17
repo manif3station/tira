@@ -1,5 +1,29 @@
 Revision history for Tira
 
+2.41  2026-08-17
+
+    - TKT-287, reported by Zenandi and measured rather than inferred: they
+      set a review column to --no-watch on all three record types at 02:08,
+      moved a card into it at 02:22, and checklist-unmoved reported it at
+      02:24. All nine of their outstanding findings were that rule, every one
+      on a card in that column - while card-still, declared at the same
+      moment against the same column, said nothing.
+    - The gap was wider than the rule they met. The watched flag has existed
+      as long as columns have carried it and tira.stale has judged cards by
+      it all along, and exactly one police rule had ever read it: card-still,
+      shipped hours before their report arrived.
+    - So it is answered once, where the rules already ask which columns to
+      leave alone. A card resting in the backlog, a card finished in an
+      ending, and a card in a column nobody is watching are the same answer
+      to the same question. Every rule that already asked inherits it, and
+      card-duration - which names its column outright and had never asked -
+      asks now. The test asserts that NO card rule speaks about such a card,
+      which is what caught card-duration.
+    - Their own correction is kept with the card: they first wrote that the
+      finding could not be cleared, then watched nine clear at once when the
+      next real piece of work was done and ticked. The rule is answerable;
+      what it should not do is speak about a column somebody switched off.
+
 2.40  2026-08-17
 
     - TKT-279, reported by developer-dashboard: tira.police.outstanding

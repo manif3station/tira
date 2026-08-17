@@ -1,5 +1,31 @@
 Revision history for Tira
 
+2.52  2026-08-17
+
+    - TKT-312 and TKT-299, measured independently on two boards by two projects
+      that had not seen each other's report: tira.next answered "which card to
+      work" with every field of every card it considered. 94KB on mt5-ai's
+      board, 223,584 bytes on Zenandi's - whose SOW carries 80 key_details and
+      46 questions, so the answer to "which ref" arrived with all of it.
+
+    - Both checked before reporting rather than assuming: --brief, --field ref
+      and --fields ref were all refused. Zenandi is explicit that the --field
+      refusal is 2.42's mechanism working as designed and should not be
+      relaxed - a flag accepted and dropped is worse than one refused. What was
+      missing was the projection itself, which show and list have had all along.
+
+    - tira.next takes it now. Measured on the fixture: 13,339 bytes for the
+      whole answer, 250 for ref, title and priority - a fifty-third of it.
+
+    - The projection runs after the sort, because the order is decided by
+      priority, created_at and ref, and a caller asking only for ref would
+      otherwise be ordering by fields it had just removed. The test proves that
+      by projecting first and watching the order come apart.
+
+    - The changelog's own argument for this command was the 1,947,507 bytes a
+      hand-rolled caller spent reading the whole board. 223KB was a large
+      improvement on that and the same mistake in miniature.
+
 2.51  2026-08-17
 
     - TKT-334, reported by zen-framework and measured on their board: the

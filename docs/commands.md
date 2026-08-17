@@ -1384,6 +1384,13 @@ condition, and the answer arriving releases the card. Until 2.45 only the rule
 read it, so a card could be parked by the rule and offered by the command in the
 same moment.
 
+`tira.next` takes the same projection the read commands do — `--fields`,
+`--brief` and `--truncate`. Without one it answers with every field of every
+card it considered, which was 94KB on one reporting board and 223,584 bytes on
+another; `--fields ref,title,priority` answers the same question in a fraction
+of that. The projection is applied after the ordering, so asking for `ref` alone
+still answers in the order the board enforces.
+
 Discarded cards are never offered. `discard` is a protected column and is not
 an ending, so it answered "yes" to both halves of what waiting means until
 2.44 - on this project's own board that was 15 of the 24 cards returned,

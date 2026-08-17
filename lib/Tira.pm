@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.51';
+our $VERSION = '2.52';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -6716,13 +6716,33 @@ sub work_order {
         } @{$records};
     }
 
+    # The same projection the read commands take, when a caller asks for one.
+    #
+    # Measured on two boards independently: 94KB on mt5-ai's and 223,584 bytes
+    # on Zenandi's - a fifth of a megabyte to answer "which ref", because the
+    # answer carried every acceptance criterion and key detail of every card it
+    # was chosen over. Their probes are on the cards: --brief, --field ref and
+    # --fields ref were all refused here, and the --field refusal is the 2.42
+    # mechanism working exactly as designed, which neither of them asked to
+    # relax. What was missing is the projection itself. TKT-312, TKT-299.
     # Priority first, then the one that has waited longest - his correction,
-    # and the order police enforces.
-    return [ sort {
+    # and the order police enforces. Sorted BEFORE any projection, because the
+    # sort reads priority, created_at and ref, and a caller asking for --field
+    # ref would otherwise be ordering by fields it had just removed.
+    my @ordered = sort {
         $b->{priority} <=> $a->{priority}
           || ( $a->{created_at} // '' ) cmp( $b->{created_at} // '' )
           || ( $a->{ref} // '' ) cmp( $b->{ref} // '' )
-    } @waiting ];
+    } @waiting;
+
+    my $plan = _field_projection(%args);
+    return \@ordered if !$plan && !$args{brief};
+
+    return [ map {
+        my $shown = _project_record( $_, $plan );
+        _apply_brief_title($shown) if $args{brief};
+        $shown;
+    } @ordered ];
 }
 
 # The columns a card rule leaves alone: work has not started there, or it has

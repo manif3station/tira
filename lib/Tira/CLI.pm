@@ -1669,7 +1669,7 @@ sub _invoke {
           && !defined $option->{exclude_fields} && !$option->{include_empty}
           && !$option->{brief} && !defined $option->{truncate};
         die "Read options are available on show, list, and export commands\n"
-          if $command !~ /\A(?:record\.(?:show|list)|export)\z/
+          if $command !~ /\A(?:record\.(?:show|list)|export|next)\z/
           && !( $comment_scope && $command =~ /\A(?:comment\.list|attachment\.list|diff)\z/ );
         $args{fields} = $option->{field_selection} if defined $option->{field_selection};
         $args{exclude_fields} = $option->{exclude_fields} if defined $option->{exclude_fields};
@@ -2050,7 +2050,9 @@ sub _invoke {
     # card and sorting by hand was 1.95 MB of JSON on this project's own board
     # to find the eleven that were waiting. TKT-274.
     if ( $command eq 'next' ) {
-        my $order = $tira->work_order(%args);
+        my $order = $tira->work_order( %args,
+            ( $option->{brief} ? ( brief => 1 ) : () ),
+            ( defined $option->{truncate} ? ( truncate => $option->{truncate} ) : () ) );
         return $order if !@{$order};
 
         # The first one is the answer; the rest are what it was chosen over,

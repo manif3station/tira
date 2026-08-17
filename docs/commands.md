@@ -945,7 +945,7 @@ option names the job another option does, the command **refuses it and says
 which to use** rather than discarding it:
 
 ```
-d2 tira.assign.set --ref TKT-001 --assignee ada
+d2 tira.assign.set --ref TKT-001 --assignee ada   # refused
   assign.set does not act on --assignee. Use --person, which is what it reads.
 ```
 
@@ -958,11 +958,11 @@ The same applies to an option whose readers are known. `--field` names the field
 work over; anywhere else it is refused, naming the options that do set a field:
 
 ```
-d2 tira.ticket.update --ref TKT-001 --field "key_details+=What was measured."
+d2 tira.ticket.update --ref TKT-001 --field "key_details+=..."   # refused
   record.update does not act on --field. Use the options that set a field -
   --key-detail, --deliverable, --acceptance, --test-step and the rest.
 
-d2 tira.ticket.move --ref TKT-001 --column implement --sdlc-gate G9
+d2 tira.ticket.move --ref TKT-001 --column implement --sdlc-gate G9   # refused
   record.move does not act on --sdlc-gate. Use tira.<type>.update
   --sdlc-gate, which is the command that sets it.
 ```

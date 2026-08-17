@@ -1,5 +1,26 @@
 Revision history for Tira
 
+2.51  2026-08-17
+
+    - TKT-334, reported by zen-framework and measured on their board: the
+      reference showed 'd2 tira.ticket.move --ref TKT-001 --column implement
+      --sdlc-gate G9', and running that shape exits 2 with nothing moved.
+
+    - They are precise about what they are asking for: the refusal is right,
+      the exit code is right, the message names the fix, and none of it should
+      change. The defect is that the documentation showed a command the tool
+      rejects, so anyone following it writes a command that cannot work.
+
+    - The block did explain itself - the refusal is printed underneath - but an
+      indented line under a command reads as that command's OUTPUT, which is
+      how a working example is laid out. A reader scanning for a shape to copy
+      takes the first line.
+
+    - So the three commands shown only to be refused are marked on the line a
+      reader copies, as a trailing comment a shell drops. tools/docs-examples-run
+      cannot catch this class - it sets these aside for carrying TKT-001, a
+      shape a reader must replace - so the convention is asserted in the suite.
+
 2.50  2026-08-17
 
     - TKT-330, found by the hourly bug hunt probing for two copies of one

@@ -1,5 +1,29 @@
 Revision history for Tira
 
+2.46  2026-08-17
+
+    - TKT-300, reported by mt5-ai as background to the discard fault and the
+      more expensive half of it: marking ONE column terminal switched off the
+      assumption that done is where work ends, for every other column at once.
+      Every finished card on the board became live work in the same moment -
+      171 card-unassigned findings in a single police pass. They reverted it
+      and have marked nothing since, which is why their discard column was
+      protected and not an ending, which is the shape that made tira.next offer
+      discarded cards. One default cost them two faults.
+
+    - Measured here before anything was changed, on twenty finished cards: 0
+      findings before, 20 after, and tira.column.endings stopped naming done at
+      all. Their 171 is the same fault at their size.
+
+    - done is now assumed to be where work ends unless the board says
+      otherwise, and saying something true about a different column is not
+      saying otherwise. The flag has always had three values, so a board that
+      means it can still mark done as not terminal - it just has to say so,
+      which is the difference between a default and a trap.
+
+    - Answered once, in the two places that decide what a rule leaves alone,
+      rather than in the rules that happened to notice.
+
 2.45  2026-08-17
 
     - TKT-296, reported by Zenandi the hour tira.next landed: it offered a SOW

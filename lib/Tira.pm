@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.45';
+our $VERSION = '2.46';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -6517,7 +6517,25 @@ sub _ending_columns {
     my ( $self, $root, $type ) = @_;
     my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
     my %ends = map { $_->{name} => 1 } grep { $_->{terminal} } @{$columns};
-    $ends{done} = 1 if !keys %ends;
+
+    # done is where work ends unless the board has said otherwise, and saying
+    # something true about a different column is not saying otherwise.
+    #
+    # This used to be all-or-nothing: mark ONE column terminal and the
+    # assumption switched off for every other, so every finished card on the
+    # board became live work at once. Reported by mt5-ai, who paid 171
+    # card-unassigned findings in a single pass for it and reverted; measured
+    # here at 0 to 20 of 20. The flag has always had three values, so a board
+    # that means it can still set done to not-terminal - it just has to say so,
+    # which is the difference between a default and a trap. TKT-300.
+    #
+    # A board with no done column at all is a different question, and it is
+    # where the first attempt at this got it wrong: t/238's board names its
+    # ending 'shipped' and has no done, so assuming one put a column there that
+    # does not exist. For those boards the old fallback stands - done only when
+    # nothing else is marked - and it is a name rather than a column either way.
+    my ($done) = grep { ( $_->{name} // '' ) eq 'done' } @{$columns};
+    $ends{done} = 1 if $done ? !defined $done->{terminal} : !keys %ends;
     return \%ends;
 }
 
@@ -6629,7 +6647,14 @@ sub _resting_columns {
     my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
     my %resting = map { $_->{name} => 1 }
       grep { $_->{protected} || $_->{terminal} || !$_->{watched} } @{$columns};
-    $resting{done} = 1 if !grep { $_->{terminal} } @{$columns};
+
+    # The same assumption as _ending_columns and for the same reason: one
+    # column marked terminal is not a board withdrawing what it never said.
+    # TKT-300.
+    my ($done) = grep { ( $_->{name} // '' ) eq 'done' } @{$columns};
+    $resting{done} = 1
+      if $done ? !defined $done->{terminal}
+      : !grep { $_->{terminal} } @{$columns};
     return \%resting;
 }
 

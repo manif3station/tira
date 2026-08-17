@@ -1397,6 +1397,13 @@ disagree about the same board. Without it a caller read every card - 1.95 MB of
 JSON for 292 cards on this project's own board, to find the eleven that were
 waiting - and sorted by priority and age by hand.
 
+`done` is where work ends unless the board says otherwise. Marking another
+column terminal is a statement about that column, not a withdrawal of the
+default: until 2.46 it switched the assumption off everywhere at once, so every
+finished card became live work in the same pass — 171 findings on the board that
+reported it, 20 of 20 in the fixture. A board that means it can still mark
+`done` as not terminal, because the flag has three values; it has to say so.
+
 `tira.stale` answers how long each card has sat in the column it is in now,
 reading each card's history backwards and stopping at its most recent column
 move. Cards whose entry predates the history are reported without a duration

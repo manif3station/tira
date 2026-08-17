@@ -505,6 +505,12 @@ ending, so it counted as waiting until 2.44.
 The ordering belongs to `priority-skipped`, which has enforced it since it was
 written and asks the same method, so **the rule and the command cannot disagree
 about the same board**. Without it a caller read every card and sorted by hand.
+A terminal column is **Implemented.** `done` is where work ends unless the
+board says otherwise — and marking a *different* column terminal is not saying
+otherwise. Until 2.46 it switched the assumption off for every column at once,
+turning every finished card into live work in one pass (**171 findings** on the
+board that reported it). The flag has three values, so a board that means it can
+still mark `done` as not terminal.
 Column dwell is **Implemented.** `tira.stale` reports every card
 with the column it is in now, when it entered that column, and how long it has
 been there, across all three boards in one call. Entry time comes from the

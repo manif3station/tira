@@ -1,5 +1,29 @@
 Revision history for Tira
 
+2.40  2026-08-17
+
+    - TKT-279, reported by developer-dashboard: tira.police.outstanding
+      exited 0 whether the board was clean or carrying violations, so a job
+      scheduled to run it could not alarm on the result. That is how 154
+      violations accumulated there over two days unnoticed - 153 of them
+      log-only, so none had reached the bridge the agent watches.
+    - --exit-nonzero-if-any makes the status carry the answer: 1 while
+      anything is outstanding, 0 when clear, and an error still exits 2, so
+      the three answers a checker needs - clean, findings, could-not-look -
+      are all expressible. Opt-in rather than a changed default, because a
+      command that starts exiting non-zero breaks every script running it
+      today; the precedent is --if-changed, which already does this here.
+    - The grouped view that report also asked for is not in this release. It
+      was written and works, and it cost one statement of coverage I could not
+      locate in six attempts - so it is split onto its own card rather than
+      holding up the exit status, which is the half a scheduled job needs
+      tonight.
+    - One correction to the report, recorded on the card. It said the command
+      prints one record per sighting and the same card appears a dozen times.
+      It does not - one row per violation with a seen count, and three passes
+      over the same fault still give one row. The volume is real; the cause is
+      the rendering, so the answer is a summary mode rather than deduplication.
+
 2.39  2026-08-17
 
     - TKT-273: each change of version is announced once, rather than every

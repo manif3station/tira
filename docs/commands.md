@@ -875,6 +875,19 @@ and every finished card was judged as work still in progress.
 
 ### `tira.police.outstanding`
 
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--exit-nonzero-if-any` | no | Exit 1 while anything is outstanding, 0 when clear. An error still exits 2, so a scheduled job can tell clean from findings from could-not-look. Opt-in: without it the exit status is what it always was. |
+| `-o FORMAT` | no | `toon` (default), `json`. |
+
+The exit status was the same on a clean board and on one carrying violations,
+so a job scheduled to run this produced a log nobody opened and a status nobody
+could alarm on — which is how 154 violations accumulated over two days on the
+board that reported it, 153 of them `log-only` and so never on the bridge the
+agent watches. The full records are ten lines deep and thirteen fields wide;
+those 154 came to 1387 lines, which is a data dump where a work list was wanted.
+
+
 What is still true, rather than everything that ever happened.
 
 | Argument | Required | What it is for |

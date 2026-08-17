@@ -183,6 +183,16 @@ sub run {
         'max=i' => \$option{max}, 'require=s' => \$option{require},
         'once' => \$option{once}, 'interval=i' => \$option{interval},
 
+        # An exit status a scheduled job can act on, and a work list rather
+        # than a data dump. Both opt-in: a command that starts exiting
+        # non-zero breaks every script running it today, and the precedent for
+        # a status carrying an answer is --if-changed. TKT-279.
+        # Named by-rule rather than summary: --summary already belongs to
+        # evidence.add, and Getopt::Long answers a duplicate specification with
+        # a warning printed into the output, which turned a JSON payload into
+        # something no caller could parse. The suite said so twice at once.
+        'exit-nonzero-if-any' => \$option{exit_nonzero_if_any},
+
         # Agreeing to lose work. Spelled out rather than a single letter,
         # because the one command that can destroy a board should not be
         # reachable by a slip of the hand.
@@ -441,6 +451,12 @@ sub run {
     return _error( $tira, 'toon', $@ || 'Unable to format output' ) if !defined $formatted;
     print _utf8_bytes($formatted);
     my $status = ( defined $option{if_changed} && ref $result eq 'HASH' && $result->{unchanged} ) ? 1 : 0;
+
+    # Findings, told apart from clean and from could-not-look. An error already
+    # exits 2, so this takes 1 and the three answers a checker needs are all
+    # expressible. TKT-279.
+    $status = 1
+      if $option{exit_nonzero_if_any} && ref $result eq 'ARRAY' && @{$result};
     _cache_store( $cache, $formatted, $status ) if $cache;
     return _finish( $tira, \%option, $command, $status );
 }

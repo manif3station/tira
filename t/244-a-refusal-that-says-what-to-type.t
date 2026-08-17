@@ -146,6 +146,23 @@ for my $each (@asking) {
     is_deeply( \@silent, [], 'and every one of them comes back naming its option' );
 }
 
+# --- and a message that already names its option is left alone -------------------
+#
+# The guard against saying it twice. No message in the table names its own
+# option today, so nothing a command prints reaches this line - it is there
+# because a message reworded to include its flag would otherwise be given the
+# advice a second time, appended to itself. Asserted directly rather than
+# through a command, because there is no command that produces it.
+
+{
+    my $already = 'Record reference is required - supply it with --ref';
+    is( Tira::CLI::_names_the_option($already), $already,
+        'a message that already names its option is returned unchanged' );
+
+    my $count = () = Tira::CLI::_names_the_option($already) =~ /--ref/g;
+    is( $count, 1, 'so the advice is not appended to advice' );
+}
+
 # --- and nothing is said twice --------------------------------------------------
 #
 # A message that already names its option is left as it is, or the advice would

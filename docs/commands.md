@@ -961,7 +961,15 @@ work over; anywhere else it is refused, naming the options that do set a field:
 d2 tira.ticket.update --ref TKT-001 --field "key_details+=What was measured."
   record.update does not act on --field. Use the options that set a field -
   --key-detail, --deliverable, --acceptance, --test-step and the rest.
+
+d2 tira.ticket.move --ref TKT-001 --column implement --sdlc-gate G9
+  record.move does not act on --sdlc-gate. Use tira.<type>.update
+  --sdlc-gate, which is the command that sets it.
 ```
+
+A move is not the command that sets a gate, and on a board whose rules require
+the gate to move with every transition that is worth saying rather than
+dropping: the whole card comes back after a move, which reads as confirmation.
 
 ### A refusal that names the option
 

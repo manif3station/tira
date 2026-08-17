@@ -1,5 +1,24 @@
 Revision history for Tira
 
+2.42  2026-08-17
+
+    - TKT-281, reported by Zenandi and reproduced rather than taken on trust:
+      tira.ticket.move accepted --sdlc-gate, ignored it, and exited 0 after
+      printing the whole card - which reads as confirmation because the card
+      is right there. A card at G2 moved with --sdlc-gate G9 came back in the
+      new column, still at G2.
+    - The same shape as --field in 2.24, and it costs more. Their board's
+      rules require the gate to be updated with every transition, so "move
+      and set the gate" is the most natural thing to type there: the correct
+      action expressed in one command, silently half-done.
+    - Refused now, naming the command that does set a gate, which is the
+      mechanism 2.24 put in place for exactly this. The alternative - letting
+      move carry the gate, one command doing the whole transition, which is
+      what the reporter asked for - is recorded on the card as a decision
+      rather than an oversight. The refusal wins because it cannot do the
+      wrong thing quietly and it is reversible: teaching move to act on the
+      flag later is an addition, un-teaching callers that it works is not.
+
 2.41  2026-08-17
 
     - TKT-287, reported by Zenandi and measured rather than inferred: they

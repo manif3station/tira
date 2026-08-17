@@ -53,6 +53,19 @@ my %MISLEADING_OPTIONS = (
 # command passes through. A refusal written from that count would have broken
 # two working commands.
 my %OPTION_READ_BY = (
+    # The gate a move would not set. Accepted, dropped, exit 0, whole card
+    # printed - which reads as confirmation because the card is right there.
+    # It costs more than --field did: a board whose rules require the gate to
+    # move with every transition makes "move and set the gate" the most natural
+    # thing to type, so the correct action was being expressed in one command
+    # and silently half-done. Refused rather than made to work, because that is
+    # reversible and quietly doing half of a transition is not. TKT-281.
+    sdlc_gate => {
+        flag     => 'sdlc-gate',
+        commands => qr/\Arecord\.(?:create|update)\z/,
+        instead  => 'tira.<type>.update --sdlc-gate, which is the command that sets it',
+    },
+
     fields => {
         flag     => 'field',
         commands => qr/\A(?:history\.list|search|replace)\z/,

@@ -1,5 +1,28 @@
 Revision history for Tira
 
+2.43  2026-08-17
+
+    - TKT-274: nothing answered "what should I work next", and the board had
+      already decided. priority-skipped reports work taken out of turn, so it
+      has always known which cards are waiting - in a protected column that is
+      not an ending, carrying a priority - and which outranks which. No command
+      asked it: a caller read every card and sorted by priority and age by
+      hand, 1,947,507 bytes of JSON for 292 cards on this project's own board
+      to find the eleven that were waiting, and this project did exactly that,
+      with the same snippet, every time it picked up a card.
+
+      tira.next answers it as {next, then} - the answer, and what it was chosen
+      over, so a caller can check it rather than take it. A board with nothing
+      waiting answers with an empty list, never a card there is no reason to
+      work.
+
+      The ordering is not the command's own. It is one method, work_order,
+      asked by the rule as well as by the command, so the two cannot give
+      different answers about the same board - the shape this board keeps
+      finding, and the reason this is a method rather than a second sort. The
+      test asserts the agreement directly: work the wrong card, and the card
+      priority-skipped names as passed over is the same card tira.next offers.
+
 2.42  2026-08-17
 
     - TKT-281, reported by Zenandi and reproduced rather than taken on trust:

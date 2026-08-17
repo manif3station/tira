@@ -1,0 +1,16 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use File::Spec;
+use FindBin;
+unshift @INC, File::Spec->catdir( $FindBin::Bin, '..', 'lib' );
+require Tira::CLI;
+exit Tira::CLI->run( command => 'next', argv => \@ARGV );
+__END__
+=head1 NAME
+Tira next - What to work next, in the order the board already decided
+=head1 DESCRIPTION
+The cards waiting in a protected column, most urgent first and then the one
+that has waited longest - the same ordering priority-skipped enforces, asked
+of the engine rather than sorted a second time. Never writes.
+=cut

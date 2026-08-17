@@ -493,6 +493,14 @@ ids — enough to act without a further read — and `now` for chaining.
 snapshot comparison; `--count` answers whether to look; an empty diff is
 an explicit empty result. Exactly one baseline is required; diff never
 writes, and storing a snapshot is the separate export call.
+What to work next is **Implemented.** `tira.next` answers it: the cards
+waiting in a protected column with a priority, most urgent first and then the
+one that has waited longest, as `{next, then}` — the answer, and what it was
+chosen over, so a caller can check it rather than take it. A board with nothing
+waiting answers with an empty list, never a card there is no reason to work.
+The ordering belongs to `priority-skipped`, which has enforced it since it was
+written and asks the same method, so **the rule and the command cannot disagree
+about the same board**. Without it a caller read every card and sorted by hand.
 Column dwell is **Implemented.** `tira.stale` reports every card
 with the column it is in now, when it entered that column, and how long it has
 been there, across all three boards in one call. Entry time comes from the

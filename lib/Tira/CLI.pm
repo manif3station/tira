@@ -2041,6 +2041,21 @@ sub _invoke {
         return Tira->card_required;
     }
 
+    # What to pick up, from the board that already decided it. The ordering
+    # belongs to priority-skipped, so it is asked rather than sorted again -
+    # the rule and this command cannot give different answers. Reading every
+    # card and sorting by hand was 1.95 MB of JSON on this project's own board
+    # to find the eleven that were waiting. TKT-274.
+    if ( $command eq 'next' ) {
+        my $order = $tira->work_order(%args);
+        return $order if !@{$order};
+
+        # The first one is the answer; the rest are what it was chosen over,
+        # which is the part that makes the answer checkable rather than taken
+        # on trust.
+        return { next => $order->[0], then => [ @{$order}[ 1 .. $#{$order} ] ] };
+    }
+
     # What is still true, rather than everything that ever happened. The bridge
     # is a stream and the log is flat, so neither could answer it and the answer
     # depended on somebody remembering to look. TKT-237.

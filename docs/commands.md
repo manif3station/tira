@@ -1371,6 +1371,18 @@ raising it quiets the rule without touching any policy. Zero is allowed: a
 board deliberately frozen is a real thing to say, and refusing to let somebody
 say it would only mean saying it some other way.
 
+`tira.next` answers what to work next. The cards waiting in a protected
+column with a priority, most urgent first and then the one that has waited
+longest, as `{next, then}` - the answer, and what it was chosen over, so a
+caller can check it rather than take it. A board with nothing waiting answers
+with an empty list rather than a card there is no reason to work.
+
+The ordering is not this command's. `priority-skipped` has enforced it since it
+was written, and asks the same method, so the rule and the command cannot
+disagree about the same board. Without it a caller read every card - 1.95 MB of
+JSON for 292 cards on this project's own board, to find the eleven that were
+waiting - and sorted by priority and age by hand.
+
 `tira.stale` answers how long each card has sat in the column it is in now,
 reading each card's history backwards and stopping at its most recent column
 move. Cards whose entry predates the history are reported without a duration

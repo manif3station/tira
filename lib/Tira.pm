@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.42';
+our $VERSION = '2.43';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -5897,26 +5897,17 @@ sub policy_evaluate {
             # of those is finished rather than waiting, and reporting a finished
             # card as passed over would put every board permanently in
             # violation of its own history.
-            # Asked rather than worked out again, like card-unassigned. This
-            # one also wants the columns a card waits in - protected, and not
-            # an ending - which is the same question with the endings taken
-            # out, so the endings are asked for too. TKT-252.
-            my ( %resting, %waiting_here );
-            for my $type (qw(sow epic ticket)) {
-                $resting{$type} = $self->_resting_columns( $root, $type );
-                my $ends = $self->_ending_columns( $root, $type );
-                my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
-                $waiting_here{$type} = { map { $_->{name} => 1 }
-                    grep { $_->{protected} && !$ends->{ $_->{name} } } @{$columns} };
-            }
+            # Asked rather than worked out again, like card-unassigned.
+            my %resting;
+            $resting{$_} = $self->_resting_columns( $root, $_ )
+              for qw(sow epic ticket);
 
-            # Untouched means still where it was put. A card already moved into
-            # a working column is being worked, and two of those at once is what
-            # wip-limit is for rather than this.
-            my @waiting = grep {
-                defined $_->{priority}
-                  && $waiting_here{ $_->{type} // 'ticket' }{ $_->{column} // '' }
-            } @{$records};
+            # Which cards are waiting, and which outranks which, is the same
+            # question tira.next answers, so it is asked rather than sorted
+            # again here - two copies of one ordering could disagree about the
+            # same board, and this rule exists to enforce that ordering.
+            # TKT-274, and TKT-252 before it.
+            my @waiting = @{ $self->work_order( project => $root ) };
 
             for my $record ( @{$records} ) {
                 next if !$resolved_for->( $policy, $record );
@@ -6559,6 +6550,45 @@ sub _column_limits {
 sub _card_last_activity {
     my ( $self, $root, $record ) = @_;
     return $record->{last_updated};
+}
+
+# What to work next, which the board has always decided and never said.
+#
+# priority-skipped reports work taken out of turn, so it has to know which cards
+# are waiting - in a column the board protects that is not an ending, carrying a
+# priority - and which outranks which, 5 being the urgent end. That decision has
+# been in the engine since the rule was written and no command asked it: a
+# caller read every card on the board and sorted them by hand, 1.95 MB of JSON
+# on this project's own board to find the eleven that were waiting.
+#
+# Asked by the rule as well as by the command, so the two cannot give different
+# answers about the same board - which is the shape this project keeps finding
+# and the reason this is a method rather than a second sort. TKT-274.
+sub work_order {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+
+    my @waiting;
+    for my $type (qw(sow epic ticket)) {
+        next if defined $args{type} && $args{type} ne $type;
+        my $ends = $self->_ending_columns( $root, $type );
+        my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
+        my %here = map { $_->{name} => 1 }
+          grep { $_->{protected} && !$ends->{ $_->{name} } } @{$columns};
+
+        my $records = eval { $self->record_list( project => $root, type => $type ) } || [];
+        push @waiting, grep {
+            defined $_->{priority} && $here{ $_->{column} // '' }
+        } @{$records};
+    }
+
+    # Priority first, then the one that has waited longest - his correction,
+    # and the order police enforces.
+    return [ sort {
+        $b->{priority} <=> $a->{priority}
+          || ( $a->{created_at} // '' ) cmp( $b->{created_at} // '' )
+          || ( $a->{ref} // '' ) cmp( $b->{ref} // '' )
+    } @waiting ];
 }
 
 # The columns a card rule leaves alone: work has not started there, or it has

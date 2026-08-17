@@ -1,5 +1,26 @@
 Revision history for Tira
 
+2.39  2026-08-17
+
+    - TKT-273: each change of version is announced once, rather than every
+      difference announced for ever. Comparing for difference was right for
+      one watcher and wrong for two - and two is the documented arrangement,
+      police in the owner's terminal and a bridge the agent tails, both
+      running a pass. At different versions each saw a value that was not its
+      own, announced an upgrade and wrote its own: "Tira is now 2.35 - this
+      board last heard 2.34" at 23:16:42 and the exact reverse nine seconds
+      later, still going eight minutes on.
+    - Announcing only a newer version was the obvious fix and was wrong. The
+      existing test asserts a rollback is announced too, and its comment says
+      that assertion was written after getting it the other way round: the
+      rules the agent learned about may not be there any more. That fix was
+      reverted the moment the suite said so.
+    - What the board records is what has been SAID, not merely what was last
+      seen. A change from one version to another is news the first time and
+      not the second, so two watchers taking turns say it twice and stop for
+      ever, while a move to something this board has not been told about is
+      still announced.
+
 2.38  2026-08-17
 
     - TKT-278, his question: "is there any policy to remind the agent a card

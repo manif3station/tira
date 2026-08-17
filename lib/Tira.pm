@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.38';
+our $VERSION = '2.39';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -6778,11 +6778,42 @@ sub police_pass {
     # arrangement. What the board records is the newest version any watcher has
     # announced; an older watcher is behind rather than upgraded, and has
     # nothing to say. TKT-273.
+    # Each distinct change said once, rather than every difference said for ever.
+    #
+    # Comparing for difference was right for one watcher and wrong for two. The
+    # documented arrangement is two - police in the owner's terminal and a
+    # bridge the agent tails - and both run a pass, so when they were at
+    # different versions each saw a value that was not its own, announced an
+    # upgrade and wrote its own. Measured on this board with five watchers
+    # running: "Tira is now 2.35 - this board last heard 2.34" at 23:16:42, and
+    # the exact reverse at 23:16:51, still going eight minutes later.
+    #
+    # Announcing only a newer version would have been the obvious fix and was
+    # wrong: a rollback deserves the same line, because the rules the agent
+    # learned about may not be there any more - which t/175 asserts, having got
+    # it wrong that way round once already.
+    #
+    # So the record is what has been said, not merely what was last seen. A
+    # change from one version to another is news the first time; the same
+    # change again is not. Two watchers taking turns say it twice and then stop,
+    # and a genuine move to something this board has not been told about is
+    # still announced. TKT-273.
     my $upgraded;
     {
         my $told = $quieted->{announced_version};
-        if ( ( $told // '' ) ne $VERSION ) {
+        my $said = $quieted->{announced_changes} ||= [];
+        my $change = ( $told // '' ) . '>' . $VERSION;
+        if ( ( $told // '' ) ne $VERSION && !grep { $_ eq $change } @{$said} ) {
             $upgraded = { to => $VERSION, ( defined $told ? ( from => $told ) : () ) };
+            push @{$said}, $change;
+            $quieted->{announced_version} = $VERSION;
+            $self->_enforcement_write( $store, $quieted );
+        }
+        elsif ( ( $told // '' ) ne $VERSION ) {
+
+            # Said before, so nothing is written to the agent - but the board
+            # still records which version it is looking at, or the next genuine
+            # change would be measured from the wrong place.
             $quieted->{announced_version} = $VERSION;
             $self->_enforcement_write( $store, $quieted );
         }

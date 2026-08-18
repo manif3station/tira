@@ -242,7 +242,7 @@ sub run {
         'solution-needed=s' => \$option{solution_needed}, 'source=s' => \$option{source},
         'from=s' => \$option{from}, 'to=s' => \$option{to},
         'chat=s' => \$option{chat},
-        'author=s' => \$option{author}, 'file=s' => \$option{file},
+        'author=s' => \$option{author}, 'file=s@' => \$option{files},
         'format=s' => \$option{format}, 'comment=s' => \$option{comment},
         'sha=s' => \$option{sha}, 'extension=s' => \$option{extension},
         'summary=s' => \$option{summary}, 'uri=s' => \$option{uri},
@@ -339,6 +339,23 @@ sub run {
         'set-affects-versions=s' => \$option{set_affects_versions},
     );
     return _error( $tira, $option{output}, 'Invalid command-line options' ) if !$parsed || @{$argv};
+
+    # --file is a list only where a batch makes sense, and one file everywhere
+    # else. Nine commands read it - attachment, question voice and answer, bulk
+    # import, comment add and update among them - so handing eight of them an
+    # arrayref and fixing each with ->[0] would be eight places to drift, which
+    # is the fault TKT-389 is about. Collapsed once, here.
+    #
+    # Giving it twice used to keep the last and discard the rest with exit 0.
+    # That is one of the single-valued flags TKT-389 counts, closed here because
+    # this card had to touch the option anyway; the rest stay on that card.
+    # TKT-338.
+    if ( $option{files} ) {
+        return _error( $tira, $option{output},
+            "Only attachment.add takes more than one --file\n" )
+          if @{ $option{files} } > 1 && $command ne 'attachment.add';
+        $option{file} = $option{files}[0];
+    }
     $option{ref} = $option{ref_list}[-1] if $option{ref_list};
     $option{$_} = _expand_home( $option{$_} ) for grep { defined $option{$_} } qw(dir project);
 
@@ -2444,6 +2461,38 @@ sub _invoke {
         die "Use only one of --text or --file\n" if defined $option->{text};
         $args{text} = _text_input( $option->{file}, utf8 => 1 );
     }
+    # Several files, one invocation. The cost this fixes is per command
+    # RESOLUTION, not per attachment: measured on 2.64, an unknown tira command
+    # costs 0.50s while the attachment work itself is about 0.05s, and a 400-card
+    # board is no slower than a 1-card one. Six files in a shell loop was 3.87s,
+    # of which roughly 3.0s was finding the command six times.
+    #
+    # So looping HERE is the whole fix and looping in a shell is what was slow -
+    # which is why t/275 asserts this is one invocation rather than only that the
+    # files arrived. Same shape as comment.add --attach below, which has batched
+    # all along and which nothing documented as a batch. TKT-338.
+    #
+    # A file part-way through that cannot be read still dies - a bad path is
+    # still a mistake worth stopping for - but the files attached before it are
+    # returned rather than lost with the die, because his second ask was exactly
+    # this: a killed batch should leave a readable record of how far it got,
+    # not force reading the card back to find out what landed. Caught by testing
+    # the failure path this card exists because of, rather than only the happy
+    # one: the first version of this loop reported nothing at all on a partial
+    # failure, reproducing in a new shape the blindness it was written to fix.
+    if ( $command eq 'attachment.add' && $option->{files} && @{ $option->{files} } > 1 ) {
+        my @added;
+        for my $path ( @{ $option->{files} } ) {
+            my $one = eval { $tira->attachment_add( %args, file => $path ) };
+            if ( !$one ) {
+                die "$@" . ( @added ? "\nAttached before the failure: "
+                    . join( ', ', map { $_->{original_filename} } @added ) . "\n" : '' );
+            }
+            push @added, $one;
+        }
+        return \@added;
+    }
+
     if ( $command eq 'comment.add' && $option->{attach} ) {
         my $comment = $tira->$method(%args);
         $tira->comment_attach( %args, comment => $comment->{id}, file => $_ ) for @{ $option->{attach} };

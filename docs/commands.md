@@ -1682,7 +1682,23 @@ them; the manual carries the worked use cases behind them.
 
 ### Attachments
 
-- `tira.attachment.add --ref REF --file PATH [--comment ID] [-o FORMAT]`
+- `tira.attachment.add --ref REF --file PATH [--file PATH ...] [--comment ID] [-o FORMAT]`
+
+  Since 2.66 `--file` repeats: several files attach in one invocation rather than
+  one command per file. The cost this fixes is per command RESOLUTION rather than
+  per attachment - an unknown `tira` command costs about 0.5s to fail, which is
+  the same as any command doing real work, and a 400-card board is no slower than
+  a one-card one. Six files in a shell loop cost about 3.9s, of which roughly 3.0s
+  was resolving the command six times; batched, the same six cost about 0.65s.
+
+  `--file` is shared by nine commands and is single-valued everywhere except
+  here - so giving any of the other eight `--file` twice is now refused, naming
+  the flag, rather than silently keeping the last value and discarding the rest.
+
+  A file that cannot be read mid-batch still fails the command - a bad path is a
+  real mistake and stops it - but the files attached before it are named in the
+  error rather than lost with it, since the reporter's second ask was exactly a
+  readable record of how far a killed batch got.
 - `tira.attachment.discard --ref REF --sha SHA256 [--extension EXT] [--comment ID] [--author NAME] [-o FORMAT]`
 - `tira.attachment.detach --ref REF --sha SHA256 [--extension EXT] [--comment ID] [-o FORMAT]`
 - `tira.attachment.remove --sha SHA256 [--extension EXT] [-o FORMAT]`

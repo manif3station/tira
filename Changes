@@ -1,5 +1,57 @@
 Revision history for Tira
 
+2.66  2026-08-18
+
+    - TKT-338. tira.attachment.add takes repeated --file, so a batch pays one
+      command resolution instead of one per file.
+
+    - Reported measuring six PNGs at about 20s each regardless of size, guessed
+      as SHA cost. Measured on 2.64: it is not - a 61KB and a 217KB file cost the
+      same, a 400-card board costs the same as a 1-card one, and an UNKNOWN tira
+      command that does no work at all costs 0.50s to fail. Loading the module is
+      0.07s. So resolving a command, not doing its work, is nearly the entire
+      cost, and six files paid it six times: 3.87s measured, about 3.0s of it at
+      the door.
+
+    - The mechanism already existed on a different command and had all along:
+      comment.add --attach is repeatable and loops inside one invocation,
+      delegating to the same attachment_add the new path uses. Proved by running
+      it before writing anything: three files, one invocation, 0.70s. There was
+      no design question to answer, only a command surface that never offered
+      what the engine already did.
+
+    - --file is shared by nine commands, so it is parsed as a list once and
+      collapsed to a single value everywhere except attachment.add, rather than
+      handing eight callers an arrayref and fixing each with ->[0] - which is how
+      two copies of one decision drift. Giving one of the other eight commands
+      --file twice is now refused, naming the flag, instead of silently keeping
+      the last value with exit 0 - one of the single-valued flags TKT-389 counts,
+      closed here because this card had to touch the option anyway.
+
+    - A file that cannot be read mid-batch still fails the command, and the
+      files attached before it are named in the error rather than lost with it.
+      Caught by testing the failure path this card exists because of, not only
+      the happy one: the first version of the batch loop was a plain map, and a
+      bad path partway through died with no record at all of what had already
+      landed - reproducing, in a new shape, the exact blindness the reporter
+      asked to be fixed. Proved on a standalone probe before it reached the
+      suite: three files, one missing in the middle, the command failed and the
+      error named the one that had already attached.
+
+    - t/275 at 18 assertions. The one that matters most is that a batch is ONE
+      invocation - a loop calling the command six times would satisfy any test
+      that only checked the files arrived, and would fix nothing the reporter
+      hit. Proved by breaking it: restoring last-wins fails 7 assertions, and
+      restoring the plain map fails the one assertion that distinguishes it from
+      the fix - the file already lands on disk either way, so only the report of
+      it changes.
+
+    - Full suite 268 files / 6261 tests, 100% statement and subroutine on
+      Tira.pm, CLI.pm and DashboardWeb.pm. Predicted before the first gate ran
+      that nothing but t/275 would move, since six existing test files exercise
+      only the single-file path and a batch could not exist to be asserted
+      before this change - the suite confirmed it.
+
 2.65  2026-08-18
 
     - TKT-349, reopened out of done because the thing it promised had never once

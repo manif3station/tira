@@ -1,5 +1,41 @@
 Revision history for Tira
 
+2.68  2026-08-18
+
+    - TKT-385. A genuinely clean board no longer exits 1 with
+      --exit-nonzero-if-any.
+
+    - 2.62 gave tira.police.outstanding a summary for its default output -
+      prose rows saying how many are outstanding and as of when - while -o
+      json kept returning the bare list. --exit-nonzero-if-any counted rendered
+      rows, so a clean board's one line of prose ("No violations outstanding,
+      as of the pass at ...") read as one finding and exited 1 in the same
+      breath as saying nothing was wrong.
+
+    - The command now states its finding count before rendering, and the exit
+      logic prefers that over counting rows. Counting rows stays the fallback
+      for every command whose output genuinely is its findings; a command that
+      summarises or groups - TKT-291 asks for grouping on this same one -
+      states its count rather than being counted by accident.
+
+    - That regression was mine, and so was the reason it shipped: t/268
+      asserted the summary's sentence and never its exit status, because I
+      tested the feature I had just written rather than the contract the
+      command already had.
+
+    - Two real bugs in the test itself, found before either could reach the
+      tree. police_pass and police_outstanding both require store => - neither
+      call in the first draft supplied it, which would have died on the first
+      line. And a board with no policy declared never writes last_pass to the
+      ledger at all - police_pass short-circuits before touching it - so a
+      clean-board assertion against an unpoliced board read "This board has
+      never been policed" rather than "No violations outstanding", failing for
+      a different reason than the one being tested.
+
+    - t/273 at 12 assertions, proved by breaking it - the old row-count logic
+      fails the 2 assertions that matter. Full suite 270 files / 6284 tests,
+      100% statement and subroutine on Tira.pm, CLI.pm and DashboardWeb.pm.
+
 2.67  2026-08-18
 
     - TKT-383. tira.next reads which column plays the 'next' role, and offers a

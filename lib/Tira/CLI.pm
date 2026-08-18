@@ -559,8 +559,15 @@ sub run {
     # Findings, told apart from clean and from could-not-look. An error already
     # exits 2, so this takes 1 and the three answers a checker needs are all
     # expressible. TKT-279.
+    # Counting rows is the fallback, not the rule: it is right for every command
+    # whose output IS its findings, and wrong for any that summarises, groups or
+    # adds a heading. TKT-291 asks for grouping on this same command, so the
+    # count has to come from the command rather than from what it printed.
     $status = 1
-      if $option{exit_nonzero_if_any} && ref $result eq 'ARRAY' && @{$result};
+      if $option{exit_nonzero_if_any}
+      && ( defined $option{findings_count}
+        ? $option{findings_count}
+        : ( ref $result eq 'ARRAY' && @{$result} ) );
     _cache_store( $cache, $formatted, $status ) if $cache;
     return _finish( $tira, \%option, $command, $status );
 }
@@ -2187,6 +2194,15 @@ sub _invoke {
         my $store = $option->{store}
           // _police_store( $tira->discover_project(%args) );
         my $open = $tira->police_outstanding( %args, store => $store );
+
+        # What was actually found, said before the answer is dressed up. The
+        # exit status used to be taken from the rendered rows, which was true
+        # only while a command's output WAS its findings - 2.62 gave this
+        # command a summary and a clean board started exiting 1, saying "No
+        # violations outstanding" and signalling that there were some. A
+        # command that knows its count says so; rendering cannot move the
+        # signal afterwards. TKT-385.
+        $option->{findings_count} = scalar @{$open};
 
         # -o json is the payload and stays a bare list. The instruction that
         # drives the clear-violations loop pipes it and indexes the result, and

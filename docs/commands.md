@@ -898,6 +898,15 @@ and every finished card was judged as work still in progress.
 | Argument | Required | What it is for |
 | --- | --- | --- |
 | `--exit-nonzero-if-any` | no | Exit 1 while anything is outstanding, 0 when clear. An error still exits 2, so a scheduled job can tell clean from findings from could-not-look. Opt-in: without it the exit status is what it always was. |
+
+Since 2.68 the exit status is taken from the command's own count of findings
+when it has one, rather than from the rendered rows. 2.62 gave the default
+output a summary - prose rows saying how many are outstanding and as of when -
+and `--exit-nonzero-if-any` counted those rows, so a clean board's one line of
+prose read as one finding and exited 1 while saying "No violations
+outstanding" in the same breath. Counting rows is still the fallback for every
+command whose output genuinely is its findings; a command that summarises or
+groups states its count explicitly instead.
 | `-o FORMAT` | no | `toon` (default), `json`. |
 
 The exit status was the same on a clean board and on one carrying violations,

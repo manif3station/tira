@@ -1,5 +1,45 @@
 Revision history for Tira
 
+2.60  2026-08-18
+
+    - TKT-363, asked for directly: on the browser dashboard a card worked
+      recently is tinted green and the tint fades as it ages, so progress on a
+      column is visible without reading a timestamp. He asked for it after
+      looking at the board and asking whether the agent had stopped, while two
+      cards were being actively gated - a card being worked and a card abandoned
+      for six hours looked identical.
+
+    - Recent compared to what was the one thing worth asking rather than
+      guessing, and he answered with a comparator rather than a threshold:
+      -M $b.json <=> -M $a.json. So the ranking is relative to the other cards
+      in the same column and read from the file's modification time, which was
+      already on every card as data-mtime and is already what the default sort
+      orders by. Nothing new is stored and nothing new is fetched.
+
+    - The tint is proportional to age rather than to position. -M is a time, so
+      two cards a minute apart should not look as far apart as two cards a week
+      apart merely because they sit next to each other in the list. The newest
+      card in a column is fully tinted and the oldest carries none either way.
+
+    - Three cases are deliberately not painted, and the second is what his
+      break-it case asserts. A column with fewer than two visible cards is not a
+      ranking. A column whose cards all share one timestamp is not a ranking
+      either - there is no difference to show, and inventing one would say
+      something the board does not know. And a card waiting on an unanswered
+      question keeps its own yellow and takes no green: his exception, and the
+      one that must not be traded for the effect, because a card waiting on
+      somebody is not a card that has gone stale.
+
+    - Recomputed on every refresh, from renderColumns, where the visible cards
+      of one column are already gathered - so it cannot go stale on a board that
+      reloads every second, and a treatment that survived only the first paint
+      would be exactly the defect shape this project keeps finding.
+
+    - --fresh defaults to 0, so a card that is not ranked is exactly the colour
+      it was before this release, and card--waiting and card--to-review both set
+      their own background, which wins - the two existing treatments are
+      preserved by construction rather than by remembering to preserve them.
+
 2.59  2026-08-18
 
     - TKT-359: a new rule, agent-still, for the stoppage board-still cannot see.

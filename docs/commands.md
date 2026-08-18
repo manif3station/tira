@@ -412,6 +412,26 @@ path an agent queries. The formats a person looks at carry titles, the Discard
 column and the waiting marks, since somebody reading a board wants to see where
 things are rather than the smallest possible answer.
 
+In the browser, a card worked recently is tinted green and the tint fades as it
+ages, so progress is visible without reading a timestamp. He asked for it after
+looking at the board and asking whether the agent had stopped, while two cards
+were being actively gated — a card being worked and a card abandoned for six
+hours looked identical.
+
+The ranking is **relative to the other cards in the same column**, read from the
+same `data-mtime` the default sort already orders by, and recomputed on every
+refresh so it cannot go stale. The tint is proportional to age rather than to
+position: two cards a minute apart do not look as far apart as two cards a week
+apart merely because they sit next to each other. The newest card in a column is
+fully tinted, the oldest carries none.
+
+Three cases are deliberately not painted. A column with fewer than two visible
+cards is not a ranking. A column whose cards all share one timestamp is not a
+ranking either — there is no difference to show, and inventing one would say
+something the board does not know. And a card waiting on an unanswered question
+keeps its own yellow and takes no green, because a card waiting on somebody is
+not a card that has gone stale.
+
 `--ssl` serves the board over HTTPS. The certificate is the board's own, made
 the first time and reused afterwards — a certificate that changed on every
 restart would make a browser warn every time, which teaches somebody to click

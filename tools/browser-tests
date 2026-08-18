@@ -426,6 +426,9 @@ for test in "$tests"/*.js; do
         stale-board.js)       run_one "$name" "$browsing_html" "$live_data" ;;
         police-log.js)        run_one "$name" "$browsing_html" "$live_data" ;;
         priority-sort.js)     run_one "$name" "$priority_html" "$priority_data" ;;
+        # The same fixture priority-sort uses: a board with three cards in one
+        # column, which is what a relative ranking needs to say anything.
+        card-freshness.js)    run_one "$name" "$priority_html" "$priority_data" ;;
         wide-board.js|wrap-board.js)
                               run_one "$name" "$wide_html" "$scratch/$name.png" ;;
         dashboard-table.js)   run_one "$name" "$one_html" "$scratch/$name.png" ;;

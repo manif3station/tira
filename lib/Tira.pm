@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.72';
+our $VERSION = '2.73';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4607,6 +4607,18 @@ my @POLICY_SCOPE = qw(type on_column ref);
 # A rule may say which column it means, or which role.
 my @POLICY_ROLE_FIELDS = qw(enter_role before_role column_role);
 
+# What counts as the SAME policy for the purpose of "already declared" -
+# everything that says WHAT is watched, as opposed to age, read_age, max and
+# message, which say how strictly. Named once so _policy_already_declared and
+# policy_duplicates cannot drift into two different definitions of a
+# collision - a scope field added to one and not the other would let a board
+# be told it has none while policy_add would in fact refuse to declare a
+# matching pair. TKT-352.
+my @POLICY_SCOPE_FIELDS = (
+    @POLICY_SCOPE, @POLICY_ROLE_FIELDS,
+    qw(column enter before pattern require sandbox require_link link_to)
+);
+
 # What police reports without being asked to.
 #
 # These are not policies. A policy says what a board wants watched; these two
@@ -4663,17 +4675,60 @@ sub _policy_already_declared {
         # are settings. Two policies differing in those alone are two answers
         # to one question, which is the fault reported. TKT-339.
         my $same_scope = 1;
-        for my $field (
-            @POLICY_SCOPE, @POLICY_ROLE_FIELDS,
-            qw(column enter before pattern require sandbox require_link link_to)
-          )
-        {
+        for my $field (@POLICY_SCOPE_FIELDS) {
             $same_scope = 0
               if ( $existing->{$field} // '' ) ne ( $wanted->{$field} // '' );
         }
         return $existing if $same_scope;
     }
     return;
+}
+
+# A stable key for "what this policy watches" - two policies produce the same
+# key exactly when _policy_already_declared would call them the same scope.
+# Grouping by this key finds every collision in one pass over what is stored,
+# rather than comparing every policy against every other.
+sub _policy_scope_key {
+    my ($policy) = @_;
+    return join( "\x1e", $policy->{rule} // '',
+        map { $policy->{$_} // '' } @POLICY_SCOPE_FIELDS );
+}
+
+# Which currently-declared policies collide on rule and scope - two answers to
+# the same question, sitting in the store together.
+#
+# policy_add has refused a NEW collision since 2.54 (TKT-339), which does
+# nothing for a board that already carried one before the refusal existed: a
+# board upgrading into the fix kept every pair it already had, and nothing
+# said so. One project found four such pairs by grouping policy.list's JSON
+# by hand after reading the changelog for what "same scope" meant - not a
+# route most boards will take. TKT-352.
+#
+# Detection only. Which member of a pair to keep is a judgment call - the
+# reporter's own workaround made it by hand, favouring the one with a written
+# message - and guessing it here risks discarding a policy somebody actually
+# wanted.
+sub policy_duplicates {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+
+    my %by_key;
+    for my $policy ( @{ $self->policy_list( project => $root ) } ) {
+        push @{ $by_key{ _policy_scope_key($policy) } }, $policy;
+    }
+
+    my @groups;
+    for my $key ( sort keys %by_key ) {
+        my $group = $by_key{$key};
+        next if @{$group} < 2;
+        push @groups,
+          {
+            rule     => $group->[0]{rule},
+            policies => [ map { { id => $_->{id}, message => $_->{message}, age => $_->{age} } }
+                  @{$group} ],
+          };
+    }
+    return \@groups;
 }
 
 sub policy_add {
@@ -6917,6 +6972,14 @@ sub policy_review {
         declared   => \@declared,
         declined   => [ map { { rule => $_->{rule}, reason => $_->{reason} } } @{$declined} ],
         unanswered => $self->policy_undeclared( project => $root ),
+
+        # Declared, declined and unanswered are three states a RULE can be
+        # in; a duplicate is a fourth thing entirely - two policies already
+        # sitting in the store answering the same question. Named here
+        # because this is "the review he asked to do", the one place a
+        # reader checks for what the catalogue looks like, rather than a
+        # separate command nobody remembers to run. TKT-352.
+        duplicates => $self->policy_duplicates( project => $root ),
     };
 }
 

@@ -1387,7 +1387,8 @@ declared or declined the prompt says nothing at all.
 
 The whole policy set in one place: every rule in the catalogue, exactly once,
 either declared with the columns it covers, declined with the reason, or
-unanswered. No arguments beyond `-o FORMAT`.
+unanswered - plus `duplicates`, policies already in the store that collide on
+rule and scope. No arguments beyond `-o FORMAT`.
 
     d2 tira.policy.review
 
@@ -1402,6 +1403,16 @@ This shows it without waiting for a pass.
 
 `tira.policy.undeclared` answers the narrower question and is what police prints
 for the owner when it starts.
+
+`duplicates` names policies already declared that collide on rule and scope -
+the same comparison `policy.add` makes against a NEW declaration since 2.54,
+run once across everything already stored. It exists for a board that upgraded
+into that refusal carrying pairs from before it existed: nothing removes them
+automatically, since which one to keep is a judgment call, but reading them out
+of `policy.list` by hand means grouping the JSON yourself. Each group names its
+rule and the ids that collide on it; a different scope on the same rule - a
+different column, a different `--ref` - is never grouped, matching what
+`policy.add` itself would still allow.
 
 ### `tira.project.mode`
 

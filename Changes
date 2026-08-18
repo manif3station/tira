@@ -1,5 +1,36 @@
 Revision history for Tira
 
+2.73  2026-08-18
+
+    - TKT-352. policy.add has refused a second policy on the same rule and
+      scope since 2.54 (TKT-339). That does nothing for a board that already
+      carried the duplicate before the refusal existed - a board upgrading
+      into the fix keeps every pair it already had, and nothing said so.
+
+    - Measured on one board: four pairs, all declared 2026-08-14 minutes
+      apart - a bulk re-declaration that could not have known the earlier
+      ones were there. In every pair the earlier policy carried a written
+      message and the later one did not, so the duplicate was silently
+      overriding a considered declaration with a bare one; on one pair it
+      also tightened 15m to 10m with nobody deciding it - TKT-339's own
+      complaint, reintroduced by a duplicate the fix could not see
+      retroactively. Found by grouping `tira.policy.list -o json` by hand
+      after reading the changelog for what "same scope" meant.
+
+    - policy_duplicates runs the identical scope comparison policy_add
+      already makes against a new declaration, once across everything
+      already stored, and groups what collides. policy.review now names
+      the groups under a `duplicates` key - the one place a reader already
+      checks for what the policy catalogue adds up to, rather than a
+      separate command to remember.
+
+    - Detection only: which member of a colliding pair to keep is a
+      judgment call, and guessing it here risks discarding a policy
+      somebody actually wanted. The scope-field list itself moved to one
+      shared @POLICY_SCOPE_FIELDS constant, so _policy_already_declared and
+      policy_duplicates cannot drift into two different definitions of a
+      collision.
+
 2.72  2026-08-18
 
     - TKT-351. A release ran the full suite twice on the same tree, once by

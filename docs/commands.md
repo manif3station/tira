@@ -907,6 +907,41 @@ board that reported it, 153 of them `log-only` and so never on the bridge the
 agent watches. The full records are ten lines deep and thirteen fields wide;
 those 154 came to 1387 lines, which is a data dump where a work list was wanted.
 
+The default output says **when the answer was taken**, and which findings the
+board is chasing:
+
+```
+2 outstanding, as of the pass at 2026-08-18T12:05:00Z
+1 to act on:
+  VIO-0002 orphan-card TKT-001 seen 2
+1 only recorded, because the board declared them log-only:
+  VIO-0001 card-unassigned TKT-001 seen 2
+```
+
+Both of those were asked for. The list reads the violation ledger, and **only a
+police pass writes it** — so the answer is as of the last pass, and saying so
+matters because the instruction for clearing violations ends "then run
+`tira.police.outstanding` again and confirm that violation is gone". Fix the
+fault, ask again with no pass in between, and the count does not move. It is not
+re-evaluated on read: a pass costs seconds, writes the ledger and puts lines on
+the bridge, so a read command that quietly ran one would move escalation counts
+because somebody asked a question.
+
+An empty board now distinguishes the two things that used to print alike:
+
+```
+No violations outstanding, as of the pass at 2026-08-18T12:05:00Z
+This board has never been policed, so nothing has been checked
+```
+
+And a `log-only` finding is named as one. Both kinds carry tone `note`, so tone
+could never have told them apart — which is the whole of the complaint that
+raised it: *this outstanding command is act-on-it when the agent looks at it;
+they won't act on it but just log only.*
+
+`-o json` is unchanged and remains a bare list of the full records, because that
+is what scripts and the clear-violations loop pipe.
+
 
 What is still true, rather than everything that ever happened.
 

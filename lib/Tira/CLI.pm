@@ -2154,7 +2154,46 @@ sub _invoke {
     if ( $command eq 'police.outstanding' ) {
         my $store = $option->{store}
           // _police_store( $tira->discover_project(%args) );
-        return $tira->police_outstanding( %args, store => $store );
+        my $open = $tira->police_outstanding( %args, store => $store );
+
+        # -o json is the payload and stays a bare list. The instruction that
+        # drives the clear-violations loop pipes it and indexes the result, and
+        # TKT-354 is already open about tira.next answering with a dict when
+        # work waits and a list when it does not - the same fault from the other
+        # side. Everything below is the human summary the CLI contract asks for.
+        return $open if ( $option->{output} // '' ) eq 'json';
+
+        my $at = $tira->police_outstanding_taken_at( store => $store );
+        return [
+            defined $at
+            ? 'No violations outstanding, as of the pass at ' . $at
+            : 'This board has never been policed, so nothing has been checked'
+        ] if !@{$open};
+
+        # His question, which the old output could not answer: "why the action
+        # all log only? this outstanding command is act-on-it when the agent
+        # look at this. they won't act on it but just log only." Both kinds come
+        # back tone 'note', so tone cannot carry the difference and the action
+        # has to be said.
+        my @chased   = grep { ( $_->{action} // '' ) ne 'log-only' } @{$open};
+        my @recorded = grep { ( $_->{action} // '' ) eq 'log-only' } @{$open};
+        my $line = sub {
+            my ($v) = @_;
+            return sprintf '%s %s %s seen %d',
+              $v->{id} // '', $v->{rule} // '', $v->{ref} // '(board)', $v->{seen} // 0;
+        };
+        return [
+            scalar(@{$open}) . ' outstanding, as of the pass at '
+              . ( $at // 'a time this board did not record' ),
+            ( @chased
+                ? ( scalar(@chased) . ' to act on:', map { '  ' . $line->($_) } @chased )
+                : () ),
+            ( @recorded
+                ? ( scalar(@recorded)
+                      . ' only recorded, because the board declared them log-only:',
+                    map { '  ' . $line->($_) } @recorded )
+                : () ),
+        ];
     }
 
     if (   $command eq 'police.suspend'

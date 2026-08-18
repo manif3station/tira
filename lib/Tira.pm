@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.61';
+our $VERSION = '2.62';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6599,6 +6599,18 @@ sub violation_record {
         };
     }
 
+    # When this board was last looked at, which nothing recorded. Every entry
+    # carries first_seen and last_seen, so the age of a FINDING was knowable and
+    # the age of the ANSWER was not - and on a board with no findings there is no
+    # entry to read a time from at all, so "nothing is wrong" and "nothing has
+    # been checked" printed the same thing.
+    #
+    # That is the half of TKT-378 that cost a day of small confusions: the
+    # instruction for clearing violations ends "then run tira.police.outstanding
+    # again and confirm that violation is gone", and outstanding reads this
+    # ledger, which only a pass writes. Fix the fault, ask again, and the count
+    # does not move until somebody runs a pass.
+    $ledger->{last_pass} = $self->{clock}->();
     $self->_atomic_write(
         $self->_violation_ledger_path($store),
         json_object()->canonical->encode($ledger) );
@@ -8234,6 +8246,20 @@ sub police_outstanding {
         };
     }
     return \@open;
+}
+
+# When the answer above was last true. Undefined on a board no pass has ever
+# touched, which is the case that most needs saying: an empty list of findings
+# and a board nobody has policed are the same list, and only this tells them
+# apart.
+#
+# A method rather than a field read inline, so a test can take it away and show
+# a board fixed half an hour ago reading exactly like one that was never
+# checked. TKT-378.
+sub police_outstanding_taken_at {
+    my ( $self, %args ) = @_;
+    my $store = $args{store} or die "A police store is required\n";
+    return $self->_violation_ledger($store)->{last_pass};
 }
 
 sub enforcement_log {

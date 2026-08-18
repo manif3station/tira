@@ -1,5 +1,43 @@
 Revision history for Tira
 
+2.62  2026-08-18
+
+    - TKT-313 and TKT-378, one output. tira.police.outstanding now says when its
+      answer was taken, and which findings the board is chasing.
+
+    - His question was the first half: "why the action all log only? this
+      outstanding command is act-on-it when the agent look at this. they won't
+      act on it but just log only. whats the point to have a outstanding list?"
+      Both kinds come back tone 'note', so tone could never have told them
+      apart, and only the action field did - which a reader has to know to look
+      for. The summary now names them.
+
+    - The second half cost a day of small confusions. The list reads the
+      violation ledger and only a police pass writes it, so the answer is as of
+      the last pass and said so nowhere. The instruction for clearing violations
+      ends "then run tira.police.outstanding again and confirm that violation is
+      gone" - and it cannot: fix the fault, ask again with no pass in between,
+      and the count does not move.
+
+    - Not re-evaluated on read. A pass costs seconds, writes the ledger and puts
+      lines on the bridge, so a read command that quietly ran one would move
+      escalation counts because somebody asked a question. It states the age
+      instead and leaves the judgement to the reader.
+
+    - An empty board no longer prints what a board nobody has ever policed
+      prints. "No violations outstanding, as of the pass at ..." and "This board
+      has never been policed, so nothing has been checked" were the same line -
+      the case where the distinction matters most had none.
+
+    - The age comes from a last_pass recorded on the ledger, not from the newest
+      last_seen as first planned: an empty board has no row to read last_seen
+      from, which is exactly the case above.
+
+    - -o json is unchanged and remains a bare list. The clear-violations loop
+      pipes it, and TKT-354 is open about tira.next answering with a dict when
+      work waits and a list when it does not - the same fault from the other
+      side, and not one to introduce here while that card is on the board.
+
 2.61  2026-08-18
 
     - TKT-306 and TKT-360, worked as one fix because they are one cause. An

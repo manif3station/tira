@@ -24,6 +24,7 @@ $tira->project_new(
     columns => ['backlog, implement, verify, done'],
     sow_prefix => 'EVS', epic_prefix => 'EVE', ticket_prefix => 'EVT',
 );
+$tira->project_update( project => $root, agent => 'claude' );
 
 # card-sandbox-missing reads branches and work trees, and refuses to be
 # declared where no repository can be resolved (TKT-178). This board sits

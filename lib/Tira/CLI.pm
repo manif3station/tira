@@ -285,7 +285,7 @@ sub run {
         'claiming-schema=i' => \$option{claiming_schema},
         'seconds=i' => \$option{seconds},
         'on-column=s' => \$option{on_column},
-        'role=s@' => \$option{roles},
+        'role=s@' => \$option{roles}, 'remove-role=s@' => \$option{remove_roles},
         'require-link=s' => \$option{require_link}, 'link-to=s' => \$option{link_to},
         'enter-role=s' => \$option{enter_role}, 'before-role=s' => \$option{before_role},
 
@@ -1791,12 +1791,14 @@ sub _invoke {
     die "A mark belongs to the question.mark command\n"
       if defined $option->{mark} && $command ne 'question.mark';
     die "A reason and options belong to the question.ask and question.update commands, "
-      . "to police.suspend, to rule.suspend, and to policy.decline\n"
+      . "to police.suspend, to rule.suspend, to policy.decline, and to column.roles "
+      . "when it takes a role back\n"
       if ( defined $option->{reason} || $option->{options} )
       && $command !~ /\Aquestion\.(?:ask|update)\z/
       && $command ne 'police.suspend'
       && $command ne 'rule.suspend'
-      && $command ne 'policy.decline';
+      && $command ne 'policy.decline'
+      && $command ne 'column.roles';
     die "A voice note belongs to the question.ask, question.update and question.voice commands\n"
       if defined $option->{voice} && $command !~ /\Aquestion\.(?:ask|update|voice)\z/;
     die "Remove belongs to the question.voice and question.attach commands\n"
@@ -2077,6 +2079,17 @@ sub _invoke {
     return $tira->column_sync( %args, apply => $option->{apply} ) if $command eq 'column.sync';
 
     if ( $command eq 'column.roles' ) {
+
+        # Taking one back, which nothing could do - a role declared by mistake
+        # was permanent and undoing it meant editing .tira by hand. TKT-384.
+        # The reason is required by the engine and belongs to the removal alone:
+        # accepted-and-ignored beside a --role would be a stored explanation for
+        # something nobody could later find.
+        die "A reason belongs to --remove-role. Declaring a role does not take one\n"
+          if defined $option->{reason} && !$option->{remove_roles};
+        return $tira->column_roles_remove( %args, roles => $option->{remove_roles},
+            reason => $option->{reason}, author => $option->{author} )
+          if $option->{remove_roles};
         return $tira->column_roles(%args) if !$option->{roles};
 
         # Written the way he says it: which column is the backlog, which is

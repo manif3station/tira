@@ -1,5 +1,44 @@
 Revision history for Tira
 
+2.63  2026-08-18
+
+    - TKT-384. A role declared by mistake can be taken back.
+
+    - Found by making the mistake. Probing what tira.column.roles accepts, I ran
+      '--role nonsense=backlog' against the live board. It was accepted and
+      stored, and nothing removed it: --role merges what it is given into what is
+      there, nothing deletes, and an empty value is refused as malformed rather
+      than read as a removal. Undoing one command meant editing .tira by hand.
+
+    - His answer: "also a card to allow agent to remove junk rules?" - and then
+      the half that makes it safe to have: "if they do. they need to provide a
+      reason for it and there will be a column logs to log that reason. who and
+      why."
+
+    - So --remove-role deletes, --reason is required, and every removal is
+      appended to a log the board carries with who, why, when, and which column
+      the role pointed at - readable after the role itself is gone. A reason
+      passed beside --role is refused rather than stored where nobody would find
+      it, since accepted-and-ignored is the failure it exists to prevent.
+
+    - A role a policy names cannot be removed out from under it, and the refusal
+      says which policy. A rule whose role stopped existing matches nothing at
+      all, silently, while somebody believes it is still protecting them - the
+      same failure the declaration guard already refuses in the other direction.
+
+    - Not added, though it was written as an acceptance criterion first: a
+      refusal for a role no rule reads. Any name can be read, because a policy
+      names one through --enter-role, --before-role or --column-role, and the
+      natural order is to declare the vocabulary and then the policies using it.
+      Refusing an unread name would refuse the first half of every correct
+      sequence.
+
+    - TKT-376, TKT-381 and TKT-320. The card-changed-by-owner rule now refuses to
+      be declared on a board that has not said which agent works it, since it
+      settles by asking whether a change was the agent's own and cannot answer
+      that unasked - and it stops firing on ending columns, where a card sitting
+      finished is the point rather than a change nobody accounted for.
+
 2.62  2026-08-18
 
     - TKT-313 and TKT-378, one output. tira.police.outstanding now says when its

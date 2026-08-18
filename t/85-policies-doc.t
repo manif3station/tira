@@ -119,6 +119,10 @@ $tira->project_new(
     mkdir $repo;
     mkdir File::Spec->catdir( $repo, '.git' );
     $tira->project_update( project => $root, repo => $repo );
+
+    # A board that declares card-changed-by-owner must name its agent, the way
+    # one that declares card-sandbox-missing must name its repository. TKT-376.
+    $tira->project_update( project => $root, agent => 'claude' );
 }
 
 # A command may be written across several lines with a backslash, which is how
@@ -183,6 +187,10 @@ for my $command (@steps) {
     mkdir $repo;
     mkdir File::Spec->catdir( $repo, '.git' );
     $tira->project_update( project => $board, repo => $repo );
+
+    # A board that declares card-changed-by-owner must name its agent, the way
+    # one that declares card-sandbox-missing must name its repository. TKT-376.
+    $tira->project_update( project => $board, agent => 'claude' );
     $tira->project_limit( project => $board, max => 5 );
 
     my $ok = eval { $tira->policy_add( project => $board, %args ); 1 };

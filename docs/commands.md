@@ -1152,6 +1152,26 @@ renames it.
 | --- | --- | --- |
 | `--type TYPE` | to set | Which board. Reading without it answers for all three. |
 | `--role NAME=COLUMN` | no | Repeatable. With none, reads the roles back. |
+| `--remove-role NAME` | no | Repeatable. Takes a declared role back. |
+| `--reason TEXT` | with `--remove-role` | Why it went. Required. |
+| `--author ID` | no | Who removed it, for the log. |
+
+Until 2.63 a role could be declared and never taken back: `--role` merged what it
+was given into what was there, nothing deleted, and an empty value read as
+malformed rather than as a removal. A role typed wrong was permanent, and undoing
+one command meant editing `.tira` by hand. `--remove-role` deletes it - unless a
+policy names it, in which case the refusal says **which** policy, because a rule
+whose role stopped existing matches nothing at all, silently, while somebody
+believes it is still protecting them. That is the same failure the declaration
+guard already refuses in the other direction.
+
+A removal is accountable. `--reason` is required, on the same ground
+`tira.rule.suspend` requires one - a change nobody can account for is worse than
+the mistake it corrects - and every removal is appended to a log the board
+carries, with **who, why, when, and which column the role pointed at**, readable
+even after the role itself is gone. The reason belongs to the removal alone:
+passing one beside `--role` is refused rather than stored somewhere nobody would
+find it.
 
 Columns are per board, so roles are too - but "which column is the backlog" has
 an answer for every board, and reading without naming one answers for all three

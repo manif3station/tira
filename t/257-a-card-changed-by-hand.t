@@ -178,11 +178,18 @@ $tira->policy_add( project => $root, rule => 'card-changed-by-owner',
 # reported - so silencing every resting column would silence the case this rule
 # was built for.
 
+# The column here is a WORKING one, changed from done when TKT-320 shipped. This
+# block is about the watched flag being a switch, and it used done only because
+# it was a convenient column to toggle. A card in a column where work ends is now
+# left alone whatever the flag says - Zenandi reported that the rule was
+# reporting finished cards nobody could act on - so asserting done is reported
+# would now be asserting the defect.
+
 {
     my $reviewed = $tira->create_record( project => $root, type => 'ticket',
         title => 'Sitting in a column nobody watches', priority => 3,
         assignee => 'claude' );
-    $tira->record_move( project => $root, ref => $reviewed->{ref}, column => 'done' );
+    $tira->record_move( project => $root, ref => $reviewed->{ref}, column => 'implement' );
 
     $now = '2026-08-17T15:00:00Z';
     $tira->record_update( project => $root, ref => $reviewed->{ref},
@@ -191,13 +198,13 @@ $tira->policy_add( project => $root, rule => 'card-changed-by-owner',
     my ($watched) = grep { ( $_->{ref} // '' ) eq $reviewed->{ref} } @{ reported() };
     ok( $watched, 'a watched column reports the edit' );
 
-    $tira->column_update( project => $root, type => $_, name => 'done', watched => 0 )
+    $tira->column_update( project => $root, type => $_, name => 'implement', watched => 0 )
       for qw(sow epic ticket);
 
     my ($unwatched) = grep { ( $_->{ref} // '' ) eq $reviewed->{ref} } @{ reported() };
     ok( !$unwatched, 'and a column set to --no-watch does not' );
 
-    $tira->column_update( project => $root, type => $_, name => 'done', watched => 1 )
+    $tira->column_update( project => $root, type => $_, name => 'implement', watched => 1 )
       for qw(sow epic ticket);
     ok( ( grep { ( $_->{ref} // '' ) eq $reviewed->{ref} } @{ reported() } ),
         'while watching it again brings it back, so the switch is a switch' );

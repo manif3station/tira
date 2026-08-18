@@ -20,6 +20,7 @@ $tira->project_new(
     columns => ['Backlog, Doing'],
     sow_prefix => 'PLS', epic_prefix => 'PLE', ticket_prefix => 'PLT',
 );
+$tira->project_update( project => $root, agent => 'claude' );
 
 # card-sandbox-missing reads branches and work trees, and refuses to be
 # declared where no repository can be resolved (TKT-178). This board sits
@@ -183,6 +184,11 @@ $tira->project_new(
 # inside one, which is the ordinary case and what a real board declaring
 # that rule looks like.
 mkdir File::Spec->catdir( $scratch, '.git' );
+
+# And card-changed-by-owner settles by asking whether a change was the agent's
+# own, so it refuses a board that has not said which agent works it - the same
+# shape as the repository above, for the same reason. TKT-376.
+$tira->project_update( project => $scratch, agent => 'claude' );
 for my $rule ( sort keys %needs ) {
     ok(
         eval {

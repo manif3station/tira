@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.62';
+our $VERSION = '2.63';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4680,6 +4680,26 @@ sub policy_add {
           . "card, so a card scope could never narrow it. Declare it without --ref\n";
     }
 
+    # The same argument as the rule below, and the same failure it prevents.
+    # card-changed-by-owner settles by comparing the newest author against the
+    # agent the board NAMES; a board that names none falls through to the card's
+    # assignee alone, which the comment on the rule itself already calls
+    # vacuous - it counts the board's own work as an outside edit and the
+    # finding can never settle.
+    #
+    # Reported four times by two projects. I discarded two of those reports
+    # after testing on a scratch board that declared an agent, because this
+    # board declares one - and every new board declares none. It was reported
+    # twice more, the second time escalating on two of their cards.
+    # TKT-376, TKT-381.
+    if ( $rule eq 'card-changed-by-owner' ) {
+        my $named = $self->_agent_declared_for( $self->discover_project(%args) );
+        die "Policy rule 'card-changed-by-owner' settles by asking whether a change was "
+          . "the agent's own, and this project has not said which agent works it. "
+          . "Name it with tira.project.update --agent ID\n"
+          if !defined $named || $named eq '';
+    }
+
     # The one rule that reads the machine needs to know which machine. Refused
     # here rather than discovered later as a violation nobody can clear, which
     # is their third suggestion and this project's own rule about missing
@@ -5918,7 +5938,7 @@ sub policy_evaluate {
             # by the same stranger as the last. 24 findings on this board within
             # a minute of declaring it, every one its own work, and Zenandi
             # reported the same from their side in the same minute. TKT-316.
-            my $ours = eval { $self->project_show( project => $root )->{agent} } // '';
+            my $ours = $self->_agent_declared_for($root) // '';
 
             # A column nobody is watching is left alone, which is the TKT-287
             # answer and this rule did not ask it either - Zenandi found that
@@ -5926,7 +5946,7 @@ sub policy_evaluate {
             # flag alone, not the whole resting set: a card waiting in the
             # backlog is exactly the kind he edits, and silencing the backlog
             # would silence the case this rule was built for. TKT-318.
-            my %limits;
+            my ( %limits, %ends );
 
             for my $record ( @{$records} ) {
                 next if !$resolved_for->( $policy, $record );
@@ -5937,6 +5957,16 @@ sub policy_evaluate {
                 next
                   if exists $limits{$kind}{$column}
                   && !defined $limits{$kind}{$column};
+
+                # And a column where work ends, which this rule did not ask
+                # either. A finished card has no agent to remind, so the finding
+                # has no addressee who can act on it - Zenandi reported it and
+                # TKT-319 records that their owner chose to accept permanent
+                # CRITICAL noise rather than mute the rule. The same shape as
+                # TKT-287 and as the unwatched flag above: every card rule has
+                # to ask which columns to leave alone. TKT-320.
+                $ends{$kind} //= $self->_ending_columns( $root, $kind );
+                next if $ends{$kind}{$column};
 
                 my $last = $self->_card_last_author( $root, $record );
                 next if !$last;
@@ -7157,6 +7187,18 @@ sub _agent_last_acted {
     return $newest;
 }
 
+# Which agent this board says works it, asked in one place. The declaration
+# guard and the evaluation both need it, and a rule that refuses a declaration
+# on one reading and evaluates on another would be two decisions again - which
+# is the fault TKT-306 and TKT-360 were raised for elsewhere in this file.
+#
+# A method rather than an inline read, so a test can answer the precondition and
+# show the refusal is the guard rather than an accident. TKT-376.
+sub _agent_declared_for {
+    my ( $self, $root ) = @_;
+    return eval { $self->project_show( project => $root )->{agent} };
+}
+
 sub _card_last_author {
     my ( $self, $root, $record ) = @_;
     my $entries = eval {
@@ -8105,6 +8147,92 @@ sub column_roles {
     }
     my ( undef, $config ) = $self->_board_data(%args);
     return $config->{roles} // {};
+}
+
+# Taking a role back, which nothing could do. column_roles_set merges what it is
+# given into what is there and never deletes, so a role declared by mistake was
+# permanent: an empty value is refused as malformed rather than read as a
+# removal. I proved that by making the mistake - a probe put 'nonsense=backlog'
+# on the live board - and undoing one command meant editing .tira by hand.
+#
+# It matters more since roles became load-bearing: he asked for the card to work
+# next to be chosen by a column HE picks, and pointed out the column's name is
+# this project's own, so the board declares which of its columns means it. A
+# vocabulary the board cannot correct is a worse thing to depend on than one it
+# can. TKT-384.
+sub column_roles_remove {
+    my ( $self, %args ) = @_;
+    my @wanted = @{ $args{roles} || [] };
+
+    # The same promise the setter makes, for the same reason: reading without
+    # naming a board is a convenience, writing to one nobody named is a surprise.
+    die "Which board? Roles are per board, because columns are.\n"
+      . "  tira.column.roles --type ticket "
+      . join( ' ', map {"--remove-role $_"} sort @wanted ) . "\n"
+      if !defined $args{type} || $args{type} eq '';
+
+    # His requirement, and the same one rule.suspend already makes: "if they do,
+    # they need to provide a reason for it and there will be a column logs to log
+    # that reason. who and why." A role leaving a board's vocabulary changes what
+    # every policy written against it means, so it is accountable in the way
+    # putting a rule down is - a change nobody can account for is worse than the
+    # mistake it corrects.
+    my $reason = $args{reason};
+    die "A reason is required - a role leaving a board's vocabulary changes what "
+      . "every policy naming it means, and a change nobody can account for is worse "
+      . "than the mistake it corrects\n"
+      if !defined $reason || $reason eq '';
+
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $config ) = $self->_board_data( %args, project => $root );
+        my $roles = $config->{roles} // {};
+
+        for my $role (@wanted) {
+
+            # Refused rather than succeeding quietly, so a typo in the REMOVAL
+            # cannot read as a removal that worked.
+            die "No role named '$role' on this board, so there is nothing to remove\n"
+              if !exists $roles->{$role};
+
+            # And not out from under a policy. A policy whose role stops
+            # existing matches nothing at all, silently, which is exactly what
+            # the declaration guard refuses in the other direction.
+            for my $policy ( @{ $self->policy_list( project => $root ) } ) {
+                for my $field (@POLICY_ROLE_FIELDS) {
+                    next if ( $policy->{$field} // '' ) ne $role;
+                    die "Policy $policy->{id} names the role '$role', and a policy whose "
+                      . "role stops existing matches nothing at all. Remove the policy "
+                      . "first:\n  tira.policy.remove --id $policy->{id}\n";
+                }
+            }
+        }
+
+        # Who and why, beside the roles themselves so the board carries its own
+        # account rather than depending on a police store that a board may not
+        # have. Appended, never replaced: a log that can be rewritten is not one.
+        push @{ $config->{role_log} }, {
+            at     => $self->{clock}->(),
+            author => ( defined $args{author} && $args{author} ne '' ? $args{author} : 'nobody' ),
+            role   => $_,
+            column => $roles->{$_},
+            reason => $reason,
+        } for @wanted;
+
+        delete $roles->{$_} for @wanted;
+        $config->{roles} = $roles;
+        $self->_write_yaml( $path, $config );
+        return $config->{roles};
+    } );
+}
+
+# What was taken out of this board's vocabulary, and why. Read-only, and empty
+# rather than absent on a board nothing has been removed from. TKT-384.
+sub column_role_log {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my ( undef, $config ) = $self->_board_data( %args, project => $root );
+    return $config->{role_log} // [];
 }
 
 sub column_roles_set {

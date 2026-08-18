@@ -255,8 +255,16 @@ cat >"$gate_home/.developer-dashboard/config/config.json" <<JSON
 { "path_aliases": { "gate-board": "$board" } }
 JSON
 
-HOME="$gate_home" TIRA_HOME=gate-board tira dashboard -o "browser=127.0.0.1:$port" \
-    >"$scratch/board.log" 2>&1 &
+# perl invoked directly, not through the tira() function above. $! after
+# backgrounding a FUNCTION call names the subshell running the function body,
+# not the perl process it forks inside itself - cleanup() below then killed
+# that subshell, which died correctly, while the actual server it had started
+# was never signalled at all and kept running, orphaned, holding the port.
+# Measured: 34 leaked Starman masters, three per run (this one plus the two
+# below) against a 101-port range - almost exactly one leaked trio per run,
+# not an occasional interrupt. TKT-397.
+HOME="$gate_home" TIRA_HOME=gate-board perl -I"$root/lib" "$root/cli/dashboard" \
+    -o "browser=127.0.0.1:$port" >"$scratch/board.log" 2>&1 &
 serving=$!
 
 # Waited for, rather than slept at. A fixed sleep is either too short on a busy
@@ -335,8 +343,9 @@ tira project.new --name Browsing --dir "$browser_board" --members 'michael, ada'
     --sow-prefix SOW --epic-prefix EPC --ticket-prefix TKT -o json >/dev/null
 build_browser_board "$browser_board"
 
-TIRA_BOARD="$browser_board" tira dashboard -o "browser=127.0.0.1:$browser_port" \
-    >"$scratch/browser-board.log" 2>&1 &
+# perl invoked directly, for the same reason as the first server above. TKT-397.
+TIRA_HOME="$browser_board" perl -I"$root/lib" "$root/cli/dashboard" \
+    -o "browser=127.0.0.1:$browser_port" >"$scratch/browser-board.log" 2>&1 &
 browsing=$!
 for _ in $(seq 1 60); do
     curl -fsS -o /dev/null -m 2 "http://127.0.0.1:$browser_port/" && break
@@ -368,8 +377,9 @@ tira project.new --name Priority --dir "$priority_board" --members michael \
     --sow-prefix PRS --epic-prefix PRE --ticket-prefix PRT -o json >/dev/null
 build_priority_board "$priority_board"
 
-TIRA_BOARD="$priority_board" tira dashboard -o "browser=127.0.0.1:$priority_port" \
-    >"$scratch/priority-board.log" 2>&1 &
+# perl invoked directly, for the same reason as the servers above. TKT-397.
+TIRA_HOME="$priority_board" perl -I"$root/lib" "$root/cli/dashboard" \
+    -o "browser=127.0.0.1:$priority_port" >"$scratch/priority-board.log" 2>&1 &
 prioritising=$!
 for _ in $(seq 1 60); do
     curl -fsS -o /dev/null -m 2 "http://127.0.0.1:$priority_port/" && break

@@ -1,5 +1,34 @@
 Revision history for Tira
 
+2.75  2026-08-19
+
+    - TKT-397. The pre-push browser gate leaked a Starman dashboard server on
+      every run, not only when interrupted. 34 had accumulated by the time
+      they blocked a push - every port from 7841 to 7941 held, no symptom
+      until the range was full and then every release blocked at once.
+
+    - Root cause: tools/browser-tests started each server through a bash
+      function, backgrounded - `tira dashboard -o "browser=..." & serving=$!`.
+      $! after backgrounding a FUNCTION call names the subshell running the
+      function body, not the perl process it forks inside itself. cleanup()
+      correctly killed that subshell; the actual Starman master and workers
+      it had started were never signalled at all, and kept running as
+      orphans holding their port. Confirmed with a direct, minimal
+      reproduction before touching the real script.
+
+    - Fixed by invoking perl directly for all three backgrounded server
+      launches (the gate board, the browser board, the priority board),
+      bypassing the function wrapper so $! names the real process. Nothing
+      else changed: one-shot table renders still go through the function,
+      since they are never backgrounded and were never the leak.
+
+    - Found and cleared 199 real leaked Starman processes from this
+      project's own working directory while investigating - confirmed by
+      cwd before touching anything; four processes belonging to other
+      projects sharing the port range were correctly left alone. Verified
+      the fix for real: ran the actual browser-tests script end to end (11
+      browser tests, all passed) and confirmed no new listeners survived it.
+
 2.74  2026-08-18
 
     - TKT-355. card-still (board-wide) silently outranked a deliberately

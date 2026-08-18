@@ -1,5 +1,53 @@
 Revision history for Tira
 
+2.65  2026-08-18
+
+    - TKT-349, reopened out of done because the thing it promised had never once
+      happened. Police was to tell the owner on Telegram when a card moves. It
+      shipped in 2.58 with evidence and four gate runs and has never delivered a
+      message. He asked twice; the second time: "This isn't the first time. Treat
+      this like a problem to solve."
+
+    - Three silences in a row. The board never had the setting. TELEGRAM_CHATID
+      was absent from the running police process, which had the bot token and two
+      other TELEGRAM_* variables but not that one. And _send_notification returns
+      0 when it is missing - no warning, no log, no exit code anybody sees. So the
+      code was correct, tested, and dead.
+
+    - The destination is now set on the board, once, by the agent:
+      tira.notify.moves --chat ID. That is what the card's own title asked for and
+      what it could not do - an agent cannot set an environment variable on a
+      police process somebody else started, so "set once by the agent" was never
+      possible. TELEGRAM_CHATID is still read when the board has no destination of
+      its own, so nothing that relied on it changes.
+
+    - And a board that has notifications on and cannot deliver them says so, in
+      the prompt police prints when it starts, naming what is missing. It stays
+      quiet on a board that never asked for notifications and on one that can
+      deliver, because a warning everybody sees is one nobody reads.
+
+    - The check and the send resolve the destination the same way, in one place.
+      They disagreed before - which is the whole of this card: the board believed
+      it was notifying and nothing was arriving.
+
+    - Both _send_notification call sites now pass the board. Neither did, so the
+      new setting would have been stored and never read - the fix failing to
+      reach the thing it fixes, caught by tracing the call sites rather than
+      trusting the unit test.
+
+    - police_prompt is wrapped rather than edited in three places: it has three
+      returns and the notice belongs on all of them, and three copies of one
+      sentence is three places for it to drift.
+
+    - t/158 stopped proving its point by reading source. It grepped
+      "sub police_prompt { ... }" for the word policy_undeclared, which said
+      nothing about behaviour and broke when the sub was split for this change
+      even though the prompt still asked the same question. It now replaces the
+      answer and asserts police used it.
+
+    - t/274 at 18 assertions, proved by removing the notice - three assertions
+      fail. Full suite 267 files / 6241 tests.
+
 2.64  2026-08-18
 
     - TKT-388. Five commands stopped handing back every account's stored

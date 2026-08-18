@@ -241,6 +241,7 @@ sub run {
         'text=s' => \$option{text}, 'problem|problem-or-feature=s' => \$option{problem_or_feature},
         'solution-needed=s' => \$option{solution_needed}, 'source=s' => \$option{source},
         'from=s' => \$option{from}, 'to=s' => \$option{to},
+        'chat=s' => \$option{chat},
         'author=s' => \$option{author}, 'file=s' => \$option{file},
         'format=s' => \$option{format}, 'comment=s' => \$option{comment},
         'sha=s' => \$option{sha}, 'extension=s' => \$option{extension},
@@ -2068,6 +2069,7 @@ sub _invoke {
         return $tira->notify_moves(
             project => $args{project},
             ( defined $option->{column} ? ( column => $option->{column} ) : () ),
+            ( defined $option->{chat} ? ( chat => $option->{chat} ) : () ),
             enabled => ( defined $option->{watched} ? $option->{watched} : 1 ),
         );
     }

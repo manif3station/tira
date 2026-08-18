@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.64';
+our $VERSION = '2.65';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6121,7 +6121,8 @@ sub policy_evaluate {
             # this board speaks off the machine and one place to configure it.
             # Opt-in for the same reason: a board that has set no address is not
             # made to reach out to one.
-            $self->_send_notification( text => 'Tira: the agent has stopped. ' . $said );
+            $self->_send_notification( project => $root,
+                text => 'Tira: the agent has stopped. ' . $said );
         }
         elsif ( $rule eq 'discard-with-open-questions' ) {
 
@@ -6341,6 +6342,14 @@ sub notify_moves {
         my ( $path, $data ) = $self->_project_data($root);
         my $setting = $data->{notify_moves} ||= { enabled => 0, columns => {} };
 
+        # Where to send, stored on the board rather than read out of the
+        # environment. His words on the card: "set once by the agent" - and an
+        # agent cannot set an environment variable on a police process somebody
+        # else started, which is why this never worked. The board is the thing
+        # the agent can write, and every other per-board setting already lives
+        # here. TKT-349.
+        $setting->{chat} = $args{chat} if defined $args{chat} && $args{chat} ne '';
+
         if ( defined $args{column} && $args{column} ne '' ) {
             $setting->{columns}{ $args{column} } =
               $args{enabled} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false;
@@ -6399,7 +6408,7 @@ sub _announce_moves {
         # The test caught this: with the stamp written either way, a move that
         # happened while the variables were unset stayed silent for ever.
         my $told = $on
-          ? $self->_send_notification(
+          ? $self->_send_notification( project => $root,
               text => "$record->{ref} moved to $column - " . ( $record->{title} // '' ) )
           : 1;
         next if !$told;
@@ -6438,7 +6447,16 @@ sub _last_move {
 sub _send_notification {
     my ( $self, %args ) = @_;
     my $token = $ENV{TELEGRAM_BOT_TOKEN};
-    my $chat  = $ENV{TELEGRAM_CHATID};
+
+    # Resolved the same way notification_delivery resolves it, so what the board
+    # is told it can do and what it actually does cannot disagree - the whole of
+    # TKT-349 is that they did, silently, for a day.
+    my $chat;
+    $chat = eval {
+        $self->project_show( project => $args{project} )->{notify_moves}{chat};
+    } if defined $args{project};
+    $chat = $ENV{TELEGRAM_CHATID} if !defined $chat || $chat eq '';
+
     return 0 if !defined $token || $token eq '';
     return 0 if !defined $chat  || $chat eq '';
     return $self->_post_telegram( $token, $chat, $args{text} );
@@ -7262,7 +7280,65 @@ sub _resting_columns {
     return \%resting;
 }
 
+# Whether a notification this board tries to send could actually arrive, asked as
+# a question with an answer rather than discovered by it not happening.
+#
+# _send_notification returns 0 when either variable is missing - silently, by
+# construction - so the move-notification feature shipped in 2.58, passed its
+# tests, and never delivered a message. He asked about it twice; the second time:
+# "This isn't the first time. Treat this like a problem to solve."
+#
+# Reads the setting through project_show, which does not write. TKT-349.
+sub notification_delivery {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $setting = eval { $self->project_show( project => $root )->{notify_moves} } || {};
+
+    my $token = $ENV{TELEGRAM_BOT_TOKEN};
+
+    # The board first, the environment second. A board that has been told where
+    # to send keeps working when nobody exports anything; a board that has not is
+    # exactly as it was before, so nothing that relied on the variable breaks.
+    my $chat = $setting->{chat};
+    $chat = $ENV{TELEGRAM_CHATID} if !defined $chat || $chat eq '';
+
+    return { deliverable => 0, reason => 'TELEGRAM_BOT_TOKEN is not set, so nothing can be sent' }
+      if !defined $token || $token eq '';
+    return {
+        deliverable => 0,
+        reason      => 'no destination is set - give this board one with'
+          . ' tira.notify.moves --chat ID, or set TELEGRAM_CHATID'
+    } if !defined $chat || $chat eq '';
+    return { deliverable => 1, wanted => ( $setting->{enabled} ? 1 : 0 ) };
+}
+
+# Said only to a board that has asked for notifications and cannot receive them.
+# A warning every board sees is one nobody reads, and this one must not fire
+# where nothing was ever turned on.
+sub _notification_notice {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $setting = eval { $self->project_show( project => $root )->{notify_moves} } || {};
+    return '' if !$setting->{enabled};
+
+    my $state = $self->notification_delivery( project => $root );
+    return '' if $state->{deliverable};
+    return "This board asks for notifications and cannot send them: $state->{reason}.\n"
+      . "Nothing has been delivered and nothing was going to say so.\n";
+}
+
 sub police_prompt {
+    my ( $self, %args ) = @_;
+    my $prompt = $self->_police_prompt_text(%args);
+    my $notice = $self->_notification_notice(%args);
+
+    # Appended once, around every branch below, rather than written into each of
+    # them - three copies of one sentence is three places for it to drift out of
+    # step, which is the fault this file keeps raising cards about.
+    return $notice ? $prompt . "\n" . $notice : $prompt;
+}
+
+sub _police_prompt_text {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
     my @declared = @{ $self->policy_list( project => $root ) };

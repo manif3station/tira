@@ -99,12 +99,17 @@ is_deeply( $tira->policy_undeclared( project => $root ), [],
 # happens when those drift.
 
 {
-    open my $fh, '<', File::Spec->catfile(qw(lib Tira.pm)) or die $!;
-    my $source = do { local $/; <$fh> };
-    close $fh;
-    my ($prompt) = $source =~ /sub police_prompt \{(.*?)\n\}/s;
-    like( $prompt, qr/policy_undeclared/,
-        'police asks the same question rather than working it out again' );
+    # Asserted by running rather than by reading the source. The earlier version
+    # grepped "sub police_prompt { ... }" for the word policy_undeclared, which
+    # said nothing about behaviour and broke the moment the sub was split in two
+    # for an unrelated change - the prompt still asked the same question, one
+    # level down. A source grep cannot tell those apart; replacing the answer can.
+    no warnings 'redefine';
+    my $asked = 0;
+    my $real  = \&Tira::policy_undeclared;
+    local *Tira::policy_undeclared = sub { $asked++; return $real->(@_) };
+    $tira->police_prompt( project => $root );
+    ok( $asked, 'police asks the same question rather than working it out again' );
 }
 
 # --- and an agent can actually type it ----------------------------------------------------

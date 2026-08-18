@@ -1523,8 +1523,10 @@ reported it, 20 of 20 in the fixture. A board that means it can still mark
 rather than by an agent so it costs no tokens. One message per move carrying the
 card reference — not one on leaving and another on arriving, which sends two
 messages about one event. Off until enabled; every column notifies by default and
-any is switchable off with `--column NAME --no-watch`. Nothing is sent unless both
-`TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHATID` are set. A move is remembered once
+any is switchable off with `--column NAME --no-watch`. Nothing is sent unless a bot
+token and a destination are both available: `TELEGRAM_BOT_TOKEN` for the token,
+and for the destination either this board's own - set once with
+`tira.notify.moves --chat ID` - or `TELEGRAM_CHATID` when the board has none. A move is remembered once
 announced, so a pass every few minutes does not resend it — and a move that could
 not be sent is *not* remembered, so setting the variables later does not lose it.
 
@@ -1791,6 +1793,19 @@ opens it on that board, and `tira.dashboard` opens it on the default one.
 - `tira.notify.list [--ref REF ...] [-o FORMAT]`
 - `tira.notify.record --ref REF [--ref REF ...] --column SLUG [-o FORMAT]`
 - `tira.notify.moves [--column SLUG] [--watch|--no-watch] [-o FORMAT]` — with no column it switches the whole board on; with one it switches that column, which is how `discard` is silenced. The flags were prose here and in no argument table, and that is exactly how `--watch` shipped refused by a guard naming only `column.update`: nothing an agent could read said which command took it.
+
+  Since 2.65 the destination is set on the board with `--chat ID`, once, by the
+  agent - which is what the feature was asked for and what it could not do. It
+  read `TELEGRAM_CHATID` out of the environment, and an agent cannot set an
+  environment variable on a police process somebody else started, so on this
+  project it was never set and nothing was ever delivered. The variable still
+  works and is still read when the board has no destination of its own, so
+  nothing that relied on it changes.
+
+  A board that has notifications on and cannot deliver them now says so in the
+  prompt police prints when it starts, naming what is missing. It said nothing
+  before: `_send_notification` returned 0 and the feature was silently dead from
+  2.58 until it was asked about twice.
 
 
 ### Projects

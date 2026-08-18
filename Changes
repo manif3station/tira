@@ -1,5 +1,74 @@
 Revision history for Tira
 
+2.58  2026-08-18
+
+    - TKT-349, asked for by voice: police tells the owner on Telegram when a
+      card moves column, set once by the agent. His framing - a police sentry
+      rather than an agent sentry - so the telling costs no LLM usage.
+
+    - He worked the design out himself and rejected the obvious version: a
+      notification on leaving a column and another on arriving sends two
+      messages about one event, and ten tickets becomes twenty. This is one
+      message per move, carrying the card reference.
+
+    - Off until enabled, every column on by default, any column switchable off
+      with tira.notify.moves --column NAME --no-watch. His example is discard,
+      where he does not need to be told a card was set aside.
+
+    - Sent only when both TELEGRAM_BOT_TOKEN and TELEGRAM_CHATID are set. The
+      chat id carries no underscore, which is his spelling and not the one I
+      would have guessed - it was settled by asking rather than assuming.
+
+    - The verb shipped unusable in the first cut and the coverage gate caught
+      it: --watch was guarded to column.update alone, so every documented
+      invocation of tira.notify.moves --column NAME --no-watch was refused
+      before it was dispatched. The per-column switch he asked for by name -
+      his example was discard - could not be reached from the command line at
+      all. Found because CLI.pm came back 99.9% covered: the new dispatch had
+      no test through it, and the test that fixes the coverage is the test that
+      found the defect. The guard that exists to stop an option being silently
+      dropped had instead stopped it being given.
+
+    - And it was named wrongly in the first cut too: tira.notify-moves, the
+      only hyphenated command in a tool whose every other command is dotted -
+      including its three siblings tira.notify.compose, .list and .record. The
+      documentation check found it, because the name it reads a command out of
+      cannot contain a hyphen: it read "tira.notify-moves --watch" as the
+      command "notify" and reported the refusal that followed. Two spellings of
+      one name, and the guard knew only one of them. It is tira.notify.moves,
+      and the entrypoint now sits at skills/notify/cli/moves where the shared
+      dispatcher derives that name from the path rather than hard-coding it.
+
+    - The hard part is saying it exactly once. Every other rule here compares
+      rather than remembers, and comparison cannot tell "is in a column" from
+      "just arrived", so police keeps one timestamp per card in the ledger it
+      already maintains. A move is remembered when the silence was deliberate -
+      a column switched off - and NOT when the message could not be sent,
+      because configuring the variables afterwards must not lose the move. The
+      test caught that: with the stamp written either way, a move that happened
+      before the variables were set stayed silent for ever.
+
+2.57  2026-08-18
+
+    - TKT-302: tira.<type>.discard accepted --comment, dropped it, and exited 0
+      printing the whole card. It happened twice in ten minutes on this
+      project's own board - TKT-297 and TKT-294 were both discarded with the
+      reason in --comment, both came back with no comments, and
+      discard-unexplained fired on both within the minute.
+
+    - It costs more than the two before it. The dropped value is the reason a
+      card was set aside, and discard-unexplained exists precisely to require
+      that reason - so the option that looks like the way to satisfy the rule
+      was the one way that could not.
+
+    - Refused now, naming tira.comment.add, through the table shipped for
+      exactly this in 2.42. A discard with no reason still works, because
+      requiring one is discard-unexplained's job rather than this refusal's.
+
+    - The first draft of the entry named record.discard as a command that reads
+      the option, which is what the table lists - so it declared the broken
+      command to be the working one. Corrected, and the comment says so.
+
 2.56  2026-08-17
 
     - TKT-350: the suite now exceeds the 1800 second ceiling on an IDLE

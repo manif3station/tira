@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.56';
+our $VERSION = '2.58';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -6157,6 +6157,136 @@ sub _violation_key {
     return join '|', map { $violation->{$_} // '' } qw(rule policy ref);
 }
 
+# Telling the owner a card moved, without an agent spending tokens to do it.
+#
+# His words: a police sentry rather than an agent sentry. The agent enables it
+# once and police sends from then on. He worked the design out himself and
+# rejected the obvious version - a notification on leaving a column and another
+# on arriving sends two messages about one event, and ten tickets becomes
+# twenty - so this is one message per move.
+#
+# Off until asked for, every column on by default, any column switchable off.
+# His example is discard: he does not need to be told a card was set aside.
+# TKT-349.
+sub notify_moves {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my ( $path, $data ) = $self->_project_data($root);
+        my $setting = $data->{notify_moves} ||= { enabled => 0, columns => {} };
+
+        if ( defined $args{column} && $args{column} ne '' ) {
+            $setting->{columns}{ $args{column} } =
+              $args{enabled} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false;
+        }
+        elsif ( defined $args{enabled} ) {
+            $setting->{enabled} =
+              $args{enabled} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false;
+        }
+
+        $self->_write_yaml( $path, $data );
+        return $setting;
+    } );
+}
+
+# The move this board has already spoken about, so a pass every few minutes does
+# not resend it. One stamp per card, kept beside the violations because it is
+# police's memory rather than the card's - and a method so a test can forget.
+# One message per move, said once.
+#
+# The stamp is the whole mechanism: a pass every few minutes must not resend a
+# move it has already spoken about, and comparison alone cannot tell "is in a
+# column" from "just arrived". TKT-349.
+sub _announce_moves {
+    my ( $self, $root, $store ) = @_;
+    return if !defined $store;
+
+    my ( undef, $data ) = $self->_project_data($root);
+    my $wanted = $data->{notify_moves} || {};
+    return if !$wanted->{enabled};
+
+    my $records = eval { $self->record_list( project => $root, include_discard => 1 ) } || [];
+    my $ledger  = $self->_violation_ledger($store);
+    my $said    = $ledger->{notified_moves} ||= {};
+    my $changed = 0;
+
+    for my $record ( @{$records} ) {
+        my $move = $self->_last_move( $root, $record );
+        next if !$move || !defined $move->{at};
+
+        my $already = $self->_notified_move_at( $store, $record->{ref} );
+        next if defined $already && $already ge $move->{at};
+
+        # A column switched off is silent, and still remembered - otherwise
+        # switching it back on would announce a move that happened while
+        # nobody was listening.
+        my $column = $move->{column} // '';
+        my $on = $wanted->{columns} && exists $wanted->{columns}{$column}
+          ? $wanted->{columns}{$column} : 1;
+
+        # Remembered only when the silence was deliberate. A column switched
+        # off is a decision and is recorded, so switching it back on does not
+        # announce a move nobody was listening for. A message that could not be
+        # sent - no token, no chat id - is NOT recorded, because the owner has
+        # not been told and configuring the variables should not lose the move.
+        #
+        # The test caught this: with the stamp written either way, a move that
+        # happened while the variables were unset stayed silent for ever.
+        my $told = $on
+          ? $self->_send_notification(
+              text => "$record->{ref} moved to $column - " . ( $record->{title} // '' ) )
+          : 1;
+        next if !$told;
+
+        $said->{ $record->{ref} } = $move->{at};
+        $changed = 1;
+    }
+
+    $self->_atomic_write( $self->_violation_ledger_path($store),
+        json_object()->canonical->encode($ledger) )
+      if $changed;
+    return;
+}
+
+sub _notified_move_at {
+    my ( $self, $store, $ref ) = @_;
+    return if !defined $store;
+    my $ledger = $self->_violation_ledger($store);
+    return ( $ledger->{notified_moves} // {} )->{ $ref // '' };
+}
+
+# The last column move on a card, read from what history already records.
+sub _last_move {
+    my ( $self, $root, $record ) = @_;
+    my $entries = eval {
+        $self->history_list( project => $root, ref => $record->{ref} );
+    } || [];
+    my ($move) = grep { ( $_->{field} // '' ) eq 'column' } reverse @{$entries};
+    return if ref $move ne 'HASH';
+    return { at => $move->{at}, column => $record->{column} };
+}
+
+# The seam. Nothing is sent unless both variables are set - his instruction,
+# and the names are his: TELEGRAM_CHATID carries no underscore, which is not
+# what I would have written and is why I asked (Q-043).
+sub _send_notification {
+    my ( $self, %args ) = @_;
+    my $token = $ENV{TELEGRAM_BOT_TOKEN};
+    my $chat  = $ENV{TELEGRAM_CHATID};
+    return 0 if !defined $token || $token eq '';
+    return 0 if !defined $chat  || $chat eq '';
+    return $self->_post_telegram( $token, $chat, $args{text} );
+}
+
+sub _post_telegram {
+    my ( $self, $token, $chat, $text ) = @_;
+    require HTTP::Tiny;
+    my $response = HTTP::Tiny->new( timeout => 10 )->post_form(
+        "https://api.telegram.org/bot$token/sendMessage",
+        { chat_id => $chat, text => $text // '' } );
+    return $response->{success} ? 1 : 0;
+}
+
 sub _violation_ledger_path {
     my ( $self, $store ) = @_;
     make_path($store) if !-d $store;
@@ -7002,6 +7132,11 @@ sub police_pass {
     my ( $self, %args ) = @_;
     my $store = $args{store} or die "A violation store is required\n";
     my $policies = eval { $self->policy_list(%args) } || [];
+
+    # Move notifications first, and before the policies check: he asked for a
+    # sentry rather than a rule, so a board that has declared no policies can
+    # still tell its owner a card moved. TKT-349.
+    $self->_announce_moves( $self->discover_project(%args), $args{store} );
 
     # A board nobody asked to be watched is not a board with no problems.
     # Running while guarding nothing would be worse than not running, because

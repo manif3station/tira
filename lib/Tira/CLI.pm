@@ -66,6 +66,23 @@ my %OPTION_READ_BY = (
         instead  => 'tira.<type>.update --sdlc-gate, which is the command that sets it',
     },
 
+    # The reason a discard would not record. Accepted, dropped, exit 0, whole
+    # card printed - and it happened twice in ten minutes on this project's own
+    # board, with discard-unexplained firing both times.
+    #
+    # It costs more than --sdlc-gate did. The dropped value is the reason a card
+    # was set aside, and discard-unexplained exists precisely to require that
+    # reason, so the option that looks like the way to satisfy the rule is the
+    # one way that cannot. TKT-302.
+    comment => {
+        flag     => 'comment',
+        # The commands that DO read it, which is what this table lists - the
+        # first draft named record.discard here and so declared the broken
+        # command to be the one that works.
+        commands => qr/\A(?:comment\.|attachment\.discard\z)/,
+        instead  => 'tira.comment.add --ref REF --text TEXT, which is the command that records a reason',
+    },
+
     fields => {
         flag     => 'field',
         commands => qr/\A(?:history\.list|search|replace)\z/,
@@ -1731,8 +1748,12 @@ sub _invoke {
       if $option->{remove} && $command !~ /\Aquestion\.(?:voice|attach)\z/;
     die "Naming a question belongs to the attachment.list command\n"
       if $option->{questions} && $command ne 'attachment.list';
-    die "Watch is available on the column.update command\n"
-      if defined $option->{watched} && $command ne 'column.update';
+    # notify.moves reads it too, and adding the verb without widening this made
+    # the whole per-column switch unreachable: every --watch it was documented
+    # to take was refused before it was dispatched. The guard that exists to
+    # stop an option being silently dropped had instead stopped it being given.
+    die "Watch is available on the column.update and notify.moves commands\n"
+      if defined $option->{watched} && $command !~ /\A(?:column\.update|notify\.moves)\z/;
     die "Queue is available on the column.update command\n"
       if defined $option->{queue} && $command ne 'column.update';
     die "Notify-after is available on the column.update, project.update, project.new and onboard commands\n"
@@ -1982,6 +2003,17 @@ sub _invoke {
     return $tira->column_reorder(%args) if $command eq 'column.reorder';
     return $tira->column_remove(%args) if $command eq 'column.remove';
     return $tira->column_update(%args) if $command eq 'column.update';
+
+    # Telling the owner a card moved, set once by the agent. His words: a
+    # police sentry rather than an agent sentry, so the notifying costs no
+    # tokens. TKT-349.
+    if ( $command eq 'notify.moves' ) {
+        return $tira->notify_moves(
+            project => $args{project},
+            ( defined $option->{column} ? ( column => $option->{column} ) : () ),
+            enabled => ( defined $option->{watched} ? $option->{watched} : 1 ),
+        );
+    }
     if ( $command eq 'column.apply' ) {
         my $layout = eval { Tira::json_object()->utf8->decode( $option->{columns_json} // '' ) };
         die "A column layout must be JSON: a list of objects with a name\n" if ref $layout ne 'ARRAY';

@@ -962,6 +962,10 @@ d2 tira.ticket.update --ref TKT-001 --field "key_details+=..."   # refused
   record.update does not act on --field. Use the options that set a field -
   --key-detail, --deliverable, --acceptance, --test-step and the rest.
 
+d2 tira.ticket.discard --ref TKT-001 --comment "Duplicate."   # refused
+  record.discard does not act on --comment. Use tira.comment.add --ref REF
+  --text TEXT, which is the command that records a reason.
+
 d2 tira.ticket.move --ref TKT-001 --column implement --sdlc-gate G9   # refused
   record.move does not act on --sdlc-gate. Use tira.<type>.update
   --sdlc-gate, which is the command that sets it.
@@ -1411,6 +1415,15 @@ finished card became live work in the same pass — 171 findings on the board th
 reported it, 20 of 20 in the fixture. A board that means it can still mark
 `done` as not terminal, because the flag has three values; it has to say so.
 
+`tira.notify.moves` tells the owner when a card moves column, sent by police
+rather than by an agent so it costs no tokens. One message per move carrying the
+card reference — not one on leaving and another on arriving, which sends two
+messages about one event. Off until enabled; every column notifies by default and
+any is switchable off with `--column NAME --no-watch`. Nothing is sent unless both
+`TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHATID` are set. A move is remembered once
+announced, so a pass every few minutes does not resend it — and a move that could
+not be sent is *not* remembered, so setting the variables later does not lose it.
+
 `tira.stale` answers how long each card has sat in the column it is in now,
 reading each card's history backwards and stopping at its most recent column
 move. Cards whose entry predates the history are reported without a duration
@@ -1673,6 +1686,7 @@ opens it on that board, and `tira.dashboard` opens it on the default one.
 - `tira.notify.compose [-o FORMAT]`
 - `tira.notify.list [--ref REF ...] [-o FORMAT]`
 - `tira.notify.record --ref REF [--ref REF ...] --column SLUG [-o FORMAT]`
+- `tira.notify.moves [--column SLUG] [--watch|--no-watch] [-o FORMAT]` — with no column it switches the whole board on; with one it switches that column, which is how `discard` is silenced. The flags were prose here and in no argument table, and that is exactly how `--watch` shipped refused by a guard naming only `column.update`: nothing an agent could read said which command took it.
 
 
 ### Projects

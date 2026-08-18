@@ -313,6 +313,7 @@ missing, at the moment you declare the policy rather than later.
 | `card-changed-by-owner` | — | a card whose newest change was made by somebody who is neither the card's assignee nor the agent the board says works it — asking only about the assignee made it vacuous on an unassigned card, where it fired on the board's own work and could never settle. A column set to `--no-watch` is left alone, like every other card rule. The browser dashboard records who is signed in on every change it makes, so an edit made there carries an author and an edit made from the CLI does not — the card is where instructions for the agent are left, and an edit there used to be invisible until the agent happened to re-read it. No age: a change is not more or less true an hour later, and waiting would only decide how long the agent works from a card somebody has already rewritten. It settles when the agent touches the card, because the agent's own change becomes the newest one — nothing is stored, so there is no timestamp to go stale. |
 | `card-still` | `--age` | a card nothing has happened to for that long, in any column work happens in. Dwell is not the question: `card-duration` says how long a card has been somewhere, this says whether anybody has touched it. No column to name, so one policy covers the board — and each column may set its own limit with `tira.column.update --notify-after MINUTES`, or be left out entirely with `--no-watch`, which is how a column where cards legitimately wait stops being a source of reminders. `--age` is the fallback for columns that have said nothing. |
 | `board-still` | `--age` | a whole board where nothing has moved for that long. The only rule here that is not about a card. |
+| `agent-still` | `--age` | the agent working this board has done nothing for that long, while the board itself may be busy. `board-still` reads the newest change to any card, so a card arriving from another project refreshes it — measured here, an agent stopped for 5h56m while seven cards arrived from elsewhere and `board-still`, declared at 4h, never fired once. This counts only agent action: a card changing column, or a card edited by the agent the board names. It says nothing when no card sits in a working column, because an idle queue is not a stopped agent. And it goes out through the same address `tira.notify.moves` uses, because the one rule whose subject is the agent having stopped is the one rule the bridge cannot usefully deliver. |
 | `bridge-unread` | `--age` | police has been writing to the bridge and nobody has read it for that long. |
 | `column-unwatched` | — | a column work happens in that no column-scoped policy mentions at all, which is what adding a column does to policies that were complete when they were written. **No column and no age**: it is about the columns other policies name, and a gap is a gap the moment it opens. |
 | `question-unanswered` | `--age` | a question waiting on the owner |
@@ -1645,6 +1646,47 @@ ones quiet — which is right, because somebody is working.
 **An empty board is not a stuck board.** Nothing has moved for want of anything
 to move, and greeting a new project with a complaint about work nobody has
 raised would teach its agent to read past this channel on its first day.
+
+### When the board is busy and the agent is not
+
+`board-still` reads the newest change to any card, which is the right measure on
+a board only its own agent writes to. On a board that receives reports from other
+projects it is measuring somebody else's work.
+
+Measured here, and it is why `agent-still` exists: the agent's last action was
+01:31 and its next was 07:27 — five hours fifty-six minutes — while `board-still`
+was declared at 4h and did not fire once. Seven cards arrived from other projects
+during that window and every arrival refreshed the stamp it reads. The board was
+busy; the agent was not.
+
+    d2 tira.policy.add --rule agent-still --age 4h --action bridge-reminder
+
+    nothing has been worked on this board since 2026-08-18T01:31:00Z, which is
+    5h - no card moved column and none edited by the agent. Cards still waiting:
+    TKT-302, TKT-349. Cards arriving from other projects do not count as work,
+    which is why board-still can be quiet while this is not.
+
+**Two things count as the agent acting**, both already recorded: a card changing
+column, and a card edited by the agent the board names with
+`tira.project.update --agent`. A card created or edited by another project is
+neither. A move counts whoever made it — moving a card through this board's
+columns *is* working this board, and the browser is where the owner moves cards,
+so reading the author of a move would report a stopped agent on a board being
+worked by hand.
+
+**An idle queue is not a stopped agent.** Nothing is reported unless a card sits
+in a column that is neither an ending nor a queue. An earlier 7h49m gap on this
+board was investigated and found to be correct work throughout — there was simply
+nothing being worked — and a rule that fired on elapsed time alone would have
+been wrong then and right later, which is no rule at all.
+
+**It reaches somebody other than the agent.** Every other rule writes to the
+bridge and trusts the agent to read it. This one's subject is the agent having
+stopped, so the bridge is precisely where it cannot help: during the stoppage
+above, `card-still` reported both stranded cards correctly and escalated them to
+CRITICAL, addressed to the party that had stopped. It sends through the same two
+variables `tira.notify.moves` uses, and stays silent if a board has set no
+address.
 
 ### When nothing is meant to move
 

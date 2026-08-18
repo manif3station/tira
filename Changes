@@ -1,5 +1,61 @@
 Revision history for Tira
 
+2.59  2026-08-18
+
+    - TKT-359: a new rule, agent-still, for the stoppage board-still cannot see.
+      Measured on this board: the agent's last action was 01:31 and its next was
+      07:27 - five hours fifty-six minutes - while board-still, declared here at
+      4h, did not fire once.
+
+    - The reason is exactly what board-still reads. It takes the newest
+      last_updated across every card and asks how long ago that was. Seven cards
+      arrived from other projects during the window and each arrival refreshed
+      that stamp. The board was busy; the agent was not. On a board that
+      receives reports from elsewhere, board-still is measuring somebody else's
+      work.
+
+    - agent-still counts agent action instead, from what is already recorded: a
+      card changing column, or a card edited by the agent the board names. A
+      card created or edited by another project is neither. A move counts
+      whoever made it, because moving a card through this board's columns is
+      working this board - and the browser is where the owner moves cards, so
+      reading the author of a move would report a stopped agent on a board being
+      worked by hand.
+
+    - It says nothing unless a card sits in a column that is neither an ending
+      nor a queue. An idle queue is not a stopped agent: an earlier 7h49m gap on
+      this board was investigated and found to be correct work throughout, and a
+      rule that fired on elapsed time alone would have been wrong then and right
+      later, which is no rule at all. The first run of the test caught this -
+      seven cards filed by other projects sat in the backlog and the rule
+      reported a stoppage that was not one.
+
+    - And it reaches somebody other than the agent, through the two variables
+      tira.notify.moves already uses. Every other rule writes to the bridge and
+      trusts the agent to read it; this one's subject is the agent having
+      stopped. During the stoppage above, card-still reported both stranded
+      cards correctly and escalated them to CRITICAL - addressed to the party
+      that had stopped. Opt-in, like the notifier: a board that has set no
+      address is not made to reach out to one.
+
+    - board-still is unchanged and still right for a board only its own agent
+      writes to.
+
+    - Reading agent action means reading history rather than one stamp, so a
+      card whose own last_updated is already older than the best answer found
+      so far is skipped without its history being opened at all - a card's
+      newest entry cannot be later than its own stamp. On this board that is
+      the difference between reading 372 histories on every police pass and
+      reading a handful, and a pass already cost 3.65s before this rule
+      existed. It changes no verdict, only how many files are read to reach it.
+
+    - The catalogue growing by one was caught by four separate guards, which is
+      what they are for: SKILLS.md's rule count, the designed-catalogue list in
+      t/79, and t/86 and t/98, which each declare every rule the tool offers so
+      none can be forgotten. t/86 goes further and asserts each declared rule
+      actually fires against a board that breaks it, so agent-still had to earn
+      its place there rather than be added to a list.
+
 2.58  2026-08-18
 
     - TKT-349, asked for by voice: police tells the owner on Telegram when a

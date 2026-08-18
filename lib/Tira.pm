@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.58';
+our $VERSION = '2.59';
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -4482,6 +4482,21 @@ my %POLICY_RULES = (
     # rather than usefully on anybody's.
     'board-still'               => { needs => ['age'] },
 
+    # What board-still cannot see. It reads the newest last_updated across every
+    # card, so a board that receives reports from other projects always looks
+    # busy - and the thing that stops is not the board, it is the agent.
+    #
+    # Measured on this board: the agent's last action was 01:31 and its next was
+    # 07:27, five hours fifty-six minutes, while board-still was declared at 4h
+    # and never fired. Seven cards arrived from elsewhere during the window and
+    # each arrival refreshed the stamp board-still reads.
+    #
+    # The age is required for the same reason board-still's is, and this rule
+    # does not replace it: a board with no other project filing into it is well
+    # served by board-still, and one that is worked by a person rather than an
+    # agent has no agent to measure.
+    'agent-still'               => { needs => ['age'] },
+
     # How long an agent may go without looking is a decision about how it works
     # rather than something Tira can guess: a minute is absurd on a board polled
     # hourly and a day is useless on one being worked now.
@@ -4504,6 +4519,7 @@ my %POLICY_RULES = (
 # meaningless was written without reading the test that already disproved it.
 my %WHOLE_BOARD_RULE = (
     'board-still'   => 'the whole board',
+    'agent-still'   => 'the whole board',
     'bridge-unread' => 'the whole board',
 
     # It is about which columns the OTHER policies name. A card cannot narrow
@@ -5957,6 +5973,66 @@ sub policy_evaluate {
                   . 'while with a reason rather than leaving it unanswered: '
                   . 'd2 tira.rule.suspend --rule board-still --seconds N --reason TEXT' );
         }
+        elsif ( $rule eq 'agent-still' ) {
+
+            # board-still one level in. It asks when the BOARD last changed;
+            # this asks when the AGENT last acted, because on a board that
+            # receives reports from other projects those are different
+            # questions and only the second one is about whether work is
+            # happening.
+            my $acted = $self->_agent_last_acted( $root, $all );
+
+            # Silent while anything is still ripening, and silent on a board
+            # with no history at all - the same safe default board-still takes,
+            # for the same reason.
+            next if !$self->_policy_older_than( $acted, $policy->{age} );
+
+            # An idle queue is not a stopped agent, and this is the half that
+            # keeps the rule honest. An earlier 7h49m gap on this board was
+            # investigated and found to be correct work throughout: there was
+            # simply nothing in a working column. A rule that fired on elapsed
+            # time alone would have been wrong then and right now, which is no
+            # rule at all - so it reports only when something is actually
+            # waiting on the agent.
+            # Neither an ending nor a queue. The queue half is what the first
+            # run of the test caught: seven cards filed by other projects sat
+            # in the backlog, and counting those as work waiting would have
+            # reported a stopped agent on a board whose only content was other
+            # people's unstarted requests - which is the idle queue this rule
+            # is required not to report.
+            my %ends  = %{ $self->_ending_columns( $root, 'ticket' ) };
+            my %queue = %{ $self->_queue_columns( $root, 'ticket' ) };
+            my @waiting = sort map { $_->{ref} }
+              grep {
+                my $column = $_->{column} // '';
+                !$ends{$column} && !$queue{$column} && $column ne 'discard'
+              } @{$all};
+            next if !@waiting;
+
+            my $said =
+                'nothing has been worked on this board since ' . $acted . ', which is '
+              . $self->_policy_elapsed($acted)
+              . ' - no card moved column and none edited by the agent. Cards still '
+              . 'waiting: ' . join( ', ', @waiting[ 0 .. ( @waiting > 5 ? 4 : $#waiting ) ] )
+              . ( @waiting > 5 ? ' and ' . ( @waiting - 5 ) . ' more' : '' )
+              . '. Cards arriving from other projects do not count as work, which is '
+              . 'why board-still can be quiet while this is not.';
+            $report->( $policy, '', $said );
+
+            # And out, to somebody who is not the agent. Every other rule here
+            # writes to the bridge and trusts the agent to read it; this is the
+            # one rule whose subject is the agent having stopped, so the bridge
+            # is precisely the place it cannot usefully go. During the stoppage
+            # this was written for, card-still reported both stranded cards and
+            # escalated them to CRITICAL - addressed to the party that had
+            # stopped.
+            #
+            # Through TKT-349's seam and its two variables, so there is one way
+            # this board speaks off the machine and one place to configure it.
+            # Opt-in for the same reason: a board that has set no address is not
+            # made to reach out to one.
+            $self->_send_notification( text => 'Tira: the agent has stopped. ' . $said );
+        }
         elsif ( $rule eq 'discard-with-open-questions' ) {
 
             # His request. A card can be set aside while it still carries
@@ -6986,6 +7062,60 @@ sub work_order {
 #
 # A method rather than inline, so a test can replace it and so the one question
 # has one answer. TKT-307.
+# When the agent working this board last did anything, as distinct from when
+# the board last changed. board-still reads the newest last_updated across
+# every card, which a card arriving from another project refreshes - so on a
+# board that receives reports, board-still is measuring somebody else's work.
+#
+# Two things count as the agent acting, both already recorded and neither
+# inferred: a card changing column, and a card edited by the agent this board
+# names. A card created or edited by another project is neither.
+#
+# A move is counted whoever made it. Moving a card through this board's columns
+# IS working this board, and the browser is where the owner moves cards - so
+# reading the author of a move would report a stopped agent on a board being
+# worked by hand, which is the opposite of the point.
+#
+# A method rather than inline, so a test can replace it with the board-pulse
+# measure and show the stoppage going unreported exactly as it did. TKT-359.
+sub _agent_last_acted {
+    my ( $self, $root, $all ) = @_;
+    my $agent = eval { $self->project_show( project => $root )->{agent} } // '';
+    # Newest first, so the bound below starts biting immediately rather than
+    # after the whole board has been read.
+    my $newest;
+    for my $record ( sort { ( $b->{last_updated} // '' ) cmp( $a->{last_updated} // '' ) }
+        @{$all} )
+    {
+        # A card's newest history entry cannot be later than its own
+        # last_updated, so a card already older than the best answer so far
+        # cannot improve on it and its history never has to be opened. On this
+        # board that is the difference between reading 372 histories a pass and
+        # reading a handful: most cards are finished and old, and a police pass
+        # without this rule already costs 3.65s.
+        next
+          if defined $newest
+          && defined $record->{last_updated}
+          && $record->{last_updated} le $newest;
+
+        my $entries = eval {
+            $self->history_list( project => $root, ref => $record->{ref} );
+        } || [];
+        for my $entry ( @{$entries} ) {
+            next if ref $entry ne 'HASH';
+            my $at = $entry->{at};
+            next if !defined $at;
+            my $is_move = ( $entry->{field} // '' ) eq 'column';
+            my $by_agent = $agent ne ''
+              && defined $entry->{author}
+              && $entry->{author} eq $agent;
+            next if !$is_move && !$by_agent;
+            $newest = $at if !defined $newest || $at gt $newest;
+        }
+    }
+    return $newest;
+}
+
 sub _card_last_author {
     my ( $self, $root, $record ) = @_;
     my $entries = eval {

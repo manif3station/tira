@@ -83,6 +83,7 @@ my %declare = (
     'card-changed-by-owner'     => {},
     'discard-with-open-questions' => {},
     'board-still'               => { age => '8h' },
+    'agent-still'               => { age => '8h' },
     'bridge-unread'             => { age => '30m' },
     'column-unwatched'          => {},
     'column-skipped'            => { enter => 'done', require => 'implement' },

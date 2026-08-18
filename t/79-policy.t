@@ -149,6 +149,7 @@ my %needs = (
     'answer-waiting'            => {},
     'answer-unjudged'           => { age => '10m' },
     'answer-ok-not-folded'      => { age => '10m' },
+    'agent-still'               => { age => '10m' },
     'answer-not-ok-no-followup' => { age => '10m' },
     'wip-limit'                 => { column => 'implement', max => 3 },
     'commit-without-card'       => {},

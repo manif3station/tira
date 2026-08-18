@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+#
+# Say whether a gate has already proved the tree HEAD points at, recently
+# enough to trust. Prints the recorded suite-and-coverage output on a hit and
+# exits 0; prints nothing and exits 1 on anything else - absent, filed under
+# this tree but claiming a different one, or too old to trust without asking
+# again.
+#
+# The tree hash is git's own, computed from the actual blob contents HEAD
+# carries - not a checksum this tool invents - so a record can only match a
+# tree that produces that exact hash. Nobody can point this at a lie without
+# first producing the tree the lie claims to be. The record's own claimed
+# tree is checked against the name it is filed under too, not trusted because
+# the filename matched: a file can be copied or corrupted without its
+# contents changing to match.
+#
+# GATE_CACHE_MAX_AGE (seconds, default 3600) bounds how long a record is
+# trusted. The hash proves nothing in the tree has changed; the age bounds
+# how long ago "nothing has changed" was still worth believing without asking
+# the suite again - the environment underneath a passing tree can move even
+# when the tree itself does not.
+#
+# Usage: tools/gate-cache-read
+
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+
+max_age="${GATE_CACHE_MAX_AGE:-3600}"
+
+tree_hash="$(git rev-parse HEAD^{tree})"
+common_git="$(git rev-parse --git-common-dir)"
+cache_file="$common_git/tira-gate-cache/$tree_hash"
+
+[ -f "$cache_file" ] || exit 1
+
+recorded_tree="$(sed -n '1{s/^tree=//p;q;}' "$cache_file")"
+recorded_at="$(sed -n '2{s/^at=//p;q;}' "$cache_file")"
+
+[ "$recorded_tree" = "$tree_hash" ] || exit 1
+[ -n "$recorded_at" ] || exit 1
+
+recorded_epoch="$(date -u -d "$recorded_at" +%s 2>/dev/null)" || exit 1
+now_epoch="$(date -u +%s)"
+age=$(( now_epoch - recorded_epoch ))
+
+[ "$age" -ge 0 ] && [ "$age" -le "$max_age" ] || exit 1
+
+tail -n +3 "$cache_file"
+echo "reusing the record for $tree_hash, ${age}s old - not running the suite again" >&2

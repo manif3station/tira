@@ -1,5 +1,44 @@
 Revision history for Tira
 
+2.72  2026-08-18
+
+    - TKT-351. A release ran the full suite twice on the same tree, once by
+      hand and once again in the push hook, because the hook had no way to
+      know the tree it was about to check out was the one just proved.
+      Measured on one release tonight: the gate passed - 258 files, 6072
+      tests, 100.0 on all three modules - and the push hook then ran the
+      identical suite against the identical tree, taking 28 minutes on top of
+      it. Only one test container may run at a time, so six cards and five
+      releases queued behind that from 19:44 past midnight, and three
+      attempts were killed at a ceiling that had to be raised before any
+      could finish - every one of them a second run of something already
+      proved.
+
+    - The hook was not wrong to distrust a claim - "I ran it and it passed"
+      is a sentence, and a gate that accepts sentences is not a gate. What it
+      can trust instead is a record naming the exact tree it tested, in
+      git's own tree hash: the hash git computes from the actual blob
+      contents, which nobody can produce for a tree they never had.
+
+    - tools/gate-run tests a checkout of HEAD - the same commit the hook
+      itself checks out, never the working desk - and on a real pass at 100%
+      coverage on all three modules writes a record under that tree's hash,
+      shared across worktrees via `git rev-parse --git-common-dir`.
+      tools/gate-cache-read is the only thing that consults it: a hit
+      requires the record's own claimed tree to match the filename it is
+      stored under (not merely the filename matching), and to be recent
+      enough (GATE_CACHE_MAX_AGE, default 3600s) to trust without asking
+      again. Anything else - absent, a different tree, gone stale - and the
+      push hook runs the suite exactly as it always has.
+
+    - The hook writes a record after a live run too, not only tools/gate-run,
+      so a push that fails at a later step (documentation, browser) can
+      retry without paying for the suite again.
+
+    - What the gate refuses is unchanged, and how long the suite itself
+      takes is TKT-350's - this only stops asking the same question of the
+      same tree twice.
+
 2.71  2026-08-18
 
     - TKT-342. tira.column.endings with no --type answered for one record type

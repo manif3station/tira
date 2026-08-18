@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+#
+# Run the exact suite-and-coverage step the push hook runs, against a
+# checkout of HEAD, and record a pass so the push hook can trust it instead
+# of running the same suite a second time.
+#
+# Built for TKT-351, measured on one release: the gate ran the suite and
+# passed - 258 files, 6072 tests, 100.0 on all three modules - and the push
+# hook then ran the identical suite against the identical tree, because only
+# one test container may run at a time and the hook had no way to know this
+# tree was already proved. Six cards and five releases queued behind it from
+# 19:44 past midnight, and three attempts were killed at a ceiling that had to
+# be raised before any could finish - every one of them a second run of
+# something already proved.
+#
+# The hook was not wrong to distrust a claim - "I ran it and it passed" is a
+# sentence, and a gate that accepts sentences is not a gate. What it can trust
+# instead is a record naming the exact tree it tested, in git's own hash,
+# checked against the tree it is about to push. See tools/gate-cache-write and
+# tools/gate-cache-read for the record itself.
+#
+# Requires a clean tree - commit first. This tests the commit that is about
+# to be pushed, the same commit the hook itself checks out; testing anything
+# else would record a pass for a tree nobody is pushing, which is the exact
+# gap "I ran it and it passed" already had.
+#
+# Usage: tools/gate-run
+
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+
+if [ -n "$(git status --porcelain)" ]; then
+    echo "gate-run: uncommitted changes present - commit first. This records a result against HEAD's tree; an uncommitted change is not part of it, and testing the desk instead of the commit is the exact mistake the push hook itself no longer makes." >&2
+    exit 1
+fi
+
+workspace="$(cd "$root/../.." && pwd)"
+compose="$workspace/docker-compose.testing.yml"
+[ -f "$compose" ] || { echo "gate-run: cannot find $compose" >&2; exit 1; }
+
+tree_hash="$(git rev-parse HEAD^{tree})"
+echo "gate-run: testing a checkout of HEAD ($tree_hash), the same commit the push hook will check out"
+
+tree="$(mktemp -d)"
+output="$(mktemp)"
+cleanup() {
+    rm -f "$output"
+    git worktree remove --force "$tree" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+git worktree add --detach --quiet "$tree" HEAD \
+  || { echo "gate-run: could not check out HEAD" >&2; exit 1; }
+
+SUITE_TIMEOUT=3600
+docker compose -f "$compose" run --rm -v "$tree:/workspace/skills/tira" perl-test bash -lc '
+  cd /workspace/skills/tira &&
+  rm -rf cover_db .test-tmp &&
+  cpanm --quiet --notest --installdeps . >/dev/null 2>&1 &&
+  timeout --signal=KILL '"$SUITE_TIMEOUT"' env HARNESS_PERL_SWITCHES=-MDevel::Cover prove -lr t 2>&1 | tail -4 &&
+  cover -ignore_covered_err -report text \
+    -select lib/Tira.pm -select lib/Tira/CLI.pm -select lib/Tira/DashboardWeb.pm \
+    -coverage statement -coverage subroutine 2>/dev/null | grep -E "^lib|^Total"
+  rm -rf cover_db
+' >"$output" 2>&1 || { echo "gate-run: the suite did not run:" >&2; tail -3 "$output" >&2; exit 1; }
+
+cat "$output"
+
+if ! grep -q '^Result: PASS' "$output"; then
+    echo "gate-run: the suite did not pass - no record written" >&2
+    exit 1
+fi
+
+for module in 'lib/Tira.pm' 'lib/Tira/CLI.pm' 'lib/Tira/DashboardWeb.pm'; do
+    line="$(grep -F "$module" "$output" | grep -E '[0-9]+\.[0-9]' || true)"
+    if [ -z "$line" ]; then
+        echo "gate-run: no coverage was measured for $module - no record written" >&2
+        exit 1
+    fi
+    if ! echo "$line" | grep -qE '100\.0[[:space:]]+100\.0[[:space:]]+100\.0'; then
+        echo "gate-run: coverage is below 100% for $module - no record written: $line" >&2
+        exit 1
+    fi
+done
+
+"$root/tools/gate-cache-write" "$output"

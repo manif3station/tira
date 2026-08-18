@@ -1492,6 +1492,17 @@ condition, and the answer arriving releases the card. Until 2.45 only the rule
 read it, so a card could be parked by the rule and offered by the command in the
 same moment.
 
+Since 2.67, `tira.next` reads which column plays the `next` role - declared with
+`tira.column.roles --type ticket --role next=COLUMN` - and offers a card sitting
+there ahead of priority. That is his channel, not the agent's: "you do not add
+card on it. i will add which cards on it" - so nothing here writes to that
+column, and a card he places there is offered ahead of priority because he moved
+it there deliberately, which is a stronger signal than the number on the card.
+The column's name is the project's own, so this reads the role rather than a
+hardcoded name - a different board can call it anything. A board that has not
+declared the role, or whose `next` column is empty, behaves exactly as before:
+"if empty then pick from backlog the most high priority ones."
+
 `tira.next` takes the same projection the read commands do — `--fields`,
 `--brief` and `--truncate`. Without one it answers with every field of every
 card it considered, which was 94KB on one reporting board and 223,584 bytes on

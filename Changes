@@ -1,5 +1,48 @@
 Revision history for Tira
 
+2.67  2026-08-18
+
+    - TKT-383. tira.next reads which column plays the 'next' role, and offers a
+      card sitting there ahead of priority.
+
+    - His words, building the column: "created a next-to-work-on that column is
+      for me to move the cards there. If I want which specific cards work on
+      next to reprioitize your work" - and "you do not add card on it. i will
+      add which cards on it. when you pick the next card, this column will be
+      your next to pick first."
+
+    - Before this, work_order ordered strictly by priority, so a card he moved
+      there to reprioritise the agent's work was picked on its priority like
+      any other card. Demonstrated live: he moved TKT-338 (P2) into
+      next-to-work-on, the agent picked it up as instructed, and
+      priority-skipped fired within a minute because a P5 was still waiting -
+      the ordering had no notion of his column meaning anything at all.
+
+    - Read through a role rather than a hardcoded column name, per his
+      correction: "'Next To Work On' is a label of a column only apply on the
+      project. The thing is, other project might use another name that you
+      need to consider that factor." Declared with tira.column.roles --role
+      next=COLUMN, per type, alongside the other column roles.
+
+    - Nothing writes to the role's column - his words again, "you do not add
+      card on it" - asserted explicitly so a later convenience cannot quietly
+      add a write path.
+
+    - A board that has not declared the role, or whose next column is empty,
+      is byte-identical to before: proved by comparing against the same board
+      with the role lookup forced to return nothing, not merely by asserting a
+      plausible-looking order.
+
+    - Found while writing the test: marking next-to-work-on as a queue column
+      silently removed backlog from the queue set - the exact lesson recorded
+      earlier this session ("naming any queue column stops the fallback to
+      protected non-ending ones"), rediscovered in a new spot and fixed the
+      same way, backlog named alongside it.
+
+    - t/276 at 7 assertions, proved by removing the sort comparison - the one
+      that matters fails. Full suite 269 files / 6270 tests, 100% statement and
+      subroutine on Tira.pm, CLI.pm and DashboardWeb.pm.
+
 2.66  2026-08-18
 
     - TKT-338. tira.attachment.add takes repeated --file, so a batch pays one

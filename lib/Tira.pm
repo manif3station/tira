@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.66';
+our $VERSION = '2.67';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -7103,9 +7103,21 @@ sub work_order {
     my $root = $self->discover_project(%args);
 
     my @waiting;
+    my %next_ref;
     for my $type (qw(sow epic ticket)) {
         next if defined $args{type} && $args{type} ne $type;
         my %here = %{ $self->_queue_columns( $root, $type ) };
+
+        # His channel, not the agent's - "you do not add card on it. i will add
+        # which cards on it." A card he moves there must come first, ahead of
+        # priority, because it is a deliberate override of the board's own
+        # ordering: the column's NAME is this project's own, so the board
+        # declares which of its columns plays the role and this reads the role
+        # rather than a name. TKT-383.
+        #
+        # Read per type, like %here beside it - roles are per board (per type),
+        # so a 'next' declared on tickets says nothing about epics.
+        my $next_col = $self->column_roles( project => $root, type => $type )->{next};
 
         # Discarded work is not waiting work. discard is protected and is not
         # an ending, so it answers "yes" to both halves of the question above -
@@ -7131,6 +7143,12 @@ sub work_order {
               && ( $card->{column} // '' ) ne 'discard'
               && !grep { !$_->{answer} } _policy_questions($card)
         } @{$records};
+
+        # Recorded once per card while $next_col is in scope, rather than
+        # re-deriving the type from the ref later - a card's type is not on the
+        # summary record itself.
+        $next_ref{ $_->{ref} } = 1
+          for grep { defined $next_col && ( $_->{column} // '' ) eq $next_col } @{$records};
     }
 
     # The same projection the read commands take, when a caller asks for one.
@@ -7147,7 +7165,8 @@ sub work_order {
     # sort reads priority, created_at and ref, and a caller asking for --field
     # ref would otherwise be ordering by fields it had just removed.
     my @ordered = sort {
-        $b->{priority} <=> $a->{priority}
+        ( $next_ref{ $b->{ref} } ? 1 : 0 ) <=> ( $next_ref{ $a->{ref} } ? 1 : 0 )
+          || $b->{priority} <=> $a->{priority}
           || ( $a->{created_at} // '' ) cmp( $b->{created_at} // '' )
           || ( $a->{ref} // '' ) cmp( $b->{ref} // '' )
     } @waiting;

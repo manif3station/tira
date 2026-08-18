@@ -1,5 +1,30 @@
 Revision history for Tira
 
+2.74  2026-08-18
+
+    - TKT-355. card-still (board-wide) silently outranked a deliberately
+      declared card-duration policy (column-scoped) watching the same
+      column. Not the shape 2.54 fixed (TKT-339): that was two policies for
+      the SAME rule and scope, refused outright since. This is two
+      DIFFERENT rules whose coverage happens to overlap on one column, so
+      nothing refuses it and nothing reports it.
+
+    - Measured on a real board: a resting column was given a considered
+      24-hour watchdog via card-duration, with a written reason ("the wait
+      is legitimate, but a whole day means the release has been FORGOTTEN
+      rather than held"). card-still, declared board-wide at 4 hours the
+      day before, reported five correctly-parked cards CRITICAL anyway -
+      the 24h decision was quietly never in force, and policy.list showed
+      both policies looking perfectly healthy.
+
+    - card-still already had a precedent for exactly this shape: a column's
+      own --notify-after outranks the policy's declared age (TKT-278). That
+      precedence now extends one step further - a column-scoped
+      card-duration policy already watching a card's exact column stands in
+      for card-still there entirely, so a column that genuinely exceeds its
+      own considered limit is reported once, by the rule declared for it,
+      not twice by two rules disagreeing about which number was true.
+
 2.73  2026-08-18
 
     - TKT-352. policy.add has refused a second policy on the same rule and

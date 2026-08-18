@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.73';
+our $VERSION = '2.74';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -5255,6 +5255,28 @@ sub _last_card_change {
     return ( 1, $latest );
 }
 
+# Whether a column-scoped card-duration policy already watches the exact
+# column a record sits in, for that record specifically.
+#
+# card-still is board-wide; card-duration is column-scoped. 2.54's duplicate
+# refusal (TKT-339) cannot see the two overlapping, because it only refuses a
+# SECOND policy on the SAME rule and scope - these are different rules. One
+# board declared a column-scoped card-duration at 24h, with a written reason,
+# for a column where a long wait is legitimate; card-still's own board-wide 4h
+# reported it CRITICAL anyway, because nothing checked whether a more specific
+# decision already covered that column. TKT-355.
+sub _card_duration_governs {
+    my ( $self, $root, $policies, $record, $resolved_for ) = @_;
+    for my $candidate ( @{ $policies || [] } ) {
+        next if ( $candidate->{rule} // '' ) ne 'card-duration';
+        next if !$resolved_for->( $candidate, $record );
+        my $watched = $self->_policy_column_for(
+            project => $root, policy => $candidate, field => 'column', record => $record );
+        return 1 if ( $record->{column} // '' ) eq ( $watched // '' );
+    }
+    return 0;
+}
+
 sub policy_evaluate {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
@@ -5980,6 +6002,15 @@ sub policy_evaluate {
                 my $kind = $record->{type} // 'ticket';
                 $resting{$kind} //= $self->_resting_columns( $root, $kind );
                 next if $resting{$kind}{ $record->{column} // '' };
+
+                # A card-duration policy already watching this exact column is
+                # a considered decision about it - a written reason attached,
+                # not a board-wide number that was never written with this
+                # column in mind. It stands in for card-still here rather than
+                # merely raising its age, so a column that genuinely goes past
+                # its own considered limit is reported once, by the rule that
+                # was declared for it, not twice. TKT-355.
+                next if $self->_card_duration_governs( $root, $policies, $record, $resolved_for );
 
                 # How long is too long, asked of the column the card is in.
                 #

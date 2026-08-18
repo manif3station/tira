@@ -995,6 +995,35 @@ A move is not the command that sets a gate, and on a board whose rules require
 the gate to move with every transition that is worth saying rather than
 dropping: the whole card comes back after a move, which reads as confirmation.
 
+That now holds for every card field rather than the two somebody was bitten by.
+`--sdlc-gate` and `--comment` were each added to a hand-kept table after an
+incident, and the table then covered exactly the options already known to hurt —
+measured afterwards, `tira.<type>.move` was still dropping 24 of the 25 fields an
+update writes, and `tira.<type>.create` was dropping all eight `--set-`
+replacements.
+
+```
+d2 tira.ticket.move --ref TKT-001 --column implement --assignee ada   # refused
+  record.move does not act on --assignee. Use tira.<type>.update
+  --assignee, which is the command that writes it.
+
+d2 tira.ticket.create --title "..." --set-key-details FILE   # refused
+  record.create does not act on --set-key-details. Use tira.<type>.update
+  --set-key-details, which is the command that replaces it.
+```
+
+The list is the one `record_update` itself iterates, so a field added there is
+refused on the commands that will not write it without anybody remembering to
+add it — which is the property a table extended one incident at a time cannot
+have.
+
+Two things are deliberately untouched. `tira.<type>.create` reads all eighteen
+append fields and loses none, so only the replacements are refused there — the
+obvious rule, that only an update writes fields, is wrong. And `--title` on
+`tira.<type>.clone` is genuinely read and keeps working; it is also a display
+flag on `tira.dashboard`, which is why the refusal is scoped to the record
+commands that move a card about rather than applied everywhere.
+
 ### A refusal that names the option
 
 A command that refuses for want of an argument says which option supplies it,

@@ -1,5 +1,40 @@
 Revision history for Tira
 
+2.61  2026-08-18
+
+    - TKT-306 and TKT-360, worked as one fix because they are one cause. An
+      option a command will not act on is refused rather than accepted, dropped
+      and answered with the whole card - which reads as confirmation because the
+      card is right there.
+
+    - TKT-281 fixed --sdlc-gate on move and TKT-302 fixed --comment on discard,
+      each by adding one name to a hand-kept table. That table covered exactly
+      the options somebody had already been bitten by, and measured afterwards
+      the surface behind it was: 24 of the 25 fields record_update writes were
+      dropped by move, 6 of 6 probed were dropped by discard and restore, and
+      all eight --set- replacements were dropped by create.
+
+    - So the refusal is derived rather than listed. record_update now iterates a
+      declared list of the fields it writes, and the command line refuses those
+      same fields on the commands that write none of them. A field added to
+      record_update is covered on the day it is added, which is the property a
+      denylist extended one incident at a time cannot have.
+
+    - Two boundaries were measured rather than assumed, and both would have made
+      a plausible fix wrong. tira.<type>.create reads all eighteen append fields
+      and loses none, so "only an update writes fields" is false and only the
+      replacements are refused there. And --title on clone is genuinely read; a
+      first probe reported it refused, which was a refusal for a MISSING --title
+      read as a refusal of the option beside it.
+
+    - The first version of the guard was too wide and the suite caught it in 112
+      seconds: applied to every command it refused the browser dashboard,
+      because --title is a card field on create and update and a display flag on
+      tira.dashboard. A guard wide enough to catch every drop is also wide
+      enough to refuse commands that read the same word for something else. It
+      is scoped to record.move, .discard, .restore and .clone, plus .create for
+      the replacements, and no wider.
+
 2.60  2026-08-18
 
     - TKT-363, asked for directly: on the browser dashboard a card worked

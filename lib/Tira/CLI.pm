@@ -101,6 +101,61 @@ sub _refuse_unread_options {
         next if $command =~ $rule->{commands};
         die "$command does not act on --$rule->{flag}. Use $rule->{instead}.\n";
     }
+
+    # And the rest of the surface, derived rather than listed. The table above
+    # grew one entry per incident - TKT-281, TKT-302 - and each entry covered
+    # the option somebody had already been bitten by. These two lists come from
+    # the engine, so a field added to record_update is refused on the commands
+    # that will not write it without anybody remembering to add it here.
+    #
+    # Which commands read what was measured rather than assumed, and the obvious
+    # rule turned out to be wrong: record.create reads all eighteen append
+    # fields and loses none, so "only update writes fields" would have broken
+    # every card this project raises. Only the replacements are update-only.
+    # Scoped to the record verbs that move a card about without writing its
+    # fields, rather than to every command in the tool. The first draft applied
+    # everywhere and broke the browser dashboard: --title is a card field on
+    # create and update AND a display flag on tira.dashboard, which shows titles
+    # beside references. A guard wide enough to catch every drop is also wide
+    # enough to refuse commands that read the same word for something else.
+    my %guarded = map { $_ => 1 }
+      qw(record.move record.discard record.restore record.clone);
+    my %flag_of = (
+        problem_or_feature => 'problem', solution_needed => 'solution-needed',
+        sdlc_gate => 'sdlc-gate', fix_version => 'fix-version',
+        agent_session => 'agent-session', due_date => 'due-date',
+        start_date => 'start-date', labels => 'label',
+        affects_versions => 'affects-version', key_details => 'key-detail',
+        deliverables => 'deliverable', test_steps => 'test-step',
+        scope_in => 'scope-in', scope_out => 'scope-out',
+    );
+    for my $field ( @{ Tira::card_fields() } ) {
+        next if !$guarded{$command};
+
+        # The one option clone genuinely reads. Kept by name because a clone
+        # without a title is refused for the title, and a first probe of this
+        # read that refusal as a refusal of the option beside it.
+        next if $command eq 'record.clone' && $field eq 'title';
+
+        my $given = $option->{$field};
+        next if !defined $given;
+        next if ref $given eq 'ARRAY' && !@{$given};
+        my $flag = $flag_of{$field} // $field;
+        $flag =~ tr/_/-/;
+        die "$command does not act on --$flag. Use tira.<type>.update --$flag,"
+          . " which is the command that writes it.\n";
+    }
+    for my $field ( @{ Tira::card_field_replacements() } ) {
+        # The replacements are update-only, so create is guarded here and not
+        # above: it reads all eighteen append fields and loses none, measured.
+        next if $command !~ /\Arecord\.(?:create|move|discard|restore|clone)\z/;
+        next if $command eq 'record.update';
+        my $given = $option->{ 'set_' . ( $field =~ s/_replace\z//r ) };
+        next if !defined $given;
+        ( my $flag = 'set-' . ( $field =~ s/_replace\z//r ) ) =~ tr/_/-/;
+        die "$command does not act on --$flag. Use tira.<type>.update --$flag,"
+          . " which is the command that replaces it.\n";
+    }
     return;
 }
 

@@ -52,7 +52,35 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.60';
+our $VERSION = '2.61';
+
+# What a card update writes, said once. record_update iterates these, and the
+# command line refuses them on the commands that write none of them - so the two
+# cannot disagree about what a card field is.
+#
+# Three cards were raised because that was two decisions rather than one.
+# TKT-281: move given --sdlc-gate accepted it, dropped it, exited 0 and printed
+# the whole card back, which reads as confirmation because the card is there.
+# TKT-302: the same for --comment on discard, twice in ten minutes on this
+# board, losing the one thing discard-unexplained exists to require. Each was
+# fixed by adding one name to a hand-kept table, and TKT-306 and TKT-360
+# measured what that left: 24 of these 25 dropped by move, all eight
+# replacements dropped by create.
+#
+# A denylist extended one incident at a time cannot cover the option nobody has
+# been bitten by yet. Derived from here, a field added to record_update is
+# covered on the day it is added.
+my @PLAIN_FIELDS = qw(title description problem_or_feature solution_needed source
+  sdlc_gate lifecycle fix_version sandbox agent_session);
+my @CARD_FIELDS = ( @PLAIN_FIELDS, qw(assignee reporter priority due_date start_date
+  labels affects_versions key_details deliverables acceptance test_steps bdd atdd
+  scope_in scope_out) );
+my @CARD_FIELD_REPLACEMENTS = qw(labels_replace affects_versions_replace
+  key_details_replace deliverables_replace acceptance_replace test_steps_replace
+  bdd_replace atdd_replace);
+
+sub card_fields             { return [@CARD_FIELDS] }
+sub card_field_replacements { return [@CARD_FIELD_REPLACEMENTS] }
 
 # POSIX rename replaces the destination; Win32 rename refuses when it exists.
 # Held here rather than tested inline so the Windows path can be driven on a
@@ -2035,7 +2063,7 @@ sub record_update {
                 die "Conflict: $field changed while you were editing\n";
             }
         }
-        for my $field (qw(title description problem_or_feature solution_needed source sdlc_gate lifecycle fix_version sandbox agent_session)) {
+        for my $field (@PLAIN_FIELDS) {
             $record->{$field} = $args{$field} if defined $args{$field};
         }
         for my $field (qw(sdlc_gate lifecycle fix_version sandbox agent_session)) {
@@ -4539,6 +4567,7 @@ my %POLICY_ACTIONS = map { $_ => 1 } qw(bridge-reminder print-reminder log-only)
 # both directions - base sat here unread for the life of the file, and read_age
 # was accepted, validated and dropped for being missing from it.
 my @POLICY_FIELDS = qw(enter before column age read_age max pattern message require sandbox require_link link_to);
+
 
 # Where a policy was declared. A policy with none of these is the project's;
 # each one named makes it narrower, and the narrowest wins.

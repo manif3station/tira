@@ -40,9 +40,15 @@ sub write_config {
     return 1;
 }
 
+# Read out of the store rather than through person_list, which is a public read
+# and no longer hands the password back - TKT-388. The subject of this file is
+# what registering WRITES, so the store is the right instrument; using a public
+# read to inspect a stored credential was the leak being tested for, borrowed as
+# a measuring tool. Every assertion below is unchanged.
 sub person_named {
     my ($id) = @_;
-    my ($person) = grep { $_->{id} eq $id } @{ $tira->person_list( project => $root ) };
+    my ( undef, $data ) = $tira->_project_data($root);
+    my ($person) = grep { $_->{id} eq $id } @{ $data->{people} };
     return $person;
 }
 

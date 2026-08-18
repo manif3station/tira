@@ -1,5 +1,47 @@
 Revision history for Tira
 
+2.64  2026-08-18
+
+    - TKT-388. Five commands stopped handing back every account's stored
+      password: tira.project.show and the four tira.project.people.* verbs. What
+      they emitted was the algorithm, its work factor, the per-account salt and
+      the digest - the whole of what an offline attempt needs - from routine
+      unprivileged reads that land in agent transcripts, in logs, and in whatever
+      gets pasted when somebody asks for help with a board.
+
+    - One cause: project_show returned the parsed project file as it stood, and
+      person_list, person_update, person_activate and person_deactivate are all
+      built on that read or return the record they just wrote.
+
+    - So the fix is one accessor rather than five deletes. _person_for_return
+      decides once what of a person is safe to hand back; the first attempt
+      deleted the field in project_show alone, which covered two surfaces and
+      left three, and the next person_* method added would have made it four
+      silently.
+
+    - A copy, not a delete. Three of the five return a reference into the
+      structure they have just written to disk, so deleting there would take the
+      password out of the STORE rather than out of the ANSWER - a far worse bug
+      than the one being fixed.
+
+    - Nothing authenticates through any of them: login_verify reads the person
+      with _login_person, which goes to _project_data directly. Verified before
+      the cut rather than after, and t/271 proves the login still works.
+
+    - Found by enumerating for TKT-386 - sweeping read commands for a map nested
+      inside a list element, because that is the shape the TOON encoder mangles.
+      people[].password is that shape.
+
+    - t/73 changed its instrument, not its assertions. It inspected the stored
+      password block through person_list, which is a public read: the leak,
+      borrowed as a measuring tool. It now reads the store directly and every
+      assertion is unchanged.
+
+    - The reason this survived is that the suite asserted what commands RETURN
+      and never what they REVEAL. t/271 asserts the absence across all five
+      surfaces, driven off the list rather than the pair, and proves the detector
+      can fail - with the guard removed, all five leak.
+
 2.63  2026-08-18
 
     - TKT-384. A role declared by mistake can be taken back.

@@ -1796,7 +1796,7 @@ opens it on that board, and `tira.dashboard` opens it on the default one.
 ### Projects
 
 - `tira.project.create --name TEXT [--dir DIR] [-o FORMAT]`
-- `tira.project.show [-o FORMAT]` — the project as stored: its name, its people, its boards and its settings.
+- `tira.project.show [-o FORMAT]` — the project as stored: its name, its people, its boards and its settings. Since 2.64 it withholds every account's stored password - the algorithm, its work factor, the salt and the hash - as do the four `project.people.*` commands, all of which are built on the same read. Before that a command an agent runs to learn how a board is configured handed back the whole of what an offline attempt needs, into transcripts, logs, and whatever gets pasted when somebody asks for help with a board. Everything else about a person is unchanged - id, name, email, active - and signing in is unaffected, because it reads the person from the store rather than through this command.
 - `tira.project.validate [--repair-columns] [-o FORMAT]` — Read-only without repair.
 - `tira.project.link-types.add --outward NAME --inward NAME [-o FORMAT]` — Names unique.
 - `tira.project.link-types.list [-o FORMAT]` — the link types this project has, protected and added.

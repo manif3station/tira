@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.63';
+our $VERSION = '2.64';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -574,7 +574,38 @@ sub project_show {
     for my $person ( @{ $data->{people} } ) {
         $person->{active} = Cpanel::JSON::XS::true if !exists $person->{active};
     }
+    $data->{people} = [ map { _person_for_return($_) } @{ $data->{people} } ]
+      if $data->{people};
     return $data;
+}
+
+# What of a person is safe to hand back. One decision in one place, because the
+# alternative is five: project_show, person_list, person_update, person_activate
+# and person_deactivate each return a person, and the first fix for TKT-388
+# deleted the field in project_show alone - which covered two of them and left
+# three, with the next person_* method added silently making it four.
+#
+# What is withheld is the stored credential: the algorithm, its work factor, the
+# per-account salt and the digest. Together that is everything an offline attempt
+# needs, and routine reads were handing it over - output that lands in agent
+# transcripts, in logs, and in whatever gets pasted when somebody asks for help
+# with a board.
+#
+# A copy rather than a delete, because three of the five return a reference into
+# the structure they have just written to disk. Deleting there would take the
+# password out of the STORE rather than out of the ANSWER, which is a far worse
+# bug than the one being fixed - so the store is never touched and the copy is
+# what travels.
+#
+# Nothing authenticates through any of these: login_verify reads the person with
+# _login_person, which goes to _project_data directly. Verified before the cut
+# rather than after. TKT-388.
+sub _person_for_return {
+    my ($person) = @_;
+    return $person if ref $person ne 'HASH';
+    my %safe = %{$person};
+    delete $safe{password};
+    return \%safe;
 }
 
 # The two kinds of project there are. Multi-agent is built on single agent
@@ -734,7 +765,7 @@ sub person_update {
         $person->{email} = $args{email} if defined $args{email};
         $data->{last_updated} = $self->{clock}->();
         $self->_write_yaml( $path, $data );
-        return $person;
+        return _person_for_return($person);
     } );
 }
 
@@ -4057,7 +4088,7 @@ sub _set_person_active {
         $person->{active} = $args{active};
         $data->{last_updated} = $self->{clock}->();
         $self->_write_yaml( $path, $data );
-        return $person;
+        return _person_for_return($person);
     } );
 }
 

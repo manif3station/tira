@@ -1,5 +1,28 @@
 Revision history for Tira
 
+2.71  2026-08-18
+
+    - TKT-342. tira.column.endings with no --type answered for one record type
+      only, with nothing in the output marking it as scoped - a flat list read
+      as a fact about the whole board rather than one type's answer.
+
+    - Measured on a real board: `tira.column.endings` alone returned one ending
+      column while `--type ticket` returned four. The bare answer was not
+      wrong - ticket's real answer - but nothing said it was ticket's, and the
+      natural response to "only one ending column" is to go declare the rest,
+      which on a board that already has them is a needless config change on
+      exactly the setting the 2.46 changelog already blamed for 171
+      card-unassigned findings on another board.
+
+    - column_roles already answers this identical "no --type given" ambiguity
+      by returning a hash keyed by all three types rather than guessing one.
+      column_endings now follows the same precedent: naming --type still
+      returns the flat array unchanged; omitting it returns
+      {sow=>[...], epic=>[...], ticket=>[...]}.
+
+    - No CLI change needed - lib/Tira/CLI.pm's column.endings dispatch already
+      passed %args straight through.
+
 2.70  2026-08-18
 
     - TKT-386. A map nested inside a list element is printed inside it, instead

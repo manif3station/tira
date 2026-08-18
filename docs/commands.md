@@ -877,15 +877,24 @@ tree, and a card labelled `standalone` is saying somebody meant it to have none.
 
 ### `tira.column.endings`
 
-Which columns this board says work ends in, for one record type.
+Which columns this board says work ends in.
 
 | Argument | Required | What it is for |
 | --- | --- | --- |
-| `--type TYPE` | yes | `sow`, `epic` or `ticket`. |
+| `--type TYPE` | no | `sow`, `epic` or `ticket`. Omit to ask for all three. |
 | `-o FORMAT` | no | `toon` (default), `json`. |
 
 A column marked with `tira.column.update --terminal` is an ending; a board that
 has marked nothing ends in one called `done`.
+
+Naming `--type` returns a flat list, unchanged from before. Omitting it returns
+a hash keyed by all three types - `column_roles`'s existing answer to the same
+question - rather than silently picking one type and returning its list with
+nothing marking it as scoped. That silent scoping is what TKT-342 reported: the
+bare answer on a real board read as "this board declares one ending column" when
+it was one type's answer among three, and the natural response to a seemingly
+under-declared board - going and marking the others terminal - would have been a
+config change made for no reason.
 
 Asked rather than worked out, for the same reason `tira.card.required` exists.
 The push gate had its own answer, read from the `done` column role, and could

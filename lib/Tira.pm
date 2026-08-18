@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.70';
+our $VERSION = '2.71';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6977,8 +6977,23 @@ sub _ending_columns_everywhere {
 # to run on one and judged finished cards as live work on another. The same
 # shape as what a complete card is, which used to be written twice and is now
 # asked for. TKT-267.
+#
+# Without --type this answered for one type only, with nothing in the output
+# saying so - a bare list read as a fact about the whole board rather than
+# one type's. On a board where epic marks 'archived' terminal and ticket
+# marks only 'done', the typeless answer was ticket's alone, and a reader
+# comparing it against the epic board would have declared a real ending
+# column redundant. column_roles already answers the identical ambiguity by
+# returning a hash keyed by all three types when none is named; this follows
+# that precedent rather than inventing a third shape. TKT-342.
 sub column_endings {
     my ( $self, %args ) = @_;
+
+    if ( !defined $args{type} || $args{type} eq '' ) {
+        my $root = $self->discover_project(%args);
+        return { map { $_ => $self->column_endings( project => $root, type => $_ ) }
+              qw(sow epic ticket) };
+    }
     my $root = $self->discover_project(%args);
     return [ sort keys %{ $self->_ending_columns( $root, $args{type} ) } ];
 }

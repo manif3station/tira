@@ -1578,7 +1578,17 @@ they were waiting on is never made**.
 
     d2 tira.policy.add --rule discard-with-open-questions --action bridge-reminder
 
-`discard-with-open-questions` reports a card in Discard that still has an
+Since 2.69 `discard-with-open-questions` reports a card reaching ANY ending
+column, not only Discard - done included, and any other column a board has
+marked `--terminal`. Before that, TKT-349 reached done with a question still
+open and police said nothing through a full pass on a board with thirty
+policies declared - a done card's open question was load-bearing on work that
+shipped, which is worse than a discarded card's, where the work is not
+happening. Endings are read from the board's own declaration
+(`_ending_columns`), so a board naming its ending column something other than
+`done` is covered without the rule naming it.
+
+`discard-with-open-questions` reports a card that still has an
 unanswered question, and names the questions:
 
     SAT-001 set aside carrying Q-001, still unanswered - decide whether each

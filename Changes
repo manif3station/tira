@@ -1,5 +1,44 @@
 Revision history for Tira
 
+2.69  2026-08-18
+
+    - TKT-401. discard-with-open-questions covers every ending column, not
+      only discard.
+
+    - A card can reach done - or any board's other terminal column - carrying
+      a question nobody answered, and nothing said a word. Caught live:
+      TKT-349 reached done with Q-047 still open, police said nothing through
+      a full pass on a board with thirty policies declared, and he asked:
+      "and TKT-349 is done. why open question in a done card for?" and then:
+      "crazy."
+
+    - The done case is the worse one. A discarded card's open question is
+      usually moot - the work is not happening. A done card's question was
+      load-bearing on work that shipped: Q-047 asked which columns should
+      notify him, and a different answer would have shipped the wrong
+      configuration with the very question that would have caught it sitting
+      closed and unread.
+
+    - Endings are read from the board's own declaration - _ending_columns,
+      per the record's own type, cached across a mixed sow/epic/ticket pass
+      rather than fetched once per policy - so a board naming its ending
+      column something other than done is covered without the rule naming it.
+      discard is kept as an explicit literal alongside the declared endings,
+      because it is not marked terminal on a column by default and dropping
+      the literal would have silently stopped covering it - the regression
+      the acceptance criteria explicitly forbid.
+
+    - t/277 at 7 assertions, proved by reverting to the literal discard check
+      - 3 of them fail. Full suite 271 files / 6293 tests, 100% statement and
+      subroutine on Tira.pm, CLI.pm and DashboardWeb.pm.
+
+    - Also this hour: a bridge report claiming card-still has no way to
+      exempt a resting column was measured and found false - --no-watch on a
+      column, declared before any violation is raised, already does this.
+      The report's deeper claim held up: --no-watch is not respected
+      uniformly by every rule that should read it, which TKT-331 already has
+      independent evidence for. Corroborated there rather than duplicated.
+
 2.68  2026-08-18
 
     - TKT-385. A genuinely clean board no longer exits 1 with

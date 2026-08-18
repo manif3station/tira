@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.68';
+our $VERSION = '2.69';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6139,8 +6139,12 @@ sub policy_evaluate {
             # between cards on its own would be making that judgement by
             # machine - where a wrong guess is indistinguishable from a decision
             # somebody made.
+            my %ends_by_type;
             for my $record ( @{$all} ) {
-                next if ( $record->{column} // '' ) ne 'discard';
+                my $rtype  = $record->{type} // 'ticket';
+                my $ends   = $ends_by_type{$rtype} //= $self->_ending_columns( $root, $rtype );
+                my $column = $record->{column} // '';
+                next if $column ne 'discard' && !$ends->{$column};
                 next if !$resolved_for->( $policy, $record );
 
                 # Still open means still waiting. An answered question was

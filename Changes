@@ -1,5 +1,22 @@
 Revision history for Tira
 
+2.92  2026-08-19
+
+    - TKT-423. tira.police.outstanding read whatever the background
+      watcher last wrote, which could be up to its own poll interval
+      (30 seconds by default) stale relative to a fix just made -
+      measured live, a fix that landed at 13:40:56 still read as
+      outstanding at both a 2-second and a 5-second recheck, only
+      clearing 36 seconds later. The instruction this project runs
+      hourly to clear violations ends "fix it, then ask again and
+      confirm it's gone" - which could not give an honest answer
+      inside the watcher's own interval.
+
+    - tira.police.outstanding --fresh runs one police pass inline
+      before reading, so confirming a fix does not require sleeping
+      and re-asking. Default behavior (no --fresh) is unchanged - a
+      pure, fast read of the last pass.
+
 2.91  2026-08-19
 
     - TKT-368. An explicitly named board was silently overridden by the

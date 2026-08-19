@@ -907,6 +907,7 @@ and every finished card was judged as work still in progress.
 | Argument | Required | What it is for |
 | --- | --- | --- |
 | `--exit-nonzero-if-any` | no | Exit 1 while anything is outstanding, 0 when clear. An error still exits 2, so a scheduled job can tell clean from findings from could-not-look. Opt-in: without it the exit status is what it always was. |
+| `--fresh` | no | Run one police pass inline before reading, instead of answering from whatever the last pass wrote. Opt-in, because a read that quietly ran a pass would move escalation counts because somebody asked a question - see below. Without it, behavior is exactly as it always was. |
 
 Since 2.68 the exit status is taken from the command's own count of findings
 when it has one, rather than from the rendered rows. 2.62 gave the default
@@ -940,10 +941,20 @@ Both of those were asked for. The list reads the violation ledger, and **only a
 police pass writes it** — so the answer is as of the last pass, and saying so
 matters because the instruction for clearing violations ends "then run
 `tira.police.outstanding` again and confirm that violation is gone". Fix the
-fault, ask again with no pass in between, and the count does not move. It is not
-re-evaluated on read: a pass costs seconds, writes the ledger and puts lines on
-the bridge, so a read command that quietly ran one would move escalation counts
-because somebody asked a question.
+fault, ask again with no pass in between, and the count does not move by
+default: it is not re-evaluated on read, because a pass costs seconds, writes
+the ledger and puts lines on the bridge, and a read command that quietly ran
+one would move escalation counts because somebody asked a question.
+
+**`--fresh` is the opt-in exception.** The background watcher that keeps the
+ledger current ticks on its own interval (30 seconds by default), so the exact
+scenario the instruction above walks through - fix, then ask - could still read
+as open for up to that long, for no reason but that nothing had told the ledger
+yet. Measured live: a fix at 13:40:56 still read as outstanding "as of the pass
+at 13:40:33" at both a 2-second and a 5-second recheck, only clearing 36 seconds
+later. `--fresh` runs the same pass the watcher would, inline, right before
+reading - the loop that clears violations does not have to sleep and guess
+whether a fault is actually gone. TKT-423.
 
 An empty board now distinguishes the two things that used to print alike:
 

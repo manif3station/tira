@@ -268,6 +268,7 @@ sub run {
         'age=s' => \$option{age}, 'read-age=s' => \$option{read_age},
         'max=i' => \$option{max}, 'require=s' => \$option{require},
         'once' => \$option{once}, 'interval=i' => \$option{interval},
+        'fresh' => \$option{fresh},
 
         # An exit status a scheduled job can act on, and a work list rather
         # than a data dump. Both opt-in: a command that starts exiting
@@ -2212,6 +2213,24 @@ sub _invoke {
     if ( $command eq 'police.outstanding' ) {
         my $store = $option->{store}
           // _police_store( $tira->discover_project(%args) );
+
+        # A read, by default - fast, and answering from whatever the watcher
+        # last wrote. --fresh runs the same pass the watcher would, inline,
+        # before reading: fixing a violation and asking right away used to
+        # mean it could still read as open for up to the watcher's own
+        # interval (30s by default), because nothing had told the ledger the
+        # fix happened. The loop that clears outstanding violations asks this
+        # after every fix, so a stale answer here reads as "still broken" when
+        # the truth is "not yet asked again". TKT-423.
+        if ( $option->{fresh} ) {
+            my $watching = $tira->discover_project(%args);
+            my $result = $tira->police_pass( %args, store => $store,
+                world => _police_world( tira => $tira, project => $watching ) );
+            $tira->bridge_write( store => $store, project => $watching,
+                violations => $result->{violations}, settled => $result->{settled},
+                upgraded => $result->{upgraded} )
+              if $result->{watching};
+        }
         my $open = $tira->police_outstanding( %args, store => $store );
 
         # What was actually found, said before the answer is dressed up. The

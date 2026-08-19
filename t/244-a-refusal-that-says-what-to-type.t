@@ -167,9 +167,14 @@ for my $each (@asking) {
 #
 # A message that already names its option is left as it is, or the advice would
 # be appended to advice.
+#
+# column.list was the original example here and, since TKT-409, no longer
+# refuses at all with no --type - it answers for all three record kinds
+# instead. column.update is the same family (a command genuinely narrowed to
+# one board) and still carries the identical message.
 
 {
-    my ( undef, $said ) = run( 'column.list' );
+    my ( undef, $said ) = run( 'column.update' );
     like( $said, qr/--type/, 'a message that already names its option still does' );
     my $count = () = $said =~ /--type/g;
     is( $count, 1, 'once' );

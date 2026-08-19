@@ -7181,7 +7181,16 @@ sub _queue_columns {
 
 sub _ending_columns {
     my ( $self, $root, $type ) = @_;
-    my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
+
+    # This is one type's worth of columns, always - never asked to answer
+    # for all three the way column_list itself now can with no --type. The
+    # old guard assumed a bad type made column_list die, caught by the eval
+    # below; TKT-409 gave a missing type a different, successful answer (a
+    # hash keyed by type) instead, so a type-blind caller now gets past the
+    # eval with something that was never an array to begin with. Checked
+    # explicitly rather than relying on how column_list happens to fail.
+    my $columns = eval { $self->column_list( project => $root, type => $type ) };
+    $columns = [] if ref $columns ne 'ARRAY';
     my %ends = map { $_->{name} => 1 } grep { $_->{terminal} } @{$columns};
 
     # done is where work ends unless the board has said otherwise, and saying

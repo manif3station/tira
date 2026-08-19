@@ -62,9 +62,17 @@ sub run {
     return ( $status, $out . $err );
 }
 
-# --- the five commands that ask for a type -----------------------------------
+# --- the commands that still ask for a type -----------------------------------
+#
+# Five when this was written; column.list is not one of them any more.
+# TKT-409 gave it the same "no --type given" answer column_roles and
+# column_endings already had - a hash keyed by all three types, not a
+# refusal - since the whole point of asking for one was to say which of the
+# three answers was meant, and a hash keyed by all three says that on its
+# own. The other four still narrow to exactly one board and still have
+# nothing sensible to say about all three at once.
 
-my @needing = qw(board.refs board.show column.list column.sync column.update);
+my @needing = qw(board.refs board.show column.sync column.update);
 
 for my $command (@needing) {
     my ( $status, $said ) = run($command);
@@ -80,6 +88,20 @@ for my $command (@needing) {
         "$command names a value it would accept, so there is nothing to guess" );
     unlike( $said, qr/record type/i,
         "$command does not answer with an internal concept" );
+}
+
+# --- column.list itself: not a refusal any more, an answer for all three ----
+#
+# TKT-409. Once one of the five; now the one command in this family that no
+# longer needs guessing at all, because a column name is really three
+# columns underneath and the missing type was never a mistake worth refusing
+# - it was a caller who had not said which of three real answers they meant.
+
+{
+    my ( $status, $said ) = run( 'column.list' );
+    is( $status, 0, 'column.list with no type is no longer refused' );
+    like( $said, qr/\bticket\b.*\bepic\b|\bepic\b.*\bticket\b/s,
+        'answering for more than one type in the same call' );
 }
 
 # --- while supplying it behaves exactly as before ----------------------------

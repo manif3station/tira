@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.76';
+our $VERSION = '2.77';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -5277,6 +5277,16 @@ sub _card_duration_governs {
     return 0;
 }
 
+# Whether a process's command line is the bridge tail - the one process
+# bridge-unread's own message tells an agent to keep running, and so the one
+# process a leftover-process pattern can never legitimately be about, however
+# broadly it was written. A named predicate rather than an inline check, so a
+# test can turn it off and watch the original defect return. TKT-379.
+sub _is_bridge_tail {
+    my ($command) = @_;
+    return ( $command // '' ) =~ /\bpolicy\.bridge\b/ ? 1 : 0;
+}
+
 sub policy_evaluate {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
@@ -6894,6 +6904,16 @@ sub _police_environment_violations {
         elsif ( $rule eq 'leftover-process' ) {
             for my $process ( @{ $world->{processes} // [] } ) {
                 next if index( $process->{command} // '', $policy->{pattern} // '' ) < 0;
+
+                # The one process this project's own advice tells an agent to
+                # keep running - bridge-unread's own message says so outright:
+                # "tail it with d2 tira.policy.bridge and keep it running
+                # while you work." A pattern matching it by coincidence (a
+                # shared project path, nothing more specific) turned the
+                # escalation ladder against exactly the thing it was told
+                # never to stop. TKT-379.
+                next if _is_bridge_tail( $process->{command} );
+
                 next if !$self->_policy_older_than( $process->{started_at}, $policy->{age} );
                 $report->( $policy, undef, "still running: $process->{command}" );
             }

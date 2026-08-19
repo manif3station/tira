@@ -1,5 +1,30 @@
 Revision history for Tira
 
+2.77  2026-08-19
+
+    - TKT-379. leftover-process reported the bridge tail (d2
+      tira.policy.bridge) that bridge-unread's own message tells an agent to
+      keep running - a leftover-process pattern broad enough to match a
+      project's own path matched the bridge tail's command line too,
+      reporting it as litter and climbing an escalation ladder against the
+      one process it must never fire on.
+
+    - Measured on this board: pattern 'projects-skills' at 2h matched the
+      bridge tail at 4h04m, a true and entirely unactionable finding - the
+      one thing to do with it was exactly what it was doing. The rule
+      cannot tell a broad pattern from a wrong one; a string match is a
+      string match.
+
+    - leftover-process now exempts the bridge tail structurally, however
+      broadly the declared --pattern is written, while a genuinely
+      different process matching the same pattern is still reported exactly
+      as before. TKT-075's precedent (leftover-container, requiring
+      --pattern rather than matching everything) already guards the
+      broader "reports everything" shape for both rules; this is a
+      narrower, deeper gap that survived it - a specific pattern that still
+      coincidentally catches the one process Tira's own advice says to
+      keep alive.
+
 2.76  2026-08-19
 
     - TKT-343. --help for any command outside the hand-fixed record-verb

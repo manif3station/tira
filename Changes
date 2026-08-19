@@ -1,5 +1,21 @@
 Revision history for Tira
 
+2.87  2026-08-19
+
+    - TKT-419 (Hourly Enhancement Hunter). _iso_from_epoch, the only
+      formatter behind rule.suspend's and rule.decline's 'until' field,
+      hardcoded UTC via gmtime while every other timestamp this project
+      writes uses the board's own local offset from the default clock -
+      a second convention nobody chose, for exactly two fields. Measured
+      this session: roughly ten rule.suspend calls each returned an until
+      field in UTC sitting on the same card as +0100 timestamps.
+
+    - _iso_from_epoch now computes the local offset the same way _now
+      already did; _now is now a one-line call to _iso_from_epoch(time),
+      so the two can no longer drift apart the way this one did. Proved
+      across three time zones the same way t/96 already proves the
+      default clock.
+
 2.86  2026-08-19
 
     - TKT-418 (Hourly Bug Hunter). _usage()'s typed-verb branch answered a

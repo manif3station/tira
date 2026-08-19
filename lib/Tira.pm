@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.86';
+our $VERSION = '2.87';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -8865,7 +8865,20 @@ sub police_suspended {
 
 sub _iso_from_epoch {
     my ($epoch) = @_;
-    return strftime( '%Y-%m-%dT%H:%M:%SZ', gmtime $epoch );
+
+    # The same offset arithmetic _now uses for every other timestamp this
+    # project writes, so rule.suspend's and rule.decline's 'until' field
+    # reads in the board's own convention instead of a second one nobody
+    # chose - gmtime and a literal Z were the only place this project ever
+    # answered "when" in a timezone different from the one it runs in.
+    # TKT-419.
+    my @local = localtime $epoch;
+    my $seconds = timegm_modern( @local[ 0 .. 4 ], $local[5] + 1900 ) - $epoch;
+    my $minutes = int( $seconds / 60 + ( $seconds < 0 ? -0.5 : 0.5 ) );
+    my $sign = $minutes < 0 ? '-' : '+';
+    $minutes = abs $minutes;
+    return strftime( '%Y-%m-%dT%H:%M:%S', @local )
+      . sprintf( '%s%02d%02d', $sign, int( $minutes / 60 ), $minutes % 60 );
 }
 
 # The gates a project runs, written by Tira rather than by each agent that
@@ -9600,25 +9613,12 @@ sub _read_json {
 # strftime's %z is a numeric offset on POSIX and a zone name on Windows, so
 # every stamp Tira wrote there was malformed - and a malformed timestamp is
 # worse than a missing one, because it fails wherever it is next parsed rather
-# than where it was made. The offset is arithmetic, so it is done here.
+# than where it was made. The offset arithmetic lives in _iso_from_epoch,
+# which every other timestamp-from-an-instant in this project shares - two
+# copies of the same rounding logic is exactly how it went stale once
+# already (TKT-419).
 sub _now {
-    my $now = time;
-    my @local = localtime $now;
-
-    # The same wall-clock reading interpreted as UTC, minus the real moment, is
-    # the offset. Only the first six fields: the rest describe the day of the
-    # year and whether summer time is in force, and feeding them in makes this
-    # arithmetic nonsense rather than an error.
-    # The difference is always a whole number of minutes, but int() truncates
-    # towards zero: rounding a negative offset the same way as a positive one
-    # turned -0400 into -0359, which is a plausible-looking wrong answer of
-    # exactly the sort that survives a test written only for one hemisphere.
-    my $seconds = timegm_modern( @local[ 0 .. 4 ], $local[5] + 1900 ) - $now;
-    my $minutes = int( $seconds / 60 + ( $seconds < 0 ? -0.5 : 0.5 ) );
-    my $sign = $minutes < 0 ? '-' : '+';
-    $minutes = abs $minutes;
-    return strftime( '%Y-%m-%dT%H:%M:%S', @local )
-      . sprintf( '%s%02d%02d', $sign, int( $minutes / 60 ), $minutes % 60 );
+    return _iso_from_epoch(time);
 }
 
 sub _slurp {

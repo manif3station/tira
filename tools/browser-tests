@@ -137,6 +137,24 @@ make_card() {
         python3 -c 'import json,sys; print(json.load(sys.stdin)["ref"])'
 }
 
+# A card at a particular column, walked there one step at a time. TKT-426
+# refuses a move that skips ahead of the board's declared order - this
+# fixture wants a card AT a column, not a simulation of an agent skipping a
+# gate, but the CLI cannot tell the two apart from here, so it walks through
+# every column between backlog and the target instead of asking for an
+# exemption the real feature should not have.
+walk_to() {
+    local ref="$1" target="$2"
+    local reached=0
+    for col in backlog ready tests-red implement review verify document staging push done; do
+        if [ "$reached" -eq 1 ]; then
+            tira ticket.move --ref "$ref" --column "$col" --author michael -o json >/dev/null
+        fi
+        [ "$col" = backlog ] && reached=1
+        [ "$col" = "$target" ] && break
+    done
+}
+
 # Six cards, two of them answered and unjudged, one waiting on the owner.
 build_review_board() {
     local where="$1"
@@ -144,8 +162,7 @@ build_review_board() {
     for column in backlog ready implement review verify done; do
         local card
         card="$(make_card "$where" "A card in $column")"
-        [ "$column" = backlog ] || tira ticket.move --ref "$card" \
-            --column "$column" --author michael -o json >/dev/null
+        [ "$column" = backlog ] || walk_to "$card" "$column"
         case "$column" in
             review|verify)
                 # The id the ask returned, not Q-001. Question ids run across

@@ -78,8 +78,52 @@ is( scalar( grep { defined $_->{added_at} } @{$listed} ), 3, 'every stored refer
 
     my $shown = $tira->record_show( project => $root, ref => 'TKT-001' );
     my ($repaired) = grep { $_->{sha} eq $legacy_sha } @{ $shown->{attachments} };
-    is( $repaired->{added_at}, POSIX::strftime( '%Y-%m-%dT%H:%M:%S%z', localtime($epoch) ),
+    is( $repaired->{added_at}, Tira::_iso_from_epoch($epoch),
         'a legacy reference recovers added_at from the stored file mtime' );
+
+    # The assertion above computes its expected value the same way the
+    # implementation does, which is exactly how it went unnoticed: raw
+    # strftime %z is a numeric offset on POSIX and a zone name on Windows
+    # (t/96's own finding), so comparing the code against itself proves
+    # nothing about which formula actually ran - both sides would agree
+    # even if the implementation still used %z, since %z is well-behaved
+    # on the platform this suite runs on. Proved directly instead: the
+    # recovery path must actually delegate to _iso_from_epoch, not
+    # reimplement it, so a mock of the one Tira trusts everywhere else is
+    # the value that comes back. TKT-421.
+    {
+        local *Tira::_iso_from_epoch = sub { return 'MOCKED-ISO-FROM-EPOCH' };
+        my $delete_added_at = $tira->create_record(
+            project => $root, type => 'ticket', title => 'Second legacy fixture' );
+        my $second_ref = $delete_added_at->{ref};
+        my $second_file = File::Spec->catfile( $tmp, 'delegates.txt' );
+        open my $second_fh, '>', $second_file or die $!;
+        print {$second_fh} "delegates\n";
+        close $second_fh;
+        my $added = $tira->attachment_add( project => $root, ref => $second_ref, file => $second_file );
+        my ( $second_path, $second_stored );
+        File::Find::find( { no_chdir => 1, wanted => sub {
+            $second_path = $File::Find::name if /\Q$second_ref\E\.json\z/;
+        } }, $root );
+        File::Find::find( { no_chdir => 1, wanted => sub {
+            $second_stored = $File::Find::name if /\Q$added->{sha}\E\.\Q$added->{extension}\E\z/;
+        } }, $root );
+        $second_path =~ /\A(.+)\z/s or die 'no second record path';
+        $second_path = $1;
+        my $second_json = Cpanel::JSON::XS->new->canonical;
+        open my $second_in, '<:raw', $second_path or die $!;
+        my $second_record = $second_json->decode( do { local $/; <$second_in> } );
+        close $second_in;
+        delete $second_record->{attachments}[0]{added_at};
+        open my $second_out, '>:raw', $second_path or die $!;
+        print {$second_out} $second_json->encode($second_record);
+        close $second_out;
+
+        my $second_shown = $tira->record_show( project => $root, ref => $second_ref );
+        my ($second_repaired) = @{ $second_shown->{attachments} };
+        is( $second_repaired->{added_at}, 'MOCKED-ISO-FROM-EPOCH',
+            'the recovery path calls _iso_from_epoch rather than reimplementing it with raw strftime' );
+    }
 }
 
 sub browser_cli {

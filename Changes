@@ -1,5 +1,23 @@
 Revision history for Tira
 
+2.88  2026-08-19
+
+    - TKT-421 (Hourly Bug Hunter). _backfill_added_at wrote a legacy
+      attachment's recovered timestamp with raw strftime %z, the exact
+      pattern TKT-419 (this same session) already proved malformed on
+      Windows (a zone name, not a numeric offset) and fixed everywhere
+      else in this project. t/24-dashboard-comments-attachments.t's own
+      test for this path computed its expected value with the identical
+      %z formula the implementation used, so it could never catch the
+      malformation it existed to guard - both sides agreed by
+      construction, on every platform.
+
+    - _backfill_added_at now calls _iso_from_epoch, the same safe
+      formatter every other timestamp in this project already shares.
+      t/24 now proves delegation directly: with _iso_from_epoch mocked,
+      the recovered timestamp is the mock's sentinel, not a
+      reimplementation of its arithmetic.
+
 2.87  2026-08-19
 
     - TKT-419 (Hourly Enhancement Hunter). _iso_from_epoch, the only

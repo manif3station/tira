@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.87';
+our $VERSION = '2.88';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1798,7 +1798,7 @@ sub _backfill_added_at {
         next if defined $reference->{added_at};
         my $stored = eval { $self->_attachment_path( $root, sha => $reference->{sha}, extension => $reference->{extension} ) };
         next if !defined $stored || !-f $stored;
-        $reference->{added_at} = strftime( '%Y-%m-%dT%H:%M:%S%z', localtime( ( stat $stored )[9] ) );
+        $reference->{added_at} = _iso_from_epoch( ( stat $stored )[9] );
     }
     return;
 }

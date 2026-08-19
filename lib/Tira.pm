@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.77';
+our $VERSION = '2.78';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -3598,7 +3598,9 @@ sub gate_add {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
+        die "Gate name is required\n" if !defined $args{gate} || $args{gate} eq '';
         die "Invalid gate result\n" if ( $args{result} // '' ) !~ /\A(?:pass|fail|blocked)\z/;
+        die "Gate details are required\n" if !defined $args{details} || $args{details} eq '';
         $self->_require_person( %args, person => $args{author} ) if defined $args{author};
         my $record = $self->record_show(%args);
         my $entry = {

@@ -1,5 +1,24 @@
 Revision history for Tira
 
+2.78  2026-08-19
+
+    - TKT-408. gate.add's own usage line lists --gate and --details as
+      required, and the command accepted a call missing both, exiting 0 and
+      persisting a record with gate:null and details:null.
+
+    - Found while recording a release's own coverage-gate evidence: a
+      malformed call (missing --gate and --details) succeeded and wrote a
+      null-carrying record, while the same investigation's call to
+      evidence.add without its own required --summary correctly refused
+      ("Evidence summary is required", nothing persisted).
+
+    - gate_add now refuses a missing --gate or --details the same way,
+      naming what is missing and persisting nothing. A card past verify
+      with a gate record like this satisfied "a gate exists" while carrying
+      none of the information that claim depends on - exactly the shape
+      the push gate's own completeness check exists to catch on the other
+      side.
+
 2.77  2026-08-19
 
     - TKT-379. leftover-process reported the bridge tail (d2

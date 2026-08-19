@@ -63,7 +63,7 @@ unlike( $tira->record_reminder($full), qr/--description|--reporter/,
 $tira->record_update( project => $root, type => 'ticket', ref => $bare->{ref},
     description => 'Now described.', reporter => 'michael' );
 $tira->gate_add( project => $root, type => 'ticket', ref => $bare->{ref},
-    gate => 'Review', result => 'pass' );
+    gate => 'Review', result => 'pass', details => 'Looked over' );
 my $asked = $tira->question_add( project => $root, ref => $bare->{ref}, text => 'One thing?' );
 my $settled = $tira->record_show( project => $root, type => 'ticket', ref => $bare->{ref} );
 is( $tira->record_reminder($settled), undef,

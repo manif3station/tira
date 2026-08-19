@@ -27,16 +27,40 @@ my $cli = slurp('lib/Tira/CLI.pm');
 my ($spec) = $cli =~ /GetOptionsFromArray\(\s*\$argv,(.*?)\n    \);/s;
 ok( $spec, 'the option specification is where it is expected' );
 my %known;
-while ( $spec =~ /'([a-z0-9|_-]+)(?:[=:][si]@?)?!?'/gi ) {
-    $known{$_} = 1 for map { s/_/-/gr } split /\|/, $1;
+while ( $spec =~ /'([a-z0-9|_-]+)(?:[=:][si]@?)?(!)?'/gi ) {
+    my ( $names, $negatable ) = ( $1, $2 );
+    for my $name ( map { s/_/-/gr } split /\|/, $names ) {
+        $known{$name} = 1;
+
+        # Getopt::Long's own convention for a spec ending in "!": one name
+        # in the source, two on the command line - --watch and --no-watch
+        # both come from 'watch!'. A catalogue line documenting --no-watch
+        # is documenting the real flag, and this is what makes that visible
+        # rather than reading as an option the parser was never told about.
+        $known{"no-$name"} = 1 if $negatable;
+    }
 }
 ok( scalar keys %known > 40, 'and it declares a full set of options' );
 $known{$_} = 1 for qw(o);
 
+# A pipe stops the capture, so an example does not bleed into a following
+# inline-code span or a markdown table cell. That same character is also how
+# the catalogue writes a flag's value alternatives - "--result
+# pass|fail|blocked" - with no space on either side of it, unlike a table
+# pipe, which always has one. So a pipe only stops the capture where it looks
+# like a table cell boundary (whitespace beside it); one sitting tight between
+# two words is read as part of the value it is inside.
+#
+# Found rather than assumed: gate.add's own catalogue line reads
+# "--result pass|fail|blocked --details TEXT ...", and stopping at the first
+# pipe silently dropped --details from what was actually tested - invisible
+# while gate.add did not yet check for it, and exposed the moment TKT-408
+# added the check. The catalogue line was correct the whole time; only the
+# extraction was truncating it. TKT-408.
 my @examples;
 for my $file (qw(SKILLS.md docs/commands.md)) {
     my $body = slurp($file);
-    while ( $body =~ /((?:dashboard |d2 )?tira\.[a-z.]+(?:[^\n`|]*))/g ) {
+    while ( $body =~ /((?:dashboard |d2 )?tira\.[a-z.]+(?:[^\n`]|(?<=\S)\|(?=\S))*)/g ) {
         my $line = $1;
         next if $line !~ /--/;
         push @examples, { file => $file, text => $line };
@@ -126,6 +150,14 @@ for my $example (@examples) {
         push @argv, $flag;
         next if !defined $value;
         $value =~ s/\A"|"\z//g;
+
+        # "pass|fail|blocked" is three alternative values, not one literal
+        # string containing two pipes - the same shape the capture above now
+        # reads across rather than stopping at. A real caller supplies one of
+        # them; the first is as good as any for testing that the command
+        # accepts the flag at all.
+        ($value) = split /\|/, $value, 2 if $value =~ /\A\S+\|\S/;
+
         push @argv, $value;
     }
     my $error = attempt(@argv);

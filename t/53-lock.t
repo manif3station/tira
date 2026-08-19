@@ -99,7 +99,7 @@ my ( %during, $watching, $comment, $item );
         [ comment_update => sub { $tira->comment_update( %common, comment => $comment->{id}, text => 'Edited' ) } ],
         [ checklist_add => sub { $item = $tira->checklist_add( %common, item => 'A step', status => 'Open' ) } ],
         [ checklist_update => sub { $tira->checklist_update( %common, id => $item->{id}, status => 'Done' ) } ],
-        [ gate_add => sub { $tira->gate_add( %common, gate => 'Review', result => 'pass' ) } ],
+        [ gate_add => sub { $tira->gate_add( %common, gate => 'Review', result => 'pass', details => 'Looked over' ) } ],
         [ evidence_add => sub { $tira->evidence_add( %common, summary => 'Proof' ) } ],
         [ comment_remove => sub { $tira->comment_remove( %common, comment => $comment->{id} ) } ],
     ) {

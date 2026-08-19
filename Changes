@@ -1,5 +1,22 @@
 Revision history for Tira
 
+2.93  2026-08-19
+
+    - TKT-426. A card could be moved to any column regardless of
+      position - backlog straight to done, document straight to push.
+      column-skipped already reported this after the fact, asynchronously,
+      and moved nothing; the owner asked for the move command itself to
+      refuse the jump.
+
+    - tira.<type>.move now refuses (non-zero exit, naming the card, the
+      attempted destination, the correct next column, and a command to
+      run instead) when the destination skips ahead of the board's
+      declared column order. Backward moves and moves to discard are
+      always exempt. Enforced only on the CLI/agent command path - a
+      move made from the browser dashboard is unrestricted, by design:
+      the check lives in the CLI dispatch layer, which the dashboard's
+      own move provider never passes through.
+
 2.92  2026-08-19
 
     - TKT-423. tira.police.outstanding read whatever the background

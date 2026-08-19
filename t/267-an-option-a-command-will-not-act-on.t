@@ -195,8 +195,9 @@ my $card = $tira->create_record( project => $root, type => 'ticket',
     local *Tira::card_fields = sub { return [] };
 
     my ( $status, $said ) = run( 'ticket.move', '--ref', $card->{ref},
-        '--column', 'done', '--assignee', 'claude' );
-    is( $status, 0, 'with nothing derived, the move accepts the option again' );
+        '--column', 'implement', '--assignee', 'claude' );
+    is( $status, 0, 'with nothing derived, the move accepts the option again' )
+      or diag($said);
 
     my $after = $tira->record_show( project => $root, ref => $card->{ref} );
     is( $after->{assignee}, undef,

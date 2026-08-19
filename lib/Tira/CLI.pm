@@ -1749,6 +1749,34 @@ sub _journal_identity {
     };
 }
 
+# Whether a move would skip ahead in the board's own declared column order.
+# Returns a refusal message naming the correct next column, or undef when the
+# move is fine - backward (redoing work after a step back), sideways to the
+# same column, or into discard, which is always exempt regardless of
+# position: abandoning work is not skipping it. Measured against the owner's
+# own example: chain backlog -> planning -> doc -> code, a move straight from
+# backlog to code refuses naming planning. TKT-426.
+sub _column_chain_violation {
+    my ( $tira, %args ) = @_;
+    return undef if ( $args{column} // '' ) eq 'discard';
+    my $current = eval { $tira->record_show(%args) };
+    return undef if !$current;
+    my $from = $current->{column};
+    return undef if !defined $from || $from eq ( $args{column} // '' );
+    my $columns = eval { $tira->column_list(%args) };
+    return undef if ref $columns ne 'ARRAY';
+    my %index;
+    my $i = 0;
+    for my $col ( @{$columns} ) { $index{ $col->{name} } = $i++; }
+    return undef if !exists $index{$from} || !exists $index{ $args{column} };
+    my $from_idx = $index{$from};
+    my $to_idx   = $index{ $args{column} };
+    return undef if $to_idx <= $from_idx + 1;
+    my $next_name = $columns->[ $from_idx + 1 ]{name};
+    return "Cannot move $args{ref} to $args{column} - the next column should be $next_name.\n"
+      . "  Move there first:  d2 tira.$args{type}.move --ref $args{ref} --column $next_name\n";
+}
+
 sub _invoke {
     my ( $tira, $command, $record_type, $option ) = @_;
     # Who is running this, said once in the environment rather than remembered
@@ -2157,7 +2185,18 @@ sub _invoke {
         return $tira->record_show(%args) if $action eq 'show';
         return $tira->record_list(%args) if $action eq 'list';
         return $tira->record_update(%args) if $action eq 'update';
-        return $tira->record_move(%args) if $action eq 'move';
+        if ( $action eq 'move' ) {
+
+            # The CLI/agent path only - checked here, in the dispatch layer,
+            # rather than inside record_move itself, so a direct engine call
+            # (the browser dashboard's own move provider in browser_providers
+            # calls record_move directly, never through here) is untouched.
+            # The owner's own instruction: a human on the dashboard is not an
+            # agent skipping a gate. TKT-426.
+            my $blocked = _column_chain_violation( $tira, %args );
+            die $blocked if defined $blocked;
+            return $tira->record_move(%args);
+        }
         return $tira->record_discard(%args) if $action eq 'discard';
         return $tira->record_restore(%args) if $action eq 'restore';
         return $tira->record_clone(%args);

@@ -1124,6 +1124,8 @@ without revealing or creating a storage location.
 ### UC-054: Move ticket
 **Implemented.** `dashboard tira.ticket.move --ref TKT-001 --column in-progress`. Every move, like every field edit, is journaled: `dashboard tira.history.list --ref TKT-001 --field column -o json` returns that card's column timeline, and `--field title` or any other field returns its own, with the value before and after each change.
 
+A move that skips ahead of the board's declared column order refuses - `d2 tira.ticket.move --ref TKT-001 --column done` from `backlog` on a board declaring `backlog, planning, doc, code, done` exits non-zero naming the correct next column (`planning`) and a command to run instead. Backward moves (redoing work after a step back) and moves to `discard` are always exempt. This check runs only on the CLI/agent command path - a move made from the browser dashboard is unrestricted, since a human there is not an agent skipping a gate. TKT-426.
+
 ### UC-055: Move epic independently
 **Implemented.** Moving an epic does not move its tickets.
 

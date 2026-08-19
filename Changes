@@ -1,5 +1,26 @@
 Revision history for Tira
 
+2.79  2026-08-19
+
+    - TKT-409. column.list required --type and answered for one record kind
+      only, silently - the same shape TKT-342 fixed for column.endings. A
+      column name is really three separate columns underneath, and checking
+      only one used to read as an answer about all three.
+
+    - Measured cost (TKT-331): a board silenced --type ticket for a column
+      via --no-watch; an epic sitting in the SAME COLUMN NAME kept reading
+      watched=1 and correctly fired checklist-unmoved - not a bug, but
+      invisible from a single column.list call, which read as the rule
+      ignoring --no-watch rather than as one type's answer being mistaken
+      for the whole board's.
+
+    - column_list now follows the precedent column_roles and
+      column_endings already set for the identical "no --type given"
+      ambiguity: naming a type still returns the unchanged flat array;
+      omitting it returns a hash keyed by sow, epic and ticket, so a
+      column's settings across all three record kinds are visible in one
+      read.
+
 2.78  2026-08-19
 
     - TKT-408. gate.add's own usage line lists --gate and --details as

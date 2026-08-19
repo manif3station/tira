@@ -1794,7 +1794,7 @@ opens it on that board, and `tira.dashboard` opens it on the default one.
 
 - `tira.column.add --type TYPE --name SLUG [--label TEXT] [--after SLUG|--before SLUG] [-o FORMAT]`
 - `tira.column.apply --type TYPE --columns-json JSON [-o FORMAT]`
-- `tira.column.list --type TYPE [-o FORMAT]`
+- `tira.column.list [--type TYPE] [-o FORMAT]` — naming `--type` returns that type's columns, unchanged; omitting it returns a hash keyed by `sow`, `epic` and `ticket`, so a column's settings across all three record kinds are visible in one call rather than three. A column name is really three separate columns underneath, and checking only one used to read as an answer about all of them.
 - `tira.column.remove --type TYPE --name SLUG [-o FORMAT]`
 - `tira.column.rename --type TYPE --name SLUG --new-name SLUG [--label TEXT] [-o FORMAT]`
 - `tira.column.reorder --type TYPE --name SLUG (--after SLUG|--before SLUG) [-o FORMAT]`

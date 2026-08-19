@@ -341,7 +341,7 @@ All are **Implemented.** and require `--type sow|epic|ticket`:
 
 ```text
 tira.board.show --type TYPE [-o FORMAT]
-tira.column.list --type TYPE [-o FORMAT]
+tira.column.list [--type TYPE] [-o FORMAT]
 tira.column.add --type TYPE --name SLUG [--label TEXT] [--after SLUG|--before SLUG] [-o FORMAT]
 tira.column.rename --type TYPE --name SLUG --new-name SLUG [--label TEXT] [-o FORMAT]
 tira.column.reorder --type TYPE --name SLUG (--after SLUG|--before SLUG) [-o FORMAT]

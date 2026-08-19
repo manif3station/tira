@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.78';
+our $VERSION = '2.79';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1276,8 +1276,23 @@ sub _valid_minutes {
     return 0 + $value;
 }
 
+# A column name is really three separate columns underneath, one per record
+# kind, and asking without naming one used to refuse outright - so a caller
+# checking whether a column was silenced had to call this three times and
+# compare by hand, or check one type and believe the answer covered all
+# three. Measured: a board silenced --type ticket for a column; an epic
+# sitting in the same column name kept firing checklist-unmoved correctly,
+# invisible from a single column.list call. column_roles and column_endings
+# already answer this identical "no --type given" ambiguity with a hash
+# keyed by all three types; this follows the same precedent. TKT-409.
 sub column_list {
     my ( $self, %args ) = @_;
+
+    if ( !defined $args{type} || $args{type} eq '' ) {
+        my $root = $self->discover_project(%args);
+        return { map { $_ => $self->column_list( project => $root, type => $_ ) }
+              qw(sow epic ticket) };
+    }
     my ( undef, $config ) = $self->_board_data(%args);
     return _column_defaults( $config->{columns} );
 }

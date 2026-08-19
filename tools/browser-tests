@@ -272,7 +272,7 @@ serving=$!
 # like the test failing rather than the board not being up yet.
 up=""
 for _ in $(seq 1 60); do
-    if curl -fsS -o /dev/null -m 2 "http://127.0.0.1:$port/"; then up=yes; break; fi
+    if curl -fs -o /dev/null -m 2 "http://127.0.0.1:$port/"; then up=yes; break; fi
     kill -0 "$serving" 2>/dev/null || break
     sleep 1
 done
@@ -348,7 +348,7 @@ TIRA_HOME="$browser_board" perl -I"$root/lib" "$root/cli/dashboard" \
     -o "browser=127.0.0.1:$browser_port" >"$scratch/browser-board.log" 2>&1 &
 browsing=$!
 for _ in $(seq 1 60); do
-    curl -fsS -o /dev/null -m 2 "http://127.0.0.1:$browser_port/" && break
+    curl -fs -o /dev/null -m 2 "http://127.0.0.1:$browser_port/" && break
     kill -0 "$browsing" 2>/dev/null || break
     sleep 1
 done
@@ -382,7 +382,7 @@ TIRA_HOME="$priority_board" perl -I"$root/lib" "$root/cli/dashboard" \
     -o "browser=127.0.0.1:$priority_port" >"$scratch/priority-board.log" 2>&1 &
 prioritising=$!
 for _ in $(seq 1 60); do
-    curl -fsS -o /dev/null -m 2 "http://127.0.0.1:$priority_port/" && break
+    curl -fs -o /dev/null -m 2 "http://127.0.0.1:$priority_port/" && break
     kill -0 "$prioritising" 2>/dev/null || break
     sleep 1
 done

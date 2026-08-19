@@ -1,5 +1,24 @@
 Revision history for Tira
 
+2.85  2026-08-19
+
+    - TKT-370 (Hourly Enhancement Hunter). tools/browser-tests polled the
+      three boards it starts with curl -fsS in retry loops, waiting for
+      each server to come up. -S forces curl to print its error even in
+      silent mode, so every retry before a server was ready printed
+      "curl: (7) Failed to connect to 127.0.0.1 port NNNN after 0 ms:
+      Couldn't connect to server" into the push log - noise indistinguishable
+      from a real failure. Confirmed in every push this session: TKT-362,
+      TKT-413, TKT-415, TKT-416 and TKT-417 all printed exactly this on a
+      server that came up correctly a moment later.
+
+    - The three retry-loop calls changed from -fsS to -fs; the eight
+      single-shot calls elsewhere in the same file, where a failure is
+      genuine and already handled by its own die/exit block, keep -fsS.
+      t/290 runs curl against a closed port to show the real difference
+      between the two flags, and reads the three retry call sites from
+      source to confirm none of them still forces the noise.
+
 2.84  2026-08-19
 
     - TKT-417 (Hourly Bug Hunter). TKT-409 (2.80) changed column_list so

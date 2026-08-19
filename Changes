@@ -1,5 +1,24 @@
 Revision history for Tira
 
+2.81  2026-08-19
+
+    - TKT-413 (Hourly Bug Hunter). SKILLS.md's use-cases heading has read
+      "## 100 use cases" since the file's own foundation commit, 2026-08-05
+      - git log -S"## 100 use cases" finds exactly that one commit. The
+      catalogue grew to 137 real use cases across 336 commits and every
+      release since, and the heading never moved: a 37 percent undercount
+      nothing ever checked, because nothing ever read the heading's own
+      number back against the count the suite already computes beside it.
+
+    - Fixed the heading to 137, and replaced three independent hardcoded
+      literals in t/03-metadata.t (the "137 use cases" section-name
+      string, the exact-count assertion, and the UC-001..UC-137 range)
+      with one self-checking assertion: the heading's number is read out
+      of SKILLS.md and compared against the live UC count, so the next
+      use case added without updating the heading fails the suite the
+      same way an undocumented policy rule already does - the same fix
+      already applied to the "N rules cover" claim three lines below it.
+
 2.80  2026-08-19
 
     - TKT-362. Creating a record and parenting it were two commands, so

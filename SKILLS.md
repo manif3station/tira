@@ -956,7 +956,7 @@ usable at phone width.
 The visible last-updated time advances only after fresh data is applied. Stop
 the foreground server with Ctrl-C.
 
-## 100 use cases
+## 137 use cases
 
 Every case below is implemented and executable.
 

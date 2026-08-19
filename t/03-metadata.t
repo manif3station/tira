@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=2\.80$/m, '.env stores the version being released' );
+like( $env_text, qr/^VERSION=2\.81$/m, '.env stores the version being released' );
 
 # Read out of .env rather than matched against it, so the module can be
 # compared with what .env actually holds rather than with a literal that
@@ -36,17 +36,31 @@ close $skills;
 for my $section (
     'Availability legend', 'Global invocation grammar', 'Argument precedence',
     'Command catalogue', 'Record field arguments', 'Exit status contract',
-    'Concurrency and transaction semantics', '100 use cases',
+    'Concurrency and transaction semantics',
 ) {
     like( $skills_text, qr/^## \Q$section\E$/m, "SKILLS.md contains $section" );
 }
+
+# The use-cases heading names its own count, and that number is a claim
+# rather than a title - checked here against the same count it names,
+# instead of a second hardcoded literal that would only reproduce the bug
+# this guards. A literal number in this list drifted for 336 commits before
+# TKT-413: git log -S"## 100 use cases" -- SKILLS.md finds exactly one
+# commit, the file's own foundation, 2026-08-05. The catalogue grew from 100
+# to 137 real use cases and the heading never moved, because nothing ever
+# read its number back.
+my ($heading_claim) = $skills_text =~ /^## (\d+) use cases$/m;
+ok( defined $heading_claim, 'SKILLS.md contains a use-cases section' );
 my @use_cases = $skills_text =~ /^### UC-\d{3}:/mg;
-is( scalar @use_cases, 137, 'SKILLS.md contains exactly 137 numbered use cases' );
+cmp_ok( scalar @use_cases, '>=', 100, 'and there are use cases to count' );
+is( $heading_claim, scalar @use_cases,
+    'and the heading names how many there really are' );
 my %seen;
 while ( $skills_text =~ /^### UC-(\d{3}):/mg ) {
     $seen{$1}++;
 }
-is_deeply( [ sort keys %seen ], [ map { sprintf '%03d', $_ } 1 .. 137 ], 'use cases are numbered UC-001 through UC-137' );
+is_deeply( [ sort keys %seen ], [ map { sprintf '%03d', $_ } 1 .. scalar @use_cases ],
+    'use cases are numbered UC-001 through the count above, with no gap or duplicate' );
 unlike( $skills_text, qr{/home/[A-Za-z0-9._-]+/}, 'SKILLS.md contains no hard-coded home-directory path' );
 unlike( $skills_text, qr/--project|TIRA_HOME|\.tira\/|project selector/i, 'SKILLS.md does not disclose project location or selectors' );
 
@@ -59,7 +73,7 @@ use Tira;
 # the same literal, so they agreed only through a third party. Changing one
 # literal and not the other was caught by luck rather than by this.
 is( $Tira::VERSION, $env_version, 'module version matches .env, which is now read' );
-is( $Tira::VERSION, '2.80', 'and the release being made is the one intended' );
+is( $Tira::VERSION, '2.81', 'and the release being made is the one intended' );
 
 # And the changelog, which nothing checked. .env, the module and this file
 # agreed with each other for two releases while Changes named a version one

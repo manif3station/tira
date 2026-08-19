@@ -1,5 +1,25 @@
 Revision history for Tira
 
+2.82  2026-08-19
+
+    - TKT-415 (Hourly Enhancement Hunter). tools/gate-run and its cache
+      exist (TKT-351) so a push can trust a suite already proved instead
+      of running it again, and nothing outside the script's own header and
+      the pre-push hook's own comments ever said so. Verifying a change
+      the ordinary way - a manual docker prove-and-cover run, to watch a
+      red test turn green - never warms that cache.
+
+    - Measured this session, twice, twelve minutes apart, on one release:
+      a manual verification run reported 783 wallclock seconds, and the
+      push that followed re-ran the identical suite against the identical
+      commit, because nothing had recorded a pass for that tree.
+
+    - README.md's Verification section now documents tools/gate-run:
+      what it does, that it requires a clean tree, and where it sits
+      between committing and pushing - guarded by a test that checks the
+      guidance against what the script actually requires, so it cannot
+      drift the way TKT-413's heading did.
+
 2.81  2026-08-19
 
     - TKT-413 (Hourly Bug Hunter). SKILLS.md's use-cases heading has read

@@ -257,6 +257,15 @@ docker compose -f ~/projects/skills/docker-compose.testing.yml run --rm perl-tes
 The release gate requires 100% statement and subroutine coverage plus the
 post-coverage `perlsec` and taint-mode audit recorded in `tickets/TESTING.md`.
 
+Once a change is committed and the tree is clean, run `tools/gate-run`
+before `git push`. It runs the exact suite-and-coverage step the push hook
+runs, against a checkout of the commit about to be pushed, and records a
+pass keyed to that commit's tree so the push hook can trust it instead of
+running the identical suite again. Verifying a change by hand first - the
+`docker compose run` above, to watch a red test turn green - does not warm
+that cache, so a push straight after still pays for the full suite once
+more; `tools/gate-run` is what avoids that second run.
+
 ## License
 
 Tira is released under the MIT License. See [LICENSE](LICENSE).

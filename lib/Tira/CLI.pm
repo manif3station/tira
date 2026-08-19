@@ -3587,12 +3587,39 @@ my %RECORD_USAGE = (
 my %NEEDS_TYPE = map { $_ => 1 }
   qw(board.refs board.show column.list column.sync column.update);
 
+# SKILLS.md carries a full usage line for every command it documents - the
+# same catalogue docs-match-code already holds every shipped command to - and
+# it says more than the bare "[options]" _usage() answered with on its own.
+# Read once and cached, relative to this module's own file rather than to
+# whichever cli/ script happens to be running, so the answer does not depend
+# on how the command was reached. TKT-343.
+my $SKILLS_TEXT;
+
+sub _skills_usage_line {
+    my ($command) = @_;
+    if ( !defined $SKILLS_TEXT ) {
+        my $path = File::Spec->catfile( dirname(__FILE__), '..', '..', 'SKILLS.md' );
+        local $/;
+        if ( open my $fh, '<:raw', $path ) {
+            $SKILLS_TEXT = <$fh>;
+            close $fh;
+        }
+        $SKILLS_TEXT //= '';
+    }
+    my ($rest) = $SKILLS_TEXT =~ /^tira\.\Q$command\E\s+(\S.*)$/m;
+    return $rest;
+}
+
 sub _usage {
     my ( $command, $type ) = @_;
     return "Usage: dashboard tira.project.create --name NAME [--dir DIR] [-o toon|json|human]\n"
       if $command eq 'project.create';
-    return "Usage: dashboard tira.$command --type ticket|epic|sow [options] [-o toon|json|human]\n"
-      if $NEEDS_TYPE{ $command // '' };
+
+    if ( $NEEDS_TYPE{ $command // '' } ) {
+        my $known = _skills_usage_line($command);
+        return "Usage: dashboard tira.$command $known\n" if defined $known;
+        return "Usage: dashboard tira.$command --type ticket|epic|sow [options] [-o toon|json|human]\n";
+    }
 
     if ( defined $type ) {
         my ($verb) = ( $command // '' ) =~ /\.([a-z]+)\z/;
@@ -3606,6 +3633,8 @@ sub _usage {
           . " [options] [-o toon|json|human]\n";
     }
 
+    my $known = _skills_usage_line($command);
+    return "Usage: dashboard tira.$command $known\n" if defined $known;
     return "Usage: dashboard tira.$command [options] [-o toon|json|human]\n";
 }
 

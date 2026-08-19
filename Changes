@@ -1,5 +1,30 @@
 Revision history for Tira
 
+2.76  2026-08-19
+
+    - TKT-343. --help for any command outside the hand-fixed record-verb
+      branch (create/show/list/update/move/clone/discard/restore) printed
+      the literal word "[options]" with none listed - measured across
+      link.add, column.add, checklist.add, evidence.add, gate.add, and
+      column.update in one evening, each costing a failed first attempt
+      before the real requirement was learned from the refusal message
+      instead.
+
+    - SKILLS.md already carries the full, concrete usage line for every one
+      of these - the same catalogue docs-match-code already holds every
+      shipped command to. _usage() in lib/Tira/CLI.pm never read it,
+      building a second, much thinner answer instead - two copies of "what
+      does this command take", one of them nearly empty.
+
+    - _usage() now looks up the real line from SKILLS.md before falling
+      back to the old placeholder, so nothing is hand-duplicated: a command
+      documented there answers with what it actually takes, and a command
+      genuinely missing from the catalogue fails no differently than it did
+      before. The record-verb branch (TKT-235, a harder bug already fixed)
+      and its "[record field arguments]" shorthand - which matches SKILLS.md's
+      own convention rather than hiding something SKILLS.md spells out - are
+      untouched.
+
 2.75  2026-08-19
 
     - TKT-397. The pre-push browser gate leaked a Starman dashboard server on

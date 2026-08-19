@@ -1,5 +1,21 @@
 Revision history for Tira
 
+2.91  2026-08-19
+
+    - TKT-368. An explicitly named board was silently overridden by the
+      working directory, with no warning and no difference in the
+      output: from two directories that themselves sat inside another
+      Tira project, an identical selector resolved to that project
+      instead of the one named. It caused real damage once, unnoticed
+      until police reported the resulting orphan card - a rule was
+      turned unwatched and a stray card was created on the wrong board.
+
+    - discover_project now cross-checks an explicit selector's resolved
+      board against what the working directory would find on its own,
+      and refuses - naming both - when they disagree, rather than
+      silently trusting either guess. Unaffected when the working
+      directory is not itself a board, or agrees with the one named.
+
 2.90  2026-08-19
 
     - TKT-422. agent-still sent an identical Telegram message on every

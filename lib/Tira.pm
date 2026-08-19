@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.90';
+our $VERSION = '2.91';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -437,13 +437,39 @@ sub discover_project {
     die $@ if !defined $path;
     $path = dirname($path) if -f $path;
 
+    my $found = $self->_walk_up_for_project($path);
+    die "No Tira project found from '" . ( $used_alias ? $selector : $candidate ) . "'\n"
+      if !defined $found;
+    return $found if !$used_alias;
+
+    # An explicit selector was given, so the working directory should not
+    # matter - TKT-250's whole point. But the selector is resolved by a
+    # name-to-path lookup this project does not own, and TKT-368 measured it
+    # changing its answer for the identical name depending only on the
+    # working directory: from inside the tree holding another Tira project it
+    # returned that project instead of the one named, silently, and a command
+    # run that way did real damage before anybody noticed. Unable to make the
+    # lookup ignore the working directory, this checks its answer against
+    # what the working directory would have found on its own and refuses
+    # rather than trusting either guess when they disagree.
+    my $from_cwd = eval {
+        $self->_walk_up_for_project(
+            $self->_canonical_path( $args{start} // Cwd::cwd(), 'the working directory' ) );
+    };
+    die "The named board resolves to $found, but the working directory's own "
+      . "board is $from_cwd - say which one you mean.\n"
+      if defined $from_cwd && $from_cwd ne $found;
+    return $found;
+}
+
+sub _walk_up_for_project {
+    my ( $self, $path ) = @_;
     while (1) {
         return $path if -f File::Spec->catfile( $path, '.tira', 'project.yml' );
         my $parent = dirname($path);
-        last if $parent eq $path;
+        return undef if $parent eq $path;
         $path = $parent;
     }
-    die "No Tira project found from '" . ( $used_alias ? $selector : $candidate ) . "'\n";
 }
 
 sub create_record {

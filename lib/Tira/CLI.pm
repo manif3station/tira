@@ -2160,6 +2160,25 @@ sub _invoke {
     }
     if ( $command eq 'record.create' ) {
 
+        # A card created directly into implement, or verify, or done never
+        # needs the move TKT-426's chain check would refuse - reusing the
+        # existing column-roles vocabulary ('which column is the backlog' is
+        # already a role every board can answer) rather than a new mechanism.
+        # Checked here, in the dispatch layer, so create_record itself - and
+        # the dashboard's own create flow, which calls it directly - is
+        # untouched. TKT-428.
+        my $entry = eval { $tira->column_roles(%args) }->{entry};
+        if ( defined $entry && $entry ne '' ) {
+            if ( defined $args{column} && $args{column} ne '' ) {
+                die "Cannot create $args{type} in $args{column} - the entry column is $entry.\n"
+                  . "  Create there instead:  d2 tira.$args{type}.create --title TITLE --column $entry\n"
+                  if $args{column} ne $entry;
+            }
+            else {
+                $args{column} = $entry;
+            }
+        }
+
         # The record itself stays exactly what is stored - an agent can trust
         # that what it holds is what is on disk. The advice about it belongs to
         # the layer that talks to agents, not to the data.

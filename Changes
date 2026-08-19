@@ -1,5 +1,21 @@
 Revision history for Tira
 
+2.96  2026-08-19
+
+    - TKT-428. create_record accepts any --column, validated only for
+      existing, not for being the board's intended starting point - a
+      card created directly into implement, or verify, or done never
+      needed the move TKT-426's chain check would otherwise refuse.
+
+    - A board can now declare an entry role (tira.column.roles --role
+      entry=COLUMN, reusing the existing column-roles vocabulary rather
+      than a new mechanism). tira.<type>.create then refuses any
+      --column other than the entry column, naming it, and defaults to
+      it when --column is omitted. A board that names no entry role is
+      unaffected. Enforced on the CLI/agent command path only - a
+      direct engine call, the browser dashboard's own create flow, is
+      untouched.
+
 2.95  2026-08-19
 
     - TKT-427. A card's checklist item was always just a suggestion:

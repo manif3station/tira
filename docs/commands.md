@@ -1213,14 +1213,20 @@ surprise, so it is refused, and the refusal is a command that can be run as it
 stands rather than the name of an argument.
 
 The vocabulary is the project's own; Tira matches a role without needing to
-understand it - with one exception, named here rather than left to be
+understand it - with two exceptions, named here rather than left to be
 discovered. **`done` is read by Tira itself**: `parent-ahead-of-children` asks
 which column means finished, and says so out loud when no board has told it -
 "cannot tell which column means finished on this board. Say so once:
-tira.column.roles --type ticket --role done=COLUMN". Every other role, including
-`in-progress`, is matched rather than understood: a policy can name one with
-`--enter-role`, `--before-role` or `--column-role`, and Tira never reads it on
-its own account.
+tira.column.roles --type ticket --role done=COLUMN". **`entry` is read by
+`tira.<type>.create`**: once declared, `--column` naming anything else refuses,
+and omitting `--column` lands the card in the entry column rather than the
+fixed `backlog` default - closing the bypass TKT-426's chain check leaves open,
+a card started directly where the chain check would otherwise refuse it to
+move. CLI/agent path only; the browser dashboard's create flow is unaffected.
+A board that names no `entry` role is unaffected too. TKT-428. Every other
+role, including `in-progress`, is matched rather than understood: a policy can
+name one with `--enter-role`, `--before-role` or `--column-role`, and Tira
+never reads it on its own account.
 
 Until 1.97 `in-progress` was a second exception and a silent one. Whether any
 card was being worked - which `work-without-card` rests on - counted only cards

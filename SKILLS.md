@@ -985,6 +985,8 @@ Every case below is implemented and executable.
 ### UC-008: Create a ticket
 **Implemented.** `dashboard tira.ticket.create --title "Login"`. The live board offers the same thing without the CLI: an add-card control on every column opens the dialog with an empty form, assigns the reference on save, and requires only a title.
 
+A board can declare which column is the valid starting point for new cards - `d2 tira.column.roles --type ticket --role entry=planning` - reusing the existing column-roles vocabulary rather than a new setting. Once declared, `--column` other than the entry column refuses (naming the entry column and a command to run instead), and omitting `--column` lands the card there instead of the fixed `backlog` default. A board that has named no entry role is unaffected. This closes the bypass TKT-426's chain check leaves open: a card created directly into `implement` or `done` never needs the move the chain check would otherwise refuse. Checked only on the CLI/agent command path - the browser dashboard's own create flow, and any direct engine call, is unrestricted. TKT-428.
+
 ### UC-009: Add a description
 **Implemented.** `dashboard tira.ticket.create --title "Docs" --description "## Goal"`.
 

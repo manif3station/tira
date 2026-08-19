@@ -1822,6 +1822,7 @@ opens it on that board, and `tira.dashboard` opens it on the default one.
 
 - `tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]`
 - `tira.gate.list --ref REF [--last N|--first N] [--id GATE-NNN] [--meta-only] [--where CLAUSE ...] [--count] [-o FORMAT]`
+- `tira.release.record --ref REF --gate TEXT --result pass|fail|blocked --details TEXT --evidence TEXT --fix-version VERSION [-o FORMAT]` - one command for the gate entry, evidence entry and fix version a passed release needs; refuses rather than defaults on anything missing, and never moves a column. TKT-345.
 
 
 ### Hierarchy

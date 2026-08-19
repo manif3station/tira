@@ -784,6 +784,7 @@ tira.gate.list --ref REF [--last N|--first N] [--id GATE-NNN] [--meta-only] [--w
 tira.history.list --ref REF [--field NAME] [--last N|--first N] [--since TIMESTAMP] [--where CLAUSE ...] [--count] [--truncate N|--full] [-o FORMAT]
 tira.gate.add --ref REF --gate TEXT --result pass|fail|blocked --details TEXT [--author ID] [-o FORMAT]
 tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]
+tira.release.record --ref REF --gate TEXT --result pass|fail|blocked --details TEXT --evidence TEXT --fix-version VERSION [-o FORMAT]
 tira.export [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--count] [--brief] [--truncate N|--full] [--where CLAUSE ...] [-o FORMAT]
 tira.diff (--since TIMESTAMP|--snapshot FILE) [--type TYPE] [--fields LIST] [--count] [-o FORMAT]
 tira.stale [--type TYPE] [--stale] [--with-level] [--older-than MINUTES] [-o FORMAT]
@@ -956,7 +957,7 @@ usable at phone width.
 The visible last-updated time advances only after fresh data is applied. Stop
 the foreground server with Ctrl-C.
 
-## 137 use cases
+## 138 use cases
 
 Every case below is implemented and executable.
 
@@ -1149,6 +1150,9 @@ without revealing or creating a storage location.
 
 ### UC-137: Create a record already parented
 **Implemented.** `dashboard tira.ticket.create --title "Login" --parent EPC-001` creates the ticket and links it under EPC-001 in one command, applying the same hierarchy validation `hierarchy.link` applies - the record was created parentless and given a parent by a second command before this, which meant it was an orphan in between and this project's own board had 1361 findings to show for it. An invalid hierarchy (a ticket parented straight to a SOW, or a parent that does not exist) fails the whole creation: nothing is left behind for `--parent` to have half-worked on. `--parent` is still refused on `tira.<type>.update` with the same message as before - naming `hierarchy.link` and the ref to run it with - because accepting it there and silently doing nothing is a worse failure than a refusal. TKT-362.
+
+### UC-138: Record a passed gate in one command
+**Implemented.** `dashboard tira.release.record --ref TKT-001 --gate "Release gate" --result pass --details "Suite green, 100% coverage" --evidence "Full suite run, 6540 tests" --fix-version 2.88` writes a gate entry, an evidence entry and the fix version together - the three separate calls (`gate.add`, `evidence.add`, `<type>.update --fix-version`) this project's own releases ran on every one of them, and forgot part of three times, each caught only by a later refusal. Anything it is not told is refused rather than defaulted: omit `--fix-version` and nothing is written, not even the gate the same call also carried. Column moves are deliberately untouched - walking the gates a card passes through stays manual, because that is the discipline the push gate enforces rather than paperwork a verb should shortcut. `gate.add`, `evidence.add` and `<type>.update --fix-version` keep working exactly as they always have. TKT-345.
 
 ### UC-063: Reparent epic
 **Implemented.** Linking to SOW-002 removes the reciprocal SOW-001 link atomically.

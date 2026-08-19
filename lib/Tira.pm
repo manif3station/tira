@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.88';
+our $VERSION = '2.89';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -3653,6 +3653,46 @@ sub gate_add {
 sub gate_annotate {
     my ( $self, %args ) = @_;
     return $self->_annotate_log( %args, field => 'gate_passing_log', label => 'Gate' );
+}
+
+# What a passed gate takes to record, in one command instead of the three
+# calls (gate.add, evidence.add, <type>.update --fix-version) this project's
+# own history shows repeated on every release - and forgotten in parts of it
+# three times, each caught only by a later refusal. TKT-345.
+#
+# Column moves are deliberately untouched: walking the gates a card passes
+# through is the discipline this project's own push gate enforces, and a
+# verb that skipped columns to reach done would be the shortcut TKT-345
+# itself warns against, not the fix for it.
+#
+# Not wrapped in its own project lock - gate_add, evidence_add and
+# record_update each take one already, and _with_project_lock is not
+# reentrant. Each call below validates everything it needs before writing
+# anything, so a call missing what it needs is refused before this one is
+# reached, the same discipline create_record's own --parent link follows.
+sub release_record {
+    my ( $self, %args ) = @_;
+    die "Gate name is required\n" if !defined $args{gate} || $args{gate} eq '';
+    die "Invalid gate result\n" if ( $args{result} // '' ) !~ /\A(?:pass|fail|blocked)\z/;
+    die "Gate details are required\n" if !defined $args{details} || $args{details} eq '';
+    die "Evidence is required\n" if !defined $args{evidence} || $args{evidence} eq '';
+    die "Fix version is required\n" if !defined $args{fix_version} || $args{fix_version} eq '';
+
+    # Passed on individually rather than spread wholesale. record_update
+    # already reads a raw evidence key of its own - a whole-array
+    # replacement used for repair and import - and this command's
+    # --evidence means the summary of one new entry, not that. Spreading
+    # %args into record_update let the two collide silently: the summary
+    # string landed where the evidence array belongs, corrupting it.
+    my %identify = (
+        project => $args{project}, start => $args{start},
+        ref => $args{ref}, type => $args{type}, author => $args{author},
+    );
+    my $gate = $self->gate_add( %identify,
+        gate => $args{gate}, result => $args{result}, details => $args{details} );
+    my $evidence = $self->evidence_add( %identify, summary => $args{evidence} );
+    my $record = $self->record_update( %identify, fix_version => $args{fix_version} );
+    return { gate => $gate, evidence => $evidence, record => $record };
 }
 
 sub checklist_list {

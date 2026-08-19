@@ -1,5 +1,33 @@
 Revision history for Tira
 
+2.89  2026-08-19
+
+    - TKT-345. Recording a passed gate took three separate commands -
+      gate.add, evidence.add, <type>.update --fix-version - on every
+      release this project shipped, and forgetting one of them was caught
+      only by a later refusal: cards have closed with no gate recorded,
+      no fix_version, or evidence added only after the push gate refused
+      it. Measured on five cards shipped 2026-08-17: 30 recording calls
+      where 5 would do.
+
+    - tira.release.record --ref REF --gate NAME --result pass|fail|blocked
+      --details TEXT --evidence TEXT --fix-version VERSION writes all
+      three in one command, refusing rather than defaulting if anything
+      it needs is missing - nothing is written if any piece is absent,
+      not even the gate the same call also carried. Column moves are
+      deliberately untouched; walking the gates a card passes through
+      stays the manual discipline the push gate enforces.
+
+    - Two real gaps found while shipping this: the command needed an
+      actual filesystem entrypoint (skills/release/cli/record) as well as
+      its internal dispatch entry - wiring only the latter left it
+      documented and unrunnable, caught by t/03 and t/172's own "every
+      documented command resolves to something that ships" checks. And
+      passing --evidence straight into record_update collided with that
+      method's own internal evidence key (a whole-array replacement used
+      for repair/import), corrupting the evidence log - caught by the
+      card's own red test before it ever shipped.
+
 2.88  2026-08-19
 
     - TKT-421 (Hourly Bug Hunter). _backfill_added_at wrote a legacy

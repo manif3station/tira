@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.79';
+our $VERSION = '2.80';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -465,7 +465,8 @@ sub create_record {
     my $start_date = $self->_valid_datetime( $args{start_date}, 'Start date' );
     my $board = File::Spec->catdir( $root, '.tira', $type );
 
-    return $self->_with_project_lock(
+    my $column;
+    my $record = $self->_with_project_lock(
         $root,
         sub {
             my $config_path = File::Spec->catfile( $board, 'config.yml' );
@@ -476,7 +477,7 @@ sub create_record {
             # projects in one evening believed their cards were somewhere they
             # had never been. Checked before the counter is touched, so a
             # refusal leaves no gap in the sequence.
-            my $column = 'backlog';
+            $column = 'backlog';
             if ( defined $args{column} && $args{column} ne '' ) {
                 $column = $self->_valid_slug( $args{column} );
                 die "Column '$column' not found\n"
@@ -565,6 +566,26 @@ sub create_record {
             return $record;
         },
     );
+
+    # Linked after the lock above releases, because _with_project_lock is not
+    # reentrant and hierarchy_link takes the same lock. A card raised with an
+    # invalid parent is not raised at all (TKT-362): the whole creation fails,
+    # applying hierarchy_link's own validation, rather than leaving a
+    # parentless record behind for orphan-card to find a moment later.
+    if ( defined $args{parent} && $args{parent} ne '' ) {
+        eval { $self->hierarchy_link( project => $root, parent => $args{parent},
+            child => $record->{ref} ); 1 } or do {
+            my $error = $@ || 'Unknown hierarchy failure';
+            unlink File::Spec->catfile( $board, $column, "$record->{ref}.json" );
+            die $error;
+        };
+
+        # Read back rather than hand-patched, so the returned record is
+        # exactly what hierarchy_link wrote - the same discipline this
+        # project's tests already hold create and update to.
+        ( undef, $record ) = $self->_record_data( project => $root, ref => $record->{ref} );
+    }
+    return $record;
 }
 
 sub project_show {

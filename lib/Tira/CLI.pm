@@ -1799,7 +1799,13 @@ sub _invoke {
     # fixed in seconds; doing the work would be right; answering with a
     # successful record while doing nothing cost this project every ticket's
     # parent and was invisible until somebody looked at a card.
-    if ( defined $option->{parent} && $command =~ /\A(?:record|sow|epic|ticket)\.(?:update|create)\z/ ) {
+    #
+    # create is not refused here any more (TKT-362): at create time there is
+    # no ref yet, so this message's own advice printed the unrunnable
+    # placeholder "<this record>". create_record does the link itself and
+    # applies hierarchy_link's own validation, so a bad parent still fails -
+    # just with a message that names something that exists.
+    if ( defined $option->{parent} && $command =~ /\A(?:record|sow|epic|ticket)\.update\z/ ) {
         my $child = $option->{ref} // '<this record>';
         die "A parent is set with hierarchy.link, not by updating the record:\n"
           . "  tira.hierarchy.link --parent $option->{parent} --child $child\n";

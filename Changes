@@ -1,5 +1,31 @@
 Revision history for Tira
 
+2.80  2026-08-19
+
+    - TKT-362. Creating a record and parenting it were two commands, so
+      every record was an orphan in between - measured at 1361 findings,
+      55 percent of this board's entire violation history, 4x the
+      next-largest category. Fixing one orphan by making it a parent
+      record made the parent an orphan too, until you reached a root.
+
+    - The refusal that told a caller what to do instead could not be
+      followed at create time: it was the message written for update,
+      naming the ref to link with - except at create there is no ref yet,
+      so it printed the literal placeholder "<this record>". Copying it
+      produced "Invalid record type in <this record>".
+
+    - tira.<type>.create now accepts --parent and performs the same link
+      hierarchy.link performs, applying its own hierarchy validation. An
+      invalid hierarchy (a ticket parented straight to a SOW, or a parent
+      that does not exist) fails the whole creation - hierarchy_link runs
+      after create_record's own project lock releases, since the lock is
+      not reentrant, and the just-written record is rolled back if the
+      link fails, so no half-raised card is left behind.
+
+    - tira.<type>.update --parent keeps refusing exactly as before -
+      TKT-012 already established that accepting it there and doing
+      nothing silently is the wrong answer, and this does not touch that.
+
 2.79  2026-08-19
 
     - TKT-409. column.list required --type and answered for one record kind

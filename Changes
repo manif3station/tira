@@ -1,5 +1,21 @@
 Revision history for Tira
 
+2.86  2026-08-19
+
+    - TKT-418 (Hourly Bug Hunter). _usage()'s typed-verb branch answered a
+      command like tira.ticket.list from %RECORD_USAGE alone, never
+      checking SKILLS.md's own catalogue line the way the %NEEDS_TYPE
+      branch already does. Confirmed live on 2.85: --full, --parent and
+      --text all work on tira.<type>.list, and --column works on
+      tira.<type>.create - none of the four appeared in --help.
+
+    - The typed-verb branch now tries _skills_usage_line first - the
+      concrete "type.verb" line, then the generic "<type>.verb" line -
+      falling back to %RECORD_USAGE only when SKILLS.md has neither. A
+      caller who checks --help before using a command, the exact failure
+      class TKT-215 and TKT-240 exist to stop, is no longer told a real,
+      working flag does not exist.
+
 2.85  2026-08-19
 
     - TKT-370 (Hourly Enhancement Hunter). tools/browser-tests polled the

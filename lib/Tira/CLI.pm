@@ -3629,6 +3629,16 @@ sub _usage {
 
     if ( defined $type ) {
         my ($verb) = ( $command // '' ) =~ /\.([a-z]+)\z/;
+
+        # SKILLS.md documents a typed verb two ways - a concrete line per
+        # type ("tira.ticket.create ...") or one generic line for all three
+        # ("tira.<type>.list ...") - and %RECORD_USAGE has drifted from both
+        # without anybody noticing, because this branch never checked either
+        # one. Tried in that order, so a concrete line wins over the generic
+        # placeholder if a command ever carries both. TKT-418.
+        my $known = _skills_usage_line("$type.$verb") // _skills_usage_line("<type>.$verb");
+        return "Usage: dashboard tira.$type.$verb $known\n" if defined $known;
+
         my $takes = $RECORD_USAGE{ $verb // '' };
         return "Usage: dashboard tira.$type.$verb $takes [-o toon|json|human]\n"
           if defined $takes;

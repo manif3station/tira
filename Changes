@@ -1,5 +1,25 @@
 Revision history for Tira
 
+2.83  2026-08-19
+
+    - TKT-416 (Hourly Bug Hunter). docs/POLICIES.md's "## One hundred use
+      cases" heading understated the real count the same way TKT-413's
+      SKILLS.md heading did - the document carries 107 worked examples,
+      not 100, and t/85-policies-doc.t only ever asserted ">= 100" so the
+      drift could not fail the suite as written.
+
+    - Worse than SKILLS.md's version of the bug: a leftover HTML comment,
+      "<!-- 100 use cases -->", repeating the same wrong number was not
+      actually invisible. _policy_help in lib/Tira/CLI.pm returns the
+      file raw with no markdown rendering, so "d2 tira.policies" printed
+      the comment as a literal line of output between worked examples 100
+      and 101 - confirmed live on the installed 2.81.
+
+    - Heading corrected to 107, the stray comment removed, and
+      t/85-policies-doc.t now reads the heading's own number back against
+      the real count and asserts no HTML comment survives in a file that
+      is read raw and printed verbatim.
+
 2.82  2026-08-19
 
     - TKT-415 (Hourly Enhancement Hunter). tools/gate-run and its cache

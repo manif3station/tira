@@ -464,7 +464,7 @@ passing every test they had — the tests handed the engine a world of their own
 A rule that is silent because nothing was looked at is indistinguishable from a
 rule being obeyed. If you write a rule that reads the machine, prove it fires
 by making the condition real, not by describing it to the engine.
-## One hundred use cases
+## 107 use cases
 
 Each is an invented situation and the command that answers it. Find the
 situation that looks like your project; ignore the rest. And read the
@@ -1221,8 +1221,6 @@ d2 tira.policy.add --rule wip-limit --column implement --max 2 --action bridge-r
 ```
 d2 tira.policy.add --rule discard-unexplained --action bridge-reminder
 ```
-
-<!-- 100 use cases -->
 
 ### Dependencies that exist only in the words
 

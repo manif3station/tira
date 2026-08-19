@@ -44,6 +44,22 @@ ok( scalar @numbered >= 100, 'there are at least a hundred use cases' );
 is_deeply( \@numbered, [ 1 .. scalar @numbered ],
     'numbered from one with none missing or repeated' );
 
+# --- the heading's own number is a claim too -------------------------------
+#
+# The same shape TKT-413 fixed in SKILLS.md, found in this sibling document:
+# a stated count never checked against the real one. Measured 2026-08-19: the
+# heading read "One hundred use cases" while the document carried 107
+# numbered examples - and worse than SKILLS.md's version of the bug, a
+# leftover HTML comment repeating the same wrong number was not actually
+# invisible. _policy_help in lib/Tira/CLI.pm returns this file raw, with no
+# markdown rendering, so "d2 tira.policies" printed the comment as a literal
+# line of output between worked examples 100 and 101. TKT-416.
+my ($heading_claim) = $text =~ /^## (\d+) use cases$/m;
+is( $heading_claim, scalar @numbered,
+    'the use-cases heading names how many there really are' );
+unlike( $text, qr/<!--/,
+    'and no HTML comment leaks into a document that is read raw and printed verbatim' );
+
 # --- every rule is shown at least once ------------------------------------
 
 # A rule that exists but appears in no example is a rule nobody will use. A

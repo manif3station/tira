@@ -20,7 +20,7 @@ BEGIN {
 
     package Developer::Dashboard::Config;
     sub new { bless {}, shift }
-    sub path_aliases { return { private_alias => $ENV{DD_TEST_ALIAS_TARGET} } }
+    sub global_path_aliases { return { private_alias => $ENV{DD_TEST_ALIAS_TARGET} } }
     $INC{'Developer/Dashboard/Config.pm'} = __FILE__;
 }
 

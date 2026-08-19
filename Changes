@@ -1,5 +1,28 @@
 Revision history for Tira
 
+2.91  2026-08-19
+
+    - TKT-368. An explicitly named board was silently overridden by the
+      working directory, with no warning: from two directories that
+      themselves held a repo-local .developer-dashboard.json defining
+      the same alias name, that config silently won over the user's
+      global one - the caller asked for the board the alias had always
+      meant and got whichever board happened to be nearest instead. It
+      caused real damage once, unnoticed until police reported the
+      resulting orphan card - a rule was turned unwatched and a stray
+      card created on the wrong board.
+
+    - _dd_path_resolver now reads only the global path_aliases, not the
+      repo-merged ones - a board selector is a stable, user-level idea
+      (TKT-250: one way to name a board, nothing to fall back on), not a
+      project setting a nearby repo should be able to redefine by
+      reusing the same name. A first attempt at this fix (comparing the
+      resolved board against the working directory's own and refusing
+      on disagreement) passed its own test and the full suite but broke
+      tools/browser-tests' own scratch-environment alias pattern - caught
+      by the push gate before it shipped, reverted, and replaced with
+      this narrower fix at the actual mechanism.
+
 2.90  2026-08-19
 
     - TKT-422. agent-still sent an identical Telegram message on every

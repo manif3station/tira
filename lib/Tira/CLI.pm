@@ -661,7 +661,20 @@ sub _dd_path_resolver {
         );
         my $files = Developer::Dashboard::FileRegistry->new( paths => $paths );
         my $config = Developer::Dashboard::Config->new( files => $files, paths => $paths );
-        $paths->register_named_paths( $config->path_aliases );
+
+        # Global aliases only, not path_aliases - which merges in whatever
+        # repo-local .developer-dashboard.json is found by walking up from
+        # the working directory, and a repo-local file can name the same
+        # alias a global one already names. From two directories that
+        # themselves held such a file, the identical name resolved to that
+        # repo's board instead of the one a global alias had always meant -
+        # silently, because config merging does not distinguish "this repo
+        # extends the alias set" from "this repo means something different
+        # by a name already taken". TKT-368. A board selector is a
+        # user-level, stable idea by design (TKT-250: one way to name a
+        # board, nothing to fall back on) - it is not a project setting a
+        # repo should be able to override by merely being nearby.
+        $paths->register_named_paths( $config->global_path_aliases );
         return $paths->resolve_dir($name);
     };
 }

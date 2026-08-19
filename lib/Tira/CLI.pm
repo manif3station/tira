@@ -89,6 +89,17 @@ my %OPTION_READ_BY = (
         instead  => 'the options that set a field - --key-detail, --deliverable,'
           . ' --acceptance, --test-step and the rest the command reference lists',
     },
+
+    # A link an evidence entry carries. Read in exactly one place in the whole
+    # engine, evidence_add - so release.record (TKT-345) accepted --uri,
+    # dropped it, and exited 0 with an evidence entry that looked complete
+    # because the summary was right there. Same shape as sdlc_gate and
+    # comment above: TKT-431.
+    uri => {
+        flag     => 'uri',
+        commands => qr/\Aevidence\.add\z/,
+        instead  => 'tira.evidence.add --ref REF --summary TEXT --uri TEXT, which is the command that reads it',
+    },
 );
 
 sub _refuse_unread_options {

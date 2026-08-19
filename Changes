@@ -1,5 +1,19 @@
 Revision history for Tira
 
+2.94  2026-08-19
+
+    - TKT-431. --uri is read in exactly one place in the whole engine,
+      evidence_add, but every other command that accepted it - including
+      release.record (TKT-345) - silently dropped the value. A release
+      recorded with a build link exited 0 with an evidence entry that
+      looked complete because the summary was there, and the link was
+      gone.
+
+    - A uri entry was added to the %OPTION_READ_BY table (the same
+      mechanism TKT-281 and TKT-302 built for --sdlc-gate and --comment):
+      every command but evidence.add now refuses --uri outright, naming
+      tira.evidence.add as the command that reads it.
+
 2.93  2026-08-19
 
     - TKT-426. A card could be moved to any column regardless of

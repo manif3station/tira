@@ -1053,6 +1053,10 @@ d2 tira.ticket.discard --ref TKT-001 --comment "Duplicate."   # refused
 d2 tira.ticket.move --ref TKT-001 --column implement --sdlc-gate G9   # refused
   record.move does not act on --sdlc-gate. Use tira.<type>.update
   --sdlc-gate, which is the command that sets it.
+
+d2 tira.release.record --ref TKT-001 --gate G9 --result pass --details "..." --evidence "..." --uri https://ci.example.com/999 --fix-version 1.0   # refused
+  release.record does not act on --uri. Use tira.evidence.add --ref REF
+  --summary TEXT --uri TEXT, which is the command that reads it.
 ```
 
 A move is not the command that sets a gate, and on a board whose rules require

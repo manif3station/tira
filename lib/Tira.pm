@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.89';
+our $VERSION = '2.90';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6295,8 +6295,20 @@ sub policy_evaluate {
             # this board speaks off the machine and one place to configure it.
             # Opt-in for the same reason: a board that has set no address is not
             # made to reach out to one.
-            $self->_send_notification( project => $root,
-                text => 'Tira: the agent has stopped. ' . $said );
+            #
+            # Throttled, because nothing else was. Every rule that writes to
+            # the bridge has the bridge's own seen/settle tracking to stop it
+            # repeating itself; this rule goes around the bridge on purpose,
+            # which means it also went around the only thing that would have
+            # stopped it repeating - every ~30s poll that found the agent
+            # still stopped sent another identical message, for as long as
+            # the stall lasted. Measured live: one Telegram message per poll
+            # tick, all identical. TKT-422.
+            if ( $self->_agent_still_may_notify( $args{store}, $acted ) ) {
+                my $sent = $self->_send_notification( project => $root,
+                    text => 'Tira: the agent has stopped. ' . $said );
+                $self->_agent_still_mark_notified( $args{store}, $acted ) if $sent;
+            }
         }
         elsif ( $rule eq 'discard-with-open-questions' ) {
 
@@ -6617,6 +6629,43 @@ sub _last_move {
     my ($move) = grep { ( $_->{field} // '' ) eq 'column' } reverse @{$entries};
     return if ref $move ne 'HASH';
     return { at => $move->{at}, column => $record->{column} };
+}
+
+# How often agent-still is allowed to actually reach Telegram for the same
+# stall. Fifteen minutes, the owner's own ceiling once he had to say what
+# "too often" meant in numbers, on the same board this rule was built for.
+my $AGENT_STILL_NOTIFY_SECONDS = 900;
+
+# Whether agent-still may send again. Yes the first time a given stall
+# ($acted, when the agent last acted, never changes while the stall
+# continues) is seen; yes again if the last successful send for THIS stall
+# was more than $AGENT_STILL_NOTIFY_SECONDS ago; no otherwise. A board that
+# recovers and stalls again gets a new $acted and is told about it - this is
+# a repeat throttle, not a permanent silence.
+sub _agent_still_may_notify {
+    my ( $self, $store, $acted ) = @_;
+    return 1 if !$store;
+    my $last = $self->_violation_ledger($store)->{agent_still_notified};
+    return 1 if !defined $last || ( $last->{since} // '' ) ne $acted;
+    my $now = _epoch_of_datetime( $self->{clock}->(), 'Clock' );
+    return ( $now - $last->{at} ) >= $AGENT_STILL_NOTIFY_SECONDS ? 1 : 0;
+}
+
+# Recorded only once the message has actually arrived - the same discipline
+# the move-reminder job below already follows, and for the same reason: a
+# send that failed (no token, no chat id) must not be remembered as one that
+# happened, or fixing the configuration would still stay silent for the
+# throttle window.
+sub _agent_still_mark_notified {
+    my ( $self, $store, $acted ) = @_;
+    return if !$store;
+    my $ledger = $self->_violation_ledger($store);
+    $ledger->{agent_still_notified} = {
+        since => $acted, at => _epoch_of_datetime( $self->{clock}->(), 'Clock' ),
+    };
+    $self->_atomic_write( $self->_violation_ledger_path($store),
+        json_object()->canonical->encode($ledger) );
+    return 1;
 }
 
 # The seam. Nothing is sent unless both variables are set - his instruction,

@@ -1,5 +1,25 @@
 Revision history for Tira
 
+2.90  2026-08-19
+
+    - TKT-422. agent-still sent an identical Telegram message on every
+      police poll that found the agent still stopped, roughly once a
+      minute for as long as the stall lasted - confirmed live by a
+      screenshot of the same message landing on the owner's phone,
+      seconds apart, only the elapsed-time figure changing. Every other
+      bridge-routed rule is throttled by the bridge's own seen/settle
+      tracking; agent-still goes straight to Telegram on purpose, because
+      the one rule whose subject is the agent having stopped is the one
+      rule the bridge cannot usefully deliver to - and going around the
+      bridge meant going around the only thing that would have stopped
+      it repeating.
+
+    - Now throttled to one message per stall: a repeat only after 900
+      seconds if the same stall continues, and an immediate message for
+      a stall that starts after the last one ended. State is kept in the
+      existing violation ledger (the same persistence _notified_move_at
+      already uses), so it survives across separate poll invocations.
+
 2.89  2026-08-19
 
     - TKT-345. Recording a passed gate took three separate commands -

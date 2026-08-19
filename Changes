@@ -1,5 +1,26 @@
 Revision history for Tira
 
+2.95  2026-08-19
+
+    - TKT-427. A card's checklist item was always just a suggestion:
+      nothing tied one to a specific column, and nothing stopped a card
+      leaving with it still unmarked.
+
+    - A column can now carry a required-action template
+      (tira.column.update --required-action TEXT, repeatable, replaces
+      the column's whole list each call). Moving a card in adds that
+      column's items to its checklist as pending, skipping any it
+      already carries so re-entering never duplicates. A forward
+      departure refuses while any of the current column's required
+      items are unmarked, naming which ones. A backward move stays an
+      unconditional escape hatch - the unmet item may be exactly what a
+      card is retreating to fix - but resets to undone every required
+      item belonging to a column strictly between the new position and
+      the old one, since redoing that work means satisfying the check
+      again on the way back through. discard is exempt on both sides.
+      Enforced only on the CLI/agent command path, alongside TKT-426's
+      chain check.
+
 2.94  2026-08-19
 
     - TKT-431. --uri is read in exactly one place in the whole engine,

@@ -304,7 +304,7 @@ missing, at the moment you declare the policy rather than later.
 | `card-duration` | `--column --age` | a card sitting in one place too long |
 | `card-stalled` | `--before-column` | a finished checklist on a card that has not moved |
 | `checklist-idle` | `--column --age` | a card being worked with no checklist movement |
-| `checklist-unmoved` | — | a card moved on with nothing ticked since its last move. **No age**: a move has either happened or it has not. |
+| `checklist-unmoved` | — | a card moved on with nothing ticked since its last move. **No age**: a move has either happened or it has not. A separate, synchronous check exists alongside this one for a column carrying a required-action template (`tira.column.update --required-action`): a move made through the CLI/agent command path refuses outright while any of that column's required items are still unmarked, rather than reporting it after the fact - see UC-054. TKT-427. |
 | `orphan-card` | — | a card with no parent |
 | `rules-undeclared` | — | a rule this board has neither declared nor declined, which is what an upgrade leaves behind. **No age**: a gap is a gap the moment it opens. Settles only when every rule has an answer — declining one counts, because the point is that nothing is left unconsidered. |
 | `parent-ahead-of-children` | — | a parent saying it is finished above a child that is not |

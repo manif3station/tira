@@ -324,6 +324,7 @@ sub run {
         'agent-session=s' => \$option{agent_session},
         'watch!' => \$option{watched}, 'terminal!' => \$option{terminal}, 'stale' => \$option{stale},
         'queue!' => \$option{queue},
+        'required-action=s@' => \$option{required_action},
         'with-level' => \$option{with_level},
         'cache-ttl=i' => \$option{cache_ttl}, 'no-cache' => \$option{no_cache},
         'with=s' => \$option{with}, 'note=s' => \$option{note},
@@ -1788,6 +1789,92 @@ sub _column_chain_violation {
       . "  Move there first:  d2 tira.$args{type}.move --ref $args{ref} --column $next_name\n";
 }
 
+# A column names what must be done before a card leaves it (TKT-427); the
+# move refuses, naming which of that column's required items are still
+# unmarked, instead of the checklist item existing as a suggestion nobody is
+# made to act on. discard is exempt, same as the chain check above and for
+# the same reason: abandoning work is not leaving a stage undone. Checked in
+# this same CLI-only dispatch layer - the dashboard's own move provider calls
+# record_move directly and is untouched.
+#
+# Only a forward departure is checked. A backward move is how a card escapes
+# a column it cannot currently satisfy - the unmet item may be exactly what
+# failed, e.g. a test column's own 'tests green' - so gating retreat the same
+# way as progress would leave a card with nowhere to go. This matches the
+# chain check's own backward exemption.
+sub _column_required_action_violation {
+    my ( $tira, %args ) = @_;
+    return undef if ( $args{column} // '' ) eq 'discard';
+    my $current = eval { $tira->record_show(%args) };
+    return undef if !$current;
+    my $from = $current->{column};
+    return undef if !defined $from || $from eq 'discard' || $from eq ( $args{column} // '' );
+    my $columns = eval { $tira->column_list(%args) };
+    return undef if ref $columns ne 'ARRAY';
+    my %index;
+    my $i = 0;
+    for my $col ( @{$columns} ) { $index{ $col->{name} } = $i++; }
+    return undef if !exists $index{$from} || !exists $index{ $args{column} };
+    return undef if $index{ $args{column} } < $index{$from};
+    my ($from_col) = grep { $_->{name} eq $from } @{$columns};
+    return undef if !$from_col;
+    my $required = $from_col->{required_actions} // [];
+    return undef if !@{$required};
+    my @checklist = @{ $current->{checklist} // [] };
+    my @unmet = grep {
+        my $text = $_;
+        !grep { $_->{item} eq $text && ( $_->{status} // '' ) eq 'done' } @checklist;
+    } @{$required};
+    return undef if !@unmet;
+    return "Cannot move $args{ref} out of $from - required actions not done: "
+      . join( '; ', @unmet ) . ".\n"
+      . "  Mark them done, then move again:  d2 tira.checklist.update --ref $args{ref} --id CHK-NNN --status done\n";
+}
+
+# The other half of TKT-427, applied after a move succeeds: the destination
+# column's required-action template is added to the card's checklist,
+# skipping anything it already carries so re-entering a column never
+# duplicates. A backward move resets to undone every required item belonging
+# to a column strictly between the new position (exclusive) and the old one
+# (inclusive) - owner's own example, EPC-002 comment 17:11:14: chain
+# backlog->planning->doc->code->test->review, a card at test moved back to
+# planning resets required items for test, code AND doc, not just test,
+# because redoing the work means those checks need satisfying again on the
+# way back through. discard is excluded on both sides: its position in the
+# declared column order is not a statement about how much work it undoes.
+sub _apply_column_required_actions {
+    my ( $tira, $args, $from, $to, $columns, $record ) = @_;
+    return
+      if !defined $from || !defined $to || $from eq 'discard' || $to eq 'discard'
+      || $from eq $to || ref $columns ne 'ARRAY';
+    my %index;
+    my $i = 0;
+    for my $col ( @{$columns} ) { $index{ $col->{name} } = $i++; }
+    return if !exists $index{$from} || !exists $index{$to};
+    my $from_idx = $index{$from};
+    my $to_idx   = $index{$to};
+    my @checklist = @{ $record->{checklist} // [] };
+
+    if ( $to_idx > $from_idx ) {
+        my ($to_col) = grep { $_->{name} eq $to } @{$columns};
+        for my $text ( @{ $to_col->{required_actions} // [] } ) {
+            next if grep { $_->{item} eq $text } @checklist;
+            $tira->checklist_add( %{$args}, item => $text, status => 'pending' );
+        }
+    }
+    elsif ( $to_idx < $from_idx ) {
+        for my $i ( $to_idx + 1 .. $from_idx ) {
+            my $col = $columns->[$i];
+            for my $text ( @{ $col->{required_actions} // [] } ) {
+                my ($item) = grep { $_->{item} eq $text } @checklist;
+                next if !$item || ( $item->{status} // '' ) ne 'done';
+                $tira->checklist_update( %{$args}, id => $item->{id}, status => 'pending' );
+            }
+        }
+    }
+    return;
+}
+
 sub _invoke {
     my ( $tira, $command, $record_type, $option ) = @_;
     # Who is running this, said once in the environment rather than remembered
@@ -1897,6 +1984,8 @@ sub _invoke {
       if defined $option->{watched} && $command !~ /\A(?:column\.update|notify\.moves)\z/;
     die "Queue is available on the column.update command\n"
       if defined $option->{queue} && $command ne 'column.update';
+    die "Required-action is available on the column.update command\n"
+      if defined $option->{required_action} && $command ne 'column.update';
     die "Notify-after is available on the column.update, project.update, project.new and onboard commands\n"
       if defined $option->{notify_after}
       && $command !~ /\A(?:column\.update|project\.update|project\.new|onboard)\z/;
@@ -2206,7 +2295,21 @@ sub _invoke {
             # agent skipping a gate. TKT-426.
             my $blocked = _column_chain_violation( $tira, %args );
             die $blocked if defined $blocked;
-            return $tira->record_move(%args);
+            my $action_blocked = _column_required_action_violation( $tira, %args );
+            die $action_blocked if defined $action_blocked;
+
+            my $before  = eval { $tira->record_show(%args) };
+            my $from    = $before ? $before->{column} : undef;
+            my $result  = $tira->record_move(%args);
+            my $columns = eval { $tira->column_list(%args) };
+            _apply_column_required_actions( $tira, \%args, $from, $args{column}, $columns, $result )
+              if ref $columns eq 'ARRAY';
+
+            # Re-read rather than returning $result as-is: the required-action
+            # population/reset above writes to the checklist after record_move
+            # already captured its snapshot, so the caller's own output would
+            # otherwise show the move without the side effect it just caused.
+            return $tira->record_show(%args);
         }
         return $tira->record_discard(%args) if $action eq 'discard';
         return $tira->record_restore(%args) if $action eq 'restore';

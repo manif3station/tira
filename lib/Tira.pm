@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.94';
+our $VERSION = '2.95';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1287,7 +1287,10 @@ sub notification_list {
 
 sub _column_defaults {
     my ($columns) = @_;
-    return [ map { { %{$_}, watched => exists $_->{watched} ? ( $_->{watched} ? 1 : 0 ) : 1 } } @{$columns} ];
+    return [ map { { %{$_},
+        watched          => exists $_->{watched} ? ( $_->{watched} ? 1 : 0 ) : 1,
+        required_actions => $_->{required_actions} // [],
+    } } @{$columns} ];
 }
 
 sub _valid_minutes {
@@ -1415,6 +1418,13 @@ sub column_update {
         # nothing. TKT-310.
         $column->{queue} = $args{queue} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false
           if defined $args{queue};
+
+        # What a card must do before it may leave this column, named on the
+        # column rather than remembered by whoever is moving the card - set
+        # once here, read on every move. Replaces the whole list on each call,
+        # matching key_details, deliverables and the other multi-value fields
+        # the record side already replaces wholesale. TKT-427.
+        $column->{required_actions} = $args{required_action} if defined $args{required_action};
         $self->_write_yaml( $path, $config );
         return _column_defaults( [$column] )->[0];
     } );

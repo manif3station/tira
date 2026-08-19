@@ -1,5 +1,27 @@
 Revision history for Tira
 
+2.84  2026-08-19
+
+    - TKT-417 (Hourly Bug Hunter). TKT-409 (2.80) changed column_list so
+      omitting --type no longer refuses - it answers with a hash keyed
+      by sow, epic and ticket instead. lib/Tira/CLI.pm's %NEEDS_TYPE
+      table, "the commands that cannot work without a type", still named
+      column.list, and nothing ran it to check.
+
+    - Confirmed live on the installed 2.83: "d2 tira.column.list -o
+      json" with no --type succeeds. The stale entry never surfaced as a
+      visible defect because %NEEDS_TYPE has exactly one other reader, a
+      --help fallback that SKILLS.md's own correct usage line for
+      column.list always wins over first - a wrong fact nothing ever
+      read, one SKILLS.md edit away from surfacing.
+
+    - column.list removed from %NEEDS_TYPE, and t/289 now runs every
+      command the table names with no --type and requires each to
+      genuinely refuse, reading the table from source rather than
+      retyping it - the same "run rather than read" discipline t/70,
+      t/240 and t/244 already apply to this project's other declared
+      tables.
+
 2.83  2026-08-19
 
     - TKT-416 (Hourly Bug Hunter). docs/POLICIES.md's "## One hundred use

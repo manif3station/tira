@@ -3591,7 +3591,7 @@ my %RECORD_USAGE = (
 # option at all, so a reader who checked it before running anything was told
 # the opposite of the truth: that the command took nothing. TKT-215.
 my %NEEDS_TYPE = map { $_ => 1 }
-  qw(board.refs board.show column.list column.sync column.update);
+  qw(board.refs board.show column.sync column.update);
 
 # SKILLS.md carries a full usage line for every command it documents - the
 # same catalogue docs-match-code already holds every shipped command to - and

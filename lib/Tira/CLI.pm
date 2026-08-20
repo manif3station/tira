@@ -215,8 +215,7 @@ sub run {
         1;
     };
     return _error( $tira, 'toon', $@ || 'Invalid UTF-8 command-line input' ) if !$decoded;
-    my $parsed = GetOptionsFromArray(
-        $argv,
+    my @spec = (
         'name=s' => \$option{name}, 'dir=s' => \$option{dir}, 'title:s' => \$option{title},
         'description=s' => \$option{description},
         'output|o=s' => \$option{output}, 'help' => \$option{help},
@@ -353,6 +352,41 @@ sub run {
         'set-labels=s' => \$option{set_labels},
         'set-affects-versions=s' => \$option{set_affects_versions},
     );
+
+    # TKT-389: a single-valued option given twice on the same command line
+    # silently kept the last value and dropped the rest, with exit 0 - for
+    # --priority in particular a card meant to be P5 lands as P1, and the
+    # surviving value is what the output prints, so it reads as success.
+    # Guarded once here, generically, over every spec that takes a value and
+    # is not itself repeatable (no '@'): the 94 against 25 the ticket counted
+    # would otherwise have been 94 places to keep in step by hand.
+    my @duplicate_option;
+    my %already_given;
+    for ( my $i = 0; $i < @spec; $i += 2 ) {
+        my $spec_str = $spec[$i];
+        next if $spec_str =~ /\@/;
+        next if $spec_str !~ /[=:]/;
+        ( my $primary = $spec_str ) =~ s/[|=:!].*//;
+        my $target = $spec[ $i + 1 ];
+        $spec[ $i + 1 ] = sub {
+            my ( undef, $value ) = @_;
+
+            # A default such as output => 'toon' is set in %option before
+            # parsing even starts, so "the target already holds a value" is
+            # not the same question as "this flag was already given" - the
+            # first --output on a command line must not be read as a second
+            # occurrence of one that was never actually typed.
+            push @duplicate_option,
+              "--$primary was given more than once ('" . $$target . "' and '$value')"
+              if $already_given{$primary}++;
+            $$target = $value;
+        };
+    }
+    my $parsed = GetOptionsFromArray( $argv, @spec );
+    return _error( $tira, $option{output},
+        join( '; ', @duplicate_option )
+          . " - repeating a single-valued option drops every value but the last silently. Give it once.\n" )
+      if @duplicate_option;
     return _error( $tira, $option{output}, 'Invalid command-line options' ) if !$parsed || @{$argv};
 
     # --file is a list only where a batch makes sense, and one file everywhere

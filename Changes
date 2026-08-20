@@ -1,5 +1,23 @@
 Revision history for Tira
 
+3.02  2026-08-20
+
+    - TKT-389. 94 of Tira's string options are single-valued and 25
+      repeat. Repeating one of the 94 discarded every value but the
+      last, exited 0, and reported nothing - and the output printed
+      only the surviving value, so it read as success. Worst case:
+      --priority 5 --priority 1 silently created a P1 card, and
+      priority is what tira.next picks by and what priority-skipped
+      measures against, so the downgrade was invisible in exactly the
+      place that would have caught it.
+
+    - Fixed generically rather than flag by flag: the option-spec
+      table is now a named array, and every entry that takes a value
+      and is not itself repeatable (no @) is wrapped once, in one
+      loop, so a second occurrence refuses - naming the flag and both
+      competing values - instead of silently overwriting the first.
+      Repeatable options are entirely unaffected.
+
 3.01  2026-08-20
 
     - TKT-441. An agent restarting the policy bridge after a crash

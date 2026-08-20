@@ -62,7 +62,11 @@ TYPE   := sow | epic | ticket
 References are immutable, case-sensitive values such as `SOW-001`, `EPC-001`,
 and `TKT-001`. Quote whitespace, Markdown, glob characters, and empty strings.
 Repeat an option only where its table marks it repeatable. `--help` is exclusive
-and performs no mutation.
+and performs no mutation. Repeating a single-valued option anyway is refused,
+naming the flag and both competing values, rather than silently keeping the
+last and discarding the rest - `--priority 5 --priority 1` no longer creates a
+P1 card with exit 0. Genuinely repeatable options are entirely unaffected.
+TKT-389.
 
 All command-line text, text files, YAML, JSON, and structured output use UTF-8.
 Invalid UTF-8 input is rejected. Non-ASCII text, including `£`, is preserved in

@@ -24,7 +24,7 @@ my $cli = slurp('lib/Tira/CLI.pm');
 
 # Every flag the parser actually declares, taken from the parser itself rather
 # than from a list somebody has to remember to update.
-my ($spec) = $cli =~ /GetOptionsFromArray\(\s*\$argv,(.*?)\n    \);/s;
+my ($spec) = $cli =~ /my \@spec = \(\n(.*?)\n    \);/s;
 ok( $spec, 'the option specification is where it is expected' );
 my %known;
 while ( $spec =~ /'([a-z0-9|_-]+)(?:[=:][si]@?)?(!)?'/gi ) {

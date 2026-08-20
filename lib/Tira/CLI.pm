@@ -339,6 +339,7 @@ sub run {
         'full' => \$option{full}, 'dry-run' => \$option{dry_run},
         'key-detail=s@' => \$option{key_details}, 'deliverable=s@' => \$option{deliverables},
         'scope-in=s@' => \$option{scope_in}, 'scope-out=s@' => \$option{scope_out},
+        'exempt-required=s@' => \$option{required_exempt},
         'acceptance|acceptance-criteria=s@' => \$option{acceptance}, 'test-step=s@' => \$option{test_steps},
         'bdd=s@' => \$option{bdd}, 'atdd=s@' => \$option{atdd},
         'assignee=s' => \$option{assignee}, 'person=s@' => \$option{people},
@@ -1866,10 +1867,18 @@ sub _column_required_action_violation {
     return undef if !$from_col;
     my $required = $from_col->{required_actions} // [];
     return undef if !@{$required};
+
+    # The column's template is a baseline, not an absolute: a card can carry
+    # its own exemptions from specific items (tira.<type>.update
+    # --exempt-required TEXT), for a situation the column-wide template does
+    # not fit. Checked here rather than by the card silently omitting the
+    # item, so the exemption is a decision on record, not an absence nobody
+    # can tell from a genuine oversight. TKT-439.
+    my %exempt = map { $_ => 1 } @{ $current->{required_exempt} // [] };
     my @checklist = @{ $current->{checklist} // [] };
     my @unmet = grep {
         my $text = $_;
-        !grep { $_->{item} eq $text && ( $_->{status} // '' ) eq 'done' } @checklist;
+        !$exempt{$text} && !grep { $_->{item} eq $text && ( $_->{status} // '' ) eq 'done' } @checklist;
     } @{$required};
     return undef if !@unmet;
     return "Cannot move $args{ref} out of $from - required actions not done: "
@@ -2245,6 +2254,31 @@ sub _invoke {
             ref => $created->{ref},
             ( defined $args{project} ? ( project => $args{project} ) : () ),
         )->{column};
+
+        # A column's required-action template is populated on every move-in
+        # (TKT-427), but creation is not a move, so a card landing directly
+        # in its entry column - or any column carrying required_actions -
+        # never received them. Populated here, mirroring the same move-in
+        # logic exactly; the dashboard's own create flow, calling
+        # create_record directly, is untouched. TKT-439.
+        my $columns = eval { $tira->column_list(%args) };
+        if ( ref $columns eq 'ARRAY' ) {
+            my ($landed) = grep { $_->{name} eq $column } @{$columns};
+            my @required = @{ $landed->{required_actions} // [] };
+            if (@required) {
+                $tira->checklist_add( %args, ref => $created->{ref},
+                    item => $_, status => 'pending', source => 'required-action' )
+                  for @required;
+
+                # $created was captured before these writes; re-read so what
+                # the caller sees is what is actually stored, the same
+                # discipline record.move's own return already holds to.
+                $created = $tira->record_show(
+                    ref => $created->{ref},
+                    ( defined $args{project} ? ( project => $args{project} ) : () ),
+                );
+            }
+        }
 
         my $reminder = $tira->record_reminder($created);
         return { %{$created}, column => $column,

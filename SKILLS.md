@@ -246,6 +246,7 @@ that had already passed its suite.
 | `--priority 1..5|""` | no | optional | replace/clear | Numeric priority, 5 being the most urgent. |
 | `--fix-version TEXT|""` | no | optional | replace/clear | One target version. |
 | `--affects-version TEXT` | yes | optional | append | Affected version. |
+| `--exempt-required TEXT` | yes | optional | append | A column-required-action item this specific card is exempt from. |
 
 All listed create and update fields are implemented. Updates may replace arrays
 with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
@@ -1133,6 +1134,10 @@ A skip is allowed anyway when every column being skipped already carries a passi
 A column can declare more than one valid next column, for a chain with a genuine fork - work that ends there and work that continues down a different path: `d2 tira.column.update --type ticket --name e2e-testing --next done --next deploying` (repeatable, replaces the column's whole set each call). A forward move from that column succeeds to either one; a third destination still refuses, naming both valid options. A column with no explicit `--next` set keeps deriving its single next column from the board's declared order, exactly as before - every existing linear board is unaffected. Backward moves stay unconditional regardless. TKT-430.
 
 A column can also name what must be done before a card leaves it: `d2 tira.column.update --type ticket --name planning --required-action "left a note"` (repeatable, replaces the column's whole template each call). Moving a card into that column adds its required-action items to the card's checklist as `pending`, skipping any it already carries so re-entering never duplicates. A forward departure refuses while any of the current column's required items are still unmarked, naming which ones and the `tira.checklist.update` command to mark them done. A backward move stays unconditional regardless - the unmet item may be exactly what the card is retreating to fix - but resets to `pending` every required item belonging to a column strictly between the new position (exclusive) and the old one (inclusive), since redoing that work means satisfying the check again on the way back through. `discard` is exempt on both sides. Same CLI-only scope as the chain check above; the dashboard's own move UI is untouched. TKT-427.
+
+Creation is not a move, so a card created directly into a column carrying required actions - its declared entry point, or any `--column` matching one - gets those items on its checklist immediately, the same way a move-in would, rather than only after its first real move away and back. `tira.ticket.create --title "..." --column planning` on the board above already carries `left a note` as `pending` the moment it returns. A direct engine call, the dashboard's own create flow, is unaffected. TKT-439.
+
+A column's required-action template is a baseline, not an absolute: `d2 tira.ticket.update --ref TKT-001 --exempt-required "said why"` (repeatable, accumulating) lets one specific card diverge from it, when that card's own situation does not need everything the column normally requires. The move-out check skips anything on a card's own exemption list, so an exempted item never has to be marked done to leave. The exemption is per card - a sibling card sitting in the same column still needs its own copy of every item the column requires, unaffected by another card's exemption. Adding an item a column does *not* require, specifically for one card, already worked before this and still does - `tira.checklist.add` accepts any item on any card, exempt list or not. TKT-439.
 
 ### UC-055: Move epic independently
 **Implemented.** Moving an epic does not move its tickets.

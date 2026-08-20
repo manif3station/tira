@@ -1,5 +1,26 @@
 Revision history for Tira
 
+3.00  2026-08-20
+
+    - TKT-439. A column's required-action template is a baseline set at
+      the column, but not every card that passes through the column
+      genuinely needs every item on it - and until now the only way
+      to unblock a move was to satisfy every required item literally,
+      even ones that plainly didn't apply to that particular card.
+
+    - New accumulating card field, required_exempt (--exempt-required
+      TEXT, repeatable). The move-out required-action check skips any
+      item whose text is on the card's own exemption list. Accumulate
+      only, by design - an exemption once given is not silently taken
+      back by a later call that omits it.
+
+    - record.create now populates a new card's checklist from its
+      landing column's required_actions immediately, the same way a
+      move into that column already does, via checklist_add(...,
+      source => 'required-action') - so a card born straight into a
+      column with required actions shows its homework right away
+      instead of only after its first move.
+
 2.99  2026-08-20
 
     - TKT-438. TKT-427's move-in population and backward-move reset

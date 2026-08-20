@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.99';
+our $VERSION = '3.00';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -74,7 +74,7 @@ my @PLAIN_FIELDS = qw(title description problem_or_feature solution_needed sourc
   sdlc_gate lifecycle fix_version sandbox agent_session);
 my @CARD_FIELDS = ( @PLAIN_FIELDS, qw(assignee reporter priority due_date start_date
   labels affects_versions key_details deliverables acceptance test_steps bdd atdd
-  scope_in scope_out) );
+  scope_in scope_out required_exempt) );
 my @CARD_FIELD_REPLACEMENTS = qw(labels_replace affects_versions_replace
   key_details_replace deliverables_replace acceptance_replace test_steps_replace
   bdd_replace atdd_replace);
@@ -511,6 +511,7 @@ sub create_record {
                     test_steps           => $args{test_steps} // [],
                     bdd                  => $args{bdd} // [],
                     atdd                 => $args{atdd} // [],
+                    required_exempt      => $args{required_exempt} // [],
                 gate_passing_log     => [],
                 evidence             => [],
                 attachments          => [],
@@ -1576,7 +1577,7 @@ my @RECORD_FIELDS = qw(
     gate_passing_log evidence attachments checklist subtasks linkage assignee
     reporter labels due_date start_date sdlc_gate lifecycle priority
     fix_version affects_versions parent comments created_at last_updated column
-    content_hash attachment_count sandbox agent_session conversation
+    content_hash attachment_count sandbox agent_session conversation required_exempt
 );
 my %RECORD_FIELD = map { $_ => 1 } @RECORD_FIELDS;
 
@@ -2178,6 +2179,14 @@ sub record_update {
         my %accumulating = (
             key_details => 'key_details', deliverables => 'deliverables', acceptance => 'acceptance_criteria',
             test_steps => 'test_steps', bdd => 'bdd', atdd => 'atdd',
+
+            # A card's own exceptions to a column's required-action template
+            # (TKT-439) - the column's own list is a baseline, not an
+            # absolute, and this is where one card diverges from it. Grows
+            # the same way key_details does, no replace variant: an
+            # exemption once given is not meant to be silently taken back
+            # by a later call that happened to omit it.
+            required_exempt => 'required_exempt',
         );
         for my $argument ( keys %accumulating ) {
             next if !defined $args{$argument};

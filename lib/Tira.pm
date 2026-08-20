@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.05';
+our $VERSION = '3.06';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -558,6 +558,20 @@ sub create_record {
                 unlink $record_path;
                 die $error;
             };
+
+            # Every FIELD a create call populates gets a birth entry through
+            # the generic per-write journal; column never does, because it is
+            # not a stored field for that mechanism to see - it is the
+            # directory the file sits in. Without this, column-skipped reads
+            # history looking for how the card arrived in its starting column
+            # and finds nothing, flagging a card that never skipped anything.
+            # Written the same shape record_move already uses for a real
+            # move, tagged 'create' rather than 'move' so the two stay
+            # distinguishable to anything reading history afterward. TKT-433.
+            $self->_journal_record(
+                ref => $record->{ref}, op => 'create',
+                entries => [ { field => 'column', before => undef, after => $column } ],
+            );
 
             # Exactly what is on disk, which is this method's promise: an agent
             # can trust that what it holds is what was stored. The column is the
@@ -5669,7 +5683,14 @@ sub policy_evaluate {
                 # the second - so a tick and a move made in the same second
                 # cannot be told apart by time, and on a fixed clock they never
                 # can. Asking which came first is the question anyway.
-                my @where_moved = grep { ( $journal->[$_]{field} // '' ) eq 'column' }
+                #
+                # op eq 'move' specifically, not just field eq 'column': a
+                # card created directly into a column (TKT-433's birth entry)
+                # has not advanced anywhere, and reporting it as though it had
+                # would flag a card the moment it is created, before an agent
+                # could possibly have ticked anything.
+                my @where_moved = grep { ( $journal->[$_]{field} // '' ) eq 'column'
+                    && ( $journal->[$_]{op} // '' ) eq 'move' }
                   0 .. $#{$journal};
                 next if !@where_moved;
                 my $window = @where_moved > 1 ? $where_moved[-2] : -1;
@@ -6749,7 +6770,13 @@ sub _last_move {
     my $entries = eval {
         $self->history_list( project => $root, ref => $record->{ref} );
     } || [];
-    my ($move) = grep { ( $_->{field} // '' ) eq 'column' } reverse @{$entries};
+
+    # field eq 'column' alone used to mean a real move, back when
+    # record_move's own manual _journal_record call was the only source.
+    # create_record now writes the same field for a card's starting column
+    # too (TKT-433), tagged op => 'create' - a card simply arriving is not a
+    # move to announce.
+    my ($move) = grep { ( $_->{field} // '' ) eq 'column' && ( $_->{op} // '' ) eq 'move' } reverse @{$entries};
     return if ref $move ne 'HASH';
     return { at => $move->{at}, column => $record->{column} };
 }
@@ -7636,7 +7663,16 @@ sub _agent_last_acted {
             next if ref $entry ne 'HASH';
             my $at = $entry->{at};
             next if !defined $at;
-            my $is_move = ( $entry->{field} // '' ) eq 'column';
+
+            # field eq 'column' alone used to mean a real move, back when
+            # record_move's own manual _journal_record call was the only way
+            # to get one. create_record now writes the same field for a
+            # card's starting column too (TKT-433), tagged op => 'create'
+            # rather than 'move' precisely so the two stay distinguishable -
+            # a card arriving, created directly into a column, is not an
+            # agent moving anything, and must not count as agent action here
+            # any more than a card arriving from another project already does.
+            my $is_move = ( $entry->{field} // '' ) eq 'column' && ( $entry->{op} // '' ) eq 'move';
             my $by_agent = $agent ne ''
               && defined $entry->{author}
               && $entry->{author} eq $agent;

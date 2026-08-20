@@ -1,5 +1,29 @@
 Revision history for Tira
 
+3.06  2026-08-20
+
+    - TKT-433. Creation seeded a birth entry for every FIELD a create call
+      populated, but not for the STARTING COLUMN - column is not a stored
+      record field, it is the directory the file sits in, so the generic
+      per-field journal never saw it. A card created directly into a
+      non-default column had no history entry recording it ever arrived
+      there, and column-skipped - which reads exactly that history to see
+      which columns a card visited - flagged the card as having skipped
+      every column up to the one it was actually created in. Reported
+      from mt5-ai, hit five different cards across one session on our own
+      board before this shipped.
+
+    - Fixed: create_record now writes a manual history entry for the
+      starting column (op => 'create', before => null, after => the
+      column), mirroring record_move's own existing manual entry for a
+      real move, tagged distinctly so the two remain distinguishable.
+      Fixing this surfaced a second bug: three existing consumers of
+      column history (agent-still's stopped-agent detection, move-
+      announcement notifications, and checklist-unmoved's advanced-
+      without-ticking check) matched on the journal's field name alone
+      and would have misread every new creation as a real move - all
+      three now also require the move op specifically.
+
 3.05  2026-08-20
 
     - TKT-440. Required-action items (TKT-445) had a data model but no

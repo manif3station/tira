@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.03';
+our $VERSION = '3.04';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -3804,6 +3804,13 @@ sub required_item_add {
         die "Required item is required\n" if !defined $args{item} || $args{item} eq '';
         die "Required item status is required\n" if !defined $args{status} || $args{status} eq '';
         my $record = $self->record_show(%args);
+
+        # Every record written before TKT-445 shipped has no required_items
+        # key in its stored JSON at all - create_record only ever set it
+        # going forward, and nothing backfilled it onto what already
+        # existed. Coerced here rather than assumed, the same way
+        # required_item_list already tolerates the raw (possibly undef) key.
+        $record->{required_items} //= [];
         my $number = @{ $record->{required_items} } + 1;
         my $now = $self->{clock}->();
         my $entry = {
@@ -3835,6 +3842,9 @@ sub required_item_update {
         die "Required item is required\n" if defined $args{item} && $args{item} eq '';
         die "Required item status is required\n" if defined $args{status} && $args{status} eq '';
         my $record = $self->record_show(%args);
+
+        # Same pre-3.03 legacy-record case required_item_add guards against.
+        $record->{required_items} //= [];
         my ($entry) = grep { $_->{id} eq ( $args{id} // '' ) } @{ $record->{required_items} };
         die "Required item '$args{id}' not found\n" if !$entry;
         $entry->{item} = $args{item} if defined $args{item};

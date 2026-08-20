@@ -1,5 +1,23 @@
 Revision history for Tira
 
+3.04  2026-08-20
+
+    - TKT-447. required_item_add and required_item_update dereferenced
+      record.required_items unconditionally, with no defined-or-empty
+      guard. Every record written before 3.03 has no such key in its
+      stored JSON at all, so both crashed outright on any pre-existing
+      card - and because record.move's own move-in population calls
+      required_item_add internally, an ordinary move into a column with
+      required actions configured crashed too, on any board upgraded to
+      3.03 with existing cards. Reported live against a real board within
+      hours of 3.03 shipping (TKT-447/448/449).
+
+    - Fixed: record.required_items //= [] coerced right after
+      record_show in both methods, matching required_item_list's own
+      existing tolerance for the raw (possibly undef) key. No migration
+      needed - every affected record self-heals on its next required-item
+      write.
+
 3.03  2026-08-20
 
     - TKT-445. Required-action items were never meant to share a card's

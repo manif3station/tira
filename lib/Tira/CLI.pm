@@ -1905,7 +1905,7 @@ sub _apply_column_required_actions {
         my ($to_col) = grep { $_->{name} eq $to } @{$columns};
         for my $text ( @{ $to_col->{required_actions} // [] } ) {
             next if grep { $_->{item} eq $text } @checklist;
-            $tira->checklist_add( %{$args}, item => $text, status => 'pending' );
+            $tira->checklist_add( %{$args}, item => $text, status => 'pending', source => 'required-action' );
         }
     }
     elsif ( $to_idx < $from_idx ) {
@@ -1914,7 +1914,7 @@ sub _apply_column_required_actions {
             for my $text ( @{ $col->{required_actions} // [] } ) {
                 my ($item) = grep { $_->{item} eq $text } @checklist;
                 next if !$item || ( $item->{status} // '' ) ne 'done';
-                $tira->checklist_update( %{$args}, id => $item->{id}, status => 'pending' );
+                $tira->checklist_update( %{$args}, id => $item->{id}, status => 'pending', source => 'required-action' );
             }
         }
     }

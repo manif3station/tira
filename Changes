@@ -1,5 +1,26 @@
 Revision history for Tira
 
+2.99  2026-08-20
+
+    - TKT-438. TKT-427's move-in population and backward-move reset
+      wrote checklist entries the same way a person typing
+      tira.checklist.add/update by hand does - correctly one journal
+      entry per write, but with nothing saying which kind of write it
+      was.
+
+    - checklist_add and checklist_update accept an optional source
+      parameter; when set, an extra journal entry is written (op = the
+      source value, field = checklist) alongside the existing generic
+      entry. The required-action move mechanism now passes source =>
+      'required-action' on both its calls, so
+      history.list --where op=required-action isolates exactly what it
+      did, distinct from a manual tick.
+
+    - docs/POLICIES.md gains a callout: declaring a column chain
+      (--next) and declaring its required actions (--required-action)
+      are separate mechanisms meant to be set up together, since
+      nothing links them structurally.
+
 2.98  2026-08-20
 
     - TKT-429. The chain check had no accommodation for a card whose

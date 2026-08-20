@@ -336,6 +336,8 @@ missing, at the moment you declare the policy rather than later.
 | `leftover-process` | `--pattern --age` | something started and never stopped. Always exempts the bridge tail (`d2 tira.policy.bridge`) - the one process `bridge-unread` itself tells an agent to keep running - however broadly `--pattern` is written; a pattern matching a project's own path can otherwise match the tail of that same project's own bridge. |
 | `leftover-container` | `--pattern --age` | a container still running |
 
+**Declaring a column chain and declaring its required actions are two separate mechanisms, and they are meant to be set up together.** `tira.column.update --next` names which columns a card may move to (TKT-430); `tira.column.update --required-action` names what a card must do before leaving one (TKT-427). Declaring the first without considering the second is common and easy to miss, because nothing links them structurally - a board can name a perfectly correct chain, or fork, with every column able to move to the right places and nothing required of a card at any of them. When setting up a chain for a board, also ask whether each column along it should require something before a card leaves - a note, a check, a review - and declare it there, in the same sitting.
+
 ## The actions
 
 | Action | Where it goes | Use it when |

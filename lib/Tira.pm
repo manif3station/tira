@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.98';
+our $VERSION = '2.99';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -3734,6 +3734,17 @@ sub checklist_add {
             created_at => $now, last_updated => $now,
         };
         push @{ $record->{checklist} }, $entry;
+
+        # A column's move-in population writes exactly the same call a
+        # person typing this command by hand would, and the generic per-
+        # write journal entry every checklist change already gets cannot
+        # tell the two apart. --source marks this one, alongside the
+        # generic entry rather than instead of it, so a reader can filter
+        # for what the move mechanism did automatically. TKT-438.
+        $self->_journal_record(
+            ref => $record->{ref}, op => $args{source},
+            entries => [ { field => 'checklist', item => $entry->{item}, after => $entry->{status} } ],
+        ) if defined $args{source} && $args{source} ne '';
         $self->_replace_record( %args, record => $record );
         return $entry;
     } );
@@ -3752,6 +3763,14 @@ sub checklist_update {
         $entry->{item} = $args{item} if defined $args{item};
         $entry->{status} = $args{status} if defined $args{status};
         $entry->{last_updated} = $self->{clock}->();
+
+        # Same distinction as checklist_add, for the backward-move reset:
+        # marked here so a reader can tell the move mechanism reset an item
+        # apart from a person or agent ticking it by hand. TKT-438.
+        $self->_journal_record(
+            ref => $record->{ref}, op => $args{source},
+            entries => [ { field => 'checklist', item => $entry->{item}, after => $entry->{status} } ],
+        ) if defined $args{source} && $args{source} ne '';
         $self->_replace_record( %args, record => $record );
         return $entry;
     } );

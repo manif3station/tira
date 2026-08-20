@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.07';
+our $VERSION = '3.08';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2721,7 +2721,7 @@ sub _question_changed_at {
 
 sub _question_entry {
     my ( $record, $id ) = @_;
-    die "A question reference is required\n" if !defined $id || $id !~ /\S/;
+    die "A question id is required\n" if !defined $id || $id !~ /\S/;
     my ($entry) = grep { $_->{id} eq $id } @{ $record->{questions} // [] };
     die "Question '$id' not found on this card\n" if !$entry;
     return $entry;
@@ -2743,7 +2743,7 @@ sub _next_question_id {
 # an index, because an index is another thing that can disagree with the truth.
 sub _find_question {
     my ( $self, $root, $id ) = @_;
-    die "A question reference is required\n" if !defined $id || $id !~ /\S/;
+    die "A question id is required\n" if !defined $id || $id !~ /\S/;
     my $found;
     for my $type (qw(sow epic ticket)) {
         my $board = File::Spec->catdir( $root, '.tira', $type );
@@ -2773,6 +2773,18 @@ sub _find_question {
 # stayed waiting, and nothing anywhere said the answer had landed elsewhere.
 sub _question_owner {
     my ( $self, $root, %args ) = @_;
+    if ( !defined $args{id} || $args{id} !~ /\S/ ) {
+
+        # The die below (via _find_question) says an id is missing, which is
+        # true but not the whole story when --ref was given a question id by
+        # mistake - a caller reading "supply it" reaches for the flag they
+        # already used, and gets refused again for the same unnamed reason.
+        # Question ids are always Q-NNN (_next_question_id), never a board's
+        # own ref shape, so the pattern alone tells the two cases apart.
+        die "'$args{ref}' is a question id, not a card reference - name the "
+          . "question with --id, not --ref\n"
+          if defined $args{ref} && $args{ref} =~ /\AQ-\d+\z/;
+    }
     my ( $type, $ref ) = $self->_find_question( $root, $args{id} );
     return ( $type, $ref ) if !defined $args{ref} || $args{ref} eq '';
 

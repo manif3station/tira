@@ -1407,6 +1407,20 @@ refused and says so, because an add that cannot take must not report success.
 ### UC-105: See at a glance whose move a card is waiting on
 **Implemented.** On the HTML and live dashboards a card's appearance says **whose turn it is**, not merely that somebody is waiting. **Yellow** means a question nobody has answered: the owner owes the next move, and it is the only thing on the board competing for his attention. **Greyed out** means every question has been answered and at least one has not been ticked or crossed: it is off his plate and with the agent. A card is never both, so the board never says two people owe the same thing at once, and it returns to its ordinary appearance when every question is settled — discarded, or answered and marked. Knowing this means reading the card, so the colour appears wherever a person is looking at a board (`-o table`, `-o browser`, `-o json`, or with `--title`); the ref-only fast path still opens no files and stays as cheap as it was.
 
+`tira.question.mark/answer/update/discard` take the question's own id via
+`--id` - never `--ref`, which is optional and only narrows which card the id
+is expected to belong to. Omitting `--id` refuses with "A question id is
+required", naming `--id` specifically rather than the generic word
+"reference" this project uses for both a question's own id and a card's -
+that overlap once produced the identical refusal for "nothing was given" and
+"a question id was given as `--ref` by mistake", which could not be told
+apart from the message alone. The second case is now named distinctly:
+`--ref Q-007` (a question id, not a card reference) with `--id` left out says
+so directly, naming what was given and pointing at `--id` instead. A `--ref`
+that genuinely names a different real card than the question's own is
+unaffected - the existing "Question X is on Y, not on Z" message already
+told the two apart. TKT-412.
+
 ### UC-104: Find the card a question was asked on
 **Implemented.** A question reference belongs to the project, not to a board, so quoting it is enough: `dashboard tira.search --text Q-007 -o json` returns the card it lives on whichever board that is. `--text` searches the whole card, not the front of it: the title and description, the problem statement, what a solution needs, the key details, deliverables, acceptance criteria, test steps, behaviour and scope, the labels, the checklist, the required items and the column each is tagged with, the comments, the gate records, the evidence, the conversation and the names of attached files. The gates and the evidence matter most on a finished card - they are append-only observations, so they carry what was measured rather than what was believed at planning, which is exactly when somebody comes looking. A project once published that a figure appeared nowhere on a card when it had been in that card's gate records the whole time; an absence proven by an instrument that cannot see most of the record is not an absence. Search also matches the words in a question and the words in its answer, so `--text credentials` finds the card somebody asked about credentials on. A discarded question is still found, because it still happened. On the dashboard the keyword box does the same thing across all three boards at once — typing a question reference on one board empties it and shows the card on the board that owns it.
 

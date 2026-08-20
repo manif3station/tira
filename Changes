@@ -1,5 +1,23 @@
 Revision history for Tira
 
+3.08  2026-08-20
+
+    - TKT-412. question.mark/answer/update/discard refused a missing --id
+      with "A question reference is required - supply it with --ref" - the
+      CLI's own translation table pointed the reader at the wrong flag,
+      since the field the die actually checks is always the question's own
+      id, never --ref. A caller who mistook --ref for the question's own
+      reference (and never supplied --id) got the identical message as one
+      who supplied nothing at all, and could not tell "you gave nothing"
+      from "you gave the wrong thing" from the message alone.
+
+    - Fixed: the engine message now reads "A question id is required" and
+      the CLI hints --id. When --ref itself holds something shaped like a
+      question id (Q-NNN) while --id is missing, the refusal now says so
+      distinctly, naming what was given. A --ref naming a genuinely
+      different real card is unaffected - the existing cross-check message
+      already told that case apart.
+
 3.07  2026-08-20
 
     - TKT-434. docs/commands.md documents checklist and required-action

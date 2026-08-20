@@ -3857,7 +3857,7 @@ sub _json_array_input {
 my %SUPPLIED_BY = (
     'Record reference is required'         => [ 'ref',      'supply it with' ],
     'A card reference is required'         => [ 'ref',      'supply it with' ],
-    'A question reference is required'     => [ 'ref',      'supply it with' ],
+    'A question id is required'            => [ 'id',       'supply it with' ],
     'An attachment reference is required'  => [ 'ref',      'supply it with' ],
     'Record title is required'             => [ 'title',    'supply it with' ],
     'Project name is required'             => [ 'name',     'supply it with' ],

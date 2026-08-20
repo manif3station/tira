@@ -1778,6 +1778,15 @@ sub _journal_identity {
 # (tira.column.update --next) is checked against that set instead of the
 # single positional successor; a column with nothing configured keeps
 # deriving its one next step from position, unchanged. TKT-430.
+#
+# A skip that would otherwise refuse is allowed anyway when every column
+# strictly between the origin and the destination already carries a passing
+# gate named exactly like that column - a naming convention, not a new
+# mapping (owner's own answer, Q-053): nothing in Tira ties a gate name to a
+# column, so the column's own name is the gate's name. A card whose
+# intermediate stages already passed does not need a mechanical walk through
+# columns it never substantively occupied - gate.add already exists to
+# prove what happened, and the chain check should trust it. TKT-429.
 sub _column_chain_violation {
     my ( $tira, %args ) = @_;
     return undef if ( $args{column} // '' ) eq 'discard';
@@ -1799,17 +1808,31 @@ sub _column_chain_violation {
 
     my ($from_col) = grep { $_->{name} eq $from } @{$columns};
     my $fork = $from_col ? ( $from_col->{next} // [] ) : [];
+    my $blocked;
     if ( @{$fork} ) {
-        return undef if grep { $_ eq $args{column} } @{$fork};
-        my $options = join( ' or ', @{$fork} );
-        return "Cannot move $args{ref} to $args{column} - the next column should be $options.\n"
-          . "  Move there first, e.g.:  d2 tira.$args{type}.move --ref $args{ref} --column $fork->[0]\n";
+        if ( !grep { $_ eq $args{column} } @{$fork} ) {
+            my $options = join( ' or ', @{$fork} );
+            $blocked = "Cannot move $args{ref} to $args{column} - the next column should be $options.\n"
+              . "  Move there first, e.g.:  d2 tira.$args{type}.move --ref $args{ref} --column $fork->[0]\n";
+        }
     }
+    elsif ( $to_idx > $from_idx + 1 ) {
+        my $next_name = $columns->[ $from_idx + 1 ]{name};
+        $blocked = "Cannot move $args{ref} to $args{column} - the next column should be $next_name.\n"
+          . "  Move there first:  d2 tira.$args{type}.move --ref $args{ref} --column $next_name\n";
+    }
+    return undef if !defined $blocked;
 
-    return undef if $to_idx <= $from_idx + 1;
-    my $next_name = $columns->[ $from_idx + 1 ]{name};
-    return "Cannot move $args{ref} to $args{column} - the next column should be $next_name.\n"
-      . "  Move there first:  d2 tira.$args{type}.move --ref $args{ref} --column $next_name\n";
+    my @log = @{ $current->{gate_passing_log} // [] };
+    my $all_gated = 1;
+    SKIPPED: for my $j ( $from_idx + 1 .. $to_idx - 1 ) {
+        my $name = $columns->[$j]{name};
+        next SKIPPED if grep { ( $_->{gate} // '' ) eq $name && ( $_->{result} // '' ) eq 'pass' } @log;
+        $all_gated = 0;
+        last SKIPPED;
+    }
+    return undef if $all_gated;
+    return $blocked;
 }
 
 # A column names what must be done before a card leaves it (TKT-427); the

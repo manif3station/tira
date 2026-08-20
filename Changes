@@ -1,5 +1,20 @@
 Revision history for Tira
 
+2.98  2026-08-20
+
+    - TKT-429. The chain check had no accommodation for a card whose
+      intermediate stages already had a passing gate recorded, forcing
+      a mechanical multi-hop walk through columns that never
+      substantively happened for that card even when nothing about
+      that work actually needed redoing.
+
+    - A skip is now allowed anyway when every column strictly between
+      the origin and the destination already carries a gate_passing_log
+      entry named exactly like that column, with result pass - a
+      naming convention rather than a new column-to-gate mapping. A
+      missing gate, a wrongly-named one, or one recorded fail still
+      refuses exactly as before.
+
 2.97  2026-08-20
 
     - TKT-430. The column chain is stored and read as a flat ordered

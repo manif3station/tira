@@ -1,5 +1,22 @@
 Revision history for Tira
 
+2.97  2026-08-20
+
+    - TKT-430. The column chain is stored and read as a flat ordered
+      array, so a forward move's one valid next column was always
+      derived from array position - correct for a linear chain, wrong
+      at a genuine fork, where more than one column is a legitimate
+      forward step and which one depends on the card's own path.
+
+    - A column can now declare an explicit next set (tira.column.update
+      --next COLUMN, repeatable, replaces the column's whole set each
+      call). A forward move from that column is checked against the
+      declared set instead of the single positional successor; a
+      destination outside it refuses, naming every valid option. A
+      column with nothing configured keeps deriving its one next step
+      from position, unchanged - every existing linear board is
+      unaffected. Backward moves stay unconditional either way.
+
 2.96  2026-08-19
 
     - TKT-428. create_record accepts any --column, validated only for

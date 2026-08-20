@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '2.96';
+our $VERSION = '2.97';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1290,6 +1290,7 @@ sub _column_defaults {
     return [ map { { %{$_},
         watched          => exists $_->{watched} ? ( $_->{watched} ? 1 : 0 ) : 1,
         required_actions => $_->{required_actions} // [],
+        next             => $_->{next} // [],
     } } @{$columns} ];
 }
 
@@ -1425,6 +1426,15 @@ sub column_update {
         # matching key_details, deliverables and the other multi-value fields
         # the record side already replaces wholesale. TKT-427.
         $column->{required_actions} = $args{required_action} if defined $args{required_action};
+
+        # A column's valid next step is one value, derived from array
+        # position - correct for a linear chain, wrong at a genuine fork,
+        # where more than one column is a legitimate forward step and which
+        # one depends on the card's own path. Declared explicitly rather than
+        # inferred, and replacing the whole set each call for the same reason
+        # required_actions does. Unconfigured, a column keeps deriving its
+        # one next step from position, exactly as before. TKT-430.
+        $column->{next} = $args{next} if defined $args{next};
         $self->_write_yaml( $path, $config );
         return _column_defaults( [$column] )->[0];
     } );

@@ -325,6 +325,7 @@ sub run {
         'watch!' => \$option{watched}, 'terminal!' => \$option{terminal}, 'stale' => \$option{stale},
         'queue!' => \$option{queue},
         'required-action=s@' => \$option{required_action},
+        'next=s@' => \$option{next},
         'with-level' => \$option{with_level},
         'cache-ttl=i' => \$option{cache_ttl}, 'no-cache' => \$option{no_cache},
         'with=s' => \$option{with}, 'note=s' => \$option{note},
@@ -1762,12 +1763,21 @@ sub _journal_identity {
 }
 
 # Whether a move would skip ahead in the board's own declared column order.
-# Returns a refusal message naming the correct next column, or undef when the
-# move is fine - backward (redoing work after a step back), sideways to the
-# same column, or into discard, which is always exempt regardless of
+# Returns a refusal message naming the correct next column(s), or undef when
+# the move is fine - backward (redoing work after a step back), sideways to
+# the same column, or into discard, which is always exempt regardless of
 # position: abandoning work is not skipping it. Measured against the owner's
 # own example: chain backlog -> planning -> doc -> code, a move straight from
 # backlog to code refuses naming planning. TKT-426.
+#
+# A column's next step is normally derived from array position, one value -
+# correct for a linear chain, wrong at a genuine fork, where more than one
+# column is a legitimate forward step and which one depends on the card's
+# own path (owner's example: a chain ending 'e2e testing', which then forks
+# to either 'done' or 'deploying'). A column carrying an explicit --next set
+# (tira.column.update --next) is checked against that set instead of the
+# single positional successor; a column with nothing configured keeps
+# deriving its one next step from position, unchanged. TKT-430.
 sub _column_chain_violation {
     my ( $tira, %args ) = @_;
     return undef if ( $args{column} // '' ) eq 'discard';
@@ -1783,6 +1793,19 @@ sub _column_chain_violation {
     return undef if !exists $index{$from} || !exists $index{ $args{column} };
     my $from_idx = $index{$from};
     my $to_idx   = $index{ $args{column} };
+
+    # Backward is always fine, fork or no fork.
+    return undef if $to_idx <= $from_idx;
+
+    my ($from_col) = grep { $_->{name} eq $from } @{$columns};
+    my $fork = $from_col ? ( $from_col->{next} // [] ) : [];
+    if ( @{$fork} ) {
+        return undef if grep { $_ eq $args{column} } @{$fork};
+        my $options = join( ' or ', @{$fork} );
+        return "Cannot move $args{ref} to $args{column} - the next column should be $options.\n"
+          . "  Move there first, e.g.:  d2 tira.$args{type}.move --ref $args{ref} --column $fork->[0]\n";
+    }
+
     return undef if $to_idx <= $from_idx + 1;
     my $next_name = $columns->[ $from_idx + 1 ]{name};
     return "Cannot move $args{ref} to $args{column} - the next column should be $next_name.\n"
@@ -1986,6 +2009,8 @@ sub _invoke {
       if defined $option->{queue} && $command ne 'column.update';
     die "Required-action is available on the column.update command\n"
       if defined $option->{required_action} && $command ne 'column.update';
+    die "Next is available on the column.update command\n"
+      if defined $option->{next} && $command ne 'column.update';
     die "Notify-after is available on the column.update, project.update, project.new and onboard commands\n"
       if defined $option->{notify_after}
       && $command !~ /\A(?:column\.update|project\.update|project\.new|onboard)\z/;

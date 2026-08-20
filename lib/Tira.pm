@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.06';
+our $VERSION = '3.07';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -5632,7 +5632,12 @@ sub policy_evaluate {
                 next if !$resolved_for->( $policy, $record );
                 my $checklist = $record->{checklist} // [];
                 next if !@{$checklist};
-                next if grep { ( $_->{status} // '' ) ne 'done' } @{$checklist};
+
+                # Status is documented as free text, and stays that way - only
+                # the comparison against "done" is case-insensitive, so a card
+                # ticked --status Done or DONE is not silently invisible to
+                # the one rule whose job is noticing it finished. TKT-434.
+                next if grep { lc( $_->{status} // '' ) ne 'done' } @{$checklist};
                 my $before = $self->_policy_column_for(
                     project => $root, policy => $policy, field => 'before', record => $record );
                 next if !$self->_policy_before_column( $root, $record, $before );
@@ -5668,8 +5673,10 @@ sub policy_evaluate {
 
                 # And nothing outstanding to have left behind. A card whose
                 # checklist is finished has nothing to tick, and reporting it
-                # would name every card that ever reached done.
-                next if !grep { ( $_->{status} // '' ) ne 'done' } @{$checklist};
+                # would name every card that ever reached done. Case-
+                # insensitively, the same as card-stalled: --status Done or
+                # DONE is genuinely finished, not silently outstanding. TKT-434.
+                next if !grep { lc( $_->{status} // '' ) ne 'done' } @{$checklist};
 
                 my $type = $record->{type} // 'ticket';
                 $resting->{$type} //= $self->_resting_columns( $root, $type );

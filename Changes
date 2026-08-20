@@ -1,5 +1,28 @@
 Revision history for Tira
 
+3.07  2026-08-20
+
+    - TKT-434. docs/commands.md documents checklist and required-action
+      status as free text, and the engine validates only that it is
+      non-empty. But four places compared a status against the exact
+      lowercase string 'done' rather than case-insensitively: the
+      card-stalled and checklist-unmoved police rules, and the
+      required-action move-out gate and its backward-reset. A checklist or
+      required item marked --status Done or --status DONE read as complete
+      to any person looking at the board, but was silently invisible to
+      all four: card-stalled never reported the stall, checklist-unmoved
+      kept reporting the item as outstanding, and a move refused with a
+      confusing "not done" message even though it plainly said Done.
+      Duplicate report TKT-444 (zen-framework) gave a concrete live repro:
+      ZSD-233's item marked --status Done refused a move that
+      --status done (lowercase only) then let straight through with
+      nothing else changed.
+
+    - Fixed: all four sites now compare with lc(...) eq 'done', so Done,
+      DONE, dOne, etc. are recognized everywhere 'done' gates a rule.
+      Every other value, such as todo, is unaffected - the fix is a
+      case-insensitive comparison, not a new restriction.
+
 3.06  2026-08-20
 
     - TKT-433. Creation seeded a birth entry for every FIELD a create call

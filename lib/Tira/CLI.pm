@@ -1924,8 +1924,12 @@ sub _column_required_action_violation {
     # template, so a card-specific item an agent added
     # (tira.required-action.add) gates exactly like a template-derived one -
     # it was never part of the column's template to begin with. TKT-445.
+    # Status is free text, same as checklist - only the comparison against
+    # "done" is case-insensitive, so --status Done is not read as still
+    # outstanding and refused forever with a message that names the very
+    # word the person already used. TKT-434.
     my @unmet = grep {
-        ( $_->{column} // '' ) eq $from && !$exempt{ $_->{item} } && ( $_->{status} // '' ) ne 'done';
+        ( $_->{column} // '' ) eq $from && !$exempt{ $_->{item} } && lc( $_->{status} // '' ) ne 'done';
     } @{ $current->{required_items} // [] };
     return undef if !@unmet;
     return "Cannot move $args{ref} out of $from - required actions not done: "
@@ -1975,7 +1979,11 @@ sub _apply_column_required_actions {
             next if !defined $item->{column} || !exists $index{ $item->{column} };
             my $item_idx = $index{ $item->{column} };
             next if $item_idx < $to_idx + 1 || $item_idx > $from_idx;
-            next if ( $item->{status} // '' ) ne 'done';
+
+            # Same case-insensitive comparison as the move-out gate above -
+            # an item marked --status Done is genuinely done, and must reset
+            # on the way back through exactly as --status done would. TKT-434.
+            next if lc( $item->{status} // '' ) ne 'done';
             $tira->required_item_update( %{$args}, id => $item->{id}, status => 'pending', source => 'required-action' );
         }
     }

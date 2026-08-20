@@ -1897,10 +1897,6 @@ sub _column_required_action_violation {
     for my $col ( @{$columns} ) { $index{ $col->{name} } = $i++; }
     return undef if !exists $index{$from} || !exists $index{ $args{column} };
     return undef if $index{ $args{column} } < $index{$from};
-    my ($from_col) = grep { $_->{name} eq $from } @{$columns};
-    return undef if !$from_col;
-    my $required = $from_col->{required_actions} // [];
-    return undef if !@{$required};
 
     # The column's template is a baseline, not an absolute: a card can carry
     # its own exemptions from specific items (tira.<type>.update
@@ -1909,15 +1905,20 @@ sub _column_required_action_violation {
     # item, so the exemption is a decision on record, not an absence nobody
     # can tell from a genuine oversight. TKT-439.
     my %exempt = map { $_ => 1 } @{ $current->{required_exempt} // [] };
-    my @checklist = @{ $current->{checklist} // [] };
+
+    # Required items are their own list, tagged by the column they belong
+    # to - not a card's checklist, which stays purely manual. Gating reads
+    # this list directly rather than cross-referencing the column's live
+    # template, so a card-specific item an agent added
+    # (tira.required-action.add) gates exactly like a template-derived one -
+    # it was never part of the column's template to begin with. TKT-445.
     my @unmet = grep {
-        my $text = $_;
-        !$exempt{$text} && !grep { $_->{item} eq $text && ( $_->{status} // '' ) eq 'done' } @checklist;
-    } @{$required};
+        ( $_->{column} // '' ) eq $from && !$exempt{ $_->{item} } && ( $_->{status} // '' ) ne 'done';
+    } @{ $current->{required_items} // [] };
     return undef if !@unmet;
     return "Cannot move $args{ref} out of $from - required actions not done: "
-      . join( '; ', @unmet ) . ".\n"
-      . "  Mark them done, then move again:  d2 tira.checklist.update --ref $args{ref} --id CHK-NNN --status done\n";
+      . join( '; ', map { $_->{item} } @unmet ) . ".\n"
+      . "  Mark them done, then move again:  d2 tira.required-action.update --ref $args{ref} --id REQ-NNN --status done\n";
 }
 
 # The other half of TKT-427, applied after a move succeeds: the destination
@@ -1942,23 +1943,28 @@ sub _apply_column_required_actions {
     return if !exists $index{$from} || !exists $index{$to};
     my $from_idx = $index{$from};
     my $to_idx   = $index{$to};
-    my @checklist = @{ $record->{checklist} // [] };
+
+    # Required items live on their own list, each tagged with the column it
+    # applies to (TKT-445) - not the card's checklist, which this mechanism
+    # never touches again. Dedup and reset both match on (column, item)
+    # rather than item text alone, so an identical required-action string
+    # declared on two different columns can never be confused for one item.
+    my @required_items = @{ $record->{required_items} // [] };
 
     if ( $to_idx > $from_idx ) {
         my ($to_col) = grep { $_->{name} eq $to } @{$columns};
         for my $text ( @{ $to_col->{required_actions} // [] } ) {
-            next if grep { $_->{item} eq $text } @checklist;
-            $tira->checklist_add( %{$args}, item => $text, status => 'pending', source => 'required-action' );
+            next if grep { $_->{item} eq $text && $_->{column} eq $to } @required_items;
+            $tira->required_item_add( %{$args}, item => $text, status => 'pending', column => $to, source => 'required-action' );
         }
     }
     elsif ( $to_idx < $from_idx ) {
-        for my $i ( $to_idx + 1 .. $from_idx ) {
-            my $col = $columns->[$i];
-            for my $text ( @{ $col->{required_actions} // [] } ) {
-                my ($item) = grep { $_->{item} eq $text } @checklist;
-                next if !$item || ( $item->{status} // '' ) ne 'done';
-                $tira->checklist_update( %{$args}, id => $item->{id}, status => 'pending', source => 'required-action' );
-            }
+        for my $item (@required_items) {
+            next if !defined $item->{column} || !exists $index{ $item->{column} };
+            my $item_idx = $index{ $item->{column} };
+            next if $item_idx < $to_idx + 1 || $item_idx > $from_idx;
+            next if ( $item->{status} // '' ) ne 'done';
+            $tira->required_item_update( %{$args}, id => $item->{id}, status => 'pending', source => 'required-action' );
         }
     }
     return;
@@ -2293,15 +2299,16 @@ sub _invoke {
         # (TKT-427), but creation is not a move, so a card landing directly
         # in its entry column - or any column carrying required_actions -
         # never received them. Populated here, mirroring the same move-in
-        # logic exactly; the dashboard's own create flow, calling
-        # create_record directly, is untouched. TKT-439.
+        # logic exactly, into the card's own required_items list, tagged with
+        # this landing column (TKT-445, not checklist); the dashboard's own
+        # create flow, calling create_record directly, is untouched. TKT-439.
         my $columns = eval { $tira->column_list(%args) };
         if ( ref $columns eq 'ARRAY' ) {
             my ($landed) = grep { $_->{name} eq $column } @{$columns};
             my @required = @{ $landed->{required_actions} // [] };
             if (@required) {
-                $tira->checklist_add( %args, ref => $created->{ref},
-                    item => $_, status => 'pending', source => 'required-action' )
+                $tira->required_item_add( %args, ref => $created->{ref},
+                    item => $_, status => 'pending', column => $column, source => 'required-action' )
                   for @required;
 
                 # $created was captured before these writes; re-read so what
@@ -2755,6 +2762,8 @@ sub _invoke {
         'release.record' => 'release_record',
         'checklist.list' => 'checklist_list', 'checklist.add' => 'checklist_add',
         'checklist.update' => 'checklist_update',
+        'required-action.list' => 'required_item_list', 'required-action.add' => 'required_item_add',
+        'required-action.update' => 'required_item_update',
         'search' => 'search', 'search.index' => 'search_index', 'dashboard' => 'dashboard',
         'dashboard.sow' => 'dashboard', 'dashboard.epic' => 'dashboard', 'dashboard.ticket' => 'dashboard',
     );

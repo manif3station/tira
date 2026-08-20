@@ -51,7 +51,7 @@ sub move {
 
 sub checklist_of {
     my ($ref) = @_;
-    return $tira->record_show( project => $root, ref => $ref )->{checklist};
+    return $tira->record_show( project => $root, ref => $ref )->{required_items};
 }
 
 sub item_status {
@@ -96,7 +96,7 @@ like( $err, qr/\Q$ref\E/, 'and names the card' );
 is( $tira->record_show( project => $root, ref => $ref )->{column}, 'planning', 'the card did not move' );
 
 my ($note) = grep { $_->{item} eq 'left a note' } @{ checklist_of($ref) };
-$tira->checklist_update( project => $root, ref => $ref, id => $note->{id}, status => 'done' );
+$tira->required_item_update( project => $root, ref => $ref, id => $note->{id}, status => 'done' );
 ( $status, $out, $err ) = move( $ref, 'doc' );
 is( $status, 0, 'moving out succeeds once the required item is marked done' ) or diag($err);
 is( $tira->record_show( project => $root, ref => $ref )->{column}, 'doc', 'and the card actually moved' );
@@ -104,7 +104,7 @@ is( scalar @{ checklist_of($ref) }, 2, "entering doc adds its own item on top of
 is( item_status( $ref, 'reviewed' ), 'pending', "doc's template item is present and unmarked" );
 
 my ($reviewed) = grep { $_->{item} eq 'reviewed' } @{ checklist_of($ref) };
-$tira->checklist_update( project => $root, ref => $ref, id => $reviewed->{id}, status => 'done' );
+$tira->required_item_update( project => $root, ref => $ref, id => $reviewed->{id}, status => 'done' );
 ( $status, $out, $err ) = move( $ref, 'code' );
 is( $status, 0, "moving into code succeeds once doc's item is done too" ) or diag($err);
 is( scalar @{ checklist_of($ref) }, 3, "code's own item is added" );

@@ -57,8 +57,8 @@ is( $history->[0]{item}, 'left a note', 'naming the item it added' );
 is( $history->[0]{after}, 'pending', 'and the status it started at' );
 
 # --- mark it done manually - still no tag, this was a person's own tick ----
-my ($entry) = grep { $_->{item} eq 'left a note' } @{ $tira->checklist_list( project => $root, ref => $card->{ref} ) };
-$tira->checklist_update( project => $root, ref => $card->{ref}, id => $entry->{id}, status => 'done' );
+my ($entry) = grep { $_->{item} eq 'left a note' } @{ $tira->required_item_list( project => $root, ref => $card->{ref} ) };
+$tira->required_item_update( project => $root, ref => $card->{ref}, id => $entry->{id}, status => 'done' );
 $history = $tira->history_list( project => $root, ref => $card->{ref}, where => ['op=required-action'] );
 is( scalar @{$history}, 1, 'a manual checklist_update adds no new required-action entry' );
 
@@ -79,10 +79,11 @@ __END__
 
 =head1 DESCRIPTION
 
-Covers TKT-438's work-log ask: checklist_add and checklist_update accept an
-optional source => 'required-action', which writes an extra, distinctly
-tagged history entry (op => 'required-action', field => 'checklist') on
-top of the generic per-write entry every checklist change already gets. A
-plain manual call carries no such tag.
+Covers TKT-438's work-log ask, now against required_item_add/update
+(TKT-445 moved required actions off checklist onto their own list): both
+accept an optional source => 'required-action', which writes an extra,
+distinctly tagged history entry (op => 'required-action', field =>
+'required_items') on top of the generic per-write entry every required-item
+change already gets. A plain manual checklist_add carries no such tag.
 
 =cut

@@ -1,5 +1,27 @@
 Revision history for Tira
 
+3.03  2026-08-20
+
+    - TKT-445. Required-action items were never meant to share a card's
+      checklist - the owner described them, both before and during this
+      session, as their own list, organized by the column each item
+      applies to. Instead, TKT-427/439 had been adding them into the same
+      checklist array a manual tick uses, distinguishable only by reading
+      the journal - which is exactly why an agent on another project read
+      a card and found a required item indistinguishable from a manual
+      one, adding a byte-identical duplicate to satisfy the check.
+
+    - New required_items card field, genuinely separate from checklist,
+      each entry tagged with the column it applies to. New commands
+      tira.required-action.add/list/update manage it directly.
+      required-action.add lets an agent add a required item to one
+      specific card that ALSO gates that card's move-out - distinct from
+      a plain checklist.add extra, which stays purely non-gating exactly
+      as before. Move-in population, creation-time population, the
+      move-out gate, the per-card exemption list, and the backward-move
+      reset are all retargeted to the new list; checklist is never
+      written to by any of this again.
+
 3.02  2026-08-20
 
     - TKT-389. 94 of Tira's string options are single-valued and 25

@@ -46,16 +46,16 @@ sub cli {
 my ( $status, $out, $err ) = cli( 'record.create', '--title', 'Backlog card' );
 is( $status, 0, 'creating with no --column succeeds' ) or diag($err);
 my $backlog_card = $tira->record_list( project => $root, type => 'ticket' )->[0];
-is( scalar @{ $backlog_card->{checklist} }, 0, 'backlog carries no required_actions - nothing added' );
+is( scalar @{ $backlog_card->{required_items} }, 0, 'backlog carries no required_actions - nothing added' );
 
 # --- created directly into a column WITH required_actions configured ------
 ( $status, $out, $err ) = cli( 'record.create', '--title', 'Born in planning', '--column', 'planning' );
 is( $status, 0, 'creating directly into planning succeeds' ) or diag($err);
 my ($planning_card) = grep { $_->{title} eq 'Born in planning' } @{ $tira->record_list( project => $root, type => 'ticket' ) };
-is( scalar @{ $planning_card->{checklist} }, 2, 'both of planning\'s required items are already on the card' );
-ok( ( grep { $_->{item} eq 'left a note' && $_->{status} eq 'pending' } @{ $planning_card->{checklist} } ),
+is( scalar @{ $planning_card->{required_items} }, 2, 'both of planning\'s required items are already on the card' );
+ok( ( grep { $_->{item} eq 'left a note' && $_->{status} eq 'pending' } @{ $planning_card->{required_items} } ),
     'the first item, unmarked' );
-ok( ( grep { $_->{item} eq 'said why' && $_->{status} eq 'pending' } @{ $planning_card->{checklist} } ),
+ok( ( grep { $_->{item} eq 'said why' && $_->{status} eq 'pending' } @{ $planning_card->{required_items} } ),
     'and the second' );
 
 # --- and it counts as a required-action write in the work log, same as a move
@@ -69,7 +69,7 @@ like( $err, qr/left a note/, 'naming an unmet item' );
 
 # --- the direct engine call - the dashboard's own path - stays untouched ---
 my $direct = $tira->create_record( project => $root, type => 'ticket', title => 'Dashboard bypass', column => 'planning' );
-is( scalar @{ $tira->record_show( project => $root, ref => $direct->{ref} )->{checklist} }, 0,
+is( scalar @{ $tira->record_show( project => $root, ref => $direct->{ref} )->{required_items} }, 0,
     'a direct create_record call gets no required-action population at all' );
 
 done_testing;

@@ -1804,6 +1804,20 @@ opens it on that board, and `tira.dashboard` opens it on the default one.
 - `tira.checklist.update --ref REF --id CHK-NNN [--item TEXT] [--status TEXT] [-o FORMAT]`
 
 
+### Required actions
+
+A genuinely separate list from checklist above - never written to by anything
+that touches it, and vice versa. Each entry carries the column it applies to.
+Populated automatically by move-in, creation-time entry-column population, and
+the move-out gate and backward-move reset (all TKT-427/439/445); these three
+commands are how an agent reads that list or manages a card-specific item on
+top of it directly.
+
+- `tira.required-action.add --ref REF --item TEXT --status TEXT [-o FORMAT]` - adds an item tagged with the card's current column; unlike checklist.add, this item gates the card's next move out of that column.
+- `tira.required-action.list --ref REF [-o FORMAT]`
+- `tira.required-action.update --ref REF --id REQ-NNN [--item TEXT] [--status TEXT] [-o FORMAT]`
+
+
 ### Collectors
 
 - `tira.collector.install [-o FORMAT]`

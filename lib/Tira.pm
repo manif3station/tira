@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.02';
+our $VERSION = '3.03';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -516,6 +516,7 @@ sub create_record {
                 evidence             => [],
                 attachments          => [],
                 checklist            => [],
+                required_items       => [],
                 subtasks             => [],
                 linkage              => $self->_empty_linkage($type),
                 assignee             => $args{assignee},
@@ -1574,7 +1575,7 @@ sub board_refs {
 my @RECORD_FIELDS = qw(
     ref type title description key_details problem_or_feature solution_needed
     deliverables scope source acceptance_criteria test_steps bdd atdd
-    gate_passing_log evidence attachments checklist subtasks linkage assignee
+    gate_passing_log evidence attachments checklist required_items subtasks linkage assignee
     reporter labels due_date start_date sdlc_gate lifecycle priority
     fix_version affects_versions parent comments created_at last_updated column
     content_hash attachment_count sandbox agent_session conversation required_exempt
@@ -3785,6 +3786,69 @@ sub checklist_update {
     } );
 }
 
+# A required item was never meant to share a card's checklist - the owner
+# described it, before and after this session started, as its own list,
+# organized by the column each item applies to, with an agent free to remove
+# a column's own item from one card (required_exempt) or add a new one that
+# ALSO gates that card's move-out, distinct from a plain checklist.add's
+# non-gating extra. TKT-445.
+sub required_item_list {
+    my ( $self, %args ) = @_;
+    return $self->record_show(%args)->{required_items};
+}
+
+sub required_item_add {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        die "Required item is required\n" if !defined $args{item} || $args{item} eq '';
+        die "Required item status is required\n" if !defined $args{status} || $args{status} eq '';
+        my $record = $self->record_show(%args);
+        my $number = @{ $record->{required_items} } + 1;
+        my $now = $self->{clock}->();
+        my $entry = {
+            id => sprintf( 'REQ-%03d', $number ),
+            column => $args{column} // $record->{column},
+            item => $args{item}, status => $args{status},
+            created_at => $now, last_updated => $now,
+        };
+        push @{ $record->{required_items} }, $entry;
+
+        # Same distinction checklist_add's own --source draws (TKT-438): the
+        # move-in and creation-time mechanisms write exactly the call an
+        # agent typing required-action.add by hand would, and the generic
+        # per-write journal entry cannot tell them apart on its own.
+        $self->_journal_record(
+            ref => $record->{ref}, op => $args{source},
+            entries => [ { field => 'required_items', item => $entry->{item}, after => $entry->{status} } ],
+        ) if defined $args{source} && $args{source} ne '';
+        $self->_replace_record( %args, record => $record );
+        return $entry;
+    } );
+}
+
+sub required_item_update {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        die "Required item or status is required\n" if !defined $args{item} && !defined $args{status};
+        die "Required item is required\n" if defined $args{item} && $args{item} eq '';
+        die "Required item status is required\n" if defined $args{status} && $args{status} eq '';
+        my $record = $self->record_show(%args);
+        my ($entry) = grep { $_->{id} eq ( $args{id} // '' ) } @{ $record->{required_items} };
+        die "Required item '$args{id}' not found\n" if !$entry;
+        $entry->{item} = $args{item} if defined $args{item};
+        $entry->{status} = $args{status} if defined $args{status};
+        $entry->{last_updated} = $self->{clock}->();
+        $self->_journal_record(
+            ref => $record->{ref}, op => $args{source},
+            entries => [ { field => 'required_items', item => $entry->{item}, after => $entry->{status} } ],
+        ) if defined $args{source} && $args{source} ne '';
+        $self->_replace_record( %args, record => $record );
+        return $entry;
+    } );
+}
+
 sub search {
     my ( $self, %args ) = @_;
     my $count_mode = delete $args{count};
@@ -3864,6 +3928,7 @@ sub _search_haystack {
     push @text, map { grep { defined } $_->{id}, $_->{summary}, $_->{uri} }
       @{ $record->{evidence} // [] };
     push @text, map { grep { defined } $_->{id}, $_->{item} } @{ $record->{checklist} // [] };
+    push @text, map { grep { defined } $_->{id}, $_->{item}, $_->{column} } @{ $record->{required_items} // [] };
     push @text, map { grep { defined } $_->{said}, $_->{heard} } @{ $record->{conversation} // [] };
     push @text, map { grep { defined } $_->{original_filename} } @{ $record->{attachments} // [] };
 

@@ -99,6 +99,18 @@ d2 tira.policy.bridge
 because it looks like cover. Police will be saying things and nobody will be
 listening. Keep the bridge running for as long as you are working.
 
+**Run it exactly as shown above - `d2 tira.policy.bridge`, nothing else.** It
+streams every event to its own stdout as it happens; that is what "tail it"
+means everywhere else in this guide. It is not an instruction to pipe the
+command through the Unix `tail` utility, wrap it in `script`, or redirect it
+to a log file for something else to follow - **it takes no log-file argument
+at all, and needs none.** An agent that finds a *different* project's bridge
+process running some other way (`ps aux` shows one, say) must not copy that
+shape: another project's process reflects that project's own history, not a
+documented convention here. If you are unsure how to invoke any Tira command,
+read its entry in this file or in `docs/commands.md` - do not infer usage
+from an unrelated running process.
+
 **6. Add rules as you find you need them.** The best time to add a rule is
 just after something went wrong that it would have caught.
 

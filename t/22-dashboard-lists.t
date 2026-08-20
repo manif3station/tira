@@ -122,6 +122,7 @@ my %providers = (
     attachment_discard => sub { '{"ok":true}' },
     checklist_add => sub { return '{"ok":true,"entry":{"id":"CHK-001"}}' },
     checklist_update => sub { die "Checklist entry 'CHK-404' not found\n" },
+    required_action_update => sub { '{"ok":true}' },
     link_types => sub { '[]' },
     hierarchy_link => sub { '{"ok":true}' },
     hierarchy_unlink => sub { '{"ok":true}' },

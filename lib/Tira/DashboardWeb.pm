@@ -13,6 +13,7 @@ use Dancer2 appname => 'TiraDashboard';
 
 our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $SEARCH, $COMMENT_ADD, $COMMENT_UPDATE, $COMMENT_REMOVE, $PEOPLE,
       $ATTACHMENT_FETCH, $ATTACHMENT_ADD, $ATTACHMENT_REMOVE, $ATTACHMENT_DISCARD, $CHECKLIST_ADD, $CHECKLIST_UPDATE,
+      $REQUIRED_ACTION_UPDATE,
       $LINK_TYPES, $HIERARCHY_LINK, $HIERARCHY_UNLINK, $SUBITEM_LINK, $SUBITEM_UNLINK, $LINK_ADD, $LINK_REMOVE,
       $COLUMNS, $COLUMN_APPLY, $QUESTION_ANSWER, $QUESTION_MARK, $QUESTION_ATTACH,
       $LOGIN_START, $LOGIN_REGISTER, $SESSION_RESUME, $SESSION_PEEK, $SESSION_END, $LOGIN_PAGE,
@@ -179,6 +180,7 @@ post '/attachment/remove' => sub { return _mutation( \$ATTACHMENT_REMOVE ) };
 post '/attachment/discard' => sub { return _mutation( \$ATTACHMENT_DISCARD ) };
 post '/checklist/add' => sub { return _mutation( \$CHECKLIST_ADD ) };
 post '/checklist/update' => sub { return _mutation( \$CHECKLIST_UPDATE ) };
+post '/required-action/update' => sub { return _mutation( \$REQUIRED_ACTION_UPDATE ) };
 post '/hierarchy/link' => sub { return _mutation( \$HIERARCHY_LINK ) };
 post '/hierarchy/unlink' => sub { return _mutation( \$HIERARCHY_UNLINK ) };
 post '/subitem/link' => sub { return _mutation( \$SUBITEM_LINK ) };
@@ -323,6 +325,7 @@ my @PROVIDERS = (
     [ attachment_discard => \$ATTACHMENT_DISCARD, 'attachment discard provider' ],
     [ checklist_add => \$CHECKLIST_ADD, 'checklist add provider' ],
     [ checklist_update => \$CHECKLIST_UPDATE, 'checklist update provider' ],
+    [ required_action_update => \$REQUIRED_ACTION_UPDATE, 'required action update provider' ],
     [ link_types => \$LINK_TYPES, 'link types provider' ],
     [ hierarchy_link => \$HIERARCHY_LINK, 'hierarchy link provider' ],
     [ hierarchy_unlink => \$HIERARCHY_UNLINK, 'hierarchy unlink provider' ],

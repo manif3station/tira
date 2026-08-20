@@ -1,5 +1,21 @@
 Revision history for Tira
 
+3.05  2026-08-20
+
+    - TKT-440. Required-action items (TKT-445) had a data model but no
+      visibility: the card dialog rendered only the general checklist,
+      with no way to see which items a column actually requires or how
+      many are done, without reading the JSON directly.
+
+    - The card dialog now shows a "Required actions (done/total)"
+      section, grouped by column, the moment a card with any is opened
+      - separate from the general checklist, which is unaffected. A
+      card with none renders exactly as before. Marking one done from
+      the dialog (new POST /required-action/update route, wired to
+      required_item_update) updates the count in place, no reload.
+      Covered by a new Playwright browser test
+      (t/playwright/required-actions.js) alongside the existing suite.
+
 3.04  2026-08-20
 
     - TKT-447. required_item_add and required_item_update dereferenced

@@ -452,6 +452,7 @@ for test in "$tests"/*.js; do
         dashboard-browser.js) run_one "$name" "$browsing_html" "$live_data" "$scratch/$name.png" ;;
         stale-board.js)       run_one "$name" "$browsing_html" "$live_data" ;;
         police-log.js)        run_one "$name" "$browsing_html" "$live_data" ;;
+        required-actions.js)  run_one "$name" "$browsing_html" "$live_data" ;;
         priority-sort.js)     run_one "$name" "$priority_html" "$priority_data" ;;
         # The same fixture priority-sort uses: a board with three cards in one
         # column, which is what a relative ranking needs to say anything.

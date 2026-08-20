@@ -1171,6 +1171,18 @@ sub browser_providers {
             );
             return $json->encode( { ok => Cpanel::JSON::XS::true, entry => $entry } );
         },
+        required_action_update => sub {
+            my ($payload) = @_;
+            die "Required action payload must be an object\n" if ref($payload) ne 'HASH';
+            die "Required action update requires ref and id\n"
+              if !defined $payload->{ref} || ref $payload->{ref} || !defined $payload->{id} || ref $payload->{id};
+            my $entry = $tira->required_item_update(
+                project => $project, ref => $payload->{ref}, id => $payload->{id},
+                ( defined $payload->{item} ? ( item => $payload->{item} ) : () ),
+                ( defined $payload->{status} ? ( status => $payload->{status} ) : () ),
+            );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, entry => $entry } );
+        },
         comment_add => sub {
             my ($payload) = @_;
             die "Comment payload must be an object\n" if ref($payload) ne 'HASH';

@@ -1150,6 +1150,8 @@ A column's required-action template is a baseline, not an absolute, in both dire
 
 An agent can also add a required item that exists only on one card: `d2 tira.required-action.add --ref TKT-001 --item "card-specific extra check" --status pending`, tagged with whichever column the card currently sits in. Unlike a plain `tira.checklist.add` extra (still available, still never gates a move - that list is purely manual), an item added this way DOES gate the card's departure from that column exactly like a template-derived one. `d2 tira.required-action.list --ref TKT-001` reads the whole list back, and `d2 tira.required-action.update --ref TKT-001 --id REQ-NNN --status done` marks one done. TKT-445.
 
+Required items get their own labeled section in the browser dashboard's card dialog, separate from the general checklist - opening a card shows a "Required actions (done/total)" section, grouped by column, the moment it opens. A card with none renders exactly as before, no new section. Marking one done from the dialog updates the count in place, with no page reload. TKT-440.
+
 ### UC-055: Move epic independently
 **Implemented.** Moving an epic does not move its tickets.
 

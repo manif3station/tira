@@ -440,6 +440,7 @@ my %providers = (
     attachment_discard => sub { '{"ok":true}' },
     checklist_add => sub { '{"ok":true}' },
     checklist_update => sub { '{"ok":true}' },
+    required_action_update => sub { '{"ok":true}' },
     link_types => sub { '[]' },
     hierarchy_link => sub { '{"ok":true}' },
     hierarchy_unlink => sub { '{"ok":true}' },

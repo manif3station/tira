@@ -52,7 +52,7 @@ sub reported {
     $now = '2026-08-18T14:54:05+0100';
     my $newer = $tira->create_record( project => $root, type => 'ticket',
         title => 'The one worked instead, same priority', priority => 5 );
-    $tira->record_move( project => $root, ref => $newer->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $newer->{ref}, column => 'implement' );
 
     my $found = reported( $tira, $root, $store );
     is( scalar @{$found}, 1, 'the older card at the same priority is still reported' );
@@ -82,7 +82,7 @@ sub reported {
         title => 'The higher-priority card, actually above', priority => 5 );
     my $working = $tira->create_record( project => $root, type => 'ticket',
         title => 'Worked at a lower priority', priority => 2 );
-    $tira->record_move( project => $root, ref => $working->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $working->{ref}, column => 'implement' );
 
     my $found = reported( $tira, $root, $store );
     is( scalar @{$found}, 1, 'a genuine priority difference is still reported' );

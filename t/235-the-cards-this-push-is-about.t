@@ -66,7 +66,7 @@ my $shipped = $tira->create_record(
 # have nothing wrong with it.
 $tira->checklist_add( project => $root, ref => $shipped->{ref},
     item => 'The work itself', status => 'todo' );
-$tira->record_move( project => $root, ref => $shipped->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $shipped->{ref}, column => 'implement' );
 $tira->hierarchy_link( project => $root,
     parent => $parent->{ref}, child => $shipped->{ref} );
 

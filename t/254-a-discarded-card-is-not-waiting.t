@@ -62,7 +62,7 @@ is( $tira->work_order( project => $root )->[0]{ref}, $abandoned->{ref},
 
 # --- and once it is discarded, it is not --------------------------------------
 
-$tira->record_move( project => $root, ref => $abandoned->{ref}, column => 'discard' );
+$tira->record_move(author => 'claude',  project => $root, ref => $abandoned->{ref}, column => 'discard' );
 
 {
     my $order = $tira->work_order( project => $root );
@@ -86,7 +86,7 @@ $tira->record_move( project => $root, ref => $abandoned->{ref}, column => 'disca
 # abandoned is asking for work nobody wants done.
 
 {
-    $tira->record_move( project => $root, ref => $lesser->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $lesser->{ref}, column => 'implement' );
 
     my $pass = $tira->police_pass( project => $root, store => $store, world => {} );
     my @skipped = grep { ( $_->{rule} // '' ) eq 'priority-skipped' }

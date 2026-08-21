@@ -47,11 +47,11 @@ $tira->policy_add( project => $root, rule => 'priority-skipped',
 
 my $queued = $tira->create_record( project => $root, type => 'ticket',
     title => 'Waiting in a column this board invented', priority => 5 );
-$tira->record_move( project => $root, ref => $queued->{ref}, column => 'buglist' );
+$tira->record_move(author => 'claude',  project => $root, ref => $queued->{ref}, column => 'buglist' );
 
 my $lesser = $tira->create_record( project => $root, type => 'ticket',
     title => 'Less urgent, and about to be worked out of turn', priority => 2 );
-$tira->record_move( project => $root, ref => $lesser->{ref}, column => 'buglist' );
+$tira->record_move(author => 'claude',  project => $root, ref => $lesser->{ref}, column => 'buglist' );
 
 # --- the board as they found it -------------------------------------------------
 #
@@ -78,7 +78,7 @@ is_deeply( $tira->work_order( project => $root ), [],
 # board that is behaving, and nothing about one that is not.
 
 {
-    $tira->record_move( project => $root, ref => $lesser->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $lesser->{ref}, column => 'implement' );
 
     my $pass = $tira->police_pass( project => $root, store => $store, world => {} );
     my @skipped = grep { ( $_->{rule} // '' ) eq 'priority-skipped' }
@@ -125,7 +125,7 @@ is_deeply( $tira->work_order( project => $root ), [],
         title => 'Sitting in the backlog', priority => 5 );
     my $in_queue = $tira->create_record( project => $both, type => 'ticket',
         title => 'Sitting in the named queue', priority => 3 );
-    $tira->record_move( project => $both, ref => $in_queue->{ref}, column => 'buglist' );
+    $tira->record_move(author => 'claude',  project => $both, ref => $in_queue->{ref}, column => 'buglist' );
 
     $tira->column_update( project => $both, type => $_, name => 'buglist', queue => 1 )
       for qw(sow epic ticket);

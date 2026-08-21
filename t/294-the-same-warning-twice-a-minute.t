@@ -35,7 +35,7 @@ $tira->policy_add( project => $root, rule => 'agent-still', age => '1s', action 
 
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Stopped', priority => 5, assignee => 'claude' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 
 # Long past the 1s age threshold - the agent's last action stays at this
 # board's creation time while $now moves on, which is what a real stall is.
@@ -68,10 +68,10 @@ my @sent;
     # the owner should hear about a fresh stoppage without waiting out the
     # window from the last one.
     $now = '2026-08-18T02:17:00Z';
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'done' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'done' );
     my $second_card = $tira->create_record( project => $root, type => 'ticket',
         title => 'Stopped again', priority => 5, assignee => 'claude' );
-    $tira->record_move( project => $root, ref => $second_card->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $second_card->{ref}, column => 'implement' );
     $tira->police_pass( project => $root, store => $store, world => {} );
     is( scalar @sent, 2, 'acting again is not itself a stall, so nothing new is sent yet' );
 

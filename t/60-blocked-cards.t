@@ -16,14 +16,14 @@ my $tick = '2026-08-09T09:00:00Z';
 my $tira = Tira->new( clock => sub {$tick} );
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
-$tira->project_new( name => 'Blocked', dir => $root, columns => ['Backlog, Doing'],
+$tira->project_new( name => 'Blocked', dir => $root, columns => ['Backlog, Doing'], members => ['claude'],
     sow_prefix => 'BLS', epic_prefix => 'BLE', ticket_prefix => 'BLT' );
 $tira->column_update( project => $root, type => 'ticket', name => 'doing', notify_after => 30 );
 
 my $asked = $tira->create_record( project => $root, type => 'ticket', title => 'Blocked on you' );
 my $plain = $tira->create_record( project => $root, type => 'ticket', title => 'Just slow' );
-$tira->record_move( project => $root, ref => $asked->{ref}, column => 'doing' );
-$tira->record_move( project => $root, ref => $plain->{ref}, column => 'doing' );
+$tira->record_move(author => 'claude',  project => $root, ref => $asked->{ref}, column => 'doing' );
+$tira->record_move(author => 'claude',  project => $root, ref => $plain->{ref}, column => 'doing' );
 
 sub stale_refs {
     return [ map { $_->{ref} } @{ $tira->dwell_list( project => $root, stale => 1 ) } ];
@@ -100,7 +100,7 @@ is_deeply( [ map { $_->{ref} } @{ $message->{cleared} } ], [ $asked->{ref} ],
 
 # A discarded question blocks nothing.
 my $third = $tira->create_record( project => $root, type => 'ticket', title => 'Set aside' );
-$tira->record_move( project => $root, ref => $third->{ref}, column => 'doing' );
+$tira->record_move(author => 'claude',  project => $root, ref => $third->{ref}, column => 'doing' );
 my $dropped = $tira->question_add( project => $root, ref => $third->{ref}, text => 'Never mind' );
 $tira->question_discard( project => $root, id => $dropped->{id} );
 $tick = '2026-08-12T19:00:00Z';
@@ -111,7 +111,7 @@ ok( scalar( grep { $_ eq $third->{ref} } @{ stale_refs() } ),
 # should not have to start his notification history again.
 {
     my $old = File::Spec->catdir( $tmp, 'legacy' );
-    $tira->project_new( name => 'Legacy', dir => $old, columns => ['Backlog, Doing'],
+    $tira->project_new( name => 'Legacy', dir => $old, columns => ['Backlog, Doing'], members => ['claude'],
         sow_prefix => 'LGS', epic_prefix => 'LGE', ticket_prefix => 'LGT' );
     my $db = File::Spec->catfile( $old, '.tira', 'notification.db' );
     require DBI;
@@ -137,7 +137,7 @@ ok( scalar( grep { $_ eq $third->{ref} } @{ stale_refs() } ),
 # read: half a project is still worth reporting on.
 {
     my $partial = File::Spec->catdir( $tmp, 'partial' );
-    $tira->project_new( name => 'Partial', dir => $partial, columns => ['Backlog, Doing'],
+    $tira->project_new( name => 'Partial', dir => $partial, columns => ['Backlog, Doing'], members => ['claude'],
         sow_prefix => 'PTS', epic_prefix => 'PTE', ticket_prefix => 'PTT' );
     my $card = $tira->create_record( project => $partial, type => 'ticket', title => 'Only one' );
     my $q = $tira->question_add( project => $partial, ref => $card->{ref}, text => 'Well?' );

@@ -56,7 +56,7 @@ my $card = $tira->create_record( project => $root, type => 'ticket',
 # Straight to verify without passing through implement, which is what
 # column-skipped exists to report. It reads history to find that out, so it is
 # the rule that meets the damage.
-$tira->record_move( project => $root, ref => $card, column => 'verify' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'verify' );
 
 my $journal = File::Spec->catfile( $root, '.tira', 'history', "$card.jsonl" );
 open my $append, '>>:raw', $journal or die $!;
@@ -135,7 +135,7 @@ is_deeply( $pass->{unreadable}, [],
 
     my $twice = $tira->create_record( project => $both, type => 'ticket',
         title => 'Read by two rules in one pass' )->{ref};
-    $tira->record_move( project => $both, ref => $twice, column => 'verify' );
+    $tira->record_move(author => 'claude',  project => $both, ref => $twice, column => 'verify' );
 
     # conversation-not-folded only opens the journal of a card with something
     # said on it, so without this the second reader never runs. Said an hour
@@ -188,7 +188,7 @@ like( $now, qr/\xd7/, 'bad byte and all - nothing was quietly rewritten' );
     my $clean = File::Spec->catdir( $tmp, 'clean' );
     my $quiet = File::Spec->catdir( $tmp, 'police-clean' );
     $tira->project_new(
-        name => 'Clean', dir => $clean, members => ['michael'],
+        name => 'Clean', dir => $clean, members => ['michael', 'claude' ],
         columns => ['backlog, implement, verify, done'],
         sow_prefix => 'CLS', epic_prefix => 'CLE', ticket_prefix => 'CLT',
     );
@@ -196,7 +196,7 @@ like( $now, qr/\xd7/, 'bad byte and all - nothing was quietly rewritten' );
         enter => 'verify', require => 'implement', action => 'bridge-reminder' );
     my $ok = $tira->create_record( project => $clean, type => 'ticket',
         title => 'Nothing wrong with this one' )->{ref};
-    $tira->record_move( project => $clean, ref => $ok, column => 'verify' );
+    $tira->record_move(author => 'claude',  project => $clean, ref => $ok, column => 'verify' );
 
     my $result = $tira->police_pass( project => $clean, store => $quiet,
         world => { branches => [], worktrees => [], processes => [], containers => [] } );

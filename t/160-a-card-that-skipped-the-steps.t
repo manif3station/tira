@@ -51,7 +51,7 @@ sub walk {
     my $card = $tira->create_record( project => $root, type => 'ticket', title => $title );
     for my $column (@columns) {
         $now =~ s/T(\d\d):(\d\d)/sprintf 'T%02d:%02d', $1, $2 + 1/e;
-        $tira->record_move( project => $root, ref => $card->{ref}, column => $column );
+        $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => $column );
     }
     return $card->{ref};
 }

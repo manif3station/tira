@@ -1,5 +1,27 @@
 Revision history for Tira
 
+3.17  2026-08-21
+
+    - TKT-457. Chain-order and required-action enforcement (TKT-426,
+      TKT-452) live only in Tira::CLI's record.move dispatch - deliberate,
+      so a signed-in browser move stays exempt. But that also meant any
+      caller reaching record_move some other way than the CLI - a script,
+      an integration, a raw API call - skipped both checks entirely, with
+      no record of who or what moved the card. Confirmed in production: two
+      moves with no author recorded skipped nine columns, neither check
+      ever running.
+
+    - Fixed: record_move itself now refuses a caller that supplies no
+      author, or one naming somebody the project has never registered -
+      the same standard --assignee and --reporter already meet. The CLI
+      already resolved --author or TIRA_AUTHOR before this; reaching
+      record_move with neither is now refused with a corrective message
+      rather than silently recorded against nobody. A signed-in browser
+      move is unaffected. record_discard and record_restore inherit the
+      refusal, since both call record_move underneath. Scoped to
+      record_move alone, by the owner's own answer to this ticket's scope
+      question - other mutating commands are separate, later tickets.
+
 3.16  2026-08-21
 
     - TKT-456. column_add positions a new column with --after/--before, but

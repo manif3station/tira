@@ -56,7 +56,7 @@ $tira->project_new(
 my $title = "Workflow finder \x{d7}2 \x{2014} three refuters";
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => $title )->{ref};
-$tira->record_move( project => $root, ref => $card, column => 'discard' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'discard' );
 # The characters have to be in what the bridge PRINTS, not merely on the card.
 # The first draft put them in the title and asserted against the output, and the
 # output was pure ASCII - discard-unexplained does not quote the title - so the

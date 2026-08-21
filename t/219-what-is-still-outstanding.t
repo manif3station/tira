@@ -47,7 +47,7 @@ my $stays = $tira->create_record( project => $root, type => 'ticket',
     title => 'The one that stays wrong' );
 my $fixed = $tira->create_record( project => $root, type => 'ticket',
     title => 'The one that gets fixed' );
-$tira->record_move( project => $root, ref => $_->{ref}, column => 'implement' )
+$tira->record_move(author => 'claude',  project => $root, ref => $_->{ref}, column => 'implement' )
   for $stays, $fixed;
 
 $tira->policy_add( project => $root, rule => 'card-unassigned',

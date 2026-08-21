@@ -58,7 +58,7 @@ my $report = $tira->create_record(
 # And a card somebody here is working, with nothing on it.
 my $mine = $tira->create_record( project => $root, type => 'ticket',
     title => 'A card of my own with nothing on it' );
-$tira->record_move( project => $root, ref => $mine->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $mine->{ref}, column => 'implement' );
 
 my $tool  = File::Spec->rel2abs( File::Spec->catfile( 'tools', 'card-holes' ) );
 my $skill = File::Spec->rel2abs('.');
@@ -120,7 +120,7 @@ like( $said, qr/\Q$mine->{ref}\E/,
 # the card leaving the backlog. Until then nobody has decided what it is; after
 # that it is this project's work like any other.
 
-$tira->record_move( project => $root, ref => $report->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $report->{ref}, column => 'implement' );
 
 like( gate_says(), qr/\Q$report->{ref}\E/,
     'and a report somebody has picked up is a ticket like any other' );

@@ -68,9 +68,9 @@ my $abandoned = $tira->create_record( project => $root, type => 'ticket', title 
 my $waiting   = $tira->create_record( project => $root, type => 'ticket', title => 'Not started' );
 my $finished  = $tira->create_record( project => $root, type => 'ticket', title => 'Over' );
 
-$tira->record_move( project => $root, ref => $_->{ref}, column => 'implement' )
+$tira->record_move(author => 'claude',  project => $root, ref => $_->{ref}, column => 'implement' )
   for ( $worked, $abandoned );
-$tira->record_move( project => $root, ref => $finished->{ref}, column => 'done' );
+$tira->record_move(author => 'claude',  project => $root, ref => $finished->{ref}, column => 'done' );
 
 sub still {
     my $pass = $tira->police_pass( project => $root, store => $store, world => {} );
@@ -142,7 +142,7 @@ is_deeply( still(), {}, 'a board where everything was just touched is quiet' );
 {
     my $slow = $tira->create_record( project => $root, type => 'ticket',
         title => 'Somewhere a card may wait' );
-    $tira->record_move( project => $root, ref => $slow->{ref}, column => 'verify' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $slow->{ref}, column => 'verify' );
     $tira->column_update( project => $root, type => 'ticket', name => 'verify',
         notify_after => 600 );
 

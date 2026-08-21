@@ -38,7 +38,7 @@ my $tira = Tira->new( clock => sub {'2026-08-13T16:00:00Z'} );
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Who holds it', dir => $root, members => [ 'michael', 'ada' ],
+    name => 'Who holds it', dir => $root, members => [ 'michael', 'ada', 'claude' ],
     columns => ['backlog, implement, verify, done'],
     sow_prefix => 'WHS', epic_prefix => 'WHE', ticket_prefix => 'WHT',
 );
@@ -56,7 +56,7 @@ my $card = $tira->create_record( project => $root, type => 'ticket', title => 'S
 # Before the rule is declared at all. Every rule here is a setting an agent
 # turns on, and a board that never asked must be untouched.
 
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 is( scalar @{ unassigned() }, 0, 'a board that has not declared the rule hears nothing about it' );
 
 $tira->policy_add( project => $root, rule => 'card-unassigned', action => 'bridge-reminder' );
@@ -85,7 +85,7 @@ is( scalar @{ unassigned() }, 0, 'a card sitting in the backlog with nobody on i
 
 # --- and neither is work that is over -------------------------------------------
 
-$tira->record_move( project => $root, ref => $waiting->{ref}, column => 'discard' );
+$tira->record_move(author => 'claude',  project => $root, ref => $waiting->{ref}, column => 'discard' );
 is( scalar @{ unassigned() }, 0, 'nor one that was set aside' );
 
 # --- every other column counts, including ones added later -----------------------
@@ -96,7 +96,7 @@ is( scalar @{ unassigned() }, 0, 'nor one that was set aside' );
 
 $tira->column_add( project => $root, type => 'ticket', name => 'review' );
 my $later = $tira->create_record( project => $root, type => 'ticket', title => 'In a column nobody declared' );
-$tira->record_move( project => $root, ref => $later->{ref}, column => 'review' );
+$tira->record_move(author => 'claude',  project => $root, ref => $later->{ref}, column => 'review' );
 my $covered = unassigned();
 is( scalar @{$covered}, 1, 'a column added after the policy was declared is covered' );
 is( $covered->[0]{ref}, $later->{ref}, 'and it is the card in it' );
@@ -107,7 +107,7 @@ is( $covered->[0]{ref}, $later->{ref}, 'and it is the card in it' );
 # card with nobody on it is history, not work in progress - and chasing it would
 # mean chasing every card the board has ever finished, for ever.
 
-$tira->record_move( project => $root, ref => $later->{ref}, column => 'done' );
+$tira->record_move(author => 'claude',  project => $root, ref => $later->{ref}, column => 'done' );
 is( scalar @{ unassigned() }, 0, 'a finished card is not work in progress, whoever finished it' );
 
 # --- the rule takes nothing it cannot honour -------------------------------------

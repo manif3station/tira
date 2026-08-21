@@ -40,7 +40,7 @@ sub at { $now = $_[0]; return $now }
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Not so loud', dir => $root, members => ['michael'],
+    name => 'Not so loud', dir => $root, members => ['michael', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'NLS', epic_prefix => 'NLE', ticket_prefix => 'NLT',
 );
@@ -49,7 +49,7 @@ my $store = File::Spec->catdir( $tmp, 'police-state' );
 $tira->policy_add( project => $root, rule => 'card-full-details',
     enter => 'implement', action => 'bridge-reminder' );
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Bare' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 
 my %world = ( branches => [], worktrees => [], processes => [], containers => [], commits => [] );
 
@@ -166,7 +166,7 @@ is( scalar @{ $after->{violations} }, 0, 'a card that has been filled in is repo
 # --- and a different problem is not held back by another's quiet -----------
 
 my $second = $tira->create_record( project => $root, type => 'ticket', title => 'Also bare' );
-$tira->record_move( project => $root, ref => $second->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $second->{ref}, column => 'implement' );
 my $before = said();
 at('2026-08-13T14:00:30Z');
 sweep();

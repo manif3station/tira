@@ -46,7 +46,7 @@ $tira->policy_add( project => $root, rule => 'card-unassigned', action => 'log-o
 for my $i ( 1 .. 20 ) {
     my $card = $tira->create_record( project => $root, type => 'ticket',
         title => "Finished, and nobody's any more $i", priority => 3 );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'done' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'done' );
 }
 
 sub findings {

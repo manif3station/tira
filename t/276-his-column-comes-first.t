@@ -66,7 +66,7 @@ sub board {
         title => 'Urgent by priority', priority => 5 );
     my $p1 = $tira->create_record( project => $root, type => 'ticket',
         title => 'Small job he wants now', priority => 1 );
-    $tira->record_move( project => $root, type => 'ticket', ref => $p1->{ref},
+    $tira->record_move(author => 'claude',  project => $root, type => 'ticket', ref => $p1->{ref},
         column => 'next-to-work-on' );
 
     my $offered = $tira->work_order( project => $root, type => 'ticket' );
@@ -141,7 +141,7 @@ sub board {
 
     my $p1 = $tira->create_record( project => $root, type => 'ticket',
         title => 'Already being worked', priority => 1 );
-    $tira->record_move( project => $root, type => 'ticket', ref => $p1->{ref},
+    $tira->record_move(author => 'claude',  project => $root, type => 'ticket', ref => $p1->{ref},
         column => 'implement' );
     my $p5 = $tira->create_record( project => $root, type => 'ticket',
         title => 'Waiting in backlog', priority => 5 );
@@ -198,7 +198,7 @@ sub board {
         title => 'Urgent by priority', priority => 5 );
     my $p1 = $tira->create_record( project => $root, type => 'ticket',
         title => 'His pick', priority => 1 );
-    $tira->record_move( project => $root, type => 'ticket', ref => $p1->{ref},
+    $tira->record_move(author => 'claude',  project => $root, type => 'ticket', ref => $p1->{ref},
         column => 'next-to-work-on' );
 
     no warnings 'redefine';

@@ -88,7 +88,7 @@ $tira->policy_add( project => $root, rule => 'agent-still', age => '4h',
 
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Being worked', priority => 5, assignee => 'claude' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 
 {
     $now = '2026-08-18T01:31:00Z';
@@ -137,7 +137,7 @@ $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement'
 # wolf on the one board that had done nothing wrong.
 
 {
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'done' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'done' );
     $now = '2026-08-18T18:00:00Z';
 
     is_deeply( reported(), [],
@@ -152,19 +152,19 @@ $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement'
 {
     my $fresh = $tira->create_record( project => $root, type => 'ticket',
         title => 'Picked up again', priority => 4, assignee => 'claude' );
-    $tira->record_move( project => $root, ref => $fresh->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $fresh->{ref}, column => 'implement' );
 
     $now = '2026-08-19T00:00:00Z';
     my $stopped = reported();
     is( scalar @{$stopped}, 1, 'six hours after that move it is reported again' );
 
     $now = '2026-08-19T00:01:00Z';
-    $tira->record_move( project => $root, ref => $fresh->{ref}, column => 'done' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $fresh->{ref}, column => 'done' );
     $tira->create_record( project => $root, type => 'ticket',
         title => 'Still something to do', priority => 4, assignee => 'claude' );
     my $after = $tira->create_record( project => $root, type => 'ticket',
         title => 'And it is being worked', priority => 4, assignee => 'claude' );
-    $tira->record_move( project => $root, ref => $after->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $after->{ref}, column => 'implement' );
 
     is_deeply( reported(), [],
         'and the agent moving a card settles it, with nothing to remember' );

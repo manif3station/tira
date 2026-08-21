@@ -23,6 +23,7 @@ my $tmp = tempdir( CLEANUP => 1 );
 my $root = File::Spec->catdir( $tmp, 'browser' );
 my $tira = Tira->new( clock => sub { '2026-08-06T14:00:00+0100' } );
 $tira->create_project( name => 'Browser project', dir => $root );
+$tira->person_add( project => $root, id => 'tester', name => 'Tester' );
 $tira->create_record( project => $root, type => 'ticket', title => 'Live card' );
 
 sub browser_cli {
@@ -68,7 +69,7 @@ unlike( $live_html, qr/dragstart|draggable="true"/,
 ok( ref $calls->[0]{move} eq 'CODE', 'browser server receives a move provider' );
 ok( ref $calls->[0]{detail} eq 'CODE', 'browser server receives a detail provider' );
 my $move_result = decode_json(
-    $calls->[0]{move}->( { type => 'ticket', ref => 'TKT-001', column => 'backlog' } )
+    $calls->[0]{move}->( { type => 'ticket', ref => 'TKT-001', column => 'backlog', _signed_in => 'tester' } )
 );
 ok( $move_result->{ok}, 'browser move provider returns a successful mutation' );
 is( decode_json( $calls->[0]{detail}->( { type => 'ticket', ref => 'TKT-001' } ) )->{ref},

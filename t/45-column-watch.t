@@ -17,6 +17,7 @@ my $root = File::Spec->catdir( $tmp, 'watched' );
 my $tick = '2026-08-08T12:00:00Z';
 my $tira = Tira->new( clock => sub { $tick } );
 $tira->create_project( name => 'Watched', dir => $root );
+$tira->person_add( project => $root, id => 'claude', name => 'Claude' );
 $tira->column_add( project => $root, type => 'ticket', name => 'doing', label => 'Doing' );
 $tira->column_add( project => $root, type => 'ticket', name => 'review', label => 'Review' );
 
@@ -53,11 +54,11 @@ my $slow = $tira->create_record( project => $root, type => 'ticket', title => 'S
 my $hidden = $tira->create_record( project => $root, type => 'ticket', title => 'Sitting in review' );
 my $fresh = $tira->create_record( project => $root, type => 'ticket', title => 'Just arrived' );
 $tick = '2026-08-08T12:05:00Z';
-$tira->record_move( project => $root, ref => $slow->{ref}, column => 'doing' );
-$tira->record_move( project => $root, ref => $hidden->{ref}, column => 'review' );
+$tira->record_move(author => 'claude',  project => $root, ref => $slow->{ref}, column => 'doing' );
+$tira->record_move(author => 'claude',  project => $root, ref => $hidden->{ref}, column => 'review' );
 $tira->column_add( project => $root, type => 'ticket', name => 'checking', label => 'Checking' );
 $tick = '2026-08-08T13:00:00Z';
-$tira->record_move( project => $root, ref => $fresh->{ref}, column => 'checking' );
+$tira->record_move(author => 'claude',  project => $root, ref => $fresh->{ref}, column => 'checking' );
 
 $tick = '2026-08-08T13:10:00Z';
 my $stale = $tira->dwell_list( project => $root, stale => 1 );

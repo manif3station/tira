@@ -14,7 +14,7 @@ my $tira = Tira->new( clock => sub { '2026-08-12T09:00:00Z' } );
 my $tmp = tempdir( CLEANUP => 1 );
 my $root = File::Spec->catdir( $tmp, 'project' );
 $tira->project_new(
-    name => 'Loaded', dir => $root, members => [ 'ada', 'grace', 'alan' ],
+    name => 'Loaded', dir => $root, members => [ 'ada', 'grace', 'alan', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'LDS', epic_prefix => 'LDE', ticket_prefix => 'LDT',
 );
@@ -25,7 +25,7 @@ my %ref;
 for my $who (qw(ada grace alan)) {
     my $card = $tira->create_record( project => $root, type => 'ticket', title => "For $who" );
     $tira->record_update( project => $root, ref => $card->{ref}, assignee => $who );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
     $ref{$who} = $card->{ref};
 }
 
@@ -59,7 +59,7 @@ like( $found->{detail}, qr/\Q$ref{alan}\E \(alan\)/, 'so three agents doing one 
 
 {
     my $loose = $tira->create_record( project => $root, type => 'ticket', title => 'Carried by nobody' );
-    $tira->record_move( project => $root, ref => $loose->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $loose->{ref}, column => 'implement' );
     like( fired()->{detail}, qr/\Q$loose->{ref}\E \(nobody\)/,
         'and a card nobody is carrying says so rather than looking like somebody has it' );
 }

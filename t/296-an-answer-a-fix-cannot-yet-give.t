@@ -34,7 +34,7 @@ $tira->project_new(
 $tira->policy_add( project => $root, rule => 'card-unassigned', action => 'bridge-reminder' );
 
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Nobody on it' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 
 # One pass records the violation as open in the ledger - the state a plain
 # read answers from until the watcher ticks again.

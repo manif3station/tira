@@ -39,7 +39,7 @@ my $tira = Tira->new( clock => sub {$now} );
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Whose work', dir => $root, members => [ 'michael', 'ada' ],
+    name => 'Whose work', dir => $root, members => [ 'michael', 'ada', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'WWS', epic_prefix => 'WWE', ticket_prefix => 'WWT',
 );
@@ -49,7 +49,7 @@ my $store = File::Spec->catdir( $tmp, 'police' );
 # holds the card.
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Something the owner decided', assignee => 'michael' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 my $question = $tira->question_add( project => $root, ref => $card->{ref},
     author => 'ada', text => 'Which way should this go?' );
 
@@ -97,7 +97,7 @@ is( $folded->[0]{assignee}, 'ada',
 
 my $second = $tira->create_record( project => $root, type => 'ticket',
     title => 'Another decision', assignee => 'michael' );
-$tira->record_move( project => $root, ref => $second->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $second->{ref}, column => 'implement' );
 my $crossed = $tira->question_add( project => $root, ref => $second->{ref},
     author => 'ada', text => 'And this one?' );
 $now = '2026-08-14T13:01:00Z';
@@ -130,7 +130,7 @@ is( $bare->[0]{assignee}, 'michael',
 
 my $third = $tira->create_record( project => $root, type => 'ticket',
     title => 'An unsigned question', assignee => 'michael' );
-$tira->record_move( project => $root, ref => $third->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $third->{ref}, column => 'implement' );
 my $unsigned = $tira->question_add( project => $root, ref => $third->{ref},
     text => 'Who asked this?' );
 $now = '2026-08-14T13:31:00Z';

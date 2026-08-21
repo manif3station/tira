@@ -17,7 +17,7 @@ sub at { $now = $_[0] }
 my $tmp = tempdir( CLEANUP => 1 );
 my $root = File::Spec->catdir( $tmp, 'project' );
 $tira->project_new(
-    name => 'Busy', dir => $root, members => [ 'ada', 'grace' ],
+    name => 'Busy', dir => $root, members => [ 'ada', 'grace', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'BSS', epic_prefix => 'BSE', ticket_prefix => 'BST',
 );
@@ -29,7 +29,7 @@ my %card;
 for my $who (qw(ada grace)) {
     my $card = $tira->create_record( project => $root, type => 'ticket', title => "For $who" );
     $tira->record_update( project => $root, ref => $card->{ref}, assignee => $who );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
     $card{$who} = $card->{ref};
 }
 

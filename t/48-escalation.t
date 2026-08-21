@@ -34,7 +34,7 @@ my $root = File::Spec->catdir( $tmp, 'proj' );
 # The board every command here works on, named the one way there is.
 # TKT-250.
 $ENV{TIRA_HOME} = $root;
-$tira->project_new( name => 'Nagged', dir => $root, columns => ['Backlog, Doing, Review'] );
+$tira->project_new( name => 'Nagged', dir => $root, columns => ['Backlog, Doing, Review'], members => ['claude'] );
 $tira->column_update( project => $root, type => 'ticket', name => 'doing', notify_after => 30 );
 
 # Durations read the way a person says them.
@@ -52,7 +52,7 @@ is( $quiet->{text}, '', 'and composes no message' );
 is_deeply( $quiet->{cards}, [], 'covering no cards' );
 
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Wire up the importer' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'doing' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'doing' );
 $tick = '2026-08-08T13:00:00Z';
 
 # Each level has its own tone, and the last one carries on counting.
@@ -86,7 +86,7 @@ like( $text{10}, qr/suspended|nothing else/i, 'the last tone overrides every oth
 
 # The worst card sets the tone, and every card states its own count.
 my $second = $tira->create_record( project => $root, type => 'ticket', title => 'Second job' );
-$tira->record_move( project => $root, ref => $second->{ref}, column => 'doing' );
+$tira->record_move(author => 'claude',  project => $root, ref => $second->{ref}, column => 'doing' );
 $tick = '2026-08-08T17:00:00Z';
 my $mixed = $tira->notification_message( project => $root );
 is( $mixed->{level}, 13, 'the most-nagged card sets the tone for the whole message' );

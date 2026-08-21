@@ -43,7 +43,7 @@ my $tira = Tira->new( clock => sub {$now} );
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Settled', dir => $root, members => [ 'michael', 'ada' ],
+    name => 'Settled', dir => $root, members => [ 'michael', 'ada', 'claude' ],
     columns => ['backlog, doing, done, discard'],
     sow_prefix => 'STS', epic_prefix => 'STE', ticket_prefix => 'STT',
 );
@@ -54,7 +54,7 @@ $tira->policy_add( project => $root, rule => 'card-metrics',
 
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Finished without a date', assignee => 'ada' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'done' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'done' );
 
 # Exactly what the police command does: a pass, then the bridge written from
 # what the pass found. Settled violations travel the same way, because a
@@ -91,7 +91,7 @@ ok( $number, 'with a violation number' );
 # always did correctly; the question is what the bridge says.
 
 $now = '2026-08-14T01:01:00Z';
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'discard' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'discard' );
 my $after = round();
 is( scalar @{ $after->{violations} }, 0, 'police stops reporting it the moment it stops being true' );
 
@@ -134,7 +134,7 @@ is( scalar( grep { /\Q$number\E/ && / \| SETTLED \| / } bridge() ), 1,
 $now = '2026-08-14T01:10:00Z';
 my $second = $tira->create_record( project => $root, type => 'ticket',
     title => 'Also finished without a date' );
-$tira->record_move( project => $root, ref => $second->{ref}, column => 'done' );
+$tira->record_move(author => 'claude',  project => $root, ref => $second->{ref}, column => 'done' );
 round();
 $now = '2026-08-14T01:11:00Z';
 round();
@@ -148,7 +148,7 @@ is( scalar( grep { /\Q$second->{ref}\E/ && / \| SETTLED \| / } bridge() ), 0,
 
 $now = '2026-08-14T01:20:00Z';
 $tira->record_update( project => $root, ref => $card->{ref}, due_date => '2026-08-20T00:00:00Z' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'done' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'done' );
 round();
 $now = '2026-08-14T01:21:00Z';
 $tira->record_update( project => $root, ref => $card->{ref}, due_date => '' );

@@ -17,6 +17,7 @@ my $root = File::Spec->catdir( $tmp, 'aging' );
 my $tick = '2026-08-08T12:00:00Z';
 my $tira = Tira->new( clock => sub { $tick } );
 $tira->create_project( name => 'Aging', dir => $root );
+$tira->person_add( project => $root, id => 'claude', name => 'Claude' );
 $tira->column_add( project => $root, type => 'ticket', name => 'doing', label => 'Doing' );
 $tira->column_add( project => $root, type => 'ticket', name => 'review', label => 'Review' );
 
@@ -25,11 +26,11 @@ my $bounced = $tira->create_record( project => $root, type => 'ticket', title =>
 my $still = $tira->create_record( project => $root, type => 'ticket', title => 'Never moved' );
 
 $tick = '2026-08-08T12:30:00Z';
-$tira->record_move( project => $root, ref => $moved->{ref}, column => 'doing' );
+$tira->record_move(author => 'claude',  project => $root, ref => $moved->{ref}, column => 'doing' );
 $tick = '2026-08-08T12:40:00Z';
-$tira->record_move( project => $root, ref => $bounced->{ref}, column => 'doing' );
+$tira->record_move(author => 'claude',  project => $root, ref => $bounced->{ref}, column => 'doing' );
 $tick = '2026-08-08T13:00:00Z';
-$tira->record_move( project => $root, ref => $bounced->{ref}, column => 'review' );
+$tira->record_move(author => 'claude',  project => $root, ref => $bounced->{ref}, column => 'review' );
 
 # "Now" is fixed by the clock, so dwell is arithmetic rather than a race.
 $tick = '2026-08-08T14:00:00Z';
@@ -81,7 +82,7 @@ is_deeply( $tira->dwell_list( project => $root, older_than => 1000 ), [],
 my $sow = $tira->create_record( project => $root, type => 'sow', title => 'A statement' );
 $tick = '2026-08-08T14:30:00Z';
 $tira->column_add( project => $root, type => 'sow', name => 'drafting', label => 'Drafting' );
-$tira->record_move( project => $root, ref => $sow->{ref}, column => 'drafting' );
+$tira->record_move(author => 'claude',  project => $root, ref => $sow->{ref}, column => 'drafting' );
 $tick = '2026-08-08T15:00:00Z';
 ok( scalar( grep { $_->{ref} eq $sow->{ref} } @{ $tira->dwell_list( project => $root ) } ),
     'all three boards are covered in one call' );

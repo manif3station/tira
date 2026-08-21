@@ -37,16 +37,16 @@ my $tira = Tira->new( clock => sub {$now} );
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Quiet one thing', dir => $root, members => [ 'michael', 'ada' ],
+    name => 'Quiet one thing', dir => $root, members => [ 'michael', 'ada', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'QOS', epic_prefix => 'QOE', ticket_prefix => 'QOT',
 );
 my $store = File::Spec->catdir( $tmp, 'police' );
 
 my $busy = $tira->create_record( project => $root, type => 'ticket', title => 'Worked hard' );
-$tira->record_move( project => $root, ref => $busy->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $busy->{ref}, column => 'implement' );
 my $other = $tira->create_record( project => $root, type => 'ticket', title => 'Also bare' );
-$tira->record_move( project => $root, ref => $other->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $other->{ref}, column => 'implement' );
 
 # Two rules, so "one rule down" can be told from "police down".
 $tira->policy_add( project => $root, rule => 'card-full-details',

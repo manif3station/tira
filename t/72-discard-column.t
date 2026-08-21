@@ -16,11 +16,11 @@ my $tmp = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub { '2026-08-10T09:00:00Z' } );
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
-$tira->project_new( name => 'Discarded', dir => $root, columns => ['Backlog, Doing'],
+$tira->project_new( name => 'Discarded', dir => $root, columns => ['Backlog, Doing'], members => ['claude'],
     sow_prefix => 'DSS', epic_prefix => 'DSE', ticket_prefix => 'DST' );
 my $live = $tira->create_record( project => $root, type => 'ticket', title => 'Still wanted' );
 my $dropped = $tira->create_record( project => $root, type => 'ticket', title => 'Abandoned' );
-$tira->record_discard( project => $root, type => 'ticket', ref => $dropped->{ref} );
+$tira->record_discard(author => 'claude',  project => $root, type => 'ticket', ref => $dropped->{ref} );
 
 sub board_html {
     my (@argv) = @_;

@@ -51,7 +51,7 @@ $tira->policy_add( project => $root, rule => 'discard-unexplained',
     action => 'bridge-reminder' );
 my $dropped = $tira->create_record( project => $root, type => 'ticket',
     title => 'Dropped in silence' )->{ref};
-$tira->record_move( project => $root, ref => $dropped, column => 'discard' );
+$tira->record_move(author => 'claude',  project => $root, ref => $dropped, column => 'discard' );
 
 sub pass {
     my $result = $tira->police_pass( project => $root, store => $store,

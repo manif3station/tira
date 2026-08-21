@@ -36,7 +36,7 @@ my $root = File::Spec->catdir( $tmp, 'proj' );
 # The board every command here works on, named the one way there is.
 # TKT-250.
 $ENV{TIRA_HOME} = $root;
-$tira->project_new( name => 'Same', dir => $root, columns => ['Backlog, Doing'],
+$tira->project_new( name => 'Same', dir => $root, columns => ['Backlog, Doing'], members => ['claude'],
     sow_prefix => 'SMS', epic_prefix => 'SME', ticket_prefix => 'SMT' );
 $tira->column_update( project => $root, type => 'ticket', name => 'doing', notify_after => 30 );
 
@@ -48,7 +48,7 @@ my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
 my %ref;
 for my $side (qw(cli board)) {
     my $card = $tira->create_record( project => $root, type => 'ticket', title => "Work $side" );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'doing' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'doing' );
     $ref{$side} = $card->{ref};
 }
 my %question = map {

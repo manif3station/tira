@@ -16,14 +16,14 @@ my $tira = Tira->new( clock => sub {$now} );
 
 my $root = File::Spec->catdir( $tmp, 'project' );
 $tira->project_new(
-    name => 'Layered', dir => $root, members => ['michael'],
+    name => 'Layered', dir => $root, members => ['michael', 'claude' ],
     columns => ['backlog, implement, verify, done'],
     sow_prefix => 'LYS', epic_prefix => 'LYE', ticket_prefix => 'LYT',
 );
 
 my $one = $tira->create_record( project => $root, type => 'ticket', title => 'First' );
 my $two = $tira->create_record( project => $root, type => 'ticket', title => 'Second' );
-$tira->record_move( project => $root, ref => $_, column => 'implement' ) for $one->{ref}, $two->{ref};
+$tira->record_move(author => 'claude',  project => $root, ref => $_, column => 'implement' ) for $one->{ref}, $two->{ref};
 
 sub applied {
     my ($ref) = @_;

@@ -47,6 +47,7 @@ sub cli {
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
     local $ENV{TIRA_HOME} = $root;
+    local $ENV{TIRA_AUTHOR} = "claude";
     return Tira::CLI->run( command => $command, type => 'ticket', argv => \@argv );
 }
 
@@ -68,14 +69,14 @@ is( $items->[0]{status}, 'pending', 'CLI move back past doc resets its required 
 # --- the browser path must do the same, not skip it -------------------------
 
 my $browser_card = $tira->create_record( project => $root, type => 'ticket', title => 'Moved by the browser' );
-$providers{move}->( { type => 'ticket', ref => $browser_card->{ref}, column => 'planning' } );
-$providers{move}->( { type => 'ticket', ref => $browser_card->{ref}, column => 'doc' } );
+$providers{move}->( { type => 'ticket', ref => $browser_card->{ref}, column => 'planning', _signed_in => 'claude' } );
+$providers{move}->( { type => 'ticket', ref => $browser_card->{ref}, column => 'doc', _signed_in => 'claude' } );
 $items = $tira->required_item_list( project => $root, ref => $browser_card->{ref} );
 is( scalar @{$items}, 1, 'a browser move into doc populates its required-action template too' );
 
 $tira->required_item_update( project => $root, ref => $browser_card->{ref}, id => $items->[0]{id}, status => 'done',
     command => ['wrote the doc'], proof => ['doc written'] );
-$providers{move}->( { type => 'ticket', ref => $browser_card->{ref}, column => 'planning' } );
+$providers{move}->( { type => 'ticket', ref => $browser_card->{ref}, column => 'planning', _signed_in => 'claude' } );
 $items = $tira->required_item_list( project => $root, ref => $browser_card->{ref} );
 is( $items->[0]{status}, 'pending', 'and a browser move back past doc resets it to pending, same as the CLI path' );
 
@@ -90,7 +91,7 @@ __END__
 =head1 DESCRIPTION
 
 C<browser_providers>' C<move> handler is what the dashboard's drag-move UI
-actually calls. Before TKT-452 it called C<$tira-E<gt>record_move()> directly,
+actually calls. Before TKT-452 it called C<$tira-E<gt>record_move(author => 'claude', )> directly,
 so a destination column's required-action template never populated on a
 browser move, and a done required item never reset on a browser move
 backward - both work correctly through the CLI/agent path, which routes

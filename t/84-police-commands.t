@@ -18,7 +18,7 @@ my $tira = Tira->new( clock => sub {$now} );
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Policed', dir => $root, members => ['michael'],
+    name => 'Policed', dir => $root, members => ['michael', 'claude' ],
     columns => ['backlog, implement, verify, done'],
     sow_prefix => 'PCS', epic_prefix => 'PCE', ticket_prefix => 'PCT',
 );
@@ -59,7 +59,7 @@ like( "$out$err", qr/no polic/i, 'saying plainly that none are set' );
 $tira->policy_add( project => $root, rule => 'card-full-details',
     enter => 'implement', action => 'bridge-reminder' );
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Bare' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 
 ( $status, $out ) = run( 'police', '--once', '-o', 'json' );
 is( $status, 0, 'with a policy set, one pass succeeds' );
@@ -237,7 +237,7 @@ SKIP: {
 {
     my $store = File::Spec->catdir( $tmp, 'escalating-loop' );
     my $bare = $tira->create_record( project => $root, type => 'ticket', title => 'Ignored' );
-    $tira->record_move( project => $root, ref => $bare->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $bare->{ref}, column => 'implement' );
     # The clock moves between rounds, because escalation now follows tellings
     # rather than passes: the same problem is left alone for a growing quiet
     # period before it is said again, so six rounds at one instant say one
@@ -263,7 +263,7 @@ SKIP: {
 {
     my $store = File::Spec->catdir( $tmp, 'escalating-once' );
     my $bare = $tira->create_record( project => $root, type => 'ticket', title => 'Ignored once' );
-    $tira->record_move( project => $root, ref => $bare->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $bare->{ref}, column => 'implement' );
 
     # Five tellings, spread past each rung of the quiet ladder. Five passes at
     # one instant would be one telling, and nothing would ever be escalated.

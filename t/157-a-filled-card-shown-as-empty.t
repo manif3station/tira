@@ -38,7 +38,7 @@ my $tira = Tira->new( clock => sub {'2026-08-14T11:00:00Z'} );
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Readable', dir => $root, members => [ 'michael', 'ada' ],
+    name => 'Readable', dir => $root, members => [ 'michael', 'ada', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'RDS', epic_prefix => 'RDE', ticket_prefix => 'RDT',
 );
@@ -46,7 +46,7 @@ $tira->project_new(
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Throughput under load', description => 'it collapses on a burst',
     assignee => 'ada', reporter => 'michael', priority => 4 );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 
 sub show {
     my (@argv) = @_;

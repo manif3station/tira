@@ -28,7 +28,7 @@ my $tira = Tira->new( clock => sub {'2026-08-13T10:00:00Z'} );
 
 my $root = File::Spec->catdir( $tmp, 'board' );
 $tira->project_new(
-    name => 'Both ways', dir => $root, members => [ 'michael', 'ada', 'grace' ],
+    name => 'Both ways', dir => $root, members => [ 'michael', 'ada', 'grace', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'BWS', epic_prefix => 'BWE', ticket_prefix => 'BWT',
 );
@@ -69,7 +69,7 @@ for my $each ( [ 'First', 'ada' ], [ 'Second', 'grace' ], [ 'Third', undef ] ) {
     $tira->hierarchy_link( project => $root, parent => $epic->{ref}, child => $card->{ref} );
     $tira->record_update( project => $root, ref => $card->{ref}, assignee => $each->[1] )
       if defined $each->[1];
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
     push @cards, $card;
 }
 
@@ -213,7 +213,7 @@ for my $unchanged (
 
 my $untouched = File::Spec->catdir( $tmp, 'never-asked' );
 $tira->project_new(
-    name => 'Never asked', dir => $untouched, members => ['michael'],
+    name => 'Never asked', dir => $untouched, members => ['michael', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'NAS', epic_prefix => 'NAE', ticket_prefix => 'NAT',
 );
@@ -224,7 +224,7 @@ $tira->project_new(
 # that rule looks like.
 mkdir File::Spec->catdir( $untouched, '.git' );
 my $old = $tira->create_record( project => $untouched, type => 'ticket', title => 'As it always was' );
-$tira->record_move( project => $untouched, ref => $old->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $untouched, ref => $old->{ref}, column => 'implement' );
 $tira->policy_add( project => $untouched, rule => 'wip-limit',
     column => 'implement', max => 1, action => 'log-only' );
 

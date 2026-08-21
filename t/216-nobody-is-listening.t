@@ -44,7 +44,7 @@ $tira->project_new(
 # stop looking.
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'A bare card, so there is something on the bridge' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 $tira->policy_add( project => $root, rule => 'card-full-details',
     enter => 'implement', action => 'bridge-reminder' );
 $tira->policy_add( project => $root, rule => 'bridge-unread',

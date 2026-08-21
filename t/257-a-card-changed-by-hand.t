@@ -50,7 +50,7 @@ $tira->project_update( project => $root, agent => 'claude' );
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Being worked, and about to be edited underneath', priority => 3,
     assignee => 'claude' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 
 sub reported {
     my $pass = $tira->police_pass( project => $root, store => $store, world => {} );
@@ -189,7 +189,7 @@ $tira->policy_add( project => $root, rule => 'card-changed-by-owner',
     my $reviewed = $tira->create_record( project => $root, type => 'ticket',
         title => 'Sitting in a column nobody watches', priority => 3,
         assignee => 'claude' );
-    $tira->record_move( project => $root, ref => $reviewed->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $reviewed->{ref}, column => 'implement' );
 
     $now = '2026-08-17T15:00:00Z';
     $tira->record_update( project => $root, ref => $reviewed->{ref},

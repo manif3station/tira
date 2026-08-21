@@ -116,7 +116,7 @@ my $store = File::Spec->catdir( $tmp, 'police' );
     my $card = $tira->create_record( project => $named, type => 'ticket',
         title => 'Assigned to somebody else entirely', priority => 3,
         assignee => 'zenandi' );
-    $tira->record_move( project => $named, ref => $card->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $named, ref => $card->{ref}, column => 'implement' );
 
     $now = '2026-08-18T13:05:00Z';
     $tira->record_update( project => $named, ref => $card->{ref},
@@ -142,7 +142,7 @@ my $store = File::Spec->catdir( $tmp, 'police' );
 {
     my $done = $tira->create_record( project => $named, type => 'ticket',
         title => 'Finished, and edited afterwards', priority => 3, assignee => 'claude' );
-    $tira->record_move( project => $named, ref => $done->{ref}, column => 'done' );
+    $tira->record_move(author => 'claude',  project => $named, ref => $done->{ref}, column => 'done' );
 
     $now = '2026-08-18T13:10:00Z';
     $tira->record_update( project => $named, ref => $done->{ref},
@@ -160,7 +160,7 @@ my $store = File::Spec->catdir( $tmp, 'police' );
 {
     my $live = $tira->create_record( project => $named, type => 'ticket',
         title => 'Still being worked', priority => 3, assignee => 'claude' );
-    $tira->record_move( project => $named, ref => $live->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $named, ref => $live->{ref}, column => 'implement' );
 
     $now = '2026-08-18T13:12:00Z';
     $tira->record_update( project => $named, ref => $live->{ref},

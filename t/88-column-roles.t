@@ -16,7 +16,7 @@ my $tira = Tira->new( clock => sub {$now} );
 
 my $root = File::Spec->catdir( $tmp, 'project' );
 $tira->project_new(
-    name => 'Pipelined', dir => $root, members => ['michael'],
+    name => 'Pipelined', dir => $root, members => ['michael', 'claude' ],
     columns => ['todo, shaping, doing, qa, audit, shipping, live, archived'],
     sow_prefix => 'PPS', epic_prefix => 'PPE', ticket_prefix => 'PPT',
 );
@@ -30,7 +30,7 @@ is_deeply( $tira->column_roles( project => $root, type => 'ticket' ), {},
     'a board with no roles declared has none, rather than being given defaults' );
 
 my $bare = $tira->create_record( project => $root, type => 'ticket', title => 'Nothing declared' );
-$tira->record_move( project => $root, ref => $bare->{ref}, column => 'doing' );
+$tira->record_move(author => 'claude',  project => $root, ref => $bare->{ref}, column => 'doing' );
 $tira->policy_add( project => $root, rule => 'card-full-details',
     enter => 'doing', action => 'bridge-reminder' );
 is( scalar( grep { $_->{rule} eq 'card-full-details' }

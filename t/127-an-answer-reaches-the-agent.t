@@ -46,7 +46,7 @@ my $tira = Tira->new( clock => sub {$now} );
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Waiting', dir => $root, members => [ 'michael', 'ada' ],
+    name => 'Waiting', dir => $root, members => [ 'michael', 'ada', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'WTS', epic_prefix => 'WTE', ticket_prefix => 'WTT',
 );
@@ -55,7 +55,7 @@ my $store = File::Spec->catdir( $tmp, 'police' );
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Blocked on an answer' );
 $tira->record_update( project => $root, ref => $card->{ref}, assignee => 'ada' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 my $question = $tira->question_add( project => $root, ref => $card->{ref},
     author => 'ada', text => 'Which way round?', reason => 'both are defensible' );
 
@@ -168,7 +168,7 @@ is( scalar( grep { $_->{rule} eq 'answer-waiting' } @{ $gone->{violations} } ), 
 
 my $quiet_root = File::Spec->catdir( $tmp, 'quiet' );
 $tira->project_new(
-    name => 'No rule', dir => $quiet_root, members => ['ada'],
+    name => 'No rule', dir => $quiet_root, members => ['ada', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'QTS', epic_prefix => 'QTE', ticket_prefix => 'QTT',
 );

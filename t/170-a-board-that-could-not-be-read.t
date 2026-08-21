@@ -95,7 +95,7 @@ my $broken = card('A card whose journal has a bad byte in it');
 # In the column the history-reading rule watches, and damaged afterwards - the
 # move is what makes column-skipped open its journal at all, and a card it
 # never opens proves nothing.
-$tira->record_move( project => $root, ref => $broken, column => 'verify' );
+$tira->record_move(author => 'claude',  project => $root, ref => $broken, column => 'verify' );
 
 # A comment on it, so conversation-not-folded has something to weigh and has to
 # open the journal to weigh it. Without this the second reader never runs and
@@ -200,7 +200,7 @@ ok( defined $unreadable[0]{id}, 'with a number of its own, so it can be referred
     my $clean = File::Spec->catdir( $tmp, 'clean' );
     my $elsewhere = File::Spec->catdir( $tmp, 'police-clean' );
     $tira->project_new(
-        name => 'Readable', dir => $clean, members => ['michael'],
+        name => 'Readable', dir => $clean, members => ['michael', 'claude' ],
         columns => ['backlog, implement, verify, done'],
         sow_prefix => 'RDS', epic_prefix => 'RDE', ticket_prefix => 'RDT',
     );
@@ -249,7 +249,7 @@ ok( defined $unreadable[0]{id}, 'with a number of its own, so it can be referred
     my $order = File::Spec->catdir( $tmp, 'settle' );
     my $ledger = File::Spec->catdir( $tmp, 'police-settle' );
     $tira->project_new(
-        name => 'Settling', dir => $order, members => ['michael'],
+        name => 'Settling', dir => $order, members => ['michael', 'claude' ],
         columns => ['backlog, done'],
         sow_prefix => 'SES', epic_prefix => 'SEE', ticket_prefix => 'SET',
     );
@@ -257,7 +257,7 @@ ok( defined $unreadable[0]{id}, 'with a number of its own, so it can be referred
         action => 'bridge-reminder' );
     my $shipped = $tira->create_record( project => $order, type => 'ticket',
         title => 'Reached the end with nothing recorded' );
-    $tira->record_move( project => $order, ref => $shipped->{ref}, column => 'done' );
+    $tira->record_move(author => 'claude',  project => $order, ref => $shipped->{ref}, column => 'done' );
 
     my $world = { branches => [], worktrees => [], processes => [], containers => [] };
     my $raised = $tira->police_pass( project => $order, store => $ledger, world => $world );

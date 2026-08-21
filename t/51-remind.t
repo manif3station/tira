@@ -101,7 +101,7 @@ $tira->project_update( project => $root, session => 'sess-1', agent => 'claude',
 is( remind($root), 0, 'with nothing stale the collector exits cleanly' );
 is( scalar calls(), 0, 'and says nothing to the agent' );
 
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'doing' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'doing' );
 $tick = '2026-08-08T13:00:00Z';
 
 # No agent installed: still not a failure, still silent.
@@ -158,7 +158,7 @@ is( remind( File::Spec->catdir( $tmp, 'nowhere' ) ), 0, 'an unreadable project e
 {
     $tick = '2026-08-08T14:00:00Z';
     my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Asked about' );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'doing' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'doing' );
     my $question = $tira->question_add(
         project => $root, ref => $card->{ref}, text => 'Which one?' );
     # Other stale work exists, so the test is whether THIS card is chased.

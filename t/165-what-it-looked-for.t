@@ -38,7 +38,7 @@ my $store = File::Spec->catdir( $tmp, 'police' );
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Sandboxes', dir => $root, members => ['michael'],
+    name => 'Sandboxes', dir => $root, members => ['michael', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'SBS', epic_prefix => 'SBE', ticket_prefix => 'SBT',
 );
@@ -55,7 +55,7 @@ sub card {
     my (%args) = @_;
     my $made = $tira->create_record( project => $root, type => 'ticket',
         title => $args{title}, ( $args{sandbox} ? ( sandbox => $args{sandbox} ) : () ) );
-    $tira->record_move( project => $root, ref => $made->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $made->{ref}, column => 'implement' );
     return $made->{ref};
 }
 

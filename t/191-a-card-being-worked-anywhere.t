@@ -59,7 +59,7 @@ my $card = $tira->create_record( project => $root, type => 'ticket',
 # A card in verify, which is a column work happens in and is not the one the
 # role names. This is TKT-195's exact position when the rule accused it.
 
-$tira->record_move( project => $root, ref => $card, column => 'verify' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'verify' );
 
 is( Tira::CLI::_card_in_progress( $tira, $root ), 1,
     'a card in verify is a card being worked, though the role names implement' );
@@ -67,7 +67,7 @@ is( Tira::CLI::_card_in_progress( $tira, $root ), 1,
 # --- the column the role does name is unchanged --------------------------------------------
 
 {
-    $tira->record_move( project => $root, ref => $card, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'implement' );
     is( Tira::CLI::_card_in_progress( $tira, $root ), 1,
         'and so is a card in the column the role names' );
 }
@@ -79,15 +79,15 @@ is( Tira::CLI::_card_in_progress( $tira, $root ), 1,
 # what work-without-card exists for.
 
 {
-    $tira->record_move( project => $root, ref => $card, column => 'backlog' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'backlog' );
     is( Tira::CLI::_card_in_progress( $tira, $root ), 0,
         'a card waiting in the backlog is not work in progress' );
 
-    $tira->record_move( project => $root, ref => $card, column => 'done' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'done' );
     is( Tira::CLI::_card_in_progress( $tira, $root ), 0,
         'and neither is one that is finished' );
 
-    $tira->record_move( project => $root, ref => $card, column => 'discard' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'discard' );
     is( Tira::CLI::_card_in_progress( $tira, $root ), 0,
         'nor one that was set aside' );
 }
@@ -107,7 +107,7 @@ is( Tira::CLI::_card_in_progress( $tira, $root ), 1,
     );
     my $ref = $other->create_record( project => $plain, type => 'ticket',
         title => 'Somewhere in the middle' )->{ref};
-    $other->record_move( project => $plain, ref => $ref, column => 'verify' );
+    $other->record_move(author => 'claude',  project => $plain, ref => $ref, column => 'verify' );
     is( Tira::CLI::_card_in_progress( $other, $plain ), 1,
         'a board that has declared no roles behaves exactly as before' );
 }
@@ -128,7 +128,7 @@ is( Tira::CLI::_card_in_progress( $tira, $root ), 1,
       for qw(sow epic ticket);
     my $ref = $board->create_record( project => $named, type => 'ticket',
         title => 'Shipped' )->{ref};
-    $board->record_move( project => $named, ref => $ref, column => 'shipped' );
+    $board->record_move(author => 'claude',  project => $named, ref => $ref, column => 'shipped' );
     is( Tira::CLI::_card_in_progress( $board, $named ), 0,
         'a card in a column the board marked as its ending is not work in progress' );
 }

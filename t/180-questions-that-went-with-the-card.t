@@ -62,7 +62,7 @@ sub reported {
 my $abandoned = carded('Set aside with a question still open');
 my $open = $tira->question_add( project => $root, ref => $abandoned, author => 'claude',
     text => 'Which way should this go?', reason => 'Nothing can start until this is settled' );
-$tira->record_discard( project => $root, ref => $abandoned,
+$tira->record_discard(author => 'claude',  project => $root, ref => $abandoned,
     reason => 'not worth doing after all' );
 
 is( scalar @{ reported() }, 0, 'a board that has not declared the rule hears nothing' );
@@ -105,7 +105,7 @@ unlike( $found->[0]{detail}, qr/question\.move|tira\.move/,
         text => 'And this one?', reason => 'It mattered at the time' );
     $tira->question_answer( project => $root, ref => $settled, id => $asked->{id},
         author => 'michael', text => 'It does not matter, drop it' );
-    $tira->record_discard( project => $root, ref => $settled,
+    $tira->record_discard(author => 'claude',  project => $root, ref => $settled,
         reason => 'answered, and the answer was to drop it' );
 
     is( scalar( grep { $_->{ref} eq $settled } @{ reported() } ), 0,
@@ -123,7 +123,7 @@ unlike( $found->[0]{detail}, qr/question\.move|tira\.move/,
     my $asked = $tira->question_add( project => $root, ref => $withdrawn, author => 'claude',
         text => 'Does this still apply?', reason => 'Asked while it looked necessary' );
     $tira->question_discard( project => $root, ref => $withdrawn, id => $asked->{id} );
-    $tira->record_discard( project => $root, ref => $withdrawn,
+    $tira->record_discard(author => 'claude',  project => $root, ref => $withdrawn,
         reason => 'the question stopped applying and so did the card' );
 
     is( scalar( grep { $_->{ref} eq $withdrawn } @{ reported() } ), 0,

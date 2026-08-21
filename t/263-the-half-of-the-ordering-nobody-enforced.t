@@ -66,7 +66,7 @@ is( $tira->work_order( project => $root )->[0]{ref}, $older->{ref},
 
 {
     $now = '2026-08-17T12:00:00Z';
-    $tira->record_move( project => $root, ref => $newer->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $newer->{ref}, column => 'implement' );
 
     my $found = skipped();
     ok( scalar @{$found}, 'taking the newer of two equals is reported' );
@@ -80,9 +80,9 @@ is( $tira->work_order( project => $root )->[0]{ref}, $older->{ref},
 # The half that keeps this a rule rather than a complaint about every tie.
 
 {
-    $tira->record_move( project => $root, ref => $newer->{ref}, column => 'backlog' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $newer->{ref}, column => 'backlog' );
     $now = '2026-08-17T13:00:00Z';
-    $tira->record_move( project => $root, ref => $older->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $older->{ref}, column => 'implement' );
 
     is_deeply( [ map { $_->{detail} } @{ skipped() } ], [],
         'taking the older of two equals is not reported, because it is the right one' );
@@ -94,11 +94,11 @@ is( $tira->work_order( project => $root )->[0]{ref}, $older->{ref},
 # ones is the ordinary case and was never a violation.
 
 {
-    $tira->record_move( project => $root, ref => $older->{ref}, column => 'backlog' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $older->{ref}, column => 'backlog' );
     $now = '2026-08-17T14:00:00Z';
     my $urgent = $tira->create_record( project => $root, type => 'ticket',
         title => 'More urgent than either', priority => 5 );
-    $tira->record_move( project => $root, ref => $urgent->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $urgent->{ref}, column => 'implement' );
 
     is_deeply( [ map { $_->{detail} } @{ skipped() } ], [],
         'working the most urgent card is not reported, whatever its age' );
@@ -110,9 +110,9 @@ is( $tira->work_order( project => $root )->[0]{ref}, $older->{ref},
 # which is what let TKT-281 be worked ahead of TKT-274 in silence.
 
 {
-    $tira->record_move( project => $root, ref => $older->{ref}, column => 'backlog' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $older->{ref}, column => 'backlog' );
     $now = '2026-08-17T15:00:00Z';
-    $tira->record_move( project => $root, ref => $newer->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $newer->{ref}, column => 'implement' );
     ok( scalar @{ skipped() }, 'the tie is reported' );
 
     no warnings 'redefine';

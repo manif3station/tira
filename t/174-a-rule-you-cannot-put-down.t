@@ -64,7 +64,7 @@ $tira->policy_add( project => $root, rule => 'column-skipped',
 
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Damaged, and skipping verify' )->{ref};
-$tira->record_move( project => $root, ref => $card, column => 'verify' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'verify' );
 
 my $journal = File::Spec->catfile( $root, '.tira', 'history', "$card.jsonl" );
 open my $damage, '>>:raw', $journal or die $!;

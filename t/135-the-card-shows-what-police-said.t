@@ -36,14 +36,14 @@ my $now = '2026-08-13T18:00:00Z';
 my $tira = Tira->new( clock => sub {$now} );
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Watched', dir => $root, members => [ 'michael', 'ada' ],
+    name => 'Watched', dir => $root, members => [ 'michael', 'ada', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'WCS', epic_prefix => 'WCE', ticket_prefix => 'WCT',
 );
 my $store = File::Spec->catdir( $tmp, 'police' );
 
 my $chased = $tira->create_record( project => $root, type => 'ticket', title => 'Bare' );
-$tira->record_move( project => $root, ref => $chased->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $chased->{ref}, column => 'implement' );
 my $quiet = $tira->create_record( project => $root, type => 'ticket', title => 'Nothing to say about this one' );
 
 $tira->policy_add( project => $root, rule => 'card-full-details',

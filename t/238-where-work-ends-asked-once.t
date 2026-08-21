@@ -98,7 +98,7 @@ is_deeply( $tira->_ending_columns( $marked, 'ticket' ), { shipped => 1 },
 
 my $done = $tira->create_record( project => $marked, type => 'ticket',
     title => 'Work that is finished and shipped' );
-$tira->record_move( project => $marked, ref => $done->{ref}, column => 'shipped' );
+$tira->record_move(author => 'claude',  project => $marked, ref => $done->{ref}, column => 'shipped' );
 
 {
     my ( $status, $said ) = gate( $marked, $done->{ref} );
@@ -127,7 +127,7 @@ $tira->project_new(
 
 my $old = $tira->create_record( project => $plain, type => 'ticket',
     title => 'Finished long ago, under an older definition' );
-$tira->record_move( project => $plain, ref => $old->{ref}, column => 'done' );
+$tira->record_move(author => 'claude',  project => $plain, ref => $old->{ref}, column => 'done' );
 
 {
     my ( $status, $said ) = gate( $plain, $old->{ref} );
@@ -144,7 +144,7 @@ $tira->record_move( project => $plain, ref => $old->{ref}, column => 'done' );
 {
     my $live = $tira->create_record( project => $plain, type => 'ticket',
         title => 'Being worked right now' );
-    $tira->record_move( project => $plain, ref => $live->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $plain, ref => $live->{ref}, column => 'implement' );
 
     my ( $status, $said ) = gate( $plain, $live->{ref} );
     isnt( $status, 0, 'a card being worked is still asked for what a card needs' );

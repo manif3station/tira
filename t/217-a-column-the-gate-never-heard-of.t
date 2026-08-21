@@ -103,7 +103,7 @@ PL
 
 sub holes_says {
     my ($column) = @_;
-    $tira->record_move( project => $root, ref => $card->{ref}, column => $column )
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => $column )
       if defined $column;
 
     my $here = getcwd();
@@ -146,7 +146,7 @@ like( $unknown, qr/\Q$card->{ref}\E[^\n]*no gate/,
 # progress, and reporting it as missing a gate would be the gate arguing with a
 # decision somebody already made.
 
-$tira->record_discard( project => $root, ref => $card->{ref} );
+$tira->record_discard(author => 'claude',  project => $root, ref => $card->{ref} );
 my $discarded = holes_says(undef);
 
 # The subject is established before it is denied. A tool that printed nothing -

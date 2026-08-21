@@ -38,7 +38,7 @@ my $tira = Tira->new;
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Real', dir => $root, members => ['michael'],
+    name => 'Real', dir => $root, members => ['michael', 'claude' ],
     columns => ['backlog, implement, verify, done'],
     sow_prefix => 'RLS', epic_prefix => 'RLE', ticket_prefix => 'RLT',
 );
@@ -240,7 +240,7 @@ is( scalar @{$unwatched}, 1, 'work-without-card fires on a tree changing with no
 # fires while the agent is doing exactly the right thing gets ignored, and an
 # ignored rule is worse than no rule.
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Being worked' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 
 my $watched = Tira::CLI::_police_world( tira => $tira, project => $root );
 is( $watched->{card_in_progress}, 1, 'a card at a working column is seen' );

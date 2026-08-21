@@ -16,7 +16,7 @@ my $tira = Tira->new( clock => sub {$now} );
 my $tmp = tempdir( CLEANUP => 1 );
 my $root = File::Spec->catdir( $tmp, 'project' );
 $tira->project_new(
-    name => 'Crowded', dir => $root, members => [ 'ada', 'grace' ],
+    name => 'Crowded', dir => $root, members => [ 'ada', 'grace', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'CRS', epic_prefix => 'CRE', ticket_prefix => 'CRT',
 );
@@ -32,11 +32,11 @@ my %card;
 for my $who (qw(ada grace)) {
     my $card = $tira->create_record( project => $root, type => 'ticket', title => "\u${who}'s work" );
     $tira->record_update( project => $root, ref => $card->{ref}, assignee => $who );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
     $card{$who} = $card->{ref};
 }
 my $nobodys = $tira->create_record( project => $root, type => 'ticket', title => 'Nobody is carrying this' );
-$tira->record_move( project => $root, ref => $nobodys->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $nobodys->{ref}, column => 'implement' );
 
 my $pass = $tira->police_pass( project => $root, store => $store, world => {} );
 $tira->bridge_write( store => $store, violations => $pass->{violations} );

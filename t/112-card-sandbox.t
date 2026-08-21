@@ -30,7 +30,7 @@ my $tira = Tira->new( clock => sub {'2026-08-12T22:00:00Z'} );
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Sandboxed', dir => $root, members => ['ada'],
+    name => 'Sandboxed', dir => $root, members => ['ada', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'SBS', epic_prefix => 'SBE', ticket_prefix => 'SBT',
 );
@@ -46,7 +46,7 @@ $tira->policy_add( project => $root, rule => 'card-sandbox-missing',
     enter => 'implement', sandbox => '/sandboxes', action => 'log-only' );
 
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Being worked' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 
 sub police {
     my (%world) = @_;

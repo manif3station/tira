@@ -104,7 +104,7 @@ for my $pair ( [ 'card-full-details', 'enter-role' ], [ 'card-stalled', 'before-
 {
     my $card = $tira->create_record( project => $root, type => 'ticket',
         title => 'Sitting in the column the role names' );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 
     # The clock is moved rather than a time passed in: the age is measured
     # against the engine's own clock, so handing police a later moment as an

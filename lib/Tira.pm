@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.16';
+our $VERSION = '3.17';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2281,6 +2281,16 @@ sub record_update {
 sub record_move {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
+
+    # A move with nobody attached to it is how a card crossed nine columns
+    # with no chain check and no required-action check ever running - both
+    # live only in the CLI dispatch layer, which an unattributed caller
+    # never had to pass through. Refusing here closes that regardless of
+    # which path reached the engine. The CLI already resolves --author or
+    # TIRA_AUTHOR before this is ever called, and the browser dashboard
+    # already threads the signed-in person through as author - so this
+    # only refuses a caller that supplied neither. TKT-457.
+    die "A move needs to say who is making it\n" if !defined $args{author} || $args{author} eq '';
     local $self->{_journal_author} = $self->_journal_attribution( %args, project => $root );
     return $self->_with_project_lock( $root, sub {
         my ( $path, $record ) = $self->_record_data( project => $root, ref => $args{ref} );

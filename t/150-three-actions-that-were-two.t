@@ -35,7 +35,7 @@ my $tira = Tira->new( clock => sub {$now} );
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Three actions', dir => $root, members => ['michael'],
+    name => 'Three actions', dir => $root, members => ['michael', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'TAS', epic_prefix => 'TAE', ticket_prefix => 'TAT',
 );
@@ -47,7 +47,7 @@ my %card;
 for my $action (qw(bridge-reminder print-reminder log-only)) {
     my $card = $tira->create_record( project => $root, type => 'ticket',
         title => "A bare card watched with $action" );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
     $card{$action} = $card->{ref};
     $tira->policy_add( project => $root, rule => 'card-full-details',
         enter => 'implement', ref => $card->{ref}, action => $action );

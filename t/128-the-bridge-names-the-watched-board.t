@@ -44,12 +44,12 @@ my $tira = Tira->new( clock => sub {$now} );
 # The board being watched: one card, no parent, nothing above it.
 my $watched = File::Spec->catdir( $tmp, 'watched' );
 $tira->project_new(
-    name => 'Watched', dir => $watched, members => ['ada'],
+    name => 'Watched', dir => $watched, members => ['ada', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'WAS', epic_prefix => 'WAE', ticket_prefix => 'WAT',
 );
 my $card = $tira->create_record( project => $watched, type => 'ticket', title => 'Bare' );
-$tira->record_move( project => $watched, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $watched, ref => $card->{ref}, column => 'implement' );
 $tira->policy_add( project => $watched, rule => 'card-full-details',
     enter => 'implement', action => 'bridge-reminder' );
 
@@ -57,7 +57,7 @@ $tira->policy_add( project => $watched, rule => 'card-full-details',
 # directory police happened to be standing in.
 my $elsewhere = File::Spec->catdir( $tmp, 'elsewhere' );
 $tira->project_new(
-    name => 'Elsewhere', dir => $elsewhere, members => ['ada'],
+    name => 'Elsewhere', dir => $elsewhere, members => ['ada', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'ELS', epic_prefix => 'ELE', ticket_prefix => 'WAT',
 );

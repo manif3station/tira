@@ -52,7 +52,7 @@ is( $explicit_history->[0]{op}, 'create', 'tagged as a creation' );
 is( $explicit_history->[0]{after}, 'planning', 'naming the column actually given, not the board default' );
 
 # --- a real move afterward still journals normally, distinguishable -------
-$tira->record_move( project => $root, type => 'ticket', ref => $explicit_card->{ref}, column => 'in-progress' );
+$tira->record_move(author => 'claude',  project => $root, type => 'ticket', ref => $explicit_card->{ref}, column => 'in-progress' );
 my $after_move = $tira->history_list( project => $root, ref => $explicit_card->{ref}, field => 'column' );
 is( scalar @{$after_move}, 2, 'the real move adds a second entry on top of the birth one' );
 is( $after_move->[1]{op}, 'move', 'the move is tagged move, not create - the two stay distinguishable' );

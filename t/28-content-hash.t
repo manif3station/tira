@@ -48,7 +48,7 @@ my $after_comment = current_hash();
 isnt( $after_comment, $after_title, 'comments are content' );
 
 $tira->column_add( project => $root, type => 'ticket', name => 'doing', label => 'Doing' );
-$tira->record_move( project => $root, ref => $ref, column => 'doing' );
+$tira->record_move(author => 'ada',  project => $root, ref => $ref, column => 'doing' );
 my $after_move = current_hash();
 isnt( $after_move, $after_comment, 'placement is content: a move changes the hash' );
 

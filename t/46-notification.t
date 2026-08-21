@@ -32,7 +32,7 @@ my $root = File::Spec->catdir( $tmp, 'proj' );
 # The board every command here works on, named the one way there is.
 # TKT-250.
 $ENV{TIRA_HOME} = $root;
-$tira->project_new( name => 'Notify', dir => $root, columns => ['Backlog, Doing, Review'] );
+$tira->project_new( name => 'Notify', dir => $root, columns => ['Backlog, Doing, Review'], members => ['claude'] );
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Watched work' );
 my $db = File::Spec->catfile( $root, '.tira', 'notification.db' );
 
@@ -106,7 +106,7 @@ is( scalar @{ $tira->notification_list( project => $root ) }, 6,
 
 # The collector builds its whole message from one call.
 $tick = '2026-08-08T09:30:00Z';
-$tira->record_move( project => $root, ref => $second->{ref}, column => 'doing' );
+$tira->record_move(author => 'claude',  project => $root, ref => $second->{ref}, column => 'doing' );
 $tira->column_update( project => $root, type => 'ticket', name => 'doing', notify_after => 5 );
 $tick = '2026-08-08T11:00:00Z';
 my $stale = $tira->dwell_list( project => $root, stale => 1, with_level => 1 );

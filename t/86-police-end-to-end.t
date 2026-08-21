@@ -105,14 +105,14 @@ $tira->column_add( project => $root, type => 'ticket', name => 'document',
 # --- a board with something wrong of every kind ---------------------------
 
 my $bare = $tira->create_record( project => $root, type => 'ticket', title => 'No detail at all' );
-$tira->record_move( project => $root, ref => $bare->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $bare->{ref}, column => 'implement' );
 
 my $crowding = $tira->create_record( project => $root, type => 'ticket', title => 'A second in progress' );
-$tira->record_move( project => $root, ref => $crowding->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $crowding->{ref}, column => 'implement' );
 $tira->checklist_add( project => $root, ref => $crowding->{ref}, item => 'started', status => 'pending' );
 
 my $finished = $tira->create_record( project => $root, type => 'ticket', title => 'Work all done' );
-$tira->record_move( project => $root, ref => $finished->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $finished->{ref}, column => 'implement' );
 $tira->checklist_add( project => $root, ref => $finished->{ref}, item => 'the work', status => 'done' );
 
 # checklist-unmoved: a card carried on from one working column to the next with
@@ -121,8 +121,8 @@ $tira->checklist_add( project => $root, ref => $finished->{ref}, item => 'the wo
 # that window includes being raised, and the checklist was written inside it.
 my $dragged = $tira->create_record( project => $root, type => 'ticket', title => 'Carried along' );
 $tira->checklist_add( project => $root, ref => $dragged->{ref}, item => 'never started', status => 'pending' );
-$tira->record_move( project => $root, ref => $dragged->{ref}, column => 'implement' );
-$tira->record_move( project => $root, ref => $dragged->{ref}, column => 'verify' );
+$tira->record_move(author => 'claude',  project => $root, ref => $dragged->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $dragged->{ref}, column => 'verify' );
 
 my $waiting = $tira->create_record( project => $root, type => 'ticket', title => 'Has a question' );
 my $asked = $tira->question_add( project => $root, ref => $waiting->{ref},
@@ -170,7 +170,7 @@ my $open_question = $tira->question_add( project => $root, ref => $unjudged->{re
 $tira->question_answer( project => $root, ref => $unjudged->{ref}, id => $open_question->{id}, text => 'this way' );
 
 my $lingering = $tira->create_record( project => $root, type => 'ticket', title => 'Sitting in verify' );
-$tira->record_move( project => $root, ref => $lingering->{ref}, column => 'verify' );
+$tira->record_move(author => 'claude',  project => $root, ref => $lingering->{ref}, column => 'verify' );
 
 # Work taken out of turn: a low card being worked while a higher one of the same
 # kind sits untouched where it was raised. 5 is the urgent end, so the waiting
@@ -179,13 +179,13 @@ my $urgent = $tira->create_record( project => $root, type => 'ticket',
     title => 'Should have gone first', priority => 5 );
 my $lesser = $tira->create_record( project => $root, type => 'ticket',
     title => 'Being worked instead', priority => 2 );
-$tira->record_move( project => $root, ref => $lesser->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $lesser->{ref}, column => 'implement' );
 
 my $shipped = $tira->create_record( project => $root, type => 'ticket', title => 'Done with no gate' );
-$tira->record_move( project => $root, ref => $shipped->{ref}, column => 'done' );
+$tira->record_move(author => 'claude',  project => $root, ref => $shipped->{ref}, column => 'done' );
 
 my $dropped = $tira->create_record( project => $root, type => 'ticket', title => 'Dropped in silence' );
-$tira->record_discard( project => $root, ref => $dropped->{ref} );
+$tira->record_discard(author => 'claude',  project => $root, ref => $dropped->{ref} );
 
 # A card set aside while a question on it was still waiting - the questions go
 # with the card, and the decision they were waiting on is never made.
@@ -193,7 +193,7 @@ my $orphaned = $tira->create_record( project => $root, type => 'ticket',
     title => 'Set aside with the question still open' );
 $tira->question_add( project => $root, ref => $orphaned->{ref}, author => 'claude',
     text => 'Which way?', reason => 'Nothing starts until this is settled' );
-$tira->record_discard( project => $root, ref => $orphaned->{ref}, reason => 'not worth doing' );
+$tira->record_discard(author => 'claude',  project => $root, ref => $orphaned->{ref}, reason => 'not worth doing' );
 
 # A parent saying it is finished above a child that is not - the board
 # overstating progress in the one direction nobody checks by looking at a card
@@ -203,7 +203,7 @@ $tira->column_roles_set( project => $root, type => 'epic', roles => { done => 'd
 my $premature = $tira->create_record( project => $root, type => 'epic', title => 'Claims to be finished' );
 my $underneath = $tira->create_record( project => $root, type => 'ticket', title => 'Still open underneath it' );
 $tira->hierarchy_link( project => $root, parent => $premature->{ref}, child => $underneath->{ref} );
-$tira->record_move( project => $root, ref => $premature->{ref}, column => 'done' );
+$tira->record_move(author => 'claude',  project => $root, ref => $premature->{ref}, column => 'done' );
 
 # Everything above happened at nine; now it is late enough for every age to
 # have passed.
@@ -308,7 +308,7 @@ $tira->record_update( project => $root, ref => $bare->{ref},
 # complete by one definition is incomplete by the one there is now.
 $tira->checklist_add( project => $root, ref => $bare->{ref},
     item => 'the thing to do', status => 'todo' );
-$tira->record_move( project => $root, ref => $finished->{ref}, column => 'verify' );
+$tira->record_move(author => 'claude',  project => $root, ref => $finished->{ref}, column => 'verify' );
 
 my $repaired = $tira->police_pass( project => $root, store => $store, world => $world );
 my %still = map { $_->{rule} => 1 } @{ $repaired->{violations} };

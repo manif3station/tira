@@ -58,7 +58,7 @@ my $card = $tira->create_record( project => $root, type => 'ticket',
 # card, so a comment made before it is not later than anything written - which
 # is the rule being right, and made the first version of this test measure
 # nothing.
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 $now = '2026-08-16T10:00:00Z';
 $tira->comment_add( project => $root, ref => $card->{ref}, author => 'claude',
     text => 'Something said after the card was last written' );
@@ -84,7 +84,7 @@ ok( scalar @{ findings('conversation-not-folded') },
 # itself writes the card, nothing is unfolded, and the rule is silent for a
 # reason that has nothing to do with the column - which is what the first
 # version of this test measured.
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'shipped' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'shipped' );
 $now = '2026-08-16T11:00:00Z';
 $tira->comment_add( project => $root, ref => $card->{ref}, author => 'claude',
     text => 'Something said after it had shipped' );

@@ -107,7 +107,7 @@ like( $found->[0]{detail}, qr/\b5h\b/, 'and how long ago that was, not merely th
 
     # The one that was not true until TKT-198.
     $now = '2026-08-15T20:30:00Z';
-    $tira->record_move( project => $root, ref => $parked, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $parked, column => 'implement' );
     is( scalar @{ reported() }, 0, 'moving a card is movement too' );
 }
 

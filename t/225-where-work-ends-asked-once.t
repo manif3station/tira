@@ -44,7 +44,7 @@ $tira->policy_add( project => $root, rule => 'card-unassigned', action => 'bridg
 # card-unassigned has something to say about it.
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Nobody is on this' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'shipped' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'shipped' );
 
 sub speaks_about {
     my ($rule) = @_;

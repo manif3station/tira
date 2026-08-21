@@ -55,8 +55,8 @@ sub board {
         title => 'Ships with a loose end' );
     $tira->question_add( project => $root, ref => $card->{ref}, author => 'claude',
         text => 'Which columns should notify you?' );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'done' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'done' );
 
     my $violations = $tira->policy_evaluate( project => $root );
     my ($found) = grep { $_->{rule} eq 'discard-with-open-questions'
@@ -77,7 +77,7 @@ sub board {
         title => 'Set aside with a question' );
     $tira->question_add( project => $root, ref => $card->{ref}, author => 'claude',
         text => 'Still relevant?' );
-    $tira->record_discard( project => $root, ref => $card->{ref} );
+    $tira->record_discard(author => 'claude',  project => $root, ref => $card->{ref} );
 
     my $violations = $tira->policy_evaluate( project => $root );
     my ($found) = grep { $_->{rule} eq 'discard-with-open-questions'
@@ -96,8 +96,8 @@ sub board {
         title => 'Ships under a different name' );
     $tira->question_add( project => $root, ref => $card->{ref}, author => 'claude',
         text => 'Ready?' );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'shipped' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'shipped' );
 
     my $violations = $tira->policy_evaluate( project => $root );
     my ($found) = grep { $_->{rule} eq 'discard-with-open-questions'
@@ -116,8 +116,8 @@ sub board {
     my $q = $tira->question_add( project => $root, ref => $card->{ref}, author => 'claude',
         text => 'Ready?' );
     $tira->question_answer( project => $root, id => $q->{id}, author => 'michael', text => 'yes' );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'done' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'done' );
 
     my $violations = $tira->policy_evaluate( project => $root );
     my ($found) = grep { $_->{rule} eq 'discard-with-open-questions'
@@ -137,8 +137,8 @@ sub board {
         title => 'A statement of work with a loose end' );
     $tira->question_add( project => $root, ref => $sow->{ref}, author => 'claude',
         text => 'Scope settled?' );
-    $tira->record_move( project => $root, ref => $sow->{ref}, column => 'implement' );
-    $tira->record_move( project => $root, ref => $sow->{ref}, column => 'done' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $sow->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $sow->{ref}, column => 'done' );
 
     my $violations = $tira->policy_evaluate( project => $root );
     my ($found) = grep { $_->{rule} eq 'discard-with-open-questions'
@@ -154,8 +154,8 @@ sub board {
         title => 'Ships with a loose end' );
     $tira->question_add( project => $root, ref => $card->{ref}, author => 'claude',
         text => 'Which columns?' );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'done' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'done' );
 
     no warnings 'redefine';
     local *Tira::_ending_columns = sub { return {} };

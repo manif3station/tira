@@ -54,7 +54,7 @@ $tira->policy_add( project => $root, rule => 'card-sandbox-missing',
 
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Work with a real tree behind it' )->{ref};
-$tira->record_move( project => $root, ref => $card, column => 'in-progress' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'in-progress' );
 
 my $tree = File::Spec->catdir( $sandbox_root, lc $card );
 $tira->record_update( project => $root, ref => $card, sandbox => $tree );
@@ -114,7 +114,7 @@ is_deeply(
 # It is correct, and it is why the passing case above had to be written down.
 
 {
-    $tira->record_move( project => $root, ref => $card, column => 'done' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'done' );
     is_deeply( reported( label => 'left', branches => [], worktrees => [] ), [],
         'a card that has left the column stops being asked, which is not the same as passing' );
 }

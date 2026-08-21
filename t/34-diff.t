@@ -28,7 +28,7 @@ print {$snap} Cpanel::JSON::XS->new->encode( $tira->export_records( project => $
 close $snap;
 
 $tick = '2026-08-07T11:00:00Z';
-$tira->record_move( project => $root, ref => $mover->{ref}, column => 'doing' );
+$tira->record_move(author => 'ada',  project => $root, ref => $mover->{ref}, column => 'doing' );
 $tira->record_update( project => $root, ref => $mover->{ref}, sdlc_gate => 'G2' );
 my $comment = $tira->comment_add( project => $root, ref => $mover->{ref}, author => 'ada', text => 'Moved on' );
 my $fresh = $tira->create_record( project => $root, type => 'ticket', title => 'Fresh arrival' );

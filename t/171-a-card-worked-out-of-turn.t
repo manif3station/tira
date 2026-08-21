@@ -44,7 +44,7 @@ sub card {
     my (%args) = @_;
     my $made = $tira->create_record( project => $root, type => $args{type} // 'ticket',
         title => $args{title}, priority => $args{priority} );
-    $tira->record_move( project => $root, ref => $made->{ref}, column => $args{column} )
+    $tira->record_move(author => 'claude',  project => $root, ref => $made->{ref}, column => $args{column} )
       if $args{column};
     return $made->{ref};
 }
@@ -96,7 +96,7 @@ like( $found->[0]{detail}, qr/\b5\b/, 'and saying what priority was passed over'
 
     my $top = $tira->create_record( project => $order, type => 'ticket',
         title => 'Worked first, as it should be', priority => 5 );
-    $tira->record_move( project => $order, ref => $top->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $order, ref => $top->{ref}, column => 'implement' );
     $tira->create_record( project => $order, type => 'ticket',
         title => 'Waiting its turn', priority => 3 );    # below 5, so its turn has not come
 
@@ -159,7 +159,7 @@ like( $found->[0]{detail}, qr/\b5\b/, 'and saying what priority was passed over'
     );
     $tira->policy_add( project => $none, rule => 'priority-skipped', action => 'bridge-reminder' );
     my $doing = $tira->create_record( project => $none, type => 'ticket', title => 'Being worked' );
-    $tira->record_move( project => $none, ref => $doing->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $none, ref => $doing->{ref}, column => 'implement' );
     $tira->create_record( project => $none, type => 'ticket', title => 'Sitting in the backlog' );
 
     my $pass = $tira->police_pass( project => $none, store => $silence,
@@ -192,11 +192,11 @@ like( $found->[0]{detail}, qr/\b5\b/, 'and saying what priority was passed over'
 
     my $finished = $tira->create_record( project => $ended, type => 'ticket',
         title => 'The most urgent thing we ever did, and it is done', priority => 5 );
-    $tira->record_move( project => $ended, ref => $finished->{ref}, column => 'shipped' );
+    $tira->record_move(author => 'claude',  project => $ended, ref => $finished->{ref}, column => 'shipped' );
 
     my $doing = $tira->create_record( project => $ended, type => 'ticket',
         title => 'Being worked now', priority => 2 );
-    $tira->record_move( project => $ended, ref => $doing->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $ended, ref => $doing->{ref}, column => 'implement' );
 
     my $pass = $tira->police_pass( project => $ended, store => $quiet,
         world => { branches => [], worktrees => [], processes => [], containers => [] } );
@@ -228,7 +228,7 @@ like( $found->[0]{detail}, qr/\b5\b/, 'and saying what priority was passed over'
 
     my $doing = $tira->create_record( project => $mixed, type => 'ticket',
         title => 'Being worked, and assessed', priority => 2 );
-    $tira->record_move( project => $mixed, ref => $doing->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $mixed, ref => $doing->{ref}, column => 'implement' );
 
     # No priority at all - raised and not yet judged.
     $tira->create_record( project => $mixed, type => 'ticket',

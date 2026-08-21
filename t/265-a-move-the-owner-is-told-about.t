@@ -74,7 +74,7 @@ my $card = $tira->create_record( project => $root, type => 'ticket',
         'a board can be told to notify on moves' );
 
     $now = '2026-08-18T01:31:00Z';
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
     notify_pass( token => 'T', chat => 'C' );
     is_deeply( \@sent, [],
         'and nothing is sent until it is switched on, because it is opt-in' );
@@ -88,7 +88,7 @@ $tira->notify_moves( project => $root, enabled => 1 );
 
 {
     $now = '2026-08-18T01:32:00Z';
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'review' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'review' );
 
     notify_pass( token => 'T', chat => 'C' );
     is( scalar @sent, 1, 'a move sends exactly one message' );
@@ -113,7 +113,7 @@ $tira->notify_moves( project => $root, enabled => 1 );
 {
     $tira->notify_moves( project => $root, column => 'discard', enabled => 0 );
     $now = '2026-08-18T01:33:00Z';
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'discard' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'discard' );
 
     notify_pass( token => 'T', chat => 'C' );
     is_deeply( \@sent, [], 'a move into a column switched off is not announced' );
@@ -125,7 +125,7 @@ $tira->notify_moves( project => $root, enabled => 1 );
     my $other = $tira->create_record( project => $root, type => 'ticket',
         title => 'Another card that moves', priority => 3 );
     $now = '2026-08-18T01:34:00Z';
-    $tira->record_move( project => $root, ref => $other->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $other->{ref}, column => 'implement' );
 
     notify_pass( token => 'T' );
     is_deeply( \@sent, [], 'a token with no chat id sends nothing' );
@@ -166,7 +166,7 @@ $tira->notify_moves( project => $root, enabled => 1 );
     my $back = $tira->create_record( project => $root, type => 'ticket',
         title => 'A card set aside after the switch was flipped', priority => 3 );
     $now = '2026-08-18T01:36:00Z';
-    $tira->record_move( project => $root, ref => $back->{ref}, column => 'discard' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $back->{ref}, column => 'discard' );
 
     notify_pass( token => 'T', chat => 'C' );
     is( scalar @sent, 1,

@@ -86,7 +86,7 @@ $tira->policy_add( project => $root, rule => 'orphan-card', action => 'bridge-re
 
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Breaks both at once', priority => 3 );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 
 $now = '2026-08-18T12:05:00Z';
 $tira->police_pass( project => $root, store => $store, world => {} );

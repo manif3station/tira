@@ -3906,6 +3906,7 @@ my %SUPPLIED_BY = (
     'A question needs some text'           => [ 'text',     'supply it with' ],
     'An answer needs some text'            => [ 'text',     'supply it with' ],
     'How many seconds?'                    => [ 'seconds',  'supply it with' ],
+    'A move needs to say who is making it' => [ 'author',   'supply it with' ],
 
     # Given rather than missing: the option carried a value the command will
     # not take, so it is named rather than asked for.

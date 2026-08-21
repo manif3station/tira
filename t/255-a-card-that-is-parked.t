@@ -82,7 +82,7 @@ my $question = $tira->question_add( project => $root, ref => $held->{ref},
 # work_order exists to make impossible.
 
 {
-    $tira->record_move( project => $root, ref => $free->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $free->{ref}, column => 'implement' );
 
     my $pass = $tira->police_pass( project => $root, store => $store, world => {} );
     my @skipped = grep { ( $_->{rule} // '' ) eq 'priority-skipped' }

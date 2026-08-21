@@ -30,7 +30,7 @@ my $tira = Tira->new( clock => sub {$now} );
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Who', dir => $root, members => [ 'michael', 'ada' ],
+    name => 'Who', dir => $root, members => [ 'michael', 'ada', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'WHS', epic_prefix => 'WHE', ticket_prefix => 'WHT',
 );
@@ -41,10 +41,10 @@ $tira->policy_add( project => $root, rule => 'card-full-details',
 
 my $hers = $tira->create_record( project => $root, type => 'ticket', title => 'Held by ada' );
 $tira->record_update( project => $root, ref => $hers->{ref}, assignee => 'ada' );
-$tira->record_move( project => $root, ref => $hers->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $hers->{ref}, column => 'implement' );
 
 my $nobodys = $tira->create_record( project => $root, type => 'ticket', title => 'Held by nobody' );
-$tira->record_move( project => $root, ref => $nobodys->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $nobodys->{ref}, column => 'implement' );
 
 # Escalation is what reaches his own terminal once a violation has been ignored
 # long enough, so it is run until it does.

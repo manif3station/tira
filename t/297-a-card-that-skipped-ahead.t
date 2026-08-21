@@ -37,6 +37,7 @@ sub cli {
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
     local $ENV{TIRA_HOME} = $root;
+    local $ENV{TIRA_AUTHOR} = "claude";
     my $status = Tira::CLI->run( command => 'record.move', type => 'ticket', argv => \@argv );
     return ( $status, $out, $err );
 }
@@ -77,7 +78,7 @@ is( $status, 0, 'moving to discard succeeds from any column, skip or not' );
 # is not subject to the chain check at all.
 my $unrestricted = $tira->create_record( project => $root, type => 'ticket', title => 'Dashboard-moved' );
 my $direct = eval {
-    $tira->record_move( project => $root, ref => $unrestricted->{ref}, column => 'done' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $unrestricted->{ref}, column => 'done' );
     1;
 };
 ok( $direct, 'a direct record_move call - the dashboard\'s own path - is not restricted by the chain' );

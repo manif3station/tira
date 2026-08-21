@@ -48,7 +48,7 @@ is_deeply( violations(), [], 'a parent that has not claimed to be finished is no
 # Michael photographed exactly this: an epic in done with a ticket in backlog
 # underneath it, an hour after he had asked for that ticket. The board said the
 # work was finished when it had not begun.
-$tira->record_move( project => $root, ref => $epic->{ref}, column => 'archived' );
+$tira->record_move(author => 'claude',  project => $root, ref => $epic->{ref}, column => 'archived' );
 
 my $reported = violations();
 is( scalar @{$reported}, 1, 'a finished parent with a live child is reported' );
@@ -58,7 +58,7 @@ like( $reported->[0]{detail}, qr/\Q$child->{ref}\E/,
 
 # --- the child settles ----------------------------------------------------
 
-$tira->record_move( project => $root, ref => $child->{ref}, column => 'archived' );
+$tira->record_move(author => 'claude',  project => $root, ref => $child->{ref}, column => 'archived' );
 is_deeply( violations(), [], 'and it stops the moment the child is finished too' );
 
 # --- a discarded child is settled -----------------------------------------
@@ -68,7 +68,7 @@ my $dropped = $tira->create_record( project => $root, type => 'ticket', title =>
 $tira->hierarchy_link( project => $root, parent => $epic->{ref}, child => $dropped->{ref} );
 is( scalar @{ violations() }, 1, 'a new live child brings it back' );
 
-$tira->record_discard( project => $root, ref => $dropped->{ref} );
+$tira->record_discard(author => 'claude',  project => $root, ref => $dropped->{ref} );
 is_deeply( violations(), [], 'and discarding that child settles it, because a decision is not unfinished work' );
 
 # --- every level, because a parent is a parent -----------------------------
@@ -83,15 +83,15 @@ is_deeply( violations(), [], 'and discarding that child settles it, because a de
 
     my $sow = $tira->create_record( project => $root, type => 'sow', title => 'The statement of work' );
     $tira->hierarchy_link( project => $root, parent => $sow->{ref}, child => $epic->{ref} );
-    $tira->record_move( project => $root, ref => $epic->{ref}, column => 'doing' );
-    $tira->record_move( project => $root, ref => $sow->{ref}, column => 'archived' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $epic->{ref}, column => 'doing' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $sow->{ref}, column => 'archived' );
 
     my ($above_epics) = grep { $_->{ref} eq $sow->{ref} } @{ violations() };
     ok( $above_epics, 'a statement of work finished above an open epic is reported' );
     like( $above_epics->{detail}, qr/\Q$epic->{ref}\E/, 'naming the epic' );
 
-    $tira->record_move( project => $root, ref => $sow->{ref}, column => 'backlog' );
-    $tira->record_move( project => $root, ref => $epic->{ref}, column => 'archived' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $sow->{ref}, column => 'backlog' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $epic->{ref}, column => 'archived' );
 }
 
 {
@@ -101,13 +101,13 @@ is_deeply( violations(), [], 'and discarding that child settles it, because a de
     my $parent_ticket = $tira->create_record( project => $root, type => 'ticket', title => 'A ticket with work under it' );
     my $sub = $tira->create_record( project => $root, type => 'ticket', title => 'A sub-ticket' );
     $tira->subitem_link( project => $root, parent => $parent_ticket->{ref}, child => $sub->{ref} );
-    $tira->record_move( project => $root, ref => $parent_ticket->{ref}, column => 'archived' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $parent_ticket->{ref}, column => 'archived' );
 
     my ($above_sub) = grep { $_->{ref} eq $parent_ticket->{ref} } @{ violations() };
     ok( $above_sub, 'a ticket finished above an open sub-ticket is reported' );
     like( $above_sub->{detail}, qr/\Q$sub->{ref}\E/, 'naming the sub-ticket' );
 
-    $tira->record_move( project => $root, ref => $sub->{ref}, column => 'archived' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $sub->{ref}, column => 'archived' );
     is_deeply( [ grep { $_->{ref} eq $parent_ticket->{ref} } @{ violations() } ], [],
         'and silent once the sub-ticket is finished too' );
 }
@@ -128,7 +128,7 @@ is_deeply( violations(), [], 'and discarding that child settles it, because a de
     my $parent = $tira->create_record( project => $other, type => 'epic', title => 'Parent' );
     my $kid = $tira->create_record( project => $other, type => 'ticket', title => 'Child' );
     $tira->hierarchy_link( project => $other, parent => $parent->{ref}, child => $kid->{ref} );
-    $tira->record_move( project => $other, ref => $parent->{ref}, column => 'shipped' );
+    $tira->record_move(author => 'claude',  project => $other, ref => $parent->{ref}, column => 'shipped' );
 
     my @found = grep { $_->{rule} eq 'parent-ahead-of-children' }
       @{ $tira->policy_evaluate( project => $other ) };

@@ -60,10 +60,10 @@ $tira->policy_add( project => $root, rule => 'card-duration', action => 'bridge-
     message => 'the wait is legitimate, but a whole day means the release has been FORGOTTEN rather than held' );
 
 my $held = $tira->create_record( project => $root, type => 'ticket', title => 'Parked on purpose' );
-$tira->record_move( project => $root, ref => $held->{ref}, column => 'release-held' );
+$tira->record_move(author => 'claude',  project => $root, ref => $held->{ref}, column => 'release-held' );
 
 my $unrelated = $tira->create_record( project => $root, type => 'ticket', title => 'A different column' );
-$tira->record_move( project => $root, ref => $unrelated->{ref}, column => 'elsewhere' );
+$tira->record_move(author => 'claude',  project => $root, ref => $unrelated->{ref}, column => 'elsewhere' );
 
 sub findings_for {
     my ($rule) = @_;

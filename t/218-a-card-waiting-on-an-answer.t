@@ -53,7 +53,7 @@ my $aside = $tira->create_record( project => $root, type => 'ticket',
     title => 'Set aside' );
 $tira->comment_add( project => $root, ref => $aside->{ref}, author => 'claude',
     text => 'not real work' );
-$tira->record_discard( project => $root, ref => $aside->{ref} );
+$tira->record_discard(author => 'claude',  project => $root, ref => $aside->{ref} );
 $tira->question_add(
     project => $root, ref => $card->{ref}, author => 'claude',
     text => 'Which way?', reason => 'It matters',

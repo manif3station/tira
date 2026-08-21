@@ -46,9 +46,9 @@ $tira->checklist_add( project => $root, ref => $card->{ref},
     item => 'The work itself', status => 'todo' );
 
 $now = '2026-08-16T10:00:00Z';
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 $now = '2026-08-16T11:00:00Z';
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'review' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'review' );
 
 sub reported {
     my $pass = $tira->police_pass( project => $root, store => $store, world => {} );

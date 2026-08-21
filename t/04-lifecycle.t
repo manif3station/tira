@@ -56,11 +56,11 @@ $ticket = $tira->record_update(
 is( $ticket->{title}, 'Updated', 'record scalar can be updated' );
 is_deeply( $ticket->{acceptance_criteria}, [ 'Works', 'Is tested' ], 'record array can be updated' );
 
-$ticket = $tira->record_move( project => $root, ref => $ticket->{ref}, column => 'in-progress' );
+$ticket = $tira->record_move(author => 'ada',  project => $root, ref => $ticket->{ref}, column => 'in-progress' );
 is( $ticket->{column}, 'in-progress', 'record can move to a custom column' );
 is( scalar @{ $tira->record_list( project => $root, type => 'ticket', column => 'in-progress' ) }, 1, 'record list filters column' );
-$tira->record_discard( project => $root, ref => $ticket->{ref} );
-$ticket = $tira->record_restore( project => $root, ref => $ticket->{ref}, column => 'verification' );
+$tira->record_discard(author => 'ada',  project => $root, ref => $ticket->{ref} );
+$ticket = $tira->record_restore(author => 'ada',  project => $root, ref => $ticket->{ref}, column => 'verification' );
 is( $ticket->{column}, 'verification', 'discarded record can restore to a chosen column' );
 
 $tira->column_remove( project => $root, type => 'ticket', name => 'verification' );

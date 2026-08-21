@@ -117,7 +117,7 @@ eval { $yaml_failure->column_add( project => $root, type => 'ticket', name => 'f
 like( $@, qr/Injected column/, 'column add config failure is returned' );
 ok( !-d File::Spec->catdir( $root, '.tira', 'ticket', 'failed-add' ), 'failed column add removes its directory' );
 $yaml_failure->column_add( project => $root, type => 'ticket', name => 'rollback' );
-$yaml_failure->record_move( project => $root, ref => $ticket2->{ref}, column => 'rollback' );
+$yaml_failure->record_move(author => 'ada',  project => $root, ref => $ticket2->{ref}, column => 'rollback' );
 $yaml_failure->fail_yaml;
 eval { $yaml_failure->column_remove( project => $root, type => 'ticket', name => 'rollback' ) };
 like( $@, qr/Injected column/, 'column remove config failure is returned' );

@@ -52,7 +52,7 @@ $tira->checklist_add( project => $root, ref => $card->{ref},
     item => 'the work itself', status => 'todo' );
 
 $now = '2026-08-17T10:00:00Z';
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 
 sub unmoved {
     my $pass = $tira->police_pass( project => $root, store => $store, world => {} );
@@ -66,7 +66,7 @@ sub unmoved {
 # rule with nothing to say about this card.
 
 $now = '2026-08-17T11:00:00Z';
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'in-review' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'in-review' );
 
 ok( unmoved(), 'a card moved on with nothing ticked is reported' );
 

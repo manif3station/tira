@@ -52,7 +52,7 @@ sub board {
         action => 'bridge-reminder' );
     my $ref = $tira->create_record( project => $root, type => 'ticket',
         title => 'Set aside without a word' )->{ref};
-    $tira->record_move( project => $root, ref => $ref, column => 'discard' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $ref, column => 'discard' );
 
     my $store = File::Spec->catdir( $tmp, "police-" . lc $name );
     my $pass = $tira->police_pass( project => $root, store => $store,

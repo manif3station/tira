@@ -224,16 +224,21 @@ ok( !Tira->can('work_log_remove'), 'nor to remove one' );
     is( last_move( $card->{ref} )->{who}, 'michael',
         'somebody who says who they are beats the environment' );
 
-    # And with neither, it says nobody rather than inventing one.
+    # And with neither, the move itself is refused rather than recorded
+    # against nobody - TKT-457. Read back before the attempt, because a
+    # refused move leaves the card exactly where it already was.
+    my $before_refusal = last_move( $card->{ref} );
     at('2026-08-11T13:30:00Z');
     {
         local $ENV{TIRA_AUTHOR};
         delete $ENV{TIRA_AUTHOR};
-        run_cli( 'record.move', '--type', 'ticket', '--ref', $card->{ref},
+        my ( $status, $out, $err ) = run_cli( 'record.move', '--type', 'ticket', '--ref', $card->{ref},
             '--column', 'implement', '-o', 'json' );
+        isnt( $status, 0, 'and with nobody named anywhere the move is refused' );
+        like( $err, qr/--author/, 'naming what to supply' );
     }
-    is( last_move( $card->{ref} )->{who}, undef,
-        'and with nobody named anywhere it claims nobody' );
+    is_deeply( last_move( $card->{ref} ), $before_refusal,
+        'a refused move leaves no new entry behind' );
 
     # An edit is a change to the card exactly as a move is.
     at('2026-08-11T13:40:00Z');

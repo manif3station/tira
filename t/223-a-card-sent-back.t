@@ -56,9 +56,9 @@ sub findings {
 # and not a rule that had nothing to say about this card at all.
 
 $now = '2026-08-16T10:00:00Z';
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 $now = '2026-08-16T11:00:00Z';
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'review' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'review' );
 
 ok( scalar @{ findings() },
     'a card moved on with nothing ticked since it entered the last column is reported' );
@@ -66,7 +66,7 @@ ok( scalar @{ findings() },
 # --- and sent back with nothing ticked -------------------------------------
 
 $now = '2026-08-16T12:00:00Z';
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 
 is( scalar @{ findings() }, 0,
     'and a card sent back is not, because moving back claims nothing and the work not being done is why it went back' );
@@ -77,7 +77,7 @@ is( scalar @{ findings() }, 0,
 # backwards move would be worse than the report it replaced.
 
 $now = '2026-08-16T13:00:00Z';
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'review' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'review' );
 
 ok( scalar @{ findings() },
     'and moving on again with still nothing ticked is reported as before' );

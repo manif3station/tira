@@ -36,9 +36,9 @@ my $root = File::Spec->catdir( $tmp, 'proj' );
 # The board every command here works on, named the one way there is.
 # TKT-250.
 $ENV{TIRA_HOME} = $root;
-$tira->project_new( name => 'Layout', dir => $root, columns => ['Backlog, Doing, Review'] );
+$tira->project_new( name => 'Layout', dir => $root, columns => ['Backlog, Doing, Review'], members => ['claude'] );
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'A card' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'review' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'review' );
 
 # Applying what is already there changes nothing, and says so.
 my $same = $tira->column_apply(
@@ -85,7 +85,7 @@ is_deeply( $applied->{removed}, ['doing'], 'and what it removed' );
 
 # Removing a column relocates its cards exactly as removing one at a time does.
 my $stranded = $tira->create_record( project => $root, type => 'ticket', title => 'Stranded' );
-$tira->record_move( project => $root, ref => $stranded->{ref}, column => 'shipped' );
+$tira->record_move(author => 'claude',  project => $root, ref => $stranded->{ref}, column => 'shipped' );
 $tira->column_apply(
     project => $root, type => 'ticket',
     columns => [ { name => 'backlog' }, { name => 'review' }, { name => 'discard' } ],

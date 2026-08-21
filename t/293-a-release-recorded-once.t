@@ -50,7 +50,7 @@ sub run {
 }
 
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Ships today' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'verify' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'verify' );
 
 # --- one command, everything a passed gate needs ---------------------------
 

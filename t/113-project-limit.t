@@ -31,7 +31,7 @@ my $tira = Tira->new( clock => sub {'2026-08-12T23:00:00Z'} );
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'In flight', dir => $root, members => [ 'ada', 'grace' ],
+    name => 'In flight', dir => $root, members => [ 'ada', 'grace', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'IFS', epic_prefix => 'IFE', ticket_prefix => 'IFT',
 );
@@ -72,7 +72,7 @@ sub working {
     for my $each ( 1 .. $count ) {
         my $card = $tira->create_record( project => $root, type => 'ticket',
             title => "Card $each" );
-        $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+        $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
     }
     return;
 }
@@ -124,7 +124,7 @@ like( $tighter->[0]{detail}, qr/limit is 1/, 'and the policy wins over the proje
 
 my $bare = File::Spec->catdir( $tmp, 'no-number' );
 $tira->project_new(
-    name => 'Unasked', dir => $bare, members => ['ada'],
+    name => 'Unasked', dir => $bare, members => ['ada', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'UNS', epic_prefix => 'UNE', ticket_prefix => 'UNT',
 );

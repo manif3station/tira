@@ -56,7 +56,7 @@ is( $before, '2026-08-15T09:00:00Z', 'a card is stamped when it is created' );
 # --- moving it is changing it ----------------------------------------------------------
 
 $now = '2026-08-15T18:00:00Z';
-$tira->record_move( project => $root, ref => $card, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'implement' );
 
 my $after = $tira->record_show( project => $root, ref => $card );
 is( $after->{column}, 'implement', 'the card moved' );
@@ -127,7 +127,7 @@ is( $after->{last_updated}, '2026-08-15T18:00:00Z',
         'a hash is only computed when it is asked for, so this asks' );
 
     $now = '2026-08-16T10:00:00Z';
-    $tira->record_move( project => $root, ref => $settled, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $settled, column => 'implement' );
 
     my $moved = $tira->record_show( project => $root, ref => $settled,
         fields => [ 'content_hash', 'last_updated' ] );
@@ -149,7 +149,7 @@ is( $after->{last_updated}, '2026-08-15T18:00:00Z',
     my $stamp = $tira->record_show( project => $root, ref => $still )->{last_updated};
 
     $now = '2026-08-16T11:00:00Z';
-    $tira->record_move( project => $root, ref => $still, column => 'backlog' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $still, column => 'backlog' );
 
     is( $tira->record_show( project => $root, ref => $still )->{last_updated}, $stamp,
         'moving a card to the column it is already in changes nothing, including the stamp' );

@@ -77,7 +77,7 @@ is_deeply( fingerprint(), $before,
 
 # --- card-full-details ----------------------------------------------------
 
-$tira->record_move( project => $root, ref => $bare->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $bare->{ref}, column => 'implement' );
 my @details = fired('card-full-details');
 is( scalar @details, 1, 'a card in implement with no detail is reported' );
 is( $details[0]{ref}, $bare->{ref}, 'naming the card' );
@@ -98,7 +98,7 @@ my $complete = card(
 # the two definitions became one. TKT-241.
 $tira->checklist_add( project => $root, ref => $complete->{ref},
     item => 'the thing to do', status => 'done' );
-$tira->record_move( project => $root, ref => $complete->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $complete->{ref}, column => 'implement' );
 is( scalar( grep { $_->{ref} eq $complete->{ref} } fired('card-full-details') ), 0,
     'a card that has its detail is not reported' );
 
@@ -114,7 +114,7 @@ my @stalled = fired('card-stalled');
 is( scalar @stalled, 1, 'a finished checklist in a working column is reported' );
 is( $stalled[0]{ref}, $complete->{ref}, 'naming the card that should have moved' );
 
-$tira->record_move( project => $root, ref => $complete->{ref}, column => 'verify' );
+$tira->record_move(author => 'claude',  project => $root, ref => $complete->{ref}, column => 'verify' );
 is( scalar fired('card-stalled'), 0, 'and moving it silences the rule' );
 
 # --- card-duration and its grace -----------------------------------------
@@ -198,14 +198,14 @@ $tira->policy_add( project => $root, rule => 'wip-limit', column => 'implement',
     max => 1, action => 'bridge-reminder' );
 is( scalar fired('wip-limit'), 0, 'one card in a column is within a limit of one' );
 my $second = card( title => 'A second thing' );
-$tira->record_move( project => $root, ref => $second->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $second->{ref}, column => 'implement' );
 is( scalar fired('wip-limit'), 1, 'a second breaks it' );
 
 # --- discard-unexplained --------------------------------------------------
 
 $tira->policy_add( project => $root, rule => 'discard-unexplained', action => 'bridge-reminder' );
 my $dropped = card( title => 'Dropped without a word' );
-$tira->record_discard( project => $root, ref => $dropped->{ref} );
+$tira->record_discard(author => 'claude',  project => $root, ref => $dropped->{ref} );
 is( scalar fired('discard-unexplained'), 1, 'work set aside with no reason is reported' );
 $tira->comment_add( project => $root, ref => $dropped->{ref}, author => 'claude',
     text => 'superseded by the other one' );
@@ -272,7 +272,7 @@ is( scalar fired('checklist-idle'), 0, 'and touching it silences the rule' );
 # A card in that column with no checklist at all is a different problem, and
 # not this rule's to report.
 my $listless = card( title => 'No checklist here' );
-$tira->record_move( project => $root, ref => $listless->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $listless->{ref}, column => 'implement' );
 is( scalar( grep { $_->{ref} eq $listless->{ref} } fired('checklist-idle') ), 0,
     'a card with no checklist is left to another rule' );
 
@@ -282,7 +282,7 @@ is( scalar( grep { $_->{ref} eq $listless->{ref} } fired('checklist-idle') ), 0,
 $tira->policy_add( project => $root, rule => 'gate-missing', column => 'done',
     action => 'bridge-reminder' );
 my $shipped = card( title => 'Straight to done' );
-$tira->record_move( project => $root, ref => $shipped->{ref}, column => 'done' );
+$tira->record_move(author => 'claude',  project => $root, ref => $shipped->{ref}, column => 'done' );
 my @ungated = grep { $_->{ref} eq $shipped->{ref} } fired('gate-missing');
 is( scalar @ungated, 1, 'a card in the final column with no gate recorded is reported' );
 like( $ungated[0]{detail}, qr/no gate recorded/, 'saying so plainly' );
@@ -300,11 +300,11 @@ is( scalar( grep { $_->{ref} eq $shipped->{ref} } fired('gate-missing') ), 0,
 # channel, which is the one failure a warning system cannot survive.
 {
     my $abandoned = card( title => 'Set aside, deliberately' );
-    $tira->record_move( project => $root, ref => $abandoned->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $abandoned->{ref}, column => 'implement' );
     ok( scalar( grep { $_->{ref} eq $abandoned->{ref} } fired('card-full-details') ),
         'a live card with no detail is reported' );
 
-    $tira->record_discard( project => $root, ref => $abandoned->{ref} );
+    $tira->record_discard(author => 'claude',  project => $root, ref => $abandoned->{ref} );
     is( scalar( grep { $_->{ref} eq $abandoned->{ref} } fired('card-full-details') ), 0,
         'and discarding it stops every rule reporting it' );
     is( scalar( grep { $_->{ref} eq $abandoned->{ref} } fired('orphan-card') ), 0,
@@ -345,7 +345,7 @@ is( scalar( grep { $_->{ref} eq $shipped->{ref} } fired('gate-missing') ), 0,
     ok( scalar( grep { $_->{ref} eq $shipped_early->{ref} } fired('card-unlinked') ),
         'a live card without the link is still reported' );
     $tira->column_roles_set( project => $root, type => 'ticket', roles => { done => 'done' } );
-    $tira->record_move( project => $root, ref => $shipped_early->{ref}, column => 'done' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $shipped_early->{ref}, column => 'done' );
     is( scalar( grep { $_->{ref} eq $shipped_early->{ref} } fired('card-unlinked') ), 0,
         'and once it is done, it is left alone - which the board says, rather than the rule guessing' );
 }
@@ -358,7 +358,7 @@ is( scalar( grep { $_->{ref} eq $shipped->{ref} } fired('gate-missing') ), 0,
 # an agent that wants particular wording simply cannot have it.
 {
     my $spoken = card( title => 'Wants its own words' );
-    $tira->record_move( project => $root, ref => $spoken->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $spoken->{ref}, column => 'implement' );
     $tira->policy_add( project => $root, rule => 'card-metrics', enter => 'implement',
         require => 'due_date', ref => $spoken->{ref}, action => 'bridge-reminder',
         message => '{ref} in {column} still has no due date - {detail}' );

@@ -17,7 +17,7 @@ sub at { $now = $_[0]; return $now }
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Policed', dir => $root, members => ['michael'],
+    name => 'Policed', dir => $root, members => ['michael', 'claude' ],
     columns => ['backlog, implement, verify, done'],
     sow_prefix => 'PCS', epic_prefix => 'PCE', ticket_prefix => 'PCT',
 );
@@ -55,7 +55,7 @@ is_deeply( $idle->{violations}, [], 'reporting nothing, because it was asked to 
 $tira->policy_add( project => $root, rule => 'card-full-details',
     enter => 'implement', action => 'bridge-reminder' );
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Bare' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 
 my $pass = police();
 ok( $pass->{watching}, 'with a policy declared, police is watching' );

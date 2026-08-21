@@ -43,7 +43,7 @@ my $store = File::Spec->catdir( $tmp, 'police' );
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Three endings', dir => $root, members => ['michael'],
+    name => 'Three endings', dir => $root, members => ['michael', 'claude' ],
     columns => ['backlog, doing, done-not-released, admin-done, release-to-pause'],
     sow_prefix => 'TES', epic_prefix => 'TEE', ticket_prefix => 'TET',
 );
@@ -51,7 +51,7 @@ $tira->project_new(
 sub card_in {
     my ( $title, $column ) = @_;
     my $card = $tira->create_record( project => $root, type => 'ticket', title => $title );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => $column );
+    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => $column );
     return $card->{ref};
 }
 
@@ -101,15 +101,15 @@ is_deeply( [ sort @{ unassigned() } ], [ sort $working, $later ],
 
 my $ordinary = File::Spec->catdir( $tmp, 'ordinary' );
 $tira->project_new(
-    name => 'Ordinary', dir => $ordinary, members => ['michael'],
+    name => 'Ordinary', dir => $ordinary, members => ['michael', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'ORS', epic_prefix => 'ORE', ticket_prefix => 'ORT',
 );
 my $plain_store = File::Spec->catdir( $tmp, 'police-ordinary' );
 my $held = $tira->create_record( project => $ordinary, type => 'ticket', title => 'Being worked' );
-$tira->record_move( project => $ordinary, ref => $held->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $ordinary, ref => $held->{ref}, column => 'implement' );
 my $finished = $tira->create_record( project => $ordinary, type => 'ticket', title => 'Finished' );
-$tira->record_move( project => $ordinary, ref => $finished->{ref}, column => 'done' );
+$tira->record_move(author => 'claude',  project => $ordinary, ref => $finished->{ref}, column => 'done' );
 $tira->policy_add( project => $ordinary, rule => 'card-unassigned', action => 'bridge-reminder' );
 
 my $pass = $tira->police_pass( project => $ordinary, store => $plain_store, world => {} );
@@ -126,7 +126,7 @@ is_deeply( \@plain, [ $held->{ref} ],
 $tira->column_add( project => $root, type => 'epic', name => 'epic-done' );
 $tira->column_update( project => $root, type => 'epic', name => 'epic-done', terminal => 1 );
 my $epic = $tira->create_record( project => $root, type => 'epic', title => 'A finished epic' );
-$tira->record_move( project => $root, ref => $epic->{ref}, column => 'epic-done' );
+$tira->record_move(author => 'claude',  project => $root, ref => $epic->{ref}, column => 'epic-done' );
 ok( !scalar( grep { $_ eq $epic->{ref} } @{ unassigned() } ),
     'an epic in its own board\'s ending is not reported against the ticket board\'s columns' );
 

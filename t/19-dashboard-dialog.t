@@ -367,7 +367,7 @@ for my $payload ( undef, [], { id => $board_question->{id} } ) {
 
 # Creating a card from a column through the browser
 my $made = decode_json(
-    $calls->[0]{create}->( { type => 'ticket', column => 'in-progress', title => 'Made from the board' } )
+    $calls->[0]{create}->( { type => 'ticket', column => 'in-progress', title => 'Made from the board', _signed_in => 'ada' } )
 );
 ok( $made->{ok}, 'the create provider succeeds' );
 like( $made->{record}{ref}, qr/\ATKT-\d+\z/, 'a reference is assigned on creation' );
@@ -397,7 +397,7 @@ is( $blank->{record}{description}, '', 'an empty description stays empty' );
 
 $error = eval { $calls->[0]{create}->( { type => 'ticket', column => 'backlog' } ); 1 } ? '' : $@;
 like( $error, qr/requires type, column, and title/, 'the title is mandatory' );
-$error = eval { $calls->[0]{create}->( { type => 'ticket', column => 'nowhere', title => 'X' } ); 1 } ? '' : $@;
+$error = eval { $calls->[0]{create}->( { type => 'ticket', column => 'nowhere', title => 'X', _signed_in => 'ada' } ); 1 } ? '' : $@;
 like( $error, qr/Column 'nowhere' not found/, 'an unknown column is refused by the engine' );
 $error = eval { $calls->[0]{create}->( { type => 'ticket', column => 'backlog', title => 'X', assignee => 'bob' } ); 1 } ? '' : $@;
 like( $error, qr/bob/, 'an unknown assignee is refused' );

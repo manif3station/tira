@@ -52,7 +52,7 @@ my $new_middle = $tira->create_record( project => $root, type => 'ticket',
 $now = '2026-08-17T12:00:00Z';
 my $being_worked = $tira->create_record( project => $root, type => 'ticket',
     title => 'Already in hand', priority => 4 );
-$tira->record_move( project => $root, ref => $being_worked->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $being_worked->{ref}, column => 'implement' );
 my $unprioritised = $tira->create_record( project => $root, type => 'ticket',
     title => 'Nobody has said how urgent this is' );
 
@@ -108,7 +108,7 @@ is_deeply( [ map { $_->{ref} } @{$order} ],
         action => 'bridge-reminder' );
 
     # Work the wrong one: the newer middling card while the urgent one waits.
-    $tira->record_move( project => $root, ref => $new_middle->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $new_middle->{ref}, column => 'implement' );
 
     my $pass = $tira->police_pass( project => $root, store => $store, world => {} );
     my @skipped = grep { ( $_->{rule} // '' ) eq 'priority-skipped' }
@@ -161,7 +161,7 @@ is_deeply( [ map { $_->{ref} } @{$order} ],
     for my $card ( [ 'The urgent one, in hand', 5 ], [ 'The lesser one, also in hand', 2 ] ) {
         my $made = $tira->create_record( project => $two, type => 'ticket',
             title => $card->[0], priority => $card->[1] );
-        $tira->record_move( project => $two, ref => $made->{ref}, column => 'implement' );
+        $tira->record_move(author => 'claude',  project => $two, ref => $made->{ref}, column => 'implement' );
     }
 
     is_deeply( $tira->work_order( project => $two ), [],

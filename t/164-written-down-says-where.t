@@ -43,14 +43,14 @@ my $store = File::Spec->catdir( $tmp, 'police' );
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Written down', dir => $root, members => [ 'michael', 'ada' ],
+    name => 'Written down', dir => $root, members => [ 'michael', 'ada', 'claude' ],
     columns => ['backlog, implement, done'],
     sow_prefix => 'WDS', epic_prefix => 'WDE', ticket_prefix => 'WDT',
 );
 
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'A decision the owner made' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 my $question = $tira->question_add( project => $root, ref => $card->{ref},
     author => 'ada', text => 'Which way should this go?' );
 $now = '2026-08-14T15:05:00Z';
@@ -103,7 +103,7 @@ is( scalar @{ folded() }, 0, 'and writing it into a field does' );
 # the wrong thing about the other.
 
 my $dropped = $tira->create_record( project => $root, type => 'ticket', title => 'Set aside' );
-$tira->record_move( project => $root, ref => $dropped->{ref}, column => 'discard' );
+$tira->record_move(author => 'claude',  project => $root, ref => $dropped->{ref}, column => 'discard' );
 $tira->policy_add( project => $root, rule => 'discard-unexplained', action => 'bridge-reminder' );
 
 sub unexplained {

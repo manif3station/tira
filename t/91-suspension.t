@@ -26,7 +26,7 @@ my $store = File::Spec->catdir( $tmp, 'police-state' );
 $tira->policy_add( project => $root, rule => 'card-full-details',
     enter => 'implement', action => 'bridge-reminder' );
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Bare' );
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 
 sub sweep {
     return $tira->police_pass( project => $root, store => $store, world => {} );

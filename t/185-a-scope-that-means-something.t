@@ -51,7 +51,7 @@ my $watched = $tira->create_record( project => $root, type => 'ticket',
     title => 'The one the policy names' )->{ref};
 my $other = $tira->create_record( project => $root, type => 'ticket',
     title => 'A different card entirely' )->{ref};
-$tira->record_move( project => $root, ref => $_, column => 'discard' ) for ( $watched, $other );
+$tira->record_move(author => 'claude',  project => $root, ref => $_, column => 'discard' ) for ( $watched, $other );
 
 sub reported {
     my ($store) = @_;
@@ -87,7 +87,7 @@ is_deeply( reported( File::Spec->catdir( $tmp, 'narrow' ) ), [$watched],
     my @dropped = map {
         my $ref = $board->create_record( project => $dir, type => 'ticket',
             title => "dropped $_" )->{ref};
-        $board->record_move( project => $dir, ref => $ref, column => 'discard' );
+        $board->record_move(author => 'claude',  project => $dir, ref => $ref, column => 'discard' );
         $ref;
     } ( 1, 2 );
     $board->policy_add( project => $dir, rule => 'discard-unexplained',

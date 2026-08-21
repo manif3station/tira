@@ -47,11 +47,11 @@ $tira->policy_add( project => $root, rule => 'orphan-card',
 
 my $mine = $tira->create_record( project => $root, type => 'ticket',
     title => 'Assigned to somebody', priority => 3, assignee => 'claude' );
-$tira->record_move( project => $root, ref => $mine->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $mine->{ref}, column => 'implement' );
 
 my $nobodys = $tira->create_record( project => $root, type => 'ticket',
     title => 'Assigned to nobody at all', priority => 3 );
-$tira->record_move( project => $root, ref => $nobodys->{ref}, column => 'implement' );
+$tira->record_move(author => 'claude',  project => $root, ref => $nobodys->{ref}, column => 'implement' );
 
 sub bridge {
     my $pass = $tira->police_pass( project => $root, store => $store, world => {} );
@@ -122,7 +122,7 @@ sub bridge {
     # would appear to have stayed gone.
     my $fresh = $tira->create_record( project => $root, type => 'ticket',
         title => 'Raised so there is something new to say', priority => 3 );
-    $tira->record_move( project => $root, ref => $fresh->{ref}, column => 'implement' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $fresh->{ref}, column => 'implement' );
 
     my $again = join '', @{ bridge() };
     like( $again, qr/ \| for /,

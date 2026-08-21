@@ -106,7 +106,7 @@ like( $said, qr/tira\.doctor/, 'and the line names the command that repairs it' 
 {
     my $other = $tira->create_record( project => $root, type => 'ticket',
         title => 'Dropped in silence' )->{ref};
-    $tira->record_move( project => $root, ref => $other, column => 'discard' );
+    $tira->record_move(author => 'claude',  project => $root, ref => $other, column => 'discard' );
     $tira->policy_add( project => $root, rule => 'discard-unexplained',
         action => 'bridge-reminder' );
 

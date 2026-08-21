@@ -61,7 +61,7 @@ my $nothing = $tira->create_record( project => $root, type => 'ticket',
     title => 'Asked seven questions and got seven answers' )->{ref};
 my $silent = $tira->create_record( project => $root, type => 'ticket',
     title => 'Says nothing at all' )->{ref};
-$tira->record_move( project => $root, ref => $_, column => 'done' )
+$tira->record_move(author => 'claude',  project => $root, ref => $_, column => 'done' )
   for ( $shipped, $nothing, $silent );
 
 # --- before anybody answers, all three are reported ------------------------------------

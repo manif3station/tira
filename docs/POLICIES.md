@@ -320,7 +320,7 @@ missing, at the moment you declare the policy rather than later.
 | `orphan-card` | — | a card with no parent |
 | `rules-undeclared` | — | a rule this board has neither declared nor declined, which is what an upgrade leaves behind. **No age**: a gap is a gap the moment it opens. Settles only when every rule has an answer — declining one counts, because the point is that nothing is left unconsidered. |
 | `parent-ahead-of-children` | — | a parent saying it is finished above a child that is not |
-| `priority-skipped` | — | a card being worked while a card of the same kind that should have gone first waits untouched — higher priority, or the same priority and waiting longer, which is the order the board enforces everywhere else. Until 2.55 it compared priority alone, so a tie was broken silently. A card with no creation stamp is not treated as older, because an unknown age is not evidence. **No age option**: being passed over does not ripen. |
+| `priority-skipped` | — | a card being worked while a card of the same kind that should have gone first waits untouched — higher priority, or the same priority and waiting longer, which is the order the board enforces everywhere else. Until 2.55 it compared priority alone, so a tie was broken silently. A card with no creation stamp is not treated as older, because an unknown age is not evidence. The message names whichever fact decided it — until 3.09 a tie still printed the priority sentence, claiming a priority outranked an equal one. **No age option**: being passed over does not ripen. |
 | `discard-with-open-questions` | — | a card set aside while it still carries a question nobody answered. **No age**: a question that left with the card is not waiting. |
 | `card-changed-by-owner` | — | a card whose newest change was made by somebody who is neither the card's assignee nor the agent the board says works it — asking only about the assignee made it vacuous on an unassigned card, where it fired on the board's own work and could never settle. A column set to `--no-watch` is left alone, like every other card rule. The browser dashboard records who is signed in on every change it makes, so an edit made there carries an author and an edit made from the CLI does not — the card is where instructions for the agent are left, and an edit there used to be invisible until the agent happened to re-read it. No age: a change is not more or less true an hour later, and waiting would only decide how long the agent works from a card somebody has already rewritten. It settles when the agent touches the card, because the agent's own change becomes the newest one — nothing is stored, so there is no timestamp to go stale. |
 | `card-still` | `--age` | a card nothing has happened to for that long, in any column work happens in. Dwell is not the question: `card-duration` says how long a card has been somewhere, this says whether anybody has touched it. No column to name, so one policy covers the board — and each column may set its own limit with `tira.column.update --notify-after MINUTES`, or be left out entirely with `--no-watch`, which is how a column where cards legitimately wait stops being a source of reminders. `--age` is the fallback for columns that have said nothing, and neither is asked at all where a column-scoped `card-duration` policy already watches that exact column — a considered decision, with a written reason, stands in for the board-wide number rather than being outrun by it. Until 2.74, `card-duration` and `card-still` could not see each other, being different rules on overlapping scope rather than the same rule 2.54 already refuses to duplicate: a column deliberately given 24h by `card-duration` was still reported CRITICAL at `card-still`'s own board-wide 4h. |
@@ -1561,6 +1561,15 @@ something above the card being worked is being left alone.
 kind, with a higher priority, sits untouched where it was raised. It names both,
 and the priority that was passed over. **Remember that 5 is the urgent end**;
 that is not this rule's decision but it is the one thing that would invert it.
+
+**The message names whichever fact actually decided it.** Until 3.09 the
+message only had one sentence available - "waits at priority N, above this
+card's N" - so a tie in priority decided by the age tie-break (below) printed
+two equal numbers while claiming one outranked the other, which disproves its
+own sentence and sends the reader to "fix" code that was never broken. A tie
+now says instead that the older card "waits at the same priority and has been
+waiting since" the date that settles it; a genuine priority gap keeps the
+original wording unchanged.
 
 **A card waiting on an unanswered question is parked, not skipped.** A higher
 card that cannot start until the owner answers is not being ignored, and

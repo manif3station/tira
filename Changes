@@ -1,5 +1,25 @@
 Revision history for Tira
 
+3.09  2026-08-21
+
+    - TKT-391. priority-skipped's violation message could disprove its own
+      arithmetic. _outranks_for_work settles a tie in priority by age -
+      correctly, the one that has waited longer should go first - but the
+      message only had one sentence available: "waits at priority N, above
+      this card's N". When the age tie-break was what actually fired, both
+      cards sat at the SAME priority, and the message printed two equal
+      numbers while claiming one outranked the other. Measured on this
+      board: "waits at priority 5, above this card's 5" - a correct finding
+      with a false reason, which sent the reader chasing an off-by-one that
+      did not exist.
+
+    - Fixed: _outranks_for_work now returns which fact actually decided the
+      comparison, not just whether it outranks. When priority decided, the
+      message is unchanged. When the age tie-break decided, the message now
+      says the card "waits at the same priority and has been waiting since"
+      the date that settles it, instead of claiming a priority difference
+      that was never there.
+
 3.08  2026-08-20
 
     - TKT-412. question.mark/answer/update/discard refused a missing --id

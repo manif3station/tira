@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.08';
+our $VERSION = '3.09';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6582,17 +6582,29 @@ sub policy_evaluate {
                     # an epic is for, so judging a ticket against one would leave
                     # every board with a hierarchy permanently in violation.
                     next if ( $above->{type} // 'ticket' ) ne $type;
-                    next if !$self->_outranks_for_work( $above, $record );
+                    my ( $outranks, $decided_by ) = $self->_outranks_for_work( $above, $record );
+                    next if !$outranks;
 
                     # Parked, not skipped. A higher card that cannot start until
                     # he answers is not being ignored, and reporting it would
                     # blame the agent for the one delay that is not its doing.
                     next if grep { !$_->{answer} } _policy_questions($above);
 
-                    $report->( $policy, $record,
-                        "being worked while $above->{ref} waits at priority "
-                          . "$above->{priority}, above this card's "
-                          . ( $record->{priority} // 'none' ) );
+                    # Two different facts can decide this, and the message says
+                    # whichever one actually did. Printing "above this card's N"
+                    # when both cards sit at the same priority N disproves its
+                    # own sentence with the number it prints - the tie-break is
+                    # a real fact (who has waited longer) and is named as one.
+                    my $why = $decided_by eq 'age'
+                      ? do {
+                          my ($date) = ( $above->{created_at} // '' ) =~ /\A(\d{4}-\d{2}-\d{2})/;
+                          "waits at the same priority and has been waiting since "
+                            . ( $date // $above->{created_at} );
+                      }
+                      : "waits at priority $above->{priority}, above this card's "
+                      . ( $record->{priority} // 'none' );
+
+                    $report->( $policy, $record, "being worked while $above->{ref} $why" );
                     last;
                 }
             }
@@ -7434,16 +7446,21 @@ sub _outranks_for_work {
     my ( $self, $above, $record ) = @_;
     my $theirs = $above->{priority}  // 0;
     my $ours   = $record->{priority} // 0;
-    return 1 if $theirs > $ours;
-    return 0 if $theirs < $ours;
+
+    # The reason a caller gets back is which fact actually decided it, not
+    # merely whether $above outranks - a message that only knows "priority"
+    # printed two equal numbers and claimed one was above the other whenever
+    # the tie-break below is what fired. TKT-391.
+    return ( 1, 'priority' ) if $theirs > $ours;
+    return ( 0, undef ) if $theirs < $ours;
 
     # Equal urgency, so the one that has waited longer should have gone first.
     # A card with no creation stamp is not treated as older, because an unknown
     # age is not evidence of anything and would report a tie nobody can settle.
     my $their_age = $above->{created_at}  // '';
     my $our_age   = $record->{created_at} // '';
-    return 0 if $their_age eq '' || $our_age eq '';
-    return $their_age lt $our_age ? 1 : 0;
+    return ( 0, undef ) if $their_age eq '' || $our_age eq '';
+    return $their_age lt $our_age ? ( 1, 'age' ) : ( 0, undef );
 }
 
 sub _queue_columns {

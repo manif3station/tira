@@ -1,5 +1,24 @@
 Revision history for Tira
 
+3.15  2026-08-21
+
+    - TKT-459. project_update's --agent was validated by a closure in
+      %AUTOMATION_SETTING that checked the value against the literal
+      string 'claude' - a leftover from before any other agent existed.
+      Any board wanting to declare card-changed-by-owner for a
+      differently-named agent (zenbot, codex, anything but literally
+      'claude') was refused outright, with no way to name who actually
+      works the board.
+
+    - Fixed: --agent is now validated the same way --assignee and
+      --reporter already are, via _require_active_person - it must name a
+      real, active person on the project. project_new's onboarding
+      answers "who works this board" (--members) and "which of them is
+      the agent" (--agent) as two separate questions, so an agent named
+      there but not separately listed among --members is now
+      auto-registered as a person, matching what the wizard has always
+      let through in practice.
+
 3.14  2026-08-21
 
     - TKT-454. column_apply - the engine call behind the browser

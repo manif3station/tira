@@ -120,7 +120,7 @@ my $tmp = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub { '2026-08-11T09:00:00Z' } );
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Documented', dir => $root, members => ['michael'],
+    name => 'Documented', dir => $root, members => [ 'michael', 'claude' ],
     columns => ['backlog, triage, planning, implement, doing, review, testing, verify, blocked, released, done'],
     sow_prefix => 'DCS', epic_prefix => 'DCE', ticket_prefix => 'DCT',
 );

@@ -1365,6 +1365,16 @@ skipped so re-running is safe, and everything is validated before the first writ
 a rejected call leaves nothing behind. Prefixes are applied before any record can be
 created, because board counters never rewind.
 
+`--agent` names a real person on the project, the same way `--assignee` and
+`--reporter` do — not an arbitrary string. `project.new`'s own `--members`
+registers who counts; naming an agent not already among them registers it as a
+person too, so onboarding can answer "who works this board" and "which of them
+is the agent" as the two separate questions they actually are. `project.update
+--agent` against a project where that call happens later, on a person nobody
+registered, is refused with `Unknown project person`; against one
+`person.deactivate` turned off, with `Project person '...' is inactive`.
+TKT-459.
+
 ### `tira.policy.decline` and `tira.policy.declined`
 
 Records that a rule was considered and deliberately not used, and lists what

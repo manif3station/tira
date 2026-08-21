@@ -41,7 +41,7 @@ my $root = File::Spec->catdir( $tmp, 'proj' );
 # The board every command here works on, named the one way there is.
 # TKT-250.
 $ENV{TIRA_HOME} = $root;
-$tira->project_new( name => 'MT5', dir => $root, columns => ['Backlog, Doing'] );
+$tira->project_new( name => 'MT5', dir => $root, columns => ['Backlog, Doing'], members => ['claude'] );
 
 # Resolved once the directory exists, because that is the form Tira reports.
 # On Windows a resolved path comes back with forward slashes while catdir

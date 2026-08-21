@@ -92,7 +92,7 @@ sub remind {
 }
 
 my $root = File::Spec->catdir( $tmp, 'proj' );
-$tira->project_new( name => 'Nagged', dir => $root, columns => ['Backlog, Doing'] );
+$tira->project_new( name => 'Nagged', dir => $root, columns => ['Backlog, Doing'], members => ['claude'] );
 $tira->column_update( project => $root, type => 'ticket', name => 'doing', notify_after => 30 );
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Stuck work' );
 

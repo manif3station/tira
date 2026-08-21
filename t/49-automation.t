@@ -31,7 +31,7 @@ my $root = File::Spec->catdir( $tmp, 'proj' );
 # The board every command here works on, named the one way there is.
 # TKT-250.
 $ENV{TIRA_HOME} = $root;
-$tira->project_new( name => 'MT5', dir => $root, columns => ['Backlog, Doing'] );
+$tira->project_new( name => 'MT5', dir => $root, columns => ['Backlog, Doing'], members => ['claude'] );
 
 # Every setting stores and reads back.
 my $updated = $tira->project_update(
@@ -49,7 +49,7 @@ is( $stored->{session}, 'abc-123_XYZ', 'the settings survive being written and r
 # Bad values are refused and change nothing.
 for my $case (
     [ { collector => 'Not A Slug' }, qr/collector/i, 'a collector name that is not a slug' ],
-    [ { agent => 'codex' }, qr/claude/, 'an agent nobody supports yet' ],
+    [ { agent => 'codex' }, qr/Unknown project person/, 'an agent nobody registered on this project' ],
     [ { session => 'has space' }, qr/session/i, 'a session id with a space' ],
     [ { heartbeat => 0 }, qr/heartbeat/i, 'a heartbeat of zero' ],
     [ { heartbeat => 'soon' }, qr/heartbeat/i, 'a heartbeat that is not a number' ],

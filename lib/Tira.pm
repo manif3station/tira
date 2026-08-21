@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.14';
+our $VERSION = '3.15';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -178,14 +178,6 @@ our %AUTOMATION_SETTING = (
           if $value !~ /\A[a-z][a-z0-9-]{0,63}\z/;
         return $value;
     },
-    agent => sub {
-        my ($value) = @_;
-
-        # Offered as a choice because more will follow, but only one exists.
-        die "Unknown coding agent '$value'; the only one supported today is claude\n"
-          if $value ne 'claude';
-        return $value;
-    },
     session => sub {
         my ($value) = @_;
         die "Session id must be letters, digits, hyphens and underscores\n"
@@ -285,6 +277,16 @@ sub project_new {
         $existing_person{$member} = 1;
     }
 
+    # The agent is a project person too, the same way its own moves and
+    # comments already carry a person id - onboarding may name one who was
+    # never separately listed among --members, and required_active_person
+    # (what project_update's own agent validation now uses, TKT-459) needs
+    # it registered before that call happens.
+    if ( defined $args{agent} && $args{agent} ne '' && !$existing_person{ $args{agent} } ) {
+        push @people, $self->person_add( project => $root, id => $args{agent}, name => $args{agent} );
+        $existing_person{ $args{agent} } = 1;
+    }
+
     for my $type (qw(sow epic ticket)) {
         my %existing_column =
           map { $_->{name} => 1 } @{ $self->column_list( project => $root, type => $type ) };
@@ -304,7 +306,7 @@ sub project_new {
     # Onboarding collects the reminder settings too, and applies them
     # through the same validated path a command-line update uses.
     my %settings = map { $_ => $args{$_} }
-      grep { defined $args{$_} } ( 'notify_after', keys %AUTOMATION_SETTING );
+      grep { defined $args{$_} } ( 'notify_after', 'agent', keys %AUTOMATION_SETTING );
     $project = $self->project_update( project => $root, %settings ) if %settings;
 
     return {
@@ -738,6 +740,23 @@ sub project_update {
                 next;
             }
             $data->{$setting} = $AUTOMATION_SETTING{$setting}->( $args{$setting} );
+        }
+        # Which person id is the agent working this project - what
+        # card-changed-by-owner (and anything else reading
+        # _agent_declared_for) actually needs. Until now this hardcoded the
+        # single literal string "claude" as if it named the AI product
+        # rather than a person on the board, so a project whose agent was
+        # genuinely registered under any other id - "zenbot", say - could
+        # never declare it at all. Validated the same way assignee/reporter
+        # already are: any registered, active person. TKT-459.
+        if ( defined $args{agent} ) {
+            if ( $args{agent} eq '' ) {
+                delete $data->{agent};
+            }
+            else {
+                $self->_require_active_person( %args, person => $args{agent} );
+                $data->{agent} = $args{agent};
+            }
         }
         if ( defined $args{dashboard_host} ) {
             my $host = $args{dashboard_host} eq 'any' ? '0.0.0.0' : $args{dashboard_host};

@@ -16,7 +16,7 @@ my $tmp = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub { '2026-08-11T09:00:00Z' } );
 my $root = File::Spec->catdir( $tmp, 'proj' );
 $tira->project_new(
-    name => 'Policed', dir => $root, members => ['michael'],
+    name => 'Policed', dir => $root, members => [ 'michael', 'claude' ],
     columns => ['Backlog, Doing'],
     sow_prefix => 'PLS', epic_prefix => 'PLE', ticket_prefix => 'PLT',
 );
@@ -174,7 +174,7 @@ my %needs = (
 );
 my $scratch = File::Spec->catdir( $tmp, 'scratch' );
 $tira->project_new(
-    name => 'Scratch', dir => $scratch, members => ['michael'],
+    name => 'Scratch', dir => $scratch, members => [ 'michael', 'claude' ],
     columns => ['Backlog, Doing'],
     sow_prefix => 'SCS', epic_prefix => 'SCE', ticket_prefix => 'SCT',
 );

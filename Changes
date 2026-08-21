@@ -1,5 +1,27 @@
 Revision history for Tira
 
+3.10  2026-08-21
+
+    - TKT-452. Browser dashboard card moves never populated or reset required
+      actions - only moves through the CLI/agent path did. browser_providers's
+      move handler called $tira->record_move() directly, skipping
+      _apply_column_required_actions entirely; that function was only ever
+      reachable from the CLI/agent dispatch path (record.move inside
+      _invoke). A card dragged into a column with required actions never
+      received its template, and dragging one backward left a required item
+      marked done exactly as it was. Raised from a live question: "when card
+      move backward, why the required actions on the card not being
+      resetted?"
+
+    - Fixed: the browser move provider now calls the same population/reset
+      logic the CLI/agent path already calls, right after record_move
+      succeeds. TKT-426's CLI/agent-only *gating* (refusing a move whose
+      required actions are undone, and the column-chain-order refusal) is
+      unchanged - a human on the dashboard still is not an agent skipping a
+      gate. Only the bookkeeping half - keeping the required-action list
+      accurate for whoever looks at the card next - now happens on both
+      paths identically.
+
 3.09  2026-08-21
 
     - TKT-391. priority-skipped's violation message could disprove its own

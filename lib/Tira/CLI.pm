@@ -873,11 +873,28 @@ sub browser_providers {
             for my $key (qw(type ref column)) {
                 die "Move payload requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
             }
-            my $record = $tira->record_move(
+            my %move_args = (
                 project => $project, type => $payload->{type},
                 ( defined $payload->{_signed_in} ? ( author => $payload->{_signed_in} ) : () ),
                 ref => $payload->{ref}, column => $payload->{column},
             );
+
+            # The gating half of TKT-426 stays CLI/agent-only on purpose - a
+            # human moving a card in the browser is not an agent skipping a
+            # gate. But the bookkeeping half (populating a destination
+            # column's required-action template, resetting one on the way
+            # back through) is not enforcement, it is keeping the card
+            # accurate for whoever looks at it next - and that has to happen
+            # here too, or a browser move silently leaves required_items
+            # stale in either direction. TKT-452.
+            my $before = eval { $tira->record_show(%move_args) };
+            my $from   = $before ? $before->{column} : undef;
+            my $record = $tira->record_move(%move_args);
+            my $columns = eval { $tira->column_list(%move_args) };
+            _apply_column_required_actions( $tira, \%move_args, $from, $payload->{column}, $columns, $record )
+              if ref $columns eq 'ARRAY';
+            $record = $tira->record_show(%move_args) if ref $columns eq 'ARRAY';
+
             return $json->encode( { ok => Cpanel::JSON::XS::true, record => $record } );
         },
         detail => sub {

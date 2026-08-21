@@ -87,6 +87,30 @@ const fs = require('fs');
 
   console.log('required-actions: labeled section appears, grouped by column, with a done/total count');
 
+  // --- a pending item's action is a checkbox, right-aligned in its row ------
+  //
+  // His words, from a screenshot of the text-button version wrapping onto
+  // three lines on a narrow dialog: "just give me a checkbox. you don't need
+  // to have text button like this and the checkbox align to right." TKT-460.
+  const pendingBox = page.locator('[data-required-action-done="REQ-001"]');
+  const tagName = await pendingBox.evaluate(node => node.tagName.toLowerCase());
+  if (tagName !== 'input') throw new Error(`the pending action is a <${tagName}>, not a checkbox input`);
+  const inputType = await pendingBox.evaluate(node => node.type);
+  if (inputType !== 'checkbox') throw new Error(`the pending action input is type="${inputType}", not checkbox`);
+  if (await pendingBox.isChecked()) throw new Error('a pending item is shown checked');
+
+  const rowBox = await pendingBox.evaluate(node => {
+    const row = node.closest('.card-list__row');
+    const rowRect = row.getBoundingClientRect();
+    const checkRect = node.getBoundingClientRect();
+    return { rowRight: rowRect.right, checkRight: checkRect.right };
+  });
+  if (Math.abs(rowBox.rowRight - rowBox.checkRight) > 4) {
+    throw new Error(`the checkbox is not right-aligned in its row: row right ${rowBox.rowRight}, checkbox right ${rowBox.checkRight}`);
+  }
+
+  console.log('required-actions: a pending item shows an unchecked checkbox, right-aligned in its row');
+
   // --- marking one done updates the count without a page reload -------------
   await page.route('http://tira.test/required-action/update', route => {
     const done = requiredItems.find(entry => entry.id === 'REQ-001');

@@ -1,5 +1,22 @@
 Revision history for Tira
 
+3.16  2026-08-21
+
+    - TKT-456. column_add positions a new column with --after/--before, but
+      that only affects display/derived order - it never touched a
+      neighboring column's own explicit --next. When that neighbor's next
+      was already set before the insertion (rather than derived from
+      position), the new column became structurally present but
+      unreachable via the declared chain, and a card could skip straight
+      past it with no refusal and no warning.
+
+    - Fixed: column_add now leaves an advisory warning (via warning_add,
+      the same channel a failed reminder delivery uses) when the column
+      immediately before the insertion point has an explicit next that
+      does not already include the new column - naming the unreachable
+      column, its neighbor, and the column.update --next to fix it. The
+      column is still created; this does not refuse the insertion.
+
 3.15  2026-08-21
 
     - TKT-459. project_update's --agent was validated by a closure in

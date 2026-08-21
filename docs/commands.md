@@ -1837,7 +1837,7 @@ top of it directly.
 
 ### Columns
 
-- `tira.column.add --type TYPE --name SLUG [--label TEXT] [--after SLUG|--before SLUG] [-o FORMAT]`
+- `tira.column.add --type TYPE --name SLUG [--label TEXT] [--after SLUG|--before SLUG] [-o FORMAT]` — `--after`/`--before` only positions the column; it does not touch a neighbor's own `--next`. If the column immediately before the new one already has an explicit `next` that does not include it, the new column is created anyway but is unreachable via the declared chain - advisory rather than a refusal, a `tira.warning.list` entry is left naming both columns and the `column.update --next` to fix it. TKT-456.
 - `tira.column.apply --type TYPE --columns-json JSON [-o FORMAT]` - a whole-layout replace, what the dashboard's Columns dialog Save button calls. Each entry may carry `next` and `required_actions`, same shape as `column.update --next`/`--required-action`; until 3.14 a round-trip through this command silently dropped both even though the same layout read (`column.list`, and the dialog's own GET) already returned them - a saved layout that changed nothing about a column's chain or template would still lose them. TKT-454.
 - `tira.column.list [--type TYPE] [-o FORMAT]` — naming `--type` returns that type's columns, unchanged; omitting it returns a hash keyed by `sow`, `epic` and `ticket`, so a column's settings across all three record kinds are visible in one call rather than three. A column name is really three separate columns underneath, and checking only one used to read as an answer about all of them.
 - `tira.column.remove --type TYPE --name SLUG [-o FORMAT]`

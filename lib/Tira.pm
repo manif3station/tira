@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.15';
+our $VERSION = '3.16';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1506,6 +1506,31 @@ sub column_add {
             $position = $i if defined $args{before} && $config->{columns}[$i]{name} eq $args{before};
         }
         splice @{ $config->{columns} }, $position, 0, $column;
+
+        # A neighbor's own explicit next was set before this column existed
+        # and does not derive from position, so inserting here does not
+        # extend it - the new column sits in the file layout but nothing in
+        # the declared chain points at it. Advisory rather than a refusal,
+        # the same way a failed reminder delivery is: the column is still
+        # created, and this is where the next command run will see it.
+        # TKT-456.
+        if ( $position > 0 ) {
+            my $before_new = $config->{columns}[ $position - 1 ];
+            if ( ref $before_new->{next} eq 'ARRAY' && @{ $before_new->{next} }
+                && !grep { $_ eq $args{name} } @{ $before_new->{next} } )
+            {
+                $self->warning_add(
+                    project => $root,
+                    message => "Column '$args{name}' was inserted next to '$before_new->{name}', "
+                      . "but '$before_new->{name}''s own next still reads ["
+                      . join( ', ', @{ $before_new->{next} } )
+                      . "] and does not include it - it is not reachable via the declared chain. "
+                      . "Fix with: tira.column.update --type $args{type} --name $before_new->{name} "
+                      . "--next $args{name} --next "
+                      . join( ' --next ', @{ $before_new->{next} } ),
+                );
+            }
+        }
         my $directory = File::Spec->catdir( dirname($path), $args{name} );
         make_path($directory);
         eval { $self->_write_yaml( $path, $config ); 1 } or do {

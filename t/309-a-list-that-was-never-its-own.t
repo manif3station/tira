@@ -133,7 +133,7 @@ cli( 'required-action.update', '--ref', $card->{ref}, '--id', $by{'card-specific
 is( $status, 0, 'moves cleanly once the card-specific item is done too' ) or diag($err);
 
 # --- backward move resets required_items (not checklist) for columns
-#     strictly between the destination (exclusive) and origin (inclusive),
+#     from the destination through the origin, inclusive on both ends,
 #     scoped by the column each item was tagged with -----------------------
 ( $status, $out, $err ) = cli( 'record.move', '--ref', $card->{ref}, '--column', 'planning' );
 is( $status, 0, 'moves backward unconditionally' ) or diag($err);
@@ -141,8 +141,8 @@ $shown = $tira->record_show( project => $root, ref => $card->{ref} );
 %by = by_item( $card->{ref} );
 is( $by{'card-specific extra check'}{status}, 'pending',
     'the doc-tagged card-specific item resets - doc is strictly between planning (destination) and review (origin)' );
-is( $by{'reviewed by someone else'}{status}, 'done',
-    'but planning\'s own item, the destination itself, is untouched - the range excludes it' );
+is( $by{'reviewed by someone else'}{status}, 'pending',
+    'and planning\'s own item, the destination itself, resets too - landing on it means its own check applies again' );
 is( $by{'said why'}{status}, 'done',
     'and backlog\'s item, strictly before the range, is untouched too' );
 is( scalar( grep { $_->{item} eq 'unrelated manual step' } @{ $shown->{checklist} } ), 1,

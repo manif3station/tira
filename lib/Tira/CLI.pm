@@ -1963,13 +1963,17 @@ sub _column_required_action_violation {
 # column's required-action template is added to the card's checklist,
 # skipping anything it already carries so re-entering a column never
 # duplicates. A backward move resets to undone every required item belonging
-# to a column strictly between the new position (exclusive) and the old one
-# (inclusive) - owner's own example, EPC-002 comment 17:11:14: chain
+# to a column from the new position through the old one, inclusive on both
+# ends - owner's own example, EPC-002 comment 17:11:14: chain
 # backlog->planning->doc->code->test->review, a card at test moved back to
-# planning resets required items for test, code AND doc, not just test,
-# because redoing the work means those checks need satisfying again on the
-# way back through. discard is excluded on both sides: its position in the
-# declared column order is not a statement about how much work it undoes.
+# planning resets required items for test, code, doc AND planning itself,
+# because redoing the work means every one of those checks - including the
+# column landed on - needs satisfying again on the way back through. Until
+# 3.13 the destination was excluded, so an item already done there stayed
+# done even though the card was landing back on that exact column; the
+# owner asked for it included (TG msg 4342). TKT-455. discard is excluded
+# on both sides: its position in the declared column order is not a
+# statement about how much work it undoes.
 sub _apply_column_required_actions {
     my ( $tira, $args, $from, $to, $columns, $record ) = @_;
     return
@@ -2000,7 +2004,7 @@ sub _apply_column_required_actions {
         for my $item (@required_items) {
             next if !defined $item->{column} || !exists $index{ $item->{column} };
             my $item_idx = $index{ $item->{column} };
-            next if $item_idx < $to_idx + 1 || $item_idx > $from_idx;
+            next if $item_idx < $to_idx || $item_idx > $from_idx;
 
             # Same case-insensitive comparison as the move-out gate above -
             # an item marked --status Done is genuinely done, and must reset

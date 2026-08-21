@@ -1,5 +1,21 @@
 Revision history for Tira
 
+3.13  2026-08-21
+
+    - TKT-455. Backward-move required-action reset stopped one column
+      short of where the card actually landed. The owner's own example:
+      moving a card from column 4 to column 2 should reset required items
+      for columns 4, 3 AND 2 - the destination the card lands on, not
+      just what it passed through on the way. Until this release the
+      destination was deliberately excluded (t/309 tested exactly this
+      exclusion), so an item already done there stayed done even though
+      the card was landing back on that exact column.
+
+    - Fixed: the backward-reset range now runs from the destination
+      column through the origin, inclusive on both ends. Every other
+      column's reset behavior, and the forward-move population branch,
+      are unaffected.
+
 3.12  2026-08-21
 
     - TKT-453. Marking a checklist or required-action item done proved

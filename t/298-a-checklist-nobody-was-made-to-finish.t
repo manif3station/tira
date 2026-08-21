@@ -118,19 +118,26 @@ is( item_status( $ref, 'tests green' ), 'pending', "code's item starts unmarked,
 is( $status, 0, "a backward move succeeds regardless of code's unmarked item" ) or diag($err);
 is( $tira->record_show( project => $root, ref => $ref )->{column}, 'planning', 'landed back at planning' );
 is( scalar @{ checklist_of($ref) }, 3, 're-entering planning adds nothing new - no duplicate items' );
-is( item_status( $ref, 'left a note' ), 'done',
-    "planning's own item is untouched - it is the destination, not a column being backed out of" );
+is( item_status( $ref, 'left a note' ), 'pending',
+    "planning's own item resets too - it is the destination the card actually landed on" );
 is( item_status( $ref, 'reviewed' ), 'pending',
-    "doc's item resets to undone - it sits strictly between the destination and the old position" );
+    "doc's item resets to undone - it sits between the destination and the old position" );
 is( item_status( $ref, 'tests green' ), 'pending',
     "code's item was already unmet and stays unmet after the reset" );
 
-# --- proving the reset is real: leaving planning succeeds immediately
-#     (its own item was never touched), but doc now refuses again --------
+# --- proving the reset is real: leaving planning now refuses again too,
+#     the same as doc -----------------------------------------------------
 ( $status, $out, $err ) = move( $ref, 'doc' );
-is( $status, 0, "planning's own item survived the reset, so leaving it needs nothing new" ) or diag($err);
+isnt( $status, 0, "planning's own reset held: leaving it needs its item marked done again" );
+like( $err, qr/left a note/, 'naming the item the reset put back on the destination itself' );
+
+$tira->required_item_update( project => $root, ref => $ref,
+    id => ( grep { $_->{item} eq 'left a note' } @{ checklist_of($ref) } )[0]{id},
+    status => 'done', command => ['left it again'], proof => ['note left'] );
+( $status, $out, $err ) = move( $ref, 'doc' );
+is( $status, 0, "and leaving succeeds again once planning's item is redone" ) or diag($err);
 ( $status, $out, $err ) = move( $ref, 'code' );
-isnt( $status, 0, "doc's reset held: its item is unmarked again and blocks leaving" );
+isnt( $status, 0, "doc's reset held too: its item is unmarked again and blocks leaving" );
 like( $err, qr/reviewed/, 'naming the item the reset put back' );
 
 done_testing;

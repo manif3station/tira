@@ -2417,11 +2417,16 @@ sub _invoke {
     # police sentry rather than an agent sentry, so the notifying costs no
     # tokens. TKT-349.
     if ( $command eq 'notify.moves' ) {
+
+        # A bare call is a read, not "turn it on" - defaulting enabled to 1
+        # here made every plain d2 tira.notify.moves look, to the engine, like
+        # --watch had been given. Only pass it when something was actually
+        # named. TKT-398.
         return $tira->notify_moves(
             project => $args{project},
             ( defined $option->{column} ? ( column => $option->{column} ) : () ),
             ( defined $option->{chat} ? ( chat => $option->{chat} ) : () ),
-            enabled => ( defined $option->{watched} ? $option->{watched} : 1 ),
+            ( defined $option->{watched} ? ( enabled => $option->{watched} ) : () ),
         );
     }
     if ( $command eq 'column.apply' ) {

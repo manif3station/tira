@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.10';
+our $VERSION = '3.11';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6705,7 +6705,21 @@ sub notify_moves {
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         my ( $path, $data ) = $self->_project_data($root);
-        my $setting = $data->{notify_moves} ||= { enabled => 0, columns => {} };
+
+        # Reading must not decide anything. "Has anybody turned this on?" is
+        # exactly the question a bare call answers, and persisting a default
+        # while answering it makes the answer yes regardless of what was
+        # true a moment before - the evidence being asked about gets
+        # destroyed by the asking. So a change is only written when one was
+        # actually named: a chat, a column, or enabled.
+        my $wants_change =
+          ( defined $args{chat} && $args{chat} ne '' )
+          || ( defined $args{column} && $args{column} ne '' )
+          || defined $args{enabled};
+        my $setting = $data->{notify_moves} // { enabled => 0, columns => {} };
+        return $setting if !$wants_change;
+
+        $data->{notify_moves} = $setting;
 
         # Where to send, stored on the board rather than read out of the
         # environment. His words on the card: "set once by the agent" - and an

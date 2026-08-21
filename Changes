@@ -1,5 +1,23 @@
 Revision history for Tira
 
+3.11  2026-08-21
+
+    - TKT-398. notify_moves wrote to the board when asked only to read it.
+      MEASURED while diagnosing why move notifications never delivered:
+      tira.project.show showed no notify_moves setting, then a bare
+      tira.notify.moves (a read) made the key appear - invented by nobody's
+      decision. The engine method used `||=` to default the setting and
+      called _write_yaml unconditionally; the CLI dispatch compounded it by
+      always passing enabled (defaulting to 1 when --watch was absent), so
+      even a genuinely bare `d2 tira.notify.moves` looked like a request to
+      enable it by the time it reached the engine. The harm: asking "has
+      anybody turned this on?" destroyed the answer by being asked.
+
+    - Fixed: both layers now only persist a change when one was actually
+      named - a chat, a column, or --watch/--no-watch. A bare read reports
+      the current setting, or the untouched default (enabled: false),
+      without writing anything to the board.
+
 3.10  2026-08-21
 
     - TKT-452. Browser dashboard card moves never populated or reset required

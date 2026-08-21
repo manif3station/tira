@@ -30,7 +30,8 @@ const fs = require('fs');
 
   const requiredItems = [
     { id: 'REQ-001', column: 'planning', item: 'left a note', status: 'pending', last_updated: '2026-08-21T09:00:00Z' },
-    { id: 'REQ-002', column: 'planning', item: 'reviewed by someone else', status: 'done', last_updated: '2026-08-21T09:05:00Z' },
+    { id: 'REQ-002', column: 'planning', item: 'reviewed by someone else', status: 'done', last_updated: '2026-08-21T09:05:00Z',
+      proof: [ { command: 'ran the review checklist', proof: 'all items checked, no findings' } ] },
     { id: 'REQ-003', column: 'doc', item: 'said why', status: 'pending', last_updated: '2026-08-21T09:10:00Z' },
   ];
 
@@ -128,6 +129,39 @@ const fs = require('fs');
   }
 
   console.log('required-actions: items show a checkmark/unchecked emoji and a timestamp, not [done]/[pending] text');
+
+  // --- a done item's command/proof is collapsed, click-to-expand ------------
+  //
+  // His words, from a screenshot of the gate-passing log with nowhere for
+  // this to live in the required-actions section itself: "for the ran
+  // commands and proof to show under the the required actions and collesped
+  // and when user click on the item will expend it and see the cmmand and
+  // proof." TKT-462.
+  const proofRow = page.locator('[data-required-action-proof="REQ-002"]');
+  await proofRow.waitFor({ state: 'attached', timeout: 15000 });
+  if (!(await proofRow.isHidden())) throw new Error('a done item\'s proof is shown expanded by default');
+
+  const proofText = await proofRow.textContent();
+  if (!proofText.includes('ran the review checklist') || !proofText.includes('all items checked, no findings')) {
+    throw new Error(`the collapsed proof does not carry the command/proof pair: ${proofText}`);
+  }
+
+  const doneText = page.locator('[data-required-action="REQ-002"] .card-list__text');
+  await doneText.click();
+  await page.waitForFunction(
+    el => el.getAttribute('aria-expanded') === 'true',
+    await doneText.elementHandle(), { timeout: 15000 }
+  );
+  if (await proofRow.isHidden()) throw new Error('clicking the done item did not expand its proof');
+
+  await doneText.click();
+  await page.waitForFunction(
+    el => el.getAttribute('aria-expanded') === 'false',
+    await doneText.elementHandle(), { timeout: 15000 }
+  );
+  if (!(await proofRow.isHidden())) throw new Error('clicking the expanded item a second time did not collapse it');
+
+  console.log('required-actions: a done item\'s command/proof is collapsed, and expands on click');
 
   // --- marking one done updates the count without a page reload -------------
   await page.route('http://tira.test/required-action/update', route => {

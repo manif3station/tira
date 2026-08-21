@@ -1,5 +1,19 @@
 Revision history for Tira
 
+3.20  2026-08-21
+
+    - TKT-462. required_item_update stores --command/--proof pairs on an
+      item marked done (TKT-453), but the required-actions section showed
+      nothing of it - the proof existed but was invisible without reading
+      the gate_passing_log or the raw record.
+
+    - Fixed: a done item's command/proof pairs now show collapsed by
+      default, expanding on click to reveal each pair. Found and fixed a
+      real CSS bug along the way: .card-list__proof's own display:flex
+      unconditionally overrode the [hidden] attribute (the same class of
+      bug the work-log toggle already carries a fix for) - added
+      .card-list__proof[hidden]{display:none}.
+
 3.19  2026-08-21
 
     - TKT-461. Each required-action item showed its status as literal

@@ -29,9 +29,9 @@ const fs = require('fs');
   const [withRequired, withoutRequired] = refs;
 
   const requiredItems = [
-    { id: 'REQ-001', column: 'planning', item: 'left a note', status: 'pending' },
-    { id: 'REQ-002', column: 'planning', item: 'reviewed by someone else', status: 'done' },
-    { id: 'REQ-003', column: 'doc', item: 'said why', status: 'pending' },
+    { id: 'REQ-001', column: 'planning', item: 'left a note', status: 'pending', last_updated: '2026-08-21T09:00:00Z' },
+    { id: 'REQ-002', column: 'planning', item: 'reviewed by someone else', status: 'done', last_updated: '2026-08-21T09:05:00Z' },
+    { id: 'REQ-003', column: 'doc', item: 'said why', status: 'pending', last_updated: '2026-08-21T09:10:00Z' },
   ];
 
   const recordFor = (ref, items) => ({
@@ -110,6 +110,24 @@ const fs = require('fs');
   }
 
   console.log('required-actions: a pending item shows an unchecked checkbox, right-aligned in its row');
+
+  // --- item text shows a checkmark/unchecked emoji and a timestamp, not [done]/[pending] --
+  //
+  // His words, from a screenshot of the [done]/[pending] text version: "can
+  // you show the timestamp, instead of show the wording done, use the emoji
+  // green tick and pending just a unchecked emoji and align to left with
+  // timestamp." TKT-461.
+  if (shown.includes('[done]') || shown.includes('[pending]')) {
+    throw new Error('the section still shows literal [done]/[pending] text');
+  }
+  if (!shown.includes('✅') || !shown.includes('⬜')) {
+    throw new Error('the section does not show both the done and pending emoji');
+  }
+  if (!shown.includes('2026-08-21 09:00:00')) {
+    throw new Error('the section does not show the item timestamp');
+  }
+
+  console.log('required-actions: items show a checkmark/unchecked emoji and a timestamp, not [done]/[pending] text');
 
   // --- marking one done updates the count without a page reload -------------
   await page.route('http://tira.test/required-action/update', route => {

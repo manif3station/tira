@@ -1,5 +1,17 @@
 Revision history for Tira
 
+3.19  2026-08-21
+
+    - TKT-461. Each required-action item showed its status as literal
+      "[done]"/"[pending]" text.
+
+    - Fixed: shows a checkmark or unchecked emoji plus the item's
+      last-updated timestamp instead. Found and fixed a real encoding bug
+      along the way: writing the emoji as raw UTF-8 bytes inside the
+      dashboard's embedded JS mangled them to garbage through the
+      HTTP/HTML pipeline - switched to JS unicode escapes (✅,
+      ⬜), which survive intact.
+
 3.18  2026-08-21
 
     - TKT-460. A pending required-action item's row rendered "Mark done" as

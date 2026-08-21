@@ -1801,7 +1801,7 @@ opens it on that board, and `tira.dashboard` opens it on the default one.
 
 - `tira.checklist.add --ref REF --item TEXT --status TEXT [-o FORMAT]`
 - `tira.checklist.list --ref REF [-o FORMAT]`
-- `tira.checklist.update --ref REF --id CHK-NNN [--item TEXT] [--status TEXT] [-o FORMAT]`
+- `tira.checklist.update --ref REF --id CHK-NNN [--item TEXT] [--status TEXT] [--command TEXT --proof TEXT ...] [-o FORMAT]` - marking `--status done` (case-insensitively) refuses without at least one `--command`/`--proof` pair, repeatable for an item that took several commands to satisfy. `--proof` is the literal output of the paired `--command`, trusted as given. Every other status change is unaffected. Caught on ZSD-246: a checklist backfilled after the fact, marked Done the instant it was typed - proof is what a done claim now costs. TKT-453.
 
 
 ### Required actions
@@ -1815,7 +1815,7 @@ top of it directly.
 
 - `tira.required-action.add --ref REF --item TEXT --status TEXT [-o FORMAT]` - adds an item tagged with the card's current column; unlike checklist.add, this item gates the card's next move out of that column.
 - `tira.required-action.list --ref REF [-o FORMAT]`
-- `tira.required-action.update --ref REF --id REQ-NNN [--item TEXT] [--status TEXT] [-o FORMAT]`
+- `tira.required-action.update --ref REF --id REQ-NNN [--item TEXT] [--status TEXT] [--command TEXT --proof TEXT ...] [-o FORMAT]` - same `--command`/`--proof` requirement on `--status done` as checklist.update above, and the same reasoning: a required item, gating or not, is not evidence of what happened just because it says so. TKT-453.
 
 
 ### Collectors

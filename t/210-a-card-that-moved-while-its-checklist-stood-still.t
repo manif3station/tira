@@ -90,7 +90,8 @@ sub reported {
     $tira->record_move( project => $root, ref => $card->{ref},
         column => 'tests-red', author => 'claude' );
     $tira->checklist_update(
-        project => $root, ref => $card->{ref}, id => 'CHK-001', status => 'done' );
+        project => $root, ref => $card->{ref}, id => 'CHK-001', status => 'done',
+        command => ['did the work'], proof => ['it is done'] );
     $tira->checklist_add(
         project => $root, ref => $card->{ref}, item => 'more work', status => 'todo' );
     $tira->record_move( project => $root, ref => $card->{ref},

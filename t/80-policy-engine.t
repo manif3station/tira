@@ -266,7 +266,7 @@ is( scalar @idle, 1, 'one untouched past its age is reported' );
 like( $idle[0]{detail}, qr/no checklist movement/, 'saying what has not happened' );
 
 $tira->checklist_update( project => $root, ref => $second->{ref},
-    id => 'CHK-001', status => 'done' );
+    id => 'CHK-001', status => 'done', command => ['did it'], proof => ['done'] );
 is( scalar fired('checklist-idle'), 0, 'and touching it silences the rule' );
 
 # A card in that column with no checklist at all is a different problem, and

@@ -58,7 +58,8 @@ is( $history->[0]{after}, 'pending', 'and the status it started at' );
 
 # --- mark it done manually - still no tag, this was a person's own tick ----
 my ($entry) = grep { $_->{item} eq 'left a note' } @{ $tira->required_item_list( project => $root, ref => $card->{ref} ) };
-$tira->required_item_update( project => $root, ref => $card->{ref}, id => $entry->{id}, status => 'done' );
+$tira->required_item_update( project => $root, ref => $card->{ref}, id => $entry->{id}, status => 'done',
+    command => ['left it'], proof => ['note left'] );
 $history = $tira->history_list( project => $root, ref => $card->{ref}, where => ['op=required-action'] );
 is( scalar @{$history}, 1, 'a manual checklist_update adds no new required-action entry' );
 

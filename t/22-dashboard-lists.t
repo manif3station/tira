@@ -93,7 +93,8 @@ ok( $added->{ok}, 'the checklist add provider succeeds' );
 is( $added->{entry}{id}, 'CHK-002', 'new checklist entries keep monotonic ids' );
 
 my $edited = decode_json(
-    $calls->[0]{checklist_update}->( { ref => 'TKT-001', id => 'CHK-001', status => 'Done' } )
+    $calls->[0]{checklist_update}->( { ref => 'TKT-001', id => 'CHK-001', status => 'Done',
+        command => ['reviewed rows'], proof => ['looks right'] } )
 );
 is( $edited->{entry}{status}, 'Done', 'the checklist update provider edits status' );
 is( $edited->{entry}{item}, 'Design rows', 'unchanged checklist item text survives' );

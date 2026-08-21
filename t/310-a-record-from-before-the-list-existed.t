@@ -84,7 +84,8 @@ my $updated = eval {
 };
 ok( $updated, 'required_item_add (as move-in population itself calls it) succeeds' ) or diag($@);
 my $again = eval {
-    $tira->required_item_update( project => $root, ref => $card2->{ref}, id => $updated->{id}, status => 'done' );
+    $tira->required_item_update( project => $root, ref => $card2->{ref}, id => $updated->{id}, status => 'done',
+        command => ['did y'], proof => ['y done'] );
 };
 ok( $again, 'required_item_update succeeds against a record that started with no required_items key' ) or diag($@);
 

@@ -29,6 +29,7 @@ for my $type (qw(sow epic ticket)) {
 
     $entry = $tira->checklist_update(
         project => $root, ref => $record->{ref}, id => $entry->{id}, status => 'Done',
+        command => ['reviewed'], proof => ['looked it over'],
     );
     is( $entry->{item}, 'Review requirements', "$type update preserves omitted item" );
     is( $entry->{status}, 'Done', "$type updates checklist status" );
@@ -39,7 +40,7 @@ my $ticket = $tira->create_record( project => $root, type => 'ticket', title => 
 for my $case (
     [ add => { item => '', status => 'Todo' }, qr/item is required/i ],
     [ add => { item => 'Test', status => '' }, qr/status is required/i ],
-    [ update => { id => 'CHK-999', status => 'Done' }, qr/not found/i ],
+    [ update => { id => 'CHK-999', status => 'Done', command => ['x'], proof => ['y'] }, qr/not found/i ],
     [ update => { id => 'CHK-001' }, qr/item or status/i ],
 ) {
     my ( $action, $args, $error ) = @{$case};
@@ -51,6 +52,7 @@ for my $case (
 $tira->checklist_add( project => $root, ref => $ticket->{ref}, item => 'Build', status => 'Open' );
 my $updated = $tira->checklist_update(
     project => $root, ref => $ticket->{ref}, id => 'CHK-001', item => 'Build release', status => 'Done',
+    command => ['make release'], proof => ['build succeeded'],
 );
 is( $updated->{item}, 'Build release', 'checklist update can replace item and status together' );
 like( $tira->format_output( $tira->record_show( project => $root, ref => $ticket->{ref} ), output => 'human', project => $root ),
@@ -70,7 +72,8 @@ like( $stdout, qr/"item"\s*:\s*"Deploy"/, 'checklist add CLI returns entry' );
 is( $stderr, '', 'checklist add CLI has no stderr' );
 
 for my $case (
-    [ 'checklist.update', [ '--ref', $ticket->{ref}, '--id', 'CHK-002', '--status', 'Done', '-o', 'json' ], qr/"status"\s*:\s*"Done"/ ],
+    [ 'checklist.update', [ '--ref', $ticket->{ref}, '--id', 'CHK-002', '--status', 'Done',
+        '--command', 'ran deploy', '--proof', 'deployed ok', '-o', 'json' ], qr/"status"\s*:\s*"Done"/ ],
     [ 'checklist.list', [ '--ref', $ticket->{ref}, '-o', 'json' ], qr/"id"\s*:\s*"CHK-002"/ ],
 ) {
     my ( $command, $argv, $expected ) = @{$case};

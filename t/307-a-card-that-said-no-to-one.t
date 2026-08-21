@@ -56,7 +56,8 @@ like( $err, qr/said why/,    'and the second' );
 # --- exempting one item lets the move succeed with only the other done -----
 cli( 'record.update', '--ref', $card->{ref}, '--exempt-required', 'said why' );
 my ($note) = grep { $_->{item} eq 'left a note' } @{ $tira->required_item_list( project => $root, ref => $card->{ref} ) };
-$tira->required_item_update( project => $root, ref => $card->{ref}, id => $note->{id}, status => 'done' );
+$tira->required_item_update( project => $root, ref => $card->{ref}, id => $note->{id}, status => 'done',
+    command => ['left it'], proof => ['note left'] );
 ( $status, $out, $err ) = cli( 'record.move', '--ref', $card->{ref}, '--column', 'doc' );
 is( $status, 0, 'with the second item exempted, the first done is enough' ) or diag($err);
 
@@ -64,7 +65,8 @@ is( $status, 0, 'with the second item exempted, the first done is enough' ) or d
 my $sibling = $tira->create_record( project => $root, type => 'ticket', title => 'No exemption' );
 cli( 'record.move', '--ref', $sibling->{ref}, '--column', 'planning' );
 my ($sibling_note) = grep { $_->{item} eq 'left a note' } @{ $tira->required_item_list( project => $root, ref => $sibling->{ref} ) };
-$tira->required_item_update( project => $root, ref => $sibling->{ref}, id => $sibling_note->{id}, status => 'done' );
+$tira->required_item_update( project => $root, ref => $sibling->{ref}, id => $sibling_note->{id}, status => 'done',
+    command => ['left it'], proof => ['note left'] );
 ( $status, $out, $err ) = cli( 'record.move', '--ref', $sibling->{ref}, '--column', 'doc' );
 isnt( $status, 0, "a sibling card's own exemption does not leak onto another card" );
 like( $err, qr/said why/, 'still demanding the item this card was never exempted from' );
@@ -75,8 +77,10 @@ cli( 'record.move', '--ref', $extra->{ref}, '--column', 'planning' );
 $tira->checklist_add( project => $root, ref => $extra->{ref}, item => 'a card-specific extra step', status => 'pending' );
 my ($n1) = grep { $_->{item} eq 'left a note' } @{ $tira->required_item_list( project => $root, ref => $extra->{ref} ) };
 my ($n2) = grep { $_->{item} eq 'said why' } @{ $tira->required_item_list( project => $root, ref => $extra->{ref} ) };
-$tira->required_item_update( project => $root, ref => $extra->{ref}, id => $n1->{id}, status => 'done' );
-$tira->required_item_update( project => $root, ref => $extra->{ref}, id => $n2->{id}, status => 'done' );
+$tira->required_item_update( project => $root, ref => $extra->{ref}, id => $n1->{id}, status => 'done',
+    command => ['left it'], proof => ['note left'] );
+$tira->required_item_update( project => $root, ref => $extra->{ref}, id => $n2->{id}, status => 'done',
+    command => ['said why'], proof => ['reason given'] );
 ( $status, $out, $err ) = cli( 'record.move', '--ref', $extra->{ref}, '--column', 'doc' );
 is( $status, 0, "an extra card-specific item, added with plain checklist.add, does not block the move - it was never part of the column's own template" )
   or diag($err);

@@ -57,7 +57,8 @@ test_psgi $app, sub {
 
     my $response = $http->( POST '/required-action/update', Cookie => $cookie,
         Content => Cpanel::JSON::XS->new->encode(
-            { type => 'ticket', ref => $card->{ref}, id => $item->{id}, status => 'done' } ) );
+            { type => 'ticket', ref => $card->{ref}, id => $item->{id}, status => 'done',
+              command => ['left it'], proof => ['note left'] } ) );
     is( $response->code, 200, 'the real route succeeds' ) or diag( $response->content );
     my $decoded = Cpanel::JSON::XS->new->decode( $response->content );
     ok( $decoded->{ok}, 'and reports ok' );

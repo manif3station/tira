@@ -138,7 +138,13 @@ my @rejected;
 for my $example (@examples) {
     my $text = $example->{text};
     $text =~ s/\A(?:dashboard|d2)\s+//;
-    next if $text !~ /\Atira\.([a-z.]+)/;
+
+    # Hyphens belong in a command name as much as dots do -
+    # required-action.update is a real command, and excluding '-' here
+    # truncated it to 'required', which then failed for a reason that had
+    # nothing to do with the example: not a real rejection, a parsing bug in
+    # this test silently mistaking one command for a different, shorter one.
+    next if $text !~ /\Atira\.([a-z.-]+)/;
     my $command = $1;
     $command =~ s/[.,)]\z//;
 

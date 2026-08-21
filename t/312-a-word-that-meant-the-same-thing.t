@@ -99,7 +99,8 @@ sub cli {
     cli( $root, 'record.move', '--ref', $card->{ref}, '--column', 'planning' );
     my ($item) = grep { $_->{item} eq 'left a note' }
       @{ $tira->required_item_list( project => $root, ref => $card->{ref} ) };
-    cli( $root, 'required-action.update', '--ref', $card->{ref}, '--id', $item->{id}, '--status', 'Done' );
+    cli( $root, 'required-action.update', '--ref', $card->{ref}, '--id', $item->{id}, '--status', 'Done',
+        '--command', 'left it', '--proof', 'note left' );
 
     my ( $status, $out, $err ) = cli( $root, 'record.move', '--ref', $card->{ref}, '--column', 'doc' );
     is( $status, 0, '--status Done satisfies the required-action move-out gate the same as --status done' )
@@ -126,7 +127,8 @@ sub cli {
     cli( $root, 'record.move', '--ref', $card->{ref}, '--column', 'doc' );
     my ($item) = grep { $_->{item} eq 'left a note' }
       @{ $tira->required_item_list( project => $root, ref => $card->{ref} ) };
-    cli( $root, 'required-action.update', '--ref', $card->{ref}, '--id', $item->{id}, '--status', 'Done' );
+    cli( $root, 'required-action.update', '--ref', $card->{ref}, '--id', $item->{id}, '--status', 'Done',
+        '--command', 'left it', '--proof', 'note left' );
     cli( $root, 'record.move', '--ref', $card->{ref}, '--column', 'review' );
 
     cli( $root, 'record.move', '--ref', $card->{ref}, '--column', 'planning' );

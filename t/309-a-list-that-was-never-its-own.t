@@ -70,7 +70,8 @@ isnt( $status, 0, 'refused - backlog\'s own item is still pending' );
 like( $err, qr/said why/, 'naming it' );
 
 my %by = by_item( $card->{ref} );
-cli( 'required-action.update', '--ref', $card->{ref}, '--id', $by{'said why'}{id}, '--status', 'done' );
+cli( 'required-action.update', '--ref', $card->{ref}, '--id', $by{'said why'}{id}, '--status', 'done',
+    '--command', 'said it', '--proof', 'reason given' );
 
 # --- move-in populates required_items, tagged with the destination column -
 ( $status, $out, $err ) = cli( 'record.move', '--ref', $card->{ref}, '--column', 'planning' );
@@ -96,7 +97,8 @@ isnt( $status, 0, 'still refused - the other planning item is still pending' );
 like( $err, qr/reviewed by someone else/, 'names only the still-unmet item' );
 unlike( $err, qr/left a note/,            'the exempted item is not demanded' );
 
-cli( 'required-action.update', '--ref', $card->{ref}, '--id', $by{'reviewed by someone else'}{id}, '--status', 'done' );
+cli( 'required-action.update', '--ref', $card->{ref}, '--id', $by{'reviewed by someone else'}{id}, '--status', 'done',
+    '--command', 'reviewed it', '--proof', 'review complete' );
 ( $status, $out, $err ) = cli( 'record.move', '--ref', $card->{ref}, '--column', 'doc' );
 is( $status, 0, 'moves into doc now that the one unexempted item is done' ) or diag($err);
 
@@ -125,7 +127,8 @@ my $listed = Cpanel::JSON::XS::decode_json($lout);
 is( scalar @{$listed}, 4, 'required-action.list returns every item - backlog, both planning, and the card-specific one' )
   or diag( explain $listed );
 
-cli( 'required-action.update', '--ref', $card->{ref}, '--id', $by{'card-specific extra check'}{id}, '--status', 'done' );
+cli( 'required-action.update', '--ref', $card->{ref}, '--id', $by{'card-specific extra check'}{id}, '--status', 'done',
+    '--command', 'checked it', '--proof', 'check passed' );
 ( $status, $out, $err ) = cli( 'record.move', '--ref', $card->{ref}, '--column', 'review' );
 is( $status, 0, 'moves cleanly once the card-specific item is done too' ) or diag($err);
 

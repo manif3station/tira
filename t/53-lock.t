@@ -98,7 +98,8 @@ my ( %during, $watching, $comment, $item );
         [ comment_add => sub { $comment = $tira->comment_add( %common, author => 'michael', text => 'First' ) } ],
         [ comment_update => sub { $tira->comment_update( %common, comment => $comment->{id}, text => 'Edited' ) } ],
         [ checklist_add => sub { $item = $tira->checklist_add( %common, item => 'A step', status => 'Open' ) } ],
-        [ checklist_update => sub { $tira->checklist_update( %common, id => $item->{id}, status => 'Done' ) } ],
+        [ checklist_update => sub { $tira->checklist_update( %common, id => $item->{id}, status => 'Done',
+            command => ['did the step'], proof => ['step done'] ) } ],
         [ gate_add => sub { $tira->gate_add( %common, gate => 'Review', result => 'pass', details => 'Looked over' ) } ],
         [ evidence_add => sub { $tira->evidence_add( %common, summary => 'Proof' ) } ],
         [ comment_remove => sub { $tira->comment_remove( %common, comment => $comment->{id} ) } ],
@@ -116,7 +117,8 @@ my $final = $tira->record_show( project => $root, type => 'ticket', ref => $card
 is( scalar @{ $final->{comments} }, 0, 'the comment was added, edited and removed' );
 is( scalar @{ $final->{checklist} }, 1, 'the checklist item survived' );
 is( $final->{checklist}[0]{status}, 'Done', 'and was ticked' );
-is( scalar @{ $final->{gate_passing_log} }, 1, 'the gate entry survived' );
+is( scalar @{ $final->{gate_passing_log} }, 2,
+    'the gate entry survived, alongside the one checklist_update logged for its own proof' );
 
 done_testing;
 

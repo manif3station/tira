@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.11';
+our $VERSION = '3.12';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -3788,17 +3788,21 @@ sub checklist_add {
 
 sub checklist_update {
     my ( $self, %args ) = @_;
+    die "Checklist item or status is required\n" if !defined $args{item} && !defined $args{status};
+    die "Checklist item is required\n" if defined $args{item} && $args{item} eq '';
+    die "Checklist status is required\n" if defined $args{status} && $args{status} eq '';
+    my $proof_entries = $self->_proof_entries_for(%args);
+
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
-        die "Checklist item or status is required\n" if !defined $args{item} && !defined $args{status};
-        die "Checklist item is required\n" if defined $args{item} && $args{item} eq '';
-        die "Checklist status is required\n" if defined $args{status} && $args{status} eq '';
         my $record = $self->record_show(%args);
         my ($entry) = grep { $_->{id} eq ( $args{id} // '' ) } @{ $record->{checklist} };
         die "Checklist entry '$args{id}' not found\n" if !$entry;
         $entry->{item} = $args{item} if defined $args{item};
         $entry->{status} = $args{status} if defined $args{status};
         $entry->{last_updated} = $self->{clock}->();
+        $entry->{proof} = $proof_entries if $proof_entries;
+        $self->_log_proof_gate( $record, 'checklist', $entry, $proof_entries ) if $proof_entries;
 
         # Same distinction as checklist_add, for the backward-move reset:
         # marked here so a reader can tell the move mechanism reset an item
@@ -3862,11 +3866,13 @@ sub required_item_add {
 
 sub required_item_update {
     my ( $self, %args ) = @_;
+    die "Required item or status is required\n" if !defined $args{item} && !defined $args{status};
+    die "Required item is required\n" if defined $args{item} && $args{item} eq '';
+    die "Required item status is required\n" if defined $args{status} && $args{status} eq '';
+    my $proof_entries = $self->_proof_entries_for(%args);
+
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
-        die "Required item or status is required\n" if !defined $args{item} && !defined $args{status};
-        die "Required item is required\n" if defined $args{item} && $args{item} eq '';
-        die "Required item status is required\n" if defined $args{status} && $args{status} eq '';
         my $record = $self->record_show(%args);
 
         # Same pre-3.03 legacy-record case required_item_add guards against.
@@ -3876,6 +3882,8 @@ sub required_item_update {
         $entry->{item} = $args{item} if defined $args{item};
         $entry->{status} = $args{status} if defined $args{status};
         $entry->{last_updated} = $self->{clock}->();
+        $entry->{proof} = $proof_entries if $proof_entries;
+        $self->_log_proof_gate( $record, 'required-action', $entry, $proof_entries ) if $proof_entries;
         $self->_journal_record(
             ref => $record->{ref}, op => $args{source},
             entries => [ { field => 'required_items', item => $entry->{item}, after => $entry->{status} } ],
@@ -3883,6 +3891,70 @@ sub required_item_update {
         $self->_replace_record( %args, record => $record );
         return $entry;
     } );
+}
+
+# A claim of "done" that nobody can check is not evidence, the way a card
+# that "says what it should" is not proof of what happened - so marking
+# either kind of item done now costs the same thing evidence has always
+# cost on this board: at least one --command/--proof pair, naming what was
+# run and what it produced. MEASURED on ZSD-246: 9 checklist items created
+# and marked Done within a 5-second window, a narrative written after the
+# work supposedly finished. Every other status change is unaffected,
+# including the move mechanism's own backward reset to pending - the claim
+# being gated is specifically "this is done", not every edit. TKT-453.
+#
+# Resolved before the project lock is taken, because a long --proof is
+# stored as an attachment via attachment_add_content, which takes its own
+# lock, and _with_project_lock is not reentrant - the same composition
+# release_record already uses to call gate_add, evidence_add and
+# record_update in sequence without nesting.
+sub _proof_entries_for {
+    my ( $self, %args ) = @_;
+    return undef if !defined $args{status} || lc( $args{status} ) ne 'done';
+    my @commands = @{ $args{command} // [] };
+    my @proofs   = @{ $args{proof}   // [] };
+    die "Marking done requires at least one --command/--proof pair\n" if !@commands || !@proofs;
+    die "Every --command needs a matching --proof, and every --proof a --command "
+      . "(got " . scalar(@commands) . " command(s), " . scalar(@proofs) . " proof(s))\n"
+      if @commands != @proofs;
+
+    my @entries;
+    for my $i ( 0 .. $#commands ) {
+        my ( $command, $proof ) = ( $commands[$i], $proofs[$i] );
+        if ( length($proof) > 2000 ) {
+            my $attachment = $self->attachment_add_content(
+                %args, filename => 'proof.txt', content => $proof,
+            );
+            push @entries, {
+                command => $command,
+                attachment => { sha => $attachment->{sha}, extension => $attachment->{extension} },
+            };
+        }
+        else {
+            push @entries, { command => $command, proof => $proof };
+        }
+    }
+    return \@entries;
+}
+
+# What proved an item done, written where it survives independently of the
+# item - a required item can be renamed or removed, but what proved it done
+# stays in the record the board already keeps for exactly this.
+sub _log_proof_gate {
+    my ( $self, $record, $gate, $entry, $proof_entries ) = @_;
+    my @details = map {
+        my $what = exists $_->{attachment}
+          ? "attachment $_->{attachment}{sha}.$_->{attachment}{extension}"
+          : "\"$_->{proof}\"";
+        "$_->{command} -> $what";
+    } @{$proof_entries};
+    push @{ $record->{gate_passing_log} }, {
+        id => sprintf( 'GATE-%03d', @{ $record->{gate_passing_log} } + 1 ),
+        gate => $gate, result => 'pass',
+        details => "Marked \"$entry->{item}\" done: " . join( '; ', @details ),
+        author => undef, annotations => [], created_at => $self->{clock}->(),
+    };
+    return;
 }
 
 sub search {

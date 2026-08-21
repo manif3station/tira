@@ -259,6 +259,7 @@ sub run {
         'gate=s' => \$option{gate}, 'result=s' => \$option{result},
         'details=s' => \$option{details}, 'evidence=s' => \$option{evidence},
         'item=s' => \$option{item}, 'status=s' => \$option{status},
+        'command=s@' => \$option{command}, 'proof=s@' => \$option{proof},
         'field=s@' => \$option{fields}, 'pattern=s' => \$option{pattern},
         'fields=s@' => \$option{field_selection},
         'exclude-fields=s@' => \$option{exclude_fields},
@@ -1185,6 +1186,8 @@ sub browser_providers {
                 project => $project, ref => $payload->{ref}, id => $payload->{id},
                 ( defined $payload->{item} ? ( item => $payload->{item} ) : () ),
                 ( defined $payload->{status} ? ( status => $payload->{status} ) : () ),
+                ( defined $payload->{command} ? ( command => $payload->{command} ) : () ),
+                ( defined $payload->{proof} ? ( proof => $payload->{proof} ) : () ),
             );
             return $json->encode( { ok => Cpanel::JSON::XS::true, entry => $entry } );
         },
@@ -1197,6 +1200,8 @@ sub browser_providers {
                 project => $project, ref => $payload->{ref}, id => $payload->{id},
                 ( defined $payload->{item} ? ( item => $payload->{item} ) : () ),
                 ( defined $payload->{status} ? ( status => $payload->{status} ) : () ),
+                ( defined $payload->{command} ? ( command => $payload->{command} ) : () ),
+                ( defined $payload->{proof} ? ( proof => $payload->{proof} ) : () ),
             );
             return $json->encode( { ok => Cpanel::JSON::XS::true, entry => $entry } );
         },

@@ -1,5 +1,21 @@
 Revision history for Tira
 
+3.14  2026-08-21
+
+    - TKT-454. column_apply - the engine call behind the browser
+      dashboard's Columns dialog Save button - already read a column's
+      chain (next) and required-action template (required_actions) back
+      via _column_defaults, but never wrote either. A layout
+      round-tripped through the dialog silently dropped both: open it,
+      change nothing about the chain or template, hit Save, and they
+      vanish.
+
+    - Fixed: column_apply now persists next and required_actions per
+      column, matching what it already read back. Adding editable fields
+      for both to the Columns dialog itself is tracked separately; this
+      release closes the underlying data-loss gap, which existed even for
+      a caller that passed both fields through directly.
+
 3.13  2026-08-21
 
     - TKT-455. Backward-move required-action reset stopped one column

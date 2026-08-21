@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.13';
+our $VERSION = '3.14';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1383,6 +1383,16 @@ sub column_apply {
             $entry->{notify_after} = $column->{notify_after} if defined $column->{notify_after};
             $entry->{watched} = $column->{watched} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false
               if defined $column->{watched};
+
+            # Read back since column_apply shipped (_column_defaults has
+            # carried both all along) but never written - a layout
+            # round-tripped through the dialog silently dropped a column's
+            # chain and required-action template, "accepted, dropped, read
+            # back as if nothing happened." Replaces the whole list on each
+            # call, matching column_update's own --next/--required-action.
+            # TKT-454.
+            $entry->{required_actions} = $column->{required_actions} if defined $column->{required_actions};
+            $entry->{next} = $column->{next} if defined $column->{next};
             push @columns, $entry;
         }
         my $reordered = join( "\0", map { $_->{name} } @{ $config->{columns} } )

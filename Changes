@@ -1,5 +1,20 @@
 Revision history for Tira
 
+3.23  2026-08-22
+
+    - TKT-400. tira.ticket.show truncates description/problem_or_feature/
+      solution_needed at 2000 characters by default, honestly marked
+      truncated - but update accepted a truncated read back as though it
+      were the whole field, so a read-modify-write silently destroyed
+      everything past the cut. Measured on TKT-386: three edits shrank it
+      from 4541 to 3187 bytes, invisible because history.list truncates
+      the same way.
+
+    - Fixed: record_update now refuses a write whose value exactly matches
+      a truncated read of the field's current stored value, naming --full.
+      A genuinely shorter rewrite, written on purpose, is unaffected - this
+      is an exact-match check against a truncated read, not a length limit.
+
 3.22  2026-08-22
 
     - TKT-464. Growing a column's required_actions template never reached a

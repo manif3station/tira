@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.22';
+our $VERSION = '3.23';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2219,6 +2219,25 @@ sub record_update {
                 next if _matches_base( $record->{$field}, $expect->{$field} );
                 die "Conflict: $field changed while you were editing\n";
             }
+        }
+
+        # tira.ticket.show truncates description/problem_or_feature/
+        # solution_needed at 2000 characters by default (_truncate_text_slot)
+        # and marks the read honestly - but nothing stopped that truncated
+        # read from being written straight back, silently destroying
+        # everything past the cut. Measured on TKT-386: three read-modify-
+        # write edits shrank it from 4541 to 3187 bytes, invisible because
+        # tira.history.list truncates the same way. Refused only when the
+        # incoming value is an EXACT match for what a truncated read of the
+        # CURRENT stored value looks like - a genuinely shorter rewrite,
+        # written on purpose, is unaffected. TKT-400.
+        for my $field ( keys %LONG_TEXT_FIELD ) {
+            next if !defined $args{$field} || !defined $record->{$field};
+            my $current = $record->{$field};
+            next if length($current) <= 2000;
+            next if $args{$field} ne substr( $current, 0, 2000 ) . $ELLIPSIS;
+            die "The new $field matches a truncated read of the current one - "
+              . "re-read with --full before writing it back, or this destroys everything past character 2000\n";
         }
         for my $field (@PLAIN_FIELDS) {
             $record->{$field} = $args{$field} if defined $args{$field};

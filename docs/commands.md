@@ -1246,6 +1246,20 @@ in supplied order. Existing values are retained. The corresponding `--set-*`
 JSON-array options remain the explicit wholesale-replacement controls for the
 six content arrays; scope has no replacement option.
 
+## A truncated read cannot be written back
+
+`description`, `problem_or_feature`, and `solution_needed` truncate at 2000
+characters by default on every read (`show`, `history.list`), marked honestly
+with `_truncated`/`_length` alongside the shortened text - `--full` on either
+command returns the whole thing. Writing a value back through `ticket.update`
+(or `epic.update`/`sow.update`) that exactly matches a truncated read of the
+field's *current* stored value is refused, naming `--full`: a read-modify-write
+done without `--full` would otherwise destroy everything past character 2000
+silently, since the truncated flag never travelled into the write. A
+genuinely shorter rewrite, written on purpose, is unaffected - this is an
+exact-match check against what a truncated read looks like, not a length
+limit. TKT-400.
+
 ## A card that shipped no release
 
 `--fix-version` records which release contains a card's work, and

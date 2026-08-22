@@ -457,7 +457,13 @@ the limit, `--truncate 0` omits the text while still marking it present,
 `--full` restores everything (combining `--full` with `--truncate` exits
 2), short fields carry no markers, and structural fields are never cut.
 Truncation is presentation only: `content_hash` is computed from the
-full record. The board dashboard is already a summary view and takes no
+full record. Writing a truncated read straight back through `update` is
+refused, naming `--full` - before TKT-400 a read-modify-write on
+`description`, `problem_or_feature`, or `solution_needed` done without
+`--full` silently destroyed everything past character 2000, because the
+truncated flag never travelled from the read into the write. Only an
+exact match against a truncated read of the field's *current* value
+refuses; a genuinely shorter rewrite is unaffected. The board dashboard is already a summary view and takes no
 brief flag.
 Comment and attachment reads are **Implemented.** Comments are
 stored newest-last, so `--last N` is the recent thread and `--first N`

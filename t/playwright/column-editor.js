@@ -88,26 +88,34 @@ process.on('unhandledRejection', error => {
   const minutes = await page.locator('.column-row').nth(3).locator('.column-row__minutes').inputValue();
   if (minutes !== '45') fail('the stored threshold was not shown, got ' + minutes);
 
-  // The chain (next) and required-action template are shown for the columns
-  // that declared them, and the fields exist but stay empty for the ones
-  // that did not - no forced values.
-  const backlogNext = await page.locator('.column-row[data-name="backlog"] .column-row__next')
-    .evaluate(select => Array.from(select.selectedOptions).map(o => o.value));
+  // The chain (next) is a checkbox per other column - a fork is visibly
+  // possible, not hidden behind a native multi-select - and the
+  // required-action template is a removable row per item plus one blank
+  // trailing row, for the columns that declared them; both stay empty (no
+  // forced values) for the ones that did not.
+  const backlogNext = await page.locator('.column-row[data-name="backlog"] .column-row__next-checkbox:checked')
+    .evaluateAll(nodes => nodes.map(n => n.value));
   if (backlogNext.join(',') !== 'planning') fail('backlog\'s chain was not shown, got ' + backlogNext.join(','));
+  const backlogNextTotal = await page.locator('.column-row[data-name="backlog"] .column-row__next-checkbox').count();
+  if (backlogNextTotal < 4) fail(`backlog's chain editor should offer every other column as a checkbox, got ${backlogNextTotal}`);
 
-  const reviewActions = await page.locator('.column-row[data-name="review"] .column-row__actions').inputValue();
-  if (reviewActions !== 'Run the suite\nUpdate the docs') {
-    fail('review\'s required-action template was not shown, got ' + JSON.stringify(reviewActions));
+  const reviewActionValues = await page.locator('.column-row[data-name="review"] .column-row__action-input')
+    .evaluateAll(nodes => nodes.map(n => n.value));
+  if (reviewActionValues.join('|') !== 'Run the suite|Update the docs|') {
+    fail('review\'s required-action template was not shown as one row per item plus a blank trailing row, got ' + JSON.stringify(reviewActionValues));
   }
+  const reviewRemovable = await page.locator('.column-row[data-name="review"] .column-row__action-remove').count();
+  if (reviewRemovable !== 2) fail(`review should have 2 removable action rows (not the blank one), got ${reviewRemovable}`);
 
-  const doneNext = await page.locator('.column-row[data-name="done"] .column-row__next')
-    .evaluate(select => Array.from(select.selectedOptions).map(o => o.value));
+  const doneNext = await page.locator('.column-row[data-name="done"] .column-row__next-checkbox:checked')
+    .evaluateAll(nodes => nodes.map(n => n.value));
   if (doneNext.length) fail('a column with no chain declared showed one anyway, got ' + doneNext.join(','));
-  const doneActions = await page.locator('.column-row[data-name="done"] .column-row__actions').inputValue();
-  if (doneActions !== '') fail('a column with no required-action template declared showed one anyway, got ' + JSON.stringify(doneActions));
+  const doneActionValues = await page.locator('.column-row[data-name="done"] .column-row__action-input')
+    .evaluateAll(nodes => nodes.map(n => n.value));
+  if (doneActionValues.join('|') !== '') fail('a column with no required-action template declared showed one anyway, got ' + JSON.stringify(doneActionValues));
 
   // Drag 'done' above 'review' by its grip, with real pointer events. The
-  // rows now carry a chain select and a required-action textarea, so six of
+  // rows now carry a chain checklist and a required-action list, so six of
   // them can outgrow the dialog and need a scroll - fetched together, in one
   // synchronous read after scrolling both into view, so a scroll triggered
   // while reading one box can't move the other one the drag was aimed at.
@@ -133,11 +141,15 @@ process.on('unhandledRejection', error => {
     fail('dragging by the grip did not reorder, got ' + reordered.join(','));
   }
 
-  // Change a threshold, turn an eye on, remove a column, add one, and edit
-  // a required-action template.
+  // Change a threshold, turn an eye on, remove a column, add one, edit a
+  // required-action template (add one via the blank row's check button,
+  // remove one via its own x), and check two chain boxes to make a fork.
   await page.locator('.column-row[data-name="in-progress"] .column-row__minutes').fill('90');
   await page.locator('.column-row[data-name="planning"] .column-row__eye').click();
-  await page.locator('.column-row[data-name="review"] .column-row__actions').fill('Run the suite\nUpdate the docs\nAdd a Changes entry');
+  await page.locator('.column-row[data-name="review"] .column-row__action-input').last().fill('Add a Changes entry');
+  await page.locator('.column-row[data-name="review"] .column-row__action-add').click();
+  await page.locator('.column-row[data-name="review"] .column-row__action-remove').first().click();
+  await page.locator('.column-row[data-name="backlog"] .column-row__next-checkbox[value="in-progress"]').check();
   await page.locator('.column-row[data-name="done"] .column-row__remove').click();
   await page.locator('.column-dialog__new').fill('Waiting On Client');
   await page.locator('.column-dialog__addbtn').click();
@@ -162,10 +174,10 @@ process.on('unhandledRejection', error => {
     const backlog = saved.columns.find(c => c.name === 'backlog');
     if ('notify_after' in backlog) fail('an empty threshold was sent as a value');
     if (saved.type !== 'ticket') fail('the board type was not sent');
-    if ((backlog.next || []).join(',') !== 'planning') fail('backlog\'s untouched chain was not sent back, got ' + JSON.stringify(backlog.next));
+    if ((backlog.next || []).join(',') !== 'planning,in-progress') fail('backlog\'s checked chain fork was not sent back, got ' + JSON.stringify(backlog.next));
     const review = saved.columns.find(c => c.name === 'review');
-    if ((review.required_actions || []).join('|') !== 'Run the suite|Update the docs|Add a Changes entry') {
-      fail('the edited required-action template was not sent, got ' + JSON.stringify(review.required_actions));
+    if ((review.required_actions || []).join('|') !== 'Update the docs|Add a Changes entry') {
+      fail('the edited required-action template (one item added via the blank row, one removed via its x) was not sent, got ' + JSON.stringify(review.required_actions));
     }
     const doneless = saved.columns.find(c => c.name === 'planning');
     if ('next' in doneless) fail('a column with no chain declared had one forced into the save, got ' + JSON.stringify(doneless.next));

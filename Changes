@@ -1,5 +1,22 @@
 Revision history for Tira
 
+3.30  2026-08-22
+
+    - TKT-472. TKT-468 shipped a native <select multiple> for a
+      column's chain and one multi-line textarea for its
+      required-action template. Both failed on a phone: the
+      multi-select rendered as little more than a single value with a
+      "..." affordance, no visible way to make or see a fork, and the
+      textarea crammed every required-action item onto its own line in
+      one box ("if I have 10, that's 10 lines" - owner, live).
+
+    - Fixed: the chain is now one checkbox per other column, so
+      checking more than one is a visible, tappable fork. The
+      required-action template is now one row per item (a text input
+      plus a cross to remove it) with a blank trailing row (a check to
+      add it as a new item, leaving a fresh blank row behind). Both
+      still round-trip through /columns/apply unchanged in wire shape.
+
 3.29  2026-08-22
 
     - TKT-470. A card's hierarchy/linkage list showed each linked

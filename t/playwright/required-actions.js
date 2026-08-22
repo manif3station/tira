@@ -130,21 +130,21 @@ const fs = require('fs');
 
   console.log('required-actions: items show a checkmark/unchecked emoji and a timestamp, not [done]/[pending] text');
 
-  // --- a done item's command/proof is collapsed, click-to-expand ------------
+  // --- a done item's command/proof opens in a readable popup ----------------
   //
   // His words, from a screenshot of the gate-passing log with nowhere for
   // this to live in the required-actions section itself: "for the ran
   // commands and proof to show under the the required actions and collesped
   // and when user click on the item will expend it and see the cmmand and
-  // proof." TKT-462.
+  // proof." TKT-462. Then, live, once a long command/proof pair on a narrow
+  // viewport made the inline expansion wrap one character per line and
+  // become unreadable: "Show it on a popup to display it in a readable
+  // way. ... I can't even read anything out of it." TKT-467.
+  const proofDialog = page.locator('.proof-dialog');
   const proofRow = page.locator('[data-required-action-proof="REQ-002"]');
   await proofRow.waitFor({ state: 'attached', timeout: 15000 });
-  if (!(await proofRow.isHidden())) throw new Error('a done item\'s proof is shown expanded by default');
-
-  const proofText = await proofRow.textContent();
-  if (!proofText.includes('ran the review checklist') || !proofText.includes('all items checked, no findings')) {
-    throw new Error(`the collapsed proof does not carry the command/proof pair: ${proofText}`);
-  }
+  if (!(await proofRow.isHidden())) throw new Error('a done item\'s inline proof row must stay hidden - it is not the display mechanism any more');
+  if (await proofDialog.isVisible()) throw new Error('the proof popup is open before anything was clicked');
 
   const doneText = page.locator('[data-required-action="REQ-002"] .card-list__text');
   await doneText.click();
@@ -152,16 +152,52 @@ const fs = require('fs');
     el => el.getAttribute('aria-expanded') === 'true',
     await doneText.elementHandle(), { timeout: 15000 }
   );
-  if (await proofRow.isHidden()) throw new Error('clicking the done item did not expand its proof');
+  await proofDialog.waitFor({ state: 'visible', timeout: 15000 });
 
-  await doneText.click();
+  const popupText = await proofDialog.locator('.proof-dialog__body').textContent();
+  if (!popupText.includes('ran the review checklist') || !popupText.includes('all items checked, no findings')) {
+    throw new Error(`the popup does not carry the command/proof pair: ${popupText}`);
+  }
+
+  await proofDialog.locator('.proof-dialog__close').click();
   await page.waitForFunction(
     el => el.getAttribute('aria-expanded') === 'false',
     await doneText.elementHandle(), { timeout: 15000 }
   );
-  if (!(await proofRow.isHidden())) throw new Error('clicking the expanded item a second time did not collapse it');
+  if (await proofDialog.isVisible()) throw new Error('closing the popup did not close it');
 
-  console.log('required-actions: a done item\'s command/proof is collapsed, and expands on click');
+  console.log('required-actions: a done item\'s command/proof opens in a popup, closes cleanly, and never renders inline');
+
+  // --- the popup stays legible on a narrow viewport, with a long unbroken command --
+  //
+  // The actual failure mode reported: a long command string on a narrow
+  // screen squeezed the (pre-popup) inline row into a sliver that wrapped
+  // one character per line. The popup must not reproduce that: it wraps at
+  // word boundaries and never grows wider than the viewport.
+  requiredItems.push({
+    id: 'REQ-004', column: 'doc', item: 'a long one', status: 'done', last_updated: '2026-08-21T09:15:00Z',
+    proof: [ { command: 'a'.repeat(120), proof: 'b'.repeat(120) } ],
+  });
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.keyboard.press('Escape');
+  await page.click(`[data-ref="${withRequired}"]`);
+  await page.waitForSelector('.card-dialog[open]');
+  await page.click('[data-required-action="REQ-004"] .card-list__text');
+  await proofDialog.waitFor({ state: 'visible', timeout: 15000 });
+
+  const wrap = await proofDialog.locator('.proof-dialog__command').evaluate(node => getComputedStyle(node).overflowWrap);
+  if (wrap !== 'break-word') throw new Error(`the popup command text does not wrap at word boundaries: overflow-wrap is ${wrap}`);
+
+  const [dialogBox, viewport] = [
+    await proofDialog.evaluate(node => node.getBoundingClientRect().width),
+    await page.evaluate(() => window.innerWidth),
+  ];
+  if (dialogBox > viewport) throw new Error(`the popup (${dialogBox}px) is wider than the narrow viewport (${viewport}px)`);
+
+  await proofDialog.locator('.proof-dialog__close').click();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
+  console.log('required-actions: the popup wraps a long command at word boundaries and stays within a narrow viewport');
 
   // --- marking one done updates the count without a page reload -------------
   await page.route('http://tira.test/required-action/update', route => {

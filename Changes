@@ -1,5 +1,19 @@
 Revision history for Tira
 
+3.25  2026-08-22
+
+    - TKT-467. A done required-action item's command/proof pairs expanded
+      inline (TKT-462), which could not cope with a long command on a
+      narrow screen: it squeezed the proof text into a sliver that wrapped
+      one character per line, unreadable. Measured live on TKT-432's own
+      dialog on a phone. His words: "I can't even read anything out of
+      it."
+
+    - Fixed: a done item's proof now opens in a popup instead, wrapping at
+      word boundaries and staying within the viewport at any width. The
+      inline row is retained in the DOM for identification but never
+      shown.
+
 3.24  2026-08-22
 
     - TKT-432. Giving an orphaned card a home is one conceptual moment -

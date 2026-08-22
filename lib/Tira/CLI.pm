@@ -1980,6 +1980,16 @@ sub _column_required_action_violation {
 # owner asked for it included (TG msg 4342). TKT-455. discard is excluded
 # on both sides: its position in the declared column order is not a
 # statement about how much work it undoes.
+sub _populate_column_required_actions {
+    my ( $tira, $args, $to, $columns, $required_items ) = @_;
+    my ($to_col) = grep { $_->{name} eq $to } @{$columns};
+    for my $text ( @{ $to_col->{required_actions} // [] } ) {
+        next if grep { $_->{item} eq $text && $_->{column} eq $to } @{$required_items};
+        $tira->required_item_add( %{$args}, item => $text, status => 'pending', column => $to, source => 'required-action' );
+    }
+    return;
+}
+
 sub _apply_column_required_actions {
     my ( $tira, $args, $from, $to, $columns, $record ) = @_;
     return
@@ -2000,11 +2010,7 @@ sub _apply_column_required_actions {
     my @required_items = @{ $record->{required_items} // [] };
 
     if ( $to_idx > $from_idx ) {
-        my ($to_col) = grep { $_->{name} eq $to } @{$columns};
-        for my $text ( @{ $to_col->{required_actions} // [] } ) {
-            next if grep { $_->{item} eq $text && $_->{column} eq $to } @required_items;
-            $tira->required_item_add( %{$args}, item => $text, status => 'pending', column => $to, source => 'required-action' );
-        }
+        _populate_column_required_actions( $tira, $args, $to, $columns, \@required_items );
     }
     elsif ( $to_idx < $from_idx ) {
         for my $item (@required_items) {
@@ -2018,6 +2024,13 @@ sub _apply_column_required_actions {
             next if lc( $item->{status} // '' ) ne 'done';
             $tira->required_item_update( %{$args}, id => $item->{id}, status => 'pending', source => 'required-action' );
         }
+
+        # A backward move-in is still a move-in: the destination column's own
+        # template must be on the card even if it was never populated on an
+        # earlier forward pass - which happens when the template was declared
+        # after the card had already left that column once, exactly what
+        # TKT-458 hit in practice. TKT-464.
+        _populate_column_required_actions( $tira, $args, $to, $columns, \@required_items );
     }
     return;
 }

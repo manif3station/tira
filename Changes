@@ -1,5 +1,23 @@
 Revision history for Tira
 
+3.22  2026-08-22
+
+    - TKT-464. Growing a column's required_actions template never reached a
+      card that had already passed through that column before the template
+      existed, if the card later moved backward into it: only a forward
+      move-in populated a column's template onto a card, so the backward
+      branch's reset-only behavior left the card with nothing for a column
+      it had genuinely never picked up. Found live on TKT-458.
+
+    - Fixed: _apply_column_required_actions's populate logic is now shared
+      between both branches (extracted into
+      _populate_column_required_actions) - a backward move-in populates a
+      missing template exactly as a forward one already did, in addition to
+      its existing reset-to-pending behavior for items already on the card.
+      Also documented: `tira.required-action.add --column SLUG` already
+      existed as a way to backfill an item without moving the card, just
+      wasn't written down.
+
 3.21  2026-08-22
 
     - TKT-458. The dashboard's comment composer offered a free author

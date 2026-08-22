@@ -1823,7 +1823,7 @@ the move-out gate and backward-move reset (all TKT-427/439/445); these three
 commands are how an agent reads that list or manages a card-specific item on
 top of it directly.
 
-- `tira.required-action.add --ref REF --item TEXT --status TEXT [-o FORMAT]` - adds an item tagged with the card's current column; unlike checklist.add, this item gates the card's next move out of that column.
+- `tira.required-action.add --ref REF --item TEXT --status TEXT [--column SLUG] [-o FORMAT]` - adds an item tagged with the card's current column; unlike checklist.add, this item gates the card's next move out of that column. `--column` overrides the tag to name a different column, which is how a required item is backfilled onto a card without physically moving it back through that column first.
 - `tira.required-action.list --ref REF [-o FORMAT]`
 - `tira.required-action.update --ref REF --id REQ-NNN [--item TEXT] [--status TEXT] [--command TEXT --proof TEXT ...] [-o FORMAT]` - same `--command`/`--proof` requirement on `--status done` as checklist.update above, and the same reasoning: a required item, gating or not, is not evidence of what happened just because it says so. TKT-453.
 

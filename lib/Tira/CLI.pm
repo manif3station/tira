@@ -2859,6 +2859,10 @@ sub _invoke {
     $args{person} = $option->{people}[0] if $command =~ /\Aassign\.(?:add|remove)\z/ && $option->{people};
     $args{people} = $option->{people} // [] if $command eq 'assign.set';
     $args{recursive} = $option->{recursive} if $command eq 'hierarchy.show';
+    if ( $command eq 'hierarchy.link' ) {
+        $args{priority} = $option->{priority} if defined $option->{priority};
+        $args{assignee} = $option->{assignee} if defined $option->{assignee};
+    }
     if ( $command =~ /\Adashboard(?:\.(sow|epic|ticket))?\z/ ) {
         $args{type} = $1 if defined $1;
         # Every board is created with Backlog and Discard, and the

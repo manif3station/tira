@@ -713,7 +713,7 @@ adds reciprocal clone links.
 
 All are **Implemented.**, with immediate-parent projection updated by
 ```text
-tira.hierarchy.link --parent REF --child REF [-o FORMAT]
+tira.hierarchy.link --parent REF --child REF [--priority N] [--assignee ID] [-o FORMAT]
 tira.hierarchy.unlink --parent REF --child REF [-o FORMAT]
 tira.hierarchy.show --ref REF [--recursive] [-o FORMAT]
 tira.subitem.link --parent REF --child REF [-o FORMAT]
@@ -1196,6 +1196,13 @@ Required items get their own labeled section in the browser dashboard's card dia
 
 ### UC-062: Link epic and ticket
 **Implemented.** `dashboard tira.hierarchy.link --parent EPC-001 --child TKT-001`.
+`--priority`/`--assignee` optionally set the child in the same write as the
+link - an untriaged card reaching the board (from a bug hunt or the external
+bridge) usually needs a home, a priority, and an assignee in the same
+breath, and before this it always cost a second round trip: measured four
+times in one session. Omitting both leaves the command exactly as before. An
+invalid priority or unknown assignee refuses the whole call, the link
+included, rather than linking and silently dropping the bad value. TKT-432.
 
 ### UC-137: Create a record already parented
 **Implemented.** `dashboard tira.ticket.create --title "Login" --parent EPC-001` creates the ticket and links it under EPC-001 in one command, applying the same hierarchy validation `hierarchy.link` applies - the record was created parentless and given a parent by a second command before this, which meant it was an orphan in between and this project's own board had 1361 findings to show for it. An invalid hierarchy (a ticket parented straight to a SOW, or a parent that does not exist) fails the whole creation: nothing is left behind for `--parent` to have half-worked on. `--parent` is still refused on `tira.<type>.update` with the same message as before - naming `hierarchy.link` and the ref to run it with - because accepting it there and silently doing nothing is a worse failure than a refusal. TKT-362.

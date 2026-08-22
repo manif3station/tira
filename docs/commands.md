@@ -1886,7 +1886,7 @@ top of it directly.
 
 ### Hierarchy
 
-- `tira.hierarchy.link --parent REF --child REF [-o FORMAT]`
+- `tira.hierarchy.link --parent REF --child REF [--priority N] [--assignee ID] [-o FORMAT]` - `--priority`/`--assignee` optionally set the child in the same write as the link, the same way `release.record` bundles gate+evidence+fix-version into one call - an untriaged card usually needs a home, a priority, and an assignee in the same breath. Omitting both leaves the command exactly as before, a plain link. An invalid priority or unknown assignee refuses the whole call, the link included, rather than linking and silently dropping the bad value. TKT-432.
 - `tira.hierarchy.show --ref REF [--recursive] [-o FORMAT]`
 - `tira.hierarchy.unlink --parent REF --child REF [-o FORMAT]`
 

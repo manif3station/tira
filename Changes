@@ -1,5 +1,19 @@
 Revision history for Tira
 
+3.24  2026-08-22
+
+    - TKT-432. Giving an orphaned card a home is one conceptual moment -
+      link it, and usually give it a priority and an assignee in the same
+      breath, since an untriaged card is not yet real work - but
+      hierarchy.link only ever set parent/child, so it always cost a
+      second round trip. Measured four times in one session this hour.
+
+    - Fixed: hierarchy.link accepts optional --priority/--assignee,
+      applied to the child in the same write as the link. Omitting both
+      leaves the command exactly as before. An invalid priority or
+      unknown assignee refuses the whole call, the link included, rather
+      than linking and silently dropping the bad value.
+
 3.23  2026-08-22
 
     - TKT-400. tira.ticket.show truncates description/problem_or_feature/

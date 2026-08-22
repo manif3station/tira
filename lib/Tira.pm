@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.23';
+our $VERSION = '3.24';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2459,6 +2459,17 @@ sub hierarchy_link {
               . "record blocks, duplicates or relates to another, use "
               . "tira.link.add --from A --type blocks --to B\n";
         }
+
+        # An untriaged card is not yet real work: giving it a home is one
+        # conceptual moment, usually alongside a priority and an assignee,
+        # and before this it always cost a second round trip - measured four
+        # times in one session. Validated before anything is touched, so an
+        # invalid value refuses the whole call, the link included, rather
+        # than linking and silently dropping a bad value. TKT-432.
+        my $priority = defined $args{priority} ? $self->_valid_priority( $args{priority} ) : undef;
+        $self->_require_active_person( project => $root, person => $args{assignee} )
+          if defined $args{assignee};
+
         my $old_parent_ref = $child->{linkage}{$up};
         my @updates;
         if ( defined $old_parent_ref && $old_parent_ref ne $parent->{ref} ) {
@@ -2469,6 +2480,8 @@ sub hierarchy_link {
         }
         $child->{linkage}{$up} = $parent->{ref};
         $child->{parent} = $child->{linkage}{"parent_$child->{type}_ref"} // $parent->{ref};
+        $child->{priority} = $priority if defined $args{priority};
+        $child->{assignee} = $args{assignee} if defined $args{assignee};
         push @{ $parent->{linkage}{$down} }, $child->{ref}
           if !grep { $_ eq $child->{ref} } @{ $parent->{linkage}{$down} };
         $child->{last_updated} = $parent->{last_updated} = $self->{clock}->();

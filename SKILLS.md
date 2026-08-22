@@ -580,7 +580,16 @@ drag a row by its grip to reorder, edit its label, set how many minutes
 a card may sit there, turn its eye off to stop it being chased, remove
 it, or add a new one before Discard. Saving sends the whole layout at
 once. Reordering uses pointer events like the rest of the board, so the
-grip works on a phone.
+grip works on a phone. Each row also shows its chain (`--next`) as a
+multi-select of the board's other columns and its required-action
+template (`--required-action`) as a one-item-per-line text box — both
+already round-tripped by `/columns/apply` (above), just never shown in
+the dialog until now. A column with neither declared shows both fields
+empty rather than forcing a value in on save, and only a field actually
+edited is included in the layout sent back. Owner's live question,
+2026-08-22: "Where to view and edit the column chain? Also, where to
+view and edit the required items of each column?" — nowhere, until
+TKT-468.
 
 Whole-layout column edits are **Implemented.**
 `tira.column.apply` takes the column list a board should have — order,

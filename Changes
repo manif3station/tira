@@ -1,5 +1,24 @@
 Revision history for Tira
 
+3.28  2026-08-22
+
+    - TKT-468. column_update/column_apply have supported a --next chain
+      and a --required-action template since TKT-430/TKT-427, and
+      GET /columns already returned both - but the browser dashboard's
+      Columns dialog never grew fields for either, so a person editing
+      a board's columns from the UI could not see or change them at
+      all. Owner, live: "Where to view and edit the column chain? Also,
+      where to view and edit the required items of each column?" - the
+      honest answer was nowhere.
+
+    - Fixed: each column row in the dialog now shows a bounded
+      multi-select for its chain and a one-item-per-line textarea for
+      its required-action template, both reading and writing through
+      the existing /columns and /columns/apply routes. A column with
+      neither declared shows both empty and saves with neither forced
+      in. The dialog gained a scrollable max-height to fit the taller
+      rows, matching the existing proof-dialog pattern.
+
 3.27  2026-08-22
 
     - TKT-469. The work log and police log's narrow-screen CSS override

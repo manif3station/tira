@@ -12,10 +12,11 @@ if (!htmlPath) {
 }
 
 const COLUMNS = [
-  { name: 'backlog', label: 'Backlog', protected: true, watched: 1 },
+  { name: 'backlog', label: 'Backlog', protected: true, watched: 1, next: ['planning'] },
   { name: 'planning', label: 'Planning', protected: false, watched: 0 },
   { name: 'in-progress', label: 'In Progress', protected: false, watched: 1 },
-  { name: 'review', label: 'Review', protected: false, watched: 1, notify_after: 45 },
+  { name: 'review', label: 'Review', protected: false, watched: 1, notify_after: 45,
+    required_actions: ['Run the suite', 'Update the docs'] },
   { name: 'done', label: 'Done', protected: false, watched: 1 },
   { name: 'discard', label: 'Discard', protected: true, watched: 1 },
 ];
@@ -87,11 +88,42 @@ process.on('unhandledRejection', error => {
   const minutes = await page.locator('.column-row').nth(3).locator('.column-row__minutes').inputValue();
   if (minutes !== '45') fail('the stored threshold was not shown, got ' + minutes);
 
-  // Drag 'done' above 'review' by its grip, with real pointer events.
+  // The chain (next) and required-action template are shown for the columns
+  // that declared them, and the fields exist but stay empty for the ones
+  // that did not - no forced values.
+  const backlogNext = await page.locator('.column-row[data-name="backlog"] .column-row__next')
+    .evaluate(select => Array.from(select.selectedOptions).map(o => o.value));
+  if (backlogNext.join(',') !== 'planning') fail('backlog\'s chain was not shown, got ' + backlogNext.join(','));
+
+  const reviewActions = await page.locator('.column-row[data-name="review"] .column-row__actions').inputValue();
+  if (reviewActions !== 'Run the suite\nUpdate the docs') {
+    fail('review\'s required-action template was not shown, got ' + JSON.stringify(reviewActions));
+  }
+
+  const doneNext = await page.locator('.column-row[data-name="done"] .column-row__next')
+    .evaluate(select => Array.from(select.selectedOptions).map(o => o.value));
+  if (doneNext.length) fail('a column with no chain declared showed one anyway, got ' + doneNext.join(','));
+  const doneActions = await page.locator('.column-row[data-name="done"] .column-row__actions').inputValue();
+  if (doneActions !== '') fail('a column with no required-action template declared showed one anyway, got ' + JSON.stringify(doneActions));
+
+  // Drag 'done' above 'review' by its grip, with real pointer events. The
+  // rows now carry a chain select and a required-action textarea, so six of
+  // them can outgrow the dialog and need a scroll - fetched together, in one
+  // synchronous read after scrolling both into view, so a scroll triggered
+  // while reading one box can't move the other one the drag was aimed at.
   const doneGrip = page.locator('.column-row[data-name="done"] .column-row__grip');
   const reviewRow = page.locator('.column-row[data-name="review"]');
-  const from = await doneGrip.boundingBox();
-  const to = await reviewRow.boundingBox();
+  const [from, to] = await page.evaluate(() => {
+    const grip = document.querySelector('.column-row[data-name="done"] .column-row__grip');
+    const row = document.querySelector('.column-row[data-name="review"]');
+    row.scrollIntoView({ block: 'center' });
+    const g = grip.getBoundingClientRect();
+    const r = row.getBoundingClientRect();
+    return [
+      { x: g.x, y: g.y, width: g.width, height: g.height },
+      { x: r.x, y: r.y, width: r.width, height: r.height },
+    ];
+  });
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
   await page.mouse.down();
   await page.mouse.move(to.x + to.width / 2, to.y + 4, { steps: 12 });
@@ -101,9 +133,11 @@ process.on('unhandledRejection', error => {
     fail('dragging by the grip did not reorder, got ' + reordered.join(','));
   }
 
-  // Change a threshold, turn an eye on, remove a column, add one.
+  // Change a threshold, turn an eye on, remove a column, add one, and edit
+  // a required-action template.
   await page.locator('.column-row[data-name="in-progress"] .column-row__minutes').fill('90');
   await page.locator('.column-row[data-name="planning"] .column-row__eye').click();
+  await page.locator('.column-row[data-name="review"] .column-row__actions').fill('Run the suite\nUpdate the docs\nAdd a Changes entry');
   await page.locator('.column-row[data-name="done"] .column-row__remove').click();
   await page.locator('.column-dialog__new').fill('Waiting On Client');
   await page.locator('.column-dialog__addbtn').click();
@@ -128,6 +162,14 @@ process.on('unhandledRejection', error => {
     const backlog = saved.columns.find(c => c.name === 'backlog');
     if ('notify_after' in backlog) fail('an empty threshold was sent as a value');
     if (saved.type !== 'ticket') fail('the board type was not sent');
+    if ((backlog.next || []).join(',') !== 'planning') fail('backlog\'s untouched chain was not sent back, got ' + JSON.stringify(backlog.next));
+    const review = saved.columns.find(c => c.name === 'review');
+    if ((review.required_actions || []).join('|') !== 'Run the suite|Update the docs|Add a Changes entry') {
+      fail('the edited required-action template was not sent, got ' + JSON.stringify(review.required_actions));
+    }
+    const doneless = saved.columns.find(c => c.name === 'planning');
+    if ('next' in doneless) fail('a column with no chain declared had one forced into the save, got ' + JSON.stringify(doneless.next));
+    if ('required_actions' in doneless) fail('a column with no required-action template declared had one forced into the save');
   }
 
   await browser.close();

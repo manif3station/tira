@@ -359,6 +359,22 @@ const fs = require('fs');
   const blockedType = await blockedRow.locator('.card-linkage__type').textContent();
   if (blockedType !== 'blocks') throw new Error(`typed link rows must keep their type, got ${blockedType}`);
 
+  // TKT-470: clicking a linked row navigates the dialog to that card, and the
+  // back control returns to the card that was open before.
+  if (!(await page.locator('.card-dialog__back').isHidden()))
+    throw new Error('the back control must start hidden - nothing to go back to yet');
+  await page.locator('.card-dialog [data-linkage-row="TKT-005"]').click();
+  await page.waitForFunction(() => (document.querySelector('.card-dialog__ref')?.textContent || '').includes('TKT-005'));
+  const navigatedText = await page.locator('.card-dialog__ref').textContent();
+  if (!navigatedText.includes('High priority child') && !(await page.locator('.card-dialog h2').textContent()).includes('High priority child'))
+    throw new Error(`clicking a linked row must open that card, got ref line ${navigatedText}`);
+  if (await page.locator('.card-dialog__back').isHidden())
+    throw new Error('the back control must be visible once navigated into a linked card');
+  await page.locator('.card-dialog__back').click();
+  await page.waitForFunction(() => (document.querySelector('.card-dialog__ref')?.textContent || '').includes('TKT-001'));
+  if (!(await page.locator('.card-dialog__back').isHidden()))
+    throw new Error('the back control must hide again once back at the card that started the trip');
+
   const commentIds = await page.locator('.card-dialog .card-comment').evaluateAll(nodes => nodes.map(node => node.dataset.comment));
   if (JSON.stringify(commentIds) !== JSON.stringify(['CMT-002', 'CMT-001'])) throw new Error(`comments are not newest-first: ${commentIds}`);
   if (await page.locator('.card-dialog .card-comment__body strong').count() !== 1)
@@ -494,11 +510,19 @@ const fs = require('fs');
     throw new Error('the description pencil is not in the section heading');
 
   before = await seq();
+  const refBeforeLinkRemove = await page.locator('.card-dialog__ref').textContent();
   await page.locator('.card-dialog [data-link-remove="blocks:TKT-009"]').click();
   await page.waitForFunction(prev => (window.__tiraMutationSeq || 0) > prev, before);
   const linkRemove = mutations.find(e => e.path === '/link/remove');
   if (!linkRemove || linkRemove.body.from !== 'TKT-001' || linkRemove.body.type !== 'blocks' || linkRemove.body.to !== 'TKT-009')
     throw new Error(`unexpected link remove payload: ${JSON.stringify(linkRemove && linkRemove.body)}`);
+  // TKT-470: the typed-link remove button lives inside a navigable linkage
+  // row too, and must not trigger the row's own navigate-on-click either.
+  const refAfterLinkRemove = await page.locator('.card-dialog__ref').textContent();
+  if (refAfterLinkRemove !== refBeforeLinkRemove)
+    throw new Error(`clicking a typed link's remove button must not navigate away, went from ${refBeforeLinkRemove} to ${refAfterLinkRemove}`);
+  if (!(await page.locator('.card-dialog__back').isHidden()))
+    throw new Error('clicking a typed link remove button must not push onto the navigation stack either');
 
   before = await seq();
   await page.locator('.card-dialog .card-link-form select[name="type"]').selectOption('is-blocked-by');
@@ -518,11 +542,18 @@ const fs = require('fs');
     throw new Error(`unexpected hierarchy link payload: ${JSON.stringify(parentLink && parentLink.body)}`);
 
   before = await seq();
+  const refBeforeUnlink = await page.locator('.card-dialog__ref').textContent();
   await page.locator('.card-dialog [data-linkage-unlink="sub_ticket_refs:TKT-005"]').click();
   await page.waitForFunction(prev => (window.__tiraMutationSeq || 0) > prev, before);
   const subUnlink = mutations.find(e => e.path === '/subitem/unlink');
   if (!subUnlink || subUnlink.body.parent !== 'TKT-001' || subUnlink.body.child !== 'TKT-005')
     throw new Error(`unexpected subitem unlink payload: ${JSON.stringify(subUnlink && subUnlink.body)}`);
+  // TKT-470: the unlink (x) button must not trigger the row's own navigate-on-click.
+  const refAfterUnlink = await page.locator('.card-dialog__ref').textContent();
+  if (refAfterUnlink !== refBeforeUnlink)
+    throw new Error(`clicking unlink must not navigate away from the card, went from ${refBeforeUnlink} to ${refAfterUnlink}`);
+  if (!(await page.locator('.card-dialog__back').isHidden()))
+    throw new Error('clicking unlink must not push onto the navigation stack either');
 
   await page.locator(`.card-dialog [data-view-attachment="${'f'.repeat(64)}.mp4"]`).first().click();
   await page.waitForSelector('.card-viewer:not([hidden])');

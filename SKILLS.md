@@ -1184,6 +1184,8 @@ An agent can also add a required item that exists only on one card: `d2 tira.req
 
 Required items get their own labeled section in the browser dashboard's card dialog, separate from the general checklist - opening a card shows a "Required actions (done/total)" section, grouped by column, the moment it opens. A card with none renders exactly as before, no new section. Marking one done from the dialog updates the count in place, with no page reload. TKT-440. A done item's command/proof pairs open in a popup on click, rather than an inline row - the inline form (TKT-462) could not cope with a long command on a narrow screen, wrapping the proof text one character per line until it was unreadable; the popup wraps at word boundaries and stays within the viewport at any width. TKT-467.
 
+A linked sub-ticket/epic row in the card dialog's hierarchy/linkage list is clickable - clicking it navigates the dialog to that card, and a back control (top-left of the header, hidden until there is somewhere to go back to) returns to the card that was open before, one step at a time. Clicking the unlink (x) on a linkage row, or the remove (x) on a typed link, does not navigate - only the row itself does. The navigation trail resets when the dialog closes or a fresh card is opened from the board, so it never carries stale state into an unrelated card. Owner, live: "Add a click to the list. When user click on it. Will open that card. And when click on the back button will be back to parent card." TKT-470.
+
 ### UC-055: Move epic independently
 **Implemented.** Moving an epic does not move its tickets.
 

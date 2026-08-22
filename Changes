@@ -1,5 +1,21 @@
 Revision history for Tira
 
+3.29  2026-08-22
+
+    - TKT-470. A card's hierarchy/linkage list showed each linked
+      sub-ticket/epic's ref, title, column, and an unlink control - but
+      the row itself did nothing when clicked, so seeing a linked card
+      meant closing the dialog and finding it on the board by hand.
+      Owner, live: "Add a click to the list. When user click on it. Will
+      open that card. And when click on the back button will be back to
+      parent card."
+
+    - Fixed: a linkage row now navigates the dialog to that card on
+      click, and a back control in the header (hidden until there is
+      somewhere to go back to) returns to the card that was open before.
+      The unlink/remove buttons inside a row are guarded so clicking
+      them still only unlinks, never navigates.
+
 3.28  2026-08-22
 
     - TKT-468. column_update/column_apply have supported a --next chain

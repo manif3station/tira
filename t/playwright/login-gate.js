@@ -160,6 +160,45 @@ process.on('unhandledRejection', error => {
     const rows = await page.locator('.card-worklog__entry').count();
     if (named === rows) pass('and every row has a name cell, so none of them slide out of shape');
     else fail(`only ${named} of ${rows} work log rows carry a name cell`);
+
+    // --- and it can be read on a phone --------------------------------------
+    //
+    // Same class of defect police-log.js already caught for
+    // .card-policelog__detail: the entry is a grid of fixed rem widths, and on
+    // a phone the leftover 1fr can be squeezed to a column of single letters -
+    // or, on this section, disappear from view entirely. His words, on a
+    // screenshot of this exact section: "Why need to hide the details of the
+    // event?"
+    const phoneContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    await phoneContext.addCookies(await context.cookies());
+    const phone = await phoneContext.newPage();
+    await phone.goto(base, { waitUntil: 'domcontentloaded' });
+    await phone.waitForSelector('.board', { timeout: 8000 });
+    await phone.locator('.card').first().click();
+    await phone.waitForSelector('.card-dialog[open], dialog[open]', { timeout: 5000 }).catch(() => {});
+    await phone.locator('.card-worklog__toggle').click();
+    await phone.waitForSelector('.card-worklog__entry, .card-worklog__empty', { timeout: 5000 });
+
+    const measured = await phone.evaluate(() => {
+      const detail = document.querySelector('.card-worklog__detail');
+      const section = document.querySelector('.card-section--worklog');
+      return {
+        detail: detail ? detail.getBoundingClientRect().width : 0,
+        detailVisible: detail ? detail.getBoundingClientRect().height > 0 : false,
+        section: section ? section.getBoundingClientRect().width : 0,
+      };
+    });
+    if (!measured.detailVisible) {
+      fail('the work log detail column has no rendered height on a phone - it is not visible at all');
+    } else if (measured.detail < 150) {
+      fail(`the work log detail is ${Math.round(measured.detail)}px wide on a phone - `
+        + 'a column of single letters, the same defect already fixed once for the police log');
+    } else if (measured.detail > measured.section + 1) {
+      fail('the work log detail is wider than the section that holds it');
+    } else {
+      pass('the work log detail is readable on a phone, not squeezed or hidden');
+    }
+    await phoneContext.close();
   }
 
   // --- a board that loses its session ------------------------------------

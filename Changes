@@ -1,5 +1,21 @@
 Revision history for Tira
 
+3.27  2026-08-22
+
+    - TKT-469. The work log and police log's narrow-screen CSS override
+      (meant to collapse the fixed-width grid to one readable column on a
+      phone) was declared before the unconditional base rule that set the
+      wide desktop column widths - same specificity, later source wins,
+      so the override never actually applied at any viewport width. The
+      detail column stayed squeezed to a sliver, or for the work log's
+      extra "who" column, near zero. Owner: "Why need to hide the details
+      of the event?"
+
+    - Fixed: moved the @media(max-width:720px) override to after both
+      base rules so it wins when its condition matches. Added a phone-
+      viewport regression test for the work log detail column, mirroring
+      the one already guarding the police log.
+
 3.26  2026-08-22
 
     - TKT-466. Only record_move refused a caller with no author (TKT-457).

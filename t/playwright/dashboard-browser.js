@@ -385,12 +385,13 @@ const fs = require('fs');
   await page.locator('.card-dialog .card-comment-form [data-md="bold"]').click();
   const toolbarValue = await page.locator('.card-dialog .card-comment-form textarea[name="text"]').inputValue();
   if (toolbarValue !== '**rich**') throw new Error(`bold toolbar produced: ${toolbarValue}`);
-  await page.locator('.card-dialog .card-comment-form select[name="author"]').selectOption('ada');
+  if (await page.locator('.card-dialog .card-comment-form select[name="author"]').count() !== 0)
+    throw new Error('the composer must not offer an author to pick - a comment is attributed to whoever is signed in');
   await page.locator('.card-dialog .card-comment-form textarea[name="text"]').fill('A **new** comment');
   await page.locator('.card-dialog .card-comment-form button[type="submit"]').click();
   await page.waitForFunction(() => window.__tiraLastMutation === '/comment/add');
   const added = mutations.find(entry => entry.path === '/comment/add');
-  if (!added || added.body.author !== 'ada' || added.body.text !== 'A **new** comment' || added.body.ref !== 'TKT-001')
+  if (!added || added.body.author !== undefined || added.body.text !== 'A **new** comment' || added.body.ref !== 'TKT-001')
     throw new Error(`unexpected comment add payload: ${JSON.stringify(added && added.body)}`);
 
   await page.locator('.card-dialog [data-comment-edit="CMT-001"]').click();

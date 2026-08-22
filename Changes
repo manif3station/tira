@@ -1,5 +1,22 @@
 Revision history for Tira
 
+3.21  2026-08-22
+
+    - TKT-458. The dashboard's comment composer offered a free author
+      picker over every person on the project, and whatever was selected
+      is what /comment/add attributed the comment to - not locked to
+      whoever was actually signed in. His words: "if I make a mistake and
+      pick someone else, it becomes their comment - that's not
+      acceptable."
+
+    - Fixed: browser_providers' comment_add (lib/Tira/CLI.pm) now always
+      uses the signed-in session when one is present, ignoring any author
+      the payload names - unlike every other mutation, where an explicit
+      author still wins over the session. The author <select> is removed
+      from the card-comment-form composer entirely. The command line is
+      unaffected: `d2 tira.comment.add --author X` has no session to
+      override.
+
 3.20  2026-08-21
 
     - TKT-462. required_item_update stores --command/--proof pairs on an

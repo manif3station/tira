@@ -1208,8 +1208,14 @@ sub browser_providers {
         comment_add => sub {
             my ($payload) = @_;
             die "Comment payload must be an object\n" if ref($payload) ne 'HASH';
+
+            # A comment is personal, unlike an assignment or a move - TKT-458.
+            # Everywhere else on the board an explicit author is a deliberate
+            # override the session defers to; here it is the one thing a
+            # signed-in person cannot hand to someone else by picking wrong,
+            # so the session wins even over an author the payload names.
             $payload->{author} = $payload->{_signed_in}
-              if !defined $payload->{author} && defined $payload->{_signed_in};
+              if defined $payload->{_signed_in};
             for my $key (qw(ref author text)) {
                 die "Comment payload requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
             }

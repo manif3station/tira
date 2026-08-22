@@ -55,15 +55,19 @@ test_psgi $app, sub {
     is( $with_comment->{comments}[0]{author}, 'michael',
         'and it is authored by the signed-in person, without them choosing' );
 
-    # An agent acting on somebody's behalf is a real case, so an explicit
-    # author still wins - the session is a default, not a straitjacket.
+    # A comment is personal, unlike an assignment or a move - TKT-458, his own
+    # words: "if I make a mistake and pick someone else, it becomes their
+    # comment - that's not acceptable." So unlike every other mutation here,
+    # an explicit author does NOT win for a comment: the signed-in session is
+    # not a default, it is the only choice, because the board's own comment
+    # composer no longer offers one.
     $http->( POST '/comment/add', Cookie => $as_michael,
         Content => Cpanel::JSON::XS->new->encode(
             { type => 'ticket', ref => $card->{ref}, author => 'claude',
               text => 'Recording this for Michael' } ) );
     my $both = $tira->record_show( project => $root, type => 'ticket', ref => $card->{ref} );
-    is( $both->{comments}[1]{author}, 'claude',
-        'while an author given deliberately still wins over the session' );
+    is( $both->{comments}[1]{author}, 'michael',
+        'a comment cannot be misattributed by an author sent from the board - the session always wins' );
 
     # --- a card created from the board is reported by them ----------------
 

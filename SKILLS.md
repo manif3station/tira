@@ -922,9 +922,14 @@ Empty values render as an em-dash. Single-value fields carry an inline edit
 control; saving routes the change through the same validated update engine as
 the CLI, and validation failures (bad priority, inactive person, malformed
 date) appear inside the dialog without closing it. The comment section adds
-comments with an author picker limited to active people, edits any comment in
-place, and deletes a comment permanently; every successful change re-reads
-the record so the dialog always shows filesystem truth.
+comments, edits any comment in place, and deletes a comment permanently;
+every successful change re-reads the record so the dialog always shows
+filesystem truth. A comment carries no author picker - it is always
+attributed to whoever is signed in, with no choice offered, unlike every
+other mutation the board makes (assignee, move, create), where an explicit
+author still wins over the session. A comment is personal in a way those are
+not: his own words, "if I make a mistake and pick someone else, it becomes
+their comment - that's not acceptable." TKT-458.
 Attachments render as chips: images and PDFs open inline in an overlay
 viewer; text-like files render in the viewer's own themed panel — fetched
 and set as plain text with deterministic dark-theme contrast in every

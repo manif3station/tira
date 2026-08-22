@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.30';
+our $VERSION = '3.31';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1416,6 +1416,19 @@ sub column_apply {
         }
         my $reordered = join( "\0", map { $_->{name} } @{ $config->{columns} } )
           ne join( "\0", map { $_->{name} } @columns );
+
+        # A caller's payload can name a column that is gone from this very
+        # layout - the dialog's own Next checkboxes are built once when it
+        # opens and never refreshed if another row removes the column they
+        # point at in the same editing session, so a stale selection reaches
+        # here unless something else catches it. The columns actually being
+        # saved are the only names that can ever be valid next targets.
+        # TKT-475.
+        my %valid = map { $_->{name} => 1 } @columns;
+        for my $column (@columns) {
+            next if ref $column->{next} ne 'ARRAY';
+            $column->{next} = [ grep { $valid{$_} } @{ $column->{next} } ];
+        }
         $config->{columns} = \@columns;
 
         # A column is a folder as well as a config entry: without this an added
@@ -1479,7 +1492,13 @@ sub column_update {
         # inferred, and replacing the whole set each call for the same reason
         # required_actions does. Unconfigured, a column keeps deriving its
         # one next step from position, exactly as before. TKT-430.
-        $column->{next} = $args{next} if defined $args{next};
+        if ( defined $args{next} ) {
+            my %known = map { $_->{name} => 1 } @{ $config->{columns} };
+            for my $target ( @{ $args{next} } ) {
+                die "Column '$target' named in --next does not exist\n" if !$known{$target};
+            }
+            $column->{next} = $args{next};
+        }
         $self->_write_yaml( $path, $config );
         return _column_defaults( [$column] )->[0];
     } );
@@ -1614,6 +1633,16 @@ sub column_remove {
         }
         closedir $dh;
         $config->{columns} = [ grep { $_->{name} ne $args{name} } @{ $config->{columns} } ];
+
+        # A removed column is a dangling fork target for anything that named
+        # it in --next otherwise: the chain check would still treat the
+        # column that pointed here as forking to a column that no longer
+        # exists, and its own suggested remedy ("move there first") would
+        # refuse too, since there is nowhere left to move to. TKT-475.
+        for my $other ( @{ $config->{columns} } ) {
+            next if ref $other->{next} ne 'ARRAY';
+            $other->{next} = [ grep { $_ ne $args{name} } @{ $other->{next} } ];
+        }
         eval { $self->_write_yaml( $path, $config ); 1 } or do {
             my $error = $@ || 'Unknown column configuration failure';
             rename File::Spec->catfile( $discard, $_ ), File::Spec->catfile( $source, $_ ) for @names;

@@ -1,5 +1,28 @@
 Revision history for Tira
 
+3.31  2026-08-22
+
+    - TKT-475. Removing a column - via tira.column.remove, or via the
+      Columns dialog's Save button (column_apply) - never scrubbed that
+      column's name out of other columns' stored --next chain arrays.
+      A dangling reference then made the chain check treat the column
+      that pointed there as still forking to a column that no longer
+      existed: any forward move not in the now-partly-nonexistent fork
+      list refused, and the refusal's own suggested remedy ("move there
+      first") failed too, since the named column had nowhere to move
+      to. Every card in the affected column had no valid forward move
+      at all. Found by the hourly-hunt agent's first real run (TKT-474).
+
+    - Fixed: column_remove and column_apply now strip a removed
+      column's name from every other column's next array. column_apply
+      also strips any next entry naming a column absent from the
+      layout being saved, even if the caller's own payload still names
+      it - the dialog's Next checkboxes are a snapshot taken when it
+      opened and are not refreshed by another row's removal in the same
+      session, so a stale selection can otherwise reach the server.
+      column_update now refuses --next naming a column that does not
+      exist, rather than accepting a typo silently.
+
 3.30  2026-08-22
 
     - TKT-472. TKT-468 shipped a native <select multiple> for a

@@ -20,11 +20,12 @@ my $tmp = tempdir( CLEANUP => 1 );
 my $root = File::Spec->catdir( $tmp, 'lists' );
 my $tira = Tira->new( clock => sub { '2026-08-06T19:00:00+0100' } );
 $tira->create_project( name => 'List project', dir => $root );
+$tira->person_add( project => $root, id => 'claude', name => 'Claude' );
 $tira->create_record(
     project => $root, type => 'ticket', title => 'List card',
     acceptance => ['original criterion'], scope_in => ['dialog'], scope_out => ['reports'],
 );
-$tira->checklist_add( project => $root, ref => 'TKT-001', item => 'Design rows', status => 'To Do' );
+$tira->checklist_add( author => 'claude', project => $root, ref => 'TKT-001', item => 'Design rows', status => 'To Do' );
 
 sub browser_cli {
     my ( $command, @argv ) = @_;
@@ -57,51 +58,51 @@ like( $live_html, qr{mutate\("/checklist/update"}, 'checklist edits post to thei
 
 my $update = $calls->[0]{update};
 
-my $labels = decode_json( $update->( { ref => 'TKT-001', field => 'labels', value => [ 'Browser', 'dialog' ] } ) );
+my $labels = decode_json( $update->( { ref => 'TKT-001', author => 'claude', field => 'labels', value => [ 'Browser', 'dialog' ] } ) );
 ok( $labels->{ok}, 'label lists replace through the update provider' );
 is_deeply( $labels->{record}{labels}, [ 'Browser', 'dialog' ], 'the replacement list is persisted in order' );
 
 my $criteria = decode_json(
-    $update->( { ref => 'TKT-001', field => 'acceptance_criteria', value => ['edited criterion'] } )
+    $update->( { ref => 'TKT-001', author => 'claude', field => 'acceptance_criteria', value => ['edited criterion'] } )
 );
 is_deeply( $criteria->{record}{acceptance_criteria}, ['edited criterion'],
     'acceptance criteria replace as a whole list' );
 
 my $included = decode_json(
-    $update->( { ref => 'TKT-001', field => 'scope_included', value => [ 'dialog', 'viewer' ] } )
+    $update->( { ref => 'TKT-001', author => 'claude', field => 'scope_included', value => [ 'dialog', 'viewer' ] } )
 );
 is_deeply( $included->{record}{scope}{included}, [ 'dialog', 'viewer' ], 'scope included replaces its side' );
 is_deeply( $included->{record}{scope}{excluded}, ['reports'], 'the other scope side is preserved' );
 
-my $emptied = decode_json( $update->( { ref => 'TKT-001', field => 'bdd', value => [] } ) );
+my $emptied = decode_json( $update->( { ref => 'TKT-001', author => 'claude', field => 'bdd', value => [] } ) );
 is_deeply( $emptied->{record}{bdd}, [], 'a list field can be emptied' );
 
-my $error = eval { $update->( { ref => 'TKT-001', field => 'labels', value => 'plain' } ); 1 } ? '' : $@;
+my $error = eval { $update->( { ref => 'TKT-001', author => 'claude', field => 'labels', value => 'plain' } ); 1 } ? '' : $@;
 like( $error, qr/array value/i, 'list fields refuse plain scalar values' );
 
-$error = eval { $update->( { ref => 'TKT-001', field => 'title', value => ['array'] } ); 1 } ? '' : $@;
+$error = eval { $update->( { ref => 'TKT-001', author => 'claude', field => 'title', value => ['array'] } ); 1 } ? '' : $@;
 like( $error, qr/plain value/i, 'single-value fields refuse arrays' );
 
-$error = eval { $update->( { ref => 'TKT-001', field => 'labels', value => [ { bad => 1 } ] } ); 1 } ? '' : $@;
+$error = eval { $update->( { ref => 'TKT-001', author => 'claude', field => 'labels', value => [ { bad => 1 } ] } ); 1 } ? '' : $@;
 like( $error, qr/plain text items/i, 'list values must be plain text items' );
 
-$error = eval { $update->( { ref => 'TKT-001', field => 'linkage', value => [] } ); 1 } ? '' : $@;
+$error = eval { $update->( { ref => 'TKT-001', author => 'claude', field => 'linkage', value => [] } ); 1 } ? '' : $@;
 like( $error, qr/not editable/i, 'linkage stays uneditable from the dialog' );
 
-my $added = decode_json( $calls->[0]{checklist_add}->( { ref => 'TKT-001', item => 'Prove rows', status => 'To Do' } ) );
+my $added = decode_json( $calls->[0]{checklist_add}->( { ref => 'TKT-001', author => 'claude', item => 'Prove rows', status => 'To Do' } ) );
 ok( $added->{ok}, 'the checklist add provider succeeds' );
 is( $added->{entry}{id}, 'CHK-002', 'new checklist entries keep monotonic ids' );
 
 my $edited = decode_json(
-    $calls->[0]{checklist_update}->( { ref => 'TKT-001', id => 'CHK-001', status => 'Done',
+    $calls->[0]{checklist_update}->( { ref => 'TKT-001', id => 'CHK-001', status => 'Done', author => 'claude',
         command => ['reviewed rows'], proof => ['looks right'] } )
 );
 is( $edited->{entry}{status}, 'Done', 'the checklist update provider edits status' );
 is( $edited->{entry}{item}, 'Design rows', 'unchanged checklist item text survives' );
 
-$error = eval { $calls->[0]{checklist_add}->( { ref => 'TKT-001', item => 'x' } ); 1 } ? '' : $@;
+$error = eval { $calls->[0]{checklist_add}->( { ref => 'TKT-001', author => 'claude', item => 'x' } ); 1 } ? '' : $@;
 like( $error, qr/requires/i, 'checklist add payloads need item and status' );
-$error = eval { $calls->[0]{checklist_update}->( { ref => 'TKT-001', id => 'CHK-009', status => 'x' } ); 1 } ? '' : $@;
+$error = eval { $calls->[0]{checklist_update}->( { ref => 'TKT-001', id => 'CHK-009', status => 'x', author => 'claude' } ); 1 } ? '' : $@;
 like( $error, qr/not found/i, 'unknown checklist ids fail clearly' );
 
 my %providers = (

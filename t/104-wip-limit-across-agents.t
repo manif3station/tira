@@ -24,7 +24,7 @@ $tira->policy_add( project => $root, rule => 'wip-limit',
 my %ref;
 for my $who (qw(ada grace alan)) {
     my $card = $tira->create_record( project => $root, type => 'ticket', title => "For $who" );
-    $tira->record_update( project => $root, ref => $card->{ref}, assignee => $who );
+    $tira->record_update( author => 'ada', project => $root, ref => $card->{ref}, assignee => $who );
     $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
     $ref{$who} = $card->{ref};
 }

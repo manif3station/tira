@@ -47,7 +47,7 @@ my $epic = $tira->create_record( project => $root, type => 'epic', title => 'A p
 my $ticket = $tira->create_record( project => $root, type => 'ticket', title => 'A card' );
 $tira->hierarchy_link( project => $root, parent => $sow->{ref}, child => $epic->{ref} );
 $tira->hierarchy_link( project => $root, parent => $epic->{ref}, child => $ticket->{ref} );
-$tira->record_update( project => $root, ref => $ticket->{ref}, assignee => 'ada' );
+$tira->record_update( author => 'michael', project => $root, ref => $ticket->{ref}, assignee => 'ada' );
 
 # --- the path down to the card --------------------------------------------
 

@@ -54,7 +54,7 @@ my $store = File::Spec->catdir( $tmp, 'police' );
 
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Blocked on an answer' );
-$tira->record_update( project => $root, ref => $card->{ref}, assignee => 'ada' );
+$tira->record_update( author => 'michael', project => $root, ref => $card->{ref}, assignee => 'ada' );
 $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 my $question = $tira->question_add( project => $root, ref => $card->{ref},
     author => 'ada', text => 'Which way round?', reason => 'both are defensible' );

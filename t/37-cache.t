@@ -17,6 +17,7 @@ my $tmp = tempdir( CLEANUP => 1 );
 my $root = File::Spec->catdir( $tmp, 'warmed' );
 my $tira = Tira->new( clock => sub { '2026-08-07T14:00:00Z' } );
 $tira->create_project( name => 'Warmed', dir => $root );
+$tira->person_add( project => $root, id => 'claude', name => 'Claude' );
 my $ticket = $tira->create_record( project => $root, type => 'ticket', title => 'Cached subject' );
 
 sub run_cli {
@@ -59,7 +60,7 @@ is( $bypass_status, 0, 'the explicit bypass succeeds' );
 # absence of the notice is the whole answer.
 unlike( $bypass_err, qr/served from cache/, '--no-cache always reads live' );
 
-$tira->record_update( project => $root, ref => $ticket->{ref}, title => 'Rewritten subject' );
+$tira->record_update( author => 'claude', project => $root, ref => $ticket->{ref}, title => 'Rewritten subject' );
 my ( $fresh_status, $fresh_out, $fresh_err ) = run_cli(
     'export', undef, '--cache-ttl', '60', '-o', 'json',
 );
@@ -185,7 +186,7 @@ SKIP: {
     my %was = map { $_ => [ Time::HiRes::stat($_) ] } @watched;
 
     my $before = Tira::CLI::_board_fingerprint($root);
-    $tira->record_update( project => $root, ref => $ticket->{ref}, title => 'Same tick' );
+    $tira->record_update( author => 'claude', project => $root, ref => $ticket->{ref}, title => 'Same tick' );
 
     # Every modification time put back exactly as it was: the strongest form of
     # the problem, where nothing about any time has changed anywhere.

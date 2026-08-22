@@ -84,7 +84,7 @@ sub reported {
 
 my ( $card, $question ) = asked_and_answered('Marked and folded together');
 $tira->question_mark( project => $root, id => $question, mark => 'ok', author => 'claude' );
-$tira->record_update( project => $root, ref => $card,
+$tira->record_update( author => 'claude', project => $root, ref => $card,
     key_details => ["$question was answered: that way round"] );
 
 # Ten minutes on, so the age has passed and the rule is entitled to speak.
@@ -118,7 +118,7 @@ is_deeply( reported('together'), [],
 {
     $now = '2026-08-15T11:00:00Z';
     my ( $early, $late ) = asked_and_answered('Written first, marked after');
-    $tira->record_update( project => $root, ref => $early,
+    $tira->record_update( author => 'claude', project => $root, ref => $early,
         key_details => ['Something unrelated, written before the answer was judged'] );
 
     $now = '2026-08-15T11:00:30Z';

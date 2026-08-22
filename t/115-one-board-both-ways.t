@@ -67,7 +67,7 @@ my @cards;
 for my $each ( [ 'First', 'ada' ], [ 'Second', 'grace' ], [ 'Third', undef ] ) {
     my $card = $tira->create_record( project => $root, type => 'ticket', title => $each->[0] );
     $tira->hierarchy_link( project => $root, parent => $epic->{ref}, child => $card->{ref} );
-    $tira->record_update( project => $root, ref => $card->{ref}, assignee => $each->[1] )
+    $tira->record_update( author => 'michael', project => $root, ref => $card->{ref}, assignee => $each->[1] )
       if defined $each->[1];
     $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
     push @cards, $card;
@@ -156,7 +156,7 @@ like( $tight->{'wip-limit'}[0]{detail}, qr/limit is 1/,
 only_policies( { rule => 'card-sandbox-missing', enter => 'implement',
         sandbox => '/sandboxes', action => 'log-only' } );
 for my $card (@cards) {
-    $tira->record_update( project => $root, ref => $card->{ref},
+    $tira->record_update( author => 'michael', project => $root, ref => $card->{ref},
         sandbox => "/sandboxes/$card->{ref}" );
 }
 my @trees = map { "/sandboxes/$_->{ref}" } @cards;
@@ -164,11 +164,11 @@ my @branches = map { $_->{ref} } @cards;
 is( scalar @{ police( branches => \@branches, worktrees => \@trees )->{'card-sandbox-missing'} // [] },
     0, 'a chain that gives every card a work tree and records it satisfies the rule' );
 
-$tira->record_update( project => $root, ref => $cards[1]{ref}, sandbox => '' );
+$tira->record_update( author => 'michael', project => $root, ref => $cards[1]{ref}, sandbox => '' );
 my $lost = police( branches => \@branches, worktrees => \@trees );
 is( scalar @{ $lost->{'card-sandbox-missing'} // [] }, 1, 'and one card that stopped claiming its tree is caught' );
 like( $lost->{'card-sandbox-missing'}[0]{detail}, qr/not recorded on the card/, 'by name' );
-$tira->record_update( project => $root, ref => $cards[1]{ref},
+$tira->record_update( author => 'michael', project => $root, ref => $cards[1]{ref},
     sandbox => "/sandboxes/$cards[1]{ref}" );
 
 # --- the bridge, read at the top ------------------------------------------

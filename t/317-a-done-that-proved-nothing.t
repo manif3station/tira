@@ -39,11 +39,11 @@ my $card = $tira->create_record( project => $root, type => 'ticket', title => 'P
 
 # --- a required item cannot be marked done without proof --------------------------
 
-my $req = $tira->required_item_add( project => $root, ref => $card->{ref},
+my $req = $tira->required_item_add( author => 'claude', project => $root, ref => $card->{ref},
     item => 'left a note', status => 'pending' );
 
 ok( !eval {
-        $tira->required_item_update( project => $root, ref => $card->{ref},
+        $tira->required_item_update( author => 'claude', project => $root, ref => $card->{ref},
             id => $req->{id}, status => 'done' );
         1;
     },
@@ -52,7 +52,7 @@ like( $@, qr/proof/i, 'and names what is missing' );
 
 # --- one command/proof pair is enough, and it is readable back --------------------
 
-my $done = $tira->required_item_update( project => $root, ref => $card->{ref},
+my $done = $tira->required_item_update( author => 'claude', project => $root, ref => $card->{ref},
     id => $req->{id}, status => 'done',
     command => ['prove -l t/foo.t'], proof => ['ok 1 - foo\n1..1\nok'] );
 
@@ -69,9 +69,9 @@ like( $gate->{details}, qr/prove -l t\/foo\.t/, 'and the command that proved it'
 
 # --- multiple pairs on one item are all stored -------------------------------------
 
-my $req2 = $tira->required_item_add( project => $root, ref => $card->{ref},
+my $req2 = $tira->required_item_add( author => 'claude', project => $root, ref => $card->{ref},
     item => 'two-step check', status => 'pending' );
-my $multi = $tira->required_item_update( project => $root, ref => $card->{ref},
+my $multi = $tira->required_item_update( author => 'claude', project => $root, ref => $card->{ref},
     id => $req2->{id}, status => 'done',
     command => [ 'cmd one', 'cmd two' ], proof => [ 'out one', 'out two' ] );
 is( scalar @{ $multi->{proof} }, 2, 'two command/proof pairs are both stored' );
@@ -79,10 +79,10 @@ is( $multi->{proof}[1]{command}, 'cmd two', 'in the order they were given' );
 
 # --- mismatched pair counts refuse, rather than silently pairing wrong -------------
 
-my $req3 = $tira->required_item_add( project => $root, ref => $card->{ref},
+my $req3 = $tira->required_item_add( author => 'claude', project => $root, ref => $card->{ref},
     item => 'mismatched', status => 'pending' );
 ok( !eval {
-        $tira->required_item_update( project => $root, ref => $card->{ref},
+        $tira->required_item_update( author => 'claude', project => $root, ref => $card->{ref},
             id => $req3->{id}, status => 'done',
             command => [ 'a', 'b' ], proof => ['only one'] );
         1;
@@ -91,10 +91,10 @@ ok( !eval {
 
 # --- long proof becomes an attachment instead of inlining onto the card -----------
 
-my $req4 = $tira->required_item_add( project => $root, ref => $card->{ref},
+my $req4 = $tira->required_item_add( author => 'claude', project => $root, ref => $card->{ref},
     item => 'big output', status => 'pending' );
 my $long = 'x' x 2001;
-my $stored = $tira->required_item_update( project => $root, ref => $card->{ref},
+my $stored = $tira->required_item_update( author => 'claude', project => $root, ref => $card->{ref},
     id => $req4->{id}, status => 'done',
     command => ['a very chatty command'], proof => [$long] );
 ok( !exists $stored->{proof}[0]{proof}, 'proof over 2000 chars is not inlined on the item' );
@@ -104,10 +104,10 @@ my $with_attachment = $tira->record_show( project => $root, ref => $card->{ref} 
 ok( scalar @{ $with_attachment->{attachments} } >= 1,
     'and the content actually landed in the record\'s attachments' );
 
-my $req5 = $tira->required_item_add( project => $root, ref => $card->{ref},
+my $req5 = $tira->required_item_add( author => 'claude', project => $root, ref => $card->{ref},
     item => 'short output', status => 'pending' );
 my $short = 'x' x 2000;
-my $inline = $tira->required_item_update( project => $root, ref => $card->{ref},
+my $inline = $tira->required_item_update( author => 'claude', project => $root, ref => $card->{ref},
     id => $req5->{id}, status => 'done',
     command => ['a quiet command'], proof => [$short] );
 is( $inline->{proof}[0]{proof}, $short, 'proof at exactly 2000 chars stays inline' );
@@ -115,16 +115,16 @@ ok( !$inline->{proof}[0]{attachment}, 'and carries no attachment reference' );
 
 # --- checklist_update is gated the same way -----------------------------------------
 
-my $chk = $tira->checklist_add( project => $root, ref => $card->{ref},
+my $chk = $tira->checklist_add( author => 'claude', project => $root, ref => $card->{ref},
     item => 'a plain checklist step', status => 'pending' );
 ok( !eval {
-        $tira->checklist_update( project => $root, ref => $card->{ref},
+        $tira->checklist_update( author => 'claude', project => $root, ref => $card->{ref},
             id => $chk->{id}, status => 'done' );
         1;
     },
     'checklist_update refuses done with no proof too' );
 
-my $chk_done = $tira->checklist_update( project => $root, ref => $card->{ref},
+my $chk_done = $tira->checklist_update( author => 'claude', project => $root, ref => $card->{ref},
     id => $chk->{id}, status => 'done',
     command => ['ls'], proof => ['file.txt'] );
 is( scalar @{ $chk_done->{proof} }, 1, 'and succeeds with a pair, stored the same way' );
@@ -134,15 +134,15 @@ is( scalar @{ $chk_done->{proof} }, 1, 'and succeeds with a pair, stored the sam
 # The gate is specifically about the claim "this is done", not every status
 # change - a card moved back to pending should never need to justify itself.
 
-my $req6 = $tira->required_item_add( project => $root, ref => $card->{ref},
+my $req6 = $tira->required_item_add( author => 'claude', project => $root, ref => $card->{ref},
     item => 'never done', status => 'pending' );
-my $still_pending = $tira->required_item_update( project => $root, ref => $card->{ref},
+my $still_pending = $tira->required_item_update( author => 'claude', project => $root, ref => $card->{ref},
     id => $req6->{id}, status => 'pending' );
 is( $still_pending->{status}, 'pending', 'setting a non-done status never requires proof' );
 
 # --- and the internal move-triggered reset, which always sets pending, is unaffected --
 
-$tira->required_item_update( project => $root, ref => $card->{ref},
+$tira->required_item_update( author => 'claude', project => $root, ref => $card->{ref},
     id => $req->{id}, status => 'pending', source => 'required-action' );
 my $reset = $tira->required_item_list( project => $root, ref => $card->{ref} );
 my ($reset_entry) = grep { $_->{id} eq $req->{id} } @{$reset};

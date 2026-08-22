@@ -53,7 +53,7 @@ push @perl, '-I/root/perl5/lib/perl5' if ${^TAINT};
 
 my ( $status, $out, $err ) = command( {}, @perl, 'skills/project/cli/create', '--name', 'CLI full', '--dir', $root, '-o', 'json' );
 is( $status, 0, 'full CLI project created' );
-my %env = ( TIRA_HOME => $root );
+my %env = ( TIRA_HOME => $root, TIRA_AUTHOR => 'ada' );
 
 ( $status, $out, $err ) = command( \%env, @perl, 'skills/project/skills/people/cli/add', '--id', 'ada', '--name', encode_utf8('Ada £'), '-o', 'json' );
 is( decode_json($out)->{id}, 'ada', 'nested people command dispatches' );

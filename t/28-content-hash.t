@@ -36,10 +36,10 @@ my $unselected = $tira->record_show( project => $root, ref => $ref );
 ok( !exists $unselected->{content_hash}, 'the hash appears only when asked for' );
 
 $tick = '2026-08-07T04:05:00Z';
-$tira->record_update( project => $root, ref => $ref, priority => 4 );
+$tira->record_update( author => 'ada', project => $root, ref => $ref, priority => 4 );
 is( current_hash(), $baseline, 'a no-op write does not change the hash' );
 
-$tira->record_update( project => $root, ref => $ref, title => 'Hash subject, revised' );
+$tira->record_update( author => 'ada', project => $root, ref => $ref, title => 'Hash subject, revised' );
 my $after_title = current_hash();
 isnt( $after_title, $baseline, 'a field change changes the hash' );
 
@@ -74,7 +74,7 @@ like( $@, qr/If-changed hash is malformed/, 'a malformed hash dies rather than m
 
 my $board_conditional = $tira->export_records( project => $root, if_changed => $board );
 is_deeply( $board_conditional, { unchanged => Cpanel::JSON::XS::true }, 'a matching board hash collapses the whole export' );
-$tira->record_update( project => $root, ref => $ref, description => 'Board moved on' );
+$tira->record_update( author => 'ada', project => $root, ref => $ref, description => 'Board moved on' );
 $board_conditional = $tira->export_records( project => $root, if_changed => $board );
 is( $board_conditional->{count}, 1, 'a stale board hash returns the full envelope' );
 like( $board_conditional->{board_hash}, qr/\A[0-9a-f]{64}\z/, 'the changed envelope carries the new board hash' );

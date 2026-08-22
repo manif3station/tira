@@ -25,6 +25,7 @@ sub cli {
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
     local $ENV{TIRA_HOME} = $root;
+    local $ENV{TIRA_AUTHOR} = 'ada';
     my $status = Tira::CLI->run( command => $command, type => $type, argv => \@argv );
     return ( $status, $out, $err );
 }

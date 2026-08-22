@@ -54,6 +54,7 @@ sub run {
         local *STDERR = $se;
         do {
             local $ENV{TIRA_HOME} = $root;
+            $ENV{TIRA_AUTHOR} = 'claude';
             Tira::CLI->run( command => $command, type => $type, tira => $tira,
                 argv => [@argv] );
         };

@@ -35,6 +35,7 @@ sub browser_cli {
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
     local $ENV{TIRA_HOME} = $root;
+    $ENV{TIRA_AUTHOR} = 'ada';
     my $status = Tira::CLI->run(
         command => $command, argv => \@argv, tira => $tira,
         browser_server => sub { push @calls, { @_ }; return 1 },
@@ -106,7 +107,7 @@ is( $people->[0]{id}, 'ada', 'the active person id is served' );
 is( $people->[0]{name}, 'Ada Lovelace', 'the active person name is served' );
 
 my $updated = decode_json(
-    $calls->[0]{update}->( { ref => 'TKT-001', field => 'title', value => 'Renamed card' } )
+    $calls->[0]{update}->( { ref => 'TKT-001', author => 'ada', field => 'title', value => 'Renamed card' } )
 );
 ok( $updated->{ok}, 'the update provider succeeds for a valid field' );
 is( $updated->{record}{title}, 'Renamed card', 'the update provider persists through record_update' );
@@ -114,20 +115,20 @@ is( $tira->record_show( project => $root, ref => 'TKT-001' )->{title},
     'Renamed card', 'the field edit reached the record file' );
 
 my $priority = decode_json(
-    $calls->[0]{update}->( { ref => 'TKT-001', field => 'priority', value => '4' } )
+    $calls->[0]{update}->( { ref => 'TKT-001', author => 'ada', field => 'priority', value => '4' } )
 );
 is( $priority->{record}{priority}, 4, 'priority edits pass engine validation' );
 
-my $error = eval { $calls->[0]{update}->( { ref => 'TKT-001', field => 'priority', value => '9' } ); 1 } ? '' : $@;
+my $error = eval { $calls->[0]{update}->( { ref => 'TKT-001', author => 'ada', field => 'priority', value => '9' } ); 1 } ? '' : $@;
 like( $error, qr/Priority/, 'an invalid priority is rejected by the engine' );
 
-$error = eval { $calls->[0]{update}->( { ref => 'TKT-001', field => 'assignee', value => 'bob' } ); 1 } ? '' : $@;
+$error = eval { $calls->[0]{update}->( { ref => 'TKT-001', author => 'ada', field => 'assignee', value => 'bob' } ); 1 } ? '' : $@;
 like( $error, qr/inactive|not.*active|unknown/i, 'an inactive assignee is rejected by the engine' );
 
-$error = eval { $calls->[0]{update}->( { ref => 'TKT-001', field => 'comments', value => [] } ); 1 } ? '' : $@;
+$error = eval { $calls->[0]{update}->( { ref => 'TKT-001', author => 'ada', field => 'comments', value => [] } ); 1 } ? '' : $@;
 like( $error, qr/Field 'comments' is not editable/, 'non-editable fields are refused by name' );
 
-$error = eval { $calls->[0]{update}->( { ref => 'TKT-001' } ); 1 } ? '' : $@;
+$error = eval { $calls->[0]{update}->( { ref => 'TKT-001', author => 'ada' } ); 1 } ? '' : $@;
 like( $error, qr/Update payload requires/, 'update payloads must carry a field and value' );
 
 my $pound = chr 0xA3;
@@ -142,7 +143,7 @@ $error = eval { $calls->[0]{comment_add}->( { ref => 'TKT-001', author => 'bob',
 like( $error, qr/inactive|not.*active/i, 'inactive authors cannot comment' );
 
 my $edited = decode_json(
-    $calls->[0]{comment_update}->( { ref => 'TKT-001', comment => 'CMT-001', text => 'Edited body' } )
+    $calls->[0]{comment_update}->( { ref => 'TKT-001', comment => 'CMT-001', text => 'Edited body', _signed_in => 'ada' } )
 );
 is( $edited->{comment}{body}, 'Edited body', 'the comment update provider edits the body' );
 
@@ -406,17 +407,17 @@ like( $error, qr/payload must be an object/, 'malformed create payloads are refu
 
 # Optimistic concurrency through the update provider
 my $cas = decode_json(
-    $calls->[0]{update}->( { ref => 'TKT-001', field => 'title', value => 'CAS write', base => 'Renamed card' } )
+    $calls->[0]{update}->( { ref => 'TKT-001', author => 'ada', field => 'title', value => 'CAS write', base => 'Renamed card' } )
 );
 ok( $cas->{ok}, 'a matching base saves through the provider' );
 is( $cas->{record}{title}, 'CAS write', 'the compare-and-swap value persists' );
 
-$error = eval { $calls->[0]{update}->( { ref => 'TKT-001', field => 'title', value => 'Lost write', base => 'Renamed card' } ); 1 } ? '' : $@;
+$error = eval { $calls->[0]{update}->( { ref => 'TKT-001', author => 'ada', field => 'title', value => 'Lost write', base => 'Renamed card' } ); 1 } ? '' : $@;
 like( $error, qr/\AConflict: title changed while you were editing/, 'a stale base is refused with a conflict error' );
 is( $tira->record_show( project => $root, ref => 'TKT-001' )->{title},
     'CAS write', 'the conflicted save writes nothing' );
 
-$error = eval { $calls->[0]{update}->( { ref => 'TKT-001', field => 'title', value => 'x', base => ['nope'] } ); 1 } ? '' : $@;
+$error = eval { $calls->[0]{update}->( { ref => 'TKT-001', author => 'ada', field => 'title', value => 'x', base => ['nope'] } ); 1 } ? '' : $@;
 like( $error, qr/plain value/, 'structured bases are refused' );
 
 my %providers = (

@@ -71,7 +71,7 @@ like( $found->[0]{detail}, qr/nobody|no one|assignee/i, 'saying what is missing'
 
 # --- and it stops the moment somebody takes it ---------------------------------
 
-$tira->assignment_set( project => $root, ref => $card->{ref}, people => ['ada'] );
+$tira->assignment_set( author => 'michael', project => $root, ref => $card->{ref}, people => ['ada'] );
 is( scalar @{ unassigned() }, 0, 'once somebody holds it, nothing more is said' );
 
 # --- waiting is not working -----------------------------------------------------

@@ -56,7 +56,7 @@ sub cli {
     );
     $tira->policy_add( project => $root, rule => 'card-stalled', before => 'implement', action => 'bridge-reminder' );
     my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Stuck', reporter => 'claude' );
-    $tira->checklist_add( project => $root, ref => $card->{ref}, item => 'do the work', status => 'Done' );
+    $tira->checklist_add( author => 'claude', project => $root, ref => $card->{ref}, item => 'do the work', status => 'Done' );
     $tira->record_move( project => $root, ref => $card->{ref}, column => 'tests-red', author => 'claude' );
 
     my $pass = $tira->police_pass( project => $root, store => File::Spec->catdir( $tmp, 'store-stalled' ), world => {} );
@@ -77,7 +77,7 @@ sub cli {
     );
     $tira->policy_add( project => $root, rule => 'checklist-unmoved', action => 'bridge-reminder' );
     my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Finished', reporter => 'claude' );
-    $tira->checklist_add( project => $root, ref => $card->{ref}, item => 'do the work', status => 'DONE' );
+    $tira->checklist_add( author => 'claude', project => $root, ref => $card->{ref}, item => 'do the work', status => 'DONE' );
     $tira->record_move( project => $root, ref => $card->{ref}, column => 'tests-red', author => 'claude' );
     $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement', author => 'claude' );
 

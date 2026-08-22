@@ -61,7 +61,7 @@ sub mark_done {
     my ($item_name) = @_;
     my ($item) = grep { $_->{item} eq $item_name }
       @{ $tira->required_item_list( project => $root, ref => $card->{ref} ) };
-    $tira->required_item_update( project => $root, ref => $card->{ref}, id => $item->{id},
+    $tira->required_item_update( author => 'claude', project => $root, ref => $card->{ref}, id => $item->{id},
         status => 'done', command => ['did it'], proof => ['done'] );
 }
 

@@ -33,7 +33,7 @@ sub run {
     my $status = do {
         local *STDOUT = $so;
         local *STDERR = $se;
-        do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
+        do { local $ENV{TIRA_HOME} = $root; local $ENV{TIRA_AUTHOR} = 'michael'; Tira::CLI->run(
             command => 'record.' . shift(@argv), type => $type, tira => $tira,
             argv => [ @argv ],
         ) };

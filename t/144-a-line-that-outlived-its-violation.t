@@ -147,11 +147,11 @@ is( scalar( grep { /\Q$second->{ref}\E/ && / \| SETTLED \| / } bridge() ), 0,
 # had. The settlement must not stop the return being said.
 
 $now = '2026-08-14T01:20:00Z';
-$tira->record_update( project => $root, ref => $card->{ref}, due_date => '2026-08-20T00:00:00Z' );
+$tira->record_update( author => 'michael', project => $root, ref => $card->{ref}, due_date => '2026-08-20T00:00:00Z' );
 $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'done' );
 round();
 $now = '2026-08-14T01:21:00Z';
-$tira->record_update( project => $root, ref => $card->{ref}, due_date => '' );
+$tira->record_update( author => 'michael', project => $root, ref => $card->{ref}, due_date => '' );
 my $returned = round();
 is( scalar( grep { $_->{ref} eq $card->{ref} } @{ $returned->{violations} } ), 1,
     'a violation that becomes true again is reported again' );

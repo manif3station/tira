@@ -108,7 +108,7 @@ unlike( $several, qr/_No description\._/,  'and nothing is invented about the re
 # criteria, the labels - and the scope is a pair of them. Printing a reference
 # to an array where a reader expected text would be its own kind of empty.
 
-$tira->record_update( project => $root, ref => $card->{ref},
+$tira->record_update( author => 'michael', project => $root, ref => $card->{ref},
     labels => [ 'throughput', 'urgent' ],
     scope_in => ['the drain'], scope_out => ['the producer'] );
 

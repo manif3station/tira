@@ -38,7 +38,7 @@ my $card = $tira->create_record( project => $root, type => 'ticket', title => 'R
 # create_record is a direct engine call, exempt from the CLI-only
 # creation-time population (TKT-439/445) - added directly here, as the test
 # setup rather than the thing under test.
-my $item = $tira->required_item_add(
+my $item = $tira->required_item_add( author => 'claude',
     project => $root, ref => $card->{ref}, item => 'left a note', status => 'pending', column => 'planning' );
 
 my $app = Tira::DashboardWeb->build_psgi_app(

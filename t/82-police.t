@@ -90,7 +90,7 @@ is( scalar @unclaimed, 1, 'a work tree no card has claimed is not enough, howeve
 like( $unclaimed[0]{detail}, qr/not recorded on the card/,
     'and says so, because claiming one is a different fix from making one' );
 
-$tira->record_update( project => $root, ref => $card->{ref},
+$tira->record_update( author => 'michael', project => $root, ref => $card->{ref},
     sandbox => "/sandboxes/$card->{ref}" );
 my $equipped = police( world => {
     %world, branches => [ $card->{ref} ],

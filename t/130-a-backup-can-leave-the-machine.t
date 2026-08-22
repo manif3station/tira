@@ -45,7 +45,7 @@ $tira->project_new(
 );
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Must survive the journey' );
-$tira->record_update( project => $root, ref => $card->{ref},
+$tira->record_update( author => 'michael', project => $root, ref => $card->{ref},
     description => 'and arrive saying this' );
 
 my $note = File::Spec->catfile( $tmp, 'evidence.txt' );

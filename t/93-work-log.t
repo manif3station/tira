@@ -42,7 +42,7 @@ at('2026-08-11T09:10:00Z');
 $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement', author => 'michael' );
 
 at('2026-08-11T09:20:00Z');
-$tira->record_update( project => $root, ref => $card->{ref}, description => 'now explained' );
+$tira->record_update( author => 'michael', project => $root, ref => $card->{ref}, description => 'now explained' );
 
 at('2026-08-11T09:30:00Z');
 $tira->comment_add( project => $root, ref => $card->{ref}, author => 'claude', text => 'starting on this' );
@@ -77,11 +77,15 @@ like( $move->{detail}, qr/backlog.*implement/, 'and from where to where' );
 my ($comment) = grep { $_->{kind} eq 'commented' } @entries;
 is( $comment->{who}, 'claude', 'a comment says who left it' );
 
-# A change made with nobody named says nobody, rather than inventing one.
+# A change made with nobody named is refused outright, rather than logging
+# an entry that claims nobody did it (TKT-466) - the work log's whole point
+# is knowing who, so a write it cannot attribute never reaches it.
 at('2026-08-11T10:10:00Z');
-$tira->record_update( project => $root, ref => $card->{ref}, title => 'Renamed by a script' );
-my ($anonymous) = grep { $_->{kind} eq 'changed' && ( $_->{detail} // '' ) =~ /title/ } @{ log_for() };
-is( $anonymous->{who}, undef, 'and a change with nobody named claims nobody' );
+my $error = eval {
+    $tira->record_update( project => $root, ref => $card->{ref}, title => 'Renamed by a script' );
+    1;
+} ? '' : $@;
+like( $error, qr/say who is making it/, 'and a change with nobody named is refused, not logged as nobody' );
 
 # --- the agent cannot write it --------------------------------------------
 
@@ -136,7 +140,7 @@ ok( !Tira->can('work_log_remove'), 'nor to remove one' );
     # Twenty identical lines is one thing happening twenty times, and says less
     # than one line that says so.
     at('2026-08-11T12:10:00Z');
-    $tira->checklist_add( project => $root, ref => $noisy->{ref}, item => "step $_", status => 'pending' )
+    $tira->checklist_add( author => 'michael', project => $root, ref => $noisy->{ref}, item => "step $_", status => 'pending' )
       for 1 .. 5;
 
     my @after = @{ $tira->work_log( project => $root, ref => $noisy->{ref} ) };

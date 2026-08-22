@@ -75,7 +75,7 @@ $tira->policy_add( project => $root, rule => 'card-changed-by-owner',
 
 {
     $now = '2026-08-17T10:00:00Z';
-    $tira->record_update( project => $root, ref => $card->{ref},
+    $tira->record_update( author => 'claude', project => $root, ref => $card->{ref},
         solution_needed => 'Written by the agent doing the work.' );
 
     is_deeply( reported(), [],
@@ -108,7 +108,7 @@ $tira->policy_add( project => $root, rule => 'card-changed-by-owner',
 
 {
     $now = '2026-08-17T12:00:00Z';
-    $tira->record_update( project => $root, ref => $card->{ref},
+    $tira->record_update( author => 'claude', project => $root, ref => $card->{ref},
         solution_needed => 'Read it, and doing it his way.' );
 
     is_deeply( reported(), [],

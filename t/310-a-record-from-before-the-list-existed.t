@@ -73,7 +73,7 @@ my $card = $tira->create_record( project => $root, type => 'ticket', title => 'L
 strip_required_items( $card->{ref} );
 
 # --- required_item_add must not crash on a record with no required_items --
-my $added = eval { $tira->required_item_add( project => $root, ref => $card->{ref}, item => 'x', status => 'pending' ) };
+my $added = eval { $tira->required_item_add( author => 'claude', project => $root, ref => $card->{ref}, item => 'x', status => 'pending' ) };
 ok( $added, 'required_item_add succeeds on a record missing the key entirely' ) or diag($@);
 is( $added->{id}, 'REQ-001', 'starts numbering from one, as if the list had always been empty' );
 
@@ -81,11 +81,11 @@ is( $added->{id}, 'REQ-001', 'starts numbering from one, as if the list had alwa
 my $card2 = $tira->create_record( project => $root, type => 'ticket', title => 'Legacy card two' );
 strip_required_items( $card2->{ref} );
 my $updated = eval {
-    $tira->required_item_add( project => $root, ref => $card2->{ref}, item => 'y', status => 'pending', source => 'required-action' );
+    $tira->required_item_add( author => 'claude', project => $root, ref => $card2->{ref}, item => 'y', status => 'pending', source => 'required-action' );
 };
 ok( $updated, 'required_item_add (as move-in population itself calls it) succeeds' ) or diag($@);
 my $again = eval {
-    $tira->required_item_update( project => $root, ref => $card2->{ref}, id => $updated->{id}, status => 'done',
+    $tira->required_item_update( author => 'claude', project => $root, ref => $card2->{ref}, id => $updated->{id}, status => 'done',
         command => ['did y'], proof => ['y done'] );
 };
 ok( $again, 'required_item_update succeeds against a record that started with no required_items key' ) or diag($@);

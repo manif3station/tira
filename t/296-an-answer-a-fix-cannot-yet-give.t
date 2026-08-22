@@ -43,7 +43,7 @@ is( scalar @{ $tira->police_outstanding( store => $store ) }, 1,
     'the violation is recorded as open after one pass' );
 
 # Fixed, but the ledger has not been told - the watcher has not ticked since.
-$tira->assignment_set( project => $root, ref => $card->{ref}, people => ['claude'] );
+$tira->assignment_set( author => 'claude', project => $root, ref => $card->{ref}, people => ['claude'] );
 
 my $run = sub {
     my (@argv) = @_;
@@ -51,6 +51,7 @@ my $run = sub {
     open my $capture, '>', \$out or die $!;
     local *STDOUT = $capture;
     local $ENV{TIRA_HOME} = $root;
+    $ENV{TIRA_AUTHOR} = 'claude';
     Tira::CLI->run( command => 'police.outstanding', tira => $tira,
         argv => [ '--store', $store, '-o', 'json', @argv ] );
     return $out;

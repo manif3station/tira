@@ -216,8 +216,8 @@ is_deeply( [ map { $_->{ref} } @{$order} ],
 # it - otherwise the order is coming from somewhere other than the priority.
 
 {
-    $tira->record_update( project => $root, ref => $old_middle->{ref}, priority => 5 );
-    $tira->record_update( project => $root, ref => $urgent->{ref}, priority => 1 );
+    $tira->record_update( author => 'claude', project => $root, ref => $old_middle->{ref}, priority => 5 );
+    $tira->record_update( author => 'claude', project => $root, ref => $urgent->{ref}, priority => 1 );
 
     my $reordered = $tira->work_order( project => $root );
     is( $reordered->[0]{ref}, $old_middle->{ref},

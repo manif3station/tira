@@ -32,7 +32,7 @@ $tira->gate_annotate(
     project => $root, ref => $ref, id => 'GATE-002', note => 'Was flaky infra', author => 'ada',
 );
 $tira->evidence_add( project => $root, ref => $ref, summary => 'First proof ' . ( 'e' x 150 ), author => 'ada' );
-$tira->evidence_add( project => $root, ref => $ref, summary => 'Second proof', uri => 'https://example.test/run' );
+$tira->evidence_add( author => 'ada', project => $root, ref => $ref, summary => 'Second proof', uri => 'https://example.test/run' );
 
 my $newest = $tira->gate_list( project => $root, ref => $ref, last => 1 );
 is( scalar @{$newest}, 1, 'last 1 returns one gate entry' );

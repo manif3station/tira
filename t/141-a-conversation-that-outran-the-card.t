@@ -48,7 +48,7 @@ my $store = File::Spec->catdir( $tmp, 'police' );
 
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Talked about' );
-$tira->record_update( project => $root, ref => $card->{ref},
+$tira->record_update( author => 'michael', project => $root, ref => $card->{ref},
     description => 'what it said when it was raised' );
 
 sub outrun {
@@ -80,7 +80,7 @@ like( $found->[0]{detail}, qr/comment/i, 'and saying what has happened to it' );
 # command to remember and nothing to mark by hand.
 
 $now = '2026-08-13T23:03:00Z';
-$tira->record_update( project => $root, ref => $card->{ref},
+$tira->record_update( author => 'michael', project => $root, ref => $card->{ref},
     description => 'what it said when it was raised, and what the comment added' );
 $now = '2026-08-13T23:04:00Z';
 is( scalar @{ outrun() }, 0, 'once the card is written down again it is not reported' );

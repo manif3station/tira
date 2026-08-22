@@ -1110,14 +1110,17 @@ sub browser_providers {
                 else {
                     $change{ $list_editable{$field} } = $value;
                 }
-                my $record = $tira->record_update( project => $project, ref => $payload->{ref}, %change );
+                my $record = $tira->record_update(
+                    project => $project, ref => $payload->{ref},
+                    author => $payload->{author} // $payload->{_signed_in}, %change );
                 return $json->encode( { ok => Cpanel::JSON::XS::true, record => $record } );
             }
             die "Field '$field' is not editable\n" if !$editable{$field};
             die "Field '$field' requires a plain value\n" if ref $value;
             die "Update base must be a plain value\n" if exists $payload->{base} && ref $payload->{base};
             my $record = $tira->record_update(
-                project => $project, ref => $payload->{ref}, $field => $value,
+                project => $project, ref => $payload->{ref},
+                author => $payload->{author} // $payload->{_signed_in}, $field => $value,
                 ( exists $payload->{base} ? ( expect => { $field => $payload->{base} } ) : () ),
             );
             return $json->encode( { ok => Cpanel::JSON::XS::true, record => $record } );
@@ -1172,7 +1175,7 @@ sub browser_providers {
                 die "Checklist add requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
             }
             my $entry = $tira->checklist_add(
-                project => $project, ref => $payload->{ref},
+                project => $project, ref => $payload->{ref}, author => $payload->{author} // $payload->{_signed_in},
                 item => $payload->{item}, status => $payload->{status},
             );
             return $json->encode( { ok => Cpanel::JSON::XS::true, entry => $entry } );
@@ -1184,6 +1187,7 @@ sub browser_providers {
               if !defined $payload->{ref} || ref $payload->{ref} || !defined $payload->{id} || ref $payload->{id};
             my $entry = $tira->checklist_update(
                 project => $project, ref => $payload->{ref}, id => $payload->{id},
+                author => $payload->{author} // $payload->{_signed_in},
                 ( defined $payload->{item} ? ( item => $payload->{item} ) : () ),
                 ( defined $payload->{status} ? ( status => $payload->{status} ) : () ),
                 ( defined $payload->{command} ? ( command => $payload->{command} ) : () ),
@@ -1198,6 +1202,7 @@ sub browser_providers {
               if !defined $payload->{ref} || ref $payload->{ref} || !defined $payload->{id} || ref $payload->{id};
             my $entry = $tira->required_item_update(
                 project => $project, ref => $payload->{ref}, id => $payload->{id},
+                author => $payload->{author} // $payload->{_signed_in},
                 ( defined $payload->{item} ? ( item => $payload->{item} ) : () ),
                 ( defined $payload->{status} ? ( status => $payload->{status} ) : () ),
                 ( defined $payload->{command} ? ( command => $payload->{command} ) : () ),
@@ -1234,8 +1239,13 @@ sub browser_providers {
             for my $key (qw(ref comment text)) {
                 die "Comment payload requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
             }
+
+            # Same reasoning as comment_add (TKT-458): a comment is personal,
+            # so the signed-in session is who edited it - not something a
+            # client-sent field could override even if it tried to. TKT-466.
             my $comment = $tira->comment_update(
                 project => $project, ref => $payload->{ref},
+                author => $payload->{_signed_in} // $payload->{author},
                 comment => $payload->{comment}, text => $payload->{text},
             );
             return $json->encode( { ok => Cpanel::JSON::XS::true, comment => $comment } );

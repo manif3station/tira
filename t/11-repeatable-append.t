@@ -15,6 +15,7 @@ my $tmp = tempdir( CLEANUP => 1 );
 my $root = File::Spec->catdir( $tmp, 'repeatable' );
 my $tira = Tira->new( clock => sub { '2026-08-05T16:00:00Z' } );
 $tira->create_project( name => 'Repeatable fields', dir => $root );
+$tira->person_add( project => $root, id => 'claude', name => 'Claude' );
 
 my %field = (
     key_details => 'key_details', deliverables => 'deliverables',
@@ -28,7 +29,7 @@ for my $type (qw(sow epic ticket)) {
         ( map { $_ => ["old-$_"] } keys %field ),
         scope_in => ['old-in'], scope_out => ['old-out'],
     );
-    $record = $tira->record_update(
+    $record = $tira->record_update( author => 'claude',
         project => $root, ref => $record->{ref},
         ( map { $_ => [ "new-a-$_", "new-b-$_" ] } keys %field ),
         scope_in => [ 'new-a-in', 'new-b-in' ], scope_out => [ 'new-a-out', 'new-b-out' ],
@@ -48,7 +49,7 @@ my $ticket = $tira->create_record(
     project => $root, type => 'ticket', title => 'Replacement controls',
     ( map { $_ => ["old-$_"] } keys %field ),
 );
-$ticket = $tira->record_update(
+$ticket = $tira->record_update( author => 'claude',
     project => $root, ref => $ticket->{ref},
     key_details => ['replacement-key'], deliverables => ['replacement-deliverable'],
     acceptance => ['replacement-acceptance'], test_steps => ['replacement-step'],
@@ -56,6 +57,7 @@ $ticket = $tira->record_update(
 );
 
 local $ENV{TIRA_HOME} = $root;
+$ENV{TIRA_AUTHOR} = 'claude';
 my ( $stdout, $stderr ) = ('', '');
 {
     open my $out, '>', \$stdout or die $!;
@@ -71,7 +73,7 @@ is( $stderr, '', 'CLI repeated update has no stderr' );
 like( $stdout, qr/"old-key_details".*"replacement-key".*"cli-a".*"cli-b"/s,
     'CLI appends repeated values in order without dropping existing content' );
 
-$ticket = $tira->record_update(
+$ticket = $tira->record_update( author => 'claude',
     project => $root, ref => $ticket->{ref},
     key_details_replace => ['set-key'], deliverables_replace => ['set-deliverable'],
     acceptance_replace => ['set-acceptance'], test_steps_replace => ['set-step'],

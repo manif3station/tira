@@ -39,7 +39,7 @@ $tira->project_new(
 );
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'The card that must come back' );
-$tira->record_update( project => $root, ref => $card->{ref},
+$tira->record_update( author => 'michael', project => $root, ref => $card->{ref},
     description => 'as it was when the backup was made' );
 
 my $note = File::Spec->catfile( $tmp, 'evidence.txt' );
@@ -82,7 +82,7 @@ my $backup = decode_json($out);
 # Everything a restore has to undo: a card changed, a card added, and a card
 # deleted outright.
 
-$tira->record_update( project => $root, ref => $card->{ref},
+$tira->record_update( author => 'michael', project => $root, ref => $card->{ref},
     description => 'changed after the backup' );
 my $later = $tira->create_record( project => $root, type => 'ticket',
     title => 'Raised after the backup' );

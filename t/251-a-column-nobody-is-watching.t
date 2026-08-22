@@ -48,7 +48,7 @@ $tira->policy_add( project => $root, rule => 'checklist-unmoved',
 
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Waiting on a person' );
-$tira->checklist_add( project => $root, ref => $card->{ref},
+$tira->checklist_add( author => 'claude', project => $root, ref => $card->{ref},
     item => 'the work itself', status => 'todo' );
 
 $now = '2026-08-17T10:00:00Z';

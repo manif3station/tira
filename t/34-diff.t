@@ -29,7 +29,7 @@ close $snap;
 
 $tick = '2026-08-07T11:00:00Z';
 $tira->record_move(author => 'ada',  project => $root, ref => $mover->{ref}, column => 'doing' );
-$tira->record_update( project => $root, ref => $mover->{ref}, sdlc_gate => 'G2' );
+$tira->record_update( author => 'ada', project => $root, ref => $mover->{ref}, sdlc_gate => 'G2' );
 my $comment = $tira->comment_add( project => $root, ref => $mover->{ref}, author => 'ada', text => 'Moved on' );
 my $fresh = $tira->create_record( project => $root, type => 'ticket', title => 'Fresh arrival' );
 
@@ -75,8 +75,8 @@ my $structural_snapshot = File::Spec->catfile( $tmp, 'structural.json' );
 open my $structural, '>:raw', $structural_snapshot or die $!;
 print {$structural} Cpanel::JSON::XS->new->encode( $tira->export_records( project => $root ) );
 close $structural;
-$tira->record_update( project => $root, ref => $mover->{ref}, labels => ['sieved'] );
-$tira->comment_update(
+$tira->record_update( author => 'ada', project => $root, ref => $mover->{ref}, labels => ['sieved'] );
+$tira->comment_update( author => 'ada',
     project => $root, ref => $mover->{ref}, comment => $comment->{id}, text => 'Edited in place',
 );
 my $structural_diff = $tira->diff_records( project => $root, snapshot => $structural_snapshot );

@@ -39,7 +39,7 @@ my $card = $tira->create_record( project => $root, type => 'ticket', title => 'P
 
 {
     my $result = eval {
-        $tira->gate_add( project => $root, ref => $card->{ref},
+        $tira->gate_add( author => 'claude', project => $root, ref => $card->{ref},
             result => 'pass', details => 'the suite passed' );
     };
     ok( !$result, 'calling gate.add without --gate is refused' );
@@ -53,7 +53,7 @@ my $card = $tira->create_record( project => $root, type => 'ticket', title => 'P
 
 {
     my $result = eval {
-        $tira->gate_add( project => $root, ref => $card->{ref},
+        $tira->gate_add( author => 'claude', project => $root, ref => $card->{ref},
             gate => 'coverage', result => 'pass' );
     };
     ok( !$result, 'calling gate.add without --details is refused' );
@@ -66,7 +66,7 @@ my $card = $tira->create_record( project => $root, type => 'ticket', title => 'P
 # --- with everything present, it still works exactly as before -------------
 
 {
-    my $entry = $tira->gate_add( project => $root, ref => $card->{ref},
+    my $entry = $tira->gate_add( author => 'claude', project => $root, ref => $card->{ref},
         gate => 'coverage', result => 'pass', details => 'the suite passed' );
     ok( $entry->{id}, 'with everything required present, the call succeeds' );
     is( $entry->{gate}, 'coverage', 'carrying the gate name' );
@@ -97,7 +97,7 @@ my $card = $tira->create_record( project => $root, type => 'ticket', title => 'P
         } );
     };
 
-    my $entry = $tira->gate_add( project => $root, ref => $card->{ref}, result => 'pass' );
+    my $entry = $tira->gate_add( author => 'claude', project => $root, ref => $card->{ref}, result => 'pass' );
     ok( $entry->{id}, 'without the checks, the same call succeeds again' );
     ok( !defined $entry->{gate}, 'and gate is null - the exact defect this card reports' );
 }

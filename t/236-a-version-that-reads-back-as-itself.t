@@ -43,7 +43,7 @@ $tira->project_new(
 
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Went out in a release ending in a zero' );
-$tira->record_update( project => $root, ref => $card->{ref}, fix_version => '2.20' );
+$tira->record_update( author => 'claude', project => $root, ref => $card->{ref}, fix_version => '2.20' );
 
 my $shown = $tira->record_show( project => $root, ref => $card->{ref} );
 is( $shown->{fix_version}, '2.20', 'the version on the card is the one it was given' );

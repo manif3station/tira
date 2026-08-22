@@ -59,14 +59,14 @@ is( $tira->link_list( project => $root, ref => $ticket2->{ref}, type => 'is-bloc
 $tira->link_remove( project => $root, from => $ticket1->{ref}, type => 'blocks', to => $ticket2->{ref} );
 is_deeply( $tira->link_list( project => $root, ref => $ticket1->{ref} ), [], 'typed link can be removed' );
 
-$tira->assignment_add( project => $root, ref => $ticket1->{ref}, person => 'ada' );
-$tira->assignment_set( project => $root, ref => $ticket1->{ref}, people => ['grace'] );
+$tira->assignment_add( author => 'ada', project => $root, ref => $ticket1->{ref}, person => 'ada' );
+$tira->assignment_set( author => 'ada', project => $root, ref => $ticket1->{ref}, people => ['grace'] );
 is_deeply( $tira->assignment_list( project => $root, ref => $ticket1->{ref} ), ['grace'], 'singular assignee can be replaced' );
-$tira->assignment_remove( project => $root, ref => $ticket1->{ref}, person => 'grace' );
+$tira->assignment_remove( author => 'ada', project => $root, ref => $ticket1->{ref}, person => 'grace' );
 
 my $comment = $tira->comment_add( project => $root, ref => $ticket1->{ref}, author => 'ada', text => 'Initial', format => 'markdown' );
 is( $comment->{id}, 'CMT-001', 'comment gets stable ID' );
-$comment = $tira->comment_update( project => $root, ref => $ticket1->{ref}, comment => $comment->{id}, text => 'Corrected' );
+$comment = $tira->comment_update( author => 'ada', project => $root, ref => $ticket1->{ref}, comment => $comment->{id}, text => 'Corrected' );
 is( $comment->{body}, 'Corrected', 'comment can be updated' );
 
 my ( $fh, $file ) = tempfile( DIR => $tmp, SUFFIX => '.bin' );
@@ -79,7 +79,7 @@ is( $tira->attachment_get( project => $root, sha => $attachment->{sha}, extensio
 $tira->comment_attach( project => $root, ref => $ticket1->{ref}, comment => 'CMT-001', file => $file );
 is( scalar @{ $tira->comment_list( project => $root, ref => $ticket1->{ref} )->[0]{attachments} }, 1, 'comment has its own attachment refs' );
 
-my $clone = $tira->record_clone( project => $root, ref => $ticket1->{ref}, title => 'Clone' );
+my $clone = $tira->record_clone( author => 'ada', project => $root, ref => $ticket1->{ref}, title => 'Clone' );
 is( scalar @{ $clone->{attachments} }, 1, 'clone preserves record attachment refs' );
 is( $tira->link_list( project => $root, ref => $clone->{ref}, type => 'is-cloned-by' )->[0]{ref}, $ticket1->{ref}, 'clone link is reciprocal' );
 

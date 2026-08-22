@@ -40,7 +40,7 @@ my $card = $tira->create_record( project => $root, type => 'ticket', title => 'L
     my $full = $tira->record_show( project => $root, type => 'ticket', ref => $card->{ref} );
     is( $full->{description}, $long, 'a full read carries the whole description' );
     my $round_tripped = eval {
-        $tira->record_update( project => $root, type => 'ticket', ref => $card->{ref}, description => $full->{description} );
+        $tira->record_update( author => 'claude', project => $root, type => 'ticket', ref => $card->{ref}, description => $full->{description} );
         1;
     };
     ok( $round_tripped, 'writing back a full, untruncated read is not refused' );
@@ -57,7 +57,7 @@ my $truncated_view = substr( $long, 0, 2000 ) . $ellipsis;
     ok( $short->{description_truncated}, 'and honestly flagged as truncated' );
 
     my $error = eval {
-        $tira->record_update( project => $root, type => 'ticket', ref => $card->{ref}, description => $short->{description} );
+        $tira->record_update( author => 'claude', project => $root, type => 'ticket', ref => $card->{ref}, description => $short->{description} );
         1;
     } ? '' : $@;
     like( $error, qr/--full/, 'writing the truncated read back is refused, naming --full' );
@@ -71,7 +71,7 @@ my $truncated_view = substr( $long, 0, 2000 ) . $ellipsis;
 {
     my $deliberate = 'Rewritten from scratch, much shorter, nothing to do with the truncated tail';
     my $ok = eval {
-        $tira->record_update( project => $root, type => 'ticket', ref => $card->{ref}, description => $deliberate );
+        $tira->record_update( author => 'claude', project => $root, type => 'ticket', ref => $card->{ref}, description => $deliberate );
         1;
     };
     ok( $ok, 'a genuinely different, shorter description is allowed - this is not a length check' );
@@ -90,14 +90,14 @@ my $truncated_view = substr( $long, 0, 2000 ) . $ellipsis;
     my $short = $tira->record_show( project => $root, type => 'ticket', ref => $other->{ref}, truncate => 2000 );
 
     my $error = eval {
-        $tira->record_update( project => $root, type => 'ticket', ref => $other->{ref},
+        $tira->record_update( author => 'claude', project => $root, type => 'ticket', ref => $other->{ref},
             problem_or_feature => $short->{problem_or_feature} );
         1;
     } ? '' : $@;
     like( $error, qr/--full/, 'the same refusal applies to problem_or_feature' );
 
     $error = eval {
-        $tira->record_update( project => $root, type => 'ticket', ref => $other->{ref},
+        $tira->record_update( author => 'claude', project => $root, type => 'ticket', ref => $other->{ref},
             solution_needed => $short->{solution_needed} );
         1;
     } ? '' : $@;

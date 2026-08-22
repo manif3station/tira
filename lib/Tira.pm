@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.25';
+our $VERSION = '3.26';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2210,6 +2210,7 @@ sub _matches_base {
 
 sub record_update {
     my ( $self, %args ) = @_;
+    $self->_require_author(%args);
     my $root = $self->discover_project(%args);
     local $self->{_journal_author} = $self->_journal_attribution( %args, project => $root );
     return $self->_with_project_lock( $root, sub {
@@ -3269,6 +3270,7 @@ sub comment_add {
 
 sub comment_update {
     my ( $self, %args ) = @_;
+    local $self->{_journal_author} = $self->_require_author(%args);
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         my $record = $self->record_show(%args);
@@ -3679,7 +3681,7 @@ sub record_clone {
     my $clone = $self->create_record( project => $args{project}, type => $source->{type}, title => $args{title}, description => $source->{description} );
     my %copy = %{$source};
     delete @copy{qw(ref column type title created_at last_updated linkage comments assignee parent)};
-    $clone = $self->record_update( project => $args{project}, ref => $clone->{ref}, %copy );
+    $clone = $self->record_update( project => $args{project}, ref => $clone->{ref}, author => $args{author}, %copy );
     $self->link_add( project => $args{project}, from => $source->{ref}, type => 'clones', to => $clone->{ref} );
     return $self->record_show( project => $args{project}, ref => $clone->{ref} );
 }
@@ -3751,9 +3753,10 @@ sub evidence_list {
 
 sub evidence_add {
     my ( $self, %args ) = @_;
+    local $self->{_journal_author} = $self->_require_author(%args);
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
-        $self->_require_person( %args, person => $args{author} ) if defined $args{author};
+        $self->_require_person( %args, person => $args{author} );
         my $record = $self->record_show(%args);
         die "Evidence summary is required\n" if !defined $args{summary} || $args{summary} eq '';
         my $attachment = defined $args{file} ? $self->attachment_add(%args) : undef;
@@ -3784,12 +3787,13 @@ sub gate_list {
 
 sub gate_add {
     my ( $self, %args ) = @_;
+    local $self->{_journal_author} = $self->_require_author(%args);
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         die "Gate name is required\n" if !defined $args{gate} || $args{gate} eq '';
         die "Invalid gate result\n" if ( $args{result} // '' ) !~ /\A(?:pass|fail|blocked)\z/;
         die "Gate details are required\n" if !defined $args{details} || $args{details} eq '';
-        $self->_require_person( %args, person => $args{author} ) if defined $args{author};
+        $self->_require_person( %args, person => $args{author} );
         my $record = $self->record_show(%args);
         my $entry = {
             id => sprintf( 'GATE-%03d', @{ $record->{gate_passing_log} } + 1 ),
@@ -3854,6 +3858,7 @@ sub checklist_list {
 
 sub checklist_add {
     my ( $self, %args ) = @_;
+    local $self->{_journal_author} = $self->_require_author(%args);
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         die "Checklist item is required\n" if !defined $args{item} || $args{item} eq '';
@@ -3884,6 +3889,7 @@ sub checklist_add {
 
 sub checklist_update {
     my ( $self, %args ) = @_;
+    local $self->{_journal_author} = $self->_require_author(%args);
     die "Checklist item or status is required\n" if !defined $args{item} && !defined $args{status};
     die "Checklist item is required\n" if defined $args{item} && $args{item} eq '';
     die "Checklist status is required\n" if defined $args{status} && $args{status} eq '';
@@ -3925,6 +3931,7 @@ sub required_item_list {
 
 sub required_item_add {
     my ( $self, %args ) = @_;
+    local $self->{_journal_author} = $self->_require_author(%args);
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         die "Required item is required\n" if !defined $args{item} || $args{item} eq '';
@@ -3962,6 +3969,7 @@ sub required_item_add {
 
 sub required_item_update {
     my ( $self, %args ) = @_;
+    local $self->{_journal_author} = $self->_require_author(%args);
     die "Required item or status is required\n" if !defined $args{item} && !defined $args{status};
     die "Required item is required\n" if defined $args{item} && $args{item} eq '';
     die "Required item status is required\n" if defined $args{status} && $args{status} eq '';
@@ -9613,6 +9621,23 @@ sub _require_person {
     die "Project person is required\n" if !defined $person || $person eq '';
     die "Unknown project person '$person'\n" if !grep { $_->{id} eq $person } @{ $self->person_list(%args) };
     return $person;
+}
+
+# record_move refuses a caller with no author (TKT-457) because a move with
+# nobody attached to it let a card cross the chain and required-action
+# checks unrecorded. Every other write that reaches this file's own journal
+# or history deserves the same guarantee - an entry that says WHAT happened
+# and never WHO is most of what a work log is for. TKT-466, caught live: an
+# entire session's worth of ticket.update/required-action.update/
+# checklist.update/release.record calls landed attributed to nobody because
+# --author was easy to forget on these four command families and nothing
+# refused. The browser dashboard is unaffected: it always threads the
+# signed-in person through as author on every mutating route (_attributed),
+# the same exemption record_move already has.
+sub _require_author {
+    my ( $self, %args ) = @_;
+    die "A change needs to say who is making it\n" if !defined $args{author} || $args{author} eq '';
+    return $args{author};
 }
 
 sub _require_active_person {

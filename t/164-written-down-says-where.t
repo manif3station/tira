@@ -91,7 +91,7 @@ is( scalar @{ folded() }, 1,
     'a comment does not clear it, which is what they found by escalating to a warning' );
 
 $now = '2026-08-14T15:41:00Z';
-$tira->record_update( project => $root, ref => $card->{ref},
+$tira->record_update( author => 'michael', project => $root, ref => $card->{ref},
     key_details => ['The owner chose the second way, so the drain is widened rather than queued.'] );
 $now = '2026-08-14T15:50:00Z';
 is( scalar @{ folded() }, 0, 'and writing it into a field does' );

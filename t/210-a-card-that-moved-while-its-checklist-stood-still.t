@@ -65,7 +65,7 @@ sub reported {
     my ( $tira, $root ) = board_at('dragged');
     my $card = $tira->create_record(
         project => $root, type => 'ticket', title => 'A card', reporter => 'claude' );
-    $tira->checklist_add(
+    $tira->checklist_add( author => 'claude',
         project => $root, ref => $card->{ref}, item => 'do the work', status => 'todo' );
 
     # Two moves, because the window is since the PREVIOUS move. On the first
@@ -85,14 +85,14 @@ sub reported {
     my ( $tira, $root ) = board_at('worked');
     my $card = $tira->create_record(
         project => $root, type => 'ticket', title => 'A card', reporter => 'claude' );
-    $tira->checklist_add(
+    $tira->checklist_add( author => 'claude',
         project => $root, ref => $card->{ref}, item => 'do the work', status => 'todo' );
     $tira->record_move( project => $root, ref => $card->{ref},
         column => 'tests-red', author => 'claude' );
-    $tira->checklist_update(
+    $tira->checklist_update( author => 'claude',
         project => $root, ref => $card->{ref}, id => 'CHK-001', status => 'done',
         command => ['did the work'], proof => ['it is done'] );
-    $tira->checklist_add(
+    $tira->checklist_add( author => 'claude',
         project => $root, ref => $card->{ref}, item => 'more work', status => 'todo' );
     $tira->record_move( project => $root, ref => $card->{ref},
         column => 'implement', author => 'claude' );
@@ -106,7 +106,7 @@ sub reported {
     my ( $tira, $root ) = board_at('finished');
     my $card = $tira->create_record(
         project => $root, type => 'ticket', title => 'A card', reporter => 'claude' );
-    $tira->checklist_add(
+    $tira->checklist_add( author => 'claude',
         project => $root, ref => $card->{ref}, item => 'do the work', status => 'todo' );
     $tira->record_move( project => $root, ref => $card->{ref},
         column => 'tests-red', author => 'claude' );
@@ -122,7 +122,7 @@ sub reported {
     my ( $tira, $root ) = board_at('complete');
     my $card = $tira->create_record(
         project => $root, type => 'ticket', title => 'A card', reporter => 'claude' );
-    $tira->checklist_add(
+    $tira->checklist_add( author => 'claude',
         project => $root, ref => $card->{ref}, item => 'do the work', status => 'done' );
     $tira->record_move( project => $root, ref => $card->{ref},
         column => 'tests-red', author => 'claude' );

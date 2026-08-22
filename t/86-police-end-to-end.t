@@ -109,18 +109,18 @@ $tira->record_move(author => 'claude',  project => $root, ref => $bare->{ref}, c
 
 my $crowding = $tira->create_record( project => $root, type => 'ticket', title => 'A second in progress' );
 $tira->record_move(author => 'claude',  project => $root, ref => $crowding->{ref}, column => 'implement' );
-$tira->checklist_add( project => $root, ref => $crowding->{ref}, item => 'started', status => 'pending' );
+$tira->checklist_add( author => 'michael', project => $root, ref => $crowding->{ref}, item => 'started', status => 'pending' );
 
 my $finished = $tira->create_record( project => $root, type => 'ticket', title => 'Work all done' );
 $tira->record_move(author => 'claude',  project => $root, ref => $finished->{ref}, column => 'implement' );
-$tira->checklist_add( project => $root, ref => $finished->{ref}, item => 'the work', status => 'done' );
+$tira->checklist_add( author => 'michael', project => $root, ref => $finished->{ref}, item => 'the work', status => 'done' );
 
 # checklist-unmoved: a card carried on from one working column to the next with
 # nothing ticked in between. Two moves are needed, because the window a move is
 # judged against reaches back to the move before it - on a card's first move
 # that window includes being raised, and the checklist was written inside it.
 my $dragged = $tira->create_record( project => $root, type => 'ticket', title => 'Carried along' );
-$tira->checklist_add( project => $root, ref => $dragged->{ref}, item => 'never started', status => 'pending' );
+$tira->checklist_add( author => 'michael', project => $root, ref => $dragged->{ref}, item => 'never started', status => 'pending' );
 $tira->record_move(author => 'claude',  project => $root, ref => $dragged->{ref}, column => 'implement' );
 $tira->record_move(author => 'claude',  project => $root, ref => $dragged->{ref}, column => 'verify' );
 
@@ -131,7 +131,7 @@ my $asked = $tira->question_add( project => $root, ref => $waiting->{ref},
 # A card whose conversation has outrun it: written down, then talked about
 # afterwards, which is the order that matters.
 my $talked = $tira->create_record( project => $root, type => 'ticket', title => 'Talked about since' );
-$tira->record_update( project => $root, ref => $talked->{ref},
+$tira->record_update( author => 'michael', project => $root, ref => $talked->{ref},
     description => 'what it said when it was raised' );
 $now = '2026-08-11T09:30:00Z';
 $tira->comment_add( project => $root, ref => $talked->{ref}, author => 'michael',
@@ -293,7 +293,7 @@ is( scalar( grep { /fix:/ } @{$delivered} ), scalar @{$delivered},
 
 # Silence has to be earned rather than assumed, so the board is repaired and
 # the same pass is run again.
-$tira->record_update( project => $root, ref => $bare->{ref},
+$tira->record_update( author => 'michael', project => $root, ref => $bare->{ref},
     description => 'now explained', problem_or_feature => 'a problem',
     solution_needed => 'a solution', key_details => ['a detail'],
     deliverables => ['a deliverable'], acceptance => ['an acceptance'],
@@ -306,7 +306,7 @@ $tira->record_update( project => $root, ref => $bare->{ref},
 # stands alone. Those were the push gate's requirements and police did not
 # share them, which is the drift TKT-241 removed - so a fixture that was
 # complete by one definition is incomplete by the one there is now.
-$tira->checklist_add( project => $root, ref => $bare->{ref},
+$tira->checklist_add( author => 'michael', project => $root, ref => $bare->{ref},
     item => 'the thing to do', status => 'todo' );
 $tira->record_move(author => 'claude',  project => $root, ref => $finished->{ref}, column => 'verify' );
 

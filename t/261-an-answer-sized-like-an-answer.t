@@ -43,7 +43,7 @@ $tira->project_new(
 for my $i ( 1 .. 3 ) {
     my $card = $tira->create_record( project => $root, type => 'ticket',
         title => "Waiting, and carrying its whole history $i", priority => $i );
-    $tira->record_update( project => $root, ref => $card->{ref},
+    $tira->record_update( author => 'claude', project => $root, ref => $card->{ref},
         key_details => [ map { "A detail long enough to matter, number $_" } 1 .. 40 ],
         acceptance_criteria => [ map { "An acceptance criterion, number $_" } 1 .. 20 ],
         description => 'A description of the kind a real card carries. ' x 40 );

@@ -47,21 +47,21 @@ $tira->hierarchy_link( project => $root, parent => $epic->{ref}, child => $two->
 is( $tira->record_show( project => $root, ref => $one->{ref} )->{agent_session}, undef,
     'a card nobody has spawned an agent for carries no handle, rather than an empty one' );
 
-$tira->record_update( project => $root, ref => $one->{ref}, agent_session => 'sess-7f3a' );
+$tira->record_update( author => 'michael', project => $root, ref => $one->{ref}, agent_session => 'sess-7f3a' );
 is( $tira->record_show( project => $root, ref => $one->{ref} )->{agent_session}, 'sess-7f3a',
     'the handle its parent needs to resume it is written on the card' );
 
-$tira->record_update( project => $root, ref => $one->{ref}, agent_session => '' );
+$tira->record_update( author => 'michael', project => $root, ref => $one->{ref}, agent_session => '' );
 is( $tira->record_show( project => $root, ref => $one->{ref} )->{agent_session}, undef,
     'and can be cleared, for an agent that will not be woken again' );
-$tira->record_update( project => $root, ref => $one->{ref}, agent_session => 'sess-7f3a' );
+$tira->record_update( author => 'michael', project => $root, ref => $one->{ref}, agent_session => 'sess-7f3a' );
 
 # --- a parent finds its children's, from the board alone ------------------
 #
 # From the board rather than from whatever spawned them, because the thing that
 # spawned them is the thing that closes.
 
-$tira->record_update( project => $root, ref => $two->{ref}, agent_session => 'sess-91bd' );
+$tira->record_update( author => 'michael', project => $root, ref => $two->{ref}, agent_session => 'sess-91bd' );
 
 my $children = $tira->agent_sessions( project => $root, ref => $epic->{ref} );
 is_deeply( $children,

@@ -49,7 +49,7 @@ is_deeply(
 
 my $ticket = $tira->create_record( project => $root, type => 'ticket', title => 'Lifecycle ticket' );
 is( $tira->record_show( project => $root, ref => $ticket->{ref} )->{title}, 'Lifecycle ticket', 'record can be shown' );
-$ticket = $tira->record_update(
+$ticket = $tira->record_update( author => 'ada',
     project => $root, ref => $ticket->{ref}, title => 'Updated',
     acceptance => [ 'Works', 'Is tested' ], assignee => 'ada',
 );

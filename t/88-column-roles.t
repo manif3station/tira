@@ -74,7 +74,7 @@ is( $tira->column_roles( project => $root, type => 'ticket' )->{backlog}, 'todo'
 
 $tira->policy_add( project => $root, rule => 'card-stalled',
     before_role => 'testing', action => 'bridge-reminder' );
-$tira->checklist_add( project => $root, ref => $bare->{ref}, item => 'the work', status => 'done' );
+$tira->checklist_add( author => 'michael', project => $root, ref => $bare->{ref}, item => 'the work', status => 'done' );
 my @stalled = grep { $_->{rule} eq 'card-stalled' } @{ $tira->policy_evaluate( project => $root ) };
 is( scalar @stalled, 1, 'a rule written against a role fires on the column carrying it' );
 

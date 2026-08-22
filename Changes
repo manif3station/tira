@@ -1,5 +1,28 @@
 Revision history for Tira
 
+3.26  2026-08-22
+
+    - TKT-466. Only record_move refused a caller with no author (TKT-457).
+      record_update, comment_update, checklist_add/update, required_item_
+      add/update, gate_add, and evidence_add (and so release_record,
+      assignment_add/set/remove, and record_clone) silently wrote a
+      journal or history entry attributed to nobody. Caught live: a whole
+      session's worth of ticket.update/required-action.update/checklist.
+      update/release.record calls landed anonymous, because --author was
+      easy to forget on those four command families.
+
+    - Fixed: all of the above now refuse the same way record_move already
+      did, naming --author. Also found and fixed along the way: the
+      browser dashboard's update, comment_update, checklist_add,
+      checklist_update, and required_action_update providers never
+      forwarded the signed-in person to the engine at all - a real
+      production gap, since editing a comment, checklist item, or
+      required action from the dashboard would have failed outright once
+      the engine-level refusal shipped. Each provider now passes a
+      deliberately client-sent author through, falling back to the
+      signed-in session - except comments, where the session always wins
+      (TKT-458).
+
 3.25  2026-08-22
 
     - TKT-467. A done required-action item's command/proof pairs expanded

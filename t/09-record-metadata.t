@@ -47,13 +47,13 @@ is( $ticket->{reporter}, 'grace', 'create stores one reporter ID' );
 is_deeply( $ticket->{labels}, [ 'Security', 'API' ], 'labels deduplicate case-insensitively' );
 is( $ticket->{priority}, 5, 'priority is stored as JSON number' );
 
-$ticket = $tira->record_update(
+$ticket = $tira->record_update( author => 'ada',
     project => $root, ref => $ticket->{ref}, labels => [ 'api', 'Backend' ],
     affects_versions => ['2.2.0'], lifecycle => 'Maintenance',
 );
 is_deeply( $ticket->{labels}, [ 'Security', 'API', 'Backend' ], 'update appends unique labels case-insensitively' );
 is_deeply( $ticket->{affects_versions}, [ '2.0.0', '2.1.0', '2.2.0' ], 'update appends affected versions' );
-$ticket = $tira->record_update(
+$ticket = $tira->record_update( author => 'ada',
     project => $root, ref => $ticket->{ref}, labels_replace => ['Release'],
     affects_versions_replace => [], assignee => '', reporter => '', priority => '', fix_version => '',
 );
@@ -70,16 +70,16 @@ for my $case (
     [ start_date => '2026-08-06T09:00:00', qr/ISO 8601/ ],
 ) {
     my ( $field, $value, $error ) = @{$case};
-    eval { $tira->record_update( project => $root, ref => $ticket->{ref}, $field => $value ) };
+    eval { $tira->record_update( author => 'ada', project => $root, ref => $ticket->{ref}, $field => $value ) };
     like( $@, $error, "invalid $field is rejected" );
 }
 
 $tira->person_deactivate( project => $root, id => 'ada' );
 ok( !$tira->person_list( project => $root )->[0]{active}, 'person can be deactivated' );
-eval { $tira->record_update( project => $root, ref => $ticket->{ref}, assignee => 'ada' ) };
+eval { $tira->record_update( author => 'ada', project => $root, ref => $ticket->{ref}, assignee => 'ada' ) };
 like( $@, qr/inactive/, 'inactive person cannot receive a new assignment' );
 $tira->person_activate( project => $root, id => 'ada' );
-$ticket = $tira->record_update( project => $root, ref => $ticket->{ref}, assignee => 'ada', reporter => 'grace' );
+$ticket = $tira->record_update( author => 'ada', project => $root, ref => $ticket->{ref}, assignee => 'ada', reporter => 'grace' );
 is( $ticket->{assignee}, 'ada', 'reactivated person can be assigned' );
 eval { $tira->person_remove( project => $root, id => 'ada' ) };
 like( $@, qr/historical reference/, 'historically referenced person cannot be removed' );
@@ -100,7 +100,7 @@ $tira->subitem_unlink( project => $root, parent => $master->{ref}, child => $chi
 is( $tira->record_show( project => $root, ref => $child->{ref} )->{parent}, $epic->{ref}, 'unlink restores hierarchy parent' );
 
 my $human = $tira->format_output(
-    $tira->record_update( project => $root, ref => $ticket->{ref}, priority => 5 ),
+    $tira->record_update( author => 'ada', project => $root, ref => $ticket->{ref}, priority => 5 ),
     output => 'human', project => $root,
 );
 like( $human, qr/Assignee: Ada Lovelace/, 'human output resolves assignee name' );
@@ -133,7 +133,7 @@ print {$legacy_out} $legacy_bytes;
 close $legacy_out;
 $migrated = $tira->record_show( project => $root, ref => $legacy->{ref} );
 is( $migrated->{comments}[0]{body}, 'Cost £523', 'legacy isolated pound byte is repaired without data loss' );
-$tira->record_update( project => $root, ref => $legacy->{ref}, title => 'Legacy repaired' );
+$tira->record_update( author => 'ada', project => $root, ref => $legacy->{ref}, title => 'Legacy repaired' );
 open $legacy_in, '<:raw', $legacy_path or die $!;
 my $repaired_bytes = do { local $/; <$legacy_in> };
 close $legacy_in;
@@ -150,9 +150,9 @@ $tira->person_update( project => $root, id => 'grace', email => 'grace@example.t
 ok( $tira->project_show( project => $root )->{people}[1]{active}, 'legacy person active default persists on mutation' );
 
 # Optimistic concurrency — expect is a compare-and-swap under the lock
-$ticket = $tira->record_update( project => $root, ref => $ticket->{ref}, title => 'Concurrency base' );
+$ticket = $tira->record_update( author => 'ada', project => $root, ref => $ticket->{ref}, title => 'Concurrency base' );
 eval {
-    $tira->record_update(
+    $tira->record_update( author => 'ada',
         project => $root, ref => $ticket->{ref},
         title => 'Second writer', expect => { title => 'Stale title' },
     );
@@ -160,23 +160,23 @@ eval {
 like( $@, qr/\AConflict: title changed while you were editing/, 'a stale base is rejected as a conflict' );
 is( $tira->record_show( project => $root, ref => $ticket->{ref} )->{title},
     'Concurrency base', 'a conflicted update writes nothing' );
-$ticket = $tira->record_update(
+$ticket = $tira->record_update( author => 'ada',
     project => $root, ref => $ticket->{ref},
     title => 'Second writer', expect => { title => 'Concurrency base' },
 );
 is( $ticket->{title}, 'Second writer', 'a matching base applies the update' );
-$ticket = $tira->record_update(
+$ticket = $tira->record_update( author => 'ada',
     project => $root, ref => $ticket->{ref}, fix_version => '4.0.0', expect => { fix_version => undef },
 );
 is( $ticket->{fix_version}, '4.0.0', 'a null base matches a still-empty field' );
 eval {
-    $tira->record_update(
+    $tira->record_update( author => 'ada',
         project => $root, ref => $ticket->{ref}, fix_version => '5.0.0', expect => { fix_version => undef },
     );
 };
 like( $@, qr/\AConflict: fix_version changed/, 'a null base conflicts once the field has a value' );
-$ticket = $tira->record_update( project => $root, ref => $ticket->{ref}, priority => 3 );
-$ticket = $tira->record_update( project => $root, ref => $ticket->{ref}, priority => 4, expect => { priority => 3 } );
+$ticket = $tira->record_update( author => 'ada', project => $root, ref => $ticket->{ref}, priority => 3 );
+$ticket = $tira->record_update( author => 'ada', project => $root, ref => $ticket->{ref}, priority => 4, expect => { priority => 3 } );
 is( $ticket->{priority}, 4, 'numeric bases compare by value' );
 
 # the YAML reader's load_file left the handle open, and on Windows an open handle

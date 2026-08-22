@@ -47,13 +47,15 @@ is( $edit->{author}, 'ada', 'the supplied author is attributed' );
 is( $edit->{ref}, $ref, 'entries name their record' );
 
 $tick = '2026-08-07T12:10:00Z';
-$tira->record_update( project => $root, ref => $ref, title => 'Third title' );
-my $unattributed = $tira->history_list( project => $root, ref => $ref, field => 'title' )->[-1];
-ok( !defined $unattributed->{author}, 'an unattributed change is recorded honestly, not guessed' );
+my $error = eval {
+    $tira->record_update( project => $root, ref => $ref, title => 'Third title' );
+    1;
+} ? '' : $@;
+like( $error, qr/say who is making it/, 'an unattributed change is refused, not recorded as guessed' );
 
 eval { $tira->record_update( project => $root, ref => $ref, title => 'Nope', author => 'nobody' ) };
 like( $@, qr/Unknown project person 'nobody'/, 'an unknown author is refused' );
-is( $tira->record_show( project => $root, ref => $ref )->{title}, 'Third title',
+is( $tira->record_show( project => $root, ref => $ref )->{title}, 'Second title',
     'a refused attribution leaves the record untouched' );
 
 $tick = '2026-08-07T12:15:00Z';
@@ -126,6 +128,7 @@ sub run_cli {
     local *STDOUT = $stdout;
     local *STDERR = $stderr;
     local $ENV{TIRA_HOME} = $root;
+    $ENV{TIRA_AUTHOR} = 'ada';
     my $status = Tira::CLI->run(
         command => $command, ( defined $type ? ( type => $type ) : () ), argv => \@argv,
     );
@@ -137,8 +140,8 @@ my ( $status, $out, $err ) = run_cli(
 );
 is( $status, 0, 'the CLI history command succeeds' );
 my $payload = decode_json($out);
-is( scalar @{$payload}, 3, 'the CLI returns the field timeline' );
-is( $payload->[-1]{after}, 'Third title', 'the newest value is last' );
+is( scalar @{$payload}, 2, 'the CLI returns the field timeline' );
+is( $payload->[-1]{after}, 'Second title', 'the newest value is last' );
 
 ( $status, $out, $err ) = run_cli(
     'history.list', undef, '--ref', $ref, '--count', '-o', 'json',
@@ -152,7 +155,7 @@ is( $status, 2, 'an unknown CLI field exits 2' );
 like( $err, qr/nope/, 'the error names the offending field' );
 
 $tick = '2026-08-07T12:30:00Z';
-$tira->record_update( project => $root, ref => $ref, description => ( 'L' x 3000 ) );
+$tira->record_update( author => 'ada', project => $root, ref => $ref, description => ( 'L' x 3000 ) );
 ( $status, $out, $err ) = run_cli(
     'history.list', undef, '--ref', $ref, '--field', 'description', '-o', 'json',
 );

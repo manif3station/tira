@@ -143,7 +143,7 @@ is( $escalated, 1, 'it reaches his terminal once, after five tellings rather tha
 # Every field the rule asks for, not four of them - the first attempt filled
 # in a card the rule still considered bare, which would have proved nothing
 # about whether good news travels fast.
-$tira->record_update( project => $root, ref => $card->{ref},
+$tira->record_update( author => 'michael', project => $root, ref => $card->{ref},
     description => 'now it says what it is', problem_or_feature => 'a real problem',
     solution_needed => 'a real solution', priority => 3,
     key_details => ['a detail'], deliverables => ['a deliverable'],
@@ -157,7 +157,7 @@ $tira->record_update( project => $root, ref => $card->{ref},
 # push gate's requirements, which police did not share until the two
 # definitions became one - so a card that was filled in by the old definition
 # is not by the one there is now. TKT-241.
-$tira->checklist_add( project => $root, ref => $card->{ref},
+$tira->checklist_add( author => 'michael', project => $root, ref => $card->{ref},
     item => 'the thing to do', status => 'todo' );
 at('2026-08-13T14:00:00Z');
 my $after = sweep();
@@ -181,7 +181,7 @@ is( said(), $before + 1, 'a new problem is said at once, whatever another one is
 # mentioned to it, and would carry it to his terminal unheard.
 
 my $hush = File::Spec->catdir( $tmp, 'hush' );
-$tira->record_update( project => $root, ref => $second->{ref}, assignee => 'michael' );
+$tira->record_update( author => 'michael', project => $root, ref => $second->{ref}, assignee => 'michael' );
 
 at('2026-08-13T15:00:00Z');
 my $heard = $tira->police_pass( project => $root, store => $hush, world => {%world} );

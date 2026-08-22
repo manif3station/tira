@@ -123,6 +123,7 @@ eval { $tira->evidence_annotate( project => $root, ref => $ticket->{ref}, id => 
 like( $@, qr/not found/, 'unknown annotation target is rejected' );
 
 local $ENV{TIRA_HOME} = $root;
+$ENV{TIRA_AUTHOR} = 'ada';
 my $import_file = File::Spec->catfile( $tmp, 'changes.json' );
 open my $import_fh, '>:raw', $import_file or die $!;
 print {$import_fh} Cpanel::JSON::XS->new->canonical->utf8->encode({ $ticket->{ref} => { title => 'CLI preview title' } });
@@ -144,6 +145,7 @@ for my $case (
 ) {
     my ( $command, $argv, $expected ) = @{$case};
     $ENV{TIRA_HOME} = $root;
+    $ENV{TIRA_AUTHOR} = 'ada';
     my ( $stdout, $stderr ) = ('', '');
     open my $out, '>', \$stdout or die $!;
     open my $err, '>', \$stderr or die $!;
@@ -184,6 +186,7 @@ is( $tira->search( project => $root, text => 'legacy', field => 'comments', type
 my ( $multi_out, $multi_err ) = ('', '');
 {
     $ENV{TIRA_HOME} = $root;
+    $ENV{TIRA_AUTHOR} = 'ada';
     open my $out, '>', \$multi_out or die $!;
     open my $err, '>', \$multi_err or die $!;
     local *STDOUT = $out;

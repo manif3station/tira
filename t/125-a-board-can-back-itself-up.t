@@ -119,7 +119,7 @@ is( $again->{commit}, $first->{commit}, 'and points at the backup that still sta
 
 # --- a change is a new commit -----------------------------------------------
 
-$tira->record_update( project => $root, ref => $card->{ref}, description => 'now it says something' );
+$tira->record_update( author => 'michael', project => $root, ref => $card->{ref}, description => 'now it says something' );
 ( $status, $out ) = run( 'backup', '-o', 'json' );
 is( $status, 0, 'a changed board backs up again' );
 my $second = decode_json($out);

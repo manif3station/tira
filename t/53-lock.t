@@ -96,12 +96,12 @@ my ( %during, $watching, $comment, $item );
 
     for my $case (
         [ comment_add => sub { $comment = $tira->comment_add( %common, author => 'michael', text => 'First' ) } ],
-        [ comment_update => sub { $tira->comment_update( %common, comment => $comment->{id}, text => 'Edited' ) } ],
-        [ checklist_add => sub { $item = $tira->checklist_add( %common, item => 'A step', status => 'Open' ) } ],
-        [ checklist_update => sub { $tira->checklist_update( %common, id => $item->{id}, status => 'Done',
+        [ comment_update => sub { $tira->comment_update( author => 'michael', %common, comment => $comment->{id}, text => 'Edited' ) } ],
+        [ checklist_add => sub { $item = $tira->checklist_add( author => 'michael', %common, item => 'A step', status => 'Open' ) } ],
+        [ checklist_update => sub { $tira->checklist_update( author => 'michael', %common, id => $item->{id}, status => 'Done',
             command => ['did the step'], proof => ['step done'] ) } ],
-        [ gate_add => sub { $tira->gate_add( %common, gate => 'Review', result => 'pass', details => 'Looked over' ) } ],
-        [ evidence_add => sub { $tira->evidence_add( %common, summary => 'Proof' ) } ],
+        [ gate_add => sub { $tira->gate_add( author => 'michael', %common, gate => 'Review', result => 'pass', details => 'Looked over' ) } ],
+        [ evidence_add => sub { $tira->evidence_add( author => 'michael', %common, summary => 'Proof' ) } ],
         [ comment_remove => sub { $tira->comment_remove( %common, comment => $comment->{id} ) } ],
     ) {
         my ( $name, $run ) = @{$case};

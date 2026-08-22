@@ -38,9 +38,9 @@ $tira->project_new(
 );
 
 my $low = $tira->create_record( project => $root, type => 'ticket', title => 'Low' );
-$tira->record_update( project => $root, ref => $low->{ref}, priority => 1 );
+$tira->record_update( author => 'michael', project => $root, ref => $low->{ref}, priority => 1 );
 my $high = $tira->create_record( project => $root, type => 'ticket', title => 'High' );
-$tira->record_update( project => $root, ref => $high->{ref}, priority => 5 );
+$tira->record_update( author => 'michael', project => $root, ref => $high->{ref}, priority => 5 );
 my $unset = $tira->create_record( project => $root, type => 'ticket', title => 'Nobody has said' );
 
 my $data = $tira->dashboard( project => $root, with_title => 1 );

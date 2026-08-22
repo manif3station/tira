@@ -98,7 +98,7 @@ like( $found->[0]{detail}, qr/\b5h\b/, 'and how long ago that was, not merely th
 
 {
     $now = '2026-08-15T14:30:00Z';
-    $tira->record_update( project => $root, ref => $parked,
+    $tira->record_update( author => 'michael', project => $root, ref => $parked,
         description => 'somebody wrote something down' );
     is( scalar @{ reported() }, 0, 'writing a field is movement' );
 

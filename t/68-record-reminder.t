@@ -60,9 +60,9 @@ unlike( $tira->record_reminder($full), qr/--description|--reporter/,
     'and not offered fixes it does not need' );
 
 # Each is settled independently.
-$tira->record_update( project => $root, type => 'ticket', ref => $bare->{ref},
+$tira->record_update( author => 'michael', project => $root, type => 'ticket', ref => $bare->{ref},
     description => 'Now described.', reporter => 'michael' );
-$tira->gate_add( project => $root, type => 'ticket', ref => $bare->{ref},
+$tira->gate_add( author => 'michael', project => $root, type => 'ticket', ref => $bare->{ref},
     gate => 'Review', result => 'pass', details => 'Looked over' );
 my $asked = $tira->question_add( project => $root, ref => $bare->{ref}, text => 'One thing?' );
 my $settled = $tira->record_show( project => $root, type => 'ticket', ref => $bare->{ref} );

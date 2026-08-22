@@ -60,7 +60,7 @@ cli( 'record.move', '--ref', $agent_card->{ref}, '--column', 'planning' );
 cli( 'record.move', '--ref', $agent_card->{ref}, '--column', 'doc' );
 my $items = $tira->required_item_list( project => $root, ref => $agent_card->{ref} );
 is( scalar @{$items}, 1, 'CLI move into doc populates its required-action template' );
-$tira->required_item_update( project => $root, ref => $agent_card->{ref}, id => $items->[0]{id}, status => 'done',
+$tira->required_item_update( author => 'claude', project => $root, ref => $agent_card->{ref}, id => $items->[0]{id}, status => 'done',
     command => ['wrote the doc'], proof => ['doc written'] );
 cli( 'record.move', '--ref', $agent_card->{ref}, '--column', 'planning' );
 $items = $tira->required_item_list( project => $root, ref => $agent_card->{ref} );
@@ -74,7 +74,7 @@ $providers{move}->( { type => 'ticket', ref => $browser_card->{ref}, column => '
 $items = $tira->required_item_list( project => $root, ref => $browser_card->{ref} );
 is( scalar @{$items}, 1, 'a browser move into doc populates its required-action template too' );
 
-$tira->required_item_update( project => $root, ref => $browser_card->{ref}, id => $items->[0]{id}, status => 'done',
+$tira->required_item_update( author => 'claude', project => $root, ref => $browser_card->{ref}, id => $items->[0]{id}, status => 'done',
     command => ['wrote the doc'], proof => ['doc written'] );
 $providers{move}->( { type => 'ticket', ref => $browser_card->{ref}, column => 'planning', _signed_in => 'claude' } );
 $items = $tira->required_item_list( project => $root, ref => $browser_card->{ref} );

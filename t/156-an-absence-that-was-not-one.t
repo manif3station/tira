@@ -47,7 +47,7 @@ my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Throughput under load',
     description => 'what it said at planning' );
 
-$tira->record_update( project => $root, ref => $card->{ref},
+$tira->record_update( author => 'michael', project => $root, ref => $card->{ref},
     problem_or_feature => 'the drain collapses under a burst',
     solution_needed    => 'widen the drain',
     key_details        => ['the collapse is in the queue drain'],
@@ -67,7 +67,7 @@ $tira->gate_add( project => $root, ref => $card->{ref}, author => 'michael',
     details => 'throughput settled at 3/month under load' );
 $tira->evidence_add( project => $root, ref => $card->{ref}, author => 'michael',
     summary => 'peak was 9/month on the rig' );
-$tira->checklist_add( project => $root, ref => $card->{ref},
+$tira->checklist_add( author => 'michael', project => $root, ref => $card->{ref},
     item => 'drain the queue twice', status => 'todo' );
 
 # What passed between the owner and whoever was working the card, and a file

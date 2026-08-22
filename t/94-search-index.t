@@ -24,7 +24,7 @@ my $index_path = File::Spec->catfile( $root, '.tira', 'search.db' );
 
 my $needle = $tira->create_record( project => $root, type => 'ticket',
     title => 'A card about herrings' );
-$tira->record_update( project => $root, ref => $needle->{ref},
+$tira->record_update( author => 'claude', project => $root, ref => $needle->{ref},
     description => 'the description mentions kippers' );
 my $other = $tira->create_record( project => $root, type => 'ticket',
     title => 'A card about nothing in particular' );
@@ -123,7 +123,7 @@ is_deeply( $after, [ $needle->{ref} ], 'however sure the index is that it is the
 
 # A write already holds the project lock and is already writing, so it refreshes
 # the row it just changed. Nobody has to remember to rebuild.
-$tira->record_update( project => $root, ref => $needle->{ref},
+$tira->record_update( author => 'claude', project => $root, ref => $needle->{ref},
     description => 'now it is about anchovies' );
 is_deeply( found('anchovies'), [ $needle->{ref} ],
     'a card edited through Tira is findable without rebuilding' );

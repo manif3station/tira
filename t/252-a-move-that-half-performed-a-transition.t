@@ -111,7 +111,7 @@ is( gate_of(), 'G2', 'the card is at the gate it was created with' );
     no warnings 'redefine';
     local *Tira::CLI::_refuse_unread_options = sub { return };
 
-    $tira->record_update( project => $root, ref => $card->{ref}, sdlc_gate => 'G2' );
+    $tira->record_update( author => 'claude', project => $root, ref => $card->{ref}, sdlc_gate => 'G2' );
     my ($status) = run( 'ticket.move', '--ref', $card->{ref},
         '--column', 'done', '--sdlc-gate', 'G9' );
 

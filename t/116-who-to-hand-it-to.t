@@ -40,7 +40,7 @@ $tira->policy_add( project => $root, rule => 'card-full-details',
     enter => 'implement', action => 'bridge-reminder' );
 
 my $hers = $tira->create_record( project => $root, type => 'ticket', title => 'Held by ada' );
-$tira->record_update( project => $root, ref => $hers->{ref}, assignee => 'ada' );
+$tira->record_update( author => 'michael', project => $root, ref => $hers->{ref}, assignee => 'ada' );
 $tira->record_move(author => 'claude',  project => $root, ref => $hers->{ref}, column => 'implement' );
 
 my $nobodys = $tira->create_record( project => $root, type => 'ticket', title => 'Held by nobody' );

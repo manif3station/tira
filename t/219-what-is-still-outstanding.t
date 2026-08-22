@@ -80,7 +80,7 @@ like( $first->{tone}, qr/\A(?:note|warning|urgent|critical)\z/,
 # The whole point. A finding that was dealt with must leave the list, or the
 # list becomes another thing that repeats itself and is skimmed.
 
-$tira->assignment_set( project => $root, ref => $fixed->{ref}, people => ['claude'] );
+$tira->assignment_set( author => 'claude', project => $root, ref => $fixed->{ref}, people => ['claude'] );
 $now = '2026-08-15T10:30:00Z';
 my $after = $tira->police_pass( project => $root, store => $store, world => {} );
 $tira->bridge_write( store => $store, project => $root,

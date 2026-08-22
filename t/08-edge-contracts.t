@@ -53,7 +53,7 @@ $tira->subitem_link( project => $root, parent => $ticket1->{ref}, child => $tick
 $tira->link_add( project => $root, from => $ticket1->{ref}, type => 'blocks', to => $ticket3->{ref} );
 $tira->link_add( project => $root, from => $ticket1->{ref}, type => 'blocks', to => $ticket3->{ref} );
 is( scalar @{ $tira->link_list( project => $root, ref => $ticket1->{ref}, type => 'blocks' ) }, 1, 'typed link add is idempotent' );
-$tira->assignment_add( project => $root, ref => $ticket1->{ref}, person => 'ada' );
+$tira->assignment_add( author => 'ada', project => $root, ref => $ticket1->{ref}, person => 'ada' );
 is_deeply( $tira->assignment_list( project => $root, ref => $ticket1->{ref} ), ['ada'], 'assignment add is idempotent' );
 
 $tira->comment_add( project => $root, ref => $ticket1->{ref}, author => 'ada', text => 'one' );
@@ -139,7 +139,7 @@ open my $stdin, '<', \$stdin_text or die $!;
     is(
         do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
             command => 'record.update', type => 'ticket',
-            argv => [ '--ref', $ticket2->{ref}, '--set-bdd', '-', '-o', 'json' ],
+            argv => [ '--ref', $ticket2->{ref}, '--author', 'ada', '--set-bdd', '-', '-o', 'json' ],
         ) },
         0,
         'JSON-array replacement accepts stdin',

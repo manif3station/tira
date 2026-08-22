@@ -17,12 +17,13 @@ my $root = File::Spec->catdir( $tmp, 'delta' );
 my $tick = '2026-08-07T01:00:00Z';
 my $tira = Tira->new( clock => sub { $tick } );
 $tira->create_project( name => 'Delta', dir => $root );
+$tira->person_add( project => $root, id => 'claude', name => 'Claude' );
 
 my $early = $tira->create_record( project => $root, type => 'ticket', title => 'Early card' );
 $tick = '2026-08-07T02:00:00Z';
 my $late = $tira->create_record( project => $root, type => 'ticket', title => 'Late card' );
 $tick = '2026-08-07T03:00:00Z';
-$tira->record_update( project => $root, ref => $early->{ref}, title => 'Early, revised' );
+$tira->record_update( author => 'claude', project => $root, ref => $early->{ref}, title => 'Early, revised' );
 
 my $exported = $tira->export_records( project => $root, since => '2026-08-07T02:30:00Z' );
 is( $exported->{count}, 1, 'only records changed at or after the threshold return' );

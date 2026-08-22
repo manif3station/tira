@@ -70,13 +70,13 @@ is( scalar @{ reported('bare') }, 3, 'a card in done with no version is reported
 
 # --- a real version answers it, as it always did ------------------------------------------
 
-$tira->record_update( project => $root, ref => $shipped, fix_version => '1.98' );
+$tira->record_update( author => 'claude', project => $root, ref => $shipped, fix_version => '1.98' );
 
 # --- and so does the word for having shipped nothing ----------------------------------------
 #
 # His condition, and the whole of this card: the word has to be an answer.
 
-$tira->record_update( project => $root, ref => $nothing, fix_version => 'none' );
+$tira->record_update( author => 'claude', project => $root, ref => $nothing, fix_version => 'none' );
 
 is_deeply( reported('answered'), [$silent],
     'only the card that has said nothing is still reported' );

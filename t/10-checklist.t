@@ -20,14 +20,14 @@ for my $type (qw(sow epic ticket)) {
     my $record = $tira->create_record( project => $root, type => $type, title => "Checklist $type" );
     is_deeply( $record->{checklist}, [], "$type starts with an empty checklist" );
 
-    my $entry = $tira->checklist_add(
+    my $entry = $tira->checklist_add( author => 'claude',
         project => $root, ref => $record->{ref}, item => 'Review requirements', status => 'To Do',
     );
     is( $entry->{id}, 'CHK-001', "$type first checklist ID is stable" );
     is( $entry->{item}, 'Review requirements', "$type stores checklist item" );
     is( $entry->{status}, 'To Do', "$type stores checklist status" );
 
-    $entry = $tira->checklist_update(
+    $entry = $tira->checklist_update( author => 'claude',
         project => $root, ref => $record->{ref}, id => $entry->{id}, status => 'Done',
         command => ['reviewed'], proof => ['looked it over'],
     );
@@ -45,12 +45,12 @@ for my $case (
 ) {
     my ( $action, $args, $error ) = @{$case};
     my $method = "checklist_$action";
-    eval { $tira->$method( project => $root, ref => $ticket->{ref}, %{$args} ) };
+    eval { $tira->$method( project => $root, ref => $ticket->{ref}, author => 'claude', %{$args} ) };
     like( $@, $error, "checklist $action validates input" );
 }
 
-$tira->checklist_add( project => $root, ref => $ticket->{ref}, item => 'Build', status => 'Open' );
-my $updated = $tira->checklist_update(
+$tira->checklist_add( author => 'claude', project => $root, ref => $ticket->{ref}, item => 'Build', status => 'Open' );
+my $updated = $tira->checklist_update( author => 'claude',
     project => $root, ref => $ticket->{ref}, id => 'CHK-001', item => 'Build release', status => 'Done',
     command => ['make release'], proof => ['build succeeded'],
 );
@@ -59,6 +59,7 @@ like( $tira->format_output( $tira->record_show( project => $root, ref => $ticket
     qr/- \[Done\] Build release/, 'human record output renders checklist status and item' );
 
 local $ENV{TIRA_HOME} = $root;
+local $ENV{TIRA_AUTHOR} = 'claude';
 my ( $stdout, $stderr ) = ('', '');
 {
     open my $out, '>', \$stdout or die $!;
@@ -72,7 +73,7 @@ like( $stdout, qr/"item"\s*:\s*"Deploy"/, 'checklist add CLI returns entry' );
 is( $stderr, '', 'checklist add CLI has no stderr' );
 
 for my $case (
-    [ 'checklist.update', [ '--ref', $ticket->{ref}, '--id', 'CHK-002', '--status', 'Done',
+    [ 'checklist.update', [ '--ref', $ticket->{ref}, '--id', 'CHK-002', '--status', 'Done', '--author', 'claude',
         '--command', 'ran deploy', '--proof', 'deployed ok', '-o', 'json' ], qr/"status"\s*:\s*"Done"/ ],
     [ 'checklist.list', [ '--ref', $ticket->{ref}, '-o', 'json' ], qr/"id"\s*:\s*"CHK-002"/ ],
 ) {

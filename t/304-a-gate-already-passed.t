@@ -55,30 +55,30 @@ like( $err, qr/planning/, 'naming the correct next column' );
 
 # --- a card with only ONE of the two skipped columns gated still refuses --
 my $partial = $tira->create_record( project => $root, type => 'ticket', title => 'Only one gate' );
-$tira->gate_add( project => $root, ref => $partial->{ref}, gate => 'planning', result => 'pass', details => 'Done' );
+$tira->gate_add( author => 'claude', project => $root, ref => $partial->{ref}, gate => 'planning', result => 'pass', details => 'Done' );
 ( $status, $out, $err ) = cli( 'record.move', '--ref', $partial->{ref}, '--column', 'code' );
 isnt( $status, 0, 'one gated column out of two skipped is not enough' );
 
 # --- a card with BOTH skipped columns gated pass can skip straight there ---
 my $gated = $tira->create_record( project => $root, type => 'ticket', title => 'Fully gated' );
-$tira->gate_add( project => $root, ref => $gated->{ref}, gate => 'planning', result => 'pass', details => 'Done' );
-$tira->gate_add( project => $root, ref => $gated->{ref}, gate => 'doc', result => 'pass', details => 'Done' );
+$tira->gate_add( author => 'claude', project => $root, ref => $gated->{ref}, gate => 'planning', result => 'pass', details => 'Done' );
+$tira->gate_add( author => 'claude', project => $root, ref => $gated->{ref}, gate => 'doc', result => 'pass', details => 'Done' );
 ( $status, $out, $err ) = cli( 'record.move', '--ref', $gated->{ref}, '--column', 'code' );
 is( $status, 0, 'both skipped columns gated pass lets the move skip straight there' ) or diag($err);
 is( $tira->record_show( project => $root, ref => $gated->{ref} )->{column}, 'code', 'and it actually landed there' );
 
 # --- a FAILED gate does not count, even with the right name ----------------
 my $failed = $tira->create_record( project => $root, type => 'ticket', title => 'A failed gate' );
-$tira->gate_add( project => $root, ref => $failed->{ref}, gate => 'planning', result => 'pass', details => 'Done' );
-$tira->gate_add( project => $root, ref => $failed->{ref}, gate => 'doc', result => 'fail', details => 'Broke' );
+$tira->gate_add( author => 'claude', project => $root, ref => $failed->{ref}, gate => 'planning', result => 'pass', details => 'Done' );
+$tira->gate_add( author => 'claude', project => $root, ref => $failed->{ref}, gate => 'doc', result => 'fail', details => 'Broke' );
 ( $status, $out, $err ) = cli( 'record.move', '--ref', $failed->{ref}, '--column', 'code' );
 isnt( $status, 0, 'a gate recorded fail, not pass, does not count' );
 
 # --- all the way to done, three columns skipped, all three gated -----------
 my $full = $tira->create_record( project => $root, type => 'ticket', title => 'Skip everything' );
-$tira->gate_add( project => $root, ref => $full->{ref}, gate => 'planning', result => 'pass', details => 'Done' );
-$tira->gate_add( project => $root, ref => $full->{ref}, gate => 'doc', result => 'pass', details => 'Done' );
-$tira->gate_add( project => $root, ref => $full->{ref}, gate => 'code', result => 'pass', details => 'Done' );
+$tira->gate_add( author => 'claude', project => $root, ref => $full->{ref}, gate => 'planning', result => 'pass', details => 'Done' );
+$tira->gate_add( author => 'claude', project => $root, ref => $full->{ref}, gate => 'doc', result => 'pass', details => 'Done' );
+$tira->gate_add( author => 'claude', project => $root, ref => $full->{ref}, gate => 'code', result => 'pass', details => 'Done' );
 ( $status, $out, $err ) = cli( 'record.move', '--ref', $full->{ref}, '--column', 'done' );
 is( $status, 0, 'every intervening column gated pass skips all the way to the terminal column' ) or diag($err);
 

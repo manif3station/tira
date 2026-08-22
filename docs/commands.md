@@ -1238,6 +1238,16 @@ few of them, and the absence of one is not a problem. A role naming a column
 that does not exist is refused, because a role pointing at nothing would make
 every rule written against it match nothing at all, silently.
 
+## Every write says who made it
+
+`--author` (or the `TIRA_AUTHOR` environment variable, read when `--author` is
+omitted) is required on every command that writes a journal or history entry:
+moves, record updates, comments, checklist and required-action entries, gates,
+evidence, and assignments. A caller supplying neither is refused - "A change
+needs to say who is making it" - rather than writing an entry attributed to
+nobody. The browser dashboard is unaffected: every mutating route already
+threads the signed-in person through automatically. TKT-457, TKT-466.
+
 ## Accumulating record fields
 
 On record update, repeated `--key-detail`, `--deliverable`, `--acceptance`,

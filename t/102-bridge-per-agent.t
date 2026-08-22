@@ -31,7 +31,7 @@ $tira->policy_add( project => $root, rule => 'card-full-details',
 my %card;
 for my $who (qw(ada grace)) {
     my $card = $tira->create_record( project => $root, type => 'ticket', title => "\u${who}'s work" );
-    $tira->record_update( project => $root, ref => $card->{ref}, assignee => $who );
+    $tira->record_update( author => 'ada', project => $root, ref => $card->{ref}, assignee => $who );
     $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
     $card{$who} = $card->{ref};
 }

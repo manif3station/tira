@@ -46,7 +46,7 @@ sub cli {
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Watched' );
 
 # --- a manual add carries no required-action tag ---------------------------
-$tira->checklist_add( project => $root, ref => $card->{ref}, item => 'a manual step', status => 'pending' );
+$tira->checklist_add( author => 'claude', project => $root, ref => $card->{ref}, item => 'a manual step', status => 'pending' );
 my $history = $tira->history_list( project => $root, ref => $card->{ref}, where => ['op=required-action'] );
 is( scalar @{$history}, 0, 'a plain manual checklist_add writes no required-action entry' );
 
@@ -59,7 +59,7 @@ is( $history->[0]{after}, 'pending', 'and the status it started at' );
 
 # --- mark it done manually - still no tag, this was a person's own tick ----
 my ($entry) = grep { $_->{item} eq 'left a note' } @{ $tira->required_item_list( project => $root, ref => $card->{ref} ) };
-$tira->required_item_update( project => $root, ref => $card->{ref}, id => $entry->{id}, status => 'done',
+$tira->required_item_update( author => 'claude', project => $root, ref => $card->{ref}, id => $entry->{id}, status => 'done',
     command => ['left it'], proof => ['note left'] );
 $history = $tira->history_list( project => $root, ref => $card->{ref}, where => ['op=required-action'] );
 is( scalar @{$history}, 1, 'a manual checklist_update adds no new required-action entry' );

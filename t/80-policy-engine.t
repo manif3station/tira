@@ -96,7 +96,7 @@ my $complete = card(
 # A complete card carries a checklist and either a parent or a word saying it
 # stands alone - the push gate's requirements, which police did not share until
 # the two definitions became one. TKT-241.
-$tira->checklist_add( project => $root, ref => $complete->{ref},
+$tira->checklist_add( author => 'michael', project => $root, ref => $complete->{ref},
     item => 'the thing to do', status => 'done' );
 $tira->record_move(author => 'claude',  project => $root, ref => $complete->{ref}, column => 'implement' );
 is( scalar( grep { $_->{ref} eq $complete->{ref} } fired('card-full-details') ), 0,
@@ -109,7 +109,7 @@ is( scalar( grep { $_->{ref} eq $drafting->{ref} } fired('card-full-details') ),
 
 # --- card-stalled ---------------------------------------------------------
 
-$tira->checklist_add( project => $root, ref => $complete->{ref}, item => 'the work', status => 'done' );
+$tira->checklist_add( author => 'michael', project => $root, ref => $complete->{ref}, item => 'the work', status => 'done' );
 my @stalled = fired('card-stalled');
 is( scalar @stalled, 1, 'a finished checklist in a working column is reported' );
 is( $stalled[0]{ref}, $complete->{ref}, 'naming the card that should have moved' );
@@ -178,7 +178,7 @@ like( $unfolded[0]{detail}, qr/\Q$asked->{id}\E/, 'naming the question that was 
 $tira->comment_add( project => $root, ref => $complete->{ref}, author => 'claude', text => 'noted' );
 is( scalar fired('answer-ok-not-folded'), 1, 'a comment does not count as folding it in' );
 
-$tira->record_update( project => $root, ref => $complete->{ref},
+$tira->record_update( author => 'michael', project => $root, ref => $complete->{ref},
     key_details => ['what the answer actually decided'] );
 is( scalar fired('answer-ok-not-folded'), 0, 'changing a detail field does' );
 
@@ -226,7 +226,7 @@ like( $metrics[0]{detail}, qr/source/, 'all of them, not just the first' );
 like( $metrics[0]{detail}, qr/labels/,
     'and a list field counts as missing when it is empty, not merely when it is absent' );
 
-$tira->record_update( project => $root, ref => $second->{ref},
+$tira->record_update( author => 'michael', project => $root, ref => $second->{ref},
     start_date => '2026-08-11T09:00:00Z', due_date => '2026-08-20T09:00:00Z',
     source => 'the owner, by Telegram', labels => ['policed'] );
 is( scalar( grep { $_->{ref} eq $second->{ref} } fired('card-metrics') ), 0,
@@ -239,10 +239,10 @@ is( scalar( grep { $_->{ref} eq $second->{ref} } fired('card-metrics') ), 0,
 $tira->policy_add( project => $root, rule => 'checklist-idle', column => 'implement',
     age => '30m', action => 'bridge-reminder' );
 at('2026-08-11T10:50:00Z');
-$tira->checklist_add( project => $root, ref => $second->{ref},
+$tira->checklist_add( author => 'michael', project => $root, ref => $second->{ref},
     item => 'the first step', status => 'pending' );
 at('2026-08-11T10:52:00Z');
-$tira->checklist_add( project => $root, ref => $second->{ref},
+$tira->checklist_add( author => 'michael', project => $root, ref => $second->{ref},
     item => 'a later step', status => 'pending' );
 at('2026-08-11T10:55:00Z');
 is( scalar fired('checklist-idle'), 0, 'a checklist just touched is not idle' );
@@ -265,7 +265,7 @@ my @idle = fired('checklist-idle');
 is( scalar @idle, 1, 'one untouched past its age is reported' );
 like( $idle[0]{detail}, qr/no checklist movement/, 'saying what has not happened' );
 
-$tira->checklist_update( project => $root, ref => $second->{ref},
+$tira->checklist_update( author => 'michael', project => $root, ref => $second->{ref},
     id => 'CHK-001', status => 'done', command => ['did it'], proof => ['done'] );
 is( scalar fired('checklist-idle'), 0, 'and touching it silences the rule' );
 

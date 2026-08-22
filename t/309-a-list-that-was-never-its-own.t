@@ -63,7 +63,7 @@ is( $shown->{required_items}[0]{item}, 'said why', 'the item text' );
 is( $shown->{required_items}[0]{column}, 'backlog', 'tagged with the column it came from' );
 is( $shown->{required_items}[0]{status}, 'pending', 'starts pending' );
 
-$tira->checklist_add( project => $root, ref => $card->{ref}, item => 'unrelated manual step', status => 'pending' );
+$tira->checklist_add( author => 'claude', project => $root, ref => $card->{ref}, item => 'unrelated manual step', status => 'pending' );
 
 # --- move-out refuses while the current column's required items are unmet -
 ( $status, $out, $err ) = cli( 'record.move', '--ref', $card->{ref}, '--column', 'planning' );

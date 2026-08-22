@@ -43,6 +43,7 @@ sub run {
         local *STDERR = $se;
         do {
             local $ENV{TIRA_HOME} = $root;
+            $ENV{TIRA_AUTHOR} = 'claude';
             Tira::CLI->run( command => $command, argv => [@argv], tira => $tira );
         };
     };
@@ -108,10 +109,10 @@ is( $shown->{column}, 'verify', 'release.record left the card exactly where it w
 
 {
     my $fourth = $tira->create_record( project => $root, type => 'ticket', title => 'Recorded by hand' );
-    $tira->gate_add( project => $root, ref => $fourth->{ref},
+    $tira->gate_add( author => 'claude', project => $root, ref => $fourth->{ref},
         gate => 'Release gate', result => 'pass', details => 'By hand' );
-    $tira->evidence_add( project => $root, ref => $fourth->{ref}, summary => 'By hand' );
-    $tira->record_update( project => $root, ref => $fourth->{ref}, fix_version => '3.01' );
+    $tira->evidence_add( author => 'claude', project => $root, ref => $fourth->{ref}, summary => 'By hand' );
+    $tira->record_update( author => 'claude', project => $root, ref => $fourth->{ref}, fix_version => '3.01' );
     my $shown_fourth = $tira->record_show( project => $root, ref => $fourth->{ref} );
     is( $shown_fourth->{fix_version}, '3.01', 'gate.add, evidence.add and update --fix-version still work unchanged' );
 }

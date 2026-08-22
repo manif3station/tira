@@ -82,7 +82,7 @@ sub bridge {
 # left, and a settlement arriving alone says "done".
 
 {
-    $tira->record_update( project => $root, ref => $first->{ref}, labels => ['standalone'] );
+    $tira->record_update( author => 'claude', project => $root, ref => $first->{ref}, labels => ['standalone'] );
     $now = '2026-08-16T23:05:00Z';
 
     my @lines = bridge();
@@ -132,7 +132,7 @@ sub bridge {
 # written to prevent.
 
 {
-    $tira->record_update( project => $root, ref => $second->{ref}, labels => ['standalone'] );
+    $tira->record_update( author => 'claude', project => $root, ref => $second->{ref}, labels => ['standalone'] );
     $now = '2026-08-16T23:10:00Z';
 
     my @written = bridge();

@@ -57,7 +57,7 @@ my $card = $tira->create_record( project => $root, type => 'ticket',
 $tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'in-progress' );
 
 my $tree = File::Spec->catdir( $sandbox_root, lc $card );
-$tira->record_update( project => $root, ref => $card, sandbox => $tree );
+$tira->record_update( author => 'claude', project => $root, ref => $card, sandbox => $tree );
 
 sub reported {
     my (%world) = @_;

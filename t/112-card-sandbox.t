@@ -77,7 +77,7 @@ like( $unclaimed->[0]{detail}, qr/not recorded on the card/,
 
 # --- the card says so, and it is there ------------------------------------
 
-$tira->record_update( project => $root, ref => $card->{ref}, sandbox => $tree );
+$tira->record_update( author => 'ada', project => $root, ref => $card->{ref}, sandbox => $tree );
 is( $tira->record_show( project => $root, ref => $card->{ref} )->{sandbox}, $tree,
     'a card records the work tree it is being worked in' );
 

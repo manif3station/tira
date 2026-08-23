@@ -1,5 +1,27 @@
 Revision history for Tira
 
+3.65  2026-08-23
+
+    - TKT-484. t/266-a-stopped-agent-on-a-busy-board.t declared
+      agent-still and called police_pass() many times through a
+      reported() helper before the two blocks near the bottom that
+      mock the Telegram send. Every earlier call was unguarded, so a
+      host shell exporting a real TELEGRAM_BOT_TOKEN/TELEGRAM_CHATID
+      sent a real message to the real owner every time the file ran
+      outside Docker - the same class of bug TKT-482 fixed in a
+      different file. t/345 (TKT-482's own regression guard) only
+      checked whether a guard string appeared anywhere in a file, not
+      whether it preceded the first police_pass call, so it missed
+      this one. Confirmed live: repeated real messages naming this
+      file's own STT fixture refs and fixed-clock timestamps, fired
+      while running t/266 directly on host this session.
+
+    - Fixed: t/266 neutralizes TELEGRAM_BOT_TOKEN/CHATID before its
+      first police_pass call. t/345 now requires the guard's line
+      number precede the first (non-comment) police_pass call's line
+      number, not merely appear anywhere in the file - confirmed via
+      git stash that it catches the exact bug this release fixes.
+
 3.64  2026-08-23
 
     - TKT-394. tira.board.show reported a board's column

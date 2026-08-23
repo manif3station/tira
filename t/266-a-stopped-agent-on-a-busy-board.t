@@ -35,6 +35,21 @@ use Test::More;
 use lib 'lib';
 use Tira;
 
+# This file declares agent-still and calls police_pass() through reported()
+# many times before the two blocks below that deliberately exercise the
+# send path (and mock _post_telegram directly, which is why they are safe
+# regardless of this). Every earlier call was unguarded: a host shell that
+# happens to export real TELEGRAM_BOT_TOKEN/TELEGRAM_CHATID - as this
+# project's own Telegram bridge does - sent a real message to the real
+# owner every time this file ran outside Docker. t/345's own regression
+# guard only checked whether the string TELEGRAM_BOT_TOKEN appeared
+# anywhere in a file, not whether every police_pass call was actually
+# guarded, so it missed this one. Confirmed live: repeated "the agent has
+# stopped" messages naming this file's own STT fixture refs and its
+# 2026-08-18T01:31:00Z/18:00:00Z timestamps. TKT-484.
+delete local $ENV{TELEGRAM_BOT_TOKEN};
+delete local $ENV{TELEGRAM_CHATID};
+
 my $tmp   = tempdir( CLEANUP => 1 );
 my $now   = '2026-08-18T01:00:00Z';
 my $tira  = Tira->new( clock => sub {$now} );

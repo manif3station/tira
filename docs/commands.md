@@ -862,6 +862,13 @@ Put one rule down for a while, without going deaf to everything else.
 | `--ref CARD` | no | Put it down for one card only. With none, the whole board. |
 | `--store PATH` | no | Police's own state, if it is not in the usual place. |
 
+The enforcement log entry this writes carries `rule`, `seconds` and `reason`
+as fields under a `fields` key, alongside the same prose `detail` a person
+still reads - until 3.46 the entry was prose only, so counting or grouping
+suspensions by rule needed a regex against a sentence never meant to be
+parsed. An entry written before 3.46 carries no `fields` key at all and
+still reads back correctly. TKT-348.
+
 `tira.police.suspend` quiets police entirely, which is right when an agent needs
 to concentrate and wrong when one rule is chasing one card. **Per card is the
 grain that matters**: a card being worked hard collects comments faster than

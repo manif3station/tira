@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.45';
+our $VERSION = '3.46';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -9286,6 +9286,15 @@ sub _enforcement_record {
         kind => $args{kind},
         ref => $args{ref} // '',
         detail => $args{detail} // '',
+
+        # A suspension logged only as prose in `detail` answers "what
+        # happened" and refuses "how many, by which rule" without a regex
+        # against a sentence never meant to be parsed - measured on this
+        # board's own log, auditing an agent's own quieting habits. `fields`
+        # carries the same facts as data, alongside the prose a person still
+        # reads; entries written before this carried none, and read back
+        # with an empty hash rather than failing. TKT-348.
+        ( $args{fields} ? ( fields => $args{fields} ) : () ),
     };
     $self->_enforcement_write( $store, $log );
     return 1;
@@ -9408,6 +9417,7 @@ sub rule_suspend {
         detail => "$rule "
           . ( $ref eq '' ? 'on this board' : "on $ref" )
           . " for ${seconds}s: $reason",
+        fields => { rule => $rule, seconds => $seconds, reason => $reason },
     );
 
     return { rule => $rule, ref => $ref, until => $until, reason => $reason };

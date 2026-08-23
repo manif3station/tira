@@ -11270,10 +11270,61 @@ Finds C<.tira/project.yml> by explicit root or upward directory traversal.
 Creates one free-ranging SOW, epic, or ticket in its Backlog column.
 Release 0.03 records include singular assignee, optional reporter, planning and
 version metadata, numeric priority, and an immediate generated parent.
+C<fix_version> must be a released version number, C<none>, or an
+C<n/a - ...> explanation for work outside a release - anything else is
+refused, since 3.45.
 
 =head2 format_output
 
 Encodes data as TOON by default, pretty JSON, or Markdown.
+
+=head2 record_update
+
+Writes fields on an existing record. Repeatable list fields (labels,
+key_details, deliverables, acceptance, test_steps, bdd, atdd,
+affects_versions, scope_in, scope_out) append; the C<*_replace> forms
+(C<labels_replace>, C<scope_in_replace>, C<scope_out_replace>, and so on)
+replace the whole array wholesale, including with an empty array to clear
+it - the only way to correct a wrong entry rather than append past it.
+
+=head2 rule_suspend
+
+Puts one policy rule down for a card, or the whole board, for a bounded
+number of seconds with a required reason. The enforcement log entry
+carries C<rule>, C<seconds> and C<reason> as fields, alongside the same
+prose C<detail> a person reads, so suspensions can be counted and grouped
+by rule without parsing text.
+
+=head2 changelog_check
+
+Cross-references every card's claimed C<fix_version> against a changelog
+file's own version headings (C<Changes> by default), returning any card
+whose claimed version was never actually released. C<none> and an
+C<n/a - ...> explanation are never reported as missing.
+
+=head2 bulk_import
+
+Applies (or, with C<dry_run>, previews) a ref-keyed set of field changes
+transactionally. A change object is keyed by its own record reference, not
+a C<--ref> flag; an empty or malformed key is refused naming that key
+structure rather than a flag this command does not have.
+
+=head2 question_list
+
+Lists a card's questions with their answers. Reading marks an unread
+answer's C<read_at>, unless C<peek> is set: a peek returns metadata only
+(C<id>, C<status>, C<answered_at>, C<read_at>, C<mark>, never the answer
+text, reason, or options) and does not itself mark anything read, so
+checking whether an answer has been read stops being the same act as
+reading it.
+
+=head2 work_order
+
+Answers what to work next: the highest-priority waiting card, and what it
+was chosen over. A card carrying an unanswered question, or a future
+C<start_date>, is held rather than offered - both are machine-readable
+holds this board already validates, released the moment the condition
+clears.
 
 =head2 policy_evaluate
 
@@ -11281,5 +11332,12 @@ Runs every declared policy rule against the board and returns the
 violations found. C<checklist-unmoved> is addressed to a card's reporter,
 not its assignee, since the assignee is often the reviewer for a card in
 review and cannot tick an item only the card's own author left unticked.
+C<card-still>'s finding names the limit that was actually crossed and
+which of the two possible sources set it - a column's own C<notify_after>,
+or the policy's own C<--age> when the column has none - since elapsed
+time alone read as though it were the threshold too. C<wip-limit> counts
+each record kind (sow/epic/ticket) in a watched column separately, rather
+than one merged pool, so a manager layer of epics cannot exhaust a
+ticket's budget by existing.
 
 =cut

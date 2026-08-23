@@ -613,8 +613,14 @@ behind it, instead of TKT-468's one big multi-line text box, which
 crammed every item onto its own line in a single field ("if I have 10,
 that's 10 lines" — owner, live). Both fields are already round-tripped
 by `/columns/apply` (above). A column with neither declared shows both
-empty rather than forcing a value in on save, and only a field actually
-edited is included in the layout sent back. Owner's live question,
+empty rather than forcing a value in on save. Emptying a column's
+existing chain or required-action list down to nothing sends an
+explicit empty list back, not an omitted field — until TKT-481, the
+payload dropped the key entirely when a list was cleared, which reads
+as "leave whatever was there" server-side, so a removed item came back
+after the very next page load; a column that never had a value still
+omits the key, which is the only case that means "nothing to save."
+Owner's live question,
 2026-08-22: "Where to view and edit the column chain? Also, where to
 view and edit the required items of each column?" — nowhere, until
 TKT-468, and not usably until TKT-472. Each required-action row also

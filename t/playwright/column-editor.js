@@ -14,7 +14,8 @@ if (!htmlPath) {
 const COLUMNS = [
   { name: 'backlog', label: 'Backlog', protected: true, watched: 1, next: ['planning'] },
   { name: 'planning', label: 'Planning', protected: false, watched: 0 },
-  { name: 'in-progress', label: 'In Progress', protected: false, watched: 1 },
+  { name: 'in-progress', label: 'In Progress', protected: false, watched: 1,
+    next: ['review'], required_actions: ['Old task'] },
   { name: 'review', label: 'Review', protected: false, watched: 1, notify_after: 45,
     required_actions: ['Run the suite', 'Update the docs'] },
   { name: 'done', label: 'Done', protected: false, watched: 1 },
@@ -165,6 +166,14 @@ process.on('unhandledRejection', error => {
   const afterDrag = await actionRows();
   if (afterDrag.join('|') !== 'Add a Changes entry|Update the docs|') fail('dragging a required-action row by its grip did not reorder it, got ' + afterDrag.join('|'));
 
+  // TKT-481: emptying a column's existing required-action list or chain
+  // entirely - not trimming it, removing the last row/check - must still
+  // be sent as an explicit empty list. The owner reported the removed item
+  // reappearing after a page refresh: the payload omitted the key rather
+  // than sending [], which the server then read as "nothing changed."
+  await page.locator('.column-row[data-name="in-progress"] .column-row__action-remove').first().click();
+  await page.locator('.column-row[data-name="in-progress"] .column-row__next-checkbox[value="review"]').uncheck();
+
   await page.locator('.column-row[data-name="backlog"] .column-row__next-checkbox[value="in-progress"]').check();
   await page.locator('.column-row[data-name="done"] .column-row__remove').click();
   await page.locator('.column-dialog__new').fill('Waiting On Client');
@@ -198,6 +207,17 @@ process.on('unhandledRejection', error => {
     const doneless = saved.columns.find(c => c.name === 'planning');
     if ('next' in doneless) fail('a column with no chain declared had one forced into the save, got ' + JSON.stringify(doneless.next));
     if ('required_actions' in doneless) fail('a column with no required-action template declared had one forced into the save');
+
+    // TKT-481: a column that HAD a required-action template or chain, now
+    // emptied down to nothing, must send an explicit [] - not omit the key
+    // the way a column that never had one does above. Omitting here reads
+    // as "leave whatever was there," which is the bug: the owner's removal
+    // reverted itself on the very next load.
+    const cleared = saved.columns.find(c => c.name === 'in-progress');
+    if (!('required_actions' in cleared)) fail('emptying an existing required-action list omitted the key instead of sending []');
+    else if (cleared.required_actions.length) fail('emptying an existing required-action list did not send it empty, got ' + JSON.stringify(cleared.required_actions));
+    if (!('next' in cleared)) fail('emptying an existing chain omitted the key instead of sending []');
+    else if (cleared.next.length) fail('emptying an existing chain did not send it empty, got ' + JSON.stringify(cleared.next));
   }
 
   await browser.close();

@@ -1,5 +1,21 @@
 Revision history for Tira
 
+3.52  2026-08-23
+
+    - TKT-481. The column editor's dialog removed a required-action row
+      or unchecked a chain box on screen, but a Save and page refresh
+      brought the removed item back. columnLayout()'s serializer only
+      included required_actions/next in the saved payload when they
+      were non-empty, so emptying a list down to nothing made the key
+      vanish from the payload entirely instead of being sent as [] -
+      and column_apply only ever writes a field when its key is
+      present, so an omitted key left the old value untouched.
+
+    - Fixed: each column row now remembers whether it arrived with a
+      non-empty required-action list or chain; the payload sends an
+      explicit [] when one of those was cleared, while a column that
+      never had either still omits the key, exactly as before.
+
 3.51  2026-08-23
 
     - TKT-482. t/86-police-end-to-end.t declares agent-still and calls

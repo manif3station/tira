@@ -13,6 +13,15 @@ use lib 'lib';
 use Tira;
 use Tira::CLI;
 
+# This file declares agent-still and calls police_pass() repeatedly without
+# mocking the send it can trigger. Without this, a host shell that happens
+# to export real TELEGRAM_BOT_TOKEN/TELEGRAM_CHATID - as this project's own
+# Telegram bridge does - sends a real message to the real owner every time
+# this file runs outside Docker. Confirmed live: three such messages,
+# naming this file's own fixture paths and card refs. TKT-482.
+delete local $ENV{TELEGRAM_BOT_TOKEN};
+delete local $ENV{TELEGRAM_CHATID};
+
 my $tmp = tempdir( CLEANUP => 1 );
 my $now = '2026-08-11T09:00:00Z';
 my $tira = Tira->new( clock => sub {$now} );

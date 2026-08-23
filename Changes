@@ -1,5 +1,25 @@
 Revision history for Tira
 
+3.51  2026-08-23
+
+    - TKT-482. t/86-police-end-to-end.t declares agent-still and calls
+      police_pass() repeatedly without mocking the Telegram send it
+      can trigger. A host shell with real TELEGRAM_BOT_TOKEN/
+      TELEGRAM_CHATID exported - this project's own Telegram bridge
+      needs exactly that - sent a real message to the real owner's
+      phone every time this file ran outside Docker, naming its own
+      throwaway fixture paths and card refs. Confirmed live: the
+      owner had asked earlier whether one such message was a false
+      alarm - it was, this test.
+
+    - Fixed: t/86 now clears both environment variables for its own
+      run, closing the path entirely regardless of what the invoking
+      shell has exported. A new test (t/345) scans every test file for
+      the two ingredients that can reach a real Telegram send -
+      agent-still declared, or an enabled notify_moves chat - and
+      fails if either combines with police_pass() without a guard, so
+      this class of bug cannot recur in a future test file unnoticed.
+
 3.50  2026-08-23
 
     - TKT-478. lib/Tira.pm's own POD METHODS section documented exactly

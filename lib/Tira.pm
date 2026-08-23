@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.49';
+our $VERSION = '3.50';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -11353,5 +11353,441 @@ opens by naming the board it is about - the C<TIRA_HOME> alias if one was
 set, and always the real project path - since that one message goes to the
 owner rather than to the agent-readable bridge, and an unnamed alert on a
 machine running several projects with this skill cannot be placed.
+
+=head2 project_new
+
+Creates a complete project in one call - the project, its three boards, prefixes, columns, and members - re-runnable safely, since an existing piece is adopted rather than refused.
+
+=head2 project_show
+
+Returns the project's stored configuration, with each person's active flag defaulted and only the safe fields returned.
+
+=head2 project_mode
+
+Reads or sets whether the project is worked by a single agent or a chain of them.
+
+=head2 project_limit
+
+Reads or sets the board's work-in-progress limit.
+
+=head2 onboarding_questions
+
+Returns the fixed list of questions asked when a project is first set up.
+
+=head2 project_update
+
+Writes project-level settings: name, notify_after, and the automation settings that turn the reminder collector on or off.
+
+=head2 person_list
+
+Returns every person on the project.
+
+=head2 person_add
+
+Adds a person to the project; refuses a duplicate id.
+
+=head2 person_update
+
+Updates a person's name or email.
+
+=head2 person_remove
+
+Removes a person, refusing one still referenced anywhere in the board's history (assignee, reporter, comment, evidence, or gate author).
+
+=head2 person_activate
+
+Marks a person active.
+
+=head2 person_deactivate
+
+Marks a person inactive.
+
+=head2 link_type_list
+
+Returns the project's declared link types.
+
+=head2 link_type_add
+
+Declares a new outward/inward link type pair.
+
+=head2 link_type_remove
+
+Removes a link type, refusing one that is protected or still used on a record.
+
+=head2 collector_entry
+
+Builds the machine-wide collector configuration entry for this project (command, interval, cwd), or C<undef> if the project has no heartbeat set.
+
+=head2 collector_install
+
+Registers this project's collector entry machine-wide, refusing a name collision with a different project's working directory.
+
+=head2 collector_remove
+
+Unregisters this project's collector entry.
+
+=head2 notification_message
+
+Composes the reminder text for every card that has dwelt past its threshold.
+
+=head2 warning_list
+
+Returns the project's standing warnings.
+
+=head2 warning_add
+
+Adds a warning, or returns the existing one if the same message is already standing.
+
+=head2 warning_clear
+
+Clears one warning by id, or every one with C<--all>.
+
+=head2 notification_record
+
+Records that a reminder was sent for one or more cards in a given column, so the same reminder is not sent twice.
+
+=head2 notification_list
+
+Returns recorded notification sends, optionally filtered by ref.
+
+=head2 column_list
+
+Returns a board's columns, or all three boards' columns when no type is given.
+
+=head2 column_apply
+
+Replaces a board's whole column layout in one call - order, labels, chains, and required-action templates - matching what the column editor dialog sends.
+
+=head2 column_update
+
+Updates one column's notify_after, watched flag, terminal role, chain, or required-action template.
+
+=head2 board_show
+
+Returns a board's raw stored configuration.
+
+=head2 column_add
+
+Adds a new column to a board, at a given position.
+
+=head2 column_rename
+
+Renames a column, moving its on-disk directory to match.
+
+=head2 column_reorder
+
+Moves a column before or after another.
+
+=head2 column_remove
+
+Removes a column, refusing a protected one; any cards in it move to discard.
+
+=head2 board_refs
+
+Reads or sets a board's reference prefix and digit width.
+
+=head2 record_show
+
+Returns one record, with field projection, since/if_changed short-circuiting, and attachment backfill applied.
+
+=head2 diff_records
+
+Returns what changed on a record since a timestamp or against a stored snapshot hash.
+
+=head2 record_show_many
+
+Batch form of C<record_show> for up to 100 refs at once.
+
+=head2 record_list
+
+Returns records across one or all three boards, with filtering, field projection, and count/refs-only modes.
+
+=head2 dwell_list
+
+Returns cards that have sat in their column past a threshold, with a staleness level.
+
+=head2 export_records
+
+Bulk export of records, honoring the same filtering as C<record_list> plus a change-hash mode.
+
+=head2 record_move
+
+Moves a card to another column, running the chain, required-action, and journal-attribution checks along the way. Refuses a move with no author.
+
+=head2 record_discard
+
+Moves a card to the discard column.
+
+=head2 record_restore
+
+Moves a discarded card back to backlog, or a named column.
+
+=head2 project_validate
+
+Checks (and optionally repairs) a board's column layout against what is actually on disk.
+
+=head2 column_sync
+
+Compares a board's configured columns against its actual on-disk directories, and applies the difference when asked.
+
+=head2 link_add
+
+Links two records, writing the reciprocal link on the other side too.
+
+=head2 link_remove
+
+Removes a link and its reciprocal.
+
+=head2 comment_list
+
+Returns a record's comments, with first/last windowing and field projection.
+
+=head2 record_reminder
+
+Builds the list of missing fields and update-command hints for one record.
+
+=head2 question_add
+
+Adds a question to a record.
+
+=head2 question_update
+
+Updates a question's text, reason, options, or voice note.
+
+=head2 question_discard
+
+Marks a question discarded.
+
+=head2 question_answer
+
+Records an answer to a question.
+
+=head2 question_attach
+
+Attaches a file to a question or its answer.
+
+=head2 question_voice
+
+Attaches (or removes) a voice-note recording to a question's answer.
+
+=head2 question_mark
+
+Marks an answered question ok or not-ok.
+
+=head2 conversation_add
+
+Adds a conversation entry to a record.
+
+=head2 conversation_list
+
+Returns a record's conversation entries.
+
+=head2 agent_sessions
+
+Returns every child record's agent_session, so a parent can see what would need waking.
+
+=head2 comment_add
+
+Adds a comment to a record.
+
+=head2 comment_update
+
+Updates a comment's body or format.
+
+=head2 comment_remove
+
+Removes a comment.
+
+=head2 comment_attach
+
+Attaches a file to a comment; an alias for C<attachment_add>.
+
+=head2 attachment_add
+
+Attaches a file, given by path, to a record or comment.
+
+=head2 attachment_add_content
+
+Content-based twin of C<attachment_add> for browser uploads: same sha dedup, no temporary file, with a 16 MB cap.
+
+=head2 attachment_detach
+
+Detaches an attachment reference from a record or comment without deleting its stored content.
+
+=head2 tls_certificate
+
+Reads or writes the project's TLS certificate and key, stored beside the project rather than inside a board.
+
+=head2 attachment_discard
+
+Removes an attachment's stored content, logging the deletion.
+
+=head2 attachment_get
+
+Returns an attachment's stored content, or a note that it was deleted.
+
+=head2 record_clone
+
+Creates a new record copying a source record's fields, linked back to it as a clone.
+
+=head2 checklist_add
+
+Adds a checklist entry to a record.
+
+=head2 checklist_update
+
+Updates a checklist entry's item text or status.
+
+=head2 required_item_add
+
+Adds a required-action entry to a record.
+
+=head2 required_item_update
+
+Updates a required-action entry's item text or status.
+
+=head2 search
+
+Full-text and field search across records.
+
+=head2 replace_records
+
+Bulk find-and-replace across one or more text fields, scoped by a regular expression pattern.
+
+=head2 login_register
+
+Sets a person's initial password.
+
+=head2 login_verify
+
+Checks a login attempt's id and password against the stored hash.
+
+=head2 login_start
+
+Starts a session for a verified login, returning a session token.
+
+=head2 session_peek
+
+Reads a session without touching its last-seen time.
+
+=head2 session_resume
+
+Reads a session and refreshes its last-seen time.
+
+=head2 session_end
+
+Ends a session.
+
+=head2 session_list
+
+Returns (and sweeps expired entries from) the project's sessions.
+
+=head2 login_page_html
+
+Renders the self-contained login page markup shown to a stranger.
+
+=head2 policy_add
+
+Declares a policy rule on the project.
+
+=head2 policy_list
+
+Returns the project's declared policies.
+
+=head2 policy_decline
+
+Records a deliberate decision not to declare a rule, with a required reason.
+
+=head2 policy_declined
+
+Returns declined rules, excluding any that have since been declared after all.
+
+=head2 policy_remove
+
+Removes a declared policy.
+
+=head2 notify_moves
+
+Reads or sets the Telegram bridge address (chat, column, enabled) that card-move announcements go to.
+
+=head2 policy_review
+
+Reports which columns each declared rule actually watches.
+
+=head2 policy_undeclared
+
+Returns rules the project has neither declared nor declined.
+
+=head2 column_endings
+
+Returns a board's ending (resting) columns.
+
+=head2 police_prompt
+
+Builds the police status text shown to the agent, with the version-upgrade notice appended.
+
+=head2 police_pass
+
+Runs one police pass: move announcements, then policy evaluation, recording violations to the store.
+
+=head2 police_farewell
+
+Returns the fixed message shown when police is stopped.
+
+=head2 bridge_log_path
+
+Returns the bridge log's file path for a police store, creating the store directory if needed.
+
+=head2 bridge_write
+
+Appends a line to the bridge log.
+
+=head2 bridge_backlog
+
+Returns the bridge log's lines not yet marked read, touching it first.
+
+=head2 column_roles
+
+Reads a board's named column roles (e.g. which column is backlog).
+
+=head2 column_roles_remove
+
+Removes named roles from a board, with a required reason.
+
+=head2 column_roles_set
+
+Sets named roles on a board, with a required reason, logged.
+
+=head2 police_outstanding
+
+Returns violations still open in a police store's ledger.
+
+=head2 police_outstanding_taken_at
+
+Returns the timestamp of the last police pass recorded in a store.
+
+=head2 enforcement_log
+
+Returns enforcement-record entries from a police store, optionally filtered by ref.
+
+=head2 police_suspend
+
+Puts one rule down for a bounded number of seconds, with a required reason.
+
+=head2 gates_install
+
+Installs the commit-msg and pre-push git hooks into the project's repository.
+
+=head2 work_log
+
+Returns a record's history as a chronological work log, folding field writes that have their own logged event (comment, checklist, etc) into that event rather than reporting them twice.
+
+=head2 doctor
+
+Scans the project's stored JSON/YAML for corruption, repairing what it can.
+
+=head2 history_list
+
+Returns a record's field-write history, with first/last windowing and field/since filtering.
 
 =cut

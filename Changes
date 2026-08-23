@@ -1,5 +1,21 @@
 Revision history for Tira
 
+3.50  2026-08-23
+
+    - TKT-478. lib/Tira.pm's own POD METHODS section documented exactly
+      5 engine methods - the same 5 since the project's earliest
+      version - while the engine grew to 100+ public methods. Nothing
+      ever compared the section against what Tira::CLI actually calls,
+      so it went stale silently and a required-action proof once
+      hand-waved past the gap by citing it as "project convention."
+
+    - Fixed: added a real =head2 entry for every one of the 109
+      methods Tira::CLI calls on $tira that had none, each with a
+      genuine one- or two-sentence description read from its own
+      implementation. A new test (t/344) compares the section against
+      Tira::CLI's own calls on every run, so the gap cannot reopen
+      unnoticed.
+
 3.49  2026-08-23
 
     - TKT-480. agent-still's Telegram message named the cards waiting

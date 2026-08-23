@@ -1,5 +1,21 @@
 Revision history for Tira
 
+3.35  2026-08-23
+
+    - TKT-436. Bumping the release version meant three hand-edits every
+      time - .env, lib/Tira.pm's $VERSION, plus a fourth (t/03-metadata.t's
+      own two literals, kept separate deliberately) - with nothing
+      enforcing agreement while making the change, only after (TKT-459
+      and TKT-456 each shipped with exactly one hand-edit missed,
+      caught only by the pre-push gate's clean-worktree run).
+
+    - Fixed: tools/bump-version NEW_VERSION writes .env and
+      lib/Tira.pm's $VERSION together, refusing rather than guessing
+      if the two already disagree, if the target version is already in
+      place, or if the version does not parse. Changes and
+      t/03-metadata.t's own literals stay hand-written on purpose.
+      Used for this release itself.
+
 3.34  2026-08-23
 
     - TKT-393. TKT-386 fixed the TOON encoder for a map nested inside a

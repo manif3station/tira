@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Bump .env's VERSION= and lib/Tira.pm's our $VERSION together - the one
+# place they must always agree. t/03-metadata.t enforces that agreement
+# after the fact; this is the write side that keeps them from disagreeing
+# in the first place.
+#
+# Measured this session alone: six version bumps, each the same three-file
+# hand-edit (.env, lib/Tira.pm, plus t/03-metadata.t's own two literals),
+# and two releases earlier this project shipped with exactly one of those
+# hand-edits missed, caught only by the pre-push gate's clean-worktree run
+# rather than anything in the working tree. TKT-436.
+#
+# Deliberately does NOT touch Changes or t/03-metadata.t's own version
+# literals - Changes carries real release notes and t/03-metadata.t is a
+# deliberately independent check, not something a bump script should also
+# control (a script that could make its own check agree with it is not
+# a check any more).
+#
+# Usage: tools/bump-version NEW_VERSION
+
+set -euo pipefail
+
+here="$(cd "$(dirname "$0")/.." && pwd)"
+new="${1:-}"
+
+if [ -z "$new" ]; then
+    echo "Usage: tools/bump-version NEW_VERSION" >&2
+    exit 2
+fi
+
+if ! [[ "$new" =~ ^[0-9]+\.[0-9]+$ ]]; then
+    echo "bump-version: '$new' does not look like a version (expected N.N)" >&2
+    exit 2
+fi
+
+env_file="$here/.env"
+module_file="$here/lib/Tira.pm"
+
+[ -f "$env_file" ]    || { echo "bump-version: $env_file not found" >&2; exit 1; }
+[ -f "$module_file" ] || { echo "bump-version: $module_file not found" >&2; exit 1; }
+
+current_env="$(grep -oP '^VERSION=\K.*' "$env_file" || true)"
+current_module="$(grep -oP "^our \\\$VERSION = '\K[^']+" "$module_file" || true)"
+
+if [ -z "$current_env" ]; then
+    echo "bump-version: could not find a VERSION= line in $env_file" >&2
+    exit 1
+fi
+if [ -z "$current_module" ]; then
+    echo "bump-version: could not find an our \$VERSION line in $module_file" >&2
+    exit 1
+fi
+if [ "$current_env" != "$current_module" ]; then
+    echo "bump-version: .env ($current_env) and lib/Tira.pm ($current_module) already disagree - fix that by hand before bumping further" >&2
+    exit 1
+fi
+if [ "$new" = "$current_env" ]; then
+    echo "bump-version: already at $new" >&2
+    exit 1
+fi
+
+sed -i "s/^VERSION=.*/VERSION=$new/" "$env_file"
+sed -i "s/^our \\\$VERSION = '[^']*';/our \$VERSION = '$new';/" "$module_file"
+
+echo "bumped $current_env -> $new in .env and lib/Tira.pm"
+echo "still by hand: Changes (new dated entry) and t/03-metadata.t's two version literals"

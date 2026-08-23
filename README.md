@@ -257,6 +257,12 @@ docker compose -f ~/projects/skills/docker-compose.testing.yml run --rm perl-tes
 The release gate requires 100% statement and subroutine coverage plus the
 post-coverage `perlsec` and taint-mode audit recorded in `tickets/TESTING.md`.
 
+Bumping the release version means `.env`'s `VERSION=` line and
+`lib/Tira.pm`'s `our $VERSION` always agreeing - `tools/bump-version NEW`
+writes both together and refuses rather than guessing if they already
+disagree. `Changes` (the dated entry with real release notes) and
+`t/03-metadata.t`'s own two version literals stay hand-written on purpose.
+
 Once a change is committed and the tree is clean, run `tools/gate-run`
 before `git push`. It runs the exact suite-and-coverage step the push hook
 runs, against a checkout of the commit about to be pushed, and records a

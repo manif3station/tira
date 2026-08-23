@@ -868,10 +868,12 @@ repo runs - coverage at 846s, pre-push at 15m and counting - so the
 commonest legitimate reason for a suspension (waiting on a gate) always
 outlasted the longest suspension that could be given, and the same reason
 was re-supplied over and over as it kept expiring mid-gate. `--pid` makes
-the reason literally true instead of approximately true: `d2
-tira.rule.suspend --rule priority-skipped --seconds 1800 --pid $$ --reason
-"waiting on the push gate"` lifts as soon as that shell exits, whichever
-comes first. TKT-361.
+the reason literally true instead of approximately true, naming the
+running gate's own pid:
+
+    d2 tira.rule.suspend --rule priority-skipped --seconds 1800 --pid 12345 --reason "waiting on the push gate"
+
+It lifts as soon as that process exits, or at 1800s if it never does. TKT-361.
 
 The enforcement log entry this writes carries `rule`, `seconds` and `reason`
 as fields under a `fields` key, alongside the same prose `detail` a person

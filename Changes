@@ -1,5 +1,22 @@
 Revision history for Tira
 
+3.54  2026-08-23
+
+    - TKT-364. t/148's guard against a policy carrying a setting that
+      does nothing checked only POLICY_FIELDS (12 names) from source,
+      while three lists together decide what a policy actually
+      carries - POLICY_FIELDS, POLICY_SCOPE (3), POLICY_ROLE_FIELDS
+      (3). The other 6 names were checked by nothing, so the exact
+      failure the test was written for (base, unread for the whole
+      life of the file) could still happen to any of them unnoticed.
+
+    - Fixed: widened to all 18 names, with a criterion that also
+      recognizes a name read through a for-loop over its own list
+      variable - the shape the role fields are genuinely read in -
+      not only by literal hash-key subscript, which would otherwise
+      report all three role fields unread against working code. No
+      lib/ behavior changed; all 18 names were already genuinely read.
+
 3.53  2026-08-23
 
     - TKT-361. The 600s rule.suspend ceiling was shorter than either

@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.39';
+our $VERSION = '3.40';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -7827,6 +7827,14 @@ sub work_order {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
 
+    # A question expresses "held until somebody answers" (TKT-296); a future
+    # start_date expresses "held until a moment" - both machine-readable,
+    # both already validated, and work_order read only the first. A card
+    # whose window has not opened yet (a maintenance window, an embargo, a
+    # market close) is parked the same way an unanswered question parks one,
+    # not skipped. A past or absent start_date is unchanged. TKT-309.
+    my $now = eval { _epoch_of_datetime( $self->{clock}->(), 'Clock' ) };
+
     my @waiting;
     my %next_ref;
     for my $type (qw(sow epic ticket)) {
@@ -7866,7 +7874,10 @@ sub work_order {
             defined $card->{priority}
               && $here{ $card->{column} // '' }
               && ( $card->{column} // '' ) ne 'discard'
-              && !grep { !$_->{answer} } _policy_questions($card)
+              && !( grep { !$_->{answer} } _policy_questions($card) )
+              && !( defined $card->{start_date}
+                && defined $now
+                && ( eval { _epoch_of_datetime( $card->{start_date}, 'Start date' ) } // 0 ) > $now )
         } @{$records};
 
         # Recorded once per card while $next_col is in scope, rather than

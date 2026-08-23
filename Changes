@@ -1,5 +1,19 @@
 Revision history for Tira
 
+3.40  2026-08-23
+
+    - TKT-309. work_order honoured an unanswered question as a hold
+      but not a future start_date - the other machine-readable,
+      already-validated hold this board carries. A card whose window
+      has not opened yet (a maintenance window, an embargo, a market
+      close) was offered as work anyway.
+
+    - Fixed: work_order now excludes a card whose start_date is in
+      the future from the waiting/next set, the same way an
+      unanswered question already does. A past or absent start_date
+      is unchanged, and the card stays visible on the board and in
+      lists - held, not hidden.
+
 3.39  2026-08-23
 
     - TKT-305. tira.column.update silently accepted --column - the

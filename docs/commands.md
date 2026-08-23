@@ -1577,6 +1577,14 @@ condition, and the answer arriving releases the card. Until 2.45 only the rule
 read it, so a card could be parked by the rule and offered by the command in the
 same moment.
 
+A card whose `start_date` is in the future is held the same way - the other
+machine-readable, already-validated hold this board carries: a maintenance
+window, an embargo, a market close, expressed as "held until a moment" rather
+than a question's "held until somebody answers." The card is not offered until
+`start_date` passes; a past or absent `start_date` is unchanged, and the card
+stays visible on the board and in lists throughout, held rather than hidden.
+Until 3.40 `work_order` read the question hold and not this one. TKT-309.
+
 Since 2.67, `tira.next` reads which column plays the `next` role - declared with
 `tira.column.roles --type ticket --role next=COLUMN` - and offers a card sitting
 there ahead of priority. That is his channel, not the agent's: "you do not add

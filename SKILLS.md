@@ -531,7 +531,13 @@ one that has waited longest, as `{next, then}` — the answer, and what it was
 chosen over, so a caller can check it rather than take it. A board with nothing
 waiting answers with an empty list, never a card there is no reason to work.
 A card carrying an unanswered question is never offered — a question is a hold
-the board reads, naming the condition, released when the answer arrives.
+the board reads, naming the condition, released when the answer arrives. A
+card whose `start_date` is in the future is never offered either, the other
+machine-readable hold this board already validates — a maintenance window, an
+embargo, a market close — released the moment the date passes; a past or
+absent `start_date` is unchanged, and the card stays visible on the board and
+in lists, held rather than hidden. Until 3.40 only the question was read.
+TKT-309.
 Discarded cards are never offered — `discard` is protected and is not an
 ending, so it counted as waiting until 2.44.
 The ordering belongs to `priority-skipped`, which has enforced it since it was

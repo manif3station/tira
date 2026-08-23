@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.58';
+our $VERSION = '3.59';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -3402,6 +3402,29 @@ sub agent_sessions {
         my $child = $self->record_show( project => $root, ref => $_ );
         { ref => $child->{ref}, agent_session => $child->{agent_session} }
     } @children ];
+}
+
+# Who owes a card's final check: computable from the parent, not a guess. In
+# chain mode a card is managed by the agent that owns its parent, so that
+# parent's own assignee is who reviews the child before it ships - one
+# lookup, not a walk up the whole ancestry. A card with no parent owes its
+# own check; a parent that exists but carries no assignee reports no owner
+# rather than walking further up or inventing one. TKT-372.
+sub check_owner {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $record = $self->record_show( %args, project => $root );
+    my $parent_ref = $record->{parent};
+
+    if ( defined $parent_ref && $parent_ref ne '' ) {
+        my $parent = eval { $self->record_show( project => $root, ref => $parent_ref ) };
+        my $owner = $parent && defined $parent->{assignee} && $parent->{assignee} ne ''
+          ? $parent->{assignee} : undef;
+        return { ref => $record->{ref}, owner => $owner, via => $parent_ref };
+    }
+
+    my $owner = defined $record->{assignee} && $record->{assignee} ne '' ? $record->{assignee} : undef;
+    return { ref => $record->{ref}, owner => $owner, via => undef };
 }
 
 sub comment_add {
@@ -11751,6 +11774,13 @@ Returns a record's conversation entries.
 =head2 agent_sessions
 
 Returns every child record's agent_session, so a parent can see what would need waking.
+
+=head2 check_owner
+
+Who owes a card's final check, computable from the parent: the parent's own
+assignee if a parent exists (an unassigned parent reports no owner rather
+than walking further up or guessing), or the card's own assignee when it
+has no parent. TKT-372.
 
 =head2 comment_add
 

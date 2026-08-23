@@ -2458,6 +2458,9 @@ sub _invoke {
         $dwell{type} = $args{type} if defined $args{type};
         return $tira->dwell_report(%dwell);
     }
+    if ( $command eq 'check.owner' ) {
+        return $tira->check_owner( project => $args{project}, ref => $args{ref} );
+    }
     if ( $command eq 'history.list' ) {
         my %history = %args;
         delete $history{fields};

@@ -1,5 +1,22 @@
 Revision history for Tira
 
+3.59  2026-08-23
+
+    - TKT-372. No command answered who owes a card's final check
+      before push - "check the evidence, check the todo list is
+      really done, check the code aligns with the card" - even
+      though the answer is computable: in chain mode a card is
+      managed by the agent that owns its parent.
+
+    - Added tira.check.owner --ref REF, answering {ref, owner, via}:
+      the parent's own assignee if a parent exists, the card's own
+      assignee if it has none, and no owner (not a guess) when a
+      parent exists but carries no assignee. Composed with the
+      existing gate-missing and checklist-unmoved/card-stalled rules
+      declared on a final-check column, this answers who to tell -
+      the judgement check itself stays a person or an LLM's job, and
+      nothing here moves a card automatically.
+
 3.58  2026-08-23
 
     - TKT-373. TKT-302's --comment guard exempted attachment.discard as

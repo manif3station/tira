@@ -1588,6 +1588,30 @@ and produces answers inconsistent with what the card already says. Who may wake
 it is its parent, because the chain runs one-to-many downward and never the
 other way.
 
+### `tira.check.owner`
+
+Who owes a card's final check, going the other direction: up to the parent
+rather than down to the children.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--ref CARD` | yes | The card whose final check is in question. |
+| `-o FORMAT` | no | As above. |
+
+Answers `{ref, owner, via}`. In chain mode a card is managed by the agent
+that owns its parent, so that parent's own assignee is who reviews the
+child before it ships — one lookup, computable from the parent, not a walk
+up the whole ancestry. A card with no parent owes its own check: `owner` is
+its own assignee and `via` is absent. A parent that exists but carries no
+assignee reports `owner` absent too, rather than walking further up or
+guessing. Composed with the two review checks that already exist —
+`gate-missing` (the evidence is there) and `checklist-unmoved`/`card-stalled`
+(the todo list really is done) declared on a final-check column — this
+answers the fourth: who to tell. The judgement check itself, whether the
+code aligns with the card, stays a person or an LLM's job; nothing here
+moves a card automatically, the same way police asks and never moves.
+TKT-372.
+
 The handle lives on the card, set with `tira.ticket.update --agent-session`,
 and is read off the board rather than from whatever spawned the agent — because
 the thing that spawned it is the thing that closes. A child with no agent yet is

@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.35';
+our $VERSION = '3.36';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -5243,14 +5243,26 @@ sub policy_add {
           && !_looks_like_repository($root);
     }
 
+    # Named the way each is typed, and all of them at once - a refusal that
+    # names only the first of a rule's several missing options costs one
+    # round trip per option (measured: three attempts for two options,
+    # since the second refusal only appears once the first is satisfied).
+    # tira.policies already prints every rule's needs in full, so a caller
+    # who hits this is pointed there rather than left to keep guessing one
+    # flag at a time. TKT-289.
+    my @missing;
     for my $needed ( @{ $spec->{needs} } ) {
         next if defined $args{"${needed}_role"} && $args{"${needed}_role"} ne '';
-        # Named the way it is typed. A message telling somebody to pass a
-        # flag that does not exist is worse than no message: they try it,
-        # it fails differently, and they stop trusting what the tool says.
+        next if defined $args{$needed} && $args{$needed} ne '';
         ( my $flag = $needed ) =~ tr/_/-/;
-        die "Policy rule '$rule' needs --$flag\n"
-          if !defined $args{$needed} || $args{$needed} eq '';
+        push @missing, "--$flag";
+    }
+    if (@missing) {
+        my $named = @missing == 1 ? $missing[0]
+          : @missing == 2 ? "$missing[0] and $missing[1]"
+          : join( ', ', @missing[ 0 .. $#missing - 1 ] ) . ", and $missing[-1]";
+        die "Policy rule '$rule' needs $named"
+          . " - see tira.policies for every rule's required options\n";
     }
     # What a rule cannot accept is refused where it is set, like everything a
     # rule cannot work without. A grace on a rule whose whole point is that

@@ -1,5 +1,18 @@
 Revision history for Tira
 
+3.36  2026-08-23
+
+    - TKT-289. tira.policy.add refused a rule's missing required
+      options one at a time - a rule needing two (card-metrics:
+      --enter and --require) cost three attempts to declare fully:
+      bare, one option, both. Each refusal named exactly the option it
+      wanted, but never the rest, and never pointed at tira.policies,
+      which already lists every rule's needs in full.
+
+    - Fixed: the refusal now names every missing option in one
+      message, not just the first, and points at tira.policies for the
+      complete catalogue.
+
 3.35  2026-08-23
 
     - TKT-436. Bumping the release version meant three hand-edits every

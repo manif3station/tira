@@ -195,6 +195,8 @@ Implemented create/update arguments are:
 --sdlc-gate TEXT|"" --lifecycle TEXT|"" --priority 1..5|""
 --fix-version TEXT|""
 --affects-version TEXT ... --set-affects-versions FILE
+--scope-in TEXT ... --set-scope-in FILE
+--scope-out TEXT ... --set-scope-out FILE
 ```
 
 Repeated `--label` and `--affects-version` values append on update. Their
@@ -207,8 +209,10 @@ The same append rule applies to repeated `--key-detail`, `--deliverable`,
 `--acceptance`, `--test-step`, `--bdd`, `--atdd`, `--scope-in`, and
 `--scope-out` values. Existing values remain first and new values retain CLI
 order. `--set-key-details`, `--set-deliverables`, `--set-acceptance`,
-`--set-test-steps`, `--set-bdd`, and `--set-atdd` are the explicit full-array
-replacement controls. Scope has no wholesale replacement command.
+`--set-test-steps`, `--set-bdd`, `--set-atdd`, `--set-scope-in`, and
+`--set-scope-out` are the explicit full-array replacement controls, same
+file-or-stdin shape as the others; an empty array clears the field rather
+than leaving it unchanged. TKT-293.
 
 Project people gain an `active` Boolean, defaulting to true. Inactive people
 remain rendered on historical records but cannot become a new assignee or

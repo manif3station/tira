@@ -1,5 +1,19 @@
 Revision history for Tira
 
+3.38  2026-08-23
+
+    - TKT-293. scope.included/excluded was the only card list field with
+      no wholesale-replacement command - --scope-in/--scope-out only
+      ever appended, so a wrong scope entry, once written, was
+      permanent. The six sibling fields (key_details, deliverables,
+      acceptance, test_steps, bdd, atdd) all had --set-* counterparts;
+      scope did not.
+
+    - Fixed: --set-scope-in and --set-scope-out, file-or-stdin JSON
+      arrays, replace the list wholesale the same way the six existing
+      --set-* options do, including clearing the field with an empty
+      array. The appending --scope-in/--scope-out forms are unchanged.
+
 3.37  2026-08-23
 
     - TKT-290. card-still's finding gave elapsed time only, never the

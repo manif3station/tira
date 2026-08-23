@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.37';
+our $VERSION = '3.38';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -78,7 +78,7 @@ my @CARD_FIELDS = ( @PLAIN_FIELDS, qw(assignee reporter priority due_date start_
   scope_in scope_out required_exempt) );
 my @CARD_FIELD_REPLACEMENTS = qw(labels_replace affects_versions_replace
   key_details_replace deliverables_replace acceptance_replace test_steps_replace
-  bdd_replace atdd_replace);
+  bdd_replace atdd_replace scope_in_replace scope_out_replace);
 
 sub card_fields             { return [@CARD_FIELDS] }
 sub card_field_replacements { return [@CARD_FIELD_REPLACEMENTS] }
@@ -2330,6 +2330,8 @@ sub record_update {
         }
         push @{ $record->{scope}{included} }, @{ $args{scope_in} } if defined $args{scope_in};
         push @{ $record->{scope}{excluded} }, @{ $args{scope_out} } if defined $args{scope_out};
+        $record->{scope}{included} = $args{scope_in_replace} if defined $args{scope_in_replace};
+        $record->{scope}{excluded} = $args{scope_out_replace} if defined $args{scope_out_replace};
         $record->{scope} = $args{scope} if defined $args{scope};
         $record->{last_updated} = $self->{clock}->();
         $self->_write_json( $path, $record );

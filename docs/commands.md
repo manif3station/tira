@@ -1253,8 +1253,9 @@ threads the signed-in person through automatically. TKT-457, TKT-466.
 On record update, repeated `--key-detail`, `--deliverable`, `--acceptance`,
 `--test-step`, `--bdd`, `--atdd`, `--scope-in`, and `--scope-out` values append
 in supplied order. Existing values are retained. The corresponding `--set-*`
-JSON-array options remain the explicit wholesale-replacement controls for the
-six content arrays; scope has no replacement option.
+JSON-array options are the explicit wholesale-replacement controls for all
+eight content arrays, including `--set-scope-in` and `--set-scope-out` -
+an empty array clears the field rather than leaving it unchanged. TKT-293.
 
 ## A truncated read cannot be written back
 

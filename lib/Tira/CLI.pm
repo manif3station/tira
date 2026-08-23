@@ -352,6 +352,8 @@ sub run {
         'set-bdd=s' => \$option{set_bdd}, 'set-atdd=s' => \$option{set_atdd},
         'set-labels=s' => \$option{set_labels},
         'set-affects-versions=s' => \$option{set_affects_versions},
+        'set-scope-in=s' => \$option{set_scope_in},
+        'set-scope-out=s' => \$option{set_scope_out},
     );
 
     # TKT-389: a single-valued option given twice on the same command line
@@ -2067,7 +2069,7 @@ sub _invoke {
     _refuse_unread_options( $command, $option );
 
     my %args = %{$option};
-    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions field_selection exclude_fields include_empty older_than stale with_level all columns_json nested mark members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
+    delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions set_scope_in set_scope_out field_selection exclude_fields include_empty older_than stale with_level all columns_json nested mark members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
 
     # Set here so every command carries it, rather than in each method that
     # writes - which is how only four of them ever did.
@@ -2224,11 +2226,14 @@ sub _invoke {
         set_acceptance => 'acceptance_replace', set_test_steps => 'test_steps_replace',
         set_bdd => 'bdd_replace', set_atdd => 'atdd_replace',
         set_labels => 'labels_replace', set_affects_versions => 'affects_versions_replace',
+        set_scope_in => 'scope_in_replace', set_scope_out => 'scope_out_replace',
     );
     for my $set ( keys %sets ) {
         next if !defined $option->{$set};
         my $append = $set eq 'set_labels' ? 'labels'
           : $set eq 'set_affects_versions' ? 'affects_versions'
+          : $set eq 'set_scope_in' ? 'scope_in'
+          : $set eq 'set_scope_out' ? 'scope_out'
           : $sets{$set} =~ s/_replace\z//r;
         die "Cannot combine append and replacement for '$append'\n" if defined $args{$append};
         $args{ $sets{$set} } = _json_array_input( $option->{$set} );

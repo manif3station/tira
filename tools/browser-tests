@@ -32,7 +32,10 @@ if [ -z "$port" ]; then
           ss -ltn 2>/dev/null | grep -q ":$(( port + 2 )) "; do
         port=$(( port + 10 ))
         if [ "$port" -gt 7941 ]; then
-            echo "browser-tests: no free port between 7841 and 7941 - something is holding all of them."
+            echo "browser-tests: no test could start - every port from 7841 to 7941 is held."
+            echo "  This is a machine condition, not a fault in the change being pushed."
+            echo "  Clear what is holding them: ps aux | grep -E 'Starman|playwright', then stop"
+            echo "  any leftover process from an earlier interrupted run."
             exit 1
         fi
     done
@@ -432,15 +435,38 @@ curl -fsS -b "$scratch/browserjar" "http://127.0.0.1:$browser_port/data" -o "$li
     exit 1
 }
 
+# A test that cannot get a browser under machine load reads exactly like one
+# that failed on behaviour - both are node exiting non-zero, and "FAILED:
+# NAME" says nothing about which. Measured on 2.64, a release that touched
+# no browser code: the gate refused it, and the message pointed straight at
+# the change rather than at the machine that could not run the check. A
+# fixed ceiling distinguishes the two: playwright's own launch/navigation
+# stalls under contention rather than failing fast, so a run that hits the
+# ceiling is read as "could not run", not "ran and failed". TKT-369.
 failed=0
+timed_out=0
 ran=0
+# Overridable so a test of this distinction is not itself a 60-second test.
+per_test_timeout="${BROWSER_TEST_TIMEOUT_SECONDS:-60}"
 run_one() {
     local name="$1"; shift
     printf '\n--- %s\n' "$name"
-    if node "$tests/$name" "$@"; then
+    local start end elapsed status
+    start=$(date +%s)
+    timeout "${per_test_timeout}s" node "$tests/$name" "$@"
+    status=$?
+    end=$(date +%s)
+    elapsed=$(( end - start ))
+    if [ "$status" -eq 0 ]; then
         ran=$(( ran + 1 ))
+    elif [ "$status" -eq 124 ]; then
+        echo "TIMED OUT: $name (${elapsed}s) - this is a machine-load condition, not a fault in the change."
+        echo "  Clear whatever is holding the machine: leftover Starman/Playwright processes from an"
+        echo "  earlier interrupted run (ps aux | grep -E 'Starman|playwright'), or contention from"
+        echo "  another project's own browser-tests run at the same time."
+        timed_out=$(( timed_out + 1 ))
     else
-        echo "FAILED: $name"
+        echo "FAILED: $name (${elapsed}s)"
         failed=$(( failed + 1 ))
     fi
 }
@@ -466,8 +492,13 @@ for test in "$tests"/*.js; do
 done
 
 printf '\n'
+if [ "$timed_out" -gt 0 ] && [ "$failed" -eq 0 ]; then
+    echo "browser-tests: $timed_out of $(( ran + failed + timed_out )) browser tests could not run" \
+      "under machine load - not a fault in the change. See TIMED OUT above for what to clear."
+    exit 1
+fi
 if [ "$failed" -gt 0 ]; then
-    echo "browser-tests: $failed of $(( ran + failed )) browser tests failed"
+    echo "browser-tests: $failed of $(( ran + failed + timed_out )) browser tests failed"
     exit 1
 fi
 echo "browser-tests: $ran browser tests ran, and every one passed"

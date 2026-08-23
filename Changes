@@ -1,5 +1,21 @@
 Revision history for Tira
 
+3.56  2026-08-23
+
+    - TKT-369. tools/browser-tests reported a browser test that could
+      not get a browser under machine load with the identical wording
+      as one that genuinely failed on behaviour - "FAILED: NAME" -
+      so a release blocked by leftover servers read as a defect in
+      the change being pushed. Measured on 2.64, which touched no
+      browser code.
+
+    - Fixed: each browser test now runs under a fixed, overridable
+      ceiling; a run that hits it is reported as TIMED OUT, naming
+      the elapsed time and that this is a machine-load condition, not
+      a fault in the change, and what to clear. A genuine failure is
+      reported exactly as before. The port-exhaustion refusal carries
+      the same distinction.
+
 3.55  2026-08-23
 
     - TKT-366. Every card's journal records exactly when it entered

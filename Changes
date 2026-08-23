@@ -1,5 +1,26 @@
 Revision history for Tira
 
+3.69  2026-08-23
+
+    - TKT-403. "This board has never been policed, so nothing has
+      been checked" ships in production, is provably reachable
+      (police_pass short-circuits before writing a last-pass
+      timestamp when a board has no policy declared), and had zero
+      assertions anywhere in a 270+ file suite reporting 100%
+      statement and subroutine coverage - a ternary is one statement,
+      and coverage marks it covered the moment either branch runs.
+      Found by accident while writing TKT-385's own test.
+
+    - Fixed: a new test constructs a board with no policy declared
+      and asserts the exact never-been-policed sentence, and a
+      separately-policed clean board and asserts the existing
+      message is unchanged - confirmed by swapping the ternary's
+      branches and watching 4 of 6 assertions fail, then restoring
+      it clean. No production code changed; the branch already
+      behaved correctly and was only unproven. Docker: Files=354,
+      Tests=7330, PASS, 100% statement+subroutine coverage. Browser
+      tests 12/12.
+
 3.68  2026-08-23
 
     - TKT-402. description_truncated (and the matching flags on

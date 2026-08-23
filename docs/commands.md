@@ -1750,6 +1750,13 @@ writing the complete set transactionally; `--dry-run` returns the same diff
 without mutation. Gate and evidence logs remain append-only: annotate commands
 append attributed correction notes to stable entry IDs.
 
+An empty or malformed key names the import's own JSON structure at fault -
+"An import change is keyed by its own record reference..." - rather than the
+generic `_record_data` wording every `--ref`-taking command shares, which
+would otherwise have told the caller to supply a flag `tira.import` does not
+have. A well-formed key naming a record that genuinely does not exist keeps
+its own distinct "not found" message, unaffected. TKT-346.
+
 An import dry-run returns one object per changed field:
 
 ```json

@@ -1,5 +1,21 @@
 Revision history for Tira
 
+3.44  2026-08-23
+
+    - TKT-346. bulk_import's own reference lookup reused the generic
+      _record_data refusals ("Record reference is required" /
+      "Invalid record reference"), which the CLI boundary augments
+      with "supply it with --ref" for the commands that take that
+      flag. An import has no --ref - the reference is the key of the
+      change object itself - so a caller whose JSON had an empty or
+      malformed key was told to type a flag that does not exist on
+      tira.import.
+
+    - Fixed: both refusals now name the import's own key structure
+      instead. A genuinely missing record keeps its own distinct
+      "not found" message, and the record commands' own refusal
+      (t/244) is untouched.
+
 3.43  2026-08-23
 
     - TKT-336. tira.question.list was the only way to see a question,

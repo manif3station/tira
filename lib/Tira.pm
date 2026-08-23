@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.43';
+our $VERSION = '3.44';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4355,7 +4355,25 @@ sub bulk_import {
         my ( @updates, @diffs );
         for my $ref ( sort keys %{$changes} ) {
             die "Import change for '$ref' must be a JSON object\n" if ref( $changes->{$ref} ) ne 'HASH';
-            my ( $path, $record ) = $self->_record_data( project => $root, ref => $ref );
+
+            # _record_data's own "Record reference is required" and "Invalid
+            # record reference" are right for the ~40 CLI commands that name
+            # a card with --ref - the generic translation at the CLI
+            # boundary tells the caller to supply one. An import has no
+            # --ref: the reference is the key of the change object itself
+            # ({"TKT-001": {...}}), and a caller who supplied one wrong or
+            # empty was told to type a flag that does not exist here.
+            # Reworded to say where the reference actually belongs. TKT-346.
+            my ( $path, $record ) = eval { $self->_record_data( project => $root, ref => $ref ) };
+            if ( !$path ) {
+                die "An import change is keyed by its own record reference; "
+                  . "this key was empty - give each change a key like {\"TKT-001\": {...}}\n"
+                  if $ref eq '';
+                die "An import change is keyed by its own record reference; "
+                  . "'$ref' is not a valid one - give each change a key like {\"TKT-001\": {...}}\n"
+                  if $@ =~ /\AInvalid record reference/;
+                die $@;
+            }
             for my $field ( sort keys %{ $changes->{$ref} } ) {
                 die "Import field '$field' is not mutable\n" if !$allowed{$field};
                 my $after = $changes->{$ref}{$field};

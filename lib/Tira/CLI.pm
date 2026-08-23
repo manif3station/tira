@@ -2522,8 +2522,31 @@ sub _invoke {
 
     if ( $command =~ /\Arecord\.(show|list|update|move|discard|restore|clone)\z/ ) {
         my $action = $1;
-        return $tira->record_show_many(%args) if $action eq 'show' && $args{refs};
-        return $tira->record_show(%args) if $action eq 'show';
+
+        # question.list computes a question's status (new/answered/discarded)
+        # through Tira's own _question_view; record_show/record_show_many
+        # return the stored entry as-is, which carries no status key at all -
+        # a discarded question and a live one were distinguishable only by
+        # discarded_at, invisible to a caller filtering on the documented
+        # field. Applied here, at the CLI boundary, rather than inside
+        # record_show itself: record_show is reused internally (by
+        # question_update and others) as a fetch-then-mutate primitive, and a
+        # view-shaped record fed back into _replace_record would write the
+        # computed fields into storage. TKT-322.
+        if ( $action eq 'show' && $args{refs} ) {
+            my $result = $tira->record_show_many(%args);
+            for my $record ( values %{ $result->{records} } ) {
+                next if ref $record->{questions} ne 'ARRAY';
+                $record->{questions} = [ map { Tira::_question_view($_) } @{ $record->{questions} } ];
+            }
+            return $result;
+        }
+        if ( $action eq 'show' ) {
+            my $record = $tira->record_show(%args);
+            $record->{questions} = [ map { Tira::_question_view($_) } @{ $record->{questions} } ]
+              if ref $record->{questions} eq 'ARRAY';
+            return $record;
+        }
         return $tira->record_list(%args) if $action eq 'list';
         return $tira->record_update(%args) if $action eq 'update';
         if ( $action eq 'move' ) {

@@ -52,6 +52,14 @@ marks the answers read** — you do nothing extra, and the owner can see they
 were seen. Writes only when there is something to mark. Every list carries an
 `instruction` naming your next step.
 
+Every question here carries `status` (`new`, `answered` or `discarded`).
+Until 3.41, `tira.<type>.show`'s embedded `questions` did not - the stored
+entry came back as-is, so a discarded question and a live one were
+distinguishable only by `discarded_at`, invisible to a caller filtering on
+`status` the way this command's own output invites. `record.show` and
+`record.show --refs` now compute `status` on their embedded questions the
+same way this command does, so the two agree. TKT-322.
+
 | Argument | Required | What it is for |
 | --- | --- | --- |
 | `--ref CARD` | yes | The card whose questions to list. |

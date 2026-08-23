@@ -1,5 +1,23 @@
 Revision history for Tira
 
+3.41  2026-08-23
+
+    - TKT-322. tira.<type>.show's embedded questions carried no
+      status key at all - question.list computes status
+      (new/answered/discarded) via _question_view, but the show
+      commands returned the stored question entry as-is, so a
+      discarded question and a live one were distinguishable only by
+      discarded_at. A reader filtering on the documented status field
+      saw discarded questions as still open.
+
+    - Fixed: record.show and record.show --refs now return every
+      embedded question with the same status question.list already
+      computes. Fixed at the CLI dispatch boundary rather than inside
+      the engine's own record_show, which is reused internally as a
+      fetch-then-mutate primitive (question_update and others) -
+      applying the fix there would have written computed fields into
+      storage.
+
 3.40  2026-08-23
 
     - TKT-309. work_order honoured an unanswered question as a hold

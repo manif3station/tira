@@ -1,5 +1,17 @@
 Revision history for Tira
 
+3.33  2026-08-23
+
+    - TKT-476. TKT-472's required-action list (row + x-to-remove, blank
+      row + check-to-add) had no way to reorder existing items. Owner:
+      "put a control the user can be order the action items up and
+      down."
+
+    - Fixed: each required-action row now carries a drag handle,
+      matching the column row's own grip - dragging reorders items
+      within that column's own list, never crosses into a different
+      column's list, and the blank add-row always stays last.
+
 3.32  2026-08-23
 
     - TKT-473. A card can be exempted from a specific column's

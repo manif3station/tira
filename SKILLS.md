@@ -598,7 +598,11 @@ empty rather than forcing a value in on save, and only a field actually
 edited is included in the layout sent back. Owner's live question,
 2026-08-22: "Where to view and edit the column chain? Also, where to
 view and edit the required items of each column?" — nowhere, until
-TKT-468, and not usably until TKT-472.
+TKT-468, and not usably until TKT-472. Each required-action row also
+carries its own drag handle, matching the column row's own grip, so
+existing items can be reordered the same way columns themselves are —
+dragging never crosses between two different columns' own lists, and
+the blank add-row always stays last. TKT-476.
 
 Whole-layout column edits are **Implemented.**
 `tira.column.apply` takes the column list a board should have — order,

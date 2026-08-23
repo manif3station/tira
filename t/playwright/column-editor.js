@@ -149,6 +149,22 @@ process.on('unhandledRejection', error => {
   await page.locator('.column-row[data-name="review"] .column-row__action-input').last().fill('Add a Changes entry');
   await page.locator('.column-row[data-name="review"] .column-row__action-add').click();
   await page.locator('.column-row[data-name="review"] .column-row__action-remove').first().click();
+
+  // TKT-476: drag a required-action row above another by its own grip.
+  const actionRows = () => page.locator('.column-row[data-name="review"] .column-row__action-input').evaluateAll(nodes => nodes.map(n => n.value));
+  const beforeDrag = await actionRows();
+  if (beforeDrag.join('|') !== 'Update the docs|Add a Changes entry|') fail('setup for the reorder test is not what was expected, got ' + beforeDrag.join('|'));
+  const secondGrip = page.locator('.column-row[data-name="review"] .column-row__action-grip').nth(1);
+  const firstRow = page.locator('.column-row[data-name="review"] .column-row__action-row').first();
+  const gripBox = await secondGrip.boundingBox();
+  const targetBox = await firstRow.boundingBox();
+  await page.mouse.move(gripBox.x + gripBox.width / 2, gripBox.y + gripBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + 2, { steps: 8 });
+  await page.mouse.up();
+  const afterDrag = await actionRows();
+  if (afterDrag.join('|') !== 'Add a Changes entry|Update the docs|') fail('dragging a required-action row by its grip did not reorder it, got ' + afterDrag.join('|'));
+
   await page.locator('.column-row[data-name="backlog"] .column-row__next-checkbox[value="in-progress"]').check();
   await page.locator('.column-row[data-name="done"] .column-row__remove').click();
   await page.locator('.column-dialog__new').fill('Waiting On Client');
@@ -176,8 +192,8 @@ process.on('unhandledRejection', error => {
     if (saved.type !== 'ticket') fail('the board type was not sent');
     if ((backlog.next || []).join(',') !== 'planning,in-progress') fail('backlog\'s checked chain fork was not sent back, got ' + JSON.stringify(backlog.next));
     const review = saved.columns.find(c => c.name === 'review');
-    if ((review.required_actions || []).join('|') !== 'Update the docs|Add a Changes entry') {
-      fail('the edited required-action template (one item added via the blank row, one removed via its x) was not sent, got ' + JSON.stringify(review.required_actions));
+    if ((review.required_actions || []).join('|') !== 'Add a Changes entry|Update the docs') {
+      fail('the edited and reordered required-action template was not sent in the new order, got ' + JSON.stringify(review.required_actions));
     }
     const doneless = saved.columns.find(c => c.name === 'planning');
     if ('next' in doneless) fail('a column with no chain declared had one forced into the save, got ' + JSON.stringify(doneless.next));

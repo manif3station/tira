@@ -947,6 +947,15 @@ and every finished card was judged as work still in progress.
 
 ### `tira.police.outstanding`
 
+Each row carries `id`, `rule`, `policy`, `ref`, `assignee`, `action`, `seen`,
+`tone`, `first_seen` and `last_seen`. A police pass already named the policy
+that raised a finding; the outstanding list dropped it until 3.61 - the one
+field that says WHICH declaration to change was present where nobody acts
+and absent where everybody does, worst where a rule is declared more than
+once (`card-duration` on this board's own 8 columns, `checklist-idle` on 7).
+`policy` reuses what the pass already computed rather than inventing
+anything. TKT-380.
+
 | Argument | Required | What it is for |
 | --- | --- | --- |
 | `--exit-nonzero-if-any` | no | Exit 1 while anything is outstanding, 0 when clear. An error still exits 2, so a scheduled job can tell clean from findings from could-not-look. Opt-in: without it the exit status is what it always was. |

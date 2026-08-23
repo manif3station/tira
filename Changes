@@ -1,5 +1,22 @@
 Revision history for Tira
 
+3.61  2026-08-23
+
+    - TKT-380. A police pass already names the policy that raised
+      each finding, but tira.police.outstanding - the list an agent
+      is actually told to act from - dropped it. This mattered most
+      where a rule is declared more than once with different
+      scoping (card-duration is declared 8 times on this board,
+      checklist-idle 7), since the rule name alone could not say
+      which declaration to look at.
+
+    - Fixed: outstanding rows now carry the policy id, reusing what
+      the pass already computed - nothing new calculated. -o json
+      keeps its bare-list shape. Found and filed TKT-483 (a separate,
+      genuine pre-existing bug in policy_resolve's handling of
+      --column-scoped duplicate declarations) while writing this
+      ticket's own test.
+
 3.60  2026-08-23
 
     - TKT-374. tools/card-holes already computed which cards are

@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.60';
+our $VERSION = '3.61';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -7536,7 +7536,7 @@ sub violation_record {
         # told about it reaches nobody.
         $entry->{about} = {
             map { defined $violation->{$_} ? ( $_ => $violation->{$_} ) : () }
-              qw(rule ref action assignee project)
+              qw(rule policy ref action assignee project)
         };
 
         # And said only when there has been time to fix it. seen counts the
@@ -9514,6 +9514,7 @@ sub police_outstanding {
         push @open, {
             id => $entry->{id},
             rule => $entry->{about}{rule},
+            policy => $entry->{about}{policy} // '',
             ref => $entry->{about}{ref} // '',
             assignee => $entry->{about}{assignee} // '',
             action => $entry->{about}{action} // '',
@@ -12003,7 +12004,10 @@ Sets named roles on a board, with a required reason, logged.
 
 =head2 police_outstanding
 
-Returns violations still open in a police store's ledger.
+Returns violations still open in a police store's ledger. Each row carries
+C<policy>, the id of the declaration that raised it - reused from what the
+pass already recorded, not recomputed - so a rule declared more than once
+still says which one to change. TKT-380.
 
 =head2 police_outstanding_taken_at
 

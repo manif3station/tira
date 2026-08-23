@@ -1,5 +1,32 @@
 Revision history for Tira
 
+3.66  2026-08-23
+
+    - TKT-395. 119 command dispatchers under skills/*/cli/ and cli/
+      sit outside the coverage gate, which names three modules by
+      hand - roughly 4,900 lines of executable Perl nothing proves.
+      Two declared refusals in the shared body ("Cannot locate Tira
+      skill root", "Unsafe Tira skill root") were exercised by no
+      test anywhere in the project, though both work correctly.
+      Measured as 3 hardcoded dispatchers (skills/checklist/cli/
+      {add,list,update}, each writing 'checklist.' . basename($0)
+      instead of deriving the command from its path like the other
+      116); actually found to be 6 - skills/required-action/cli/
+      {add,list,update} carried the identical anomaly.
+
+    - Fixed: a new test copies a dispatcher outside any Tira tree and
+      under a path containing a control character, proving both
+      refusals fire with their own message and exit 2. All 6
+      hardcoded dispatchers converted to the shared derivation
+      template, and a project-wide assertion added so no dispatcher
+      nested under skills/ can hardcode a dotted prefix again.
+      Converting them also surfaced a second, real defect the fix
+      exposed: their identical custom POD summaries had silently
+      escaped t/166's duplicate-summary check due to a missing blank
+      line after =head1 NAME - now given the same generic dispatcher
+      POD the other 116 already carry, joining that convention rather
+      than inventing a third one.
+
 3.65  2026-08-23
 
     - TKT-484. t/266-a-stopped-agent-on-a-busy-board.t declared

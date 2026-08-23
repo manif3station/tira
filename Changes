@@ -1,5 +1,23 @@
 Revision history for Tira
 
+3.60  2026-08-23
+
+    - TKT-374. tools/card-holes already computed which cards are
+      missing required fields, but only from the pre-push hook and
+      only against the cards a push happened to be about - a card
+      with a title and nothing else could sit in the backlog
+      indefinitely, unblocked, until an unrelated push named it.
+      Measured live: 26 of 300 cards missing both problem_or_feature
+      and solution_needed, 24 of them still open.
+
+    - Added tira.card.holes, sweeping every live card through the
+      same private definition card_missing and the push gate already
+      use, so the two can never disagree. Discarded cards are
+      excluded, and an untriaged tira.dev.found report still sitting
+      in the board's entry column is exempt, exactly as the push
+      gate exempts it - filing a quick report stays as easy as
+      TKT-104 made it. Reports and refuses nothing.
+
 3.59  2026-08-23
 
     - TKT-372. No command answered who owes a card's final check

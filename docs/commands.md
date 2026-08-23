@@ -1612,6 +1612,30 @@ code aligns with the card, stays a person or an LLM's job; nothing here
 moves a card automatically, the same way police asks and never moves.
 TKT-372.
 
+### `tira.card.holes`
+
+Which live cards are missing required fields — a title moving through
+columns as though it were real work, with nothing behind it.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--type TYPE` | no | Scope to one board; with none, all three. |
+| `-o FORMAT` | no | As above. |
+
+Answers a list of `{ref, type, column, missing}`. This is the same check
+`tools/card-holes` already made from the pre-push hook, and only against
+the cards a push happened to be about — measured live, 26 of 300 cards
+missing both `problem_or_feature` and `solution_needed`, 24 of them still
+open with no push ever having named them, unblocked indefinitely. Reads
+the exact same private definition the push gate's own per-card check uses,
+so the two can never disagree about what complete means. Discarded cards are
+excluded — set aside, not planned — and a card reported through
+`tira.dev.found.bug_or_improvement`, still sitting in the board's own
+entry column, is exempt for the same reason the push gate exempts it: a
+reporter knows what they saw, not how this project will fix it, and
+triage is what turns a report into a ticket. It reports and refuses
+nothing — filing a quick report stays as easy as it always was. TKT-374.
+
 The handle lives on the card, set with `tira.ticket.update --agent-session`,
 and is read off the board rather than from whatever spawned the agent — because
 the thing that spawned it is the thing that closes. A child with no agent yet is

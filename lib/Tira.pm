@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.59';
+our $VERSION = '3.60';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -5680,6 +5680,45 @@ sub card_missing {
     my $root = $self->discover_project(%args);
     my $record = $self->record_show( %args, project => $root );
     return $self->_card_missing_from($record);
+}
+
+# The board-wide sweep tools/card-holes already made, but only from the
+# pre-push hook and only against the cards a push happened to be about - a
+# card with a title and nothing else could sit in the backlog indefinitely,
+# unblocked, until a push named it. Measured live: 26 of 300 cards missing
+# both problem_or_feature and solution_needed, 24 of them still open. This
+# asks the same question _card_missing_from already answers per card, so
+# the two can never disagree about what complete means. TKT-374.
+#
+# Discarded work is set aside, not planned, and held to the same standard
+# teaches nothing but to ignore this. An untriaged tira.dev.found report,
+# still sitting in the board's own entry column, is exempt for the same
+# reason the push gate exempts it: TKT-104 shipped that report path so an
+# outside agent could file quickly, and a reporter knows what they saw, not
+# how this project will fix it - triage is what turns a report into a
+# ticket, and the board records triage as the card leaving that column.
+sub card_holes {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my @report;
+
+    for my $type ( defined $args{type} ? ( $args{type} ) : qw(sow epic ticket) ) {
+        my $roles = eval { $self->column_roles( project => $root, type => $type ) } || {};
+        my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
+        my $starts_in = $roles->{backlog} // ( @{$columns} ? $columns->[0]{name} : undef );
+
+        for my $record ( @{ $self->record_list( project => $root, type => $type ) } ) {
+            my $column = $record->{column} // '';
+            next if $column eq 'discard';
+            next if defined $starts_in && $column eq $starts_in
+              && index( $record->{source} // '', 'tira.dev.found' ) >= 0;
+
+            my $missing = $self->_card_missing_from($record);
+            next if !@{$missing};
+            push @report, { ref => $record->{ref}, type => $type, column => $column, missing => $missing };
+        }
+    }
+    return \@report;
 }
 
 sub _card_missing_from {
@@ -11781,6 +11820,14 @@ Who owes a card's final check, computable from the parent: the parent's own
 assignee if a parent exists (an unassigned parent reports no owner rather
 than walking further up or guessing), or the card's own assignee when it
 has no parent. TKT-372.
+
+=head2 card_holes
+
+Board-wide sweep of C<_card_missing_from> - the same private helper
+C<card_missing> calls per card - so the two can never disagree about what
+complete means. Discarded cards are excluded; an untriaged
+C<tira.dev.found> report still sitting in the board's own entry column is
+exempt, exactly as the push gate exempts it. TKT-374.
 
 =head2 comment_add
 

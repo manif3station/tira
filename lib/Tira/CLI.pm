@@ -2461,6 +2461,11 @@ sub _invoke {
     if ( $command eq 'check.owner' ) {
         return $tira->check_owner( project => $args{project}, ref => $args{ref} );
     }
+    if ( $command eq 'card.holes' ) {
+        my %holes = ( project => $args{project} );
+        $holes{type} = $args{type} if defined $args{type};
+        return $tira->card_holes(%holes);
+    }
     if ( $command eq 'history.list' ) {
         my %history = %args;
         delete $history{fields};

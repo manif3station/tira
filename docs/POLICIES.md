@@ -311,7 +311,7 @@ missing, at the moment you declare the policy rather than later.
 
 | Rule | Requires | Catches |
 | --- | --- | --- |
-| `card-full-details` | `--enter` | a card reaching a column without the detail that makes it real work |
+| `card-full-details` | `--enter` | a card reaching a column without the detail that makes it real work. This watches a column boundary; `tira.card.holes` (docs/commands.md) answers the same question board-wide, for every live card right now regardless of which column it sits in - a card left untouched in the backlog stays invisible to a column-scoped rule indefinitely. TKT-374. |
 | `card-metrics` | `--enter --require` | a card reaching a column without named metadata |
 | `card-duration` | `--column --age` | a card sitting in one place too long. `--age` was otherwise a guess, picked by hand and never checked against what the board itself records - `tira.dwell.report` reads back the real median/p90/max seconds cards spend in each column, from every card's own recorded moves, so the threshold can be a reading instead. TKT-366. |
 | `card-stalled` | `--before-column` | a finished checklist on a card that has not moved |

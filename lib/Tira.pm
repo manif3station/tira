@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.42';
+our $VERSION = '3.43';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -3198,30 +3198,50 @@ sub question_list {
 
         # Reading is what marks an answer read - the agent does nothing extra.
         # Written only when something actually changed, so listing twice does
-        # not keep rewriting the card.
-        my $now = $self->{clock}->();
-        my $marked = 0;
-        for my $entry ( @{ $record->{questions} } ) {
-            next if $entry->{discarded_at};
-            next if !$entry->{answer} || defined $entry->{answer}{read_at};
-            $entry->{answer}{read_at} = $now;
-            $marked++;
+        # not keep rewriting the card. --peek is the exception: a manager
+        # routing work down a chain needs to check whether an answer has
+        # been read WITHOUT that check itself being the read - checking and
+        # settling were the same keystroke, so a rule whose entire job was
+        # to send one particular agent to one particular question could
+        # never fire for it again once anybody else looked. Skipping the
+        # mark, and returning metadata only (never the answer text), is what
+        # keeps a peek from becoming a way to read the answer on somebody
+        # else's behalf. TKT-336.
+        if ( !$args{peek} ) {
+            my $now = $self->{clock}->();
+            my $marked = 0;
+            for my $entry ( @{ $record->{questions} } ) {
+                next if $entry->{discarded_at};
+                next if !$entry->{answer} || defined $entry->{answer}{read_at};
+                $entry->{answer}{read_at} = $now;
+                $marked++;
+            }
+            $self->_replace_record( project => $root, type => $type, ref => $args{ref}, record => $record )
+              if $marked;
         }
-        $self->_replace_record( project => $root, type => $type, ref => $args{ref}, record => $record )
-          if $marked;
 
         my @questions = map { _question_view($_) } @{ $record->{questions} };
         @questions = grep { $_->{status} eq $status } @questions if defined $status;
         @questions = grep {
             ( eval { _epoch_of_datetime( _question_changed_at($_), 'Question stamp' ) } // 0 ) >= $since
         } @questions if defined $since;
+        @questions = map { {
+            id => $_->{id}, status => $_->{status},
+            answered_at => $_->{answer} ? $_->{answer}{answered_at} : undef,
+            read_at => $_->{answer} ? $_->{answer}{read_at} : undef,
+            mark => $_->{answer} ? $_->{answer}{mark} : undef,
+        } } @questions if $args{peek};
         return {
             ref => $args{ref}, type => $type, title => $record->{title},
             questions => \@questions,
-            instruction => 'If an answer settles it, run tira.question.mark --mark ok. '
-              . 'If it does not, run tira.question.mark --mark not-ok AND ask a new one '
-              . 'with tira.question.ask - a cross on its own settles nothing. '
-              . 'Unanswered questions are waiting on the owner, not on you.',
+            instruction => $args{peek}
+              ? 'Metadata only, and this did not mark any answer read. Run '
+                . 'tira.question.list without --peek to read an answer for real - '
+                . 'only do that if you are the one meant to act on it.'
+              : 'If an answer settles it, run tira.question.mark --mark ok. '
+                . 'If it does not, run tira.question.mark --mark not-ok AND ask a new one '
+                . 'with tira.question.ask - a cross on its own settles nothing. '
+                . 'Unanswered questions are waiting on the owner, not on you.',
         };
     } );
 }

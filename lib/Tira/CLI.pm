@@ -259,6 +259,7 @@ sub run {
         'gate=s' => \$option{gate}, 'result=s' => \$option{result},
         'details=s' => \$option{details}, 'evidence=s' => \$option{evidence},
         'item=s' => \$option{item}, 'status=s' => \$option{status},
+        'peek' => \$option{peek},
         'command=s@' => \$option{command}, 'proof=s@' => \$option{proof},
         'field=s@' => \$option{fields}, 'pattern=s' => \$option{pattern},
         'fields=s@' => \$option{field_selection},
@@ -2322,6 +2323,9 @@ sub _invoke {
         $question{options} = $option->{options} if $option->{options};
         $question{status} = $option->{status} if defined $option->{status};
         $question{since} = $option->{since} if defined $option->{since};
+        die "Peek is available on the question.list command\n"
+          if $option->{peek} && $action ne 'list';
+        $question{peek} = 1 if $option->{peek};
         return $tira->question_add(%question) if $action eq 'ask';
         return $tira->question_list(%question) if $action eq 'list';
         return $tira->question_answer(%question) if $action eq 'answer';

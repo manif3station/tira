@@ -65,7 +65,15 @@ same way this command does, so the two agree. TKT-322.
 | `--ref CARD` | yes | The card whose questions to list. |
 | `--status STATUS` | no | Only `new`, only `answered`, or only `discarded`. |
 | `--since STAMP` | no | Only what has changed since then. Reads the **answer's** stamp when there is an answer and the question's when there is not, so a newly answered question shows as newly changed. |
+| `--peek` | no | Inspect without reading. Returns metadata only per question - `id`, `status`, `answered_at`, `read_at`, `mark` - never the answer text, reason, or options, and does not itself mark anything read. Refused on every other `question.*` command. |
 | `-o FORMAT` | no | As above. `human` renders each question, its reason, its numbered choices and its answer. |
+
+Reading is what marks an answer read, which made checking whether an answer
+had been read the same act as reading it - a manager routing work down a
+chain who opened a question to route it consumed the one detector whose
+entire job was to send that agent there, permanently, since nobody else
+could act on a finding only the main session could see. `--peek` is the
+inspection route: same command, metadata only, no mark. TKT-336.
 
 ### `tira.question.answer`
 

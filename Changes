@@ -1,5 +1,19 @@
 Revision history for Tira
 
+3.43  2026-08-23
+
+    - TKT-336. tira.question.list was the only way to see a question,
+      and opening it set read_at - so checking whether an answer had
+      been read was the same act as reading it. A manager routing
+      work down a chain who opened a question to route it consumed
+      the one detector whose entire job was to send that agent there,
+      permanently.
+
+    - Fixed: tira.question.list --peek returns metadata only (id,
+      status, answered_at, read_at, mark - never the answer text,
+      reason, or options) and does not itself mark anything read.
+      Refused on every question.* command except question.list.
+
 3.42  2026-08-23
 
     - TKT-333. wip-limit counted sows, epics and tickets together in

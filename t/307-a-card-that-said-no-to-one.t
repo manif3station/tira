@@ -55,7 +55,7 @@ like( $err, qr/left a note/, 'naming the first' );
 like( $err, qr/said why/,    'and the second' );
 
 # --- exempting one item lets the move succeed with only the other done -----
-cli( 'record.update', '--ref', $card->{ref}, '--exempt-required', 'said why' );
+cli( 'record.update', '--ref', $card->{ref}, '--exempt-required', 'said why', '--exempt-reason', 'not needed here' );
 my ($note) = grep { $_->{item} eq 'left a note' } @{ $tira->required_item_list( project => $root, ref => $card->{ref} ) };
 $tira->required_item_update( author => 'claude', project => $root, ref => $card->{ref}, id => $note->{id}, status => 'done',
     command => ['left it'], proof => ['note left'] );

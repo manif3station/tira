@@ -35,10 +35,11 @@ const fs = require('fs');
     { id: 'REQ-003', column: 'doc', item: 'said why', status: 'pending', last_updated: '2026-08-21T09:10:00Z' },
   ];
 
-  const recordFor = (ref, items) => ({
+  const recordFor = (ref, items, exempt) => ({
     ref, type: 'ticket', title: 'A card', column: 'planning',
     description: '', comments: [], attachments: [], checklist: [], questions: [],
     evidence: [], gate_passing_log: [], subtasks: [], labels: [], required_items: items,
+    required_exempt: exempt || [],
     scope: { included: [], excluded: [] }, linkage: { links: [], sub_ticket_refs: [] },
   });
 
@@ -46,12 +47,13 @@ const fs = require('fs');
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 
   let requestedRef;
+  let requiredExempt = [];
   await page.route('http://tira.test/**', async route => {
     const url = new URL(route.request().url());
     if (url.pathname === '/record') {
       const ref = url.searchParams.get('ref');
       requestedRef = ref;
-      const record = ref === withRequired ? recordFor(ref, requiredItems) : recordFor(ref, []);
+      const record = ref === withRequired ? recordFor(ref, requiredItems, requiredExempt) : recordFor(ref, []);
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(record) });
     }
     if (url.pathname === '/data') {
@@ -224,6 +226,38 @@ const fs = require('fs');
   if (absent !== 0) throw new Error('a card with no required items shows the section anyway');
 
   console.log('required-actions: a card with no required_items renders exactly as before - no section appears');
+
+  // --- TKT-473: an exempted item renders distinctly from a pending one -------
+  requiredItems.push({
+    id: 'REQ-005', column: 'doc', item: 'not applicable here', status: 'pending',
+    last_updated: '2026-08-21T09:20:00Z',
+  });
+  requiredExempt = [ { item: 'not applicable here', reason: "Doesn't apply to this card's own scope" } ];
+  await page.keyboard.press('Escape');
+  await page.click(`[data-ref="${withRequired}"]`);
+  await page.waitForSelector('.card-dialog[open]');
+  const exemptRow = page.locator('[data-required-action="REQ-005"]');
+  await exemptRow.waitFor({ state: 'attached', timeout: 15000 });
+  if (await exemptRow.locator('.card-list__check').count() !== 0) {
+    throw new Error('an exempted item must not show a checkbox - there is nothing left to check');
+  }
+  const exemptText = exemptRow.locator('.card-list__text');
+  const struckThrough = await exemptText.evaluate(node => getComputedStyle(node).textDecorationLine.includes('line-through'));
+  if (!struckThrough) throw new Error('an exempted item must render struck-through, distinct from a pending one');
+
+  await exemptText.click();
+  await proofDialog.waitFor({ state: 'visible', timeout: 15000 });
+  const exemptPopup = await proofDialog.locator('.proof-dialog__body').textContent();
+  if (!exemptPopup.includes("Doesn't apply to this card's own scope")) {
+    throw new Error(`the popup for an exempted item must show its reason, got: ${exemptPopup}`);
+  }
+  if (exemptPopup.includes('undefined') || /\bran the review checklist\b/.test(exemptPopup)) {
+    throw new Error('the exempted item\'s popup must not show command/proof from a different item');
+  }
+  await proofDialog.locator('.proof-dialog__close').click();
+
+  console.log('required-actions: an exempted item renders struck-through with its reason, not an empty checkbox');
+
   await browser.close();
 })().catch(error => {
   console.error(error.message || error);

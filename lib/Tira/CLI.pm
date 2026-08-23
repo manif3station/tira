@@ -339,7 +339,7 @@ sub run {
         'full' => \$option{full}, 'dry-run' => \$option{dry_run},
         'key-detail=s@' => \$option{key_details}, 'deliverable=s@' => \$option{deliverables},
         'scope-in=s@' => \$option{scope_in}, 'scope-out=s@' => \$option{scope_out},
-        'exempt-required=s@' => \$option{required_exempt},
+        'exempt-required=s@' => \$option{required_exempt}, 'exempt-reason=s@' => \$option{exempt_reason},
         'acceptance|acceptance-criteria=s@' => \$option{acceptance}, 'test-step=s@' => \$option{test_steps},
         'bdd=s@' => \$option{bdd}, 'atdd=s@' => \$option{atdd},
         'assignee=s' => \$option{assignee}, 'person=s@' => \$option{people},
@@ -1954,7 +1954,10 @@ sub _column_required_action_violation {
     # not fit. Checked here rather than by the card silently omitting the
     # item, so the exemption is a decision on record, not an absence nobody
     # can tell from a genuine oversight. TKT-439.
-    my %exempt = map { $_ => 1 } @{ $current->{required_exempt} // [] };
+    # An exemption recorded before TKT-473 is a bare string; one recorded
+    # since carries {item, reason, exempted_at, author}. Both name the item
+    # the same way to this check.
+    my %exempt = map { ( ref($_) eq 'HASH' ? $_->{item} : $_ ) => 1 } @{ $current->{required_exempt} // [] };
 
     # Required items are their own list, tagged by the column they belong
     # to - not a card's checklist, which stays purely manual. Gating reads

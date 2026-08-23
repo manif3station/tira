@@ -92,7 +92,7 @@ like( $err, qr/reviewed by someone else/,    'names the other' );
 unlike( $err, qr/said why/,                  'not backlog\'s already-done item' );
 
 # --- required-exempt works against required_items -------------------------
-cli( 'record.update', '--ref', $card->{ref}, '--exempt-required', 'left a note' );
+cli( 'record.update', '--ref', $card->{ref}, '--exempt-required', 'left a note', '--exempt-reason', 'not needed here' );
 ( $status, $out, $err ) = cli( 'record.move', '--ref', $card->{ref}, '--column', 'doc' );
 isnt( $status, 0, 'still refused - the other planning item is still pending' );
 like( $err, qr/reviewed by someone else/, 'names only the still-unmet item' );

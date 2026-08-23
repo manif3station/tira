@@ -1,5 +1,25 @@
 Revision history for Tira
 
+3.32  2026-08-23
+
+    - TKT-473. A card can be exempted from a specific column's
+      required-action item (TKT-439), diverging from the column's
+      template when it genuinely does not apply - but the dashboard
+      rendered an exempted item exactly like a pending one, same empty
+      checkbox, no strikethrough, no reason. A genuinely-exempt card
+      reads on screen exactly like one that skipped its work. Owner,
+      seeing TKT-471 in done with its exempted items still unchecked:
+      "How do you explain this? This card became Done while only
+      half-finished."
+
+    - Fixed: --exempt-required now requires a paired --exempt-reason,
+      refused without one or on a mismatched count. Stored as
+      {item, reason, exempted_at, author} rather than the bare item
+      text. An exempted item renders struck-through in the dashboard
+      with no checkbox, and its click-popup shows the reason where a
+      done item would show command/proof. An exemption recorded before
+      this reads and gates exactly as it always did.
+
 3.31  2026-08-22
 
     - TKT-475. Removing a column - via tira.column.remove, or via the

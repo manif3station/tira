@@ -1,5 +1,24 @@
 Revision history for Tira
 
+3.67  2026-08-23
+
+    - TKT-396. tira.link.add and tira.link.remove take --from,
+      --type and --to and have no --ref at all, but refused a
+      missing one of the three with "Record reference is required -
+      supply it with --ref" - the shared, correct refusal forty
+      other commands raise for a genuinely missing --ref, rewritten
+      by the CLI-layer translation table into a flag this command
+      does not take. Supplying --ref did nothing, and two of the
+      three real flags produced the identical message, so it never
+      said which one was actually missing. Same family as TKT-387.
+
+    - Fixed: both commands now check --from, --type and --to in
+      that order before either record lookup, each with its own
+      self-naming refusal - "link.add needs --from" and so on -
+      never mentioning --ref. Docker: Files=352, Tests=7310, PASS,
+      100% statement+subroutine coverage on lib/Tira.pm and
+      lib/Tira/CLI.pm. Browser tests 12/12.
+
 3.66  2026-08-23
 
     - TKT-395. 119 command dispatchers under skills/*/cli/ and cli/

@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.66';
+our $VERSION = '3.67';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2732,8 +2732,25 @@ sub subitem_unlink {
     } );
 }
 
+# link.add and link.remove take --from/--type/--to, not --ref, and used to
+# refuse a missing one of the three through _record_data's generic "Record
+# reference is required" - a message forty other commands raise correctly,
+# because they genuinely do take --ref. Rewritten by the shared CLI-layer
+# table into "supply it with --ref", which is not a flag either command
+# takes: supplying it did nothing, and two of the three real flags produced
+# the identical message, so it never said which one was actually missing.
+# Checked here, before either lookup, in its own words. TKT-396.
+sub _require_link_arguments {
+    my ( $self, $command, %args ) = @_;
+    for my $flag (qw(from type to)) {
+        die "$command needs --$flag\n" if !defined $args{$flag} || $args{$flag} eq '';
+    }
+    return;
+}
+
 sub link_add {
     my ( $self, %args ) = @_;
+    $self->_require_link_arguments( 'link.add', %args );
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         my ( $from_path, $from ) = $self->_record_data( project => $root, ref => $args{from} );
@@ -2750,6 +2767,7 @@ sub link_add {
 
 sub link_remove {
     my ( $self, %args ) = @_;
+    $self->_require_link_arguments( 'link.remove', %args );
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         my ( $from_path, $from ) = $self->_record_data( project => $root, ref => $args{from} );

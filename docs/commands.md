@@ -2077,9 +2077,12 @@ top of it directly.
 
 ### Links
 
-- `tira.link.add --from REF --type NAME --to REF [-o FORMAT]`
+- `tira.link.add --from REF --type NAME --to REF [-o FORMAT]` - a missing
+  `--from`, `--type` or `--to` is refused by name, checked in that order;
+  the refusal never names `--ref`, which this command does not take. TKT-396.
 - `tira.link.list --ref REF [--type NAME] [-o FORMAT]`
-- `tira.link.remove --from REF --type NAME --to REF [-o FORMAT]`
+- `tira.link.remove --from REF --type NAME --to REF [-o FORMAT]` - same
+  refusal shape as `tira.link.add`.
 
 
 ### Notifications

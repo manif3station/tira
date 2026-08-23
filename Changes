@@ -1,5 +1,22 @@
 Revision history for Tira
 
+3.63  2026-08-23
+
+    - TKT-382. tira.project.update accepted --mode, parsed it, carried
+      it into the engine call, and dropped it - exiting 0 and printing
+      the whole project record back, which reads as confirmation
+      because the project is right there. tira.project.mode itself
+      stores the same value perfectly well. The same shape TKT-281
+      (--sdlc-gate), TKT-302 (--comment) and TKT-431 (--uri) each
+      found on a record or evidence command, here on the project.
+
+    - Fixed: --mode is now refused on every command except
+      project.mode, project.new and onboard (which read it too, and
+      write it themselves once the project exists), naming
+      tira.project.mode as the command that actually sets it. The
+      refusal happens before anything is written, so it cannot land
+      half-applied.
+
 3.62  2026-08-23
 
     - TKT-483. policy_resolve (which declaration wins per rule per

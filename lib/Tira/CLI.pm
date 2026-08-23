@@ -111,6 +111,22 @@ my %OPTION_READ_BY = (
         commands => qr/\Aevidence\.add\z/,
         instead  => 'tira.evidence.add --ref REF --summary TEXT --uri TEXT, which is the command that reads it',
     },
+
+    # Whether this board is worked by one agent or a chain of them. Accepted,
+    # dropped, exit 0, whole project printed - the same shape as sdlc_gate and
+    # comment above, on the project rather than a card. Several rules mean
+    # different things between the two modes, so a board that believes it
+    # declared chain and is still single gets different behaviour from every
+    # one of them, with nothing to say why. TKT-382.
+    mode => {
+        flag     => 'mode',
+        # project.new and onboard read it too - both write it themselves,
+        # straight after the project exists, the same way this table's other
+        # entries name every command that genuinely reads an option rather
+        # than only the one whose name matches it.
+        commands => qr/\A(?:project\.mode|project\.new|onboard)\z/,
+        instead  => 'tira.project.mode --mode VALUE, which is the command that sets it',
+    },
 );
 
 sub _refuse_unread_options {

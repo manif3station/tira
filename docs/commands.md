@@ -1113,6 +1113,10 @@ d2 tira.release.record --ref TKT-001 --gate G9 --result pass --details "..." --e
 d2 tira.attachment.discard --ref TKT-001 --sha SHA256 --comment "Wrong file"   # refused
   attachment.discard does not act on --comment. Use tira.comment.add --ref REF
   --text TEXT, which is the command that records a reason.
+
+d2 tira.project.update --mode chain   # refused
+  project.update does not act on --mode. Use tira.project.mode --mode VALUE,
+  which is the command that sets it.
 ```
 
 `attachment.discard` genuinely reads `--comment`, but as an identifier - which

@@ -148,6 +148,11 @@ is case-insensitive, so `--status Done` or `--status DONE` reads exactly like
 Checklist entries are retained, not deleted; there is no remove command. Word
 an entry as though it will outlive the work, and change its item or status only
 with `tira.checklist.update`.
+`checklist-unmoved` addresses its finding to the card's reporter, not its
+assignee, since 3.47 - the assignee is often the reviewer for a card sitting
+in review, who cannot tick an item only the card's own author left unticked,
+while the reporter is who raised the card and is who a checklist item
+usually belongs to. TKT-286.
 `required_items` is a genuinely separate list, never written to by anything
 that touches `checklist`. Entries have an immutable `REQ-NNN` ID, `item`,
 free-text `status`, the `column` the item applies to, creation time, and last

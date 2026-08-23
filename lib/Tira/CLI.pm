@@ -418,7 +418,10 @@ sub run {
         return 0;
     }
 
-    return _error( $tira, 'toon', "Unsupported output format '$option{output}'" )
+    return _error( $tira, 'toon', "Unsupported output format '$option{output}' - "
+        . '--output/-o names the response FORMAT (toon, json or human) on every command here, '
+        . 'never a destination path. attachment.get always writes its raw content to stdout, '
+        . "so save it with shell redirection: > FILE" )
       if $command eq 'attachment.get' && $option{output} !~ /\A(?:toon|json|human)\z/;
     return _error( $tira, 'toon', 'Table output is available only for dashboard commands' )
       if $option{output} eq 'table' && $command !~ /\Adashboard(?:\.(?:sow|epic|ticket))?\z/;

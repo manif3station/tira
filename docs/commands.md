@@ -238,7 +238,14 @@ none shows the lot.
 
 Fetching needs only the reference: `tira.attachment.get --sha SHA --extension
 EXT` takes no card and no question, because a reference already identifies the
-file.
+file. It writes the file's raw content to stdout - `--output`/`-o` is the
+same response-FORMAT flag every command shares (`toon`, `json` or `human`),
+never a destination, so save it with shell redirection:
+`tira.attachment.get --sha SHA --extension EXT > FILE`. Passing a path to
+`--output` is refused with `Unsupported output format`, and the refusal now
+says both of these things - until 3.57 it only quoted the path back,
+leaving a caller who reached for the obvious spelling to learn nothing
+from being refused. TKT-371.
 
 Taking one off again needs both: `tira.attachment.detach --ref TKT-001 --sha
 SHA256` removes the file from that card, and `--comment CMT-001` takes it off a

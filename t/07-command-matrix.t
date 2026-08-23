@@ -163,6 +163,16 @@ is( $status, 2, 'attachment path output is rejected' );
 is( $out, '', 'rejected path output emits no content' );
 like( $path_error, qr/Unsupported output format 'path'/, 'path rejection is structured' );
 unlike( $path_error, qr/\Q$root\E|\Q$attachment->{sha}\E/, 'path rejection leaks no managed location or object name' );
+
+# TKT-371: --output/-o is a FORMAT flag on every command, and the natural
+# spelling for a destination - --output /path/to/file - was refused with
+# only the value quoted back, never saying --output means a format here or
+# how a file is actually written. A caller who reached for the obvious
+# spelling learned nothing from being refused.
+like( $path_error, qr/--output.*format|-o.*format/i,
+    'the refusal says --output/-o names a format on this command, not a destination' );
+like( $path_error, qr/stdout|>\s*FILE|redirect/i,
+    'and says how a file is actually written - shell redirection, since attachment.get writes raw content to stdout' );
 ( $status, $out, $path_error ) = cli( 'attachment.get', undef, '--sha', ( 'a' x 64 ), '-o', 'path' );
 is( $status, 2, 'path output is rejected before project or attachment lookup' );
 unlike( $path_error, qr/No Tira project|Attachment/, 'early rejection performs no managed-storage lookup' );

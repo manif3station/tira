@@ -1,5 +1,21 @@
 Revision history for Tira
 
+3.57  2026-08-23
+
+    - TKT-371. tira.attachment.get uses --output as the FORMAT flag
+      like every other command, so the natural way to name a
+      destination - 'attachment.get --output /path/to/file' - was
+      refused with only "Unsupported output format '/path/to/file'",
+      never explaining what --output means here or how a file is
+      actually saved.
+
+    - Fixed: the refusal now explains --output/-o names the response
+      format (toon, json or human), never a destination, on every
+      command, and names the real save mechanism - attachment.get
+      always writes its raw content to stdout, so shell redirection
+      (> FILE) is how a file is saved. The universal -o=FORMAT
+      grammar every other command shares is unchanged.
+
 3.56  2026-08-23
 
     - TKT-369. tools/browser-tests reported a browser test that could

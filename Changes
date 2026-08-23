@@ -1,5 +1,31 @@
 Revision history for Tira
 
+3.71  2026-08-23
+
+    - TKT-407. A checklist's completion was computed by hand on
+      every read - checklist[N]{...}'s own array header already
+      named the total, and nothing named how many were done. The
+      same three-line manual count was run by hand at least six
+      times in one session.
+
+    - Fixed: checklist_done/checklist_total ride alongside checklist
+      on every ticket.show/list response by default, computed from
+      the array a read is already walking to render it - not
+      opt-in like content_hash. Case-insensitive "done", matching
+      card-stalled's own convention. Discovered mid-fix: record_show
+      is the "before" object nearly every mutation in this file
+      reads and writes back through _replace_record, so adding a
+      computed field there unconditionally meant the very first
+      comment added to any card would have persisted it to disk and
+      journaled a spurious change - caught by an unrelated rule's
+      test going red before this ever shipped. _replace_record now
+      strips every computed field before writing, and
+      content_hash's own computation excludes the two new fields so
+      it does not change shape by which fields were requested
+      alongside it. Docker: Files=356, Tests=7358, PASS, 100%
+      statement+subroutine coverage on lib/Tira.pm and
+      lib/Tira/CLI.pm. Browser tests 12/12.
+
 3.70  2026-08-23
 
     - TKT-404. tira.changes printed the entire changelog every

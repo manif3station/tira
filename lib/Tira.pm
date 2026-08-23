@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.70';
+our $VERSION = '3.71';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1687,7 +1687,7 @@ sub board_refs {
 my @RECORD_FIELDS = qw(
     ref type title description key_details problem_or_feature solution_needed
     deliverables scope source acceptance_criteria test_steps bdd atdd
-    gate_passing_log evidence attachments checklist required_items subtasks linkage assignee
+    gate_passing_log evidence attachments checklist checklist_done checklist_total required_items subtasks linkage assignee
     reporter labels due_date start_date sdlc_gate lifecycle priority
     fix_version affects_versions parent comments created_at last_updated column
     content_hash attachment_count sandbox agent_session conversation required_exempt
@@ -1847,7 +1847,12 @@ sub _where_matches {
 sub _record_content_hash {
     my ($record) = @_;
     my %meaningful = %{$record};
-    delete @meaningful{qw(last_updated content_hash)};
+
+    # Derived from checklist, which is already in the hash - counting it a
+    # second time would make the hash change shape depending on which
+    # fields happened to be requested alongside it, the same reason
+    # last_updated and content_hash itself are excluded. TKT-407.
+    delete @meaningful{qw(last_updated content_hash checklist_done checklist_total)};
     return sha256_hex( encode_utf8( json_object()->canonical->encode( \%meaningful ) ) );
 }
 
@@ -1880,6 +1885,17 @@ sub _is_empty_value {
         return 1;
     }
     return 0;
+}
+
+# A checklist's completion, computed once from the array a read is already
+# walking to render it - not a percentage or a progress bar, two integers
+# next to data already returned. Case-insensitive the same way card-stalled
+# and checklist-unmoved already read a status of "done", so a card ticked
+# --status Done or DONE counts the same way everywhere it is read. TKT-407.
+sub _checklist_progress {
+    my ($checklist) = @_;
+    $checklist //= [];
+    return ( scalar( grep { lc( $_->{status} // '' ) eq 'done' } @{$checklist} ), scalar @{$checklist} );
 }
 
 # Selection always keeps ref (identity is never lossy); exclusion applies
@@ -1921,6 +1937,7 @@ sub record_show {
       if $plan && $plan->{fields} && $plan->{fields}{content_hash};
     $full->{attachment_count} = scalar @{ $record->{attachments} // [] }
       if $plan && $plan->{fields} && $plan->{fields}{attachment_count};
+    @{$full}{qw(checklist_done checklist_total)} = _checklist_progress( $record->{checklist} );
     my $projected = _project_record( $full, $plan );
     $projected->{comments} = [ map { _comment_meta($_) } @{ $projected->{comments} } ]
       if $args{meta_only} && ref $projected->{comments} eq 'ARRAY';
@@ -2109,6 +2126,8 @@ sub record_list {
               if $plan && $plan->{fields} && $plan->{fields}{content_hash};
             $full->{attachment_count} = scalar @{ $record->{attachments} // [] }
               if $plan && $plan->{fields} && $plan->{fields}{attachment_count};
+            @{$full}{qw(checklist_done checklist_total)} = _checklist_progress( $record->{checklist} )
+              if !$args{count} && !$args{refs_only};
             my $projected = _project_record( $full, $plan );
             if ( !$args{count} && !$args{refs_only} ) {
                 $projected->{comments} = [ map { _comment_meta($_) } @{ $projected->{comments} } ]
@@ -10107,6 +10126,17 @@ sub _replace_record {
     my ( $path, undef, $column ) = $self->_record_data(%args);
     my %record = %{ $args{record} };
     delete $record{column};
+
+    # This is the one place every read-modify-write helper in this file
+    # eventually writes through, and most of them build $record by calling
+    # record_show(%args) - which means anything record_show computes and
+    # returns by default gets treated as data to persist, not as the
+    # presentation-only number it is. checklist_done/checklist_total went
+    # from a read-time count to a stored, immediately-stale field, and a
+    # spurious journal entry, the moment comment_add round-tripped one:
+    # caught by t/173 going red on an unrelated rule that reads the
+    # journal. TKT-407.
+    delete @record{qw(content_hash attachment_count checklist_done checklist_total)};
     $record{last_updated} = $self->{clock}->();
     $self->_write_json( $path, \%record );
     $self->_journal_flush( $self->discover_project(%args) ) if !$self->{_journal_depth};
@@ -11792,7 +11822,7 @@ Reads or sets a board's reference prefix and digit width.
 
 =head2 record_show
 
-Returns one record, with field projection, since/if_changed short-circuiting, and attachment backfill applied.
+Returns one record, with field projection, since/if_changed short-circuiting, and attachment backfill applied. Carries checklist_done/checklist_total alongside checklist, computed at read time only.
 
 =head2 diff_records
 
@@ -11804,7 +11834,7 @@ Batch form of C<record_show> for up to 100 refs at once.
 
 =head2 record_list
 
-Returns records across one or all three boards, with filtering, field projection, and count/refs-only modes.
+Returns records across one or all three boards, with filtering, field projection, and count/refs-only modes. Each record carries checklist_done/checklist_total the same way record_show does.
 
 =head2 dwell_list
 

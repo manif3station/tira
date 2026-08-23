@@ -1823,13 +1823,23 @@ documented precedence, and misspelled field names still fail loudly. Human
 output prints a bare number or one ref per line for direct shell use.
 
 Records expose a computed `content_hash` through field selection: an opaque
-stable token over every meaningful field including placement, excluding only
-`last_updated`, so a touched-but-identical record keeps its hash. Export adds
+stable token over every meaningful field including placement, excluding
+`last_updated` and the read-time-only `checklist_done`/`checklist_total`
+counts, so a touched-but-identical record keeps its hash regardless of which
+fields were requested alongside it. Export adds
 a `board_hash` whenever hashes are requested. `--if-changed HASH` on show and
 export answers with `{"unchanged": true}` and exit 1 when nothing differs,
 the full (projectable) payload with exit 0 when something does, and exit 2 on
 a malformed hash — a bad token must never quietly mean "changed". Combined
 with `--since`, the stricter suppression wins; conditional reads never write.
+
+`checklist_done`/`checklist_total` ride alongside the existing `checklist`
+array on every show and list response - not opt-in like `content_hash`, since
+the count is cheap to compute and the whole point is not having to fold the
+array by hand to get it. Computed at read time only: never stored, so a
+mutation that round-trips a read (comment.add, checklist.add, and the rest)
+never persists a stale copy or journals a spurious change for either field.
+A checklist-less card reads `0`/`0`, not an error. TKT-407.
 
 Show, list, and export accept `--since TIMESTAMP` to return only records
 whose `last_updated` is at or after that instant (timezone-aware, never a

@@ -442,8 +442,9 @@ hidden.
 Content hashes and conditional reads are **Implemented.**
 Selecting the computed `content_hash` field returns an opaque stable
 token covering every meaningful field including placement and excluding
-only `last_updated`, so a no-op write keeps its hash; only equality is
-contractual. `tira.export --fields ref,content_hash` also returns a
+`last_updated` and the read-time-only `checklist_done`/`checklist_total`
+counts, so a no-op write keeps its hash regardless of which fields were
+requested alongside it; only equality is contractual. `tira.export --fields ref,content_hash` also returns a
 `board_hash` over the whole result. `--if-changed HASH` on show and
 export returns `{"unchanged": true}` with exit 1 when nothing differs
 (exit 0 with the payload otherwise — the exit status alone answers the
@@ -482,6 +483,16 @@ truncated flag never travelled from the read into the write. Only an
 exact match against a truncated read of the field's *current* value
 refuses; a genuinely shorter rewrite is unaffected. The board dashboard is already a summary view and takes no
 brief flag.
+Checklist completion is **Implemented.** `checklist_done`/
+`checklist_total` ride alongside the existing `checklist` array on every
+show and list response, by default rather than opt-in like
+`content_hash` - a checklist's completion used to be computed by hand on
+every read, though `checklist[N]{...}`'s own array header already named
+the total. Computed at read time only, from the array a read is already
+walking to render it: never stored, so a mutation that round-trips a
+read (`comment.add`, `checklist.add`, and the rest) never persists a
+stale copy or journals a spurious change for either field. A
+checklist-less card reads `0`/`0`, not an error. `TKT-407`.
 Comment and attachment reads are **Implemented.** Comments are
 stored newest-last, so `--last N` is the recent thread and `--first N`
 the original framing (contradictory together, exit 2; a zero window or

@@ -90,7 +90,12 @@ is( $shown->{priority}, 4, 'numeric fields survive the round trip' );
 
 my $hashed = $tira->record_show( project => $root, ref => $ticket->{ref}, fields => ['content_hash'] );
 my %meaningful = %{$shown};
-delete $meaningful{last_updated};
+
+# checklist_done/checklist_total are derived from checklist, already in the
+# hash - excluded from content_hash for the same reason last_updated is, so
+# the hash does not change shape depending on which fields were requested
+# alongside it. TKT-407.
+delete @meaningful{qw(last_updated checklist_done checklist_total)};
 is( $hashed->{content_hash},
     sha256_hex( encode_utf8( Cpanel::JSON::XS->new->canonical->encode( \%meaningful ) ) ),
     'content hashes match the reference encoding, so no hash drifts on upgrade' );

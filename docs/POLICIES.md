@@ -123,7 +123,7 @@ not change:
 
 | Rule | Single agent | Chain |
 | --- | --- | --- |
-| `wip-limit` | The policy carries `--max`. | The number is the project's (`tira.project.limit`), because no one number fits both. It still counts the whole board. |
+| `wip-limit` | The policy carries `--max`. | The number is the project's (`tira.project.limit`), because no one number fits both. It counts each record kind (sow/epic/ticket) in the column separately, not the whole board merged into one number - since 3.42, an epic sitting In Progress as the permission state for its children does not consume a ticket's budget. |
 | `card-sandbox-missing` | Usually not declared — most single-agent projects use no work trees. | Real: every card gets a work tree named after it, and the card records which. |
 | The bridge | Each agent names itself and hears its own cards. | The core agent reads it unfiltered and walks each line down; every line carries the way down to its card. |
 
@@ -336,7 +336,7 @@ missing, at the moment you declare the policy rather than later.
 | `answer-unjudged` | `--age`, `--read-age` | an answer nobody marked. The second age is optional and runs from when it was read. |
 | `answer-ok-not-folded` | `--age` | settled in name only: marked ok, nothing written down. **Written down means a card field** - a key detail, the description, the acceptance criteria - not a comment. A comment is where a conversation happens; a field is what an agent reads back off the card, which is what folding an answer in means. |
 | `answer-not-ok-no-followup` | `--age` | a cross with no further question |
-| `wip-limit` | `--column` and a number, from the policy or the project | too many things being worked at once, across the whole board |
+| `wip-limit` | `--column` and a number, from the policy or the project | too many things being worked at once, counted separately per record kind (sow/epic/ticket) since 3.42 - an epic sitting In Progress as the permission state for its children does not consume a ticket's budget by existing, and the finding names which kind is over. |
 | `gate-missing` | `--column` | work that reached the end with no gate recorded |
 | `discard-unexplained` | — | work set aside with no reason given. **A comment is what this wants**, unlike `answer-ok-not-folded` beside it: a discard reason is a note somebody leaves, not content anybody reads back. |
 | `commit-without-card` | — | a commit that names no card |

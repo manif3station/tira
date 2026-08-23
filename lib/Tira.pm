@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.41';
+our $VERSION = '3.42';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6330,19 +6330,37 @@ sub policy_evaluate {
             # changed it.
             my $max = $policy->{max} // $limit;
             next if !defined $max;
-            next if @in <= $max;
-            # Who is holding each one. Without it the message reads exactly
-            # the same whether three agents have one card each or one agent
-            # has three - and those are opposite situations: the first is the
-            # board working as intended, the second is somebody who should
-            # finish something before starting another. A rule that cannot
-            # tell them apart gets its limit raised until it never fires,
-            # which is the same as deleting it.
-            $report->( $policy, undef,
-                scalar(@in) . " cards in $watched, limit is $max: "
-                  . join( ', ', map {
-                    $_->{ref} . ' (' . ( ( $_->{assignee} // '' ) ne '' ? $_->{assignee} : 'nobody' ) . ')'
-                } @in ) );
+
+            # An epic In Progress is not work being done - on a board with
+            # AT99 clause 1a-EPIC-3, it is the permission state for its
+            # children, and it stays there for as long as its team is
+            # active. Counted in one pool with tickets, a handful of epics
+            # exhausted the entire budget by existing, before a single
+            # ticket could be worked - the number that was right for a flat
+            # board of tickets was measuring a different population once a
+            # manager layer (sow/epic) exists above it. Counted per record
+            # kind instead, so tickets pace tickets and epics pace epics.
+            # TKT-333.
+            my %by_type;
+            push @{ $by_type{ $_->{type} // '' } }, $_ for @in;
+            for my $type ( sort keys %by_type ) {
+                my @kind = @{ $by_type{$type} };
+                next if @kind <= $max;
+
+                # Who is holding each one. Without it the message reads
+                # exactly the same whether three agents have one card each
+                # or one agent has three - and those are opposite
+                # situations: the first is the board working as intended,
+                # the second is somebody who should finish something before
+                # starting another. A rule that cannot tell them apart gets
+                # its limit raised until it never fires, which is the same
+                # as deleting it.
+                $report->( $policy, undef,
+                    scalar(@kind) . " ${type}s in $watched, limit is $max: "
+                      . join( ', ', map {
+                        $_->{ref} . ' (' . ( ( $_->{assignee} // '' ) ne '' ? $_->{assignee} : 'nobody' ) . ')'
+                    } @kind ) );
+            }
         }
         elsif ( $rule eq 'gate-missing' ) {
             for my $record ( @{$records} ) {

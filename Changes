@@ -1,5 +1,20 @@
 Revision history for Tira
 
+3.42  2026-08-23
+
+    - TKT-333. wip-limit counted sows, epics and tickets together in
+      one pool. An epic In Progress is not work being done - it is
+      the permission state for its children, and stays there for as
+      long as its team is active - so a handful of epics with
+      children beneath them exhausted the whole ticket-concurrency
+      budget just by existing, leaving room for almost no tickets to
+      be worked at all.
+
+    - Fixed: wip-limit now counts and reports each record kind
+      (sow/epic/ticket) separately, so a manager layer above the
+      tickets cannot consume a ticket's budget by existing, and the
+      finding names the kind it is reporting.
+
 3.41  2026-08-23
 
     - TKT-322. tira.<type>.show's embedded questions carried no

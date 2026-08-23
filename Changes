@@ -1,5 +1,23 @@
 Revision history for Tira
 
+3.70  2026-08-23
+
+    - TKT-404. tira.changes printed the entire changelog every
+      time - 5807 lines, 345KB - with no way to bound it, though the
+      upgrade notice that tells an agent to run it already states
+      both endpoints in one sentence ("Tira is now X - this board
+      last heard Y"). cli/changes had no option parsing at all: any
+      argument, real or bogus, was silently accepted and did
+      nothing.
+
+    - Fixed: --since VERSION prints only entries newer than the
+      named version, excluding that version's own entry. An unknown
+      or malformed version is refused rather than silently producing
+      the unbounded read. The default (no flag) output is unchanged,
+      byte for byte. Docker: Files=355, Tests=7343, PASS, 100%
+      statement+subroutine coverage on lib/Tira.pm and
+      lib/Tira/CLI.pm. Browser tests 12/12.
+
 3.69  2026-08-23
 
     - TKT-403. "This board has never been policed, so nothing has

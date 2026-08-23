@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use FindBin;
 use File::Spec;
+use Getopt::Long qw(GetOptionsFromArray);
 
 my $history = File::Spec->catfile( $FindBin::Bin, '..', 'Changes' );
 open my $fh, '<:raw', $history or die "Cannot read the Tira changelog $history: $!\n";
@@ -25,6 +26,35 @@ die "The Tira changelog $history is empty - nothing to print. "
   . "This is a broken or half-written copy of the skill, not a release with no changes.\n"
   if !defined $changelog || $changelog !~ /\S/;
 
+# --since VERSION, the one bound every upgrade notice already has both
+# endpoints for and could never supply - "Tira is now X - this board last
+# heard Y" - and a command that could only answer "everything since the
+# beginning". No option parsing existed here at all before this: a bogus
+# flag was silently accepted and did nothing, exit 0. TKT-404.
+my %option;
+GetOptionsFromArray( \@ARGV, \%option, 'since=s' )
+  or die "Usage: dashboard tira.changes [--since VERSION]\n";
+
+if ( defined $option{since} ) {
+    die "Version must be MAJOR.MINOR, like 3.60\n"
+      if $option{since} !~ /\A\d+\.\d+\z/;
+
+    # Entries are newest-first, each starting a line as "MAJOR.MINOR  DATE".
+    # Split on that boundary rather than assuming any particular field
+    # width, so a changelog with a differently-formatted header still
+    # parses the same way t/03-metadata.t's own version check does.
+    my @entries = $changelog =~ /^(\d+\.\d+)\s[^\n]*\n(?:(?!^\d+\.\d+\s).*\n?)*/mg;
+    die "'$option{since}' is not a version this changelog has an entry for\n"
+      if !grep { $_ eq $option{since} } @entries;
+
+    my $bounded = '';
+    while ( $changelog =~ /^(\d+\.\d+)\s[^\n]*\n(?:(?!^\d+\.\d+\s).*\n?)*/mg ) {
+        last if $1 eq $option{since};
+        $bounded .= $&;
+    }
+    $changelog = $bounded;
+}
+
 print $changelog;
 
 __END__
@@ -36,6 +66,7 @@ tira.changes - Print the Tira changelog
 =head1 SYNOPSIS
 
   dashboard tira.changes
+  dashboard tira.changes --since VERSION
 
 =head1 DESCRIPTION
 
@@ -44,5 +75,10 @@ C<tira.policies>. Every entry names the card it came from, so a project that
 reported a bug through C<tira.dev.found.bug_or_improvement> can find that card's
 number here and see what happened to it, without printing the whole manual to
 reach it.
+
+C<--since VERSION> prints only entries newer than the named version - the
+version itself is excluded - which is exactly the bound an upgrade notice
+already states both endpoints of. An unknown or malformed version is refused
+rather than silently producing the unbounded read.
 
 =cut

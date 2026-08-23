@@ -97,7 +97,7 @@ and `--set-*` for the same field are mutually exclusive.
 - Mutations return the affected record or operation receipt.
 - `attachment.get` emits raw bytes and never exposes managed storage paths.
 - `tira.skills` emits raw Markdown and accepts no options.
-- `tira.changes` emits the raw changelog and accepts no options. It never exits zero having printed nothing — an empty changelog means a broken copy of the skill, and it says so rather than reading as a release with no changes.
+- `tira.changes` emits the raw changelog by default, or entries newer than `--since VERSION` (that version itself excluded). It never exits zero having printed nothing — an empty changelog means a broken copy of the skill, and it says so rather than reading as a release with no changes. An unknown or malformed `--since` version is refused. TKT-404.
 
 ## Exit status contract
 
@@ -281,12 +281,16 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
 ### Manual and project
 
 - `tira.skills` — **Implemented.** No arguments; raw manual.
-- `tira.changes` — **Implemented.** No arguments; the raw changelog. The fourth
-  documentation command, beside `tira.skills`, `tira.usage` and `tira.policies`,
-  so an agent wanting one of them need not print several thousand words of the
-  others to reach it. Every entry names the card it came from, so a project that
-  reported something through `tira.dev.found.bug_or_improvement` can find that
-  card's number here and see what happened to it.
+- `tira.changes [--since VERSION]` — **Implemented.** The raw changelog, or
+  entries newer than `VERSION` (excluding that version's own entry). The
+  fourth documentation command, beside `tira.skills`, `tira.usage` and
+  `tira.policies`, so an agent wanting one of them need not print several
+  thousand words of the others to reach it. Every entry names the card it
+  came from, so a project that reported something through
+  `tira.dev.found.bug_or_improvement` can find that card's number here and
+  see what happened to it. `--since` bounds by exactly the two version
+  numbers an upgrade notice already states in one sentence, rather than
+  requiring the whole history to reach the newest entry. TKT-404.
 - `tira.project.create --name TEXT [--dir DIR] [-o FORMAT]` — **Implemented.**
   Name required; directory defaults to `.`; existing projects are preserved.
 - `tira.project.new --name TEXT [--dir DIR] [--members LIST] [--columns LIST]

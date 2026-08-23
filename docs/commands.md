@@ -1935,7 +1935,13 @@ them; the manual carries the worked use cases behind them.
 
 ### The changelog
 
-- `tira.changes` — the raw changelog, no arguments. It never exits zero having printed nothing: an empty or blank changelog is a broken or half-written copy of the skill, and it says so and names the file it read, so a script can tell "nothing changed" from "I could not read it". The fourth documentation command, beside `tira.skills`, `tira.usage` and `tira.policies`; every entry names the card it came from.
+- `tira.changes [--since VERSION]` — the raw changelog, or entries newer than `VERSION` (that version's own entry is excluded). It never exits zero having printed nothing: an empty or blank changelog is a broken or half-written copy of the skill, and it says so and names the file it read, so a script can tell "nothing changed" from "I could not read it". The fourth documentation command, beside `tira.skills`, `tira.usage` and `tira.policies`; every entry names the card it came from. An unknown or malformed `--since` version is refused rather than silently producing the unbounded read.
+
+    ```
+    d2 tira.changes --since 3.60
+    ```
+
+    prints only entries newer than 3.60 - exactly the bound an upgrade notice already states both endpoints of ("Tira is now X - this board last heard Y"), where reading the whole history to find the newest entry cost 5807 lines for a six-line answer. TKT-404.
 
 
 ### Assignment

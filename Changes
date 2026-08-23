@@ -1,5 +1,22 @@
 Revision history for Tira
 
+3.58  2026-08-23
+
+    - TKT-373. TKT-302's --comment guard exempted attachment.discard as
+      a command that genuinely reads --comment - but there it reads an
+      identifier (which comment to detach the attachment from), not a
+      reason, so the exemption pointed the guard away from the one
+      command where the confusion is worst. Measured live:
+      'attachment.discard --comment "Set aside because it was the
+      wrong file"' answered "Comment ... not found" and recorded
+      nothing.
+
+    - Fixed: a --comment value on attachment.discard that cannot be a
+      comment id (CMT-NNN) is now refused with TKT-302's own message,
+      naming tira.comment.add, instead of being accepted and quoted
+      back as a missing identifier. comment.update, comment.remove
+      and comment.attach are unaffected.
+
 3.57  2026-08-23
 
     - TKT-371. tira.attachment.get uses --output as the FORMAT flag

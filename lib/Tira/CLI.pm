@@ -81,6 +81,17 @@ my %OPTION_READ_BY = (
         # command to be the one that works.
         commands => qr/\A(?:comment\.|attachment\.discard\z)/,
         instead  => 'tira.comment.add --ref REF --text TEXT, which is the command that records a reason',
+
+        # attachment.discard reads --comment as an identifier - which
+        # comment to detach the attachment from - not a reason, so of the
+        # exempted commands it is the one where a caller could plausibly
+        # mean the wrong thing. A value that cannot be a comment id is
+        # refused the same way, rather than accepted and quoted back as a
+        # missing identifier: measured live, 'tira.attachment.discard
+        # --comment "Set aside because it was the wrong file"' answered
+        # "Comment 'Set aside...' not found" and recorded nothing. TKT-373.
+        shape_checked_on => qr/\Aattachment\.discard\z/,
+        shape            => qr/\ACMT-\d+\z/,
     },
 
     fields => {
@@ -109,7 +120,12 @@ sub _refuse_unread_options {
         my $given = $option->{$name};
         next if !defined $given;
         next if ref $given eq 'ARRAY' && !@{$given};
-        next if $command =~ $rule->{commands};
+        if ( $command =~ $rule->{commands} ) {
+            next
+              if !$rule->{shape_checked_on}
+              || $command !~ $rule->{shape_checked_on}
+              || $given =~ $rule->{shape};
+        }
         die "$command does not act on --$rule->{flag}. Use $rule->{instead}.\n";
     }
 

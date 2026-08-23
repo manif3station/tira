@@ -1100,7 +1100,18 @@ d2 tira.ticket.move --ref TKT-001 --column implement --sdlc-gate G9   # refused
 d2 tira.release.record --ref TKT-001 --gate G9 --result pass --details "..." --evidence "..." --uri https://ci.example.com/999 --fix-version 1.0   # refused
   release.record does not act on --uri. Use tira.evidence.add --ref REF
   --summary TEXT --uri TEXT, which is the command that reads it.
+
+d2 tira.attachment.discard --ref TKT-001 --sha SHA256 --comment "Wrong file"   # refused
+  attachment.discard does not act on --comment. Use tira.comment.add --ref REF
+  --text TEXT, which is the command that records a reason.
 ```
+
+`attachment.discard` genuinely reads `--comment`, but as an identifier - which
+comment to detach the attachment from (`--comment CMT-001`) - not a reason, so
+a value that cannot be a comment id is refused the same way the options above
+are: until 3.58 it was accepted and quoted back as a missing comment
+("Comment 'Wrong file' not found"), which named nothing a caller could act
+on. TKT-373.
 
 A move is not the command that sets a gate, and on a board whose rules require
 the gate to move with every transition that is worth saying rather than

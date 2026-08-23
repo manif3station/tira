@@ -2434,6 +2434,11 @@ sub _invoke {
         $dwell{with_level} = 1 if $option->{with_level};
         return $tira->dwell_list(%dwell);
     }
+    if ( $command eq 'dwell.report' ) {
+        my %dwell = ( project => $args{project} );
+        $dwell{type} = $args{type} if defined $args{type};
+        return $tira->dwell_report(%dwell);
+    }
     if ( $command eq 'history.list' ) {
         my %history = %args;
         delete $history{fields};

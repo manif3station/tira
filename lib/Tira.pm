@@ -17,7 +17,7 @@ use File::Path qw(make_path);
 use File::Spec;
 use File::Temp qw(tempfile);
 use Cpanel::JSON::XS ();
-use POSIX qw(strftime);
+use POSIX qw(strftime ceil);
 use Time::Local qw(timegm_modern);
 use YAML::XS ();
 
@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.54';
+our $VERSION = '3.55';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2200,6 +2200,101 @@ sub dwell_list {
           for @cards;
     }
     return \@cards;
+}
+
+# dwell_list's historical sibling. Every card's journal already records
+# field=column for both op=create (before=null) and every later op=move, so
+# the board already holds exactly how long work spends in each column - it
+# was simply never aggregated. Every card-duration threshold on this board
+# was picked by hand and never checked against what the board itself
+# records, which is the whole of TKT-366.
+#
+# A completed pass, not a snapshot: the duration between one column-field
+# entry and the next, attributed to the FIRST entry's column (the one the
+# card actually sat in for that span) and bounded by two timestamps this
+# journal actually recorded - never by when the card entered that first
+# entry's column, only by when it left. The card's current column - the
+# span from its last entry to now - is not a completed pass and is
+# deliberately excluded, the same distinction dwell_list/tira.stale cannot
+# make since it only ever answers about now. A journal that does not begin
+# with op=create (a card predating journaling, or one whose earliest
+# entries are gone) still measures every span its own entries bound
+# correctly; only the span before its first surviving entry would need an
+# invented start, and nothing here ever computes that span at all - the
+# same principle tira.stale already applies to a card with no journal at
+# all, just enforced by construction rather than a special case.
+sub dwell_report {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my %durations;    # "$type/$column" => [ seconds, seconds, ... ]
+
+    for my $type ( defined $args{type} ? ( $args{type} ) : qw(sow epic ticket) ) {
+        my $board = File::Spec->catdir( $root, '.tira', $self->_valid_type($type) );
+        next if !-d $board;
+        find( { no_chdir => 1, wanted => sub {
+            return if !-f $File::Find::name;
+            my $file = basename($File::Find::name);
+            return if $file !~ /\A([A-Z][A-Z0-9-]{0,31}-\d{1,12})\.json\z/;
+            my $ref = $1;
+            my $path = $self->_journal_path( $root, $ref );
+            return if !-f $path;
+
+            open my $fh, '<:raw', $path or return;
+            my @moves;
+            while ( my $line = <$fh> ) {
+                next if index( $line, '"field":"column"' ) < 0;
+                my $entry = eval { json_decode($line) } or next;
+                next if ( $entry->{field} // '' ) ne 'column';
+                push @moves, $entry;
+            }
+            close $fh;
+            return if @moves < 2;
+
+            # Each span below is bounded by two entries this journal actually
+            # recorded and attributed to the EARLIER entry's own column - it
+            # never needs to know when a card entered its first surviving
+            # entry's column, only when it left. A journal that does not
+            # begin with op=create (a card predating journaling, or one
+            # whose earliest entries are gone) still measures every span
+            # between two of its own recorded entries correctly; only the
+            # span before its first surviving entry is ever unmeasurable,
+            # and nothing here computes that span at all.
+
+            for my $i ( 0 .. $#moves - 1 ) {
+                my $column = $moves[$i]{after};
+                next if !defined $column || $column eq '';
+                my $start = eval { _epoch_of_datetime( $moves[$i]{at}, 'History stamp' ) };
+                my $end   = eval { _epoch_of_datetime( $moves[ $i + 1 ]{at}, 'History stamp' ) };
+                next if !defined $start || !defined $end || $end < $start;
+                push @{ $durations{"$type/$column"} }, $end - $start;
+            }
+        } }, $board );
+    }
+
+    my @report;
+    for my $key ( sort keys %durations ) {
+        my ( $type, $column ) = split m{/}, $key, 2;
+        my @sorted = sort { $a <=> $b } @{ $durations{$key} };
+        push @report, {
+            type => $type, column => $column, count => scalar @sorted,
+            median_seconds => _dwell_percentile( \@sorted, 0.5 ),
+            p90_seconds    => _dwell_percentile( \@sorted, 0.9 ),
+            max_seconds    => $sorted[-1],
+        };
+    }
+    return \@report;
+}
+
+# Nearest-rank: the same simple, defensible choice for both the middle and
+# the tail, rather than one interpolated statistic and one not. Values are
+# already sorted ascending by the caller.
+sub _dwell_percentile {
+    my ( $sorted, $fraction ) = @_;
+    return undef if !@{$sorted};
+    my $index = ceil( $fraction * scalar @{$sorted} ) - 1;
+    $index = 0 if $index < 0;
+    $index = $#{$sorted} if $index > $#{$sorted};
+    return $sorted->[$index];
 }
 
 sub export_records {
@@ -11568,6 +11663,14 @@ Returns records across one or all three boards, with filtering, field projection
 =head2 dwell_list
 
 Returns cards that have sat in their column past a threshold, with a staleness level.
+
+=head2 dwell_report
+
+C<dwell_list>'s historical sibling: median, p90, max and count seconds per
+column per type, computed from every card's own recorded column moves.
+Only completed passes count - a card's current column, and the opening
+span of a journal that does not begin with its own creation, are excluded
+rather than measured from an invented start. TKT-366.
 
 =head2 export_records
 

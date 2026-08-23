@@ -313,7 +313,7 @@ missing, at the moment you declare the policy rather than later.
 | --- | --- | --- |
 | `card-full-details` | `--enter` | a card reaching a column without the detail that makes it real work |
 | `card-metrics` | `--enter --require` | a card reaching a column without named metadata |
-| `card-duration` | `--column --age` | a card sitting in one place too long |
+| `card-duration` | `--column --age` | a card sitting in one place too long. `--age` was otherwise a guess, picked by hand and never checked against what the board itself records - `tira.dwell.report` reads back the real median/p90/max seconds cards spend in each column, from every card's own recorded moves, so the threshold can be a reading instead. TKT-366. |
 | `card-stalled` | `--before-column` | a finished checklist on a card that has not moved |
 | `checklist-idle` | `--column --age` | a card being worked with no checklist movement |
 | `checklist-unmoved` | — | a card moved on with nothing ticked since its last move. **No age**: a move has either happened or it has not. Addressed to the card's reporter, not its assignee - since 3.47, TKT-286: the assignee is often the reviewer for a card sitting in review, who cannot tick a checklist item only the card's own author left unticked, while the reporter is who raised the card and is who a checklist item usually belongs to. A separate, synchronous check exists alongside this one for a column carrying a required-action template (`tira.column.update --required-action`): a move made through the CLI/agent command path refuses outright while any of that column's required items are still unmarked, rather than reporting it after the fact - see UC-054. TKT-427. |

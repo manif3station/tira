@@ -1,5 +1,20 @@
 Revision history for Tira
 
+3.55  2026-08-23
+
+    - TKT-366. Every card's journal records exactly when it entered
+      and left each column, and nothing ever aggregated that into a
+      reading - every card-duration threshold on this board was
+      picked by hand and never checked against what cards actually
+      do.
+
+    - Added tira.dwell.report, tira.stale's historical sibling:
+      median, p90, max and count seconds per column per type, from
+      completed passes only. A card's current column is not a
+      completed pass and is excluded; a card whose journal does not
+      begin with its own creation still measures every span its
+      surviving entries bound, without inventing a start time.
+
 3.54  2026-08-23
 
     - TKT-364. t/148's guard against a policy carrying a setting that

@@ -1682,6 +1682,20 @@ rather than with an invented one, so they never appear in an `--older-than`
 result. One pass over the boards costs a few milliseconds; asking per card
 through the API or the CLI costs a hundred to a thousand times more.
 
+`tira.dwell.report` is `tira.stale`'s historical sibling: `tira.stale`
+answers how long a card has sat where it is *now*; this answers how long
+cards *usually* stay in each column - median, p90 and max seconds, per
+column, per type, computed from every card's own recorded moves. Every
+`card-duration` threshold on a board is otherwise a guess, picked by hand
+and never checked against what the board itself records. `--type
+TYPE` scopes to one board; with none, all three. Only completed passes
+count: the span between one recorded column change and the next,
+attributed to the column the card actually sat in for that span - a
+card's *current* column is not a completed pass and never appears in its
+own report until the card moves again, and a column nothing has completed
+a pass through yet is simply absent from the report rather than shown
+with zeroed statistics. TKT-366.
+
 `tira.diff` is the watcher: `--since T` lists added/changed records with
 their current column, gate, title, and new-comment ids plus `now` for the
 next poll; `--snapshot FILE` (a saved `tira.export --include-empty -o json`)

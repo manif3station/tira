@@ -571,6 +571,17 @@ is listed with `basis: none` and **no duration** rather than a guessed one, and
 `--older-than MINUTES` never returns it — an unmeasured card is unknown, not
 old. An unreadable stamp yields `basis: unknown` instead of failing the board,
 and a column renamed underneath a card does not disturb its measurement.
+Column dwell history is **Implemented.** `tira.dwell.report` is
+`tira.stale`'s historical sibling — median, p90, max and count seconds per
+column, per type, computed from every card's own recorded column moves,
+rather than how long the card sitting there now has been there.
+`--type TYPE` scopes to one board; with none, all three. Only completed
+passes count: a card's current column is not one and never appears in its
+own report until it moves again, and a column nothing has completed a
+pass through yet is absent rather than shown at zero. Every
+`card-duration` threshold on a board was otherwise a guess, picked by hand
+and never checked against what the board itself records — this turns it
+into a reading. TKT-366.
 Wrapping wide boards is **Implemented.** each column now owns
 its own heading rather than sitting in a table row, so **Fit all wraps
 the columns onto as many rows as it takes** at a readable width instead

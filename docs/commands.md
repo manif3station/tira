@@ -857,10 +857,21 @@ Put one rule down for a while, without going deaf to everything else.
 | Argument | Required | What it is for |
 | --- | --- | --- |
 | `--rule RULE` | yes | Which rule. A rule nobody has heard of is refused. |
-| `--seconds N` | yes | How long. There is no open-ended form; it comes back by itself. |
+| `--seconds N` | yes | How long. There is no open-ended form; it comes back by itself. Ceiling is 600 seconds without `--pid`. |
 | `--reason TEXT` | yes | Why. At most 500 characters. |
+| `--pid PID` | no | Tie the suspension to a running process instead of only a clock: it lifts the moment that process is gone, not merely when `--seconds` elapses. The ceiling on `--seconds` rises to 1800 as a backstop, so a process that never exits still cannot make the silence permanent. |
 | `--ref CARD` | no | Put it down for one card only. With none, the whole board. |
 | `--store PATH` | no | Police's own state, if it is not in the usual place. |
+
+Without `--pid`, the 600-second ceiling was shorter than either gate this
+repo runs - coverage at 846s, pre-push at 15m and counting - so the
+commonest legitimate reason for a suspension (waiting on a gate) always
+outlasted the longest suspension that could be given, and the same reason
+was re-supplied over and over as it kept expiring mid-gate. `--pid` makes
+the reason literally true instead of approximately true: `d2
+tira.rule.suspend --rule priority-skipped --seconds 1800 --pid $$ --reason
+"waiting on the push gate"` lifts as soon as that shell exits, whichever
+comes first. TKT-361.
 
 The enforcement log entry this writes carries `rule`, `seconds` and `reason`
 as fields under a `fields` key, alongside the same prose `detail` a person

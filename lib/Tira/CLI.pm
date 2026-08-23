@@ -298,6 +298,7 @@ sub run {
         'yes' => \$option{yes},
         'claiming-schema=i' => \$option{claiming_schema},
         'seconds=i' => \$option{seconds},
+        'pid=i' => \$option{pid},
         'on-column=s' => \$option{on_column},
         'role=s@' => \$option{roles}, 'remove-role=s@' => \$option{remove_roles},
         'require-link=s' => \$option{require_link}, 'link-to=s' => \$option{link_to},
@@ -2599,7 +2600,8 @@ sub _invoke {
           // _police_store( $tira->discover_project(%args) );
         return $tira->rule_suspend( %args, store => $store,
             rule => $option->{rule}, seconds => $option->{seconds},
-            reason => $option->{reason} );
+            reason => $option->{reason},
+            ( defined $option->{pid} ? ( pid => $option->{pid} ) : () ) );
     }
 
     # The definition of a complete card, for anything that is not this program.

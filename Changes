@@ -1,5 +1,22 @@
 Revision history for Tira
 
+3.53  2026-08-23
+
+    - TKT-361. The 600s rule.suspend ceiling was shorter than either
+      gate this repo runs - coverage at 846s, pre-push at 15m and
+      counting - so the commonest legitimate reason for a suspension,
+      waiting on a gate, always outlasted the longest suspension that
+      could be given. The same reason was re-supplied over and over as
+      it kept expiring mid-gate.
+
+    - Fixed: tira.rule.suspend accepts an optional --pid. A
+      pid-scoped suspension lifts the moment that process is gone,
+      not merely when the seconds elapse, backed by a higher, measured
+      ceiling (1800s, covering both gates with headroom) as a
+      backstop so a process that never exits still cannot make the
+      silence permanent. The clock-only form is unchanged: same 600s
+      ceiling, same mandatory reason.
+
 3.52  2026-08-23
 
     - TKT-481. The column editor's dialog removed a required-action row

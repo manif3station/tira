@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.52';
+our $VERSION = '3.53';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -9265,6 +9265,17 @@ sub _policy_column_for {
 our $SUSPENSION_CEILING_SECONDS = 600;
 our $SUSPENSION_REASON_LIMIT = 500;
 
+# The backstop for a suspension tied to a process (--pid), rather than the
+# 600s clock-only ceiling above. Measured, not guessed: this repo's own gate
+# runs the Docker suite with coverage (846s observed) and the pre-push hook
+# (suite + coverage + documentation checks + browser tests, 15+ minutes
+# observed) - either alone already exceeds the clock-only ceiling, which is
+# the whole of TKT-361. A pid-scoped suspension still cannot become
+# permanent if the named process never exits, so this stays a real number
+# rather than an open-ended wait; it is simply the ceiling covering the
+# longest gate actually measured here, with headroom rather than a guess.
+our $SUSPENSION_PID_CEILING_SECONDS = 1800;
+
 sub _enforcement_path {
     my ( $self, $store ) = @_;
     make_path($store) if !-d $store;
@@ -9402,12 +9413,30 @@ sub rule_suspend {
     die "Unknown policy rule '$rule'. Rules: " . join( ', ', @{ answerable_rules() } ) . "\n"
       if !$POLICY_RULES{$rule} && !$DIAGNOSTIC_RULES{$rule};
 
+    # An end that arrives when the thing waited on actually ends, not only
+    # when a clock says so. The 600s ceiling is shorter than either gate this
+    # repo runs - coverage at 846s, pre-push at 15m and counting - so the
+    # commonest legitimate reason for a suspension outlasted the longest one
+    # that could be given, and the same reason was re-supplied over and over
+    # as it kept expiring mid-gate. --pid keeps a hard cap as a backstop (a
+    # process that never exits cannot make a suspension permanent) while
+    # making the reason literally true instead of approximately true: it
+    # lifts the moment the named process is gone, not merely when $seconds
+    # has elapsed. Its backstop is the higher, measured ceiling below, since
+    # the clock-only ceiling exists for a different, shorter-lived reason
+    # and stays exactly as it was. TKT-361.
+    my $pid = $args{pid};
+    if ( defined $pid ) {
+        die "A pid must be a positive whole number\n" if $pid !~ /\A[1-9]\d*\z/;
+    }
+    my $ceiling = defined $pid ? $SUSPENSION_PID_CEILING_SECONDS : $SUSPENSION_CEILING_SECONDS;
+
     my $seconds = $args{seconds};
     die "How many seconds? A rule put down has to come back by itself\n"
       if !defined $seconds || $seconds !~ /\A\d+\z/ || $seconds == 0;
     die "Putting a rule down for $seconds seconds is past the ceiling of "
-      . "$SUSPENSION_CEILING_SECONDS (ten minutes)\n"
-      if $seconds > $SUSPENSION_CEILING_SECONDS;
+      . "$ceiling seconds\n"
+      if $seconds > $ceiling;
 
     my $reason = $args{reason};
     die "A reason is required - a silence nobody can account for is worse than the noise\n"
@@ -9424,7 +9453,8 @@ sub rule_suspend {
     # Kept by rule, and within a rule by card. A rule put down for one card must
     # leave the same rule watching every other card, which is the grain that
     # makes this worth having at all.
-    $log->{rules}{$rule}{ $ref eq '' ? '' : $ref } = $until;
+    $log->{rules}{$rule}{ $ref eq '' ? '' : $ref } =
+      { until => $until, ( defined $pid ? ( pid => $pid ) : () ) };
     $self->_enforcement_write( $store, $log );
 
     $self->_enforcement_record(
@@ -9433,11 +9463,15 @@ sub rule_suspend {
         ref    => $ref,
         detail => "$rule "
           . ( $ref eq '' ? 'on this board' : "on $ref" )
-          . " for ${seconds}s: $reason",
-        fields => { rule => $rule, seconds => $seconds, reason => $reason },
+          . " for ${seconds}s"
+          . ( defined $pid ? " or until pid $pid ends" : '' )
+          . ": $reason",
+        fields => { rule => $rule, seconds => $seconds, reason => $reason,
+          ( defined $pid ? ( pid => $pid ) : () ) },
     );
 
-    return { rule => $rule, ref => $ref, until => $until, reason => $reason };
+    return { rule => $rule, ref => $ref, until => $until, reason => $reason,
+      ( defined $pid ? ( pid => $pid ) : () ) };
 }
 
 # Whether a rule is down for this card, or for the board. Asked once per rule
@@ -9448,11 +9482,33 @@ sub _rule_suspended {
     my $down = $log->{rules}{$rule} or return 0;
     my $now = eval { _epoch_of_datetime( $self->{clock}->(), 'Clock' ) } // return 0;
     for my $scope ( '', ( defined $ref && $ref ne '' ? $ref : () ) ) {
-        my $until = $down->{$scope} or next;
+        my $entry = $down->{$scope} or next;
+
+        # A store written before TKT-361 shipped holds a bare ISO string
+        # rather than a hash - read back the same way, not assumed away.
+        my ( $until, $pid ) = ref $entry eq 'HASH'
+          ? ( $entry->{until}, $entry->{pid} ) : ( $entry, undef );
+        next if !defined $until;
+
+        # Lifted the moment the process it named is gone, whichever comes
+        # first - the hard cap below still applies, so a process that never
+        # exits cannot make the silence permanent.
+        next if defined $pid && !_pid_alive($pid);
+
         my $ends = eval { _epoch_of_datetime( $until, 'Stamp' ) } // next;
         return 1 if $now < $ends;
     }
     return 0;
+}
+
+# A process-existence check, not a process-table read: kill(0, ...) asks the
+# kernel whether a pid is signalable and sends nothing, so this stays true to
+# the same promise _police_world's callers keep - Tira itself invokes no
+# shell. A pid that never belonged to us or has already exited answers no.
+sub _pid_alive {
+    my ($pid) = @_;
+    return 0 if !defined $pid || $pid !~ /\A[1-9]\d*\z/;
+    return kill( 0, $pid ) ? 1 : 0;
 }
 
 sub police_suspend {
@@ -11303,7 +11359,14 @@ Puts one policy rule down for a card, or the whole board, for a bounded
 number of seconds with a required reason. The enforcement log entry
 carries C<rule>, C<seconds> and C<reason> as fields, alongside the same
 prose C<detail> a person reads, so suspensions can be counted and grouped
-by rule without parsing text.
+by rule without parsing text. An optional C<pid> ties the suspension to a
+running process instead of only the clock: C<_rule_suspended> lifts it the
+moment that process is gone (checked with a plain C<kill(0, $pid)>, not a
+process-table read), bounded by a higher, measured ceiling
+(C<$SUSPENSION_PID_CEILING_SECONDS>, 1800s) as a backstop rather than the
+clock-only form's 600s C<$SUSPENSION_CEILING_SECONDS>, since a suspension
+waiting on this repo's own gates (coverage 846s, pre-push 15m+) always
+outlasted the shorter ceiling. TKT-361.
 
 =head2 changelog_check
 

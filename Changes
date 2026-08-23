@@ -1,5 +1,20 @@
 Revision history for Tira
 
+3.49  2026-08-23
+
+    - TKT-480. agent-still's Telegram message named the cards waiting
+      but never the board itself - on a machine running several
+      projects with this skill, an owner receiving "Tira: the agent
+      has stopped" could not tell which project it was about without
+      cross-referencing card prefixes by hand.
+
+    - Fixed: the message now opens by naming the TIRA_HOME alias (if
+      one was set) and always the real project path, before the
+      existing sentence. This applies only to agent-still's own
+      direct-to-Telegram message, which already goes around the
+      bridge to reach the owner rather than the agent - every other
+      rule's text is unchanged.
+
 3.48  2026-08-23
 
     - TKT-354. tira.next answered with {next, then} - a hash - when

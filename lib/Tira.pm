@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.48';
+our $VERSION = '3.49';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6816,8 +6816,18 @@ sub policy_evaluate {
             # the stall lasted. Measured live: one Telegram message per poll
             # tick, all identical. TKT-422.
             if ( $self->_agent_still_may_notify( $args{store}, $acted ) ) {
+
+                # Named for the owner's benefit only, on the one message this
+                # rule sends off the machine directly to him rather than to
+                # the bridge - every other rule's text stays exactly as it
+                # was, agent-readable and silent about where the board lives.
+                # A machine running several projects with this skill left him
+                # unable to tell which one had gone quiet. TKT-480.
+                my $identity = ( defined $ENV{TIRA_HOME} && $ENV{TIRA_HOME} ne '' )
+                  ? "$ENV{TIRA_HOME} ($root)"
+                  : $root;
                 my $sent = $self->_send_notification( project => $root,
-                    text => 'Tira: the agent has stopped. ' . $said );
+                    text => "Tira ($identity): the agent has stopped. " . $said );
                 $self->_agent_still_mark_notified( $args{store}, $acted ) if $sent;
             }
         }
@@ -11338,6 +11348,10 @@ or the policy's own C<--age> when the column has none - since elapsed
 time alone read as though it were the threshold too. C<wip-limit> counts
 each record kind (sow/epic/ticket) in a watched column separately, rather
 than one merged pool, so a manager layer of epics cannot exhaust a
-ticket's budget by existing.
+ticket's budget by existing. C<agent-still>'s direct-to-Telegram message
+opens by naming the board it is about - the C<TIRA_HOME> alias if one was
+set, and always the real project path - since that one message goes to the
+owner rather than to the agent-readable bridge, and an unnamed alert on a
+machine running several projects with this skill cannot be placed.
 
 =cut

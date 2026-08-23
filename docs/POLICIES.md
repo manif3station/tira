@@ -1918,6 +1918,26 @@ so a card scope seems meaningless — until you notice the cascade uses exactly
 that to give one card a different limit from the rest of its column. It keeps
 its card scope.
 
+**A rule's own column field is part of its scope, not a setting.** The same
+resolver ranks `--ref`, `--on-column` and `--type`, but several rules also
+carry a column-shaped field of their own — `card-duration`, `checklist-idle`,
+`wip-limit` and `gate-missing`'s `--column`; `card-full-details`'s `--enter`;
+`card-stalled`'s `--before`. Declaring the same rule once per column, the way
+this project's own board declares `card-duration` — once for `implement`,
+once for `verify`, and so on — used to tie every declaration at the same
+rank, and the last one declared silently won for every card board-wide,
+whichever column it was actually in.
+
+    d2 tira.policy.add --rule card-duration --column implement --age 4h \
+      --action bridge-reminder
+    d2 tira.policy.add --rule card-duration --column verify --age 24h \
+      --action bridge-reminder
+
+now resolves a card in `implement` against the first declaration and a card
+in `verify` against the second, rather than both against whichever was
+declared last. A card in neither column resolves to no `card-duration`
+policy at all — narrower than either, not broader than both.
+
 
 ## Repairing a damaged file
 

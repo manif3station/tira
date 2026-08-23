@@ -1,5 +1,30 @@
 Revision history for Tira
 
+3.62  2026-08-23
+
+    - TKT-483. policy_resolve (which declaration wins per rule per
+      card) ranked and filtered candidates using only the generic
+      scope fields (--ref, --on-column, --type), never a rule's own
+      column-ish field (card-duration/checklist-idle/wip-limit/
+      gate-missing's --column, card-full-details's --enter,
+      card-stalled's --before). So a rule declared once per column -
+      exactly how this board declares card-duration 8 times,
+      checklist-idle 7 - tied at specificity 0 on every declaration,
+      and the last one declared silently won for every card
+      board-wide, regardless of whether that card was even in the
+      column the winning declaration named. Found while writing
+      TKT-380's own test.
+
+    - Fixed: _policy_applies_to now also checks each rule's own
+      column-ish field (via the same _policy_column_for role
+      resolution its evaluation branch already uses), excluding a
+      declaration from any record not actually named by that field -
+      card-stalled's --before compared ordinally, through the same
+      _policy_before_column its own branch uses, not by equality. A
+      card outside every declared column for a rule now resolves to
+      no policy for that rule, instead of the last one declared.
+      Every existing policy_resolve/policy_evaluate test stays green.
+
 3.61  2026-08-23
 
     - TKT-380. A police pass already names the policy that raised

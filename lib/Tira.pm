@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.61';
+our $VERSION = '3.62';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -5233,6 +5233,24 @@ my @POLICY_FIELDS = qw(enter before column age read_age max pattern message requ
 # each one named makes it narrower, and the narrowest wins.
 my @POLICY_SCOPE = qw(type on_column ref);
 
+# Which field each rule uses to name ITS OWN column, distinct from the
+# generic --on-column scope above. card-duration/checklist-idle/wip-limit/
+# gate-missing all require --column; card-full-details requires --enter;
+# card-stalled requires --before. _policy_specificity and _policy_applies_to
+# did not know this, so a rule declared once per column - card-duration
+# eight times on this project's own board, once per working column - tied
+# at specificity 0 on every declaration, and the last one declared silently
+# won for every card board-wide, regardless of whether that card was even in
+# the column the winning declaration named. TKT-483.
+my %RULE_COLUMN_FIELD = (
+    'card-duration'     => 'column',
+    'checklist-idle'    => 'column',
+    'wip-limit'         => 'column',
+    'gate-missing'      => 'column',
+    'card-full-details' => 'enter',
+    'card-stalled'      => 'before',
+);
+
 # A rule may say which column it means, or which role.
 my @POLICY_ROLE_FIELDS = qw(enter_role before_role column_role);
 
@@ -9149,13 +9167,37 @@ sub _policy_specificity {
 }
 
 sub _policy_applies_to {
-    my ( $policy, $record ) = @_;
+    my ( $self, $root, $policy, $record ) = @_;
     return 0 if defined $policy->{ref} && $policy->{ref} ne ''
       && $policy->{ref} ne ( $record->{ref} // '' );
     return 0 if defined $policy->{type} && $policy->{type} ne ''
       && $policy->{type} ne ( $record->{type} // '' );
     return 0 if defined $policy->{on_column} && $policy->{on_column} ne ''
       && $policy->{on_column} ne ( $record->{column} // '' );
+
+    # The rule's OWN column-ish field, read the same way the rule's own
+    # evaluation branch reads it (by role where one was given, exactly as
+    # _policy_column_for already resolves it there) - so a declaration
+    # naming a column other than the record's own is not a candidate at
+    # all, rather than a tied candidate left to iteration order. TKT-483.
+    my $field = $RULE_COLUMN_FIELD{ $policy->{rule} // '' };
+    if ( defined $field ) {
+        my $watched = $self->_policy_column_for(
+            project => $root, policy => $policy, field => $field, record => $record );
+
+        # card-stalled's --before is not "equal to", it is "not yet past" -
+        # the same ordinal test its own branch already applies through
+        # _policy_before_column. Filtering it by equality here refused a
+        # declaration for every card the branch itself would have reported,
+        # caught by t/80-policy-engine.t going red on a rule this fix was
+        # not meant to touch.
+        if ( $field eq 'before' ) {
+            return 0 if !$self->_policy_before_column( $root, $record, $watched );
+        }
+        else {
+            return 0 if ( $record->{column} // '' ) ne ( $watched // '' );
+        }
+    }
     return 1;
 }
 
@@ -9170,7 +9212,7 @@ sub policy_resolve {
 
     my %winner;
     for my $policy ( @{ $self->policy_list( project => $root ) } ) {
-        next if !_policy_applies_to( $policy, $record );
+        next if !$self->_policy_applies_to( $root, $policy, $record );
         my $rule = $policy->{rule};
         my $rank = _policy_specificity($policy);
         next if exists $winner{$rule} && _policy_specificity( $winner{$rule} ) > $rank;

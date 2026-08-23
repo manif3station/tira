@@ -1328,15 +1328,18 @@ an empty array clears the field rather than leaving it unchanged. TKT-293.
 
 `description`, `problem_or_feature`, and `solution_needed` truncate at 2000
 characters by default on every read (`show`, `history.list`), marked honestly
-with `_truncated`/`_length` alongside the shortened text - `--full` on either
-command returns the whole thing. Writing a value back through `ticket.update`
-(or `epic.update`/`sow.update`) that exactly matches a truncated read of the
-field's *current* stored value is refused, naming `--full`: a read-modify-write
-done without `--full` would otherwise destroy everything past character 2000
-silently, since the truncated flag never travelled into the write. A
-genuinely shorter rewrite, written on purpose, is unaffected - this is an
-exact-match check against what a truncated read looks like, not a length
-limit. TKT-400.
+with `_truncated`/`_length` alongside the shortened text, plus a
+`_hint: "use --full to read it whole"` naming the fix in the same output -
+`--full` on either command returns the whole thing. Writing a value back
+through `ticket.update` (or `epic.update`/`sow.update`) that exactly matches
+a truncated read of the field's *current* stored value is refused, naming
+`--full`: a read-modify-write done without `--full` would otherwise destroy
+everything past character 2000 silently, since the truncated flag never
+travelled into the write. A genuinely shorter rewrite, written on purpose, is
+unaffected - this is an exact-match check against what a truncated read looks
+like, not a length limit. TKT-400. The hint applies the same way to a
+truncated `gate_passing_log` entry's `details` or an `evidence` entry's
+`summary`, since both share the same truncation logic. TKT-402.
 
 ## A card that shipped no release
 

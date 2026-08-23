@@ -462,7 +462,10 @@ assignee kept visible; combining it with `--fields` exits 2. Long text
 (`description`, `problem_or_feature`, `solution_needed`, and each gate
 `details` / evidence `summary`) truncates at 2000 characters by default,
 always visibly: the cut value ends with an ellipsis and gains
-`<field>_truncated` and `<field>_length` markers. `--truncate N` chooses
+`<field>_truncated`, `<field>_length`, and `<field>_hint` ("use --full to
+read it whole") markers, so a truncated read names its own fix in the same
+output rather than requiring the reader to already know `--full` exists -
+`TKT-402`. `--truncate N` chooses
 the limit, `--truncate 0` omits the text while still marking it present,
 `--full` restores everything (combining `--full` with `--truncate` exits
 2), short fields carry no markers, and structural fields are never cut.

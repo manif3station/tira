@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.67';
+our $VERSION = '3.68';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1721,6 +1721,14 @@ sub _truncate_text_slot {
     }
     $container->{"${key}_truncated"} = Cpanel::JSON::XS::true;
     $container->{"${key}_length"} = $length;
+
+    # The flag was there and said nothing about what to do about it - a
+    # reader had to already know --full exists. Measured live: about 1354
+    # bytes lost across three edits on one card before the round number
+    # 2001 gave the truncation away. Same shape as record_reminder and
+    # _question_reminder, which already ride a fix command alongside an
+    # answer that owes something - never silent, per CA09. TKT-402.
+    $container->{"${key}_hint"} = 'use --full to read it whole';
     return;
 }
 

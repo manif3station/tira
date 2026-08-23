@@ -1,5 +1,24 @@
 Revision history for Tira
 
+3.68  2026-08-23
+
+    - TKT-402. description_truncated (and the matching flags on
+      problem_or_feature, solution_needed, and each truncated gate
+      details/evidence summary) was a value the tool held and never
+      told a reader what to do about - the fix, --full, had to
+      already be known. Cost measured live: about 1354 bytes lost
+      across three read-modify-write edits on TKT-386 before the
+      round number 2001 gave the truncation away.
+
+    - Fixed: every truncated field now also carries a
+      <field>_hint: "use --full to read it whole" marker in the same
+      output, following the same never-silent pattern
+      record_reminder and question reminders already use for an
+      answer that owes something. Absent whenever nothing is
+      truncated. Docker: Files=353, Tests=7322, PASS, 100%
+      statement+subroutine coverage on lib/Tira.pm and
+      lib/Tira/CLI.pm. Browser tests 12/12.
+
 3.67  2026-08-23
 
     - TKT-396. tira.link.add and tira.link.remove take --from,

@@ -1993,7 +1993,11 @@ opens it on that board, and `tira.dashboard` opens it on the default one.
 ### Boards
 
 - `tira.board.refs --type TYPE [--prefix PREFIX] [--digits N] [-o FORMAT]`
-- `tira.board.show --type TYPE [-o FORMAT]`
+- `tira.board.show --type TYPE [-o FORMAT]` - each column carries a `count`
+  alongside its existing `label`/`name`/`protected`/`queue`/`watched` fields,
+  read from the same per-card column data `tira.<type>.list` already has.
+  Not stored: the number reflects the cards right now, and asking again after
+  a card moves answers differently. TKT-394.
 
 
 ### Checklists

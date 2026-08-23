@@ -1,5 +1,20 @@
 Revision history for Tira
 
+3.64  2026-08-23
+
+    - TKT-394. tira.board.show reported a board's column
+      configuration - label, name, protected, queue, watched - and
+      never how much work sits where. Answering "how many cards are
+      open and where" meant dumping every record and aggregating by
+      hand, which was written twice in one session over a 392-card
+      board to answer the same question.
+
+    - Fixed: each column in tira.board.show now carries a count, read
+      from the same per-card column data a list already has - nothing
+      new stored or computed. The count is never written into the
+      column configuration file itself, so board.show does not become
+      a second writer of it. Every existing field is unchanged.
+
 3.63  2026-08-23
 
     - TKT-382. tira.project.update accepted --mode, parsed it, carried

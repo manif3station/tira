@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.63';
+our $VERSION = '3.64';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1508,8 +1508,21 @@ sub column_update {
 
 sub board_show {
     my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
     my ( undef, $config ) = $self->_board_data(%args);
-    return $config;
+    my $type = $self->_valid_type( $args{type} );
+
+    # The board already knows every one of these numbers - it knows its
+    # columns, and it knows every card's column - so a count is read off a
+    # list rather than stored or computed anywhere new. Not persisted back
+    # into config.yml: the count is a fact about the cards right now, not
+    # about the column, and writing it there would make board.show a second
+    # writer of the file column.add and friends already own. TKT-394.
+    my %count;
+    $count{ $_->{column} // '' }++
+      for @{ $self->record_list( project => $root, type => $type, include_discard => 1 ) };
+    my @columns = map { { %{$_}, count => $count{ $_->{name} } // 0 } } @{ $config->{columns} };
+    return { %{$config}, columns => \@columns };
 }
 
 sub column_add {
@@ -11727,7 +11740,9 @@ Updates one column's notify_after, watched flag, terminal role, chain, or requir
 
 =head2 board_show
 
-Returns a board's raw stored configuration.
+Returns a board's stored column configuration, each column carrying a count
+of the cards currently in it - read from the record list, never stored back
+into the configuration file.
 
 =head2 column_add
 

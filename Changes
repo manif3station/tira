@@ -1,5 +1,24 @@
 Revision history for Tira
 
+3.45  2026-08-23
+
+    - TKT-347. Four tickets shipped in 1.07 (2026-08-12) with no
+      Changes entry - a real version bump the changelog never
+      recorded, found only by a card claiming fix_version 1.07 and a
+      reader cross-checking it against the changelog by hand. The
+      missing entry is written now, reconstructed from the shipping
+      commit's own message.
+
+    - fix_version refuses a value that is not a version at all - a
+      word, rather than a released one - while still accepting the
+      board's own established escape hatches for work outside a
+      release ('none', an 'n/a - ...' explanation).
+
+    - Added tira.changelog.check, which cross-references every card's
+      claimed fix_version against a Changes file's own version
+      headings, so the next 1.07-shaped hole is found by running the
+      check rather than by a probe.
+
 3.44  2026-08-23
 
     - TKT-346. bulk_import's own reference lookup reused the generic
@@ -5951,6 +5970,44 @@ Revision history for Tira
       refresh after that is refused. The board says on the terminal it
       starts from that sessions never expire, and what that means over
       plain HTTP.
+
+1.07  2026-08-12
+
+    - TKT-026, TKT-055, TKT-056, TKT-058. The documentation gate only
+      read commands written as literal command lines, so a heading
+      promising a command that did not exist, or a whole argument
+      table of invented flags, sailed through - two flags had been
+      shipping documented and unusable, `--with-questions` on the
+      dashboard and `--sandbox` on tira.policy.add. Widened to read
+      headings and argument tables too, and both flags now exist,
+      because the documentation described what was intended.
+
+    - `parent-ahead-of-children` reports a parent whose child is not
+      finished at every level - a statement of work above its epics,
+      an epic above its tickets, a ticket above its sub-tickets -
+      where each check previously looked at a card on its own and saw
+      nothing. Which column means finished comes from the board's own
+      roles; a board that has never declared one is reported
+      unresolved rather than guessed at, and the push gate refuses it
+      too.
+
+    - The work log lost every entry except comments on attribution -
+      "who did it" read nobody - and a background refresh wiped the
+      questions and work-log sections entirely, since redrawing the
+      card rebuilt the sections they live in without putting them
+      back. A refresh now redraws all three; an open log keeps its
+      state and follows the card; an unattributed row keeps its
+      columns; and TIRA_AUTHOR lets a command-line caller say once who
+      they are.
+
+    - Police now hands the owner a prompt to give the agent on every
+      run: for a project with nothing declared, or naming the rules a
+      project set up before them is not using. Silent for a project
+      already using everything, because nagging is how a prompt stops
+      being read.
+
+    - A card past verify with no gate and no evidence recorded is now
+      a hole the push gate refuses.
 
 1.08  2026-08-12
     - No pure-Perl parsers. `Cpanel::JSON::XS` and `YAML::XS` are

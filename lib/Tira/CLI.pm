@@ -2444,6 +2444,7 @@ sub _invoke {
         my $changes = Tira::json_decode( _text_input( $option->{file} ) );
         return $tira->bulk_import( %args, changes => $changes, dry_run => $option->{dry_run} );
     }
+    return $tira->changelog_check(%args) if $command eq 'changelog.check';
     return $tira->replace_records( %args, dry_run => $option->{dry_run} ) if $command eq 'replace';
     return $tira->project_show(%args) if $command eq 'project.show';
 

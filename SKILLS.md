@@ -176,7 +176,7 @@ tickets.
   renders `Low`, `Medium Low`, `Medium`, `High`, or `Very High`, respectively,
   and a board ordered by priority puts 5 at the top. A card with no priority is
   unassessed rather than lowest, and sorts last saying so.
-- `fix_version`: one nullable free-text value.
+- `fix_version`: one nullable value - a released version number (e.g. `3.45`), `none`, or an `n/a - ...` explanation for work outside a release; anything else is refused. `tira.changelog.check [--file FILE]` cross-references every card's claimed fix_version against a changelog's own version headings, naming any card whose version was never actually released. Until 3.45 the field took any word at all, and a real gap - four tickets shipped in 1.07 with no changelog entry - went unnoticed until a reader cross-checked the two by hand. TKT-347.
 - `affects_versions`: an array of free-text values, empty by default.
 - `parent`: one generated parent ref or `null`; it is never directly editable.
 
@@ -856,6 +856,7 @@ tira.column.update --type TYPE --name SLUG [--notify-after MINUTES] [--watch|--n
 tira.column.endings [--type TYPE] [-o FORMAT]
 tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [-o FORMAT]
 tira.import --file FILE [--dry-run] [-o FORMAT]
+tira.changelog.check [--file FILE] [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [--count] [--refs-only] [-o FORMAT]
 tira.search.index [-o FORMAT]
 tira.replace --pattern REGEX --with TEXT [--field FIELD ...] [--type TYPE] [--dry-run] [-o FORMAT]

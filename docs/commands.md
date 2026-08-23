@@ -1770,6 +1770,21 @@ An import dry-run returns one object per changed field:
 }
 ```
 
+`tira.changelog.check [--file FILE] [-o FORMAT]` cross-references every card's
+claimed `fix_version` against a changelog file's own version headings -
+`--file` defaults to `Changes`. TKT-347 found a card claiming fix_version
+1.07 with no such release recorded, a real gap left by a version bump whose
+changelog entry never got written; nothing had checked the two against each
+other before. `fix_version` itself already refuses a value that plainly is
+not a version at all - `none` and an `n/a - ...` explanation for work
+outside a release are unaffected by either check. A card whose claimed
+version genuinely has no changelog entry is returned in `missing`, naming
+the card and the version; `released_versions` counts how many headings the
+file carried.
+
+    d2 tira.changelog.check
+    d2 tira.changelog.check --file Changes -o json
+
 ## Repairing a damaged board file
 
 `tira.doctor [--repair] [-o FORMAT]` finds board files holding bytes that are

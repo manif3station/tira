@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.44';
+our $VERSION = '3.45';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -466,6 +466,7 @@ sub create_record {
     my $priority = $self->_valid_priority( $args{priority} );
     my $due_date = $self->_valid_datetime( $args{due_date}, 'Due date' );
     my $start_date = $self->_valid_datetime( $args{start_date}, 'Start date' );
+    _valid_fix_version( $args{fix_version} );
     my $board = File::Spec->catdir( $root, '.tira', $type );
 
     my $column;
@@ -2270,6 +2271,7 @@ sub record_update {
             die "The new $field matches a truncated read of the current one - "
               . "re-read with --full before writing it back, or this destroys everything past character 2000\n";
         }
+        _valid_fix_version( $args{fix_version} ) if defined $args{fix_version} && $args{fix_version} ne '';
         for my $field (@PLAIN_FIELDS) {
             $record->{$field} = $args{$field} if defined $args{$field};
         }
@@ -4439,6 +4441,33 @@ sub replace_records {
         return { dry_run => $args{dry_run} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false,
           changed_records => scalar keys %changed, changes => \@diffs };
     } );
+}
+
+# TKT-347: a card claimed fix_version 1.07 and Changes had no such release -
+# a real gap left by a version bump whose entry never got written, found
+# only by a reader cross-checking the two by hand. fix_version's own
+# validation (_valid_fix_version) stops a card claiming a value that is not
+# a version at all; this closes the other half - a value that IS a version
+# but was never actually released, which the field alone cannot tell.
+sub changelog_check {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $file = $args{file} // 'Changes';
+    open my $fh, '<', $file or die "Cannot read '$file': $!\n";
+    my $text = do { local $/; <$fh> };
+    close $fh;
+    my %released = map { $_ => 1 } ( $text =~ /^(\d+(?:\.\d+){1,2})\s/mg );
+
+    my @missing;
+    for my $type (qw(sow epic ticket)) {
+        for my $record ( @{ $self->record_list( project => $root, type => $type, include_discard => 1 ) } ) {
+            my $fv = $record->{fix_version} // '';
+            next if $fv eq '' || $fv eq 'none' || $fv =~ /\An\/a\b/i;
+            next if $released{$fv};
+            push @missing, { ref => $record->{ref}, fix_version => $fv };
+        }
+    }
+    return { file => $file, released_versions => scalar keys %released, missing => \@missing };
 }
 
 # Yellow means somebody is waiting, in either direction: a question nobody has
@@ -10347,6 +10376,24 @@ sub _valid_slug {
     my ( $self, $slug ) = @_;
     die "Invalid column name\n" if !defined $slug || $slug !~ /\A([a-z0-9]+(?:-[a-z0-9]+)*)\z/;
     return $1;
+}
+
+# A card claiming a fix_version is a claim the changelog can be checked
+# against - TKT-347, a card claiming 1.07 while Changes had no such
+# release, cost a reader an hour of archaeology to find out whether the
+# card or the changelog was wrong. Refusing a value that plainly is not a
+# version stops that particular hole from reopening, without breaking the
+# board's own established escape hatches: work genuinely outside a Tira
+# skill release is marked 'none' or 'n/a - ...' rather than invented a
+# version number for, and both stay accepted.
+sub _valid_fix_version {
+    my ($value) = @_;
+    return $value if !defined $value || $value eq '';
+    return $value if $value =~ /\A\d+(?:\.\d+){1,2}\z/;
+    return $value if $value eq 'none';
+    return $value if $value =~ /\An\/a\b/i;
+    die "Fix version must be a released version number (e.g. 3.44), 'none', "
+      . "or an 'n/a - ...' explanation for work outside a release, not '$value'\n";
 }
 
 sub _decode_legacy_utf8 {

@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.36';
+our $VERSION = '3.37';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -5576,15 +5576,29 @@ sub policy_message_fields { return [ sort keys %POLICY_MESSAGE_FIELDS ] }
 # is not actionable on its own: the reader has to be able to tell a quiet
 # afternoon from a board abandoned on Friday, and the limit alone says only
 # which side of it they are on.
-sub _policy_elapsed {
-    my ( $self, $stamp ) = @_;
-    my $then = eval { _epoch_of_datetime( $stamp, 'Stamp' ) } // return 'some time';
-    my $now = eval { _epoch_of_datetime( $self->{clock}->(), 'Clock' ) } // return 'some time';
-    my $gap = $now - $then;
+sub _human_seconds {
+    my ($gap) = @_;
     return $gap . 's' if $gap < 60;
     return int( $gap / 60 ) . 'm' if $gap < 3600;
     return int( $gap / 3600 ) . 'h' if $gap < 86400;
     return int( $gap / 86400 ) . 'd';
+}
+
+sub _policy_elapsed {
+    my ( $self, $stamp ) = @_;
+    my $then = eval { _epoch_of_datetime( $stamp, 'Stamp' ) } // return 'some time';
+    my $now = eval { _epoch_of_datetime( $self->{clock}->(), 'Clock' ) } // return 'some time';
+    return _human_seconds( $now - $then );
+}
+
+# A duration string ("120m", "6h") read back the same compact way elapsed
+# time already is - so "the limit was 2h" and "this took 2h" use one shared
+# notion of what "2h" means, not two.
+sub _human_duration {
+    my ($value) = @_;
+    my $seconds = _duration_seconds($value);
+    return $value if !defined $seconds;
+    return _human_seconds($seconds);
 }
 
 sub _policy_stamp_after {
@@ -6504,15 +6518,28 @@ sub policy_evaluate {
                 $limits{$kind} //= $self->_column_limits( $root, $kind );
                 my $column = $record->{column} // '';
                 next if exists $limits{$kind}{$column} && !defined $limits{$kind}{$column};
-                my $age = $limits{$kind}{$column} // $policy->{age};
+                my $column_limit = $limits{$kind}{$column};
+                my $age = $column_limit // $policy->{age};
 
                 my $touched = $self->_card_last_activity( $root, $record );
                 next if !$self->_policy_older_than( $touched, $age );
 
+                # Elapsed time alone reads as if it were the threshold too -
+                # measured on a real reader: 2h elapsed against a 2h column
+                # limit was mistaken for the elapsed time BEING the limit,
+                # because nothing said otherwise. Named here, and which of
+                # the two possible sources set it, since they are fixed in
+                # different places (tira.column.update vs re-declaring the
+                # policy) and a reader who cannot tell them apart cannot act
+                # on the finding without a second command. TKT-290.
+                my $source = defined $column_limit
+                  ? "this column allows " . _human_duration($column_limit) . " ($column notify_after)"
+                  : "the policy allows " . _human_duration( $policy->{age} ) . " (no column limit set)";
+
                 $report->( $policy, $record,
                     "nothing has happened to this card since $touched, which is "
                       . $self->_policy_elapsed($touched)
-                      . ", and it is sitting in $column" );
+                      . ", and it is sitting in $column - $source" );
             }
         }
         elsif ( $rule eq 'card-changed-by-owner' ) {

@@ -1,5 +1,21 @@
 Revision history for Tira
 
+3.37  2026-08-23
+
+    - TKT-290. card-still's finding gave elapsed time only, never the
+      threshold it crossed nor which of the two possible sources (a
+      column's own notify_after, or the policy's own --age fallback)
+      set it. Measured on a real reader: 2h elapsed against a 2h
+      column limit read as though the elapsed time WAS the threshold,
+      because nothing said otherwise.
+
+    - Fixed: the finding now names the effective limit and which
+      source set it - "this column allows 2h (COLUMN notify_after)"
+      or "the policy allows 6h (no column limit set)" - alongside the
+      elapsed time, since the two are fixed in different places and a
+      reader who cannot tell them apart cannot act on the finding
+      without a second command.
+
 3.36  2026-08-23
 
     - TKT-289. tira.policy.add refused a rule's missing required

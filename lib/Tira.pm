@@ -6,6 +6,7 @@ use warnings;
 use Cwd qw(abs_path realpath);
 use B ();
 use Data::TOON;
+use Data::TOON::Decoder;
 use Data::TOON::Encoder;
 use Digest::SHA qw(sha256_hex);
 use Encode qw(decode encode_utf8 FB_QUIET);
@@ -52,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.33';
+our $VERSION = '3.34';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -10417,6 +10418,110 @@ sub _toon_item_carries_map {
             }
         }
         return join "\n", @lines;
+    };
+}
+
+# The decoder half of the same gap the encoder override above closes. With
+# well-formed input - a map nested inside a list item, written correctly -
+# Data::TOON::Decoder's list-item branch (_decode_array_value) only checks
+# whether the FIRST key on a "- key: value" line has an empty value (meaning
+# a nested object) and recurses into _decode_object for it. Every key AFTER
+# the first is parsed by a second loop that calls _parse_primitive on
+# whatever follows the colon unconditionally - an empty value there (a
+# nested map's own key line) becomes the empty string rather than a
+# recursive object, and the map's own indented lines are then seen at one
+# depth deeper than the loop expects, so it stops there and drops every
+# field after the nested map too.
+#
+# _decode_object (above it in the same file) already has the right rule:
+# empty after the colon means recurse into _decode_object. This gives the
+# same rule to the array-item loop that never had it, changing only the
+# branch that mishandles it - reimplemented rather than delegated, for the
+# same reason the encoder override could not delegate: the flaw is inside
+# the loop this overrides, not somewhere this could hand off to instead.
+# TKT-393.
+our $TOON_ARRAY_DECODE_BEFORE = \&Data::TOON::Decoder::_decode_array_value;
+
+{
+    no warnings 'redefine';
+    *Data::TOON::Decoder::_decode_array_value = sub {
+        my ( $self, $bracket_part, $fields_part, $rest ) = @_;
+
+        return $TOON_ARRAY_DECODE_BEFORE->( $self, $bracket_part, $fields_part, $rest )
+          if $fields_part || $bracket_part !~ /^\[(\d+)([\t|])?\]/;
+
+        my $delimiter = defined $2 ? $2 : ',';
+
+        # Peek ahead the same way the original does, to decide list-format
+        # vs. inline-primitive-array - unaffected by the bug, delegated by
+        # falling through to the original once that decision is made, for
+        # every shape except the one this fixes.
+        my $has_list_format = 0;
+        my $peek_pos        = $self->{pos};
+        while ( $peek_pos < @{ $self->{lines} } ) {
+            my $peek_line = $self->{lines}[$peek_pos];
+            if ( !$peek_line || $peek_line =~ /^\s*$/ ) { $peek_pos++; next }
+            last if $self->_get_depth($peek_line) <= 0;
+            my $peek_trimmed = $peek_line;
+            $peek_trimmed =~ s/^\s+//;
+            if ( $peek_trimmed =~ /^-/ ) { $has_list_format = 1; last }
+            last;
+        }
+        return $TOON_ARRAY_DECODE_BEFORE->( $self, $bracket_part, $fields_part, $rest )
+          if !$has_list_format;
+
+        my @items;
+        while ( $self->{pos} < @{ $self->{lines} } ) {
+            my $line = $self->{lines}[ $self->{pos} ];
+            if ( !$line || $line =~ /^\s*$/ ) { $self->{pos}++; next }
+            my $depth = $self->_get_depth($line);
+            last if $depth <= 0;
+            my $trimmed = $line;
+            $trimmed =~ s/^\s+//;
+            last if $trimmed !~ /^-\s(.*)$/;
+            $self->{pos}++;
+            my $item_content = $1;
+
+            if ( $item_content !~ /^(\w+):\s*(.*)$/ ) {
+                push @items, $self->_parse_primitive($item_content);
+                next;
+            }
+            my ( $first_key, $first_value ) = ( $1, $2 );
+            my $item = {};
+
+            # The original stopped here when the FIRST key was a nested map -
+            # _decode_object($depth+2) reads that map's own fields and
+            # returns the moment it meets a depth+1 line, which is every
+            # sibling key after it, and nothing kept parsing them. Whether
+            # the first key was a map or a primitive, the remaining depth+1
+            # siblings are read the same way below - one loop, not two
+            # copies of it depending on which the first key happened to be.
+            $item->{$first_key} = $first_value =~ /^\s*$/
+              ? $self->_decode_object( $depth + 2 )
+              : $self->_parse_primitive($first_value);
+
+            while ( $self->{pos} < @{ $self->{lines} } ) {
+                my $next_line = $self->{lines}[ $self->{pos} ];
+                if ( !$next_line || $next_line =~ /^\s*$/ ) { $self->{pos}++; next }
+                my $next_depth = $self->_get_depth($next_line);
+                last if $next_depth != $depth + 1;
+                my $next_trimmed = $next_line;
+                $next_trimmed =~ s/^\s+//;
+                last if $next_trimmed =~ /^-/;
+                last if $next_trimmed !~ /^(\w+):\s*(.*)$/;
+                my ( $sub_key, $sub_rest ) = ( $1, $2 );
+                $self->{pos}++;
+
+                # The fix: an empty value here is a nested map's own key
+                # line, the same rule _decode_object already applies - not
+                # a primitive, and not skippable.
+                $item->{$sub_key} = length($sub_rest)
+                  ? $self->_parse_primitive($sub_rest)
+                  : $self->_decode_object( $next_depth + 1 );
+            }
+            push @items, $item;
+        }
+        return \@items;
     };
 }
 

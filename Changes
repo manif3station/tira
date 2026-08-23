@@ -1,5 +1,26 @@
 Revision history for Tira
 
+3.34  2026-08-23
+
+    - TKT-393. TKT-386 fixed the TOON encoder for a map nested inside a
+      list item, but Data::TOON's decoder could not read that shape
+      back even once it was written correctly - a different gap,
+      established with well-formed input. Its list-item parser only
+      recursed into a nested map when it was the item's FIRST key;
+      every later key was parsed as a primitive unconditionally, so an
+      empty value there (a nested map's own line) became the empty
+      string and the parser then stopped at that map's own indented
+      lines, dropping every field after it too - including when the
+      nested map itself was the first key, a second manifestation of
+      the same defect found while testing.
+
+    - Fixed: Data::TOON::Decoder::_decode_array_value now applies the
+      same empty-means-nested-object rule _decode_object already has,
+      to every key in a list item. No internal caller is affected -
+      Tira decodes TOON in one test only, guarding a scalar - but
+      anyone piping Tira's default output through a TOON decoder no
+      longer loses data silently.
+
 3.33  2026-08-23
 
     - TKT-476. TKT-472's required-action list (row + x-to-remove, blank

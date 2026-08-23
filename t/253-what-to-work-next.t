@@ -206,8 +206,14 @@ is_deeply( [ map { $_->{ref} } @{$order} ],
 
     my ( $status, $said ) = run( '-o', 'json', $empty );
     is( $status, 0, 'a board with nothing waiting still answers' );
-    is_deeply( Tira::json_decode($said), [],
-        'with nothing, rather than a card there is no reason to work' );
+
+    # Until TKT-354, this answered with a bare [] - a different TYPE than
+    # the {next,then} hash a busy board answers with, so a caller doing
+    # result->{next} worked every time there was work and crashed the
+    # first time the board went quiet. Now a hash in both states: next is
+    # undef rather than a card, then is an empty array either way.
+    is_deeply( Tira::json_decode($said), { next => undef, then => [] },
+        'with next undef and then empty, rather than a card there is no reason to work, and rather than a different type entirely' );
 }
 
 # --- proved by changing what outranks what --------------------------------------

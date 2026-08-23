@@ -534,7 +534,11 @@ What to work next is **Implemented.** `tira.next` answers it: the cards
 waiting in a protected column with a priority, most urgent first and then the
 one that has waited longest, as `{next, then}` — the answer, and what it was
 chosen over, so a caller can check it rather than take it. A board with nothing
-waiting answers with an empty list, never a card there is no reason to work.
+waiting answers with `{next: null, then: []}` - the same shape, never a card
+there is no reason to work. Until 3.48 the empty case answered with a bare
+`[]`, a different type than the busy-board hash, so a caller doing
+`result.next` crashed the moment the board went quiet - exactly when an
+unattended scheduled caller runs with nobody watching. TKT-354.
 A card carrying an unanswered question is never offered — a question is a hold
 the board reads, naming the condition, released when the answer arrives. A
 card whose `start_date` is in the future is never offered either, the other

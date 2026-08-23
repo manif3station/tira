@@ -2621,7 +2621,17 @@ sub _invoke {
         my $order = $tira->work_order( %args,
             ( $option->{brief} ? ( brief => 1 ) : () ),
             ( defined $option->{truncate} ? ( truncate => $option->{truncate} ) : () ) );
-        return $order if !@{$order};
+
+        # A quiet board used to answer with a bare array while a busy one
+        # answered with {next, then} - the same command returning two
+        # different TYPES depending on state. A caller written against the
+        # documented shape does result->{next}, which works every time the
+        # board has work and raises an error the first time it goes quiet -
+        # precisely when a scheduled caller runs unattended and nobody is
+        # watching. One shape now serves both states: next is undef rather
+        # than an object when nothing is waiting, and the empty answer stays
+        # just as unambiguous. TKT-354.
+        return { next => undef, then => [] } if !@{$order};
 
         # The first one is the answer; the rest are what it was chosen over,
         # which is the part that makes the answer checkable rather than taken

@@ -1,5 +1,19 @@
 Revision history for Tira
 
+3.48  2026-08-23
+
+    - TKT-354. tira.next answered with {next, then} - a hash - when
+      work was waiting, and a bare [] - an array - when nothing was:
+      the same command returning two different types depending on
+      board state. A caller written against the documented shape does
+      result->{next}, which works every time the board has work and
+      raises an error the first time it goes quiet - precisely when a
+      scheduled caller runs unattended and nobody is watching.
+
+    - Fixed: next is now undef rather than the whole answer being a
+      different type when nothing is waiting; then stays an empty
+      array in both states.
+
 3.47  2026-08-23
 
     - TKT-286. checklist-unmoved's finding was addressed to the

@@ -1591,7 +1591,12 @@ say it would only mean saying it some other way.
 column with a priority, most urgent first and then the one that has waited
 longest, as `{next, then}` - the answer, and what it was chosen over, so a
 caller can check it rather than take it. A board with nothing waiting answers
-with an empty list rather than a card there is no reason to work.
+with `{next: null, then: []}` - the same shape, `next` simply unset - rather
+than a card there is no reason to work. Until 3.48 the empty case answered
+with a bare `[]` instead, a different TYPE than the busy-board `{next, then}`
+hash: a caller doing `result.next` worked every time the board had work and
+raised an error the first time it went quiet, which is exactly when an
+unattended scheduled caller runs with nobody watching. TKT-354.
 
 A card held on an unanswered question is never offered either. `priority-skipped`
 has refused to name such a card as passed over since it was written — parked,

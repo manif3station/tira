@@ -1,5 +1,19 @@
 Revision history for Tira
 
+3.39  2026-08-23
+
+    - TKT-305. tira.column.update silently accepted --column - the
+      reflex flag on record.move, record.list, notify.record and
+      search - instead of the --name that actually identifies a
+      column, then reported "Column '' not found" when --name was
+      absent: a specific, false claim about the board when the real
+      fault was the mistyped flag. The same silent acceptance affected
+      column.add, column.rename and column.remove.
+
+    - Fixed: column.add/update/rename/remove now refuse a stray
+      --column with a usage error naming --name. --column is
+      unchanged everywhere it already means something.
+
 3.38  2026-08-23
 
     - TKT-293. scope.included/excluded was the only card list field with

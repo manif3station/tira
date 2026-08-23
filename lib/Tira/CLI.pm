@@ -2166,6 +2166,17 @@ sub _invoke {
     die "Notify-after is available on the column.update, project.update, project.new and onboard commands\n"
       if defined $option->{notify_after}
       && $command !~ /\A(?:column\.update|project\.update|project\.new|onboard)\z/;
+
+    # --column is the reflex flag on record.move, record.list, notify.record
+    # and search - the one every other command on this board takes. The four
+    # commands that identify a column itself name it with --name instead, and
+    # --column was accepted by option parsing (it is a real flag, just for a
+    # different command) and then silently ignored: column.update --column X
+    # updated nothing named by --column, and with --name absent entirely it
+    # died "Column '' not found" - a specific, false claim about the board
+    # when the actual fault was the reflex flag. TKT-305.
+    die "This command identifies a column with --name, not --column\n"
+      if defined $option->{column} && $command =~ /\Acolumn\.(?:add|update|rename|remove)\z/;
     die "Reminder settings belong to the project.update, project.new and onboard commands\n"
       if $command !~ /\A(?:project\.update|project\.new|onboard)\z/
       && grep { defined $option->{$_} } qw(collector agent session heartbeat);

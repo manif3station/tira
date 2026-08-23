@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.46';
+our $VERSION = '3.47';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6045,9 +6045,16 @@ sub policy_evaluate {
                   && defined $order->{$came_from}
                   && $order->{$moved_into} < $order->{$came_from};
 
+                # Addressed to the reporter, not the assignee - Michael's own
+                # answer to the open question this rule shipped with (Q-064,
+                # TKT-286). The assignee is often the reviewer for a card
+                # sitting in review, who cannot tick an item only the card's
+                # author left unticked; the reporter is who raised the card
+                # and is who a checklist item usually belongs to.
                 $report->( $policy, $record,
                     "moved into $moved_into with nothing ticked since"
-                      . ( $window >= 0 ? " it entered $journal->[$window]{after}" : ' it was raised' ) );
+                      . ( $window >= 0 ? " it entered $journal->[$window]{after}" : ' it was raised' ),
+                    $record->{reporter} );
             }
         }
         elsif ( $rule eq 'card-unlinked' ) {
@@ -11267,5 +11274,12 @@ version metadata, numeric priority, and an immediate generated parent.
 =head2 format_output
 
 Encodes data as TOON by default, pretty JSON, or Markdown.
+
+=head2 policy_evaluate
+
+Runs every declared policy rule against the board and returns the
+violations found. C<checklist-unmoved> is addressed to a card's reporter,
+not its assignee, since the assignee is often the reviewer for a card in
+review and cannot tick an item only the card's own author left unticked.
 
 =cut

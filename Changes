@@ -1,5 +1,17 @@
 Revision history for Tira
 
+3.47  2026-08-23
+
+    - TKT-286. checklist-unmoved's finding was addressed to the
+      card's assignee, which is correct for most rules but wrong for
+      a card sitting in review: the assignee there is often the
+      reviewer, who cannot tick a checklist item only the card's
+      author left unticked.
+
+    - Fixed: the finding is now addressed to the reporter instead,
+      per the owner's own answer to the three candidate fixes this
+      rule shipped with unresolved.
+
 3.46  2026-08-23
 
     - TKT-348. rule_suspend's own enforcement-log entry logged only

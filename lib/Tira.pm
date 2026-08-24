@@ -8064,10 +8064,21 @@ sub _police_environment_violations {
     my %card_declined;
     $card_declined{"$_->{rule}\x00$_->{ref}"} = 1 for @{ $env_project_data->{card_declines} // [] };
 
+    # Two policies of the same rule can independently arrive at the exact
+    # same sentence about the exact same card - card-sandbox-missing's own
+    # message collapses to the same wording once a card records no sandbox
+    # at all, whichever of two declared paths each policy names. A second
+    # identical finding for the same underlying fact is noise, not a second
+    # fact; deduped here rather than in the one rule that happened to be
+    # caught doing it, since nothing about this is specific to that rule.
+    # TKT-499.
+    my %already_said;
+
     my $report = sub {
         my ( $policy, $ref, $detail ) = @_;
         return if $self->_rule_suspended( $quieted, $policy->{rule}, $ref // '' );
         return if $card_declined{"$policy->{rule}\x00" . ( $ref // '' )};
+        return if $already_said{"$policy->{rule}\x00" . ( $ref // '' ) . "\x00$detail"}++;
         push @violations, {
             rule => $policy->{rule}, policy => $policy->{id}, ref => $ref // '',
             detail => $detail, action => $policy->{action},

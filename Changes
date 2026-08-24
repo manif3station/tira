@@ -148,6 +148,18 @@ Revision history for Tira
       otherwise). "Discard them here", about the leftover questions
       rather than the card, is unchanged either way.
 
+    - TKT-499. With two card-sandbox-missing policies declared for two
+      acceptable sandboxes, one card produced two findings whose
+      detail text was character-for-character identical - both fell
+      back to the same generic wording once the card recorded no
+      sandbox at all.
+
+    - Fixed: the six machine-watching policy rules now dedupe on
+      (rule, ref, detail) within one pass - two policies reporting the
+      exact same fact about the exact same card report once, not
+      twice. Two policies describing genuinely different problems (one
+      satisfied, one not) still both report.
+
 3.88  2026-08-24
 
     - TKT-498. Owner, in Cantonese, watching an agent drop a field:

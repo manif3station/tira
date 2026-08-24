@@ -1262,7 +1262,10 @@ A card is never asked to depend on itself, and work in the column carrying the
 `done` role is left alone - it shipped before the gate existed and cannot be
 linked to it retrospectively. If no column carries that role, nothing is
 skipped, because guessing which column means finished would be worse than
-asking.
+asking - and the board is told so directly: a `card-unlinked` policy declared
+with no `done` role configured is reported unresolved, the same way
+`parent-ahead-of-children` already is below, naming the fix command with the
+policy's own `--type`. TKT-437.
 
 ### A parent that says it is finished before its children are
 
@@ -1295,7 +1298,9 @@ Which column means finished comes from the board's roles rather than from a
 name, so a project that calls it `archived` or `shipped` is watched exactly the
 same. A board that has never said which column that is does not get guessed at:
 the policy is reported as unresolved, so the silence can be seen instead of
-being mistaken for approval.
+being mistaken for approval - naming the fix command with this policy's own
+`--type` rather than a hardcoded one, so a policy declared `--type epic` is not
+told to fix a `--type ticket` role it never touched. TKT-437.
 
 ## A card that skipped the steps
 

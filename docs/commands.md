@@ -1281,10 +1281,13 @@ stands rather than the name of an argument.
 
 The vocabulary is the project's own; Tira matches a role without needing to
 understand it - with two exceptions, named here rather than left to be
-discovered. **`done` is read by Tira itself**: `parent-ahead-of-children` asks
-which column means finished, and says so out loud when no board has told it -
+discovered. **`done` is read by Tira itself**: `parent-ahead-of-children` and
+`card-unlinked` both ask which column means finished, to leave shipped work
+alone, and each says so out loud when no board has told it -
 "cannot tell which column means finished on this board. Say so once:
-tira.column.roles --type ticket --role done=COLUMN". **`entry` is read by
+tira.column.roles --type ticket --role done=COLUMN" - naming the policy's own
+`--type` in the fix command (or a neutral `--type TYPE` placeholder when the
+policy applies to all three), never a hardcoded one. TKT-437. **`entry` is read by
 `tira.<type>.create`**: once declared, `--column` naming anything else refuses,
 and omitting `--column` lands the card in the entry column rather than the
 fixed `backlog` default - closing the bypass TKT-426's chain check leaves open,

@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.71';
+our $VERSION = '3.72';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -9291,16 +9291,35 @@ sub policy_unresolved {
         # has never said cannot be guessed at. Reported here rather than left
         # to match nothing quietly, which is how a rule somebody believes in
         # protects nothing at all.
-        if ( ( $policy->{rule} // '' ) eq 'parent-ahead-of-children' ) {
+        #
+        # card-unlinked (lib/Tira.pm's card-unlinked branch) reads the exact
+        # same column_roles(type)->{done} to leave finished work alone, and
+        # fails the identical silent way if the role is never declared -
+        # this check only ever named parent-ahead-of-children, by rule name
+        # rather than by the dependency itself, so card-unlinked got no
+        # warning at all. TKT-437.
+        if ( ( $policy->{rule} // '' ) eq 'parent-ahead-of-children'
+            || ( $policy->{rule} // '' ) eq 'card-unlinked' )
+        {
             my @named = grep {
                 my $roles = eval { $self->column_roles( project => $root, type => $_ ) } || {};
                 defined $roles->{done} && $roles->{done} ne '';
             } ( defined $policy->{type} && $policy->{type} ne ''
                 ? ( $policy->{type} ) : qw(sow epic ticket) );
+
+            # The fix command must name the policy's own --type, or typing
+            # it back declares the role for the wrong board: a
+            # parent-ahead-of-children policy declared --type epic reported
+            # this exact diagnosis with the wrong fix - tira.column.roles
+            # --type ticket - which left the real epic policy unresolved
+            # after being followed exactly. $policy->{type} was already in
+            # scope; only the message never read it. TKT-437.
+            my $for_type = defined $policy->{type} && $policy->{type} ne ''
+              ? $policy->{type} : 'TYPE';
             push @unresolved, {
                 policy => $policy->{id},
                 detail => "$policy->{id} cannot tell which column means finished on this board. "
-                  . 'Say so once: tira.column.roles --type ticket --role done=COLUMN',
+                  . "Say so once: tira.column.roles --type $for_type --role done=COLUMN",
             } if !@named;
         }
 

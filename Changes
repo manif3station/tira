@@ -1,5 +1,26 @@
 Revision history for Tira
 
+3.72  2026-08-24
+
+    - TKT-437. card-unlinked and parent-ahead-of-children both depend
+      on column_roles(type)->{done} to know which cards have already
+      shipped, and policy_unresolved's own unresolved-policy
+      detector only ever warned about one of them - hardcoded to
+      parent-ahead-of-children by rule name, so card-unlinked
+      declared with no done role failed the identical silent way
+      with no warning at all. Second bug found investigating the
+      first: the fix command in the unresolved detail hardcoded
+      "--type ticket" regardless of the policy's own --type, so a
+      parent-ahead-of-children policy declared --type epic was told
+      the exact right diagnosis and the wrong fix.
+
+    - Fixed: the detector now covers card-unlinked too, and names
+      the policy's own --type in the fix command (a neutral
+      "--type TYPE" placeholder when the policy applies to all
+      three). Docker: Files=358, Tests=7379, PASS, 100%
+      statement+subroutine coverage on lib/Tira.pm and
+      lib/Tira/CLI.pm. Browser tests 12/12.
+
 3.71  2026-08-23
 
     - TKT-407. A checklist's completion was computed by hand on

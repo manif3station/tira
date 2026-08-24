@@ -2124,6 +2124,12 @@ top of it directly.
 - `tira.gate.list --ref REF [--last N|--first N] [--id GATE-NNN] [--meta-only] [--where CLAUSE ...] [--count] [-o FORMAT]` - same id-shape refusal as `evidence.list`. TKT-490.
 - `tira.release.record --ref REF --gate TEXT --result pass|fail|blocked --details TEXT --evidence TEXT --fix-version VERSION [-o FORMAT]` - one command for the gate entry, evidence entry and fix version a passed release needs; refuses rather than defaults on anything missing, and never moves a column. TKT-345.
 
+On the browser dashboard, the card dialog's Gate Passing Log section renders
+its first ten entries and, past that, a "Load more (N more)" button reveals
+the rest and disappears once every entry is shown - it does not load a card's
+whole log at once. A card with ten or fewer entries never shows the button,
+and a card with none shows no section, unchanged from before. TKT-495.
+
 
 ### Hierarchy
 

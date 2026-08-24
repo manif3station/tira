@@ -1,5 +1,26 @@
 Revision history for Tira
 
+3.85  2026-08-24
+
+    - TKT-495. "If the Gate Passing Log length more then 10 start
+      pagination. Like click more to load more into that session. So
+      do not load all gate log at once." (Michael, on the HTML
+      dashboard card dialog.)
+
+    - Fixed: the Gate Passing Log section now renders its first ten
+      entries and, when more remain, a "Load more (N more)" button
+      that reveals the rest and then hides once every entry is
+      shown - rather than rendering the whole log at once regardless
+      of length. Evidence and every other list section are
+      unaffected; only the Gate Passing Log call site was changed.
+      t/playwright/gate-log-pagination.js proves both the
+      pagination (ten shown, "Load more" reveals four more, then
+      hides) and that a card with nothing logged still renders no
+      section - red against pre-fix code (14 entries rendered at
+      once), green after. Docker: Files=369, Tests=7499, PASS; the
+      full 13-file tools/browser-tests suite passes, including the
+      new file.
+
 3.84  2026-08-24
 
     - TKT-496. Prerequisite for TKT-494 ("It can be multiple

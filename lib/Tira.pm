@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.81';
+our $VERSION = '3.82';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -3945,14 +3945,28 @@ sub record_clone {
 # reporting only the length of the unbounded text. Reads never mutate.
 my %LOG_SPEC = (
     gate_passing_log => {
-        label => 'gate', text => 'details',
+        label => 'gate', text => 'details', prefix => 'GATE',
         fields => { map { $_ => 1 } qw(id gate result details author created_at) },
     },
     evidence => {
-        label => 'evidence', text => 'summary',
+        label => 'evidence', text => 'summary', prefix => 'EVD',
         fields => { map { $_ => 1 } qw(id summary uri author created_at) },
     },
 );
+
+# Same fix as checklist_update (TKT-280) and required_item_update (TKT-488):
+# the tool knows the real ids at the moment it refuses, so a card with any
+# lists them and a card with none names the shape instead of leaving a
+# reader to guess it from a numbered display. Shared by every caller of
+# _indexed_log_read/_annotate_log (gate and evidence alike), so one fix here
+# covers both rather than needing one per concrete function. TKT-490.
+sub _unknown_log_entry_message {
+    my ( $label, $id, $prefix, $entries ) = @_;
+    my @ids = map { $_->{id} } @{ $entries // [] };
+    return "\u$label entry '$id' not found - entries are addressed by id ($prefix-001, ...), and this card has none yet\n"
+      if !@ids;
+    return "\u$label entry '$id' not found - entries are addressed by id, not position: " . join( ', ', @ids ) . "\n";
+}
 
 sub _log_entry_meta {
     my ( $entry, $spec ) = @_;
@@ -3981,7 +3995,7 @@ sub _indexed_log_read {
     my $entries = $self->record_show(%args)->{$log_field};
     if ( defined $id ) {
         my ($entry) = grep { ( $_->{id} // '' ) eq $id } @{$entries};
-        die "\u$spec->{label} entry '$id' not found\n" if !$entry;
+        die _unknown_log_entry_message( $spec->{label}, $id, $spec->{prefix}, $entries ) if !$entry;
         return $meta_only ? _log_entry_meta( $entry, $spec ) : $entry;
     }
     $entries = [ grep { _where_matches( $_, $where ) } @{$entries} ] if $where;
@@ -4512,8 +4526,10 @@ sub _annotate_log {
     die "$args{label} annotation note is required\n" if !defined $args{note} || $args{note} eq '';
     $self->_require_person( %args, person => $args{author} ) if defined $args{author};
     my $record = $self->record_show(%args);
-    my ($entry) = grep { $_->{id} eq ( $args{id} // '' ) } @{ $record->{ $args{field} } };
-    die "$args{label} entry '$args{id}' not found\n" if !$entry;
+    my $entries = $record->{ $args{field} };
+    my ($entry) = grep { $_->{id} eq ( $args{id} // '' ) } @{$entries};
+    die _unknown_log_entry_message( lc $args{label}, $args{id}, $LOG_SPEC{ $args{field} }{prefix}, $entries )
+      if !$entry;
     my $annotation = { note => $args{note}, author => $args{author}, created_at => $self->{clock}->() };
     push @{ $entry->{annotations} }, $annotation;
     $self->_replace_record( %args, record => $record );

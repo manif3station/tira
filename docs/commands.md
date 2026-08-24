@@ -2101,14 +2101,14 @@ top of it directly.
 ### Evidence
 
 - `tira.evidence.add --ref REF --summary TEXT [--uri URI] [--file PATH] [--author ID] [-o FORMAT]`
-- `tira.evidence.annotate --ref REF --id EVD-NNN --note TEXT [--author ID] [-o FORMAT]`
-- `tira.evidence.list --ref REF [--last N|--first N] [--id EVD-NNN] [--meta-only] [--where CLAUSE ...] [--count] [-o FORMAT]`
+- `tira.evidence.annotate --ref REF --id EVD-NNN --note TEXT [--author ID] [-o FORMAT]` - an unknown `--id` refuses naming the card's real evidence ids, or the `EVD-NNN` shape on a card with none yet, the same fix `checklist.update` (TKT-280) and `required-action.update` (TKT-488) already got. TKT-490.
+- `tira.evidence.list --ref REF [--last N|--first N] [--id EVD-NNN] [--meta-only] [--where CLAUSE ...] [--count] [-o FORMAT]` - `--id` refuses the same way. TKT-490.
 
 
 ### Gate records
 
-- `tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]`
-- `tira.gate.list --ref REF [--last N|--first N] [--id GATE-NNN] [--meta-only] [--where CLAUSE ...] [--count] [-o FORMAT]`
+- `tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]` - same id-shape refusal as `evidence.annotate`. TKT-490.
+- `tira.gate.list --ref REF [--last N|--first N] [--id GATE-NNN] [--meta-only] [--where CLAUSE ...] [--count] [-o FORMAT]` - same id-shape refusal as `evidence.list`. TKT-490.
 - `tira.release.record --ref REF --gate TEXT --result pass|fail|blocked --details TEXT --evidence TEXT --fix-version VERSION [-o FORMAT]` - one command for the gate entry, evidence entry and fix version a passed release needs; refuses rather than defaults on anything missing, and never moves a column. TKT-345.
 
 

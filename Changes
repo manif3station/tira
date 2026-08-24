@@ -1,5 +1,24 @@
 Revision history for Tira
 
+3.82  2026-08-24
+
+    - TKT-490. Found following TKT-488's own key_details, which
+      flagged these two sites as out of scope and noted for a future
+      ticket: _indexed_log_read (behind gate.list --id and
+      evidence.list --id) and _annotate_log (behind gate.annotate
+      and evidence.annotate) shared the identical bug TKT-280 and
+      TKT-488 already fixed elsewhere - an unknown id refused with
+      only "not found", naming neither the GATE-NNN/EVD-NNN shape
+      nor the ids the card actually has.
+
+    - Fixed: both sites now list the card's real ids when it has
+      any, or name the shape when it has none, via a new shared
+      _unknown_log_entry_message helper - one fix covering gate and
+      evidence together, since both are parameterized by the same
+      %LOG_SPEC. t/372 proves all four commands. Docker: Files=368,
+      Tests=7478, PASS, 100% statement+subroutine coverage on
+      lib/Tira.pm and lib/Tira/CLI.pm.
+
 3.81  2026-08-24
 
     - TKT-353. Reported live: comment.add is the only one of four

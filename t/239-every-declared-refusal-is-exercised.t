@@ -100,12 +100,21 @@ sub declared_in {
 
     my ($read_by) = $text =~ /my %OPTION_READ_BY = \((.*?)\n\);/s;
     my $read_declares = () = $read_by =~ /^\s*(\w+)\s*=>\s*\{/gm;
+
+    # Counted the same way as $declares/$entries above, and for the same
+    # reason: the loop below depends on an entry ending with exactly "\n
+    # },", four spaces, so an entry indented differently - or followed by a
+    # comment - disappears from the run with nothing failing. This file's
+    # own header describes that exact failure happening to the first table
+    # and being fixed there only; this is the second half. TKT-399.
+    my $read_found = 0;
     while ( $read_by =~ /(\w+)\s*=>\s*\{(.*?)\n    \},/gs ) {
         my $body = $2;
         my ($flag)     = $body =~ /flag\s*=>\s*'([^']+)'/;
         my ($readers)  = $body =~ /commands\s*=>\s*qr\/(.*?)\/,/;
         my ($instead)  = $body =~ /instead\s*=>\s*'([^']+)'/;
         next if !defined $flag;
+        $read_found++;
 
         # A command that is not one of its readers, so the refusal is the thing
         # being exercised rather than the reader being broken.
@@ -114,14 +123,16 @@ sub declared_in {
         push @refusals, { command => $not_a_reader, flag => $flag, names => $word // '--' };
     }
 
-    return ( \@refusals, $entries, $declares, $read_declares );
+    return ( \@refusals, $entries, $declares, $read_declares, $read_found );
 }
 
-my ( $refusals, $entries, $declares, $read_declares ) = declared_in($source);
+my ( $refusals, $entries, $declares, $read_declares, $read_found ) = declared_in($source);
 
 is( $entries, $declares,
     'the parse found as many entries as the misleading-option table declares' );
 cmp_ok( $read_declares, '>=', 1, 'and the other table declares at least one' );
+is( $read_found, $read_declares,
+    'and the parse found as many entries as the option-read-by table declares' );
 cmp_ok( scalar @{$refusals}, '>=', 5, 'so there are refusals here to exercise' );
 
 # --- and every one of them, run ----------------------------------------------

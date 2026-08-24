@@ -125,6 +125,17 @@ Revision history for Tira
       behaviour change - when the rule fires and what settles it are
       both unaffected.
 
+    - TKT-399. t/239, whose whole job is proving every declared
+      refusal is exercised, counted its own parse against the
+      declaration for one table and not the other - "a guard written
+      to prove every declared refusal is exercised, silently covering
+      less than it claims, is the fault it exists to catch one level
+      up," in the file's own words about the first table's history.
+      Now asserts the same parsed-count-equals-declared-count for the
+      second table too. No live loss today (3 declared, 3 found); the
+      new assertion was proven a genuine guard by temporarily
+      reproducing the described failure mode and confirming it fails.
+
 3.88  2026-08-24
 
     - TKT-498. Owner, in Cantonese, watching an agent drop a field:

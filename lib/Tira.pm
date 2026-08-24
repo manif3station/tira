@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.83';
+our $VERSION = '3.84';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -9610,7 +9610,12 @@ sub column_roles_set {
     # can be run as it stands rather than the name of an argument.
     die "Which board? Roles are per board, because columns are.\n"
       . "  tira.column.roles --type ticket "
-      . join( ' ', map {"--role $_=$wanted->{$_}"} sort keys %{$wanted} ) . "\n"
+      . join( ' ', map {
+            my $role = $_;
+            ref $wanted->{$role} eq 'ARRAY'
+              ? ( map {"--role $role=$_"} @{ $wanted->{$role} } )
+              : "--role $role=$wanted->{$role}";
+        } sort keys %{$wanted} ) . "\n"
       if !defined $args{type} || $args{type} eq '';
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
@@ -9619,11 +9624,16 @@ sub column_roles_set {
 
         # A role pointing at nothing would make every rule written against it
         # match nothing at all, silently, while somebody believed it was
-        # protecting them. Refusing is the only safe answer.
+        # protecting them. Refusing is the only safe answer. 'entry' alone
+        # may hold more than one column - a board can start new cards in
+        # more than one place - so its value is validated column by column
+        # rather than as one scalar. TKT-496.
         for my $role ( sort keys %{$wanted} ) {
-            my $column = $wanted->{$role};
-            die "No column named '$column' on this board, so '$role' cannot mean it\n"
-              if !$columns{ $column // '' };
+            my @named = ref $wanted->{$role} eq 'ARRAY' ? @{ $wanted->{$role} } : ( $wanted->{$role} );
+            for my $column (@named) {
+                die "No column named '$column' on this board, so '$role' cannot mean it\n"
+                  if !$columns{ $column // '' };
+            }
         }
 
         $config->{roles} = { %{ $config->{roles} // {} }, %{$wanted} };

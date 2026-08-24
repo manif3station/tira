@@ -1330,7 +1330,13 @@ move. CLI/agent path only; the browser dashboard's create flow is unaffected.
 A board that names no `entry` role is unaffected too. TKT-428. Every other
 role, including `in-progress`, is matched rather than understood: a policy can
 name one with `--enter-role`, `--before-role` or `--column-role`, and Tira
-never reads it on its own account.
+never reads it on its own account. `entry` alone may be declared more than
+once (`--role entry=A --role entry=B`), accumulating rather than the last one
+winning - a board can start new cards in more than one place. With several
+declared, `record.create` with no `--column` lands in the first one declared,
+and `--column` naming any of them succeeds; naming a column that is none of
+them refuses, listing all of the declared entries. A board with zero or one
+entry column is completely unaffected. TKT-496.
 
 Until 1.97 `in-progress` was a second exception and a silent one. Whether any
 card was being worked - which `work-without-card` rests on - counted only cards

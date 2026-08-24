@@ -2425,14 +2425,25 @@ sub _invoke {
         # the dashboard's own create flow, which calls it directly - is
         # untouched. TKT-428.
         my $entry = eval { $tira->column_roles(%args) }->{entry};
-        if ( defined $entry && $entry ne '' ) {
+
+        # 'entry' may now name more than one column (TKT-496) - a board can
+        # start new cards in more than one place. Normalised to a list here
+        # so the single-entry case (still the common one) needs no branch of
+        # its own: with exactly one entry, this behaves exactly as before -
+        # the same column either matches or is refused.
+        my @entries = ref $entry eq 'ARRAY' ? @{$entry} : ( defined $entry && $entry ne '' ? ($entry) : () );
+        if (@entries) {
             if ( defined $args{column} && $args{column} ne '' ) {
-                die "Cannot create $args{type} in $args{column} - the entry column is $entry.\n"
-                  . "  Create there instead:  d2 tira.$args{type}.create --title TITLE --column $entry\n"
-                  if $args{column} ne $entry;
+                die "Cannot create $args{type} in $args{column} - the entry column"
+                  . ( @entries > 1 ? 's are ' . join( ', ', @entries ) : ' is ' . $entries[0] ) . ".\n"
+                  . "  Create there instead:  d2 tira.$args{type}.create --title TITLE --column $entries[0]\n"
+                  if !grep { $_ eq $args{column} } @entries;
             }
             else {
-                $args{column} = $entry;
+                # No column named: the first declared entry column, which is
+                # exactly today's only entry column when there is just one -
+                # nothing changes for a board that has never declared more.
+                $args{column} = $entries[0];
             }
         }
 
@@ -2612,12 +2623,22 @@ sub _invoke {
         # Written the way he says it: which column is the backlog, which is
         # in progress. Each --role takes name=column, and any role may be
         # left unset because most projects have a column for very few of them.
+        #
+        # 'entry' alone may be given more than once - a board can start new
+        # cards in more than one place - and repeating it accumulates rather
+        # than the last one silently winning, the way a second --role of any
+        # other name still does. TKT-496.
         my %roles;
         for my $pair ( @{ $option->{roles} } ) {
             my ( $role, $column ) = split /=/, $pair, 2;
             die "A role is written as name=column, not '$pair'\n"
               if !defined $column || $column eq '' || $role eq '';
-            $roles{$role} = $column;
+            if ( $role eq 'entry' ) {
+                push @{ $roles{$role} }, $column;
+            }
+            else {
+                $roles{$role} = $column;
+            }
         }
         return $tira->column_roles_set( %args, roles => \%roles );
     }

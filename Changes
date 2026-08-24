@@ -1,5 +1,25 @@
 Revision history for Tira
 
+3.84  2026-08-24
+
+    - TKT-496. Prerequisite for TKT-494 ("It can be multiple
+      entries", Michael's own words): column_roles_set stored one
+      column per role, so 'entry' meant exactly one column and
+      record.create's dispatch (TKT-428) read it as a scalar.
+
+    - Fixed: --role entry=X given more than once now accumulates
+      into a list rather than the last one silently winning.
+      record.create with no --column lands in the first declared
+      entry column; naming any of the declared entries explicitly
+      succeeds; a column that is none of them is refused, naming all
+      of them. Scoped to the entry role alone - no other role needs
+      more than one column for any use case this project has, and
+      every board with zero or one entry column is completely
+      unaffected. t/374 proves all three scenarios plus full
+      backward compatibility. Docker: Files=369, Tests=7499, PASS,
+      100% statement+subroutine coverage on lib/Tira.pm and
+      lib/Tira/CLI.pm.
+
 3.83  2026-08-24
 
     - TKT-492. Follow-up to TKT-486: two live "d2 tira.police"

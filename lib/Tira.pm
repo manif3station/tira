@@ -6374,9 +6374,21 @@ sub policy_evaluate {
             for my $record ( @{$records} ) {
                 next if !$resolved_for->( $policy, $record );
                 next if ( $record->{column} // '' ) ne ( $policy->{enter} // '' );
+
+                # scope_in/scope_out are never flat record fields on any
+                # type - only nested under scope.included/scope.excluded -
+                # so the raw $record->{$_} lookup below made this
+                # requirement permanently unsatisfiable for either name.
+                # Read the same nested object _policy_missing_detail
+                # already does. TKT-410.
+                my $scope = $record->{scope} || {};
                 my @missing = grep {
-                    my $value = $record->{$_};
-                    ref $value eq 'ARRAY' ? !@{$value} : !defined $value || $value eq '';
+                    if ( $_ eq 'scope_in' ) { !@{ $scope->{included} // [] } }
+                    elsif ( $_ eq 'scope_out' ) { !@{ $scope->{excluded} // [] } }
+                    else {
+                        my $value = $record->{$_};
+                        ref $value eq 'ARRAY' ? !@{$value} : !defined $value || $value eq '';
+                    }
                 } @wanted;
                 next if !@missing;
                 $report->( $policy, $record, 'missing: ' . join( ',', @missing ) );

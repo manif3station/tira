@@ -173,6 +173,20 @@ Revision history for Tira
       tira.dev.found.bug_or_improvement, naming --from, --title, and
       --text.
 
+    - TKT-410. card-metrics --require scope_in,scope_out was permanently
+      unsatisfiable: the check reads a card's fields with a raw
+      $record->{$_} lookup, and scope_in/scope_out are never flat
+      record fields on any type - only nested under
+      scope.included/scope.excluded. Measured live on both a ticket
+      and an epic with scope explicitly set via --scope-in/--scope-out
+      - both still tripped the rule.
+
+    - Fixed: card-metrics now special-cases scope_in and scope_out to
+      read the nested scope object, the same lookup
+      _policy_missing_detail already used, so the requirement is
+      satisfiable on tickets and epics alike. Every other --require
+      field keeps its existing flat lookup.
+
 3.88  2026-08-24
 
     - TKT-498. Owner, in Cantonese, watching an agent drop a field:

@@ -707,6 +707,29 @@ nothing changes. The call reports what it added, removed and
 reordered, because removals happen one at a time and a run that fails
 partway will already have made some of them.
 
+The police policy dialog is **Implemented.** each board control
+also has a Policies button, separate from Columns, opening a modal for
+the board-wide police policy engine — the 36 rules police itself
+watches (`card-duration`, `wip-limit`, `conversation-not-folded`, and
+the rest), which was CLI-only until TKT-493 and is a different thing
+entirely from a column's own required-action template above. The
+modal shows the same three-way split `tira.policy.review` already
+returns — declared, declined, undeclared — with a form to declare a
+new policy, edit or remove a declared one, or decline a rule with a
+reason. The rule picker's parameter fields (`--enter`, `--column`,
+`--age`, `--max`, and the rest of `tira.policy.add`'s own options,
+plus the `--type`/`--on-column`/`--ref` scope) show or hide themselves
+per selected rule from a new engine method, `policy_rule_specs`, which
+returns the exact needs/forbids `policy_add` already validates
+against — so the form cannot drift from what the CLI actually accepts
+without both changing together. Editing a declared policy removes and
+re-declares it under the hood, since `policy_add` itself refuses to
+update a declaration in place (TKT-339's rule against silently
+replacing a stricter policy with a looser one); the modal keeps that
+guarantee rather than working around it. Requested directly: "create a
+new modal on the html dashboard, the user can view and edit and add
+the policies not just column policies." TKT-493.
+
 The reminder job is **Implemented.** `tira.collector.show`
 computes the background job for this project and
 `tira.collector.install` registers it, merging into the machine's own

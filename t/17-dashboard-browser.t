@@ -113,6 +113,10 @@ my $app = Tira::DashboardWeb->build_psgi_app(
     detail => sub { return '{"ref":"TKT-001","title":"\\u00a3"}' },
     search => sub { '[]' },
     police_log => sub { '[]' },
+    policies => sub { '{"declared":[],"declined":[],"undeclared":[],"rules":{},"actions":[]}' },
+    policy_add => sub { '{"ok":true}' },
+    policy_remove => sub { '{"ok":true}' },
+    policy_decline => sub { '{"ok":true}' },
     columns => sub { '[]' },
     question_answer => sub { '{"ok":true}' },
     question_mark => sub { '{"ok":true}' },
@@ -139,6 +143,10 @@ my $app = Tira::DashboardWeb->build_psgi_app(
     link_add => sub { '{"ok":true}' },
     link_remove => sub { '{"ok":true}' },
     police_log => sub { '[]' },
+    policies => sub { '{"declared":[],"declined":[],"undeclared":[],"rules":{},"actions":[]}' },
+    policy_add => sub { '{"ok":true}' },
+    policy_remove => sub { '{"ok":true}' },
+    policy_decline => sub { '{"ok":true}' },
 );
 my @warnings;
 {
@@ -199,6 +207,10 @@ like( $@, qr/Missing dashboard detail provider/, 'PSGI builder requires a detail
         Tira::DashboardWeb->serve(
             host => 'localhost', port => 4567, project => $root,
             police_log => sub { '[]' },
+    policies => sub { '{"declared":[],"declined":[],"undeclared":[],"rules":{},"actions":[]}' },
+    policy_add => sub { '{"ok":true}' },
+    policy_remove => sub { '{"ok":true}' },
+    policy_decline => sub { '{"ok":true}' },
             signed_in(),
             render => sub { '<!doctype html>' },
             data => sub { '{}' },

@@ -16,6 +16,12 @@ Police never writes to the board. It reads, and it writes only to a log of its
 own that the bridge streams to the agent. One process writes to a project; that
 is not tidiness, it is the constraint the whole design rests on.
 
+**Every declaration below can also be made from the browser.** The live
+dashboard's Policies button, next to Columns, opens a modal for the same
+declared/declined/undeclared policies this command set works with - a rule
+picker with the same rule-specific parameter fields `tira.policy.add`
+accepts, so nothing on this page is unreachable from the dashboard.
+
 ## Read this before you copy anything below
 
 **The use cases in this document are examples, not a prescription.** They are

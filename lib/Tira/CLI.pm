@@ -1114,6 +1114,52 @@ sub browser_providers {
                 )
             );
         },
+        # The board-wide police policy engine, separate from a column's own
+        # required-action template (the columns/column_apply pair above): 36
+        # rules covering things a column dialog cannot express at all -
+        # conversation-not-folded, question-unanswered, card-stalled and the
+        # rest. Requested directly: "create a new modal on the html
+        # dashboard, the user can view and edit and add the policies not
+        # just column policies." TKT-493.
+        policies => sub {
+            return $json->encode( {
+                declared   => $tira->policy_list( project => $project ),
+                declined   => $tira->policy_declined( project => $project ),
+                undeclared => $tira->policy_undeclared( project => $project ),
+                rules      => $tira->policy_rule_specs(),
+                actions    => $tira->policy_actions(),
+            } );
+        },
+        policy_add => sub {
+            my ($payload) = @_;
+            die "Policy payload must be an object\n" if ref($payload) ne 'HASH';
+
+            # Every field policy.add itself accepts, so nothing typeable on
+            # the command line is unreachable from the dashboard - the same
+            # completeness bar TKT-493's own acceptance criteria set.
+            my %policy = map { $_ => $payload->{$_} }
+              grep { defined $payload->{$_} && $payload->{$_} ne '' }
+              qw(rule action enter before column age read_age max pattern
+                 message require sandbox require_link link_to
+                 type on_column ref);
+            return $json->encode(
+                $tira->policy_add( project => $project, %policy ) );
+        },
+        policy_remove => sub {
+            my ($payload) = @_;
+            die "A policy id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
+            return $json->encode(
+                $tira->policy_remove( project => $project, id => $payload->{id} ) );
+        },
+        policy_decline => sub {
+            my ($payload) = @_;
+            die "A policy rule is required\n" if !defined $payload->{rule} || $payload->{rule} eq '';
+            return $json->encode(
+                $tira->policy_decline(
+                    project => $project, rule => $payload->{rule}, reason => $payload->{reason},
+                    ( defined $payload->{_signed_in} ? ( author => $payload->{_signed_in} ) : () ),
+                ) );
+        },
         search => sub {
             my ($query) = @_;
 

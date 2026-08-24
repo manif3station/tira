@@ -133,6 +133,10 @@ my %providers = (
     link_add => sub { '{"ok":true}' },
     link_remove => sub { '{"ok":true}' },
     police_log => sub { '[]' },
+    policies => sub { '{"declared":[],"declined":[],"undeclared":[],"rules":{},"actions":[]}' },
+    policy_add => sub { '{"ok":true}' },
+    policy_remove => sub { '{"ok":true}' },
+    policy_decline => sub { '{"ok":true}' },
 );
 
 for my $missing (qw(checklist_add checklist_update)) {

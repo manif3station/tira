@@ -1,5 +1,43 @@
 Revision history for Tira
 
+3.89  2026-08-24
+
+    - TKT-493. Requested directly: "create a new modal on the html
+      dashboard, the user can view and edit and add the policies not
+      just column policies." The Columns dialog only ever covered a
+      column's own required-action template; the board-wide police
+      policy engine (36 rules - card-duration, wip-limit,
+      conversation-not-folded, and the rest) was CLI-only, reachable
+      through tira.policy.add/list/remove/decline and nowhere in the
+      browser.
+
+    - New: a Policies button next to Columns opens a modal listing
+      every declared, declined, and undeclared rule (the same
+      three-way split tira.policy.review already returns), with a
+      form to declare a new policy, edit or remove a declared one, or
+      decline a rule with a reason - covering every rule-specific
+      parameter tira.policy.add accepts (enter, before, column, age,
+      read_age, max, pattern, message, require, sandbox, require_link,
+      link_to) plus the type/on_column/ref scope narrowing, so nothing
+      typeable on the CLI is unreachable from the dashboard.
+
+    - New engine method policy_rule_specs exposes the same
+      needs/forbids data policy_add already validates against, so the
+      form's rule picker shows or hides the right fields per rule
+      without duplicating that knowledge and risking drift.
+
+    - New browser_providers closures (policies, policy_add,
+      policy_remove, policy_decline) and matching DashboardWeb.pm
+      routes (GET /policies, POST /policy/add, /policy/remove,
+      /policy/decline), following the same provider/route pattern the
+      Columns dialog already uses for /columns and /columns/apply.
+
+    - Editing a declared policy removes and re-declares it under the
+      hood, since policy_add itself refuses to update a declaration
+      in place (TKT-339's own rule against silently replacing a
+      stricter policy with a looser one) - the modal keeps that
+      guarantee rather than working around it.
+
 3.88  2026-08-24
 
     - TKT-498. Owner, in Cantonese, watching an agent drop a field:

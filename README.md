@@ -60,6 +60,11 @@ picker, a bold/italic/code/list formatting bar, and markdown storage with
 safe formatted rendering in the dialog. Text attachments render in the
 viewer's own themed panel with deterministic contrast in every color
 scheme, instead of the browser's default plain-text document.
+The board-wide police policy engine — the 36 rules police itself watches,
+separate from a column's own required-action template — is editable from
+the browser too: a Policies button opens a modal listing every declared,
+declined, and undeclared rule, with a rule-specific parameter picker that
+matches the `tira.policy.add` command exactly.
 
 ## Value
 

@@ -17,7 +17,7 @@ our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $SEARCH, $COMMENT_ADD, $
       $LINK_TYPES, $HIERARCHY_LINK, $HIERARCHY_UNLINK, $SUBITEM_LINK, $SUBITEM_UNLINK, $LINK_ADD, $LINK_REMOVE,
       $COLUMNS, $COLUMN_APPLY, $QUESTION_ANSWER, $QUESTION_MARK, $QUESTION_ATTACH,
       $LOGIN_START, $LOGIN_REGISTER, $SESSION_RESUME, $SESSION_PEEK, $SESSION_END, $LOGIN_PAGE,
-      $WORK_LOG, $POLICE_LOG );
+      $WORK_LOG, $POLICE_LOG, $POLICIES, $POLICY_ADD, $POLICY_REMOVE, $POLICY_DECLINE );
 
 our $COOKIE = 'tira_session';
 
@@ -194,6 +194,16 @@ get '/columns' => sub {
     return _response_bytes( $COLUMNS->( { type => $type } ) );
 };
 
+# The board-wide police policy engine (36 rules), separate from a column's
+# own required-action template above. TKT-493.
+get '/policies' => sub {
+    content_type 'application/json; charset=UTF-8';
+    return _response_bytes( $POLICIES->() );
+};
+post '/policy/add' => sub { return _mutation( \$POLICY_ADD ) };
+post '/policy/remove' => sub { return _mutation( \$POLICY_REMOVE ) };
+post '/policy/decline' => sub { return _mutation( \$POLICY_DECLINE ) };
+
 get '/search' => sub {
     my %query;
     for my $pair ( split /&/, request->env->{QUERY_STRING} // '' ) {
@@ -341,6 +351,10 @@ my @PROVIDERS = (
     [ login_page => \$LOGIN_PAGE, 'login page provider' ],
     [ work_log => \$WORK_LOG, 'work log provider' ],
     [ police_log => \$POLICE_LOG, 'police log provider' ],
+    [ policies => \$POLICIES, 'policies provider' ],
+    [ policy_add => \$POLICY_ADD, 'policy add provider' ],
+    [ policy_remove => \$POLICY_REMOVE, 'policy remove provider' ],
+    [ policy_decline => \$POLICY_DECLINE, 'policy decline provider' ],
 );
 
 sub build_psgi_app {

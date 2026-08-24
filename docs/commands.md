@@ -603,6 +603,17 @@ other rule the project set.
 
 See them, or remove one by `--id POL-nnn`. Numbers are never reused.
 
+**The dashboard's Policies button is Implemented,** as a modal
+alongside the Columns dialog, since TKT-493. It reads and writes the
+same declared/declined/undeclared policies as the commands on this
+page, through `GET /policies` and `POST /policy/add` / `/policy/remove`
+/ `/policy/decline`, rather than a separate mechanism - a policy
+declared from the browser is a policy `tira.policy.list` shows, and one
+declared with `tira.policy.add` shows up in the browser on next open.
+Its rule picker's parameter fields match `--enter`/`--column`/`--age`
+and the rest of this section exactly, driven by the same needs/forbids
+data `policy_add` validates against.
+
 ### `tira.police`
 
 **The owner runs this**, in a terminal they can leave open.

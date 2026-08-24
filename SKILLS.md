@@ -1547,6 +1547,10 @@ refused and says so, because an add that cannot take must not report success.
 ### UC-133: Report a fault in Tira from whatever you are working on
 **Implemented.** `dashboard tira.dev.found.bug_or_improvement --from <your project> --title "<what you found>" --text "<what happened>"` raises the report where Tira is maintained. You do not say where that is and you are not told: the command carries it, so an agent that hits a fault while working on something else reports it in one command and gets back to work. Your own board is untouched. `--from` is required and becomes a label on the card, because a report nobody can go back to is one nobody can answer — and a question asked on that card reaches you through it. The card is raised in the backlog under the maintainer's name, since an agent in another project is not a member of that board, and where it goes from there is that board's decision. It arrives as an incomplete card on purpose: that board refuses a release while any live card is incomplete, so a report has to be triaged before the next one ships and cannot sit unread.
 
+```text
+tira.dev.found.bug_or_improvement --from PROJECT --title TEXT [--text TEXT] [-o toon|json|human]
+```
+
 ### UC-134: See what police has said about a card, on the card
 **Implemented.** Open a card on the live dashboard and a **What police has said** section shows its enforcement log: when, what kind of thing it was, and what was said — with the number of entries in the heading. It is read for the card the dialog is open on, and it offers nothing to change, because police writes that log and nobody else may; there is no command to add an entry either, and a button here would have been the way around that. A card police has never mentioned shows no section at all rather than an empty heading, since a heading on every card is how a section teaches people to skip past it. This exists because the log was kept and never surfaced: it is there precisely so what police said survives the bridge scrolling past, and until now the surviving copy was readable only by an agent running a command.
 

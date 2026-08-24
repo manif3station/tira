@@ -160,6 +160,19 @@ Revision history for Tira
       twice. Two policies describing genuinely different problems (one
       satisfied, one not) still both report.
 
+    - TKT-283. dev.found.bug_or_improvement --help named no arguments,
+      so the one command an agent reaches for after already hitting
+      trouble was the one it could not look up without a second
+      command. SKILLS.md mentioned it only mid-sentence in prose, never
+      at the start of a line, so _skills_usage_line()'s start-of-line
+      lookup never matched it and --help fell through to the bare
+      "[options]" placeholder - the same defect shape TKT-343 fixed for
+      six other commands.
+
+    - Fixed: SKILLS.md now also carries a start-of-line usage line for
+      tira.dev.found.bug_or_improvement, naming --from, --title, and
+      --text.
+
 3.88  2026-08-24
 
     - TKT-498. Owner, in Cantonese, watching an agent drop a field:

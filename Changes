@@ -1,5 +1,27 @@
 Revision history for Tira
 
+3.79  2026-08-24
+
+    - TKT-291. tira.police.outstanding's default output was a flat
+      array of strings, and Data::TOON renders that as one inline
+      "primitive array" row - every finding comma-joined behind a
+      bracketed count and quote marks, so the command an agent is
+      told to re-run after every fix ("run tira.police.outstanding
+      again and confirm that violation is gone") made a reader parse
+      past quoting to find the first thing.
+
+    - Fixed: the default output is now an array of single-key
+      {line=>TEXT} hashes, which Data::TOON renders one row per
+      finding instead. Added the --by-rule view named in the ticket:
+      findings grouped by rule instead of chased/recorded, each card
+      listed once per rule even when two policies for the same rule
+      matched it, rules somebody should act on sorting before ones
+      the board only logs. -o json is unchanged - still the bare list
+      the clear-violations instruction pipes. t/369 proves both.
+      Docker: Files=364, Tests=7440, PASS, 100%
+      statement+subroutine coverage on lib/Tira.pm and
+      lib/Tira/CLI.pm.
+
 3.78  2026-08-24
 
     - TKT-285. Reported live: tira.card.required returned a flat list

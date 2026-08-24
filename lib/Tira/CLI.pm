@@ -323,6 +323,7 @@ sub run {
         # a warning printed into the output, which turned a JSON payload into
         # something no caller could parse. The suite said so twice at once.
         'exit-nonzero-if-any' => \$option{exit_nonzero_if_any},
+        'by-rule' => \$option{by_rule},
 
         # Agreeing to lose work. Spelled out rather than a single letter,
         # because the one command that can destroy a board should not be
@@ -2772,16 +2773,56 @@ sub _invoke {
             return sprintf '%s %s %s seen %d',
               $v->{id} // '', $v->{rule} // '', $v->{ref} // '(board)', $v->{seen} // 0;
         };
+
+        # Each row its own answer rather than a cell in one. TOON renders an
+        # array of plain strings as a single inline "primitive array" row -
+        # every finding comma-joined behind one bracketed count, quote marks
+        # and all - so a reader had to parse past that to find the first
+        # thing. An array of single-key hashes is a different shape to TOON:
+        # one row per element, which is the whole fix. TKT-291.
+        my $row = sub { return { line => $_[0] } };
+        my $header = scalar(@{$open}) . ' outstanding, as of the pass at '
+          . ( $at // 'a time this board did not record' );
+
+        # Grouped by rule instead of by chased/recorded, opt-in: --by-rule
+        # answers "what does this board have declared against it" rather than
+        # "what should I do next" - a different question, not a strictly
+        # better one, so the default stays the work list. Still-act-on rules
+        # sort before log-only ones, so a reader scanning groups meets the
+        # same order the default view already gives findings in. Each ref
+        # appears once per rule even if two policies for the same rule both
+        # matched it - a display duplicate would be one thing on the board
+        # read as two.
+        if ( $option->{by_rule} ) {
+            my %by_rule;
+            my %seen;
+            for my $v ( @{$open} ) {
+                my $rule = $v->{rule} // '';
+                next if $seen{$rule}{ $v->{ref} // '' }++;
+                push @{ $by_rule{$rule} }, $v;
+            }
+            my @groups;
+            for my $rule (
+                ( sort grep { ( $by_rule{$_}[0]{action} // '' ) ne 'log-only' } keys %by_rule ),
+                ( sort grep { ( $by_rule{$_}[0]{action} // '' ) eq 'log-only' } keys %by_rule ),
+            ) {
+                my @findings = @{ $by_rule{$rule} };
+                push @groups, $row->( "$rule (" . scalar(@findings) . '):' );
+                push @groups, map { $row->( '  ' . $line->($_) ) } @findings;
+            }
+            return [ $row->($header), @groups ];
+        }
+
         return [
-            scalar(@{$open}) . ' outstanding, as of the pass at '
-              . ( $at // 'a time this board did not record' ),
+            $row->($header),
             ( @chased
-                ? ( scalar(@chased) . ' to act on:', map { '  ' . $line->($_) } @chased )
+                ? ( $row->( scalar(@chased) . ' to act on:' ),
+                    ( map { $row->( '  ' . $line->($_) ) } @chased ) )
                 : () ),
             ( @recorded
-                ? ( scalar(@recorded)
-                      . ' only recorded, because the board declared them log-only:',
-                    map { '  ' . $line->($_) } @recorded )
+                ? ( $row->( scalar(@recorded)
+                      . ' only recorded, because the board declared them log-only:' ),
+                    ( map { $row->( '  ' . $line->($_) ) } @recorded ) )
                 : () ),
         ];
     }

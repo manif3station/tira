@@ -971,6 +971,7 @@ anything. TKT-380.
 | --- | --- | --- |
 | `--exit-nonzero-if-any` | no | Exit 1 while anything is outstanding, 0 when clear. An error still exits 2, so a scheduled job can tell clean from findings from could-not-look. Opt-in: without it the exit status is what it always was. |
 | `--fresh` | no | Run one police pass inline before reading, instead of answering from whatever the last pass wrote. Opt-in, because a read that quietly ran a pass would move escalation counts because somebody asked a question - see below. Without it, behavior is exactly as it always was. |
+| `--by-rule` | no | Group the default output by rule instead of by chased/log-only, each card listed once per rule even when two policies for the same rule matched it. Rules somebody should act on sort before ones the board only logs. `-o json` is unaffected either way. TKT-291. |
 
 Since 2.68 the exit status is taken from the command's own count of findings
 when it has one, rather than from the rendered rows. 2.62 gave the default
@@ -999,6 +1000,18 @@ board is chasing:
 1 only recorded, because the board declared them log-only:
   VIO-0001 card-unassigned TKT-001 seen 2
 ```
+
+Until 3.79 those rows were a plain Perl array of strings, which the default TOON renderer draws as a single inline "primitive array" - every row comma-joined behind one bracketed count and quote marks, so a reader had to parse past that to find the first thing. Each row is now its own line. `--by-rule` groups the same findings by rule instead:
+
+```
+2 outstanding, as of the pass at 2026-08-18T12:05:00Z
+orphan-card (1):
+  VIO-0002 orphan-card TKT-001 seen 2
+card-unassigned (1):
+  VIO-0001 card-unassigned TKT-001 seen 2
+```
+
+TKT-291.
 
 Both of those were asked for. The list reads the violation ledger, and **only a
 police pass writes it** — so the answer is as of the last pass, and saying so

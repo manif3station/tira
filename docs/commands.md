@@ -2115,8 +2115,8 @@ so the second of two concurrent calls sees the first's addition and skips it. A 
 - `tira.comment.add --ref REF --author ID (--text TEXT|--file FILE) [--format markdown|text] [--attach PATH ...] [-o FORMAT]` - the stored/read field is `body`, the only one of four write/read pairs (gate `--details`/`details`, evidence `--summary`/`summary`, checklist `--item`/`item`) where the write flag and the field name disagree. Since 3.81 the returned comment also carries `text` alongside `body`, the same value, so a caller reaching for the write-side name on the way back out finds it rather than a silent `None` - built fresh on every read, never persisted onto the stored comment. TKT-353.
 - `tira.comment.attach --ref REF --comment ID --file PATH [-o FORMAT]`
 - `tira.comment.list --ref REF [--last N|--first N] [--meta-only] [--fields LIST] [--since TIMESTAMP] [--count] [-o FORMAT]` - every comment carries `text` alongside `body` since 3.81; `--fields text` selects it the same way `--fields body` selects the original.
-- `tira.comment.remove --ref REF --comment ID [-o FORMAT]`
-- `tira.comment.update --ref REF --comment ID (--text TEXT|--file FILE) [--format markdown|text] [-o FORMAT]` - the updated comment also carries `text` alongside `body`, same as `comment.add`.
+- `tira.comment.remove --ref REF --comment ID [-o FORMAT]` - an unknown `--comment` id refuses naming the card's real ids, or the `CMT-NNN` shape on a card with none yet, the same fix `checklist.update` (TKT-280), `required-action.update` (TKT-488) and `gate.list`/`evidence.list` (TKT-490) already got. TKT-491.
+- `tira.comment.update --ref REF --comment ID (--text TEXT|--file FILE) [--format markdown|text] [-o FORMAT]` - the updated comment also carries `text` alongside `body`, same as `comment.add`. An unknown `--comment` id refuses the same way as `comment.remove`. TKT-491.
 
 
 ### Evidence

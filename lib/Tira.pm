@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.86';
+our $VERSION = '3.87';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -3528,7 +3528,18 @@ sub comment_update {
     return $self->_with_project_lock( $root, sub {
         my $record = $self->record_show(%args);
         my ($comment) = grep { $_->{id} eq ( $args{comment} // '' ) } @{ $record->{comments} };
-        die "Comment '$args{comment}' not found\n" if !$comment;
+        if ( !$comment ) {
+            my @ids = map { $_->{id} } @{ $record->{comments} };
+
+            # Same shape TKT-280/488/490 already fixed for checklist,
+            # required-action and gate/evidence lookups: an unknown id names
+            # the real ids the card has, or the CMT-NNN shape when it has
+            # none. TKT-491.
+            die "Comment '$args{comment}' not found - entries are addressed by id (CMT-001, ...), and this card has none yet\n"
+              if !@ids;
+            die "Comment '$args{comment}' not found - entries are addressed by id, not position: "
+              . join( ', ', @ids ) . "\n";
+        }
         $comment->{body} = $args{text} if defined $args{text};
         $comment->{format} = $args{format} if defined $args{format};
         $comment->{last_updated} = $self->{clock}->();
@@ -3544,7 +3555,13 @@ sub comment_remove {
         my $record = $self->record_show(%args);
         my $id = $args{comment} // '';
         my ($removed) = grep { $_->{id} eq $id } @{ $record->{comments} };
-        die "Comment '$id' not found\n" if !$removed;
+        if ( !$removed ) {
+            my @ids = map { $_->{id} } @{ $record->{comments} };
+            die "Comment '$id' not found - entries are addressed by id (CMT-001, ...), and this card has none yet\n"
+              if !@ids;
+            die "Comment '$id' not found - entries are addressed by id, not position: "
+              . join( ', ', @ids ) . "\n";
+        }
         $record->{comments} = [ grep { $_->{id} ne $id } @{ $record->{comments} } ];
         $self->_replace_record( %args, record => $record );
         return $removed;

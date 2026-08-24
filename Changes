@@ -1,5 +1,24 @@
 Revision history for Tira
 
+3.87  2026-08-24
+
+    - TKT-491. Found during a documentation-gap hunt while checking
+      for other instances of the exact pattern TKT-280/488/490
+      already fixed: comment_update and comment_remove were the last
+      two record-entry lookups with the identical gap.
+
+    - Fixed: comment.update and comment.remove refused an unknown
+      --comment id with only "Comment '<id>' not found" - true, and
+      silent about the fact that ids are CMT-NNN rather than a
+      position, the same gap already closed for checklist entries
+      (TKT-280), required-action items (TKT-488), and gate/evidence
+      entries (TKT-490). Both now name the card's real ids when it
+      has any, or the CMT-NNN shape when it has none. t/376 proves
+      both commands, both against a card with real comments and an
+      empty one - red against pre-fix code (8 of 12 assertions
+      failed), green after. Docker: Files=371, Tests=7517, PASS,
+      100% statement+subroutine coverage on lib/Tira.pm.
+
 3.86  2026-08-24
 
     - TKT-497. "When card being move along on the html dashboard. The

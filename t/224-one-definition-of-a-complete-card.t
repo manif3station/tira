@@ -38,8 +38,10 @@ $tira->project_new(
 
 # --- the definition, in one place ------------------------------------------
 
-my $required = Tira->card_required;
-is( ref $required, 'ARRAY', 'there is one definition of a complete card' );
+my $answer = Tira->card_required;
+is( ref $answer, 'HASH', 'there is one definition of a complete card' );
+my $required = $answer->{fields};
+is( ref $required, 'ARRAY', 'named as a list of fields' );
 ok( scalar @{$required}, 'and it names fields' );
 
 for my $field (qw(problem_or_feature solution_needed key_details deliverables
@@ -47,6 +49,19 @@ for my $field (qw(problem_or_feature solution_needed key_details deliverables
     scope_in scope_out checklist parent)) {
     ok( scalar( grep { $_ eq $field } @{$required} ), "it names $field" );
 }
+
+# --- and the two exceptions to that definition ride along with it ----------
+#
+# TKT-285: they used to exist as prose in tira.usage alone - not in this
+# command, not in tira.skills, not in the push gate's own independent copy.
+# A caller reading only tira.card.required now gets the same answer the
+# push gate gets, by construction.
+
+is( ref $answer->{exempt}, 'HASH', 'and the exceptions to that definition' );
+is_deeply( $answer->{exempt}{parent}{types}, ['sow'],
+    'a SOW is exempt from needing a parent - it sits at the top of the tree' );
+is_deeply( $answer->{exempt}{parent}{labels}, ['standalone'],
+    'and a card labelled standalone is exempt too - it says somebody meant it' );
 
 # --- and both readers use it ------------------------------------------------
 #
@@ -75,7 +90,7 @@ for my $field (qw(problem_or_feature solution_needed key_details deliverables
     # tests.
     like( $text, qr/os\.path\.abspath\(__file__\)/,
         'the gate locates the tree it is gating from its own place in it' );
-    like( $text, qr/def required\(\):.*?'card',\s*'required'/s,
+    like( $text, qr/def _card_required\(\):.*?'card',\s*'required'/s,
         'and asks that tree for the one definition there is' );
 }
 

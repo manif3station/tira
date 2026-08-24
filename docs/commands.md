@@ -918,6 +918,17 @@ Two of the fields carry exceptions that belong to the definition rather than to
 whoever is reading it: a SOW has no parent because it sits at the top of the
 tree, and a card labelled `standalone` is saying somebody meant it to have none.
 
+The answer is `{"fields": [...], "exempt": {...}}`, not a flat list - until
+3.78 the exceptions above existed as this paragraph and nowhere else: not in
+this command's own JSON, not in `tira.skills`, and the push gate
+(`tools/card-holes`) carried an independent hardcoded copy of the identical
+two exceptions, a fourth place they could have silently drifted from. A
+caller building a completeness check from this command's field list alone
+used to flag every legitimately parentless card - 169 of 304 live cards on
+this project's own board at the time, every one of them standalone. Read
+`exempt.parent.types` and `exempt.parent.labels` alongside `fields` now,
+rather than assuming the field list applies unconditionally. TKT-285.
+
 ### `tira.column.endings`
 
 Which columns this board says work ends in.

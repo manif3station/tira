@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.77';
+our $VERSION = '3.78';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -5770,7 +5770,18 @@ my @POLICY_DETAIL_FIELDS = qw(
 # cannot drift apart again.
 my @CARD_REQUIRED = ( @POLICY_DETAIL_FIELDS, qw(scope_in scope_out checklist parent) );
 
-sub card_required { return [@CARD_REQUIRED] }
+# Two of the fields above carry an exception, and until now it lived as prose
+# in tira.usage alone - not in this list, not in tira.skills, not in the
+# push gate's own copy (tools/card-holes hardcoded the identical check
+# independently, a fourth place this could have drifted from). A SOW has no
+# parent because it sits at the top of the tree; a card labelled standalone
+# is saying somebody meant it to have none. Returned alongside the field
+# list itself now, so a caller reading only this command - the one the
+# manual already points at - gets the same answer the push gate gets,
+# by construction rather than by having read the same paragraph. TKT-285.
+my %CARD_EXEMPT = ( parent => { types => ['sow'], labels => ['standalone'] } );
+
+sub card_required { return { fields => [@CARD_REQUIRED], exempt => \%CARD_EXEMPT } }
 
 # A parent is not asked of a SOW, which is the top of the hierarchy, nor of a
 # card that says it stands alone - the gate already made both of those
@@ -5830,8 +5841,11 @@ sub _card_missing_from {
 
     my $kind = $record->{type} // 'ticket';
     my %labels = map { lc $_ => 1 } @{ $record->{labels} // [] };
+    my $parent_exempt = $CARD_EXEMPT{parent} // {};
     push @missing, 'parent'
-      if $kind ne 'sow' && !$record->{parent} && !$labels{standalone};
+      if !grep { $_ eq $kind } @{ $parent_exempt->{types} // [] }
+      and !grep { $labels{$_} } @{ $parent_exempt->{labels} // [] }
+      and !$record->{parent};
 
     return \@missing;
 }

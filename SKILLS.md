@@ -199,7 +199,7 @@ tickets.
   unassessed rather than lowest, and sorts last saying so.
 - `fix_version`: one nullable value - a released version number (e.g. `3.45`), `none`, or an `n/a - ...` explanation for work outside a release; anything else is refused. `tira.changelog.check [--file FILE]` cross-references every card's claimed fix_version against a changelog's own version headings, naming any card whose version was never actually released. Until 3.45 the field took any word at all, and a real gap - four tickets shipped in 1.07 with no changelog entry - went unnoticed until a reader cross-checked the two by hand. TKT-347.
 - `affects_versions`: an array of free-text values, empty by default.
-- `parent`: one generated parent ref or `null`; it is never directly editable.
+- `parent`: one generated parent ref or `null`; it is never directly editable. `tira.card.required` names `parent` among the fields a complete card needs, but the definition it returns carries the exception alongside the field list: a SOW is exempt (it sits at the top of the tree) and so is any card carrying the `standalone` label (saying somebody meant it to have none). Read `exempt.parent` off that command's own JSON rather than assuming the field list applies to every card unconditionally - `orphan-card` and the push gate both honour the same exception. TKT-285.
 
 Parent is the immediate structural parent only. A sub-ticket's parent is its
 master ticket, not its epic; a sub-epic's parent is its master epic, not its

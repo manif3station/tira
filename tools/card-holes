@@ -80,6 +80,7 @@ def milestone(role, fallback):
 # The engine owns the definition now and this asks for it, which is the only
 # arrangement where the two cannot drift apart again. TKT-241.
 REQUIRED = None
+EXEMPT = None
 
 
 def from_tree(what, skill, verb, *args):
@@ -104,12 +105,34 @@ def from_tree(what, skill, verb, *args):
     return json.loads(done.stdout)
 
 
+def _card_required():
+    """The engine's definition of a complete card, read once.
+
+    tira.card.required returns {"fields": [...], "exempt": {...}} as of
+    TKT-285 - the exemptions (a SOW needs no parent, a standalone card needs
+    none either) used to live as prose in tira.usage alone, and this script
+    carried an independent hardcoded copy of the same two exceptions: a
+    fourth place the two could have drifted apart from. Read from the same
+    structure the engine returns instead.
+    """
+    global REQUIRED, EXEMPT
+    if REQUIRED is None:
+        answer = from_tree('what a complete card is', 'card', 'required')
+        REQUIRED = answer['fields']
+        EXEMPT = answer.get('exempt') or {}
+    return REQUIRED
+
+
 def required():
     """The engine's definition of a complete card, read once."""
-    global REQUIRED
-    if REQUIRED is None:
-        REQUIRED = from_tree('what a complete card is', 'card', 'required')
+    _card_required()
     return REQUIRED
+
+
+def exempt():
+    """The exceptions to that definition, read once alongside it."""
+    _card_required()
+    return EXEMPT
 
 
 ATTEMPTS = 3
@@ -300,7 +323,7 @@ def holes(record, kind):
     # first would be deciding that before understanding it. A card with no
     # parent by accident is still a hole, so the difference is declared: the
     # 'standalone' label says somebody meant it.
-    labels = [str(l).lower() for l in (record.get('labels') or [])]
+    labels = set(str(l).lower() for l in (record.get('labels') or []))
 
     for field in required():
         if field == 'scope_in':
@@ -310,7 +333,10 @@ def holes(record, kind):
             if not scope.get('excluded'):
                 missing.append(field)
         elif field == 'parent':
-            if kind != 'sow' and not record.get('parent') and 'standalone' not in labels:
+            rule = exempt().get('parent') or {}
+            if (kind not in (rule.get('types') or [])
+                    and not (labels & set(l.lower() for l in rule.get('labels') or []))
+                    and not record.get('parent')):
                 missing.append(field)
         elif not record.get(field):
             missing.append(field)

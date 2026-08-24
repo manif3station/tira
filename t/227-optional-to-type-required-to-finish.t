@@ -46,7 +46,7 @@ like( $manual, qr/tira\.card\.required/,
 # Read from the engine, not listed here. A test with its own list would be a
 # fourth place for this to drift, which is the fault it is guarding against.
 
-my %required = map { $_ => 1 } @{ Tira->card_required };
+my %required = map { $_ => 1 } @{ Tira->card_required->{fields} };
 my %argument = (
     '--problem'          => 'problem_or_feature',
     '--solution-needed'  => 'solution_needed',

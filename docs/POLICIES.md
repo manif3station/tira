@@ -688,6 +688,8 @@ partially.
 d2 tira.policy.add --rule orphan-card --action bridge-reminder
 ```
 
+A SOW is exempt (it sits at the top of the tree) and so is any card labelled `standalone` (saying somebody meant it to have none) - the same exception `tira.card.required`'s `exempt.parent` names, so a caller reading either agrees with this rule by construction rather than by having read the same paragraph twice. TKT-285.
+
 **30.** A board where orphans are common enough that the owner wants to see the pattern.
 
 ```

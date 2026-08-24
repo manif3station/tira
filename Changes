@@ -1,5 +1,30 @@
 Revision history for Tira
 
+3.78  2026-08-24
+
+    - TKT-285. Reported live: tira.card.required returned a flat list
+      of 14 field names, and the two exceptions to it - a SOW needs
+      no parent, a card labelled standalone needs none either -
+      existed as prose in tira.usage alone, not in this command's own
+      output, not in tira.skills, and tools/card-holes (the push
+      gate) carried an independent hardcoded copy of the identical
+      exception, a fourth place that could silently drift. A caller
+      building a completeness check straight from this command's
+      field list, exactly as the manual invites, flagged every
+      legitimately parentless card - 169 of 304 live cards on this
+      project's own board.
+
+    - Fixed: tira.card.required now answers {"fields": [...],
+      "exempt": {"parent": {"types": ["sow"], "labels":
+      ["standalone"]}}} instead of a flat list. The engine's own
+      card_missing and the push gate's holes() both now read the same
+      %CARD_EXEMPT structure instead of each carrying their own copy
+      of the exception. Named standalone in SKILLS.md too, which
+      previously matched it zero times. t/224, t/227 and the new
+      t/368 all prove the shape and the agreement. Docker: Files=363,
+      Tests=7430, PASS, 100% statement+subroutine coverage on
+      lib/Tira.pm and lib/Tira/CLI.pm.
+
 3.77  2026-08-24
 
     - TKT-488. Found immediately after shipping TKT-280: the same bug

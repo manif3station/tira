@@ -2,6 +2,18 @@ Revision history for Tira
 
 3.89  2026-08-24
 
+    - TKT-411. Reporter wanted an intake/catalog column exempt from
+      card-unassigned without mischaracterizing it (--protected isn't
+      settable on a project's own column, --terminal is semantically
+      wrong for an inbox). Investigation found the answer already
+      existed and was simply not documented on this rule: --no-watch,
+      which card-still and card-changed-by-owner already document.
+      Verified live with no code change: 1 violation before --no-watch,
+      0 after.
+
+    - Fixed: card-unassigned's own docs/POLICIES.md entry now names
+      --no-watch, matching its sibling rules.
+
     - TKT-493. Requested directly: "create a new modal on the html
       dashboard, the user can view and edit and add the policies not
       just column policies." The Columns dialog only ever covered a

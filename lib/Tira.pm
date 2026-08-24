@@ -1284,7 +1284,7 @@ sub tasklist_add {
         }
         my $now = $self->{clock}->();
         my $entry = {
-            id => sprintf( 'TASK-%03d', $max + 1 ), text => $args{text}, status => 'pending',
+            id => sprintf( 'TSK-%03d', $max + 1 ), text => $args{text}, status => 'pending',
             session => $session, refs => $args{refs} // [],
             created_at => $now, last_updated => $now,
         };

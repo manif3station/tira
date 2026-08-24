@@ -2262,14 +2262,19 @@ and a card with none shows no section, unchanged from before. TKT-495.
 ### Task list
 
 A parallel, deliberately lighter system to ticket/epic/sow - free text, three
-fixed states, no gates or checklists. Scoped by `--session`: two different
-session ids never see each other's items, and calling with none named uses
-one shared list, which is what a single agent working alone wants.
+fixed states, no gates or checklists. It sits below the SOW → epic → ticket
+hierarchy: anything smaller than a ticket - a chore, a sub-step, a
+note-to-self. `--ref` is sticky-note style - it can name one thing, several
+(repeat the flag), or nothing, and nothing checks that a named ref actually
+exists. Scoped by `--session`: two different session ids never see each
+other's items, and calling with none named uses one shared list, which is
+what a single agent working alone wants.
 `tasklist.add`/`tasklist.list` fall back to the `TIRA_AGENT_SESSION`
 environment variable when `--session` is not given explicitly, so
 multi-agent mode does not have to type it on every call; an explicit
 `--session` still overrides it. `tasklist.update` never consulted session at
 all - a core agent can already manage any item by id regardless of session.
+Ids are `TSK-NNN`.
 
 - `tira.tasklist.add --text TEXT [--session ID] [--ref REF ...] [-o FORMAT]`
 - `tira.tasklist.list [--session ID] [-o FORMAT]`

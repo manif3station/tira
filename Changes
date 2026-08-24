@@ -2,6 +2,12 @@ Revision history for Tira
 
 3.90  2026-08-24
 
+    - TKT-506. "Task prefix use TSK" (Michael, live) - tasklist_add
+      minted ids as TASK-NNN, breaking the short 3-letter prefix
+      convention every other record type (SOW/EPC/TKT) uses.
+
+    - Fixed: task-list items are now created as TSK-NNN.
+
     - TKT-505. Follow-up to TKT-504: typing --session on every
       tasklist call is unnecessarily long once genuinely multi-agent.
       Michael, live: an environment variable should stand in when

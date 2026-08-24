@@ -32,7 +32,7 @@ $tira->project_new(
 # --- a single-agent board uses one shared list, with no session named ------
 my $added = $tira->tasklist_add( project => $root, text => 'Read the README' );
 is( $added->{status}, 'pending', 'a new task starts pending' );
-like( $added->{id}, qr/\ATASK-\d+\z/, 'and is given a TASK-NNN id' );
+like( $added->{id}, qr/\ATSK-\d+\z/, 'and is given a TSK-NNN id' );
 is( $added->{session}, '', 'with no session declared, it belongs to the shared list' );
 
 my $listed = $tira->tasklist_list( project => $root );

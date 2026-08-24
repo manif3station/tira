@@ -135,7 +135,11 @@ daemon's already-recorded violation. The lock stops that write-corruption race.
 It does not by itself stop two daemons from ever running at the same time -
 only one police daemon is meant to watch a given board, matching
 `_enforcement_write`'s own invariant ("Police writes here and nobody else
-does").
+does"). TKT-487: the same file has two more writers besides `violation_record`
+- the move-notification stamp and the agent-still throttle stamp - each doing
+their own read-modify-write of it. Both now share the same lock, factored into
+one `_with_enforcement_lock` helper, so all three serialise against each other
+rather than only against themselves.
 
 ## Record schema
 

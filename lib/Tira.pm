@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.74';
+our $VERSION = '3.75';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -7351,45 +7351,53 @@ sub _announce_moves {
     return if !$wanted->{enabled};
 
     my $records = eval { $self->record_list( project => $root, include_discard => 1 ) } || [];
-    my $ledger  = $self->_violation_ledger($store);
-    my $said    = $ledger->{notified_moves} ||= {};
-    my $changed = 0;
 
-    for my $record ( @{$records} ) {
-        my $move = $self->_last_move( $root, $record );
-        next if !$move || !defined $move->{at};
+    # The read, the "already told" check and the write are one race without
+    # the lock: a second writer to this same ledger file (violation_record,
+    # _agent_still_mark_notified) whose read lands before this one's write
+    # could otherwise silently lose either side's update. TKT-487.
+    $self->_with_enforcement_lock( $store, sub {
+        my $ledger  = $self->_violation_ledger($store);
+        my $said    = $ledger->{notified_moves} ||= {};
+        my $changed = 0;
 
-        my $already = $self->_notified_move_at( $store, $record->{ref} );
-        next if defined $already && $already ge $move->{at};
+        for my $record ( @{$records} ) {
+            my $move = $self->_last_move( $root, $record );
+            next if !$move || !defined $move->{at};
 
-        # A column switched off is silent, and still remembered - otherwise
-        # switching it back on would announce a move that happened while
-        # nobody was listening.
-        my $column = $move->{column} // '';
-        my $on = $wanted->{columns} && exists $wanted->{columns}{$column}
-          ? $wanted->{columns}{$column} : 1;
+            my $already = $self->_notified_move_at( $store, $record->{ref} );
+            next if defined $already && $already ge $move->{at};
 
-        # Remembered only when the silence was deliberate. A column switched
-        # off is a decision and is recorded, so switching it back on does not
-        # announce a move nobody was listening for. A message that could not be
-        # sent - no token, no chat id - is NOT recorded, because the owner has
-        # not been told and configuring the variables should not lose the move.
-        #
-        # The test caught this: with the stamp written either way, a move that
-        # happened while the variables were unset stayed silent for ever.
-        my $told = $on
-          ? $self->_send_notification( project => $root,
-              text => "$record->{ref} moved to $column - " . ( $record->{title} // '' ) )
-          : 1;
-        next if !$told;
+            # A column switched off is silent, and still remembered - otherwise
+            # switching it back on would announce a move that happened while
+            # nobody was listening.
+            my $column = $move->{column} // '';
+            my $on = $wanted->{columns} && exists $wanted->{columns}{$column}
+              ? $wanted->{columns}{$column} : 1;
 
-        $said->{ $record->{ref} } = $move->{at};
-        $changed = 1;
-    }
+            # Remembered only when the silence was deliberate. A column switched
+            # off is a decision and is recorded, so switching it back on does not
+            # announce a move nobody was listening for. A message that could not be
+            # sent - no token, no chat id - is NOT recorded, because the owner has
+            # not been told and configuring the variables should not lose the move.
+            #
+            # The test caught this: with the stamp written either way, a move that
+            # happened while the variables were unset stayed silent for ever.
+            my $told = $on
+              ? $self->_send_notification( project => $root,
+                  text => "$record->{ref} moved to $column - " . ( $record->{title} // '' ) )
+              : 1;
+            next if !$told;
 
-    $self->_atomic_write( $self->_violation_ledger_path($store),
-        json_object()->canonical->encode($ledger) )
-      if $changed;
+            $said->{ $record->{ref} } = $move->{at};
+            $changed = 1;
+        }
+
+        $self->_atomic_write( $self->_violation_ledger_path($store),
+            json_object()->canonical->encode($ledger) )
+          if $changed;
+        return 1;
+    } );
     return;
 }
 
@@ -7445,12 +7453,19 @@ sub _agent_still_may_notify {
 sub _agent_still_mark_notified {
     my ( $self, $store, $acted ) = @_;
     return if !$store;
-    my $ledger = $self->_violation_ledger($store);
-    $ledger->{agent_still_notified} = {
-        since => $acted, at => _epoch_of_datetime( $self->{clock}->(), 'Clock' ),
-    };
-    $self->_atomic_write( $self->_violation_ledger_path($store),
-        json_object()->canonical->encode($ledger) );
+
+    # Same race, same file, same lock as violation_record and
+    # _announce_moves - a concurrent writer's stale read could otherwise
+    # overwrite this stamp, or this call could overwrite theirs. TKT-487.
+    $self->_with_enforcement_lock( $store, sub {
+        my $ledger = $self->_violation_ledger($store);
+        $ledger->{agent_still_notified} = {
+            since => $acted, at => _epoch_of_datetime( $self->{clock}->(), 'Clock' ),
+        };
+        $self->_atomic_write( $self->_violation_ledger_path($store),
+            json_object()->canonical->encode($ledger) );
+        return 1;
+    } );
     return 1;
 }
 
@@ -7575,25 +7590,36 @@ sub _violation_terminal_notice {
 }
 
 # Police writes here and nobody else does - a design invariant two live
-# daemons on one board broke, silently: the read, the escalation math and the
-# write below are one race without exclusion, and a second daemon whose read
-# lands before the first daemon's write already had its own already-recorded
-# violation replaced out from under it, with no error and no conflict raised
-# anywhere. Locked the same way every other read-modify-write in this project
-# already is - t/53 proves the pattern for the project lock, t/364 proves it
-# here.
-sub violation_record {
-    my ( $self, %args ) = @_;
-    my $store = $args{store} or die "A violation store is required\n";
+# daemons on one board broke, silently: a read-modify-write of this same
+# file with no exclusion means a second writer whose read lands before the
+# first writer's write already had its own already-recorded state replaced
+# out from under it, with no error and no conflict raised anywhere. Shared by
+# every function that reads then writes the enforcement ledger
+# (violation_record, _announce_moves, _agent_still_mark_notified - TKT-486,
+# TKT-487), the same shape _with_project_lock already gives every other
+# read-modify-write in this project - t/53 proves the pattern for the
+# project lock, t/364 proves it here.
+sub _with_enforcement_lock {
+    my ( $self, $store, $code ) = @_;
     make_path($store) if !-d $store;
     my $lock_path = File::Spec->catfile( $store, '.lock' );
     open my $lock, '>>', $lock_path or die "Cannot open enforcement lock '$lock_path': $!\n";
     flock( $lock, LOCK_EX ) or die "Cannot lock enforcement store '$store': $!\n";
-    my ( $view, $settled, $error );
-    eval { ( $view, $settled ) = $self->_violation_record_locked(%args); 1 }
-      or $error = $@ || 'Unknown enforcement-ledger failure';
+    my ( $result, $error );
+    eval { $result = $code->(); 1 } or $error = $@ || 'Unknown enforcement-ledger failure';
     close $lock or die "Cannot close enforcement lock '$lock_path': $!\n";
     die $error if defined $error;
+    return $result;
+}
+
+sub violation_record {
+    my ( $self, %args ) = @_;
+    my $store = $args{store} or die "A violation store is required\n";
+    my ( $view, $settled );
+    $self->_with_enforcement_lock( $store, sub {
+        ( $view, $settled ) = $self->_violation_record_locked(%args);
+        return 1;
+    } );
     return wantarray ? ( $view, $settled ) : $view;
 }
 

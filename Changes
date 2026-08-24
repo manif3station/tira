@@ -1,5 +1,28 @@
 Revision history for Tira
 
+3.75  2026-08-24
+
+    - TKT-487. Found while implementing TKT-486: grepping for other
+      writers to the enforcement ledger file turned up two more
+      unlocked read-modify-writes of the exact same file -
+      _announce_moves (the move-notification stamp) and
+      _agent_still_mark_notified (the agent-still throttle stamp).
+      Neither was covered by TKT-486's lock, since it only wrapped
+      violation_record's own call. A stale read in either could
+      silently overwrite what any of the three writers had just
+      recorded.
+
+    - Fixed: factored TKT-486's inline lock out into a shared
+      _with_enforcement_lock helper, now used by violation_record,
+      _announce_moves and _agent_still_mark_notified alike, so all
+      three serialise against each other. t/365 proves both newly
+      wrapped functions hold the lock across their own read and
+      write, that a failure releases it, and that one writer's own
+      pass no longer clobbers another writer's already-recorded
+      state on the same file. Docker: Files=360, Tests=7400, PASS,
+      100% statement+subroutine coverage on lib/Tira.pm and
+      lib/Tira/CLI.pm.
+
 3.74  2026-08-24
 
     - TKT-486. Investigated live: ps aux showed two "d2 tira.police"

@@ -1,6 +1,6 @@
 Revision history for Tira
 
-3.89  2026-08-24
+3.90  2026-08-24
 
     - TKT-505. Follow-up to TKT-504: typing --session on every
       tasklist call is unnecessarily long once genuinely multi-agent.
@@ -231,6 +231,8 @@ Revision history for Tira
     - Fixed: SKILLS.md now also carries a start-of-line usage line for
       tira.dev.found.bug_or_improvement, naming --from, --title, and
       --text.
+
+3.89  2026-08-24
 
     - TKT-410. card-metrics --require scope_in,scope_out was permanently
       unsatisfiable: the check reads a card's fields with a raw

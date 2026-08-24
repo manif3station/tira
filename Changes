@@ -14,6 +14,21 @@ Revision history for Tira
     - Fixed: card-unassigned's own docs/POLICIES.md entry now names
       --no-watch, matching its sibling rules.
 
+    - TKT-502. "Can you make each of them more easy to understand and
+      read" - the declared-policy row packed id, rule, action, and
+      every parameter into one dense "POL-002 · rule -> action
+      (param=val, param=val)" line. Considered and rejected one line
+      per parameter (a self-critique pass, standing in for a second
+      opinion no other agent on this single-agent board could give) -
+      it would roughly triple the list's scroll length on a 60+-policy
+      board.
+
+    - New: a declared row now shows a bold id/rule/action header, then
+      one secondary line listing each parameter as a labeled "name:
+      value" pair rather than a bare key=value packed into a
+      parenthetical - readable without losing the density a large
+      board needs.
+
     - TKT-493. Requested directly: "create a new modal on the html
       dashboard, the user can view and edit and add the policies not
       just column policies." The Columns dialog only ever covered a

@@ -106,6 +106,18 @@ process.on('unhandledRejection', error => {
     fail('the declared pane did not show the declared policy, got ' + declaredText);
   }
 
+  // TKT-502: id/rule/action read as a header, and each parameter is a
+  // labeled line rather than a bare key=value packed into one parenthetical.
+  const firstRow = page.locator('[data-policy-pane="declared"] .policy-row').first();
+  const headerText = await firstRow.locator('.policy-row__header').innerText();
+  if (!headerText.includes('POL-001') || !headerText.includes('card-duration') || !headerText.includes('bridge-reminder')) {
+    fail('the header line did not read id/rule/action, got ' + headerText);
+  }
+  const paramsText = await firstRow.locator('.policy-row__params').innerText();
+  if (!/column\s*:\s*doing/i.test(paramsText)) fail('column param did not render as a labeled pair, got ' + paramsText);
+  if (!/age\s*:\s*2h/i.test(paramsText)) fail('age param did not render as a labeled pair, got ' + paramsText);
+  if (paramsText.includes('(') || paramsText.includes(')')) fail('params still use the old parenthetical shape: ' + paramsText);
+
   // TKT-501: on a narrow (phone) viewport, a long declared-policy line must
   // wrap within the dialog rather than push Edit/Remove off-screen.
   await page.setViewportSize({ width: 375, height: 700 });

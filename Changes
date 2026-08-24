@@ -187,6 +187,19 @@ Revision history for Tira
       satisfiable on tickets and epics alike. Every other --require
       field keeps its existing flat lookup.
 
+    - TKT-424. priority-skipped fired on a parent (sow/epic) sitting
+      open only because a child is open under it, exactly as it fired
+      on one genuinely being worked ahead of turn - 10 manual
+      rule.suspend calls in one afternoon, all for the same bookkeeping
+      reason. Q-074 asked which of two designs to use; the owner chose
+      option B.
+
+    - Fixed: priority-skipped now exempts a parent with no assignee AND
+      at least one open child AND whose own last activity is no later
+      than that child's own - an assigned parent, or one edited after
+      its child without being formally claimed, still fires exactly as
+      before.
+
 3.88  2026-08-24
 
     - TKT-498. Owner, in Cantonese, watching an agent drop a field:

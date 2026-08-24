@@ -7455,6 +7455,7 @@ sub policy_evaluate {
                 my $type = $record->{type} // 'ticket';
                 next if $resting{$type}{ $record->{column} // '' };
                 next if !defined $record->{priority};
+                next if $self->_priority_skipped_exempt( $root, $record, $records );
 
                 for my $above (@waiting) {
 
@@ -7497,6 +7498,31 @@ sub policy_evaluate {
     }
 
     return \@violations;
+}
+
+# A parent (sow/epic) sitting open only because a child is open under it is
+# not being worked out of turn - it is waiting on its own child, in the
+# child's turn. Q-074 settled the design: exempt only when nobody has
+# claimed the parent AND at least one of its children is still open AND the
+# parent's own last activity is no later than that child's - an unassigned
+# parent someone actively edited (priority, description, ...) without
+# formally claiming it still fires normally, same as an assigned one. TKT-424.
+sub _priority_skipped_exempt {
+    my ( $self, $root, $record, $records ) = @_;
+    my $type = $record->{type} // 'ticket';
+    return 0 if $type eq 'ticket';
+    return 0 if defined $record->{assignee} && $record->{assignee} ne '';
+    my @open_children = grep {
+        ( $_->{parent} // '' ) eq $record->{ref} && !$self->_policy_settled( $root, $_ )
+    } @{$records};
+    return 0 if !@open_children;
+    my $latest_child = '';
+    for my $child (@open_children) {
+        my $when = $child->{last_updated} // $child->{created_at} // '';
+        $latest_child = $when if $when gt $latest_child;
+    }
+    my $parent_touched = $record->{last_updated} // $record->{created_at} // '';
+    return $parent_touched le $latest_child ? 1 : 0;
 }
 
 # Whether a card sits before the column the policy names. Which column means

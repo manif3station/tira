@@ -1,5 +1,25 @@
 Revision history for Tira
 
+3.81  2026-08-24
+
+    - TKT-353. Reported live: comment.add is the only one of four
+      write/read field pairs (gate --details/details, evidence
+      --summary/summary, checklist --item/item) where the names
+      disagree - comment.add takes --text and the stored/read field
+      is called body. A read-back check doing c.get('text') returned
+      None silently, indistinguishable from a comment that had not
+      landed.
+
+    - Fixed: comment_add, comment_update and comment_list now all
+      expose 'text' alongside 'body', the same value - a duplicate
+      built fresh at each read boundary rather than a rename (nothing
+      can migrate the stored field) and rather than mutating the
+      comment object that gets persisted, the same persistence-leak
+      shape TKT-407 already found once elsewhere. t/371 proves it,
+      including that nothing leaks onto disk. Docker: Files=366,
+      Tests=7462, PASS, 100% statement+subroutine coverage on
+      lib/Tira.pm and lib/Tira/CLI.pm.
+
 3.80  2026-08-24
 
     - TKT-298. Reported live: an unknown command gets "Did you mean"

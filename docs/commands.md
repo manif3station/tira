@@ -2091,11 +2091,11 @@ top of it directly.
 
 ### Comments
 
-- `tira.comment.add --ref REF --author ID (--text TEXT|--file FILE) [--format markdown|text] [--attach PATH ...] [-o FORMAT]`
+- `tira.comment.add --ref REF --author ID (--text TEXT|--file FILE) [--format markdown|text] [--attach PATH ...] [-o FORMAT]` - the stored/read field is `body`, the only one of four write/read pairs (gate `--details`/`details`, evidence `--summary`/`summary`, checklist `--item`/`item`) where the write flag and the field name disagree. Since 3.81 the returned comment also carries `text` alongside `body`, the same value, so a caller reaching for the write-side name on the way back out finds it rather than a silent `None` - built fresh on every read, never persisted onto the stored comment. TKT-353.
 - `tira.comment.attach --ref REF --comment ID --file PATH [-o FORMAT]`
-- `tira.comment.list --ref REF [--last N|--first N] [--meta-only] [--fields LIST] [--since TIMESTAMP] [--count] [-o FORMAT]`
+- `tira.comment.list --ref REF [--last N|--first N] [--meta-only] [--fields LIST] [--since TIMESTAMP] [--count] [-o FORMAT]` - every comment carries `text` alongside `body` since 3.81; `--fields text` selects it the same way `--fields body` selects the original.
 - `tira.comment.remove --ref REF --comment ID [-o FORMAT]`
-- `tira.comment.update --ref REF --comment ID (--text TEXT|--file FILE) [--format markdown|text] [-o FORMAT]`
+- `tira.comment.update --ref REF --comment ID (--text TEXT|--file FILE) [--format markdown|text] [-o FORMAT]` - the updated comment also carries `text` alongside `body`, same as `comment.add`.
 
 
 ### Evidence

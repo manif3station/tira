@@ -1402,7 +1402,7 @@ included, rather than linking and silently dropping the bad value. TKT-432.
 **Implemented.** `dashboard tira.comment.attach --ref TKT-001 --comment CMT-001 --file screenshot.png`.
 
 ### UC-090: Read comments at chosen weight
-**Implemented.** `dashboard tira.comment.list --ref TKT-001 -o json` lists everything; `--last 1` is the newest comment alone, `--meta-only` returns ids, authors, stamps, body lengths, and attachment counts without a single body — exactly what a watcher needs before deciding to read.
+**Implemented.** `dashboard tira.comment.list --ref TKT-001 -o json` lists everything; `--last 1` is the newest comment alone, `--meta-only` returns ids, authors, stamps, body lengths, and attachment counts without a single body — exactly what a watcher needs before deciding to read. Each comment carries `body` alongside `text` since 3.81 — `comment.add` writes `--text`, and until then that was the one write/read field pair of four (gate, evidence, checklist, comment) where the names disagreed, so a caller reading a comment back with the name it was written under got a silent `None`. TKT-353.
 
 ### UC-091: Add attachment
 **Implemented.** `dashboard tira.attachment.add --ref TKT-001 --file ./build.zip`.

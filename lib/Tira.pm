@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.80';
+our $VERSION = '3.81';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2838,8 +2838,22 @@ sub assignment_set {
     return $self->record_update( %args, assignee => @{$people} ? $people->[0] : '' );
 }
 
-my @COMMENT_FIELDS = qw(id author format body attachments created_at last_updated body_length attachment_count);
+my @COMMENT_FIELDS = qw(id author format body text attachments created_at last_updated body_length attachment_count);
 my %COMMENT_FIELD = map { $_ => 1 } @COMMENT_FIELDS;
+
+# The only one of the four write/read pairs (gate --details/details,
+# evidence --summary/summary, checklist --item/item) where the names
+# differ: comment.add takes --text and the stored record calls it body,
+# always has, and renaming the stored field is worse than the confusion -
+# nothing could migrate it. 'text' rides alongside 'body' on the way OUT
+# instead, a duplicate rather than a move, built fresh here rather than
+# mutating the comment objects a caller might still write back to disk -
+# the same persistence-leak TKT-407 already found once, with
+# checklist_done/checklist_total. TKT-353.
+sub _with_text_alias {
+    my ($comment) = @_;
+    return { %{$comment}, text => $comment->{body} };
+}
 
 # CA11: everything a watcher needs to notice and attribute a comment,
 # nothing it has to pay for before deciding to act.
@@ -2871,11 +2885,11 @@ sub comment_list {
         for my $name (@names) {
             die "Empty field name in field selection\n" if !length $name;
             die "Unknown comment field '$name'\n" if !$COMMENT_FIELD{$name};
-            die "Meta-only contradicts selecting the body\n" if $meta_only && $name eq 'body';
+            die "Meta-only contradicts selecting the body\n" if $meta_only && ( $name eq 'body' || $name eq 'text' );
         }
         $keep = { map { $_ => 1 } @names };
     }
-    my $comments = $self->record_show(%args)->{comments};
+    my $comments = [ map { _with_text_alias($_) } @{ $self->record_show(%args)->{comments} } ];
     if ( defined $since ) {
         my $threshold = _epoch_of_datetime( $since, 'Since' );
         $comments = [ grep {
@@ -3503,7 +3517,7 @@ sub comment_add {
         };
         push @{ $record->{comments} }, $comment;
         $self->_replace_record( %args, record => $record );
-        return $comment;
+        return _with_text_alias($comment);
     } );
 }
 
@@ -3519,7 +3533,7 @@ sub comment_update {
         $comment->{format} = $args{format} if defined $args{format};
         $comment->{last_updated} = $self->{clock}->();
         $self->_replace_record( %args, record => $record );
-        return $comment;
+        return _with_text_alias($comment);
     } );
 }
 

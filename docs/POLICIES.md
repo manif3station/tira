@@ -337,6 +337,7 @@ missing, at the moment you declare the policy rather than later.
 | `question-unanswered` | `--age` | a question waiting on the owner |
 | `conversation-not-folded` | — | a card talked about since it was last written down. **No age**: the ladder already keeps it from repeating. |
 | `card-unassigned` | — | work in progress with nobody on it. **No column**: the board says which columns are work. A board whose work ends in more than one place marks each ending with `tira.column.update --terminal`; one that marks nothing treats `done` as its ending, as before. |
+| `card-agentless` | `--enter` | a card in a working column with no `agent_session` recorded - a different question from `card-unassigned`: assignee says who owns the work, `agent_session` says whether the worker can be reached again. Resuming an agent by its recorded handle keeps every measurement, dead end and correction it already made; an unrecorded handle makes resume silently re-fork instead, discarding all of it while still reporting success - "the failure is invisible in the worst direction," unlike a missing assignee, which is at least visibly blank. TKT-332. |
 | `column-skipped` | `--enter --require` | a card that arrived in a column without passing through the ones it was supposed to. The required columns are declared rather than inferred from their order, because a card that legitimately skips a step - a documentation-only card with no red test to write - would otherwise be reported for it. The violation names which columns were missed. Police reports it and moves nothing: calling the card back is the agent's. A separate, synchronous check exists alongside this one: a move made through the CLI/agent command path (not this async policy, and not the browser dashboard) refuses outright when it would skip ahead of the board's own declared column order - see UC-054. TKT-426. **Any comment on the card settles a finding**, the same shape `discard-unexplained` already has: work that finished before the rule existed, or by a legitimate shortcut, has no other remedy but walking the card backward and forward through the missed column - which writes moves into its history that never happened. A comment is the acknowledgement instead; nothing is rewritten. TKT-284. |
 | `answer-waiting` | — | an answer the agent has not read yet. **No age**: the agent could not have acted sooner, so a grace would only delay it. |
 | `answer-unjudged` | `--age`, `--read-age` | an answer nobody marked. The second age is optional and runs from when it was read. |
@@ -848,6 +849,33 @@ A card waiting in the backlog is not reported, because that is what a backlog
 is. Neither is one that was set aside, nor one that is done: a finished card
 with nobody on it is history, and chasing it would mean chasing every card the
 board has ever finished.
+
+### A card being worked whose agent cannot be reached again
+
+Assignee says who owns the work. It says nothing about whether the agent
+actually holding that work can be resumed, and a card can be correctly
+assigned while its agent is permanently unreachable - measured on four cards
+at once, spawned and immediately unresumable because their spawn handles were
+never recorded: "No agent named ... is reachable," four times in one attempt.
+
+```
+d2 tira.policy.add --rule card-agentless --enter implement --action bridge-reminder
+```
+
+It takes `--enter`, the working column to watch, the same way
+`card-sandbox-missing` does. Resuming an agent by its recorded handle
+(`tira.ticket.update --ref REF --agent-session HANDLE`) keeps every
+measurement, dead end and correction it has already made; when the handle was
+never written down, resume silently re-forks a replacement instead - which
+looks like diligence, produces a working agent, and reports success, while
+everything the first agent had already learned is discarded. That makes the
+failure invisible in the worst direction: a missing assignee is at least
+visibly blank on the card, and this is not.
+
+Recording the handle the moment it exists settles the finding. It composes
+with `card-unassigned` rather than replacing it - a card can fail either
+check independently, both, or neither, because "who owns this" and "can the
+owner be reached again" are different questions with different answers.
 
 ### An answer nobody has been told about
 

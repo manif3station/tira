@@ -94,6 +94,23 @@ Revision history for Tira
       decline, reads back through tira.policy.declined --ref CARD, and
       is reusable by any rule, not scoped to card-sandbox-missing.
 
+    - TKT-332. "Four epic agents were spawned... All four cards had
+      agent_session: null... ALL FOUR failed with 'No agent named ...
+      is reachable'." None of the 35 existing policy rules asked
+      whether a card being worked had an agent_session recorded, even
+      though record_update updates 'sandbox agent_session' in the same
+      qw() list, one word apart, and card-sandbox-missing exists for
+      the first.
+
+    - New policy rule: card-agentless (--enter COLUMN), same shape as
+      card-sandbox-missing, reporting a card in the working column
+      with no agent_session recorded. A different question from
+      card-unassigned - assignee says who owns the work, agent_session
+      says whether the worker can be reached again - so a card can be
+      correctly assigned while permanently orphaned from its agent,
+      and the two rules compose rather than merge. Settles the moment
+      the handle is written down.
+
 3.88  2026-08-24
 
     - TKT-498. Owner, in Cantonese, watching an agent drop a field:

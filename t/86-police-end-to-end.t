@@ -73,6 +73,7 @@ my %declare = (
     'question-unanswered'       => { age => '1h' },
     'conversation-not-folded'   => {},
     'card-unassigned'           => {},
+    'card-agentless'            => { enter => 'implement' },
     'answer-waiting'            => {},
     'answer-unjudged'           => { age => '10m' },
     'answer-ok-not-folded'      => { age => '10m' },

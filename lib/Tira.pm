@@ -5341,6 +5341,7 @@ my %POLICY_RULES = (
     # somebody added another - silently, which is the shape of every check
     # this project has found not firing.
     'card-unassigned'           => { needs => [], forbids => [ 'column', 'enter' ] },
+    'card-agentless'            => { needs => [ 'enter' ] },
 
     # Arriving somewhere without having done the steps before it. Declared
     # rather than inferred from the column order: a documentation-only card has
@@ -6688,6 +6689,29 @@ sub policy_evaluate {
                 next if defined $record->{assignee} && $record->{assignee} ne '';
                 $report->( $policy, $record,
                     "in $column with nobody on it - work in progress needs an assignee" );
+            }
+        }
+        elsif ( $rule eq 'card-agentless' ) {
+
+            # A different question from card-unassigned, composing rather than
+            # duplicating it: assignee says WHO owns the work, agent_session
+            # says WHETHER THE WORKER CAN BE REACHED AGAIN. A card can be
+            # correctly assigned to zenbot and still be permanently orphaned
+            # from its agent - measured on four cards at once, where an
+            # unrecorded spawn handle made every one of them unresumable and
+            # "nothing on the board said so." When resume silently fails the
+            # natural response is to fork a replacement, which looks like
+            # diligence and reports success while discarding everything the
+            # first agent had already learned - a failure invisible in the
+            # worst direction, unlike a missing assignee which is at least
+            # visibly blank. TKT-332.
+            for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
+                next if ( $record->{column} // '' ) ne ( $policy->{enter} // '' );
+                next if defined $record->{agent_session} && $record->{agent_session} ne '';
+                $report->( $policy, $record,
+                    "in $policy->{enter} with no agent_session recorded - resume will silently "
+                      . 're-fork instead of continuing the agent that already worked it' );
             }
         }
         elsif ( $rule eq 'answer-waiting' ) {

@@ -420,12 +420,37 @@ sub run {
             $$target = $value;
         };
     }
-    my $parsed = GetOptionsFromArray( $argv, @spec );
+    # An unknown COMMAND already gets "Did you mean" - the dispatcher this
+    # project sits inside supplies that. An unknown OPTION got only "Unknown
+    # option: X" straight from Getopt::Long, discarded into a generic
+    # "Invalid command-line options" with nothing suggested - the same help a
+    # command typo gets, missing for the far more common typo of a flag.
+    # TKT-298: one bad option name discarded a whole update carrying twenty
+    # composed fields, and finding which flag was wrong cost writing a probe
+    # value into a live card. Getopt::Long only warns to STDERR, so its own
+    # unknown-option text is captured here rather than re-derived.
+    my $unknown_option_warning = '';
+    my $parsed = do {
+        local $SIG{__WARN__} = sub { $unknown_option_warning .= $_[0] };
+        GetOptionsFromArray( $argv, @spec );
+    };
     return _error( $tira, $option{output},
         join( '; ', @duplicate_option )
           . " - repeating a single-valued option drops every value but the last silently. Give it once.\n" )
       if @duplicate_option;
-    return _error( $tira, $option{output}, 'Invalid command-line options' ) if !$parsed || @{$argv};
+    if ( !$parsed || @{$argv} ) {
+        my @unknown = $unknown_option_warning =~ /Unknown option:\s*(\S+)/g;
+        return _error( $tira, $option{output}, _unknown_option_message( \@unknown, \@spec ) )
+          if @unknown;
+
+        # Any other Getopt::Long complaint - a value missing, one of the
+        # wrong type - used to reach STDERR unfiltered, since nothing
+        # installed a $SIG{__WARN__} before this. Capturing the unknown-
+        # option case above must not silence these too; printed here so the
+        # diagnostic Getopt::Long already wrote is not simply discarded.
+        print {*STDERR} _utf8_bytes($unknown_option_warning) if $unknown_option_warning ne '';
+        return _error( $tira, $option{output}, 'Invalid command-line options' );
+    }
 
     # --file is a list only where a batch makes sense, and one file everywhere
     # else. Nine commands read it - attachment, question voice and answer, bulk
@@ -4130,6 +4155,63 @@ sub _names_the_option {
         return "$message - $phrase --$flag";
     }
     return $message;
+}
+
+# Every long name a command's own @spec actually answers to - both sides of
+# a '|' alias, with Getopt::Long's value/repeat/negation syntax (=s, =s@,
+# :i, !) stripped back to the bare flag. Built from the same @spec the
+# parse just used, so a suggestion can never name a flag the command does
+# not really have.
+sub _declared_option_names {
+    my ($spec) = @_;
+    my @names;
+    for ( my $i = 0; $i < @{$spec}; $i += 2 ) {
+        ( my $names = $spec->[$i] ) =~ s/[=:!].*//;
+        push @names, split /\|/, $names;
+    }
+    return \@names;
+}
+
+# Levenshtein distance, the standard three-operation edit count - the same
+# measure a spelling-correction "did you mean" is built on anywhere it
+# exists. Iterative, not recursive: the option lists here are short enough
+# (a low hundred, at most) that clarity wins over avoiding an O(n*m) table.
+sub _edit_distance {
+    my ( $left, $right ) = @_;
+    my @prev = ( 0 .. length $right );
+    for my $i ( 1 .. length $left ) {
+        my @row = ($i);
+        for my $j ( 1 .. length $right ) {
+            if ( substr( $left, $i - 1, 1 ) eq substr( $right, $j - 1, 1 ) ) {
+                $row[$j] = $prev[ $j - 1 ];
+                next;
+            }
+            my $least = $prev[$j];
+            $least = $row[ $j - 1 ]     if $row[ $j - 1 ] < $least;
+            $least = $prev[ $j - 1 ]    if $prev[ $j - 1 ] < $least;
+            $row[$j] = 1 + $least;
+        }
+        @prev = @row;
+    }
+    return $prev[-1];
+}
+
+# What an unknown option gets, now: named the way "Command not found" names
+# a mistyped verb - the closest declared names this command actually
+# answers to, not silence past "Invalid command-line options". TKT-298.
+sub _unknown_option_message {
+    my ( $unknown, $spec ) = @_;
+    my $known = _declared_option_names($spec);
+    my @lines;
+    for my $bad ( @{$unknown} ) {
+        my %distance = map { $_ => _edit_distance( $bad, $_ ) } @{$known};
+        my @near = sort { $distance{$a} <=> $distance{$b} || $a cmp $b }
+          grep { $distance{$_} <= 3 } keys %distance;
+        push @lines, "Unknown option: $bad";
+        push @lines, 'Did you mean:', ( map { "  --$_" } @near[ 0 .. ( $#near > 2 ? 2 : $#near ) ] )
+          if @near;
+    }
+    return join( "\n", @lines );
 }
 
 sub _error {

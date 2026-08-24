@@ -1,5 +1,28 @@
 Revision history for Tira
 
+3.80  2026-08-24
+
+    - TKT-298. Reported live: an unknown command gets "Did you mean"
+      from the dispatcher; an unknown option got only "Unknown
+      option: X" from Getopt::Long, discarded into a generic
+      "Invalid command-line options" with nothing suggested. One bad
+      option name discarded a whole update carrying twenty composed
+      fields, and finding which flag was wrong cost writing a probe
+      value into a live card. Also reported: --key-detail (append)
+      accepts only the singular while --set-key-details (replace)
+      accepts both spellings, because Getopt::Long's abbreviation
+      only matches a typed name that is a PREFIX of the declared one.
+
+    - Fixed: an unknown option now suggests the nearest declared
+      option name(s) by edit distance - implemented fresh in this
+      project's own CLI.pm, since the command-level "Did you mean"
+      the ticket pointed at turned out to live in Developer
+      Dashboard's own dispatcher, off-limits to modify. Nothing is
+      guessed when no declared name is close, and nothing is written
+      before the refusal - unchanged. t/370 proves it. Docker:
+      Files=365, Tests=7452, PASS, 100% statement+subroutine coverage
+      on lib/Tira.pm and lib/Tira/CLI.pm.
+
 3.79  2026-08-24
 
     - TKT-291. tira.police.outstanding's default output was a flat

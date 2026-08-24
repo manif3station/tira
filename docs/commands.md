@@ -9,7 +9,10 @@ document names, and a command that ships without being named here fails the
 suite - a reader who captured only this file was missing whole families before
 that check existed. The shared `Tira::CLI` parser applies TOON-first output,
 pretty JSON, Markdown, repeatable options, JSON-array replacement, raw
-attachment output, and consistent structured failures.
+attachment output, and consistent structured failures - including, since
+3.80, a "Did you mean" suggestion on an unknown option, naming the nearest
+declared option name(s) by edit distance rather than only "Invalid
+command-line options". TKT-298.
 
 ## Questions on cards
 

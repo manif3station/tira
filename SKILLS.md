@@ -68,6 +68,13 @@ last and discarding the rest - `--priority 5 --priority 1` no longer creates a
 P1 card with exit 0. Genuinely repeatable options are entirely unaffected.
 TKT-389.
 
+An unknown option is refused naming the nearest declared option name(s) by
+edit distance - `Unknown option: key-details` followed by `Did you mean:
+--key-detail` - the same help an unknown command already gets, rather than
+only "Invalid command-line options" with nothing suggested. Nothing is
+guessed when no declared name is close, and nothing is written before the
+refusal either way. TKT-298.
+
 All command-line text, text files, YAML, JSON, and structured output use UTF-8.
 Invalid UTF-8 input is rejected. Non-ASCII text, including `£`, is preserved in
 titles, fields, comments, evidence, and gate details. Attachment content remains

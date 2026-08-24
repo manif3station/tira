@@ -136,6 +136,18 @@ Revision history for Tira
       new assertion was proven a genuine guard by temporarily
       reproducing the described failure mode and confirming it fails.
 
+    - TKT-406. discard-with-open-questions correctly fires for any
+      ending column, not just discard - but its message still said
+      "set aside carrying..." for a card that reached done, wording
+      written for the discard case and shown on every ending since.
+      Not a functional gap; the finding was always correct and named.
+
+    - Fixed: the message now names the ending the card actually
+      reached ("set aside" only in the discard column itself, "reached
+      done" or whichever other column a board marks --terminal
+      otherwise). "Discard them here", about the leftover questions
+      rather than the card, is unchanged either way.
+
 3.88  2026-08-24
 
     - TKT-498. Owner, in Cantonese, watching an agent drop a field:

@@ -1658,6 +1658,15 @@ unanswered question, and names the questions:
     discard them here. There is no command that moves a question: asking it
     where it belongs and discarding it here is the move.
 
+The opening names the ending the card actually reached - "set aside" only
+in the discard column itself, "reached done" (or whichever other column a
+board marks `--terminal`) otherwise, since a card that finished was not set
+aside. "Discard them here" stays the same either way: it is about
+discarding the leftover *questions* (`tira.question.discard`), which is
+valid regardless of the card's own column. Until TKT-406 a card reaching
+`done` still read "set aside carrying...", which was correct about the
+finding and wrong about the card.
+
 **Police asks and moves nothing.** Whether a question still matters is a
 judgement about the work, and a rule that carried questions between cards on its
 own would be making that judgement by machine — where a wrong guess is

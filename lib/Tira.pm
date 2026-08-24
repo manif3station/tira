@@ -7367,8 +7367,16 @@ sub policy_evaluate {
                 # Named, so the reader does not have to open the card to find
                 # out which decision was dropped.
                 my $which = join ', ', map { $_->{id} } @open;
+
+                # "Set aside" is accurate only in the discard column; a card
+                # that reached done was not set aside, it finished. "discard
+                # them here" is about the leftover QUESTIONS
+                # (tira.question.discard), which stays accurate on any ending
+                # column - only the opening was written for one ending and
+                # shown on all of them. TKT-406.
+                my $reached = $column eq 'discard' ? 'set aside' : "reached $column";
                 $report->( $policy, $record,
-                    "set aside carrying $which, still unanswered - decide whether each "
+                    "$reached carrying $which, still unanswered - decide whether each "
                       . 'still matters, ask the ones that do on the card they belong to now, '
                       . 'and discard them here. There is no command that moves a question: '
                       . 'asking it where it belongs and discarding it here is the move' );

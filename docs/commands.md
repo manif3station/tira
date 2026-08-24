@@ -617,6 +617,13 @@ See them, or remove one by `--id POL-nnn`. Numbers are never reused.
 With no policies set it exits and prints what to paste to the agent, rather
 than running and guarding nothing.
 
+**The persistent daemon (no `--once`) is a singleton per board.** Starting one
+claims a pid file in its own store, killing whatever daemon was already
+running there - "whoever the last run it is the winner and the loser process
+will be killed", his own words after two live daemons were found racing the
+same board's enforcement ledger. `--once` and `tira.policy.bridge` (a
+read-only tail) do not participate in the claim. TKT-492.
+
 Every violation carries a `VIO-nnnn`. The same problem keeps its number, counts
 the times it has been said and climbs four tones - note, warning, urgent,
 critical.

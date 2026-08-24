@@ -1,5 +1,28 @@
 Revision history for Tira
 
+3.83  2026-08-24
+
+    - TKT-492. Follow-up to TKT-486: two live "d2 tira.police"
+      daemons were found running against the same board at once,
+      racing the enforcement ledger. TKT-486/TKT-487 locked the
+      write itself, but nothing stopped a second daemon from
+      starting in the first place. Michael's answer to that
+      question: "d2 tira.police is a singleton process. Whoever the
+      last run it is the winner and the loser process will be
+      killed."
+
+    - Fixed: the persistent police daemon (_police_follow, not
+      --once or policy.bridge) now claims a pid file in the
+      violation store before its first round, killing whatever
+      still-alive daemon held the claim before it, and releases the
+      claim on a clean signal-driven exit. pid/alive/kill are all
+      injectable, matching the existing leave/restarter/sleeper
+      pattern. t/373 proves the claim-and-kill sequence with injected
+      fakes and, in a SKIP-guarded fork, against a real process.
+      Docker: Files=368, Tests=7487, PASS, 100%
+      statement+subroutine coverage on lib/Tira.pm and
+      lib/Tira/CLI.pm.
+
 3.82  2026-08-24
 
     - TKT-490. Found following TKT-488's own key_details, which

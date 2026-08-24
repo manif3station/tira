@@ -148,6 +148,15 @@ their own read-modify-write of it. Both now share the same lock, factored into
 one `_with_enforcement_lock` helper, so all three serialise against each other
 rather than only against themselves.
 
+`d2 tira.police` is meant to be a singleton per board - his own words, asked
+directly after the duplicate-daemon investigation above: "Whoever the last run
+it is the winner and the loser process will be killed." The persistent daemon
+now claims a pid file in the violation store before its first round, killing
+whatever still-alive daemon held the claim before it, and releases the claim
+on a clean exit - `--once` and `policy.bridge` (a read-only tail, never a
+writer) do not participate, since neither is "a process" in the sense that
+answer means. TKT-492.
+
 ## Record schema
 
 Every SOW, epic, and ticket JSON contains `ref`, `type`, `title`, `description`,

@@ -3959,6 +3959,17 @@ sub _police_follow {
     my $rounds = $option->{rounds};
     my $wait = $option->{sleeper} || sub { sleep $_[0] if $_[0] };
 
+    # d2 tira.police is a singleton, his own words after two live daemons on
+    # one board raced the enforcement ledger (TKT-486): "Whoever the last run
+    # it is the winner and the loser process will be killed." Claimed once,
+    # here, before the watch starts - not for --once, a single pass that is
+    # not "a process" in the sense that answer means, and killing a real
+    # watcher because something asked it a quick status question would be
+    # more surprising than helpful. TKT-492.
+    my $claim = _police_claim_singleton( $store, %{ $option->{singleton} // {} } );
+    print {*STDERR} "police: killed a still-running daemon (pid $claim->{killed}) - only the newest watches now\n"
+      if defined $claim->{killed};
+
     # A supervisor that dies quietly is worse than none, because its silence
     # reads as everything being fine.
     # How it leaves is injectable, so that what it says on the way out can be
@@ -3971,7 +3982,11 @@ sub _police_follow {
     # and one proved by execing the test suite is not.
     my $restarter = $option->{restarter} || \&_restart_into;
     for my $signal (qw(INT TERM HUP)) {
-        $SIG{$signal} = sub { _police_goodbye( $tira, $signal ); $leave->() };
+        $SIG{$signal} = sub {
+            _police_goodbye( $tira, $signal );
+            _police_release_singleton( $store, %{ $option->{singleton} // {} } );
+            $leave->();
+        };
     }
     my $done = 0;
 
@@ -4044,6 +4059,55 @@ sub _police_goodbye {
     my ( $tira, $signal ) = @_;
     print {*STDERR} $tira->police_farewell( reason => "signal $signal" ) . "\n";
     return 1;
+}
+
+# Where the singleton claim lives - beside the enforcement ledger itself,
+# since both are per-store, not per-project.
+sub _police_singleton_path {
+    my ($store) = @_;
+    return File::Spec->catfile( $store, '.police.pid' );
+}
+
+# The claim: read whoever was there before, kill them if they are still
+# alive, then write our own pid over theirs. pid/alive/kill are all
+# injectable - the same shape leave/restarter/sleeper already use in
+# _police_follow - so this is provable without spawning or signalling a
+# real OS process. TKT-492.
+sub _police_claim_singleton {
+    my ( $store, %opts ) = @_;
+    File::Path::make_path($store) if !-d $store;
+    my $path = _police_singleton_path($store);
+    my $my_pid = $opts{pid} // $$;
+    my $alive = $opts{alive} || sub { return kill 0, $_[0] };
+    my $kill_previous = $opts{kill} || sub { kill 'TERM', $_[0] };
+
+    my $killed;
+    if ( open my $fh, '<', $path ) {
+        my $previous = do { local $/; <$fh> };
+        close $fh;
+        $previous =~ s/\s+//g;
+        if ( length $previous && $previous ne $my_pid && $alive->($previous) ) {
+            $kill_previous->($previous);
+            $killed = $previous;
+        }
+    }
+    open my $fh, '>', $path or die "Cannot claim the police singleton at '$path': $!\n";
+    print {$fh} $my_pid;
+    close $fh;
+    return { claimed => $my_pid, killed => $killed };
+}
+
+# The pid file is this process's own claim, so a clean exit removes it
+# rather than leaving a stale entry the next daemon's alive-check has to
+# reason past. A daemon that dies uncleanly (kill -9, a crash) leaves the
+# file behind - the next claim's alive-check still handles that safely,
+# since a dead pid answers false and nothing is killed.
+sub _police_release_singleton {
+    my ( $store, %opts ) = @_;
+    my $path = _police_singleton_path($store);
+    my $remove = $opts{unlink} || sub { unlink $_[0] };
+    $remove->($path);
+    return;
 }
 
 sub _policy_help {

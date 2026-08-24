@@ -2082,6 +2082,14 @@ top of it directly.
 - `tira.required-action.list --ref REF [-o FORMAT]`
 - `tira.required-action.update --ref REF --id REQ-NNN [--item TEXT] [--status TEXT] [--command TEXT --proof TEXT ...] [-o FORMAT]` - same `--command`/`--proof` requirement on `--status done` as checklist.update above, and the same reasoning: a required item, gating or not, is not evidence of what happened just because it says so. TKT-453. An unknown `--id` refuses naming the card's real ids (or the `REQ-NNN` shape, on a card with none yet), the same fix checklist.update got for the identical bug. TKT-488.
 
+Move-in template population is idempotent against two near-simultaneous moves of the
+same card, not only a sequential re-entry. Two browser moves fired close together used
+to both read the card's `required_items` before either had written its own addition and
+both add the template item, leaving a duplicate `REQ-NNN` entry for the same text and
+column. The auto-populate path now checks and adds atomically inside its existing lock,
+so the second of two concurrent calls sees the first's addition and skips it. A manual
+`tira.required-action.add` is unaffected. TKT-497.
+
 
 ### Collectors
 

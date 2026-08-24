@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.85';
+our $VERSION = '3.86';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4225,6 +4225,24 @@ sub required_item_add {
         # existed. Coerced here rather than assumed, the same way
         # required_item_list already tolerates the raw (possibly undef) key.
         $record->{required_items} //= [];
+
+        # Auto-population (a column's required-action template applied on
+        # move-in, or at creation) has to be idempotent here, inside the one
+        # lock every concurrent caller serializes through - the CLI/browser
+        # dispatch layer's own "is it already there" check runs its
+        # record_show before either caller holds this lock, so two
+        # near-simultaneous moves of the same card can each decide the item
+        # is missing and each call this. A manual required-action.add is
+        # unaffected: only the template source is deduplicated, so a person
+        # asking for the same text twice on purpose still gets it. TKT-497.
+        if ( ( $args{source} // '' ) eq 'required-action' ) {
+            my $want_column = $args{column} // $record->{column};
+            my ($existing) = grep {
+                ( $_->{item} // '' ) eq $args{item} && ( $_->{column} // '' ) eq ( $want_column // '' )
+            } @{ $record->{required_items} };
+            return $existing if $existing;
+        }
+
         my $number = @{ $record->{required_items} } + 1;
         my $now = $self->{clock}->();
         my $entry = {

@@ -1,5 +1,28 @@
 Revision history for Tira
 
+3.86  2026-08-24
+
+    - TKT-497. "When card being move along on the html dashboard. The
+      population of the required action items will be duplicated."
+
+    - Fixed: two near-simultaneous browser moves of the same card (a
+      double-click on the status dropdown, or any other double-fire
+      of the same request) could both read the card's required_items
+      before either had written its own addition, both decide a
+      column's required-action template item was missing, and both
+      add it - leaving two identical REQ-NNN entries for the same
+      text and column. required_item_add's auto-populate path
+      (source eq 'required-action') now checks and adds atomically
+      inside the project lock it already holds, so the second of two
+      concurrent calls sees the first's addition and skips it. A
+      manual tira.required-action.add is unaffected - only the
+      template-population source is deduplicated. t/375 reproduces
+      the race with two forked concurrent calls against the exact
+      coderef the dashboard's /move route calls, and proves a manual
+      add is untouched - red against pre-fix code (two entries),
+      green after. Docker: Files=370, Tests=7503, PASS, 100%
+      statement+subroutine coverage on lib/Tira.pm.
+
 3.85  2026-08-24
 
     - TKT-495. "If the Gate Passing Log length more then 10 start

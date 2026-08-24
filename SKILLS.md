@@ -206,7 +206,11 @@ tickets.
   timezone, such as `2026-08-05T14:30:00+01:00` or
   `2026-08-05T13:30:00Z`.
 - `sdlc_gate` and `lifecycle`: nullable free-text values. `sdlc_gate` is
-  independent of append-only structured gate log entries.
+  independent of append-only structured gate log entries. `sdlc_gate` is
+  free text only until a project declares its own gate vocabulary with
+  `tira.project.gates --gate-name` (TKT-292) — once declared, a name outside
+  it is refused, the same list `tira.gate.add`'s `--gate` is validated
+  against, so the two can no longer silently drift apart.
 - `priority`: nullable JSON integer from `1` through `5`, where **5 is the most
   urgent** and 1 the least. This is the opposite of the P1 convention most
   trackers use, so it is worth reading twice before setting one. Human output

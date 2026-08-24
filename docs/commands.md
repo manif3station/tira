@@ -1743,6 +1743,27 @@ raising it quiets the rule without touching any policy. Zero is allowed: a
 board deliberately frozen is a real thing to say, and refusing to let somebody
 say it would only mean saying it some other way.
 
+### `tira.project.gates`
+
+Declares which gate names this project recognises - the one list
+`tira.gate.add`'s `--gate` and every record's `--sdlc-gate` are both
+validated against once it exists.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--gate-name NAME` | no | Repeatable. Declaring one or more replaces the whole vocabulary, the same way `column.roles --role entry=X` replaces its own declared list. Without it, the command reads rather than writes. |
+| `-o FORMAT` | no | As above. |
+
+Until TKT-292 both `--gate` and `--sdlc-gate` took free text with no
+documented value set - measured, `--sdlc-gate` accepted `implement, verify,
+tests-red, full-suite-and-coverage` and `nonsense` alike, so a typo was never
+refused and `gate-missing` could neither be satisfied nor caught being
+satisfied falsely. Opt-in, the same shape `column.roles` already has:
+unrestricted, exactly as before, until a project declares its own vocabulary
+here - then a name outside it is refused on `gate.add` and on `--sdlc-gate`
+alike, naming the declared list. A project that has never declared one is
+completely unaffected.
+
 `tira.next` answers what to work next. The cards waiting in a protected
 column with a priority, most urgent first and then the one that has waited
 longest, as `{next, then}` - the answer, and what it was chosen over, so a

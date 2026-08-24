@@ -72,8 +72,8 @@ our $VERSION = '3.89';
 # been bitten by yet. Derived from here, a field added to record_update is
 # covered on the day it is added.
 my @PLAIN_FIELDS = qw(title description problem_or_feature solution_needed source
-  sdlc_gate lifecycle fix_version sandbox agent_session);
-my @CARD_FIELDS = ( @PLAIN_FIELDS, qw(assignee reporter priority due_date start_date
+  lifecycle fix_version sandbox agent_session);
+my @CARD_FIELDS = ( @PLAIN_FIELDS, qw(sdlc_gate assignee reporter priority due_date start_date
   labels affects_versions key_details deliverables acceptance test_steps bdd atdd
   scope_in scope_out required_exempt) );
 my @CARD_FIELD_REPLACEMENTS = qw(labels_replace affects_versions_replace
@@ -467,6 +467,7 @@ sub create_record {
     my $due_date = $self->_valid_datetime( $args{due_date}, 'Due date' );
     my $start_date = $self->_valid_datetime( $args{start_date}, 'Start date' );
     _valid_fix_version( $args{fix_version} );
+    $self->_require_gate_name( root => $root, name => $args{sdlc_gate} );
     my $board = File::Spec->catdir( $root, '.tira', $type );
 
     my $column;
@@ -705,6 +706,46 @@ sub project_limit {
         $self->_write_yaml( $path, $data );
         return $data->{wip_limit};
     } );
+}
+
+# tira.usage documented no allowed values for --sdlc-gate, and gate.add's
+# --gate had none either - both took free text, so a typo was never refused
+# and gate-missing (which reads whichever of these a card carries) could
+# neither be satisfied nor caught being satisfied falsely. Opt-in, the same
+# shape column_roles already has: unrestricted, exactly today's behaviour,
+# until a project declares its own vocabulary - then --gate and --sdlc-gate
+# are both validated against that one declared list. TKT-292.
+sub project_gates {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    return $self->_load_yaml( File::Spec->catfile( $root, '.tira', 'project.yml' ) )->{gate_names} // [];
+}
+
+sub project_gates_set {
+    my ( $self, %args ) = @_;
+    my $names = $self->_unique_casefold( $args{names} // [] );
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my $path = File::Spec->catfile( $root, '.tira', 'project.yml' );
+        my $data = $self->_load_yaml($path);
+        $data->{gate_names} = $names;
+        $self->_write_yaml( $path, $data );
+        return $data->{gate_names};
+    } );
+}
+
+# The one check gate_add, record_update and create_record all need: a name
+# outside a declared vocabulary is refused, naming the vocabulary; a project
+# that has declared none is unaffected. TKT-292.
+sub _require_gate_name {
+    my ( $self, %args ) = @_;
+    my ( $root, $name ) = @args{qw(root name)};
+    return if !defined $name || $name eq '';
+    my $declared = $self->project_gates( project => $root );
+    return if !@{$declared};
+    return if grep { lc($_) eq lc($name) } @{$declared};
+    die "Gate '$name' is not one this project recognises. Declared gates: "
+      . join( ', ', @{$declared} ) . "\n";
 }
 
 # What onboarding must ask before anything else happens. Kept here rather than
@@ -2422,8 +2463,21 @@ sub record_update {
         for my $field (@PLAIN_FIELDS) {
             $record->{$field} = $args{$field} if defined $args{$field};
         }
-        for my $field (qw(sdlc_gate lifecycle fix_version sandbox agent_session)) {
+        for my $field (qw(lifecycle fix_version sandbox agent_session)) {
             $record->{$field} = undef if defined $args{$field} && $args{$field} eq '';
+        }
+
+        # Carved out of the generic loop above, which applies no validation
+        # at all - sdlc_gate is the one card field a declared vocabulary
+        # governs. TKT-292.
+        if ( defined $args{sdlc_gate} ) {
+            if ( $args{sdlc_gate} eq '' ) {
+                $record->{sdlc_gate} = undef;
+            }
+            else {
+                $self->_require_gate_name( root => $root, name => $args{sdlc_gate} );
+                $record->{sdlc_gate} = $args{sdlc_gate};
+            }
         }
         for my $field (qw(assignee reporter)) {
             next if !defined $args{$field};
@@ -4089,6 +4143,7 @@ sub gate_add {
         die "Gate name is required\n" if !defined $args{gate} || $args{gate} eq '';
         die "Invalid gate result\n" if ( $args{result} // '' ) !~ /\A(?:pass|fail|blocked)\z/;
         die "Gate details are required\n" if !defined $args{details} || $args{details} eq '';
+        $self->_require_gate_name( root => $root, name => $args{gate} );
         $self->_require_person( %args, person => $args{author} );
         my $record = $self->record_show(%args);
         my $entry = {
@@ -11945,6 +12000,14 @@ Reads or sets whether the project is worked by a single agent or a chain of them
 =head2 project_limit
 
 Reads or sets the board's work-in-progress limit.
+
+=head2 project_gates
+
+Reads the project's declared gate vocabulary, empty if none has been declared.
+
+=head2 project_gates_set
+
+Declares the project's gate vocabulary, replacing whatever was declared before.
 
 =head2 onboarding_questions
 

@@ -334,6 +334,7 @@ sub run {
         'pid=i' => \$option{pid},
         'on-column=s' => \$option{on_column},
         'role=s@' => \$option{roles}, 'remove-role=s@' => \$option{remove_roles},
+        'gate-name=s@' => \$option{gate_names},
         'require-link=s' => \$option{require_link}, 'link-to=s' => \$option{link_to},
         'enter-role=s' => \$option{enter_role}, 'before-role=s' => \$option{before_role},
 
@@ -2628,6 +2629,10 @@ sub _invoke {
     # two commands would invite a board where it was set and never read.
     return { mode => $tira->project_mode(%args) } if $command eq 'project.mode';
     return { max => $tira->project_limit(%args) } if $command eq 'project.limit';
+    if ( $command eq 'project.gates' ) {
+        return { gates => $tira->project_gates(%args) } if !$option->{gate_names};
+        return { gates => $tira->project_gates_set( %args, names => $option->{gate_names} ) };
+    }
     return $tira->conversation_add(%args) if $command eq 'conversation.add';
     return $tira->conversation_list(%args) if $command eq 'conversation.list';
     return $tira->agent_sessions(%args) if $command eq 'agent.sessions';

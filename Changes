@@ -63,6 +63,22 @@ Revision history for Tira
       nothing is rewritten. A card with the same shortcut and no
       comment is still reported, exactly as before.
 
+    - TKT-292. tira.usage documented no allowed values for
+      --sdlc-gate, and gate.add's --gate had none either - both took
+      free text, so no typo was ever refused and gate-missing could
+      neither be satisfied nor caught being satisfied falsely.
+
+    - New: tira.project.gates declares a project's own gate
+      vocabulary (--gate-name, repeatable), opt-in the same way
+      column_roles already is - unrestricted, exactly today's
+      behaviour, until a project declares one. Once declared, --gate
+      and --sdlc-gate are both validated against that one list,
+      refusing a name outside it and naming the declared vocabulary.
+      record_update's sdlc_gate handling, previously bundled into a
+      generic loop that applied zero validation, is carved out into
+      its own validated assignment; create_record gets the same check
+      at creation time.
+
 3.88  2026-08-24
 
     - TKT-498. Owner, in Cantonese, watching an agent drop a field:

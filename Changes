@@ -1,5 +1,22 @@
 Revision history for Tira
 
+3.77  2026-08-24
+
+    - TKT-488. Found immediately after shipping TKT-280: the same bug
+      in a different array. required_item_update refused an unknown
+      id with only "Required item '<id>' not found", naming neither
+      the REQ-NNN shape nor the ids the card actually has -
+      required-action.update against REQ-NNN ids that shift as cards
+      accumulate more required actions is one of the most-run
+      commands in this project's own workflow.
+
+    - Fixed: the refusal now lists the card's real ids when it has
+      any, or names the REQ-NNN shape when it has none, matching
+      checklist_update's TKT-280 fix exactly. t/367 proves both
+      branches. Docker: Files=362, Tests=7417, PASS, 100%
+      statement+subroutine coverage on lib/Tira.pm and
+      lib/Tira/CLI.pm.
+
 3.76  2026-08-24
 
     - TKT-280. Reported live: "tira.checklist.update --ref REF --id 1

@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.76';
+our $VERSION = '3.77';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4235,7 +4235,17 @@ sub required_item_update {
         # Same pre-3.03 legacy-record case required_item_add guards against.
         $record->{required_items} //= [];
         my ($entry) = grep { $_->{id} eq ( $args{id} // '' ) } @{ $record->{required_items} };
-        die "Required item '$args{id}' not found\n" if !$entry;
+        if ( !$entry ) {
+            my @ids = map { $_->{id} } @{ $record->{required_items} };
+
+            # Same fix as checklist_update's TKT-280: an id refused with no
+            # hint of its shape sends a caller guessing an ordinal or a
+            # stale id, and the valid ones are already loaded right here.
+            die "Required item '$args{id}' not found - entries are addressed by id (REQ-001, ...), and this card has none yet\n"
+              if !@ids;
+            die "Required item '$args{id}' not found - entries are addressed by id, not position: "
+              . join( ', ', @ids ) . "\n";
+        }
         $entry->{item} = $args{item} if defined $args{item};
         $entry->{status} = $args{status} if defined $args{status};
         $entry->{last_updated} = $self->{clock}->();

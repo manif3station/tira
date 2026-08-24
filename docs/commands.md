@@ -2040,7 +2040,7 @@ top of it directly.
 
 - `tira.required-action.add --ref REF --item TEXT --status TEXT [--column SLUG] [-o FORMAT]` - adds an item tagged with the card's current column; unlike checklist.add, this item gates the card's next move out of that column. `--column` overrides the tag to name a different column, which is how a required item is backfilled onto a card without physically moving it back through that column first.
 - `tira.required-action.list --ref REF [-o FORMAT]`
-- `tira.required-action.update --ref REF --id REQ-NNN [--item TEXT] [--status TEXT] [--command TEXT --proof TEXT ...] [-o FORMAT]` - same `--command`/`--proof` requirement on `--status done` as checklist.update above, and the same reasoning: a required item, gating or not, is not evidence of what happened just because it says so. TKT-453.
+- `tira.required-action.update --ref REF --id REQ-NNN [--item TEXT] [--status TEXT] [--command TEXT --proof TEXT ...] [-o FORMAT]` - same `--command`/`--proof` requirement on `--status done` as checklist.update above, and the same reasoning: a required item, gating or not, is not evidence of what happened just because it says so. TKT-453. An unknown `--id` refuses naming the card's real ids (or the `REQ-NNN` shape, on a card with none yet), the same fix checklist.update got for the identical bug. TKT-488.
 
 
 ### Collectors

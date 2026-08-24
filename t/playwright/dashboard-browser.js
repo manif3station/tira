@@ -437,6 +437,35 @@ const fs = require('fs');
   if (!frameHidden) throw new Error('text attachments must not render through the iframe');
   if (paneColor === 'rgb(255, 255, 255)' || paneColor === 'rgb(248, 250, 252)')
     throw new Error(`text pane color is near-white and could vanish on a light canvas: ${paneColor}`);
+
+  // TKT-500: notes.txt sits second-newest (fresh.txt, notes.txt, clip.mp4,
+  // scan.tiff) - both arrows should be usable without closing the overlay.
+  if (await page.locator('.card-viewer__prev').isDisabled()) throw new Error('prev should be enabled mid-list');
+  if (await page.locator('.card-viewer__next').isDisabled()) throw new Error('next should be enabled mid-list');
+
+  await page.locator('.card-viewer__next').click();
+  await page.waitForFunction(() => document.querySelector('.card-viewer__name')?.textContent === 'clip.mp4');
+  if (await page.locator('.card-viewer .card-viewer__video').evaluate(node => node.hidden))
+    throw new Error('next did not switch the pane to the next attachment (clip.mp4)');
+
+  await page.locator('.card-viewer__next').click();
+  await page.waitForFunction(() => document.querySelector('.card-viewer__name')?.textContent === 'scan.tiff');
+  if (!(await page.locator('.card-viewer__next').isDisabled())) throw new Error('next should be disabled at the last attachment');
+
+  await page.locator('.card-viewer__prev').click();
+  await page.locator('.card-viewer__prev').click();
+  await page.locator('.card-viewer__prev').click();
+  await page.waitForFunction(() => document.querySelector('.card-viewer__name')?.textContent === 'fresh.txt');
+  if (!(await page.locator('.card-viewer__prev').isDisabled())) throw new Error('prev should be disabled at the first attachment');
+
+  // A comment's own attachment list (one entry) offers nowhere to navigate.
+  await page.locator('.card-viewer__close').click();
+  await page.waitForSelector('.card-viewer', { state: 'hidden' });
+  await page.locator('.card-dialog [data-comment="CMT-001"] [data-view-attachment]').click();
+  await page.waitForSelector('.card-viewer:not([hidden])');
+  if (!(await page.locator('.card-viewer__prev').isDisabled()) || !(await page.locator('.card-viewer__next').isDisabled()))
+    throw new Error('a lone comment attachment should show both arrows disabled');
+
   await page.locator('.card-viewer__close').click();
   await page.waitForSelector('.card-viewer', { state: 'hidden' });
 

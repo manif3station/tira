@@ -200,6 +200,20 @@ Revision history for Tira
       its child without being formally claimed, still fires exactly as
       before.
 
+    - TKT-500. Owner, via Telegram: "can we add a left arrow and right
+      arrow to scroll through the attachment list? ... click the right
+      arrow in a badge and the next attachment just show up." Closing
+      an attachment preview to open the next one meant closing it,
+      clicking the cross or pressing escape, then clicking the next
+      attachment fresh.
+
+    - New: the attachment preview overlay carries left/right arrow
+      buttons that step to the previous/next attachment in the same
+      list the opened one belongs to (a card's own attachments, or one
+      comment's) without closing and reopening the overlay. An arrow
+      disables itself at the end of its list; a lone attachment shows
+      both disabled.
+
 3.88  2026-08-24
 
     - TKT-498. Owner, in Cantonese, watching an agent drop a field:

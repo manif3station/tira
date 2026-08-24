@@ -1375,6 +1375,8 @@ The card dialog's **Gate Passing Log** section paginates rather than rendering t
 
 A linked sub-ticket/epic row in the card dialog's hierarchy/linkage list is clickable - clicking it navigates the dialog to that card, and a back control (top-left of the header, hidden until there is somewhere to go back to) returns to the card that was open before, one step at a time. Clicking the unlink (x) on a linkage row, or the remove (x) on a typed link, does not navigate - only the row itself does. The navigation trail resets when the dialog closes or a fresh card is opened from the board, so it never carries stale state into an unrelated card. Owner, live: "Add a click to the list. When user click on it. Will open that card. And when click on the back button will be back to parent card." TKT-470.
 
+The attachment preview overlay has left/right arrow buttons that step to the previous/next attachment in the same list the opened one belongs to - a card's own attachments, or one comment's - without closing and reopening the overlay. An arrow disables itself at the end of its list rather than wrapping, and a lone attachment (nothing to step to) shows both disabled. Michael, via Telegram: "can we add a left arrow and right arrow to scroll through the attachment list? ... click the right arrow in a badge and the next attachment just show up." TKT-500.
+
 ### UC-055: Move epic independently
 **Implemented.** Moving an epic does not move its tickets.
 

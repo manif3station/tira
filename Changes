@@ -1,5 +1,29 @@
 Revision history for Tira
 
+3.88  2026-08-24
+
+    - TKT-498. Owner, in Cantonese, watching an agent drop a field:
+      "I want a command that shows immediately which parts are
+      missing."
+
+    - New: tira.ticket.missing / tira.epic.missing / tira.sow.missing
+      --ref REF answers the same question card-full-details already
+      computes internally to fire a violation - which of a complete
+      card's fields are still empty - for the named card in any
+      column, on demand, rather than waiting for the card to reach
+      its declared entry column and for police to notice. A new
+      record_missing engine method wraps the existing
+      _card_missing_from helper and is reached through the same
+      generic record.(show|list|update|move|discard|restore|clone)
+      dispatch every other record command already uses, now with
+      "missing" added to the alternation. t/377 proves a bare card
+      reports every required field missing, a fully-filled/
+      checklisted/parented card reports nothing missing, and all
+      three record types answer through the shared dispatch - red
+      against pre-fix code (the method does not exist), green after.
+      Docker: Files=372, Tests=7543, PASS, 100% statement+subroutine
+      coverage on lib/Tira.pm and lib/Tira/CLI.pm.
+
 3.87  2026-08-24
 
     - TKT-491. Found during a documentation-gap hunt while checking

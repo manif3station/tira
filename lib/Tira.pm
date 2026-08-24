@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.87';
+our $VERSION = '3.88';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1944,6 +1944,18 @@ sub record_show {
     _apply_truncation( $projected, $args{truncate} ) if defined $args{truncate};
     _apply_brief_title($projected) if $args{brief};
     return $projected;
+}
+
+# What card-full-details already computes to fire a violation, answered
+# directly rather than waited for: an agent that wants to know what it left
+# out used to have to reach a card's declared entry column and let the police
+# bridge notice, or reread its own memory of what the rule requires. Owner,
+# in Cantonese, on watching an agent drop a field: "I want a command that
+# shows immediately which parts are missing." TKT-498.
+sub record_missing {
+    my ( $self, %args ) = @_;
+    my $record = $self->record_show(%args);
+    return { ref => $record->{ref}, missing => $self->_card_missing_from($record) };
 }
 
 # Attachments stored before release 0.22 predate the added_at stamp. The
@@ -12004,6 +12016,10 @@ Reads or sets a board's reference prefix and digit width.
 =head2 record_show
 
 Returns one record, with field projection, since/if_changed short-circuiting, and attachment backfill applied. Carries checklist_done/checklist_total alongside checklist, computed at read time only.
+
+=head2 record_missing
+
+Returns which of a complete card's fields are still empty, the same list card-full-details computes internally to fire a violation.
 
 =head2 diff_records
 

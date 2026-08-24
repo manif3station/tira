@@ -2028,7 +2028,7 @@ them; the manual carries the worked use cases behind them.
 
 ### Records: SOWs, epics and tickets
 
-The three boards carry the same eight verbs. `TYPE` below is one of `sow`,
+The three boards carry the same nine verbs. `TYPE` below is one of `sow`,
 `epic` or `ticket` — write it out, so `tira.ticket.create`, `tira.epic.move`,
 `tira.sow.discard`. They are listed once here rather than three times because
 there is one set of them and nothing about the verb changes with the board.
@@ -2047,6 +2047,7 @@ among them. TKT-233.
 - `tira.TYPE.clone --ref REF [--title TEXT] [-o FORMAT]`
 - `tira.TYPE.discard --ref REF [-o FORMAT]` — takes no reason; a discarded card is explained with `tira.comment.add`, which is what `discard-unexplained` looks for
 - `tira.TYPE.restore --ref REF [-o FORMAT]`
+- `tira.TYPE.missing --ref REF [-o FORMAT]` — answers the same field list `card-full-details` already computes internally to fire a violation, for the named card in any column, on demand, rather than waiting for the card to reach its declared entry column and for police to notice it. TKT-498.
 
 The live board offers the same three, one per board: `tira.dashboard.TYPE`
 opens it on that board, and `tira.dashboard` opens it on the default one.

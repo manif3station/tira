@@ -441,10 +441,17 @@ tira.TYPE.move --ref REF --column SLUG [-o FORMAT]
 tira.TYPE.discard --ref REF [-o FORMAT]
 tira.TYPE.restore --ref REF [--column SLUG] [-o FORMAT]
 tira.TYPE.clone --ref REF --title TEXT [-o FORMAT]
+tira.TYPE.missing --ref REF [-o FORMAT]
 ```
 
 List filters use AND. Parent means the generated immediate parent ref. Discard
-is movement, not deletion; restore defaults to Backlog.
+is movement, not deletion; restore defaults to Backlog. `missing` answers the
+same field list `card-full-details` already computes to fire a violation -
+which of a complete card's fields are still empty - for the named card in any
+column, on demand, rather than waiting for the card to reach its declared
+entry column and for police to notice. Owner, in Cantonese, watching an agent
+drop a field: "I want a command that shows immediately which parts are
+missing." TKT-498.
 Field projection is **Implemented.** on show, list, and export:
 `--fields` and `--exclude-fields` take comma-separated lists, repeat and
 accumulate, and never alter stored data. Selection always keeps `ref`;

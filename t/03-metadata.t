@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=3\.87$/m, '.env stores the version being released' );
+like( $env_text, qr/^VERSION=3\.88$/m, '.env stores the version being released' );
 
 # Read out of .env rather than matched against it, so the module can be
 # compared with what .env actually holds rather than with a literal that
@@ -73,7 +73,7 @@ use Tira;
 # the same literal, so they agreed only through a third party. Changing one
 # literal and not the other was caught by luck rather than by this.
 is( $Tira::VERSION, $env_version, 'module version matches .env, which is now read' );
-is( $Tira::VERSION, '3.87', 'and the release being made is the one intended' );
+is( $Tira::VERSION, '3.88', 'and the release being made is the one intended' );
 
 # And the changelog, which nothing checked. .env, the module and this file
 # agreed with each other for two releases while Changes named a version one
@@ -189,7 +189,7 @@ is( dotted_command('skills/project/skills/people/cli/remove'),
 is_deeply( \@undocumented, [],
     'every command that ships is named in a document an agent reads' );
 
-is( scalar @commands, 158, 'release ships exactly 158 executable CLI entrypoints' );
+is( scalar @commands, 161, 'release ships exactly 161 executable CLI entrypoints' );
 
 # --- and every command the documents name can be run --------------------------
 #
@@ -217,8 +217,9 @@ is( scalar @commands, 158, 'release ships exactly 158 executable CLI entrypoints
     my %ships = map { dotted_command($_) => 1 } @commands;
 
     # No translation is needed and none is done. sow, epic and ticket each ship
-    # their own eight verbs - clone, create, discard, list, move, restore, show,
-    # update - so a documented tira.ticket.move resolves directly. An earlier
+    # their own nine verbs - clone, create, discard, list, missing, move,
+    # restore, show, update - so a documented tira.ticket.move resolves
+    # directly. An earlier
     # draft translated a record.* form into the three, on the belief that the
     # verbs are shared on disk. They are shared in the CLI and in the
     # documentation, not in the filesystem, and a guard carrying complexity

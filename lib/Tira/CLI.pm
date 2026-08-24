@@ -2643,8 +2643,10 @@ sub _invoke {
         return $tira->column_roles_set( %args, roles => \%roles );
     }
 
-    if ( $command =~ /\Arecord\.(show|list|update|move|discard|restore|clone)\z/ ) {
+    if ( $command =~ /\Arecord\.(show|list|update|move|discard|restore|clone|missing)\z/ ) {
         my $action = $1;
+
+        return $tira->record_missing(%args) if $action eq 'missing';
 
         # question.list computes a question's status (new/answered/discarded)
         # through Tira's own _question_view; record_show/record_show_many
@@ -4337,6 +4339,7 @@ my %RECORD_USAGE = (
     clone   => '--ref REF --title TEXT',
     discard => '--ref REF',
     restore => '--ref REF [--column SLUG]',
+    missing => '--ref REF',
 );
 
 # The commands that cannot work without a type. Their usage line named no

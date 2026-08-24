@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.73';
+our $VERSION = '3.74';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -7574,9 +7574,32 @@ sub _violation_terminal_notice {
           ? $violation->{assignee} : 'the core agent' ) . ": $fix";
 }
 
+# Police writes here and nobody else does - a design invariant two live
+# daemons on one board broke, silently: the read, the escalation math and the
+# write below are one race without exclusion, and a second daemon whose read
+# lands before the first daemon's write already had its own already-recorded
+# violation replaced out from under it, with no error and no conflict raised
+# anywhere. Locked the same way every other read-modify-write in this project
+# already is - t/53 proves the pattern for the project lock, t/364 proves it
+# here.
 sub violation_record {
     my ( $self, %args ) = @_;
     my $store = $args{store} or die "A violation store is required\n";
+    make_path($store) if !-d $store;
+    my $lock_path = File::Spec->catfile( $store, '.lock' );
+    open my $lock, '>>', $lock_path or die "Cannot open enforcement lock '$lock_path': $!\n";
+    flock( $lock, LOCK_EX ) or die "Cannot lock enforcement store '$store': $!\n";
+    my ( $view, $settled, $error );
+    eval { ( $view, $settled ) = $self->_violation_record_locked(%args); 1 }
+      or $error = $@ || 'Unknown enforcement-ledger failure';
+    close $lock or die "Cannot close enforcement lock '$lock_path': $!\n";
+    die $error if defined $error;
+    return wantarray ? ( $view, $settled ) : $view;
+}
+
+sub _violation_record_locked {
+    my ( $self, %args ) = @_;
+    my $store = $args{store};
     my $now = $self->{clock}->();
     my $ledger = $self->_violation_ledger($store);
     my %still;
@@ -7709,7 +7732,7 @@ sub violation_record {
 
     # Two answers, and the caller that only wants the violations still gets
     # exactly what it always did.
-    return wantarray ? ( \@view, \@settled ) : \@view;
+    return ( \@view, \@settled );
 }
 
 # The six rules that are about the world rather than the board. Police gathers

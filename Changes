@@ -1,5 +1,32 @@
 Revision history for Tira
 
+3.74  2026-08-24
+
+    - TKT-486. Investigated live: ps aux showed two "d2 tira.police"
+      daemons and five stray "d2 tira.policy.bridge" tails running
+      against the same board at once. violation_record - the function
+      every police pass uses to update the enforcement ledger's
+      escalation state - read the whole ledger, mutated an in-memory
+      copy, and wrote the whole thing back with no lock, contradicting
+      its own code comment ("Police writes here and nobody else
+      does"). A second daemon whose read landed before the first
+      daemon's write could silently erase the first daemon's
+      already-recorded violation, indistinguishable from that
+      violation never having been announced.
+
+    - Fixed: violation_record now holds an exclusive lock, scoped to
+      the violation store, across its own read and write - the same
+      shape _with_project_lock already gives every other
+      read-modify-write in this project, applied here to the one
+      place that was still missing it. t/364 proves the lock is held
+      during the read (not just the write) and that a failure
+      partway through still releases it. Whether preventing a second
+      police daemon from starting against the same board at all is
+      also needed is asked as Q-067 on TKT-486; this release covers
+      the write-corruption race the lock closes. Docker: Files=359,
+      Tests=7388, PASS, 100% statement+subroutine coverage on
+      lib/Tira.pm and lib/Tira/CLI.pm.
+
 3.73  2026-08-24
 
     - TKT-485. Reported live: tira.ticket.create landing in a column

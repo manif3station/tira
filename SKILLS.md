@@ -125,6 +125,18 @@ Column sync compares YAML order with real directories. Attachments are keyed by
 SHA-256 bytes, so identical content deduplicates while refs retain original
 filenames.
 
+The enforcement ledger (the violation store a `d2 tira.police` pass reads and
+writes) takes its own exclusive lock, scoped to the store directory rather than
+the project root, across the whole read-modify-write of one pass - not just the
+final write. TKT-486: two `d2 tira.police` daemons left running against the
+same board at once used to race this cycle with no lock at all, and a daemon
+whose read landed before another daemon's write could silently lose that
+daemon's already-recorded violation. The lock stops that write-corruption race.
+It does not by itself stop two daemons from ever running at the same time -
+only one police daemon is meant to watch a given board, matching
+`_enforcement_write`'s own invariant ("Police writes here and nobody else
+does").
+
 ## Record schema
 
 Every SOW, epic, and ticket JSON contains `ref`, `type`, `title`, `description`,

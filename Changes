@@ -111,6 +111,20 @@ Revision history for Tira
       and the two rules compose rather than merge. Settles the moment
       the handle is written down.
 
+    - TKT-357. "ZEPG-6 has a checklist of ELEVEN ITEMS, ALL DONE.
+      checklist-idle fired on it at 3h and escalated to CRITICAL.
+      There is nothing left to tick." The rule was already correct -
+      it fires on a complete checklist and moving the card settles it
+      - but "no checklist movement since TIMESTAMP" named the one
+      action that cannot be taken and never the one that works.
+
+    - Fixed: checklist-idle's message now distinguishes a 100%-
+      complete checklist ("move the card, there is nothing left to
+      tick") from one with unticked items (unchanged wording), reusing
+      checklist-unmoved's own case-insensitive all-done check. No
+      behaviour change - when the rule fires and what settles it are
+      both unaffected.
+
 3.88  2026-08-24
 
     - TKT-498. Owner, in Cantonese, watching an agent drop a field:

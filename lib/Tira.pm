@@ -6436,7 +6436,18 @@ sub policy_evaluate {
                 next if !@{$checklist};
                 my ($latest) = sort { $b cmp $a } map { $_->{last_updated} } @{$checklist};
                 next if !$self->_policy_older_than( $latest, $policy->{age} );
-                $report->( $policy, $record, "no checklist movement since $latest" );
+
+                # "no checklist movement" is true and useless on a checklist
+                # with nothing left to move - it names the one action that
+                # cannot be taken, and never the one that works. Case-
+                # insensitively complete, the same check checklist-unmoved
+                # already makes (TKT-434): --status Done or DONE both count.
+                # The rule's own behaviour is unchanged - only the sentence,
+                # which was about the wrong thing. TKT-357.
+                my $complete = !grep { lc( $_->{status} // '' ) ne 'done' } @{$checklist};
+                $report->( $policy, $record, $complete
+                    ? "checklist complete since $latest - move the card, there is nothing left to tick"
+                    : "no checklist movement since $latest" );
             }
         }
         elsif ( $rule eq 'checklist-unmoved' ) {

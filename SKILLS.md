@@ -765,6 +765,18 @@ up until cleared. Requires a reason exactly like board-wide decline,
 reads back through `tira.policy.declined --ref CARD`, and is reusable
 by any rule. TKT-303.
 
+`checklist-idle`'s message is **Fixed.** on a checklist that is
+100% complete it now says "checklist complete since TIMESTAMP - move
+the card, there is nothing left to tick" instead of "no checklist
+movement since TIMESTAMP" — the old wording was true and useless
+there, naming the one action that cannot be taken (there is no
+unticked item) and never the one that works. "ZEPG-6 has a checklist
+of ELEVEN ITEMS, ALL DONE... There is nothing left to tick - not
+'nothing worth ticking', literally nothing." The rule's own
+behaviour — when it fires, and that moving the card settles it — is
+unchanged; a checklist with anything still unticked keeps the
+existing wording. TKT-357.
+
 The reminder job is **Implemented.** `tira.collector.show`
 computes the background job for this project and
 `tira.collector.install` registers it, merging into the machine's own

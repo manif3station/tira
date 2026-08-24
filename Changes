@@ -1,5 +1,23 @@
 Revision history for Tira
 
+3.76  2026-08-24
+
+    - TKT-280. Reported live: "tira.checklist.update --ref REF --id 1
+      --status done" against a card whose checklist entries are
+      CHK-001..CHK-NNN answered only "Checklist entry '1' not found" -
+      true, and it named neither the id shape nor how to discover it.
+      An ordinal is the obvious wrong guess, because entries print as
+      a numbered list; a caller looping ordinals believing --id took
+      the position failed silently on every call and reported three
+      cards' checklists as ticked when none of them were.
+
+    - Fixed: the refusal now lists the card's real ids when it has
+      any, or names the CHK-NNN shape when it has none - the tool
+      already knows the valid ids at the moment it refuses. t/366
+      proves both branches. Docker: Files=361, Tests=7409, PASS,
+      100% statement+subroutine coverage on lib/Tira.pm and
+      lib/Tira/CLI.pm.
+
 3.75  2026-08-24
 
     - TKT-487. Found while implementing TKT-486: grepping for other

@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.75';
+our $VERSION = '3.76';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4138,7 +4138,21 @@ sub checklist_update {
     return $self->_with_project_lock( $root, sub {
         my $record = $self->record_show(%args);
         my ($entry) = grep { $_->{id} eq ( $args{id} // '' ) } @{ $record->{checklist} };
-        die "Checklist entry '$args{id}' not found\n" if !$entry;
+        if ( !$entry ) {
+            my @ids = map { $_->{id} } @{ $record->{checklist} };
+
+            # The tool knows the valid ids at the moment it refuses - a card
+            # with none says the shape (CHK-NNN) since there is nothing to
+            # list; a card with items lists them, since that answers the
+            # question directly rather than sending the reader to a second
+            # command. TKT-280: an ordinal ('--id 1') looks like the obvious
+            # thing to try because entries print as a numbered list, and the
+            # old message named neither the format nor how to find out.
+            die "Checklist entry '$args{id}' not found - entries are addressed by id (CHK-001, ...), and this card has none yet\n"
+              if !@ids;
+            die "Checklist entry '$args{id}' not found - entries are addressed by id, not position: "
+              . join( ', ', @ids ) . "\n";
+        }
         $entry->{item} = $args{item} if defined $args{item};
         $entry->{status} = $args{status} if defined $args{status};
         $entry->{last_updated} = $self->{clock}->();

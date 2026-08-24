@@ -24,6 +24,10 @@ const ACTIONS = ['bridge-reminder', 'print-reminder', 'log-only'];
 
 let declared = [
   { id: 'POL-001', rule: 'card-duration', action: 'bridge-reminder', column: 'doing', age: '2h' },
+  // A comma-joined value with no spaces - exactly what --require takes - is
+  // one long unbreakable run a browser will not wrap on its own.
+  { id: 'POL-002', rule: 'card-metrics', action: 'bridge-reminder', enter: 'in-progress',
+    require: 'acceptance_criteria,test_steps,bdd,atdd,deliverables,scope,key_details,description' },
 ];
 let declined = [ { rule: 'wip-limit', reason: 'no limit on this board' } ];
 
@@ -101,6 +105,19 @@ process.on('unhandledRejection', error => {
   if (!declaredText.includes('POL-001') || !declaredText.includes('card-duration')) {
     fail('the declared pane did not show the declared policy, got ' + declaredText);
   }
+
+  // TKT-501: on a narrow (phone) viewport, a long declared-policy line must
+  // wrap within the dialog rather than push Edit/Remove off-screen.
+  await page.setViewportSize({ width: 375, height: 700 });
+  const longRow = page.locator('[data-policy-pane="declared"] .policy-row', { hasText: 'POL-002' });
+  const dialogBox = await page.locator('.policy-dialog').boundingBox();
+  const editBox = await longRow.locator('button', { hasText: 'Edit' }).boundingBox();
+  if (!dialogBox || !editBox) fail('could not measure the policy dialog or its Edit button');
+  else if (editBox.x + editBox.width > dialogBox.x + dialogBox.width + 1)
+    fail(`Edit sits outside the dialog on a narrow viewport - dialog right edge ${dialogBox.x + dialogBox.width}, Edit right edge ${editBox.x + editBox.width}`);
+  const rowOverflow = await longRow.evaluate(node => node.scrollWidth - node.clientWidth);
+  if (rowOverflow > 1) fail(`the long policy row's own content overflows its box by ${rowOverflow}px on a narrow viewport`);
+  await page.setViewportSize({ width: 1280, height: 900 });
 
   // Undeclared lists what neither declared nor declined named.
   await page.locator('[data-policy-tab="undeclared"]').click();

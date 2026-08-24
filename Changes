@@ -214,6 +214,19 @@ Revision history for Tira
       disables itself at the end of its list; a lone attachment shows
       both disabled.
 
+    - TKT-501. A Policies dialog row (TKT-493) with a comma-joined
+      value and no spaces - exactly what --require/--pattern produce -
+      is one long unbreakable run with nowhere to wrap. On a narrow
+      viewport it overflowed its own row, pushing Edit/Remove out of
+      reach ("all these edit button no one works" - Michael, live,
+      with screenshots). A plain long sentence wrapped correctly; only
+      an unbroken run reproduced it.
+
+    - Fixed: each row's text now renders in its own span with
+      min-width:0 and overflow-wrap:anywhere, so an unbroken run
+      breaks rather than overflowing, on declared, declined, and
+      undeclared rows alike.
+
 3.88  2026-08-24
 
     - TKT-498. Owner, in Cantonese, watching an agent drop a field:

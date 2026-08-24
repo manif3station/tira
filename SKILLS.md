@@ -748,6 +748,8 @@ guarantee rather than working around it. Requested directly: "create a
 new modal on the html dashboard, the user can view and edit and add
 the policies not just column policies." TKT-493.
 
+A declared/declined/undeclared policy row's text renders in its own span (min-width:0, overflow-wrap:anywhere) rather than as a bare text node beside Edit/Remove - a comma-joined value with no spaces (what --require/--pattern produce) is one long unbreakable run, and without that span it overflowed the row on a narrow viewport, pushing Edit/Remove out of reach. A plain long sentence wrapped correctly on its own; only an unbroken run reproduced it. Michael, live, with screenshots: "all these edit button no one works." TKT-501.
+
 Declining a rule for one card is **Implemented.** `tira.policy.decline`
 takes an optional `--ref CARD`, scoping the decision to one card
 instead of the whole board — a different question than declining

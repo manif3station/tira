@@ -2,6 +2,26 @@ Revision history for Tira
 
 3.89  2026-08-24
 
+    - TKT-504. "Since TaskList not working, Create this simple task
+      list feature to Tira, d2 tira.tasklist.add." Requested as a
+      parallel system to ticket/epic/sow, deliberately lighter: free
+      text, three fixed states (pending/working/done), no gates or
+      checklists.
+
+    - New: tira.tasklist.add --text TEXT [--session ID] [--ref REF...]
+      creates a pending item; tira.tasklist.list [--session ID] shows
+      items scoped to that session (or the single shared list, with no
+      session named); tira.tasklist.update --id ID --status
+      pending|working|done moves an item between the three states. Two
+      distinct sessions never see each other's items - a subagent
+      declaring its own session id gets its own private list, and an
+      orchestrating agent can read a subagent's list by naming its
+      session. An item may optionally link to existing tickets, epics,
+      or sows via --ref. Attachment support was considered and
+      deferred - Tira's attachment subsystem is card-scoped and
+      content-addressed, and reusing it here would be substantially
+      more machinery than the core ask needs.
+
     - TKT-411. Reporter wanted an intake/catalog column exempt from
       card-unassigned without mischaracterizing it (--protected isn't
       settable on a project's own column, --terminal is semantically

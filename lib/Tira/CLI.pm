@@ -3052,6 +3052,13 @@ sub _invoke {
     return $tira->policy_decline(%args) if $command eq 'policy.decline';
     return $tira->policy_declined(%args) if $command eq 'policy.declined';
 
+    # A parallel system to ticket/epic/sow, deliberately lighter - no gates,
+    # checklists, or required-actions. TKT-504.
+    return $tira->tasklist_list(%args) if $command eq 'tasklist.list';
+    return $tira->tasklist_add( %args, refs => $option->{ref_list} // [] )
+      if $command eq 'tasklist.add';
+    return $tira->tasklist_update(%args) if $command eq 'tasklist.update';
+
     # What the agent has not decided about. It is the only party that can
     # declare a policy, and police prints this for the owner rather than for it.
     return $tira->policy_undeclared(%args) if $command eq 'policy.undeclared';

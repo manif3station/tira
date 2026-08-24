@@ -2259,6 +2259,17 @@ and a card with none shows no section, unchanged from before. TKT-495.
 - `tira.subitem.unlink --parent REF --child REF [-o FORMAT]`
 
 
+### Task list
+
+A parallel, deliberately lighter system to ticket/epic/sow - free text, three
+fixed states, no gates or checklists. Scoped by `--session`: two different
+session ids never see each other's items, and calling with none named uses
+one shared list, which is what a single agent working alone wants.
+
+- `tira.tasklist.add --text TEXT [--session ID] [--ref REF ...] [-o FORMAT]`
+- `tira.tasklist.list [--session ID] [-o FORMAT]`
+- `tira.tasklist.update --id ID --status pending|working|done [-o FORMAT]`
+
 ### Warnings
 
 - `tira.warning.add --message TEXT [-o FORMAT]`

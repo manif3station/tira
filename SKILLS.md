@@ -1172,7 +1172,7 @@ usable at phone width.
 The visible last-updated time advances only after fresh data is applied. Stop
 the foreground server with Ctrl-C.
 
-## 138 use cases
+## 139 use cases
 
 Every case below is implemented and executable.
 
@@ -1417,6 +1417,15 @@ included, rather than linking and silently dropping the bad value. TKT-432.
 
 ### UC-138: Record a passed gate in one command
 **Implemented.** `dashboard tira.release.record --ref TKT-001 --gate "Release gate" --result pass --details "Suite green, 100% coverage" --evidence "Full suite run, 6540 tests" --fix-version 2.88` writes a gate entry, an evidence entry and the fix version together - the three separate calls (`gate.add`, `evidence.add`, `<type>.update --fix-version`) this project's own releases ran on every one of them, and forgot part of three times, each caught only by a later refusal. Anything it is not told is refused rather than defaulted: omit `--fix-version` and nothing is written, not even the gate the same call also carried. Column moves are deliberately untouched - walking the gates a card passes through stays manual, because that is the discipline the push gate enforces rather than paperwork a verb should shortcut. `gate.add`, `evidence.add` and `<type>.update --fix-version` keep working exactly as they always have. TKT-345.
+
+### UC-139: Keep a running list of steps, without opening a ticket for each one
+**Implemented.** `dashboard tira.tasklist.add --text "read the README"` adds a free-text item to a small, separate list - three fixed states (pending, working, done), no gates, no checklist, none of the ticket system's release discipline. `dashboard tira.tasklist.list` shows what is there; `dashboard tira.tasklist.update --id TASK-001 --status working` moves one along. Every call is scoped by `--session`: two different session ids never see each other's items, so a subagent that declares its own gets a private list, and an orchestrating agent can still read one by naming that session; call with no `--session` at all and everything shares the one list, which is what a single agent working alone wants. `--ref` optionally ties an item to an existing ticket, epic, or sow. Michael, live: "since TaskList not working, Create this simple task list feature to Tira, d2 tira.tasklist.add." TKT-504.
+
+```text
+tira.tasklist.add --text TEXT [--session ID] [--ref REF ...] [-o FORMAT]
+tira.tasklist.list [--session ID] [-o FORMAT]
+tira.tasklist.update --id ID --status pending|working|done [-o FORMAT]
+```
 
 ### UC-063: Reparent epic
 **Implemented.** Linking to SOW-002 removes the reciprocal SOW-001 link atomically.

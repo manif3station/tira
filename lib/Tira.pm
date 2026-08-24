@@ -1228,6 +1228,78 @@ sub warning_add {
     } );
 }
 
+# A parallel system to the ticket/epic/sow one, on purpose - TKT-504, his
+# design: free text, three fixed states, no gates or checklists. Kept beside
+# the project file for the same reason warnings are: every command must be
+# able to read it and none of them should need SQLite to do so.
+sub _tasklist_path {
+    my ( $self, $root ) = @_;
+    return File::Spec->catfile( $root, '.tira', 'tasklist.json' );
+}
+
+sub _tasklist_read {
+    my ( $self, $root ) = @_;
+    my $path = $self->_tasklist_path($root);
+    return [] if !-f $path;
+    open my $fh, '<:raw', $path or die "Cannot read tasklist '$path': $!\n";
+    my $content = do { local $/; <$fh> };
+    close $fh or die "Cannot close tasklist '$path': $!\n";
+    return json_object()->utf8->decode($content);
+}
+
+my %TASKLIST_STATUS = map { $_ => 1 } qw(pending working done);
+
+# Scoped by agent_session, his design: two sessions never see each other's
+# items, and calling with none declared is single-agent mode, one shared
+# list. Not a per-card field - a session id names who is asking, not
+# something stored against a ticket.
+sub tasklist_list {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $session = $args{session} // '';
+    return [ grep { ( $_->{session} // '' ) eq $session } @{ $self->_tasklist_read($root) } ];
+}
+
+sub tasklist_add {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    die "Task text is required\n" if !defined $args{text} || $args{text} eq '';
+    return $self->_with_project_lock( $root, sub {
+        my $items = $self->_tasklist_read($root);
+        my $max = 0;
+        for my $item ( @{$items} ) {
+            my ($number) = ( $item->{id} // '' ) =~ /(\d+)\z/;
+            $max = $number if defined $number && $number > $max;
+        }
+        my $now = $self->{clock}->();
+        my $entry = {
+            id => sprintf( 'TASK-%03d', $max + 1 ), text => $args{text}, status => 'pending',
+            session => $args{session} // '', refs => $args{refs} // [],
+            created_at => $now, last_updated => $now,
+        };
+        push @{$items}, $entry;
+        $self->_write_json( $self->_tasklist_path($root), $items );
+        return $entry;
+    } );
+}
+
+sub tasklist_update {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    die "Task id is required\n" if !defined $args{id} || $args{id} eq '';
+    die "Status must be one of pending, working, done\n"
+      if defined $args{status} && !$TASKLIST_STATUS{ $args{status} };
+    return $self->_with_project_lock( $root, sub {
+        my $items = $self->_tasklist_read($root);
+        my ($entry) = grep { $_->{id} eq $args{id} } @{$items};
+        die "No task '$args{id}'\n" if !$entry;
+        $entry->{status} = $args{status} if defined $args{status};
+        $entry->{last_updated} = $self->{clock}->();
+        $self->_write_json( $self->_tasklist_path($root), $items );
+        return $entry;
+    } );
+}
+
 sub warning_clear {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
@@ -12223,6 +12295,19 @@ Adds a warning, or returns the existing one if the same message is already stand
 =head2 warning_clear
 
 Clears one warning by id, or every one with C<--all>.
+
+=head2 tasklist_list
+
+Returns the task-list items scoped to C<session> - two different session ids
+never share a list, and no session at all is the single shared list.
+
+=head2 tasklist_add
+
+Adds a free-text task-list item, starting C<pending>, scoped to C<session>.
+
+=head2 tasklist_update
+
+Moves a task-list item between C<pending>, C<working>, and C<done>.
 
 =head2 notification_record
 

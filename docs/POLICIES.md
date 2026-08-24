@@ -350,7 +350,7 @@ missing, at the moment you declare the policy rather than later.
 | `unpushed-work` | `--age` | commits sitting unpushed |
 | `board-unbacked` | `--age` | a board with no recent backup, by either mechanism: `tira.backup` or an exported backup on disk. Whichever ran last is the answer. |
 | `card-unlinked` | `--require-link` | a card with no dependency link, optionally to a named card |
-| `card-sandbox-missing` | `--enter --sandbox` | a card being implemented with no branch or worktree of its own |
+| `card-sandbox-missing` | `--enter --sandbox` | a card being implemented with no branch or worktree of its own. The rule assumes one project maps to one repository - a card whose work legitimately lives in a second one used to have no honest way to clear this but declining the whole rule (losing the check for every other card). `tira.policy.decline --rule card-sandbox-missing --ref CARD --reason TEXT` now answers just that one card, reusable by any rule. TKT-303. |
 | `leftover-process` | `--pattern --age` | something started and never stopped. Always exempts the bridge tail (`d2 tira.policy.bridge`) - the one process `bridge-unread` itself tells an agent to keep running - however broadly `--pattern` is written; a pattern matching a project's own path can otherwise match the tail of that same project's own bridge. |
 | `leftover-container` | `--pattern --age` | a container still running |
 

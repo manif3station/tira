@@ -1540,8 +1540,23 @@ has been decided.
 | --- | --- | --- |
 | `--rule NAME` | yes (decline) | The rule being declined. Must be one that exists. |
 | `--reason TEXT` | yes (decline) | Why it does not fit this project. |
+| `--ref CARD` | no | Scopes the decision to one card instead of the whole board. |
 | `--author WHO` | no | Who decided. |
 | `-o FORMAT` | no | As above. |
+
+**`--ref` answers a different question than declining board-wide.** "Should
+this rule exist at all" and "does this rule apply to this one card" are
+different decisions, so a per-card decline does not conflict with the rule
+staying declared for every other card - unlike board-wide decline, which is
+refused while the rule is declared. This is the answer to a card whose work
+legitimately breaks a rule's assumption and has no other honest way to clear
+it: `card-sandbox-missing` assumes one project maps to one repository, and a
+card doing real work in a second repository could previously only be cleared
+by declining the whole rule (losing the check for every other card) or left
+as a permanent violation nobody could act on - "a finding that cannot be
+cleared honestly is worse than one that is merely wrong." `--ref` reads back
+through `tira.policy.declined --ref CARD` the same narrow way it was made.
+Reusable by any rule, not scoped to `card-sandbox-missing`. TKT-303.
 
 ### `tira.policy.undeclared`
 

@@ -5815,6 +5815,34 @@ sub policy_decline {
       if $reason eq '';
 
     my $root = $self->discover_project(%args);
+    my $ref = $args{ref};
+
+    # A per-card decline answers a different question than a board-wide one -
+    # "does this rule apply to THIS card", not "should this rule exist at
+    # all" - so it is not stored with, and does not conflict with, the
+    # board-wide declared/declined pair below: card-sandbox-missing can stay
+    # declared for every other card while this one card is answered. "Both
+    # halves are correct about the DECLARED repo and wrong about the work" -
+    # the only prior options were declining the whole rule board-wide or
+    # leaving a permanent unclearable violation. TKT-303.
+    if ( defined $ref && $ref ne '' ) {
+        $self->record_show( project => $root, ref => $ref );
+        return $self->_with_project_lock( $root, sub {
+            my ( $path, $data ) = $self->_project_data($root);
+            my @kept = grep { !( ( $_->{rule} // '' ) eq $rule && ( $_->{ref} // '' ) eq $ref ) }
+              @{ $data->{card_declines} // [] };
+            my $entry = {
+                rule => $rule, ref => $ref, reason => $reason,
+                declined_at => $self->{clock}->(),
+                ( defined $args{author} ? ( author => $args{author} ) : () ),
+            };
+            $data->{card_declines} = [ @kept, $entry ];
+            $data->{last_updated} = $self->{clock}->();
+            $self->_write_yaml( $path, $data );
+            return $entry;
+        } );
+    }
+
     return $self->_with_project_lock( $root, sub {
         my ( $path, $data ) = $self->_project_data($root);
 
@@ -5848,6 +5876,12 @@ sub policy_declined {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
     my ( undef, $data ) = $self->_project_data($root);
+
+    # A per-card decline, read back the same narrow way it was made. TKT-303.
+    if ( defined $args{ref} && $args{ref} ne '' ) {
+        return [ grep { ( $_->{ref} // '' ) eq $args{ref} } @{ $data->{card_declines} // [] } ];
+    }
+
     my %declared = map { ( $_->{rule} // '' ) => 1 } @{ $data->{policies} // [] };
 
     # A rule that has since been declared is no longer declined, whatever the
@@ -6269,10 +6303,18 @@ sub policy_evaluate {
     # rather than per rule - the grain is what makes it worth having.
     my $quieted = $args{store} ? $self->_enforcement_read( $args{store} ) : { rules => {} };
 
+    # A rule can also be answered permanently for one card - "yes, and it is
+    # somewhere else" - rather than only ever quieted for a while. Read once,
+    # the same reasoning as $quieted above. TKT-303.
+    my ( undef, $project_data ) = $self->_project_data($root);
+    my %card_declined;
+    $card_declined{"$_->{rule}\x00$_->{ref}"} = 1 for @{ $project_data->{card_declines} // [] };
+
     my $report = sub {
         my ( $policy, $record, $detail, $for ) = @_;
         my $ref = ref $record ? $record->{ref} : ( $record // '' );
         return if $self->_rule_suspended( $quieted, $policy->{rule}, $ref );
+        return if $card_declined{"$policy->{rule}\x00$ref"};
         push @violations, {
             rule => $policy->{rule},
             policy => $policy->{id},
@@ -7971,9 +8013,18 @@ sub _police_environment_violations {
     # has been caught with three times already.
     my $quieted = $args{store} ? $self->_enforcement_read( $args{store} ) : { rules => {} };
 
+    # The same per-card decline these machine rules answer as the board rules
+    # do - card-sandbox-missing is one of these six, and is the rule TKT-303
+    # was reported against. TKT-303.
+    my $env_root = $self->discover_project(%args);
+    my ( undef, $env_project_data ) = $self->_project_data($env_root);
+    my %card_declined;
+    $card_declined{"$_->{rule}\x00$_->{ref}"} = 1 for @{ $env_project_data->{card_declines} // [] };
+
     my $report = sub {
         my ( $policy, $ref, $detail ) = @_;
         return if $self->_rule_suspended( $quieted, $policy->{rule}, $ref // '' );
+        return if $card_declined{"$policy->{rule}\x00" . ( $ref // '' )};
         push @violations, {
             rule => $policy->{rule}, policy => $policy->{id}, ref => $ref // '',
             detail => $detail, action => $policy->{action},
@@ -12365,6 +12416,8 @@ Returns the project's declared policies.
 =head2 policy_decline
 
 Records a deliberate decision not to declare a rule, with a required reason.
+Given a card reference, scopes the decision to that one card instead, leaving
+the rule declared board-wide for every other card.
 
 =head2 policy_actions
 

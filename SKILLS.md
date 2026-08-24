@@ -748,6 +748,23 @@ guarantee rather than working around it. Requested directly: "create a
 new modal on the html dashboard, the user can view and edit and add
 the policies not just column policies." TKT-493.
 
+Declining a rule for one card is **Implemented.** `tira.policy.decline`
+takes an optional `--ref CARD`, scoping the decision to one card
+instead of the whole board — a different question than declining
+board-wide ("should this rule exist at all"), so it does not conflict
+with the rule staying declared for every other card. This is the
+answer to a card whose work genuinely breaks a rule's assumption with
+no other honest way to clear it: `card-sandbox-missing` assumes one
+project maps to one repository, and "both halves are correct about
+the DECLARED repo and wrong about the work" when a card's work
+legitimately lives in a second one — the only prior options were
+declining the whole rule (losing the check for every other card) or a
+permanent violation nobody could act on, and this project's own
+standing instruction is that every outstanding violation is followed
+up until cleared. Requires a reason exactly like board-wide decline,
+reads back through `tira.policy.declined --ref CARD`, and is reusable
+by any rule. TKT-303.
+
 The reminder job is **Implemented.** `tira.collector.show`
 computes the background job for this project and
 `tira.collector.install` registers it, merging into the machine's own

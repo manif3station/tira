@@ -79,6 +79,21 @@ Revision history for Tira
       its own validated assignment; create_record gets the same check
       at creation time.
 
+    - TKT-303. "Both halves are correct about the DECLARED repo and
+      wrong about the work" - card-sandbox-missing assumes one project
+      maps to one repository, and a card whose work legitimately lives
+      in a second one had no honest way to clear the finding but
+      declining the whole rule (losing the check for every other
+      card) or a permanent violation nobody could act on.
+
+    - New: tira.policy.decline takes an optional --ref CARD, scoping
+      the decision to one card rather than the whole board - a
+      different question than board-wide decline ("should this rule
+      exist"), so it does not conflict with the rule staying declared
+      everywhere else. Requires a reason exactly like board-wide
+      decline, reads back through tira.policy.declined --ref CARD, and
+      is reusable by any rule, not scoped to card-sandbox-missing.
+
 3.88  2026-08-24
 
     - TKT-498. Owner, in Cantonese, watching an agent drop a field:

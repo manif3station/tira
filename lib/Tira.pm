@@ -1249,6 +1249,16 @@ sub _tasklist_read {
 
 my %TASKLIST_STATUS = map { $_ => 1 } qw(pending working done);
 
+# His follow-up, TKT-505: typing --session on every call is unnecessarily
+# long once genuinely multi-agent, so an explicit --session is asked for
+# first and the environment is the fallback - the same precedence every
+# other explicit-flag-over-environment seam in this file already uses.
+sub _tasklist_session {
+    my (%args) = @_;
+    return $args{session} if defined $args{session};
+    return $ENV{TIRA_AGENT_SESSION} // '';
+}
+
 # Scoped by agent_session, his design: two sessions never see each other's
 # items, and calling with none declared is single-agent mode, one shared
 # list. Not a per-card field - a session id names who is asking, not
@@ -1256,7 +1266,7 @@ my %TASKLIST_STATUS = map { $_ => 1 } qw(pending working done);
 sub tasklist_list {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
-    my $session = $args{session} // '';
+    my $session = _tasklist_session(%args);
     return [ grep { ( $_->{session} // '' ) eq $session } @{ $self->_tasklist_read($root) } ];
 }
 
@@ -1264,6 +1274,7 @@ sub tasklist_add {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
     die "Task text is required\n" if !defined $args{text} || $args{text} eq '';
+    my $session = _tasklist_session(%args);
     return $self->_with_project_lock( $root, sub {
         my $items = $self->_tasklist_read($root);
         my $max = 0;
@@ -1274,7 +1285,7 @@ sub tasklist_add {
         my $now = $self->{clock}->();
         my $entry = {
             id => sprintf( 'TASK-%03d', $max + 1 ), text => $args{text}, status => 'pending',
-            session => $args{session} // '', refs => $args{refs} // [],
+            session => $session, refs => $args{refs} // [],
             created_at => $now, last_updated => $now,
         };
         push @{$items}, $entry;

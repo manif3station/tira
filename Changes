@@ -2,6 +2,18 @@ Revision history for Tira
 
 3.89  2026-08-24
 
+    - TKT-505. Follow-up to TKT-504: typing --session on every
+      tasklist call is unnecessarily long once genuinely multi-agent.
+      Michael, live: an environment variable should stand in when
+      --session is not given.
+
+    - New: tasklist.add/tasklist.list fall back to
+      TIRA_AGENT_SESSION from the environment when --session is not
+      passed explicitly; an explicit --session still overrides it.
+      tasklist.update never consulted session in the first place - a
+      core agent can already manage any item by id regardless of
+      session - so it needed no change.
+
     - TKT-504. "Since TaskList not working, Create this simple task
       list feature to Tira, d2 tira.tasklist.add." Requested as a
       parallel system to ticket/epic/sow, deliberately lighter: free

@@ -77,6 +77,21 @@ is_deeply( $linked->{refs}, [ $card->{ref} ], 'refs are stored on the item' );
 eval { $tira->tasklist_add( project => $root, text => '' ) };
 like( $@, qr/text is required/i, 'an empty task refuses rather than storing nothing' );
 
+# --- TKT-505: an env var stands in for --session, so multi-agent mode does --
+# not have to type it on every call. An explicit --session still wins.
+{
+    local $ENV{TIRA_AGENT_SESSION} = 'agent-c';
+    my $via_env = $tira->tasklist_add( project => $root, text => 'From the environment' );
+    is( $via_env->{session}, 'agent-c', 'with no --session, the env var is used' );
+
+    my $for_c = $tira->tasklist_list( project => $root );
+    is( scalar @{$for_c}, 1, 'listing with no --session reads the same env var' );
+    is( $for_c->[0]{id}, $via_env->{id}, 'and sees the item just added' );
+
+    my $overridden = $tira->tasklist_add( project => $root, text => 'Explicit wins', session => 'agent-d' );
+    is( $overridden->{session}, 'agent-d', 'an explicit --session still overrides the env var' );
+}
+
 # --- the three CLI dispatchers reach the same engine ------------------------
 
 sub cli {

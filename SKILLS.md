@@ -697,6 +697,20 @@ existing items can be reordered the same way columns themselves are —
 dragging never crosses between two different columns' own lists, and
 the blank add-row always stays last. TKT-476.
 
+Choosing where new cards start is **Implemented,** from the same
+dialog. Each column row carries an Entry checkbox — "New cards can
+start here" — reflecting whatever `tira.column.roles --role entry=X`
+already declared, and more than one may be checked at once: "It can be
+multiple entries" (owner, live). Saving sends the whole checked set to
+`column_roles_set` in one call, replacing the declared entry columns
+exactly the way repeating `--role entry=X` on the command line already
+does — not an add-only merge, so unchecking one and saving again
+actually removes it rather than only ever growing the set. A save that
+never touches the checkboxes at all — every other layout edit this
+dialog already makes — sends no `entry` field and leaves the declared
+entry columns untouched. TKT-494, building on the engine support
+TKT-496 shipped for it (`entry` may now name more than one column).
+
 Whole-layout column edits are **Implemented.**
 `tira.column.apply` takes the column list a board should have — order,
 labels, per-column thresholds and watched flags — and works out the

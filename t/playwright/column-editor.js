@@ -12,7 +12,7 @@ if (!htmlPath) {
 }
 
 const COLUMNS = [
-  { name: 'backlog', label: 'Backlog', protected: true, watched: 1, next: ['planning'] },
+  { name: 'backlog', label: 'Backlog', protected: true, watched: 1, next: ['planning'], entry: true },
   { name: 'planning', label: 'Planning', protected: false, watched: 0 },
   { name: 'in-progress', label: 'In Progress', protected: false, watched: 1,
     next: ['review'], required_actions: ['Old task'] },
@@ -89,6 +89,11 @@ process.on('unhandledRejection', error => {
   const minutes = await page.locator('.column-row').nth(3).locator('.column-row__minutes').inputValue();
   if (minutes !== '45') fail('the stored threshold was not shown, got ' + minutes);
 
+  // TKT-494: the declared entry column shows checked, the rest do not.
+  const entryChecked = await page.locator('.column-row').evaluateAll(
+    rows => rows.filter(r => r.querySelector('.column-row__entry').checked).map(r => r.dataset.name));
+  if (entryChecked.join(',') !== 'backlog') fail('the declared entry column was not shown checked, got ' + entryChecked.join(','));
+
   // The chain (next) is a checkbox per other column - a fork is visibly
   // possible, not hidden behind a native multi-select - and the
   // required-action template is a removable row per item plus one blank
@@ -147,6 +152,9 @@ process.on('unhandledRejection', error => {
   // remove one via its own x), and check two chain boxes to make a fork.
   await page.locator('.column-row[data-name="in-progress"] .column-row__minutes').fill('90');
   await page.locator('.column-row[data-name="planning"] .column-row__eye').click();
+  // TKT-494: check a second entry column and uncheck the first.
+  await page.locator('.column-row[data-name="planning"] .column-row__entry').check();
+  await page.locator('.column-row[data-name="backlog"] .column-row__entry').uncheck();
   await page.locator('.column-row[data-name="review"] .column-row__action-input').last().fill('Add a Changes entry');
   await page.locator('.column-row[data-name="review"] .column-row__action-add').click();
   await page.locator('.column-row[data-name="review"] .column-row__action-remove').first().click();
@@ -199,6 +207,9 @@ process.on('unhandledRejection', error => {
     const backlog = saved.columns.find(c => c.name === 'backlog');
     if ('notify_after' in backlog) fail('an empty threshold was sent as a value');
     if (saved.type !== 'ticket') fail('the board type was not sent');
+    if ((saved.entry || []).join(',') !== 'planning') {
+      fail('the checked-then-unchecked entry set was not sent as planning alone, got ' + JSON.stringify(saved.entry));
+    }
     if ((backlog.next || []).join(',') !== 'planning,in-progress') fail('backlog\'s checked chain fork was not sent back, got ' + JSON.stringify(backlog.next));
     const review = saved.columns.find(c => c.name === 'review');
     if ((review.required_actions || []).join('|') !== 'Add a Changes entry|Update the docs') {

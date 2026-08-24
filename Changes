@@ -38,6 +38,18 @@ Revision history for Tira
       stricter policy with a looser one) - the modal keeps that
       guarantee rather than working around it.
 
+    - TKT-494. "Add a UI to allow to select which column is new
+      ticket entry point. It can be multiple entries" (owner, live).
+      The Columns dialog gains an Entry checkbox per column row,
+      building on the multi-entry engine support TKT-496 shipped
+      alongside it. Saving sends the whole checked set through
+      column_roles_set in one call - full-replace semantics matching
+      repeating --role entry=X on the command line, not an add-only
+      merge, so unchecking a column and saving removes it rather than
+      only ever growing the set. A save that never touches the
+      checkboxes sends no entry field and leaves the declared entry
+      columns untouched.
+
 3.88  2026-08-24
 
     - TKT-498. Owner, in Cantonese, watching an agent drop a field:

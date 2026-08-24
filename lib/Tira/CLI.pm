@@ -1100,19 +1100,41 @@ sub browser_providers {
         },
         columns => sub {
             my ($query) = @_;
-            return $json->encode(
-                $tira->column_list( project => $project, type => $query->{type} ) );
+            my $list = $tira->column_list( project => $project, type => $query->{type} );
+
+            # Which columns already start new cards, so the dialog's own
+            # checkbox opens showing what tira.column.roles --role entry=X
+            # already declared, rather than always opening blank. TKT-494.
+            my $declared = eval { $tira->column_roles( project => $project, type => $query->{type} )->{entry} };
+            my @entries = ref $declared eq 'ARRAY' ? @{$declared}
+              : ( defined $declared && $declared ne '' ? ($declared) : () );
+            my %is_entry = map { $_ => 1 } @entries;
+            $_->{entry} = $is_entry{ $_->{name} } ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false
+              for @{$list};
+            return $json->encode($list);
         },
         column_apply => sub {
             my ($payload) = @_;
             die "Column layout must be an object with a type and columns\n"
               if ref($payload) ne 'HASH' || ref $payload->{columns} ne 'ARRAY';
-            return $json->encode(
-                $tira->column_apply(
-                    project => $project, type => $payload->{type},
-                    columns => $payload->{columns},
-                )
+            my $result = $tira->column_apply(
+                project => $project, type => $payload->{type},
+                columns => $payload->{columns},
             );
+
+            # An 'entry' field is which columns the dialog's own checkboxes
+            # left checked - a full replacement of the entry role, the same
+            # semantics tira.column.roles --role entry=X already has, not an
+            # add-only merge. Omitted entirely (not an empty array) means the
+            # save was only ever about layout, so the existing entry columns
+            # are left exactly as they were. TKT-494.
+            if ( exists $payload->{entry} && ref $payload->{entry} eq 'ARRAY' ) {
+                $tira->column_roles_set(
+                    project => $project, type => $payload->{type},
+                    roles   => { entry => $payload->{entry} },
+                );
+            }
+            return $json->encode($result);
         },
         # The board-wide police policy engine, separate from a column's own
         # required-action template (the columns/column_apply pair above): 36

@@ -65,6 +65,10 @@ separate from a column's own required-action template — is editable from
 the browser too: a Policies button opens a modal listing every declared,
 declined, and undeclared rule, with a rule-specific parameter picker that
 matches the `tira.policy.add` command exactly.
+The Columns dialog also carries an Entry checkbox per row, so which
+column (or columns — a board can start new cards in more than one
+place) new cards land in is chosen from the browser, not just
+`tira.column.roles --role entry=X`.
 
 ## Value
 

@@ -1349,6 +1349,13 @@ and `--column` naming any of them succeeds; naming a column that is none of
 them refuses, listing all of the declared entries. A board with zero or one
 entry column is completely unaffected. TKT-496.
 
+**The dashboard's Columns dialog can declare `entry` too, since TKT-494.**
+Each column row carries an Entry checkbox; saving sends the whole checked set
+through `column_roles_set`, replacing the declared entry columns the same way
+repeating `--role entry=X` on this command does - not an add-only merge. A
+save that never touches the checkboxes sends no `entry` field at all and
+leaves the declared entry columns exactly as they were.
+
 Until 1.97 `in-progress` was a second exception and a silent one. Whether any
 card was being worked - which `work-without-card` rests on - counted only cards
 in the column that role named, so a board declaring `in-progress=implement` with

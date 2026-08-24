@@ -50,6 +50,19 @@ Revision history for Tira
       checkboxes sends no entry field and leaves the declared entry
       columns untouched.
 
+    - TKT-284. column-skipped's only remedy on finished work used to
+      be walking the card backward and forward through the column it
+      missed, writing moves into its history that never happened -
+      the same falsified-history shape 2.35 already fixed for
+      orphan-card, unfixed here. Reported at 4x the count: 344
+      outstanding findings against 439 done cards on one board,
+      mostly work that finished before the rule existed. Any comment
+      on the card now settles the finding, reusing
+      discard-unexplained's own settle check rather than inventing a
+      second convention - the comment is the acknowledgement, and
+      nothing is rewritten. A card with the same shortcut and no
+      comment is still reported, exactly as before.
+
 3.88  2026-08-24
 
     - TKT-498. Owner, in Cantonese, watching an agent drop a field:

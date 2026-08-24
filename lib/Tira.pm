@@ -6747,6 +6747,16 @@ sub policy_evaluate {
 
                 my @missed = grep { !$visited{$_} } @required;
                 next if !@missed;
+
+                # The only remedy used to be walking the finished card
+                # backward and forward through the column it missed - which
+                # writes moves into its work log that never happened, the
+                # same falsified-history shape TKT-366 already flagged and
+                # 2.35 already fixed for orphan-card. A comment settles it
+                # instead, the same check discard-unexplained already makes:
+                # the acknowledgement is the comment itself, not a rewritten
+                # journey. TKT-284.
+                next if @{ $record->{comments} // [] };
                 $report->( $policy, $record,
                     'arrived in ' . $policy->{enter} . ' without passing through '
                       . join( ', ', @missed ) );

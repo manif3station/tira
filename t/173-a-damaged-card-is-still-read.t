@@ -161,14 +161,19 @@ is_deeply( $pass->{unreadable}, [],
     is( scalar @{ $seen->{damaged} // [] }, 1, 'and appears once in what the pass hands back' );
     is( $seen->{damaged}[0]{ref}, $twice, 'as the card it is' );
 
-    # And both rules still judged it, which is the whole point of reading past
-    # the byte rather than skipping.
-    ok( scalar( grep { $_->{rule} eq 'column-skipped' && $_->{ref} eq $twice }
+    # And both rules still judged it - reading past the byte rather than
+    # skipping means _police_history still ran for both, which is what the
+    # dedup above actually proves. column-skipped itself is now settled by
+    # the very comment this scenario added to give conversation-not-folded
+    # something to fire on - TKT-284's own comment-settles behaviour, not a
+    # gap in the dedup: it read the damaged journal (the damage was still
+    # found and reported once, above) and then judged the card settled.
+    ok( !scalar( grep { $_->{rule} eq 'column-skipped' && $_->{ref} eq $twice }
             @{ $seen->{violations} } ),
-        'while the first rule still judged the card' );
+        'while the first rule read the same damaged journal and judged the card settled by its comment' );
     ok( scalar( grep { $_->{rule} eq 'conversation-not-folded' && $_->{ref} eq $twice }
             @{ $seen->{violations} } ),
-        'and so did the second' );
+        'and the second still judged it, unaffected' );
 }
 
 # --- and the file on disk is untouched ------------------------------------------------------

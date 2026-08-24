@@ -1,5 +1,25 @@
 Revision history for Tira
 
+3.73  2026-08-24
+
+    - TKT-485. Reported live: tira.ticket.create landing in a column
+      with required_actions wrote the record first, then populated
+      required_items via required_item_add - which requires
+      --author. A create with no author (and no TIRA_AUTHOR) failed
+      after the record already existed: an orphaned, unattributed
+      card on disk, and a retry with --author created a second,
+      duplicate ticket for the same work rather than completing the
+      first.
+
+    - Fixed: record.create now refuses before writing, not after,
+      when the landing column carries required_actions and no author
+      is available from --author or TIRA_AUTHOR - naming the same
+      message required_item_add already raised, just moved before
+      any write happens. A column with no required_actions is
+      unaffected either way. Docker: Files=358, Tests=7379, PASS,
+      100% statement+subroutine coverage on lib/Tira.pm and
+      lib/Tira/CLI.pm. Browser tests 12/12.
+
 3.72  2026-08-24
 
     - TKT-437. card-unlinked and parent-ahead-of-children both depend

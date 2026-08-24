@@ -2410,6 +2410,28 @@ sub _invoke {
             }
         }
 
+        # A card landing in a column that carries required_actions needs an
+        # author for the required_item_add calls below - and until now that
+        # was discovered only by getting there: create_record has no author
+        # requirement of its own (hundreds of test fixtures and the
+        # dashboard's own create flow rely on that), so the record was
+        # already written by the time required_item_add's own author check
+        # died, leaving an orphaned, unattributed card on disk that a retry
+        # with --author then duplicated rather than completed. Checked here,
+        # before anything is written, using whichever column the card is
+        # actually about to land in - entry role or explicit --column,
+        # falling back to the same 'backlog' default create_record itself
+        # uses. TKT-485.
+        if ( !defined $args{author} || $args{author} eq '' ) {
+            my $landing = defined $args{column} && $args{column} ne '' ? $args{column} : 'backlog';
+            my $columns = eval { $tira->column_list(%args) };
+            if ( ref $columns eq 'ARRAY' ) {
+                my ($about_to_land) = grep { $_->{name} eq $landing } @{$columns};
+                die "A change needs to say who is making it\n"
+                  if $about_to_land && @{ $about_to_land->{required_actions} // [] };
+            }
+        }
+
         # The record itself stays exactly what is stored - an agent can trust
         # that what it holds is what is on disk. The advice about it belongs to
         # the layer that talks to agents, not to the data.

@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=3\.93$/m, '.env stores the version being released' );
+like( $env_text, qr/^VERSION=3\.94$/m, '.env stores the version being released' );
 
 # Read out of .env rather than matched against it, so the module can be
 # compared with what .env actually holds rather than with a literal that
@@ -73,7 +73,7 @@ use Tira;
 # the same literal, so they agreed only through a third party. Changing one
 # literal and not the other was caught by luck rather than by this.
 is( $Tira::VERSION, $env_version, 'module version matches .env, which is now read' );
-is( $Tira::VERSION, '3.93', 'and the release being made is the one intended' );
+is( $Tira::VERSION, '3.94', 'and the release being made is the one intended' );
 
 # And the changelog, which nothing checked. .env, the module and this file
 # agreed with each other for two releases while Changes named a version one
@@ -166,7 +166,35 @@ sub dotted_command {
     my ($path) = @_;
     return "tira.$1" if $path =~ m{\Acli/([^/]+)\z};
     ( my $trimmed = $path ) =~ s{/cli/}{/};
-    return 'tira.' . join '.', grep { $_ ne 'skills' } split m{/}, $trimmed;
+
+    # The dispatcher's own nested lookup (Developer::Dashboard::SkillDispatcher
+    # _nested_skill_path) requires a literal 'skills' segment immediately
+    # before every dotted-name segment past the first, not merely somewhere in
+    # the path - a name/name/name/cli/action chain looks like it resolves (the
+    # words are all there) but the dispatcher never finds it. TKT-510 shipped
+    # exactly that shape and every prior version of this check derived the
+    # right-looking dotted name from it anyway, so "every documented command
+    # resolves" passed on a command that could not be typed. Requiring strict
+    # alternation here means a future misplaced entrypoint fails this test
+    # instead of shipping silently.
+    my @parts = split m{/}, $trimmed;
+    shift @parts;    # the top-level skills/ container itself, not part of the name
+    my $action = pop @parts;
+    die "Malformed nested entrypoint path '$path': odd chain of name/skills segments expected\n"
+      if @parts % 2 == 0;
+    my @names;
+    for my $i ( 0 .. $#parts ) {
+        if ( $i % 2 == 0 ) {
+            push @names, $parts[$i];
+        }
+        else {
+            die "Malformed nested entrypoint path '$path': expected a literal "
+              . "'skills' segment, found '$parts[$i]'\n"
+              if $parts[$i] ne 'skills';
+        }
+    }
+    push @names, $action;
+    return 'tira.' . join '.', @names;
 }
 
 my @undocumented;

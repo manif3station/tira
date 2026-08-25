@@ -349,6 +349,26 @@ like( $out, qr/"status"\s*:\s*0\D/, 'the raw JSON really does show status as 0, 
         'and both files land (c.txt already there from earlier, d.txt newly added)' );
 }
 
+# --- TKT-510: the 4 tasklist.task.* entrypoints live where the real DD
+# dispatcher (Developer::Dashboard::SkillDispatcher::_nested_skill_path)
+# actually looks for a 2-level-nested dotted command - a literal 'skills'
+# segment before EVERY name past the first, not a plain subdirectory chain.
+# t/390's own cli() dispatch tests above call Tira::CLI directly and would
+# pass even with the wrong layout, since they never go through the real
+# installed-skill path resolution - only this existence check, and the
+# stricter dotted_command() guard in t/03-metadata.t, catch that class of
+# bug. Confirmed live before this shipped: copying one file to the wrong
+# layout reproduced "Command not found" against the actually-installed
+# skill; moving it to this layout fixed it immediately.
+for my $rel (
+    'skills/tasklist/skills/task/skills/attach/cli/add',
+    'skills/tasklist/skills/task/skills/attach/cli/discard',
+    'skills/tasklist/skills/task/skills/ref/cli/link',
+    'skills/tasklist/skills/task/skills/ref/cli/unlink',
+) {
+    ok( -f $rel, "$rel exists at the DD-required nested path" );
+}
+
 done_testing;
 
 __END__

@@ -1,5 +1,27 @@
 Revision history for Tira
 
+3.94  2026-08-25
+
+    - TKT-510. Fixed: the four tasklist.task.attach.add/discard and
+      tasklist.task.ref.link/unlink commands were documented and
+      dispatched correctly in the CLI code, but shipped at the wrong
+      directory depth - Developer Dashboard's nested dotted-command
+      resolution requires a literal 'skills' segment before every
+      dotted-name segment past the first, not a plain subdirectory
+      chain. All four resolved to "Command not found" on an actually
+      installed copy of the skill. Reported by another project
+      through tira.dev.found.bug_or_improvement; root cause confirmed
+      live (copying one file to the correct depth fixed it
+      immediately) before writing any code. Moved to
+      skills/tasklist/skills/task/skills/{attach,ref}/cli/*.
+
+    - Hardened: t/03-metadata.t's dotted-command derivation now
+      requires the correct alternating skills/-segment shape and dies
+      naming the malformed path if it does not, instead of silently
+      deriving a plausible-looking name for an entrypoint the
+      dispatcher could never actually find. This is the guard that
+      should have caught TKT-510 before it shipped.
+
 3.93  2026-08-25
 
     - TKT-509. Fixed: tasklist.update --status 0 (the

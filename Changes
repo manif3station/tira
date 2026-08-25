@@ -1,5 +1,18 @@
 Revision history for Tira
 
+4.03  2026-08-25
+
+    - TKT-524. Task List cards accept attachments by drag-and-drop and
+      paste, not only through the file picker. Michael, via shared
+      tasklist TSK-020: "On the html dashboard, the user can also drag
+      and drog attachment to any existing task... They can drag the
+      file(s) to the task card in order to attach. Also the user can
+      paste if that is a file or picture, also convert that to
+      attachment." Each tasklist card highlights while a file is
+      dragged over it and accepts a drop or a paste (when the card has
+      focus), reusing the same attach path the file-picker button
+      already used.
+
 4.02  2026-08-25
 
     - TKT-525. A backward move that resets an already-done required item

@@ -1503,6 +1503,13 @@ edit already in progress. `tira.tasklist.update` gained `--text` alongside
 its existing `--status`; either can be given alone, and each leaves the
 other field untouched.
 
+TKT-524: a tasklist card also accepts an attachment by drag-and-drop
+(highlighting while a file is dragged over it) or paste (when the card
+has focus), alongside the existing file-picker button - all three reach
+the same attach path. Michael, live: "the user can also drag and drog
+attachment to any existing task... Also the user can paste if that is a
+file or picture, also convert that to attachment."
+
 ### UC-063: Reparent epic
 **Implemented.** Linking to SOW-002 removes the reciprocal SOW-001 link atomically.
 

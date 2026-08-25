@@ -76,6 +76,13 @@ let nextNum = 4;
       items = items.filter(item => item.status !== 2);
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(pruned) });
     }
+    if (path === '/tasklist/task/attach/add') {
+      const payload = JSON.parse(request.postData() || '{}');
+      posted.push({ path, payload });
+      const entry = items.find(item => item.id === payload.id);
+      if (entry) entry.attachments.push({ original_filename: payload.filename });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(entry || {}) });
+    }
     return route.fulfill({ status: 200, contentType: 'text/html', body: html });
   });
 
@@ -166,6 +173,32 @@ let nextNum = 4;
   await page.waitForFunction(() => !document.querySelector('.tasklist-card__text-input'));
   if (await section.locator('.tasklist-card', { hasText: 'still typing, not done yet' }).count() !== 0)
     fail('pressing Escape should discard the edit, not save it');
+
+  // --- TKT-524: drag-and-drop attach ------------------------------------------
+  const dropTarget = section.locator('.tasklist-card', { hasText: 'Ship it for real this time' });
+  await dropTarget.evaluate(node => {
+    const file = new File(['hello'], 'dropped.txt', { type: 'text/plain' });
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    node.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer }));
+    node.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }));
+  });
+  await page.waitForTimeout(200);
+  const dropAttach = posted.find(p => p.path === '/tasklist/task/attach/add' && p.payload.filename === 'dropped.txt');
+  if (!dropAttach) fail('dropping a file onto a card did not attach it');
+
+  // --- TKT-524: paste-to-attach ------------------------------------------------
+  await dropTarget.click();
+  await dropTarget.evaluate(node => {
+    const file = new File(['pasted'], 'pasted.png', { type: 'image/png' });
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dataTransfer });
+    node.dispatchEvent(event);
+  });
+  await page.waitForTimeout(200);
+  const pasteAttach = posted.find(p => p.path === '/tasklist/task/attach/add' && p.payload.filename === 'pasted.png');
+  if (!pasteAttach) fail('pasting a file while a card is focused did not attach it');
 
   // --- prune (removes every done item) ---------------------------------------
   await section.locator('.tasklist-prune').click();

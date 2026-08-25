@@ -1,5 +1,23 @@
 Revision history for Tira
 
+4.02  2026-08-25
+
+    - TKT-525. A backward move that resets an already-done required item
+      now says why, on the card. Reported by zen-framework as "moving a
+      card into Backlog resets ALL prior required-items to pending,
+      keeping their proof" - reproduced and root-caused: Backlog is
+      always the structurally-first column, so a move into it is always
+      the most extreme case of TKT-455's existing, intended backward-move
+      design (a backward move resets every done item between destination
+      and origin, deliberately, so redoing work means every check is
+      satisfied again). Michael's answer: keep the reset, explain it.
+      _apply_column_required_actions's backward branch now adds one
+      comment per move (not one per item) naming the origin and
+      destination columns, listing which required item(s) reset, and
+      reassuring the reader that their proof was left untouched - only
+      when something actually reset; a backward move that resets nothing
+      adds no comment.
+
 4.01  2026-08-25
 
     - TKT-523. Task List section: a card's own text can now be edited in

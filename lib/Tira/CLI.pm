@@ -2324,6 +2324,7 @@ sub _apply_column_required_actions {
         _populate_column_required_actions( $tira, $args, $to, $columns, \@required_items );
     }
     elsif ( $to_idx < $from_idx ) {
+        my @reset;
         for my $item (@required_items) {
             next if !defined $item->{column} || !exists $index{ $item->{column} };
             my $item_idx = $index{ $item->{column} };
@@ -2334,6 +2335,7 @@ sub _apply_column_required_actions {
             # on the way back through exactly as --status done would. TKT-434.
             next if lc( $item->{status} // '' ) ne 'done';
             $tira->required_item_update( %{$args}, id => $item->{id}, status => 'pending', source => 'required-action' );
+            push @reset, $item->{item};
         }
 
         # A backward move-in is still a move-in: the destination column's own
@@ -2342,6 +2344,26 @@ sub _apply_column_required_actions {
         # after the card had already left that column once, exactly what
         # TKT-458 hit in practice. TKT-464.
         _populate_column_required_actions( $tira, $args, $to, $columns, \@required_items );
+
+        # zen-framework's report (TKT-525): a card moved all the way back
+        # into Backlog - always the structurally-first column, so this reset
+        # is the most extreme case the branch above already handles - looked
+        # broken because nothing said why a done item, proof intact, now
+        # reads pending. The reset is correct (TKT-455); what was missing was
+        # an explanation on the card itself. Michael's answer to Q-079: keep
+        # the reset, add the comment. One comment per move, not one per item,
+        # and only when something actually reset - a backward move that
+        # resets nothing has nothing to explain.
+        if (@reset) {
+            eval {
+                $tira->comment_add( %{$args},
+                    text => "Moved backward from $from to $to: " . scalar(@reset)
+                      . ' required item(s) reset to pending, proof kept - '
+                      . join( ', ', @reset )
+                      . '. This is the intended backward-move design (redoing work from here means every check between here and where you were needs satisfying again), not something undone by hand.',
+                );
+            };
+        }
     }
     return;
 }

@@ -2152,6 +2152,17 @@ the move-out gate and backward-move reset (all TKT-427/439/445); these three
 commands are how an agent reads that list or manages a card-specific item on
 top of it directly.
 
+TKT-525: a backward move that actually resets one or more already-done
+required items also drops one comment on the card explaining it - naming
+the origin and destination columns, listing which item(s) reset, and
+noting that their proof was left untouched. One comment per move, never
+one per item, and only when something genuinely reset (a backward move
+that resets nothing adds no comment). Moving all the way back into
+Backlog - always the structurally-first column - is the most extreme case
+of this same backward-reset design (TKT-455), which is why it can look
+like every required item on the card was silently wiped; the comment
+exists so a reader never has to guess.
+
 - `tira.required-action.add --ref REF --item TEXT --status TEXT [--column SLUG] [-o FORMAT]` - adds an item tagged with the card's current column; unlike checklist.add, this item gates the card's next move out of that column. `--column` overrides the tag to name a different column, which is how a required item is backfilled onto a card without physically moving it back through that column first.
 - `tira.required-action.list --ref REF [-o FORMAT]`
 - `tira.required-action.update --ref REF --id REQ-NNN [--item TEXT] [--status TEXT] [--command TEXT --proof TEXT ...] [-o FORMAT]` - same `--command`/`--proof` requirement on `--status done` as checklist.update above, and the same reasoning: a required item, gating or not, is not evidence of what happened just because it says so. TKT-453. An unknown `--id` refuses naming the card's real ids (or the `REQ-NNN` shape, on a card with none yet), the same fix checklist.update got for the identical bug. TKT-488.

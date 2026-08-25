@@ -126,6 +126,16 @@ ok( ( grep { $_->{id} eq $via_cli->{id} } @{ decode_json($out) } ), 'and lists t
 is( $status, 0, 'tasklist.update dispatches' );
 is( decode_json($out)->{status}, 1, 'and moves the item' );
 
+# Found adversarially: --status 0 (the numeric form, always a string once it
+# arrives from the command line) was stored as the JSON string "0", unlike
+# every other write path's real int - Test::More's is() could not have
+# caught this, since "0" and 0 compare equal after decode_json; only the raw
+# JSON text distinguishes a quoted value from a bare one.
+( $status, $out ) = cli( 'tasklist.update', '--id', $via_cli->{id}, '--status', '0', '-o', 'json' );
+is( $status, 0, 'tasklist.update --status 0 (numeric) dispatches' );
+unlike( $out, qr/"status"\s*:\s*"0"/, 'and the status is stored as a bare int, not a quoted string' );
+like( $out, qr/"status"\s*:\s*0\D/, 'the raw JSON really does show status as 0, unquoted' );
+
 # --- TKT-507: array-list operations, on a fresh queue -----------------------
 {
     my $a = $tira->tasklist_add( project => $root, text => 'A', session => 'arr' );

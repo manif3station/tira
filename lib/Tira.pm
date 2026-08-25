@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.92';
+our $VERSION = '3.93';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1246,7 +1246,12 @@ sub _tasklist_status_code {
     my ($value) = @_;
     return undef if !defined $value;
     return $TASKLIST_STATUS_CODE{$value} if exists $TASKLIST_STATUS_CODE{$value};
-    return $value if $value =~ /\A[0-2]\z/;
+
+    # A CLI-supplied "0" is a string, and JSON::XS encodes a string that was
+    # never used in numeric context as "0" (quoted), not 0 - found
+    # adversarially: tasklist.update --status 0 stored a status unlike every
+    # other write path's real int. +0 forces the numeric context once, here.
+    return $value + 0 if $value =~ /\A[0-2]\z/;
     die "Status must be one of pending, working, done\n";
 }
 

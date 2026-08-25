@@ -1,5 +1,15 @@
 Revision history for Tira
 
+4.08  2026-08-25
+
+    - TKT-531. The tasklist card ref field now suggests matches as you
+      type, instead of being a blind text box - a bare number or a
+      prefix+partial ref both work via one case-insensitive substring
+      match against every ref the dashboard already knows (recordsByRef,
+      populated from /data), rendered as a dropdown; clicking a
+      suggestion links it the same way the existing Link button does
+      (tasklist_task_ref_link), so no new endpoint was needed.
+
 4.07  2026-08-25
 
     - TKT-529. The board's own search box now also filters the Task List

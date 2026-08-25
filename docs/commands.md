@@ -2386,6 +2386,12 @@ or a linked ref, hiding non-matching cards, and restoring every card when
 the box is cleared. Client-side only; unlike the record boards' own
 `/search` round-trip, no new route was added.
 
+TKT-531: a tasklist card's ref field now autosuggests as you type -
+matching against every ref the dashboard already holds client-side
+(`recordsByRef`, populated from `/data`), rendered as a dropdown below
+the field. Clicking a suggestion posts to `/tasklist/task/ref/link`, the
+same route the existing Link button already uses; no new endpoint.
+
 ### Warnings
 
 - `tira.warning.add --message TEXT [-o FORMAT]`

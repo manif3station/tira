@@ -77,6 +77,13 @@ const recordRequests = [];
       items = items.filter(item => item.status !== 2);
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(pruned) });
     }
+    if (path === '/tasklist/task/ref/link') {
+      const payload = JSON.parse(request.postData() || '{}');
+      posted.push({ path, payload });
+      const entry = items.find(item => item.id === payload.id);
+      if (entry) entry.refs = [...(entry.refs || []), payload.ref];
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(entry || {}) });
+    }
     if (path === '/tasklist/task/ref/unlink') {
       const payload = JSON.parse(request.postData() || '{}');
       posted.push({ path, payload });
@@ -92,6 +99,14 @@ const recordRequests = [];
         linkage: { epic_ref: null, parent_ticket_ref: null, sub_ticket_refs: [], links: [] },
         comments: [], created_at: '2026-08-01T08:00:00+0100', last_updated: '2026-08-01T08:00:00+0100',
       }) });
+    }
+    if (path === '/data' && request.method() === 'GET') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+        _column_order: { ticket: ['backlog'] },
+        ticket: { backlog: [
+          { ref: 'TKT-100', title: 'Existing ticket one hundred', column: 'backlog' },
+          { ref: 'TKT-101', title: 'A different card', column: 'backlog' },
+        ] } }) });
     }
     if (path === '/tasklist/task/attach/add') {
       const payload = JSON.parse(request.postData() || '{}');
@@ -251,6 +266,23 @@ const recordRequests = [];
   await page.waitForTimeout(300);
   if ((await section.locator('.tasklist-card:visible').count()) !== (await section.locator('.tasklist-card').count()))
     fail('clearing the search box should show every tasklist card again');
+
+  // --- TKT-531: typing a ref suggests matching cards and clicking one links it
+  await page.waitForTimeout(300);
+  const suggestCard = section.locator('.tasklist-card', { hasText: 'Already finished' });
+  const suggestRefInput = suggestCard.locator('input[placeholder="CARD-REF"]');
+  await suggestRefInput.fill('100');
+  await page.waitForTimeout(200);
+  const suggestions = suggestCard.locator('.tasklist-card__ref-suggestion');
+  const suggestionTexts = await suggestions.allTextContents();
+  if (!suggestionTexts.some(text => text.includes('TKT-100')))
+    fail('typing "100" did not suggest TKT-100 (a ref containing that number)');
+  if (suggestionTexts.some(text => text.includes('TKT-101')))
+    fail('typing "100" should not suggest TKT-101, which does not contain it');
+  await suggestions.filter({ hasText: 'TKT-100' }).first().click();
+  await page.waitForTimeout(200);
+  const suggestLink = posted.find(p => p.path === '/tasklist/task/ref/link' && p.payload.ref === 'TKT-100');
+  if (!suggestLink) fail('clicking a suggestion did not link it the same way the Link button does');
 
   // --- prune (removes every done item) ---------------------------------------
   await section.locator('.tasklist-prune').click();

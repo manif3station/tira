@@ -1531,6 +1531,15 @@ TSK-023: "The search also filter the task cards too." Implemented
 client-side rather than a server round-trip, since tasklist items are
 already loaded locally.
 
+TKT-531: a tasklist card's ref field now suggests matches as you type,
+instead of being a blind text box - typing a bare number shows every ref
+containing it, and typing a prefix (or a partial prefix) filters the same
+way, both via one substring match against the refs the dashboard already
+knows client-side. Clicking a suggestion links it exactly like the
+existing Link button. Michael, via TSK-021: "if i just type the number
+will show me any card with that number and i just click the one at the
+dropdown and linked."
+
 ### UC-063: Reparent epic
 **Implemented.** Linking to SOW-002 removes the reciprocal SOW-001 link atomically.
 

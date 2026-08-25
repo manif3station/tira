@@ -249,6 +249,33 @@ const recordRequests = [];
   const pasteAttach = posted.find(p => p.path === '/tasklist/task/attach/add' && p.payload.filename === 'pasted.png');
   if (!pasteAttach) fail('pasting a file while a card is focused did not attach it');
 
+  // --- TKT-534: the edit control is a dynamic-sizing textarea, not a
+  // single-line input, and grows as multi-line text is typed -----------------
+  await dropTarget.locator('.tasklist-card__text').click();
+  const growInput = section.locator('.tasklist-card__text-input');
+  const tagName = await growInput.evaluate(node => node.tagName);
+  if (tagName !== 'TEXTAREA') fail('the edit control should be a textarea, not a single-line input');
+  const heightBefore = await growInput.evaluate(node => node.getBoundingClientRect().height);
+  await growInput.evaluate(node => { node.value = 'one\ntwo\nthree\nfour\nfive\nsix'; node.dispatchEvent(new Event('input')); });
+  const heightAfter = await growInput.evaluate(node => node.getBoundingClientRect().height);
+  if (!(heightAfter > heightBefore)) fail('the edit control did not grow for multi-line text');
+
+  // --- TKT-534: pasting an image while editing attaches it (Q-080: embed
+  // inline, but the file itself is stored as an attachment) ------------------
+  await growInput.evaluate(node => {
+    const file = new File(['pasted-while-editing'], 'edited-paste.png', { type: 'image/png' });
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    node.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dataTransfer }));
+  });
+  await page.waitForTimeout(200);
+  const editPasteAttach = posted.find(p => p.path === '/tasklist/task/attach/add' && p.payload.filename === 'edited-paste.png');
+  if (!editPasteAttach) fail('pasting an image while editing did not attach it via the tasklist attachment mechanism');
+  const valueAfterPaste = await growInput.inputValue();
+  if (!valueAfterPaste.includes('edited-paste.png')) fail('pasting an image while editing did not embed a reference to it inline in the text');
+  await growInput.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('.tasklist-card__text-input'));
+
   // --- TKT-528: clicking a linked ref chip's text opens that card's dialog ----
   const refChipCard = section.locator('.tasklist-card', { hasText: 'Already finished' });
   const refChip = refChipCard.locator('.tasklist-card__chip', { hasText: 'TKT-777' });

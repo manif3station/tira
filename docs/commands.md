@@ -2416,6 +2416,15 @@ lookup. `type` is still accepted and used when a caller supplies it;
 board type) now recovers it from the moved record's own stored `type`
 field instead of requiring it from the caller.
 
+TKT-534: a tasklist card's inline text edit (`.tasklist-card__text-input`)
+is a dynamic-sizing `<textarea>` now, not a single-line `<input>` - it
+grows with `scrollHeight` as multi-line text is typed. Shift+Enter inserts
+a newline; plain Enter still saves, unchanged from before. Pasting an
+image while editing calls the same `attachFile` helper drag-and-drop
+already uses (TKT-524) and inserts a `[image: filename]` text reference
+at the cursor - the image itself is stored as a tasklist attachment, not
+embedded as raw data in the text field.
+
 ### Warnings
 
 - `tira.warning.add --message TEXT [-o FORMAT]`

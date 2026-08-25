@@ -1564,6 +1564,16 @@ unaffected. Previously `search()` only ever walked the sow/epic/ticket
 boards, leaving a tasklist item invisible to it regardless of how
 distinctive its text was.
 
+TKT-534: a tasklist card's inline text edit is a dynamic-sizing textarea
+now, not a single-line input - it grows as multi-line text is typed
+(Shift+Enter for a newline; plain Enter still saves, unchanged).
+Pasting an image while editing attaches it through the same mechanism
+drag-and-drop already uses (TKT-524) and inserts a `[image: filename]`
+reference inline at the cursor. Michael, via screenshot: "Change it to
+dynamic sizing textarea that support richtext and allow user copy and
+paste images..." - Q-080 answered: embed inline, but the actual file is
+an attachment, not raw base64 in the text field.
+
 ### UC-063: Reparent epic
 **Implemented.** Linking to SOW-002 removes the reciprocal SOW-001 link atomically.
 

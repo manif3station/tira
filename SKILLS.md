@@ -1516,6 +1516,13 @@ the same attach path. Michael, live: "the user can also drag and drog
 attachment to any existing task... Also the user can paste if that is a
 file or picture, also convert that to attachment."
 
+TKT-528: clicking a linked ref chip's text (not its remove button) on a
+tasklist card now opens that card's own dialog - the same
+`navigateToCard(ref)` opener the card dialog's own linkage table already
+uses, rather than a second dialog mechanism. Michael, via TSK-022: "when
+i click on the card ref on the task card. It will open the card modal."
+The chip's remove (x) button is unaffected - it still just unlinks.
+
 ### UC-063: Reparent epic
 **Implemented.** Linking to SOW-002 removes the reciprocal SOW-001 link atomically.
 

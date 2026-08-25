@@ -1,5 +1,18 @@
 Revision history for Tira
 
+4.06  2026-08-25
+
+    - TKT-528. Clicking a tasklist card's linked ref chip now opens that
+      card's own dialog, the same one the SOW/Epic/Ticket boards' click
+      handler already opens - previously the chip text was inert, only
+      its remove (x) button did anything. tlChip gained an optional
+      onClick handler, wired to the existing navigateToCard(ref) used by
+      the card dialog's own linkage table, so no second dialog mechanism
+      was added. Scoped to ref chips only: attachment chips and the
+      unlink button are unchanged, confirmed by a Playwright assertion
+      that clicking unlink still posts to /tasklist/task/ref/unlink
+      without also fetching /record.
+
 4.05  2026-08-25
 
     - TKT-527. tira.onboard -o browser=0.0.0.0:PORT is now refused

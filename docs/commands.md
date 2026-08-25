@@ -2375,6 +2375,11 @@ amber, working purple-blue, done green - with list-level controls plus a
 status dropdown, remove, attach, and ref controls on each card. Full CLI
 parity: nothing above is CLI-only.
 
+TKT-528: a card's ref chip is now clickable - clicking its text opens the
+linked card's own dialog (`/record?type=...&ref=...`, same opener the
+dialog's own linkage table uses); the chip's remove button still just
+unlinks and does not open anything.
+
 ### Warnings
 
 - `tira.warning.add --message TEXT [-o FORMAT]`

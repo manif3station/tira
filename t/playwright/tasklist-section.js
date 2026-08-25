@@ -23,9 +23,10 @@ process.on('unhandledRejection', error => {
 let items = [
   { id: 'TSK-001', text: 'Write the report', status: 0, session: '', refs: [], attachments: [] },
   { id: 'TSK-002', text: 'Ship it', status: 1, session: '', refs: [], attachments: [] },
-  { id: 'TSK-003', text: 'Already finished', status: 2, session: '', refs: [], attachments: [] },
+  { id: 'TSK-003', text: 'Already finished', status: 2, session: '', refs: ['TKT-777'], attachments: [] },
 ];
 let nextNum = 4;
+const recordRequests = [];
 
 (async () => {
   const html = fs.readFileSync(htmlPath, 'utf8');
@@ -75,6 +76,22 @@ let nextNum = 4;
       const pruned = items.filter(item => item.status === 2);
       items = items.filter(item => item.status !== 2);
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(pruned) });
+    }
+    if (path === '/tasklist/task/ref/unlink') {
+      const payload = JSON.parse(request.postData() || '{}');
+      posted.push({ path, payload });
+      const entry = items.find(item => item.id === payload.id);
+      if (entry) entry.refs = entry.refs.filter(ref => ref !== payload.ref);
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(entry || {}) });
+    }
+    if (path === '/record') {
+      recordRequests.push(new URL(request.url()).searchParams.get('ref'));
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+        ref: 'TKT-777', type: 'ticket', column: 'in-progress', title: 'Linked from a tasklist chip',
+        checklist: [], gate_passing_log: [], evidence: [], attachments: [], subtasks: [],
+        linkage: { epic_ref: null, parent_ticket_ref: null, sub_ticket_refs: [], links: [] },
+        comments: [], created_at: '2026-08-01T08:00:00+0100', last_updated: '2026-08-01T08:00:00+0100',
+      }) });
     }
     if (path === '/tasklist/task/attach/add') {
       const payload = JSON.parse(request.postData() || '{}');
@@ -199,6 +216,26 @@ let nextNum = 4;
   await page.waitForTimeout(200);
   const pasteAttach = posted.find(p => p.path === '/tasklist/task/attach/add' && p.payload.filename === 'pasted.png');
   if (!pasteAttach) fail('pasting a file while a card is focused did not attach it');
+
+  // --- TKT-528: clicking a linked ref chip's text opens that card's dialog ----
+  const refChipCard = section.locator('.tasklist-card', { hasText: 'Already finished' });
+  const refChip = refChipCard.locator('.tasklist-card__chip', { hasText: 'TKT-777' });
+  if ((await refChip.count()) !== 1) fail('the linked ref chip for TKT-777 did not render');
+  await refChip.locator('span').first().click();
+  await page.waitForFunction(() => document.querySelector('.card-dialog')?.open);
+  if (!recordRequests.includes('TKT-777')) fail('clicking the ref chip text did not fetch the card record');
+  if ((await page.locator('.card-dialog').getAttribute('data-ref')) !== 'TKT-777')
+    fail('the opened dialog is not showing the clicked ref');
+  await page.locator('.card-dialog__close').click();
+  await page.waitForFunction(() => !document.querySelector('.card-dialog')?.open);
+
+  // --- TKT-528: the chip's unlink button still unlinks, without opening the dialog
+  recordRequests.length = 0;
+  await refChipCard.locator('.tasklist-card__chip', { hasText: 'TKT-777' }).locator('button').click();
+  await page.waitForTimeout(200);
+  const unlinked = posted.find(p => p.path === '/tasklist/task/ref/unlink' && p.payload.ref === 'TKT-777');
+  if (!unlinked) fail('clicking the unlink button on a ref chip did not post to /tasklist/task/ref/unlink');
+  if (recordRequests.length !== 0) fail('clicking the unlink button should not also open the card dialog');
 
   // --- prune (removes every done item) ---------------------------------------
   await section.locator('.tasklist-prune').click();

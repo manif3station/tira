@@ -9,6 +9,17 @@ This manual is the use cases: what to do, and which command does it. For the
 command reference — every command, every argument, what it is for and when to
 use it — run `dashboard tira.usage`.
 
+## Before anything else: install Developer Dashboard
+
+Tira is a Developer Dashboard (DD) skill and every command in this manual
+runs through `dashboard`/`d2`, which DD provides. Install DD first, then
+install this skill:
+
+```bash
+curl https://raw.githubusercontent.com/manif3station/developer-dashboard/refs/heads/master/install.sh | sh
+dashboard skills install tira
+```
+
 ## Availability legend
 
 - **Implemented (0.01):** shipped, executable, and covered by tests.

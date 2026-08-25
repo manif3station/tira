@@ -100,6 +100,16 @@ Tira deliberately has no HTTP transaction layer. Commands operate directly on
 validated local files and column folders, keeping the system simple,
 inspectable, and efficient.
 
+## Requirements
+
+Tira is a Developer Dashboard (DD) skill and does not run without DD
+installed first. DD is the shared CLI/collector framework this and every
+other skill on this machine plugs into - it resolves project locations,
+dispatches `dashboard`/`d2` commands to the right skill, and runs background
+collectors. See [Introducing Developer
+Dashboard](https://michael.vu/post/2026-04-24-introducing-developer-dashboard.html)
+for what it is and why it exists.
+
 ## Installation
 
 ```bash

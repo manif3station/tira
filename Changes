@@ -1,5 +1,18 @@
 Revision history for Tira
 
+3.99  2026-08-25
+
+    - TKT-518. Docs: README.md and SKILLS.md now say Tira is a Developer
+      Dashboard (DD) skill and cannot run without DD installed first.
+      README.md gets a new "Requirements" section naming DD and linking
+      Michael's own explainer
+      (https://michael.vu/post/2026-04-24-introducing-developer-dashboard.html).
+      SKILLS.md gets a new section right after the intro, ahead of the
+      availability legend, with the literal DD install command
+      (curl .../install.sh | sh) since that is where an agent starts.
+      Michael, via Telegram: "The agent will need to install DD first the
+      install tira skill after that."
+
 3.98  2026-08-25
 
     - TKT-517. Feature: tira.onboard -o browser - a disposable, no-login

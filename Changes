@@ -1,5 +1,23 @@
 Revision history for Tira
 
+3.95  2026-08-25
+
+    - TKT-514. Fixed: in the live Policies dialog, clicking the
+      Declined or Undeclared tab correctly toggled the hidden
+      attribute on the right pane at the DOM level, but a CSS rule
+      for the three pane classes set display:flex unconditionally,
+      overriding the browser's own [hidden]{display:none} rule -
+      every pane stayed visually displayed regardless of which tab
+      was active. Found by driving the actual running dashboard live
+      in a browser, following up on a screenshot; the existing
+      fixture test never caught it because it only checked the
+      hidden attribute and .is-active class, never real computed
+      visibility. Added .policy-declared[hidden],.policy-declined
+      [hidden],.policy-undeclared[hidden]{display:none}, matching the
+      .policy-form__row[hidden] rule already used in the same
+      stylesheet. Edit/Remove buttons were confirmed already working
+      correctly via live DOM inspection - not touched.
+
 3.94  2026-08-25
 
     - TKT-510. Fixed: the four tasklist.task.attach.add/discard and

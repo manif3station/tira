@@ -131,8 +131,31 @@ process.on('unhandledRejection', error => {
   if (rowOverflow > 1) fail(`the long policy row's own content overflows its box by ${rowOverflow}px on a narrow viewport`);
   await page.setViewportSize({ width: 1280, height: 900 });
 
+  // TKT-514: the tab click toggles the hidden attribute and .is-active class
+  // correctly at the DOM level - that alone was already covered and passed
+  // even with the bug live, because it never checked whether "hidden" had
+  // any visual effect. A CSS rule for the three pane classes set display:flex
+  // unconditionally, so the declared pane (and its Edit/Remove buttons)
+  // stayed visible underneath the declined/undeclared tabs regardless of
+  // which was clicked. isHidden() checks real computed visibility, not the
+  // attribute, so this is the assertion that actually would have failed.
+  if (await page.locator('[data-policy-pane="declared"]').isHidden())
+    fail('the declared pane should start visible');
+  if (!(await page.locator('[data-policy-pane="declined"]').isHidden()))
+    fail('the declined pane should start hidden, before any tab is clicked');
+  await page.locator('[data-policy-tab="declined"]').click();
+  if (!(await page.locator('[data-policy-pane="declared"]').isHidden()))
+    fail('clicking Declined did not actually hide the declared pane - it is still visible underneath');
+  if (await page.locator('[data-policy-pane="declined"]').isHidden())
+    fail('clicking Declined did not make the declined pane visible');
+  await page.locator('[data-policy-tab="declared"]').click();
+
   // Undeclared lists what neither declared nor declined named.
   await page.locator('[data-policy-tab="undeclared"]').click();
+  if (!(await page.locator('[data-policy-pane="declared"]').isHidden()))
+    fail('clicking Undeclared did not actually hide the declared pane - it is still visible underneath');
+  if (await page.locator('[data-policy-pane="undeclared"]').isHidden())
+    fail('clicking Undeclared did not make the undeclared pane visible');
   const undeclaredNames = await page.locator('[data-policy-pane="undeclared"] .policy-row').evaluateAll(
     nodes => nodes.map(n => n.childNodes[0].textContent.trim()));
   if (undeclaredNames.join(',') !== 'card-unassigned,checklist-idle') {

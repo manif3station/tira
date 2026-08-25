@@ -393,6 +393,12 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   itself: a forked watchdog gives the response a moment to leave the
   socket, then sends the parent SIGTERM - any request after that gets a
   503, not a second form.
+
+  TKT-527: `-o browser=0.0.0.0:PORT` is refused for `onboard`, naming why
+  - this server has no login at all, so making it reachable from the
+  whole network would be a genuinely unauthenticated project-creation
+  endpoint. `127.0.0.1`/`localhost`/the plain default are unaffected;
+  `tira.dashboard`'s own `0.0.0.0` mode stays login-gated and untouched.
 - `tira.project.show [-o FORMAT]` — **Implemented.**
 - `tira.doctor [--repair] [-o FORMAT]` — **Implemented.** Finds board files
   holding bytes that are not valid UTF-8, and says which file, which byte and at

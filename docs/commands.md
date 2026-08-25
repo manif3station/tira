@@ -1531,6 +1531,13 @@ afterward gets a 503, and the process itself exits shortly after (a forked
 watchdog sends it SIGTERM once the response has had a moment to leave the
 socket).
 
+TKT-527: `-o browser=0.0.0.0:PORT` is refused for `onboard` specifically,
+naming why - this server has no login at all (by design, for its one
+submission), so a network-reachable session would be an unauthenticated
+project-creation endpoint. `127.0.0.1`, `localhost`, and the plain default
+are unaffected; `tira.dashboard`'s own `0.0.0.0` mode is a separate code
+path and stays login-gated as before.
+
 `tira.project.new` bootstraps in one call what `project.create`, `project.people.add`,
 `board.refs`, and `column.add` otherwise do across dozens: it creates the project,
 adds each member, sets each board's reference prefix, and applies one shared column

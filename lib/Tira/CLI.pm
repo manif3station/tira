@@ -507,10 +507,17 @@ sub run {
             # back to - and a fixed default port would collide the moment two
             # projects tried to onboard at once. 127.0.0.1 rather than
             # 0.0.0.0: this is a disposable setup session, not a board meant
-            # to be reached from another machine.
+            # to be reached from another machine. 0.0.0.0 is refused outright
+            # here, not merely defaulted away from - unlike tira.dashboard,
+            # Tira::OnboardWeb has no login at all (by design: one submission
+            # and done), so a network-reachable onboard session would be a
+            # genuinely unauthenticated project-creation endpoint. TKT-527.
             ( $browser_host, $browser_port ) = ( '127.0.0.1', undef );
             if ( defined $given && length $given ) {
-                ( $browser_host, $browser_port ) = $given =~ /\A(0\.0\.0\.0|127\.0\.0\.1|localhost)(?::([0-9]+))?\z/
+                return _error( $tira, 'toon',
+                    "Unsupported browser endpoint '$given' - onboard has no login, so 0.0.0.0 is refused; use 127.0.0.1 or localhost\n" )
+                  if $given =~ /\A0\.0\.0\.0(?::[0-9]+)?\z/;
+                ( $browser_host, $browser_port ) = $given =~ /\A(127\.0\.0\.1|localhost)(?::([0-9]+))?\z/
                   or return _error( $tira, 'toon', "Unsupported browser endpoint '$given'\n" );
             }
             $browser_port = _free_port() if !defined $browser_port;
@@ -4747,6 +4754,10 @@ C<127.0.0.1> and a dynamically-picked free port (C<_free_port>), unless an
 explicit C<-o browser=host:port> was given. Its C<create> provider calls
 back into the exact C<_invoke($tira, 'onboard', undef, \%merged)> dispatch
 the interactive wizard's own answers reach, so nothing forks into a second,
-divergent project-creation path.
+divergent project-creation path. TKT-527: an explicit C<-o browser=0.0.0.0:PORT>
+is refused for C<onboard> specifically (naming why) - this server has no
+login, so C<0.0.0.0> would be a genuinely unauthenticated project-creation
+endpoint; C<127.0.0.1>/C<localhost>/the plain default are unaffected, and
+C<dashboard>'s own C<0.0.0.0> handling (a separate branch) is untouched.
 
 =cut

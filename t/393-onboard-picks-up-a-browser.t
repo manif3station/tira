@@ -56,6 +56,26 @@ is( $listed->{name}, 'Onboarded', 'reachable the normal way afterward' );
 eval { $calls->[0]{create}->( { name => '', dir => File::Spec->catdir( $tmp, 'unnamed' ) } ) };
 like( $@, qr/name/i, 'an invalid submission through the same path still refuses, naming why' );
 
+# TKT-527: the disposable onboarding server has no login at all (by design -
+# it is meant for exactly one submission), unlike tira.dashboard's own
+# 0.0.0.0 mode, which is always login-gated. An explicit 0.0.0.0 override
+# would make project creation reachable, unauthenticated, from the whole
+# network - the code's own comment already says this session should never
+# be reachable from another machine, so the endpoint parser must not accept
+# it, not merely default away from it.
+( $status, $out, $err, $calls ) = onboard_cli( '-o', 'browser=0.0.0.0:9999' );
+isnt( $status, 0, '-o browser=0.0.0.0:PORT is refused for onboard' );
+like( $err, qr/0\.0\.0\.0/, 'naming the address that was refused' );
+is( scalar @{$calls}, 0, 'and no server was started' );
+
+( $status, $out, $err, $calls ) = onboard_cli( '-o', 'browser=127.0.0.1:4322' );
+is( $status, 0, '127.0.0.1 with an explicit port still works after the fix' );
+is( $calls->[0]{host}, '127.0.0.1', 'unaffected' );
+
+( $status, $out, $err, $calls ) = onboard_cli( '-o', 'browser' );
+is( $status, 0, 'the plain default still works after the fix' );
+is( $calls->[0]{host}, '127.0.0.1', 'still defaults to loopback' );
+
 done_testing;
 
 __END__

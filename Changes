@@ -1,5 +1,21 @@
 Revision history for Tira
 
+4.05  2026-08-25
+
+    - TKT-527. tira.onboard -o browser=0.0.0.0:PORT is now refused
+      outright, naming why. Self-found during a standing hunt: the
+      disposable onboarding server (TKT-517) has no login at all by
+      design (it exists for exactly one submission), unlike
+      tira.dashboard's own 0.0.0.0 mode, which is always login-gated -
+      so an explicit 0.0.0.0 override on onboard specifically would make
+      project creation reachable, unauthenticated, from the whole
+      network. The code's own comment already said this session should
+      never be reachable from another machine; the endpoint parser now
+      actually enforces it rather than merely defaulting away from it.
+      127.0.0.1, localhost, and the plain default are unaffected;
+      tira.dashboard's own 0.0.0.0 handling is a separate code path and
+      untouched.
+
 4.04  2026-08-25
 
     - TKT-526. Fixed a genuine flake in t/373-a-singleton-that-kills-its-

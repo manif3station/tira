@@ -1,5 +1,21 @@
 Revision history for Tira
 
+3.96  2026-08-25
+
+    - TKT-515. Fixed: clicking Edit on a declared policy or Declare
+      on an undeclared rule correctly populated the policy form's
+      fields, but on a board with a realistic number of declared
+      policies (~90 rows) the form rendered far below the dialog's
+      visible viewport with nothing scrolling it into view.
+      Reported by zen-framework, already diagnosed down to the exact
+      handlers and a suggested fix (scrollIntoView), with live
+      measurements from their own repro. t/378 and an earlier
+      fixture here both missed it because a handful of declared
+      policies happens to leave the form inside the viewport by
+      luck - reproduced here with a realistic (~90-row) fixture
+      instead. Added policyForm.scrollIntoView({block:"nearest"}) to
+      both the editBtn and declareBtn click handlers.
+
 3.95  2026-08-25
 
     - TKT-514. Fixed: in the live Policies dialog, clicking the

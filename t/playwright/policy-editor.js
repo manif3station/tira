@@ -220,6 +220,41 @@ process.on('unhandledRejection', error => {
   await page.locator('[data-policy-pane="declared"] .policy-row').first().locator('button', { hasText: 'Remove' }).click();
   await page.waitForFunction(count => document.querySelectorAll('[data-policy-pane="declared"] .policy-row').length < count, beforeRemove);
 
+  // TKT-515, reported by zen-framework with exact live measurements: Edit and
+  // Declare both populate the form correctly, but on a board with a
+  // realistic number of declared policies the form renders far below the
+  // dialog's visible viewport with nothing to scroll it into view. t/378 and
+  // an earlier fixture here both missed it because a handful of rows happens
+  // to leave the form inside the viewport by luck - this only reproduces
+  // with a realistic row count, so this fixture pushes it to ~90 rows.
+  for (let i = 0; i < 90; i++) {
+    declared.push({ id: 'POL-BULK-' + i, rule: 'card-duration', action: 'bridge-reminder', column: 'doing', age: '2h' });
+  }
+  await page.locator('.policy-dialog__close').click();
+  await page.locator('.board--ticket .board-policies').click();
+  await page.waitForFunction(() => document.querySelectorAll('.policy-row').length > 90);
+
+  // Playwright's own .click() auto-scrolls its target into view before
+  // clicking as part of its actionability checks - which, on the last row,
+  // incidentally scrolls the dialog close to where the form already sits and
+  // would mask exactly the bug being tested. The reporter's own live
+  // measurement noted "dialog.scrollTop stayed 0 throughout", meaning their
+  // repro used a real click with no assistive scrolling - matched here with
+  // a raw DOM .click() via evaluate, bypassing Playwright's actionability
+  // scroll entirely.
+  await page.evaluate(() => {
+    const rows = document.querySelectorAll('[data-policy-pane="declared"] .policy-row');
+    const last = rows[rows.length - 1];
+    [...last.querySelectorAll('button')].find(b => b.textContent === 'Edit').click();
+  });
+  await page.waitForTimeout(200);
+  const dialogViewport = await page.locator('.policy-dialog').boundingBox();
+  const formBox = await page.locator('.policy-form').boundingBox();
+  if (!dialogViewport || !formBox) fail('could not measure the dialog or the policy form');
+  else if (formBox.y > dialogViewport.y + dialogViewport.height || formBox.y + formBox.height < dialogViewport.y) {
+    fail(`clicking Edit on a board with many declared policies left the form off-screen - dialog visible ${dialogViewport.y} to ${dialogViewport.y + dialogViewport.height}, form at ${formBox.y}`);
+  }
+
   await browser.close();
   if (!process.exitCode) console.log('policy editor: all checks passed');
 })().catch(error => {

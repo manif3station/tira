@@ -1,5 +1,23 @@
 Revision history for Tira
 
+4.04  2026-08-25
+
+    - TKT-526. Fixed a genuine flake in t/373-a-singleton-that-kills-its-
+      rival.t under parallel test runs (prove -j). Its real-fork subtest
+      sent SIGTERM to a freshly-forked child racing that child's own
+      $SIG{TERM} = ... assignment; under heavy CPU contention (several
+      concurrent prove/Devel::Cover processes) that window widened enough
+      for the signal to be lost outright, and the child ran its full
+      30-second sleep to completion instead of exiting cleanly. Reproduced
+      directly: 8-way parallel runs of the file alone failed on exactly
+      this assertion, the failing run taking the full 30 wallclock
+      seconds. Fixed with a pipe-based readiness handshake - the child
+      closes its write end right after installing the handler, and the
+      parent blocks reading before sending anything - closing the race
+      rather than papering over it with a longer sleep. Verified with
+      24/24 concurrent solo runs of the file and 5/5 full-suite -j8 runs,
+      all clean.
+
 4.03  2026-08-25
 
     - TKT-524. Task List cards accept attachments by drag-and-drop and

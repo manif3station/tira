@@ -118,14 +118,31 @@ SKIP: {
     skip 'fork is not available here', 3
       if !eval { my $pid = fork; defined $pid or die; $pid == 0 and exit 0; waitpid $pid, 0; 1 };
 
+    # A pipe rather than a bare fork+sleep: without it, sending TERM races
+    # the child's own $SIG{TERM} assignment - under heavy parallel load
+    # (prove -j, several Devel::Cover processes contending for CPU) that
+    # window widens enough for the signal to arrive before the handler is
+    # installed and be lost outright, the child then runs its full sleep
+    # to completion and exits 1, which is exactly what an intermittent
+    # failure of the very next assertion looked like. Reproduced directly:
+    # 8-way parallel `prove` on this one file failed with the child's
+    # fallback exit code after a genuine 30-second wait. The child closes
+    # the write end once its handler is live; the parent blocks reading
+    # the pipe before sending anything, so TERM is never sent early.
     my $default_store = File::Spec->catdir( $tmp, 'default-store' );
+    pipe my $ready_read, my $ready_write or die "Cannot open pipe: $!\n";
     my $child = fork;
     die 'cannot fork' if !defined $child;
     if ( !$child ) {
+        close $ready_read;
         $SIG{TERM} = sub { exit 0 };
+        close $ready_write;    # signals readiness by closing its end
         sleep 30;
         exit 1;    # only reached if TERM never arrived
     }
+    close $ready_write;
+    my $discard = <$ready_read>;    # blocks until the child closes its end
+    close $ready_read;
 
     # The real default 'alive' answers true for a process that is genuinely
     # still there, and the real default 'kill' really signals it - claiming

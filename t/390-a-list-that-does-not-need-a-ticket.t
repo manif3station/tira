@@ -166,6 +166,24 @@ is( decode_json($out)->{status}, 'working', 'and moves the item' );
         'a negative position is refused, not a raw splice crash' );
 }
 
+# --- TKT-507: ids never repeat, even after the list is fully emptied -------
+# Found adversarially: minting an id from the current items alone reused
+# a deleted item's id the moment the list emptied, since shift/pop/remove
+# genuinely delete (unlike ticket/epic/sow, where nothing is ever truly
+# removed, so their own id counters never see this).
+{
+    my $one = $tira->tasklist_add( project => $root, text => 'one', session => 'ids' );
+    my $two = $tira->tasklist_add( project => $root, text => 'two', session => 'ids' );
+    $tira->tasklist_shift( project => $root, session => 'ids' );
+    $tira->tasklist_pop( project => $root, session => 'ids' );
+    is( scalar @{ $tira->tasklist_list( project => $root, session => 'ids' ) }, 0,
+        'the ids session list is now fully empty' );
+
+    my $three = $tira->tasklist_add( project => $root, text => 'three', session => 'ids' );
+    isnt( $three->{id}, $one->{id}, 'a fresh add after emptying the list does not reuse the first id' );
+    isnt( $three->{id}, $two->{id}, 'nor the second' );
+}
+
 # --- TKT-507: importing a card's pending required-actions/checklist --------
 {
     my $source_card = $tira->create_record( project => $root, type => 'ticket', title => 'Has pending work' );

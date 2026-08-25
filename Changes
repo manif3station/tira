@@ -23,6 +23,14 @@ Revision history for Tira
       items or checklist items to the tasklist, so you can focus on a
       task at a time."
 
+    - Fixed: an id could be reused after the item that held it was
+      fully removed (via shift/pop/remove) and the list emptied -
+      unlike ticket/epic/sow, whose ids never free up because nothing
+      is ever truly deleted there. Found by deliberately draining a
+      session's queue and adding again. A small counter file next to
+      the list, which only ever goes up, now survives every item
+      being deleted.
+
     - Fixed: tasklist.slice --position with a negative value crashed
       with a raw Perl splice error ("Modification of non-creatable
       array value attempted") instead of refusing cleanly. Found by

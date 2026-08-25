@@ -1273,14 +1273,34 @@ sub tasklist_list {
         grep { ( $_->{session} // '' ) eq $session } @{ $self->_tasklist_read($root) } ];
 }
 
+sub _tasklist_counter_path {
+    my ($root) = @_;
+    return File::Spec->catfile( $root, '.tira', 'tasklist-counter' );
+}
+
+# Found adversarially: minting an id from the current items alone reused a
+# ended item's id the moment the list emptied (shift/pop/remove genuinely
+# delete, unlike every other record type's ids, which are never freed up
+# because nothing is ever truly removed). A small counter file that only
+# ever goes up, next to the list itself, survives every item being deleted.
 sub _tasklist_next_id {
-    my ($items) = @_;
+    my ( $root, $items ) = @_;
+    my $counter_path = _tasklist_counter_path($root);
     my $max = 0;
+    if ( open my $in, '<', $counter_path ) {
+        my $line = <$in>;
+        close $in;
+        $max = $1 if defined $line && $line =~ /\A(\d+)/;
+    }
     for my $item ( @{$items} ) {
         my ($number) = ( $item->{id} // '' ) =~ /(\d+)\z/;
         $max = $number if defined $number && $number > $max;
     }
-    return sprintf( 'TSK-%03d', $max + 1 );
+    $max++;
+    open my $out, '>', $counter_path or die "Cannot write '$counter_path': $!\n";
+    print {$out} "$max\n";
+    close $out or die "Cannot close '$counter_path': $!\n";
+    return sprintf( 'TSK-%03d', $max );
 }
 
 sub tasklist_add {
@@ -1297,7 +1317,7 @@ sub tasklist_add {
         }
         my $now = $self->{clock}->();
         my $entry = {
-            id => _tasklist_next_id($items), text => $args{text}, status => 'pending',
+            id => _tasklist_next_id( $root, $items ), text => $args{text}, status => 'pending',
             session => $session, refs => $args{refs} // [], order => $max_order + 1,
             created_at => $now, last_updated => $now,
         };
@@ -1370,7 +1390,7 @@ sub tasklist_unshift {
         $min_order //= 1;
         my $now = $self->{clock}->();
         my $entry = {
-            id => _tasklist_next_id($items), text => $args{text}, status => 'pending',
+            id => _tasklist_next_id( $root, $items ), text => $args{text}, status => 'pending',
             session => $session, refs => $args{refs} // [], order => $min_order - 1,
             created_at => $now, last_updated => $now,
         };
@@ -1397,7 +1417,7 @@ sub tasklist_slice {
         my @others = grep { ( $_->{session} // '' ) ne $session } @{$items};
         my $now = $self->{clock}->();
         my $entry = {
-            id => _tasklist_next_id($items), text => $args{text}, status => 'pending',
+            id => _tasklist_next_id( $root, $items ), text => $args{text}, status => 'pending',
             session => $session, refs => $args{refs} // [],
             created_at => $now, last_updated => $now,
         };
@@ -1457,7 +1477,7 @@ sub tasklist_import {
             }
             my $now = $self->{clock}->();
             my $entry = {
-                id => _tasklist_next_id($items), text => $entry_source->{item}, status => 'pending',
+                id => _tasklist_next_id( $root, $items ), text => $entry_source->{item}, status => 'pending',
                 session => $session, refs => [ $args{ref} ], order => $max_order + 1,
                 imported_from => $tag, created_at => $now, last_updated => $now,
             };

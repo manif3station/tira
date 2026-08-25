@@ -1465,7 +1465,7 @@ A further screenshot, TKT-508: status became a stored integer enum (0 = pending,
 ```text
 tira.tasklist.add --text TEXT [--session ID] [--ref REF ...] [--attach FILE ...] [-o FORMAT]
 tira.tasklist.list [--session ID] [--sort FIELD:DIR[,FIELD:DIR...]] [-o FORMAT]
-tira.tasklist.update --id ID --status pending|working|done|0|1|2 [-o FORMAT]
+tira.tasklist.update --id ID [--status pending|working|done|0|1|2] [--text TEXT] [-o FORMAT]
 tira.tasklist.next [--session ID] [-o FORMAT]
 tira.tasklist.shift [--session ID] [-o FORMAT]
 tira.tasklist.pop [--session ID] [-o FORMAT]
@@ -1495,6 +1495,13 @@ with their own add/discard/link/unlink buttons). Backed by new `GET
 /tasklist` and 14 `POST /tasklist/*` routes in `Tira::DashboardWeb.pm`, wired
 to matching provider closures in `Tira::CLI::browser_providers`, the same
 shape the Policies dialog's own providers already use.
+
+TKT-523: a card's own text is editable in place - click it, type, Enter or
+blur saves, Escape discards - and the section auto-refreshes every second
+(matching the ticket board's own cadence) without a tick ever clobbering an
+edit already in progress. `tira.tasklist.update` gained `--text` alongside
+its existing `--status`; either can be given alone, and each leaves the
+other field untouched.
 
 ### UC-063: Reparent epic
 **Implemented.** Linking to SOW-002 removes the reciprocal SOW-001 link atomically.

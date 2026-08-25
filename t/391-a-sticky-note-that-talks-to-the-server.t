@@ -54,6 +54,14 @@ like( $@, qr/task id is required/i, 'tasklist_update refuses without an id' );
 my $updated = decode_json( $providers{tasklist_update}->( { id => $added->{id}, status => 1 } ) );
 is( $updated->{status}, 1, 'update moves it to working (1)' );
 
+# TKT-523: the browser dashboard's Task List section needs to edit a task's
+# own text in place, not just its status - update must accept --text too.
+my $retexted = decode_json( $providers{tasklist_update}->( { id => $added->{id}, text => 'Write the actual report' } ) );
+is( $retexted->{text}, 'Write the actual report', 'update also accepts a new text' );
+is( $retexted->{status}, 1, 'and leaves status alone when text-only' );
+my $status_only = decode_json( $providers{tasklist_update}->( { id => $added->{id}, status => 0 } ) );
+is( $status_only->{text}, 'Write the actual report', 'and a status-only update leaves text alone' );
+
 # --- next / shift / pop -------------------------------------------------------
 $providers{tasklist_update}->( { id => $added->{id}, status => 0 } );
 my $peeked = decode_json( $providers{tasklist_next}->( {} ) );

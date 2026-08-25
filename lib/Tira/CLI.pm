@@ -1265,7 +1265,8 @@ sub browser_providers {
             my ($payload) = @_;
             die "A task id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
             return $json->encode( $tira->tasklist_update(
-                project => $project, id => $payload->{id}, status => $payload->{status} ) );
+                project => $project, id => $payload->{id}, status => $payload->{status},
+                text => $payload->{text} ) );
         },
         tasklist_next => sub {
             my ($payload) = @_;

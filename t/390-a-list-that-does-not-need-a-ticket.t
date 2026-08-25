@@ -136,6 +136,15 @@ is( $status, 0, 'tasklist.update --status 0 (numeric) dispatches' );
 unlike( $out, qr/"status"\s*:\s*"0"/, 'and the status is stored as a bare int, not a quoted string' );
 like( $out, qr/"status"\s*:\s*0\D/, 'the raw JSON really does show status as 0, unquoted' );
 
+# TKT-523: the browser dashboard's Task List section needs to edit a task's
+# own text in place - --text reaches the same command --status already does.
+( $status, $out ) = cli( 'tasklist.update', '--id', $via_cli->{id}, '--text', 'Read it twice', '-o', 'json' );
+is( $status, 0, 'tasklist.update --text dispatches' );
+is( decode_json($out)->{text}, 'Read it twice', 'and updates the text' );
+
+( $status, $out ) = cli( 'tasklist.update', '--id', $via_cli->{id}, '-o', 'json' );
+isnt( $status, 0, 'tasklist.update refuses with neither --status nor --text' );
+
 # --- TKT-507: array-list operations, on a fresh queue -----------------------
 {
     my $a = $tira->tasklist_add( project => $root, text => 'A', session => 'arr' );

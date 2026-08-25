@@ -1,5 +1,23 @@
 Revision history for Tira
 
+4.01  2026-08-25
+
+    - TKT-523. Task List section: a card's own text can now be edited in
+      place - click it, type, Enter/blur saves, Escape discards. The
+      section also auto-refreshes every second, matching the ticket
+      board's own cadence, without a refresh tick ever clobbering an
+      in-progress edit. `tira.tasklist.update` now accepts `--text` (it
+      previously only accepted `--status`); status-only and text-only
+      updates each leave the other field untouched.
+      Found and fixed a real bug while building the refresh-safe part:
+      the section's render used `replaceChildren`, which detaches and
+      reattaches every card on every refresh even when nothing about that
+      card actually changed - including the card currently being edited,
+      whose focused input lost focus (and therefore the edit) on the very
+      next tick. Caught live by the browser test. Fixed by replacing the
+      blind rebuild with a positional reconciliation that only moves a
+      node when its position genuinely differs from where it already is.
+
 4.00  2026-08-25
 
     - TKT-519. Policies dialog: a (?) badge next to the message field opens

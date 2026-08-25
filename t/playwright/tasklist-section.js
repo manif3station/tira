@@ -50,7 +50,10 @@ let nextNum = 4;
       const payload = JSON.parse(request.postData() || '{}');
       posted.push({ path, payload });
       const entry = items.find(item => item.id === payload.id);
-      if (entry) entry.status = payload.status;
+      if (entry) {
+        if (payload.status !== undefined) entry.status = payload.status;
+        if (payload.text !== undefined) entry.text = payload.text;
+      }
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(entry || {}) });
     }
     if (path === '/tasklist/remove') {
@@ -134,6 +137,35 @@ let nextNum = 4;
   if (!posted.find(p => p.path === '/tasklist/shift')) fail('the Shift control did not post to /tasklist/shift');
   if (await section.locator('.tasklist-card', { hasText: 'Write the report' }).count() !== 0)
     fail('shift should have removed the front pending item');
+
+  // --- TKT-523: inline text edit ----------------------------------------------
+  const workingCardText = section.locator('.tasklist-card', { hasText: 'Ship it' }).locator('.tasklist-card__text');
+  await workingCardText.click();
+  const editInput = section.locator('.tasklist-card__text-input');
+  if ((await editInput.count()) !== 1) fail('clicking the text did not open an edit control');
+  await editInput.fill('Ship it for real this time');
+  await editInput.press('Enter');
+  await page.waitForFunction(() => !document.querySelector('.tasklist-card__text-input'));
+  const textUpdate = posted.find(p => p.path === '/tasklist/update' && p.payload.text === 'Ship it for real this time');
+  if (!textUpdate) fail('editing a task\'s text did not post it to /tasklist/update');
+  if (await section.locator('.tasklist-card', { hasText: 'Ship it for real this time' }).count() !== 1)
+    fail('the edited text did not render after saving');
+
+  // --- TKT-523: auto-refresh must not clobber an in-progress edit ------------
+  const editAgain = section.locator('.tasklist-card', { hasText: 'Ship it for real this time' }).locator('.tasklist-card__text');
+  await editAgain.click();
+  const liveInput = section.locator('.tasklist-card__text-input');
+  await liveInput.fill('still typing, not done yet');
+  // Two auto-refresh ticks (1000ms each) must pass without wiping the input.
+  await page.waitForTimeout(2200);
+  if ((await section.locator('.tasklist-card__text-input').count()) !== 1)
+    fail('an auto-refresh tick removed the edit control while typing');
+  if ((await liveInput.inputValue()) !== 'still typing, not done yet')
+    fail('an auto-refresh tick overwrote the text being typed');
+  await liveInput.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('.tasklist-card__text-input'));
+  if (await section.locator('.tasklist-card', { hasText: 'still typing, not done yet' }).count() !== 0)
+    fail('pressing Escape should discard the edit, not save it');
 
   // --- prune (removes every done item) ---------------------------------------
   await section.locator('.tasklist-prune').click();

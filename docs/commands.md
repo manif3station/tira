@@ -2313,7 +2313,9 @@ has to run a migration by hand.
   - defaults to `last_updated:desc,status:asc` when `--sort` is omitted.
     Sortable fields: `status`, `order` (numeric), and any other stored field
     (string comparison) such as `text`, `created_at`, `last_updated`.
-- `tira.tasklist.update --id ID --status pending|working|done|0|1|2 [-o FORMAT]`
+- `tira.tasklist.update --id ID [--status pending|working|done|0|1|2] [--text TEXT] [-o FORMAT]` -
+  at least one of `--status`/`--text` is required; either given alone leaves
+  the other field as it was. TKT-523.
 - `tira.tasklist.prune [--session ID] [-o FORMAT]` - deletes every item with
   status `done`, scoped the same way list/add are.
 

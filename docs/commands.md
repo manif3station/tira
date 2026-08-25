@@ -2276,12 +2276,27 @@ multi-agent mode does not have to type it on every call; an explicit
 all - a core agent can already manage any item by id regardless of session.
 Ids are `TSK-NNN`. Every item also carries an explicit `order` field, set
 independently of `created_at`, so the queue can be reordered by
-unshift/slice without timestamp games: `tasklist.list`/`tasklist.next` always
-read it back sorted by `order`, ascending.
+unshift/slice without timestamp games: `tasklist.next`/`shift`/`pop` always
+operate on it. `tasklist.list` is a separate, purely-display ordering (see
+`--sort` below) - it does not have to agree with queue position.
 
-- `tira.tasklist.add --text TEXT [--session ID] [--ref REF ...] [-o FORMAT]`
-- `tira.tasklist.list [--session ID] [-o FORMAT]`
-- `tira.tasklist.update --id ID --status pending|working|done [-o FORMAT]`
+Status is a stored integer enum (0 = pending, 1 = working, 2 = done).
+`tasklist.update --status` accepts either the word or the number; every
+other command returns the number. A `.tira/tasklist.json` written before
+this shipped still has the old word - it reads back correctly either way,
+and the next write of that item is what actually upgrades the file; nothing
+has to run a migration by hand.
+
+- `tira.tasklist.add --text TEXT [--session ID] [--ref REF ...] [--attach FILE ...] [-o FORMAT]`
+  - `--attach` is repeatable and content-addressed, the same store record
+    attachments already use.
+- `tira.tasklist.list [--session ID] [--sort FIELD:DIR[,FIELD:DIR...]] [-o FORMAT]`
+  - defaults to `last_updated:desc,status:asc` when `--sort` is omitted.
+    Sortable fields: `status`, `order` (numeric), and any other stored field
+    (string comparison) such as `text`, `created_at`, `last_updated`.
+- `tira.tasklist.update --id ID --status pending|working|done|0|1|2 [-o FORMAT]`
+- `tira.tasklist.prune [--session ID] [-o FORMAT]` - deletes every item with
+  status `done`, scoped the same way list/add are.
 
 The queue is treated like an array list, his words - every array function
 applies, scoped the same way `--session`/env-var fallback already work:
@@ -2305,6 +2320,13 @@ applies, scoped the same way `--session`/env-var fallback already work:
   tasklist one at a time. Idempotent: re-running it after new required-
   actions appear only adds the new ones, never duplicates what was already
   imported.
+
+Four sub-verbs operate on one existing item, by id, rather than creating one:
+
+- `tira.tasklist.task.attach.add --id ID --file FILE [--file FILE ...] [-o FORMAT]`
+- `tira.tasklist.task.attach.discard --id ID --file FILE [--file FILE ...] [-o FORMAT]`
+- `tira.tasklist.task.ref.link --id ID --ref REF [--ref REF ...] [-o FORMAT]`
+- `tira.tasklist.task.ref.unlink --id ID --ref REF [--ref REF ...] [-o FORMAT]`
 
 ### Warnings
 

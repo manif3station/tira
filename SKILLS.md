@@ -1423,12 +1423,14 @@ included, rather than linking and silently dropping the bad value. TKT-432.
 
 A task sits below the SOW → epic → ticket hierarchy, for anything smaller than a ticket - a chore, a sub-step, a note-to-self mid-task. Sticky-note style: `--ref` can name one thing, several (repeat the flag), or nothing at all, and nothing checks that a named ref actually exists - a task can point at a real ticket, a URL, a filename, or free text equally. Use it when the ticket system's own weight (gates, required-actions, 100% coverage) would be overkill for the step itself.
 
-Michael, live, treating it as an array list: "all the array functions you can think of could apply to it - like next, pop, shift, unshift, slice to insert item in between, etc... And push, update, remove etc..." `push` is `tasklist.add`; `update` already existed. TKT-507 adds the rest: `next` peeks the front of the pending queue without removing it; `shift` returns and removes the front (FIFO); `pop` returns and removes the back (LIFO, the most recently added); `unshift` inserts a new item at the very front, jumping the queue; `slice` inserts a new item at an arbitrary `--position`; `remove` deletes an item entirely by id, distinct from marking it `done`. Each item carries an explicit `order` field, independent of `created_at`, so reordering never needs timestamp games; `list`/`next` always read the queue back sorted by it. His other follow-up - "you can add the required actions items or checklist items to the tasklist, so you can focus on a task at a time" - is `tasklist.import --ref TKT-XXX`: copies a card's still-pending required-actions and checklist entries into linked tasklist items, one per entry, skipping any already imported, so an agent can work a card's outstanding gate items one at a time through the same queue instead of the raw ticket view.
+Michael, live, treating it as an array list: "all the array functions you can think of could apply to it - like next, pop, shift, unshift, slice to insert item in between, etc... And push, update, remove etc..." `push` is `tasklist.add`; `update` already existed. TKT-507 adds the rest: `next` peeks the front of the pending queue without removing it; `shift` returns and removes the front (FIFO); `pop` returns and removes the back (LIFO, the most recently added); `unshift` inserts a new item at the very front, jumping the queue; `slice` inserts a new item at an arbitrary `--position`; `remove` deletes an item entirely by id, distinct from marking it `done`. Each item carries an explicit `order` field, independent of `created_at`, so `next`/`shift`/`pop` can always find queue position without timestamp games. His other follow-up - "you can add the required actions items or checklist items to the tasklist, so you can focus on a task at a time" - is `tasklist.import --ref TKT-XXX`: copies a card's still-pending required-actions and checklist entries into linked tasklist items, one per entry, skipping any already imported, so an agent can work a card's outstanding gate items one at a time through the same queue instead of the raw ticket view.
+
+A further screenshot, TKT-508: status became a stored integer enum (0 = pending, 1 = working, 2 = done) - `tasklist.update --status` still accepts the word too, but every command now returns the number; a task list written with string statuses before this shipped reads back correctly and upgrades itself on its next write, no separate migration step. `tasklist.prune` deletes every `done` item. `tasklist.list --sort FIELD:DIR[,FIELD:DIR...]` defaults to `last_updated:desc,status:asc` - a purely-display ordering, independent of the `order` field `next`/`shift`/`pop` use for actual queue position. `tasklist.add --attach FILE` (repeatable) attaches files at creation, content-addressed the same way record attachments already are; `tasklist.task.attach.add/discard --id ID --file FILE...` and `tasklist.task.ref.link/unlink --id ID --ref REF...` manage an existing item's attachments and refs after the fact.
 
 ```text
-tira.tasklist.add --text TEXT [--session ID] [--ref REF ...] [-o FORMAT]
-tira.tasklist.list [--session ID] [-o FORMAT]
-tira.tasklist.update --id ID --status pending|working|done [-o FORMAT]
+tira.tasklist.add --text TEXT [--session ID] [--ref REF ...] [--attach FILE ...] [-o FORMAT]
+tira.tasklist.list [--session ID] [--sort FIELD:DIR[,FIELD:DIR...]] [-o FORMAT]
+tira.tasklist.update --id ID --status pending|working|done|0|1|2 [-o FORMAT]
 tira.tasklist.next [--session ID] [-o FORMAT]
 tira.tasklist.shift [--session ID] [-o FORMAT]
 tira.tasklist.pop [--session ID] [-o FORMAT]
@@ -1436,6 +1438,11 @@ tira.tasklist.unshift --text TEXT [--session ID] [--ref REF ...] [-o FORMAT]
 tira.tasklist.slice --text TEXT --position N [--session ID] [--ref REF ...] [-o FORMAT]
 tira.tasklist.remove --id ID [-o FORMAT]
 tira.tasklist.import --ref REF [--session ID] [-o FORMAT]
+tira.tasklist.prune [--session ID] [-o FORMAT]
+tira.tasklist.task.attach.add --id ID --file FILE [--file FILE ...] [-o FORMAT]
+tira.tasklist.task.attach.discard --id ID --file FILE [--file FILE ...] [-o FORMAT]
+tira.tasklist.task.ref.link --id ID --ref REF [--ref REF ...] [-o FORMAT]
+tira.tasklist.task.ref.unlink --id ID --ref REF [--ref REF ...] [-o FORMAT]
 ```
 
 ### UC-063: Reparent epic

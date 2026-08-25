@@ -303,6 +303,7 @@ sub run {
         'brief' => \$option{brief}, 'truncate=i' => \$option{truncate},
         'last=i' => \$option{last}, 'first=i' => \$option{first},
         'position=i' => \$option{position},
+        'attach=s@' => \$option{attach}, 'sort=s' => \$option{sort},
         'meta-only' => \$option{meta_only},
         'where=s@' => \$option{where},
         'members=s@' => \$option{members}, 'columns=s@' => \$option{columns},
@@ -3074,6 +3075,17 @@ sub _invoke {
       if $command eq 'tasklist.slice';
     return $tira->tasklist_remove(%args) if $command eq 'tasklist.remove';
     return $tira->tasklist_import(%args) if $command eq 'tasklist.import';
+
+    # TKT-508: prune, per-item attach/ref sub-verbs.
+    return $tira->tasklist_prune(%args) if $command eq 'tasklist.prune';
+    return $tira->tasklist_task_attach_add( %args, files => $option->{files} // [] )
+      if $command eq 'tasklist.task.attach.add';
+    return $tira->tasklist_task_attach_discard( %args, files => $option->{files} // [] )
+      if $command eq 'tasklist.task.attach.discard';
+    return $tira->tasklist_task_ref_link( %args, refs => $option->{ref_list} // [] )
+      if $command eq 'tasklist.task.ref.link';
+    return $tira->tasklist_task_ref_unlink( %args, refs => $option->{ref_list} // [] )
+      if $command eq 'tasklist.task.ref.unlink';
 
     # What the agent has not decided about. It is the only party that can
     # declare a policy, and police prints this for the owner rather than for it.

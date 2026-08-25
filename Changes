@@ -1,5 +1,36 @@
 Revision history for Tira
 
+3.92  2026-08-25
+
+    - TKT-508. A further screenshot from Michael on top of TKT-504
+      through TKT-507: prune, status as an enum, a default display
+      sort, multi-file attachments, and per-item attach/ref sub-verbs.
+
+    - New: tasklist.prune [--session ID] deletes every item with
+      status done, scoped the same way list/add already are.
+
+    - Changed: task-list status is now a stored integer (0 pending, 1
+      working, 2 done) rather than a word - a breaking storage change,
+      confirmed live (Q-077). tasklist.update --status still accepts
+      the word for convenience; every command now returns the number.
+      A tasklist.json written before this shipped still reads
+      correctly (its old word is recognised transparently) and is
+      upgraded to the int form the next time that item is written -
+      no separate migration step.
+
+    - New: tasklist.list --sort FIELD:DIR[,FIELD:DIR...], defaulting
+      to last_updated:desc,status:asc when omitted. This is a purely
+      display ordering, independent of the order field next/shift/pop
+      use for actual queue position.
+
+    - New: tasklist.add --attach FILE (repeatable) attaches files at
+      creation time, content-addressed the same way record
+      attachments already are (the store is shared).
+
+    - New: tasklist.task.attach.add/discard --id ID --file FILE... and
+      tasklist.task.ref.link/unlink --id ID --ref REF... manage an
+      existing item's attachments and refs after it already exists.
+
 3.91  2026-08-25
 
     - TKT-507. Follow-up to TKT-504/505/506: "treat the tasklist like

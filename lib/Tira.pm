@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.91';
+our $VERSION = '3.92';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1237,6 +1237,19 @@ sub _tasklist_path {
     return File::Spec->catfile( $root, '.tira', 'tasklist.json' );
 }
 
+my %TASKLIST_STATUS_CODE = ( pending => 0, working => 1, done => 2 );
+
+# Accepts either the word or the code, his screenshot showed both ("0:
+# pending" etc) - normalizes to the canonical int, or dies naming the three
+# words, the same refusal shape the old string-only version used.
+sub _tasklist_status_code {
+    my ($value) = @_;
+    return undef if !defined $value;
+    return $TASKLIST_STATUS_CODE{$value} if exists $TASKLIST_STATUS_CODE{$value};
+    return $value if $value =~ /\A[0-2]\z/;
+    die "Status must be one of pending, working, done\n";
+}
+
 sub _tasklist_read {
     my ( $self, $root ) = @_;
     my $path = $self->_tasklist_path($root);
@@ -1244,10 +1257,20 @@ sub _tasklist_read {
     open my $fh, '<:raw', $path or die "Cannot read tasklist '$path': $!\n";
     my $content = do { local $/; <$fh> };
     close $fh or die "Cannot close tasklist '$path': $!\n";
-    return json_object()->utf8->decode($content);
-}
+    my $items = json_object()->utf8->decode($content);
 
-my %TASKLIST_STATUS = map { $_ => 1 } qw(pending working done);
+    # TKT-508: status became a stored int (his design: "tasklist status is
+    # enum, 0: pending 1: working 2: done"). A file written before this
+    # shipped still has the old word - read transparently here, in memory
+    # only; the next real write of that item is what actually upgrades the
+    # file, so a project that is never touched again keeps working exactly
+    # as it was, just read correctly either way.
+    for my $item ( @{$items} ) {
+        $item->{status} = $TASKLIST_STATUS_CODE{ $item->{status} }
+          if defined $item->{status} && exists $TASKLIST_STATUS_CODE{ $item->{status} };
+    }
+    return $items;
+}
 
 # His follow-up, TKT-505: typing --session on every call is unnecessarily
 # long once genuinely multi-agent, so an explicit --session is asked for
@@ -1265,12 +1288,37 @@ sub _tasklist_session {
 # something stored against a ticket. Sorted by the explicit order field
 # rather than storage position, so shift/pop/unshift/slice can reorder
 # without needing to rewrite every other item's created_at. TKT-507.
+my %TASKLIST_NUMERIC_FIELD = map { $_ => 1 } qw(status order);
+
+# His screenshot: "tira.tasklist.list --sort last_updated:desc,status:asc by
+# default." A display sort, independent of the order field next/shift/pop
+# use for queue position - this is what a person reading the list sees, not
+# what FIFO/LIFO operate on.
+sub _tasklist_sort_items {
+    my ( $items, $sort_spec ) = @_;
+    my @specs = map {
+        my ( $field, $dir ) = split /:/, $_, 2;
+        [ $field, ( ( $dir // 'asc' ) eq 'desc' ? -1 : 1 ) ];
+    } split /,/, $sort_spec;
+    return [ sort {
+        my $cmp = 0;
+        for my $spec (@specs) {
+            my ( $field, $mult ) = @{$spec};
+            $cmp = $TASKLIST_NUMERIC_FIELD{$field}
+              ? ( ( $a->{$field} // 0 ) <=> ( $b->{$field} // 0 ) ) * $mult
+              : ( ( $a->{$field} // '' ) cmp ( $b->{$field} // '' ) ) * $mult;
+            last if $cmp;
+        }
+        $cmp;
+    } @{$items} ];
+}
+
 sub tasklist_list {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
     my $session = _tasklist_session(%args);
-    return [ sort { ( $a->{order} // 0 ) <=> ( $b->{order} // 0 ) }
-        grep { ( $_->{session} // '' ) eq $session } @{ $self->_tasklist_read($root) } ];
+    my @mine = grep { ( $_->{session} // '' ) eq $session } @{ $self->_tasklist_read($root) };
+    return _tasklist_sort_items( \@mine, $args{sort} // 'last_updated:desc,status:asc' );
 }
 
 sub _tasklist_counter_path {
@@ -1303,6 +1351,23 @@ sub _tasklist_next_id {
     return sprintf( 'TSK-%03d', $max );
 }
 
+# Content-addressed, the same store record attachments already use
+# (.tira/attachments/<sha>.<ext>) - a screenshot attached to a task and one
+# attached to a ticket share the blob if they are the same bytes.
+sub _tasklist_store_attachment {
+    my ( $self, $root, $file ) = @_;
+    my $path = $self->_canonical_path( $file, "attachment '$file'" );
+    open my $fh, '<:raw', $path or die "Cannot read attachment '$path': $!\n";
+    my $content = do { local $/; <$fh> };
+    close $fh;
+    my $sha = sha256_hex($content);
+    my $name = basename($path);
+    my $extension = $name =~ /\.([A-Za-z0-9]+)\z/ ? lc $1 : 'bin';
+    my $stored = File::Spec->catfile( $root, '.tira', 'attachments', "$sha.$extension" );
+    $self->_atomic_write( $stored, $content ) if !-f $stored;
+    return { sha => $sha, extension => $extension, original_filename => $name, added_at => $self->{clock}->() };
+}
+
 sub tasklist_add {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
@@ -1317,8 +1382,9 @@ sub tasklist_add {
         }
         my $now = $self->{clock}->();
         my $entry = {
-            id => _tasklist_next_id( $root, $items ), text => $args{text}, status => 'pending',
+            id => _tasklist_next_id( $root, $items ), text => $args{text}, status => 0,
             session => $session, refs => $args{refs} // [], order => $max_order + 1,
+            attachments => [ map { $self->_tasklist_store_attachment( $root, $_ ) } @{ $args{attach} // [] } ],
             created_at => $now, last_updated => $now,
         };
         push @{$items}, $entry;
@@ -1333,7 +1399,7 @@ sub tasklist_next {
     my $root = $self->discover_project(%args);
     my $session = _tasklist_session(%args);
     my @pending = sort { $a->{order} <=> $b->{order} }
-      grep { ( $_->{session} // '' ) eq $session && ( $_->{status} // '' ) eq 'pending' }
+      grep { ( $_->{session} // '' ) eq $session && ( ( $_->{status} // -1 ) == 0 ) }
       @{ $self->_tasklist_read($root) };
     return $pending[0];
 }
@@ -1346,7 +1412,7 @@ sub tasklist_shift {
     return $self->_with_project_lock( $root, sub {
         my $items = $self->_tasklist_read($root);
         my @pending = sort { $a->{order} <=> $b->{order} }
-          grep { ( $_->{session} // '' ) eq $session && ( $_->{status} // '' ) eq 'pending' } @{$items};
+          grep { ( $_->{session} // '' ) eq $session && ( ( $_->{status} // -1 ) == 0 ) } @{$items};
         return undef if !@pending;
         my $chosen = $pending[0];
         $self->_write_json( $self->_tasklist_path($root),
@@ -1363,7 +1429,7 @@ sub tasklist_pop {
     return $self->_with_project_lock( $root, sub {
         my $items = $self->_tasklist_read($root);
         my @pending = sort { $b->{order} <=> $a->{order} }
-          grep { ( $_->{session} // '' ) eq $session && ( $_->{status} // '' ) eq 'pending' } @{$items};
+          grep { ( $_->{session} // '' ) eq $session && ( ( $_->{status} // -1 ) == 0 ) } @{$items};
         return undef if !@pending;
         my $chosen = $pending[0];
         $self->_write_json( $self->_tasklist_path($root),
@@ -1390,7 +1456,7 @@ sub tasklist_unshift {
         $min_order //= 1;
         my $now = $self->{clock}->();
         my $entry = {
-            id => _tasklist_next_id( $root, $items ), text => $args{text}, status => 'pending',
+            id => _tasklist_next_id( $root, $items ), text => $args{text}, status => 0,
             session => $session, refs => $args{refs} // [], order => $min_order - 1,
             created_at => $now, last_updated => $now,
         };
@@ -1417,7 +1483,7 @@ sub tasklist_slice {
         my @others = grep { ( $_->{session} // '' ) ne $session } @{$items};
         my $now = $self->{clock}->();
         my $entry = {
-            id => _tasklist_next_id( $root, $items ), text => $args{text}, status => 'pending',
+            id => _tasklist_next_id( $root, $items ), text => $args{text}, status => 0,
             session => $session, refs => $args{refs} // [],
             created_at => $now, last_updated => $now,
         };
@@ -1477,7 +1543,7 @@ sub tasklist_import {
             }
             my $now = $self->{clock}->();
             my $entry = {
-                id => _tasklist_next_id( $root, $items ), text => $entry_source->{item}, status => 'pending',
+                id => _tasklist_next_id( $root, $items ), text => $entry_source->{item}, status => 0,
                 session => $session, refs => [ $args{ref} ], order => $max_order + 1,
                 imported_from => $tag, created_at => $now, last_updated => $now,
             };
@@ -1494,13 +1560,118 @@ sub tasklist_update {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
     die "Task id is required\n" if !defined $args{id} || $args{id} eq '';
-    die "Status must be one of pending, working, done\n"
-      if defined $args{status} && !$TASKLIST_STATUS{ $args{status} };
+    my $status_code = _tasklist_status_code( $args{status} );
     return $self->_with_project_lock( $root, sub {
         my $items = $self->_tasklist_read($root);
         my ($entry) = grep { $_->{id} eq $args{id} } @{$items};
         die "No task '$args{id}'\n" if !$entry;
-        $entry->{status} = $args{status} if defined $args{status};
+        $entry->{status} = $status_code if defined $status_code;
+        $entry->{last_updated} = $self->{clock}->();
+        $self->_write_json( $self->_tasklist_path($root), $items );
+        return $entry;
+    } );
+}
+
+# His screenshot: "tira.tasklist.prune to remove all done items." Session-
+# scoped like list/add - a shared (no-session) call prunes the shared list.
+sub tasklist_prune {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $session = _tasklist_session(%args);
+    return $self->_with_project_lock( $root, sub {
+        my $items = $self->_tasklist_read($root);
+        my @pruned = grep { ( $_->{session} // '' ) eq $session && ( $_->{status} // -1 ) == 2 } @{$items};
+        return \@pruned if !@pruned;
+        my %pruned_id = map { $_->{id} => 1 } @pruned;
+        $self->_write_json( $self->_tasklist_path($root),
+            [ grep { !$pruned_id{ $_->{id} } } @{$items} ] );
+        return \@pruned;
+    } );
+}
+
+sub _tasklist_find_item {
+    my ( $items, $id ) = @_;
+    my ($entry) = grep { $_->{id} eq ( $id // '' ) } @{$items};
+    die "No task '$id'\n" if !$entry;
+    return $entry;
+}
+
+# The four sub-verbs, operating on an existing item by --id rather than
+# creating one: attach/discard files, link/unlink refs. Mirrors the shape
+# tasklist.add already has (attachments content-addressed the same way,
+# refs a plain deduplicated list), just applied after the item exists.
+sub tasklist_task_attach_add {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    die "Task id is required\n" if !defined $args{id} || $args{id} eq '';
+    my @files = @{ $args{files} // [] };
+    die "At least one file is required\n" if !@files;
+    return $self->_with_project_lock( $root, sub {
+        my $items = $self->_tasklist_read($root);
+        my $entry = _tasklist_find_item( $items, $args{id} );
+        $entry->{attachments} //= [];
+        for my $file (@files) {
+            my $reference = $self->_tasklist_store_attachment( $root, $file );
+            my ($existing) = grep {
+                $_->{sha} eq $reference->{sha} && $_->{extension} eq $reference->{extension}
+            } @{ $entry->{attachments} };
+            push @{ $entry->{attachments} }, $reference if !$existing;
+        }
+        $entry->{last_updated} = $self->{clock}->();
+        $self->_write_json( $self->_tasklist_path($root), $items );
+        return $entry;
+    } );
+}
+
+sub tasklist_task_attach_discard {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    die "Task id is required\n" if !defined $args{id} || $args{id} eq '';
+    my @files = @{ $args{files} // [] };
+    die "At least one file is required\n" if !@files;
+    return $self->_with_project_lock( $root, sub {
+        my $items = $self->_tasklist_read($root);
+        my $entry = _tasklist_find_item( $items, $args{id} );
+        my %discard = map { basename($_) => 1 } @files;
+        $entry->{attachments} =
+          [ grep { !$discard{ $_->{original_filename} // '' } } @{ $entry->{attachments} // [] } ];
+        $entry->{last_updated} = $self->{clock}->();
+        $self->_write_json( $self->_tasklist_path($root), $items );
+        return $entry;
+    } );
+}
+
+sub tasklist_task_ref_link {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    die "Task id is required\n" if !defined $args{id} || $args{id} eq '';
+    my @refs = @{ $args{refs} // [] };
+    die "At least one ref is required\n" if !@refs;
+    return $self->_with_project_lock( $root, sub {
+        my $items = $self->_tasklist_read($root);
+        my $entry = _tasklist_find_item( $items, $args{id} );
+        $entry->{refs} //= [];
+        my %have = map { $_ => 1 } @{ $entry->{refs} };
+        for my $ref (@refs) {
+            push @{ $entry->{refs} }, $ref if !$have{$ref}++;
+        }
+        $entry->{last_updated} = $self->{clock}->();
+        $self->_write_json( $self->_tasklist_path($root), $items );
+        return $entry;
+    } );
+}
+
+sub tasklist_task_ref_unlink {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    die "Task id is required\n" if !defined $args{id} || $args{id} eq '';
+    my @refs = @{ $args{refs} // [] };
+    die "At least one ref is required\n" if !@refs;
+    return $self->_with_project_lock( $root, sub {
+        my $items = $self->_tasklist_read($root);
+        my $entry = _tasklist_find_item( $items, $args{id} );
+        my %remove = map { $_ => 1 } @refs;
+        $entry->{refs} = [ grep { !$remove{$_} } @{ $entry->{refs} // [] } ];
         $entry->{last_updated} = $self->{clock}->();
         $self->_write_json( $self->_tasklist_path($root), $items );
         return $entry;
@@ -12544,6 +12715,26 @@ Deletes a task-list item entirely, by id - distinct from marking it C<done>.
 
 Copies a card's still-pending required-actions and checklist entries into
 linked task-list items, skipping any already imported.
+
+=head2 tasklist_prune
+
+Deletes every C<done> item, scoped by C<session> the same as list/add.
+
+=head2 tasklist_task_attach_add
+
+Attaches one or more files to an existing task-list item, by id.
+
+=head2 tasklist_task_attach_discard
+
+Removes one or more attachments from an existing task-list item, by name.
+
+=head2 tasklist_task_ref_link
+
+Adds one or more refs to an existing task-list item, by id.
+
+=head2 tasklist_task_ref_unlink
+
+Removes one or more refs from an existing task-list item, by id.
 
 =head2 notification_record
 

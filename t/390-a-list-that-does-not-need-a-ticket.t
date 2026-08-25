@@ -31,7 +31,7 @@ $tira->project_new(
 
 # --- a single-agent board uses one shared list, with no session named ------
 my $added = $tira->tasklist_add( project => $root, text => 'Read the README' );
-is( $added->{status}, 'pending', 'a new task starts pending' );
+is( $added->{status}, 0, 'a new task starts pending (0)' );
 like( $added->{id}, qr/\ATSK-\d+\z/, 'and is given a TSK-NNN id' );
 is( $added->{session}, '', 'with no session declared, it belongs to the shared list' );
 
@@ -41,14 +41,20 @@ is( $listed->[0]{id}, $added->{id}, 'the one just added' );
 
 # --- moving through the three states ----------------------------------------
 my $moved = $tira->tasklist_update( project => $root, id => $added->{id}, status => 'working' );
-is( $moved->{status}, 'working', 'update moves it to working' );
+is( $moved->{status}, 1, 'update moves it to working (1), accepting the word as input' );
+
+my $moved_by_code = $tira->tasklist_update( project => $root, id => $added->{id}, status => 0 );
+is( $moved_by_code->{status}, 0, 'update also accepts the numeric code directly, back to pending (0)' );
 
 $tira->tasklist_update( project => $root, id => $added->{id}, status => 'done' );
 my $after_done = $tira->tasklist_list( project => $root );
-is( $after_done->[0]{status}, 'done', 'and on to done' );
+is( $after_done->[0]{status}, 2, 'and on to done (2)' );
 
 eval { $tira->tasklist_update( project => $root, id => $added->{id}, status => 'nonsense' ) };
 like( $@, qr/pending, working, done/, 'a status outside the three is refused, naming them' );
+
+eval { $tira->tasklist_update( project => $root, id => $added->{id}, status => 9 ) };
+like( $@, qr/pending, working, done/, 'an out-of-range numeric code is refused the same way' );
 
 eval { $tira->tasklist_update( project => $root, id => 'TASK-999', status => 'done' ) };
 like( $@, qr/TASK-999/, 'an id that does not exist is refused, naming it' );
@@ -110,7 +116,7 @@ sub cli {
 my ( $status, $out ) = cli( 'tasklist.add', '--text', 'From the CLI', '-o', 'json' );
 is( $status, 0, 'tasklist.add dispatches' );
 my $via_cli = decode_json($out);
-is( $via_cli->{status}, 'pending', 'and returns the new item' );
+is( $via_cli->{status}, 0, 'and returns the new item' );
 
 ( $status, $out ) = cli( 'tasklist.list', '-o', 'json' );
 is( $status, 0, 'tasklist.list dispatches' );
@@ -118,7 +124,7 @@ ok( ( grep { $_->{id} eq $via_cli->{id} } @{ decode_json($out) } ), 'and lists t
 
 ( $status, $out ) = cli( 'tasklist.update', '--id', $via_cli->{id}, '--status', 'working', '-o', 'json' );
 is( $status, 0, 'tasklist.update dispatches' );
-is( decode_json($out)->{status}, 'working', 'and moves the item' );
+is( decode_json($out)->{status}, 1, 'and moves the item' );
 
 # --- TKT-507: array-list operations, on a fresh queue -----------------------
 {
@@ -214,6 +220,108 @@ is( decode_json($out)->{status}, 'working', 'and moves the item' );
     my ( $status, $out ) = cli( 'tasklist.import', '--ref', $source_card->{ref}, '--session', 'imp-cli', '-o', 'json' );
     is( $status, 0, 'tasklist.import dispatches' );
     is( scalar @{ decode_json($out) }, 2, 'and imports via the CLI too' );
+}
+
+# --- TKT-508: prune removes only done items ---------------------------------
+{
+    my $p1 = $tira->tasklist_add( project => $root, text => 'stays pending', session => 'prune' );
+    my $p2 = $tira->tasklist_add( project => $root, text => 'finishes', session => 'prune' );
+    my $p3 = $tira->tasklist_add( project => $root, text => 'also finishes', session => 'prune' );
+    $tira->tasklist_update( project => $root, id => $p2->{id}, status => 'done' );
+    $tira->tasklist_update( project => $root, id => $p3->{id}, status => 'done' );
+
+    my $pruned = $tira->tasklist_prune( project => $root, session => 'prune' );
+    is( scalar @{$pruned}, 2, 'prune reports the two done items it removed' );
+    my $remaining = $tira->tasklist_list( project => $root, session => 'prune' );
+    is( scalar @{$remaining}, 1, 'only the pending item is left' );
+    is( $remaining->[0]{id}, $p1->{id}, 'and it is the one that never finished' );
+
+    is( scalar @{ $tira->tasklist_prune( project => $root, session => 'prune' ) }, 0,
+        'pruning again finds nothing left to prune' );
+}
+
+# --- TKT-508: status is an int (0/1/2), a legacy string file still reads ---
+{
+    my $legacy_root = File::Spec->catdir( $tmp, 'legacy' );
+    $tira->project_new(
+        name => 'Legacy', dir => $legacy_root, members => ['claude'],
+        columns => [ 'backlog, implement, done' ],
+        sow_prefix => 'LSW', epic_prefix => 'LEP', ticket_prefix => 'LTK',
+    );
+    my $tasklist_json = File::Spec->catfile( $legacy_root, '.tira', 'tasklist.json' );
+    open my $fh, '>:raw', $tasklist_json or die $!;
+    print {$fh} '[{"id":"TSK-001","text":"old style","status":"working","session":"","refs":[],"order":1,"created_at":"x","last_updated":"x"}]';
+    close $fh;
+
+    my $legacy_list = $tira->tasklist_list( project => $legacy_root );
+    is( $legacy_list->[0]{status}, 1, 'a pre-existing string status reads back as its int code' );
+
+    $tira->tasklist_update( project => $legacy_root, id => 'TSK-001', status => 'done' );
+    open my $raw, '<:raw', $tasklist_json or die $!;
+    my $raw_content = do { local $/; <$raw> };
+    close $raw;
+    like( $raw_content, qr/"status"\s*:\s*2/, 'and the next write upgrades the file to the int form' );
+}
+
+# --- TKT-508: --sort on list, default and explicit --------------------------
+{
+    my $s1 = $tira->tasklist_add( project => $root, text => 'zzz', session => 'sortme' );
+    my $s2 = $tira->tasklist_add( project => $root, text => 'aaa', session => 'sortme' );
+
+    my $by_text = $tira->tasklist_list( project => $root, session => 'sortme', sort => 'text:asc' );
+    is( $by_text->[0]{id}, $s2->{id}, 'an explicit --sort overrides the default' );
+
+    my ( $status, $out ) = cli( 'tasklist.list', '--session', 'sortme', '--sort', 'text:desc', '-o', 'json' );
+    is( $status, 0, 'tasklist.list --sort dispatches' );
+    is( decode_json($out)->[0]{id}, $s1->{id}, 'and text:desc puts zzz first' );
+}
+
+# --- TKT-508: --attach on add, and the per-item attach/ref sub-verbs -------
+{
+    my $file_a = File::Spec->catfile( $tmp, 'a.txt' );
+    my $file_b = File::Spec->catfile( $tmp, 'b.txt' );
+    open my $fa, '>', $file_a or die $!; print {$fa} 'A'; close $fa;
+    open my $fb, '>', $file_b or die $!; print {$fb} 'B'; close $fb;
+
+    my $attached = $tira->tasklist_add(
+        project => $root, text => 'has files', session => 'attach', attach => [ $file_a, $file_b ],
+    );
+    is( scalar @{ $attached->{attachments} }, 2, 'tasklist.add --attach stores both files' );
+
+    my $file_c = File::Spec->catfile( $tmp, 'c.txt' );
+    open my $fc, '>', $file_c or die $!; print {$fc} 'C'; close $fc;
+    my $more = $tira->tasklist_task_attach_add(
+        project => $root, id => $attached->{id}, files => [$file_c],
+    );
+    is( scalar @{ $more->{attachments} }, 3, 'task.attach.add adds a third attachment to an existing item' );
+
+    my $fewer = $tira->tasklist_task_attach_discard(
+        project => $root, id => $attached->{id}, files => ['a.txt'],
+    );
+    is( scalar @{ $fewer->{attachments} }, 2, 'task.attach.discard removes one by name' );
+    ok( !( grep { $_->{original_filename} eq 'a.txt' } @{ $fewer->{attachments} } ),
+        'and a.txt specifically is gone' );
+
+    my $card_x = $tira->create_record( project => $root, type => 'ticket', title => 'X' );
+    my $card_y = $tira->create_record( project => $root, type => 'ticket', title => 'Y' );
+    my $linked = $tira->tasklist_task_ref_link(
+        project => $root, id => $attached->{id}, refs => [ $card_x->{ref}, $card_y->{ref} ],
+    );
+    is( scalar @{ $linked->{refs} }, 2, 'task.ref.link adds both refs' );
+
+    my $unlinked = $tira->tasklist_task_ref_unlink(
+        project => $root, id => $attached->{id}, refs => [ $card_x->{ref} ],
+    );
+    is_deeply( $unlinked->{refs}, [ $card_y->{ref} ], 'task.ref.unlink removes just the one named' );
+
+    eval { $tira->tasklist_task_attach_add( project => $root, id => 'TSK-999', files => [$file_a] ) };
+    like( $@, qr/TSK-999/, 'attach.add on an id that does not exist is refused, naming it' );
+
+    my ( $status, $out ) = cli(
+        'tasklist.task.ref.link', '--id', $attached->{id}, '--ref', $card_x->{ref}, '-o', 'json',
+    );
+    is( $status, 0, 'tasklist.task.ref.link dispatches' );
+    ok( ( grep { $_ eq $card_x->{ref} } @{ decode_json($out)->{refs} } ), 'and adds the ref via the CLI too' );
 }
 
 done_testing;

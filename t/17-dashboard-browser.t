@@ -74,6 +74,17 @@ my $move_result = decode_json(
 ok( $move_result->{ok}, 'browser move provider returns a successful mutation' );
 is( decode_json( $calls->[0]{detail}->( { type => 'ticket', ref => 'TKT-001' } ) )->{ref},
     'TKT-001', 'browser detail provider returns one complete record' );
+
+# --- TKT-532: the engine resolves a record by ref alone (_record_data walks
+# every board's on-disk files for the matching filename); 'type' is never
+# read for lookup, so the provider should not require it either. ------------
+is( decode_json( $calls->[0]{detail}->( { ref => 'TKT-001' } ) )->{ref},
+    'TKT-001', 'browser detail provider works with only a ref, no type' );
+my $move_without_type = decode_json(
+    $calls->[0]{move}->( { ref => 'TKT-001', column => 'backlog', _signed_in => 'tester' } )
+);
+ok( $move_without_type->{ok}, 'browser move provider works with only ref and column, no type' );
+
 my $browser_data = decode_json( $calls->[0]{data}->() );
 is( $browser_data->{ticket}{backlog}[0]{title}, 'Live card',
     'browser data callback returns complete JSON records' );

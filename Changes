@@ -1,5 +1,20 @@
 Revision history for Tira
 
+4.10  2026-08-25
+
+    - TKT-532. The browser dashboard's /record and /move providers
+      (Tira::CLI::browser_providers) no longer require a 'type' field -
+      confirmed by direct code reading that the engine methods behind
+      them (record_show/record_move, via _record_data) resolve a record
+      by ref alone, walking every board's on-disk files for a matching
+      filename, and never actually read the caller's type argument for
+      lookup. type is still accepted when a caller supplies it. The
+      move provider's own bookkeeping (column_list, required-action
+      reset) does need a concrete type - that's now recovered from the
+      moved record's own stored type field rather than required from
+      the caller. Self-found during a standing improvement hunt while
+      implementing TKT-528's ref-chip click.
+
 4.09  2026-08-25
 
     - TKT-530. Replaced 3 of the Task List section's 9 native blocking

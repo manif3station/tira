@@ -2401,6 +2401,16 @@ dialogs (remove policy/task/attachment, prune) are unchanged - each
 gates an irreversible action, judged safer left as a native blocking
 dialog than replaced.
 
+TKT-532: the browser dashboard's `detail` (`/record`) and `move`
+(`/move`) provider closures in `Tira::CLI::browser_providers` no longer
+require a `type` field in the request payload - `record_show`/
+`record_move` resolve a record by `ref` alone (walking every board's
+on-disk files for a matching filename), and never read `type` for that
+lookup. `type` is still accepted and used when a caller supplies it;
+`move`'s own required-action bookkeeping (which does need a concrete
+board type) now recovers it from the moved record's own stored `type`
+field instead of requiring it from the caller.
+
 ### Warnings
 
 - `tira.warning.add --message TEXT [-o FORMAT]`

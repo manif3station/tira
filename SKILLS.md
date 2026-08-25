@@ -1550,6 +1550,14 @@ individually and kept as native, since each gates a genuinely
 irreversible action and a blocking native confirm is harder to mis-click
 through than any in-place replacement.
 
+TKT-532: the browser dashboard's `/record` and `/move` providers no
+longer require a `type` field - the engine methods behind them resolve
+a record by its ref alone, and never actually read the caller's type
+for lookup, confirmed by direct code reading. `type` is still accepted
+when supplied; the move provider's own required-action bookkeeping now
+recovers the real type from the moved record itself rather than
+requiring it from the caller.
+
 ### UC-063: Reparent epic
 **Implemented.** Linking to SOW-002 removes the reciprocal SOW-001 link atomically.
 

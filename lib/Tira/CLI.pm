@@ -1003,11 +1003,12 @@ sub browser_providers {
         move => sub {
             my ($payload) = @_;
             die "Move payload must be an object\n" if ref($payload) ne 'HASH';
-            for my $key (qw(type ref column)) {
+            for my $key (qw(ref column)) {
                 die "Move payload requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
             }
             my %move_args = (
-                project => $project, type => $payload->{type},
+                project => $project,
+                ( defined $payload->{type} ? ( type => $payload->{type} ) : () ),
                 ( defined $payload->{_signed_in} ? ( author => $payload->{_signed_in} ) : () ),
                 ref => $payload->{ref}, column => $payload->{column},
             );
@@ -1023,19 +1024,28 @@ sub browser_providers {
             my $before = eval { $tira->record_show(%move_args) };
             my $from   = $before ? $before->{column} : undef;
             my $record = $tira->record_move(%move_args);
-            my $columns = eval { $tira->column_list(%move_args) };
-            _apply_column_required_actions( $tira, \%move_args, $from, $payload->{column}, $columns, $record )
+
+            # column_list (and the required-action bookkeeping below) needs a
+            # concrete board type, unlike record_show/record_move above, which
+            # resolve the record by ref alone (TKT-532) - recovered here from
+            # the record record_move already loaded, so a caller is never
+            # required to say what the engine can already tell for itself.
+            my %column_args = ( %move_args, type => $record->{type} );
+            my $columns = eval { $tira->column_list(%column_args) };
+            _apply_column_required_actions( $tira, \%column_args, $from, $payload->{column}, $columns, $record )
               if ref $columns eq 'ARRAY';
-            $record = $tira->record_show(%move_args) if ref $columns eq 'ARRAY';
+            $record = $tira->record_show(%column_args) if ref $columns eq 'ARRAY';
 
             return $json->encode( { ok => Cpanel::JSON::XS::true, record => $record } );
         },
         detail => sub {
             my ($payload) = @_;
-            die "Record detail requires type and ref\n"
-              if ref($payload) ne 'HASH' || !defined $payload->{type} || !defined $payload->{ref};
+            die "Record detail requires ref\n"
+              if ref($payload) ne 'HASH' || !defined $payload->{ref};
             my $record = $tira->record_show(
-                project => $project, type => $payload->{type}, ref => $payload->{ref},
+                project => $project,
+                ( defined $payload->{type} ? ( type => $payload->{type} ) : () ),
+                ref => $payload->{ref},
             );
             return $json->encode($record);
         },

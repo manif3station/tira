@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.10';
+our $VERSION = '4.11';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4946,6 +4946,7 @@ sub search {
     my ( $self, %args ) = @_;
     my $count_mode = delete $args{count};
     my $refs_mode = delete $args{refs_only};
+    my $include_tasklist = delete $args{tasklist};
     my @fields = defined $args{fields} ? @{ $args{fields} }
       : defined $args{field} ? ( $args{field} ) : ();
     my $hits;
@@ -4965,6 +4966,21 @@ sub search {
     }
     else {
         $hits = $self->record_list(%args);
+    }
+
+    # Opt-in only (TKT-533): a tasklist item lives outside record_list's
+    # sow/epic/ticket walk entirely, so it is invisible here by default -
+    # matched the same simple way a person would look for it, against its
+    # own text, id, and whatever refs it has been linked to.
+    if ( $include_tasklist && defined $args{text} && length $args{text} ) {
+        my $root = $self->discover_project(%args);
+        my $needle = lc $args{text};
+        my @task_hits = grep {
+            lc( $_->{text} // '' ) =~ /\Q$needle\E/
+              || lc( $_->{id} // '' ) =~ /\Q$needle\E/
+              || grep { lc($_) =~ /\Q$needle\E/ } @{ $_->{refs} // [] }
+        } @{ $self->_tasklist_read($root) };
+        push @{$hits}, map { { ref => $_->{id}, type => 'tasklist', text => $_->{text} } } @task_hits;
     }
     return { count => scalar @{$hits} } if $count_mode;
     if ($refs_mode) {

@@ -301,6 +301,7 @@ sub run {
         'since=s' => \$option{since},
         'if-changed=s' => \$option{if_changed},
         'count' => \$option{count}, 'refs-only' => \$option{refs_only},
+        'tasklist' => \$option{tasklist},
         'brief' => \$option{brief}, 'truncate=i' => \$option{truncate},
         'last=i' => \$option{last}, 'first=i' => \$option{first},
         'position=i' => \$option{position},

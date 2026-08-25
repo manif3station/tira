@@ -1558,6 +1558,12 @@ when supplied; the move provider's own required-action bookkeeping now
 recovers the real type from the moved record itself rather than
 requiring it from the caller.
 
+TKT-533: `tira.search --tasklist` also matches a tasklist item's text,
+id, or a linked ref - opt-in only, so a plain `tira.search` is
+unaffected. Previously `search()` only ever walked the sow/epic/ticket
+boards, leaving a tasklist item invisible to it regardless of how
+distinctive its text was.
+
 ### UC-063: Reparent epic
 **Implemented.** Linking to SOW-002 removes the reciprocal SOW-001 link atomically.
 

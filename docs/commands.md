@@ -1945,6 +1945,11 @@ deduplicated ref array. Count wins over refs-only wins over field selection —
 documented precedence, and misspelled field names still fail loudly. Human
 output prints a bare number or one ref per line for direct shell use.
 
+TKT-533: `tira.search --tasklist` also matches a tasklist item's text, id, or
+a linked ref - opt-in only, so a plain `tira.search` is unaffected. A
+tasklist item never carries a `column`; it appears in results (and in
+`--refs-only` output) addressed by its own `TSK-NNN` id.
+
 Records expose a computed `content_hash` through field selection: an opaque
 stable token over every meaningful field including placement, excluding
 `last_updated` and the read-time-only `checklist_done`/`checklist_total`

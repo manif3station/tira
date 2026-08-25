@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '3.90';
+our $VERSION = '3.91';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1262,12 +1262,25 @@ sub _tasklist_session {
 # Scoped by agent_session, his design: two sessions never see each other's
 # items, and calling with none declared is single-agent mode, one shared
 # list. Not a per-card field - a session id names who is asking, not
-# something stored against a ticket.
+# something stored against a ticket. Sorted by the explicit order field
+# rather than storage position, so shift/pop/unshift/slice can reorder
+# without needing to rewrite every other item's created_at. TKT-507.
 sub tasklist_list {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
     my $session = _tasklist_session(%args);
-    return [ grep { ( $_->{session} // '' ) eq $session } @{ $self->_tasklist_read($root) } ];
+    return [ sort { ( $a->{order} // 0 ) <=> ( $b->{order} // 0 ) }
+        grep { ( $_->{session} // '' ) eq $session } @{ $self->_tasklist_read($root) } ];
+}
+
+sub _tasklist_next_id {
+    my ($items) = @_;
+    my $max = 0;
+    for my $item ( @{$items} ) {
+        my ($number) = ( $item->{id} // '' ) =~ /(\d+)\z/;
+        $max = $number if defined $number && $number > $max;
+    }
+    return sprintf( 'TSK-%03d', $max + 1 );
 }
 
 sub tasklist_add {
@@ -1277,20 +1290,183 @@ sub tasklist_add {
     my $session = _tasklist_session(%args);
     return $self->_with_project_lock( $root, sub {
         my $items = $self->_tasklist_read($root);
-        my $max = 0;
+        my $max_order = 0;
         for my $item ( @{$items} ) {
-            my ($number) = ( $item->{id} // '' ) =~ /(\d+)\z/;
-            $max = $number if defined $number && $number > $max;
+            next if ( $item->{session} // '' ) ne $session;
+            $max_order = $item->{order} if ( $item->{order} // 0 ) > $max_order;
         }
         my $now = $self->{clock}->();
         my $entry = {
-            id => sprintf( 'TSK-%03d', $max + 1 ), text => $args{text}, status => 'pending',
-            session => $session, refs => $args{refs} // [],
+            id => _tasklist_next_id($items), text => $args{text}, status => 'pending',
+            session => $session, refs => $args{refs} // [], order => $max_order + 1,
             created_at => $now, last_updated => $now,
         };
         push @{$items}, $entry;
         $self->_write_json( $self->_tasklist_path($root), $items );
         return $entry;
+    } );
+}
+
+# Read-only - "the top of the queue", asked without disturbing it.
+sub tasklist_next {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $session = _tasklist_session(%args);
+    my @pending = sort { $a->{order} <=> $b->{order} }
+      grep { ( $_->{session} // '' ) eq $session && ( $_->{status} // '' ) eq 'pending' }
+      @{ $self->_tasklist_read($root) };
+    return $pending[0];
+}
+
+# Read AND remove, his own words - array shift, not a status change.
+sub tasklist_shift {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $session = _tasklist_session(%args);
+    return $self->_with_project_lock( $root, sub {
+        my $items = $self->_tasklist_read($root);
+        my @pending = sort { $a->{order} <=> $b->{order} }
+          grep { ( $_->{session} // '' ) eq $session && ( $_->{status} // '' ) eq 'pending' } @{$items};
+        return undef if !@pending;
+        my $chosen = $pending[0];
+        $self->_write_json( $self->_tasklist_path($root),
+            [ grep { $_->{id} ne $chosen->{id} } @{$items} ] );
+        return $chosen;
+    } );
+}
+
+# The back of the queue, LIFO - the most recently pushed pending item.
+sub tasklist_pop {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $session = _tasklist_session(%args);
+    return $self->_with_project_lock( $root, sub {
+        my $items = $self->_tasklist_read($root);
+        my @pending = sort { $b->{order} <=> $a->{order} }
+          grep { ( $_->{session} // '' ) eq $session && ( $_->{status} // '' ) eq 'pending' } @{$items};
+        return undef if !@pending;
+        my $chosen = $pending[0];
+        $self->_write_json( $self->_tasklist_path($root),
+            [ grep { $_->{id} ne $chosen->{id} } @{$items} ] );
+        return $chosen;
+    } );
+}
+
+# Jumps the queue - an order lower than anything else this session has,
+# rather than an insertion that has to renumber the rest.
+sub tasklist_unshift {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    die "Task text is required\n" if !defined $args{text} || $args{text} eq '';
+    my $session = _tasklist_session(%args);
+    return $self->_with_project_lock( $root, sub {
+        my $items = $self->_tasklist_read($root);
+        my $min_order;
+        for my $item ( @{$items} ) {
+            next if ( $item->{session} // '' ) ne $session;
+            $min_order = $item->{order}
+              if !defined $min_order || ( $item->{order} // 0 ) < $min_order;
+        }
+        $min_order //= 1;
+        my $now = $self->{clock}->();
+        my $entry = {
+            id => _tasklist_next_id($items), text => $args{text}, status => 'pending',
+            session => $session, refs => $args{refs} // [], order => $min_order - 1,
+            created_at => $now, last_updated => $now,
+        };
+        push @{$items}, $entry;
+        $self->_write_json( $self->_tasklist_path($root), $items );
+        return $entry;
+    } );
+}
+
+# Insert at an arbitrary position - the only operation that renumbers,
+# because "between two items" has no single order value to reuse safely
+# forever without drifting into fractions.
+sub tasklist_slice {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    die "Task text is required\n" if !defined $args{text} || $args{text} eq '';
+    die "A position is required\n" if !defined $args{position};
+    die "Position must not be negative\n" if $args{position} < 0;
+    my $session = _tasklist_session(%args);
+    return $self->_with_project_lock( $root, sub {
+        my $items = $self->_tasklist_read($root);
+        my @mine = sort { $a->{order} <=> $b->{order} }
+          grep { ( $_->{session} // '' ) eq $session } @{$items};
+        my @others = grep { ( $_->{session} // '' ) ne $session } @{$items};
+        my $now = $self->{clock}->();
+        my $entry = {
+            id => _tasklist_next_id($items), text => $args{text}, status => 'pending',
+            session => $session, refs => $args{refs} // [],
+            created_at => $now, last_updated => $now,
+        };
+        my $position = $args{position};
+        $position = scalar @mine if $position > @mine;
+        splice @mine, $position, 0, $entry;
+        my $order = 1;
+        $_->{order} = $order++ for @mine;
+        $self->_write_json( $self->_tasklist_path($root), [ @others, @mine ] );
+        return $entry;
+    } );
+}
+
+# Deletes the item outright - distinct from tasklist_update's --status done,
+# which keeps it as a record of having been finished.
+sub tasklist_remove {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    die "Task id is required\n" if !defined $args{id} || $args{id} eq '';
+    return $self->_with_project_lock( $root, sub {
+        my $items = $self->_tasklist_read($root);
+        my ($entry) = grep { $_->{id} eq $args{id} } @{$items};
+        die "No task '$args{id}'\n" if !$entry;
+        $self->_write_json( $self->_tasklist_path($root),
+            [ grep { $_->{id} ne $args{id} } @{$items} ] );
+        return $entry;
+    } );
+}
+
+# His follow-up: "you can add the required actions items or checklist items
+# to the tasklist, so you can focus on a task at a time." Copies a card's own
+# still-pending required-actions/checklist entries into linked tasklist
+# items. Idempotent via imported_from, so calling it again after new
+# required-actions appear only adds the new ones.
+sub tasklist_import {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    die "A card ref is required\n" if !defined $args{ref} || $args{ref} eq '';
+    my $session = _tasklist_session(%args);
+    my $record = $self->record_show(%args);
+    my @source = (
+        ( grep { ( $_->{status} // '' ) eq 'pending' } @{ $record->{required_items} // [] } ),
+        ( grep { ( $_->{status} // '' ) eq 'pending' } @{ $record->{checklist} // [] } ),
+    );
+    return $self->_with_project_lock( $root, sub {
+        my $items = $self->_tasklist_read($root);
+        my %already = map { ( $_->{imported_from} // '' ) => 1 }
+          grep { ( $_->{session} // '' ) eq $session } @{$items};
+        my @created;
+        for my $entry_source (@source) {
+            my $tag = "$args{ref}#$entry_source->{id}";
+            next if $already{$tag};
+            my $max_order = 0;
+            for my $item ( @{$items} ) {
+                next if ( $item->{session} // '' ) ne $session;
+                $max_order = $item->{order} if ( $item->{order} // 0 ) > $max_order;
+            }
+            my $now = $self->{clock}->();
+            my $entry = {
+                id => _tasklist_next_id($items), text => $entry_source->{item}, status => 'pending',
+                session => $session, refs => [ $args{ref} ], order => $max_order + 1,
+                imported_from => $tag, created_at => $now, last_updated => $now,
+            };
+            push @{$items}, $entry;
+            push @created, $entry;
+            $already{$tag} = 1;
+        }
+        $self->_write_json( $self->_tasklist_path($root), $items ) if @created;
+        return \@created;
     } );
 }
 
@@ -12319,6 +12495,35 @@ Adds a free-text task-list item, starting C<pending>, scoped to C<session>.
 =head2 tasklist_update
 
 Moves a task-list item between C<pending>, C<working>, and C<done>.
+
+=head2 tasklist_next
+
+Peeks at the front of the session's pending queue, without removing it.
+
+=head2 tasklist_shift
+
+Returns and removes the front of the session's pending queue (FIFO).
+
+=head2 tasklist_pop
+
+Returns and removes the back of the session's pending queue (LIFO).
+
+=head2 tasklist_unshift
+
+Adds a new item at the very front of the session's queue.
+
+=head2 tasklist_slice
+
+Adds a new item at an arbitrary C<--position> within the session's queue.
+
+=head2 tasklist_remove
+
+Deletes a task-list item entirely, by id - distinct from marking it C<done>.
+
+=head2 tasklist_import
+
+Copies a card's still-pending required-actions and checklist entries into
+linked task-list items, skipping any already imported.
 
 =head2 notification_record
 

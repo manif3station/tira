@@ -302,6 +302,7 @@ sub run {
         'count' => \$option{count}, 'refs-only' => \$option{refs_only},
         'brief' => \$option{brief}, 'truncate=i' => \$option{truncate},
         'last=i' => \$option{last}, 'first=i' => \$option{first},
+        'position=i' => \$option{position},
         'meta-only' => \$option{meta_only},
         'where=s@' => \$option{where},
         'members=s@' => \$option{members}, 'columns=s@' => \$option{columns},
@@ -2309,8 +2310,12 @@ sub _invoke {
     # when the actual fault was the reflex flag. TKT-305.
     die "This command identifies a column with --name, not --column\n"
       if defined $option->{column} && $command =~ /\Acolumn\.(?:add|update|rename|remove)\z/;
+    # --session is also the tasklist commands' own scoping flag (TKT-504) -
+    # a different meaning on a different feature, not a project reminder
+    # setting, so tasklist.* is exempt from this guard same as the three
+    # project commands are.
     die "Reminder settings belong to the project.update, project.new and onboard commands\n"
-      if $command !~ /\A(?:project\.update|project\.new|onboard)\z/
+      if $command !~ /\A(?:project\.update|project\.new|onboard|tasklist\.[a-z]+)\z/
       && grep { defined $option->{$_} } qw(collector agent session heartbeat);
     die "Dashboard address options belong to the project.update command\n"
       if $command ne 'project.update'
@@ -3058,6 +3063,17 @@ sub _invoke {
     return $tira->tasklist_add( %args, refs => $option->{ref_list} // [] )
       if $command eq 'tasklist.add';
     return $tira->tasklist_update(%args) if $command eq 'tasklist.update';
+
+    # TKT-507: array-list operations on the tasklist queue.
+    return $tira->tasklist_next(%args) if $command eq 'tasklist.next';
+    return $tira->tasklist_shift(%args) if $command eq 'tasklist.shift';
+    return $tira->tasklist_pop(%args) if $command eq 'tasklist.pop';
+    return $tira->tasklist_unshift( %args, refs => $option->{ref_list} // [] )
+      if $command eq 'tasklist.unshift';
+    return $tira->tasklist_slice( %args, refs => $option->{ref_list} // [] )
+      if $command eq 'tasklist.slice';
+    return $tira->tasklist_remove(%args) if $command eq 'tasklist.remove';
+    return $tira->tasklist_import(%args) if $command eq 'tasklist.import';
 
     # What the agent has not decided about. It is the only party that can
     # declare a policy, and police prints this for the owner rather than for it.

@@ -2274,11 +2274,37 @@ environment variable when `--session` is not given explicitly, so
 multi-agent mode does not have to type it on every call; an explicit
 `--session` still overrides it. `tasklist.update` never consulted session at
 all - a core agent can already manage any item by id regardless of session.
-Ids are `TSK-NNN`.
+Ids are `TSK-NNN`. Every item also carries an explicit `order` field, set
+independently of `created_at`, so the queue can be reordered by
+unshift/slice without timestamp games: `tasklist.list`/`tasklist.next` always
+read it back sorted by `order`, ascending.
 
 - `tira.tasklist.add --text TEXT [--session ID] [--ref REF ...] [-o FORMAT]`
 - `tira.tasklist.list [--session ID] [-o FORMAT]`
 - `tira.tasklist.update --id ID --status pending|working|done [-o FORMAT]`
+
+The queue is treated like an array list, his words - every array function
+applies, scoped the same way `--session`/env-var fallback already work:
+
+- `tira.tasklist.next [--session ID] [-o FORMAT]` - peek at the front of the
+  pending queue, without removing it. Returns nothing if the queue is empty.
+- `tira.tasklist.shift [--session ID] [-o FORMAT]` - FIFO pop: return and
+  remove the front of the pending queue.
+- `tira.tasklist.pop [--session ID] [-o FORMAT]` - LIFO pop: return and
+  remove the back of the pending queue (the most recently added item).
+- `tira.tasklist.unshift --text TEXT [--session ID] [--ref REF ...] [-o FORMAT]`
+  - insert a new item at the very front, jumping the queue.
+- `tira.tasklist.slice --text TEXT --position N [--session ID] [--ref REF ...] [-o FORMAT]`
+  - insert a new item at an arbitrary 0-based position within the queue.
+- `tira.tasklist.remove --id ID [-o FORMAT]` - delete an item entirely,
+  distinct from `tasklist.update --status done`, which keeps it as a record
+  of having been finished.
+- `tira.tasklist.import --ref REF [--session ID] [-o FORMAT]` - copy a
+  card's still-pending required-actions and checklist entries into linked
+  task-list items, one per entry, so an agent can work through them via the
+  tasklist one at a time. Idempotent: re-running it after new required-
+  actions appear only adds the new ones, never duplicates what was already
+  imported.
 
 ### Warnings
 

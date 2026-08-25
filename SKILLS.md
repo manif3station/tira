@@ -1423,10 +1423,19 @@ included, rather than linking and silently dropping the bad value. TKT-432.
 
 A task sits below the SOW → epic → ticket hierarchy, for anything smaller than a ticket - a chore, a sub-step, a note-to-self mid-task. Sticky-note style: `--ref` can name one thing, several (repeat the flag), or nothing at all, and nothing checks that a named ref actually exists - a task can point at a real ticket, a URL, a filename, or free text equally. Use it when the ticket system's own weight (gates, required-actions, 100% coverage) would be overkill for the step itself.
 
+Michael, live, treating it as an array list: "all the array functions you can think of could apply to it - like next, pop, shift, unshift, slice to insert item in between, etc... And push, update, remove etc..." `push` is `tasklist.add`; `update` already existed. TKT-507 adds the rest: `next` peeks the front of the pending queue without removing it; `shift` returns and removes the front (FIFO); `pop` returns and removes the back (LIFO, the most recently added); `unshift` inserts a new item at the very front, jumping the queue; `slice` inserts a new item at an arbitrary `--position`; `remove` deletes an item entirely by id, distinct from marking it `done`. Each item carries an explicit `order` field, independent of `created_at`, so reordering never needs timestamp games; `list`/`next` always read the queue back sorted by it. His other follow-up - "you can add the required actions items or checklist items to the tasklist, so you can focus on a task at a time" - is `tasklist.import --ref TKT-XXX`: copies a card's still-pending required-actions and checklist entries into linked tasklist items, one per entry, skipping any already imported, so an agent can work a card's outstanding gate items one at a time through the same queue instead of the raw ticket view.
+
 ```text
 tira.tasklist.add --text TEXT [--session ID] [--ref REF ...] [-o FORMAT]
 tira.tasklist.list [--session ID] [-o FORMAT]
 tira.tasklist.update --id ID --status pending|working|done [-o FORMAT]
+tira.tasklist.next [--session ID] [-o FORMAT]
+tira.tasklist.shift [--session ID] [-o FORMAT]
+tira.tasklist.pop [--session ID] [-o FORMAT]
+tira.tasklist.unshift --text TEXT [--session ID] [--ref REF ...] [-o FORMAT]
+tira.tasklist.slice --text TEXT --position N [--session ID] [--ref REF ...] [-o FORMAT]
+tira.tasklist.remove --id ID [-o FORMAT]
+tira.tasklist.import --ref REF [--session ID] [-o FORMAT]
 ```
 
 ### UC-063: Reparent epic

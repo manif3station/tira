@@ -1,12 +1,47 @@
 Revision history for Tira
 
-3.90  2026-08-24
+3.91  2026-08-25
+
+    - TKT-507. Follow-up to TKT-504/505/506: "treat the tasklist like
+      an array list - next, pop, shift, unshift, slice to insert item
+      in between, etc... And push, update, remove etc..." (Michael,
+      live). push was already tasklist.add, update already existed.
+
+    - New: tasklist.next (peek the front, no removal), tasklist.shift
+      (FIFO pop, returns and removes the front), tasklist.pop (LIFO,
+      returns and removes the back), tasklist.unshift (insert at the
+      very front), tasklist.slice (insert at an arbitrary --position),
+      and tasklist.remove (delete an item entirely, distinct from
+      marking it done). Every task item now carries an explicit order
+      field, independent of created_at, so the queue can be reordered
+      without timestamp games.
+
+    - New: tasklist.import --ref TKT-XXX copies a card's still-
+      pending required-actions and checklist entries into linked
+      tasklist items, one per entry, idempotently - a follow-up
+      request from Michael, live: "you can add the required actions
+      items or checklist items to the tasklist, so you can focus on a
+      task at a time."
+
+    - Fixed: tasklist.slice --position with a negative value crashed
+      with a raw Perl splice error ("Modification of non-creatable
+      array value attempted") instead of refusing cleanly. Found by
+      deliberately feeding it an out-of-range negative position.
+      Negative positions are now refused, naming why.
+
+    - Fixed: --session was reserved for the project.update/new/
+      onboard reminder-settings flags only, so tira.tasklist.*
+      --session died with "Reminder settings belong to..." even
+      though it is a genuinely different flag on a different feature.
+      tasklist.* commands are now exempt from that guard.
 
     - TKT-506. "Task prefix use TSK" (Michael, live) - tasklist_add
       minted ids as TASK-NNN, breaking the short 3-letter prefix
       convention every other record type (SOW/EPC/TKT) uses.
 
     - Fixed: task-list items are now created as TSK-NNN.
+
+3.90  2026-08-24
 
     - TKT-505. Follow-up to TKT-504: typing --session on every
       tasklist call is unnecessarily long once genuinely multi-agent.

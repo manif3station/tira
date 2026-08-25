@@ -120,6 +120,84 @@ ok( ( grep { $_->{id} eq $via_cli->{id} } @{ decode_json($out) } ), 'and lists t
 is( $status, 0, 'tasklist.update dispatches' );
 is( decode_json($out)->{status}, 'working', 'and moves the item' );
 
+# --- TKT-507: array-list operations, on a fresh queue -----------------------
+{
+    my $a = $tira->tasklist_add( project => $root, text => 'A', session => 'arr' );
+    my $b = $tira->tasklist_add( project => $root, text => 'B', session => 'arr' );
+    my $c = $tira->tasklist_add( project => $root, text => 'C', session => 'arr' );
+
+    my $peek = $tira->tasklist_next( project => $root, session => 'arr' );
+    is( $peek->{id}, $a->{id}, 'next peeks at the front (A) without removing it' );
+    is( scalar @{ $tira->tasklist_list( project => $root, session => 'arr' ) }, 3,
+        'and nothing was removed' );
+
+    my $shifted = $tira->tasklist_shift( project => $root, session => 'arr' );
+    is( $shifted->{id}, $a->{id}, 'shift returns the front (A)' );
+    is( scalar @{ $tira->tasklist_list( project => $root, session => 'arr' ) }, 2,
+        'and removes it - B and C remain' );
+
+    my $popped = $tira->tasklist_pop( project => $root, session => 'arr' );
+    is( $popped->{id}, $c->{id}, 'pop returns the back (C)' );
+    is( scalar @{ $tira->tasklist_list( project => $root, session => 'arr' ) }, 1,
+        'and removes it - only B remains' );
+
+    my $d = $tira->tasklist_unshift( project => $root, session => 'arr', text => 'D' );
+    is( $tira->tasklist_next( project => $root, session => 'arr' )->{id}, $d->{id},
+        'unshift places a new item at the very front, ahead of B' );
+
+    my $e = $tira->tasklist_slice( project => $root, session => 'arr', text => 'E', position => 1 );
+    my $order = $tira->tasklist_list( project => $root, session => 'arr' );
+    is( $order->[1]{id}, $e->{id}, 'slice inserts at the given position - D, E, B' );
+    is( scalar @{$order}, 3, 'and the queue now holds three items' );
+
+    $tira->tasklist_remove( project => $root, session => 'arr', id => $d->{id} );
+    my $after_remove = $tira->tasklist_list( project => $root, session => 'arr' );
+    is( scalar @{$after_remove}, 2, 'remove deletes an item entirely' );
+    ok( !( grep { $_->{id} eq $d->{id} } @{$after_remove} ), 'the removed item is gone, not merely marked done' );
+
+    eval { $tira->tasklist_remove( project => $root, session => 'arr', id => 'TSK-999' ) };
+    like( $@, qr/TSK-999/, 'removing an id that does not exist is refused, naming it' );
+
+    is( $tira->tasklist_next( project => $root, session => 'sep' ), undef,
+        'next on a session with nothing pending returns undef, not an error' );
+
+    eval { $tira->tasklist_slice( project => $root, session => 'arr', text => 'F', position => -1 ) };
+    like( $@, qr/[Pp]osition must not be negative/,
+        'a negative position is refused, not a raw splice crash' );
+}
+
+# --- TKT-507: importing a card's pending required-actions/checklist --------
+{
+    my $source_card = $tira->create_record( project => $root, type => 'ticket', title => 'Has pending work' );
+    $tira->required_item_add(
+        project => $root, ref => $source_card->{ref}, item => 'Fill in acceptance criteria',
+        status => 'pending', column => $source_card->{column}, author => 'claude',
+    );
+    $tira->checklist_add(
+        project => $root, ref => $source_card->{ref}, item => 'Write the red test', status => 'pending',
+        author => 'claude',
+    );
+    $tira->checklist_add(
+        project => $root, ref => $source_card->{ref}, item => 'Already done, skip me', status => 'done',
+        author => 'claude',
+    );
+
+    my $imported = $tira->tasklist_import( project => $root, ref => $source_card->{ref}, session => 'imp' );
+    is( scalar @{$imported}, 2, 'imports only the two pending entries, not the done one' );
+    my $imported_list = $tira->tasklist_list( project => $root, session => 'imp' );
+    is( scalar @{$imported_list}, 2, 'both land in the imp session list' );
+    is_deeply( $imported_list->[0]{refs}, [ $source_card->{ref} ], 'each item is linked back to the source card' );
+
+    my $again = $tira->tasklist_import( project => $root, ref => $source_card->{ref}, session => 'imp' );
+    is( scalar @{$again}, 0, 're-importing the same card is idempotent - nothing new' );
+    is( scalar @{ $tira->tasklist_list( project => $root, session => 'imp' ) }, 2,
+        'the list is unchanged after the repeat import' );
+
+    my ( $status, $out ) = cli( 'tasklist.import', '--ref', $source_card->{ref}, '--session', 'imp-cli', '-o', 'json' );
+    is( $status, 0, 'tasklist.import dispatches' );
+    is( scalar @{ decode_json($out) }, 2, 'and imports via the CLI too' );
+}
+
 done_testing;
 
 __END__

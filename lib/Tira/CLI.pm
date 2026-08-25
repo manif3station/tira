@@ -223,6 +223,7 @@ sub run {
     my $argv = $args{argv} || [];
     my $tira = $args{tira} || Tira->new( path_resolver => _dd_path_resolver() );
     my $browser_server = $args{browser_server} || \&_serve_browser;
+    my $onboard_browser_server = $args{onboard_browser_server} || \&_serve_onboard_browser;
     my $restarter = $args{restarter} || \&_restart_into;
     my $guided_input = $args{input};
     my %option = ( output => 'toon' );
@@ -487,8 +488,9 @@ sub run {
       if $command eq 'attachment.get' && $option{output} !~ /\A(?:toon|json|human)\z/;
     return _error( $tira, 'toon', 'Table output is available only for dashboard commands' )
       if $option{output} eq 'table' && $command !~ /\Adashboard(?:\.(?:sow|epic|ticket))?\z/;
-    return _error( $tira, 'toon', 'Browser output is available only for dashboard commands' )
-      if $option{output} =~ /\Abrowser(?:=|\z)/ && $command !~ /\Adashboard(?:\.(?:sow|epic|ticket))?\z/;
+    return _error( $tira, 'toon', 'Browser output is available only for dashboard and onboard commands' )
+      if $option{output} =~ /\Abrowser(?:=|\z)/
+      && $command !~ /\A(?:dashboard(?:\.(?:sow|epic|ticket))?|onboard)\z/;
 
     # One way to say which board: the environment, holding a name the machine
     # resolves. There were three - a flag, this, and the working directory -
@@ -500,17 +502,50 @@ sub run {
     my ( $browser_host, $browser_port );
     if ( $option{output} =~ /\Abrowser(?:=(.*))?\z/ ) {
         my $given = $1;
-        # Precedence, stated once: an address on the command line wins, the
-        # project's remembered address is next, the original default last.
-        my $endpoint = defined $given && length $given ? $given : do {
-            my $stored = eval { $tira->project_show( project => $option{project} )->{dashboard} };
-            join ':', ( $stored->{host} // '0.0.0.0' ), ( $stored->{port} // 7899 );
+        if ( $command eq 'onboard' ) {
+            # No project exists yet, so there is no remembered address to fall
+            # back to - and a fixed default port would collide the moment two
+            # projects tried to onboard at once. 127.0.0.1 rather than
+            # 0.0.0.0: this is a disposable setup session, not a board meant
+            # to be reached from another machine.
+            ( $browser_host, $browser_port ) = ( '127.0.0.1', undef );
+            if ( defined $given && length $given ) {
+                ( $browser_host, $browser_port ) = $given =~ /\A(0\.0\.0\.0|127\.0\.0\.1|localhost)(?::([0-9]+))?\z/
+                  or return _error( $tira, 'toon', "Unsupported browser endpoint '$given'\n" );
+            }
+            $browser_port = _free_port() if !defined $browser_port;
+        }
+        else {
+            # Precedence, stated once: an address on the command line wins, the
+            # project's remembered address is next, the original default last.
+            my $endpoint = defined $given && length $given ? $given : do {
+                my $stored = eval { $tira->project_show( project => $option{project} )->{dashboard} };
+                join ':', ( $stored->{host} // '0.0.0.0' ), ( $stored->{port} // 7899 );
+            };
+            my $valid = eval {
+                ( $browser_host, $browser_port ) = _browser_endpoint($endpoint);
+                1;
+            };
+            return _error( $tira, 'toon', $@ || 'Invalid browser endpoint' ) if !$valid;
+        }
+    }
+
+    # tira.onboard -o browser skips the interactive STDIN wizard entirely: a
+    # disposable server collects the same answers over HTTP instead, then
+    # calls back into the exact command dispatch every other onboard/create
+    # answer reaches, so nothing forks into a second, divergent creation path.
+    if ( $command eq 'onboard' && defined $browser_host ) {
+        my $create = sub {
+            my ($fields) = @_;
+            my %merged = ( %option, %{$fields} );
+            return _invoke( $tira, 'onboard', undef, \%merged );
         };
-        my $valid = eval {
-            ( $browser_host, $browser_port ) = _browser_endpoint($endpoint);
+        my $served = eval {
+            $onboard_browser_server->( host => $browser_host, port => $browser_port, create => $create );
             1;
         };
-        return _error( $tira, 'toon', $@ || 'Invalid browser endpoint' ) if !$valid;
+        return _error( $tira, 'toon', $@ || 'Unable to serve the onboarding session' ) if !$served;
+        return 0;
     }
 
     # Only tira.onboard ever prompts. project.new stays purely argument-driven,
@@ -914,6 +949,27 @@ sub _restart_if_updated {
 sub _serve_browser {
     require Tira::DashboardWeb;
     return Tira::DashboardWeb->serve(@_);
+}
+
+sub _serve_onboard_browser {
+    require Tira::OnboardWeb;
+    return Tira::OnboardWeb->serve(@_);
+}
+
+# Chosen rather than fixed, because a fixed default is exactly the collision
+# tira.dashboard -o browser's own port already accepts for a long-lived
+# board with one obvious address - the wrong trade for a disposable session
+# two people could start at once. The race between closing this socket and
+# Plack::Runner binding the same port is the same one every "ask the OS for a
+# free port" trick accepts; tools/browser-tests picks one the same way.
+sub _free_port {
+    require IO::Socket::INET;
+    my $socket = IO::Socket::INET->new(
+        Listen => 1, LocalAddr => '127.0.0.1', LocalPort => 0, Proto => 'tcp' )
+      or die "Could not find a free port: $!\n";
+    my $port = $socket->sockport;
+    $socket->close;
+    return $port;
 }
 
 # One provider set feeds both the CLI-launched Dancer2 server and the
@@ -4655,5 +4711,17 @@ C<tasklist_remove>, C<tasklist_import>, C<tasklist_prune>,
 C<tasklist_task_attach_add>, C<tasklist_task_attach_discard>,
 C<tasklist_task_ref_link>, and C<tasklist_task_ref_unlink>, giving the
 browser dashboard's Task List section full parity with C<tira.tasklist.*>.
+
+=head2 run's onboard -o browser branch
+
+TKT-517: C<-o browser> is accepted for the C<onboard> command as well as
+C<dashboard>. Rather than the interactive STDIN wizard, C<run> starts a
+disposable L<Tira::OnboardWeb> server (via the injectable
+C<onboard_browser_server> seam, C<_serve_onboard_browser> by default) on
+C<127.0.0.1> and a dynamically-picked free port (C<_free_port>), unless an
+explicit C<-o browser=host:port> was given. Its C<create> provider calls
+back into the exact C<_invoke($tira, 'onboard', undef, \%merged)> dispatch
+the interactive wizard's own answers reach, so nothing forks into a second,
+divergent project-creation path.
 
 =cut

@@ -1512,6 +1512,18 @@ answers, unusable answers are re-asked, and both declining and running out of
 input leave nothing behind. Only `tira.onboard` ever prompts — `project.new`
 is purely argument-driven so nothing automated can be left waiting on input.
 
+TKT-517: `tira.onboard -o browser` replaces the terminal prompt with a
+disposable, no-login HTTP server (`Tira::OnboardWeb`) - one page with every
+field the wizard collects, submitted once. Defaults to `127.0.0.1` on a
+dynamically-picked free port (`-o browser=127.0.0.1:PORT` for an explicit
+one); an invalid submission re-renders the same form with the typed values
+kept and the reason shown, never a fresh page. A valid submission creates
+the project through the same dispatch the CLI wizard's own answers reach,
+renders a thank-you page, and stops the server for real - a further request
+afterward gets a 503, and the process itself exits shortly after (a forked
+watchdog sends it SIGTERM once the response has had a moment to leave the
+socket).
+
 `tira.project.new` bootstraps in one call what `project.create`, `project.people.add`,
 `board.refs`, and `column.add` otherwise do across dozens: it creates the project,
 adds each member, sets each board's reference prefix, and applies one shared column

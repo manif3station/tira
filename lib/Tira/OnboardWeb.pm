@@ -1,0 +1,206 @@
+package Tira::OnboardWeb;
+
+use strict;
+use warnings;
+
+our $VERSION = '1.00';
+
+use Encode qw(encode_utf8);
+use Dancer2 appname => 'TiraOnboard';
+
+# One disposable server, one form, one submission. No login (there is no
+# project yet to sign into), no session, no polling - the whole point is that
+# it stops existing once it has done its one job. $CREATE and $STOPPED are
+# package globals rather than closures because Dancer2 routes are compiled
+# once against the package, the same reason Tira::DashboardWeb's providers
+# are globals too.
+our $CREATE;
+our $STOPPED = 0;
+
+sub _response_bytes {
+    my ($content) = @_;
+    return utf8::is_utf8($content) ? encode_utf8($content) : $content;
+}
+
+sub _escape {
+    my ($value) = @_;
+    $value = defined $value ? $value : '';
+    $value =~ s/&/&amp;/g;
+    $value =~ s/</&lt;/g;
+    $value =~ s/>/&gt;/g;
+    $value =~ s/"/&quot;/g;
+    return $value;
+}
+
+my @FIELDS = (
+    [ dir           => 'Project directory' ],
+    [ name          => 'Project name' ],
+    [ members       => 'People, comma separated' ],
+    [ sow_prefix    => 'SOW reference prefix' ],
+    [ epic_prefix   => 'Epic reference prefix' ],
+    [ ticket_prefix => 'Ticket reference prefix' ],
+    [ columns       => 'Columns, in order, comma separated' ],
+);
+
+sub _render_form {
+    my (%args) = @_;
+    my $fields = $args{fields} // {};
+    my $error_html = $args{error}
+      ? '<p class="onboard-error">' . _escape( $args{error} ) . '</p>'
+      : '';
+    my $rows = join "\n", map {
+        my ( $name, $label ) = @{$_};
+        my $default = $name eq 'sow_prefix'    ? 'SOW'
+          : $name eq 'epic_prefix'   ? 'EPC'
+          : $name eq 'ticket_prefix' ? 'TKT'
+          :                            '';
+        my $value = _escape( $fields->{$name} // $default );
+        qq{<label>$label <input name="$name" value="$value"></label>};
+    } @FIELDS;
+    return <<"HTML";
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Tira - Set up a project</title></head>
+<body>
+<h1>Set up a Tira project</h1>
+$error_html
+<form method="post" action="/">
+$rows
+<button type="submit">Create this project</button>
+</form>
+</body></html>
+HTML
+}
+
+sub _render_thanks {
+    my ($summary) = @_;
+    my $name = _escape( $summary->{project}{name} // '' );
+    return <<"HTML";
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Tira - Project created</title></head>
+<body>
+<h1>Thank you for using Tira</h1>
+<p>The project "$name" is set up.</p>
+<p>Your role from here is to view and manage cards - run
+<code>dashboard tira.dashboard -o browser</code> to open the board in a
+browser. Every <code>tira.&lt;command&gt;</code> is written for an agent to
+run, but you are welcome to run them yourself too.</p>
+<p>This onboarding session has finished and will not answer any further
+requests.</p>
+</body></html>
+HTML
+}
+
+sub _stopped_response {
+    status 503;
+    content_type 'text/plain; charset=UTF-8';
+    return _response_bytes("This onboarding session has already finished.\n");
+}
+
+sub _answers_from_params {
+    my ($params) = @_;
+    my %fields = map { $_->[0] => ( $params->{ $_->[0] } // '' ) } @FIELDS;
+    my %answers = ( dir => ( $fields{dir} ne '' ? $fields{dir} : '.' ), name => $fields{name} );
+    $answers{members} = [ $fields{members} ] if $fields{members} ne '';
+    $answers{"${_}_prefix"} = $fields{"${_}_prefix"}
+      for grep { $fields{"${_}_prefix"} ne '' } qw(sow epic ticket);
+    $answers{columns} = [ $fields{columns} ] if $fields{columns} ne '';
+    return ( \%fields, \%answers );
+}
+
+get '/' => sub {
+    return _stopped_response() if $STOPPED;
+    content_type 'text/html; charset=UTF-8';
+    return _response_bytes( _render_form() );
+};
+
+post '/' => sub {
+    return _stopped_response() if $STOPPED;
+    content_type 'text/html; charset=UTF-8';
+    my ( $fields, $answers ) = _answers_from_params( scalar params );
+    my $summary = eval { $CREATE->($answers) };
+    if ( !$summary ) {
+        my $error = $@ || 'Could not create the project';
+        $error =~ s/(?: at \S+ line \d+\.?)?\s*\z//s;
+        status 422;
+        return _response_bytes( _render_form( error => $error, fields => $fields ) );
+    }
+    $STOPPED = 1;
+    return _response_bytes( _render_thanks($summary) );
+};
+
+sub build_psgi_app {
+    my ( $class, %args ) = @_;
+    die "Onboarding needs a create provider\n" if ref $args{create} ne 'CODE';
+    $CREATE   = $args{create};
+    $STOPPED  = 0;
+    return __PACKAGE__->to_app;
+}
+
+# The live server is single-process and single-connection by design - there
+# are no workers to keep in sync, and nothing this serves lives past the one
+# submission it exists for. Once that submission succeeds, a forked watchdog
+# gives the response a moment to actually leave the socket and then kills the
+# parent - the only reliable way to stop a synchronous PSGI server from
+# inside the request that just finished it, since exiting before the response
+# is written would mean nobody ever saw it.
+sub serve {
+    my ( $class, %args ) = @_;
+    my $app = $class->build_psgi_app( create => $args{create} );
+    require Plack::Runner;
+    my $runner = Plack::Runner->new;
+    $runner->parse_options(
+        '--server', 'HTTP::Server::PSGI', '--host', $args{host}, '--port', $args{port},
+        '--env', 'deployment',
+    );
+    my $wrapped = sub {
+        my ($env) = @_;
+        my $response = $app->($env);
+        if ($STOPPED) {
+            my $pid = fork();
+            if ( defined $pid && $pid == 0 ) {
+                sleep 1;
+                kill 'TERM', getppid();
+                exit 0;
+            }
+        }
+        return $response;
+    };
+    # Never returns in practice: the process is stopped by the watchdog's
+    # SIGTERM, not by run() finishing on its own, so there is no "after" for
+    # a return value to answer to.
+    return $runner->run($wrapped);
+}
+
+1;
+
+__END__
+
+=head1 NAME
+
+Tira::OnboardWeb - a disposable, no-login Dancer2 form for tira.onboard -o browser
+
+=head1 DESCRIPTION
+
+One page, one C<POST /> route: renders every field the CLI wizard
+(C<Tira::CLI::_project_wizard>) collects as a single form, validates and
+creates the project through the same C<create> provider the CLI's onboarding
+command already reaches (C<_invoke> for the C<onboard> command), and answers
+with a thank-you page. A second request after a successful creation gets a
+503 rather than a second form - the session is meant for exactly one
+submission.
+
+=head1 METHODS
+
+=head2 build_psgi_app
+
+Accepts a C<create> coderef (called with a hashref of answers, expected to
+either return a project summary or die with a validation message) and
+returns the Dancer2 PSGI application.
+
+=head2 serve
+
+Runs the application using C<host>, C<port>, and C<create>, on a single-
+process synchronous server so a successful submission can stop it cleanly
+afterwards.
+
+=cut

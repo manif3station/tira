@@ -360,6 +360,28 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   cuts to the end, the arrows and Home/End move the cursor, and Ctrl-C or
   Ctrl-D abandons the prompt. Away from a terminal the prompt is a plain read,
   so piping answers in behaves exactly as before.
+
+  `tira.onboard -o browser` — **Implemented, TKT-517.** Michael, via TODOYET:
+  "Add a browser mode for tira.onboard, so there user either to answer
+  questions from the CLI or they do that on the browser... No login needed
+  because this is not a long term thing. Once the questions are all
+  answered. The onboard starman or dancer2 will be stopped and the project
+  folder should be setup." A disposable, no-login server (its own package,
+  `Tira::OnboardWeb`, not layered onto the dashboard) serves every field the
+  CLI wizard collects as one form rather than replaying its turn-by-turn
+  prompts over HTTP; submitting it validates and creates through the exact
+  same dispatch (`_invoke` for the `onboard` command) the interactive
+  wizard's own answers reach, so nothing forks into a second creation path.
+  Confirmed via Q-078: the address convention matches `tira.dashboard -o
+  browser`, defaulting to `127.0.0.1` on a dynamically-picked free port
+  rather than the dashboard's fixed 7899 (two onboarding sessions must
+  never collide) - `-o browser=127.0.0.1:PORT` still wins when given. On
+  success it renders a thank-you page reminding the person their role from
+  here is viewing/managing cards (`tira.dashboard -o browser`) and that
+  every `tira.<command>` is agent-facing but open to them too, then stops
+  itself: a forked watchdog gives the response a moment to leave the
+  socket, then sends the parent SIGTERM - any request after that gets a
+  503, not a second form.
 - `tira.project.show [-o FORMAT]` — **Implemented.**
 - `tira.doctor [--repair] [-o FORMAT]` — **Implemented.** Finds board files
   holding bytes that are not valid UTF-8, and says which file, which byte and at

@@ -150,7 +150,11 @@ next/shift/pop/unshift/slice/prune) and per-card controls (status, remove,
 attach, ref) - full parity with the CLI commands below.
 
 `dashboard tira.onboard` asks for everything a new project needs and creates
-it from the answers. The same thing non-interactively, for scripts: `dashboard tira.project.new
+it from the answers. `dashboard tira.onboard -o browser` does the same thing
+over one HTML form instead of a terminal prompt: a disposable, no-login
+server on `127.0.0.1` (a free port picked automatically, or
+`-o browser=127.0.0.1:PORT` for a specific one) that creates the project on
+submission and stops itself right after. The same thing non-interactively, for scripts: `dashboard tira.project.new
 --name "MT5" --members "K-Bot, Michael" --columns "Backlog, Planning, In
 Progress, Done / Release" --sow-prefix M5S --epic-prefix M5E --ticket-prefix
 M5T` creates the project, its people, each board's reference prefix, and the

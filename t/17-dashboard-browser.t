@@ -99,8 +99,8 @@ for my $endpoint ( 'example.com', 'localhost:0', 'localhost:65536', 'localhost:n
 
 ( $status, $out, $err, $calls ) =
   browser_cli( 'project.show', '-o', 'browser' );
-is( $status, 2, 'browser output is dashboard-only' );
-like( $err, qr/Browser output is available only for dashboard commands/,
+is( $status, 2, 'browser output is dashboard/onboard-only' );
+like( $err, qr/Browser output is available only for dashboard and onboard commands/,
     'scope error is actionable' );
 
 my $renders = 0;

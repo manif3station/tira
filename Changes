@@ -1,5 +1,38 @@
 Revision history for Tira
 
+3.98  2026-08-25
+
+    - TKT-517. Feature: tira.onboard -o browser - a disposable, no-login
+      setup session for a brand-new project. Michael, via TODOYET: "Add a
+      browser mode for tira.onboard... No login needed because this is not
+      a long term thing. Once the questions are all answered. The onboard
+      starman or dancer2 will be stopped and the project folder should be
+      setup." Confirmed via Q-078: matches the existing tira.dashboard -o
+      browser convention, and the server exits itself right after
+      rendering the final page.
+      New lib/Tira/OnboardWeb.pm: one form covering every field the CLI
+      wizard (_project_wizard) collects, POSTed answers validated and
+      created through the exact same dispatch (_invoke for the 'onboard'
+      command) the interactive wizard's answers already reach, so nothing
+      forks into a second creation path. Defaults to 127.0.0.1 on a
+      dynamically-picked free port (not the dashboard's fixed 7899 - two
+      onboarding sessions must never collide); an explicit
+      -o browser=host:port still wins. After a successful submission the
+      server stops itself for real: a forked watchdog gives the response a
+      moment to leave the socket, then sends the parent SIGTERM.
+      New tests: t/392 (Plack::Test, the form/validate/create/stop
+      contract), t/393 (CLI dispatch: no STDIN prompt, dynamic port,
+      explicit endpoint, the create provider reaching real project
+      creation), t/394 (a genuine forked child process driven with real
+      HTTP::Tiny requests - no mocks - proving the whole chain end to end,
+      including that a request after success really fails to connect
+      rather than a flag merely flipping in memory).
+      Also: prove -j8 confirmed safe and ~2x faster (61s vs ~140s) for the
+      plain pass/fail gate; the coverage-bearing run stays serial, since a
+      parallel run under Devel::Cover raced cover_db writes across
+      processes and mismeasured lib/Tira/CLI.pm at 99.9%/99.3% instead of
+      its real 100%.
+
 3.97  2026-08-25
 
     - TKT-516. Feature: a Task List section in the live browser

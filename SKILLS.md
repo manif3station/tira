@@ -1540,6 +1540,16 @@ existing Link button. Michael, via TSK-021: "if i just type the number
 will show me any card with that number and i just click the one at the
 dropdown and linked."
 
+TKT-530: 3 of the Task List section's native blocking dialogs now use
+inline styled UI instead - the "Next" peek result shows in the section's
+own notice element rather than alert(), and the slice-position/
+import-ref prompts became a small inline capture (input + Go, Enter
+submits, Escape cancels) next to the triggering button. The section's 5
+confirm() dialogs (remove policy/task/attachment, prune) were judged
+individually and kept as native, since each gates a genuinely
+irreversible action and a blocking native confirm is harder to mis-click
+through than any in-place replacement.
+
 ### UC-063: Reparent epic
 **Implemented.** Linking to SOW-002 removes the reciprocal SOW-001 link atomically.
 

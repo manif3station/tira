@@ -1,5 +1,18 @@
 Revision history for Tira
 
+4.09  2026-08-25
+
+    - TKT-530. Replaced 3 of the Task List section's 9 native blocking
+      dialogs with inline styled UI: the "Next" peek result now shows in
+      the section's own notice element instead of alert(), and the
+      slice-position/import-ref prompts became a small inline capture
+      (input + Go button, Enter submits, Escape cancels) next to the
+      button that opened them. The 5 confirm() calls (remove
+      policy/task/attachment, prune) were judged individually and kept
+      as native - each gates a genuinely irreversible action, and a
+      blocking native confirm is harder to mis-click through than any
+      in-place replacement would be. Judgment recorded on the ticket.
+
 4.08  2026-08-25
 
     - TKT-531. The tasklist card ref field now suggests matches as you

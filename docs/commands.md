@@ -2392,6 +2392,15 @@ matching against every ref the dashboard already holds client-side
 the field. Clicking a suggestion posts to `/tasklist/task/ref/link`, the
 same route the existing Link button already uses; no new endpoint.
 
+TKT-530: the Task List section's `Next` button now shows its result in
+an inline `.tasklist-notice` element instead of a blocking `alert()`,
+and the slice-position/import-ref controls open a small inline capture
+(`.tasklist-inline-capture`, an input plus a Go button) next to the
+button instead of a blocking `prompt()`. The section's 5 `confirm()`
+dialogs (remove policy/task/attachment, prune) are unchanged - each
+gates an irreversible action, judged safer left as a native blocking
+dialog than replaced.
+
 ### Warnings
 
 - `tira.warning.add --message TEXT [-o FORMAT]`

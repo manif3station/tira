@@ -71,6 +71,23 @@ const recordRequests = [];
       if (chosen) items = items.filter(item => item.id !== chosen.id);
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(chosen || {}) });
     }
+    if (path === '/tasklist/next') {
+      posted.push({ path, payload: {} });
+      const pending = items.filter(item => item.status === 0);
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(pending[0] || {}) });
+    }
+    if (path === '/tasklist/slice') {
+      const payload = JSON.parse(request.postData() || '{}');
+      posted.push({ path, payload });
+      const entry = { id: 'TSK-00' + nextNum++, text: payload.text, status: 0, session: '', refs: [], attachments: [] };
+      items.splice(payload.position, 0, entry);
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(entry) });
+    }
+    if (path === '/tasklist/import') {
+      const payload = JSON.parse(request.postData() || '{}');
+      posted.push({ path, payload });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    }
     if (path === '/tasklist/prune') {
       posted.push({ path, payload: {} });
       const pruned = items.filter(item => item.status === 2);
@@ -283,6 +300,50 @@ const recordRequests = [];
   await page.waitForTimeout(200);
   const suggestLink = posted.find(p => p.path === '/tasklist/task/ref/link' && p.payload.ref === 'TKT-100');
   if (!suggestLink) fail('clicking a suggestion did not link it the same way the Link button does');
+
+  // --- TKT-530: Next uses the section's own inline notice, not alert() -------
+  await section.locator('.tasklist-text').fill('Pending for the Next check');
+  await section.locator('.tasklist-add').click();
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('.tasklist-card')].some(card => card.textContent.includes('Pending for the Next check')));
+  let sawDialog = false;
+  const dialogGuard = dialog => { sawDialog = true; dialog.dismiss(); };
+  page.on('dialog', dialogGuard);
+  await section.locator('.tasklist-next').click();
+  await page.waitForTimeout(200);
+  page.off('dialog', dialogGuard);
+  if (sawDialog) fail('clicking Next opened a native dialog instead of the inline notice');
+  const noticeText = await section.locator('.tasklist-notice').textContent();
+  if (!noticeText || !noticeText.includes('Next:')) fail('clicking Next did not show the result in the inline notice');
+
+  // --- TKT-530: slice position uses an inline capture, not prompt() ----------
+  sawDialog = false;
+  page.on('dialog', dialogGuard);
+  await section.locator('.tasklist-text').fill('Inserted via inline capture');
+  await section.locator('.tasklist-slice').click();
+  const positionInput = section.locator('.tasklist-inline-capture input');
+  if ((await positionInput.count()) !== 1) fail('clicking Insert at position did not open an inline capture');
+  await positionInput.fill('0');
+  await positionInput.press('Enter');
+  await page.waitForTimeout(200);
+  page.off('dialog', dialogGuard);
+  if (sawDialog) fail('the slice-position control opened a native prompt() instead of an inline capture');
+  const sliceCall = posted.find(p => p.path === '/tasklist/slice' && p.payload.position === 0);
+  if (!sliceCall) fail('submitting the inline position capture did not post to /tasklist/slice');
+
+  // --- TKT-530: import ref uses an inline capture, not prompt() ---------------
+  sawDialog = false;
+  page.on('dialog', dialogGuard);
+  await section.locator('.tasklist-import').click();
+  const importInput = section.locator('.tasklist-inline-capture input');
+  if ((await importInput.count()) !== 1) fail('clicking Import from card did not open an inline capture');
+  await importInput.fill('TKT-200');
+  await importInput.press('Enter');
+  await page.waitForTimeout(200);
+  page.off('dialog', dialogGuard);
+  if (sawDialog) fail('the import control opened a native prompt() instead of an inline capture');
+  const importCall = posted.find(p => p.path === '/tasklist/import' && p.payload.ref === 'TKT-200');
+  if (!importCall) fail('submitting the inline import capture did not post to /tasklist/import');
 
   // --- prune (removes every done item) ---------------------------------------
   await section.locator('.tasklist-prune').click();

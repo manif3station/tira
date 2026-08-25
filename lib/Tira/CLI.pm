@@ -467,8 +467,9 @@ sub run {
     # TKT-338.
     if ( $option{files} ) {
         return _error( $tira, $option{output},
-            "Only attachment.add takes more than one --file\n" )
-          if @{ $option{files} } > 1 && $command ne 'attachment.add';
+            "Only attachment.add, tasklist.task.attach.add and tasklist.task.attach.discard take more than one --file\n" )
+          if @{ $option{files} } > 1
+          && $command !~ /\A(?:attachment\.add|tasklist\.task\.attach\.(?:add|discard))\z/;
         $option{file} = $option{files}[0];
     }
     $option{ref} = $option{ref_list}[-1] if $option{ref_list};

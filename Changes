@@ -31,6 +31,16 @@ Revision history for Tira
       tasklist.task.ref.link/unlink --id ID --ref REF... manage an
       existing item's attachments and refs after it already exists.
 
+    - Fixed: a pre-existing guard (TKT-338/389) silently collapsed
+      --file down to one value for every command except
+      attachment.add, so passing two --file to
+      tasklist.task.attach.add/discard silently dropped the second
+      file rather than refusing or accepting it. Found adversarially,
+      by exercising the CLI option-parsing layer directly rather than
+      only the engine method (which never saw the bug). Both new
+      commands are now exempt from that guard alongside
+      attachment.add.
+
 3.91  2026-08-25
 
     - TKT-507. Follow-up to TKT-504/505/506: "treat the tasklist like

@@ -322,6 +322,21 @@ is( decode_json($out)->{status}, 1, 'and moves the item' );
     );
     is( $status, 0, 'tasklist.task.ref.link dispatches' );
     ok( ( grep { $_ eq $card_x->{ref} } @{ decode_json($out)->{refs} } ), 'and adds the ref via the CLI too' );
+
+    # Found adversarially: a pre-existing global guard (TKT-338/389) collapsed
+    # --file down to a single value for every command except attachment.add,
+    # silently breaking multiple --file on these two new commands even though
+    # the engine methods themselves accepted an arrayref fine. Only a CLI-level
+    # call with two --file flags exercises the option-parsing layer that bug
+    # lived in - the direct-method tests above never would.
+    my $file_d = File::Spec->catfile( $tmp, 'd.txt' );
+    open my $fd, '>', $file_d or die $!; print {$fd} 'D'; close $fd;
+    ( $status, $out ) = cli(
+        'tasklist.task.attach.add', '--id', $attached->{id}, '--file', $file_c, '--file', $file_d, '-o', 'json',
+    );
+    is( $status, 0, 'tasklist.task.attach.add with two --file flags dispatches' );
+    is( scalar @{ decode_json($out)->{attachments} }, 3,
+        'and both files land (c.txt already there from earlier, d.txt newly added)' );
 }
 
 done_testing;

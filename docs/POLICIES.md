@@ -396,6 +396,11 @@ The same substitution applies to the six rules that read the machine rather than
 the board, so `--message "the board has not been backed up in {age}"` on
 `board-unbacked` says how long it has been, on the bridge as everywhere else.
 
+TKT-519: on the browser dashboard, the Policies dialog's declare/edit form
+shows this same table as a (?) badge next to the message field - click it
+for the token list without leaving the dialog. No other field (`pattern`
+included) accepts these tokens, and no other field carries the badge.
+
 ## Ages
 
 `--age` takes `30s`, `10m`, `2h` or `7d`. It is that rule's grace: a card

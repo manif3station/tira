@@ -614,6 +614,13 @@ Its rule picker's parameter fields match `--enter`/`--column`/`--age`
 and the rest of this section exactly, driven by the same needs/forbids
 data `policy_add` validates against.
 
+TKT-519: `GET /policies` also carries `token_fields` and `token_help` -
+the same `{token}` list and one-line descriptions "Saying it in your own
+words" documents above, from `Tira::policy_message_fields` /
+`policy_message_field_help`. The dialog's message field shows this behind
+a (?) badge, since nothing else in the UI told a person which tokens
+existed or that they are message-only.
+
 ### `tira.police`
 
 **The owner runs this**, in a terminal they can leave open.

@@ -21,6 +21,17 @@ const RULES = {
   'checklist-idle': { needs: ['age'], forbids: [] },
 };
 const ACTIONS = ['bridge-reminder', 'print-reminder', 'log-only'];
+// TKT-519: matches lib/Tira.pm's %POLICY_MESSAGE_FIELD_HELP exactly - the
+// dialog only ever renders what the server sends, so this fixture stands in
+// for that response the same way RULES/ACTIONS already stand in for
+// policy_rule_specs()/policy_actions() above.
+const TOKEN_HELP = {
+  ref: 'the card', title: 'its title', column: 'where it is',
+  assignee: 'who it belongs to', reporter: 'who it belongs to',
+  rule: 'which rule fired', policy: 'which policy said so',
+  detail: 'what the rule actually found',
+  age: "the rule's own age or limit", max: "the rule's own age or limit",
+};
 
 let declared = [
   { id: 'POL-001', rule: 'card-duration', action: 'bridge-reminder', column: 'doing', age: '2h' },
@@ -48,6 +59,7 @@ process.on('unhandledRejection', error => {
     declared, declined,
     undeclared: Object.keys(RULES).filter(name => !declared.some(p => p.rule === name) && !declined.some(d => d.rule === name)),
     rules: RULES, actions: ACTIONS,
+    token_fields: Object.keys(TOKEN_HELP).sort(), token_help: TOKEN_HELP,
   });
 
   await page.route('**/*', route => {
@@ -191,6 +203,22 @@ process.on('unhandledRejection', error => {
   const editedAge = await page.locator('.policy-form__age').inputValue();
   if (editedAge !== '2h') fail('editing did not prefill the stored age, got ' + editedAge);
   if (await page.locator('.policy-form__remove').isHidden()) fail('editing a declared policy did not offer Remove');
+
+  // TKT-519: "how does the user know which {token} is avaliable to use in
+  // the messsage?" - a (?) badge next to message opens a popover listing
+  // every token; pattern (and every other field) carries none.
+  if (await page.locator('[data-field="message"] .policy-form__token-hint').count() !== 1)
+    fail('the message field has no {token} hint badge');
+  if (await page.locator('[data-field="pattern"] .policy-form__token-hint').count() !== 0)
+    fail('pattern got a token hint badge too, but tokens are message-only');
+  if (!(await page.locator('[data-token-popover]').isHidden())) fail('the token popover starts open');
+  await page.locator('[data-field="message"] .policy-form__token-hint').click();
+  if (await page.locator('[data-token-popover]').isHidden()) fail('clicking the badge did not open the popover');
+  const popoverText = await page.locator('[data-token-popover]').innerText();
+  if (!popoverText.includes('{ref}') || !popoverText.includes('{age}'))
+    fail('the popover did not list the expected tokens, got: ' + popoverText);
+  await page.locator('[data-field="message"] .policy-form__token-hint').click();
+  if (!(await page.locator('[data-token-popover]').isHidden())) fail('clicking the badge again did not close the popover');
 
   await page.locator('.policy-form__age').fill('4h');
   posted.length = 0;

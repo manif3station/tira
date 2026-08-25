@@ -54,6 +54,15 @@ my $empty_view = Cpanel::JSON::XS::decode_json( $providers{policies}->() );
 is_deeply( $empty_view->{declared}, [], 'a fresh project has no declared policies' );
 ok( scalar( @{ $empty_view->{undeclared} } ) >= 30, 'and every rule starts undeclared' );
 
+# TKT-519: the dialog cannot show which {token}s a --message can use unless
+# it is told, and hardcoding a second copy in the JS is exactly the kind of
+# duplicate that drifts from Tira::policy_message_fields the day a token is
+# added or renamed - so the payload carries the engine's own list.
+is_deeply(
+    $empty_view->{token_fields}, Tira::policy_message_fields(),
+    'the policies payload carries the engine\'s own --message token list',
+);
+
 # --- the real HTTP routes, through the actual PSGI app ---------------------
 my $app = Tira::DashboardWeb->build_psgi_app(
     Tira::CLI::browser_providers( tira => $tira, project => $root ),

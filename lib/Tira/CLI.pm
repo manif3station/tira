@@ -1205,11 +1205,13 @@ sub browser_providers {
         # just column policies." TKT-493.
         policies => sub {
             return $json->encode( {
-                declared   => $tira->policy_list( project => $project ),
-                declined   => $tira->policy_declined( project => $project ),
-                undeclared => $tira->policy_undeclared( project => $project ),
-                rules      => $tira->policy_rule_specs(),
-                actions    => $tira->policy_actions(),
+                declared     => $tira->policy_list( project => $project ),
+                declined     => $tira->policy_declined( project => $project ),
+                undeclared   => $tira->policy_undeclared( project => $project ),
+                rules        => $tira->policy_rule_specs(),
+                actions      => $tira->policy_actions(),
+                token_fields => $tira->policy_message_fields(),
+                token_help   => $tira->policy_message_field_help(),
             } );
         },
         policy_add => sub {

@@ -785,6 +785,8 @@ A declared/declined/undeclared policy row's text renders in its own span (min-wi
 
 A declared row's id, rule, and action render as a bold header line, with every parameter listed below as a labeled "name: value" pair on its own secondary line, rather than packed into one dense "POL-002 · rule → action (param=val, param=val)" parenthetical. Michael, live: "can you make each of them more easy to understand and read." One line per parameter was considered and rejected - it would roughly triple the list's scroll length on a board carrying 60+ declared policies. TKT-502.
 
+The message field carries a (?) badge that opens a popover listing every `{token}` it can substitute and what each means - ref, rule, policy, detail, column, title, assignee, reporter, age, max, matching docs/POLICIES.md's own table. Michael, live: "how does the user know which {token} is avaliable to use in the messsage? and can the same set of {token} be used in other field?" Answered directly and in the UI: tokens are message-only, so no other field carries the badge. `GET /policies` now sends the token list and its descriptions (`Tira::policy_message_fields`/`policy_message_field_help`) rather than the dialog hardcoding a second copy that could drift. TKT-519.
+
 Declining a rule for one card is **Implemented.** `tira.policy.decline`
 takes an optional `--ref CARD`, scoping the decision to one card
 instead of the whole board — a different question than declining

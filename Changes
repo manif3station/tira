@@ -1,5 +1,26 @@
 Revision history for Tira
 
+4.00  2026-08-25
+
+    - TKT-519. Policies dialog: a (?) badge next to the message field opens
+      a popover listing every {token} it can substitute (ref, rule, policy,
+      detail, column, title, assignee, reporter, age, max) and what each
+      means. Michael, live: "how does the user know which {token} is
+      avaliable to use in the messsage? and can the same set of {token} be
+      used in other field? Add a (?) badge tooltip next to each field."
+      Answered directly: tokens are message-only - pattern and every other
+      field carry no badge. GET /policies now sends token_fields (from
+      Tira::policy_message_fields, so the dialog can never list a token the
+      engine does not actually support) and token_help (a new
+      policy_message_field_help, one line per token matching
+      docs/POLICIES.md's own table).
+      Found and fixed a real bug while wiring the badge in:
+      updatePolicyFields() was setting a field's <label> textContent on
+      every rule change, silently deleting the badge button that lived
+      inside it - the fix moves the label's own text into its own <span>,
+      leaving the badge as a sibling rather than a casualty of every rule
+      switch.
+
 3.99  2026-08-25
 
     - TKT-518. Docs: README.md and SKILLS.md now say Tira is a Developer

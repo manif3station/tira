@@ -1523,6 +1523,14 @@ uses, rather than a second dialog mechanism. Michael, via TSK-022: "when
 i click on the card ref on the task card. It will open the card modal."
 The chip's remove (x) button is unaffected - it still just unlinks.
 
+TKT-529: the dashboard's own search box now also filters the Task List
+section - typing hides non-matching tasklist cards (by text, id, or a
+linked ref) and clearing the box shows every card again, matching how
+the search box already filters the SOW/Epic/Ticket boards. Michael, via
+TSK-023: "The search also filter the task cards too." Implemented
+client-side rather than a server round-trip, since tasklist items are
+already loaded locally.
+
 ### UC-063: Reparent epic
 **Implemented.** Linking to SOW-002 removes the reciprocal SOW-001 link atomically.
 

@@ -237,6 +237,21 @@ const recordRequests = [];
   if (!unlinked) fail('clicking the unlink button on a ref chip did not post to /tasklist/task/ref/unlink');
   if (recordRequests.length !== 0) fail('clicking the unlink button should not also open the card dialog');
 
+  // --- TKT-529: the board's own search box also filters tasklist cards -------
+  const filterInput = page.locator('[data-filter]').first();
+  if ((await filterInput.count()) !== 1) fail('no board search box found to test against');
+  await filterInput.fill('finished');
+  await page.waitForTimeout(300);
+  const visibleAfterFilter = await section.locator('.tasklist-card:visible').allTextContents();
+  if (!visibleAfterFilter.some(text => text.includes('Already finished')))
+    fail('filtering for "finished" should keep the matching tasklist card visible');
+  if (visibleAfterFilter.some(text => text.includes('Ship it for real this time')))
+    fail('filtering for "finished" should hide non-matching tasklist cards');
+  await filterInput.fill('');
+  await page.waitForTimeout(300);
+  if ((await section.locator('.tasklist-card:visible').count()) !== (await section.locator('.tasklist-card').count()))
+    fail('clearing the search box should show every tasklist card again');
+
   // --- prune (removes every done item) ---------------------------------------
   await section.locator('.tasklist-prune').click();
   await page.waitForFunction(() => document.querySelectorAll('.tasklist-card[data-status="2"]').length === 0);

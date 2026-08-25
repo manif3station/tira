@@ -2380,6 +2380,12 @@ linked card's own dialog (`/record?type=...&ref=...`, same opener the
 dialog's own linkage table uses); the chip's remove button still just
 unlinks and does not open anything.
 
+TKT-529: the dashboard's existing board search box (`[data-filter]`) also
+filters the Task List section now - matching a tasklist card's text, id,
+or a linked ref, hiding non-matching cards, and restoring every card when
+the box is cleared. Client-side only; unlike the record boards' own
+`/search` round-trip, no new route was added.
+
 ### Warnings
 
 - `tira.warning.add --message TEXT [-o FORMAT]`

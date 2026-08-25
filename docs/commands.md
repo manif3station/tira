@@ -2328,6 +2328,14 @@ Four sub-verbs operate on one existing item, by id, rather than creating one:
 - `tira.tasklist.task.ref.link --id ID --ref REF [--ref REF ...] [-o FORMAT]`
 - `tira.tasklist.task.ref.unlink --id ID --ref REF [--ref REF ...] [-o FORMAT]`
 
+TKT-516: `-o browser` renders every one of these as a Task List section below
+the ticket board (`GET /tasklist`, `POST /tasklist/{add,update,next,shift,
+pop,unshift,slice,remove,import,prune,task/attach/add,task/attach/discard,
+task/ref/link,task/ref/unlink}`), sticky-note styled by status - pending
+amber, working purple-blue, done green - with list-level controls plus a
+status dropdown, remove, attach, and ref controls on each card. Full CLI
+parity: nothing above is CLI-only.
+
 ### Warnings
 
 - `tira.warning.add --message TEXT [-o FORMAT]`

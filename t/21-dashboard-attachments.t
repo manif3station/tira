@@ -158,6 +158,21 @@ my %providers = (
     policy_add => sub { '{"ok":true}' },
     policy_remove => sub { '{"ok":true}' },
     policy_decline => sub { '{"ok":true}' },
+    tasklist => sub { '[]' },
+    tasklist_add => sub { '{}' },
+    tasklist_update => sub { '{}' },
+    tasklist_next => sub { '{}' },
+    tasklist_shift => sub { '{}' },
+    tasklist_pop => sub { '{}' },
+    tasklist_unshift => sub { '{}' },
+    tasklist_slice => sub { '{}' },
+    tasklist_remove => sub { '{}' },
+    tasklist_import => sub { '{}' },
+    tasklist_prune => sub { '{}' },
+    tasklist_task_attach_add => sub { '{}' },
+    tasklist_task_attach_discard => sub { '{}' },
+    tasklist_task_ref_link => sub { '{}' },
+    tasklist_task_ref_unlink => sub { '{}' },
 );
 
 for my $missing (qw(attachment_fetch attachment_add attachment_remove)) {

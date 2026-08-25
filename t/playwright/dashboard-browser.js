@@ -120,6 +120,13 @@ const fs = require('fs');
       dataRequests++;
       return route.fulfill({ status: 200, contentType: 'application/json', body: data });
     }
+    // TKT-516: the Task List section fetches its own list eagerly on every
+    // page load (unlike the Policies dialog, which is lazy - only on open),
+    // so this fixture has to answer it or the request falls through to the
+    // generic HTML fallback below and throws pageRequests off.
+    if (requestUrl.pathname === '/tasklist') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    }
     pageRequests++;
     return route.fulfill({ status: 200, contentType: 'text/html', body: html });
   });

@@ -17,7 +17,11 @@ our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $SEARCH, $COMMENT_ADD, $
       $LINK_TYPES, $HIERARCHY_LINK, $HIERARCHY_UNLINK, $SUBITEM_LINK, $SUBITEM_UNLINK, $LINK_ADD, $LINK_REMOVE,
       $COLUMNS, $COLUMN_APPLY, $QUESTION_ANSWER, $QUESTION_MARK, $QUESTION_ATTACH,
       $LOGIN_START, $LOGIN_REGISTER, $SESSION_RESUME, $SESSION_PEEK, $SESSION_END, $LOGIN_PAGE,
-      $WORK_LOG, $POLICE_LOG, $POLICIES, $POLICY_ADD, $POLICY_REMOVE, $POLICY_DECLINE );
+      $WORK_LOG, $POLICE_LOG, $POLICIES, $POLICY_ADD, $POLICY_REMOVE, $POLICY_DECLINE,
+      $TASKLIST, $TASKLIST_ADD, $TASKLIST_UPDATE, $TASKLIST_NEXT, $TASKLIST_SHIFT, $TASKLIST_POP,
+      $TASKLIST_UNSHIFT, $TASKLIST_SLICE, $TASKLIST_REMOVE, $TASKLIST_IMPORT, $TASKLIST_PRUNE,
+      $TASKLIST_TASK_ATTACH_ADD, $TASKLIST_TASK_ATTACH_DISCARD,
+      $TASKLIST_TASK_REF_LINK, $TASKLIST_TASK_REF_UNLINK );
 
 our $COOKIE = 'tira_session';
 
@@ -204,6 +208,36 @@ post '/policy/add' => sub { return _mutation( \$POLICY_ADD ) };
 post '/policy/remove' => sub { return _mutation( \$POLICY_REMOVE ) };
 post '/policy/decline' => sub { return _mutation( \$POLICY_DECLINE ) };
 
+# TKT-516: the Task List section's own routes, following the exact shape the
+# Policies dialog above already uses - one GET for the list, one POST per
+# mutation, each a thin pass-through to the same engine methods the CLI uses.
+get '/tasklist' => sub {
+    my %query;
+    for my $pair ( split /&/, request->env->{QUERY_STRING} // '' ) {
+        my ( $key, $value ) = split /=/, $pair, 2;
+        next if !defined $value;
+        $value =~ tr/+/ /;
+        $value =~ s/%([0-9A-Fa-f]{2})/chr hex $1/ge;
+        $query{$key} = decode_utf8($value);
+    }
+    content_type 'application/json; charset=UTF-8';
+    return _response_bytes( $TASKLIST->( \%query ) );
+};
+post '/tasklist/add' => sub { return _mutation( \$TASKLIST_ADD ) };
+post '/tasklist/update' => sub { return _mutation( \$TASKLIST_UPDATE ) };
+post '/tasklist/next' => sub { return _mutation( \$TASKLIST_NEXT ) };
+post '/tasklist/shift' => sub { return _mutation( \$TASKLIST_SHIFT ) };
+post '/tasklist/pop' => sub { return _mutation( \$TASKLIST_POP ) };
+post '/tasklist/unshift' => sub { return _mutation( \$TASKLIST_UNSHIFT ) };
+post '/tasklist/slice' => sub { return _mutation( \$TASKLIST_SLICE ) };
+post '/tasklist/remove' => sub { return _mutation( \$TASKLIST_REMOVE ) };
+post '/tasklist/import' => sub { return _mutation( \$TASKLIST_IMPORT ) };
+post '/tasklist/prune' => sub { return _mutation( \$TASKLIST_PRUNE ) };
+post '/tasklist/task/attach/add' => sub { return _mutation( \$TASKLIST_TASK_ATTACH_ADD ) };
+post '/tasklist/task/attach/discard' => sub { return _mutation( \$TASKLIST_TASK_ATTACH_DISCARD ) };
+post '/tasklist/task/ref/link' => sub { return _mutation( \$TASKLIST_TASK_REF_LINK ) };
+post '/tasklist/task/ref/unlink' => sub { return _mutation( \$TASKLIST_TASK_REF_UNLINK ) };
+
 get '/search' => sub {
     my %query;
     for my $pair ( split /&/, request->env->{QUERY_STRING} // '' ) {
@@ -355,6 +389,21 @@ my @PROVIDERS = (
     [ policy_add => \$POLICY_ADD, 'policy add provider' ],
     [ policy_remove => \$POLICY_REMOVE, 'policy remove provider' ],
     [ policy_decline => \$POLICY_DECLINE, 'policy decline provider' ],
+    [ tasklist => \$TASKLIST, 'tasklist provider' ],
+    [ tasklist_add => \$TASKLIST_ADD, 'tasklist add provider' ],
+    [ tasklist_update => \$TASKLIST_UPDATE, 'tasklist update provider' ],
+    [ tasklist_next => \$TASKLIST_NEXT, 'tasklist next provider' ],
+    [ tasklist_shift => \$TASKLIST_SHIFT, 'tasklist shift provider' ],
+    [ tasklist_pop => \$TASKLIST_POP, 'tasklist pop provider' ],
+    [ tasklist_unshift => \$TASKLIST_UNSHIFT, 'tasklist unshift provider' ],
+    [ tasklist_slice => \$TASKLIST_SLICE, 'tasklist slice provider' ],
+    [ tasklist_remove => \$TASKLIST_REMOVE, 'tasklist remove provider' ],
+    [ tasklist_import => \$TASKLIST_IMPORT, 'tasklist import provider' ],
+    [ tasklist_prune => \$TASKLIST_PRUNE, 'tasklist prune provider' ],
+    [ tasklist_task_attach_add => \$TASKLIST_TASK_ATTACH_ADD, 'tasklist task attach add provider' ],
+    [ tasklist_task_attach_discard => \$TASKLIST_TASK_ATTACH_DISCARD, 'tasklist task attach discard provider' ],
+    [ tasklist_task_ref_link => \$TASKLIST_TASK_REF_LINK, 'tasklist task ref link provider' ],
+    [ tasklist_task_ref_unlink => \$TASKLIST_TASK_REF_UNLINK, 'tasklist task ref unlink provider' ],
 );
 
 sub build_psgi_app {
@@ -492,8 +541,11 @@ Builds a minimal Dancer2 application whose root route regenerates and returns
 the self-contained Tira dashboard HTML. Data, record, and people routes feed
 the live board and its Jira-style card dialog; update and comment routes apply
 validated record mutations and answer failures as structured 422 JSON so the
-dialog can surface the engine's message. C<serve> runs the PSGI application
-through Plack's bundled standalone server at a validated CLI bind address.
+dialog can surface the engine's message. GET /tasklist and the fourteen
+POST /tasklist/* routes give the Task List section full CLI parity with
+C<tira.tasklist.*>, mutations answered the same validated-422 way as every
+other route. C<serve> runs the PSGI application through Plack's bundled
+standalone server at a validated CLI bind address.
 
 =head1 METHODS
 

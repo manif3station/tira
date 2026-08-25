@@ -139,7 +139,15 @@ dashboard tira.dashboard -o table > kanban.html
 dashboard tira.dashboard.ticket --title -o table > tickets.html
 dashboard tira.dashboard -o browser
 dashboard tira.dashboard.ticket --title -o browser=localhost:4567
+dashboard tira.tasklist.add --text "read the README"
+dashboard tira.tasklist.list
 ```
+
+`-o browser` also renders a Task List section below the ticket board: every
+item from `tira.tasklist.*` as a colored sticky-note card (pending=amber,
+working=purple-blue, done=green), with list-level controls (add, session,
+next/shift/pop/unshift/slice/prune) and per-card controls (status, remove,
+attach, ref) - full parity with the CLI commands below.
 
 `dashboard tira.onboard` asks for everything a new project needs and creates
 it from the answers. The same thing non-interactively, for scripts: `dashboard tira.project.new

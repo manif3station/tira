@@ -1186,6 +1186,108 @@ sub browser_providers {
                     ( defined $payload->{_signed_in} ? ( author => $payload->{_signed_in} ) : () ),
                 ) );
         },
+
+        # TKT-516: the Task List section's own providers, one per CLI verb -
+        # full parity, his words, so every one of these exists even where a
+        # thin dashboard control is all it needs.
+        tasklist => sub {
+            my ($query) = @_;
+            return $json->encode(
+                $tira->tasklist_list( project => $project, session => $query->{session} // '' ) );
+        },
+        tasklist_add => sub {
+            my ($payload) = @_;
+            die "Task text is required\n" if !defined $payload->{text} || $payload->{text} eq '';
+            return $json->encode( $tira->tasklist_add(
+                project => $project, text => $payload->{text}, session => $payload->{session} // '',
+                refs => $payload->{refs} // [],
+            ) );
+        },
+        tasklist_update => sub {
+            my ($payload) = @_;
+            die "A task id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
+            return $json->encode( $tira->tasklist_update(
+                project => $project, id => $payload->{id}, status => $payload->{status} ) );
+        },
+        tasklist_next => sub {
+            my ($payload) = @_;
+            return $json->encode(
+                $tira->tasklist_next( project => $project, session => $payload->{session} // '' ) // {} );
+        },
+        tasklist_shift => sub {
+            my ($payload) = @_;
+            return $json->encode(
+                $tira->tasklist_shift( project => $project, session => $payload->{session} // '' ) // {} );
+        },
+        tasklist_pop => sub {
+            my ($payload) = @_;
+            return $json->encode(
+                $tira->tasklist_pop( project => $project, session => $payload->{session} // '' ) // {} );
+        },
+        tasklist_unshift => sub {
+            my ($payload) = @_;
+            die "Task text is required\n" if !defined $payload->{text} || $payload->{text} eq '';
+            return $json->encode( $tira->tasklist_unshift(
+                project => $project, text => $payload->{text}, session => $payload->{session} // '' ) );
+        },
+        tasklist_slice => sub {
+            my ($payload) = @_;
+            die "Task text is required\n" if !defined $payload->{text} || $payload->{text} eq '';
+            die "A position is required\n" if !defined $payload->{position};
+            return $json->encode( $tira->tasklist_slice(
+                project => $project, text => $payload->{text}, position => $payload->{position},
+                session => $payload->{session} // '' ) );
+        },
+        tasklist_remove => sub {
+            my ($payload) = @_;
+            die "A task id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
+            return $json->encode( $tira->tasklist_remove( project => $project, id => $payload->{id} ) );
+        },
+        tasklist_import => sub {
+            my ($payload) = @_;
+            die "A card ref is required\n" if !defined $payload->{ref} || $payload->{ref} eq '';
+            return $json->encode( $tira->tasklist_import(
+                project => $project, ref => $payload->{ref}, session => $payload->{session} // '' ) );
+        },
+        tasklist_prune => sub {
+            my ($payload) = @_;
+            return $json->encode(
+                $tira->tasklist_prune( project => $project, session => $payload->{session} // '' ) );
+        },
+        tasklist_task_attach_add => sub {
+            my ($payload) = @_;
+            die "Attachment upload requires id, filename, and content\n"
+              if ref($payload) ne 'HASH' || !defined $payload->{id} || !defined $payload->{filename}
+              || !defined $payload->{content_base64};
+            require MIME::Base64;
+            my $content = MIME::Base64::decode_base64( $payload->{content_base64} );
+            return $json->encode( $tira->tasklist_task_attach_add_content(
+                project => $project, id => $payload->{id},
+                filename => $payload->{filename}, content => $content,
+            ) );
+        },
+        tasklist_task_attach_discard => sub {
+            my ($payload) = @_;
+            die "A task id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
+            die "A filename is required\n" if !defined $payload->{filename} || $payload->{filename} eq '';
+            return $json->encode( $tira->tasklist_task_attach_discard(
+                project => $project, id => $payload->{id}, files => [ $payload->{filename} ] ) );
+        },
+        tasklist_task_ref_link => sub {
+            my ($payload) = @_;
+            die "A task id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
+            die "A ref is required\n" if !defined $payload->{ref} || $payload->{ref} eq '';
+            return $json->encode( $tira->tasklist_task_ref_link(
+                project => $project, id => $payload->{id}, refs => [ $payload->{ref} ] ) );
+        },
+        tasklist_task_ref_unlink => sub {
+            my ($payload) = @_;
+            die "A task id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
+            die "A ref is required\n" if !defined $payload->{ref} || $payload->{ref} eq '';
+            return $json->encode( $tira->tasklist_task_ref_unlink(
+                project => $project, id => $payload->{id}, refs => [ $payload->{ref} ] ) );
+        },
+
         search => sub {
             my ($query) = @_;
 
@@ -4541,5 +4643,17 @@ HTML and validated Dancer2 browser serving.
 
 Runs one named command against an argument array and returns its process exit
 code without calling C<exit>, allowing direct unit testing.
+
+=head2 browser_providers
+
+Returns the flat hash of named coderefs L<Tira::DashboardWeb> requires to
+build its Dancer2 app - one entry per route, so a browser mutation can never
+drift from the engine's own validated command surface. TKT-516 added
+C<tasklist>, C<tasklist_add>, C<tasklist_update>, C<tasklist_next>,
+C<tasklist_shift>, C<tasklist_pop>, C<tasklist_unshift>, C<tasklist_slice>,
+C<tasklist_remove>, C<tasklist_import>, C<tasklist_prune>,
+C<tasklist_task_attach_add>, C<tasklist_task_attach_discard>,
+C<tasklist_task_ref_link>, and C<tasklist_task_ref_unlink>, giving the
+browser dashboard's Task List section full parity with C<tira.tasklist.*>.
 
 =cut

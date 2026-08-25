@@ -489,6 +489,7 @@ for test in "$tests"/*.js; do
         dashboard-table.js)   run_one "$name" "$one_html" "$scratch/$name.png" ;;
         column-editor.js)     run_one "$name" "$live_html" ;;
         policy-editor.js)     run_one "$name" "$live_html" ;;
+        tasklist-section.js)  run_one "$name" "$live_html" ;;
         *)                    run_one "$name" "$html" ;;
     esac
 done

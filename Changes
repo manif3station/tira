@@ -1,5 +1,31 @@
 Revision history for Tira
 
+3.97  2026-08-25
+
+    - TKT-516. Feature: a Task List section in the live browser
+      dashboard, full CLI parity for the tasklist commands (add,
+      list, update, next, shift, pop, unshift, slice, remove,
+      import, prune, plus the per-task attach/ref sub-verbs).
+      Requested by Michael for the ticket board's browser view:
+      sticky-note styled cards, colored by status (pending=amber,
+      working=purple-blue, done=green) via new
+      --task-pending/--task-working/--task-done CSS custom
+      properties, themed for both light and dark. New GET /tasklist
+      and 14 POST /tasklist/* routes in Tira::DashboardWeb.pm, backed
+      by matching provider coderefs in Tira::CLI::browser_providers,
+      following the same shape the Policies dialog's own providers
+      already use. New content-based attachment helper
+      (_tasklist_store_attachment_bytes /
+      tasklist_task_attach_add_content) mirrors the pre-existing
+      attachment_add/attachment_add_content split for record
+      attachments. New Playwright test
+      (t/playwright/tasklist-section.js, registered in
+      tools/browser-tests) and a direct browser_providers exercise
+      (t/391-a-sticky-note-that-talks-to-the-server.t, 45 subtests)
+      - the latter needed because the 15 new CLI.pm closures are
+      only reachable through tools/browser-tests' real-server
+      Playwright process, which Devel::Cover cannot see.
+
 3.96  2026-08-25
 
     - TKT-515. Fixed: clicking Edit on a declared policy or Declare

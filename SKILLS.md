@@ -1445,6 +1445,22 @@ tira.tasklist.task.ref.link --id ID --ref REF [--ref REF ...] [-o FORMAT]
 tira.tasklist.task.ref.unlink --id ID --ref REF [--ref REF ...] [-o FORMAT]
 ```
 
+TKT-516: full CLI parity in the browser dashboard (`-o browser`). Michael,
+live: "add a new section under the ticket bboard in html dashboard for
+tasklist. it should be fully functional like on the cli. the ui make it like
+a yellow momo paper for pending, green for done and purple blue is
+in-progress." A `board--tasklist` section renders below the ticket board:
+every item as a colored sticky-note card (`data-status` drives the color via
+new `--task-pending`/`--task-working`/`--task-done` CSS custom properties,
+themed for both light and dark), list-level controls (add box, session
+switcher, next/shift/pop/unshift/slice/prune buttons, import-from-card), and
+per-card controls (a status dropdown that recolors the card live, remove, and
+- once TKT-510 shipped the sub-verb dispatch fix - per-card attach/ref chips
+with their own add/discard/link/unlink buttons). Backed by new `GET
+/tasklist` and 14 `POST /tasklist/*` routes in `Tira::DashboardWeb.pm`, wired
+to matching provider closures in `Tira::CLI::browser_providers`, the same
+shape the Policies dialog's own providers already use.
+
 ### UC-063: Reparent epic
 **Implemented.** Linking to SOW-002 removes the reciprocal SOW-001 link atomically.
 

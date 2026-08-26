@@ -1574,6 +1574,19 @@ dynamic sizing textarea that support richtext and allow user copy and
 paste images..." - Q-080 answered: embed inline, but the actual file is
 an attachment, not raw base64 in the text field.
 
+TKT-535: the Task List section's header now shows only Add and the
+new-task text input - Unshift, Insert at position, Next, Shift, Pop,
+Prune done, and Import from card were removed from the browser
+entirely, per Michael's Q-081 answer ("We only need the add button and
+a text input for new task"). Full CLI parity is unaffected: every
+`tira.tasklist.*` command still works, only the browser buttons that
+triggered them are gone. Found and fixed a genuine pre-existing bug
+this exposed: the reconciliation that keeps an actively-edited card's
+own DOM node stable across the section's 1-second auto-refresh could
+still reposition (and blur) it whenever an earlier card was rebuilt in
+the same tick, because a stale replaced node was never removed before
+the reinsert pass ran.
+
 ### UC-063: Reparent epic
 **Implemented.** Linking to SOW-002 removes the reciprocal SOW-001 link atomically.
 

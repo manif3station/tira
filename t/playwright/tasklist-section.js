@@ -32,6 +32,7 @@ const recordRequests = [];
   const html = fs.readFileSync(htmlPath, 'utf8');
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_BIN });
   const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+  page.on('pageerror', error => console.error('PAGE ERROR: ' + error.message));
   const posted = [];
 
   await page.route('**/*', route => {
@@ -140,6 +141,14 @@ const recordRequests = [];
 
   const section = page.locator('.board--tasklist');
 
+  // --- TKT-535: only Add + text input remain in the header, per Michael's
+  // Q-081 answer (remove entirely, not tucked behind a toggle) ---------------
+  if ((await section.locator('.tasklist-add').count()) !== 1) fail('the Add button should still be present');
+  if ((await section.locator('.tasklist-text').count()) !== 1) fail('the new-task text input should still be present');
+  for (const removed of ['.tasklist-unshift', '.tasklist-slice', '.tasklist-next', '.tasklist-shift', '.tasklist-pop', '.tasklist-prune', '.tasklist-import']) {
+    if ((await section.locator(removed).count()) !== 0) fail(`${removed} should have been removed from the Task List header`);
+  }
+
   // --- the three seeded items render as colored sticky-note cards ---------
   const cardCount = await section.locator('.tasklist-card').count();
   if (cardCount !== 3) fail('expected 3 seeded tasklist cards, got ' + cardCount);
@@ -186,13 +195,6 @@ const recordRequests = [];
   await page.waitForFunction(() => document.querySelectorAll('.tasklist-card').length === 3);
   const removed = posted.find(p => p.path === '/tasklist/remove');
   if (!removed) fail('removing did not post to /tasklist/remove');
-
-  // --- shift (FIFO queue op) -------------------------------------------------
-  await section.locator('.tasklist-shift').click();
-  await page.waitForFunction(() => document.querySelectorAll('.tasklist-card').length === 2);
-  if (!posted.find(p => p.path === '/tasklist/shift')) fail('the Shift control did not post to /tasklist/shift');
-  if (await section.locator('.tasklist-card', { hasText: 'Write the report' }).count() !== 0)
-    fail('shift should have removed the front pending item');
 
   // --- TKT-523: inline text edit ----------------------------------------------
   const workingCardText = section.locator('.tasklist-card', { hasText: 'Ship it' }).locator('.tasklist-card__text');
@@ -327,55 +329,6 @@ const recordRequests = [];
   await page.waitForTimeout(200);
   const suggestLink = posted.find(p => p.path === '/tasklist/task/ref/link' && p.payload.ref === 'TKT-100');
   if (!suggestLink) fail('clicking a suggestion did not link it the same way the Link button does');
-
-  // --- TKT-530: Next uses the section's own inline notice, not alert() -------
-  await section.locator('.tasklist-text').fill('Pending for the Next check');
-  await section.locator('.tasklist-add').click();
-  await page.waitForFunction(() =>
-    [...document.querySelectorAll('.tasklist-card')].some(card => card.textContent.includes('Pending for the Next check')));
-  let sawDialog = false;
-  const dialogGuard = dialog => { sawDialog = true; dialog.dismiss(); };
-  page.on('dialog', dialogGuard);
-  await section.locator('.tasklist-next').click();
-  await page.waitForTimeout(200);
-  page.off('dialog', dialogGuard);
-  if (sawDialog) fail('clicking Next opened a native dialog instead of the inline notice');
-  const noticeText = await section.locator('.tasklist-notice').textContent();
-  if (!noticeText || !noticeText.includes('Next:')) fail('clicking Next did not show the result in the inline notice');
-
-  // --- TKT-530: slice position uses an inline capture, not prompt() ----------
-  sawDialog = false;
-  page.on('dialog', dialogGuard);
-  await section.locator('.tasklist-text').fill('Inserted via inline capture');
-  await section.locator('.tasklist-slice').click();
-  const positionInput = section.locator('.tasklist-inline-capture input');
-  if ((await positionInput.count()) !== 1) fail('clicking Insert at position did not open an inline capture');
-  await positionInput.fill('0');
-  await positionInput.press('Enter');
-  await page.waitForTimeout(200);
-  page.off('dialog', dialogGuard);
-  if (sawDialog) fail('the slice-position control opened a native prompt() instead of an inline capture');
-  const sliceCall = posted.find(p => p.path === '/tasklist/slice' && p.payload.position === 0);
-  if (!sliceCall) fail('submitting the inline position capture did not post to /tasklist/slice');
-
-  // --- TKT-530: import ref uses an inline capture, not prompt() ---------------
-  sawDialog = false;
-  page.on('dialog', dialogGuard);
-  await section.locator('.tasklist-import').click();
-  const importInput = section.locator('.tasklist-inline-capture input');
-  if ((await importInput.count()) !== 1) fail('clicking Import from card did not open an inline capture');
-  await importInput.fill('TKT-200');
-  await importInput.press('Enter');
-  await page.waitForTimeout(200);
-  page.off('dialog', dialogGuard);
-  if (sawDialog) fail('the import control opened a native prompt() instead of an inline capture');
-  const importCall = posted.find(p => p.path === '/tasklist/import' && p.payload.ref === 'TKT-200');
-  if (!importCall) fail('submitting the inline import capture did not post to /tasklist/import');
-
-  // --- prune (removes every done item) ---------------------------------------
-  await section.locator('.tasklist-prune').click();
-  await page.waitForFunction(() => document.querySelectorAll('.tasklist-card[data-status="2"]').length === 0);
-  if (!posted.find(p => p.path === '/tasklist/prune')) fail('the Prune control did not post to /tasklist/prune');
 
   await browser.close();
   if (!process.exitCode) console.log('tasklist section: all checks passed');

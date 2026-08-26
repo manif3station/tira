@@ -2376,9 +2376,10 @@ TKT-516: `-o browser` renders every one of these as a Task List section below
 the ticket board (`GET /tasklist`, `POST /tasklist/{add,update,next,shift,
 pop,unshift,slice,remove,import,prune,task/attach/add,task/attach/discard,
 task/ref/link,task/ref/unlink}`), sticky-note styled by status - pending
-amber, working purple-blue, done green - with list-level controls plus a
-status dropdown, remove, attach, and ref controls on each card. Full CLI
-parity: nothing above is CLI-only.
+amber, working purple-blue, done green - with a status dropdown, remove,
+attach, and ref controls on each card. Full CLI parity: nothing above is
+CLI-only, and every route above still works regardless of what the
+browser's own header shows (see TKT-535).
 
 TKT-528: a card's ref chip is now clickable - clicking its text opens the
 linked card's own dialog (`/record?type=...&ref=...`, same opener the
@@ -2424,6 +2425,17 @@ image while editing calls the same `attachFile` helper drag-and-drop
 already uses (TKT-524) and inserts a `[image: filename]` text reference
 at the cursor - the image itself is stored as a tasklist attachment, not
 embedded as raw data in the text field.
+
+TKT-535: the Task List section's header shows only Add and the new-task
+text input now - Unshift, Insert at position, Next, Shift, Pop, Prune
+done, and Import from card were removed from the browser entirely, not
+tucked behind a toggle. Every `tira.tasklist.*` command and its route
+still work exactly as before; only the buttons that triggered them from
+the browser are gone. Also fixed a genuine pre-existing bug this change
+exposed in `reconcileTasklist`: nodes not kept across a refresh are now
+removed before the insert pass runs, so an actively-edited card's own
+node is never repositioned (and blurred) by an unrelated card being
+rebuilt earlier in the same list.
 
 ### Warnings
 

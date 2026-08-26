@@ -1,5 +1,23 @@
 Revision history for Tira
 
+4.13  2026-08-26
+
+    - TKT-535. The Task List section's header now shows only Add and the
+      new-task text input, per Michael's Q-081 answer - Unshift, Insert
+      at position, Next, Shift, Pop, Prune done, and Import from card
+      were removed from the browser entirely (not tucked behind a
+      toggle). Full CLI parity is unaffected: every tira.tasklist.*
+      command and route still works, only the buttons that triggered
+      them from the browser are gone. Found and fixed a genuine
+      pre-existing bug this change exposed: reconcileTasklist's
+      insertBefore reconciliation could reposition (and blur) an
+      actively-edited card whenever an earlier item in the list was
+      rebuilt in the same tick, because stale replaced nodes were never
+      removed before the insert pass ran, shifting indices out from
+      under it. Fixed by removing every node not in the kept set before
+      reinserting, so a reused node's own position is never disturbed
+      by an unrelated rebuild.
+
 4.12  2026-08-26
 
     - TKT-534. A tasklist card's inline text edit is now a dynamic-

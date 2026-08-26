@@ -1,5 +1,16 @@
 Revision history for Tira
 
+4.27  2026-08-26
+
+    - TKT-554. The Task List section's own cards no longer lose an
+      in-progress ref-link or a chosen-but-not-yet-attached file to the
+      section's 1-second poll: reconcileTasklist's rebuild guard, which
+      only ever protected an open text-edit textarea, now also covers a
+      row whose ref-link input has a typed, unsubmitted value or whose
+      file input has a chosen, unsubmitted file. Root-caused (and the
+      regular ticket/epic/sow card dialog cleared of the same suspicion,
+      TKT-551) from Michael's own bug report (TSK-072).
+
 4.26  2026-08-26
 
     - TKT-553. The browser onboarding form now offers every field the
@@ -24,6 +35,16 @@ Revision history for Tira
       current values or having the submission fail.
 
 4.24  2026-08-26
+
+    - TKT-548. New police rule task-changed: a tasklist item whose text,
+      attachments, or linked refs changed since the last police pass saw
+      it is reported via the bridge, firing for any actor (not
+      owner-only - Michael's own live answer) since a tasklist item has
+      no change journal to compare a newest author against. What it
+      looked like last time is kept in the same store-backed ledger
+      agent-still's own notified-stamp already uses. No age, whole-board
+      like task-unlinked, and a freshly-added item settles the instant
+      it has been seen once.
 
     - TKT-549. The Task List section's header has a Prune button again,
       next to Add - removed entirely by TKT-535, now back with new

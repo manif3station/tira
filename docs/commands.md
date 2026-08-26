@@ -2496,6 +2496,17 @@ TKT-535 removals (Unshift, Insert at position, Next, Shift, Pop, Import
 from card) stay removed - full CLI parity for every one of them is
 unaffected either way.
 
+TKT-554: `reconcileTasklist`'s guard against rebuilding an actively-used
+row - previously only checking `tlEditingIds` (the open text-edit
+textarea) - now also treats a row as busy when its ref-link input has a
+non-empty, unsubmitted value or its file input has a chosen,
+unsubmitted file. Without this, the section's 1-second poll
+(`setInterval(loadTasklist,1000)`) could rebuild the row from the
+server's own snapshot mid-typing or mid-selecting, silently discarding
+either one. `attachFile` also clears the file input after a successful
+attach, so a row does not stay marked busy forever after the file it
+was busy over has already been uploaded.
+
 TKT-536: the Policies dialog's Decline button opens an inline reason
 capture (`.policy-inline-capture`, an input plus a Go button) instead of
 a blocking `prompt()` - the last native prompt/alert in the embedded

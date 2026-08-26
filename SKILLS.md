@@ -1613,6 +1613,27 @@ only detects and instructs, it never creates or links a ticket itself.
 Whole-board like `board-still`/`agent-still` (a `--ref` scope is
 refused), swept across every session.
 
+TKT-554: a Task List card's own 1-second poll no longer wipes a
+half-typed ref in its ref-link input, or a file chosen but not yet
+attached in its file input - `reconcileTasklist`'s rebuild guard
+previously only protected an open text-edit textarea (`tlEditingIds`),
+so any other in-progress input on a row got silently replaced by the
+next poll tick's fresh row. Root-caused from Michael's own bug report
+(TSK-072); TKT-551 first investigated the wrong UI (the regular
+ticket/epic/sow card dialog, whose own `dialogEditingActive()` guard was
+confirmed already correct) before this ticket found the real gap in the
+Task List section's own live JS.
+
+TKT-548: a new `task-changed` police rule reports a tasklist item whose
+text, attachments, or linked refs changed since the last police pass
+saw it, firing for any actor (not owner-only, per Michael's own live
+answer) since a tasklist item has no change journal to compare a
+newest author against - what it looked like last time is kept in the
+same store-backed ledger `agent-still`'s own notified-stamp already
+uses. No age (a change is a change the moment it happens); whole-board
+like `task-unlinked`; a freshly-added item is not reported and settles
+the instant it has been seen once.
+
 TKT-549: the Task List section's header has a Prune button again, next
 to Add - removed entirely by TKT-535, brought back with new behavior
 per Michael's own tasklist note: a manual click asks for confirmation

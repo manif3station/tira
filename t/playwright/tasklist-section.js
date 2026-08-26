@@ -383,6 +383,23 @@ const recordRequests = [];
   const pruneCallsAfterAuto = posted.filter(p => p.path === '/tasklist/prune').length;
   if (pruneCallsAfterAuto !== pruneCallsBeforeAuto + 1) fail('the automatic prune did not post to /tasklist/prune');
 
+  // --- TKT-554: the 1-second poll must not wipe a ref half-typed or a file
+  // chosen but not yet submitted - only the text-edit textarea was ever
+  // guarded (tlEditingIds), so the row got rebuilt from scratch under these.
+  const liveCard = section.locator('.tasklist-card').first();
+  const refInput = liveCard.locator('input[placeholder="CARD-REF"]');
+  await refInput.fill('TKT-9');
+  await page.waitForTimeout(1300);
+  if ((await refInput.inputValue()) !== 'TKT-9')
+    fail('a half-typed ref should survive the 1-second poll, not be wiped by the row rebuilding');
+
+  const fileInput = liveCard.locator('input[type="file"]');
+  await fileInput.setInputFiles({ name: 'note.txt', mimeType: 'text/plain', buffer: Buffer.from('hi') });
+  await page.waitForTimeout(1300);
+  const filesStillChosen = await liveCard.locator('input[type="file"]').evaluate(el => el.files.length);
+  if (filesStillChosen !== 1)
+    fail('a file chosen but not yet attached should survive the 1-second poll, not be wiped by the row rebuilding');
+
   await browser.close();
   if (!process.exitCode) console.log('tasklist section: all checks passed');
 })().catch(error => {

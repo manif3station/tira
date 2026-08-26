@@ -1,5 +1,57 @@
 Revision history for Tira
 
+4.35  2026-08-26
+
+    - TKT-565. A live dashboard now picks up a newly installed Tira
+      without anyone restarting it by hand. Police finds the process
+      holding the board's port and sends it HUP once the code on disk
+      has genuinely moved; Starman re-forks its workers, and because
+      Tira serves a .psgi file path rather than an in-memory coderef,
+      each new worker re-reads the modules from disk and comes up on
+      the installed version - dropping nothing, since a worker finishes
+      the request it holds first. The board could never do this itself:
+      under a pre-forked server the process that notices a new version
+      is a worker, and a worker cannot replace the board. The master is
+      found by port rather than by a pidfile, which goes stale and can
+      name a reused pid, and it is signalled once per release rather
+      than once per pass. Every uncertainty refuses and names itself
+      (no board on the port, an unreadable installed version, no known
+      port, a version already signalled about), because a board on
+      slightly old code still works.
+
+      Asked for and then corrected by Michael: the first design here
+      stopped the master and launched a replacement, until he asked
+      "After master process killed. The children still survived. Have
+      you think of this side effect too?" and pointed at Starman's own
+      documentation. Testing it settled it - a two-worker Starman on a
+      .psgi reading a version from a file served "one", the file
+      changed, the master got HUP, and it served "two" from fresh
+      worker pids. HUP has none of kill-and-relaunch's failure modes.
+
+    - TKT-566. And police now confirms that the process holding the
+      board port is a Starman before signalling it, refusing with
+      "not-a-board" when the command line says otherwise or cannot be
+      read at all. What it checks is Starman rather than "provably this
+      board", for two reasons found on a real running board: Starman
+      rewrites $0, so a live master's command line reads "starman
+      master" and names neither dashboard.psgi nor the command that
+      started it - a first version of this check looked for
+      dashboard.psgi and would have refused every genuine board while
+      looking perfectly safe - and assigning $0 on Linux clobbers the
+      environ region, so there is no marker left there either. A
+      Starman is enough, because this guard exists to stop the one
+      destructive case: every Starman handles HUP, so a misidentified
+      one merely reloads, while a process without a handler dies. SIGHUP's default
+      disposition is Term, so signalling a stranger that installs no
+      handler kills it - proved with a plain perl -e 'sleep 300', which
+      died on HUP. The board port is a stable configured number, so any
+      time the board is down and another program has taken it, this
+      would have been a real process killed by a supervisor that only
+      meant to reload a dashboard. Found reviewing TKT-565's own code
+      before it shipped: the pidfile design it replaced had reasoned
+      about this same hazard, and the rewrite kept the risk while
+      dropping the guard.
+
 4.34  2026-08-26
 
     - TKT-563. tira.tasklist.next now accepts an optional, repeatable

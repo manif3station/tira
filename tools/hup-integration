@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+#
+# TKT-565/TKT-566: proof that police really does make a live board pick up a
+# new Tira, against a real dashboard rather than injected seams.
+#
+# Everything else that tests this stops short of the real thing. The unit
+# tests inject the port lookup, the identity check and the signal, so none of
+# the code that runs in production is exercised end to end. A standalone
+# Starman experiment proved HUP reloads a toy .psgi, which is not the same as
+# proving it reloads Tira. Michael asked for this directly: "Use a docker
+# container run a integration test with docker image of developer-dashboard:
+# latest ... Use that to check if the solution or the fix really work."
+#
+# What it proves, and why this pair of assertions and not another: after
+# police runs, the board serves the NEW version while the master pid is
+# UNCHANGED. Version-changed alone would also be true of a restart; pid
+# -unchanged alone would also be true of doing nothing at all. Together they
+# can only mean the running master reloaded its code in place, which is
+# exactly what HUP is supposed to do and the only thing that makes this
+# feature worth having.
+#
+# It would also have caught the blunder this fix nearly shipped with: an
+# identity check requiring "dashboard.psgi" in the command line, which no
+# real Starman master has, so every board was refused and nothing ever
+# reloaded - a failure that looks identical to success from the outside.
+
+set -euo pipefail
+
+IMAGE="${TIRA_HUP_IMAGE:-developer-dashboard:latest}"
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+PORT="${TIRA_HUP_PORT:-7311}"
+
+fail() { printf '\n\033[31mhup-integration: %s\033[0m\n' "$1" >&2; exit 1; }
+step() { printf '\n\033[1mhup-integration: %s\033[0m\n' "$1"; }
+
+docker image inspect "$IMAGE" >/dev/null 2>&1 \
+  || fail "the image $IMAGE is not present - build or pull it first"
+
+step "running the whole thing inside $IMAGE"
+
+# The skill is mounted read-only and copied in, so the container works on its
+# own copy: this test rewrites a version number, and doing that to the real
+# working tree would be editing the source from inside a test.
+docker run --rm \
+  -v "$HERE:/src:ro" \
+  -e "PORT=$PORT" \
+  "$IMAGE" bash -lc '
+set -euo pipefail
+
+say() { printf "\n  == %s\n" "$1"; }
+die() { printf "\n  !! %s\n" "$1" >&2; exit 1; }
+
+say "installing the skill under test"
+mkdir -p ~/.developer-dashboard/skills
+cp -r /src ~/.developer-dashboard/skills/tira
+cd ~/.developer-dashboard/skills/tira
+cpanm --quiet --notest --installdeps . >/dev/null 2>&1 || true
+
+say "creating a board"
+BOARD=/tmp/board
+perl -Ilib skills/project/cli/new --dir "$BOARD" --name Proof --members claude \
+  --sow-prefix PFS --epic-prefix PFE --ticket-prefix PFT >/dev/null
+export TIRA_HOME="$BOARD"
+
+BEFORE=$(perl -Ilib -e "use lib q(lib); require Tira; print \$Tira::VERSION")
+say "board created, Tira is $BEFORE"
+
+say "starting a real dashboard on 127.0.0.1:$PORT"
+perl -Ilib cli/dashboard -o "browser=127.0.0.1:$PORT" >/tmp/board.log 2>&1 &
+for i in $(seq 1 60); do
+  curl -sf "http://127.0.0.1:$PORT/" >/dev/null 2>&1 && break
+  sleep 1
+done
+curl -sf "http://127.0.0.1:$PORT/" >/dev/null 2>&1 \
+  || { cat /tmp/board.log; die "the board never came up"; }
+
+# The master is the process holding the port - the very thing police looks
+# for, so this also exercises that lookup for real.
+MASTER=$(perl -Ilib -e "use lib q(lib); require Tira::CLI; print Tira::CLI::_listening_pid($PORT) // q()")
+[ -n "$MASTER" ] || die "nothing was found holding the port - the lookup itself is broken"
+say "board is up, master pid $MASTER"
+
+CMDLINE=$(tr "\\0" " " < /proc/$MASTER/cmdline)
+say "master command line reads: $CMDLINE"
+
+# The workers are what actually load the code, so their identity before and
+# after is the real evidence. A HUP recycles them; doing nothing does not.
+WORKERS_BEFORE=$(pgrep -P $MASTER | sort -n | tr "\\n" " ")
+say "workers before: $WORKERS_BEFORE"
+
+say "installing a newer Tira underneath the running board"
+NEXT="99.99"
+sed -i "0,/^our \$VERSION = .*/s//our \$VERSION = '"'"'$NEXT'"'"';/" lib/Tira.pm
+ON_DISK=$(grep -m1 -oP "^our \\\$VERSION = '"'"'\\K[^'"'"']+" lib/Tira.pm)
+[ "$ON_DISK" = "$NEXT" ] || die "could not stage a newer version (got $ON_DISK)"
+say "on disk is now $ON_DISK, the running board is still serving $BEFORE"
+
+say "one police pass, which is the thing under test"
+RESULT=$(perl -Ilib -e "
+  use lib q(lib); require Tira::CLI;
+  my \$r = Tira::CLI::_dashboard_hup_if_stale(q(/tmp/store), port => $PORT);
+  print \$r->{hupped} ? qq(hupped pid=\$r->{pid}) : qq(refused=\$r->{refused});
+")
+say "police said: $RESULT"
+case "$RESULT" in
+  hupped*) : ;;
+  *) die "police refused to signal a real running board ($RESULT) - the fix does not work" ;;
+esac
+
+say "waiting for the workers to be replaced"
+WORKERS_AFTER=""
+for i in $(seq 1 60); do
+  WORKERS_AFTER=$(pgrep -P $MASTER | sort -n | tr "\\n" " ")
+  [ -n "$WORKERS_AFTER" ] && [ "$WORKERS_AFTER" != "$WORKERS_BEFORE" ] && break
+  sleep 1
+done
+
+AFTER=$(perl -Ilib -e "use lib q(lib); require Tira::CLI; print Tira::CLI::_listening_pid($PORT) // q()")
+
+say "RESULTS"
+printf "     master before:  %s\n     master after:   %s\n" "$MASTER" "$AFTER"
+printf "     workers before: %s\n     workers after:  %s\n" "$WORKERS_BEFORE" "$WORKERS_AFTER"
+
+# Three assertions, and each one rules out a different way of being wrong.
+#
+# Master unchanged rules out a restart - the thing that would also have made
+# the version move, and the thing this feature deliberately does not do.
+[ "$MASTER" = "$AFTER" ] \
+  || die "the master pid changed ($MASTER -> $AFTER): that is a restart, not a reload"
+
+# Workers replaced rules out having done nothing at all, which is exactly
+# what the near-miss dashboard.psgi check would have produced: police
+# reporting success while every board was quietly refused.
+[ -n "$WORKERS_AFTER" ] || die "no workers are running after the signal - the board is broken"
+[ "$WORKERS_BEFORE" != "$WORKERS_AFTER" ] \
+  || die "the workers were never replaced ($WORKERS_AFTER): nothing reloaded, so no new code is running"
+
+# And still serving rules out having broken it in the process.
+curl -sf "http://127.0.0.1:$PORT/" >/dev/null 2>&1 \
+  || die "the board stopped answering after the signal"
+
+say "PASS: same master, fresh workers, still serving - the board reloaded in place"
+'
+step "PASS - police genuinely reloads a live board"

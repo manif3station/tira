@@ -317,10 +317,58 @@ since a cross is a judgement too, and a discarded question needs none.
 ### Leaving a board open across an update
 
 A live dashboard (`-o browser`) keeps working when Tira is updated underneath
-it. The running server notices that the code on disk is no longer the code it
-started with, re-executes itself into it with the same arguments and on the same
-port, and the page reloads once it sees a version it was not built by. Nothing
-has to be restarted by hand.
+it, and picks the new version up without anyone restarting it by hand — but
+not by restarting itself. **The shipped board never can.** `tira.dashboard -o
+browser` always runs under Starman with a worker pool, so the process that
+notices a new version is always a worker, and a worker can never replace the
+board (see below). Starman's own `HUP` is no help either: its `Server.pm`
+overrides `Net::Server`'s exec-based `sig_hup` with one that only recycles
+workers from the master's already-compiled code, so a graceful reload loads
+nothing new.
+
+What actually picks up a release is **police** (TKT-565). It runs on a
+schedule, is not a worker, and owns no listening socket, so it can do the one
+thing that works: send the master a `HUP`. Starman re-forks its workers on
+`HUP`, and because Tira serves a `.psgi` **file path** rather than an
+in-memory coderef, each new worker re-reads the modules from disk and comes
+up on the installed version. Nothing is dropped - a worker finishes the
+request it is holding before it is replaced.
+
+Police finds the master by asking which process holds the board's port, not
+by reading a pidfile: a pidfile goes stale, survives a crash and can name a
+pid the machine has since reused, while a listening socket is the truth at
+the moment it is asked. It signals **once per release**, remembering which
+version it last signalled about, because signalling every pass is the loop
+this whole mechanism exists to avoid.
+
+**It refuses far more readily than it acts**, and every refusal names itself
+- no board holding the port, a process on that port it cannot confirm is the
+dashboard, an unreadable installed version, no known port, or a version it
+has already signalled about. The identity check matters more than it looks
+(TKT-566): `SIGHUP`'s default disposition is Term, so signalling a process
+that installs no handler kills it, and the board port is a stable configured
+number that another program can take while the board is down. Police reads
+the process's own command line and signals only a Starman. It checks for a
+Starman rather than for this board specifically because Starman rewrites
+`$0` - a live master's command line reads `starman master`, naming neither
+`dashboard.psgi` nor the command that started it - and that is enough, since
+every Starman handles `HUP` and merely reloads, while a process without a
+handler dies.
+
+Proved end to end rather than reasoned about: `tools/hup-integration` runs a
+real board inside the `developer-dashboard:latest` image, installs a newer
+Tira underneath it, runs one police pass, and asserts the master pid is
+unchanged while every worker pid has been replaced and the board is still
+serving. Those three together can only mean a reload in place - a restart
+would change the master, and doing nothing would leave the workers alone.
+It needs Docker and a real image, so it is run by hand like
+`tools/browser-tests` rather than from the test suite. A board running slightly old
+code is a working board. With police not running, the board stays on its old
+version and shows the banner below until somebody restarts it.
+
+The rest of this section describes the dashboard's own in-process self-restart,
+which is still correct for a server that owns its own socket — just not for
+the shipped one.
 
 **Only the process that launched the board may replace it.** A board served by a
 pre-forked server answers each request in a worker, and a worker is not the

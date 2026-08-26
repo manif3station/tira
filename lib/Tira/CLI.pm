@@ -4409,6 +4409,20 @@ sub _police_follow {
           if defined $watched_board
           && _restart_if_updated( $restarter, 'police', undef, $watched_board );
 
+        # And the board it watches, which cannot do this for itself: under a
+        # pre-forked server the process that notices a new version is a
+        # worker, and a worker cannot replace the board. Police is outside
+        # the pool and owns no socket, so it sends the master a HUP and the
+        # workers come back on the installed code, finishing what they hold
+        # first. Signalled once per release, never per pass. TKT-565.
+        my %hup = %{ $option->{dashboard} // {} };
+        if ( !exists $hup{port} && defined $watched_board ) {
+            $hup{port} = eval { $tira->project_show( project => $watched_board )->{dashboard}{port} };
+        }
+        my $board = _dashboard_hup_if_stale( $store, %hup );
+        print {*STDERR} "police: told the dashboard (pid $board->{pid}) to reload into $board->{version}\n"
+          if $board->{hupped};
+
         $wait->($interval);
     }
     return { rounds => $done };
@@ -4427,6 +4441,168 @@ sub _police_goodbye {
 sub _police_singleton_path {
     my ($store) = @_;
     return File::Spec->catfile( $store, '.police.pid' );
+}
+
+# Which process is holding a port, asked of the kernel rather than of a file
+# somebody wrote earlier. Michael's own point on TKT-565: "Could that be more
+# reliable to find the pid on demand by checking which is the master process
+# by the port number?" - and it is, because a pidfile goes stale, survives a
+# crash, and can name a pid the machine has since reused, while a listening
+# socket is the truth at the moment it is asked.
+#
+# Read straight out of /proc, so Tira still invokes no shell: the port's
+# listening socket gives an inode in /proc/net/tcp, and the process holding
+# it is the one with that inode among its open descriptors. Anywhere without
+# /proc this answers undef, which the caller treats as "no board found" and
+# refuses on - the same way it treats every other uncertainty.
+sub _listening_pid {
+    my ( $port, %opts ) = @_;
+    return undef if !defined $port || $port !~ /\A[0-9]+\z/;
+    my $proc = $opts{proc} // '/proc';
+    my $hex = sprintf '%04X', $port;
+
+    my %inode;
+    for my $table (qw(net/tcp net/tcp6)) {
+        open my $fh, '<', File::Spec->catfile( $proc, $table ) or next;
+        while ( my $line = <$fh> ) {
+
+            # local_address is host:port in hex, and 0A is LISTEN. Anything
+            # else on the same port is a connection to it, not the server.
+            # After the 0A come tx:rx, tr:when, retrnsmt, uid and timeout
+            # before the inode. Counting one field short here captured the
+            # timeout - always 0 - and matched nothing, which looked exactly
+            # like "no board is listening".
+            next if $line !~ /\A\s*\d+:\s+\S+:$hex\s+\S+\s+0A\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+(\d+)/;
+            $inode{$1} = 1;
+        }
+        close $fh;
+    }
+    return undef if !%inode;
+
+    opendir my $dh, $proc or return undef;
+    my @pids = sort { $a <=> $b } grep { /\A[0-9]+\z/ } readdir $dh;
+    closedir $dh;
+    for my $pid (@pids) {
+        opendir my $fds, File::Spec->catdir( $proc, $pid, 'fd' ) or next;
+        my @fd = grep { /\A[0-9]+\z/ } readdir $fds;
+        closedir $fds;
+        for my $fd (@fd) {
+            my $target = readlink File::Spec->catfile( $proc, $pid, 'fd', $fd );
+            next if !defined $target || $target !~ /\Asocket:\[(\d+)\]\z/;
+            return 0 + $pid if $inode{$1};
+        }
+    }
+    return undef;
+}
+
+# Where the last version police signalled a board about is remembered, so it
+# signals once per release rather than once per pass. Signalling every pass
+# is the exact shape of the loop this whole mechanism was built to avoid -
+# four boards did it every sixty-five seconds for twenty hours.
+# What a process was launched as, read from the same shell-free source the
+# port lookup already uses. The arguments are NUL-separated in /proc, so
+# they are joined with spaces to be matched as one string. Anywhere without
+# /proc this answers undef, and undef refuses. TKT-566.
+sub _command_of_pid {
+    my ( $pid, %opts ) = @_;
+    return undef if !defined $pid || $pid !~ /\A[0-9]+\z/;
+    my $proc = $opts{proc} // '/proc';
+    open my $fh, '<:raw', File::Spec->catfile( $proc, $pid, 'cmdline' ) or return undef;
+    my $raw = do { local $/; <$fh> };
+    close $fh;
+    return undef if !defined $raw || $raw eq '';
+    $raw =~ s/\0/ /g;
+    $raw =~ s/\s+\z//;
+    return $raw;
+}
+
+sub _dashboard_hup_mark_path {
+    my ($store) = @_;
+    return File::Spec->catfile( $store, '.dashboard.huped' );
+}
+
+# HUP, not a kill. Tira serves a .psgi FILE PATH rather than an in-memory
+# coderef precisely so that Starman's HUP re-forks workers which read the
+# modules from disk again - proved when that was chosen, and proved again
+# here before this was built: a two-worker Starman on a .psgi reading a
+# version from a file served "one", the file changed, the master got HUP,
+# and it served "two" from fresh worker pids. Starman's own documentation
+# says the same, and only --preload-app breaks it, which Tira does not use.
+#
+# The first design of this card stopped the master and launched a
+# replacement. Michael asked the question that ended it: "After master
+# process killed. The children still survived. Have you think of this side
+# effect too?" - kill-and-relaunch has to get orphan reaping, port-free
+# timing and a correct relaunch command all right, and HUP has none of those
+# failure modes and drops no request, because workers finish what they are
+# holding before they are replaced.
+#
+# Refusing is the default, and every refusal names itself: a board on
+# slightly old code is a working board.
+sub _dashboard_hup_if_stale {
+    my ( $store, %opts ) = @_;
+    my $port = $opts{port};
+    return { hupped => 0, refused => 'no-port' } if !defined $port || $port !~ /\A[0-9]+\z/;
+
+    my $on_disk = exists $opts{on_disk} ? $opts{on_disk} : _version_on_disk();
+    return { hupped => 0, refused => 'unknown-version' } if !defined $on_disk;
+
+    my $path = _dashboard_hup_mark_path($store);
+    if ( open my $fh, '<', $path ) {
+        my $done = do { local $/; <$fh> };
+        close $fh;
+        $done =~ s/\s+//g if defined $done;
+        return { hupped => 0, refused => 'already-current' }
+          if defined $done && length $done && $done eq $on_disk;
+    }
+
+    my $find = $opts{listening} || sub { _listening_pid( $_[0] ) };
+    my $pid = $find->($port);
+    return { hupped => 0, refused => 'no-board' } if !defined $pid;
+
+    # Whoever holds the port is not necessarily the board, and SIGHUP's
+    # default disposition is Term - so signalling a stranger that installs
+    # no handler kills it outright. Proved rather than assumed: a plain
+    # `perl -e 'sleep 300'` given HUP died with "Hangup". The board port is
+    # a stable configured number, so any time the board is down and another
+    # program has taken it, this would be a real process killed by a
+    # supervisor that was only trying to reload a dashboard.
+    #
+    # What is checked is that it is a Starman, not that it is provably this
+    # board. Two facts from the owner's own running board forced that:
+    # Starman rewrites $0, so a live master's command line reads "starman
+    # master" and names neither dashboard.psgi nor the command that started
+    # it - an earlier version of this check looked for dashboard.psgi and
+    # would have refused every genuine board while looking perfectly safe -
+    # and assigning $0 on Linux clobbers the environ region too, so there is
+    # no TIRA_DASHBOARD_ROOT left to read either. The parent is no help
+    # (d2 tira.dashboard execs into Starman rather than forking, so the
+    # master's parent is whatever shell launched it).
+    #
+    # A Starman is enough, because this guard exists to stop the one thing
+    # that is actually destructive: signalling a process with no HUP handler,
+    # which SIGHUP's default disposition then terminates. Every Starman
+    # handles HUP, so the worst a misidentified one suffers is a graceful
+    # reload of its own workers. The port comes from this board's own
+    # project.yml, which is the real identifier - the owner's point exactly:
+    # "Each application only hold their own port".
+    #
+    # An unreadable command line refuses like an unrecognised one, because
+    # "cannot tell" is not "is safe to signal". TKT-566.
+    my $identify = $opts{identify} || sub { _command_of_pid( $_[0] ) };
+    my $command = $identify->($pid);
+    return { hupped => 0, refused => 'not-a-board' }
+      if !defined $command || $command !~ /\bstarman\b/i;
+
+    my $signal = $opts{hup} || sub { kill 'HUP', $_[0] };
+    $signal->($pid);
+
+    File::Path::make_path($store) if !-d $store;
+    if ( open my $fh, '>', $path ) {
+        print {$fh} $on_disk;
+        close $fh;
+    }
+    return { hupped => 1, pid => $pid, version => $on_disk };
 }
 
 # The claim: read whoever was there before, kill them if they are still

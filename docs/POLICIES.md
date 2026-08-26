@@ -349,6 +349,7 @@ missing, at the moment you declare the policy rather than later.
 | `commit-without-card` | — | a commit that names no card |
 | `work-without-card` | `--age` | a tree changing while nothing is at a working gate |
 | `unpushed-work` | `--age` | commits sitting unpushed |
+| `task-unlinked` | `--age` | a pending or working tasklist item whose `refs` array is empty, older than the grace `--age` gives it. The tasklist is deliberately lighter than a ticket - free text, no gates - but a task can still be real work nobody tied back to a governed card. **Whole-board, like `board-still`/`agent-still`**: a `--ref` scope is refused, since the rule sweeps every session's items, not one ticket's own. The finding names the tasklist item by its own `TSK-NNN` id and instructs linking it to an existing ticket that already covers the work, or filing a full one and linking the two - the police engine detects and instructs, it never creates or links a ticket itself. Settles when the item is linked, marked done, or ages back under the grace. TKT-547. |
 | `board-unbacked` | `--age` | a board with no recent backup, by either mechanism: `tira.backup` or an exported backup on disk. Whichever ran last is the answer. |
 | `card-unlinked` | `--require-link` | a card with no dependency link, optionally to a named card |
 | `card-sandbox-missing` | `--enter --sandbox` | a card being implemented with no branch or worktree of its own. The rule assumes one project maps to one repository - a card whose work legitimately lives in a second one used to have no honest way to clear this but declining the whole rule (losing the check for every other card). `tira.policy.decline --rule card-sandbox-missing --ref CARD --reason TEXT` now answers just that one card, reusable by any rule. TKT-303. Declaring it twice, once per acceptable sandbox, used to be able to report the same card twice with character-for-character identical wording, when the card recorded no sandbox at all and both declared paths fell back to the same generic phrasing. Any two policies of any of the six machine-watching rules now report once, not twice, for the same underlying fact on the same card - a second identical finding is noise, not a second fact. Two policies describing genuinely different problems (one satisfied, one not) still both report. TKT-499. |
@@ -1766,13 +1767,44 @@ board was investigated and found to be correct work throughout — there was sim
 nothing being worked — and a rule that fired on elapsed time alone would have
 been wrong then and right later, which is no rule at all.
 
-**It reaches somebody other than the agent.** Every other rule writes to the
-bridge and trusts the agent to read it. This one's subject is the agent having
-stopped, so the bridge is precisely where it cannot help: during the stoppage
-above, `card-still` reported both stranded cards correctly and escalated them to
-CRITICAL, addressed to the party that had stopped. It sends through the same two
-variables `tira.notify.moves` uses, and stays silent if a board has set no
-address.
+**It reaches the bridge too, like every other rule** (TKT-546, corrected from
+an earlier claim here that it did not — confirmed live, not assumed, that the
+violation's message falls back to `detail` in `_bridge_line`, the same as
+anything else that carries no custom `--message` template) — and its
+bridge-visible text now names the problem and instructs the reading agent to
+diagnose why before doing anything else: ask a question on the card if the
+blocker is the owner's to answer, resolve it directly if technical and small,
+or file a resolver ticket and park the card back to backlog if technical and
+substantial. `--notify` is a separate, explicit opt-in for an *additional*
+page off the machine entirely, through the same two variables
+`tira.notify.moves` uses, silent if a board has set no address — during the
+stoppage above, before this existed, `card-still` reported both stranded
+cards correctly and escalated them to CRITICAL, addressed to the party that
+had stopped, which is the shape `--notify` restores for a board with nobody
+reading the bridge.
+
+### A note that never became a card
+
+The tasklist is deliberately lighter than a ticket - free text, no gates - for
+a quick note or a sub-step. Some of those notes turn out to be real work: this
+project's own standing practice links a hunt finding's ticket back to the
+tasklist item it grew from, precisely so nothing tracked informally goes
+untracked formally too. Nothing ever checked that the link actually happened.
+
+    d2 tira.policy.add --rule task-unlinked --age 30m --action bridge-reminder
+
+    "add a prune button next to the add button" has no linked ticket - link it
+    to one that already covers this work, or file a full ticket and link the
+    two
+
+`--age` is the same grace `board-still`/`agent-still` already give - a task
+jotted down seconds ago has not had a chance to be linked yet. **Whole-board**,
+like those two: a `--ref` scope is refused, since the rule sweeps every
+session's tasklist, not one ticket's own. It settles when the item is linked
+to a ticket, marked done, or the moment it is created is far enough behind
+that the age no longer applies. The police engine only detects and instructs
+here - it never creates or links a ticket on its own, the same restraint every
+other rule already keeps.
 
 ### When nothing is meant to move
 

@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.22';
+our $VERSION = '4.23';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -5890,6 +5890,13 @@ my %POLICY_RULES = (
     'card-unassigned'           => { needs => [], forbids => [ 'column', 'enter' ] },
     'card-agentless'            => { needs => [ 'enter' ] },
 
+    # TKT-547: the tasklist is deliberately lighter than a ticket - free
+    # text, no gates - but a pending/working item can still represent real
+    # work nobody ever tied back to a governed card. --age is the same
+    # grace board-still/agent-still already use, so a task jotted down
+    # seconds ago is not flagged before anyone has had a chance to link it.
+    'task-unlinked'             => { needs => [ 'age' ] },
+
     # Arriving somewhere without having done the steps before it. Declared
     # rather than inferred from the column order: a documentation-only card has
     # no red test to write, and a rule that assumed the whole sequence would
@@ -5978,6 +5985,10 @@ my %WHOLE_BOARD_RULE = (
 
     # A gap in what this board has considered, which no card can narrow.
     'rules-undeclared' => 'the whole board',
+
+    # About every tasklist item at once, not one ticket's own ref - a card
+    # scope could never narrow which tasklist items count.
+    'task-unlinked' => 'the whole board',
 );
 
 # Police speaks in exactly three ways: down the bridge the agent tails, in the
@@ -7918,6 +7929,23 @@ sub policy_evaluate {
                 my $sent = $self->_send_notification( project => $root,
                     text => "Tira ($identity): the agent has stopped. " . $said );
                 $self->_agent_still_mark_notified( $args{store}, $acted ) if $sent;
+            }
+        }
+        elsif ( $rule eq 'task-unlinked' ) {
+
+            # TKT-547: a tasklist item can carry real, trackable work - this
+            # session's own standing practice already links a hunt finding's
+            # ticket back to the tasklist item it grew from - but nothing
+            # noticed when one never got that link at all. All_sessions
+            # rather than the caller's own session: this rule is a board-wide
+            # sweep, not a single agent's own queue.
+            for my $item ( @{ $self->_tasklist_read($root) } ) {
+                next if @{ $item->{refs} // [] };
+                next if !grep { ( $item->{status} // 0 ) == $_ } ( 0, 1 );
+                next if !$self->_policy_older_than( $item->{created_at}, $policy->{age} );
+                $report->( $policy, $item->{id},
+                    "\"$item->{text}\" has no linked ticket - link it to one that already "
+                  . "covers this work, or file a full ticket and link the two" );
             }
         }
         elsif ( $rule eq 'discard-with-open-questions' ) {

@@ -157,6 +157,7 @@ my %needs = (
     'commit-without-card'       => {},
     'work-without-card'         => { age => '15m' },
     'unpushed-work'             => { age => '1h' },
+    'task-unlinked'             => { age => '30m' },
     'board-unbacked'            => { age => '2h' },
     'gate-missing'              => { column => 'done' },
     'discard-unexplained'       => {},

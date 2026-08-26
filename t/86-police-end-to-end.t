@@ -98,6 +98,7 @@ my %declare = (
     'bridge-unread'             => { age => '30m' },
     'column-unwatched'          => {},
     'column-skipped'            => { enter => 'done', require => 'implement' },
+    'task-unlinked'             => { age => '30m' },
 );
 is_deeply( [ sort keys %declare ], [ sort @{ Tira::policy_rules() } ],
     'this test declares every rule the tool offers, so none can be forgotten here' );
@@ -147,6 +148,10 @@ $now = '2026-08-11T09:30:00Z';
 $tira->comment_add( project => $root, ref => $talked->{ref}, author => 'michael',
     body => 'The evidence that is not on the card yet' );
 $now = '2026-08-11T09:00:00Z';
+
+# A tasklist item nobody ever tied back to a card - real, trackable work, no
+# refs, sitting where task-unlinked watches.
+$tira->tasklist_add( project => $root, text => 'A note nobody turned into a card' );
 
 # The card exists before the second in which its answer is marked.
 #

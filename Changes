@@ -1,5 +1,18 @@
 Revision history for Tira
 
+4.23  2026-08-26
+
+    - TKT-547. New police rule task-unlinked: a pending or working
+      tasklist item whose refs array is empty, older than the policy's
+      --age grace, is reported via the bridge naming the item and
+      instructing the reading agent to link it to an existing ticket or
+      file a full one and link the two. Whole-board (a --ref scope is
+      refused, like board-still/agent-still), swept across every
+      session. The police engine only detects and instructs here - it
+      never creates or links a ticket on its own. Michael's own words,
+      given live, describing the desired flow, with the instruct-not-
+      act principle established the same session on TKT-546.
+
 4.22  2026-08-26
 
     - TKT-546. agent-still's bridge-visible text now prompts the agent to

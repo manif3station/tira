@@ -127,6 +127,10 @@ const fs = require('fs');
     if (requestUrl.pathname === '/tasklist') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     }
+    // TKT-557: the known-sessions dropdown fetches its own list eagerly too.
+    if (requestUrl.pathname === '/tasklist/sessions') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    }
     pageRequests++;
     return route.fulfill({ status: 200, contentType: 'text/html', body: html });
   });

@@ -53,6 +53,15 @@ const recordRequests = [];
     if (path === '/tasklist' && request.method() === 'GET') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(items) });
     }
+    if (path === '/tasklist/sessions' && request.method() === 'GET') {
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify([
+          { session: '', count: 1, status: { pending: 0, working: 0, done: 1 } },
+          { session: 'agent-a', count: 2, status: { pending: 1, working: 1, done: 0 } },
+        ]),
+      });
+    }
     if (path === '/tasklist/add') {
       const payload = JSON.parse(request.postData() || '{}');
       posted.push({ path, payload });
@@ -162,6 +171,19 @@ const recordRequests = [];
   }
   // TKT-549: Prune came back, with new behavior beyond what TKT-535 removed.
   if ((await section.locator('.tasklist-prune').count()) !== 1) fail('the Prune button should be back in the header');
+
+  // --- TKT-557: the known-sessions dropdown discovers sessions without the
+  // person already knowing an id, mirroring tira.tasklist.sessions -----------
+  const sessionsList = section.locator('.tasklist-sessions-list');
+  if ((await sessionsList.count()) !== 1) fail('a known-sessions dropdown should be present next to the session box');
+  await page.waitForFunction(() => document.querySelector('.tasklist-sessions-list')?.options.length === 3);
+  const optionTexts = await sessionsList.locator('option').allTextContents();
+  if (!optionTexts.some(text => text.includes('agent-a') && text.includes('2')))
+    fail('the dropdown should show agent-a with its item count (2)');
+  await sessionsList.selectOption('agent-a');
+  await page.waitForTimeout(200);
+  if ((await section.locator('.tasklist-session').inputValue()) !== 'agent-a')
+    fail('picking a session from the dropdown should fill the session box');
 
   // --- the three seeded items render as colored sticky-note cards ---------
   const cardCount = await section.locator('.tasklist-card').count();

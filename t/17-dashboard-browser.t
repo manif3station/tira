@@ -143,6 +143,7 @@ my $app = Tira::DashboardWeb->build_psgi_app(
     tasklist_task_attach_discard => sub { '{}' },
     tasklist_task_ref_link => sub { '{}' },
     tasklist_task_ref_unlink => sub { '{}' },
+    tasklist_sessions => sub { '[]' },
     columns => sub { '[]' },
     question_answer => sub { '{"ok":true}' },
     question_mark => sub { '{"ok":true}' },
@@ -188,6 +189,7 @@ my $app = Tira::DashboardWeb->build_psgi_app(
     tasklist_task_attach_discard => sub { '{}' },
     tasklist_task_ref_link => sub { '{}' },
     tasklist_task_ref_unlink => sub { '{}' },
+    tasklist_sessions => sub { '[]' },
 );
 my @warnings;
 {
@@ -267,6 +269,7 @@ like( $@, qr/Missing dashboard detail provider/, 'PSGI builder requires a detail
     tasklist_task_attach_discard => sub { '{}' },
     tasklist_task_ref_link => sub { '{}' },
     tasklist_task_ref_unlink => sub { '{}' },
+    tasklist_sessions => sub { '[]' },
             signed_in(),
             render => sub { '<!doctype html>' },
             data => sub { '{}' },

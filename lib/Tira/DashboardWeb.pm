@@ -21,7 +21,7 @@ our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $SEARCH, $COMMENT_ADD, $
       $TASKLIST, $TASKLIST_ADD, $TASKLIST_UPDATE, $TASKLIST_NEXT, $TASKLIST_SHIFT, $TASKLIST_POP,
       $TASKLIST_UNSHIFT, $TASKLIST_SLICE, $TASKLIST_REMOVE, $TASKLIST_IMPORT, $TASKLIST_PRUNE,
       $TASKLIST_TASK_ATTACH_ADD, $TASKLIST_TASK_ATTACH_DISCARD,
-      $TASKLIST_TASK_REF_LINK, $TASKLIST_TASK_REF_UNLINK );
+      $TASKLIST_TASK_REF_LINK, $TASKLIST_TASK_REF_UNLINK, $TASKLIST_SESSIONS );
 
 our $COOKIE = 'tira_session';
 
@@ -237,6 +237,14 @@ post '/tasklist/task/attach/add' => sub { return _mutation( \$TASKLIST_TASK_ATTA
 post '/tasklist/task/attach/discard' => sub { return _mutation( \$TASKLIST_TASK_ATTACH_DISCARD ) };
 post '/tasklist/task/ref/link' => sub { return _mutation( \$TASKLIST_TASK_REF_LINK ) };
 post '/tasklist/task/ref/unlink' => sub { return _mutation( \$TASKLIST_TASK_REF_UNLINK ) };
+# TKT-557: read-only, same shape as GET /tasklist - lets the section discover
+# which sessions exist instead of the free-text session box relying on
+# somebody already knowing an id, the same gap tira.tasklist.sessions (TKT-541)
+# closed for the CLI/agent side.
+get '/tasklist/sessions' => sub {
+    content_type 'application/json; charset=UTF-8';
+    return _response_bytes( $TASKLIST_SESSIONS->() );
+};
 
 get '/search' => sub {
     my %query;
@@ -404,6 +412,7 @@ my @PROVIDERS = (
     [ tasklist_task_attach_discard => \$TASKLIST_TASK_ATTACH_DISCARD, 'tasklist task attach discard provider' ],
     [ tasklist_task_ref_link => \$TASKLIST_TASK_REF_LINK, 'tasklist task ref link provider' ],
     [ tasklist_task_ref_unlink => \$TASKLIST_TASK_REF_UNLINK, 'tasklist task ref unlink provider' ],
+    [ tasklist_sessions => \$TASKLIST_SESSIONS, 'tasklist sessions provider' ],
 );
 
 sub build_psgi_app {
@@ -541,10 +550,11 @@ Builds a minimal Dancer2 application whose root route regenerates and returns
 the self-contained Tira dashboard HTML. Data, record, and people routes feed
 the live board and its Jira-style card dialog; update and comment routes apply
 validated record mutations and answer failures as structured 422 JSON so the
-dialog can surface the engine's message. GET /tasklist and the fourteen
-POST /tasklist/* routes give the Task List section full CLI parity with
-C<tira.tasklist.*>, mutations answered the same validated-422 way as every
-other route. C<serve> runs the PSGI application through Plack's bundled
+dialog can surface the engine's message. GET /tasklist, GET /tasklist/sessions
+(TKT-557), and the fourteen POST /tasklist/* routes give the Task List
+section full CLI parity with C<tira.tasklist.*>, mutations answered the
+same validated-422 way as every other route. C<serve> runs the PSGI
+application through Plack's bundled
 standalone server at a validated CLI bind address.
 
 =head1 METHODS

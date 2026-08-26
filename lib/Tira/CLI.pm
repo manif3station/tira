@@ -1381,6 +1381,9 @@ sub browser_providers {
                 project => $project, id => $payload->{id}, refs => [ $payload->{ref} ],
                 session => $payload->{session} // '' ) );
         },
+        tasklist_sessions => sub {
+            return $json->encode( $tira->tasklist_sessions( project => $project ) );
+        },
 
         search => sub {
             my ($query) = @_;

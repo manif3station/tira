@@ -1659,6 +1659,15 @@ per Michael's own tasklist note: a manual click asks for confirmation
 before pruning every done item, and a standing 5-minute interval
 prunes automatically with no confirmation.
 
+TKT-557: the Task List section now offers a known-sessions dropdown
+next to the free-text session box, listing every session
+`tira.tasklist.sessions` already knows about with its item count -
+closing the same discovery gap TKT-541 closed for the CLI/agent side.
+Sourced from a new `GET /tasklist/sessions` route (and matching
+`browser_providers` closure); the free-text box still accepts an
+arbitrary typed session id. Found during a standing 2-hourly
+improvement hunt.
+
 TKT-546: the `agent-still` policy rule's bridge-visible text now prompts
 the agent to diagnose why progress stopped before instructing it
 through the ask-the-owner/resolve-directly/file-a-resolver-ticket

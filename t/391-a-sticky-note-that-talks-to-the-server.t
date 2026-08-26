@@ -169,6 +169,15 @@ like( $@, qr/No task/, 'tasklist_remove with no session still refuses agent-a\'s
 my $removed_scoped = decode_json( $providers{tasklist_remove}->( { id => $scoped->{id}, session => 'agent-a' } ) );
 is( $removed_scoped->{id}, $scoped->{id}, 'tasklist_remove with session=>agent-a succeeds' );
 
+# --- TKT-557: the dashboard offers the same session discovery tira.tasklist.sessions
+# already gives the CLI/agent side - a supervising person should not have to
+# already know a session id just to see what exists in the browser.
+ok( exists $providers{tasklist_sessions}, 'browser_providers exposes a tasklist_sessions closure' );
+$providers{tasklist_add}->( { text => 'Discoverable work', session => 'agent-z' } );
+my $sessions = decode_json( $providers{tasklist_sessions}->( {} ) );
+is( scalar( grep { $_->{session} eq 'agent-z' } @{$sessions} ), 1,
+    'tasklist_sessions lists the agent-z session just created' );
+
 done_testing;
 
 __END__

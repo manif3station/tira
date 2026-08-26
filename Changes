@@ -1,5 +1,16 @@
 Revision history for Tira
 
+4.30  2026-08-26
+
+    - TKT-557. The browser dashboard's Task List section now offers a
+      known-sessions dropdown next to the free-text session box, listing
+      every session tira.tasklist.sessions already knows about with its
+      item count - closing the same discovery gap TKT-541 closed for the
+      CLI/agent side. A new GET /tasklist/sessions route (and matching
+      browser_providers closure) sources it; the free-text box still
+      accepts an arbitrary typed session id. Found during a standing
+      2-hourly improvement hunt.
+
 4.29  2026-08-26
 
     - TKT-556. The onboarding wizard's "Do all three boards use the same

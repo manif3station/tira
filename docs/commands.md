@@ -2516,6 +2516,15 @@ TKT-535 removals (Unshift, Insert at position, Next, Shift, Pop, Import
 from card) stay removed - full CLI parity for every one of them is
 unaffected either way.
 
+TKT-557: the Task List section's header also offers a known-sessions
+dropdown next to the free-text session box - a new `GET /tasklist/sessions`
+route (wired through a matching `browser_providers` closure) sources the
+same data `tira.tasklist.sessions` (TKT-541) already computes: every
+session with its item count. Picking an entry fills the free-text box
+and reloads the list; typing an arbitrary session id directly still
+works exactly as before. Previously the only way to discover a session's
+id from the browser was to already know it.
+
 TKT-554: `reconcileTasklist`'s guard against rebuilding an actively-used
 row - previously only checking `tlEditingIds` (the open text-edit
 textarea) - now also treats a row as busy when its ref-link input has a

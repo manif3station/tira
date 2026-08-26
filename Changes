@@ -1,5 +1,30 @@
 Revision history for Tira
 
+4.22  2026-08-26
+
+    - TKT-546. agent-still's bridge-visible text now prompts the agent to
+      diagnose why progress stopped before instructing the ask-the-
+      owner/resolve-directly/file-a-resolver-ticket procedure, rather
+      than just naming elapsed time and waiting cards. The rule's
+      separate off-channel owner notification (Telegram) is now an
+      explicit opt-in (--notify on the policy declaration) rather than
+      automatic - confirmed live, not assumed, that the violation
+      already reaches the bridge like every other rule (message falls
+      back to detail in _bridge_line), so the off-channel page was
+      redundant by default once the bridge has a reader, which a
+      standing session with its own live policy-bridge Monitor always
+      does. Corrected from Michael's direct live instruction.
+
+4.21  2026-08-26
+
+    - TKT-541. tira.tasklist.sessions is a new, read-only command that
+      lists every distinct session present in the task list, each with
+      its item count and a pending/working/done breakdown, sorted by
+      count descending. Closes the gap TKT-539's own --all-sessions
+      motivation left open: a supervising agent could see every
+      subagent's items, but had no way to discover which sessions even
+      existed without hand-deduping the dump first.
+
 4.20  2026-08-26
 
     - TKT-544. lib/Tira.pm's own POD for tasklist_list, tasklist_update,

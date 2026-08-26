@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.20';
+our $VERSION = '4.22';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1331,6 +1331,27 @@ sub tasklist_list {
       ? @{$items}
       : grep { ( $_->{session} // '' ) eq _tasklist_session(%args) } @{$items};
     return _tasklist_sort_items( \@mine, $args{sort} // 'last_updated:desc,status:asc' );
+}
+
+# TKT-541: closes the gap --all-sessions left open - a supervisor still had
+# to hand-dedupe the session field out of a flat dump to find out which
+# sessions even exist. No session-scoping args of its own: seeing every
+# session is the whole point, the same way --all-sessions already treats it.
+my @TASKLIST_STATUS_NAME = ( 'pending', 'working', 'done' );
+
+sub tasklist_sessions {
+    my ( $self, %args ) = @_;
+    my $root  = $self->discover_project(%args);
+    my $items = $self->_tasklist_read($root);
+    my %by_session;
+    for my $item ( @{$items} ) {
+        my $session = $item->{session} // '';
+        my $row = $by_session{$session} //=
+          { session => $session, count => 0, status => { pending => 0, working => 0, done => 0 } };
+        $row->{count}++;
+        $row->{status}{ $TASKLIST_STATUS_NAME[ $item->{status} // 0 ] // 'pending' }++;
+    }
+    return [ sort { $b->{count} <=> $a->{count} || $a->{session} cmp $b->{session} } values %by_session ];
 }
 
 sub _tasklist_counter_path {
@@ -5967,7 +5988,7 @@ my %POLICY_ACTIONS = map { $_ => 1 } qw(bridge-reminder print-reminder log-only)
 # is read somewhere, and t/148 fails if one is not: this list has been wrong in
 # both directions - base sat here unread for the life of the file, and read_age
 # was accepted, validated and dropped for being missing from it.
-my @POLICY_FIELDS = qw(enter before column age read_age max pattern message require sandbox require_link link_to);
+my @POLICY_FIELDS = qw(enter before column age read_age max pattern message require sandbox require_link link_to notify);
 
 
 # Where a policy was declared. A policy with none of these is the project's;
@@ -7847,21 +7868,33 @@ sub policy_evaluate {
               . 'waiting: ' . join( ', ', @waiting[ 0 .. ( @waiting > 5 ? 4 : $#waiting ) ] )
               . ( @waiting > 5 ? ' and ' . ( @waiting - 5 ) . ' more' : '' )
               . '. Cards arriving from other projects do not count as work, which is '
-              . 'why board-still can be quiet while this is not.';
+              . 'why board-still can be quiet while this is not.'
+
+              # TKT-546: naming the stall was never the missing half - it is
+              # what to do about it. Diagnose before assuming, then branch:
+              # the owner's call, a small technical fix, or a piece of work
+              # substantial enough to be its own ticket.
+              . ' Diagnose why before doing anything else: if the blocker is'
+              . ' the owner\'s to answer, ask a question on the card; if it is'
+              . ' technical and small, resolve it directly; if it is technical'
+              . ' and substantial, file a resolver ticket, link it, and park'
+              . ' this card back to backlog while it is worked.';
             $report->( $policy, '', $said );
 
-            # And out, to somebody who is not the agent. Every other rule here
-            # writes to the bridge and trusts the agent to read it; this is the
-            # one rule whose subject is the agent having stopped, so the bridge
-            # is precisely the place it cannot usefully go. During the stoppage
-            # this was written for, card-still reported both stranded cards and
-            # escalated them to CRITICAL - addressed to the party that had
-            # stopped.
+            # Once the one channel every other rule already uses, agent-still's
+            # own violation carries this same text there too (message falls
+            # back to detail in _bridge_line) - confirmed live, not assumed:
+            # the bridge was never actually excluded, only unexamined. What
+            # follows is a SECOND, additional channel, off the machine
+            # entirely, which duplicates what the bridge already said the
+            # moment the bridge has a reader - which a standing session with
+            # its own live policy-bridge Monitor always does. TKT-546: default
+            # to bridge-only; the off-channel page is an explicit fallback for
+            # an operating mode with no such reader, opted into with
+            # C<--notify> on the policy declaration, not assumed.
             #
             # Through TKT-349's seam and its two variables, so there is one way
             # this board speaks off the machine and one place to configure it.
-            # Opt-in for the same reason: a board that has set no address is not
-            # made to reach out to one.
             #
             # Throttled, because nothing else was. Every rule that writes to
             # the bridge has the bridge's own seen/settle tracking to stop it
@@ -7871,7 +7904,7 @@ sub policy_evaluate {
             # still stopped sent another identical message, for as long as
             # the stall lasted. Measured live: one Telegram message per poll
             # tick, all identical. TKT-422.
-            if ( $self->_agent_still_may_notify( $args{store}, $acted ) ) {
+            if ( $policy->{notify} && $self->_agent_still_may_notify( $args{store}, $acted ) ) {
 
                 # Named for the owner's benefit only, on the one message this
                 # rule sends off the machine directly to him rather than to
@@ -12814,6 +12847,13 @@ Returns the task-list items scoped to C<session> - two different session ids
 never share a list, and no session at all is the single shared list. TKT-539:
 C<all_sessions> is a deliberate opt-in that returns every item across every
 session instead, each still carrying its own C<session> field.
+
+=head2 tasklist_sessions
+
+TKT-541: returns one row per distinct session present in the task list -
+C<session>, C<count>, and a C<status> breakdown (pending/working/done) -
+sorted by item count descending. No session-scoping args of its own, since
+seeing every session is the whole point.
 
 =head2 tasklist_add
 

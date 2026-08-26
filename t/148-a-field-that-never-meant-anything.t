@@ -16,7 +16,7 @@
 # refusals, and for the same reason - the fault is not that base was wrong, it
 # is that nothing would have said so.
 #
-# TKT-364: three lists decide what a policy carries - POLICY_FIELDS (12),
+# TKT-364: three lists decide what a policy carries - POLICY_FIELDS (13),
 # POLICY_SCOPE (3), POLICY_ROLE_FIELDS (3) - and the guard below used to
 # read only the first from source. The other six are stored (the engine
 # loops over all three when writing and reading a policy) and were checked
@@ -173,10 +173,10 @@ sub unread_policy_fields {
         my ($members) = $source =~ /my \@$_ = qw\(([^)]*)\)/s;
         split ' ', $members // '';
     } qw(POLICY_FIELDS POLICY_SCOPE POLICY_ROLE_FIELDS);
-    is( scalar @all_fields, 18, 'all three lists together declare 18 names a policy may carry' );
+    is( scalar @all_fields, 19, 'all three lists together declare 19 names a policy may carry' );
 
     is_deeply( [ unread_policy_fields($source) ], [],
-        'and every one of the 18 is read somewhere, so none of them is a setting that does nothing' );
+        'and every one of the 19 is read somewhere, so none of them is a setting that does nothing' );
 }
 
 # --- proved by breaking it: an unread name in either of the other two lists ----

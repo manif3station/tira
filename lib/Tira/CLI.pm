@@ -341,6 +341,7 @@ sub run {
         'role=s@' => \$option{roles}, 'remove-role=s@' => \$option{remove_roles},
         'gate-name=s@' => \$option{gate_names},
         'require-link=s' => \$option{require_link}, 'link-to=s' => \$option{link_to},
+        'notify' => \$option{notify},
         'enter-role=s' => \$option{enter_role}, 'before-role=s' => \$option{before_role},
 
         # The third of the three the command reference offers. It was
@@ -3273,6 +3274,7 @@ sub _invoke {
     # A parallel system to ticket/epic/sow, deliberately lighter - no gates,
     # checklists, or required-actions. TKT-504.
     return $tira->tasklist_list(%args) if $command eq 'tasklist.list';
+    return $tira->tasklist_sessions(%args) if $command eq 'tasklist.sessions';
     return $tira->tasklist_add( %args, refs => $option->{ref_list} // [] )
       if $command eq 'tasklist.add';
     return $tira->tasklist_update(%args) if $command eq 'tasklist.update';
@@ -3312,7 +3314,7 @@ sub _invoke {
         return $tira->policy_remove(%args) if $action eq 'remove';
         my %policy = map { $_ => $option->{$_} }
           grep { defined $option->{$_} }
-          qw(rule action enter column age read_age max pattern message require require_link link_to sandbox);
+          qw(rule action enter column age read_age max pattern message require require_link link_to sandbox notify);
 
         # Where the policy is declared decides how narrow it is: naming a
         # board, a column or a card each makes it beat the level above.

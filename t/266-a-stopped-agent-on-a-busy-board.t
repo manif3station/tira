@@ -93,7 +93,7 @@ sub reported {
     like( $@ // '', qr/--age/, 'and the refusal names the option' );
 }
 
-$tira->policy_add( project => $root, rule => 'agent-still', age => '4h',
+my $declared = $tira->policy_add( project => $root, rule => 'agent-still', age => '4h',
     action => 'bridge-reminder' );
 
 # --- an agent that is working is not reported -------------------------------------
@@ -185,15 +185,22 @@ $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, c
         'and the agent moving a card settles it, with nothing to remember' );
 }
 
-# --- and it reaches somebody who is not the agent ------------------------------------
+# --- and it reaches somebody who is not the agent, when told to -----------------------
 #
-# The half without which the rule is useless. card-still reported both stranded
-# cards during the real stoppage and escalated them to CRITICAL, addressed to
-# the agent - the one party guaranteed not to be reading, because it had
-# stopped. A finding about a stopped agent has to leave the machine.
+# The half without which the rule is useless on its own, for a board with no
+# agent watching the bridge at all - card-still reported both stranded cards
+# during the real stoppage and escalated them to CRITICAL, addressed to the
+# agent, the one party guaranteed not to be reading. TKT-546: this is now an
+# explicit fallback (--notify), not the default - the bridge already carries
+# the same finding (see below), and a standing session with its own live
+# policy-bridge Monitor always has an agent reading it.
 #
 # It goes out the way TKT-349's notifier does, through the same seam and the
 # same two variables, so there is one way this board speaks to him.
+
+$tira->policy_remove( project => $root, id => $declared->{id} );
+$declared = $tira->policy_add( project => $root, rule => 'agent-still', age => '4h',
+    action => 'bridge-reminder', notify => 1 );
 
 {
     $now = '2026-08-19T18:00:00Z';
@@ -210,9 +217,15 @@ $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, c
         $tira->police_pass( project => $root, store => $store, world => {} );
     };
 
-    cmp_ok( scalar @sent, '>', 0, 'a stopped agent is told to somebody off the board' );
+    cmp_ok( scalar @sent, '>', 0, 'a stopped agent is told to somebody off the board, once opted in with --notify' );
     like( join( '', @sent ), qr/agent/i, 'and the message says what has stopped' );
 }
+
+# Back to the default (no --notify) for the remaining assertions, which
+# exercise the bridge-only default path.
+$tira->policy_remove( project => $root, id => $declared->{id} );
+$tira->policy_add( project => $root, rule => 'agent-still', age => '4h',
+    action => 'bridge-reminder' );
 
 # --- but only when the board asked to be told ------------------------------------------
 #
@@ -255,6 +268,36 @@ $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, c
 
     is_deeply( reported(), [],
         'and reading the board rather than the agent reports nothing, which is what happened' );
+}
+
+# --- TKT-546: the bridge already carries the diagnostic text (via detail
+# fallback in _bridge_line) but not an instruction - and the off-channel
+# Telegram ping is real, additional, and redundant once the bridge has the
+# same content. Michael's ask, live: state the problem, prompt the agent to
+# diagnose before assuming, then instruct the ask-the-owner/resolve/file-a-
+# resolver-ticket procedure; and stop the automatic off-channel ping by
+# default now that the bridge already says the same thing.
+{
+    $now = '2026-08-21T02:00:00Z';
+    my $violation = reported()->[0];
+    like( $violation->{detail}, qr/diagnose/i,
+        'the bridge-visible text prompts the agent to diagnose, not just states elapsed time' );
+    like( $violation->{detail}, qr/ask a question on the card/i,
+        'and instructs asking the owner when the blocker is theirs to answer' );
+    like( $violation->{detail}, qr/resolver ticket/i,
+        'and instructs filing a resolver ticket for a substantial technical blocker' );
+}
+
+{
+    $now = '2026-08-21T09:00:00Z';
+    my @sent;
+    no warnings 'redefine';
+    local *Tira::_post_telegram = sub { push @sent, $_[3]; return 1 };
+    local $ENV{TELEGRAM_BOT_TOKEN} = 'T';
+    local $ENV{TELEGRAM_CHATID}    = 'C';
+    $tira->police_pass( project => $root, store => $store, world => {} );
+    is_deeply( \@sent, [],
+        'the off-channel owner ping no longer fires by default - the bridge already has the content' );
 }
 
 done_testing;

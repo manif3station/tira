@@ -88,6 +88,26 @@ my ( $all_status, $all_out ) = cli( 'tasklist.list', '--all-sessions', '-o', 'js
 is( $all_status, 0, 'tasklist.list --all-sessions dispatches' );
 is( scalar @{ decode_json($all_out) }, 3, 'and returns every session\'s items via the CLI too' );
 
+# --- TKT-541: discovering which sessions exist at all, without --all-sessions's
+# flat dump - one row per session, item count, and a status breakdown, so a
+# supervising agent can see who has what before drilling into --session/-all.
+$tira->tasklist_update( project => $root, id => $theirs->{id}, status => 'done', session => 'agent-b' );
+my $sessions = $tira->tasklist_sessions( project => $root );
+is( scalar @{$sessions}, 3, 'one row per distinct session (agent-a, agent-b, shared)' );
+my %by_id = map { $_->{session} => $_ } @{$sessions};
+is( $by_id{'agent-a'}{count}, 1, 'agent-a has one item' );
+is_deeply( $by_id{'agent-a'}{status}, { pending => 1, working => 0, done => 0 },
+    'agent-a\'s one item is pending' );
+is( $by_id{'agent-b'}{count}, 1, 'agent-b has one item' );
+is_deeply( $by_id{'agent-b'}{status}, { pending => 0, working => 0, done => 1 },
+    'agent-b\'s one item is now done' );
+is( $by_id{''}{count}, 1, 'the shared session has one item' );
+is( $sessions->[0]{count} >= $sessions->[-1]{count}, 1, 'sorted by item count descending' );
+
+my ( $sessions_status, $sessions_out ) = cli( 'tasklist.sessions', '-o', 'json' );
+is( $sessions_status, 0, 'tasklist.sessions dispatches' );
+is( scalar @{ decode_json($sessions_out) }, 3, 'and returns the same 3 rows via the CLI' );
+
 # --- an item can link to existing cards -------------------------------------
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Linked card' );
 my $linked = $tira->tasklist_add( project => $root, text => 'Step tied to a ticket', refs => [ $card->{ref} ] );

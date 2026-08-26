@@ -29,7 +29,7 @@ $tira->project_new(
     sow_prefix => 'NMS', epic_prefix => 'NME', ticket_prefix => 'NMT',
 );
 $tira->project_update( project => $root, agent => 'claude' );
-$tira->policy_add( project => $root, rule => 'agent-still', age => '1s', action => 'bridge-reminder' );
+$tira->policy_add( project => $root, rule => 'agent-still', age => '1s', action => 'bridge-reminder', notify => 1 );
 
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Stopped', priority => 5, assignee => 'claude' );

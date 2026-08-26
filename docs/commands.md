@@ -2343,6 +2343,13 @@ has to run a migration by hand.
     checking on several subagents without already knowing each one's
     session id. Ignored/unaffected when not given; `--session` still wins
     when both would otherwise apply.
+- `tira.tasklist.sessions [-o FORMAT]` (TKT-541) - read-only, no
+  session-scoping args of its own (seeing every session is the whole
+  point). Returns one row per distinct session - `session`, `count`,
+  and a `status` breakdown (`pending`/`working`/`done` counts) - sorted
+  by item count descending. Closes the gap `--all-sessions` left open:
+  it made cross-session visibility possible, but a supervisor still had
+  to hand-dedupe the dump to discover which sessions existed at all.
 - `tira.tasklist.update --id ID [--status pending|working|done|0|1|2] [--text TEXT] [--session ID] [-o FORMAT]` -
   at least one of `--status`/`--text` is required; either given alone leaves
   the other field as it was. TKT-523.

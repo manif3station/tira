@@ -1588,6 +1588,22 @@ Restores the one legitimate use TKT-537/538 otherwise closed off
 entirely: a supervising agent checking on several subagents' tasklists
 without already knowing each one's session id.
 
+TKT-546: the `agent-still` policy rule's bridge-visible text now prompts
+the agent to diagnose why progress stopped before instructing it
+through the ask-the-owner/resolve-directly/file-a-resolver-ticket
+procedure, instead of only naming elapsed time and waiting cards. The
+rule's separate off-channel owner notification is now opt-in
+(`--notify` on the policy declaration) rather than automatic - the
+violation already reaches the bridge like every other rule, so the
+off-channel page duplicated it by default.
+
+TKT-541: `tasklist.sessions` is a new, read-only command listing every
+distinct session present in the task list, with an item count and a
+pending/working/done breakdown each, sorted by count descending -
+closing the gap `--all-sessions` left open: it proved cross-session
+visibility, but a supervisor still had to hand-dedupe the dump to find
+out which sessions existed at all.
+
 TKT-544: `lib/Tira.pm`'s own POD for `tasklist_list`, `tasklist_update`,
 `tasklist_remove`, and the four `tasklist_task_*` sub-verbs now describes
 their actual session behavior - TKT-538's session enforcement and TKT-539's

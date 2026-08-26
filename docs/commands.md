@@ -1520,6 +1520,16 @@ answers, unusable answers are re-asked, and both declining and running out of
 input leave nothing behind. Only `tira.onboard` ever prompts — `project.new`
 is purely argument-driven so nothing automated can be left waiting on input.
 
+TKT-555: re-running `tira.onboard` against a directory that already has
+a project shows every field's current value as its default, including
+now the project-mode question (single vs chain) - `_wizard_defaults`
+previously omitted `mode` from what it returns, so that one question
+always showed a blank default even when the project had one set,
+despite the wizard's own "Editing the project already at that
+directory - press enter to keep each answer" message. Pressing enter
+on the blank default was always a no-op (never a silent reset), so this
+was a broken promise rather than a data-loss bug.
+
 TKT-517: `tira.onboard -o browser` replaces the terminal prompt with a
 disposable, no-login HTTP server (`Tira::OnboardWeb`) - one page with every
 field the wizard collects, submitted once. Defaults to `127.0.0.1` on a

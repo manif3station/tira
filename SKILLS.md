@@ -372,6 +372,16 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   Ctrl-D abandons the prompt. Away from a terminal the prompt is a plain read,
   so piping answers in behaves exactly as before.
 
+  TKT-555: `_wizard_defaults` now carries a project's existing mode
+  (single vs chain) into its returned defaults, so re-running onboarding
+  against a project already set to a mode shows it as that question's
+  default - previously the mode question always showed no default at
+  all, contradicting "press enter to keep each answer" for that one
+  question specifically (every other field's stored value was already
+  shown correctly). Not data-loss - an unanswered mode question was
+  always a no-op, never a silent reset - just a broken pre-fill promise.
+  Found during a standing 1-hourly bug hunt.
+
   `tira.onboard -o browser` — **Implemented, TKT-517.** Michael, via TODOYET:
   "Add a browser mode for tira.onboard, so there user either to answer
   questions from the CLI or they do that on the browser... No login needed

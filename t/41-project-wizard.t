@@ -224,6 +224,13 @@ like( $mode_out, qr/Answer with single or chain/,
 is( $tira->project_mode( project => $unclear ), 'chain',
     'and the answer that follows is the one that is kept' );
 
+# TKT-555: re-running onboarding against a project already set to chain
+# mode should show that as the mode question's default, the same way
+# every other field's current value is offered - _wizard_defaults must
+# actually carry it for _project_wizard's existing lookup to find it.
+is( Tira::CLI::_wizard_defaults( $tira, $unclear )->{mode}, 'chain',
+    '_wizard_defaults carries the project\'s existing mode answer' );
+
 # Flags for every question, accepted by pressing enter through the flow.
 my $filled = File::Spec->catdir( $tmp, 'filled' );
 ( $status, $out, $err ) = run_wizard( "$filled\n\n\n\n\n\n\n\n\n\ny\n",

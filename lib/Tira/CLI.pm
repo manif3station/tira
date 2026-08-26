@@ -1950,6 +1950,8 @@ sub _wizard_defaults {
     $defaults{members} = [ join ', ', @people ] if @people;
     $defaults{$_} = $project->{$_}
       for grep { defined $project->{$_} } qw(collector agent session heartbeat notify_after);
+    my $mode = eval { $tira->project_mode( project => $dir ) };
+    $defaults{mode} = $mode if defined $mode;
     my %columns;
     for my $type (qw(sow epic ticket)) {
         my $refs = eval { $tira->board_refs( project => $dir, type => $type ) };

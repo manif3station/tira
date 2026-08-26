@@ -2429,7 +2429,7 @@ embedded as raw data in the text field.
 TKT-535: the Task List section's header shows only Add and the new-task
 text input now - Unshift, Insert at position, Next, Shift, Pop, Prune
 done, and Import from card were removed from the browser entirely, not
-tucked behind a toggle. Every `tira.tasklist.*` command and its route
+tucked behind a toggle. Every tasklist CLI command and its route
 still work exactly as before; only the buttons that triggered them from
 the browser are gone. Also fixed a genuine pre-existing bug this change
 exposed in `reconcileTasklist`: nodes not kept across a refresh are now

@@ -1579,7 +1579,7 @@ new-task text input - Unshift, Insert at position, Next, Shift, Pop,
 Prune done, and Import from card were removed from the browser
 entirely, per Michael's Q-081 answer ("We only need the add button and
 a text input for new task"). Full CLI parity is unaffected: every
-`tira.tasklist.*` command still works, only the browser buttons that
+tasklist CLI command still works, only the browser buttons that
 triggered them are gone. Found and fixed a genuine pre-existing bug
 this exposed: the reconciliation that keeps an actively-edited card's
 own DOM node stable across the section's 1-second auto-refresh could

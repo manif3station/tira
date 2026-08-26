@@ -560,6 +560,7 @@ sub run {
             $onboard_browser_server->(
                 host => $browser_host, port => $browser_port, create => $create,
                 dir  => $suggested, defaults => sub { _wizard_defaults( $tira, $_[0] ) },
+                questions => $tira->onboarding_questions,
             );
             1;
         };

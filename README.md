@@ -166,7 +166,9 @@ server on `127.0.0.1` (a free port picked automatically, or
 `-o browser=127.0.0.1:PORT` for a specific one) that creates the project on
 submission and stops itself right after. Pointed at a directory that
 already has a project, the form pre-fills its current name/members/
-columns/prefixes the same way the terminal wizard does. The same thing non-interactively, for scripts: `dashboard tira.project.new
+columns/prefixes the same way the terminal wizard does, and offers every
+field the wizard's guided flow does - stuck-card minutes, agent/session/
+collector, and the project-mode question. The same thing non-interactively, for scripts: `dashboard tira.project.new
 --name "MT5" --members "K-Bot, Michael" --columns "Backlog, Planning, In
 Progress, Done / Release" --sow-prefix M5S --epic-prefix M5E --ticket-prefix
 M5T` creates the project, its people, each board's reference prefix, and the

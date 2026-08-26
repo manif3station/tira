@@ -408,6 +408,14 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   an existing project meant guessing its current values correctly or
   having the submission fail with "A different project already exists
   there."
+
+  TKT-553: the form now also offers `notify_after` (stuck-card minutes),
+  `agent`/`session`/`collector` for card-reminder setup, and one field
+  per `Tira->onboarding_questions()` entry (today, project mode - single
+  vs chain), naming its options the same way the terminal wizard does -
+  previously these four things had no equivalent in the browser form at
+  all, despite its own POD claiming full field parity with the CLI
+  wizard. Found during a standing 2-hourly improvement hunt.
 - `tira.project.show [-o FORMAT]` — **Implemented.**
 - `tira.doctor [--repair] [-o FORMAT]` — **Implemented.** Finds board files
   holding bytes that are not valid UTF-8, and says which file, which byte and at

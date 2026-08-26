@@ -18,6 +18,7 @@ our $CREATE;
 our $STOPPED = 0;
 our $DEFAULTS = sub { {} };
 our $INITIAL_DIR;
+our $QUESTIONS = [];
 
 sub _response_bytes {
     my ($content) = @_;
@@ -42,6 +43,10 @@ my @FIELDS = (
     [ epic_prefix   => 'Epic reference prefix' ],
     [ ticket_prefix => 'Ticket reference prefix' ],
     [ columns       => 'Columns, in order, comma separated' ],
+    [ notify_after  => 'Minutes before a card counts as stuck (blank for never)' ],
+    [ agent         => 'Coding agent to remind' ],
+    [ session       => 'Session id of the agent to remind' ],
+    [ collector     => 'Name for this project reminder job' ],
 );
 
 sub _render_form {
@@ -59,6 +64,13 @@ sub _render_form {
         my $value = _escape( $fields->{$name} // $default );
         qq{<label>$label <input name="$name" value="$value"></label>};
     } @FIELDS;
+    my $question_rows = join "\n", map {
+        my $question = $_;
+        my $label    = _escape( $question->{text} ) . ' (' . join( ' or ', @{ $question->{options} } ) . ')';
+        my $value    = _escape( $fields->{ $question->{id} } // '' );
+        qq{<label>$label <input name="$question->{id}" value="$value"></label>};
+    } @{$QUESTIONS};
+    $rows = join "\n", grep { length } ( $rows, $question_rows );
     return <<"HTML";
 <!doctype html>
 <html><head><meta charset="utf-8"><title>Tira - Set up a project</title></head>
@@ -115,12 +127,15 @@ sub _fields_from_defaults {
 
 sub _answers_from_params {
     my ($params) = @_;
-    my %fields = map { $_->[0] => ( $params->{ $_->[0] } // '' ) } @FIELDS;
+    my @question_ids = map { $_->{id} } @{$QUESTIONS};
+    my %fields = map { $_ => ( $params->{$_} // '' ) } ( map( { $_->[0] } @FIELDS ), @question_ids );
     my %answers = ( dir => ( $fields{dir} ne '' ? $fields{dir} : '.' ), name => $fields{name} );
     $answers{members} = [ $fields{members} ] if $fields{members} ne '';
     $answers{"${_}_prefix"} = $fields{"${_}_prefix"}
       for grep { $fields{"${_}_prefix"} ne '' } qw(sow epic ticket);
     $answers{columns} = [ $fields{columns} ] if $fields{columns} ne '';
+    $answers{$_} = $fields{$_}
+      for grep { $fields{$_} ne '' } ( qw(notify_after agent session collector), @question_ids );
     return ( \%fields, \%answers );
 }
 
@@ -154,6 +169,7 @@ sub build_psgi_app {
     $CREATE      = $args{create};
     $DEFAULTS    = ref $args{defaults} eq 'CODE' ? $args{defaults} : sub { {} };
     $INITIAL_DIR = $args{dir};
+    $QUESTIONS   = ref $args{questions} eq 'ARRAY' ? $args{questions} : [];
     $STOPPED     = 0;
     return __PACKAGE__->to_app;
 }
@@ -167,7 +183,9 @@ sub build_psgi_app {
 # is written would mean nobody ever saw it.
 sub serve {
     my ( $class, %args ) = @_;
-    my $app = $class->build_psgi_app( create => $args{create}, defaults => $args{defaults}, dir => $args{dir} );
+    my $app = $class->build_psgi_app(
+        create => $args{create}, defaults => $args{defaults}, dir => $args{dir}, questions => $args{questions},
+    );
     require Plack::Runner;
     my $runner = Plack::Runner->new;
     $runner->parse_options(
@@ -211,7 +229,11 @@ with a thank-you page. A second request after a successful creation gets a
 503 rather than a second form - the session is meant for exactly one
 submission. C<GET /> pre-fills the form from whatever project already
 exists at the given C<dir> (TKT-543), the same way the CLI wizard's own
-C<_wizard_defaults> does, via the injectable C<defaults> coderef.
+C<_wizard_defaults> does, via the injectable C<defaults> coderef. The form
+also offers C<notify_after>/C<agent>/C<session>/C<collector> and one field
+per the injectable C<questions> arrayref's entries (shaped like
+C<Tira-E<gt>onboarding_questions()>'s own return value), matching every
+field the CLI wizard's guided flow collects (TKT-553).
 
 =head1 METHODS
 
@@ -219,14 +241,16 @@ C<_wizard_defaults> does, via the injectable C<defaults> coderef.
 
 Accepts a C<create> coderef (called with a hashref of answers, expected to
 either return a project summary or die with a validation message), an
-optional C<dir> (the directory C<GET /> pre-fills from) and an optional
+optional C<dir> (the directory C<GET /> pre-fills from), an optional
 C<defaults> coderef (called with that directory, expected to return a
 hashref shaped like C<Tira::CLI::_wizard_defaults>' own return value), and
-returns the Dancer2 PSGI application.
+an optional C<questions> arrayref (shaped like
+C<Tira-E<gt>onboarding_questions()>'s own return value, one form field
+rendered per entry) - and returns the Dancer2 PSGI application.
 
 =head2 serve
 
-Runs the application using C<host>, C<port>, C<create>, C<dir>, and
+Runs the application using C<host>, C<port>, C<create>, C<dir>, C<questions>, and
 C<defaults>, on a single-process synchronous server so a successful
 submission can stop it cleanly afterwards.
 

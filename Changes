@@ -1,5 +1,18 @@
 Revision history for Tira
 
+4.26  2026-08-26
+
+    - TKT-553. The browser onboarding form now offers every field the
+      CLI wizard's guided flow does: stuck-card minutes (notify_after),
+      agent/session/collector for card-reminder setup, and one field
+      per Tira->onboarding_questions() entry (today, project mode -
+      single vs chain), naming its options the same way the terminal
+      wizard does. Previously these four things could only be set
+      through the terminal wizard or --flags on tira.onboard/
+      project.new, despite the browser form's own POD claiming full
+      field parity with the CLI wizard. Found during a standing
+      2-hourly improvement hunt.
+
 4.25  2026-08-26
 
     - TKT-543. The browser onboarding form (tira.onboard -o browser) now

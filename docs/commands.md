@@ -1547,6 +1547,16 @@ directory" behavior. Previously the browser form always started blank
 except for the hardcoded `SOW`/`EPC`/`TKT` prefix defaults, regardless of
 what was actually stored at that directory.
 
+TKT-553: the form also offers `notify_after` (stuck-card minutes),
+`agent`/`session`/`collector` (card-reminder setup), and one field per
+`Tira->onboarding_questions()` entry (today, project mode - single vs
+chain), each field naming its valid options the same way the terminal
+wizard's own prompt does. A submission carrying these reaches
+`project_new`/`onboard` the same way the CLI wizard's answers do -
+`project_mode` is set afterward only when a mode was actually submitted,
+identical to the terminal path. Previously none of these four had any
+equivalent in the browser form.
+
 `tira.project.new` bootstraps in one call what `project.create`, `project.people.add`,
 `board.refs`, and `column.add` otherwise do across dozens: it creates the project,
 adds each member, sets each board's reference prefix, and applies one shared column

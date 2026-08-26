@@ -1587,6 +1587,12 @@ still reposition (and blur) it whenever an earlier card was rebuilt in
 the same tick, because a stale replaced node was never removed before
 the reinsert pass ran.
 
+TKT-536: the Policies dialog's "decline a rule" reason field uses an
+inline capture now (input + Go, Enter submits, Escape cancels), reusing
+the pattern TKT-530 built for the Task List section - this was the last
+native `prompt()`/`alert()` left anywhere in the embedded dashboard JS.
+The 5 `confirm()` calls TKT-530 judged and kept native are unaffected.
+
 ### UC-063: Reparent epic
 **Implemented.** Linking to SOW-002 removes the reciprocal SOW-001 link atomically.
 

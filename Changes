@@ -1,5 +1,16 @@
 Revision history for Tira
 
+4.14  2026-08-26
+
+    - TKT-536. The Policies dialog's "decline a rule" reason field now
+      uses an inline capture (input + Go, Enter submits, Escape
+      cancels) instead of a blocking prompt() - reusing the pattern
+      TKT-530 already built for the Task List section. This was the
+      last native prompt()/alert() left anywhere in the embedded
+      dashboard JS; the 5 confirm() calls judged and kept native by
+      TKT-530 are unaffected. An empty reason is refused the same way
+      an empty prompt() answer was - it simply closes without posting.
+
 4.13  2026-08-26
 
     - TKT-535. The Task List section's header now shows only Add and the

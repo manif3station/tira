@@ -2437,6 +2437,15 @@ removed before the insert pass runs, so an actively-edited card's own
 node is never repositioned (and blurred) by an unrelated card being
 rebuilt earlier in the same list.
 
+TKT-536: the Policies dialog's Decline button opens an inline reason
+capture (`.policy-inline-capture`, an input plus a Go button) instead of
+a blocking `prompt()` - the last native prompt/alert in the embedded
+dashboard, in the same shape TKT-530 already proved for the Task List
+section (its own tlInlineCapture was removed with the buttons that used
+it in TKT-535; this is a fresh policyInlineCapture scoped to the policy
+editor). An empty reason closes the capture without posting, matching
+the old prompt's behavior on an empty answer.
+
 ### Warnings
 
 - `tira.warning.add --message TEXT [-o FORMAT]`

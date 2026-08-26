@@ -95,8 +95,9 @@ process.on('unhandledRejection', error => {
     return route.fulfill({ status: 200, contentType: 'text/html', body: html });
   });
 
+  let sawPromptDialog = false;
   page.on('dialog', dialog => {
-    if (dialog.type() === 'prompt') return dialog.accept('a reason typed at the prompt');
+    if (dialog.type() === 'prompt') { sawPromptDialog = true; return dialog.dismiss(); }
     return dialog.accept();
   });
 
@@ -230,15 +231,21 @@ process.on('unhandledRejection', error => {
   if (!removeCall || removeCall.payload.id !== 'POL-001') fail('editing did not remove the old declaration first');
   if (!addCall || addCall.payload.age !== '4h') fail('editing did not re-declare with the new value, got ' + JSON.stringify(addCall && addCall.payload));
 
-  // Declining a rule prompts for a reason and posts it.
+  // TKT-536: declining a rule opens an inline reason capture, not a
+  // blocking prompt(), and posts the typed reason.
   await page.locator('[data-policy-tab="undeclared"]').click();
   const stillUndeclared = await page.locator('[data-policy-pane="undeclared"] .policy-row').count();
   if (stillUndeclared !== 1) fail('expected exactly one rule left undeclared, got ' + stillUndeclared);
-  await page.locator('[data-policy-pane="undeclared"] .policy-row', { hasText: 'checklist-idle' })
-    .locator('button', { hasText: 'Decline' }).click();
+  const undeclaredRow = page.locator('[data-policy-pane="undeclared"] .policy-row', { hasText: 'checklist-idle' });
+  await undeclaredRow.locator('button', { hasText: 'Decline' }).click();
+  const declineReasonInput = undeclaredRow.locator('.policy-inline-capture input');
+  if ((await declineReasonInput.count()) !== 1) fail('clicking Decline did not open an inline reason capture');
+  await declineReasonInput.fill('a reason typed inline');
+  await declineReasonInput.press('Enter');
   await page.waitForFunction(() => document.querySelectorAll('[data-policy-pane="undeclared"] .policy-row').length === 0);
+  if (sawPromptDialog) fail('declining opened a native prompt() instead of an inline capture');
   const declineCall = posted.find(p => p.path === '/policy/decline');
-  if (!declineCall || declineCall.payload.reason !== 'a reason typed at the prompt') {
+  if (!declineCall || declineCall.payload.reason !== 'a reason typed inline') {
     fail('declining did not send the typed reason, got ' + JSON.stringify(declineCall && declineCall.payload));
   }
 

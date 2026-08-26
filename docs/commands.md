@@ -1577,6 +1577,14 @@ wizard's own prompt does. A submission carrying these reaches
 identical to the terminal path. Previously none of these four had any
 equivalent in the browser form.
 
+TKT-559: `GET /` also pre-fills those same five fields
+(`notify_after`/`agent`/`session`/`collector`/`mode`) from an existing
+project, the same way name/members/prefixes/columns already did -
+`_fields_from_defaults` was introduced by TKT-543 before these fields
+existed on the form and was never extended when TKT-553 added them, so
+re-opening the form against an existing project silently showed them
+blank even though `_wizard_defaults` already returned the data.
+
 `tira.project.new` bootstraps in one call what `project.create`, `project.people.add`,
 `board.refs`, and `column.add` otherwise do across dozens: it creates the project,
 adds each member, sets each board's reference prefix, and applies one shared column

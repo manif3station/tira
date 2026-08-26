@@ -1,5 +1,15 @@
 Revision history for Tira
 
+4.32  2026-08-26
+
+    - TKT-559. The browser onboarding form's GET / now pre-fills
+      notify_after/agent/session/collector and every onboarding
+      question (today, mode) from an existing project's stored values,
+      the same way name/members/prefixes/columns already did -
+      _fields_from_defaults (introduced by TKT-543, never updated when
+      TKT-553 added these five fields to the form) now copies all of
+      them. Found during a standing 1-hourly bug hunt.
+
 4.31  2026-08-26
 
     - TKT-558. Tira::DashboardWeb's build_psgi_app POD now names every

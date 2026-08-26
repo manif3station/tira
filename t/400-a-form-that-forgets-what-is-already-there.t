@@ -46,6 +46,33 @@ test_psgi $app, sub {
     like( $form->content, qr/value="[^"]*todo, doing, done[^"]*"/, 'pre-fills the existing columns' );
 };
 
+$tira->person_add( project => $root, id => 'claude', name => 'Claude' );
+$tira->project_update(
+    project => $root, notify_after => 45, agent => 'claude', session => 'zen-session',
+    collector => 'zen-reminders',
+);
+$tira->project_mode( project => $root, mode => 'chain' );
+
+my $app_full = Tira::OnboardWeb->build_psgi_app(
+    create   => sub { die "not used in this test\n" },
+    dir      => $root,
+    defaults => sub { Tira::CLI::_wizard_defaults( $tira, $_[0] ) },
+    questions => $tira->onboarding_questions,
+);
+test_psgi $app_full, sub {
+    my ($http) = @_;
+
+    # TKT-559: name/members/prefixes/columns already pre-fill (TKT-543) -
+    # notify_after/agent/session/collector/mode never did, despite
+    # _wizard_defaults already returning all five.
+    my $form = $http->( GET '/' );
+    like( $form->content, qr/name="notify_after" value="45"/, 'pre-fills the existing stuck-minutes setting' );
+    like( $form->content, qr/name="agent" value="claude"/, 'pre-fills the existing agent' );
+    like( $form->content, qr/name="session" value="zen-session"/, 'pre-fills the existing session' );
+    like( $form->content, qr/name="collector" value="zen-reminders"/, 'pre-fills the existing collector' );
+    like( $form->content, qr/name="mode" value="chain"/, 'pre-fills the existing onboarding question answer (mode)' );
+};
+
 my $app_no_defaults = Tira::OnboardWeb->build_psgi_app(
     create => sub { die "not used in this test\n" }, dir => $root,
 );

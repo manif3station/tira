@@ -435,6 +435,14 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   previously these four things had no equivalent in the browser form at
   all, despite its own POD claiming full field parity with the CLI
   wizard. Found during a standing 2-hourly improvement hunt.
+
+  TKT-559: `GET /` now pre-fills `notify_after`/`agent`/`session`/
+  `collector` and every onboarding question (today, `mode`) from an
+  existing project too, the same way name/members/prefixes/columns
+  already did - `_fields_from_defaults` (introduced by TKT-543) was
+  never updated when TKT-553 added these five fields to the form, so
+  they silently stayed blank on re-open even though `_wizard_defaults`
+  already had the data. Found during a standing 1-hourly bug hunt.
 - `tira.project.show [-o FORMAT]` — **Implemented.**
 - `tira.doctor [--repair] [-o FORMAT]` — **Implemented.** Finds board files
   holding bytes that are not valid UTF-8, and says which file, which byte and at

@@ -122,6 +122,8 @@ sub _fields_from_defaults {
     $fields{"${_}_prefix"} = $defaults->{"${_}_prefix"}
       for grep { defined $defaults->{"${_}_prefix"} } qw(sow epic ticket);
     $fields{columns} = $defaults->{columns}[0] if $defaults->{columns};
+    $fields{$_} = $defaults->{$_}
+      for grep { defined $defaults->{$_} } ( qw(notify_after agent session collector), map { $_->{id} } @{$QUESTIONS} );
     return \%fields;
 }
 

@@ -16,6 +16,8 @@ use Dancer2 appname => 'TiraOnboard';
 # are globals too.
 our $CREATE;
 our $STOPPED = 0;
+our $DEFAULTS = sub { {} };
+our $INITIAL_DIR;
 
 sub _response_bytes {
     my ($content) = @_;
@@ -96,6 +98,21 @@ sub _stopped_response {
     return _response_bytes("This onboarding session has already finished.\n");
 }
 
+# Mirrors _wizard_defaults' shape (arrayref members/columns, matching what
+# _answers_from_params itself produces) back into the flat strings the form's
+# text inputs render, the same conversion _project_wizard does implicitly by
+# offering each stored value as an _ask() default.
+sub _fields_from_defaults {
+    my ($defaults) = @_;
+    my %fields;
+    $fields{name}    = $defaults->{name}    if defined $defaults->{name};
+    $fields{members} = $defaults->{members}[0] if $defaults->{members};
+    $fields{"${_}_prefix"} = $defaults->{"${_}_prefix"}
+      for grep { defined $defaults->{"${_}_prefix"} } qw(sow epic ticket);
+    $fields{columns} = $defaults->{columns}[0] if $defaults->{columns};
+    return \%fields;
+}
+
 sub _answers_from_params {
     my ($params) = @_;
     my %fields = map { $_->[0] => ( $params->{ $_->[0] } // '' ) } @FIELDS;
@@ -110,7 +127,10 @@ sub _answers_from_params {
 get '/' => sub {
     return _stopped_response() if $STOPPED;
     content_type 'text/html; charset=UTF-8';
-    return _response_bytes( _render_form() );
+    my $dir = scalar( params->{dir} ) || $INITIAL_DIR;
+    my $fields = defined $dir ? _fields_from_defaults( eval { $DEFAULTS->($dir) } || {} ) : {};
+    $fields->{dir} = $dir if defined $dir;
+    return _response_bytes( _render_form( fields => $fields ) );
 };
 
 post '/' => sub {
@@ -131,8 +151,10 @@ post '/' => sub {
 sub build_psgi_app {
     my ( $class, %args ) = @_;
     die "Onboarding needs a create provider\n" if ref $args{create} ne 'CODE';
-    $CREATE   = $args{create};
-    $STOPPED  = 0;
+    $CREATE      = $args{create};
+    $DEFAULTS    = ref $args{defaults} eq 'CODE' ? $args{defaults} : sub { {} };
+    $INITIAL_DIR = $args{dir};
+    $STOPPED     = 0;
     return __PACKAGE__->to_app;
 }
 
@@ -145,7 +167,7 @@ sub build_psgi_app {
 # is written would mean nobody ever saw it.
 sub serve {
     my ( $class, %args ) = @_;
-    my $app = $class->build_psgi_app( create => $args{create} );
+    my $app = $class->build_psgi_app( create => $args{create}, defaults => $args{defaults}, dir => $args{dir} );
     require Plack::Runner;
     my $runner = Plack::Runner->new;
     $runner->parse_options(
@@ -187,20 +209,25 @@ creates the project through the same C<create> provider the CLI's onboarding
 command already reaches (C<_invoke> for the C<onboard> command), and answers
 with a thank-you page. A second request after a successful creation gets a
 503 rather than a second form - the session is meant for exactly one
-submission.
+submission. C<GET /> pre-fills the form from whatever project already
+exists at the given C<dir> (TKT-543), the same way the CLI wizard's own
+C<_wizard_defaults> does, via the injectable C<defaults> coderef.
 
 =head1 METHODS
 
 =head2 build_psgi_app
 
 Accepts a C<create> coderef (called with a hashref of answers, expected to
-either return a project summary or die with a validation message) and
+either return a project summary or die with a validation message), an
+optional C<dir> (the directory C<GET /> pre-fills from) and an optional
+C<defaults> coderef (called with that directory, expected to return a
+hashref shaped like C<Tira::CLI::_wizard_defaults>' own return value), and
 returns the Dancer2 PSGI application.
 
 =head2 serve
 
-Runs the application using C<host>, C<port>, and C<create>, on a single-
-process synchronous server so a successful submission can stop it cleanly
-afterwards.
+Runs the application using C<host>, C<port>, C<create>, C<dir>, and
+C<defaults>, on a single-process synchronous server so a successful
+submission can stop it cleanly afterwards.
 
 =cut

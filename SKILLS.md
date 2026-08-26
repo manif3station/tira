@@ -399,6 +399,15 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   whole network would be a genuinely unauthenticated project-creation
   endpoint. `127.0.0.1`/`localhost`/the plain default are unaffected;
   `tira.dashboard`'s own `0.0.0.0` mode stays login-gated and untouched.
+
+  TKT-543: `GET /` now pre-fills name/members/columns/prefixes from an
+  existing project at the directory it was pointed at, reusing the exact
+  same `_wizard_defaults` the CLI wizard already relies on rather than
+  duplicating the lookup - previously the browser form always started
+  blank except for hardcoded `SOW`/`EPC`/`TKT` prefix defaults, so editing
+  an existing project meant guessing its current values correctly or
+  having the submission fail with "A different project already exists
+  there."
 - `tira.project.show [-o FORMAT]` — **Implemented.**
 - `tira.doctor [--repair] [-o FORMAT]` — **Implemented.** Finds board files
   holding bytes that are not valid UTF-8, and says which file, which byte and at

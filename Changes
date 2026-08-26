@@ -1,5 +1,15 @@
 Revision history for Tira
 
+4.25  2026-08-26
+
+    - TKT-543. The browser onboarding form (tira.onboard -o browser) now
+      pre-fills name/members/columns/prefixes from an existing project
+      at the submitted directory, the same way the CLI wizard already
+      does via _wizard_defaults - previously the browser form always
+      started blank except for hardcoded SOW/EPC/TKT prefix defaults,
+      so re-running it against an existing project meant guessing its
+      current values or having the submission fail.
+
 4.24  2026-08-26
 
     - TKT-549. The Task List section's header has a Prune button again,

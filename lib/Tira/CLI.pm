@@ -550,8 +550,17 @@ sub run {
             my %merged = ( %option, %{$fields} );
             return _invoke( $tira, 'onboard', undef, \%merged );
         };
+        # Same pre-fill the CLI wizard gives itself (_wizard_defaults) - the
+        # browser form gets the identical suggested directory and defaults
+        # lookup so editing an existing project is just as safe here.
+        my $suggested = $option{dir}
+          // eval { $tira->discover_project( defined $option{project} ? ( project => $option{project} ) : () ) }
+          // '.';
         my $served = eval {
-            $onboard_browser_server->( host => $browser_host, port => $browser_port, create => $create );
+            $onboard_browser_server->(
+                host => $browser_host, port => $browser_port, create => $create,
+                dir  => $suggested, defaults => sub { _wizard_defaults( $tira, $_[0] ) },
+            );
             1;
         };
         return _error( $tira, 'toon', $@ || 'Unable to serve the onboarding session' ) if !$served;

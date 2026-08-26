@@ -1539,6 +1539,14 @@ project-creation endpoint. `127.0.0.1`, `localhost`, and the plain default
 are unaffected; `tira.dashboard`'s own `0.0.0.0` mode is a separate code
 path and stays login-gated as before.
 
+TKT-543: the form's initial `GET /` now pre-fills name/members/columns/
+prefixes from whatever project already exists at the directory it starts
+on, reusing the CLI wizard's own `_wizard_defaults` rather than a second
+lookup - matching the CLI path's "Editing the project already at that
+directory" behavior. Previously the browser form always started blank
+except for the hardcoded `SOW`/`EPC`/`TKT` prefix defaults, regardless of
+what was actually stored at that directory.
+
 `tira.project.new` bootstraps in one call what `project.create`, `project.people.add`,
 `board.refs`, and `column.add` otherwise do across dozens: it creates the project,
 adds each member, sets each board's reference prefix, and applies one shared column

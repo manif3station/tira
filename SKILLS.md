@@ -391,6 +391,13 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   only ever adds columns, never removes any - the same broken-pre-fill-
   promise class as TKT-555. Found during a standing 1-hourly bug hunt.
 
+  TKT-560: the wizard's "Which coding agent should be reminded" question
+  no longer refuses anything but the literal string `claude` -
+  `project_update`'s own agent handling was already generalized by
+  TKT-459 to accept any registered, active person (its own example:
+  `zenbot`), but this interactive question was never updated to match.
+  Found during a standing 1-hourly bug hunt.
+
   `tira.onboard -o browser` — **Implemented, TKT-517.** Michael, via TODOYET:
   "Add a browser mode for tira.onboard, so there user either to answer
   questions from the CLI or they do that on the browser... No login needed

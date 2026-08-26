@@ -1540,6 +1540,15 @@ ever adds columns that do not already exist, so answering the wrong
 branch previously would have added unwanted columns, not removed real
 per-board ones.
 
+TKT-560: the wizard's "Which coding agent should be reminded" question
+no longer refuses any answer but the literal string `claude` -
+`project_update`'s own agent handling (used by both `project.update
+--agent` and `tira.onboard`/`project.new`, since they route through it)
+already accepts any registered, active person, per TKT-459 - so a
+project whose agent genuinely is not named `claude` can now declare it
+interactively too, matching what scripted `--agent` use already
+supported.
+
 TKT-517: `tira.onboard -o browser` replaces the terminal prompt with a
 disposable, no-login HTTP server (`Tira::OnboardWeb`) - one page with every
 field the wizard collects, submitted once. Defaults to `127.0.0.1` on a

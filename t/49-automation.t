@@ -170,7 +170,6 @@ soon
 0
 90
 codex
-claude
 has space
 sess1
 Not A Slug
@@ -180,11 +179,11 @@ y
 ANSWERS
 is( $status, 0, 'the flow survives a bad answer to every new question' );
 like( $out, qr/positive number of minutes/, 'a threshold that is not a number explains itself' );
-like( $out, qr/only coding agent supported today is claude/, 'so does an unsupported agent' );
 like( $out, qr/session id is letters/, 'so does a malformed session id' );
 like( $out, qr/lowercase letters, digits and hyphens/, 'so does a collector name that is not a slug' );
 my $corrected = $tira->project_show( project => $picky );
 is( $corrected->{notify_after}, 90, 'and the corrected threshold is what is stored' );
+is( $corrected->{agent}, 'codex', 'a non-claude agent answer is accepted outright, no retry needed (TKT-560)' );
 is( $corrected->{session}, 'sess1', 'and the corrected session id' );
 is( $corrected->{collector}, 'good-slug', 'and the corrected collector name' );
 is( $corrected->{heartbeat}, 90, 'and the heartbeat that followed the corrected threshold' );

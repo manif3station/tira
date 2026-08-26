@@ -1,5 +1,16 @@
 Revision history for Tira
 
+4.33  2026-08-26
+
+    - TKT-560. The onboarding wizard's "Which coding agent should be
+      reminded" question no longer refuses anything but the literal
+      string "claude" - TKT-459 already generalized project_update's
+      own agent handling to accept any registered, active person (its
+      own example: "zenbot"), but the wizard's interactive question was
+      never updated to match, so a project whose agent genuinely was
+      not named "claude" could not declare it interactively despite the
+      engine supporting it. Found during a standing 1-hourly bug hunt.
+
 4.32  2026-08-26
 
     - TKT-559. The browser onboarding form's GET / now pre-fills

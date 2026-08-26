@@ -311,6 +311,45 @@ ANSWERS
     is( scalar @{ Tira->new->person_list( project => $nobody ) }, 0, 'and adds nobody' );
 }
 
+# TKT-560: TKT-459 already relaxed project_update's own agent validation to
+# accept any registered, active person - not only literally 'claude' - so a
+# project whose agent is genuinely someone else (its own example: 'zenbot')
+# can declare it. The wizard's interactive question was never updated to
+# match and still hardcodes a claude-only refusal.
+{
+    my $zen = File::Spec->catdir( $tmp, 'zenbot-agent' );
+    my ( $out, $err ) = ( '', '' );
+    open my $stdout, '>', \$out or die $!;
+    open my $stderr, '>', \$err or die $!;
+    local *STDOUT = $stdout;
+    local *STDERR = $stderr;
+    no warnings 'redefine';
+    local *Tira::CLI::_agent_available = sub { 1 };
+    my $status = Tira::CLI->run(
+        command => 'onboard', argv => [ '-o', 'json' ], input => answers(<<"ANSWERS"),
+$zen
+Zenbot Agent
+ada, zenbot
+ZAS
+ZAE
+ZAT
+y
+Doing
+
+zenbot
+
+
+single
+y
+ANSWERS
+    );
+    is( $status, 0, 'the wizard accepts a non-claude agent that is a registered person' );
+    unlike( $out, qr/only coding agent supported today is claude/i,
+        'and never claims only claude is supported' );
+    is( Tira->new->project_show( project => $zen )->{agent}, 'zenbot',
+        'and the non-claude agent is actually recorded' );
+}
+
 # Project.new itself must never prompt: it is what scripts and agents call.
 ( my $bare_status, $out, $err ) = do {
     my ( $o, $e ) = ( '', '' );

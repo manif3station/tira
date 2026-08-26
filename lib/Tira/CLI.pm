@@ -2075,16 +2075,14 @@ sub _project_wizard {
     # With no coding agent installed there is nothing to configure and nothing
     # that could deliver, so none of this is asked.
     if ( _agent_available('claude') ) {
-        while (1) {
-            my $agent = _ask( $in, 'Which coding agent should be reminded', $default->{agent} // 'claude' );
-            return ( undef, 2 ) if !defined $agent;
-            if ( $agent ne 'claude' ) {
-                print "  The only coding agent supported today is claude.\n";
-                next;
-            }
-            $answers{agent} = $agent;
-            last;
-        }
+        # TKT-459 already made project_update accept any registered, active
+        # person as the agent - not only literally 'claude' - so a project
+        # whose agent is genuinely someone else (its own example: 'zenbot')
+        # can declare it here too. TKT-560: this question used to refuse
+        # anything but 'claude', stale since that engine change shipped.
+        my $agent = _ask( $in, 'Which coding agent should be reminded', $default->{agent} // 'claude' );
+        return ( undef, 2 ) if !defined $agent;
+        $answers{agent} = $agent if $agent ne '';
         while (1) {
             my $session = _ask( $in, 'Session id of the agent to remind', $default->{session} );
             return ( undef, 2 ) if !defined $session;

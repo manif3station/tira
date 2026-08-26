@@ -1,5 +1,16 @@
 Revision history for Tira
 
+4.17  2026-08-26
+
+    - TKT-539. tira.tasklist.list --all-sessions is a new, explicit
+      opt-in that returns every item across every session, each still
+      labeled with its own session field - the default (no flag)
+      behavior is completely unchanged. Restores the one legitimate use
+      case TKT-537/538 otherwise closed off entirely: a supervising
+      agent checking on several subagents' tasklists without already
+      knowing each one's session id. Self-found immediately after
+      shipping those two fixes.
+
 4.16  2026-08-26
 
     - TKT-538. Every tasklist mutation command (update, remove,

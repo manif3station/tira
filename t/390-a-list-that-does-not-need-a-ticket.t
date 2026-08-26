@@ -74,6 +74,20 @@ is( $for_b->[0]{id}, $theirs->{id}, 'the one it added' );
 my $shared_again = $tira->tasklist_list( project => $root );
 is( scalar @{$shared_again}, 1, 'the shared (no-session) list still shows only the shared item' );
 
+# --- TKT-539: a deliberate, explicit opt-in shows every session's items ----
+# together, for a supervising agent that needs to check on several
+# subagents without already knowing each one's session id.
+my $everything = $tira->tasklist_list( project => $root, all_sessions => 1 );
+is( scalar @{$everything}, 3, '--all-sessions returns every item across every session' );
+my %by_session = map { $_->{session} => $_->{id} } @{$everything};
+is( $by_session{'agent-a'}, $mine->{id}, 'agent-a\'s item is included, labeled with its own session' );
+is( $by_session{'agent-b'}, $theirs->{id}, 'and agent-b\'s item, labeled with its own session' );
+is( $by_session{''}, $added->{id}, 'and the shared item, labeled with an empty session' );
+
+my ( $all_status, $all_out ) = cli( 'tasklist.list', '--all-sessions', '-o', 'json' );
+is( $all_status, 0, 'tasklist.list --all-sessions dispatches' );
+is( scalar @{ decode_json($all_out) }, 3, 'and returns every session\'s items via the CLI too' );
+
 # --- an item can link to existing cards -------------------------------------
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Linked card' );
 my $linked = $tira->tasklist_add( project => $root, text => 'Step tied to a ticket', refs => [ $card->{ref} ] );

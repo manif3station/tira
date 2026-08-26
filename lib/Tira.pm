@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.16';
+our $VERSION = '4.17';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1320,9 +1320,16 @@ sub _tasklist_sort_items {
 
 sub tasklist_list {
     my ( $self, %args ) = @_;
-    my $root = $self->discover_project(%args);
-    my $session = _tasklist_session(%args);
-    my @mine = grep { ( $_->{session} // '' ) eq $session } @{ $self->_tasklist_read($root) };
+    my $root  = $self->discover_project(%args);
+    my $items = $self->_tasklist_read($root);
+
+    # TKT-539: a deliberate, explicit opt-in for the one legitimate need
+    # TKT-537/538 otherwise closed off - a supervising agent checking on
+    # several subagents' tasklists without already knowing each one's
+    # session id. Every other tasklist read/write stays single-session.
+    my @mine = $args{all_sessions}
+      ? @{$items}
+      : grep { ( $_->{session} // '' ) eq _tasklist_session(%args) } @{$items};
     return _tasklist_sort_items( \@mine, $args{sort} // 'last_updated:desc,status:asc' );
 }
 

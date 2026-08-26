@@ -2334,10 +2334,16 @@ has to run a migration by hand.
 - `tira.tasklist.add --text TEXT [--session ID] [--ref REF ...] [--attach FILE ...] [-o FORMAT]`
   - `--attach` is repeatable and content-addressed, the same store record
     attachments already use.
-- `tira.tasklist.list [--session ID] [--sort FIELD:DIR[,FIELD:DIR...]] [-o FORMAT]`
+- `tira.tasklist.list [--session ID] [--all-sessions] [--sort FIELD:DIR[,FIELD:DIR...]] [-o FORMAT]`
   - defaults to `last_updated:desc,status:asc` when `--sort` is omitted.
     Sortable fields: `status`, `order` (numeric), and any other stored field
     (string comparison) such as `text`, `created_at`, `last_updated`.
+  - `--all-sessions` (TKT-539) is a deliberate opt-in that returns every
+    item across every session instead of just the caller's own, each item
+    still carrying its own `session` field - for a supervising agent
+    checking on several subagents without already knowing each one's
+    session id. Ignored/unaffected when not given; `--session` still wins
+    when both would otherwise apply.
 - `tira.tasklist.update --id ID [--status pending|working|done|0|1|2] [--text TEXT] [--session ID] [-o FORMAT]` -
   at least one of `--status`/`--text` is required; either given alone leaves
   the other field as it was. TKT-523.

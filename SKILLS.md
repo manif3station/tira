@@ -1581,6 +1581,13 @@ silently edit or permanently delete another session's private item just
 by guessing its id, a materially worse version of TKT-537's read-only
 gap. Self-found and reproduced directly while fixing TKT-537.
 
+TKT-539: `tasklist.list --all-sessions` is a new, explicit opt-in that
+returns every item across every session, each still labeled with its
+own session field - the default (no flag) behavior is unchanged.
+Restores the one legitimate use TKT-537/538 otherwise closed off
+entirely: a supervising agent checking on several subagents' tasklists
+without already knowing each one's session id.
+
 TKT-534: a tasklist card's inline text edit is a dynamic-sizing textarea
 now, not a single-line input - it grows as multi-line text is typed
 (Shift+Enter for a newline; plain Enter still saves, unchanged).

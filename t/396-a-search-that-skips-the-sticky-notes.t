@@ -48,6 +48,21 @@ is_deeply(
     [ sort @{ $tira->search( project => $root, text => 'Unrelated', tasklist => 1, refs_only => 1 ) } ],
     [ $ticket->{ref} ], 'existing sow/epic/ticket matches are unaffected by --tasklist' );
 
+# TKT-537: a tasklist item's --session privacy (TKT-505) is not privacy at
+# all if a search from a different session can still surface it.
+my $private_a = $tira->tasklist_add( project => $root, text => 'agent-a private laundry list', session => 'agent-a' );
+my $private_b = $tira->tasklist_add( project => $root, text => 'agent-b private laundry list', session => 'agent-b' );
+
+is_deeply(
+    $tira->search( project => $root, text => 'private laundry', tasklist => 1, refs_only => 1, session => 'agent-a' ),
+    [ $private_a->{id} ],
+    'searching under session agent-a only finds agent-a\'s own tasklist item, not agent-b\'s' );
+
+is_deeply(
+    $tira->search( project => $root, text => 'private laundry', tasklist => 1, refs_only => 1, session => 'agent-b' ),
+    [ $private_b->{id} ],
+    'and searching under session agent-b only finds agent-b\'s own item' );
+
 done_testing;
 
 __END__

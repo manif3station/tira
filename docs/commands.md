@@ -1948,7 +1948,9 @@ output prints a bare number or one ref per line for direct shell use.
 TKT-533: `tira.search --tasklist` also matches a tasklist item's text, id, or
 a linked ref - opt-in only, so a plain `tira.search` is unaffected. A
 tasklist item never carries a `column`; it appears in results (and in
-`--refs-only` output) addressed by its own `TSK-NNN` id.
+`--refs-only` output) addressed by its own `TSK-NNN` id. Matching is scoped
+to the caller's own `--session` (TKT-537) exactly as `tasklist.list` is - a
+search under one session cannot surface another session's private item.
 
 Records expose a computed `content_hash` through field selection: an opaque
 stable token over every meaningful field including placement, excluding

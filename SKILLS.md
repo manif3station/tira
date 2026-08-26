@@ -1564,6 +1564,13 @@ unaffected. Previously `search()` only ever walked the sow/epic/ticket
 boards, leaving a tasklist item invisible to it regardless of how
 distinctive its text was.
 
+TKT-537: `--tasklist` matching is scoped to the caller's own `--session`
+now, the same way `tasklist.list` already is - self-found and fixed
+immediately after TKT-533 shipped: a search run under one session could
+otherwise surface another session's private tasklist item just by
+matching its text, id, or a linked ref, defeating the per-agent privacy
+`--session` exists for.
+
 TKT-534: a tasklist card's inline text edit is a dynamic-sizing textarea
 now, not a single-line input - it grows as multi-line text is typed
 (Shift+Enter for a newline; plain Enter still saves, unchanged).

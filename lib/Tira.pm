@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.14';
+our $VERSION = '4.15';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4974,11 +4974,13 @@ sub search {
     # own text, id, and whatever refs it has been linked to.
     if ( $include_tasklist && defined $args{text} && length $args{text} ) {
         my $root = $self->discover_project(%args);
+        my $session = _tasklist_session(%args);
         my $needle = lc $args{text};
         my @task_hits = grep {
-            lc( $_->{text} // '' ) =~ /\Q$needle\E/
-              || lc( $_->{id} // '' ) =~ /\Q$needle\E/
-              || grep { lc($_) =~ /\Q$needle\E/ } @{ $_->{refs} // [] }
+            ( $_->{session} // '' ) eq $session
+              && ( lc( $_->{text} // '' ) =~ /\Q$needle\E/
+                || lc( $_->{id} // '' ) =~ /\Q$needle\E/
+                || grep { lc($_) =~ /\Q$needle\E/ } @{ $_->{refs} // [] } )
         } @{ $self->_tasklist_read($root) };
         push @{$hits}, map { { ref => $_->{id}, type => 'tasklist', text => $_->{text} } } @task_hits;
     }

@@ -413,6 +413,28 @@ for my $rel (
     ok( -f $rel, "$rel exists at the DD-required nested path" );
 }
 
+# --- TKT-563: tasklist.next --ref narrows to items linked to one or more
+# specific cards, Michael's own words: "Get the next task specific from a
+# single or multiple card." -------------------------------------------------
+{
+    my $unlinked  = $tira->tasklist_add( project => $root, text => 'Unlinked one', session => 'byref' );
+    my $for_x     = $tira->tasklist_add( project => $root, text => 'For X', session => 'byref', refs => ['TKT-900'] );
+    my $for_y     = $tira->tasklist_add( project => $root, text => 'For Y', session => 'byref', refs => ['TKT-901'] );
+
+    is( $tira->tasklist_next( project => $root, session => 'byref' )->{id}, $unlinked->{id},
+        'with no refs filter, next is still the globally-next pending item' );
+    is( $tira->tasklist_next( project => $root, session => 'byref', refs => ['TKT-900'] )->{id}, $for_x->{id},
+        'a single --ref narrows next to the item linked to that card' );
+    is( $tira->tasklist_next( project => $root, session => 'byref', refs => ['TKT-901', 'TKT-900'] )->{id}, $for_x->{id},
+        'several refs narrow next to whichever pending item is linked to any of them, in order' );
+    is( $tira->tasklist_next( project => $root, session => 'byref', refs => ['TKT-999'] ), undef,
+        'a ref nothing is linked to returns undef, not the wrong item' );
+
+    my ( $status, $out ) = cli( 'tasklist.next', '--session', 'byref', '--ref', 'TKT-901', '-o', 'json' );
+    is( $status, 0, 'tasklist.next --ref succeeds from the CLI' );
+    is( decode_json($out)->{id}, $for_y->{id}, 'and returns the item linked to that ref' );
+}
+
 done_testing;
 
 __END__

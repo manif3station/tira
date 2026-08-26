@@ -2415,8 +2415,14 @@ has to run a migration by hand.
 The queue is treated like an array list, his words - every array function
 applies, scoped the same way `--session`/env-var fallback already work:
 
-- `tira.tasklist.next [--session ID] [-o FORMAT]` - peek at the front of the
-  pending queue, without removing it. Returns nothing if the queue is empty.
+- `tira.tasklist.next [--session ID] [--ref REF ...] [-o FORMAT]` - peek at
+  the front of the pending queue, without removing it. Returns nothing if
+  the queue is empty. TKT-563: given one or more `--ref`, narrows to the
+  next pending item linked to any of them instead of the queue's own front
+  - Michael's own words, "Get the next task specific from a single or
+  multiple card." `tasklist.next` is named alongside `record.show` as the
+  only two commands the pre-existing "Multiple refs are only available on
+  show" guard allows more than one `--ref` on.
 - `tira.tasklist.shift [--session ID] [-o FORMAT]` - FIFO pop: return and
   remove the front of the pending queue.
 - `tira.tasklist.pop [--session ID] [-o FORMAT]` - LIFO pop: return and

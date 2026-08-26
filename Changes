@@ -1,5 +1,14 @@
 Revision history for Tira
 
+4.34  2026-08-26
+
+    - TKT-563. tira.tasklist.next now accepts an optional, repeatable
+      --ref: given, it narrows to the next pending item linked to any of
+      the given cards, instead of always answering the session's
+      globally-next pending item. Michael's own words, given live: "Get
+      the next task specific from a single or multiple card." Omitted,
+      behavior is unchanged.
+
 4.33  2026-08-26
 
     - TKT-560. The onboarding wizard's "Which coding agent should be

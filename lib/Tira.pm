@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.33';
+our $VERSION = '4.34';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1438,7 +1438,9 @@ sub tasklist_next {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
     my $session = _tasklist_session(%args);
+    my %wanted_ref = map { $_ => 1 } @{ $args{refs} // [] };
     my @pending = sort { $a->{order} <=> $b->{order} }
+      grep { !%wanted_ref || grep { $wanted_ref{$_} } @{ $_->{refs} // [] } }
       grep { ( $_->{session} // '' ) eq $session && ( ( $_->{status} // -1 ) == 0 ) }
       @{ $self->_tasklist_read($root) };
     return $pending[0];
@@ -12957,6 +12959,9 @@ Moves a task-list item between C<pending>, C<working>, and C<done>, and/or repla
 =head2 tasklist_next
 
 Peeks at the front of the session's pending queue, without removing it.
+Given C<refs> (TKT-563), narrows to the next pending item linked to any of
+those card references instead of the queue's own front; omitted, the whole
+pending queue is considered, as before.
 
 =head2 tasklist_shift
 

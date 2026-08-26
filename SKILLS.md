@@ -1709,6 +1709,15 @@ closing the gap `--all-sessions` left open: it proved cross-session
 visibility, but a supervisor still had to hand-dedupe the dump to find
 out which sessions existed at all.
 
+TKT-563: `tasklist.next --ref REF` (repeatable) narrows to the next
+pending item linked to any of the given cards, instead of always
+answering the session's globally-next pending item - Michael's own
+words, given live: "Get the next task specific from a single or
+multiple card." Omitted, behavior is unchanged. The pre-existing
+"Multiple refs are only available on show" guard now names
+`tasklist.next` alongside `record.show` as the two commands allowed
+more than one `--ref`.
+
 TKT-544: `lib/Tira.pm`'s own POD for `tasklist_list`, `tasklist_update`,
 `tasklist_remove`, and the four `tasklist_task_*` sub-verbs now describes
 their actual session behavior - TKT-538's session enforcement and TKT-539's

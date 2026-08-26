@@ -2584,7 +2584,7 @@ sub _invoke {
         defined $option->{refs} ? ( split /,/, $option->{refs} ) : (),
     );
     if (@batch_refs) {
-        die "Multiple refs are only available on show\n" if $command !~ /\Arecord\.show\z/;
+        die "Multiple refs are only available on show\n" if $command !~ /\A(?:record\.show|tasklist\.next)\z/;
         die "Conditional reads do not batch; poll with export --fields ref,content_hash instead\n"
           if defined $option->{if_changed};
         @batch_refs = ( @{ $option->{ref_list} // [] }, @batch_refs )
@@ -3295,7 +3295,8 @@ sub _invoke {
     return $tira->tasklist_update(%args) if $command eq 'tasklist.update';
 
     # TKT-507: array-list operations on the tasklist queue.
-    return $tira->tasklist_next(%args) if $command eq 'tasklist.next';
+    return $tira->tasklist_next( %args, refs => $option->{ref_list} // [] )
+      if $command eq 'tasklist.next';
     return $tira->tasklist_shift(%args) if $command eq 'tasklist.shift';
     return $tira->tasklist_pop(%args) if $command eq 'tasklist.pop';
     return $tira->tasklist_unshift( %args, refs => $option->{ref_list} // [] )

@@ -246,8 +246,8 @@ isnt( $status, 0, 'tasklist.update refuses with neither --status nor --text' );
     my $p1 = $tira->tasklist_add( project => $root, text => 'stays pending', session => 'prune' );
     my $p2 = $tira->tasklist_add( project => $root, text => 'finishes', session => 'prune' );
     my $p3 = $tira->tasklist_add( project => $root, text => 'also finishes', session => 'prune' );
-    $tira->tasklist_update( project => $root, id => $p2->{id}, status => 'done' );
-    $tira->tasklist_update( project => $root, id => $p3->{id}, status => 'done' );
+    $tira->tasklist_update( project => $root, id => $p2->{id}, status => 'done', session => 'prune' );
+    $tira->tasklist_update( project => $root, id => $p3->{id}, status => 'done', session => 'prune' );
 
     my $pruned = $tira->tasklist_prune( project => $root, session => 'prune' );
     is( scalar @{$pruned}, 2, 'prune reports the two done items it removed' );
@@ -310,12 +310,12 @@ isnt( $status, 0, 'tasklist.update refuses with neither --status nor --text' );
     my $file_c = File::Spec->catfile( $tmp, 'c.txt' );
     open my $fc, '>', $file_c or die $!; print {$fc} 'C'; close $fc;
     my $more = $tira->tasklist_task_attach_add(
-        project => $root, id => $attached->{id}, files => [$file_c],
+        project => $root, id => $attached->{id}, files => [$file_c], session => 'attach',
     );
     is( scalar @{ $more->{attachments} }, 3, 'task.attach.add adds a third attachment to an existing item' );
 
     my $fewer = $tira->tasklist_task_attach_discard(
-        project => $root, id => $attached->{id}, files => ['a.txt'],
+        project => $root, id => $attached->{id}, files => ['a.txt'], session => 'attach',
     );
     is( scalar @{ $fewer->{attachments} }, 2, 'task.attach.discard removes one by name' );
     ok( !( grep { $_->{original_filename} eq 'a.txt' } @{ $fewer->{attachments} } ),
@@ -324,12 +324,12 @@ isnt( $status, 0, 'tasklist.update refuses with neither --status nor --text' );
     my $card_x = $tira->create_record( project => $root, type => 'ticket', title => 'X' );
     my $card_y = $tira->create_record( project => $root, type => 'ticket', title => 'Y' );
     my $linked = $tira->tasklist_task_ref_link(
-        project => $root, id => $attached->{id}, refs => [ $card_x->{ref}, $card_y->{ref} ],
+        project => $root, id => $attached->{id}, refs => [ $card_x->{ref}, $card_y->{ref} ], session => 'attach',
     );
     is( scalar @{ $linked->{refs} }, 2, 'task.ref.link adds both refs' );
 
     my $unlinked = $tira->tasklist_task_ref_unlink(
-        project => $root, id => $attached->{id}, refs => [ $card_x->{ref} ],
+        project => $root, id => $attached->{id}, refs => [ $card_x->{ref} ], session => 'attach',
     );
     is_deeply( $unlinked->{refs}, [ $card_y->{ref} ], 'task.ref.unlink removes just the one named' );
 
@@ -337,7 +337,7 @@ isnt( $status, 0, 'tasklist.update refuses with neither --status nor --text' );
     like( $@, qr/TSK-999/, 'attach.add on an id that does not exist is refused, naming it' );
 
     my ( $status, $out ) = cli(
-        'tasklist.task.ref.link', '--id', $attached->{id}, '--ref', $card_x->{ref}, '-o', 'json',
+        'tasklist.task.ref.link', '--id', $attached->{id}, '--ref', $card_x->{ref}, '--session', 'attach', '-o', 'json',
     );
     is( $status, 0, 'tasklist.task.ref.link dispatches' );
     ok( ( grep { $_ eq $card_x->{ref} } @{ decode_json($out)->{refs} } ), 'and adds the ref via the CLI too' );
@@ -351,7 +351,8 @@ isnt( $status, 0, 'tasklist.update refuses with neither --status nor --text' );
     my $file_d = File::Spec->catfile( $tmp, 'd.txt' );
     open my $fd, '>', $file_d or die $!; print {$fd} 'D'; close $fd;
     ( $status, $out ) = cli(
-        'tasklist.task.attach.add', '--id', $attached->{id}, '--file', $file_c, '--file', $file_d, '-o', 'json',
+        'tasklist.task.attach.add', '--id', $attached->{id}, '--file', $file_c, '--file', $file_d,
+        '--session', 'attach', '-o', 'json',
     );
     is( $status, 0, 'tasklist.task.attach.add with two --file flags dispatches' );
     is( scalar @{ decode_json($out)->{attachments} }, 3,

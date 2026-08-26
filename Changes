@@ -1,5 +1,23 @@
 Revision history for Tira
 
+4.16  2026-08-26
+
+    - TKT-538. Every tasklist mutation command (update, remove,
+      task.attach.add/discard, task.ref.link/unlink) now refuses to act
+      on an item belonging to a different --session than the caller's,
+      with the same "No task" error an unknown id gets. _tasklist_find_item
+      previously looked an item up by id alone - since TSK ids are
+      sequential and project-wide, a completely different session could
+      silently edit or permanently delete another session's private
+      item just by guessing its id, defeating the isolation --session
+      exists for (TKT-505) far more seriously than TKT-537's read-only
+      version of the same gap. Self-found and reproduced directly while
+      fixing TKT-537. Also fixed a related pre-existing CLI bug found
+      along the way: the reminder-settings guard's tasklist exemption
+      regex never matched the 4 nested tasklist.task.attach/ref
+      sub-verbs (dotted four deep, not two), so --session was rejected
+      outright on exactly the commands this fix needed it most on.
+
 4.15  2026-08-26
 
     - TKT-537. tira.search --tasklist (TKT-533) now scopes matches to

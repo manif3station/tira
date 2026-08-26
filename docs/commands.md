@@ -2338,7 +2338,7 @@ has to run a migration by hand.
   - defaults to `last_updated:desc,status:asc` when `--sort` is omitted.
     Sortable fields: `status`, `order` (numeric), and any other stored field
     (string comparison) such as `text`, `created_at`, `last_updated`.
-- `tira.tasklist.update --id ID [--status pending|working|done|0|1|2] [--text TEXT] [-o FORMAT]` -
+- `tira.tasklist.update --id ID [--status pending|working|done|0|1|2] [--text TEXT] [--session ID] [-o FORMAT]` -
   at least one of `--status`/`--text` is required; either given alone leaves
   the other field as it was. TKT-523.
 - `tira.tasklist.prune [--session ID] [-o FORMAT]` - deletes every item with
@@ -2357,9 +2357,9 @@ applies, scoped the same way `--session`/env-var fallback already work:
   - insert a new item at the very front, jumping the queue.
 - `tira.tasklist.slice --text TEXT --position N [--session ID] [--ref REF ...] [-o FORMAT]`
   - insert a new item at an arbitrary 0-based position within the queue.
-- `tira.tasklist.remove --id ID [-o FORMAT]` - delete an item entirely,
-  distinct from `tasklist.update --status done`, which keeps it as a record
-  of having been finished.
+- `tira.tasklist.remove --id ID [--session ID] [-o FORMAT]` - delete an item
+  entirely, distinct from `tasklist.update --status done`, which keeps it as
+  a record of having been finished.
 - `tira.tasklist.import --ref REF [--session ID] [-o FORMAT]` - copy a
   card's still-pending required-actions and checklist entries into linked
   task-list items, one per entry, so an agent can work through them via the
@@ -2369,10 +2369,17 @@ applies, scoped the same way `--session`/env-var fallback already work:
 
 Four sub-verbs operate on one existing item, by id, rather than creating one:
 
-- `tira.tasklist.task.attach.add --id ID --file FILE [--file FILE ...] [-o FORMAT]`
-- `tira.tasklist.task.attach.discard --id ID --file FILE [--file FILE ...] [-o FORMAT]`
-- `tira.tasklist.task.ref.link --id ID --ref REF [--ref REF ...] [-o FORMAT]`
-- `tira.tasklist.task.ref.unlink --id ID --ref REF [--ref REF ...] [-o FORMAT]`
+- `tira.tasklist.task.attach.add --id ID --file FILE [--file FILE ...] [--session ID] [-o FORMAT]`
+- `tira.tasklist.task.attach.discard --id ID --file FILE [--file FILE ...] [--session ID] [-o FORMAT]`
+- `tira.tasklist.task.ref.link --id ID --ref REF [--ref REF ...] [--session ID] [-o FORMAT]`
+- `tira.tasklist.task.ref.unlink --id ID --ref REF [--ref REF ...] [--session ID] [-o FORMAT]`
+
+TKT-538: `tasklist.update`, `tasklist.remove`, and the 4 `tasklist.task.*`
+sub-verbs above now refuse (the same "No task" error an unknown id gets)
+when `--id` names an item belonging to a different `--session` than the
+caller's - previously they looked an item up by id alone, so a different
+session could silently edit or permanently delete another session's
+private item just by guessing its (sequential) id.
 
 TKT-516: `-o browser` renders every one of these as a Task List section below
 the ticket board (`GET /tasklist`, `POST /tasklist/{add,update,next,shift,

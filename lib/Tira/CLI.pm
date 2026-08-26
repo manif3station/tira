@@ -2516,9 +2516,13 @@ sub _invoke {
     # --session is also the tasklist commands' own scoping flag (TKT-504) -
     # a different meaning on a different feature, not a project reminder
     # setting, so tasklist.* is exempt from this guard same as the three
-    # project commands are.
+    # project commands are. The nested task.attach/ref sub-verbs
+    # (tasklist.task.attach.add, .discard, .ref.link, .ref.unlink) are
+    # dotted four deep, not two - tasklist\.[a-z]+ never matched them, so
+    # --session was refused on exactly the commands TKT-538 needed it most
+    # on, since those are the ones that mutate an existing item by id.
     die "Reminder settings belong to the project.update, project.new and onboard commands\n"
-      if $command !~ /\A(?:project\.update|project\.new|onboard|tasklist\.[a-z]+)\z/
+      if $command !~ /\A(?:project\.update|project\.new|onboard|tasklist\.[a-z](?:[a-z.]*[a-z])?)\z/
       && grep { defined $option->{$_} } qw(collector agent session heartbeat);
     die "Dashboard address options belong to the project.update command\n"
       if $command ne 'project.update'

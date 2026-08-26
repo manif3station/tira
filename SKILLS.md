@@ -1571,6 +1571,16 @@ otherwise surface another session's private tasklist item just by
 matching its text, id, or a linked ref, defeating the per-agent privacy
 `--session` exists for.
 
+TKT-538: every tasklist mutation command (`tasklist.update`,
+`tasklist.remove`, `tasklist.task.attach.add`/`.discard`,
+`tasklist.task.ref.link`/`.unlink`) now refuses to act on an item
+belonging to a different `--session`, with the same "No task" error an
+unknown id gets. Previously these looked an item up by id alone - since
+TSK ids are sequential and project-wide, a different session could
+silently edit or permanently delete another session's private item just
+by guessing its id, a materially worse version of TKT-537's read-only
+gap. Self-found and reproduced directly while fixing TKT-537.
+
 TKT-534: a tasklist card's inline text edit is a dynamic-sizing textarea
 now, not a single-line input - it grows as multi-line text is typed
 (Shift+Enter for a newline; plain Enter still saves, unchanged).

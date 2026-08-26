@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.15';
+our $VERSION = '4.16';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1515,10 +1515,10 @@ sub tasklist_remove {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
     die "Task id is required\n" if !defined $args{id} || $args{id} eq '';
+    my $session = _tasklist_session(%args);
     return $self->_with_project_lock( $root, sub {
         my $items = $self->_tasklist_read($root);
-        my ($entry) = grep { $_->{id} eq $args{id} } @{$items};
-        die "No task '$args{id}'\n" if !$entry;
+        my $entry = _tasklist_find_item( $items, $args{id}, $session );
         $self->_write_json( $self->_tasklist_path($root),
             [ grep { $_->{id} ne $args{id} } @{$items} ] );
         return $entry;
@@ -1575,10 +1575,10 @@ sub tasklist_update {
     my $status_code = _tasklist_status_code( $args{status} );
     die "Status or text is required\n"
       if !defined $status_code && ( !defined $args{text} || $args{text} eq '' );
+    my $session = _tasklist_session(%args);
     return $self->_with_project_lock( $root, sub {
         my $items = $self->_tasklist_read($root);
-        my ($entry) = grep { $_->{id} eq $args{id} } @{$items};
-        die "No task '$args{id}'\n" if !$entry;
+        my $entry = _tasklist_find_item( $items, $args{id}, $session );
         $entry->{status} = $status_code if defined $status_code;
         $entry->{text} = $args{text} if defined $args{text} && $args{text} ne '';
         $entry->{last_updated} = $self->{clock}->();
@@ -1605,9 +1605,17 @@ sub tasklist_prune {
 }
 
 sub _tasklist_find_item {
-    my ( $items, $id ) = @_;
+    my ( $items, $id, $session ) = @_;
     my ($entry) = grep { $_->{id} eq ( $id // '' ) } @{$items};
     die "No task '$id'\n" if !$entry;
+
+    # A different session's item does not exist as far as this caller is
+    # concerned - the same die a truly-missing id gets, so a probe cannot
+    # tell "wrong session" from "no such task" apart. TKT-538: this check
+    # was missing entirely, so any session could mutate or delete any
+    # other session's item just by knowing its (sequential) id.
+    die "No task '$id'\n"
+      if defined $session && ( $entry->{session} // '' ) ne $session;
     return $entry;
 }
 
@@ -1621,9 +1629,10 @@ sub tasklist_task_attach_add {
     die "Task id is required\n" if !defined $args{id} || $args{id} eq '';
     my @files = @{ $args{files} // [] };
     die "At least one file is required\n" if !@files;
+    my $session = _tasklist_session(%args);
     return $self->_with_project_lock( $root, sub {
         my $items = $self->_tasklist_read($root);
-        my $entry = _tasklist_find_item( $items, $args{id} );
+        my $entry = _tasklist_find_item( $items, $args{id}, $session );
         $entry->{attachments} //= [];
         for my $file (@files) {
             my $reference = $self->_tasklist_store_attachment( $root, $file );
@@ -1646,9 +1655,10 @@ sub tasklist_task_attach_add_content {
     die "Task id is required\n" if !defined $args{id} || $args{id} eq '';
     die "Attachment upload requires filename and content\n"
       if !defined $args{filename} || $args{filename} eq '' || !defined $args{content};
+    my $session = _tasklist_session(%args);
     return $self->_with_project_lock( $root, sub {
         my $items = $self->_tasklist_read($root);
-        my $entry = _tasklist_find_item( $items, $args{id} );
+        my $entry = _tasklist_find_item( $items, $args{id}, $session );
         $entry->{attachments} //= [];
         my $reference = $self->_tasklist_store_attachment_bytes( $root, $args{filename}, $args{content} );
         my ($existing) = grep {
@@ -1667,9 +1677,10 @@ sub tasklist_task_attach_discard {
     die "Task id is required\n" if !defined $args{id} || $args{id} eq '';
     my @files = @{ $args{files} // [] };
     die "At least one file is required\n" if !@files;
+    my $session = _tasklist_session(%args);
     return $self->_with_project_lock( $root, sub {
         my $items = $self->_tasklist_read($root);
-        my $entry = _tasklist_find_item( $items, $args{id} );
+        my $entry = _tasklist_find_item( $items, $args{id}, $session );
         my %discard = map { basename($_) => 1 } @files;
         $entry->{attachments} =
           [ grep { !$discard{ $_->{original_filename} // '' } } @{ $entry->{attachments} // [] } ];
@@ -1685,9 +1696,10 @@ sub tasklist_task_ref_link {
     die "Task id is required\n" if !defined $args{id} || $args{id} eq '';
     my @refs = @{ $args{refs} // [] };
     die "At least one ref is required\n" if !@refs;
+    my $session = _tasklist_session(%args);
     return $self->_with_project_lock( $root, sub {
         my $items = $self->_tasklist_read($root);
-        my $entry = _tasklist_find_item( $items, $args{id} );
+        my $entry = _tasklist_find_item( $items, $args{id}, $session );
         $entry->{refs} //= [];
         my %have = map { $_ => 1 } @{ $entry->{refs} };
         for my $ref (@refs) {
@@ -1705,9 +1717,10 @@ sub tasklist_task_ref_unlink {
     die "Task id is required\n" if !defined $args{id} || $args{id} eq '';
     my @refs = @{ $args{refs} // [] };
     die "At least one ref is required\n" if !@refs;
+    my $session = _tasklist_session(%args);
     return $self->_with_project_lock( $root, sub {
         my $items = $self->_tasklist_read($root);
-        my $entry = _tasklist_find_item( $items, $args{id} );
+        my $entry = _tasklist_find_item( $items, $args{id}, $session );
         my %remove = map { $_ => 1 } @refs;
         $entry->{refs} = [ grep { !$remove{$_} } @{ $entry->{refs} // [] } ];
         $entry->{last_updated} = $self->{clock}->();

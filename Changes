@@ -1,5 +1,17 @@
 Revision history for Tira
 
+4.29  2026-08-26
+
+    - TKT-556. The onboarding wizard's "Do all three boards use the same
+      columns?" question now defaults to whatever an existing project
+      actually has (identical or not), instead of always defaulting to
+      yes regardless of project state - _wizard_defaults already
+      computed this (the same @distinct check that decides the shared
+      `columns` key) but never surfaced it as this question's default.
+      Not destructive (column_add only ever adds columns, never removes
+      any), the same broken-pre-fill-promise class as TKT-555. Found
+      during a standing 1-hourly bug hunt.
+
 4.28  2026-08-26
 
     - TKT-555. _wizard_defaults now carries a project's existing mode

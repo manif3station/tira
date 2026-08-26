@@ -1530,6 +1530,16 @@ directory - press enter to keep each answer" message. Pressing enter
 on the blank default was always a no-op (never a silent reset), so this
 was a broken promise rather than a data-loss bug.
 
+TKT-556: the wizard's "Do all three boards use the same columns?"
+question also now defaults correctly - to whatever an existing
+project's boards actually have, identical or not - rather than always
+defaulting to yes. `_wizard_defaults` computes column identity across
+boards for its own `columns` key already; that same computation now
+seeds this question's default too. Not destructive: `column_add` only
+ever adds columns that do not already exist, so answering the wrong
+branch previously would have added unwanted columns, not removed real
+per-board ones.
+
 TKT-517: `tira.onboard -o browser` replaces the terminal prompt with a
 disposable, no-login HTTP server (`Tira::OnboardWeb`) - one page with every
 field the wizard collects, submitted once. Defaults to `127.0.0.1` on a

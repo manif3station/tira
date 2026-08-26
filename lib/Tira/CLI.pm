@@ -1962,6 +1962,7 @@ sub _wizard_defaults {
     }
     my @distinct = keys %{ { map { $_ => 1 } values %columns } };
     $defaults{columns} = [ $distinct[0] ] if @distinct == 1;
+    $defaults{columns_shared} = ( @distinct == 1 ? 1 : 0 ) if %columns;
     return \%defaults;
 }
 
@@ -2035,7 +2036,8 @@ sub _project_wizard {
         }
     }
 
-    my $shared = _ask_yes( $in, 'Do all three boards use the same columns?', 1 );
+    my $shared = _ask_yes( $in, 'Do all three boards use the same columns?',
+        $default->{columns_shared} // 1 );
     return ( undef, 2 ) if !defined $shared;
     if ($shared) {
         my $columns = _ask( $in, 'Columns, in order, separated by commas',

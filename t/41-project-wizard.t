@@ -231,6 +231,24 @@ is( $tira->project_mode( project => $unclear ), 'chain',
 is( Tira::CLI::_wizard_defaults( $tira, $unclear )->{mode}, 'chain',
     '_wizard_defaults carries the project\'s existing mode answer' );
 
+# TKT-556: the "Do all three boards use the same columns?" question must
+# default to whatever the existing project actually has, not a hardcoded
+# yes - _wizard_defaults already computes column identity across boards
+# (it is exactly what decides whether the shared `columns` key gets set),
+# so that fact needs to be exposed for _project_wizard's yes/no default.
+my $mismatched = File::Spec->catdir( $tmp, 'mismatched-columns' );
+$tira->project_new(
+    dir => $mismatched, name => 'Mismatched', sow_columns => 'Draft, Sent',
+    epic_columns => 'Planning, Building', ticket_columns => 'Todo, Doing, Done',
+);
+is( Tira::CLI::_wizard_defaults( $tira, $mismatched )->{columns_shared}, 0,
+    '_wizard_defaults reports columns as not shared when the boards genuinely differ' );
+
+my $matched = File::Spec->catdir( $tmp, 'matched-columns' );
+$tira->project_new( dir => $matched, name => 'Matched', columns => 'Doing, Done' );
+is( Tira::CLI::_wizard_defaults( $tira, $matched )->{columns_shared}, 1,
+    '_wizard_defaults reports columns as shared when every board genuinely matches' );
+
 # Flags for every question, accepted by pressing enter through the flow.
 my $filled = File::Spec->catdir( $tmp, 'filled' );
 ( $status, $out, $err ) = run_wizard( "$filled\n\n\n\n\n\n\n\n\n\ny\n",

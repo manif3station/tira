@@ -382,6 +382,15 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   always a no-op, never a silent reset - just a broken pre-fill promise.
   Found during a standing 1-hourly bug hunt.
 
+  TKT-556: the "Do all three boards use the same columns?" question now
+  defaults to whatever an existing project's boards actually have -
+  identical or not - instead of always defaulting to yes regardless of
+  project state. `_wizard_defaults` already computed this (the same
+  `@distinct` check deciding the shared `columns` key) but never
+  surfaced it as this question's default. Not destructive - column_add
+  only ever adds columns, never removes any - the same broken-pre-fill-
+  promise class as TKT-555. Found during a standing 1-hourly bug hunt.
+
   `tira.onboard -o browser` — **Implemented, TKT-517.** Michael, via TODOYET:
   "Add a browser mode for tira.onboard, so there user either to answer
   questions from the CLI or they do that on the browser... No login needed

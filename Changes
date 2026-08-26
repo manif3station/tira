@@ -1,5 +1,15 @@
 Revision history for Tira
 
+4.18  2026-08-26
+
+    - TKT-542. docs/commands.md's tasklist intro paragraph no longer
+      claims tasklist.update ignores session - that sentence was accurate
+      before TKT-538 but was never revisited when TKT-538 made
+      tasklist.update one of the six commands that enforce session
+      ownership, leaving the file directly self-contradicting a few
+      paragraphs later. Documentation-only fix, no code change. Found
+      during a standing documentation-gap hunt.
+
 4.17  2026-08-26
 
     - TKT-539. tira.tasklist.list --all-sessions is a new, explicit

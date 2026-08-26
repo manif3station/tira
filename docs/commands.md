@@ -2316,10 +2316,9 @@ what a single agent working alone wants.
 `tasklist.add`/`tasklist.list` fall back to the `TIRA_AGENT_SESSION`
 environment variable when `--session` is not given explicitly, so
 multi-agent mode does not have to type it on every call; an explicit
-`--session` still overrides it. `tasklist.update` never consulted session at
-all - a core agent can already manage any item by id regardless of session.
-Ids are `TSK-NNN`. Every item also carries an explicit `order` field, set
-independently of `created_at`, so the queue can be reordered by
+`--session` still overrides it. Ids are `TSK-NNN`. Every item also carries
+an explicit `order` field, set independently of `created_at`, so the queue
+can be reordered by
 unshift/slice without timestamp games: `tasklist.next`/`shift`/`pop` always
 operate on it. `tasklist.list` is a separate, purely-display ordering (see
 `--sort` below) - it does not have to agree with queue position.

@@ -1588,6 +1588,13 @@ Restores the one legitimate use TKT-537/538 otherwise closed off
 entirely: a supervising agent checking on several subagents' tasklists
 without already knowing each one's session id.
 
+TKT-542: docs/commands.md's tasklist intro paragraph no longer claims
+`tasklist.update` ignores session - that sentence was accurate before
+TKT-538 but was left behind when TKT-538 made `tasklist.update` one of
+the six commands enforcing session ownership, leaving the file directly
+self-contradicting a few paragraphs later. Documentation-only fix,
+found during a standing documentation-gap hunt.
+
 TKT-534: a tasklist card's inline text edit is a dynamic-sizing textarea
 now, not a single-line input - it grows as multi-line text is typed
 (Shift+Enter for a newline; plain Enter still saves, unchanged).

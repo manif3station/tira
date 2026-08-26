@@ -1,5 +1,15 @@
 Revision history for Tira
 
+4.20  2026-08-26
+
+    - TKT-544. lib/Tira.pm's own POD for tasklist_list, tasklist_update,
+      tasklist_remove, and the four tasklist_task_* sub-verbs now
+      describes their actual session behavior - TKT-538's session
+      enforcement and TKT-539's --all-sessions opt-in were documented
+      correctly in docs/commands.md/SKILLS.md but the module's own POD
+      was left behind. Documentation-only fix, no code change. Found
+      during a standing documentation-gap hunt.
+
 4.19  2026-08-26
 
     - TKT-540. Six of the browser dashboard's Task List mutation routes

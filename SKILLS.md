@@ -1588,6 +1588,13 @@ Restores the one legitimate use TKT-537/538 otherwise closed off
 entirely: a supervising agent checking on several subagents' tasklists
 without already knowing each one's session id.
 
+TKT-544: `lib/Tira.pm`'s own POD for `tasklist_list`, `tasklist_update`,
+`tasklist_remove`, and the four `tasklist_task_*` sub-verbs now describes
+their actual session behavior - TKT-538's session enforcement and TKT-539's
+`--all-sessions` opt-in were already documented correctly in
+docs/commands.md and SKILLS.md, but the module's own POD had been left
+behind. Documentation-only, found during a standing documentation-gap hunt.
+
 TKT-540: six of the browser dashboard's Task List mutation routes
 (`tasklist_update`, `tasklist_remove`, and the four
 `tasklist_task_attach_add`/`_discard`/`_ref_link`/`_ref_unlink`

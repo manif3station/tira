@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.19';
+our $VERSION = '4.20';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -12811,7 +12811,9 @@ Clears one warning by id, or every one with C<--all>.
 =head2 tasklist_list
 
 Returns the task-list items scoped to C<session> - two different session ids
-never share a list, and no session at all is the single shared list.
+never share a list, and no session at all is the single shared list. TKT-539:
+C<all_sessions> is a deliberate opt-in that returns every item across every
+session instead, each still carrying its own C<session> field.
 
 =head2 tasklist_add
 
@@ -12819,7 +12821,7 @@ Adds a free-text task-list item, starting C<pending>, scoped to C<session>.
 
 =head2 tasklist_update
 
-Moves a task-list item between C<pending>, C<working>, and C<done>, and/or replaces its text. At least one of C<status>/C<text> is required; either given alone leaves the other untouched. TKT-523: added C<text>, for the browser dashboard's Task List section's own inline edit control.
+Moves a task-list item between C<pending>, C<working>, and C<done>, and/or replaces its text. At least one of C<status>/C<text> is required; either given alone leaves the other untouched. TKT-523: added C<text>, for the browser dashboard's Task List section's own inline edit control. TKT-538: refuses an item belonging to a different C<session> than the caller's, with the same "No task" error an unknown id gets.
 
 =head2 tasklist_next
 
@@ -12844,6 +12846,8 @@ Adds a new item at an arbitrary C<--position> within the session's queue.
 =head2 tasklist_remove
 
 Deletes a task-list item entirely, by id - distinct from marking it C<done>.
+TKT-538: refuses an item belonging to a different C<session> than the
+caller's, with the same "No task" error an unknown id gets.
 
 =head2 tasklist_import
 
@@ -12856,24 +12860,32 @@ Deletes every C<done> item, scoped by C<session> the same as list/add.
 
 =head2 tasklist_task_attach_add
 
-Attaches one or more files to an existing task-list item, by id.
+Attaches one or more files to an existing task-list item, by id. TKT-538:
+refuses an item belonging to a different C<session> than the caller's, with
+the same "No task" error an unknown id gets.
 
 =head2 tasklist_task_attach_add_content
 
 Content-based twin of tasklist_task_attach_add, for a browser upload that
-has bytes rather than a server-side file path.
+has bytes rather than a server-side file path. Same TKT-538 session refusal.
 
 =head2 tasklist_task_attach_discard
 
 Removes one or more attachments from an existing task-list item, by name.
+TKT-538: refuses an item belonging to a different C<session> than the
+caller's, with the same "No task" error an unknown id gets.
 
 =head2 tasklist_task_ref_link
 
-Adds one or more refs to an existing task-list item, by id.
+Adds one or more refs to an existing task-list item, by id. TKT-538: refuses
+an item belonging to a different C<session> than the caller's, with the same
+"No task" error an unknown id gets.
 
 =head2 tasklist_task_ref_unlink
 
-Removes one or more refs from an existing task-list item, by id.
+Removes one or more refs from an existing task-list item, by id. TKT-538:
+refuses an item belonging to a different C<session> than the caller's, with
+the same "No task" error an unknown id gets.
 
 =head2 notification_record
 

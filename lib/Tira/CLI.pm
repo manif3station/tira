@@ -1285,7 +1285,7 @@ sub browser_providers {
             die "A task id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
             return $json->encode( $tira->tasklist_update(
                 project => $project, id => $payload->{id}, status => $payload->{status},
-                text => $payload->{text} ) );
+                text => $payload->{text}, session => $payload->{session} // '' ) );
         },
         tasklist_next => sub {
             my ($payload) = @_;
@@ -1319,7 +1319,8 @@ sub browser_providers {
         tasklist_remove => sub {
             my ($payload) = @_;
             die "A task id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
-            return $json->encode( $tira->tasklist_remove( project => $project, id => $payload->{id} ) );
+            return $json->encode( $tira->tasklist_remove(
+                project => $project, id => $payload->{id}, session => $payload->{session} // '' ) );
         },
         tasklist_import => sub {
             my ($payload) = @_;
@@ -1342,6 +1343,7 @@ sub browser_providers {
             return $json->encode( $tira->tasklist_task_attach_add_content(
                 project => $project, id => $payload->{id},
                 filename => $payload->{filename}, content => $content,
+                session => $payload->{session} // '',
             ) );
         },
         tasklist_task_attach_discard => sub {
@@ -1349,21 +1351,24 @@ sub browser_providers {
             die "A task id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
             die "A filename is required\n" if !defined $payload->{filename} || $payload->{filename} eq '';
             return $json->encode( $tira->tasklist_task_attach_discard(
-                project => $project, id => $payload->{id}, files => [ $payload->{filename} ] ) );
+                project => $project, id => $payload->{id}, files => [ $payload->{filename} ],
+                session => $payload->{session} // '' ) );
         },
         tasklist_task_ref_link => sub {
             my ($payload) = @_;
             die "A task id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
             die "A ref is required\n" if !defined $payload->{ref} || $payload->{ref} eq '';
             return $json->encode( $tira->tasklist_task_ref_link(
-                project => $project, id => $payload->{id}, refs => [ $payload->{ref} ] ) );
+                project => $project, id => $payload->{id}, refs => [ $payload->{ref} ],
+                session => $payload->{session} // '' ) );
         },
         tasklist_task_ref_unlink => sub {
             my ($payload) = @_;
             die "A task id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
             die "A ref is required\n" if !defined $payload->{ref} || $payload->{ref} eq '';
             return $json->encode( $tira->tasklist_task_ref_unlink(
-                project => $project, id => $payload->{id}, refs => [ $payload->{ref} ] ) );
+                project => $project, id => $payload->{id}, refs => [ $payload->{ref} ],
+                session => $payload->{session} // '' ) );
         },
 
         search => sub {
@@ -4759,6 +4764,13 @@ C<tasklist_remove>, C<tasklist_import>, C<tasklist_prune>,
 C<tasklist_task_attach_add>, C<tasklist_task_attach_discard>,
 C<tasklist_task_ref_link>, and C<tasklist_task_ref_unlink>, giving the
 browser dashboard's Task List section full parity with C<tira.tasklist.*>.
+TKT-540: C<tasklist_update>, C<tasklist_remove>, C<tasklist_task_attach_add>,
+C<tasklist_task_attach_discard>, C<tasklist_task_ref_link>, and
+C<tasklist_task_ref_unlink> now forward the payload's C<session> field to
+the engine, matching the other eight tasklist providers - previously these
+six silently dropped it, so a session switched in the dashboard's own
+session box could view an item it could not then mutate once TKT-538 began
+enforcing session ownership.
 
 =head2 run's onboard -o browser branch
 

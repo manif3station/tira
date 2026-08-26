@@ -1,5 +1,20 @@
 Revision history for Tira
 
+4.19  2026-08-26
+
+    - TKT-540. Six of the browser dashboard's Task List mutation routes
+      (update, remove, and the four task.attach/task.ref sub-verbs)
+      now forward the session field the frontend already sends on
+      every request. Since TKT-538 made a session mismatch a hard
+      refusal, switching to another session's view in the dashboard's
+      session box and then editing, removing, attaching to, or
+      (un)linking a ref on that session's item silently failed with
+      "No task" - only Add and the status dropdown's sibling providers
+      (next/shift/pop/unshift/slice/import/prune) already forwarded
+      session correctly. Found during a standing bug hunt, widened
+      from an initial two-provider finding after a follow-up pass
+      found the identical gap in the other four.
+
 4.18  2026-08-26
 
     - TKT-542. docs/commands.md's tasklist intro paragraph no longer

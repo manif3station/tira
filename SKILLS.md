@@ -1588,6 +1588,17 @@ Restores the one legitimate use TKT-537/538 otherwise closed off
 entirely: a supervising agent checking on several subagents' tasklists
 without already knowing each one's session id.
 
+TKT-540: six of the browser dashboard's Task List mutation routes
+(`tasklist_update`, `tasklist_remove`, and the four
+`tasklist_task_attach_add`/`_discard`/`_ref_link`/`_ref_unlink`
+providers) now forward the `session` field the frontend already sends
+on every request - previously only the other eight tasklist providers
+did. Since TKT-538 made a session mismatch a hard refusal, switching to
+another session's view in the dashboard and editing/removing/
+attaching/linking there silently failed with "No task". Found during a
+standing bug hunt, widened from an initial two-provider finding to all
+six after a follow-up pass found the same gap in the remaining four.
+
 TKT-542: docs/commands.md's tasklist intro paragraph no longer claims
 `tasklist.update` ignores session - that sentence was accurate before
 TKT-538 but was left behind when TKT-538 made `tasklist.update` one of

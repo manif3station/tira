@@ -140,6 +140,35 @@ my $unlinked = decode_json(
     $providers{tasklist_task_ref_unlink}->( { id => $remaining->{id}, ref => $card->{ref} } ) );
 is_deeply( $unlinked->{refs}, [], 'ref_unlink removes the ref' );
 
+# --- TKT-540: session-switched mutations must not lose the session ----------
+# The dashboard's tlSession input lets a viewer switch to another session's
+# view (GET /tasklist?session=...), and tlPost sends that same session on
+# every POST, including these six. Since TKT-538 made a session mismatch a
+# hard refusal, any of the six that silently dropped the payload's session
+# would now fail exactly like a nonexistent id, even though the browser is
+# legitimately looking at that session's own item.
+my $scoped = decode_json( $providers{tasklist_add}->( { text => 'Agent A work', session => 'agent-a' } ) );
+
+for my $case (
+    [ tasklist_update              => { id => $scoped->{id}, text => 'Agent A work, revised' } ],
+    [ tasklist_task_ref_link       => { id => $scoped->{id}, ref  => $card->{ref} } ],
+    [ tasklist_task_ref_unlink     => { id => $scoped->{id}, ref  => $card->{ref} } ],
+    [ tasklist_task_attach_add     => { id => $scoped->{id}, filename => 'a.txt',
+                                         content_base64 => MIME::Base64::encode_base64('hi') } ],
+    [ tasklist_task_attach_discard => { id => $scoped->{id}, filename => 'a.txt' } ],
+) {
+    my ( $name, $payload ) = @{$case};
+    eval { $providers{$name}->( {%$payload} ) };
+    like( $@, qr/No task/, "$name with no session still refuses agent-a's item (TKT-538 intact)" );
+    my $result = eval { $providers{$name}->( { %$payload, session => 'agent-a' } ) };
+    ok( !$@, "$name with session=>agent-a succeeds" ) or diag($@);
+}
+
+eval { $providers{tasklist_remove}->( { id => $scoped->{id} } ) };
+like( $@, qr/No task/, 'tasklist_remove with no session still refuses agent-a\'s item (TKT-538 intact)' );
+my $removed_scoped = decode_json( $providers{tasklist_remove}->( { id => $scoped->{id}, session => 'agent-a' } ) );
+is( $removed_scoped->{id}, $scoped->{id}, 'tasklist_remove with session=>agent-a succeeds' );
+
 done_testing;
 
 __END__

@@ -2395,6 +2395,13 @@ attach, and ref controls on each card. Full CLI parity: nothing above is
 CLI-only, and every route above still works regardless of what the
 browser's own header shows (see TKT-535).
 
+TKT-540: `POST /tasklist/{update,remove,task/attach/add,task/attach/discard,
+task/ref/link,task/ref/unlink}` now forward the session box's value the way
+the other eight routes always have - previously these six ignored it, so
+switching sessions in the dashboard and then editing/removing/attaching/
+linking there failed with "No task" once TKT-538 started enforcing session
+ownership.
+
 TKT-528: a card's ref chip is now clickable - clicking its text opens the
 linked card's own dialog (`/record?type=...&ref=...`, same opener the
 dialog's own linkage table uses); the chip's remove button still just

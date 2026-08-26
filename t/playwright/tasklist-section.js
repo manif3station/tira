@@ -33,6 +33,18 @@ const recordRequests = [];
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_BIN });
   const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
   page.on('pageerror', error => console.error('PAGE ERROR: ' + error.message));
+  // TKT-549: the recursive setTimeout behind the 5-minute auto-prune is
+  // captured before the page's own script runs, so it can be fired on
+  // demand instead of waiting five real minutes - the 1s tasklist poll is
+  // left running normally, only long delays are intercepted.
+  await page.addInitScript(() => {
+    window.__tiraPendingPrune = null;
+    const real = window.setTimeout.bind(window);
+    window.setTimeout = (callback, delay, ...rest) => {
+      if (delay >= 290000) { window.__tiraPendingPrune = callback; return 1; }
+      return real(callback, delay, ...rest);
+    };
+  });
   const posted = [];
 
   await page.route('**/*', route => {
@@ -145,9 +157,11 @@ const recordRequests = [];
   // Q-081 answer (remove entirely, not tucked behind a toggle) ---------------
   if ((await section.locator('.tasklist-add').count()) !== 1) fail('the Add button should still be present');
   if ((await section.locator('.tasklist-text').count()) !== 1) fail('the new-task text input should still be present');
-  for (const removed of ['.tasklist-unshift', '.tasklist-slice', '.tasklist-next', '.tasklist-shift', '.tasklist-pop', '.tasklist-prune', '.tasklist-import']) {
+  for (const removed of ['.tasklist-unshift', '.tasklist-slice', '.tasklist-next', '.tasklist-shift', '.tasklist-pop', '.tasklist-import']) {
     if ((await section.locator(removed).count()) !== 0) fail(`${removed} should have been removed from the Task List header`);
   }
+  // TKT-549: Prune came back, with new behavior beyond what TKT-535 removed.
+  if ((await section.locator('.tasklist-prune').count()) !== 1) fail('the Prune button should be back in the header');
 
   // --- the three seeded items render as colored sticky-note cards ---------
   const cardCount = await section.locator('.tasklist-card').count();
@@ -329,6 +343,45 @@ const recordRequests = [];
   await page.waitForTimeout(200);
   const suggestLink = posted.find(p => p.path === '/tasklist/task/ref/link' && p.payload.ref === 'TKT-100');
   if (!suggestLink) fail('clicking a suggestion did not link it the same way the Link button does');
+
+  // --- TKT-549: Prune - confirms on manual click, auto-interval does not -----
+  let sawDialog = false;
+  page.removeAllListeners('dialog');
+  page.on('dialog', dialog => { sawDialog = true; dialog.dismiss(); });
+
+  // Manual click: must ask first, and do nothing on Cancel.
+  await section.locator('.tasklist-prune').click();
+  await page.waitForTimeout(100);
+  if (!sawDialog) fail('clicking Prune manually should ask for confirmation');
+  const pruneCallsAfterCancel = posted.filter(p => p.path === '/tasklist/prune').length;
+  if (pruneCallsAfterCancel !== 0) fail('cancelling the confirmation should not prune anything');
+
+  sawDialog = false;
+  page.removeAllListeners('dialog');
+  page.on('dialog', dialog => { sawDialog = true; dialog.accept(); });
+  await section.locator('.tasklist-prune').click();
+  await page.waitForFunction(() => document.querySelectorAll('.tasklist-card').length === 2);
+  if (!sawDialog) fail('a second manual click should also ask for confirmation');
+  if (!posted.find(p => p.path === '/tasklist/prune')) fail('confirming should post to /tasklist/prune');
+
+  // Auto-interval: fires without any confirmation dialog at all.
+  items.push({ id: 'TSK-010', text: 'Another finished one', status: 2, session: '', refs: [], attachments: [] });
+  sawDialog = false;
+  page.removeAllListeners('dialog');
+  page.on('dialog', dialog => { sawDialog = true; dialog.dismiss(); });
+  const pruneCallsBeforeAuto = posted.filter(p => p.path === '/tasklist/prune').length;
+  const fired = await page.evaluate(async () => {
+    if (!window.__tiraPendingPrune) return false;
+    await window.__tiraPendingPrune();
+    return true;
+  });
+  if (!fired) fail('no 5-minute auto-prune interval was scheduled');
+  for (let waited = 0; waited < 5000 && posted.filter(p => p.path === '/tasklist/prune').length === pruneCallsBeforeAuto; waited += 100) {
+    await page.waitForTimeout(100);
+  }
+  if (sawDialog) fail('the automatic 5-minute prune must not show a confirmation dialog');
+  const pruneCallsAfterAuto = posted.filter(p => p.path === '/tasklist/prune').length;
+  if (pruneCallsAfterAuto !== pruneCallsBeforeAuto + 1) fail('the automatic prune did not post to /tasklist/prune');
 
   await browser.close();
   if (!process.exitCode) console.log('tasklist section: all checks passed');

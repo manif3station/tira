@@ -476,6 +476,7 @@ for test in "$tests"/*.js; do
     case "$name" in
         login-gate.js)        run_one "$name" "http://127.0.0.1:$port" ;;
         dashboard-browser.js) run_one "$name" "$browsing_html" "$live_data" "$scratch/$name.png" ;;
+        card-dialog-refresh.js) run_one "$name" "$browsing_html" "$live_data" ;;
         stale-board.js)       run_one "$name" "$browsing_html" "$live_data" ;;
         police-log.js)        run_one "$name" "$browsing_html" "$live_data" ;;
         gate-log-pagination.js) run_one "$name" "$browsing_html" "$live_data" ;;

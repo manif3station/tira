@@ -1,5 +1,15 @@
 Revision history for Tira
 
+4.24  2026-08-26
+
+    - TKT-549. The Task List section's header has a Prune button again,
+      next to Add - removed entirely by TKT-535, now back with new
+      behavior: a manual click asks for confirmation before pruning
+      every done item, and a standing 5-minute interval prunes
+      automatically with no confirmation, keeping done items from
+      piling up even when nobody is watching the dashboard. Sourced
+      from a tasklist note Michael added directly (TSK-051).
+
 4.23  2026-08-26
 
     - TKT-547. New police rule task-unlinked: a pending or working

@@ -99,6 +99,7 @@ my %declare = (
     'column-unwatched'          => {},
     'column-skipped'            => { enter => 'done', require => 'implement' },
     'task-unlinked'             => { age => '30m' },
+    'task-changed'              => {},
 );
 is_deeply( [ sort keys %declare ], [ sort @{ Tira::policy_rules() } ],
     'this test declares every rule the tool offers, so none can be forgotten here' );
@@ -152,6 +153,11 @@ $now = '2026-08-11T09:00:00Z';
 # A tasklist item nobody ever tied back to a card - real, trackable work, no
 # refs, sitting where task-unlinked watches.
 $tira->tasklist_add( project => $root, text => 'A note nobody turned into a card' );
+
+# A tasklist item that changes between the two passes below - task-changed's
+# baseline is set by the first (bridge-unread's own setup) pass, and the
+# text edit right after it is what the second, comprehensive pass finds.
+my $edited_task = $tira->tasklist_add( project => $root, text => 'Original wording' );
 
 # The card exists before the second in which its answer is marked.
 #
@@ -247,6 +253,8 @@ $now = '2026-08-11T23:00:00Z';
     $tira->bridge_write( store => $store, project => $root,
         violations => $first->{violations}, settled => $first->{settled} );
 }
+
+$tira->tasklist_update( project => $root, id => $edited_task->{id}, text => 'Revised wording' );
 
 my $before = fingerprint();
 my $pass = $tira->police_pass( project => $root, store => $store, world => $world );

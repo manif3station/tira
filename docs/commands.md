@@ -585,6 +585,7 @@ Declare a policy.
 | `--require FIELDS` | per rule | Comma-separated fields, for `card-metrics`. |
 | `--require-link TYPE` | per rule | The link a card must carry, for `card-unlinked`. |
 | `--link-to CARD` | no | Narrows `card-unlinked` to a link pointing at one card. |
+| `--notify` | no | An additional off-channel page (through the same address `tira.notify.moves` uses) on top of the bridge, for `agent-still` - off by default since the bridge already carries the same finding for a standing session with its own live reader. |
 | `--message TEXT` | no | What to say instead of Tira's own wording. |
 | `--type TYPE` | no | Declare it for one board only. |
 | `--on-column COLUMN` | no | Declare it for one column only. |
@@ -2464,6 +2465,18 @@ exposed in `reconcileTasklist`: nodes not kept across a refresh are now
 removed before the insert pass runs, so an actively-edited card's own
 node is never repositioned (and blurred) by an unrelated card being
 rebuilt earlier in the same list.
+
+TKT-549: Prune is back in the Task List header, next to Add - the one
+button TKT-535 removed that Michael later asked to have restored, with
+new behavior beyond what it had before: a manual click asks for
+confirmation (`confirm("Prune every done task?")`) before posting to
+`/tasklist/prune`, and a standing 5-minute interval (a recursive
+`setTimeout`, independent of the dashboard's own `?refresh=N` cadence)
+posts to the same route automatically, with no confirmation, so done
+items do not pile up even when nobody is watching. The other six
+TKT-535 removals (Unshift, Insert at position, Next, Shift, Pop, Import
+from card) stay removed - full CLI parity for every one of them is
+unaffected either way.
 
 TKT-536: the Policies dialog's Decline button opens an inline reason
 capture (`.policy-inline-capture`, an input plus a Go button) instead of

@@ -111,6 +111,7 @@ like( $behind, qr/one ticket|a single ticket|single backlog/i,
         'column-unwatched'          => {},
         'column-skipped'            => { enter => 'done', require => 'implement' },
         'task-unlinked'             => { age => '30m' },
+    'task-changed'              => {},
     );
     $tira->policy_add( project => $root, rule => $_, action => 'log-only', %{ $needs{$_} } )
       for sort keys %needs;

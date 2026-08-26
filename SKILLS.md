@@ -1668,6 +1668,16 @@ Sourced from a new `GET /tasklist/sessions` route (and matching
 arbitrary typed session id. Found during a standing 2-hourly
 improvement hunt.
 
+TKT-558: `Tira::DashboardWeb`'s own `build_psgi_app` POD now names
+every one of the module's 58 provider arguments, grouped by the routes
+they answer - previously it named only the original 12 from long
+before tasklist/login/policy/checklist/hierarchy support existed, so
+entire feature areas were invisible to anyone reading the POD alone. A
+new test (t/402) source-scans the module's own `@PROVIDERS` table
+against the POD text so this cannot silently go stale again.
+Documentation-only, no behavior changed. Found during a standing
+documentation-gap hunt.
+
 TKT-546: the `agent-still` policy rule's bridge-visible text now prompts
 the agent to diagnose why progress stopped before instructing it
 through the ask-the-owner/resolve-directly/file-a-resolver-ticket

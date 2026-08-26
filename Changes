@@ -1,5 +1,17 @@
 Revision history for Tira
 
+4.31  2026-08-26
+
+    - TKT-558. Tira::DashboardWeb's build_psgi_app POD now names every
+      one of its 58 provider arguments, grouped by the routes they
+      answer - previously it named only the original 12 from long
+      before tasklist/login/policy/checklist/hierarchy support existed,
+      so a reader had no way to learn about entire feature areas from
+      the POD alone. A new test (t/402) enforces this stays accurate:
+      it source-scans the module's own @PROVIDERS table and fails if
+      any name is missing from the POD text. Documentation-only, no
+      behavior changed. Found during a standing documentation-gap hunt.
+
 4.30  2026-08-26
 
     - TKT-557. The browser dashboard's Task List section now offers a

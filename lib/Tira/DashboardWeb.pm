@@ -561,12 +561,39 @@ standalone server at a validated CLI bind address.
 
 =head2 build_psgi_app
 
-Accepts render, data, move, detail, update, comment_add, comment_update,
-comment_remove, people, attachment_fetch, attachment_add, and
-attachment_remove coderefs and returns the Dancer2 PSGI application. The
-attachment fetch provider returns a typed payload that the GET /attachment
-route streams with its content type and disposition; unknown attachments
-answer 404.
+Accepts every provider coderef this module's routes call through - every
+name is required, and a missing one is refused by name rather than
+discovered at request time. Grouped by the routes they answer (TKT-558,
+replacing a list of 12 that had not grown since long before most of
+these existed):
+
+=over 4
+
+=item * Board and card: render, data, move, detail, create, search, columns
+
+=item * Comments: comment_add, comment_update, comment_remove
+
+=item * Record fields: update, question_answer, question_mark, question_attach, column_apply
+
+=item * Attachments: attachment_fetch, attachment_add, attachment_remove, attachment_discard
+
+=item * Checklists and required actions: checklist_add, checklist_update, required_action_update
+
+=item * Hierarchy and links: link_types, hierarchy_link, hierarchy_unlink, subitem_link, subitem_unlink, link_add, link_remove
+
+=item * Login and session: login_start, login_register, session_resume, session_peek, session_end, login_page
+
+=item * Work log and police: work_log, police_log, policies, policy_add, policy_remove, policy_decline
+
+=item * People: people
+
+=item * Task List: tasklist, tasklist_add, tasklist_update, tasklist_next, tasklist_shift, tasklist_pop, tasklist_unshift, tasklist_slice, tasklist_remove, tasklist_import, tasklist_prune, tasklist_task_attach_add, tasklist_task_attach_discard, tasklist_task_ref_link, tasklist_task_ref_unlink, tasklist_sessions
+
+=back
+
+Returns the Dancer2 PSGI application. The attachment fetch provider
+returns a typed payload that the GET /attachment route streams with its
+content type and disposition; unknown attachments answer 404.
 
 =head2 serve
 

@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.44';
+our $VERSION = '4.45';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -5090,13 +5090,34 @@ sub search {
         my $root = $self->discover_project(%args);
         my $session = _tasklist_session(%args);
         my $needle = lc $args{text};
+
+        # TKT-550: the same opt-in TKT-539 gave tasklist.list, for the same
+        # supervisor - one checking several subagents without already knowing
+        # each session id, who until now could not find an item by text across
+        # sessions at all.
+        #
+        # Strictly opt-in, because the filter it crosses is not an oversight:
+        # TKT-537 put it there deliberately, on the grounds that a tasklist
+        # item's session privacy is not privacy at all if a search from
+        # another session can surface it. Absent the flag, nothing changes.
         my @task_hits = grep {
-            ( $_->{session} // '' ) eq $session
+            ( $args{all_sessions} || ( $_->{session} // '' ) eq $session )
               && ( lc( $_->{text} // '' ) =~ /\Q$needle\E/
                 || lc( $_->{id} // '' ) =~ /\Q$needle\E/
                 || grep { lc($_) =~ /\Q$needle\E/ } @{ $_->{refs} // [] } )
         } @{ $self->_tasklist_read($root) };
-        push @{$hits}, map { { ref => $_->{id}, type => 'tasklist', text => $_->{text} } } @task_hits;
+
+        # Each hit carries its session, which is what makes a cross-session
+        # answer usable: the supervisor's next question is always "whose is
+        # this", and a flat list of ids and text cannot answer it - that is
+        # the gap TKT-539 closed for tasklist.list by keeping each item's own
+        # session field, and reproducing it here would have been half a
+        # feature. Present whether or not the flag was given, so one shape
+        # serves both and a caller need not know which mode produced a hit.
+        push @{$hits}, map {
+            { ref => $_->{id}, type => 'tasklist', text => $_->{text},
+              session => $_->{session} // '' }
+        } @task_hits;
     }
     return { count => scalar @{$hits} } if $count_mode;
     if ($refs_mode) {
@@ -13381,7 +13402,12 @@ Updates a required-action entry's item text or status.
 
 =head2 search
 
-Full-text and field search across records.
+Full-text and field search across records. C<tasklist> opts tasklist items
+in as well, matched on text, id or a linked ref, and scoped to the caller's
+own session - TKT-537's privacy boundary, not an oversight. C<all_sessions>
+lifts that scoping for one call, the same opt-in C<tasklist_list> takes.
+Every tasklist hit carries a C<session> field either way, since a
+cross-session answer that cannot say whose item matched is not an answer.
 
 =head2 replace_records
 

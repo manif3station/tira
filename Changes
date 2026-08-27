@@ -1,5 +1,22 @@
 Revision history for Tira
 
+4.45  2026-08-27
+
+    - TKT-550. tira.search --tasklist --all-sessions searches every
+      session's tasklist items instead of only the caller's own. TKT-539
+      gave tasklist.list that opt-in so a supervising agent could check
+      several subagents without already knowing each session id; search
+      never got the equivalent, so the same supervisor could not find an
+      item by text across sessions at all. Strictly opt-in, because the
+      filter it crosses is TKT-537's deliberate privacy boundary rather
+      than an oversight - a tasklist item's session privacy is not
+      privacy if a search from another session can surface it - so
+      without the flag nothing changes and t/396's existing cross-session
+      assertions keep passing untouched. Every tasklist hit now carries a
+      session field, flag or no flag, since a cross-session answer that
+      cannot say whose item matched only reproduces the gap the flag was
+      built to close.
+
 4.44  2026-08-27
 
     - TKT-545. tasklist.list --status narrows the list to one status.

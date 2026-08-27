@@ -2089,6 +2089,17 @@ tasklist item never carries a `column`; it appears in results (and in
 to the caller's own `--session` (TKT-537) exactly as `tasklist.list` is - a
 search under one session cannot surface another session's private item.
 
+TKT-550: `--all-sessions` lifts that scoping for one call, mirroring
+`tasklist.list --all-sessions` (TKT-539) and existing for the same reader -
+a supervising agent checking several subagents without already knowing each
+one's session id, who otherwise could not find an item by text across
+sessions at all. It is strictly opt-in, because the boundary it crosses was
+put there on purpose rather than left there by accident: without the flag,
+TKT-537's privacy holds exactly as before. Every tasklist hit now carries a
+`session` field, given the flag or not, since a cross-session answer that
+cannot say whose item matched only reproduces the gap `--all-sessions` was
+built to close - the next question is always "whose is this".
+
 Records expose a computed `content_hash` through field selection: an opaque
 stable token over every meaningful field including placement, excluding
 `last_updated` and the read-time-only `checklist_done`/`checklist_total`

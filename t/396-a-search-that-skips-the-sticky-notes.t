@@ -63,6 +63,42 @@ is_deeply(
     [ $private_b->{id} ],
     'and searching under session agent-b only finds agent-b\'s own item' );
 
+# --- TKT-550: the supervisor's opt-in, and what it must not cost -------------
+#
+# TKT-539 gave tasklist.list --all-sessions so a supervising agent could see
+# several subagents' lists without already knowing each session id. search
+# --tasklist never got the equivalent, so the same supervisor could not find
+# an item by text across sessions at all.
+#
+# The filter it has to cross is the privacy boundary asserted directly above,
+# not an oversight - so this is a strict opt-in, exactly the shape TKT-539
+# used: absent, nothing changes. The two assertions above are the ones that
+# must keep passing untouched, and they do.
+
+is_deeply(
+    [ sort @{ $tira->search(
+        project => $root, text => 'private laundry', tasklist => 1,
+        refs_only => 1, session => 'agent-a', all_sessions => 1 ) } ],
+    [ sort ( $private_a->{id}, $private_b->{id} ) ],
+    '--all-sessions reaches every session\'s tasklist items, not just the caller\'s' );
+
+# A flat list of ids and text with no way to tell whose they are would
+# reproduce the gap TKT-539 closed rather than close it here: the supervisor's
+# next question is always "whose is this". tasklist.list --all-sessions
+# answers it by keeping each item's own session field, and a search hit has to
+# do the same.
+{
+    # search returns { hits => [...], count => N } unless refs_only or count
+    # is asked for - the first version of this dereferenced the hashref itself
+    # and died rather than failing, which is not a red test.
+    my $result = $tira->search(
+        project => $root, text => 'private laundry', tasklist => 1,
+        session => 'agent-a', all_sessions => 1 );
+    my %session_of = map { $_->{ref} => $_->{session} } @{ $result->{hits} };
+    is( $session_of{ $private_a->{id} }, 'agent-a', 'a cross-session hit names the session it came from' );
+    is( $session_of{ $private_b->{id} }, 'agent-b', 'including the one the caller does not own' );
+}
+
 done_testing;
 
 __END__

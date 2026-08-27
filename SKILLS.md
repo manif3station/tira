@@ -1693,6 +1693,17 @@ against the POD text so this cannot silently go stale again.
 Documentation-only, no behavior changed. Found during a standing
 documentation-gap hunt.
 
+TKT-550: `tira.search --tasklist --all-sessions` searches every
+session's tasklist items rather than only the caller's own - the same
+opt-in `tasklist.list` got in TKT-539, for the same supervising agent,
+who until now could not find a subagent's item by text at all. Strictly
+opt-in: the session filter it crosses is TKT-537's deliberate privacy
+boundary, not an oversight, so without the flag nothing changes and the
+existing cross-session assertion in `t/396` keeps passing untouched.
+Every tasklist hit now carries a `session` field, with or without the
+flag, because a cross-session answer that cannot say whose item matched
+reproduces the gap the flag exists to close.
+
 TKT-545: `tasklist.list --status` narrows the list to one status,
 taking the same `pending|working|done|0|1|2` values `tasklist.update`
 does and through the same parser, so the two cannot drift on what a

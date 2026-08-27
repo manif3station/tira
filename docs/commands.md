@@ -2470,7 +2470,18 @@ has to run a migration by hand.
 - `tira.tasklist.add --text TEXT [--session ID] [--ref REF ...] [--attach FILE ...] [-o FORMAT]`
   - `--attach` is repeatable and content-addressed, the same store record
     attachments already use.
-- `tira.tasklist.list [--session ID] [--all-sessions] [--sort FIELD:DIR[,FIELD:DIR...]] [-o FORMAT]`
+- `tira.tasklist.list [--session ID] [--all-sessions] [--status STATUS] [--sort FIELD:DIR[,FIELD:DIR...]] [-o FORMAT]`
+  - `--status` (TKT-545) narrows to one status, taking the same values
+    `tasklist.update` does — `pending`, `working`, `done`, or `0`, `1`, `2` —
+    through the same parser, so the two cannot disagree about what a status
+    is called. Omitted, every status comes back exactly as before. A value
+    that is not a status is refused rather than matching nothing, since an
+    empty list would read as "no such work" when it means "no such status".
+    Filtering happens before sorting, so `--sort` orders what survived.
+    Without it, "what is still on my plate" meant fetching every item as
+    JSON and filtering the `status` field by hand — the aggregation a list
+    command exists to do, and one `next`/`shift`/`pop` already did
+    internally for their own single-item use.
   - defaults to `last_updated:desc,status:asc` when `--sort` is omitted.
     Sortable fields: `status`, `order` (numeric), and any other stored field
     (string comparison) such as `text`, `created_at`, `last_updated`.

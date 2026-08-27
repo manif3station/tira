@@ -1,5 +1,21 @@
 Revision history for Tira
 
+4.44  2026-08-27
+
+    - TKT-545. tasklist.list --status narrows the list to one status.
+      next/shift/pop already filtered to pending internally for their own
+      single-item use, and tasklist.update already accepted
+      pending|working|done or 0|1|2, so the vocabulary existed and only
+      list could not be asked - leaving "what is still on my plate" to be
+      answered by fetching every item as JSON and filtering the status
+      field by hand, which is the aggregation a list command is for. It
+      goes through update's own parser rather than a second one, so the
+      two cannot disagree about what a status is called, and an unknown
+      value is refused rather than matching nothing: an empty list would
+      read as "no such work" when it means "no such status". Filtering
+      happens before sorting, so --sort orders what survived. Omitting
+      --status is unchanged.
+
 4.43  2026-08-27
 
     - TKT-568. t/344 now sees the methods the CLI reaches through its

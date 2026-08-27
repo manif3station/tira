@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.43';
+our $VERSION = '4.44';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1330,6 +1330,25 @@ sub tasklist_list {
     my @mine = $args{all_sessions}
       ? @{$items}
       : grep { ( $_->{session} // '' ) eq _tasklist_session(%args) } @{$items};
+
+    # TKT-545: the aggregation a list command is for. next/shift/pop already
+    # filter to pending internally for their own single-item use, and update
+    # already accepts pending|working|done or 0|1|2 - so the vocabulary
+    # existed and only list could not be asked, leaving "what is still on my
+    # plate" to be answered by pulling every item as JSON and filtering the
+    # status field by hand.
+    #
+    # Through the same parser update uses, deliberately: it settles both
+    # spellings in one place, and it DIES on a value it does not know rather
+    # than matching nothing - an unknown status returning an empty list would
+    # read as "no such work" when it means "no such status".
+    if ( defined $args{status} ) {
+        my $wanted = _tasklist_status_code( $args{status} );
+        @mine = grep { ( $_->{status} // 0 ) == $wanted } @mine;
+    }
+
+    # Filter before sort, so an explicit --sort orders what survived rather
+    # than being applied to a set the caller never asked for.
     return _tasklist_sort_items( \@mine, $args{sort} // 'last_updated:desc,status:asc' );
 }
 
@@ -13040,7 +13059,10 @@ Clears one warning by id, or every one with C<--all>.
 Returns the task-list items scoped to C<session> - two different session ids
 never share a list, and no session at all is the single shared list. TKT-539:
 C<all_sessions> is a deliberate opt-in that returns every item across every
-session instead, each still carrying its own C<session> field.
+session instead, each still carrying its own C<session> field. TKT-545:
+C<status> narrows to one status, taking the same values C<tasklist_update>
+does and through the same parser, so an unknown value is refused rather
+than matching nothing; filtering happens before sorting.
 
 =head2 tasklist_sessions
 

@@ -1693,6 +1693,19 @@ against the POD text so this cannot silently go stale again.
 Documentation-only, no behavior changed. Found during a standing
 documentation-gap hunt.
 
+TKT-545: `tasklist.list --status` narrows the list to one status,
+taking the same `pending|working|done|0|1|2` values `tasklist.update`
+does and through the same parser, so the two cannot drift on what a
+status is called. `next`, `shift` and `pop` already filtered to pending
+internally for their own single-item use, so the vocabulary existed and
+only `list` could not be asked - which left "what is still on my plate"
+to be answered by pulling every item as JSON and filtering the `status`
+field by hand, the aggregation a list command is for. Omitting it is
+unchanged. An unknown status is refused rather than returning nothing,
+because an empty list reads as "no such work" when it means "no such
+status". Filtering runs before sorting, so `--sort` orders what
+survived rather than being applied to a set nobody asked for.
+
 TKT-568: `t/344` now sees the engine methods the CLI reaches through
 its string dispatch table. That guard exists to stop `lib/Tira.pm`'s
 METHODS section going stale, and scoped itself to what `Tira::CLI`

@@ -435,6 +435,64 @@ for my $rel (
     is( decode_json($out)->{id}, $for_y->{id}, 'and returns the item linked to that ref' );
 }
 
+# --- TKT-545: --status on list ----------------------------------------------
+#
+# tasklist.next/shift/pop already filter to pending internally for their own
+# single-item use, and tasklist.update already accepts pending|working|done or
+# 0|1|2 - so the vocabulary existed and only list could not be asked. Without
+# it, "what is still on my plate" meant fetching every item as JSON and
+# filtering the status field by hand, which is the aggregation a list command
+# is for.
+
+{
+    my $one   = $tira->tasklist_add( project => $root, text => 'still to do', session => 'statusme' );
+    my $two   = $tira->tasklist_add( project => $root, text => 'in flight',   session => 'statusme' );
+    my $three = $tira->tasklist_add( project => $root, text => 'finished',    session => 'statusme' );
+    # session is not optional here: tasklist_update scopes its lookup the same
+    # way list and add do, so an id from another session is simply not found.
+    $tira->tasklist_update(
+        project => $root, session => 'statusme', id => $two->{id},   status => 'working' );
+    $tira->tasklist_update(
+        project => $root, session => 'statusme', id => $three->{id}, status => 'done' );
+
+    my $pending = $tira->tasklist_list( project => $root, session => 'statusme', status => 'pending' );
+    is_deeply( [ map { $_->{id} } @{$pending} ], [ $one->{id} ],
+        '--status pending returns only the pending item' );
+
+    # The numeric form has to work too, because tasklist.update takes it and a
+    # caller reading a stored item back sees 0/1/2 rather than a name.
+    my $working = $tira->tasklist_list( project => $root, session => 'statusme', status => 1 );
+    is_deeply( [ map { $_->{id} } @{$working} ], [ $two->{id} ],
+        '--status 1 means working, the same as the name' );
+
+    my $done = $tira->tasklist_list( project => $root, session => 'statusme', status => 'done' );
+    is_deeply( [ map { $_->{id} } @{$done} ], [ $three->{id} ],
+        '--status done returns only the finished item' );
+
+    # Omitted is unaffected - every existing caller passes no status at all,
+    # and this is the assertion that says so.
+    my $all = $tira->tasklist_list( project => $root, session => 'statusme' );
+    is( scalar @{$all}, 3, 'omitting --status still returns every status' );
+
+    # Filtering happens before sorting, so an explicit --sort still applies to
+    # what survives the filter rather than being quietly dropped.
+    my $s4 = $tira->tasklist_add( project => $root, text => 'aaa later', session => 'statusme' );
+    my $sorted = $tira->tasklist_list(
+        project => $root, session => 'statusme', status => 'pending', sort => 'text:asc' );
+    is_deeply( [ map { $_->{id} } @{$sorted} ], [ $s4->{id}, $one->{id} ],
+        '--status and --sort compose, filter first then sort' );
+
+    # A value the shared parser does not know is refused rather than silently
+    # matching nothing, which would read as "no such work" instead of "no such
+    # status" - the same reasoning tasklist.update's own parser already has.
+    ok( !eval { $tira->tasklist_list( project => $root, session => 'statusme', status => 'nonsense' ); 1 },
+        'an unknown status is refused rather than returning an empty list' );
+
+    my ( $status, $out ) = cli( 'tasklist.list', '--session', 'statusme', '--status', 'pending', '-o', 'json' );
+    is( $status, 0, 'tasklist.list --status dispatches' );
+    is( scalar @{ decode_json($out) }, 2, 'and the CLI form filters too' );
+}
+
 done_testing;
 
 __END__

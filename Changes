@@ -1,5 +1,66 @@
 Revision history for Tira
 
+4.53  2026-08-27
+
+    - TKT-596. A card moved back to backlog resets the tasklist items
+      that say somebody is working it. The board already understood
+      that retreating undoes claims of progress - a backward move
+      resets required items between destination and origin, keeping
+      their proof (TKT-455) - but tasks were never part of it, so a
+      card sat in the queue while its task list went on reading
+      "working" until an agent ran a second command nobody prompts
+      for. The owner asked for it to happen on the move.
+      Anchored to backlog because it is the default builtin column: a
+      fix point every board has, needing no per-board configuration.
+      Three decisions, each deliberate and each asserted. A task
+      already done is left alone - it records work that happened, and
+      a card retreating does not unmake it. The reset crosses the
+      session boundary, because tasklist items are session-scoped
+      (TKT-537) and on a multi-agent board the tasks most needing
+      reset belong to somebody else - a boundary-respecting reset
+      would do nothing in exactly the case it exists for. And a task
+      naming more than one card is NOT reset but IS named in the
+      output: Q-088, where the owner chose visibility over a silent
+      skip, because there is no status true about two cards at once
+      and a silent skip is indistinguishable from the feature being
+      broken.
+
+4.52  2026-08-27
+
+    - TKT-584. An answer that was read and acted on can no longer be
+      left unjudged in silence. Reading is automatic - question_list
+      stamps read_at on the way past, and lib/Tira.pm says so -
+      while judging takes a deliberate tira.question.mark that
+      nothing asked for until answer-unjudged fired hours later, by
+      which time the card was finished. So the ordinary outcome was
+      an answer read, understood, acted on, and never marked.
+      A card now cannot move FORWARD out of the column an answer was
+      given in while that answer carries no mark, and the refusal
+      names the question and the command that settles it.
+      The gate reads the question's own mark rather than raising a
+      required-action item to stand in for it. That is the card's
+      third acceptance criterion rather than a shortcut: an item is
+      marked done with a command and a proof like any other, so it
+      could be satisfied in the same sweep as everything else
+      without anybody forming a view - an acknowledgement clicked
+      through, which is the thing being prevented. There is nothing
+      to satisfy but the judgement.
+      Four things stay ungated on purpose, each asserted: an
+      unanswered question, because waiting on the owner is its
+      normal state; a discarded one, which nobody owes a judgement
+      on; an answer marked not-ok, because the gate wants an
+      assessment rather than agreement; and reading, because a check
+      consulting read_at would release itself on the way past.
+      Forward moves only. Written without that at first, it refused
+      a card being sent BACK - contradicting TKT-455, whose design
+      is that retreating is unconditional because the unmet thing
+      may be what the card is going back to fix. An unjudged answer
+      is a particularly good reason to retreat, since the person who
+      would judge it may be why. Every assertion passed while that
+      was wrong, because none of them moved a card backward; found
+      by probing the new code against the board's existing design.
+      answer-unjudged is unchanged and stays the backstop.
+
 4.51  2026-08-27
 
     - TKT-572. --start-date and --due-date accept the basic-format offset

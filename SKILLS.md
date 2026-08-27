@@ -1693,6 +1693,22 @@ against the POD text so this cannot silently go stale again.
 Documentation-only, no behavior changed. Found during a standing
 documentation-gap hunt.
 
+TKT-571: an UNASSIGNED card counts against the agent again. TKT-570's
+filter (below) kept a card only when its assignee equalled the declared
+agent, which dropped cards nobody had claimed alongside cards belonging
+to somebody else. Since assignee is optional, a board that never sets
+one then had nothing left for the rule to report, and it went silent
+for good - and a rule that silently never fires is worse than one that
+over-fires, because nothing announces the loss. It was also stricter
+than TKT-570's own acceptance criterion, which asked for cards
+"assigned to someone OTHER than the agent"; unassigned is not assigned
+to someone else. A card is now dropped only when it is assigned to a
+named person who is not the agent. `card-unassigned` still complains
+about the missing assignee, but its remedy is a different one and it
+says nothing about elapsed time. Found by the standing bug hunt an hour
+after 4.39 was committed and before it was pushed, so no board ever ran
+the silent rule.
+
 TKT-570: `agent-still` now asks whose card it is before deciding the
 agent has stopped. Its waiting list was built from columns alone, so a
 card parked at `in-review` awaiting the owner's answer counted as the

@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.39';
+our $VERSION = '4.40';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -7952,12 +7952,28 @@ sub policy_evaluate {
             #
             # A board that has declared no agent is unchanged, so nothing
             # shifts under an owner who never opted into this. TKT-570.
+            #
+            # What is dropped is a card belonging to somebody ELSE, which is
+            # narrower than a card that is not the agent's own. TKT-570 first
+            # shipped the wider test - keep it only when the assignee equals
+            # the agent - and that quietly took UNASSIGNED cards with it. On a
+            # board that never sets an assignee, and assignee is optional so
+            # that board is ordinary rather than exotic, the rule then had
+            # nothing left to report and went silent for good. A rule that
+            # silently never fires is worse than one that over-fires: nothing
+            # announces the loss. Nobody has claimed an unassigned card, so
+            # the agent is the only party who could be moving it, and it
+            # counts. card-unassigned still complains about the missing
+            # assignee, but its remedy is a different one and it says nothing
+            # about elapsed time. TKT-571.
             my $agent = $self->_agent_declared_for($root);
             my @waiting = sort map { $_->{ref} }
               grep {
                 my $column = $_->{column} // '';
                 !$ends{$column} && !$queue{$column} && $column ne 'discard'
-                  && ( !defined $agent || ( $_->{assignee} // '' ) eq $agent )
+                  && !( defined $agent
+                    && length( $_->{assignee} // '' )
+                    && ( $_->{assignee} // '' ) ne $agent )
               } @{$all};
             next if !@waiting;
 
@@ -12917,9 +12933,11 @@ owner rather than to the agent-readable bridge, and an unnamed alert on a
 machine running several projects with this skill cannot be placed. That
 same rule asks whose card it is before reporting: a card sitting in a
 working column is only counted against the agent when the board names an
-agent and that card is assigned to it, since an agent cannot be stalling
-on work it has no power to move. A board that declares no agent is
-measured exactly as it always was.
+agent and that card is not assigned to somebody else, since an agent
+cannot be stalling on work it has no power to move. An unassigned card
+still counts - nobody has claimed it, so the agent is the only party who
+could be moving it - and a board that declares no agent is measured
+exactly as it always was.
 
 =head2 project_new
 

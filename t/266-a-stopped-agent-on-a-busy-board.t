@@ -354,6 +354,54 @@ $tira->policy_add( project => $root, rule => 'agent-still', age => '4h',
         'naming the card that is genuinely waiting on it' );
 }
 
+# --- TKT-571: unassigned is not somebody else's ----------------------------
+#
+# TKT-570's filter keeps a card only when its assignee equals the declared
+# agent exactly, so a card with NO assignee is dropped along with the owner's.
+# On a board that never sets an assignee - and assignee is optional, so that
+# board is ordinary rather than exotic - the rule then has nothing left to
+# report and goes quiet permanently. A rule that silently never fires is
+# worse than one that over-fires, because nothing announces the loss.
+#
+# It is also stricter than TKT-570's own acceptance criterion, which asked
+# for cards "assigned to someone OTHER than the agent". Unassigned is not
+# assigned to someone else: nobody has claimed that card, and the agent is
+# the only party who could be moving it.
+#
+# card-unassigned does complain about the missing assignee, but its remedy is
+# a different one and it says nothing about elapsed time, so it is no
+# substitute for this.
+
+{
+    # Same discipline as the case above: clear the agent's own working-column
+    # cards, or they report and this proves nothing about the unassigned one.
+    for my $mine ( @{ $tira->record_list( project => $root, type => 'ticket' ) } ) {
+        next if ( $mine->{column} // '' ) ne 'implement';
+        $tira->record_move( author => 'claude', project => $root,
+            ref => $mine->{ref}, column => 'done' );
+    }
+
+    my $nobodys = $tira->create_record(
+        project => $root, type => 'ticket', title => 'Nobody claimed this one' );
+    $tira->record_move( author => 'claude', project => $root,
+        ref => $nobodys->{ref}, column => 'implement' );
+
+    # Forward from the setup, never back - moving a card is agent action.
+    $now = '2026-08-22T20:00:00Z';
+    my $fired = reported();
+    is( scalar @{$fired}, 1,
+        'an unassigned working-column card still counts against the agent' );
+    like( $fired->[0]{detail} // '', qr/\Q$nobodys->{ref}\E/,
+        'naming the unclaimed card, since nobody else can be waiting on it' );
+
+    # And giving it to somebody else still silences it, so TKT-570 survives.
+    $tira->record_update( author => 'michael', project => $root,
+        ref => $nobodys->{ref}, assignee => 'michael' );
+    $now = '2026-08-23T20:00:00Z';
+    is_deeply( reported(), [],
+        'handing that same card to the owner puts the rule back to silence' );
+}
+
 done_testing;
 
 __END__

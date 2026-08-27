@@ -1,5 +1,21 @@
 Revision history for Tira
 
+4.40  2026-08-27
+
+    - TKT-571. agent-still counts an unassigned card again. TKT-570's
+      filter kept a card only when its assignee equalled the declared
+      agent, which quietly dropped cards nobody had claimed as well as
+      cards belonging to somebody else - so on any board that never sets
+      an assignee, and assignee is optional, the rule had nothing left to
+      report and went silent for good. A rule that silently never fires
+      is worse than one that over-fires, because nothing announces the
+      loss. It was also stricter than TKT-570's own acceptance criterion,
+      which asked for cards "assigned to someone OTHER than the agent".
+      Now a card is dropped only when it is assigned to a named person
+      who is not the agent. Found by the standing bug hunt an hour after
+      4.39 was committed and before it was pushed, so no board ever ran
+      the silent rule.
+
 4.39  2026-08-27
 
     - TKT-570. agent-still no longer reports an agent as stopped when the

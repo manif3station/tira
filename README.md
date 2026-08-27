@@ -170,8 +170,8 @@ columns/prefixes the same way the terminal wizard does, and offers every
 field the wizard's guided flow does - stuck-card minutes, agent/session/
 collector, and the project-mode question. Naming an agent is worth doing
 rather than skipping: it is what lets police tell a stopped agent from one
-correctly waiting, since `agent-still` only counts a working-column card
-against the agent when that card is assigned to it. The same thing non-interactively, for scripts: `dashboard tira.project.new
+correctly waiting, since `agent-still` stops counting a working-column
+card against the agent once it is assigned to somebody else. The same thing non-interactively, for scripts: `dashboard tira.project.new
 --name "MT5" --members "K-Bot, Michael" --columns "Backlog, Planning, In
 Progress, Done / Release" --sow-prefix M5S --epic-prefix M5E --ticket-prefix
 M5T` creates the project, its people, each board's reference prefix, and the

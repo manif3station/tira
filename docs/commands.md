@@ -654,9 +654,11 @@ no policy, because it reads as cover.
 
 **Some rules read more than the policy tells them.** `agent-still` is the
 clearest: `--age` sets its grace, but whether a card counts at all depends on
-the board's declared agent. A card in a working column is only held against
-the agent when the board names one and that card is assigned to it, because an
-agent cannot be stalling on work it has no power to move. Declare an agent
+the board's declared agent. A card in a working column stops being held
+against the agent once it is assigned to a named person who is not the agent,
+because an agent cannot be stalling on work it has no power to move. An
+unassigned card still counts: nobody has claimed it, so the agent is the only
+party who could be moving it. Declare an agent
 with `tira.project.update --agent NAME`; a board that has declared none is
 measured on columns alone, exactly as before TKT-570.
 

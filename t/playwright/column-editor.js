@@ -15,9 +15,11 @@ const COLUMNS = [
   { name: 'backlog', label: 'Backlog', protected: true, watched: 1, next: ['planning'], entry: true },
   { name: 'planning', label: 'Planning', protected: false, watched: 0 },
   { name: 'in-progress', label: 'In Progress', protected: false, watched: 1,
-    next: ['review'], required_actions: ['Old task'] },
+    next: ['review'], required_actions: ['Old task'],
+    entry_required_actions: ['An entry demand nobody wants any more'] },
   { name: 'review', label: 'Review', protected: false, watched: 1, notify_after: 45,
-    required_actions: ['Run the suite', 'Update the docs'] },
+    required_actions: ['Run the suite', 'Update the docs'],
+    entry_required_actions: ['Verify all details in the card', 'Confirm the answer was judged'] },
   { name: 'done', label: 'Done', protected: false, watched: 1 },
   { name: 'discard', label: 'Discard', protected: true, watched: 1 },
 ];
@@ -159,6 +161,21 @@ process.on('unhandledRejection', error => {
   await page.locator('.column-row[data-name="review"] .column-row__action-add').click();
   await page.locator('.column-row[data-name="review"] .column-row__action-remove').first().click();
 
+  // TKT-591: the entry list is a separate template with its own controls. Driven
+  // here as well as the exit one, because the two share a row shape and a drag
+  // handler - a change that made the exit list work and quietly broke the entry
+  // list would otherwise ship green.
+  await page.locator('.column-row[data-name="review"] .column-row__entry-action-input').last().fill('Link the parent card');
+  await page.locator('.column-row[data-name="review"] .column-row__entry-action-add').click();
+  await page.locator('.column-row[data-name="review"] .column-row__entry-action-remove').first().click();
+
+  // And the exit list's own controls must still be unambiguous now that a second
+  // list of the same shape sits beside it in the same row. If these locators ever
+  // match two buttons, this line fails rather than the failure surfacing as a
+  // confusing strictness error somewhere else.
+  const exitAdds = await page.locator('.column-row[data-name="review"] .column-row__action-add').count();
+  if (exitAdds !== 1) fail('the exit required-action add button is no longer unique in its row, found ' + exitAdds);
+
   // TKT-476: drag a required-action row above another by its own grip.
   const actionRows = () => page.locator('.column-row[data-name="review"] .column-row__action-input').evaluateAll(nodes => nodes.map(n => n.value));
   const beforeDrag = await actionRows();
@@ -180,6 +197,12 @@ process.on('unhandledRejection', error => {
   // reappearing after a page refresh: the payload omitted the key rather
   // than sending [], which the server then read as "nothing changed."
   await page.locator('.column-row[data-name="in-progress"] .column-row__action-remove').first().click();
+  // TKT-591 + TKT-481: empty the ENTRY list right down as well. A list emptied
+  // to nothing must be sent as an explicit [], not omitted - omitting reads as
+  // "leave whatever was there", which is how a removal reverts itself on the
+  // next load. The exit list already had that fault fixed once; the entry list
+  // must not reintroduce it.
+  await page.locator('.column-row[data-name="in-progress"] .column-row__entry-action-remove').first().click();
   await page.locator('.column-row[data-name="in-progress"] .column-row__next-checkbox[value="review"]').uncheck();
 
   await page.locator('.column-row[data-name="backlog"] .column-row__next-checkbox[value="in-progress"]').check();
@@ -218,6 +241,21 @@ process.on('unhandledRejection', error => {
     const doneless = saved.columns.find(c => c.name === 'planning');
     if ('next' in doneless) fail('a column with no chain declared had one forced into the save, got ' + JSON.stringify(doneless.next));
     if ('required_actions' in doneless) fail('a column with no required-action template declared had one forced into the save');
+    if ('entry_required_actions' in doneless) fail('a column with no entry template declared had one forced into the save');
+
+    // TKT-591: the entry list round-trips on its own terms - edited, added to,
+    // and one removed - and does NOT disturb the exit list beside it. The two
+    // are read from the same row by different selectors, so a mistake that
+    // crossed them would show here as one list carrying the other's text.
+    if ((review.entry_required_actions || []).join('|') !== 'Confirm the answer was judged|Link the parent card') {
+      fail('the edited entry required-action template was not sent back correctly, got ' + JSON.stringify(review.entry_required_actions));
+    }
+    if ((review.required_actions || []).some(text => text === 'Link the parent card')) {
+      fail('an entry action leaked into the exit list');
+    }
+    if ((review.entry_required_actions || []).some(text => text === 'Add a Changes entry')) {
+      fail('an exit action leaked into the entry list');
+    }
 
     // TKT-481: a column that HAD a required-action template or chain, now
     // emptied down to nothing, must send an explicit [] - not omit the key
@@ -229,6 +267,8 @@ process.on('unhandledRejection', error => {
     else if (cleared.required_actions.length) fail('emptying an existing required-action list did not send it empty, got ' + JSON.stringify(cleared.required_actions));
     if (!('next' in cleared)) fail('emptying an existing chain omitted the key instead of sending []');
     else if (cleared.next.length) fail('emptying an existing chain did not send it empty, got ' + JSON.stringify(cleared.next));
+    if (!('entry_required_actions' in cleared)) fail('emptying an existing entry list omitted the key instead of sending []');
+    else if (cleared.entry_required_actions.length) fail('emptying an existing entry list did not send it empty, got ' + JSON.stringify(cleared.entry_required_actions));
   }
 
   await browser.close();

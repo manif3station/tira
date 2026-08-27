@@ -370,6 +370,7 @@ sub run {
         'watch!' => \$option{watched}, 'terminal!' => \$option{terminal}, 'stale' => \$option{stale},
         'queue!' => \$option{queue},
         'required-action=s@' => \$option{required_action},
+        'entry-required-action=s@' => \$option{entry_required_action},
         'next=s@' => \$option{next},
         'with-level' => \$option{with_level},
         'cache-ttl=i' => \$option{cache_ttl}, 'no-cache' => \$option{no_cache},
@@ -1050,6 +1051,25 @@ sub browser_providers {
             my $columns = eval { $tira->column_list(%column_args) };
             _apply_column_required_actions( $tira, \%column_args, $from, $payload->{column}, $columns, $record )
               if ref $columns eq 'ARRAY';
+
+            # The destination's ENTRY actions land here too, for the same
+            # reason its exit ones do: bookkeeping, not gating. The refusal
+            # stays CLI-only (TKT-426), so a dragged card is admitted - but it
+            # arrives carrying what that column asks of it rather than
+            # pretending nothing was asked. TKT-591.
+            # The failure is SAID rather than dropped. This path cannot
+            # refuse - that is TKT-426's whole point - but it can decline to
+            # be silent: a column whose entry list could not be placed leaves
+            # the card claiming nothing was asked of it, and the server log is
+            # where whoever is running the dashboard would find out. Codex
+            # review caught the POD promising a report that nothing made.
+            my $entry_failed = ref $columns eq 'ARRAY'
+              ? _populate_entry_required_actions( $tira, \%column_args, $payload->{column}, $columns, $record )
+              : [];
+            printf {*STDERR} "%s moved into %s, but %d of that column's entry required action(s) could not be put on the card: %s\n",
+              $payload->{ref}, $payload->{column}, scalar @{$entry_failed},
+              join( '; ', map { ( length $_->[0] ? $_->[0] : '(an empty entry action)' ) . " - $_->[1]" } @{$entry_failed} )
+              if @{$entry_failed};
 
             # Bookkeeping, so it belongs here as well as on the CLI path -
             # TKT-452's distinction exactly: the gating half stays CLI-only
@@ -2328,6 +2348,116 @@ sub _column_chain_violation {
 # failed, e.g. a test column's own 'tests green' - so gating retreat the same
 # way as progress would leave a card with nowhere to go. This matches the
 # chain check's own backward exemption.
+# What a card must already have done before it may be worked in a column.
+#
+# The mirror of the gate below, and deliberately not a variant of it: that one
+# asks what is unfinished in the column being LEFT, this asks what is unmet in
+# the column being ENTERED. The owner's example is work that belongs to neither
+# column's own business - "Verify all details in the card", between backlog and
+# tests-red - which is why it cannot be expressed as an exit action on the
+# column before it. TKT-591.
+#
+# The items are populated BEFORE the refusal, on purpose. An entry gate is
+# satisfied from outside the column it guards, so if the list only appeared once
+# the card was inside there would be nothing to mark and no way in. The first
+# attempt therefore brings the list onto the card and refuses; the second, once
+# the items carry their evidence, goes through.
+#
+# Forward moves only, like every other gate here. A card being sent back is not
+# asked to qualify for where it is retreating to (TKT-455) - the unmet thing may
+# be exactly what it is going back to fix.
+# Putting a column's entry template on a card, without deciding anything about
+# whether the card may be there.
+#
+# Shared by the gate below and by the browser move provider, and the split is
+# TKT-452's, stated where the browser path already makes it: the gating half is
+# CLI-only, because a human dragging a card is not an agent skipping a gate,
+# but keeping the card accurate for whoever reads it next is not enforcement
+# and has to happen either way. A card dragged into a column would otherwise
+# carry that column's exit actions and none of its entry ones, which is a card
+# that lies about what was asked of it.
+#
+# Returns what it could NOT add, as [text, why] pairs, rather than swallowing
+# the failure: the caller decides what that means. The gate refuses on it; the
+# browser path, which cannot refuse, still has it to report. TKT-591.
+sub _populate_entry_required_actions {
+    my ( $tira, $args, $to, $columns, $record ) = @_;
+    my ($to_col) = grep { $_->{name} eq $to } @{ $columns // [] };
+    my @template = @{ ( $to_col ? $to_col->{entry_required_actions} : undef ) // [] };
+    return [] if !@template;
+
+    my @existing = @{ ( ref $record eq 'HASH' ? $record->{required_items} : undef ) // [] };
+    my @failed;
+    for my $text (@template) {
+        next if grep { ( $_->{item} // '' ) eq $text && ( $_->{column} // '' ) eq $to } @existing;
+        my $added = eval {
+            $tira->required_item_add( %{$args}, item => $text, status => 'pending',
+                column => $to, source => 'required-action' );
+            1;
+        };
+        next if $added;
+        my $why = $@ // 'no reason given';
+        $why =~ s/\s+/ /g;
+        $why =~ s/\A\s+|\s+\z//g;
+        push @failed, [ $text, $why ];
+    }
+    return \@failed;
+}
+
+sub _column_entry_required_action_violation {
+    my ( $tira, %args ) = @_;
+    my $to = $args{column} // '';
+    return undef if $to eq '' || $to eq 'discard';
+    my $current = eval { $tira->record_show(%args) };
+    return undef if !$current;
+    my $from = $current->{column};
+    return undef if !defined $from || $from eq 'discard' || $from eq $to;
+
+    my $columns = _columns_for( $tira, \%args, $current );
+    return undef if ref $columns ne 'ARRAY';
+    my %index;
+    my $i = 0;
+    for my $col ( @{$columns} ) { $index{ $col->{name} } = $i++; }
+    return undef if !exists $index{$from} || !exists $index{$to};
+    return undef if $index{$to} < $index{$from};
+
+    my ($to_col) = grep { $_->{name} eq $to } @{$columns};
+    my @template = @{ ( $to_col ? $to_col->{entry_required_actions} : undef ) // [] };
+    return undef if !@template;
+
+    my $unpopulated = _populate_entry_required_actions( $tira, \%args, $to, $columns, $current );
+    my @unpopulated = @{$unpopulated};
+    if (@unpopulated) {
+        return "Cannot move $args{ref} into $to - "
+          . scalar(@unpopulated)
+          . " of its entry required actions could not be put on the card, so none of them can be worked.\n"
+          . join( '', map { "  " . ( length $_->[0] ? _first_line( $_->[0] ) : '(an empty entry action)' )
+                . "  ($_->[1])\n" } @unpopulated )
+          . "  Fix the column's entry list, then move again:\n"
+          . "    d2 tira.column.update --type $args{type} --name $to --entry-required-action TEXT\n";
+    }
+
+    my $refreshed = eval { $tira->record_show(%args) } // $current;
+    my %exempt = map { ( ref($_) eq 'HASH' ? $_->{item} : $_ ) => 1 }
+      @{ $refreshed->{required_exempt} // [] };
+    my %wanted = map { $_ => 1 } @template;
+    my @unmet = grep {
+        ( $_->{column} // '' ) eq $to
+          && $wanted{ $_->{item} // '' }
+          && !$exempt{ $_->{item} }
+          && lc( $_->{status} // '' ) ne 'done';
+    } @{ $refreshed->{required_items} // [] };
+    return undef if !@unmet;
+
+    return "Cannot move $args{ref} into $to - "
+      . ( @unmet == 1 ? 'an entry required action is' : scalar(@unmet) . ' entry required actions are' )
+      . " not done. The card stays in $from:\n"
+      . join( '', map { "  $_->{id}  " . _first_line( $_->{item} ) . "\n" } @unmet )
+      . "  They are on the card now, so they can be done from here.\n"
+      . "  Mark one, then move again:\n"
+      . "    d2 tira.required-action.update --ref $args{ref} --id $unmet[0]{id} --status done --command TEXT --proof TEXT\n";
+}
+
 sub _column_required_action_violation {
     my ( $tira, %args ) = @_;
     return undef if ( $args{column} // '' ) eq 'discard';
@@ -2774,6 +2904,8 @@ sub _invoke {
       if defined $option->{queue} && $command ne 'column.update';
     die "Required-action is available on the column.update command\n"
       if defined $option->{required_action} && $command ne 'column.update';
+    die "Entry-required-action is available on the column.update command\n"
+      if defined $option->{entry_required_action} && $command ne 'column.update';
     die "Next is available on the column.update command\n"
       if defined $option->{next} && $command ne 'column.update';
     die "Notify-after is available on the column.update, project.update, project.new and onboard commands\n"
@@ -3293,6 +3425,15 @@ sub _invoke {
             die $action_blocked if defined $action_blocked;
             my $unjudged = _unjudged_answer_violation( $tira, %args );
             die $unjudged if defined $unjudged;
+
+            # Last of the four, and deliberately so: it is the only one that
+            # WRITES before it refuses, putting the destination's entry items
+            # on the card so they can be worked from outside. Running it after
+            # the others means a move refused for an unfinished exit action or
+            # an unjudged answer does not also drag in a list belonging to a
+            # column the card was never going to reach. TKT-591.
+            my $entry_blocked = _column_entry_required_action_violation( $tira, %args );
+            die $entry_blocked if defined $entry_blocked;
 
             my $before  = eval { $tira->record_show(%args) };
             my $from    = $before ? $before->{column} : undef;
@@ -5310,6 +5451,51 @@ item by item, so the reminder lands at the moment the list arrives rather
 than when the damage is already attempted. Printed to STDERR, so it stays out
 of C<-o json> output, and only when the column actually brought outstanding
 items - a reminder that fires on every move is one nobody reads. TSK-168.
+
+=head2 _column_entry_required_action_violation
+
+The gate for what a card must ALREADY have done before it may be worked in a
+column, declared with C<tira.column.update --entry-required-action>. Its mirror
+image, C<_column_required_action_violation>, asks what is unfinished in the
+column being LEFT; this asks what is unmet in the column being ENTERED. The two
+are separate templates because they answer different questions: the owner's
+example is work belonging to neither column - "verify all details in the card",
+between backlog and tests-red - which cannot be expressed as an exit action on
+the column before it.
+
+The destination's items are put on the card BEFORE the refusal, which is what
+makes an entry gate satisfiable. The work happens outside the column that
+demands it, so a list appearing only once the card was inside would leave
+nothing to mark and no way in. The first attempt brings the list and refuses;
+the second, once the items carry their evidence, goes through.
+
+Forward moves only, like every other gate here: a card being sent back is not
+asked to qualify for where it is retreating to (TKT-455).
+
+A population that fails refuses the move rather than allowing it. Written first
+as a bare C<eval>, which did the one thing this must never do - a column
+declared with an empty entry action stored it, C<required_item_add> refused the
+blank item, the error went nowhere, and the card walked in past a gate that
+believed it had nothing to enforce.
+
+=head2 _populate_entry_required_actions
+
+Puts a column's entry template on a card without deciding anything about
+whether the card may be there, and returns what it could NOT add as
+C<[text, why]> pairs rather than swallowing the failure.
+
+Shared by the gate above and by the browser move provider, and the split is
+TKT-452's: the gating half is CLI-only, because a human dragging a card is not
+an agent skipping a gate (TKT-426), but keeping the card accurate for whoever
+reads it next is not enforcement and has to happen either way. A card dragged
+into a column would otherwise carry that column's exit actions and none of its
+entry ones - a card that misreports what was asked of it.
+
+The caller decides what a failure means. The gate refuses on it. The browser
+provider cannot - it has already moved the card and answers a dashboard that
+has no way to show a refusal - so it writes what it could not place to STDERR,
+where whoever runs the dashboard will find it in the server log. Neither
+swallows it, which is the only property that matters here. TKT-591.
 
 =head2 _columns_for
 

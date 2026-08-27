@@ -1,5 +1,56 @@
 Revision history for Tira
 
+4.56  2026-08-27
+
+    - TKT-591. A column can say what a card must ALREADY have done
+      before it may be worked there, not only what it must finish
+      before it leaves. The owner asked for it in TSK-170 - "we have
+      exit required action items for each column. Do we have entry
+      required action items?" - and Q-087 settled the design he
+      wanted: the move IN is refused and the card stays exactly where
+      it was, with the same --command/--proof, --repeated-reason and
+      two-step confirmation the exit items already carry. Declared
+      from the CLI with --entry-required-action and from the browser
+      dashboard's column editor, which now shows an entry list beside
+      the exit one.
+      His own example is what the tests walk: between backlog and
+      tests-red there is work belonging to neither column - "verify
+      all details in the card" - and until now there was nowhere to
+      put it.
+      The gate populates the destination's entry items onto the card
+      BEFORE refusing. An entry requirement is satisfied from outside
+      the column that demands it, so a list that only appeared once
+      the card was inside would leave nothing to mark and no way in.
+      That was the stranding risk Q-087 asked about, and his example
+      is what answers it.
+      Forward moves only, like every other gate here: a card being
+      sent back is not asked to qualify for where it is retreating
+      to, because the unmet thing may be exactly what it is going
+      back to fix (TKT-455).
+      The evidence contract needed no new code. Entry items ARE
+      required items, so marking one done costs a command and a proof,
+      the duplicate-proof refusal applies, and a card exempted from an
+      item (TKT-439) is let through - all by construction rather than
+      by a second mechanism.
+      The refusal stays on the CLI path, because a human dragging a
+      card in the browser is not an agent skipping a gate (TKT-426).
+      The BOOKKEEPING does not: a dragged card now arrives carrying
+      the entry items that column asks for, rather than its exit items
+      alone and a silence about the rest.
+      Four things codex review caught, all fixed here. The population
+      swallowed its own errors, so a column declared with an empty
+      entry action let cards straight through a gate that believed it
+      had nothing to enforce - the same swallowed-eval shape TKT-632
+      is open about, written into new code while that card sat on the
+      board. The browser move populated exit items and not entry ones.
+      The column editor reused one CSS class for both lists' add
+      buttons, which would have made existing Playwright locators
+      ambiguous. And the browser round-trip was not asserted at all -
+      the fixture now declares entry lists, edits them, empties one,
+      and checks that an emptied list is sent as [] rather than
+      omitted, which is the fault that once made a removal revert
+      itself on the next load (TKT-481).
+
 4.55  2026-08-27
 
     - TKT-575. --help names the arguments a command refuses without.

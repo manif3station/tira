@@ -69,6 +69,19 @@ separate from a column's own required-action template — is editable from
 the browser too: a Policies button opens a modal listing every declared,
 declined, and undeclared rule, with a rule-specific parameter picker that
 matches the `tira.policy.add` command exactly.
+A column can require work on the way IN as well as on the way out. Its
+`--required-action` list says what a card must finish before it may leave;
+`--entry-required-action` says what it must already have done before it may
+arrive, for work that belongs to neither column — "verify all details in the
+card", between backlog and tests-red, is not backlog's business and cannot be
+tests-red's exit action because the card is not in yet. A move made through the
+CLI is refused while any entry item is unmarked and the card stays exactly where
+it was, with the items placed on it first so they can be worked from outside.
+Dragging a card in the browser is not refused — a human on the dashboard is not
+an agent skipping a gate — but the dragged card still arrives carrying what that
+column asks of it. Entry actions are declared from the CLI and from the browser
+column editor, and marking one done costs the same `--command`/`--proof` pair as
+any other required action.
 A column's required actions hold whether or not the caller says which board
 the card is on. Listing a board's columns needs a type; moving and showing a
 card do not, because a ref identifies it on its own. Until 4.54 a move that

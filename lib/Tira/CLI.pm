@@ -274,6 +274,7 @@ sub run {
         'collector=s' => \$option{collector}, 'agent=s' => \$option{agent},
         'session=s' => \$option{session}, 'heartbeat=s' => \$option{heartbeat},
         'all-sessions' => \$option{all_sessions},
+        'unlinked' => \$option{unlinked},
         'outward=s' => \$option{outward}, 'inward=s' => \$option{inward},
         'type=s' => \$option{type}, 'label=s@' => \$option{labels},
         'after=s' => \$option{after}, 'before=s' => \$option{before},

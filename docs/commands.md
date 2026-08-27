@@ -2489,7 +2489,16 @@ has to run a migration by hand.
 - `tira.tasklist.add --text TEXT [--session ID] [--ref REF ...] [--attach FILE ...] [-o FORMAT]`
   - `--attach` is repeatable and content-addressed, the same store record
     attachments already use.
-- `tira.tasklist.list [--session ID] [--all-sessions] [--status STATUS] [--sort FIELD:DIR[,FIELD:DIR...]] [-o FORMAT]`
+- `tira.tasklist.list [--session ID] [--all-sessions] [--status STATUS] [--unlinked] [--sort FIELD:DIR[,FIELD:DIR...]] [-o FORMAT]`
+  - `--unlinked` (TKT-552) returns only items with an empty `refs` array.
+    `task-unlinked` (TKT-547) already watches for these, but only reports one
+    once it has aged past its grace — so finding them *before* the police
+    does meant fetching every item and filtering `refs` by hand. It filters
+    linkage only, not status: the rule watches pending and working, but an
+    audit that silently dropped done items would answer a narrower question
+    than the one asked. It composes with `--status` rather than replacing it,
+    since the two read different fields. Omitted, every item comes back
+    regardless of linkage.
   - `--status` (TKT-545) narrows to one status, taking the same values
     `tasklist.update` does — `pending`, `working`, `done`, or `0`, `1`, `2` —
     through the same parser, so the two cannot disagree about what a status

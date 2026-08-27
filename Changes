@@ -1,5 +1,19 @@
 Revision history for Tira
 
+4.47  2026-08-27
+
+    - TKT-552. tasklist.list --unlinked returns only the items with an
+      empty refs array. TKT-547's task-unlinked rule already watches for
+      those, but reports one only once it has aged past its grace, so an
+      agent auditing them before the police nags had to fetch every item
+      and filter refs client-side - the same shape TKT-545 found for
+      --status, applied to linkage. It filters linkage only, not status:
+      the rule watches pending and working items, but an audit that
+      silently dropped done ones would answer a narrower question than
+      the one asked. It composes with --status rather than replacing it,
+      since the two read different fields, and omitting it returns every
+      item exactly as before.
+
 4.46  2026-08-27
 
     - TKT-580. tira.search --tasklist --session is accepted. Both

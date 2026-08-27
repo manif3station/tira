@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.46';
+our $VERSION = '4.47';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1346,6 +1346,18 @@ sub tasklist_list {
         my $wanted = _tasklist_status_code( $args{status} );
         @mine = grep { ( $_->{status} // 0 ) == $wanted } @mine;
     }
+
+    # TKT-552: the same shape again, for linkage instead of status. TKT-547's
+    # task-unlinked rule watches for pending or working items with an empty
+    # refs array, but only reports one once it has aged past its grace - so an
+    # agent wanting to find them BEFORE the police does had to fetch every
+    # item and filter refs itself.
+    #
+    # Linkage only, deliberately: the rule it serves watches pending and
+    # working, but an audit that silently dropped done items would answer a
+    # narrower question than the one asked. It composes with status rather
+    # than replacing it, since the two read different fields.
+    @mine = grep { !@{ $_->{refs} // [] } } @mine if $args{unlinked};
 
     # Filter before sort, so an explicit --sort orders what survived rather
     # than being applied to a set the caller never asked for.
@@ -13083,7 +13095,9 @@ C<all_sessions> is a deliberate opt-in that returns every item across every
 session instead, each still carrying its own C<session> field. TKT-545:
 C<status> narrows to one status, taking the same values C<tasklist_update>
 does and through the same parser, so an unknown value is refused rather
-than matching nothing; filtering happens before sorting.
+than matching nothing. TKT-552: C<unlinked> narrows to items with an empty
+C<refs> array, filtering linkage only and composing with C<status> rather
+than replacing it. Both filter before sorting.
 
 =head2 tasklist_sessions
 

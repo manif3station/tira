@@ -493,6 +493,59 @@ for my $rel (
     is( scalar @{ decode_json($out) }, 2, 'and the CLI form filters too' );
 }
 
+# --- TKT-552: auditing what nobody linked -----------------------------------
+#
+# TKT-547's task-unlinked rule watches for pending or working items with an
+# empty refs array, but only reports once one has aged past its grace. An
+# agent wanting to find them BEFORE the police does - which is what the
+# standing hunts on this board do - had to fetch every item and filter refs
+# itself. Same shape as TKT-545 found for --status, applied to linkage.
+
+{
+    my $tied   = $tira->tasklist_add(
+        project => $root, text => 'linked to a card', session => 'audit', refs => ['LDT-001'] );
+    my $loose  = $tira->tasklist_add(
+        project => $root, text => 'nobody linked this', session => 'audit' );
+    my $loose2 = $tira->tasklist_add(
+        project => $root, text => 'nor this one', session => 'audit' );
+    $tira->tasklist_update(
+        project => $root, session => 'audit', id => $loose2->{id}, status => 'done' );
+
+    my $unlinked = $tira->tasklist_list( project => $root, session => 'audit', unlinked => 1 );
+    is_deeply( [ sort map { $_->{id} } @{$unlinked} ],
+        [ sort ( $loose->{id}, $loose2->{id} ) ],
+        '--unlinked returns only the items with an empty refs array' );
+
+    # Any status, per the card: the rule it serves watches pending and working,
+    # but an audit that silently hid done items would be answering a narrower
+    # question than the one asked.
+    ok( ( grep { $_->{id} eq $loose2->{id} } @{$unlinked} ),
+        'including a done one - the flag filters linkage, not status' );
+
+    # Omitted is unaffected, which is every existing caller.
+    my $all = $tira->tasklist_list( project => $root, session => 'audit' );
+    is( scalar @{$all}, 3, 'omitting --unlinked still returns every item' );
+
+    # It composes with the sibling filter rather than replacing it: they read
+    # different fields, and an auditor may well want the pending unlinked ones.
+    my $both = $tira->tasklist_list(
+        project => $root, session => 'audit', unlinked => 1, status => 'pending' );
+    is_deeply( [ map { $_->{id} } @{$both} ], [ $loose->{id} ],
+        '--unlinked and --status compose, narrowing on both fields' );
+
+    # And it respects session scoping like every other tasklist read.
+    my $other = $tira->tasklist_add(
+        project => $root, text => 'another session, also unlinked', session => 'elsewhere' );
+    my $scoped = $tira->tasklist_list( project => $root, session => 'audit', unlinked => 1 );
+    ok( !( grep { $_->{id} eq $other->{id} } @{$scoped} ),
+        'and stays inside the caller\'s own session' );
+
+    my ( $status, $out ) = cli(
+        'tasklist.list', '--session', 'audit', '--unlinked', '-o', 'json' );
+    is( $status, 0, 'tasklist.list --unlinked dispatches' );
+    is( scalar @{ decode_json($out) }, 2, 'and the CLI form filters too' );
+}
+
 done_testing;
 
 __END__

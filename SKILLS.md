@@ -1693,6 +1693,17 @@ against the POD text so this cannot silently go stale again.
 Documentation-only, no behavior changed. Found during a standing
 documentation-gap hunt.
 
+TKT-552: `tasklist.list --unlinked` returns only the items with an
+empty `refs` array. `task-unlinked` (TKT-547) already watches for those,
+but reports one only once it has aged past its grace - so an agent
+wanting to find and fix them before the police nags, which is what the
+standing hunts on this board do, had to fetch every item and filter
+`refs` itself. The same shape TKT-545 found for `--status`, applied to
+linkage. It filters linkage only: the rule watches pending and working
+items, but an audit that silently dropped done ones would answer a
+narrower question than the one asked. Composes with `--status` rather
+than replacing it, since the two read different fields.
+
 TKT-580: `tira.search --tasklist --session NAME` is accepted at last.
 Both this file and `docs/commands.md` have described search's tasklist
 matching as scoped to the caller's own `--session` "the same way

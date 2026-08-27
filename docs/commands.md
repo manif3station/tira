@@ -2038,6 +2038,17 @@ own report until the card moves again, and a column nothing has completed
 a pass through yet is simply absent from the report rather than shown
 with zeroed statistics. TKT-366.
 
+Read it per type before setting a threshold on a column that holds
+containers. A SOW or an epic sits in a working column for as long as its
+children take, so a threshold set for tickets fires on it forever and no
+agent action settles it - the only settling move is finishing every child.
+This board's `in-progress` holds the SOW and the epic and no tickets at all,
+with a median of 4h31m but a p90 of 57h09m and a max of 5d08h against a
+policy of 8h; two CRITICAL reminders fired 63 and 69 times over three days
+with nothing to do about them, and re-thresholding from the p90 to 58h
+settled both on the first pass. Re-threshold rather than exempt, so a
+genuinely stuck container is still caught. TKT-573.
+
 `tira.diff` is the watcher: `--since T` lists added/changed records with
 their current column, gate, title, and new-comment ids plus `now` for the
 next poll; `--snapshot FILE` (a saved `tira.export --include-empty -o json`)

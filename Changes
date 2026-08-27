@@ -1,5 +1,32 @@
 Revision history for Tira
 
+4.49  2026-08-27
+
+    - TKT-573. A column that holds containers needs its own dwell
+      reading, and docs/POLICIES.md now says so on the card-duration
+      row. A SOW or an epic legitimately sits in a working column for
+      as long as its children take, so a threshold set for work items
+      reports it forever and cannot be settled by anything an agent
+      does - the only settling move is finishing every child. Measured
+      here rather than argued: in-progress holds the SOW and the epic
+      and no tickets at all, median dwell 4h31m, p90 57h09m, max
+      5d08h, against a policy of 8h. Two CRITICAL reminders had fired
+      63 and 69 times over three days with no action available, which
+      is worse than silence - a signal nobody can act on teaches the
+      reader to skip the channel it arrives on. Re-thresholded from
+      the p90 (POL-070, 58h); both settled on the first pass.
+      Not exempted, only re-thresholded: the owner's own reading was
+      "SOW and EPIC the waiting time is a bigger longer than ticket",
+      and a genuinely stuck epic should still be caught. The other
+      half of his answer - that a child should fold its work back into
+      its parent - already exists as a document-column required action
+      and is executed on every card, and could not settle this rule
+      regardless: card-duration measures TIME IN A COLUMN, so updating
+      a parent never settles it and only moving the card does. That
+      distinction from card-still is now written on the row, since
+      diagnosing it wrongly is what makes the threshold look broken.
+      No code changes; the threshold lives on the board.
+
 4.48  2026-08-27
 
     - TKT-583. One piece of evidence can no longer prove two different

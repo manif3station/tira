@@ -733,6 +733,22 @@ pass through yet is absent rather than shown at zero. Every
 `card-duration` threshold on a board was otherwise a guess, picked by hand
 and never checked against what the board itself records — this turns it
 into a reading. TKT-366.
+
+A column that holds containers needs its own reading, separately from the
+columns that hold work items. A SOW or an epic legitimately sits in a working
+column for as long as its children take, so a threshold set for tickets
+reports it forever and nothing an agent does settles it — the only settling
+move is finishing every child. On this board, `in-progress` holds the SOW and
+the epic and no tickets at all: median dwell 4h31m, p90 57h09m, max 5d08h,
+against a policy of 8h. The result was two CRITICAL reminders that fired 63
+and 69 times over three days with no action available, which is worse than
+silence — a signal nobody can act on teaches the reader to skip the channel
+it arrives on. Re-thresholded from the p90 to 58h and both settled on the
+first pass. Re-thresholded rather than exempted, so a genuinely stuck epic is
+still caught. When diagnosing one of these, note the distinction from
+`card-still`: `card-duration` measures time in a column, so folding a child's
+work back into its parent — a comment, key details, a scope change — never
+settles it, and only moving the card does. TKT-573.
 Wrapping wide boards is **Implemented.** each column now owns
 its own heading rather than sitting in a table row, so **Fit all wraps
 the columns onto as many rows as it takes** at a readable width instead

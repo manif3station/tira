@@ -2620,6 +2620,32 @@ sub _invoke {
 
     return $tira->create_project( name => $option->{name}, dir => $option->{dir} // '.' ) if $command eq 'project.create';
     if ( $command eq 'project.new' || $command eq 'onboard' ) {
+
+        # Before anything is written, not after. project_mode is called below
+        # once the project exists, and it refuses anything but its two values
+        # - which used to mean an invalid --mode produced a failed command AND
+        # a fully created project, with nothing to roll back and nothing
+        # saying so. "It failed" and "it half worked" are different facts, and
+        # only one of them tells the reader to go and look at the directory;
+        # the next attempt then meets a project that should not be there.
+        #
+        # The wizard's own loop already re-asks against these same options, so
+        # ordinary interactive use never got here. What did was the --mode
+        # flag on project.new, and the browser onboarding form, whose mode
+        # field renders its options as a hint and validates nothing before
+        # calling back into this dispatch. Checking here covers both, because
+        # both arrive here.
+        #
+        # The options come from onboarding_questions() rather than a literal
+        # pair, so a third mode cannot be added there and silently refused
+        # here. TKT-562.
+        if ( defined $option->{mode} ) {
+            my ($question) = grep { $_->{id} eq 'mode' } @{ $tira->onboarding_questions };
+            my @allowed = @{ $question->{options} // [] };
+            die "--mode must be one of: " . join( ', ', @allowed ) . "\n"
+              if @allowed && !grep { $_ eq $option->{mode} } @allowed;
+        }
+
         my $summary = $tira->project_new(
             name => $option->{name}, dir => $option->{dir} // '.',
             members => $option->{members}, columns => $option->{columns},
@@ -4992,6 +5018,14 @@ HTML and validated Dancer2 browser serving.
 
 Runs one named command against an argument array and returns its process exit
 code without calling C<exit>, allowing direct unit testing.
+
+C<project.new> and C<onboard> share one branch, and it validates C<--mode>
+before C<project_new> is called rather than after. The order is the point:
+C<project_mode> runs once the project exists, so an invalid value used to
+produce a failed command and a fully created project at the same time, with
+nothing to roll back. The accepted values come from
+C<onboarding_questions()> rather than being written out here, so the two
+cannot disagree.
 
 =head2 browser_providers
 

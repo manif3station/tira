@@ -1587,6 +1587,20 @@ answers, unusable answers are re-asked, and both declining and running out of
 input leave nothing behind. Only `tira.onboard` ever prompts — `project.new`
 is purely argument-driven so nothing automated can be left waiting on input.
 
+TKT-562: `--mode` is checked before anything is created, on both commands.
+It used to be applied after the project had been fully written, so an
+invalid value produced a failed command *and* a real project on disk, with
+nothing to roll back and nothing saying so — "it failed" and "it half
+worked" are different facts, and only one of them tells you to go and look
+at the directory. The next attempt then met a project that should not have
+been there. The wizard's own loop always re-asked, so this was only ever
+reachable through the `--mode` flag on `project.new` (and on `onboard` when
+the prompt is skipped) and through the browser onboarding form, whose mode
+field renders its options as a hint and validates nothing. The refusal now
+names the option and both values it takes, and it reads them from the
+onboarding questions themselves, so a third mode added there cannot be
+silently refused here.
+
 TKT-555: re-running `tira.onboard` against a directory that already has
 a project shows every field's current value as its default, including
 now the project-mode question (single vs chain) - `_wizard_defaults`

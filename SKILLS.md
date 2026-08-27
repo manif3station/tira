@@ -1693,6 +1693,21 @@ against the POD text so this cannot silently go stale again.
 Documentation-only, no behavior changed. Found during a standing
 documentation-gap hunt.
 
+TKT-562: onboarding refuses an invalid `--mode` before it creates
+anything. The check used to happen after `project_new` had written the
+project, its people, its boards and every column, so an invalid value
+left the caller with a nonzero exit, an error, and a complete project on
+disk that nothing mentioned. "It failed" and "it half worked" are
+different facts, and only one of them tells the reader to go and look at
+the directory; the next attempt then meets a project that should not be
+there. Reachable through the `--mode` flag and through the browser
+onboarding form, whose mode field renders its options as a hint and
+validates nothing before calling back into the same dispatch - the
+interactive wizard was always safe, because its own loop re-asks. The
+refusal names the option and both values, and reads them from
+`onboarding_questions()` rather than a hard-coded pair, so a third mode
+added there cannot be silently refused here.
+
 TKT-571: an UNASSIGNED card counts against the agent again. TKT-570's
 filter (below) kept a card only when its assignee equalled the declared
 agent, which dropped cards nobody had claimed alongside cards belonging

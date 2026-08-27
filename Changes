@@ -1,5 +1,25 @@
 Revision history for Tira
 
+4.41  2026-08-27
+
+    - TKT-562. Onboarding no longer reports failure while leaving a whole
+      project behind it. The dispatch shared by project.new and onboard
+      ran project_new to completion - project, people, boards, every
+      column written - and only then applied --mode, which refuses
+      anything but single or chain. An invalid value therefore died at a
+      point with nothing left to undo: a nonzero exit, an error, and a
+      real project on disk that nothing mentioned. "It failed" and "it
+      half worked" are different facts, and only one of them tells the
+      reader to go and look at the directory; the next attempt then met a
+      project that should not have been there. The check now runs before
+      anything is written, names the option and both values it takes, and
+      reads those values from onboarding_questions() rather than a
+      hard-coded pair, so a third mode added there cannot be silently
+      refused here. The interactive wizard was always safe - its own loop
+      re-asks - so what this fixes is the --mode flag and the browser
+      onboarding form, whose mode field renders its options as a hint and
+      validates nothing.
+
 4.40  2026-08-27
 
     - TKT-571. agent-still counts an unassigned card again. TKT-570's

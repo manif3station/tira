@@ -1527,6 +1527,18 @@ against. The refusal for an out-of-range value now states it too.
 A card with no priority is unassessed rather than lowest. It sorts last and says
 so, rather than pretending to a number nobody chose.
 
+## What stops a card moving on
+
+Three checks run on a forward move through the CLI or agent path, in this order, and each refuses with the thing it wants:
+
+1. **The column chain** - the destination must be a declared next step. Refuses naming the column you should go to first.
+2. **The current column's required actions** - any still unmarked refuses, naming them.
+3. **Unjudged answers** - a question answered but never marked refuses, naming the question and the `tira.question.mark` command that settles it. Reading an answer is automatic and does not count; the gate reads the question's own `mark`, so there is nothing to satisfy but the judgement itself. An unanswered question, a discarded one, and an answer marked `not-ok` all pass freely - the gate wants an assessment, not agreement. TKT-584.
+
+A **backward** move is unconditional against all three, because the thing left unmet may be exactly what the card is retreating to fix. Moving back to `backlog` additionally resets the tasklist items that were working on the card, leaving `done` ones alone, crossing session boundaries deliberately, and skipping - but naming - any task linked to more than one card. TKT-596.
+
+A move to `discard` is exempt throughout.
+
 ## What a date-time field will take
 
 `--start-date` and `--due-date` want an ISO 8601 date-time **with an offset**,

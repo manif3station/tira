@@ -1050,6 +1050,17 @@ sub browser_providers {
             my $columns = eval { $tira->column_list(%column_args) };
             _apply_column_required_actions( $tira, \%column_args, $from, $payload->{column}, $columns, $record )
               if ref $columns eq 'ARRAY';
+
+            # Bookkeeping, so it belongs here as well as on the CLI path -
+            # TKT-452's distinction exactly: the gating half stays CLI-only
+            # because a human dragging a card is not an agent skipping a gate,
+            # but keeping the card accurate for whoever looks at it next is
+            # not enforcement and has to happen either way. Left out at first,
+            # which meant a card dragged back to backlog in the browser went
+            # on claiming somebody was working its tasks - the very fault
+            # TKT-596 exists to fix, surviving on the other path. TKT-596.
+            _reset_linked_tasks_on_return( $tira, \%column_args, $payload->{column} );
+
             $record = $tira->record_show(%column_args) if ref $columns eq 'ARRAY';
 
             return $json->encode( { ok => Cpanel::JSON::XS::true, record => $record } );
@@ -2377,6 +2388,171 @@ sub _remind_one_at_a_time {
     return;
 }
 
+# An answer that was read, acted on, and never judged.
+#
+# Reading is automatic - question_list stamps read_at on the way past, and
+# lib/Tira.pm says so: "Reading is what marks an answer read - the agent does
+# nothing extra." Judging is a deliberate tira.question.mark that nothing asks
+# for until answer-unjudged fires hours later, by which time the card is
+# finished and the agent has moved on. Observed twice in one session on this
+# board, hours apart, by the agent that had just filed the card about it.
+#
+# So the prompt is moved to the moment it belongs to: a card does not leave the
+# column an answer was given in while that answer carries no mark.
+#
+# This reads the question's own mark rather than raising a required-action item
+# to stand in for it, and that is the point rather than a shortcut. A required
+# item is marked done with a command and a proof like any other, so an agent
+# can satisfy it in the same sweep as everything else without ever forming a
+# view - which is the "acknowledgement the agent can click through" TKT-584's
+# third acceptance criterion rules out. There is nothing here to satisfy but
+# the act itself.
+#
+# Four things stay ungated on purpose. An UNANSWERED question: waiting on the
+# owner is its normal state and question-unanswered is a different rule about a
+# different person. A DISCARDED one: nobody owes a judgement on a withdrawn
+# question. An answer marked NOT-OK: the gate wants an assessment, not
+# agreement, and answer-not-ok-unresolved already watches what follows a cross.
+# And READING: a check that consulted read_at would release itself on the way
+# past, which is not a check.
+#
+# answer-unjudged is untouched and stays the backstop for whatever escapes
+# this - a card discarded, or a board where the move never comes. TKT-584.
+sub _unjudged_answer_violation {
+    my ( $tira, %args ) = @_;
+    return undef if ( $args{column} // '' ) eq 'discard';
+    my $current = eval { $tira->record_show(%args) };
+    return undef if !$current;
+    my $from = $current->{column};
+    return undef if !defined $from || $from eq 'discard' || $from eq ( $args{column} // '' );
+
+    # Forward moves only, the same index comparison the required-action gate
+    # makes. A backward move is unconditional by TKT-455's design, because the
+    # thing left unmet may be exactly what the card is retreating to fix - and
+    # an unjudged answer is a particularly good reason to retreat, since the
+    # person who would judge it may be why the card is going back. Written
+    # without this at first, which refused a card being sent back to fix
+    # something; found by probing, not by a test, because none of t/407's
+    # assertions moved a card backward.
+    my $columns = eval { $tira->column_list(%args) };
+    return undef if ref $columns ne 'ARRAY';
+    my %index;
+    my $i = 0;
+    for my $col ( @{$columns} ) { $index{ $col->{name} } = $i++; }
+    return undef if !exists $index{$from} || !exists $index{ $args{column} };
+    return undef if $index{ $args{column} } < $index{$from};
+
+    my @unjudged = grep {
+        $_->{answer} && !$_->{discarded_at} && !( $_->{answer}{mark} // '' );
+    } @{ $current->{questions} // [] };
+    return undef if !@unjudged;
+
+    return "Cannot move $args{ref} out of $from - "
+      . ( @unjudged == 1 ? 'an answer has' : scalar(@unjudged) . ' answers have' )
+      . " not been judged:\n"
+      . join( '', map { "  $_->{id}  " . _first_line( $_->{text} ) . "\n" } @unjudged )
+      . "  Judge it, then move again:\n"
+      . "    d2 tira.question.mark --ref $args{ref} --id $unjudged[0]{id} --mark ok|not-ok\n";
+}
+
+# One line of a question, short enough to sit in a refusal beside its id.
+sub _first_line {
+    my ($text) = @_;
+    my ($line) = split /\n/, ( $text // '' );
+    $line //= '';
+    return length($line) > 72 ? substr( $line, 0, 69 ) . '...' : $line;
+}
+
+# A card returning to the queue, and the tasks that still say somebody is on it.
+#
+# The board already understands that retreating undoes claims of progress: a
+# backward move resets the required items between destination and origin,
+# keeping their proof (TKT-455). Tasks were never part of that, so a card could
+# sit in backlog while its tasklist went on reading "working" until somebody
+# ran a second command nobody prompts for. The owner asked for it to happen on
+# the move itself.
+#
+# Anchored to backlog because it is the default builtin column - a fix point
+# every board has, so this needs no per-board configuration. A retreat that
+# stops short of the queue is not the same statement about the work.
+#
+# Three decisions, each deliberate:
+#
+#   A DONE task is left alone. It records work that actually happened, and a
+#   card retreating does not unmake it.
+#
+#   The reset CROSSES the session boundary. Tasklist items are session-scoped
+#   (TKT-537), and on a multi-agent board the tasks most needing reset belong
+#   to somebody else's session - a reset that respected the boundary would do
+#   nothing in exactly the case it exists for.
+#
+#   A task naming MORE THAN ONE card is not reset, and is named in the output.
+#   Q-088: "Never reset a task with more than one linked card, and say so in
+#   the output so it is visible rather than silent." There is no status true
+#   about both cards at once, and a silent skip is indistinguishable from the
+#   feature being broken - the person moving the card is the only one who can
+#   judge whether that task needed resetting by hand. TKT-596.
+sub _reset_linked_tasks_on_return {
+    my ( $tira, $args, $to ) = @_;
+    return if ( $to // '' ) ne 'backlog';
+    my $ref = $args->{ref};
+    return if !defined $ref || $ref eq '';
+
+    my $items = eval { $tira->tasklist_list( %{$args}, all_sessions => 1 ) };
+    return if ref $items ne 'ARRAY';
+
+    my ( @reset, @skipped, @failed );
+    for my $item ( @{$items} ) {
+        my @refs = @{ $item->{refs} // [] };
+        next if !grep { $_ eq $ref } @refs;
+        next if ( $item->{status} // 0 ) != 1;
+        if ( @refs > 1 ) { push @skipped, $item; next }
+
+        # A failure here is SAID, not swallowed. Written first as a bare eval
+        # whose failure left the task neither reset nor mentioned - the task
+        # would go on reading "working" and the move would report nothing,
+        # which is indistinguishable from there having been no task at all.
+        # That is the same silent-skip fault this card's own multi-ref rule
+        # exists to avoid, one line lower down.
+        my $ok = eval {
+            $tira->tasklist_update(
+                %{$args}, id => $item->{id}, status => 'pending',
+                session => $item->{session} // '',
+            );
+            1;
+        };
+        if   ($ok) { push @reset,  $item }
+        else       { push @failed, [ $item, $@ ] }
+    }
+    return if !@reset && !@skipped && !@failed;
+
+    print {*STDERR} "\n";
+    printf {*STDERR} "%d task(s) reset to pending, because %s went back to the queue:\n",
+      scalar @reset, $ref
+      if @reset;
+    printf {*STDERR} "  %s  %s\n", $_->{id}, _first_line( $_->{text} ) for @reset;
+    if (@skipped) {
+        printf {*STDERR} "%d task(s) left alone, each linked to more than one card -\n"
+          . "check by hand whether they should still say working:\n", scalar @skipped;
+        printf {*STDERR} "  %s  %s  (also on %s)\n", $_->{id}, _first_line( $_->{text} ),
+          join( ', ', grep { $_ ne $ref } @{ $_->{refs} // [] } )
+          for @skipped;
+    }
+    if (@failed) {
+        printf {*STDERR} "%d task(s) could NOT be reset and still say working -\n"
+          . "reset them by hand:\n", scalar @failed;
+        for my $pair (@failed) {
+            my ( $item, $why ) = @{$pair};
+            $why //= 'no reason given';
+            $why =~ s/\s+/ /g;
+            printf {*STDERR} "  %s  %s  (%s)\n", $item->{id},
+              _first_line( $item->{text} ), substr( $why, 0, 80 );
+        }
+    }
+    print {*STDERR} "\n";
+    return;
+}
+
 sub _apply_column_required_actions {
     my ( $tira, $args, $from, $to, $columns, $record ) = @_;
     return
@@ -3072,6 +3248,8 @@ sub _invoke {
             die $blocked if defined $blocked;
             my $action_blocked = _column_required_action_violation( $tira, %args );
             die $action_blocked if defined $action_blocked;
+            my $unjudged = _unjudged_answer_violation( $tira, %args );
+            die $unjudged if defined $unjudged;
 
             my $before  = eval { $tira->record_show(%args) };
             my $from    = $before ? $before->{column} : undef;
@@ -3080,6 +3258,7 @@ sub _invoke {
             _apply_column_required_actions( $tira, \%args, $from, $args{column}, $columns, $result )
               if ref $columns eq 'ARRAY';
             _remind_one_at_a_time( $tira, \%args, $args{column} );
+            _reset_linked_tasks_on_return( $tira, \%args, $args{column} );
 
             # Re-read rather than returning $result as-is: the required-action
             # population/reset above writes to the checklist after record_move

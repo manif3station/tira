@@ -321,10 +321,10 @@ it, and picks the new version up without anyone restarting it by hand — but
 not by restarting itself. **The shipped board never can.** `tira.dashboard -o
 browser` always runs under Starman with a worker pool, so the process that
 notices a new version is always a worker, and a worker can never replace the
-board (see below). Starman's own `HUP` is no help either: its `Server.pm`
-overrides `Net::Server`'s exec-based `sig_hup` with one that only recycles
-workers from the master's already-compiled code, so a graceful reload loads
-nothing new.
+board (see below). Nor can the master do it on its own account: it owns the
+listening socket and never serves a request, so nothing inside the board is
+both able to notice a new version and able to act on it. The signal has to
+come from outside.
 
 What actually picks up a release is **police** (TKT-565). It runs on a
 schedule, is not a worker, and owns no listening socket, so it can do the one

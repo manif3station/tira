@@ -1,5 +1,24 @@
 Revision history for Tira
 
+4.42  2026-08-27
+
+    - TKT-564. The documentation no longer argues against its own feature
+      before describing it. docs/commands.md and SKILLS.md each carried
+      two adjacent paragraphs that disagreed: one said Starman's HUP
+      "only recycles workers from the master's already-compiled code, so
+      a graceful reload loads nothing new", and the next explained that
+      police sends the master a HUP and each re-forked worker "re-reads
+      the modules from disk and comes up on the installed version". The
+      second is the true one - TKT-566's docker integration test proves
+      it against a real board. The first was the residue of a belief held
+      before TKT-565, and the correction had been written after it rather
+      than in its place, so both survived. A reader who stopped at the
+      first paragraph concluded the automatic pickup could not work. It
+      is replaced by the limitation that is actually true and that the
+      surrounding text needs: the master owns the listening socket and
+      never serves a request, so nothing inside the board can act on a
+      new version, which is exactly why police signals from outside.
+
 4.41  2026-08-27
 
     - TKT-562. Onboarding no longer reports failure while leaving a whole

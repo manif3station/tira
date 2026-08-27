@@ -4482,6 +4482,18 @@ sub _listening_pid {
     opendir my $dh, $proc or return undef;
     my @pids = sort { $a <=> $b } grep { /\A[0-9]+\z/ } readdir $dh;
     closedir $dh;
+
+    # Everyone holding it, not the first one found. A pre-forked server's
+    # master and every one of its workers share the listening socket - all
+    # six processes on the owner's own board held inode 35794984 - so the
+    # first match is simply the lowest pid, which is the master only because
+    # it happened to be created first. Once pids wrap past pid_max a worker
+    # can be numbered below its own master, and a container's pid_max is far
+    # smaller than a host's. Signalling a worker would reload that one worker
+    # onto the new code and leave the rest on the old, with the once-per
+    # -release mark written anyway: a board serving two versions at once,
+    # silently and permanently. TKT-567.
+    my @holding;
     for my $pid (@pids) {
         opendir my $fds, File::Spec->catdir( $proc, $pid, 'fd' ) or next;
         my @fd = grep { /\A[0-9]+\z/ } readdir $fds;
@@ -4489,16 +4501,45 @@ sub _listening_pid {
         for my $fd (@fd) {
             my $target = readlink File::Spec->catfile( $proc, $pid, 'fd', $fd );
             next if !defined $target || $target !~ /\Asocket:\[(\d+)\]\z/;
-            return 0 + $pid if $inode{$1};
+            next if !$inode{$1};
+            push @holding, 0 + $pid;
+            last;
         }
     }
+    return undef if !@holding;
+    return $holding[0] if @holding == 1;
+
+    # The master is the one nothing else in the set fathered: every worker's
+    # parent is the master, and the master's parent is whatever launched the
+    # board. Structural, so it holds whatever order the pids happen to fall
+    # in. Exactly one such process, or none - two would mean this is not the
+    # process tree we think it is, and refusing beats guessing when guessing
+    # wrong means signalling a worker.
+    my %in_set = map { $_ => 1 } @holding;
+    my @rootmost = grep {
+        my $ppid = _parent_of_pid( $_, proc => $proc );
+        !defined $ppid || !$in_set{$ppid};
+    } @holding;
+    return @rootmost == 1 ? $rootmost[0] : undef;
+}
+
+# A process's parent, from the same shell-free source as everything else
+# here. Undef when it cannot be read, which the caller treats as "not in the
+# set" - the safe direction, since it can only ever make a pid look more
+# rootmost, and two rootmost candidates refuse rather than pick. TKT-567.
+sub _parent_of_pid {
+    my ( $pid, %opts ) = @_;
+    my $proc = $opts{proc} // '/proc';
+    open my $fh, '<', File::Spec->catfile( $proc, $pid, 'status' ) or return undef;
+    while ( my $line = <$fh> ) {
+        next if $line !~ /\APPid:\s*(\d+)/;
+        close $fh;
+        return 0 + $1;
+    }
+    close $fh;
     return undef;
 }
 
-# Where the last version police signalled a board about is remembered, so it
-# signals once per release rather than once per pass. Signalling every pass
-# is the exact shape of the loop this whole mechanism was built to avoid -
-# four boards did it every sixty-five seconds for twenty hours.
 # What a process was launched as, read from the same shell-free source the
 # port lookup already uses. The arguments are NUL-separated in /proc, so
 # they are joined with spaces to be matched as one string. Anywhere without
@@ -4516,6 +4557,10 @@ sub _command_of_pid {
     return $raw;
 }
 
+# Where the last version police signalled a board about is remembered, so it
+# signals once per release rather than once per pass. Signalling every pass
+# is the exact shape of the loop this whole mechanism was built to avoid -
+# four boards did it every sixty-five seconds for twenty hours.
 sub _dashboard_hup_mark_path {
     my ($store) = @_;
     return File::Spec->catfile( $store, '.dashboard.huped' );

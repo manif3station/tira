@@ -107,11 +107,24 @@ case "$RESULT" in
   *) die "police refused to signal a real running board ($RESULT) - the fix does not work" ;;
 esac
 
-say "waiting for the workers to be replaced"
+say "waiting for EVERY old worker to go"
+#
+# "the set changed" is not enough, and a real run proved it: after one pass
+# the workers read 2021 2046 2047 2048 2049 - four replaced, but 2021 still
+# alive and still serving the OLD code. Starman recycles workers gracefully,
+# so they go one at a time as each finishes what it is holding, and sampling
+# the moment the set first differs catches the board halfway. What matters is
+# that no worker from before the signal is left, because one survivor means
+# the board is still serving two versions.
 WORKERS_AFTER=""
-for i in $(seq 1 60); do
+STILL_OLD=""
+for i in $(seq 1 90); do
   WORKERS_AFTER=$(pgrep -P $MASTER | sort -n | tr "\\n" " ")
-  [ -n "$WORKERS_AFTER" ] && [ "$WORKERS_AFTER" != "$WORKERS_BEFORE" ] && break
+  STILL_OLD=""
+  for w in $WORKERS_BEFORE; do
+    case " $WORKERS_AFTER " in *" $w "*) STILL_OLD="$STILL_OLD $w";; esac
+  done
+  [ -n "$WORKERS_AFTER" ] && [ -z "$STILL_OLD" ] && break
   sleep 1
 done
 
@@ -119,7 +132,7 @@ AFTER=$(perl -Ilib -e "use lib q(lib); require Tira::CLI; print Tira::CLI::_list
 
 say "RESULTS"
 printf "     master before:  %s\n     master after:   %s\n" "$MASTER" "$AFTER"
-printf "     workers before: %s\n     workers after:  %s\n" "$WORKERS_BEFORE" "$WORKERS_AFTER"
+printf "     workers before: %s\n     workers after:  %s\n     survivors:      %s\n" "$WORKERS_BEFORE" "$WORKERS_AFTER" "${STILL_OLD:-none}"
 
 # Three assertions, and each one rules out a different way of being wrong.
 #
@@ -134,6 +147,10 @@ printf "     workers before: %s\n     workers after:  %s\n" "$WORKERS_BEFORE" "$
 [ -n "$WORKERS_AFTER" ] || die "no workers are running after the signal - the board is broken"
 [ "$WORKERS_BEFORE" != "$WORKERS_AFTER" ] \
   || die "the workers were never replaced ($WORKERS_AFTER): nothing reloaded, so no new code is running"
+
+# And none of the originals survived, so no worker is left on the old code.
+[ -z "$STILL_OLD" ] \
+  || die "workers$STILL_OLD outlived the reload: the board is serving two versions at once"
 
 # And still serving rules out having broken it in the process.
 curl -sf "http://127.0.0.1:$PORT/" >/dev/null 2>&1 \

@@ -1,5 +1,29 @@
 Revision history for Tira
 
+4.36  2026-08-27
+
+    - TKT-567. Police now finds the Starman master by parentage rather
+      than by pid order. A pre-forked server's master and every one of
+      its workers share the listening socket - all six processes on a
+      live board held inode 35794984 - so the previous lookup returned
+      the lowest pid, which is the master only because it happens to be
+      created first. Once pids wrap past pid_max a worker can be
+      numbered below its own master, and a container's pid_max is far
+      smaller than a host's. The master is now the one no other holder
+      of that socket fathered, read from /proc/PID/status; when that is
+      not exactly one process the lookup refuses, because guessing
+      wrong means signalling a worker - which would reload that worker
+      onto the new code and leave the rest on the old, with the
+      once-per-release mark written anyway: a board serving two
+      versions at once, silently and permanently.
+
+      tools/hup-integration was strengthened alongside it, having been
+      too generous. It asserted that the worker set changed, which a
+      real run satisfied while worker 2021 survived on old code -
+      Starman recycles gracefully, one worker at a time, so sampling
+      the moment the set first differs catches the board halfway. It
+      now requires that no worker from before the signal remains.
+
 4.35  2026-08-26
 
     - TKT-565. A live dashboard now picks up a newly installed Tira

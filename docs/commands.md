@@ -337,7 +337,16 @@ request it is holding before it is replaced.
 Police finds the master by asking which process holds the board's port, not
 by reading a pidfile: a pidfile goes stale, survives a crash and can name a
 pid the machine has since reused, while a listening socket is the truth at
-the moment it is asked. It signals **once per release**, remembering which
+The master is picked out by parentage, not by pid order (TKT-567): a
+pre-forked server's master and all of its workers share the one listening
+socket, so the master is identified as the holder that no other holder
+fathered. Pid order would work only until pids wrap past `pid_max` -
+smaller in a container than on a host - after which a worker can be
+numbered below its own master. Where that cannot be resolved to exactly
+one process the lookup refuses, since signalling a worker would reload
+only that worker and leave the rest of the board on the old code.
+
+It signals **once per release**, remembering which
 version it last signalled about, because signalling every pass is the loop
 this whole mechanism exists to avoid.
 

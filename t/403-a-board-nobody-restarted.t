@@ -26,6 +26,7 @@ use warnings;
 
 use File::Spec;
 use File::Temp qw(tempdir);
+use File::Path ();
 use Test::More;
 
 use lib 'lib';
@@ -166,6 +167,71 @@ sub attempt {
         is( Tira::CLI::_listening_pid($port), undef,
             'and finds nothing once it has been let go of' );
     }
+}
+
+# --- TKT-567: the master is found by parentage, not by pid order -----------
+#
+# The master and every worker share one listening socket - confirmed on a
+# live board, where all six processes held inode 35794984 - so pid order is
+# the only thing that separated them, and only because the master happens to
+# be created first. Once pids wrap past pid_max a worker can be numbered
+# below its own master, and containers set pid_max far lower than a host
+# does. Signalling a worker would restart that one worker on new code while
+# the rest kept serving the old, with the once-per-release mark written
+# anyway: a board on two versions at once, silently and for good.
+
+{
+    my $fake = File::Spec->catdir( $tmp, 'proc' );
+    my $port = 8080;
+    my $inode = 555;
+
+    File::Path::make_path( File::Spec->catdir( $fake, 'net' ) );
+    open my $tcp, '>', File::Spec->catfile( $fake, 'net', 'tcp' ) or die $!;
+    print {$tcp} "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n";
+    printf {$tcp} "  26: 0100007F:%04X 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 %d 1\n",
+      $port, $inode;
+    close $tcp;
+
+    # 100 is a worker whose parent is the master; 200 is the master, whose
+    # parent is the shell that launched it. The worker is numbered lower.
+    for my $pair ( [ 100, 200 ], [ 200, 1 ] ) {
+        my ( $pid, $ppid ) = @{$pair};
+        File::Path::make_path( File::Spec->catdir( $fake, $pid, 'fd' ) );
+        open my $st, '>', File::Spec->catfile( $fake, $pid, 'status' ) or die $!;
+        print {$st} "Name:\tstarman\nPPid:\t$ppid\n";
+        close $st;
+        symlink "socket:[$inode]", File::Spec->catfile( $fake, $pid, 'fd', '3' );
+    }
+
+    is( Tira::CLI::_listening_pid( $port, proc => $fake ), 200,
+        'the master is returned even though a worker holds a lower pid' );
+}
+
+{
+    # Nothing resolvable: two processes on the socket, neither a parent of
+    # the other. Refusing beats guessing, because guessing wrong here means
+    # signalling a worker.
+    my $fake = File::Spec->catdir( $tmp, 'proc-unclear' );
+    my $port = 8081;
+    my $inode = 777;
+
+    File::Path::make_path( File::Spec->catdir( $fake, 'net' ) );
+    open my $tcp, '>', File::Spec->catfile( $fake, 'net', 'tcp' ) or die $!;
+    printf {$tcp} "  26: 0100007F:%04X 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 %d 1\n",
+      $port, $inode;
+    close $tcp;
+
+    for my $pair ( [ 300, 1 ], [ 400, 1 ] ) {
+        my ( $pid, $ppid ) = @{$pair};
+        File::Path::make_path( File::Spec->catdir( $fake, $pid, 'fd' ) );
+        open my $st, '>', File::Spec->catfile( $fake, $pid, 'status' ) or die $!;
+        print {$st} "PPid:\t$ppid\n";
+        close $st;
+        symlink "socket:[$inode]", File::Spec->catfile( $fake, $pid, 'fd', '3' );
+    }
+
+    is( Tira::CLI::_listening_pid( $port, proc => $fake ), undef,
+        'a set with no single parent among it refuses rather than picking one' );
 }
 
 # --- the real defaults, exercised without signalling anything --------------

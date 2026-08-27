@@ -422,6 +422,44 @@ const recordRequests = [];
   if (filesStillChosen !== 1)
     fail('a file chosen but not yet attached should survive the 1-second poll, not be wiped by the row rebuilding');
 
+  // --- TKT-590: the busy test reads CONTENT, not FOCUS. TKT-554 covered a
+  // ref that already has characters in it; this covers the window BEFORE the
+  // first character lands, which is up to a full second wide because the poll
+  // runs every 1000ms. Focus the box, pause to read the ref you are about to
+  // type, and the row is rebuilt under you - which is the owner's report:
+  // "if i typed to type in a card-ref on it. It will wipe it out. But the
+  // card text edit is fine." Text editing is fine because tlEditingIds
+  // registers the intent when the editor opens; the ref box has no such
+  // registration and is protected only by a non-empty value.
+  // A DIFFERENT row from the one above: that one still has a file chosen, and
+  // busyFile would keep it alive whatever the ref box does - the check would
+  // pass without testing anything. Caught by running it: the first version of
+  // this case went green against unfixed code.
+  const freshCard = section.locator('.tasklist-card').nth(1);
+  const freshRef = freshCard.locator('input[placeholder="CARD-REF"]');
+  await freshRef.focus();
+  await freshCard.evaluate(el => { el.dataset.tkt590 = 'same-node'; });
+  await page.waitForTimeout(1300);
+  const sameNode = await section.locator('.tasklist-card').nth(1)
+    .evaluate(el => el.dataset.tkt590 || '');
+  if (sameNode !== 'same-node')
+    fail('a row whose CARD-REF box is focused but still empty should survive the 1-second poll - the busy test reads the box content, not the fact that somebody is in it');
+
+  // Asked of THIS row's own box rather than "is some CARD-REF box focused":
+  // after a rebuild the answer to the looser question could be yes for a
+  // different row, and a check that can pass for the wrong row is the same
+  // fault as the vacuous one above.
+  const focusedHere = await section.locator('.tasklist-card').nth(1).evaluate(
+    el => el.contains(document.activeElement)
+      && document.activeElement.getAttribute('placeholder') === 'CARD-REF');
+  if (!focusedHere)
+    fail('focus should still be in THIS row\'s CARD-REF box after the poll, so the first character typed actually lands in it');
+
+  // Clearing the box while staying in it is the same predicate - empty value,
+  // still focused - so it is not asserted separately. It was, and on red it
+  // only produced a 30-second locator timeout while the row rebuilt underneath
+  // it: a slow restatement of the two checks above rather than a new one.
+
   await browser.close();
   if (!process.exitCode) console.log('tasklist section: all checks passed');
 })().catch(error => {

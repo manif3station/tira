@@ -2703,6 +2703,19 @@ either one. `attachFile` also clears the file input after a successful
 attach, so a row does not stay marked busy forever after the file it
 was busy over has already been uploaded.
 
+TKT-590: that guard tested content, and content is not the same as
+somebody being there. A ref box that is focused but still empty passed
+none of its clauses, so the poll rebuilt the row in the window between
+focusing the box and the first character landing - up to a full second
+wide, and recurring every second. The guard now also treats the ref box as busy when it is the focused
+element, not only when it holds a value. Deliberately scoped to that box:
+treating ANY focused input in the row as busy was tried first and regressed
+the text editor, which never closed because focus was still inside the row
+being rebuilt. The whole test is extracted into one predicate,
+`tlRowBusy(row, id)`, called once from `reconcileTasklist` - the inline
+conjunction is what made it easy to fix one clause and leave its neighbour
+open.
+
 TKT-536: the Policies dialog's Decline button opens an inline reason
 capture (`.policy-inline-capture`, an input plus a Go button) instead of
 a blocking `prompt()` - the last native prompt/alert in the embedded

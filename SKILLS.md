@@ -1676,6 +1676,27 @@ ticket/epic/sow card dialog, whose own `dialogEditingActive()` guard was
 confirmed already correct) before this ticket found the real gap in the
 Task List section's own live JS.
 
+TKT-590: the same guard, one clause short. TKT-554 protected a ref that
+already had characters in it, and left the moment before the first one
+landed unprotected - a box that is focused but still empty is not busy by
+any content test. With `setInterval(loadTasklist, 1000)` that window
+recurs every second, so pausing to read the ref you are about to type is
+enough to lose the box, which is exactly what the owner reported
+(TSK-169): "if i typed to type in a card-ref on it. It will wipe it out.
+But the card text edit is fine." The text edit was fine because
+`tlEditingIds` registers *intent* when the editor opens, while the ref box
+was judged on *content*. The guard now reads both: the ref box counts as busy when it holds a value
+**or when it is the focused element**. Scoped to that box rather than to any
+focused input in the row - the wider form was written first and regressed the
+text editor, which stayed on screen forever because focus was still inside the
+row it was trying to leave. The whole test is extracted into one named
+predicate, `tlRowBusy`, rather than appended as another inline clause - a
+growing conjunction is how TKT-554 came to fix one case and miss its
+neighbour. The browser test proving it passed on its first
+run against unfixed code, because it reused a row that still had a file
+chosen and that clause kept the row alive regardless; rewritten against an
+untouched row, it fails on the old code and passes on the new.
+
 TKT-548: a new `task-changed` police rule reports a tasklist item whose
 text, attachments, or linked refs changed since the last police pass
 saw it, firing for any actor (not owner-only, per Michael's own live

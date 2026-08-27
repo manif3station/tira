@@ -1,5 +1,38 @@
 Revision history for Tira
 
+4.50  2026-08-27
+
+    - TKT-590. A task card's CARD-REF box no longer loses what you are
+      typing to the poll. Reported by the owner: "For the task card, if
+      i typed to type in a card-ref on it. It will wipe it out. But the
+      card text edit is fine."
+      The second half of that sentence was the clue. A guard already
+      existed - reconcileTasklist keeps a row rather than rebuilding it
+      - but it read the wrong thing. Text editing registers its intent
+      in tlEditingIds the moment the editor opens, so it survived; the
+      ref box was protected only by having a non-empty value. So the
+      window between focusing the box and the first character landing
+      was unguarded, and since the poll is setInterval(loadTasklist,
+      1000) that window recurs every second: pause to read the ref you
+      are about to type and the row is rebuilt under you.
+      The busy test now reads INTENT as well as content: the ref box
+      counts as busy when it holds a value OR when it is the focused
+      element. Scoped to that box on purpose. Treating any focused
+      input in the row as busy was written first and regressed the
+      text editor - it stayed on screen forever, because focus was
+      still inside the row it was trying to leave, and the browser
+      suite caught it. Extracted into one named predicate, tlRowBusy,
+      rather than added as another inline clause: TKT-554 fixed the
+      half-typed case in this same conjunction and left this one open,
+      and a growing inline conjunction is how that happened.
+      The browser test that proves it went GREEN on its first run
+      against the unfixed code - it reused a row that still had a file
+      chosen, and that clause kept the row alive whatever the ref box
+      did. Rewritten against an untouched row, it fails on the old code
+      and passes on the new. Recorded because a test that passes for
+      the wrong reason is the same defect as one proof for eleven
+      items.
+
 4.49  2026-08-27
 
     - TKT-573. A column that holds containers needs its own dwell

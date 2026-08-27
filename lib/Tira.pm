@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.36';
+our $VERSION = '4.38';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4722,15 +4722,67 @@ sub release_record {
     # --evidence means the summary of one new entry, not that. Spreading
     # %args into record_update let the two collide silently: the summary
     # string landed where the evidence array belongs, corrupting it.
-    my %identify = (
-        project => $args{project}, start => $args{start},
-        ref => $args{ref}, type => $args{type}, author => $args{author},
-    );
-    my $gate = $self->gate_add( %identify,
-        gate => $args{gate}, result => $args{result}, details => $args{details} );
-    my $evidence = $self->evidence_add( %identify, summary => $args{evidence} );
-    my $record = $self->record_update( %identify, fix_version => $args{fix_version} );
-    return { gate => $gate, evidence => $evidence, record => $record };
+    # A whole batch ships in one push here, so one call records the lot.
+    # Before this, recording a push meant running the command once per card
+    # with identical --gate/--result/--details/--fix-version and only --ref
+    # changing - measured on this project's own release of 2026-08-26, where
+    # twelve cards shipped together and the identical tail ran twelve times.
+    # Each ref is recorded independently rather than in one transaction: a
+    # ref that cannot be written should not silently take the others down
+    # with it, and gate_add/evidence_add/record_update are per-record calls
+    # anyway. TKT-561.
+    my @refs = @{ $args{refs} // [] } ? @{ $args{refs} } : ( $args{ref} );
+    die "A card reference is required\n" if !grep { defined && length } @refs;
+
+    my ( @done, @refused );
+    for my $ref (@refs) {
+        my %identify = (
+            project => $args{project}, start => $args{start},
+            ref => $ref, type => $args{type}, author => $args{author},
+        );
+
+        # Independence has to be built, not asserted. Without this eval the
+        # first ref gate_add refuses throws straight out of here: the refs
+        # before it are already written, the refs after it never happen, and
+        # the caller is told only that one ref was wrong. Measured on a
+        # scratch board with [RT-001, RT-999, RT-002] - RT-001 came back with
+        # gates=1 and fix_version=1.0 while RT-002 had nothing. These are the
+        # fields the push gate reads back, so a half-applied batch lets a
+        # push proceed for some cards while others silently lack their
+        # evidence. TKT-569, against a comment on this very loop that had
+        # promised exactly what the code did not do.
+        my $written = eval {
+            my $gate = $self->gate_add( %identify,
+                gate => $args{gate}, result => $args{result}, details => $args{details} );
+            my $evidence = $self->evidence_add( %identify, summary => $args{evidence} );
+            my $record = $self->record_update( %identify, fix_version => $args{fix_version} );
+            { gate => $gate, evidence => $evidence, record => $record };
+        };
+        if ($written) { push @done, $written; next }
+
+        my $why = $@ || "could not be recorded\n";
+        $why =~ s/\s+\z//;
+        push @refused, { ref => $ref, error => $why };
+    }
+
+    # Recording nothing is a failure, not a success with a footnote - a call
+    # that achieved nothing should not read as one that partly worked.
+    #
+    # A single ref dies with exactly the error it always did. "Answers in the
+    # shape it always did" has to cover the failures too: prefixing the ref
+    # onto a one-ref error changed the words every existing caller sees, and
+    # t/70 caught it immediately - the documented placeholder value is REF,
+    # so an error that echoed it read as "passes --ref yet is told ref is
+    # missing", which is the exact contradiction that guard exists to catch.
+    die $refused[0]{error} . "\n" if !@done && @refused == 1;
+    die join( '; ', map { "$_->{ref}: $_->{error}" } @refused ) . "\n" if !@done;
+
+    # One ref answers exactly as it always did, so nothing that already reads
+    # this command's output has to learn a new shape for the common case -
+    # and a batch that lost nobody answers without an empty refusals list to
+    # read past.
+    return $done[0] if @done == 1 && !@refused;
+    return { recorded => \@done, ( @refused ? ( refused => \@refused ) : () ) };
 }
 
 sub checklist_list {

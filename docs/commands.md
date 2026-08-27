@@ -2342,7 +2342,7 @@ so the second of two concurrent calls sees the first's addition and skips it. A 
 
 - `tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]` - same id-shape refusal as `evidence.annotate`. TKT-490.
 - `tira.gate.list --ref REF [--last N|--first N] [--id GATE-NNN] [--meta-only] [--where CLAUSE ...] [--count] [-o FORMAT]` - same id-shape refusal as `evidence.list`. TKT-490.
-- `tira.release.record --ref REF --gate TEXT --result pass|fail|blocked --details TEXT --evidence TEXT --fix-version VERSION [-o FORMAT]` - one command for the gate entry, evidence entry and fix version a passed release needs; refuses rather than defaults on anything missing, and never moves a column. TKT-345.
+- `tira.release.record --ref REF ... --gate TEXT --result pass|fail|blocked --details TEXT --evidence TEXT --fix-version VERSION [-o FORMAT]` - one command for the gate entry, evidence entry and fix version a passed release needs; refuses rather than defaults on anything missing, and never moves a column. TKT-345. Repeat `--ref` to record the same release across a whole batch that shipped together (TKT-561): each card is recorded independently, so one that cannot be written does not take the rest down with it - the refs that failed come back named, with the reason, and a batch that records nothing at all still fails outright (TKT-569). A single `--ref` answers in exactly the shape it always did, error text included. It is the second command after `record.show` and `tasklist.next` that accepts more than one `--ref`.
 
 On the browser dashboard, the card dialog's Gate Passing Log section renders
 its first ten entries and, past that, a "Load more (N more)" button reveals

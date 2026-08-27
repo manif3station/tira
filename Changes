@@ -1,5 +1,35 @@
 Revision history for Tira
 
+4.38  2026-08-27
+
+    - TKT-569. release.record's batch mode now genuinely records each ref
+      independently, which its own comment had promised while the code
+      did the opposite: the first ref that could not be written threw
+      straight out, leaving the refs before it recorded, the refs after
+      it untouched, and the caller told only that one ref was wrong.
+      Measured on a scratch board with [RT-001, RT-999, RT-002] - RT-001
+      came back with gates=1 and fix_version=1.0 while RT-002 had
+      nothing. These are the fields the push gate reads back, so a
+      half-applied batch could let a push proceed for some cards while
+      others silently lacked their evidence. Refusals are now collected
+      and returned with their reason, a batch that records nothing at
+      all still dies, and a single --ref answers exactly as it always
+      did - including its error text, since "the shape it always had"
+      has to cover the failures too.
+
+4.37  2026-08-27
+
+    - TKT-561. tira.release.record takes more than one --ref, recording
+      the same gate, evidence and fix version on every card named. A
+      whole batch ships in one push, and before this that meant running
+      the command once per card with identical --gate/--result/
+      --details/--fix-version and only --ref changing - measured on this
+      project's own release of 2026-08-26, where twelve cards shipped
+      together and the identical tail ran twelve times. Each ref is
+      recorded independently, so one that cannot be written does not
+      take the others down with it, and a single --ref answers in
+      exactly the shape it always did.
+
 4.36  2026-08-27
 
     - TKT-567. Police now finds the Starman master by parentage rather

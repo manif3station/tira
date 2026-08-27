@@ -117,6 +117,74 @@ is( $shown->{column}, 'verify', 'release.record left the card exactly where it w
     is( $shown_fourth->{fix_version}, '3.01', 'gate.add, evidence.add and update --fix-version still work unchanged' );
 }
 
+# --- TKT-561: a whole batch that shipped together records in one call ------
+{
+    my $fifth = $tira->create_record( project => $root, type => 'ticket', title => 'First of a pair' );
+    my $sixth = $tira->create_record( project => $root, type => 'ticket', title => 'Second of a pair' );
+    my ( $status, $out ) = run(
+        'release.record', '--ref', $fifth->{ref}, '--ref', $sixth->{ref},
+        '--gate', 'Release gate', '--result', 'pass', '--details', 'Suite green',
+        '--evidence', 'Ran it', '--fix-version', '3.02', '-o', 'json',
+    );
+    is( $status, 0, 'release.record accepts more than one --ref in a single call' );
+    for my $ref ( $fifth->{ref}, $sixth->{ref} ) {
+        my $shown = $tira->record_show( project => $root, ref => $ref );
+        is( scalar @{ $shown->{gate_passing_log} }, 1, "$ref got the gate entry" );
+        is( scalar @{ $shown->{evidence} }, 1, "$ref got the evidence entry" );
+        is( $shown->{fix_version}, '3.02', "$ref got the fix version" );
+    }
+}
+
+# --- TKT-569: one bad ref must not strand the rest --------------------------
+#
+# The batch loop promised independence in its own comment and did not have
+# it: the first ref gate_add refused threw straight out, so refs before it
+# were written, refs after it were not, and the caller heard only about the
+# bad one. Proved on a scratch board before this test existed - RT-001 came
+# back with gates=1 and fix_version=1.0 while RT-002 had nothing at all.
+# That matters here more than in most commands, because these are the very
+# fields the push gate reads back.
+
+{
+    my $good_one = $tira->create_record( project => $root, type => 'ticket', title => 'First of a batch' );
+    my $good_two = $tira->create_record( project => $root, type => 'ticket', title => 'Last of a batch' );
+
+    my $result = eval {
+        $tira->release_record(
+            project => $root, author => 'claude',
+            refs => [ $good_one->{ref}, 'RLT-999', $good_two->{ref} ],
+            gate => 'Release gate', result => 'pass', details => 'Suite green',
+            evidence => 'Ran it', fix_version => '3.05',
+        );
+    };
+    ok( !$@, 'a batch with one bad ref does not throw away the whole call' ) or diag($@);
+
+    for my $ref ( $good_one->{ref}, $good_two->{ref} ) {
+        my $shown = $tira->record_show( project => $root, ref => $ref );
+        is( scalar @{ $shown->{gate_passing_log} }, 1, "$ref was recorded despite the bad ref beside it" );
+        is( $shown->{fix_version}, '3.05', "$ref carries the fix version too" );
+    }
+
+    is_deeply( [ map { $_->{ref} } @{ $result->{refused} // [] } ], ['RLT-999'],
+        'and the ref that could not be written is reported rather than swallowed' );
+    like( $result->{refused}[0]{error}, qr/RLT-999/, 'with the reason it was refused' );
+}
+
+{
+    # Nothing recorded at all is still a failure: a call that achieved
+    # nothing should not look like a success with a footnote.
+    my $nothing = eval {
+        $tira->release_record(
+            project => $root, author => 'claude',
+            refs => [ 'RLT-997', 'RLT-998' ],
+            gate => 'Release gate', result => 'pass', details => 'Suite green',
+            evidence => 'Ran it', fix_version => '3.06',
+        );
+    };
+    ok( !$nothing, 'a batch in which every ref fails does not return a result' );
+    like( $@, qr/RLT-99[78]/, 'and says which refs it could not write' );
+}
+
 # --- the call count a release takes, before and after -----------------------
 #
 # Not a Test::More assertion - the measurement itself, recorded so the claim

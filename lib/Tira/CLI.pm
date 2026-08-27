@@ -2584,7 +2584,8 @@ sub _invoke {
         defined $option->{refs} ? ( split /,/, $option->{refs} ) : (),
     );
     if (@batch_refs) {
-        die "Multiple refs are only available on show\n" if $command !~ /\A(?:record\.show|tasklist\.next)\z/;
+        die "Multiple refs are only available on show\n"
+          if $command !~ /\A(?:record\.show|tasklist\.next|release\.record)\z/;
         die "Conditional reads do not batch; poll with export --fields ref,content_hash instead\n"
           if defined $option->{if_changed};
         @batch_refs = ( @{ $option->{ref_list} // [] }, @batch_refs )

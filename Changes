@@ -1,5 +1,23 @@
 Revision history for Tira
 
+4.43  2026-08-27
+
+    - TKT-568. t/344 now sees the methods the CLI reaches through its
+      string dispatch table, and the 23 it found are documented. The
+      guard exists to stop lib/Tira.pm's METHODS section going stale,
+      and scoped itself to "exactly what Tira::CLI actually calls on
+      $tira" - which it found by matching $tira->method( call sites. But
+      a command name maps onto a method name as a string,
+      'release.record' => 'release_record', and the method is then called
+      through a variable, so no literal call site exists for the guard to
+      see. Every such method sat outside the scope the guard believed it
+      was enforcing: a fifth of the documented surface missing while the
+      test passed, which is precisely the drift it was written to stop.
+      Widening it turned up 23 rather than the 22 the ticket enumerated -
+      required_item_list was the extra, undocumented while its own
+      siblings required_item_add and required_item_update were not, so
+      the family read as complete until each member was checked.
+
 4.42  2026-08-27
 
     - TKT-564. The documentation no longer argues against its own feature

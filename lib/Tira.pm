@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.42';
+our $VERSION = '4.43';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -13521,5 +13521,111 @@ Scans the project's stored JSON/YAML for corruption, repairing what it can.
 =head2 history_list
 
 Returns a record's field-write history, with first/last windowing and field/since filtering.
+
+=head2 assignment_set
+
+Replaces a record's assignee. Refuses a list of more than one, since a record
+carries a single assignee; an empty list clears it.
+
+=head2 assignment_add
+
+Assigns one person to a record, through C<assignment_set>.
+
+=head2 assignment_remove
+
+Clears a record's assignee, but only when it is the person named - removing
+somebody who does not hold the card leaves it alone rather than unassigning
+whoever does.
+
+=head2 assignment_list
+
+Returns the record's assignee as a list, empty when nobody holds it.
+
+=head2 attachment_list
+
+Lists a record's attachments, or every attachment in the project when no
+record is named. Supports metadata-only reads, a count, a C<since> filter and
+a chosen field set, so a poll need not carry content it already has.
+
+=head2 attachment_remove
+
+Deletes an attachment's stored file and its reference on the record. Unlike
+discarding, this does not keep the reference - see C<attachment_discard> for
+the reversible form.
+
+=head2 checklist_list
+
+Returns a record's checklist entries.
+
+=head2 required_item_list
+
+Returns a record's required-action entries.
+
+=head2 evidence_add
+
+Appends an evidence entry to a record, naming its author and taking a summary
+with an optional URI or stored file.
+
+=head2 evidence_list
+
+Returns a record's evidence entries.
+
+=head2 evidence_annotate
+
+Adds a note to an existing evidence entry, leaving the entry itself intact.
+
+=head2 gate_add
+
+Records a gate result - pass, fail or blocked - against a record, with the
+details that justify it.
+
+=head2 gate_list
+
+Returns a record's gate results.
+
+=head2 gate_annotate
+
+Adds a note to an existing gate entry, leaving the result itself intact.
+
+=head2 release_record
+
+Writes the gate entry, evidence entry and fix version a passed release needs,
+in one call. Refuses rather than defaults on anything missing, and never moves
+a column. Given several refs it records each independently, so one that cannot
+be written does not take the rest down with it.
+
+=head2 hierarchy_link
+
+Links a child record to a parent, establishing the SOW/epic/ticket hierarchy.
+
+=head2 hierarchy_unlink
+
+Removes a parent/child hierarchy link.
+
+=head2 hierarchy_show
+
+Returns a record's hierarchy as a tree, guarding against cycles.
+
+=head2 link_list
+
+Returns a record's non-hierarchy links, optionally narrowed to one link type.
+
+=head2 subitem_link
+
+Links a record as a subitem of another.
+
+=head2 subitem_unlink
+
+Removes a subitem link.
+
+=head2 search_index
+
+Builds or refreshes the SQLite full-text index C<search> reads. Requires
+DBD::SQLite and says so plainly when it is missing.
+
+=head2 dashboard
+
+Returns the whole board as columns of records, per type or across all three,
+with the column order the boards declare.
 
 =cut

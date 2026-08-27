@@ -1693,6 +1693,22 @@ against the POD text so this cannot silently go stale again.
 Documentation-only, no behavior changed. Found during a standing
 documentation-gap hunt.
 
+TKT-568: `t/344` now sees the engine methods the CLI reaches through
+its string dispatch table. That guard exists to stop `lib/Tira.pm`'s
+METHODS section going stale, and scoped itself to what `Tira::CLI`
+actually calls on `$tira` - which it found by matching `$tira->method(`
+call sites. But a command name maps onto a method name as a string,
+`'release.record' => 'release_record'`, and the method is then called
+through a variable, so no literal call site exists for the guard to
+find. Every method reached that way sat outside the scope the guard
+believed it was enforcing, and the test passed while a fifth of the
+documented surface was missing - precisely the drift it was written to
+stop. Widening it surfaced 23 undocumented methods, one more than the
+count the ticket had enumerated by hand: `required_item_list` was the
+extra, undocumented while its own siblings `required_item_add` and
+`required_item_update` both had entries, so the family read as complete
+until each member was checked. All 23 are now documented.
+
 TKT-562: onboarding refuses an invalid `--mode` before it creates
 anything. The check used to happen after `project_new` had written the
 project, its people, its boards and every column, so an invalid value

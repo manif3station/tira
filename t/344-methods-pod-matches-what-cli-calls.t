@@ -41,6 +41,21 @@ for my $file (@cli_files) {
     my $text = do { local $/; <$cli_fh> };
     close $cli_fh;
     $called{$1}++ while $text =~ /\$tira->([a-zA-Z_][a-zA-Z0-9_]*)/g;
+
+    # And the ones reached through the string dispatch table, which the
+    # pattern above cannot see. Entries read 'release.record' =>
+    # 'release_record', and the method is then called on $tira through a
+    # variable, so no literal $tira->release_record( ever appears. Those
+    # methods are as public as any other - a command name maps straight onto
+    # one - but for as long as this guard only read call sites, every one of
+    # them sat outside the scope it believed it was enforcing. When TKT-568
+    # widened it, 22 undocumented methods appeared at once, which is a fifth
+    # of the documented surface and precisely the drift this file exists to
+    # stop. Matching the value of a 'command.name' => 'method_name' pair is
+    # narrow enough not to catch ordinary option or field mappings, whose
+    # keys are bare words rather than dotted command names.
+    $called{$1}++
+      while $text =~ /'[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+'\s*=>\s*'([a-z][a-z0-9_]*)'/g;
 }
 
 # Private helpers a caller could in principle reach through $tira-> are not

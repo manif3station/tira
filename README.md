@@ -69,6 +69,22 @@ separate from a column's own required-action template — is editable from
 the browser too: a Policies button opens a modal listing every declared,
 declined, and undeclared rule, with a rule-specific parameter picker that
 matches the `tira.policy.add` command exactly.
+A column's required actions hold whether or not the caller says which board
+the card is on. Listing a board's columns needs a type; moving and showing a
+card do not, because a ref identifies it on its own. Until 4.54 a move that
+omitted `--type` therefore succeeded with the gate silently skipped — a card
+walked through nine gated columns with 75 required actions outstanding — so
+the type is now recovered from the card itself. A typeless move whose required
+actions are done still goes through: the point is knowing which columns exist,
+not making the caller repeat what the board already knows. Where a refusal
+ends by naming the move to make instead, it uses the recovered type, so the
+command it prints is one that runs.
+`--help` names the arguments a command refuses without, including the
+`--command`/`--proof` pair that marking a required action or a checklist item
+done costs. Forty-nine commands are not there yet and still answer with a bare
+`[options]` — `tira.police`, `tira.next` and the `policy.*`, `backup.*` and
+`project.*` families among them; that set is a written-down ledger a test
+holds, so it can shrink but not grow unnoticed.
 The Columns dialog also carries an Entry checkbox per row, so which
 column (or columns — a board can start new cards in more than one
 place) new cards land in is chosen from the browser, not just

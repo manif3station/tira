@@ -1,5 +1,86 @@
 Revision history for Tira
 
+4.55  2026-08-27
+
+    - TKT-575. --help names the arguments a command refuses without.
+      _usage() answers from SKILLS.md's own usage catalogue and falls
+      back to a bare "[options]" for any command absent from it, so
+      six commands described themselves as taking nothing in
+      particular: required-action.add, .list and .update, and
+      question.ask, .answer and .mark - the ones an agent uses at
+      every gate. checklist.update was worse: it listed three
+      optional flags and omitted the two mandatory ones, so it read
+      as exhaustive.
+      Reported independently from another board with a cost: four
+      checklist.update calls written from --help, output suppressed,
+      and the author walked away believing four entries were ticked
+      while the checklist read 0/9. Caught only by checklist-unmoved.
+      The enforcement is unchanged and was never in question - it is
+      TKT-453's proof requirement doing its job. What changed is that
+      --help now says so. The pair is written as one bracketed unit
+      rather than two independent optionals, because they are
+      required together, and a test asserts that shape.
+      The lasting half is general, and smaller than it first
+      claimed. The guard originally read the %method dispatch table
+      and asserted that every dispatchable command had a usage line.
+      It passed, and it was wrong: %method is one of two dispatch
+      routes, and reading both gives 135 commands of which 49 still
+      print a bare "[options]" - police, next, policy.*, backup.*,
+      project.*, question.attach and question.voice among them. A
+      guard that reads one route and speaks for the whole surface is
+      the same looks-exhaustive shape this entry is about, one level
+      up. Caught by codex review before release.
+      It now reads both routes, tests _usage() - what --help
+      actually prints, so project.create's hard-coded line counts -
+      and holds the 49 as a named ledger: a new command cannot join
+      it silently, and one that gains a usage line cannot be left in
+      it. The ledger shrinks without the guard being rewritten.
+      Not one line of lib/ changed.
+
+4.54  2026-08-27
+
+    - TKT-597. A move guard can no longer be skipped by leaving
+      --type off. column_list needs a concrete board type to know
+      which columns exist; record_show and record_move resolve a card
+      by ref alone. So a guard that asked for columns with the
+      caller's own arguments got nothing and returned undef - which
+      means "nothing to refuse". The gate did not fail closed, it
+      failed silent and open.
+      Reproduced on a copy of a real board before anything was
+      written: a card walked from backlog to in-review through NINE
+      gated columns with all 75 of its required actions pending and
+      not one refusal. With --type supplied the same card was refused
+      at the first gate, naming all twelve unmet items.
+      The browser move provider had already solved this for its own
+      bookkeeping, recovering the type from the record record_move
+      returned, under the principle stated there: "a caller is never
+      required to say what the engine can already tell for itself"
+      (TKT-532). The CLI side never got it.
+      Fixed as one shared helper rather than three patched branches.
+      Four call sites use it: the three move guards - chain order,
+      required actions, unjudged answers - and the post-move
+      required-action bookkeeping. Only the browser move provider had
+      the recovery already, doing it locally, and it keeps its own;
+      consolidating the two is a separate change. One of the guards
+      that lacked it was written earlier the same day, on TKT-584,
+      repeating the fault while the card about it was already open. Three sites are deliberately left alone,
+      where the type is inherent: both create paths, since
+      create_record refuses without one, and column.list itself.
+      Not reachable from tira.ticket/epic/sow.move, which carry a
+      type from the dotted dispatch; reachable from code calling
+      Tira::CLI directly.
+      The recovered type is written back into the caller's own
+      arguments rather than kept to the lookup. The chain guard ends
+      its refusal by naming the move to make instead, and formats it
+      from those arguments - so the first version of the fix closed
+      the gate correctly and then told the caller to run
+      "d2 tira..move", with an uninitialized warning beside it. It
+      passed every assertion about the gate holding. It matters to
+      one refusal in three; the required-action and unjudged-answer
+      refusals name a command of their own and never print the type.
+      Caught by codex review, reproduced as a failing test, then
+      fixed.
+
 4.53  2026-08-27
 
     - TKT-596. A card moved back to backlog resets the tasklist items

@@ -2224,6 +2224,49 @@ sub _journal_identity {
 # intermediate stages already passed does not need a mechanical walk through
 # columns it never substantively occupied - gate.add already exists to
 # prove what happened, and the chain check should trust it. TKT-429.
+# The columns for whatever board this call is about, whether or not the caller
+# said which.
+#
+# column_list needs a concrete board type. record_show and record_move do not -
+# they resolve a record by ref alone (TKT-532). So a caller who omits the type
+# gets a column lookup that returns nothing, and in a GUARD that reads as
+# "nothing to refuse": the gate does not fail closed, it fails silent and open.
+# Reproduced on a copy of a real board - a card walked from backlog to
+# in-review through nine gated columns with 75 required actions pending and not
+# one refusal.
+#
+# The browser move provider already recovered the type from the record it had
+# just loaded, with the principle recorded there: "a caller is never required
+# to say what the engine can already tell for itself". That recovery is here
+# instead of in one branch, so the next caller cannot forget it - six call
+# sites needed it and only one had it. TKT-597.
+sub _columns_for {
+    my ( $tira, $args, $known ) = @_;
+    if ( !defined $args->{type} || $args->{type} eq '' ) {
+        my $type = ref $known eq 'HASH' ? $known->{type} : undef;
+        if ( !defined $type || $type eq '' ) {
+            my $seen = eval { $tira->record_show( %{$args} ) };
+            $type = ref $seen eq 'HASH' ? $seen->{type} : undef;
+        }
+
+        # Written back into the caller's own arguments rather than kept to a
+        # local copy. The chain guard ends its refusal with the move to make
+        # instead - "d2 tira.<type>.move" - and formats it from %args, so
+        # recovering the type for the lookup alone left the gate correctly
+        # closed and the caller told to run "d2 tira..move", with an
+        # uninitialized warning beside it. The other two guards name a command
+        # of their own (required-action.update, question.mark) and never
+        # interpolate the type, so this matters to one refusal in three; it is
+        # written here rather than there because the next guard to end with a
+        # typed command should not have to rediscover it. Recovering a fact and
+        # then not telling the caller is how the first version of this fix
+        # passed every test about the gate while still misdirecting the person
+        # who hit it. Codex review, TKT-597.
+        $args->{type} = $type if defined $type && $type ne '';
+    }
+    return eval { $tira->column_list( %{$args} ) };
+}
+
 sub _column_chain_violation {
     my ( $tira, %args ) = @_;
     return undef if ( $args{column} // '' ) eq 'discard';
@@ -2231,7 +2274,7 @@ sub _column_chain_violation {
     return undef if !$current;
     my $from = $current->{column};
     return undef if !defined $from || $from eq ( $args{column} // '' );
-    my $columns = eval { $tira->column_list(%args) };
+    my $columns = _columns_for( $tira, \%args, $current );
     return undef if ref $columns ne 'ARRAY';
     my %index;
     my $i = 0;
@@ -2292,7 +2335,7 @@ sub _column_required_action_violation {
     return undef if !$current;
     my $from = $current->{column};
     return undef if !defined $from || $from eq 'discard' || $from eq ( $args{column} // '' );
-    my $columns = eval { $tira->column_list(%args) };
+    my $columns = _columns_for( $tira, \%args, $current );
     return undef if ref $columns ne 'ARRAY';
     my %index;
     my $i = 0;
@@ -2434,7 +2477,7 @@ sub _unjudged_answer_violation {
     # without this at first, which refused a card being sent back to fix
     # something; found by probing, not by a test, because none of t/407's
     # assertions moved a card backward.
-    my $columns = eval { $tira->column_list(%args) };
+    my $columns = _columns_for( $tira, \%args, $current );
     return undef if ref $columns ne 'ARRAY';
     my %index;
     my $i = 0;
@@ -3254,7 +3297,7 @@ sub _invoke {
             my $before  = eval { $tira->record_show(%args) };
             my $from    = $before ? $before->{column} : undef;
             my $result  = $tira->record_move(%args);
-            my $columns = eval { $tira->column_list(%args) };
+            my $columns = _columns_for( $tira, \%args, $result );
             _apply_column_required_actions( $tira, \%args, $from, $args{column}, $columns, $result )
               if ref $columns eq 'ARRAY';
             _remind_one_at_a_time( $tira, \%args, $args{column} );
@@ -5268,6 +5311,36 @@ than when the damage is already attempted. Printed to STDERR, so it stays out
 of C<-o json> output, and only when the column actually brought outstanding
 items - a reminder that fires on every move is one nobody reads. TSK-168.
 
+=head2 _columns_for
+
+Returns the column list for the board a record belongs to, given the parsed
+arguments and, when the caller already has it, the record itself. The board
+type is taken from C<--type> when supplied, then from the record in hand, and
+failing both by resolving the ref through C<record_show>.
+
+Every move guard begins by asking which columns exist and returns C<undef> -
+meaning "nothing to refuse" - when it cannot find out. C<column_list> needs a
+concrete type; C<record_move> and C<record_show> do not, because they resolve a
+record by ref alone. A caller who omitted C<--type> therefore got a move that
+succeeded and a gate that never ran. Reproduced on a copy of a real board: a
+card walked from backlog to in-review through nine gated columns with 75
+required actions pending and not one refusal.
+
+Four call sites use it: the three move guards - chain order, required actions,
+unjudged answers - and the post-move required-action bookkeeping. The browser
+move provider recovers the type its own way, from the record C<record_move>
+just returned, and is where the principle came from: a caller is never required
+to say what the engine can already tell for itself (TKT-532). It is left as it
+is because it works and predates this; consolidating the two is a separate
+change.
+
+Recovering the type is about knowing which columns exist, not about refusing
+the caller: a typeless move whose required actions are satisfied still goes
+through. When the ref resolves to nothing the return is not an arrayref and the
+guard returns C<undef> - "nothing to refuse" - exactly as it did before. That
+is not the guard failing closed: the move fails afterwards because the record
+does not exist, which is a different mechanism doing the stopping. TKT-597.
+
 =head2 browser_providers
 
 Returns the flat hash of named coderefs L<Tira::DashboardWeb> requires to
@@ -5286,6 +5359,31 @@ the engine, matching the other eight tasklist providers - previously these
 six silently dropped it, so a session switched in the dashboard's own
 session box could view an item it could not then mutate once TKT-538 began
 enforcing session ownership.
+
+=head2 _usage
+
+Returns the C<Usage:> line C<--help> prints for a command. C<project.create>
+is written out here; everything else comes from SKILLS.md's own usage
+catalogue via C<_skills_usage_line>, which greps for a line beginning
+C<tira.E<lt>commandE<gt> >. A command with no line there falls back to a bare
+C<[options]>, which names nothing.
+
+Two shapes of failure, and the second is the dangerous one. A bare
+C<[options]> at least admits it is withholding something. A line that
+enumerates the optional flags and omits the mandatory ones looks complete, so
+a caller composes from it with no reason to doubt it - which is what happened
+to C<checklist.update>: it named three optional flags and not the
+C<--command>/C<--proof> pair it refuses C<--status done> without, and another
+board's agent wrote four calls from it, suppressed their output, and believed
+four entries were ticked while the checklist read 0/9.
+
+The pair is written as one bracketed unit, C<[--command TEXT --proof TEXT ...]>,
+rather than two independent optionals: it is required together and repeatable,
+and two brackets would be true about the parser and false about the command.
+Forty-nine commands still fall back to C<[options]>; t/410 holds that set as a
+ledger so a new one cannot join it silently, and reads C<_usage> itself rather
+than the SKILLS.md lookup, since what matters is what C<--help> prints.
+TKT-575.
 
 =head2 run's onboard -o browser branch
 

@@ -2327,7 +2327,20 @@ exists so a reader never has to guess.
 
 - `tira.required-action.add --ref REF --item TEXT --status TEXT [--column SLUG] [-o FORMAT]` - adds an item tagged with the card's current column; unlike checklist.add, this item gates the card's next move out of that column. `--column` overrides the tag to name a different column, which is how a required item is backfilled onto a card without physically moving it back through that column first.
 - `tira.required-action.list --ref REF [-o FORMAT]`
-- `tira.required-action.update --ref REF --id REQ-NNN [--item TEXT] [--status TEXT] [--command TEXT --proof TEXT ...] [-o FORMAT]` - same `--command`/`--proof` requirement on `--status done` as checklist.update above, and the same reasoning: a required item, gating or not, is not evidence of what happened just because it says so. TKT-453. An unknown `--id` refuses naming the card's real ids (or the `REQ-NNN` shape, on a card with none yet), the same fix checklist.update got for the identical bug. TKT-488.
+- `tira.required-action.update --ref REF --id REQ-NNN [--item TEXT] [--status TEXT] [--command TEXT --proof TEXT ...] [--repeated-reason TEXT] [--repeated-confirm CODE] [-o FORMAT]` - same `--command`/`--proof` requirement on `--status done` as checklist.update above, and the same reasoning: a required item, gating or not, is not evidence of what happened just because it says so. TKT-453. An unknown `--id` refuses naming the card's real ids (or the `REQ-NNN` shape, on a card with none yet), the same fix checklist.update got for the identical bug. TKT-488.
+
+  **One piece of evidence cannot prove two different instructions.** `--status done` is refused when another item **in the same column** already carries that exact `--command`/`--proof` pair - trimmed before comparison, so a trailing newline cannot slip a duplicate through, and attachment-backed proofs compared by content hash rather than by filename. Reported from the owner's own board and measured across its done column: 422 such reuses on 73 cards, one `prove` run answering eleven separate items including "add the start date". TKT-583.
+
+  The door is priced, not locked - one suite run can honestly prove two items - but paying takes two steps, because a gate that accepts any argument is the hole TKT-585 records:
+
+  1. Add `--repeated-reason TEXT`. The command still refuses, and reads **this item's own instruction** back to you beside the reason you just gave, with a six-character code. The failure being prevented is inattention rather than dishonesty, so the refusal shows you what item you are actually answering.
+  2. Repeat the same call adding `--repeated-confirm CODE`. Only then is the item marked done, and the reason stored on it for later reading.
+
+  The code is bound to the claim it was issued for: it is stashed against the card and item, and changing the command, the proof, or the reason between the two steps invalidates it and issues a fresh one - a code cannot be redeemed against a claim it was not written for. Re-running step 1 unchanged returns the *same* code rather than rotating it, so a typo is a retry and not a lockout. On success the stash is cleared.
+
+  On the board, an item marked done this way is highlighted rather than merely ticked, and its proof modal opens with the reason above the evidence - the point of storing a reason is that somebody reads it.
+
+  Moving a card into a column that carries required actions prints a reminder naming how many arrived, to work them one at a time with their own command and proof. That is the preventive half: the reuse happens at the end of a column's work, holding a list nobody read item by item, so the reminder lands at the moment the list arrives. It goes to STDERR, staying out of `-o json` output, and only when the column actually brought outstanding items - a reminder on every move is one nobody reads. TSK-168.
 
 Move-in template population is idempotent against two near-simultaneous moves of the
 same card, not only a sequential re-entry. Two browser moves fired close together used

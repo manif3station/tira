@@ -37,6 +37,22 @@ $tira->project_new(
 );
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Proved' );
 
+require Tira::CLI;
+sub cli {
+    my ( $command, @argv ) = @_;
+    my ( $out, $err ) = ( '', '' );
+    open my $so, '>', \$out or die $!;
+    open my $se, '>', \$err or die $!;
+    my $status = do {
+        local *STDOUT = $so;
+        local *STDERR = $se;
+        local $ENV{TIRA_HOME}   = $root;
+        local $ENV{TIRA_AUTHOR} = 'claude';
+        Tira::CLI->run( command => $command, tira => $tira, argv => [@argv] );
+    };
+    return ( $status, $out . $err );
+}
+
 # --- a required item cannot be marked done without proof --------------------------
 
 my $req = $tira->required_item_add( author => 'claude', project => $root, ref => $card->{ref},
@@ -266,14 +282,202 @@ is( $reset_entry->{status}, 'pending', 'the backward-move reset (always to pendi
         },
         'an empty reason does not buy the reuse - that would be TKT-585 rebuilt' );
 
-    my $allowed = $tira->required_item_update( author => 'claude', project => $root,
-        ref => $card->{ref}, id => $second->{id}, status => 'done',
-        command => ['prove -lr t'], proof => ['Files=400, Tests=8174, Result: PASS'],
-        repeated_reason => 'One suite run genuinely proves both items: this one asks '
-          . 'for the suite to pass and the previous one asks for no regression in it.' );
-    ok( $allowed, 'a stated reason lets the same pair through' );
-    like( $allowed->{repeated_reason}, qr/genuinely proves both/,
-        'and the reason is stored on the item, so it can be read back and judged later' );
+    # This assertion used to read "a stated reason lets the same pair
+    # through". It no longer does, and the change is deliberate: the owner
+    # settled Q-086 with "doesn't need human to approval ... use a autogen
+    # code to kind of force them to sign". A reason alone was self-approving,
+    # which left the agent marking its own homework with a sentence attached.
+    # The full two-step is exercised further down; here we only hold that a
+    # reason by itself is not enough.
+    my $reason_only = eval {
+        $tira->required_item_update( author => 'claude', project => $root,
+            ref => $second->{id} ? $card->{ref} : $card->{ref}, id => $second->{id}, status => 'done',
+            command => ['prove -lr t'], proof => ['Files=400, Tests=8174, Result: PASS'],
+            repeated_reason => 'One suite run genuinely proves both items: this one asks '
+              . 'for the suite to pass and the previous one asks for no regression in it.' );
+    };
+    ok( !$reason_only, 'a stated reason alone does not let the pair through' );
+    like( $@, qr/--repeated-confirm/,
+        'it hands back a code to sign with instead' );
+}
+
+# --- TKT-583: the reason is read back, not merely typed ----------------------
+#
+# The owner, asked who approves a reuse: "doesn't need human to approval. the
+# reason for the to feedback the actual description of the item with the
+# reason put together to let the agent read it again to remind them what you
+# are doing. if you confirm. use a autogen code to kind of force them to sign
+# and make sure they know they are not doing thing blindly."
+#
+# So it is a forced read rather than an approval queue. The first attempt is
+# refused and prints THIS item's own description beside the reason just
+# given, with a generated code; the retry carries that code as the signature.
+#
+# That attacks the actual cause. The failure is inattention, not dishonesty -
+# eleven items ticked off one prove run because nobody re-read what item
+# eight asked for - and putting the instruction back in front of the agent at
+# the moment they claim to have met it is what breaks that.
+#
+# The code is random and stored, never derived from the command and proof: a
+# derived code is computable from what the agent already holds, so the second
+# step would collapse into the first and the read would not be forced at all.
+
+{
+    my $one = $tira->required_item_add( author => 'claude', project => $root,
+        ref => $card->{ref}, item => 'run the suite', status => 'pending' );
+    my $two = $tira->required_item_add( author => 'claude', project => $root,
+        ref => $card->{ref}, item => 'confirm no regression in the suite', status => 'pending' );
+
+    $tira->required_item_update( author => 'claude', project => $root,
+        ref => $card->{ref}, id => $one->{id}, status => 'done',
+        command => ['prove -lr t'], proof => ['Tests=8185, Result: PASS'] );
+
+    my $reason = 'The one run proves both: this item asks the suite passes, '
+      . 'the other asks nothing regressed in it.';
+
+    ok( !eval {
+            $tira->required_item_update( author => 'claude', project => $root,
+                ref => $card->{ref}, id => $two->{id}, status => 'done',
+                command => ['prove -lr t'], proof => ['Tests=8185, Result: PASS'],
+                repeated_reason => $reason );
+            1;
+        },
+        'a reason alone no longer marks the item done - the first attempt is refused' );
+
+    my $told = $@;
+    like( $told, qr/\Qconfirm no regression in the suite\E/,
+        "and the refusal reads THIS item's own description back to the agent" );
+    like( $told, qr/\Qthe other asks nothing regressed\E/,
+        'beside the reason they just gave, so the two can be compared' );
+
+    my ($code) = $told =~ /--repeated-confirm\s+(\S+)/;
+    ok( $code, 'and issues a code to sign with' );
+
+    ok( !eval {
+            $tira->required_item_update( author => 'claude', project => $root,
+                ref => $card->{ref}, id => $two->{id}, status => 'done',
+                command => ['prove -lr t'], proof => ['Tests=8185, Result: PASS'],
+                repeated_reason => $reason, repeated_confirm => 'not-the-code' );
+            1;
+        },
+        'a wrong code is refused' );
+
+    my $signed = $tira->required_item_update( author => 'claude', project => $root,
+        ref => $card->{ref}, id => $two->{id}, status => 'done',
+        command => ['prove -lr t'], proof => ['Tests=8185, Result: PASS'],
+        repeated_reason => $reason, repeated_confirm => $code );
+    ok( $signed, 'the right code signs it through' );
+    is( $signed->{status}, 'done', 'and the item is marked done' );
+    like( $signed->{repeated_reason}, qr/proves both/, 'with the reason kept on it' );
+
+    # Single use: the same code cannot sign a second reuse, or one read would
+    # buy every future one.
+    my $three = $tira->required_item_add( author => 'claude', project => $root,
+        ref => $card->{ref}, item => 'a third, different instruction', status => 'pending' );
+    ok( !eval {
+            $tira->required_item_update( author => 'claude', project => $root,
+                ref => $card->{ref}, id => $three->{id}, status => 'done',
+                command => ['prove -lr t'], proof => ['Tests=8185, Result: PASS'],
+                repeated_reason => $reason, repeated_confirm => $code );
+            1;
+        },
+        'and the code is single use - it cannot sign a second reuse' );
+}
+
+# --- TKT-583: the code is bound to what it was issued for --------------------
+#
+# The owner: "the confirmation code is kind of key-value pair stash." The code
+# is the key; what it was issued FOR is the value. Without that binding the
+# forced read is not bound to the confirmation at all - a code handed out
+# after showing REASON X can be redeemed while claiming REASON Y, so the agent
+# reads one thing and signs another. Found by probing the first cut: it was
+# accepted, and the item stored REASON Y.
+
+{
+    my $one = $tira->required_item_add( author => 'claude', project => $root,
+        ref => $card->{ref}, item => 'bind one', status => 'pending' );
+    my $two = $tira->required_item_add( author => 'claude', project => $root,
+        ref => $card->{ref}, item => 'bind two', status => 'pending' );
+    $tira->required_item_update( author => 'claude', project => $root,
+        ref => $card->{ref}, id => $one->{id}, status => 'done',
+        command => ['bind -x'], proof => ['bound output'] );
+
+    eval {
+        $tira->required_item_update( author => 'claude', project => $root,
+            ref => $card->{ref}, id => $two->{id}, status => 'done',
+            command => ['bind -x'], proof => ['bound output'],
+            repeated_reason => 'REASON X: the first claim' );
+    };
+    my ($code) = $@ =~ /--repeated-confirm\s+(\S+)/;
+    ok( $code, 'a code is issued for the reason that was shown' );
+
+    ok( !eval {
+            $tira->required_item_update( author => 'claude', project => $root,
+                ref => $card->{ref}, id => $two->{id}, status => 'done',
+                command => ['bind -x'], proof => ['bound output'],
+                repeated_reason => 'REASON Y: a different claim entirely',
+                repeated_confirm => $code );
+            1;
+        },
+        'that code cannot be redeemed against a different reason' );
+
+    # Changing the evidence is NOT a way past the binding - it stops being a
+    # reuse at all, so no confirmation is owed and none is asked for. This
+    # assertion first read "nor against different evidence" and expected a
+    # refusal, which was wrong: different evidence duplicates nothing, and
+    # refusing it would refuse honest work. The check earns its keep by
+    # refusing reuse, not by refusing change.
+    my $fresh = $tira->required_item_update( author => 'claude', project => $root,
+        ref => $card->{ref}, id => $two->{id}, status => 'done',
+        command => ['bind -x'], proof => ['different output entirely'] );
+    ok( $fresh, 'different evidence needs no code at all - it duplicates nothing' );
+    is( $fresh->{repeated_reason}, undef,
+        'and carries no reason, so the board does not mark it as borrowed' );
+
+    # Put the duplicate back so the binding case below is a real reuse again.
+    $tira->required_item_update( author => 'claude', project => $root,
+        ref => $card->{ref}, id => $two->{id}, status => 'pending' );
+
+    # A fresh code for the positive control, rather than the one captured
+    # above: the intervening updates moved the item's own pending stash on,
+    # and a test that depends on state three operations back is testing the
+    # test rather than the code.
+    eval {
+        $tira->required_item_update( author => 'claude', project => $root,
+            ref => $card->{ref}, id => $two->{id}, status => 'done',
+            command => ['bind -x'], proof => ['bound output'],
+            repeated_reason => 'REASON X: the first claim' );
+    };
+    my ($current) = $@ =~ /--repeated-confirm\s+(\S+)/;
+    my $signed = $tira->required_item_update( author => 'claude', project => $root,
+        ref => $card->{ref}, id => $two->{id}, status => 'done',
+        command => ['bind -x'], proof => ['bound output'],
+        repeated_reason => 'REASON X: the first claim', repeated_confirm => $current );
+    ok( $signed, 'and redeems against exactly what it was issued for' );
+}
+
+# --- TKT-583/TSK-168: the reminder at the move, not at the mark --------------
+#
+# Everything else on this card is detective - it refuses a reuse once it is
+# attempted. This is the preventive half, and the owner placed it deliberately
+# at the move: "remind the agent when the move a card into a new column. The
+# reminder will be something like 'Get all the required action items first. Go
+# through them 1 by 1 and provide the proof and command 1 at a time. DO NOT
+# LEAVE IT AT LAST AND USE THE SAME PROOF FOR ALL REQUIRED ACTION ITEMS.'"
+#
+# The move is the right moment because that is when the list arrives. The
+# reuse happens when an agent reaches the end of a column's work holding a
+# list it never read item by item and one recent command - so the last chance
+# to stop the habit is before it has anything to act on.
+
+{
+    my ( $status, $said ) = cli( 'record.move', '--ref', $card->{ref}, '--column', 'implement' );
+
+    is( $status, 0, 'the move itself still succeeds' );
+    like( $said, qr/one at a time/i,
+        'and reminds the agent to work the required actions one at a time' );
+    like( $said, qr/same proof/i,
+        'naming the same-proof failure explicitly, which is the habit being prevented' );
 }
 
 done_testing;

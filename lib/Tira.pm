@@ -4982,6 +4982,12 @@ sub required_item_add {
 # evidence past - but otherwise exact. A fuzzy or normalised comparison would
 # eventually refuse honest work, and this check has to be safe to leave on.
 # TKT-583.
+# Short, unguessable, and not derived from anything the caller already has.
+sub _repeated_confirm_code {
+    my @alphabet = ( 'A' .. 'Z', 2 .. 9 );
+    return join '', map { $alphabet[ int rand @alphabet ] } 1 .. 6;
+}
+
 sub _refuse_reused_proof {
     my ( $self, %args ) = @_;
     my ( $items, $entry, $proof_entries ) = @args{qw(items entry proof)};
@@ -5000,7 +5006,6 @@ sub _refuse_reused_proof {
     $reason = '' if !defined $reason;
     $reason =~ s/\A\s+//;
     $reason =~ s/\s+\z//;
-    return $reason if length $reason;
 
     my $tidy = sub {
         my ($text) = @_;
@@ -5024,6 +5029,84 @@ sub _refuse_reused_proof {
         next if ( $other->{column} // '' ) ne $column;
         for my $pair ( @{ $other->{proof} // [] } ) {
             next if !$wanted{ $signature->($pair) };
+
+            # The reason is weighed only once a reuse is actually found. An
+            # earlier cut returned it before this scan ever ran, which meant
+            # two things, both wrong: an agent who always passed
+            # --repeated-reason was never checked at all, so a one-character
+            # reason bought unlimited duplication; and an item that had
+            # duplicated nothing still got the reason stored, so the board
+            # accused it of borrowing evidence it had not borrowed.
+            #
+            # And a reason alone does not settle it either. The owner's
+            # design: "the reason for the to feedback the actual description
+            # of the item with the reason put together to let the agent read
+            # it again to remind them what you are doing. if you confirm. use
+            # a autogen code to kind of force them to sign and make sure they
+            # know they are not doing thing blindly."
+            #
+            # So the first attempt is refused and reads THIS item's own
+            # instruction back, beside the reason just given, with a code to
+            # sign. The failure being caught is inattention rather than
+            # dishonesty - eleven items ticked off one prove run because
+            # nobody re-read what item eight asked for - and putting the
+            # instruction in front of the agent at the moment they claim to
+            # have met it is what breaks that.
+            #
+            # The code is random and stored, never derived from the command
+            # and proof: a derived code is computable from what the agent
+            # already holds, so the second step would collapse into the first
+            # and the read would not be forced at all.
+            if ( length $reason ) {
+
+                # The owner's shape: "the confirmation code is kind of
+                # key-value pair stash". The code is the key; what it was
+                # issued FOR is the value. Without that binding the forced
+                # read is not bound to the confirmation at all - the first cut
+                # handed out a code after showing REASON X and then redeemed
+                # it against REASON Y, so the agent could read one thing and
+                # sign another, which is the whole failure this card exists
+                # to stop wearing a signature.
+                my $issued_for = join "\0", $reason,
+                  map { $signature->($_) } @{$proof_entries};
+
+                my $stash = $entry->{repeated_confirm};
+                $stash = undef if ref $stash ne 'HASH';
+                my $given = $args{confirm};
+                $given = '' if !defined $given;
+                $given =~ s/\A\s+//;
+                $given =~ s/\s+\z//;
+
+                return $reason
+                  if length $given
+                  && $stash
+                  && $given eq ( $stash->{code} // '' )
+                  && $issued_for eq ( $stash->{for} // '' );
+
+                # The code has to survive the refusal, or the retry meets a
+                # different one and the second step can never be reached. The
+                # die aborts this write, so the caller is handed the code and
+                # persists it before raising the message.
+                # Reuse the code already pending on this item rather than
+                # minting a fresh one. Otherwise a single mistyped code
+                # rotates the target and the agent can never catch up - every
+                # retry would be refused against a code it was never shown.
+                # Reuse the pending code only when it was issued for THIS
+                # reason and evidence; a changed claim earns a fresh one.
+                my $code = ( $stash && $issued_for eq ( $stash->{for} // '' ) )
+                  ? $stash->{code}
+                  : _repeated_confirm_code();
+                return {
+                    confirm_needed => { code => $code, for => $issued_for },
+                    message =>
+                        "This --command and --proof already prove $other->{id} in this column.\n\n"
+                      . "THIS item asks for:\n  $entry->{item}\n\n"
+                      . "Your reason for reusing the same evidence:\n  $reason\n\n"
+                      . "Read those two together. If the same run genuinely proves this item,\n"
+                      . "sign it by running again with --repeated-confirm $code\n",
+                };
+            }
+
             die "That --command and --proof already prove $other->{id} in this column"
               . " (\"$other->{item}\").\n"
               . "One piece of evidence cannot prove two different instructions."
@@ -5063,8 +5146,22 @@ sub required_item_update {
         }
         my $repeated_reason = $self->_refuse_reused_proof(
             items => $record->{required_items}, entry => $entry,
-            proof => $proof_entries, reason => $args{repeated_reason} );
-        $entry->{repeated_reason} = $repeated_reason if $repeated_reason;
+            proof => $proof_entries, reason => $args{repeated_reason},
+            confirm => $args{repeated_confirm} );
+        if ( ref $repeated_reason eq 'HASH' ) {
+
+            # Store the code, THEN refuse - so the retry meets the same code
+            # rather than a fresh one it was never shown.
+            $entry->{repeated_confirm} = $repeated_reason->{confirm_needed};
+            $self->_replace_record( %args, record => $record );
+            die $repeated_reason->{message};
+        }
+        if ($repeated_reason) {
+            $entry->{repeated_reason} = $repeated_reason;
+
+            # Single use, or one read would buy every future reuse.
+            delete $entry->{repeated_confirm};
+        }
 
         $entry->{item} = $args{item} if defined $args{item};
         $entry->{status} = $args{status} if defined $args{status};
@@ -13489,6 +13586,22 @@ Adds a required-action entry to a record.
 =head2 required_item_update
 
 Updates a required-action entry's item text or status.
+
+Marking one C<done> is refused when another item in the same column already
+carries the exact same C<command>/C<proof> pair - trimmed before comparison,
+and attachment-backed proofs compared by content hash. One piece of evidence
+cannot prove two different instructions. TKT-583.
+
+Letting an honest reuse through takes two calls, not one argument. The first
+adds C<repeated_reason> and is still refused, reading this item's own
+instruction back beside the reason given and issuing a six-character code;
+the second repeats the call with C<repeated_confirm> set to that code. The
+code is stashed on the item against the exact command, proof and reason it
+was issued for, so changing any of them invalidates it and issues a fresh
+one, while re-asking unchanged returns the same code rather than rotating it
+- a typo is a retry, not a lockout. The reason is stored on the item only
+once the item is genuinely a duplicate, so a card never records an accusation
+of borrowing evidence that was not borrowed.
 
 =head2 search
 

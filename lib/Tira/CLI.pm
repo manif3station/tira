@@ -276,6 +276,7 @@ sub run {
         'all-sessions' => \$option{all_sessions},
         'unlinked' => \$option{unlinked},
         'repeated-reason=s' => \$option{repeated_reason},
+        'repeated-confirm=s' => \$option{repeated_confirm},
         'outward=s' => \$option{outward}, 'inward=s' => \$option{inward},
         'type=s' => \$option{type}, 'label=s@' => \$option{labels},
         'after=s' => \$option{after}, 'before=s' => \$option{before},
@@ -2343,6 +2344,39 @@ sub _populate_column_required_actions {
     return;
 }
 
+# The preventive half of TKT-583, and the owner placed it at the move on
+# purpose: "remind the agent when the move a card into a new column ... Go
+# through them 1 by 1 and provide the proof and command 1 at a time. DO NOT
+# LEAVE IT AT LAST AND USE THE SAME PROOF FOR ALL REQUIRED ACTION ITEMS."
+#
+# The refusal in required_item_update catches a reuse once it is attempted.
+# This is earlier: the move is when the new column's list arrives, and the
+# reuse happens when an agent reaches the end of that column's work holding a
+# list it never read item by item and one recent command. Reminding here is
+# the last moment before the habit has anything to act on.
+#
+# Printed to STDERR so it reaches a person without joining the command's
+# machine-readable output, and only when the column actually brought
+# required actions with it - a reminder that fires on every move is one
+# nobody reads. TSK-168.
+sub _remind_one_at_a_time {
+    my ( $tira, $args, $column ) = @_;
+    return if !defined $column || $column eq '';
+
+    my $record = eval { $tira->record_show( %{$args} ) } or return;
+    my @here = grep { ( $_->{column} // '' ) eq $column && ( $_->{status} // '' ) ne 'done' }
+      @{ $record->{required_items} // [] };
+    return if !@here;
+
+    print {*STDERR} "\n"
+      . "This column brought " . scalar(@here) . " required action(s) with it.\n"
+      . "Read them first, then work them ONE AT A TIME, each with its own\n"
+      . "--command and --proof from the run that actually satisfied it.\n"
+      . "Do not leave them to the end and do not use the same proof for all of\n"
+      . "them - one piece of evidence cannot prove two different instructions.\n\n";
+    return;
+}
+
 sub _apply_column_required_actions {
     my ( $tira, $args, $from, $to, $columns, $record ) = @_;
     return
@@ -3045,6 +3079,7 @@ sub _invoke {
             my $columns = eval { $tira->column_list(%args) };
             _apply_column_required_actions( $tira, \%args, $from, $args{column}, $columns, $result )
               if ref $columns eq 'ARRAY';
+            _remind_one_at_a_time( $tira, \%args, $args{column} );
 
             # Re-read rather than returning $result as-is: the required-action
             # population/reset above writes to the checklist after record_move
@@ -5044,6 +5079,15 @@ produce a failed command and a fully created project at the same time, with
 nothing to roll back. The accepted values come from
 C<onboarding_questions()> rather than being written out here, so the two
 cannot disagree.
+
+Moving a card into a column that carries required actions prints a reminder
+naming how many arrived and to work them one at a time, each with its own
+C<--command> and C<--proof>. It is the preventive half of TKT-583's refusal:
+the reuse happens at the end of a column's work, holding a list nobody read
+item by item, so the reminder lands at the moment the list arrives rather
+than when the damage is already attempted. Printed to STDERR, so it stays out
+of C<-o json> output, and only when the column actually brought outstanding
+items - a reminder that fires on every move is one nobody reads. TSK-168.
 
 =head2 browser_providers
 

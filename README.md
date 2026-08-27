@@ -60,6 +60,10 @@ picker, a bold/italic/code/list formatting bar, and markdown storage with
 safe formatted rendering in the dialog. Text attachments render in the
 viewer's own themed panel with deterministic contrast in every color
 scheme, instead of the browser's default plain-text document.
+A required action marked done on evidence another item in the same column
+already used is highlighted rather than merely ticked, and its proof modal
+opens with the reason for the reuse above the evidence itself — the point of
+making somebody write a reason is that somebody else reads it.
 The board-wide police policy engine — the 36 rules police itself watches,
 separate from a column's own required-action template — is editable from
 the browser too: a Policies button opens a modal listing every declared,

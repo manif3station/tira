@@ -12,14 +12,38 @@ Revision history for Tira
       TKT-555 Install column." Measured across the done column: 422 such
       reuses on 73 cards, including eleven items on one prove run
       answering instructions like "add the start date".
-      The door is priced rather than locked. One suite run can honestly
-      prove two items, so --repeated-reason lets the reuse through and is
-      stored on the item, to be read back and judged later. An empty
-      reason buys nothing - that would rebuild the hole TKT-585 records,
-      where a gate counts an argument instead of reading it.
+      The door is priced rather than locked - one suite run can honestly
+      prove two items - but paying takes two calls, not one argument,
+      because a gate that accepts any argument is the hole TKT-585
+      records. --repeated-reason is refused as well, and answers by
+      reading THIS item's own instruction back beside the reason just
+      given, with a six-character code; repeating the call with
+      --repeated-confirm CODE marks it done and stores the reason to be
+      read back and judged later. The failure being caught is
+      inattention rather than dishonesty - nobody re-read what item
+      eight asked for - so being made to look at the instruction is the
+      check, and signing is what makes looking unskippable.
+      The code is bound to the claim it was issued for: stashed against
+      card and item, invalidated and reissued if the command, proof or
+      reason changes in between, and returned unchanged when the same
+      claim is re-asked, so a typo is a retry and not a lockout. Five
+      ways it could have been theatre were found and fixed while
+      building it - the reason weighed before the duplicate scan ever
+      ran, the reason stored on items that had duplicated nothing, a
+      code issued but never persisted so the retry met a fresh one, a
+      wrong code rotating the pending one, and a code redeemable
+      against a claim it was not written for.
       The board shows it: an item done on a repeated pair is highlighted
       rather than merely ticked, and the proof modal opens with the
       reason above the evidence.
+      The preventive half, from TSK-168: moving a card into a column
+      that carries required actions prints how many arrived and to work
+      them one at a time, each with its own command and proof. To
+      STDERR, so it stays out of -o json, and only when the column
+      brought outstanding items - a reminder that fires on every move is
+      one nobody reads. The reuse happens at the end of a column's work,
+      holding a list never read item by item, so the reminder belongs at
+      the moment the list arrives.
       Also: --session's refusal on a command that does not scope by it
       gained the test it never had. The push gate found it by reading
       coverage percentages while a check of my own reported nothing

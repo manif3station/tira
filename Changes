@@ -1,5 +1,31 @@
 Revision history for Tira
 
+4.48  2026-08-27
+
+    - TKT-583. One piece of evidence can no longer prove two different
+      instructions. Marking a required action done is refused when
+      another item in the same column already carries that exact command
+      and proof - trimmed before comparison so a trailing newline cannot
+      slip it through, and attachment-backed proofs compared by content
+      hash. Reported by the owner from his own board: "the agent will use
+      the same command and message to fill in and mark all done. Like
+      TKT-555 Install column." Measured across the done column: 422 such
+      reuses on 73 cards, including eleven items on one prove run
+      answering instructions like "add the start date".
+      The door is priced rather than locked. One suite run can honestly
+      prove two items, so --repeated-reason lets the reuse through and is
+      stored on the item, to be read back and judged later. An empty
+      reason buys nothing - that would rebuild the hole TKT-585 records,
+      where a gate counts an argument instead of reading it.
+      The board shows it: an item done on a repeated pair is highlighted
+      rather than merely ticked, and the proof modal opens with the
+      reason above the evidence.
+      Also: --session's refusal on a command that does not scope by it
+      gained the test it never had. The push gate found it by reading
+      coverage percentages while a check of my own reported nothing
+      uncovered - it had only ever looked at subroutines, never
+      statements.
+
 4.47  2026-08-27
 
     - TKT-552. tasklist.list --unlinked returns only the items with an

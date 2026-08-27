@@ -166,6 +166,22 @@ sub cli {
     like( $said3, qr/\Q$private_b->{id}\E/, 'and agent-b' );
 }
 
+# The other half of TKT-580's guard: --session is refused on a command that
+# does not scope by it. Separating it from the reminder settings was only
+# half the change - the new guard still has to REFUSE, and until this
+# assertion existed nothing exercised that path. It was found by the push
+# gate, which reads the coverage percentages rather than the presence of an
+# "Uncovered" heading, and reported lib/Tira/CLI.pm at 99.8% while a check of
+# my own reported nothing uncovered at all.
+
+{
+    my ( $status, $said ) = cli( 'record.show', '--ref', $ticket->{ref}, '--session', 'agent-a' );
+
+    isnt( $status, 0, '--session is refused on a command that does not scope by it' );
+    like( $said, qr/A session scopes/,
+        'and the message says what a session is for, not which unrelated commands own it' );
+}
+
 done_testing;
 
 __END__

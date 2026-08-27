@@ -148,6 +148,134 @@ my $reset = $tira->required_item_list( project => $root, ref => $card->{ref} );
 my ($reset_entry) = grep { $_->{id} eq $req->{id} } @{$reset};
 is( $reset_entry->{status}, 'pending', 'the backward-move reset (always to pending) needs no proof either' );
 
+# --- TKT-583: one pair cannot answer two different instructions --------------
+#
+# The owner, on his own board: "In order to move the card, the agent will use
+# the same command and message to fill in and mark all done. Like TKT-555
+# Install column. All required action items ran command and proof all the
+# same. And that is one of many."
+#
+# Confirmed on both cards he pointed at, and on one of mine: TKT-555's install
+# column had six items sharing one pair, and TKT-570's tests-red column had
+# eleven - a single `prove` run answering instructions like "add the start
+# date" and "link the related tasks", which have nothing to do with running a
+# test. TKT-453 made a done claim cost evidence; it did not stop one piece of
+# evidence being spent eleven times.
+#
+# Scoped to the column, because that is where the pattern appears and where
+# the instructions differ from each other. Two items in the same column
+# proved by the same command and the same output are, by construction, not
+# both proved.
+
+{
+    my $one = $tira->required_item_add( author => 'claude', project => $root,
+        ref => $card->{ref}, item => 'first instruction', status => 'pending' );
+    my $two = $tira->required_item_add( author => 'claude', project => $root,
+        ref => $card->{ref}, item => 'a different instruction', status => 'pending' );
+
+    my $marked = $tira->required_item_update( author => 'claude', project => $root,
+        ref => $card->{ref}, id => $one->{id}, status => 'done',
+        command => ['prove -l t/317.t'], proof => ['All tests successful'] );
+    ok( $marked, 'the first item takes the pair as it always did' );
+
+    ok( !eval {
+            $tira->required_item_update( author => 'claude', project => $root,
+                ref => $card->{ref}, id => $two->{id}, status => 'done',
+                command => ['prove -l t/317.t'], proof => ['All tests successful'] );
+            1;
+        },
+        'a second item in the same column cannot reuse that identical pair' );
+    like( $@, qr/\Q$one->{id}\E/,
+        'and the refusal names the item already carrying it, so the reader knows where to look' );
+
+    # Trailing whitespace must not defeat it - the same text with a newline is
+    # the same evidence, and a check that a stray character can slip past is
+    # not a check.
+    ok( !eval {
+            $tira->required_item_update( author => 'claude', project => $root,
+                ref => $card->{ref}, id => $two->{id}, status => 'done',
+                command => ["prove -l t/317.t\n"], proof => ["All tests successful  "] );
+            1;
+        },
+        'and trimming means trailing whitespace does not slip the same pair through' );
+
+    # Genuinely different evidence still works, which is the whole point: this
+    # refuses reuse, not marking.
+    my $ok = $tira->required_item_update( author => 'claude', project => $root,
+        ref => $card->{ref}, id => $two->{id}, status => 'done',
+        command => ['git diff --stat'], proof => ['2 files changed'] );
+    ok( $ok, 'a different command and proof marks the second item done' );
+
+    # And a pair may be reused for a DIFFERENT column, where the instructions
+    # are a different set - the card scopes this to "this column".
+    $tira->record_move( author => 'claude', project => $root,
+        ref => $card->{ref}, column => 'implement' );
+    my $elsewhere = $tira->required_item_add( author => 'claude', project => $root,
+        ref => $card->{ref}, item => 'an instruction in another column', status => 'pending' );
+    my $reused = eval {
+        $tira->required_item_update( author => 'claude', project => $root,
+            ref => $card->{ref}, id => $elsewhere->{id}, status => 'done',
+            command => ['prove -l t/317.t'], proof => ['All tests successful'] );
+    };
+    ok( $reused, 'the same pair is allowed in a different column' );
+}
+
+# --- TKT-583: the escape costs a reason -------------------------------------
+#
+# The owner, asked whether an honest reuse should have a way through: "if the
+# agent thinks using the same command and proof set for other required action
+# item. in order to prevent command fail and get warning. They need to provide
+# a valid reason for that. like --command foobar --proof something
+# --repeated-reason 'VALID REASON. NO FUFFF.'"
+#
+# So the door is not locked, it is priced. Reuse is allowed when the agent
+# says why, and the reason is stored on the item so the claim can be read back
+# later rather than evaporating at the moment it was accepted.
+#
+# The reason must have content. An empty one would rebuild exactly the hole
+# TKT-585 was filed for an hour earlier - a gate that counts an argument
+# rather than reading it - and building that twice in one night would be
+# careless.
+
+{
+    my $first = $tira->required_item_add( author => 'claude', project => $root,
+        ref => $card->{ref}, item => 'one instruction', status => 'pending' );
+    my $second = $tira->required_item_add( author => 'claude', project => $root,
+        ref => $card->{ref}, item => 'another instruction', status => 'pending' );
+
+    $tira->required_item_update( author => 'claude', project => $root,
+        ref => $card->{ref}, id => $first->{id}, status => 'done',
+        command => ['prove -lr t'], proof => ['Files=400, Tests=8174, Result: PASS'] );
+
+    ok( !eval {
+            $tira->required_item_update( author => 'claude', project => $root,
+                ref => $card->{ref}, id => $second->{id}, status => 'done',
+                command => ['prove -lr t'], proof => ['Files=400, Tests=8174, Result: PASS'] );
+            1;
+        },
+        'without a reason the reuse is still refused' );
+    like( $@, qr/repeated-reason/,
+        'and the refusal names the escape, so the agent knows what it costs' );
+
+    ok( !eval {
+            $tira->required_item_update( author => 'claude', project => $root,
+                ref => $card->{ref}, id => $second->{id}, status => 'done',
+                command => ['prove -lr t'], proof => ['Files=400, Tests=8174, Result: PASS'],
+                repeated_reason => '   ' );
+            1;
+        },
+        'an empty reason does not buy the reuse - that would be TKT-585 rebuilt' );
+
+    my $allowed = $tira->required_item_update( author => 'claude', project => $root,
+        ref => $card->{ref}, id => $second->{id}, status => 'done',
+        command => ['prove -lr t'], proof => ['Files=400, Tests=8174, Result: PASS'],
+        repeated_reason => 'One suite run genuinely proves both items: this one asks '
+          . 'for the suite to pass and the previous one asks for no regression in it.' );
+    ok( $allowed, 'a stated reason lets the same pair through' );
+    like( $allowed->{repeated_reason}, qr/genuinely proves both/,
+        'and the reason is stored on the item, so it can be read back and judged later' );
+}
+
 done_testing;
 
 __END__

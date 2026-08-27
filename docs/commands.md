@@ -1527,6 +1527,26 @@ against. The refusal for an out-of-range value now states it too.
 A card with no priority is unassessed rather than lowest. It sorts last and says
 so, rather than pretending to a number nobody chose.
 
+## What a date-time field will take
+
+`--start-date` and `--due-date` want an ISO 8601 date-time **with an offset**,
+and take all three spellings of one:
+
+    2026-08-19T09:00:00+0100      basic, and the one Tira itself prints
+    2026-08-19T09:00:00+01:00     extended
+    2026-08-19T08:00:00Z          zulu
+
+The basic `±HHMM` form matters because it is what every timestamp Tira writes
+carries — `created_at` and `last_updated` read `2026-08-19T09:00:00+0100` — so
+until TKT-572 a stamp copied out of a card was refused when pasted back into
+one, with a message about ISO 8601 aimed at a value that already was ISO 8601.
+The refusal now names the three shapes instead of naming a standard the input
+already met.
+
+An offset is still required, and deliberately so: widening what is accepted
+must not turn the check off. A local time with no offset is ambiguous, which is
+the thing the mandatory timezone exists to prevent, so it is still refused.
+
 ## Attachment response truth
 
 Attachment content remains globally deduplicated by SHA-256, while filenames

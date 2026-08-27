@@ -201,6 +201,83 @@ sub write_yaml {
     return 1;
 }
 
+# --- TKT-572: a value Tira printed is a value Tira takes back ----------------
+#
+# Every timestamp Tira writes carries a basic-format offset - created_at and
+# last_updated read 2026-08-19T09:00:00+0100 - and _valid_datetime required
+# the extended form with a colon. So copying a stamp out of a card and
+# pasting it back was refused, with "must be an ISO 8601 date-time with
+# timezone" about a value that already was one. Both spellings are valid
+# ISO 8601; the tool disagreed with itself about which.
+#
+# It disagreed with itself literally, in one file: _epoch_of_datetime accepts
+# [+-]\d{2}:?\d{2} and says so in its own comment - "Accepts Z, +-HH:MM, and
+# the +-HHMM the default clock writes". Somebody diagnosed this exactly and
+# fixed one validator, leaving the other. These assertions hold both.
+
+{
+    # This file's own clock writes Z, which _valid_datetime always accepted -
+    # so reading created_at here would have proved nothing, and the first
+    # version of this block did exactly that and passed green against the
+    # unfixed code. The bug needs the offset form the DEFAULT clock writes, so
+    # the board for this case gets a clock that writes one.
+    my $offset_tira = Tira->new( clock => sub {'2026-08-19T09:00:00+0100'} );
+    my $offset_root = File::Spec->catdir( $tmp, 'offsets' );
+    $offset_tira->create_project( name => 'Offsets', dir => $offset_root );
+    $offset_tira->person_add( project => $offset_root, id => 'ada', name => 'Ada' );
+
+    my $card = $offset_tira->create_record(
+        project => $offset_root, type => 'ticket', title => 'Round-trips its own stamps' );
+    my $stamp = $offset_tira->record_show(
+        project => $offset_root, ref => $card->{ref} )->{created_at};
+
+    like( $stamp, qr/[+-]\d{4}\z/,
+        'the clock writes a basic-format offset, which is what this case is about' );
+
+    # Read back rather than written as a literal: whatever the clock actually
+    # writes is what has to be accepted, so this cannot drift if the stamp
+    # format changes.
+    for my $field (qw(start_date due_date)) {
+        my $set = eval {
+            $offset_tira->record_update(
+                author => 'ada', project => $offset_root, ref => $card->{ref}, $field => $stamp );
+        };
+        ok( $set, "$field accepts the timestamp Tira itself wrote ($stamp)" );
+        is( $set->{$field}, $stamp, "and stores it unchanged" ) if $set;
+    }
+
+    # The extended form keeps working - this widens what is accepted, it does
+    # not trade one spelling for the other.
+    ( my $extended = $stamp ) =~ s/([+-]\d{2})(\d{2})\z/$1:$2/;
+    my $ext = eval {
+        $offset_tira->record_update(
+            author => 'ada', project => $offset_root, ref => $card->{ref}, start_date => $extended );
+    };
+    ok( $ext, "the extended offset form is still accepted ($extended)" );
+
+    # And Z, which is what the default clock writes when no offset applies.
+    my $zulu = eval {
+        $offset_tira->record_update(
+            author => 'ada', project => $offset_root, ref => $card->{ref},
+            start_date => '2026-08-06T09:00:00Z' );
+    };
+    ok( $zulu, 'and Z' );
+
+    # Still refused: no offset at all. Widening the accepted set must not turn
+    # the check off - a stamp without a zone is genuinely ambiguous, which is
+    # what the field exists to prevent.
+    ok( !eval {
+        $offset_tira->record_update(
+            author => 'ada', project => $offset_root, ref => $card->{ref},
+            start_date => '2026-08-06T09:00:00' ); 1 },
+        'a date-time with no offset at all is still refused' );
+
+    # The two validators must agree on the same string, which is the condition
+    # that failed and the one worth holding.
+    ok( defined Tira::_epoch_of_datetime( $stamp, 'Threshold' ),
+        'the sibling validator accepts that stamp too - the two now agree' );
+}
+
 done_testing;
 
 __END__

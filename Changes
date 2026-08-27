@@ -1,5 +1,24 @@
 Revision history for Tira
 
+4.51  2026-08-27
+
+    - TKT-572. --start-date and --due-date accept the basic-format offset
+      Tira itself writes. Every timestamp Tira prints carries one -
+      created_at and last_updated read 2026-08-19T09:00:00+0100 - and
+      _valid_datetime required the extended form with a colon, so copying
+      a timestamp out of a card and pasting it back was refused, with
+      "must be an ISO 8601 date-time with timezone" about a value that
+      already was one. The message sent the reader looking for a missing
+      zone rather than a differently-punctuated one.
+      lib/Tira.pm's other date-time validator, _epoch_of_datetime, had
+      already worked this out - its comment reads "Accepts Z, +-HH:MM,
+      and the +-HHMM the default clock writes" - so the two validators in
+      one file disagreed about the same string, and this finishes the fix
+      rather than inventing it. An offset of some kind is still required:
+      widening what is accepted must not turn the check off. The refusal
+      now shows the three accepted shapes instead of naming a standard
+      the input already met.
+
 4.50  2026-08-27
 
     - TKT-590. A task card's CARD-REF box no longer loses what you are

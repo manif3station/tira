@@ -214,8 +214,14 @@ tickets.
 - `labels`: an array of case-insensitive free-text values. Preserve the first
   spelling supplied and reject later case-insensitive duplicates.
 - `due_date` and `start_date`: nullable ISO 8601 date-times with a mandatory
-  timezone, such as `2026-08-05T14:30:00+01:00` or
-  `2026-08-05T13:30:00Z`.
+  timezone, in any of the three forms `--since` already took (TKT-572):
+  `2026-08-05T14:30:00+01:00`, `2026-08-05T14:30:00+0100`, or
+  `2026-08-05T13:30:00Z`. The basic `±HHMM` form matters because it is the
+  one Tira itself prints on every card — `created_at` and `last_updated` read
+  `2026-08-19T09:00:00+0100` — and until TKT-572 these two fields refused it,
+  so a timestamp copied out of a card could not be pasted back in. An offset
+  of some kind is still required: a stamp without one is ambiguous, which is
+  what the mandatory timezone exists to prevent.
 - `sdlc_gate` and `lifecycle`: nullable free-text values. `sdlc_gate` is
   independent of append-only structured gate log entries. `sdlc_gate` is
   free text only until a project declares its own gate vocabulary with

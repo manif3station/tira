@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.50';
+our $VERSION = '4.51';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -11629,11 +11629,27 @@ sub _valid_priority {
     return 0 + $1;
 }
 
+# The offset is optional-colon for the same reason _epoch_of_datetime's is,
+# and that sibling had already worked it out: "Accepts Z, +-HH:MM, and the
+# +-HHMM the default clock writes". It was fixed there and not here, so the
+# two validators in this file disagreed about the same string - and the form
+# this one refused was the one Tira itself prints on every card.
+#
+# The cost was small and constant: copying a timestamp out of a card and
+# pasting it back was refused, with "must be an ISO 8601 date-time with
+# timezone" about a value that already was one, so the message sent the
+# reader looking for a missing zone rather than a differently-punctuated one.
+# Both spellings are valid ISO 8601. TKT-572.
+#
+# Still required: an offset of some kind. Widening what is accepted must not
+# turn the check off - a stamp without a zone is genuinely ambiguous, which
+# is what this field exists to prevent.
 sub _valid_datetime {
     my ( $self, $value, $label ) = @_;
     return undef if !defined $value || $value eq '';
-    die "$label must be an ISO 8601 date-time with timezone\n"
-      if $value !~ /\A(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))\z/;
+    die "$label must be an ISO 8601 date-time with a timezone, "
+      . "for example 2026-08-19T09:00:00+0100, +01:00 or Z\n"
+      if $value !~ /\A(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2}))\z/;
     return $1;
 }
 

@@ -2545,7 +2545,23 @@ sub _invoke {
     # on, since those are the ones that mutate an existing item by id.
     die "Reminder settings belong to the project.update, project.new and onboard commands\n"
       if $command !~ /\A(?:project\.update|project\.new|onboard|tasklist\.[a-z](?:[a-z.]*[a-z])?)\z/
-      && grep { defined $option->{$_} } qw(collector agent session heartbeat);
+      && grep { defined $option->{$_} } qw(collector agent heartbeat);
+
+    # --session is not a reminder setting, and grouping it with three that are
+    # is what refused it on search. Both documents describe search's tasklist
+    # matching as "scoped to the caller's own --session ... exactly as
+    # tasklist.list is" - and it was, in the engine, reachable only through
+    # TIRA_AGENT_SESSION because the flag itself was rejected here with a
+    # message naming three commands, none of them the one typed.
+    #
+    # Given its own guard rather than another name appended to that one: the
+    # comment above records this whitelist being patched once already for the
+    # same class of miss (tasklist's four-deep sub-verbs matched by a
+    # two-level pattern), and a scoping argument sharing a list with
+    # collector/agent/heartbeat will keep collecting these. TKT-580.
+    die "A session scopes the tasklist, search and project commands\n"
+      if defined $option->{session}
+      && $command !~ /\A(?:project\.update|project\.new|onboard|search|tasklist\.[a-z](?:[a-z.]*[a-z])?)\z/;
     die "Dashboard address options belong to the project.update command\n"
       if $command ne 'project.update'
       && grep { defined $option->{$_} } qw(dashboard_host dashboard_port listen);

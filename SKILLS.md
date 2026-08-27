@@ -1693,6 +1693,22 @@ against the POD text so this cannot silently go stale again.
 Documentation-only, no behavior changed. Found during a standing
 documentation-gap hunt.
 
+TKT-580: `tira.search --tasklist --session NAME` is accepted at last.
+Both this file and `docs/commands.md` have described search's tasklist
+matching as scoped to the caller's own `--session` "the same way
+`tasklist.list` already is" since TKT-537 - but the CLI refused the
+flag. `--session` was grouped with `--collector`, `--agent` and
+`--heartbeat` in the reminder-settings guard, whose whitelist covers
+`project.update`, `project.new`, `onboard` and `tasklist.*` and never
+included `search`, so the documented scoping was reachable only through
+`TIRA_AGENT_SESSION` and typing the flag produced "Reminder settings
+belong to the project.update, project.new and onboard commands" - three
+commands, none of them the one typed. A session scopes; it does not
+configure a reminder, and it now has its own guard rather than another
+name appended to that one. The guard's own comment already recorded
+being patched once for this same class of miss, which is why the fix
+separates rather than extends.
+
 TKT-550: `tira.search --tasklist --all-sessions` searches every
 session's tasklist items rather than only the caller's own - the same
 opt-in `tasklist.list` got in TKT-539, for the same supervising agent,

@@ -1,5 +1,25 @@
 Revision history for Tira
 
+4.46  2026-08-27
+
+    - TKT-580. tira.search --tasklist --session is accepted. Both
+      docs/commands.md and SKILLS.md have described search's tasklist
+      matching as scoped to the caller's own --session "exactly as
+      tasklist.list is" since TKT-537, but the CLI refused the flag:
+      --session was grouped with --collector, --agent and --heartbeat in
+      the reminder-settings guard, and search was never on that guard's
+      whitelist. The scoping worked - it just could not be addressed the
+      documented way, only through TIRA_AGENT_SESSION - and typing the
+      documented flag produced "Reminder settings belong to the
+      project.update, project.new and onboard commands", naming three
+      commands none of which was the one typed and never mentioning
+      sessions or search. A session is a scoping argument rather than a
+      reminder setting and now has its own guard; the reminder-settings
+      guard keeps the three that really are. Separated rather than
+      extended because that guard's own comment already recorded being
+      patched once for the same class of miss, when tasklist's four-deep
+      sub-verbs were refused --session by a two-level pattern.
+
 4.45  2026-08-27
 
     - TKT-550. tira.search --tasklist --all-sessions searches every

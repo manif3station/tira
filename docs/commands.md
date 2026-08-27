@@ -2461,10 +2461,18 @@ note-to-self. `--ref` is sticky-note style - it can name one thing, several
 exists. Scoped by `--session`: two different session ids never see each
 other's items, and calling with none named uses one shared list, which is
 what a single agent working alone wants.
-`tasklist.add`/`tasklist.list` fall back to the `TIRA_AGENT_SESSION`
+`tasklist.add`/`tasklist.list` — and `tira.search --tasklist`, TKT-580 —
+fall back to the `TIRA_AGENT_SESSION`
 environment variable when `--session` is not given explicitly, so
 multi-agent mode does not have to type it on every call; an explicit
-`--session` still overrides it. Ids are `TSK-NNN`. Every item also carries
+`--session` still overrides it. Until TKT-580 the flag itself was refused
+on `search`: `--session` sat in the same guard as `--collector`,
+`--agent` and `--heartbeat`, which are reminder settings, and `search` was
+not on that guard's whitelist — so the scoping both this page and
+`SKILLS.md` describe was reachable only through the environment variable,
+and typing the documented flag produced an error naming three commands
+none of which was the one typed. A session is a scoping argument, not a
+reminder setting, and now has its own guard. Ids are `TSK-NNN`. Every item also carries
 an explicit `order` field, set independently of `created_at`, so the queue
 can be reordered by
 unshift/slice without timestamp games: `tasklist.next`/`shift`/`pop` always

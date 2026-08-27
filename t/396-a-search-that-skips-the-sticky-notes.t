@@ -14,6 +14,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub { '2026-08-25T22:00:00+0100' } );
@@ -97,6 +98,72 @@ is_deeply(
     my %session_of = map { $_->{ref} => $_->{session} } @{ $result->{hits} };
     is( $session_of{ $private_a->{id} }, 'agent-a', 'a cross-session hit names the session it came from' );
     is( $session_of{ $private_b->{id} }, 'agent-b', 'including the one the caller does not own' );
+}
+
+# --- TKT-580: the flag both documents describe, refused by the CLI -----------
+#
+# docs/commands.md: "Matching is scoped to the caller's own --session
+# (TKT-537) exactly as tasklist.list is." SKILLS.md says the same. But the
+# reminder-settings guard whitelists project.update, project.new, onboard and
+# tasklist.* - search is not on it, so --session is rejected there with
+# "Reminder settings belong to the project.update, project.new and onboard
+# commands", naming three commands none of which is the one typed and never
+# mentioning sessions or search.
+#
+# The scoping itself works; it just cannot be addressed the documented way,
+# because --session is grouped with collector/agent/heartbeat - genuine
+# reminder settings, which it is not. The guard's own comment records that
+# this whitelist has already been patched once for the same class of miss:
+# tasklist's four-deep sub-verbs were refused --session because the pattern
+# matched only two levels, "exactly the commands TKT-538 needed it most on".
+
+sub cli {
+    my ( $command, @argv ) = @_;
+    my ( $out, $err ) = ( '', '' );
+    open my $stdout, '>:raw', \$out or die $!;
+    open my $stderr, '>', \$err or die $!;
+    local *STDOUT = $stdout;
+    local *STDERR = $stderr;
+    local $ENV{TIRA_HOME}   = $root;
+    local $ENV{TIRA_AUTHOR} = 'claude';
+    my $status = Tira::CLI->run( command => $command, argv => \@argv );
+    return ( $status, $out . $err );
+}
+
+{
+    my ( $status, $said ) = cli(
+        'search', '--text', 'private laundry', '--tasklist',
+        '--session', 'agent-a', '--refs-only', '-o', 'json' );
+
+    is( $status, 0, 'search --tasklist --session is accepted by the CLI' );
+    unlike( $said, qr/Reminder settings/,
+        'and not refused as though --session were a reminder setting' );
+    like( $said, qr/\Q$private_a->{id}\E/, 'it finds the named session\'s own item' );
+    unlike( $said, qr/\Q$private_b->{id}\E/,
+        'and still cannot see the other session\'s - TKT-537 intact' );
+}
+
+# The env-var fallback and the precedence between them, which is the half of
+# "exactly as tasklist.list is" that a reader would assume holds.
+{
+    local $ENV{TIRA_AGENT_SESSION} = 'agent-b';
+    my ( $status, $said ) = cli(
+        'search', '--text', 'private laundry', '--tasklist', '--refs-only', '-o', 'json' );
+    is( $status, 0, 'with no flag, the env var scopes the search' );
+    like( $said, qr/\Q$private_b->{id}\E/, 'to that session\'s item' );
+
+    my ( $s2, $said2 ) = cli(
+        'search', '--text', 'private laundry', '--tasklist',
+        '--session', 'agent-a', '--refs-only', '-o', 'json' );
+    is( $s2, 0, 'an explicit --session is still accepted alongside the env var' );
+    like( $said2, qr/\Q$private_a->{id}\E/, 'and wins over it, as it does on tasklist.list' );
+
+    my ( $s3, $said3 ) = cli(
+        'search', '--text', 'private laundry', '--tasklist',
+        '--all-sessions', '--refs-only', '-o', 'json' );
+    is( $s3, 0, '--all-sessions is accepted too' );
+    like( $said3, qr/\Q$private_a->{id}\E/, 'and overrides the env var, reaching agent-a' );
+    like( $said3, qr/\Q$private_b->{id}\E/, 'and agent-b' );
 }
 
 done_testing;

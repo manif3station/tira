@@ -300,6 +300,60 @@ $tira->policy_add( project => $root, rule => 'agent-still', age => '4h',
         'the off-channel owner ping no longer fires by default - the bridge already has the content' );
 }
 
+# --- TKT-570: work that is not the agent's is not the agent stalling --------
+#
+# Reported from zen-framework with measurement rather than description: the
+# rule fired 59 times in one session on a board whose only working-column
+# card sat at in-review, where the wait is explicitly the owner's. Every
+# firing was true about elapsed time and wrong about what it implied.
+#
+# The rule's own comment above @waiting says it "reports only when something
+# is actually waiting on the agent", but the list was built from columns
+# alone and never asked whose card it was. The escapes did not reach it
+# either - agent-still is whole-board so --ref scoping is refused, and the
+# idle-queue exemption only fires when working columns are EMPTY, not when
+# they hold somebody else's card. That left touching a card every 45 minutes
+# to reset the clock: progress claimed by dragging rather than by working,
+# which is the anti-pattern this rulebook names elsewhere.
+
+{
+    # Clear the agent's own working-column cards first, or the rule reports
+    # them and proves nothing about the owner's. The first run of this test
+    # asserted silence while a card from an earlier case was still sitting in
+    # implement assigned to claude - the rule was right and the assertion was
+    # wrong.
+    for my $mine ( @{ $tira->record_list( project => $root, type => 'ticket' ) } ) {
+        next if ( $mine->{column} // '' ) ne 'implement';
+        $tira->record_move( author => 'claude', project => $root,
+            ref => $mine->{ref}, column => 'done' );
+    }
+
+    my $theirs = $tira->create_record(
+        project => $root, type => 'ticket', title => 'Waiting on the owner' );
+    $tira->record_move( author => 'michael', project => $root,
+        ref => $theirs->{ref}, column => 'implement' );
+    $tira->record_update( author => 'michael', project => $root,
+        ref => $theirs->{ref}, assignee => 'michael' );
+
+    # Far enough past the age that only the assignee question is left. The
+    # setup above happens at the prevailing clock, and moving a card is
+    # itself agent action - so the clock has to go forward from there, not
+    # back, or the rule stays quiet for the wrong reason and the test proves
+    # nothing. The first run of this did exactly that.
+    $now = '2026-08-21T20:00:00Z';
+    is_deeply( reported(), [],
+        'a working-column card assigned to the owner is not the agent stalling' );
+
+    # And the rule has not been broken into silence: the agent's own card
+    # still reports, which is the half that keeps this worth having.
+    $tira->record_update( author => 'michael', project => $root,
+        ref => $theirs->{ref}, assignee => 'claude' );
+    my $fired = reported();
+    is( scalar @{$fired}, 1, 'the same card assigned to the agent reports again' );
+    like( $fired->[0]{detail} // '', qr/\Q$theirs->{ref}\E/,
+        'naming the card that is genuinely waiting on it' );
+}
+
 done_testing;
 
 __END__

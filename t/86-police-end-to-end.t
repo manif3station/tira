@@ -127,6 +127,16 @@ my $finished = $tira->create_record( project => $root, type => 'ticket', title =
 $tira->record_move(author => 'claude',  project => $root, ref => $finished->{ref}, column => 'implement' );
 $tira->checklist_add( author => 'michael', project => $root, ref => $finished->{ref}, item => 'the work', status => 'done' );
 
+# agent-still: since TKT-570 the rule counts only working-column cards the
+# agent could actually move, so a board meant to break every rule needs one
+# that is the agent's. The cards above are deliberately unassigned - that is
+# what card-unassigned is here to catch - and an unassigned card is exactly
+# what the agent cannot be stalling on.
+my $agents_own = $tira->create_record( project => $root, type => 'ticket',
+    title => 'The agent has this one', assignee => 'claude' );
+$tira->record_move( author => 'claude', project => $root,
+    ref => $agents_own->{ref}, column => 'implement' );
+
 # checklist-unmoved: a card carried on from one working column to the next with
 # nothing ticked in between. Two moves are needed, because the window a move is
 # judged against reaches back to the move before it - on a card's first move

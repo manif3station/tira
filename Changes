@@ -1,5 +1,23 @@
 Revision history for Tira
 
+4.39  2026-08-27
+
+    - TKT-570. agent-still no longer reports an agent as stopped when the
+      only cards in working columns belong to somebody else. Its waiting
+      list was built from columns alone and never asked whose card it
+      was, while the rule's own text claimed it "reports only when
+      something is actually waiting on the agent" - so a card parked at
+      in-review awaiting the owner counted as the agent stalling.
+      Reported from zen-framework with measurement rather than
+      description: 59 firings in a single session, every one true about
+      elapsed time and wrong about what it implied. No existing escape
+      reached it - the rule is whole-board so a --ref scope is refused,
+      and the idle-queue exemption only helps when working columns are
+      empty rather than holding another person's card - which left
+      touching a card every 45 minutes to reset the clock, progress
+      claimed by dragging rather than by working. A board that has
+      declared no agent behaves exactly as before.
+
 4.38  2026-08-27
 
     - TKT-569. release.record's batch mode now genuinely records each ref

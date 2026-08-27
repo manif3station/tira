@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.38';
+our $VERSION = '4.39';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -7928,10 +7928,36 @@ sub policy_evaluate {
             # is required not to report.
             my %ends  = %{ $self->_ending_columns( $root, 'ticket' ) };
             my %queue = %{ $self->_queue_columns( $root, 'ticket' ) };
+
+            # And whose card it is, which is the half this rule claimed to
+            # have and did not. The list above establishes that something is
+            # in a working column; it says nothing about whether the agent
+            # can move it. A card parked at in-review awaiting the owner is
+            # not the agent stalling, and reporting it as such is worse than
+            # saying nothing: zen-framework measured 59 firings in a single
+            # session on exactly that board, every one true about elapsed
+            # time and wrong about what it implied.
+            #
+            # Their escapes were all closed, which is what made it a defect
+            # rather than a preference: this rule is whole-board so --ref
+            # scoping is refused by design, and the idle-queue exemption
+            # above only helps when working columns are EMPTY rather than
+            # holding somebody else's card. Declining it board-wide would
+            # give up a rule that matters the moment real work exists again.
+            # What was left was touching a card every 45 minutes to reset the
+            # clock - progress claimed by dragging rather than by working,
+            # the very anti-pattern this rulebook names elsewhere. A rule
+            # that trains the behaviour it exists to catch is worse than no
+            # rule.
+            #
+            # A board that has declared no agent is unchanged, so nothing
+            # shifts under an owner who never opted into this. TKT-570.
+            my $agent = $self->_agent_declared_for($root);
             my @waiting = sort map { $_->{ref} }
               grep {
                 my $column = $_->{column} // '';
                 !$ends{$column} && !$queue{$column} && $column ne 'discard'
+                  && ( !defined $agent || ( $_->{assignee} // '' ) eq $agent )
               } @{$all};
             next if !@waiting;
 
@@ -12888,7 +12914,12 @@ ticket's budget by existing. C<agent-still>'s direct-to-Telegram message
 opens by naming the board it is about - the C<TIRA_HOME> alias if one was
 set, and always the real project path - since that one message goes to the
 owner rather than to the agent-readable bridge, and an unnamed alert on a
-machine running several projects with this skill cannot be placed.
+machine running several projects with this skill cannot be placed. That
+same rule asks whose card it is before reporting: a card sitting in a
+working column is only counted against the agent when the board names an
+agent and that card is assigned to it, since an agent cannot be stalling
+on work it has no power to move. A board that declares no agent is
+measured exactly as it always was.
 
 =head2 project_new
 

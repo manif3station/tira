@@ -1693,6 +1693,23 @@ against the POD text so this cannot silently go stale again.
 Documentation-only, no behavior changed. Found during a standing
 documentation-gap hunt.
 
+TKT-570: `agent-still` now asks whose card it is before deciding the
+agent has stopped. Its waiting list was built from columns alone, so a
+card parked at `in-review` awaiting the owner's answer counted as the
+agent stalling on it - while the rule's own text claimed it "reports
+only when something is actually waiting on the agent". Reported from
+another project using this skill, with a measurement rather than a
+description: 59 firings in a single session, every one true about
+elapsed time and wrong about what it implied. None of the existing
+escapes reached it, which is what made it a defect rather than a
+preference - this rule is whole-board so a `--ref` scope is refused,
+and the idle-queue exemption only helps when working columns are empty
+rather than holding somebody else's card. What was left was touching a
+card every 45 minutes to reset the clock: progress claimed by dragging
+rather than by working, which is the anti-pattern the rulebook names
+elsewhere, so the rule was training the behaviour it exists to catch.
+A board that has declared no agent behaves exactly as before.
+
 TKT-546: the `agent-still` policy rule's bridge-visible text now prompts
 the agent to diagnose why progress stopped before instructing it
 through the ask-the-owner/resolve-directly/file-a-resolver-ticket

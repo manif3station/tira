@@ -652,6 +652,14 @@ Anything a rule cannot work without is refused when the policy is set, rather
 than discovered later by police - a policy police cannot follow is worse than
 no policy, because it reads as cover.
 
+**Some rules read more than the policy tells them.** `agent-still` is the
+clearest: `--age` sets its grace, but whether a card counts at all depends on
+the board's declared agent. A card in a working column is only held against
+the agent when the board names one and that card is assigned to it, because an
+agent cannot be stalling on work it has no power to move. Declare an agent
+with `tira.project.update --agent NAME`; a board that has declared none is
+measured on columns alone, exactly as before TKT-570.
+
 **Where a policy is declared decides how narrow it is.** A policy on a card
 beats one on its column, which beats one on its board, which beats one on the
 project. Resolution is per rule, so a card that overrides one rule keeps every

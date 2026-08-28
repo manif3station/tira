@@ -1,5 +1,65 @@
 Revision history for Tira
 
+4.67  2026-08-28
+
+    - TKT-681. A card created through the CLI straight into a column is
+      no longer born past that column's entry gate. The browser's own
+      create flow calls create_record directly, seeds neither template,
+      and is unchanged - excluded by this card's scope rather than
+      overlooked.
+      Every column carries two templates: required_actions, which a card
+      must satisfy to LEAVE, and entry_required_actions, which it must
+      have satisfied to be moved IN. The move path places both. The
+      create path placed only the first, under a comment saying it
+      mirrored the move-in logic "exactly" - and it did: it mirrored
+      _populate_column_required_actions, which is the EXIT seeder. Entry
+      actions on a move come from a different function,
+      _populate_entry_required_actions, which creation never called.
+      So a card created into such a column received no entry items,
+      nothing checked it, and the gate was not failed but skipped in
+      silence - which is the exact failure the whole required-action
+      mechanism exists to prevent.
+      The create path now calls that function rather than repeating its
+      logic. The cause of this bug was one path copying another's logic
+      instead of calling it, and a third copy would have been the same
+      mistake a third time.
+      CREATION IS NEVER REFUSED FOR AN UNSATISFIED ENTRY ACTION, and
+      cannot be. The owner's reasoning, on TSK-250: "where do they store
+      the proof when there is no ticket?" A required action's proof is a
+      command and its output, and before the card exists there is
+      nothing to run a command against. The items are recorded pending
+      and the caller is told instead.
+      And it is TOLD, to STDERR, each item named with its own REQ id and
+      the closing command carrying a real one rather than a placeholder,
+      so acting on the message is copying what was printed rather than
+      cross-referencing texts against required-action.list - the same
+      reasoning the refused-move message follows. Both kinds are named
+      by what each is for -
+      "N entry required action(s), owed now" against "N exit required
+      action(s), owed before it leaves COLUMN" - and ending with the
+      command to work them. To STDERR because stdout is the card, and
+      -o json has to stay a document an agent can parse; the browser
+      move path already reports entry-population failures the same way.
+      THE WARNING FIXES A SILENCE OLDER THAN THE ONE THIS CARD WAS
+      RAISED FOR. The exit template has been seeded on create since
+      TKT-439 and printed by nothing, so an agent met those items only
+      when a move was refused. Warning about the entry items alone would
+      have left that exactly as it was.
+      Two assertions in the new t/421 were wrong before they were right,
+      and both are recorded on the card. One checked whether the refused
+      move DIED - Tira::CLI catches a refusal and prints it, so the
+      anchor failed against working code and would have read as "entry
+      gates are broken". The other was green against code that printed
+      no warning at all: -o toon prints the whole created card, whose
+      own required_items list contains the item text, so an assertion
+      against stdout passes on the record dump whether or not anything
+      was printed. All three warning assertions read STDERR alone now.
+      One checklist item on the card turned out to have a false premise
+      and is recorded rather than actioned: it asked for the same fix on
+      the move path, but the move path already places entry items
+      correctly, and adding them to the exit seeder would have placed
+      them a second time on every move.
+
 4.66  2026-08-28
 
     - TKT-671. An item ticked as 'Done' was finished to the card and

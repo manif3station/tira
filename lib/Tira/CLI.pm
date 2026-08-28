@@ -3330,18 +3330,50 @@ sub _invoke {
         # A column's required-action template is populated on every move-in
         # (TKT-427), but creation is not a move, so a card landing directly
         # in its entry column - or any column carrying required_actions -
-        # never received them. Populated here, mirroring the same move-in
-        # logic exactly, into the card's own required_items list, tagged with
-        # this landing column (TKT-445, not checklist); the dashboard's own
-        # create flow, calling create_record directly, is untouched. TKT-439.
+        # never received them. Populated here into the card's own
+        # required_items list, tagged with this landing column (TKT-445, not
+        # checklist); the dashboard's own create flow, calling create_record
+        # directly, is untouched. TKT-439.
+        #
+        # BOTH templates, since TKT-681. This used to read required_actions
+        # alone, under a comment saying it mirrored the move-in logic exactly.
+        # It did - it mirrored _populate_column_required_actions, which is the
+        # EXIT seeder. Entry actions on a move come from a different function,
+        # _populate_entry_required_actions, which creation never called. So a
+        # card created straight into a column with an entry list was born past
+        # a gate it could never be asked to pass: no items recorded, nothing
+        # checking it, the gate not failed but skipped in silence.
+        #
+        # That function is called here rather than its logic repeated. The
+        # whole cause of this bug was one path copying another's logic instead
+        # of calling it, and a third copy would be the same mistake again.
         my $columns = eval { $tira->column_list(%args) };
+        my ( @entry_seeded, @exit_seeded );
         if ( ref $columns eq 'ARRAY' ) {
             my ($landed) = grep { $_->{name} eq $column } @{$columns};
-            my @required = @{ $landed->{required_actions} // [] };
-            if (@required) {
-                $tira->required_item_add( %args, ref => $created->{ref},
-                    item => $_, status => 'pending', column => $column, source => 'required-action' )
-                  for @required;
+            @exit_seeded  = @{ $landed->{required_actions} // [] };
+            @entry_seeded = @{ $landed->{entry_required_actions} // [] };
+
+            $tira->required_item_add( %args, ref => $created->{ref},
+                item => $_, status => 'pending', column => $column, source => 'required-action' )
+              for @exit_seeded;
+
+            # CREATION IS NEVER REFUSED FOR ONE OF THESE, and cannot be. A
+            # required action's proof is a command and its output, and before
+            # the card exists there is nothing to run a command against - the
+            # owner's own reasoning on TSK-250. So they are recorded as
+            # pending and the caller is told, rather than the create failing.
+            my $unplaced = _populate_entry_required_actions(
+                $tira, { %args, ref => $created->{ref} }, $column, $columns, $created );
+            if ( @{ $unplaced // [] } ) {
+                printf {*STDERR} "%s was created in %s, but %d of that column's entry required action(s) could not be put on the card: %s\n",
+                  $created->{ref}, $column, scalar @{$unplaced},
+                  join( '; ', map { ( length $_->[0] ? $_->[0] : '(an empty entry action)' ) . " - $_->[1]" } @{$unplaced} );
+                my %failed = map { $_->[0] => 1 } @{$unplaced};
+                @entry_seeded = grep { !$failed{$_} } @entry_seeded;
+            }
+
+            if ( @exit_seeded || @entry_seeded ) {
 
                 # $created was captured before these writes; re-read so what
                 # the caller sees is what is actually stored, the same
@@ -3351,6 +3383,60 @@ sub _invoke {
                     ( defined $args{project} ? ( project => $args{project} ) : () ),
                 );
             }
+        }
+
+        # And SAY so. The exit template has been seeded on create since
+        # TKT-439 and printed by nothing, so an agent met those items only
+        # when a move was refused - a silence older than the one this card was
+        # raised for, and fixing only the newer one would have left it.
+        #
+        # To STDERR, because stdout is the card: -o json has to stay a
+        # document an agent can parse, and the browser move path already
+        # reports its entry-population failures this way.
+        if ( @entry_seeded || @exit_seeded ) {
+
+            # One item, one mention - WITHIN a list as well as across the two.
+            #
+            # required_item_add stores an item once however many times it is
+            # asked for, and column_update does NOT dedupe a template, so both
+            # kinds of repetition are storable: the same text twice inside one
+            # list, and the same text in both lists. "Verify all details in
+            # the card" is a plausible thing to owe on the way in and again
+            # before leaving.
+            #
+            # Reported raw, the message contradicted the card twice over - a
+            # count of two for one stored item, and the SAME REQ id printed
+            # twice beside it, which reads as two items that happen to share
+            # an id. Entry wins a text owed both ways, being the stricter:
+            # owed now rather than owed eventually.
+            my %seen;
+            @entry_seeded = grep { !$seen{$_}++ } @entry_seeded;
+            @exit_seeded  = grep { !$seen{$_}++ } @exit_seeded;
+
+            # WITH THE IDS, because the point is to be actionable from the
+            # message alone. The move refusal already names each item as
+            # "REQ-001  the text" so acting on it is copying what was printed;
+            # a create warning that listed only texts and then said "--id
+            # REQ-NNN" would send its reader to ticket.show to map one to the
+            # other, which is the cross-reference that has already put proofs
+            # against the wrong ids on this board.
+            my %id_of;
+            for my $item ( @{ $created->{required_items} // [] } ) {
+                next if ( $item->{column} // '' ) ne $column;
+                $id_of{ $item->{item} // '' } //= $item->{id};
+            }
+            my $name = sub {
+                join '; ', map { ( $id_of{$_} ? "$id_of{$_} " : '' ) . $_ } @{ $_[0] };
+            };
+
+            my @said;
+            push @said, sprintf( "%d entry required action(s), owed now: %s",
+                scalar @entry_seeded, $name->( \@entry_seeded ) ) if @entry_seeded;
+            push @said, sprintf( "%d exit required action(s), owed before it leaves %s: %s",
+                scalar @exit_seeded, $column, $name->( \@exit_seeded ) ) if @exit_seeded;
+            my $first = ( $id_of{ ( @entry_seeded, @exit_seeded )[0] // '' } ) // 'REQ-NNN';
+            printf {*STDERR} "%s was created in %s carrying %s\n  Work them one at a time: d2 tira.required-action.update --ref %s --id %s --status done --command TEXT --proof TEXT\n",
+              $created->{ref}, $column, join( ', and ', @said ), $created->{ref}, $first;
         }
 
         my $reminder = $tira->record_reminder($created);
@@ -5627,6 +5713,17 @@ believed it had nothing to enforce.
 Puts a column's entry template on a card without deciding anything about
 whether the card may be there, and returns what it could NOT add as
 C<[text, why]> pairs rather than swallowing the failure.
+
+Called from three places, and the third arrived late. The CLI move guard and
+the browser move provider both call it on the way in; C<record.create> did not,
+so a card created straight into a gated column received no entry items and was
+born past a gate it could never be asked to pass. Creation calls it now, and
+does NOT refuse on what it returns - a required action's proof is a command and
+its output, and before the card exists there is nothing to run a command
+against, so the items are recorded pending and the caller is told on STDERR.
+What it could not place is reported there with its reason and left out of the
+list the caller is told it owes, so the message never names an item that is not
+on the card. TKT-681.
 
 Shared by the gate above and by the browser move provider, and the split is
 TKT-452's: the gating half is CLI-only, because a human dragging a card is not

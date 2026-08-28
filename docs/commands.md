@@ -1632,6 +1632,57 @@ When a move IS refused for required actions, the message names each blocking ite
 
 A fourth guard runs on the way IN. A column can declare entry required actions with `tira.column.update --entry-required-action TEXT`, and a move into that column is refused while any of them are unmarked - the card stays where it was, and the refusal names each item with its id and a command that runs. The items are put on the card before the refusal, because an entry requirement is satisfied from outside the column that demands it; a list that only appeared once the card was inside would leave nothing to mark. Forward moves only. Marking one done costs the same `--command`/`--proof` pair as any other required action, and a card exempt from an item is let through. TKT-591.
 
+**A card created into such a column through the CLI gets them too, since 4.67,
+and is never refused for them.** This covers `tira.TYPE.create`; the browser's
+own create flow calls the engine directly and seeds neither template, which is
+unchanged here and is its own gap. Until then the create path seeded only the exit template,
+so a card created straight into a column with an entry list was born past that
+gate: no items recorded, nothing checking it, the gate skipped rather than
+failed. It now calls the same function the move path uses.
+
+Creation cannot be blocked on one, and the reason is worth stating because it
+decides the design rather than softening it: a required action's proof is a
+command and its output, and before the card exists there is nothing to run a
+command against. So the items are recorded as pending and the caller is told on
+STDERR:
+
+    BTK-001 was created in implement carrying 1 entry required action(s), owed
+    now: REQ-003 ENTRY: say what you will run, and 2 exit required action(s),
+    owed before it leaves implement: REQ-001 EXIT: prove the thing; REQ-002
+    EXIT: and the other thing
+      Work them one at a time: d2 tira.required-action.update --ref BTK-001
+      --id REQ-003 --status done --command TEXT --proof TEXT
+
+Each item is named with its own id, and the command at the end carries a real
+one, so acting on the message is copying what was printed rather than
+cross-referencing texts against `tira.required-action.list` - the same
+reasoning the refused-move message follows, and the same cross-reference that
+has twice put proofs against the wrong ids on this board.
+
+The two kinds are named by what each is *for* - owed now, against owed before it
+leaves. **The exit half of that message fixes an older silence**: the exit
+template has been seeded on create since TKT-439 and printed by nothing, so an
+agent met those items only when a move was refused.
+
+An entry action that cannot be put on the card - an empty one in the column's
+template is the reachable case - is reported with its reason and does not stop
+the card being created, nor is it counted among what the card now owes:
+
+    BTK-001 was created in implement, but 1 of that column's entry required
+    action(s) could not be put on the card: (an empty entry action) - Required
+    item is required
+
+One failure does not silence the rest; items that did attach are still named.
+
+An item named in both templates, or twice in one, is mentioned once - the card
+stores it once, and a message reporting the templates raw would give a count
+the card contradicts and print the same `REQ` id twice beside itself.
+
+On STDERR rather than stdout because stdout is the card - `-o json` has to stay
+a document an agent can parse - and because the browser move path already
+reports its entry-population failures there. A column with neither template
+prints nothing at all. TKT-681.
+
 None of the four can be skipped by leaving `--type` off - the entry guard included, since it recovers the board type the same way. They need a concrete board type to know which columns exist, while `record_show` and `record_move` resolve a card by ref alone - so a caller who omitted the type used to get a move that succeeded and a guard that returned "nothing to refuse". A card was walked through nine gated columns that way, with 75 required actions pending and not one refusal. The type is now recovered from the record the engine has already loaded, so the guards answer whether or not the caller said which board, and the recovered value goes back into the caller's arguments so the "move here first" line the chain refusal ends with names a command that runs - `d2 tira.ticket.move` - rather than a name with the type missing from the middle of it. The other two refusals name their own command, `tira.required-action.update` and `tira.question.mark`, and never print the type. TKT-597. A related promise about what you are told before you call: a command's usage line names the arguments it refuses without, including the `--command`/`--proof` pair that marking a checklist item or a required action done costs, written as one bracketed unit because the pair is required together. Forty-nine commands still print a bare `[options]`; that set is a written-down ledger a test holds, so no new command joins it unnoticed. TKT-575. Moving back to `backlog` additionally resets the tasklist items that were working on the card, leaving `done` ones alone, crossing session boundaries deliberately, and skipping - but naming - any task linked to more than one card. TKT-596.
 
 A move to `discard` is exempt throughout.

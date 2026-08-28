@@ -1586,6 +1586,24 @@ Entry items are required items, so everything that already applies to marking on
 
 A column's required action can ask for a code review, and one asking for it must say how to run it. The verify column's does: the review goes through `tools/review-worktree`, which runs the reviewing agent in a throwaway clone of the repository carrying the uncommitted work - tracked changes, staged state and untracked files - so it reads and runs everything, while an ordinary relative write or git command reaches the throwaway rather than the checkout. It is not a sandbox and does not claim to be: what it takes away is the checkout as the reviewer's working directory, and the shared git metadata a linked worktree would have left reachable. Pointing a reviewer at the checkout directly once cost two paragraphs of documentation, reverted by a `git checkout --` while they were being written, and the loss was silent because `git status` afterwards showed the files unmodified. The instruction lives in the required action's own text rather than in a document somebody has to already know about, which is the same reason a usage line names the flags it demands. TKT-626.
 
+TKT-681: a card created straight into a column THROUGH THE CLI now receives
+that column's entry required actions too, and is never refused for them. The
+browser's own create flow calls `create_record` directly rather than going
+through the command, so it seeds neither template and is unchanged by this -
+excluded deliberately rather than overlooked. The create path
+seeded only the exit template - it mirrored `_populate_column_required_actions`,
+which is the exit seeder, while entry actions on a move come from
+`_populate_entry_required_actions`, which creation never called - so a card
+created into a gated column was born past the gate: no items recorded, nothing
+checking it, skipped rather than failed. It calls the same function now.
+Creation is not blocked, and cannot be: a required action's proof is a command
+and its output, and before the card exists there is nothing to run a command
+against. The items are recorded pending and the caller is told on STDERR,
+naming entry and exit separately - owed now, against owed before it leaves the
+column - and ending with the command to work them. That warning also covers the
+exit items, which have been seeded on create since TKT-439 and printed by
+nothing, so an agent met them only at a refused move.
+
 None of the four move guards - chain order, exit required actions, unjudged answers, and entry required actions - can be evaded by omitting the board type. `column_list` needs a concrete type to say which columns exist, while `record_show` and `record_move` resolve a card by ref alone, so a guard that asked for columns with the caller's arguments got nothing back and returned "nothing to refuse" - failing silent and open rather than closed. Reproduced on a copy of a real board: a card walked from backlog to in-review through nine gated columns with all 75 of its required actions pending. The browser move provider had already solved this for its own bookkeeping under the principle recorded there - "a caller is never required to say what the engine can already tell for itself" (TKT-532) - and the recovery is now a shared helper with four call sites - the three move guards and the post-move required-action bookkeeping. The browser move provider keeps its own recovery, which is where the principle came from and which predates this. The recovered type is written back into the caller's own arguments, not kept to the lookup: the chain guard's refusal ends by naming the move to make instead, and that line is formatted from those arguments, so recovering the type for the lookup alone left the gate correctly closed and the caller told to run a move command with an empty type in it - `tira` then two dots then `move` - which is not a command at all. It matters to one refusal in three - the required-action and unjudged-answer refusals name a command of their own and never print the type - but a guard that refuses correctly and then misdirects has moved the failure rather than fixed it. TKT-597.
 
 A refusal names the items blocking a card WITH THE IDS it tells you to use. It states how many there are, prints one per line with its `REQ-NNN` id beside its own text, and ends with a `tira.required-action.update` carrying a real id from that list rather than a placeholder. Before 4.57 it joined the item texts with semicolons onto one line and suggested the literal `REQ-NNN`, so acting on it meant running `tira.required-action.list`, matching each item by text and reading off the id - on a card with 75 items across a dozen columns, by eye. That cross-reference had already put proofs against the wrong ids twice. Only the wording changed; the same moves are refused. TKT-598.

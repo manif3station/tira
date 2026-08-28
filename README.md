@@ -117,6 +117,20 @@ an agent skipping a gate — but the dragged card still arrives carrying what th
 column asks of it. Entry actions are declared from the CLI and from the browser
 column editor, and marking one done costs the same `--command`/`--proof` pair as
 any other required action.
+A card created straight into such a column **through the CLI** gets those
+entry items too, since 4.67, and is never refused for them. The browser's own
+create flow is untouched and still seeds neither list - it calls the engine
+directly rather than going through the command, which is a separate gap and its
+own card. Until then creation seeded only the exit
+list, so a card born in a gated column was born past the gate — no items
+recorded, nothing checking it, the gate skipped rather than failed. It cannot
+be blocked instead: a required action's proof is a command and its output, and
+before the card exists there is nothing to run a command against. So the items
+are recorded pending and the create prints what the card owes on standard
+error, naming the two kinds by what each is for — owed now, against owed before
+it leaves the column. That message covers the exit items as well, which had
+been seeded on create since 3.x and printed by nothing, so an agent met them
+only at a refused move.
 A column's required actions hold whether or not the caller says which board
 the card is on. Listing a board's columns needs a type; moving and showing a
 card do not, because a ref identifies it on its own. Until 4.54 a move that

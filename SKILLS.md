@@ -188,6 +188,21 @@ the word "done" - the `card-stalled` and `checklist-unmoved` police rules, and
 the required-action move-out and backward-reset checks below - the comparison
 is case-insensitive, so `--status Done` or `--status DONE` reads exactly like
 `--status done`; every other value, such as `todo`, is unaffected. TKT-434.
+
+That rule is the whole contract, and since 4.63 the browser dashboard keeps it
+too. It had compared against the literal `"done"` in three places - the
+done/total count, the tick-or-empty-box icon, and whether an actionable
+checkbox is drawn - so an item stored as `Done` was finished to the gate and
+outstanding to the page. Measured on a real board: 534 items stored that way
+against 2068 lowercase, mis-rendering across 21 cards, two of which showed all
+97 of their required actions as empty boxes while being provably complete. The
+third comparison was the harmful one, because it did not merely mislead - it
+offered a live checkbox to redo finished work, and taking it up can meet the
+duplicate-proof refusal. All three now go through one predicate rather than
+three copies, since three copies is how one of them came to disagree. Only the
+comparison against `done` is defined: status stays free text, nothing
+normalises what is stored, and the checklist renderer still prints whatever
+value it holds verbatim. TKT-601.
 Checklist entries are retained, not deleted; there is no remove command. Word
 an entry as though it will outlive the work, and change its item or status only
 with `tira.checklist.update`.

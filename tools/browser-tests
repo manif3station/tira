@@ -492,6 +492,11 @@ for test in "$tests"/*.js; do
         # description editor only exists in edit mode, which the static
         # render does not carry. TKT-586.
         card-editors.js)      run_one "$name" "$browsing_html" "$live_data" ;;
+        # A card carrying required actions in four states, three of them done
+        # under three spellings. It needs the LIVE page for the same reason
+        # card-editors does - the dialog is filled from /record, which a static
+        # render does not carry. TKT-601.
+        mixed-case-done.js)   run_one "$name" "$browsing_html" "$live_data" ;;
         column-editor.js)     run_one "$name" "$live_html" ;;
         policy-editor.js)     run_one "$name" "$live_html" ;;
         tasklist-section.js)  run_one "$name" "$live_html" ;;

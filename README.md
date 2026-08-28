@@ -64,6 +64,13 @@ A required action marked done on evidence another item in the same column
 already used is highlighted rather than merely ticked, and its proof modal
 opens with the reason for the reuse above the evidence itself — the point of
 making somebody write a reason is that somebody else reads it.
+A required action's status is read the way every gate reads it. `done`, `Done`
+and `DONE` all mean finished, in the count, in the tick, and in whether a
+checkbox is offered. Until 4.63 the page compared against the literal `done`
+while the engine had been case-insensitive since TKT-434, so an item marked
+`Done` was finished to the gate and an empty box to whoever was looking — and
+the box was not merely wrong, it offered to redo work already done. Nothing is
+normalised on disk: `Done` stays `Done` and is simply read correctly.
 The board-wide police policy engine — the 36 rules police itself watches,
 separate from a column's own required-action template — is editable from
 the browser too: a Policies button opens a modal listing every declared,

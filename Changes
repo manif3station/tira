@@ -1,5 +1,63 @@
 Revision history for Tira
 
+4.63  2026-08-28
+
+    - TKT-601. The dashboard reads a required action's status the way
+      the engine reads it.
+      The engine has compared against "done" case-insensitively since
+      TKT-434, deliberately: "--status Done" must not be refused
+      forever with a message naming the very word the person already
+      used. The browser dashboard never got the same fix and compared
+      against the literal "done" in three places - the done/total
+      count, the tick-or-empty-box icon, and whether an actionable
+      checkbox is drawn.
+      So an item stored as "Done" was finished to the gate and
+      outstanding to the page. Measured on a copy of a real board:
+      534 items stored that way against 2068 lowercase, mis-rendering
+      across 21 cards, and two of them - ZSD-286 and ZSD-287 - showing
+      all 97 of their required actions as empty boxes while carrying
+      proof arrays and gate_passing_log entries that prove them done.
+      The owner reported it twice, the second time as still happening.
+      The third comparison is why this was a trap rather than a
+      blemish. The count and the icon mislead; the checkbox invites.
+      It offered a live control to complete work that was already
+      complete, and taking it up re-runs required_item_update on a
+      done item, which since 4.48 can meet the duplicate-proof
+      refusal - so the page could walk somebody into a refusal with a
+      control that should never have been drawn.
+      All three now go through one predicate, isDone, placed beside
+      el() where TKT-586 put its three shared editor helpers for the
+      same reason. Three corrected copies would have left three
+      copies, and three independent copies is how one of them came to
+      disagree in the first place. It reaches the same answer as the
+      engine on every value either has been given - a missing key,
+      null, the empty string, whitespace, a numeric zero and the
+      string "0" all read as not-done on both sides - by a route that
+      is not quite identical: a numeric 0 is discarded to "" by the ||
+      before toLowerCase sees it, where Perl lowercases it to "0" and
+      compares that. The empty-string default IS deliberately the
+      same, and it is what lets an item written before the status
+      field existed render as outstanding rather than throwing and
+      taking the dialog down.
+      Nothing is normalised on disk: "Done" stays "Done" and is
+      simply read correctly. The checklist renderer, which prints its
+      status verbatim and compares nothing, is untouched - and a test
+      now requires it to stay that way, so a later fix that went
+      looking for "status" cannot quietly change a renderer that was
+      already right.
+23 checks across two files, and 15 of them passed before the
+      change - which is the number that matters, because those are what
+      stop an overcorrection rendering everything as done.
+      t/417 is 10 assertions (prove reports 1..10), 7 green before the
+      fix. It reads the comparisons out of the source and asserts the
+      OUTCOME rather than the shape, so it would have passed either the
+      shared predicate or three corrections in place - the card left
+      that decision open and the test was written not to close it.
+      t/playwright/mixed-case-done.js emits 13 checks on a clean run,
+      8 of them green before the fix. It drives a real browser against
+      a card carrying six required actions in four states - done, Done,
+      DONE, pending, todo, and one that is both Done and exempt.
+
 4.62  2026-08-28
 
     - TKT-680. The push hook stopped re-running the suite that verify

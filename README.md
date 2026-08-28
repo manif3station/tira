@@ -353,6 +353,25 @@ running the identical suite again. Verifying a change by hand first - the
 that cache, so a push straight after still pays for the full suite once
 more; `tools/gate-run` is what avoids that second run.
 
+When a gate asks for a code review, run it through `tools/review-worktree`
+rather than pointing the reviewer at the checkout:
+
+```bash
+./tools/review-worktree codex exec --skip-git-repo-check \
+  -c sandbox_mode='"danger-full-access"' "<the review prompt>"
+```
+
+It runs the command in a throwaway clone of this repository with your
+uncommitted work carried into it - tracked changes, staged state and untracked
+files - so the reviewer reads and runs everything, and an ordinary relative
+write or git command reaches the throwaway rather than your checkout. It is not
+a sandbox: a command that names an absolute path can still write wherever it has
+permission. What it removes is the checkout from the reviewer's working
+directory, and the shared git directory a linked worktree would have given it.
+Pointing a reviewer at the checkout directly once reverted two files of
+uncommitted documentation with a `git checkout --`, and the loss was silent:
+afterwards `git status` showed the files unmodified. TKT-626.
+
 ## License
 
 Tira is released under the MIT License. See [LICENSE](LICENSE).

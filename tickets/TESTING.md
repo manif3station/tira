@@ -372,3 +372,88 @@ The order is **priority first, then oldest first**. No card is worked before one
 that outranks it, and among equals the one that has waited longest goes next. A
 card raised during the work does not jump the queue for being newest; it takes
 its place by priority and age like everything else.
+
+## Running the mandated code review (TKT-626, 2026-08-28)
+
+The verify column's `REQ-030` says "Ask Codex to do code review". Run it through
+`tools/review-worktree`, never against the checkout directly:
+
+```bash
+./tools/review-worktree codex exec --skip-git-repo-check \
+  -c sandbox_mode='"danger-full-access"' "<the review prompt>"
+```
+
+### Why the read-only sandbox is not used
+
+Codex's own sandbox refused to start, twice:
+
+```
+Codex's Linux sandbox uses bubblewrap and needs access to create user namespaces
+```
+
+and reported it could not inspect the changes at all. That failure is what led
+to `sandbox_mode="danger-full-access"` in the first place, which is what gave
+the reviewer write access to this repository. Unprivileged user namespaces are a
+host kernel setting; fixing it is outside this project's control, so the
+approach is to move the reviewer off the live checkout rather than to sandbox it.
+
+Be precise about what that buys, because the failure this fixes was an accident
+rather than an attack. The reviewer no longer has the checkout as its working
+directory and no longer shares a git directory with it, so a relative `git
+checkout --`, a `git clean`, a `git update-ref` or an editor write lands in the
+throwaway. A full-access process that names an absolute path can still write
+anywhere it has permission, and nothing here prevents that.
+
+### What it cost before that
+
+On 2026-08-27, satisfying `REQ-030` on TKT-597/TKT-575, a review ran:
+
+```
+git diff -- README.md docs/POLICIES.md | head -120
+git checkout -- README.md docs/POLICIES.md && git status --short
+```
+
+inside this repository, and reverted two paragraphs of documentation written
+while it was running. Taken from that session's own log. The loss is silent in
+the worst way: afterwards `git status` shows the files unmodified, which is
+indistinguishable from the edit never having been made.
+
+### Why a clone and not a linked worktree
+
+The first version of the tool used `git worktree add`. The first review run
+through it found the hole and proved it, by running `git config --local
+review.escape changed` inside the throwaway and reading the value back out of
+the source repository:
+
+```
+before=[]
+rc=0
+after=[changed]
+```
+
+A linked worktree shares the source's git directory, so refs and config stay
+live — `git update-ref refs/heads/master HEAD~1` escapes the same way. The
+working tree was isolated; the repository was not. A local clone hardlinks its
+objects (0.034s on this 70M repo) and has its own refs, config and index.
+
+### Why not a flat copy of the changed files
+
+Tried first, on TKT-625, and it is safe — three reviews, tree untouched each
+time, verified by md5. But the reviewer reported, unprompted, that it "can't run
+the supplied test directly from this reduced directory because it has no
+lib/Tira.pm", and went looking in sibling project directories to satisfy
+dependencies. A copy protects the tree by starving the reviewer and pointing it
+at unrelated work in progress.
+
+### What it refuses
+
+Submodules, and symlinks in the reviewed state that point outside the tree. The
+two are refused for different reasons and it is worth keeping them apart.
+Submodules, because a superproject diff cannot carry their uncommitted contents
+and a clone does not populate them, so the review would silently see less than
+the checkout holds - the same failure in a different coat. External symlinks,
+because a write through one inside the clone lands outside it, which is the one
+way an ordinary relative write can still reach the checkout. Both are refused by
+name rather than left to be discovered.
+
+`t/414-a-review-that-edits-what-it-reviews.t` holds all of it.

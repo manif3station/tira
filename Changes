@@ -1,5 +1,55 @@
 Revision history for Tira
 
+4.59  2026-08-28
+
+    - TKT-626. A code review no longer runs with the live checkout as
+      its working directory.
+      The verify column requires a code review on every card, which
+      points a reviewing agent at a checkout that usually holds
+      uncommitted work. On 2026-08-27 one of them ran, inside this
+      repository:
+
+        git diff -- README.md docs/POLICIES.md | head -120
+        git checkout -- README.md docs/POLICIES.md && git status --short
+
+      and reverted two paragraphs of documentation written while it was
+      running. Taken from that session's own log. The loss is silent in
+      the worst way: afterwards git status shows the files unmodified,
+      which is indistinguishable from the edit never having been made.
+      tools/review-worktree runs the review in a throwaway clone with
+      the uncommitted work carried into it - tracked changes as a diff,
+      the index reproduced separately so what is staged arrives staged,
+      and untracked files copied, since a diff cannot carry a file git
+      has never seen and a review of new code that omits the new files
+      is the same failure in a different coat. The verify column's own
+      wording now names the tool and the command, so the next agent
+      does not rediscover this.
+      A clone, not a linked worktree. The first version used
+      'git worktree add', and the first review run through it found the
+      hole and proved it rather than asserting it - running
+      'git config --local review.escape changed' inside the throwaway
+      and reading the value back out of the source repository. A linked
+      worktree shares the source's git directory, so refs and config
+      stay live, and 'git update-ref refs/heads/master HEAD~1' escapes
+      the same way. The working tree was isolated; the repository was
+      not. A local clone hardlinks its objects - 0.034s on this 70M
+      repo - and has its own refs, config and index.
+      Not a flat copy of the changed files either. That was tried on
+      TKT-625 and is safe, but the reviewer reported it "can't run the
+      supplied test directly from this reduced directory because it has
+      no lib/Tira.pm" and went looking in sibling project directories
+      for dependencies: a copy protects the tree by starving the
+      reviewer.
+      It refuses outright on submodules, whose uncommitted contents a
+      superproject diff cannot carry, and on symlinks in the reviewed
+      state pointing out of the tree, through which a write inside the
+      clone would land outside it - rather than offering isolation it
+      does not have.
+      The read-only sandbox is not used because it would not start:
+      "Codex's Linux sandbox uses bubblewrap and needs access to create
+      user namespaces". That is a host kernel setting, and it is what
+      led to running with full access in the first place.
+
 4.58  2026-08-28
 
     - TKT-625. A flag whose whole meaning is DO NOT WRITE no longer

@@ -1,5 +1,140 @@
 Revision history for Tira
 
+4.65  2026-08-28
+
+    - TKT-639. Police notices when a task and the card it names tell two
+      different stories.
+      The owner asked by Telegram for a thirty-minute check covering
+      three things: that each task's status is still correct, which
+      tasks have no card linked, and which say working while the card
+      they name sits in backlog - reported on the bridge so the agent
+      deals with it rather than somebody remembering to look. Half of
+      it existed. task-unlinked (TKT-547) catches a task with no card;
+      nothing caught a task whose status contradicts the card it does
+      name, so the queue and the board could disagree indefinitely and
+      only a person reading both would notice. Counted by hand the day
+      it was raised, across 51 tasks and 47 cards: seven mismatches -
+      five tasks still saying working after their cards had moved to
+      push, one saying pending while its card was in implement, and one
+      card carrying the same note twice.
+      The new task-card-mismatch rule reports three directions from one
+      comparison: a task saying working about a card in a column nobody
+      called work, a task saying pending about a card being worked, and
+      a task not yet done about a card that has gone past the work
+      columns altogether - the card finished and the loose end stayed
+      open. It also reports a card carrying the same note twice.
+      WHICH COLUMNS MEAN WORK IS DECLARED WITH --column AND THAT IS THE
+      WHOLE DESIGN. The hand-run script this replaces
+      counted next-to-work-on among its working columns, and that one
+      line made seven of its eight findings false, every thirty
+      minutes: a card waiting to be picked up has not been started, so
+      its task saying pending is the board telling the truth. The board
+      cannot infer the distinction either - backlog and discard are
+      protected and next-to-work-on is not, so "unprotected means work"
+      sweeps it straight back in. A rule that reported those would be
+      right about the arithmetic, wrong about the board, and would bury
+      its real findings in its own noise, which is why the three
+      controls in the test file matter as much as the findings.
+      The columns are one set however they are spelled, and getting
+      that wrong was the sharpest thing the test caught. A policy's
+      --column is a SCOPE everywhere else in the engine - "the same
+      rule watching a different column is a different intention, not a
+      duplicate" - which is right for every rule that acts on the
+      column it names. This one does not: its columns say what work
+      MEANS. Read the ordinary way, a board declaring its four working
+      columns as four policies had each policy reporting the other
+      three's honest tasks, noise no single policy could explain. Found
+      when a second policy declared over the first turned two
+      assertions in the new test green for entirely the wrong reason,
+      and traced further when policy_add turned an arrayref --column
+      into the string "ARRAY(0x...)" - so the repeatable flag the first
+      draft documented had never existed, and the code branch reading
+      it was dead. Policies of this rule now compose: several policies,
+      one --column carrying a comma-separated list the way project.new
+      already takes its columns, or both, all describe the same set,
+      and the pass reports from the first of them. Both spellings are
+      asserted to agree, with a control proving the silence is the rule
+      agreeing rather than the rule switched off.
+      --column-role counts as a third spelling, which answers a
+      question the card raised - whether the working set should come
+      from column roles rather than being named. policy_add had already
+      settled it: its needs check accepts a --column-role wherever a
+      --column is required, so a board could declare this rule by role
+      whether or not the rule read one. A branch reading only the
+      column would then compute an EMPTY working set from a declaration
+      the engine accepted without complaint - and an empty set does not
+      fail quietly, it reports every working task on the board as a
+      mismatch and calls every genuine pending-on-work case honest,
+      exactly inverted. Roles resolve, and a set that resolves to
+      nothing makes the rule say nothing, leaving policy-unfollowable
+      to report the declaration it cannot read.
+      The third direction needs no second option: columns are declared
+      in flow order, so anything after the last column named in
+      --column is somewhere a card only reaches by being finished with
+      it, read per record type since a sow, an epic and a ticket each
+      have their own column list.
+      Duplicates match on the first sixty characters, lowercased and
+      trimmed, which is the reference script's own test and is crude in
+      the safe direction - for a long note it catches two sharing an
+      opening clause, for a short one the texts must match exactly. It
+      misses duplicates rather than inventing them, because
+      multiplicity alone is not a fault: an incoming message, a
+      follow-up question and a scope change legitimately name one card.
+      A pair that is entirely done is left alone, since the complaint
+      is that one gets ticked while the other lingers and there is
+      nothing left to linger.
+      No --age - a contradiction is wrong the moment it exists.
+      Whole-board like task-unlinked, and it reads the tasklist file
+      directly so it sweeps every session rather than the caller's own
+      corner of it - tasklist_list would have scoped it to the caller's
+      session, which the test pins by recording a mismatch under a
+      different session id and requiring it to be reported.
+      It says at most one thing per task per pass, and that was found
+      by walking the card's own six test_steps through the real CLI
+      rather than by reading. The violation ledger keys an entry by
+      rule, policy and reference, so two findings about one task under
+      one policy are ONE entry - same VIO number, same first_seen, same
+      seen count - and the quiet ladder lets only the first speak. A
+      task both left working on a backlogged card and written twice
+      produced VIO-0003 twice in a single pass, the second marked
+      quiet; the bridge line for that number would then describe
+      whichever finding spoke while its "seen N times" claimed one
+      continuous history. The status mismatch wins, being what the card
+      was raised for, and the duplicate is said as soon as the status
+      is put right - the order somebody would fix them in anyway.
+      Three more came out of an adversarial code review of the finished
+      rule, and none of them by reading it again. A task carrying the
+      same ref twice - storable today, because tasklist_add keeps refs
+      as given while only tasklist_task_ref_link dedupes, and --ref is
+      repeatable - met itself on its second turn through that ref and
+      was reported as duplicating ITSELF, its own id quoted back at it.
+      The duplicate walk did not keep the silence the status walk
+      keeps, so two tasks sharing an opening clause about a ref naming
+      no card were reported as duplicates of each other, a complaint
+      about bookkeeping on a card nobody can open. And the column-order
+      build dereferenced column_list with no guard, where card_holes
+      already guards the identical call: police_pass wraps rule
+      evaluation in an eval and sets found = [] when it throws, so
+      nothing crashes - the pass simply goes silent, for every rule at
+      once, on the board least able to afford it.
+      Two of the assertions written for those fixes passed against the
+      unfixed code on their first run and were rewritten rather than
+      counted. One repeated this card's own earlier fixture mistake:
+      texts of 59 and 68 characters that diverged at the comma, so
+      their first-sixty keys never collided and no duplicate was ever
+      possible. The other asserted that the pass survived a failing
+      column_list, which it does either way - the thing that dies is
+      the findings, so that is what it asserts now. All three go red
+      against the unfixed rule and green against the fixed one, checked
+      by reverting each fix and running the file again.
+      The push question acceptance_criteria asked to settle is settled
+      by the option rather than by an exemption: a board that counts
+      push as work declares push, and one that does not is told its
+      card has reached push with the task still open. Five of the seven
+      mismatches in the hand-run measurement were exactly that, and
+      they were real. It reports and does nothing else; closing the gap
+      stays the agent's job, which is what the owner asked for.
+
 4.64  2026-08-28
 
     - TKT-628. A required action can say what it is running before it

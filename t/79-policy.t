@@ -158,6 +158,7 @@ my %needs = (
     'work-without-card'         => { age => '15m' },
     'unpushed-work'             => { age => '1h' },
     'task-unlinked'             => { age => '30m' },
+    'task-card-mismatch'        => { column => 'implement' },
     'task-changed'              => {},
     'board-unbacked'            => { age => '2h' },
     'gate-missing'              => { column => 'done' },

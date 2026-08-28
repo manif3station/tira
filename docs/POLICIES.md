@@ -351,6 +351,7 @@ missing, at the moment you declare the policy rather than later.
 | `unpushed-work` | `--age` | commits sitting unpushed |
 | `task-unlinked` | `--age` | a pending or working tasklist item whose `refs` array is empty, older than the grace `--age` gives it. The tasklist is deliberately lighter than a ticket - free text, no gates - but a task can still be real work nobody tied back to a governed card. **Whole-board, like `board-still`/`agent-still`**: a `--ref` scope is refused, since the rule sweeps every session's items, not one ticket's own. The finding names the tasklist item by its own `TSK-NNN` id and instructs linking it to an existing ticket that already covers the work, or filing a full one and linking the two - the police engine detects and instructs, it never creates or links a ticket itself. Settles when the item is linked, marked done, or ages back under the grace. TKT-547. |
 | `task-changed` | — | a tasklist item whose text, attachments, or linked refs changed since the last police pass saw it - mirroring `card-changed-by-owner`'s purpose (the agent might not otherwise notice) without its mechanism, since a tasklist item has no change journal to compare a newest author against; what it looked like last time is kept in the same store-backed ledger `agent-still`'s own notified-stamp already uses. **Fires for any actor**, not owner-only - Michael's own answer, live, to the question: "Announce every change regardless of actor." **No age**: a change is a change the moment it happens, the same reasoning `conversation-not-folded` already gives. **Whole-board**, like `task-unlinked`. A freshly-added item is not reported - there is nothing yet to compare it against - and settles the instant it has been seen once. TKT-548. |
+| `task-card-mismatch` | `--column` (a name, or a comma-separated list; several policies compose) or `--column-role` | a tasklist item whose status contradicts the column its linked card is in, and a card carrying the same note twice. Three directions, all from one comparison. A task saying **working** about a card in a column nobody called work - the case the owner named, and the one that catches five tasks left saying working after their cards moved on. A task saying **pending** about a card that is being worked - the work started and the queue was never told. And a task that is **not done** about a card that has gone *past* the work columns - the card finished and the loose end stayed open; "past" is read from the board's own column order, per record type, not asked for as a second option. Separately, two tasks about one card whose text matches on the **first sixty characters**, lowercased and trimmed: multiplicity alone is not a fault (an incoming message, a follow-up question and a scope change legitimately name one card) but the same note written twice means one gets ticked and the other lingers - and a pair that is entirely done is left alone, since nothing is waiting. **`--column` is the whole design and is declared, never inferred**: the hand-run script this replaces counted `next-to-work-on` as work, and that one line made seven of its eight findings false - a card waiting to be picked up has not been started, so its task saying pending is the board telling the truth. The board cannot guess it either, since `backlog` and `discard` are protected and `next-to-work-on` is not. **The columns are one set, however they are spelled.** A policy's `--column` is a scope everywhere else in the engine - the same rule watching a different column is a different intention - and this rule is the exception, because its columns say what work *means* rather than what to act on. Read the ordinary way, one policy per working column made each policy report the other three's honest tasks. So they compose: several policies, one `--column` carrying a comma-separated list the way `project.new` already takes its columns, or both, all describe the same set, and the pass reports from the first of them. **No `--age`** - a contradiction is wrong the moment it exists, not after a grace. **Whole-board**, like `task-unlinked`, and it sweeps every session rather than the caller's own. It reports and nothing else; closing the gap is the agent's job. TKT-639. |
 | `board-unbacked` | `--age` | a board with no recent backup, by either mechanism: `tira.backup` or an exported backup on disk. Whichever ran last is the answer. |
 | `card-unlinked` | `--require-link` | a card with no dependency link, optionally to a named card |
 | `card-sandbox-missing` | `--enter --sandbox` | a card being implemented with no branch or worktree of its own. The rule assumes one project maps to one repository - a card whose work legitimately lives in a second one used to have no honest way to clear this but declining the whole rule (losing the check for every other card). `tira.policy.decline --rule card-sandbox-missing --ref CARD --reason TEXT` now answers just that one card, reusable by any rule. TKT-303. Declaring it twice, once per acceptable sandbox, used to be able to report the same card twice with character-for-character identical wording, when the card recorded no sandbox at all and both declared paths fell back to the same generic phrasing. Any two policies of any of the six machine-watching rules now report once, not twice, for the same underlying fact on the same card - a second identical finding is noise, not a second fact. Two policies describing genuinely different problems (one satisfied, one not) still both report. TKT-499. |
@@ -1848,6 +1849,84 @@ to a ticket, marked done, or the moment it is created is far enough behind
 that the age no longer applies. The police engine only detects and instructs
 here - it never creates or links a ticket on its own, the same restraint every
 other rule already keeps.
+
+### A task and its card telling two different stories
+
+`task-unlinked` catches a task with no card. Nothing caught a task whose status
+contradicts the card it *does* name, so the queue and the board could disagree
+and only somebody reading both would notice. Counted by hand across 51 tasks
+and 47 cards the day this was raised: seven mismatches - five tasks still
+saying working after their cards had moved to push, one saying pending while
+its card was in implement, and one card carrying the same note twice.
+
+    d2 tira.policy.add --rule task-card-mismatch \
+      --column "tests-red, implement, document, verify" \
+      --action bridge-reminder
+
+    "a task that got ahead of itself" says working, but TKT-702 is in
+    backlog - the queue and the board disagree about the same work
+
+    "a task left pending" says pending, but TKT-698 is in implement - the
+    work has started and the queue has not been told
+
+    "Close this when the card lands" is not finished, but TKT-671 has
+    reached done - the card is done with this work and the task was never
+    closed
+
+    "Port the reference script into the police routine, in Perl" says almost
+    what TSK-188 already says about TKT-639 - one of them will be ticked and
+    the other left open
+
+**Read the `--column` list above and notice what is missing from it.**
+`next-to-work-on` is not there, and leaving it out is the entire difference
+between a useful rule and a noisy one. The hand-run script this replaces
+included it, and seven of that script's eight findings were false for that one
+reason: a card sitting in the queue column has not been *started*, so a task
+saying pending about it is the board being truthful. `backlog` and `discard`
+are protected columns and `next-to-work-on` is not, so a rule inferring work
+from "unprotected" would sweep it straight back in. Which columns mean somebody
+is working is a statement about how a board is run, and the board is where it
+belongs - the same reasoning `card-duration` and `wip-limit` already follow.
+
+Spell the set whichever way reads better. One `--column` with a comma-separated
+list, as above, four separate policies, or `--column-role` naming roles the
+board has assigned - they compose into the same set and the pass reports from
+the first. Roles are read because `policy.add` already accepts a `--column-role`
+wherever a `--column` is required, so a board can declare this rule that way
+whether or not the rule reads one; a rule that ignored it would compute an
+**empty** working set from a declaration the engine accepted without complaint,
+and an empty set does not fail quietly - it calls every working task a mismatch
+and every genuine pending-on-work case honest, exactly inverted. If nothing
+resolves, the rule says nothing at all and leaves `policy-unfollowable` to
+report the declaration it cannot read. That is deliberately unlike every other rule,
+where `--column` is a scope and a second policy is a second intention; here the
+columns say what work *means*, and read as four separate opinions each policy
+reported the other three's honest tasks. A board declaring its working columns
+the obvious way would have got noise it could not explain from any one policy.
+
+The third direction needs no third option. Columns are declared in flow order,
+so anything after the last column named in `--column` is somewhere a card
+reaches only by being finished - read per record type, since a sow, an epic and
+a ticket each have their own column list and a task may name any of them.
+
+**One task says one thing per pass.** The violation ledger keys an entry by
+rule, policy and card reference, so two findings about one task under one policy
+would be one entry - sharing a number, a `first_seen` and a `seen` count, with
+the quiet ladder letting only the first of them speak. A task that is both left
+working on a backlogged card *and* written twice therefore reports its status
+mismatch, which is what the rule is for, and its duplicate on the pass after the
+status is put right. That is also the order somebody would fix them in.
+
+A ref naming no card is silent in both walks - that is `task-unlinked`'s
+business at most, and a duplicate complaint about a card nobody can open helps
+nobody. A task that names the same card twice is not a duplicate of itself.
+
+Duplicates are matched on the first sixty characters only, which is crude in
+the safe direction: for a long note it catches two that share an opening clause
+and diverge after; for a note shorter than sixty characters the texts must
+match exactly. It misses duplicates rather than inventing them, because a rule
+that guessed would report the follow-up question and the scope change that
+legitimately name the same card.
 
 ### A note that changed since you last looked
 

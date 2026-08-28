@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.64';
+our $VERSION = '4.65';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6326,6 +6326,19 @@ my %POLICY_RULES = (
     # seconds ago is not flagged before anyone has had a chance to link it.
     'task-unlinked'             => { needs => [ 'age' ] },
 
+    # A column and no age. The column because the board cannot work out which
+    # of its own columns mean somebody is WORKING - backlog and discard are
+    # protected and a queue column is not, so "not protected" sweeps the queue
+    # in and reports every card waiting to be picked up. Measured on this
+    # board: the hand-run checker this rule replaces put next-to-work-on in
+    # its working set, and seven of its eight lines were false for that one
+    # reason, every thirty minutes.
+    #
+    # No age, because a task and its card disagreeing is not neglect that
+    # ripens - it is wrong the moment it happens, and a grace would only delay
+    # saying so. Same reasoning as answer-waiting. TKT-639.
+    'task-card-mismatch'        => { needs => [ 'column' ], forbids => ['age'] },
+
     # TKT-548: mirrors card-changed-by-owner's shape - the agent might not
     # otherwise notice a tasklist item change - but not its owner-only
     # filter. Michael's own answer, live, to the question of whether it
@@ -6427,6 +6440,11 @@ my %WHOLE_BOARD_RULE = (
     # scope could never narrow which tasklist items count.
     'task-unlinked' => 'the whole board',
     'task-changed'  => 'the whole board',
+
+    # Column-scoped for WHICH columns count as work, but never narrowable to
+    # one card: the tasklist is walked whole, and a card scope could not say
+    # which tasklist items to look at.
+    'task-card-mismatch' => 'the whole board',
 );
 
 # Police speaks in exactly three ways: down the bridge the agent tails, in the
@@ -8426,6 +8444,269 @@ sub policy_evaluate {
                 $report->( $policy, $item->{id},
                     "\"$item->{text}\" has no linked ticket - link it to one that already "
                   . "covers this work, or file a full ticket and link the two" );
+            }
+        }
+        elsif ( $rule eq 'task-card-mismatch' ) {
+
+            # TKT-639, and the owner's own words for what he asked for: a
+            # check that each task's status still matches the card it names,
+            # "reported on the policy bridge so the agent deals with it rather
+            # than somebody remembering to look". task-unlinked already
+            # catches a task with no card; this is the other half.
+            #
+            # Measured by hand before it existed, across 51 tasks and 47
+            # cards: seven mismatches, five of them tasks left saying working
+            # after their cards had moved to push.
+            #
+            # WHICH COLUMNS MEAN WORK IS DECLARED, NOT INFERRED, and that is
+            # the whole design. The hand-run script this replaces put the
+            # queue column in its working set and seven of its eight lines
+            # were false for that one reason. A card waiting to be picked up
+            # has not been started, so its task saying pending is the board
+            # telling the truth - and a rule that says otherwise buries its
+            # real findings in its own noise.
+            # EVERY policy of this rule on the board, unioned, and the pass
+            # reports from the first of them only.
+            #
+            # The engine's model is "the same rule watching a different column
+            # is a different intention, not a duplicate", which is right for
+            # every rule that ACTS on the column it names. This one does not:
+            # its --column says which columns mean work, and a set is not four
+            # independent opinions. Declared as four separate policies and read
+            # one at a time, each policy calls the other three's honest tasks
+            # mismatches - a board declaring its four working columns the
+            # obvious way would get noise it could not explain by reading any
+            # one policy. Found while writing the test, where a second policy
+            # over the first turned two assertions green for the wrong reason.
+            #
+            # So they compose. Several policies, or one --column carrying a
+            # comma-separated list the way project.new already takes its
+            # columns, or both, all describe the same set. Reporting from the
+            # first alone keeps one finding per mismatch; %already_said would
+            # collapse the duplicates anyway, but this says the intent rather
+            # than relying on a later net to catch it.
+            my @siblings = grep { ( $_->{rule} // '' ) eq 'task-card-mismatch' } @{$policies};
+            next if @siblings && ( $siblings[0]{id} // '' ) ne ( $policy->{id} // '' );
+
+            # --column-role counts too, and finding that out was the point of
+            # asking the question the card raises - "whether the working-column
+            # set should come from column roles rather than being hard-coded".
+            # The answer is both, because policy_add already decided it:
+            # its needs check accepts a --COLUMN-role in place of a --column
+            # ("next if defined $args{\"${needed}_role\"}"), so a board can
+            # declare this rule by role today whether or not the rule reads
+            # one. A branch reading only {column} would then compute an EMPTY
+            # work set - and an empty set does not fail quietly, it reports
+            # every working task on the board as a mismatch and calls every
+            # genuine pending-on-work case honest. Exactly inverted, from a
+            # declaration the engine accepted without complaint.
+            my %is_work;
+            for my $sibling (@siblings) {
+                for my $type (qw(sow epic ticket)) {
+
+                    # _policy_column_for is the engine's own answer to this,
+                    # added by TKT-221 after a policy declared with
+                    # --column-role watched a column called nothing. Its
+                    # precedence is role-wins-over-column, and this rule keeps
+                    # it rather than inventing a second one: the first draft
+                    # unioned both spellings, which read as generous and was
+                    # really a divergence nobody would expect from a field that
+                    # behaves one way in every other rule. Mixing a role with
+                    # extra literal columns is what composing two policies is
+                    # for, and it already works.
+                    my $named = $self->_policy_column_for(
+                        project => $root, policy => $sibling,
+                        field => 'column', record => { type => $type } );
+                    for my $name ( split /,/, $named // '' ) {
+                        $name =~ s/\A\s+|\s+\z//g;
+                        $is_work{$name} = 1 if $name ne '';
+                    }
+                }
+            }
+
+            # And if nothing resolved, say nothing. policy-unfollowable already
+            # tells the board that a role no column carries needs answering;
+            # this rule's job in the meantime is to stay quiet rather than
+            # report the whole tasklist because it could not read its own
+            # settings.
+            next if !keys %is_work;
+
+            my %column_of;
+            my %type_of;
+            for my $summary ( @{ $self->record_list( project => $root ) } ) {
+                $column_of{ $summary->{ref} } = $summary->{column};
+                $type_of{ $summary->{ref} }   = $summary->{type};
+            }
+
+            # "An unfinished task on a card in done" is the third direction the
+            # card asks for, and it needs something the other two do not: a
+            # sense of which columns are PAST the work rather than merely not
+            # part of it. Pending against a backlog card is the board being
+            # truthful; pending against a card that shipped is a task nobody
+            # closed.
+            #
+            # Derived from the board's own column order rather than asked for
+            # as a second option. The columns are declared in flow order and
+            # that order is the flow - anything after the last column somebody
+            # called work is somewhere a card only reaches by being finished
+            # with it. Per record type, because a sow, an epic and a ticket
+            # each have their own column list and a task may name any of them.
+            my %last_work;
+            my %index_of;
+            for my $type (qw(sow epic ticket)) {
+                # Guarded the way card_holes guards the identical call. A
+                # board that cannot answer for one record type would otherwise
+                # take the whole police pass down with it - every other rule's
+                # findings lost to a dereference of undef, on the one board
+                # least able to afford losing them.
+                my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
+                for my $i ( 0 .. $#{$columns} ) {
+                    my $name = $columns->[$i]{name};
+                    $index_of{$type}{$name} = $i;
+                    $last_work{$type} = $i if $is_work{$name};
+                }
+            }
+
+            # ONE FINDING PER TASK, and this is not tidiness.
+            #
+            # The violation ledger keys an entry by (rule, policy, ref), so two
+            # findings about one task under one policy are one ledger entry:
+            # they share a VIO number, a first_seen and a seen count, and the
+            # quiet ladder lets only the first of them speak per pass. Watched
+            # end to end through the CLI, a task that was both left working on
+            # a backlogged card AND written twice produced VIO-0003 twice in a
+            # single pass, the second marked quiet. The bridge line for that
+            # number would then describe whichever finding happened to speak,
+            # while its "seen 4 times" claimed one continuous history.
+            #
+            # So a task says its most important thing once. The status
+            # mismatch wins, because it is what the card was raised for; the
+            # duplicate is said as soon as the status is put right, which is
+            # also the order somebody would fix them in.
+            # Read once and walked twice. A second _tasklist_read would parse
+            # the same file again inside one pass, and the two walks could
+            # disagree if anything wrote between them.
+            #
+            # Refs deduplicated per item, which is not housekeeping. Only
+            # tasklist_task_ref_link dedupes (it keeps a %have); tasklist_add
+            # stores $args{refs} as given and --ref is repeatable, so
+            # "--ref TKT-1 --ref TKT-1" is storable today. Without this the
+            # duplicate walk below meets the same item on its second turn
+            # through the same ref and reports it as duplicating ITSELF,
+            # naming the task's own id back at it.
+            my $queue = $self->_tasklist_read($root);
+            my %refs_of;
+            for my $item ( @{$queue} ) {
+                my %once;
+                $refs_of{ $item->{id} // '' } =
+                  [ grep { defined $_ && $_ ne '' && !$once{$_}++ } @{ $item->{refs} // [] } ];
+            }
+
+            my %said;
+
+            for my $item ( @{$queue} ) {
+                my $status = $item->{status} // 0;
+                for my $ref ( @{ $refs_of{ $item->{id} // '' } } ) {
+
+                    # A ref naming no card is task-unlinked's business at
+                    # most, and silence here rather than a second complaint
+                    # about the same item.
+                    my $column = $column_of{$ref};
+                    next if !defined $column;
+                    next if $said{ $item->{id} // '' };
+
+                    my $type  = $type_of{$ref} // '';
+                    my $where = $index_of{$type}{$column};
+                    my $past  = defined $where
+                      && defined $last_work{$type}
+                      && $where > $last_work{$type};
+
+                    if ( $status != 2 && $past ) {
+                        $said{ $item->{id} // '' } = 1;
+                        $report->( $policy, $item->{id},
+                            "\"$item->{text}\" is not finished, but $ref has reached $column - "
+                          . "the card is done with this work and the task was never closed" );
+                    }
+                    elsif ( $status == 1 && !$is_work{$column} ) {
+                        $said{ $item->{id} // '' } = 1;
+                        $report->( $policy, $item->{id},
+                            "\"$item->{text}\" says working, but $ref is in $column - "
+                          . "the queue and the board disagree about the same work" );
+                    }
+                    elsif ( $status == 0 && $is_work{$column} ) {
+                        $said{ $item->{id} // '' } = 1;
+                        $report->( $policy, $item->{id},
+                            "\"$item->{text}\" says pending, but $ref is in $column - "
+                          . "the work has started and the queue has not been told" );
+                    }
+                }
+            }
+
+            # The third of the three things the owner asked for, and narrower
+            # than "a card with more than one task". The reference script he
+            # pointed at says why, and the reason is the rule:
+            #
+            #   Multiplicity alone is NOT a fault: an incoming message, a
+            #   follow-up question and a scope change legitimately name one
+            #   card. Only near-identical text does.
+            #
+            # So two notes about one card are ordinary. What is worth saying is
+            # that the same note was written twice, because somebody will tick
+            # one and wonder why the other is still open.
+            #
+            # Compared on the first sixty characters, lowercased and trimmed,
+            # which is the script's own test. Note what that actually means,
+            # because it is easy to describe backwards: for a long note it is
+            # loose, catching two that share an opening clause and diverge
+            # after; for a note SHORTER than sixty characters the truncation
+            # does nothing at all and the texts must match exactly. So the rule
+            # is crude, and crude in the safe direction - it misses duplicates
+            # rather than inventing them, which is the same bargain the column
+            # set above makes and for the same reason. A rule that guessed at
+            # near-identical would report the follow-up question and the scope
+            # change the script's own comment is defending.
+            #
+            # A pair that is entirely finished is left alone: the complaint is
+            # that one gets ticked and the other lingers, and when both are
+            # ticked there is nothing left to go wrong.
+            my %seen_text;
+            for my $item ( @{$queue} ) {
+                for my $ref ( @{ $refs_of{ $item->{id} // '' } } ) {
+
+                    # The same silence the status walk keeps, and it was
+                    # missing here: a ref naming no card is task-unlinked's
+                    # business at most. Without this, two tasks sharing an
+                    # opening clause about a card that does not exist are
+                    # reported as duplicates of each other - a complaint about
+                    # bookkeeping on a card nobody can open.
+                    next if !defined $column_of{$ref};
+                    my $key = lc substr( $item->{text} // '', 0, 60 );
+                    $key =~ s/\A\s+|\s+\z//g;
+                    next if $key eq '';
+                    my $earlier = $seen_text{"$ref\0$key"};
+                    if ( !defined $earlier ) {
+                        $seen_text{"$ref\0$key"} = $item;
+                    }
+                    elsif ( $said{ $item->{id} // '' } ) {
+
+                        # Already carrying a status mismatch, which is the
+                        # louder of the two and holds the one voice this task
+                        # has. The duplicate is still true and is said on the
+                        # pass after the status is put right.
+                    }
+                    elsif ( ( $item->{status} // 0 ) != 2 || ( $earlier->{status} // 0 ) != 2 ) {
+
+                        # Marked said for the same reason the status loop
+                        # marks it: a task naming two cards could otherwise be
+                        # reported as a duplicate on each, and those two
+                        # findings share one ledger entry exactly as a status
+                        # mismatch and a duplicate would.
+                        $said{ $item->{id} // '' } = 1;
+                        $report->( $policy, $item->{id},
+                            "\"$item->{text}\" says almost what $earlier->{id} already says about "
+                          . "$ref - one of them will be ticked and the other left open" );
+                    }
+                }
             }
         }
         elsif ( $rule eq 'task-changed' ) {
@@ -13927,6 +14208,15 @@ Renders the self-contained login page markup shown to a stranger.
 =head2 policy_add
 
 Declares a policy rule on the project.
+
+A rule's C<--column> is normally a scope - the same rule watching a different
+column is a different intention rather than a duplicate. C<task-card-mismatch>
+is the exception: its columns say which columns MEAN work, so every policy of
+that rule on a board is unioned into one set (a comma-separated C<--column>, a
+C<--column-role> the board has assigned, several policies, or any mixture), and
+its pass reports from the first of them. Read the ordinary way, a board
+declaring its four working columns as four policies would have each policy
+calling the other three's honest tasks mismatches.
 
 =head2 policy_list
 

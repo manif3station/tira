@@ -81,7 +81,7 @@ while the engine had been case-insensitive since TKT-434, so an item marked
 `Done` was finished to the gate and an empty box to whoever was looking — and
 the box was not merely wrong, it offered to redo work already done. Nothing is
 normalised on disk: `Done` stays `Done` and is simply read correctly.
-The board-wide police policy engine — the 36 rules police itself watches,
+The board-wide police policy engine — the 40 rules police itself watches,
 separate from a column's own required-action template — is editable from
 the browser too: a Policies button opens a modal listing every declared,
 declined, and undeclared rule, with a rule-specific parameter picker that

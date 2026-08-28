@@ -634,7 +634,8 @@ Declare a policy.
 | `--enter-role ROLE` | per rule | The same, said as a role rather than a column name. |
 | `--before-column COLUMN` | per rule | The column that means the work has moved on. |
 | `--before-role ROLE` | per rule | The same, as a role. |
-| `--column COLUMN` | per rule | The column a rule watches. |
+| `--column COLUMN` | per rule | The column a rule watches. For `task-card-mismatch` it says which columns mean *work* rather than which column to act on, so it takes a name or a comma-separated list and several policies compose into one set. |
+| `--column-role ROLE` | per rule | The same, said as a role rather than a column name - the counterpart to `--enter-role` and `--before-role`, and accepted anywhere a rule needs a `--column`. |
 | `--age DURATION` | per rule | That rule's grace: `30s`, `10m`, `2h`, `7d`. |
 | `--max N` | per rule | A limit, for `wip-limit`. |
 | `--pattern TEXT` | per rule | What to match, for `leftover-process`. |
@@ -651,6 +652,18 @@ Declare a policy.
 Anything a rule cannot work without is refused when the policy is set, rather
 than discovered later by police - a policy police cannot follow is worse than
 no policy, because it reads as cover.
+
+**`task-card-mismatch` reads its siblings.** Its `--column` values name the
+columns that mean somebody is working, and a set is not several independent
+opinions - so every policy of that rule on the board is unioned and the pass
+reports from the first. Declared the ordinary way, one policy per working
+column, each policy would call the other columns' honest tasks mismatches. A
+`--column-role` naming a role the board has assigned counts toward the same
+set; if nothing resolves, the rule stays silent rather than reporting every
+task on the board, and `policy-unfollowable` reports the declaration it cannot
+read. It also says at most one thing per task per pass, because the violation
+ledger keys an entry by rule, policy and reference and two findings about one
+task would share a number, a `first_seen` and a `seen` count.
 
 **Some rules read more than the policy tells them.** `agent-still` is the
 clearest: `--age` sets its grace, but whether a card counts at all depends on
@@ -2592,7 +2605,17 @@ operate on it. `tasklist.list` is a separate, purely-display ordering (see
 
 Status is a stored integer enum (0 = pending, 1 = working, 2 = done).
 `tasklist.update --status` accepts either the word or the number; every
-other command returns the number. A `.tira/tasklist.json` written before
+other command returns the number.
+
+That status is checked against the board. `task-card-mismatch` (TKT-639)
+reports an item whose status contradicts the column its linked card sits in -
+saying working about a card nobody is working, saying pending about a card
+being worked, or not being done about a card that has gone past the working
+columns altogether - and reports two items about one card whose text matches on
+the first sixty characters. It reads the tasklist file directly rather than
+through `tasklist.list`, so it sweeps every session rather than the caller's
+own; see docs/POLICIES.md for why its `--column` set is declared and never
+inferred. A `.tira/tasklist.json` written before
 this shipped still has the old word - it reads back correctly either way,
 and the next write of that item is what actually upgrades the file; nothing
 has to run a migration by hand.

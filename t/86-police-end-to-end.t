@@ -100,6 +100,11 @@ my %declare = (
     'column-skipped'            => { enter => 'done', require => 'implement' },
     'task-unlinked'             => { age => '30m' },
     'task-changed'              => {},
+
+    # Column-scoped, and the column is the whole of TKT-639: the board cannot
+    # infer which of its own columns mean somebody is WORKING, so the rule is
+    # told. 'implement' here, which is where the fixture's card sits.
+    'task-card-mismatch'        => { column => 'implement' },
 );
 is_deeply( [ sort keys %declare ], [ sort @{ Tira::policy_rules() } ],
     'this test declares every rule the tool offers, so none can be forgotten here' );
@@ -163,6 +168,19 @@ $now = '2026-08-11T09:00:00Z';
 # A tasklist item nobody ever tied back to a card - real, trackable work, no
 # refs, sitting where task-unlinked watches.
 $tira->tasklist_add( project => $root, text => 'A note nobody turned into a card' );
+
+# A tasklist item left saying pending while the card it names is being worked -
+# task-card-mismatch's case, and the half of the owner's request that
+# task-unlinked above does not cover. The card has to be IN a declared working
+# column for this to fire, which is the point of the rule taking its columns.
+{
+    my $worked = $tira->create_record(
+        project => $root, type => 'ticket', title => 'A card somebody started' );
+    $tira->record_move( author => 'claude', project => $root, ref => $worked->{ref}, column => 'implement' );
+    $tira->tasklist_add(
+        project => $root, text => 'A note whose card moved on without it',
+        refs => [ $worked->{ref} ] );
+}
 
 # A tasklist item that changes between the two passes below - task-changed's
 # baseline is set by the first (bridge-unread's own setup) pass, and the

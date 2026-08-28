@@ -370,6 +370,7 @@ sub run {
         'watch!' => \$option{watched}, 'terminal!' => \$option{terminal}, 'stale' => \$option{stale},
         'queue!' => \$option{queue},
         'required-action=s@' => \$option{required_action},
+        'blocking' => \$option{blocking},
         'entry-required-action=s@' => \$option{entry_required_action},
         'next=s@' => \$option{next},
         'with-level' => \$option{with_level},
@@ -2458,6 +2459,52 @@ sub _column_entry_required_action_violation {
       . "    d2 tira.required-action.update --ref $args{ref} --id $unmet[0]{id} --status done --command TEXT --proof TEXT\n";
 }
 
+# What is blocking this card HERE, answerable without attempting a move.
+#
+# required-action.list returns every item on a card across every column - 75 on
+# the card this was measured against - so the only way to learn what is in the
+# way was to try a move and be refused. That is a strange shape for a system
+# whose whole purpose is telling an agent what to do next, and it is why the
+# refusal was the only place the answer existed.
+#
+# Deliberately the SAME selection the refusal makes - the column the card is
+# in, minus this card's exemptions, minus anything already done - rather than a
+# second definition that could drift from it. If these two ever disagree, the
+# agent is told one thing and refused for another.
+#
+# Not named card.required or anything like it: tira.card.required already
+# exists and answers which FIELDS a complete card needs, which is a different
+# question, and a third similarly-named thing would mislead. TKT-598.
+# The one selection. Both the refusal and the on-demand answer call this, so
+# "they cannot drift" is a fact about the code rather than a promise in a
+# comment - the first version of this card left the refusal with its own copy
+# of the grep while the comment beside it claimed otherwise, which codex review
+# caught and which is the same shape as a POD promising a report nothing wrote.
+sub _unmet_in_column {
+    my ( $record, $column ) = @_;
+    return [] if ref $record ne 'HASH';
+    return [] if !defined $column || $column eq '';
+    my %exempt = map { ( ref($_) eq 'HASH' ? $_->{item} : $_ ) => 1 }
+      @{ $record->{required_exempt} // [] };
+    return [ grep {
+        ( $_->{column} // '' ) eq $column
+          && !$exempt{ $_->{item} }
+          && lc( $_->{status} // '' ) ne 'done';
+    } @{ $record->{required_items} // [] } ];
+}
+
+# Answering the same question on demand. The card must exist: turning a failed
+# read into an empty list would say "nothing is blocking you" about a ref that
+# is missing, misspelled or unreadable, and say it with exit 0 - while the same
+# command without --blocking says "Record 'X' not found" and exits 2. Codex
+# probed exactly that. A question about a card that is not there has no answer,
+# so the error is left to travel.
+sub _outstanding_here {
+    my ( $tira, %args ) = @_;
+    my $current = $tira->record_show(%args);
+    return _unmet_in_column( $current, $current->{column} );
+}
+
 sub _column_required_action_violation {
     my ( $tira, %args ) = @_;
     return undef if ( $args{column} // '' ) eq 'discard';
@@ -2481,8 +2528,8 @@ sub _column_required_action_violation {
     # can tell from a genuine oversight. TKT-439.
     # An exemption recorded before TKT-473 is a bare string; one recorded
     # since carries {item, reason, exempted_at, author}. Both name the item
-    # the same way to this check.
-    my %exempt = map { ( ref($_) eq 'HASH' ? $_->{item} : $_ ) => 1 } @{ $current->{required_exempt} // [] };
+    # the same way to _unmet_in_column, which is where the exemption is now
+    # honoured for this guard and for the on-demand answer alike.
 
     # Required items are their own list, tagged by the column they belong
     # to - not a card's checklist, which stays purely manual. Gating reads
@@ -2494,13 +2541,31 @@ sub _column_required_action_violation {
     # "done" is case-insensitive, so --status Done is not read as still
     # outstanding and refused forever with a message that names the very
     # word the person already used. TKT-434.
-    my @unmet = grep {
-        ( $_->{column} // '' ) eq $from && !$exempt{ $_->{item} } && lc( $_->{status} // '' ) ne 'done';
-    } @{ $current->{required_items} // [] };
+    my @unmet = @{ _unmet_in_column( $current, $from ) };
     return undef if !@unmet;
-    return "Cannot move $args{ref} out of $from - required actions not done: "
-      . join( '; ', map { $_->{item} } @unmet ) . ".\n"
-      . "  Mark them done, then move again:  d2 tira.required-action.update --ref $args{ref} --id REQ-NNN --status done\n";
+
+    # One item per line with the id beside it, and the suggested command
+    # carrying a REAL id from that list.
+    #
+    # This used to join the item texts with '; ' and then hand back a command
+    # containing the literal REQ-NNN - so acting on the refusal meant running
+    # required-action.list, finding each item by matching its text, and reading
+    # off the id. On a card with 75 items across a dozen columns that is a
+    # cross-reference by eye, and it put proofs against the wrong ids twice on
+    # this board. The ids were in @unmet the whole time; the map took the text
+    # and dropped them.
+    #
+    # Measured before it was changed: refusing a real card out of planning
+    # produced one line of over a thousand characters covering 12 items whose
+    # own texts contain semicolons, backticks and inline command examples -
+    # joined with '; ' into prose that has to be re-parsed by eye to see where
+    # one item ends and the next begins. TKT-598.
+    return "Cannot move $args{ref} out of $from - "
+      . ( @unmet == 1 ? '1 required action is' : scalar(@unmet) . ' required actions are' )
+      . " not done:\n"
+      . join( '', map { "  $_->{id}  " . _first_line( $_->{item} ) . "\n" } @unmet )
+      . "  Mark one, then move again:\n"
+      . "    d2 tira.required-action.update --ref $args{ref} --id $unmet[0]{id} --status done --command TEXT --proof TEXT\n";
 }
 
 # The other half of TKT-427, applied after a move succeeds: the destination
@@ -2906,6 +2971,8 @@ sub _invoke {
       if defined $option->{required_action} && $command ne 'column.update';
     die "Entry-required-action is available on the column.update command\n"
       if defined $option->{entry_required_action} && $command ne 'column.update';
+    die "Blocking is available on the required-action.list command\n"
+      if defined $option->{blocking} && $command ne 'required-action.list';
     die "Next is available on the column.update command\n"
       if defined $option->{next} && $command ne 'column.update';
     die "Notify-after is available on the column.update, project.update, project.new and onboard commands\n"
@@ -3865,6 +3932,20 @@ sub _invoke {
         ( my $instead = $meant ) =~ tr/_/-/;
         die "$command does not act on --$flag. Use --$instead, which is what it reads.\n";
     }
+    # --blocking narrows the list to what would refuse a move out of the column
+    # the card is in now. Without it required-action.list answers every item on
+    # the card across every column - 75 on the card this was measured against -
+    # so the only way to learn what is actually in the way was to attempt a move
+    # and read the refusal.
+    #
+    # A flag on the existing command rather than a new verb, deliberately:
+    # tira.card.required already exists and answers which FIELDS a complete card
+    # needs, so a third similarly-named command would mislead. And the answer
+    # comes from the same helper the refusal uses, so the two cannot drift into
+    # telling an agent one thing and refusing it for another. TKT-598.
+    return _outstanding_here( $tira, %args )
+      if $command eq 'required-action.list' && $option->{blocking};
+
     $args{person} = $option->{people}[0] if $command =~ /\Aassign\.(?:add|remove)\z/ && $option->{people};
     $args{people} = $option->{people} // [] if $command eq 'assign.set';
     $args{recursive} = $option->{recursive} if $command eq 'hierarchy.show';
@@ -5451,6 +5532,37 @@ item by item, so the reminder lands at the moment the list arrives rather
 than when the damage is already attempted. Printed to STDERR, so it stays out
 of C<-o json> output, and only when the column actually brought outstanding
 items - a reminder that fires on every move is one nobody reads. TSK-168.
+
+=head2 _unmet_in_column
+
+The one selection of what a card still owes a column: items tagged with that
+column, minus the card's own exemptions (C<--exempt-required>, TKT-439), minus
+anything already done - the comparison against C<done> being case-insensitive
+so C<--status Done> is not read as outstanding (TKT-434).
+
+Both the move refusal and C<required-action.list --blocking> call it. That
+matters more than the saved lines: the first version of TKT-598 left the
+refusal with its own copy of this grep while the comment beside it claimed the
+two could not drift, which is a promise rather than a fact and is exactly what
+codex review caught. An agent told one thing and refused for another is the
+failure this shape prevents.
+
+=head2 _outstanding_here
+
+Answers what is blocking a card in the column it currently occupies, without a
+move being attempted. C<required-action.list --blocking> is the way an agent
+asks; without it that command returns every item on the card across every
+column - 75 on the card this was measured against - so being refused was the
+only way to find out.
+
+The record must exist. Turning a failed read into an empty list would answer
+"nothing is blocking you" for a ref that is missing, misspelled or unreadable,
+and answer it with exit 0, while the same command without C<--blocking> reports
+that the record was not found. Codex review probed exactly that. A question
+about a card that is not there has no answer, so the error travels.
+
+Deliberately not named after C<tira.card.required>, which already exists and
+answers which FIELDS a complete card needs. TKT-598.
 
 =head2 _column_entry_required_action_violation
 

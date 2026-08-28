@@ -69,6 +69,12 @@ separate from a column's own required-action template — is editable from
 the browser too: a Policies button opens a modal listing every declared,
 declined, and undeclared rule, with a rule-specific parameter picker that
 matches the `tira.policy.add` command exactly.
+A refused move tells you what to do about it. The refusal names each
+blocking required action with the id you need to mark it done and ends with
+a command carrying a real one, rather than a placeholder you have to look
+up. `tira.required-action.list --blocking` asks the same question without
+attempting the move, scoped to the column the card is in — the command
+without that flag returns every item on the card across every column.
 A column can require work on the way IN as well as on the way out. Its
 `--required-action` list says what a card must finish before it may leave;
 `--entry-required-action` says what it must already have done before it may

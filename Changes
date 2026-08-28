@@ -1,5 +1,53 @@
 Revision history for Tira
 
+4.57  2026-08-28
+
+    - TKT-598. A refusal now gives you the ids it tells you to use,
+      and the same question can be asked without provoking one.
+      The required-action refusal listed the blocking items by TEXT,
+      joined with '; ' onto one line, and then handed back
+      "d2 tira.required-action.update --ref REF --id REQ-NNN". REQ-NNN
+      is a placeholder. The ids were in the list the whole time; the
+      message mapped over the entries for their text and dropped them.
+      So acting on a refusal meant running required-action.list,
+      finding each item by matching its text by eye, and reading off
+      the id - on a card with 75 items across a dozen columns. That
+      cross-reference had already put proofs against the wrong ids
+      twice on this board.
+      Measured before it was changed: refusing a real card out of
+      planning produced ONE line of over a thousand characters
+      covering 12 items whose own texts contain semicolons, backticks
+      and inline command examples.
+      It now states the count, prints one item per line with its id
+      beside its own text, and suggests a command carrying a real id
+      from that list. Only what it says changed: the same moves are
+      refused.
+      The other half was that nothing could ASK. required-action.list
+      returns every item on a card across every column, so the only
+      way to learn what was in the way was to try a move and be
+      refused - a strange shape for a system whose purpose is telling
+      an agent what to do next. required-action.list --blocking
+      answers what the current column still owes. A flag rather than
+      a new verb because tira.card.required already exists and
+      answers which FIELDS a card needs; a third similarly-named
+      command would mislead. It is refused by name on any other
+      command, which matters on a board carrying three open cards
+      about options accepted and silently ignored.
+      The refusal and the answer share one selection, so they cannot
+      disagree - and that is a fact about the code rather than a
+      comment, because the first version left the refusal with its
+      own copy of the grep while the comment beside it claimed
+      otherwise. Codex review caught that, along with a failed read
+      being turned into an empty list - which made --blocking answer
+      "nothing is blocking you" for a ref that does not exist, at
+      exit 0, while the same command without the flag says the record
+      was not found.
+      Known and recorded rather than quietly met: the items are on
+      their own lines in the message and NOT in what a reader sees,
+      because every output format escapes the newlines. TKT-658
+      covers that, for all three multi-line refusals rather than this
+      one.
+
 4.56  2026-08-27
 
     - TKT-591. A column can say what a card must ALREADY have done

@@ -364,6 +364,15 @@ missing, at the moment you declare the policy rather than later.
 
 **What a command demands is in its own usage line.** Marking a required action or a checklist item done costs a `--command`/`--proof` pair - since 4.64 a `--command` may also arrive alone, to record what is being run before it can be proved, and the pair is required together only for the `done` claim itself (TKT-628). Until 4.55 `--help` did not say any of it: six of the commands an agent touches at every gate had no usage line at all and described themselves as taking `[options]`, while `tira.checklist.update` had one that listed three optional flags and omitted both mandatory ones - the worse shape, because it reads as exhaustive. Another project measured the cost: four `checklist.update` calls composed from `--help`, output suppressed, four entries believed ticked while the checklist still read 0/9, caught only by `checklist-unmoved`. The pair was written as one bracketed unit, `[--command TEXT --proof TEXT ...]`, because it was required together and repeatable. Forty-nine commands still print a bare `[options]`; that set is recorded as a ledger a test holds, so it can shrink but not grow unnoticed. TKT-575.
 
+**A rule that counts required actions and the command layer that reports them
+now agree about case, since 4.68.** `card-stalled`'s row above already notes
+that the CHECKLIST is read case-insensitively; required actions are too, in the
+engine and - since TKT-657 - in every reader in `lib/Tira/CLI.pm`, which asks a
+single `_item_is_done` predicate. One of its four comparisons had drifted, so a
+move-in reminder could announce items that every rule and every gate already
+counted as done. If you are reading an old bridge line that disagrees with a
+card's own count, that is a candidate explanation.
+
 **A card can arrive in a gated column without being moved there, and since 4.67
 a card created through the CLI still owes what that column asks.** Creation is not a move, so the create
 path seeded only a column's exit template - a card created straight into a

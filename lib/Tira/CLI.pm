@@ -2446,7 +2446,7 @@ sub _column_entry_required_action_violation {
         ( $_->{column} // '' ) eq $to
           && $wanted{ $_->{item} // '' }
           && !$exempt{ $_->{item} }
-          && lc( $_->{status} // '' ) ne 'done';
+          && !_item_is_done($_);
     } @{ $refreshed->{required_items} // [] };
     return undef if !@unmet;
 
@@ -2489,7 +2489,7 @@ sub _unmet_in_column {
     return [ grep {
         ( $_->{column} // '' ) eq $column
           && !$exempt{ $_->{item} }
-          && lc( $_->{status} // '' ) ne 'done';
+          && !_item_is_done($_);
     } @{ $record->{required_items} // [] } ];
 }
 
@@ -2608,12 +2608,35 @@ sub _populate_column_required_actions {
 # machine-readable output, and only when the column actually brought
 # required actions with it - a reminder that fires on every move is one
 # nobody reads. TSK-168.
+# Whether a required item is finished, asked once.
+#
+# TKT-657. Four places compared a status against 'done' by hand. Three
+# lowercased first and _remind_one_at_a_time did not, so an item marked 'Done'
+# - the capital the CLI accepts, and which TKT-434 deliberately made the gates
+# tolerate - was DONE to every gate and OUTSTANDING to the move-in reminder,
+# which then told an agent to work items already finished.
+#
+# The drift is the argument for the predicate, not the tidiness. This was the
+# third instance of one fault in a single day: the dashboard compared against
+# the literal 'done' (TKT-601), tools/card-holes did it twice in opposite
+# directions and refused a real release (TKT-671), and these four were the
+# third. Four hand-written comparisons cannot be guarded as a set - TKT-671's
+# ledger greps tools/ for exactly this and cannot see lib/ - but a named
+# predicate can be grepped for, and t/422 does.
+#
+# Nothing is normalised on write. 'Done' stays 'Done' on the card; this is the
+# one place that reads it.
+sub _item_is_done {
+    my ($item) = @_;
+    return lc( ( ref $item eq 'HASH' ? $item->{status} : $item ) // '' ) eq 'done';
+}
+
 sub _remind_one_at_a_time {
     my ( $tira, $args, $column ) = @_;
     return if !defined $column || $column eq '';
 
     my $record = eval { $tira->record_show( %{$args} ) } or return;
-    my @here = grep { ( $_->{column} // '' ) eq $column && ( $_->{status} // '' ) ne 'done' }
+    my @here = grep { ( $_->{column} // '' ) eq $column && !_item_is_done($_) }
       @{ $record->{required_items} // [] };
     return if !@here;
 
@@ -2823,7 +2846,7 @@ sub _apply_column_required_actions {
             # Same case-insensitive comparison as the move-out gate above -
             # an item marked --status Done is genuinely done, and must reset
             # on the way back through exactly as --status done would. TKT-434.
-            next if lc( $item->{status} // '' ) ne 'done';
+            next if !_item_is_done($item);
             $tira->required_item_update( %{$args}, id => $item->{id}, status => 'pending', source => 'required-action' );
             push @reset, $item->{item};
         }
@@ -5707,6 +5730,25 @@ as a bare C<eval>, which did the one thing this must never do - a column
 declared with an empty entry action stored it, C<required_item_add> refused the
 blank item, the error went nowhere, and the card walked in past a gate that
 believed it had nothing to enforce.
+
+=head2 _item_is_done
+
+Whether a required item's status means finished, asked in one place.
+
+Four call sites compared a status against C<done> by hand - the entry gate,
+C<_outstanding_here>, the exit gate and C<_remind_one_at_a_time> - and the last
+of them did not lowercase first. An item marked C<Done>, the capital the CLI
+accepts and which TKT-434 deliberately made the gates tolerate, was therefore
+finished to every gate and outstanding to the move-in reminder.
+
+Nothing is normalised on write: C<Done> stays C<Done> on the card and this is
+the one place that reads it. Undoing that would undo TKT-434, so t/422 pins the
+stored value as well as the comparison.
+
+A predicate rather than a corrected expression because the fault had recurred
+three times in a day across the dashboard, C<tools/card-holes> and here, and
+four inline comparisons cannot be guarded as a set - a named predicate can be
+grepped for, which is what makes a fourth drift catchable. TKT-657.
 
 =head2 _populate_entry_required_actions
 

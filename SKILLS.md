@@ -1604,6 +1604,17 @@ column - and ending with the command to work them. That warning also covers the
 exit items, which have been seeded on create since TKT-439 and printed by
 nothing, so an agent met them only at a refused move.
 
+TKT-657: the four places in `lib/Tira/CLI.pm` that ask whether a required item
+is finished now ask one named predicate, `_item_is_done`. Three of them
+lowercased the status first and `_remind_one_at_a_time` did not, so an item
+marked `Done` was finished to every gate and outstanding to the move-in
+reminder, which announced already-completed items as work to do. Nothing is
+normalised on write - `Done` stays `Done`, which TKT-434 decided - and the
+predicate is the one place that reads it. It replaces the one-word fix because
+this was the third instance of the same fault in a day (the dashboard, and
+`tools/card-holes` twice), and a predicate can be grepped for where four inline
+comparisons cannot.
+
 None of the four move guards - chain order, exit required actions, unjudged answers, and entry required actions - can be evaded by omitting the board type. `column_list` needs a concrete type to say which columns exist, while `record_show` and `record_move` resolve a card by ref alone, so a guard that asked for columns with the caller's arguments got nothing back and returned "nothing to refuse" - failing silent and open rather than closed. Reproduced on a copy of a real board: a card walked from backlog to in-review through nine gated columns with all 75 of its required actions pending. The browser move provider had already solved this for its own bookkeeping under the principle recorded there - "a caller is never required to say what the engine can already tell for itself" (TKT-532) - and the recovery is now a shared helper with four call sites - the three move guards and the post-move required-action bookkeeping. The browser move provider keeps its own recovery, which is where the principle came from and which predates this. The recovered type is written back into the caller's own arguments, not kept to the lookup: the chain guard's refusal ends by naming the move to make instead, and that line is formatted from those arguments, so recovering the type for the lookup alone left the gate correctly closed and the caller told to run a move command with an empty type in it - `tira` then two dots then `move` - which is not a command at all. It matters to one refusal in three - the required-action and unjudged-answer refusals name a command of their own and never print the type - but a guard that refuses correctly and then misdirects has moved the failure rather than fixed it. TKT-597.
 
 A refusal names the items blocking a card WITH THE IDS it tells you to use. It states how many there are, prints one per line with its `REQ-NNN` id beside its own text, and ends with a `tira.required-action.update` carrying a real id from that list rather than a placeholder. Before 4.57 it joined the item texts with semicolons onto one line and suggested the literal `REQ-NNN`, so acting on it meant running `tira.required-action.list`, matching each item by text and reading off the id - on a card with 75 items across a dozen columns, by eye. That cross-reference had already put proofs against the wrong ids twice. Only the wording changed; the same moves are refused. TKT-598.

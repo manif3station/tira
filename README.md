@@ -76,7 +76,9 @@ proved stays visible, which is the point.
 
 A required action's status is read the way every gate reads it. `done`, `Done`
 and `DONE` all mean finished, in the count, in the tick, and in whether a
-checkbox is offered. Until 4.63 the page compared against the literal `done`
+checkbox is offered — and since 4.68 there is one predicate that says so, asked
+by every reader in the command layer, rather than four hand-written comparisons
+that had already drifted apart once. Until 4.63 the page compared against the literal `done`
 while the engine had been case-insensitive since TKT-434, so an item marked
 `Done` was finished to the gate and an empty box to whoever was looking — and
 the box was not merely wrong, it offered to redo work already done. Nothing is

@@ -1,5 +1,42 @@
 Revision history for Tira
 
+4.68  2026-08-28
+
+    - TKT-657. Every reader of a required item's status now agrees that
+      'Done' means done.
+      lib/Tira/CLI.pm compared a status against 'done' in four places.
+      Three lowercased first; _remind_one_at_a_time did not. So an item
+      marked --status Done - the capital the CLI accepts, and which
+      TKT-434 deliberately made the gates tolerate - was DONE to every
+      gate and OUTSTANDING to the move-in reminder, which then told an
+      agent to work items already finished.
+      Fixed as one named predicate, _item_is_done, with four callers,
+      rather than as the one-word lowercase the card first proposed.
+      The card raised that choice itself and left it to whoever picked
+      it up; the deciding argument is that this was the THIRD instance
+      of one fault in a single day. The dashboard compared against the
+      literal 'done' (TKT-601). tools/card-holes did it twice, in
+      opposite directions - one refusing a good push, one silently
+      blind - and refused the release of 4.57, 4.58 and 4.59 (TKT-671).
+      These four were the third. TKT-671 shipped a ledger that greps
+      tools/ for exactly this fault and cannot see lib/, and four
+      inline comparisons cannot be guarded as a set - a named predicate
+      can be grepped for, which is what makes a fourth drift catchable.
+      NOTHING IS NORMALISED ON WRITE. 'Done' stays 'Done' on the card;
+      the predicate is the one place that reads it. Undoing that would
+      undo TKT-434, and the test pins it so nobody 'fixes' the symptom
+      at the wrong end.
+      The reachable path is narrower than it looks, and the first
+      version of the test got it wrong. Moving a card OUT and back
+      makes the reminder fire correctly, because a backward move resets
+      that column's done items to pending on the way through - so that
+      scenario reproduced the reset, not the bug, and would have gone
+      green on the fix for the wrong reason. The bug needs a FORWARD
+      move into a column whose item is already Done, which is reachable
+      because an item can carry a column the card has not reached yet:
+      seeded there on creation since 4.67, or added directly. The test
+      now pins that distinction in its own assertion.
+
 4.67  2026-08-28
 
     - TKT-681. A card created through the CLI straight into a column is

@@ -995,6 +995,16 @@ a push eleven ways and runs no test suite:
 | 6 | `tools/docs-examples-run` | a documented example is not what the command accepts |
 | 7 | `tools/browser-tests` | a browser test fails, or its runner is absent |
 
+**One predicate decides whether a required ACTION is finished, since 4.68.**
+The command layer asks `_item_is_done`, which lowercases before comparing, so
+`done`, `Done` and `DONE` mean finished to the entry gate, the exit gate, the
+outstanding-item count, the move-in reminder and the backward-move reset alike.
+They were four hand-written comparisons and one had drifted:
+`_remind_one_at_a_time` read the raw status, so a card arriving with an item
+already marked `Done` was told to work items that were finished. Nothing is
+normalised on write - `Done` stays `Done` on the card, which is TKT-434's
+decision - and the predicate is the one place that reads it. TKT-657.
+
 **How the gate decides a checklist is finished, since 4.66.** For the decision
 that matters - is anything outstanding at all - it does not decide. It asks.
 A checklist item ticked as `Done` - the natural capitalisation, and the one the

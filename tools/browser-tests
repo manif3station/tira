@@ -488,6 +488,10 @@ for test in "$tests"/*.js; do
         wide-board.js|wrap-board.js)
                               run_one "$name" "$wide_html" "$scratch/$name.png" ;;
         dashboard-table.js)   run_one "$name" "$one_html" "$scratch/$name.png" ;;
+        # The card dialog's three text editors need the LIVE page: the
+        # description editor only exists in edit mode, which the static
+        # render does not carry. TKT-586.
+        card-editors.js)      run_one "$name" "$browsing_html" "$live_data" ;;
         column-editor.js)     run_one "$name" "$live_html" ;;
         policy-editor.js)     run_one "$name" "$live_html" ;;
         tasklist-section.js)  run_one "$name" "$live_html" ;;

@@ -1,5 +1,48 @@
 Revision history for Tira
 
+4.61  2026-08-28
+
+    - TKT-586. The card dialog's three text editors stopped being
+      three different things.
+      The owner reported the description editor as "un-usable": a
+      fixed five-row textarea at roughly half the modal's width, with
+      no formatting and no paste. Measured before the change at 44% of
+      the dialog. He asked for four things - full width, height that
+      follows the content, richtext shown while markdown is stored,
+      and image paste like the task card - and then expanded it: the
+      new-comment textarea and the edit-comment editor have the same
+      problems.
+      Every one of those already worked somewhere else in the same
+      file, so this is wiring rather than invention. Three helpers now
+      sit beside el(): growBox, mdBarFor and pasteImageInto. All three
+      editors grow through the first and build their bar from the
+      second - including the comment composer, which mdBarFor was
+      extracted FROM and which now calls it instead of keeping its own
+      copy, removing about 660 characters of duplicated handler.
+      pasteImageInto is on the long fields, where paste was asked for.
+      growBox caps at 420px, which is the question answer box's
+      ceiling rather than the tasklist input's unbounded growth. The
+      card called them "the same handler"; there are two and they
+      differ, and a description that grows without limit pushes the
+      dialog's Save and Cancel off the screen. Past the ceiling the
+      box scrolls instead of clipping.
+      A long field is now DISPLAYED through renderMarkdown as well,
+      which is the "show richtext" half - it had been showing raw
+      asterisks while a comment beside it rendered formatted.
+      renderMarkdown gained an optional class so a description does
+      not inherit the comment body's styling; its existing caller
+      passes nothing and is unaffected.
+      A paste inside an open editor uploads quietly. mutate() gained
+      a flag to skip its reload, because reloading re-renders the
+      dialog and takes the open editor with it - the attachment would
+      survive and the unsaved writing would not. Found by codex
+      review, which also found that the test had hidden it by stubbing
+      a response without ok:true, taking the no-reload failure path.
+      Both fixed; the test now fails without the flag.
+      Only .card-value--long and .card-edit--long become block-level
+      flex. .card-edit itself stays inline-flex, so a one-line text
+      field does not stretch across the card.
+
 4.60  2026-08-28
 
     - TKT-585. Evidence is read now, not counted.

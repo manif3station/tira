@@ -1290,7 +1290,29 @@ the record's next mutation, like the legacy UTF-8 repair); only a
 reference whose stored file was physically removed shows an em-dash. Comments render newest first below
 a collapsed composer that expands on demand with a formatting bar; comment
 text is stored as markdown and rendered through a DOM-building formatter
-(bold, italic, inline code, bullet lists) that never injects raw HTML. Dialog deletion detaches the reference; the stored file is physically
+(bold, italic, inline code, bullet lists) that never injects raw HTML.
+
+Since 4.61 the card dialog's three text editors share their behaviour rather
+than reimplementing it. All three grow through one handler and all three build
+their formatting bar from one builder - the comment composer's own bar, which is
+now the shared one rather than a fourth copy. Image paste is on the long fields
+only, which is where it was asked for. A long field -
+description, problem or feature, solution needed - edits full width, grows with
+its content to a 420px ceiling and then scrolls, carries the same formatting bar
+the comment composer has, and takes a pasted image: the file goes to the record's
+attachments and an `[image: name]` marker lands at the caret. A long field is
+also DISPLAYED formatted, through the same renderer comments use, while what is
+stored stays markdown. The new-comment textarea and the edit-comment editor grow
+the same way, and the edit-comment editor gained the bar the composer beside it
+always had.
+
+The ceiling is the point rather than an implementation detail. Two grow handlers
+already existed - the tasklist card input grows without limit, the question
+answer box stops at 420 - and a description runs to paragraphs, so unbounded
+growth pushes the dialog's own Save and Cancel off the screen. The answer box's
+ceiling is the one worth copying. Reported by the owner, who called the old
+fixed five-row box "un-usable" at roughly half the modal's width; measured at
+44% before and 100% of its container after. TKT-586. Dialog deletion detaches the reference; the stored file is physically
 removed, with logging, only when no record or comment still references it —
 the same semantics as `tira.attachment.detach`.
 List fields edit per item in the dialog: each row offers edit and remove, and

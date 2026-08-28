@@ -64,6 +64,16 @@ A required action marked done on evidence another item in the same column
 already used is highlighted rather than merely ticked, and its proof modal
 opens with the reason for the reuse above the evidence itself — the point of
 making somebody write a reason is that somebody else reads it.
+A required action can say what it is running before it can prove it. Give
+`--command` on its own and the item keeps its status while recording what is
+being run, and the card dialog marks it with a clock — distinct from an
+untouched item, from a done one, and from an exempt one. The proof follows when
+the command has produced something, repeating its command; `--status done` is
+what marks the item done and still refuses without the pair. Before 4.64 that
+same call was accepted and silently discarded, so a list of pending items could
+not say which one was being worked on right now. An announcement that is never
+proved stays visible, which is the point.
+
 A required action's status is read the way every gate reads it. `done`, `Done`
 and `DONE` all mean finished, in the count, in the tick, and in whether a
 checkbox is offered. Until 4.63 the page compared against the literal `done`

@@ -1,5 +1,89 @@
 Revision history for Tira
 
+4.64  2026-08-28
+
+    - TKT-628. A required action can say what it is running before it
+      can prove it.
+      The owner asked for a state between picking an item up and
+      finishing it (TSK-194): "Agent can provide the command for a
+      specific item first, so the user can see it is working on it".
+      A list of pending items cannot say which one is being worked
+      right now, and the dashboard had no way to show it.
+      It was not merely absent. _proof_entries_for returned undef
+      unless the status was exactly done, so a --command arriving
+      with --status pending was parsed by the CLI, accepted, and
+      dropped before the pair logic was reached. The call succeeded,
+      nothing was stored, the caller was told nothing - the same
+      shape as TKT-625's ignored --dry-run.
+      Now a command may arrive ahead of its proof. It is recorded,
+      the item keeps its status, and the card dialog marks it with a
+      clock. It travels with a --status or an --item rather than
+      entirely alone: both update commands still refuse a call that
+      changes nothing, so --status pending --command is the shape,
+      and passing the status the item already has leaves it there. The
+      proof follows when the command has produced something,
+      repeating its command. What marks the item done is still
+      --status done, which refuses without that pair; a full pair
+      given with --status pending is accepted, stored, and leaves the
+      item pending. Evidence is recorded and status is asserted, and
+      they were never the same act. Repeating rather than attaching, deliberately: attaching
+      would make an announcement addressable and give a done-claim a
+      second route, and TKT-585 spent this morning closing the first
+      cheap one.
+      This adds a state BEFORE done and does not weaken the gate.
+      Marking done still costs a matching pair, an empty supplied
+      half is still refused, and six assertions that were green
+      before the change are green after.
+      THE ENGINE HALF REACHES CHECKLIST ITEMS TOO, and a reader
+      looking for why checklist_update stopped discarding should not
+      have to find this card by its title. The early return was never
+      scoped to one family, so leaving checklists dropping a lone
+      command would have meant ADDING a condition to preserve the bug
+      for one of them. Q-092: "Fix the engine for both, render the
+      clock on required actions only." Only required actions get the
+      clock.
+      SIX things the change created rather than found, two caught
+      while building and four by a code review that sent the card
+      back to tests-red. All six share one cause: a new kind of thing
+      now flows through everything that reads the proof field, and
+      each of those readers had to learn which of two states it is
+      looking at.
+      The per-pair loop checked --proof for emptiness
+      unconditionally, which would have refused the very state this
+      adds; it now checks only a proof that was actually offered.
+      _log_proof_gate fired on "did any evidence arrive", so
+      announcing wrote 'Marked "..." done' into gate_passing_log -
+      the board's own record of what was proved.
+      _refuse_reused_proof signatures a missing proof as the empty
+      string, so two items announcing the same command were charged
+      with reusing evidence that did not exist. Announcements are now
+      filtered out before it signatures anything.
+      An announcement could overwrite evidence behind a done claim:
+      renaming a done item while announcing replaced its proof with a
+      command-only entry and left the status done, which is the state
+      TKT-583 and TKT-585 exist to prevent, reached from a new
+      direction. Announcing over a done item is refused unless
+      --status re-opens it deliberately.
+      That guard and the gate-log condition both read the RESULTING
+      status rather than what the caller passed - keyed off the
+      argument alone, a done item given fresh evidence without
+      repeating --status stored it and logged nothing.
+      And the empty-half refusal forks on which half is empty rather
+      than on the status, so a blank --proof is no longer told that an
+      empty command announces nothing.
+      An announcement that is never proved stays visible. That is the
+      point rather than a leak: an item saying it started and never
+      finished is something somebody should see.
+      The usage line changes shape with the behaviour, from
+      [--command TEXT --proof TEXT ...] to
+      [--command TEXT [--proof TEXT] ...] - the proof nested inside
+      the command rather than beside it, because the two are required
+      together only for done.
+      20 assertions in t/418 and 6 in a real browser, which assert
+      the four states are four DISTINCT marks and that an announced
+      item still offers its checkbox - or the clock would have
+      quietly become a second way of saying done.
+
 4.63  2026-08-28
 
     - TKT-601. The dashboard reads a required action's status the way

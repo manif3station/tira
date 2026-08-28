@@ -124,9 +124,17 @@ for my $command (qw(checklist.update required-action.update)) {
 
 # --- a line that names them is not enough if it reads as optional -------------
 #
-# The pair is required together and repeatable. Written as two separate
-# bracketed optionals it would be true about the parser and false about the
-# command, which is the failure this whole file is about one level down.
+# The pair is required together and repeatable FOR A DONE CLAIM. Written as two
+# separate bracketed optionals it would be true about the parser and false about
+# the command, which is the failure this whole file is about one level down.
+#
+# Since TKT-628 in 4.64 a --command is also usable alone, to record what is
+# being run before it can be proved, so the line nests the proofs inside the
+# commands rather than pairing them off: [--command TEXT ... [--proof TEXT ...]].
+# That shape is a summary and not a grammar - the parser declares both as
+# independent repeatable options and the engine pairs them by count afterwards -
+# but it is the summary that misleads least, because a proof cannot arrive
+# without a command and, once any proof is given, the counts must match.
 
 for my $command (qw(checklist.update required-action.update)) {
     my $line = Tira::CLI::_skills_usage_line($command) // '';

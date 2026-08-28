@@ -497,6 +497,10 @@ for test in "$tests"/*.js; do
         # card-editors does - the dialog is filled from /record, which a static
         # render does not carry. TKT-601.
         mixed-case-done.js)   run_one "$name" "$browsing_html" "$live_data" ;;
+        # Four required-action states on one card, including the announced one
+        # that has a command and no proof. Needs the LIVE page for the same
+        # reason its neighbours do - the dialog is filled from /record. TKT-628.
+        announced-command.js) run_one "$name" "$browsing_html" "$live_data" ;;
         column-editor.js)     run_one "$name" "$live_html" ;;
         policy-editor.js)     run_one "$name" "$live_html" ;;
         tasklist-section.js)  run_one "$name" "$live_html" ;;

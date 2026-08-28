@@ -5733,9 +5733,30 @@ C<--command>/C<--proof> pair it refuses C<--status done> without, and another
 board's agent wrote four calls from it, suppressed their output, and believed
 four entries were ticked while the checklist read 0/9.
 
-The pair is written as one bracketed unit, C<[--command TEXT --proof TEXT ...]>,
-rather than two independent optionals: it is required together and repeatable,
-and two brackets would be true about the parser and false about the command.
+The pair was written as one bracketed unit, C<[--command TEXT --proof TEXT ...]>,
+rather than two independent optionals: it was required together and repeatable,
+and two brackets would have been true about the parser and false about the
+command.
+
+Since 4.64 that is no longer true and the line says
+C<[--command TEXT ... [--proof TEXT ...]]> - the proofs nest inside the
+commands as a group rather than pairing off one bracket at a time.
+
+The nesting is doing exact work and the obvious shorter form is WRONG. Written
+C<[--command TEXT [--proof TEXT] ...]> it would say each command may
+independently carry a proof, so one command with a proof beside one without
+would be legal. It is not: give any proofs at all and the counts must match,
+"Every --command needs a matching --proof". Either all of them are proved or
+none are. Measured, after writing that shorter form first and checking it. A C<--command> is now usable on its own, which
+records what is being run and leaves the item where it is; the proof arrives
+afterwards, repeating its command. What marks the item done is C<--status
+done>, which refuses without the pair - a full pair given with C<--status
+pending> is accepted, stored, and leaves the item pending. So the pair is still
+required TOGETHER to mark something done, and no longer required at all to say
+something has started. The nesting is what makes both true in one line, and it is the reason
+this entry is worth reading rather than a formatting note: the bracket shape is
+a claim about when the flags are needed, and TKT-628 changed when. TKT-575,
+TKT-628.
 Forty-nine commands still fall back to C<[options]>; t/410 holds that set as a
 ledger so a new one cannot join it silently, and reads C<_usage> itself rather
 than the SKILLS.md lookup, since what matters is what C<--help> prints.

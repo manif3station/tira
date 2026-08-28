@@ -662,6 +662,17 @@ and `sha`, in an envelope with `count` and `total_size`; attachment
 `--fields` keeps `sha`; `--since` filters by `added_at`; these options
 require `--ref`. The computed record field `attachment_count` is
 selectable via `--fields` for board-wide evidence coverage.
+Since 4.69 `content_type` is the one answer to "can this be read": a
+named list decides the extensions where guessing would be worse than
+knowing — a `.pl` file is Perl whatever its first bytes look like, and a
+`.zip` whose bytes happen to read as printable must not be shown as
+text — and everything else is decided by reading the first 8KB, where a
+NUL byte or more than a tenth of the bytes outside the printable range
+means binary. Nothing to examine means refusal rather than a guess. The
+browser viewer holds no extension list of its own; it reads this field,
+and the twelve languages named on TKT-645 are highlighted in the page by
+an embedded 4.5KB tokeniser, since the board loads nothing over the
+network.
 Server-side filtering is **Implemented.** on list and export:
 `--where` is repeatable and clauses combine with AND. `FIELD=VALUE` is
 string equality; `FIELD=` (empty value) matches a field that is empty or

@@ -1,5 +1,51 @@
 Revision history for Tira
 
+4.69  2026-08-28
+
+    - TKT-645. A source file attached to a card can be read on the card.
+      The viewer previewed nine extensions and offered every other file
+      as a download, so a .pl attached on the owner's own instruction
+      came back as "this file cannot be shown". Whether something is
+      text is now decided once, in the engine: named lists cover the
+      extensions where guessing would be worse than knowing - a .pl file
+      is Perl whatever its first bytes look like, and a .zip whose bytes
+      happen to read as printable must never be shown as text - and
+      anything else is decided by reading the first 8KB, where a NUL
+      byte or more than a tenth of the bytes outside the printable range
+      means binary. Nothing to read means refusal rather than a guess.
+    - The viewer's own extension list is gone. It kept a second one
+      while the engine already computed a content type, which is the
+      same fault TKT-224, TKT-671, TKT-681 and TKT-657 each fixed in
+      their own corner this week: two readers of one question. The
+      viewer now reads content_type and holds no list.
+    - The twelve languages named on the card are highlighted by a 4,572
+      byte tokeniser embedded in the page. The board makes no network
+      requests, so a CDN highlighter was never available; highlight.js
+      carrying these languages is roughly twenty times that size. HTML
+      and XML needed their own branch - tags are not keywords.
+    - The card dialog is given content_type, which it previously was
+      not. record_show does not compute the field and still does not:
+      that stats the stored file and sometimes reads it, on every gate,
+      police pass and board render. The detail provider asks
+      attachment_list, which already computes it, and stamps the answer
+      on by sha - comment, question and answer attachments included,
+      since the viewer opens those from the same strip. Without this the
+      preview was dead on every real card while passing in a fixture
+      that supplied the field the server did not.
+    - The dialog's stamp is keyed on sha and extension together, not on
+      sha alone. Attachments are content-addressed, so the same bytes
+      attached under two names are two entries sharing one sha while
+      needing different types - a valid SVG is also valid text, and the
+      .svg copy came back as text/plain and would have opened in the
+      text pane. Found in review and reproduced before it was fixed.
+    - t/424 asserts the served dashboard script parses. The tokeniser
+      needed a literal backslash, the page's JavaScript is built inside
+      a Perl q{} where \\ collapses to one, and the browser was served a
+      quote escaping itself - the whole 98KB script failed to load. All
+      8,602 tests passed against that dead board, because the markup
+      they assert was still correct. node --check now runs over the
+      served script inside the suite.
+
 4.68  2026-08-28
 
     - TKT-657. Every reader of a required item's status now agrees that

@@ -2473,6 +2473,48 @@ them; the manual carries the worked use cases behind them.
 - `tira.attachment.remove --sha SHA256 [--extension EXT] [-o FORMAT]`
 
 
+**What previews in the viewer, since 4.69.** Any attachment the board serves as
+text opens as text, and the twelve languages TKT-645 named - Perl, Python,
+Java, Go, Rust, PHP, JavaScript, CSS, HTML, XML, C and C++ - are syntax
+highlighted. Shell, Ruby, SQL and the config family are highlighted too, not
+because the card asked for them but because they share their siblings'
+lexical surface and cost nothing once those are in. Before this, nine
+extensions previewed and everything else answered "Preview is not supported for
+this file in this browser", so a program attached to a card could not be read
+from the board at all.
+
+**The engine decides and the viewer asks.** `_attachment_content_type` names
+the extensions it knows are text and the ones it knows are binary; anything in
+neither is decided by reading the file, where a NUL byte or more than a tenth
+of the first 8KB outside the printable and common-whitespace range means
+binary. The viewer keeps no extension list of its own any more - it reads the
+`content_type` the engine already attaches to every entry. Two lists that had
+to agree were what made a `.pl` file refused by one and called binary by the
+other.
+
+**A genuinely binary attachment still refuses** rather than rendering as
+mojibake, which is why this is a default with two named lists rather than "show
+everything". An unknown extension with nothing to read - no content, an empty
+file, a missing one - also refuses: that is where offering the download is the
+honest answer.
+
+**The highlighter is 4.5KB and embedded**, not fetched. The board makes no
+network requests, so a CDN highlighter was ruled out; the twelve languages
+share their lexical surface, so one tokeniser with a per-language keyword set
+covers them at roughly a twentieth of `highlight.js`. Markup has its own
+branch, because tags are not keywords and `<!-- -->` is neither `//` nor `#`.
+An unrecognised language renders as plain text.
+
+**The dialog is given the content type; `record_show` does not compute it.**
+Deciding an attachment's type stats the stored file and sometimes reads its
+first bytes, and a record is read on every gate, every police pass and every
+board render — so `tira.ticket.show` still returns attachments without the
+field, and `tira.attachment.list --meta-only` is where it is computed. The
+browser's detail provider asks there when a card is opened and stamps the
+answer on by `sha`, comment and question attachments included, since the viewer
+opens those from the same strip. If the attachment store cannot be read the
+card still opens: the cost is the preview, not the card.
+
 ### Records: SOWs, epics and tickets
 
 The three boards carry the same nine verbs. `TYPE` below is one of `sow`,

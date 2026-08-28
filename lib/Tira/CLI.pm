@@ -997,6 +997,63 @@ sub _free_port {
     return $port;
 }
 
+# The viewer decides whether an attachment can be shown as text from its
+# content_type and from nothing else - it keeps no extension list of its own,
+# which is the point of TKT-645. record_show does not carry that field, and
+# should not: computing it stats the stored file and sometimes reads its first
+# bytes, and a record is read on every gate, every police pass and every board
+# render. attachment_list already computes it on request, from the one
+# implementation, so the card dialog asks there and stamps the answer on by sha.
+#
+# Comment, question and answer attachments are stamped too, because the viewer
+# opens those from the same strip and cannot tell where an entry came from.
+#
+# Failure is deliberately silent: an unreadable attachment store costs the
+# preview, not the card.
+sub _stamp_attachment_types {
+    my ( $tira, $project, $ref, $record ) = @_;
+    return if ref $record ne 'HASH';
+    my $listed = eval {
+        $tira->attachment_list(
+            project => $project, ref => $ref, meta_only => 1 );
+    } or return;
+    my %type_of;
+    for my $entry ( @{ $listed->{attachments} // [] } ) {
+        next if !defined $entry->{sha} || !defined $entry->{content_type};
+        $type_of{ _attachment_key($entry) } = $entry->{content_type};
+    }
+    return if !keys %type_of;
+
+    my @lists = ( $record->{attachments} );
+    push @lists, $_->{attachments} for @{ $record->{comments} // [] };
+    for my $question ( @{ $record->{questions} // [] } ) {
+        push @lists, $question->{attachments};
+        push @lists, [ $question->{voice} ] if $question->{voice};
+        push @lists, $question->{answer}{attachments} if $question->{answer};
+    }
+    for my $list (@lists) {
+        next if ref $list ne 'ARRAY';
+        for my $entry ( @{$list} ) {
+            next if ref $entry ne 'HASH' || !defined $entry->{sha};
+            my $key = _attachment_key($entry);
+            next if !exists $type_of{$key};
+            $entry->{content_type} = $type_of{$key};
+        }
+    }
+    return;
+}
+
+# Attachments are content-addressed, so the sha alone does not identify one:
+# the same bytes attached under two names are two entries sharing a sha, and
+# the type follows the name as much as the content. A valid SVG is also valid
+# text, and keying on the sha alone stamped both copies with whichever the
+# listing reached last - the .svg came back as text/plain and would have opened
+# in the text pane instead of rendering. Found by review, then reproduced.
+sub _attachment_key {
+    my ($entry) = @_;
+    return join "\0", $entry->{sha} // '', lc( $entry->{extension} // '' );
+}
+
 # One provider set feeds both the CLI-launched Dancer2 server and the
 # standalone dashboard.psgi, so browser mutations can never drift from the
 # engine's validated command surface.
@@ -1095,6 +1152,7 @@ sub browser_providers {
                 ( defined $payload->{type} ? ( type => $payload->{type} ) : () ),
                 ref => $payload->{ref},
             );
+            _stamp_attachment_types( $tira, $project, $payload->{ref}, $record );
             return $json->encode($record);
         },
         # The browser goes through the same subroutines the command line goes
@@ -5749,6 +5807,31 @@ A predicate rather than a corrected expression because the fault had recurred
 three times in a day across the dashboard, C<tools/card-holes> and here, and
 four inline comparisons cannot be guarded as a set - a named predicate can be
 grepped for, which is what makes a fourth drift catchable. TKT-657.
+
+=head2 _stamp_attachment_types
+
+Puts C<content_type> on the attachments the card dialog is about to be shown.
+
+The browser viewer decides whether a file can be rendered as text from that
+field and from nothing else - it holds no extension list of its own, which is
+what TKT-645 was for. C<record_show> does not compute the field, so the dialog
+was asking a question its payload could not answer and offering the download
+message for every source file on every real card.
+
+C<record_show> is deliberately left alone. Computing a content type stats the
+stored file and sometimes reads its first 8KB, and a record is read on every
+gate, every police pass and every board render; C<attachment_list> already
+computes it, from the one implementation, when asked. So the type is fetched
+there and stamped on by C<sha> and extension together - attachments are
+content-addressed, so the same bytes under two names share a sha while
+legitimately needing different types, and a valid SVG is also valid text.
+
+Comment, question, voice and answer attachments are stamped as well: the viewer
+opens them from the same strip and has no way to tell where an entry came from.
+
+Failure is silent on purpose. An attachment store that cannot be read costs the
+preview, not the card - the alternative is a dialog that will not open at all.
+TKT-645.
 
 =head2 _populate_entry_required_actions
 

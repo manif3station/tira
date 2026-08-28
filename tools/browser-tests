@@ -497,6 +497,11 @@ for test in "$tests"/*.js; do
         # card-editors does - the dialog is filled from /record, which a static
         # render does not carry. TKT-601.
         mixed-case-done.js)   run_one "$name" "$browsing_html" "$live_data" ;;
+        # A card carrying a .pl and a binary, opened in the attachment viewer.
+        # The LIVE page for the same reason as the two above - the dialog and
+        # its viewer are filled from /record, which a static render has not
+        # got. TKT-645.
+        source-attachment-preview.js) run_one "$name" "$browsing_html" "$live_data" ;;
         # Four required-action states on one card, including the announced one
         # that has a command and no proof. Needs the LIVE page for the same
         # reason its neighbours do - the dialog is filled from /record. TKT-628.

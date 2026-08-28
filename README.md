@@ -95,6 +95,12 @@ words: "either they share one implementation, or a test asserts they agree". The
 failed in opposite directions — one refused a good push, and the other, which
 catches a finished checklist under an unfinished column, never fired against
 `Done` at all.
+An attachment previews if the board can read it as text, and the twelve
+languages listed on TKT-645 are syntax highlighted by a 4.5KB tokeniser
+embedded in the page — the board makes no network requests, so a CDN
+highlighter was never an option. A genuinely binary file still refuses rather
+than rendering as mojibake, and an unknown extension is decided by reading its
+first bytes rather than by its name.
 The board-wide police policy engine — the 40 rules police itself watches,
 separate from a column's own required-action template — is editable from
 the browser too: a Policies button opens a modal listing every declared,

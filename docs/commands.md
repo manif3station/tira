@@ -990,10 +990,50 @@ a push eleven ways and runs no test suite:
 | 1 | the version against what is shipping | a shipped file changed and `VERSION` did not |
 | 2 | the board backup | `tools/board-backup` is missing, or it fails |
 | 3 | live-card completeness | a card this push is about is incomplete |
-| 4 | `tools/card-holes` | a card has holes in it |
+| 4 | `tools/card-holes` | a card has holes in it, or its checklist and its column disagree |
 | 5 | `tools/docs-match-code` | the documentation and the code disagree |
 | 6 | `tools/docs-examples-run` | a documented example is not what the command accepts |
 | 7 | `tools/browser-tests` | a browser test fails, or its runner is absent |
+
+**How the gate decides a checklist is finished, since 4.66.** For the decision
+that matters - is anything outstanding at all - it does not decide. It asks.
+A checklist item ticked as `Done` - the natural capitalisation, and the one the
+column templates themselves use for `To Do` - used to be finished to the card
+and unfinished to the gate, because the engine lowercases before comparing and
+`tools/card-holes` did not. That refused the push of 4.57, 4.58 and 4.59 over
+items every one of which was marked done. `record_list` already attaches
+`checklist_done` and `checklist_total` to every row, so the gate reads the
+engine's own count for that. Two readers, one definition - the same arrangement
+the definition of a complete card already uses (TKT-224).
+
+Be precise about what that does and does not cover, because the difference is
+where the next bug would go. A checklist counts as finished only when the
+engine's count says so **and** no item on the card contradicts it - the count
+confirms, it does not overrule. The two cannot disagree on a record from
+`record_list`, since both counts are computed over that very array in the same
+call, so requiring agreement costs nothing; it is there because a count-only
+shortcut let `stalled()` announce "every checklist item is done" beside an item
+visibly marked `To Do`, and a gate that contradicts what it prints is worse
+than one that is merely wrong.
+Working out **which items to name** in the message is still the gate's own, and
+it still compares each item's status itself - case-insensitively now, so the
+two agree. That is the second limb of what the card asked for: "either they
+share one implementation, or a test asserts they agree." `t/420` is the test,
+and it greps this directory so a new case-sensitive comparison cannot appear
+quietly. TKT-671.
+
+The two places that compared statuses failed in **opposite** directions, which
+is worth knowing before touching either. `premature()` counted a `Done` item as
+outstanding and refused a good push - loud, and the reason the card exists.
+`stalled()`, which catches a card whose checklist is finished while its column
+says otherwise, took a `Done` item as proof the checklist was *un*finished and
+returned early, so against `Done` it was permanently blind. A fix to only the
+first would have traded a false alarm for a silence.
+
+The unfinished-item message names at most three and now says how many it did
+not name. The count was always honest and the list never was: `4 checklist
+item(s) unfinished:` followed by three names, with nothing to mark the fourth's
+absence. It ends `(and 1 more)`.
 
 Steps 5 to 7 run last deliberately. Documentation edited after a gate has
 shipped a broken build here twice, so anything running before the edits proves

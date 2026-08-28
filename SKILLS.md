@@ -1307,6 +1307,19 @@ a collapsed composer that expands on demand with a formatting bar; comment
 text is stored as markdown and rendered through a DOM-building formatter
 (bold, italic, inline code, bullet lists) that never injects raw HTML.
 
+Since 4.66 the push gate does not decide for itself whether a card's checklist
+is finished - it reads the engine's `checklist_done`/`checklist_total`. It
+still picks out which individual items to name in its message, and does that
+case-insensitively so the two agree. A card
+whose items were ticked as `Done` rather than `done` used to be complete to the
+card and incomplete to the gate, which refused the push of 4.57, 4.58 and 4.59
+over items that were all marked done. The two places in `tools/card-holes` that
+compared statuses failed in opposite directions: one refused a good push, and
+the other - the check for a finished checklist under an unfinished column - was
+silently blind to `Done` and never fired. The unfinished-item message also says
+how many items it did not name, where before it listed three of four and marked
+the gap in no way at all. TKT-671.
+
 Since 4.62 the push gate does not run the test suite. It ran the full suite
 with coverage in a container before every push - 138 of the hook's 266
 lines and roughly twenty minutes - over a tree the `verify` column had already

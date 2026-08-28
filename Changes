@@ -1,5 +1,77 @@
 Revision history for Tira
 
+4.66  2026-08-28
+
+    - TKT-671. An item ticked as 'Done' was finished to the card and
+      unfinished to the push gate.
+      It stopped a real release rather than being found by looking. The
+      push of 4.57, 4.58 and 4.59 was refused with "TKT-625 is in push
+      with 1 checklist item(s) unfinished" and "TKT-626 is in push with
+      4 checklist item(s) unfinished" - and every one of those items
+      was marked done. They were stored as 'Done', which is the natural
+      capitalisation and matches the 'To Do' the column templates
+      themselves use. lib/Tira.pm lowercases before comparing;
+      tools/card-holes did not, so the card counted 4 of 4 and the gate
+      counted 3. Unblocked at the time by normalising nine items to
+      lowercase across three cards, which the card itself recorded as a
+      workaround rather than a fix: the next agent to write 'Done' hits
+      it again.
+      THE TWO SITES FAILED IN OPPOSITE DIRECTIONS, and only the loud
+      one had been noticed. premature() counted a 'Done' item as
+      waiting and refused a good push. stalled() took a 'Done' item as
+      proof the checklist was unfinished and returned early - so the
+      check that exists because Michael caught TKT-005 fully ticked and
+      still sitting in implement was, against 'Done', permanently
+      blind. One shouted falsely and the other stayed quiet falsely,
+      which is why lowercasing the reported line would have traded a
+      false alarm for a silence.
+      The gate no longer holds an opinion about the question that
+      matters. record_list already attaches checklist_done and
+      checklist_total to every row, and a checklist counts as finished
+      only when that count says so AND no item on the card contradicts
+      it - the count confirms rather than overrules. A review asked
+      what a count-only shortcut does when the two disagree, and the
+      answer was that stalled() announces "every checklist item is
+      done" beside an item visibly marked To Do. They cannot disagree
+      on a record from record_list, both being computed over the same
+      array in the same call, so requiring agreement costs nothing and
+      removes the one case where the gate would contradict what it
+      prints. Working out WHICH items to name in
+      the message is still card-holes' own, comparing each status
+      itself - case-insensitively now, so the two agree. The
+      completeness decision has one implementation; the naming has a
+      second one that t/420 holds to agreeing, which is the card's own
+      acceptance criterion in its own words: "either they share one
+      implementation, or a test asserts they agree." Said precisely
+      here because the first draft of the documentation claimed the
+      gate had stopped classifying items at all, which a review caught
+      as an overstatement - the distinction is where the next drift
+      would go.
+      That is the arrangement TKT-224 already established for the
+      definition of a complete card: two readers, one definition,
+      nothing to drift. Lowercasing both sites would have left two
+      implementations that merely happened to agree, which the card's
+      own acceptance criteria warn against.
+      The truncated list says so now. The count was always honest and
+      the list never was - "4 checklist item(s) unfinished:" followed
+      by three names, with nothing to say the fourth had been dropped.
+      It ends "(and 1 more)".
+      And a ledger, which is the only part that stops a fifth: this is
+      the FOURTH instance of one fault. The dashboard had it (TKT-601),
+      these two, and the move-in reminder still does (TKT-657, its own
+      card). A test now greps tools/ for a case-sensitive comparison of
+      an item's status and fails when one appears.
+      Three faults in the work itself, each recorded on the card rather
+      than quietly fixed. The ledger first grepped for the bare string
+      and matched a legitimate COLUMN comparison, so it would have
+      stayed red after the real fix and taught its next reader to
+      loosen it. The docstring explaining the fix quoted the old
+      expression and tripped the ledger it was describing - the same
+      way a POD comment tripped its own test on TKT-601. And the
+      truncation assertion forbade the slice outright, when the fix
+      still slices and should: the fault was never the slice, it was
+      the silence beside it.
+
 4.65  2026-08-28
 
     - TKT-639. Police notices when a task and the card it names tell two

@@ -213,6 +213,53 @@ if SHIPPED_FROM is None:
         'card counts as shipped.')
 
 
+def outstanding(record):
+    """Which checklist items are not finished, asked of the engine.
+
+    TKT-671. This file used to decide for itself, comparing each item's raw
+    status text against the word done case-sensitively, in two places, while
+    lib/Tira.pm lowercases before comparing. (The old expression is
+    deliberately not quoted here: t/420 greps this directory for it, so writing
+    it even inside a docstring would fail the ledger that keeps it out - which
+    is exactly how this docstring failed on its first run.) An item ticked as
+    'Done', which is the natural capitalisation and matches the 'To Do' the
+    column templates themselves use, was therefore finished to the card and
+    unfinished to the gate. That refused the push of 4.57, 4.58 and 4.59.
+
+    The two sites failed in OPPOSITE directions, which is why lowercasing them
+    would not have been enough. premature() counted 'Done' as waiting and
+    refused a good push - loud, and noticed. stalled() took 'Done' as proof the
+    checklist was unfinished and returned early, so the check that exists
+    because Michael caught TKT-005 fully ticked and still in implement was,
+    against 'Done', permanently blind. One shouted falsely and the other stayed
+    quiet falsely.
+
+    So the gate stops holding an opinion. record_list already attaches
+    checklist_done and checklist_total to every row (lib/Tira.pm), so the
+    question 'is anything outstanding' is answered by the engine and this file
+    only works out WHICH items to name. Same arrangement as the definition of a
+    complete card, which this file asks for rather than keeping (TKT-224): two
+    readers, one definition, nothing to drift.
+    """
+    checklist = record.get('checklist') or []
+    waiting = [c for c in checklist
+               if str(c.get('status') or '').lower() != 'done']
+    done, total = record.get('checklist_done'), record.get('checklist_total')
+
+    # Finished only when BOTH say so. The two cannot disagree on a record from
+    # record_list - checklist_done and checklist_total are computed by
+    # _checklist_progress over this very array, in the same call - so requiring
+    # them to agree costs nothing today. It is here for the day they can: a
+    # review asked what happens if the counts say complete while the array
+    # still shows an unticked item, and the answer under a count-only
+    # shortcut was that stalled() announces 'every checklist item is done'
+    # beside an item that visibly is not. A gate that contradicts what it
+    # prints is worse than one that is merely wrong.
+    if done is not None and total is not None and done >= total and not waiting:
+        return []
+    return waiting
+
+
 def premature(record, ended):
     """A card in a finished column with work still unticked.
 
@@ -231,11 +278,18 @@ def premature(record, ended):
     # this file was making in three other places.
     if column not in ended and column != 'push':
         return None
-    waiting = [c for c in checklist if c.get('status') != 'done']
+    waiting = outstanding(record)
     if not waiting:
         return None
+    # Named up to three, and said so when there are more. The count was always
+    # honest and the list never was: the failure that raised TKT-671 read
+    # "TKT-626 is in push with 4 checklist item(s) unfinished:" and then listed
+    # three, with nothing to say the fourth had been dropped.
+    shown = '; '.join(c.get('item', '?') for c in waiting[:3])
+    if len(waiting) > 3:
+        shown += f' (and {len(waiting) - 3} more)'
     return (f"is in {column} with {len(waiting)} checklist item(s) unfinished: "
-            + '; '.join(c.get('item', '?') for c in waiting[:3]))
+            + shown)
 
 
 def stalled(record):
@@ -249,7 +303,7 @@ def stalled(record):
     checklist = record.get('checklist') or []
     if not checklist:
         return None
-    if any(item.get('status') != 'done' for item in checklist):
+    if outstanding(record):
         return None
     column = record.get('column')
     if column not in FLOW:

@@ -81,6 +81,18 @@ while the engine had been case-insensitive since TKT-434, so an item marked
 `Done` was finished to the gate and an empty box to whoever was looking — and
 the box was not merely wrong, it offered to redo work already done. Nothing is
 normalised on disk: `Done` stays `Done` and is simply read correctly.
+A card's checklist is read the same way, and until 4.66 the push gate was not:
+it compared each item's status against the literal `done` and refused the
+release of 4.57, 4.58 and 4.59 over items that were every one of them marked
+done, as `Done`. The gate now reads the engine's own `checklist_done` to decide
+whether anything is outstanding at all; it still works out *which* items to
+name for the message itself, and does that case-insensitively, matching the
+engine. So the decision has one implementation and the naming has a second one
+that a test holds to agreeing - which is what the card asked for, in its own
+words: "either they share one implementation, or a test asserts they agree". The same file compared statuses in two places and they
+failed in opposite directions — one refused a good push, and the other, which
+catches a finished checklist under an unfinished column, never fired against
+`Done` at all.
 The board-wide police policy engine — the 40 rules police itself watches,
 separate from a column's own required-action template — is editable from
 the browser too: a Policies button opens a modal listing every declared,

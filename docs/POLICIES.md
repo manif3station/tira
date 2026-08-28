@@ -484,6 +484,14 @@ bridge log — outside the project entirely.
 `--age` means knowing how long a push actually takes here, because a grace
 shorter than the gate reports a push that is already running.
 
+A note for anyone declaring `checklist-unmoved` or `checklist-idle`: the
+engine's checklist counts are case-insensitive, and since 4.66 so is every
+comparison the push gate makes against them. An item ticked as `Done` counts as finished to police, to the
+card and to the push gate alike. It did not always: until 4.66 the gate kept
+its own case-sensitive comparison and refused a release over items the card
+counted complete, so a rule that looked wrong could be right and the reader
+that disagreed was the one at fault. TKT-671.
+
 Since 4.62 that is seconds rather than twenty minutes. The push gate stopped
 running the test suite - it had been re-running, over a tree the `verify` column
 had already proved, the same suite verify ran; the last release to pay for it

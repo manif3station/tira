@@ -1171,6 +1171,25 @@ content only, accepts a Perl regular expression, returns before/after diffs,
 and performs no write with `--dry-run`. Neither command rewrites gate or
 evidence observations.
 
+`tira.import` and `tira.replace` are the only two commands that read
+`--dry-run`, and every other command now refuses it by name rather than
+accepting it and writing anyway. One global option spec parses every flag for
+every command, so `--dry-run` was accepted everywhere and honoured in two
+places; `tira.ticket.create --dry-run` created the card and printed it back as
+though nothing unusual had been asked. It cost eight junk cards on this board -
+TKT-617 through TKT-624, every one discarded afterwards - written by probes that
+all carried the flag believing it prevented a write. The refusal names the command, says the change is made
+rather than previewed, and points at the two commands that do honour it.
+
+It is written as an allow-list naming `import` and `replace`, not as a list of
+the commands that swallowed the flag, so a verb nobody thought to test is
+refused too - `tira.comment.add --dry-run` is refused by the same line that
+refuses `tira.ticket.create --dry-run`. That shape is available because
+`--dry-run` has exactly two readers and they can be named; it is not a general
+per-command option list, which the neighbouring `%MISLEADING_OPTIONS` guard
+explains it deliberately is not, because deriving one would refuse things that
+work today. TKT-625.
+
 Dashboard scans each selected board once and groups records by configured
 column in memory. Column count therefore does not multiply JSON file reads;
 configured order and optional Discard inclusion remain unchanged.

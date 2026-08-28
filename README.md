@@ -278,6 +278,10 @@ Import applies the complete ref-keyed change set transactionally. Gate and
 evidence corrections append annotations; their original observations remain
 unchanged.
 
+`tira.import` and `tira.replace` are the only commands that honour `--dry-run`.
+Every other command refuses it by name instead of accepting it and writing
+anyway - `tira.ticket.create --dry-run` used to create the card. TKT-625.
+
 SOWs, epics, and tickets share planning metadata. For example:
 
 ```bash

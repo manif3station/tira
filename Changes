@@ -1,5 +1,50 @@
 Revision history for Tira
 
+4.58  2026-08-28
+
+    - TKT-625. A flag whose whole meaning is DO NOT WRITE no longer
+      writes.
+      One global option spec parses every flag for every command, so
+      --dry-run was accepted everywhere and read in exactly two
+      places: bulk_import and replace_records. tira.import --dry-run
+      previewed and wrote nothing, tira.replace --dry-run previewed
+      and wrote nothing, and tira.ticket.create --dry-run CREATED THE
+      CARD and printed it back as though nothing unusual had been
+      asked.
+      Measured at a cost rather than imagined. Probes were run to
+      discover which options ticket.create accepts, all but one of
+      them carrying --dry-run in the belief that it prevented a write.
+      They left eight live junk cards on this board - TKT-617 through
+      TKT-624 - every one discarded afterwards. The one probe that was
+      refused was refused correctly: --affects-versions, with a
+      did-you-mean pointing at --affects-version, which is TKT-298's
+      unknown-option handling working and writing nothing.
+      Every command but import and replace now refuses the flag,
+      naming itself, saying the change is made rather than previewed,
+      and pointing at the two that honour it.
+      Written as an allow-list naming the two readers, not a list of
+      the commands that swallowed it. A list of offenders can only
+      cover the verbs somebody thought of, and what was owed was every
+      verb that shares the fault - so tira.comment.add --dry-run is
+      refused by the same line as tira.ticket.create --dry-run,
+      without ever being named. That shape is available only because
+      this flag has two readers; it is not the general per-command
+      option catalogue %MISLEADING_OPTIONS declines to be, for the
+      reason recorded there: deriving one would refuse things that
+      work today.
+      The position was a second fault inside the first, found by the
+      fix failing. Added beside %MISLEADING_OPTIONS it changed
+      nothing, because that check sits with the %method dispatch and
+      record.* returns from the if/elsif chain some seven hundred lines
+      earlier. The existing misleading-option guard had therefore
+      never run for any create verb since it was written. Both tables
+      now sit in the block every command passes through, which also
+      gives assign.set's --assignee guard the reach it was believed to
+      have.
+      Only refusal was built. Honouring the flag - returning what
+      would be created and writing nothing - is a larger change with
+      its own tests, and is deliberately not here.
+
 4.57  2026-08-28
 
     - TKT-598. A refusal now gives you the ids it tells you to use,

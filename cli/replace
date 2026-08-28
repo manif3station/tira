@@ -11,4 +11,11 @@ __END__
 Tira replace - Preview or apply project-wide text replacement
 =head1 DESCRIPTION
 Performs field-scoped regex replacement over mutable record content.
+
+One of the two commands that read C<--dry-run>; C<tira.import> is the other.
+With the flag it returns before/after diffs and performs no write. Every other
+command refuses C<--dry-run> rather than accepting it and writing anyway, which
+is what they used to do - one global option spec parses every flag for every
+command, so the flag was accepted everywhere and honoured here and in
+C<tira.import> alone. TKT-625.
 =cut

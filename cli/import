@@ -11,4 +11,11 @@ __END__
 Tira import - Preview or apply ref-keyed bulk record changes
 =head1 DESCRIPTION
 Reads an explicit JSON change object and delegates transactional updates.
+
+One of the two commands that read C<--dry-run>; C<tira.replace> is the other.
+With the flag it validates the whole set and returns field-level diffs without
+writing. Every other command refuses C<--dry-run> rather than accepting it and
+writing anyway, which is what they used to do - one global option spec parses
+every flag for every command, so the flag was accepted everywhere and honoured
+here and in C<tira.replace> alone. TKT-625.
 =cut

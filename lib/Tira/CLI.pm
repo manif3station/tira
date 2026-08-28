@@ -2940,6 +2940,45 @@ sub _invoke {
       if defined $option->{password} && $command !~ /\Alogin\.(?:register|check)\z/;
     die "A column layout belongs to the column.apply command\n"
       if defined $option->{columns_json} && $command ne 'column.apply';
+    # Both option tables are checked HERE rather than beside the %method
+    # dispatch they were written next to. That placement was the bug within the
+    # bug: %method is reached only after a long if/elsif chain, and record.*
+    # returns from it some seven hundred lines earlier - so a guard sitting
+    # with %method never ran for the create verbs, which are exactly the ones
+    # --dry-run writes records on. Every command passes through this block.
+    # TKT-625.
+    for my $misleading ( @{ $MISLEADING_OPTIONS{$command} // [] } ) {
+        my ( $given, $meant ) = @{$misleading};
+        next if !defined $option->{$given} || $option->{$given} eq '';
+        ( my $flag = $given ) =~ tr/_/-/;
+        ( my $instead = $meant ) =~ tr/_/-/;
+        die "$command does not act on --$flag. Use --$instead, which is what it reads.\n";
+    }
+    # The other shape of the fault %MISLEADING_OPTIONS catches: an option this
+    # command does not act on, for which there is no "you meant this one" - it
+    # simply is not implemented here, and its name promises the opposite of what
+    # happens. One global @spec means every command parses --dry-run; only
+    # bulk_import and replace_records read it. So tira.import --dry-run previews
+    # and writes nothing, and tira.ticket.create --dry-run CREATED THE CARD.
+    #
+    # Measured at a cost: eight probes run to discover which options
+    # ticket.create accepts, all but one carrying --dry-run in the belief that it
+    # prevented a write, eight live junk cards on the board - TKT-617 through
+    # TKT-624 - all discarded afterwards.
+    #
+    # An allow-list, not a list of the offenders. dry_run is read in exactly two
+    # places, so naming those two refuses it everywhere else by construction.
+    # Enumerating the verbs that swallow it would have to be right about all of
+    # them, and what is owed is every verb that shares the fault, not the four
+    # that were convenient to test. That is also why this is not shaped like its
+    # neighbour above: %MISLEADING_OPTIONS is narrow because deriving it is
+    # impossible, while this one is exact because the flag has exactly two
+    # readers. TKT-625.
+    die "$command does not act on --dry-run: nothing is previewed here, the "
+      . "change is made. tira.import and tira.replace are the commands that "
+      . "honour it.\n"
+      if $option->{dry_run} && $command ne 'import' && $command ne 'replace';
+
     die "Nested belongs to the project.new, project.create and onboard commands\n"
       if $option->{nested} && $command !~ /\A(?:project\.(?:new|create)|onboard)\z/;
     die "A mark belongs to the question.mark command\n"
@@ -3925,13 +3964,6 @@ sub _invoke {
     # uses, and inventing one for every command would refuse things that work
     # today. What is declared is the set where one option names the job another
     # option does, which is the set that misleads.
-    for my $misleading ( @{ $MISLEADING_OPTIONS{$command} // [] } ) {
-        my ( $given, $meant ) = @{$misleading};
-        next if !defined $option->{$given} || $option->{$given} eq '';
-        ( my $flag = $given ) =~ tr/_/-/;
-        ( my $instead = $meant ) =~ tr/_/-/;
-        die "$command does not act on --$flag. Use --$instead, which is what it reads.\n";
-    }
     # --blocking narrows the list to what would refuse a move out of the column
     # the card is in now. Without it required-action.list answers every item on
     # the card across every column - 75 on the card this was measured against -
@@ -5657,6 +5689,32 @@ the engine, matching the other eight tasklist providers - previously these
 six silently dropped it, so a session switched in the dashboard's own
 session box could view an item it could not then mutate once TKT-538 began
 enforcing session ownership.
+
+=head2 The --dry-run allow-list
+
+C<--dry-run> is read by two commands, C<import> and C<replace>, and parsed by
+all of them, because one global option spec serves every command. Every command
+but those two therefore accepted the flag and wrote anyway:
+C<tira.ticket.create --dry-run> created the card and printed it back as though
+nothing unusual had been asked, which cost eight junk cards on the Tira board
+itself - TKT-617 through TKT-624, all discarded afterwards.
+
+The refusal is written as an allow-list naming the two readers rather than a
+list of the commands that swallowed the flag. A list of offenders can only ever
+cover the verbs somebody thought of, and the deliverable was every verb that
+shares the fault; naming the readers refuses the rest by construction, so
+C<tira.comment.add --dry-run> is refused by the same line as
+C<tira.ticket.create --dry-run> without ever being named. That shape is
+available only because this flag has exactly two readers. It is not the general
+per-command option catalogue C<%MISLEADING_OPTIONS> declines to be, and the
+reason it declines is unchanged: there is no way to derive which options each
+command reads, so a general version would refuse things that work today.
+
+Its position is the other half. Written beside the C<%method> dispatch, where
+the misleading-option guard was, it would not have run for the create verbs at
+all - C<record.*> returns from the if/elsif chain some seven hundred lines
+earlier - which is how the fix was discovered to change nothing at first. Both
+guards now sit in the block every command passes through. TKT-625.
 
 =head2 _usage
 

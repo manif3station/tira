@@ -2205,7 +2205,18 @@ replace selects every mutable field.
 `tira.import --file changes.json` accepts a JSON object keyed by record ref.
 Values are exact replacement fields. It validates every record and field before
 writing the complete set transactionally; `--dry-run` returns the same diff
-without mutation. Gate and evidence logs remain append-only: annotate commands
+without mutation. These two are the only commands that read `--dry-run`;
+every other command refuses it, naming itself and saying the change is made
+rather than previewed. The flag parses everywhere because one global option
+spec serves every command, so it used to be accepted and silently dropped -
+`tira.ticket.create --dry-run` created the card and printed it back, which cost
+eight junk cards on the Tira board itself - TKT-617 through TKT-624 - before it
+was noticed. The refusal is
+written as an allow-list naming `import` and `replace` rather than a list of
+the commands that swallowed the flag, so a verb nobody thought to test is
+refused too; that is possible here only because `--dry-run` has exactly two
+readers, and it is not a general per-command option catalogue, which
+`%MISLEADING_OPTIONS` explains it deliberately is not. TKT-625. Gate and evidence logs remain append-only: annotate commands
 append attributed correction notes to stable entry IDs.
 
 An empty or malformed key names the import's own JSON structure at fault -

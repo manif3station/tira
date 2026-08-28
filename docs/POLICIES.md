@@ -477,6 +477,32 @@ Policies live in the project config, so they travel with the project and
 anybody can read them. Police keeps its own state — the violation ledger, the
 bridge log — outside the project entirely.
 
+## `unpushed-work` and how long a push takes
+
+`unpushed-work` measures the age of commits sitting unpushed. Choosing its
+`--age` means knowing how long a push actually takes here, because a grace
+shorter than the gate reports a push that is already running.
+
+Since 4.62 that is seconds rather than twenty minutes. The push gate stopped
+running the test suite - it had been re-running, over a tree the `verify` column
+had already proved, the same suite verify ran; the last release to pay for it
+took 21 minutes 19 seconds. What remains is the version check, the board backup,
+the card checks, the documentation checks and the browser tests, none of which
+starts a container. TKT-680.
+
+This matters to two rules beyond `unpushed-work`. `priority-skipped` fires while
+a lower-priority card is worked ahead of a higher one, and a twenty-minute push
+was long enough to raise it against the very cards being released - it did, this
+morning, against TKT-585 and TKT-586 while they were mid-push. And
+`rule.suspend --pid` exists because the 600-second clock-only ceiling was
+shorter than this repo's gates; the push gate is no longer one of those, though
+the coverage gate at 846s still is, and that is still the reason `--pid` exists.
+
+An `--age` of `15m` on `unpushed-work` was chosen when the gate took fifteen
+minutes and up. It is now generous rather than tight, which is the safe
+direction: the rule still catches work genuinely left unpushed and no longer has
+any chance of describing a push in progress.
+
 ## Where the facts come from
 
 Most rules read the board. Six read the machine instead: `leftover-process`,

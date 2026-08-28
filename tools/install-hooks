@@ -26,8 +26,11 @@ for hook in tools/hooks/*; do
   echo "installed $name -> $hook"
 done
 
-# The gate takes twenty minutes, and git opens the connection to the remote
-# before it runs the hook. GitHub closes an SSH session that sits idle that
+# The gate took twenty minutes until 4.62 removed the suite from it, and git
+# opens the connection to the remote before it runs the hook. The keepalives
+# below are kept rather than removed: the documentation and browser steps are
+# still the slowest part of a push, and a setting that costs nothing is not
+# worth trimming on the strength of one measurement. GitHub closes an SSH session that sits idle that
 # long, so the gate would pass, print that everything was fine, and then git
 # would die of SIGPIPE writing to a connection that had gone - reporting
 # success for a release that never left the machine. Measured, with GIT_TRACE:
@@ -43,4 +46,4 @@ echo 'configured ssh keepalives so a long gate does not outlive the connection'
 echo
 echo 'Gates now in force:'
 echo '  commit-msg  every commit names a live card that is at a working gate'
-echo '  pre-push    board backup, card audit, full suite, 100% coverage'
+echo '  pre-push    board backup, card audit, documentation, examples, browser'

@@ -966,11 +966,49 @@ Put one rule down for a while, without going deaf to everything else.
 | `--ref CARD` | no | Put it down for one card only. With none, the whole board. |
 | `--store PATH` | no | Police's own state, if it is not in the usual place. |
 
+### What the push gate asks, since 4.62
+
+The gate is `tools/hooks/pre-push`, installed by `tools/install-hooks` as a
+symlink so it is version-controlled rather than local configuration. It refuses
+a push eleven ways and runs no test suite:
+
+| Order | Check | Refuses when |
+| --- | --- | --- |
+| 1 | the version against what is shipping | a shipped file changed and `VERSION` did not |
+| 2 | the board backup | `tools/board-backup` is missing, or it fails |
+| 3 | live-card completeness | a card this push is about is incomplete |
+| 4 | `tools/card-holes` | a card has holes in it |
+| 5 | `tools/docs-match-code` | the documentation and the code disagree |
+| 6 | `tools/docs-examples-run` | a documented example is not what the command accepts |
+| 7 | `tools/browser-tests` | a browser test fails, or its runner is absent |
+
+Steps 5 to 7 run last deliberately. Documentation edited after a gate has
+shipped a broken build here twice, so anything running before the edits proves
+nothing about what goes out - and `t/416` asserts their position by index into
+the file, not merely their presence, because a reordering would pass a presence
+check while destroying the reason they exist.
+
+The suite is not among them. It runs once, in the `verify` column, and its
+output is recorded on the card as evidence by `tira.release.record` - which is
+what puts the card in `push` in the first place. Before 4.62 the hook ran it
+again, over a tree verify had already cleared, at about twenty minutes a
+release; the last push to pay that cost took 21 minutes 19 seconds.
+
+`tools/gate-run` still runs the suite and coverage by hand, against a checkout
+of the commit rather than your working directory - so a change that passes only
+because of an unstaged file fails there instead of failing for everybody else.
+It still writes a pass record keyed to the commit's tree. Nothing reads those
+records automatically any more: the hook stopped consulting them along with the
+suite they existed to skip. TKT-680.
+
 Without `--pid`, the 600-second ceiling was shorter than either gate this
-repo runs - coverage at 846s, pre-push at 15m and counting - so the
-commonest legitimate reason for a suspension (waiting on a gate) always
+repo ran at the time - coverage at 846s, pre-push at 15m and counting - so
+the commonest legitimate reason for a suspension (waiting on a gate) always
 outlasted the longest suspension that could be given, and the same reason
-was re-supplied over and over as it kept expiring mid-gate. `--pid` makes
+was re-supplied over and over as it kept expiring mid-gate. The push gate is
+no longer one of those: 4.62 took the suite out of it and it now finishes in
+seconds. The coverage gate still is, and it is still the reason `--pid`
+exists. `--pid` makes
 the reason literally true instead of approximately true, naming the
 running gate's own pid:
 

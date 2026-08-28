@@ -344,14 +344,27 @@ writes both together and refuses rather than guessing if they already
 disagree. `Changes` (the dated entry with real release notes) and
 `t/03-metadata.t`'s own two version literals stay hand-written on purpose.
 
-Once a change is committed and the tree is clean, run `tools/gate-run`
-before `git push`. It runs the exact suite-and-coverage step the push hook
-runs, against a checkout of the commit about to be pushed, and records a
-pass keyed to that commit's tree so the push hook can trust it instead of
-running the identical suite again. Verifying a change by hand first - the
-`docker compose run` above, to watch a red test turn green - does not warm
-that cache, so a push straight after still pays for the full suite once
-more; `tools/gate-run` is what avoids that second run.
+Since 4.62 the push hook does not run the suite. The `verify` column does,
+once, and records the result on the card as evidence - which is what puts
+the card in the `push` column in the first place. The hook still refuses a
+push eleven ways (the version against what is shipping, the board backup,
+incomplete cards, the documentation, every documented example, the browser),
+but it starts no container and takes seconds rather than the twenty minutes
+it used to.
+
+`tools/gate-run` is still here and is now the only place the suite is run
+against a *commit* rather than against your working directory: it checks out
+HEAD into a throwaway worktree and runs the suite and coverage there, so a
+change that passes only because of an unstaged file fails there instead of
+failing for everybody else. It requires a clean tree and refuses rather than
+guessing, because it records its result against HEAD's tree and an uncommitted
+change is not part of that. Run it after committing and before `git push`.
+
+It still records a pass keyed to that commit's tree; `tools/gate-cache-read`
+is how you ask whether the tree `HEAD` currently points at was already proved
+(it takes no argument and answers for that tree alone). Nothing reads those
+records automatically any more - the hook stopped consulting them along with
+the suite they existed to skip - so the record is for you, not for the gate.
 
 When a gate asks for a code review, run it through `tools/review-worktree`
 rather than pointing the reviewer at the checkout:

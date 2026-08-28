@@ -1,5 +1,68 @@
 Revision history for Tira
 
+4.62  2026-08-28
+
+    - TKT-680. The push hook stopped re-running the suite that verify
+      had already run.
+      It cost about twenty minutes on every release. Measured on the
+      release of 4.60 and 4.61 the same morning: the suite ran at 08:41
+      in verify and again at 11:47 in the hook, over a tree the first
+      run had cleared, and the push took 21 minutes 19 seconds. The
+      first attempt was killed by a foreground timeout and left an
+      orphaned container still running the suite - a cost of the length
+      rather than an accident beside it.
+      The gate-cache built to stop that double-run (TKT-351) could not.
+      It keys on the tree HEAD carries, and the verify suite runs before
+      the documentation and version commits exist, so the tree it
+      records is never the tree being pushed. 93 records, none matching.
+      It leaves with the suite it existed to skip; tools/gate-run still
+      writes those records for anyone proving a tree by hand, and is
+      otherwise untouched.
+      The owner's rule is a statement about where readiness is decided
+      rather than about speed - "anything landed on push column is ready
+      to pushed" - and asked what should replace the suite, "only trim
+      away the full test run. keep other checks". So this is a
+      subtraction and nothing else. A new, separate step reading
+      fix_version and evidence off each card was proposed and declined,
+      and is recorded in the card's scope_excluded so it is not
+      reintroduced by someone reading the older text. It would also have
+      been redundant: tools/card-holes, which stays, already refuses a
+      card with no recorded gate, no evidence or no fix version - so the
+      check was already there under another name, which is why "keep
+      other checks" was the right answer rather than merely the owner's
+      preference.
+      Seven checks stay, and their order with them: the version against
+      what is shipping, the board backup, the live-card completeness
+      check and tools/card-holes before, and tools/docs-match-code,
+      tools/docs-examples-run and tools/browser-tests after. Those three
+      are last on purpose - documentation edited after a gate has
+      shipped a broken build here twice - and that is what still defends
+      "nothing was edited between the proof and the push", which is what
+      the suite step was really for.
+      Two consequences that are easy to miss and are handled: the hook's
+      closing line announced a suite result and a coverage figure it no
+      longer has, and tools/prove-the-gate declared coverage for seven
+      refusals the hook can no longer make, with five live probes behind
+      them. A probe left after its refusal has gone does not fail - it
+      PASSES against a hook that never had the chance to refuse, and
+      reports the gate proved, which is the exact shape that tool exists
+      to end. Both are removed, along with the fake docker that fed the
+      hook fabricated suite output and the PASSING_SUITE fixture behind
+      it.
+      t/233's floor on how many refusals the hook has drops from 15 to
+      9, keeping its margin of two against the real count, which is now
+      11 rather than 17. It is a parse guard, not a target.
+      41 assertions in t/416, 24 of which pass before the change and
+      must go on passing: they are what stops the subtraction taking
+      more than it was asked for. Three existing tests turned out to
+      depend on the removed block and none of them was foreseen -
+      t/179 asserted the worktree, the container mount, the removal
+      and the EXIT trap in the HOOK, and t/279 asserted the hook
+      consults the gate-cache. Both were repointed at tools/gate-run,
+      where the property moved, rather than deleted: the claim that a
+      release is judged on the commit and not on the desk is still
+      true, and only the file keeping it changed.
+
 4.61  2026-08-28
 
     - TKT-586. The card dialog's three text editors stopped being

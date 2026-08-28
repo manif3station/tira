@@ -20,11 +20,18 @@
 # rejects anything that does not match the tree HEAD carries right now, or
 # that has gone stale, or that is simply not there.
 #
-# tools/gate-run runs the same suite-and-coverage step the push hook runs,
-# against a checkout of HEAD - never the desk - and writes the record only on
-# a real pass at 100% coverage on all three modules. The push hook consults
-# the record before running the suite itself; anything short of an exact,
-# fresh match and it runs the suite exactly as it always has.
+# tools/gate-run runs the suite and coverage against a checkout of HEAD -
+# never the desk - and writes the record only on a real pass at 100% coverage.
+#
+# TKT-680 changed why this file's title is true. Until 4.62 the push hook ran
+# the suite too, and the record was what stopped the second run repeating the
+# first; the hook consulted it and, on anything short of an exact fresh match,
+# ran the suite exactly as it always had. Since 4.62 the hook runs no suite at
+# all, so there is no second run for a record to prevent - the suite runs once
+# because only one place runs it. The assertions below were rewritten to that
+# mechanism and now guard it from both directions, because two denials about
+# the hook would also pass against a repository where NOTHING runs the suite,
+# which is a worse state than the one this file was written about.
 
 use strict;
 use warnings;
@@ -57,19 +64,36 @@ for my $tool (qw(gate-cache-write gate-cache-read gate-run)) {
     ok( -x $path, "tools/$tool is executable" );
 }
 
-# --- the hook consults the record before running the suite itself -----------
+# --- the suite runs once, and since 4.62 for a stronger reason --------------
+#
+# This file was written when BOTH the verify column and the push hook ran the
+# suite, and the record was what stopped the second run repeating the first.
+# TKT-680 removed the suite from the hook entirely, so there is no second run
+# to prevent: one place runs it, and the record is what that place leaves
+# behind for a person who wants to know whether a tree was already proved.
+#
+# The assertions changed with the mechanism rather than being deleted, because
+# the property this file is named for - the suite runs once - is still the
+# subject, and it is now guarded from both directions.
 
 my $hook_source = slurp( File::Spec->catfile( $root, 'tools', 'hooks', 'pre-push' ) );
-like( $hook_source, qr/gate-cache-read/,
-    'the hook checks for an existing record before running the suite' );
-like( $hook_source, qr/gate-cache-write/,
-    'and records its own run, so a later retry can reuse it too' );
 
-# A cache hit must still reach the same verification the hook has always run -
-# the coverage-below-100% and suite-failed checks are not bypassed by a
-# record, only the minutes spent producing one.
-unlike( $hook_source, qr/gate-cache-read[^\n]*\bfail\b/,
-    "a cache miss is not itself how the hook refuses - it only changes whether the suite runs" );
+# Established before it is denied. Both statements about the hook below are
+# denials now, where they used to be assertions, and a denial about a file that
+# failed to load passes while measuring nothing - t/147 caught this here.
+like( $hook_source, qr{\A#!/usr/bin/env bash},
+    'the push hook is a bash script and was read' );
+
+unlike( $hook_source, qr/gate-cache-read/,
+    'the hook no longer consults the record, because it runs no suite to skip' );
+unlike( $hook_source, qr/\bprove\s+-lr\b/,
+    'and runs no suite, so there is no second run for a record to prevent' );
+
+my $runner_source = slurp( File::Spec->catfile( $root, 'tools', 'gate-run' ) );
+like( $runner_source, qr/\bprove\s+-lr\b/,
+    'the one place that runs the suite still runs it' );
+like( $runner_source, qr/gate-cache-write/,
+    'and records the pass, so what proved a tree survives the run that proved it' );
 
 # --- a throwaway repository, so tree hashes can be manufactured cheaply -----
 #
@@ -362,13 +386,19 @@ __END__
 =head1 DESCRIPTION
 
 A release ran the full suite twice - once by hand, once by the push hook -
-because the hook has no way to trust a claim that the tree it is about to
-push was already proved. tools/gate-run now tests the same checkout of HEAD
-the hook itself checks out, and on a real pass at 100% coverage records it
-under git's own tree hash. tools/gate-cache-read is the only thing that
-reads that record, and it answers a hit only for the exact tree, recently
-enough to trust; anything else - a different tree, a stale timestamp, no
-record at all - is a miss, and the hook runs the suite exactly as it always
-has.
+because the hook had no way to trust a claim that the tree it was about to
+push was already proved. C<tools/gate-run> tests a checkout of HEAD and, on a
+real pass at 100% coverage, records it under git's own tree hash;
+C<tools/gate-cache-read> answers a hit only for that exact tree, recently
+enough to trust.
+
+Since 4.62 (TKT-680) the push hook runs no suite at all, so the double run it
+was built to prevent cannot happen: the suite runs once because only
+C<tools/gate-run> runs it, and nothing consults the record automatically. The
+assertions here guard that from both directions - the hook must run no suite
+and consult no record, and the runner must still run the suite and still write
+the record. Denials about the hook alone would pass against a repository where
+nothing runs the suite, which is worse than the state this file was written
+about.
 
 =cut

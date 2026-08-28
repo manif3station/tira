@@ -51,10 +51,28 @@ my $source = do { local $/; <$fh> };
 close $fh;
 
 # --- it builds a checkout of what is being pushed ------------------------------------
+#
+# This moved in 4.62 and the property did not. Until TKT-680 the pre-push hook
+# ran the suite itself, against a detached worktree at HEAD, and these
+# assertions were about the hook. The hook no longer runs a suite at all - the
+# verify column does, through tools/gate-run - so the checkout lives there now.
+#
+# Repointed rather than deleted, deliberately. The claim this file makes is
+# "the release is judged on the commit rather than on whatever is lying on the
+# desk", and that claim is still true and still worth guarding; only the file
+# that keeps it changed. Deleting these would have retired a property because
+# its address moved.
 
-like( $source, qr/git worktree add/,
+my $runner = File::Spec->catfile(qw(tools gate-run));
+ok( -f $runner, 'the suite runner ships in the repository' );
+
+open my $rfh, '<', $runner or die "$runner: $!";
+my $runner_source = do { local $/; <$rfh> };
+close $rfh;
+
+like( $runner_source, qr/git worktree add/,
     'the gate makes a checkout of the commits being pushed' );
-like( $source, qr/worktree add[^\n]*\bHEAD\b/,
+like( $runner_source, qr/worktree add[^\n]*\bHEAD\b/,
     'at the commit being pushed rather than at whatever is lying around' );
 
 # --- and runs the suite against that, not against the desk ------------------------------
@@ -63,7 +81,7 @@ like( $source, qr/worktree add[^\n]*\bHEAD\b/,
 # what makes the suite see the checkout at the path it expects, so the rest of
 # the harness needs no knowledge of any of this.
 
-like( $source, qr/-v\s+"?\$\{?\w+\}?:\/workspace\/skills\/tira/,
+like( $runner_source, qr/-v\s+"?\$\{?\w+\}?:\/workspace\/skills\/tira/,
     'and mounts it over the path the suite runs in' );
 
 # --- and takes it away afterwards, however it ends -------------------------------------
@@ -72,9 +90,21 @@ like( $source, qr/-v\s+"?\$\{?\w+\}?:\/workspace\/skills\/tira/,
 # machine it is protecting. The cleanup has to survive the failure paths, which
 # are the common ones.
 
-like( $source, qr/git worktree remove/, 'the checkout is removed' );
-like( $source, qr/\btrap\b[^\n]*(?:EXIT|INT|TERM)/,
+like( $runner_source, qr/git worktree remove/, 'the checkout is removed' );
+like( $runner_source, qr/\btrap\b[^\n]*(?:EXIT|INT|TERM)/,
     'on the way out however the gate ends, because its failure paths are the busy ones' );
+
+# And the hook does not do it any more, which is the other half of the move -
+# without this, both files could run a suite and the file would still pass.
+#
+# $source is established first, and not as a formality: a denial about a file
+# that failed to load passes while measuring nothing, and this file no longer
+# makes any other assertion about $source since the ones above moved to the
+# runner. t/147 caught exactly that here.
+like( $source, qr{\A#!/usr/bin/env bash},
+    'the push hook is a bash script and was read' );
+unlike( $source, qr/git worktree add/,
+    'and the push hook does not make one of its own' );
 
 # --- proved on git itself, rather than asserted about a script -------------------------
 #

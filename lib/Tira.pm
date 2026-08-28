@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.61';
+our $VERSION = '4.62';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -10956,10 +10956,14 @@ our $SUSPENSION_REASON_LIMIT = 500;
 
 # The backstop for a suspension tied to a process (--pid), rather than the
 # 600s clock-only ceiling above. Measured, not guessed: this repo's own gate
-# runs the Docker suite with coverage (846s observed) and the pre-push hook
-# (suite + coverage + documentation checks + browser tests, 15+ minutes
-# observed) - either alone already exceeds the clock-only ceiling, which is
-# the whole of TKT-361. A pid-scoped suspension still cannot become
+# runs the Docker suite with coverage (846s observed), which alone exceeds
+# the clock-only ceiling - the whole of TKT-361. The pre-push hook used to be
+# the other one (suite + coverage + documentation + browser, 15+ minutes
+# observed, and 21m19s on the last release to pay it) and is not any more:
+# TKT-680 took the suite out of it in 4.62, leaving the documentation and
+# browser checks and a push measured in seconds. The number below did not
+# have to move for that, which is the point of setting it from the LONGEST
+# gate rather than from the sum of them. A pid-scoped suspension still cannot become
 # permanent if the named process never exits, so this stays a real number
 # rather than an open-ended wait; it is simply the ceiling covering the
 # longest gate actually measured here, with headroom rather than a guess.
@@ -11104,11 +11108,13 @@ sub rule_suspend {
       if !$POLICY_RULES{$rule} && !$DIAGNOSTIC_RULES{$rule};
 
     # An end that arrives when the thing waited on actually ends, not only
-    # when a clock says so. The 600s ceiling is shorter than either gate this
-    # repo runs - coverage at 846s, pre-push at 15m and counting - so the
-    # commonest legitimate reason for a suspension outlasted the longest one
-    # that could be given, and the same reason was re-supplied over and over
-    # as it kept expiring mid-gate. --pid keeps a hard cap as a backstop (a
+    # when a clock says so. The 600s ceiling is shorter than the gate this
+    # repo runs - coverage at 846s - so the commonest legitimate reason for a
+    # suspension outlasted the longest one that could be given, and the same
+    # reason was re-supplied over and over as it kept expiring mid-gate. The
+    # pre-push hook was the other such gate at 15m and counting until TKT-680
+    # took the suite out of it in 4.62; the coverage gate alone still exceeds
+    # the ceiling, which is why this is unchanged rather than removed. --pid keeps a hard cap as a backstop (a
     # process that never exits cannot make a suspension permanent) while
     # making the reason literally true instead of approximately true: it
     # lifts the moment the named process is gone, not merely when $seconds
@@ -13176,8 +13182,10 @@ moment that process is gone (checked with a plain C<kill(0, $pid)>, not a
 process-table read), bounded by a higher, measured ceiling
 (C<$SUSPENSION_PID_CEILING_SECONDS>, 1800s) as a backstop rather than the
 clock-only form's 600s C<$SUSPENSION_CEILING_SECONDS>, since a suspension
-waiting on this repo's own gates (coverage 846s, pre-push 15m+) always
-outlasted the shorter ceiling. TKT-361.
+waiting on this repo's coverage gate (846s) always outlasted the shorter
+ceiling. TKT-361. The pre-push hook was the other gate that did so, at 15m+,
+until TKT-680 took the suite out of it in 4.62; the coverage gate alone still
+exceeds the clock-only ceiling, so the higher backstop is unchanged.
 
 =head2 changelog_check
 

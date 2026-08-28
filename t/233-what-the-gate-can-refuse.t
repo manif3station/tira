@@ -60,7 +60,14 @@ for my $line ( split /\n/, $hook ) {
 
 # non-empty is the whole claim: a precondition for everything below, which
 # would all pass against a hook this could not read at all.
-cmp_ok( scalar @refusals, '>=', 15,
+#
+# The floor was 15 against a hook with 17 refusals. TKT-680 removed the suite
+# and coverage block and six refusals went with it, leaving 11 - so the floor
+# is 9, keeping the same margin of two. The number is a parse guard and not a
+# target: it says the file was read and yielded refusals, and lowering it here
+# is the honest response to the hook genuinely having fewer, not a threshold
+# being relaxed to accommodate a failure.
+cmp_ok( scalar @refusals, '>=', 9,
     'the hook has ways to refuse, and they can be read out of it' );
 
 # --- and what the tool says about each --------------------------------------

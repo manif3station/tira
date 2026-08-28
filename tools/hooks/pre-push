@@ -17,7 +17,6 @@ set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$root"
-workspace="$(cd "$root/../.." && pwd)"
 
 step() { printf '\n\033[1mpre-push: %s\033[0m\n' "$1"; }
 fail() { printf '\n\033[31mpre-push: %s\033[0m\n' "$1" >&2; exit 1; }
@@ -96,144 +95,33 @@ fi
 # shellcheck disable=SC2086
 tools/card-holes $about || fail 'fill the cards in, or discard what is not real work'
 
-# --- the suite and the coverage gate ------------------------------------
+# --- the suite is not here, and that is the point ------------------------
 #
-# Run last and run here, because documentation edits made after a manual gate
-# run have shipped a broken build before. Nothing can be edited between this
-# passing and the push happening.
-step 'running the full suite with coverage (this takes a few minutes)'
-compose="$workspace/docker-compose.testing.yml"
-[ -f "$compose" ] || fail "cannot find $compose - refusing to push untested"
-
-output="$(mktemp)"
-cache_note="$(mktemp)"
-tree=""
-
-# However this ends. The failure paths are the common ones, and a gate that
-# leaves a checkout behind on each of them fills the disk of the machine it is
-# protecting. Guarded for an empty $tree, because the cache-hit path below
-# never creates one.
-trap 'rm -f "$output" "$cache_note"; [ -n "$tree" ] && git worktree remove --force "$tree" >/dev/null 2>&1; true' EXIT
-
-# --- a tree already proved is not proved again ----------------------------
+# It used to be. This hook ran the full suite with coverage in a container -
+# 138 of its 266 lines and some twenty minutes - over a tree the verify column had
+# already cleared. Measured on the release of 4.60 and 4.61: the suite ran at
+# 08:41 in verify and again at 11:47 here, and the push took 21 minutes 19
+# seconds. The first attempt was killed by a foreground timeout and left an
+# orphaned container still running the suite, which is a cost of the length
+# rather than an accident beside it.
 #
-# TKT-351: a release ran this exact suite twice in one night, once by hand and
-# once here, because this hook had no way to know the tree it was about to
-# check out was the same one just tested. Six cards and five releases queued
-# behind that from 19:44 past midnight.
+# The gate-cache (TKT-351) was built to stop that double-run and could not. It
+# keys on the tree HEAD carries, and the verify suite runs BEFORE the
+# documentation and version commits exist, so the tree it records is never the
+# tree being pushed. 93 records, none of them matching. It left with the suite
+# it existed to skip; tools/gate-run still writes those records for anyone
+# proving a tree by hand.
 #
-# tools/gate-cache-read answers only for the tree HEAD carries right now, in
-# git's own hash - not a claim, a record that could only have been produced by
-# actually having that tree. Anything else - no record, a different tree, one
-# gone stale - and it says nothing, and the suite runs exactly as it always
-# has, below.
-if tools/gate-cache-read >"$output" 2>"$cache_note"; then
-  echo "pre-push: $(cat "$cache_note")"
-  rm -f "$cache_note"
-else
-  rm -f "$cache_note"
-
-  # --- what is judged: the commits, not the desk ---------------------------
-  #
-  # The suite used to run against the working directory, so whatever was lying
-  # there judged the release. This repository's standing state is that the NEXT
-  # card's failing test already exists - write the failing test first, push each
-  # card as it finishes - so every release made mid-card met it.
-  #
-  # It refused three pushes for reasons that were not about them, and the third
-  # lost 1.85 outright: t/86 requires every declared rule to fire, and the next
-  # card had already added one to the catalogue that was not yet implemented. The
-  # commit was green when it was made and green again twenty minutes later. Only
-  # the tree it was judged against was ever wrong. Both earlier repairs were to
-  # move work in progress out of the way by hand, which is the habit a gate people
-  # retry past produces.
-  #
-  # A checkout of HEAD is stricter than the old way rather than looser. A commit
-  # that passes only because of an uncommitted file - a helper never added, a
-  # module still unstaged - now fails here instead of failing for everybody else.
-  tree="$(mktemp -d)"
-  git worktree add --detach --quiet "$tree" HEAD \
-    || fail 'could not check out the commits being pushed'
-
-  # Under a timeout, because a suite can stop without failing. A test that leaks
-  # a web server leaves prove waiting on a pipe nothing will ever close: no
-  # output, no CPU, no end. Eighteen minutes of that looked exactly like a slow
-  # run, twice, before anybody looked inside the container. A gate that can block
-  # for ever is one that gets skipped, so it fails instead.
-  # Mounted over the path the suite expects, so nothing else in the harness needs
-  # to know any of this is happening. The compose file's mask over the board
-  # directory still applies - the checkout has no board of its own, which is what
-  # 74-production-board.t is there to notice.
-  # One number, not two. The documented gate command used 1800 and this used 900,
-  # which is the shape this project keeps finding: two copies of one decision, and
-  # the one nobody edits is the one that blocks the push. TKT-323.
-  #
-  # Raised again to 3600, on measurement rather than on feel. Thirteen complete
-  # runs today went 658, 667, 702, 721, 740, 754, 794, 808, 814, 831, 876, 906,
-  # 1287 seconds; then three consecutive runs exceeded 1800 and were killed. The
-  # third of those ran on an idle machine - load 13, the neighbouring project down
-  # to 3 processes - and still hit the limit around t/92, so this is the suite
-  # growing rather than the machine being busy: 256 files and 6038 tests, against
-  # 248 and 5935 when the ceiling last moved eleven hours ago.
-  #
-  # Raising a timeout treats the symptom. The suite's runtime is the disease and
-  # has its own card; a gate that cannot finish blocks everything, so this moves
-  # first. TKT-350.
-  SUITE_TIMEOUT=3600
-
-  docker compose -f "$compose" run --rm -v "$tree:/workspace/skills/tira" perl-test bash -lc '
-    cd /workspace/skills/tira &&
-    rm -rf cover_db .test-tmp &&
-    cpanm --quiet --notest --installdeps . >/dev/null 2>&1 &&
-    timeout --signal=KILL '"$SUITE_TIMEOUT"' env HARNESS_PERL_SWITCHES=-MDevel::Cover prove -lr t 2>&1 | tail -4 &&
-    cover -ignore_covered_err -report text \
-      -select lib/Tira.pm -select lib/Tira/CLI.pm -select lib/Tira/DashboardWeb.pm \
-      -coverage statement -coverage subroutine 2>/dev/null | grep -E "^lib|^Total"
-    rm -rf cover_db
-  ' >"$output" 2>&1 || fail "the suite did not run: $(tail -3 "$output")"
-fi
-
-# A killed run says so. It was 900 seconds until the suite grew past it, and
-# the message then was a colour code and a blank line - because a killed run
-# never reaches its summary, so there is no Failed and no Result: to print, and
-# a gate that refuses without saying why reads as broken rather than slow.
-# Measured when it happened: 943 seconds against a 900 second limit. TKT-323.
-if ! grep -q '^Result: PASS' "$output"; then
-  # || true, because grep matching nothing exits 1 and set -e would kill the
-  # hook here - silently, before it could say anything, which is precisely the
-  # failure this block exists to end. The same trap this file hit once before,
-  # when a grep for card references in the commit range killed the whole gate.
-  summary="$(grep -E 'Failed|Result:' "$output" | head -10 || true)"
-  if [ -z "$summary" ]; then
-    fail "the suite did not finish - killed at the $SUITE_TIMEOUT second limit,
-or it stopped before printing a summary. The last of what it said:
-$(tail -3 "$output")"
-  fi
-  fail "the suite failed:
-$summary"
-fi
-
-# A module that is not listed has not been measured, which must not read as a
-# pass. Each of the three has to appear AND be at 100.
-for module in 'lib/Tira.pm' 'lib/Tira/CLI.pm' 'lib/Tira/DashboardWeb.pm'; do
-  line="$(grep -F "$module" "$output" | grep -E '[0-9]+\.[0-9]' || true)"
-  [ -n "$line" ] || fail "no coverage was measured for $module"
-  echo "$line" | grep -qE '100\.0[[:space:]]+100\.0[[:space:]]+100\.0' \
-    || fail "coverage is below 100% for $module: $line"
-done
-
-# Recorded here too, not only in tools/gate-run - a push that fails at a LATER
-# step (documentation, browser) can retry without paying for the suite again,
-# since this tree already passed it. A no-op on a cache hit: $tree is only set
-# on the branch above that actually ran the suite.
+# The owner's rule, and it is a statement about where readiness is decided
+# rather than about speed: "anything landed on push column is ready to pushed".
+# A card reaches that column because verify proved it and recorded the
+# evidence on the card. Re-deriving that here, more slowly and with no new
+# information, was the hook contradicting the board.
 #
-# In an if, not a bare `[ -n "$tree" ] && ...` - under set -e an empty $tree
-# would make the test itself the list's exit status, and this hook already
-# carries the scar of that exact shape once, at the card-reference grep above.
-if [ -n "$tree" ]; then
-  tools/gate-cache-write "$output" >/dev/null || true
-fi
-
+# What the suite step was really defending was not "the tests pass" but
+# "nothing was edited between the proof and the push". That is still defended,
+# by the three checks below - they run last for exactly that reason, and they
+# are cheap. TKT-680.
 # --- the documentation describes what actually ships ---------------------
 #
 # Last, deliberately. Documentation edited after a gate has shipped a broken
@@ -263,4 +151,4 @@ step 'opening a browser on the board'
 [ -x tools/browser-tests ] || fail 'tools/browser-tests is missing - refusing to push with the browser unopened'
 tools/browser-tests || fail 'a browser test failed, or could not be run at all'
 
-step 'suite passed, coverage is 100% on all three modules, documentation agrees, board backed up'
+step 'board backed up, every live card complete, documentation agrees and every example ran, browser opened - the suite was proved in verify'

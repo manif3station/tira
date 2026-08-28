@@ -1292,6 +1292,32 @@ a collapsed composer that expands on demand with a formatting bar; comment
 text is stored as markdown and rendered through a DOM-building formatter
 (bold, italic, inline code, bullet lists) that never injects raw HTML.
 
+Since 4.62 the push gate does not run the test suite. It ran the full suite
+with coverage in a container before every push - 138 of the hook's 266
+lines and roughly twenty minutes - over a tree the `verify` column had already
+proved. Measured on the release of 4.60 and 4.61: the suite ran at 08:41 in
+verify and again at 11:47 in the hook, and that push took 21 minutes 19 seconds.
+The gate-cache built to prevent exactly that double-run (TKT-351) could not,
+because it keys on the tree `HEAD` carries and the verify run happens before the
+documentation and version commits exist - 93 records and not one matching. The
+owner's rule is about where readiness is decided rather than about speed:
+*"anything landed on push column is ready to pushed"*. A card reaches that column
+because verify proved it and recorded the evidence on the card, so re-deriving
+it at push time was the hook contradicting the board. Seven checks stay and
+their ORDER stays with them - the version against what is shipping, the board
+backup, live-card completeness and `tools/card-holes` before; `tools/docs-match-code`,
+`tools/docs-examples-run` and `tools/browser-tests` after, last on purpose,
+because documentation edited after a gate has shipped a broken build here twice.
+That ordering is what still defends the property the suite step was really for,
+which was never "the tests pass" but "nothing was edited between the proof and
+the push". `tools/gate-run` is unchanged and still proves a committed tree by
+hand; nothing reads its cache records automatically any more. A *new, separate* step reading `fix_version` and `evidence`
+off each card was proposed and declined - *"only trim away the full test run.
+keep other checks"* - and is recorded in the card's excluded scope so it is not
+reintroduced. It would have been redundant as well as unwanted: `tools/card-holes`,
+which stays, already refuses a card carrying no recorded gate, no evidence or no
+fix version. TKT-680.
+
 Since 4.61 the card dialog's three text editors share their behaviour rather
 than reimplementing it. All three grow through one handler and all three build
 their formatting bar from one builder - the comment composer's own bar, which is
@@ -2149,7 +2175,7 @@ Both this section and the work log are a fixed-width-columns-plus-detail grid, a
 **Implemented.** Every column can be ordered three ways, and the third is priority: highest first, because the question a column answers is what to pick up next. A card nobody has prioritised goes last and says so rather than pretending to a number — an unprioritised card is unassessed, not lowest. The priority travels in the refresh payload as well as the first render, so the ordering still holds after the board rebuilds itself a minute later. Each board has its own sorter and sorts itself; the mode is shared, so the next refresh brings the others into line.
 
 ### UC-136: Quiet one rule without going deaf
-**Implemented.** `dashboard tira.rule.suspend --rule card-full-details --seconds 300 --reason "rewriting this card"` puts one rule down for a period; adding `--ref TKT-001` puts it down for that card alone. Every other rule keeps watching, and the same rule keeps watching every other card — which is the grain that matters, because a card being worked hard collects comments faster than anybody can fold them and silencing the whole bridge to get through that afternoon would make the escape hatch worse than the noise. A reason is required and a length is required: it comes back by itself, so there is nothing to remember to switch on again, and every putting-down is in the enforcement log with its rule, its card, its length and its reason - as structured fields since 3.46, not only inside the prose sentence, so suspensions can be counted and grouped by rule without a regex; an entry written before 3.46 carries no fields key and still reads back. TKT-348. A silence nobody can account for is worse than the noise it replaces. Adding `--pid 12345` ties the suspension to a running process instead of only the clock: it lifts the moment that process is gone, before `--seconds` would have said so, with a higher 1800s ceiling as a backstop rather than the clock-only form's 600s — long enough to cover this repo's own gates (coverage 846s, pre-push 15m+), which the clock-only ceiling was not. TKT-361.
+**Implemented.** `dashboard tira.rule.suspend --rule card-full-details --seconds 300 --reason "rewriting this card"` puts one rule down for a period; adding `--ref TKT-001` puts it down for that card alone. Every other rule keeps watching, and the same rule keeps watching every other card — which is the grain that matters, because a card being worked hard collects comments faster than anybody can fold them and silencing the whole bridge to get through that afternoon would make the escape hatch worse than the noise. A reason is required and a length is required: it comes back by itself, so there is nothing to remember to switch on again, and every putting-down is in the enforcement log with its rule, its card, its length and its reason - as structured fields since 3.46, not only inside the prose sentence, so suspensions can be counted and grouped by rule without a regex; an entry written before 3.46 carries no fields key and still reads back. TKT-348. A silence nobody can account for is worse than the noise it replaces. Adding `--pid 12345` ties the suspension to a running process instead of only the clock: it lifts the moment that process is gone, before `--seconds` would have said so, with a higher 1800s ceiling as a backstop rather than the clock-only form's 600s — long enough to cover this repo's own gates (coverage 846s, and the push gate at 15m+ before 4.62 took the suite out of it), which the clock-only ceiling was not. TKT-361.
 
 ### UC-129: Serve the board over HTTPS
 **Implemented.** `dashboard tira.dashboard -o browser --ssl` serves the board over HTTPS with its own certificate, made the first time and reused afterwards. Over plain HTTP a password typed into the login page and the session cookie that follows it both travel in clear — and if sessions never expire, that cookie is a credential with no end date. The certificate is made by a library rather than by running `openssl`, because Tira invokes no shell or external process; it lives beside the project rather than inside a board, and its key is readable by nobody else. It is self-signed, so a browser warns the first time and you accept it once: that stops somebody reading your password off the wire, and does not stop somebody who can already stand between you and the machine. The board says both of those on the terminal it starts from.

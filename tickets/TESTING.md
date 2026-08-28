@@ -1,5 +1,136 @@
 # Testing record
 
+## 4.62 - the gate stopped proving what had already been proved
+
+The push hook ran the full suite with coverage before every push: a detached
+worktree, a container, `prove` under `Devel::Cover`, and a coverage assertion
+over three modules. 138 of the hook's 266 lines, and about twenty minutes.
+
+The verify column had already run that identical suite. Measured on the release
+of 4.60 and 4.61 the same morning: 08:41 in verify, 11:47 in the hook, over a
+tree the first run had cleared. That push took **21 minutes 19 seconds**, and
+the first attempt was killed by a foreground timeout and left an orphaned
+`perl-test` container still running the suite - which had to be stopped by hand
+before the retry. A gate that cannot be run in the foreground is a cost, not an
+inconvenience beside one.
+
+The gate-cache (TKT-351) was built to stop exactly this double-run and could
+not. `tools/gate-cache-read` keys on `git rev-parse HEAD^{tree}`, and the verify
+suite runs against the working tree *before* the documentation and version
+commits exist - so the tree it records is never the tree being pushed. 93
+records in `.git/tira-gate-cache` that morning and not one for `HEAD`'s tree.
+A cache that never hits in the real workflow is a mechanism whose only remaining
+cost is its comments.
+
+The owner's instruction was a statement about where readiness is decided rather
+than about speed: *"push should not run full test as discussed. anything landed
+on push column is ready to pushed"*. Asked what should replace the suite, he
+narrowed it further: *"only trim away the full test run. keep other checks"*.
+
+So this release is a subtraction and nothing else. A *new, separate* step
+reading `fix_version` and `evidence` off each card was proposed, offered as the
+first option on the question, and **declined**. It is recorded in the card's
+`scope_excluded` so it is not reintroduced by someone reading the older text.
+
+He was right, and for a better reason than the one I gave him. I argued a card
+dragged into `push` by hand could otherwise push unproved code. But that refusal
+already exists and survives untouched: `tools/card-holes` - step 4, still in the
+hook - refuses a card with `no gate has been recorded`, `no evidence is
+attached`, or `no fix version` once it is past the shipping columns. The check I
+proposed was already there under another name. What would have been added is a
+second copy of a rule this repository has twice carded for having two copies of
+(TKT-323, TKT-582), and the owner's *"keep other checks"* was exactly right:
+they already do this.
+
+### What survives, and in what order
+
+Seven checks, four before the removed block and three after it:
+
+| | Check | Refuses when |
+| --- | --- | --- |
+| before | the version against what is shipping | a shipped file changed and `VERSION` did not |
+| before | the board backup | `tools/board-backup` is missing, or it fails |
+| before | live-card completeness | a card this push is about is incomplete |
+| before | `tools/card-holes` | a card has holes in it |
+| after | `tools/docs-match-code` | the documentation and the code disagree |
+| after | `tools/docs-examples-run` | a documented example is not what the command accepts |
+| after | `tools/browser-tests` | a browser test fails, or the runner is absent |
+
+The three after the block are last **deliberately**, and their own comment says
+why: *"Documentation edited after a gate has shipped a broken build here twice,
+so anything that runs before the edits proves nothing about what goes out."*
+`t/416` asserts their order by index into the file, not merely their presence -
+a removal that hoisted them above the surviving checks would leave them proving
+nothing about what ships, and would still have passed a presence check.
+
+### The two consequences that are easy to miss
+
+**The closing message.** The hook ended by announcing `suite passed, coverage is
+100% on all three modules, documentation agrees, board backed up`. Two of those
+four claims die with the suite. A gate whose final word summarises work it did
+not do reads as having passed something. Rewritten to what it actually proves,
+naming where the suite was proved instead - so a push transcript does not leave
+a reader wondering whether the suite was skipped or merely unmentioned.
+
+**`tools/prove-the-gate`.** It carried seven `# covers:` declarations for
+refusals inside the removed block, and **five live probes** behind them. The
+declarations alone would have failed `t/233`. The probes are the dangerous half:
+a probe left behind after its refusal has gone does not fail - it **passes**,
+against a hook that never had the chance to refuse, and reports the gate proved.
+That is the exact shape `tools/prove-the-gate` was written to end. Removed with
+them: the fake `docker` stub that fed the hook fabricated suite output, the
+`PASSING_SUITE` fixture, `run_hook`'s `suite_output` parameter and the argument
+at all seven call sites, and the `hook_timeout` lookup reading a `SUITE_TIMEOUT`
+that no longer exists.
+
+The seventh covers line was found by removing six and having `t/233` stay red -
+`cannot find`, the compose-file refusal at the top of the block, which I had
+undercounted twice while writing the card.
+
+`t/233`'s floor on how many refusals the hook has drops from 15 to 9, keeping
+its margin of two against a real count that went from 17 to 11. It is a parse
+guard - it says the file was read and yielded refusals - not a target, and
+lowering it is the honest response to the hook genuinely having fewer.
+
+### What `tools/gate-run` is for now
+
+Unchanged, and still worth running: it proves a *committed* tree rather than the
+working directory, so a change that passes only because of an unstaged file
+fails there instead of failing for everybody else. It still writes cache
+records. Nothing reads them automatically any more. `t/416` asserts both -
+that it still runs the suite and still records the pass - because "the cache
+leaves with the suite" reads as "delete the tools" if nothing says otherwise.
+
+### The test
+
+`t/416-a-gate-that-proves-what-verify-already-proved.t`, 41 assertions, and the
+split is the design rather than an accident:
+
+- **17 fail before the change**: ten deny the block piece by piece (named
+  separately, because a partial removal - the suite gone and the coverage loop
+  left reading a file nothing writes - is the likely failure), one denies the
+  closing message, six deny `prove-the-gate`'s stale declarations.
+- **24 pass before the change and must go on passing**: the seven surviving
+  checks, the backup's own missing-tool refusal, the full six-position ordering
+  chain by index, three counts proving nothing runs after the browser
+  invocation, the count of the hook's remaining refusals read out of the file,
+  and `gate-run` still working.
+
+  Seven of those 24 were added after a review pointed out that the
+  documentation claimed more than the test proved: it said `t/416` asserts the
+  checks' order, and it had ordered three of the six. The fix was to the test,
+  not the sentence.
+
+Take too much and 14-28 go red. Take too little and 4-34 stay red. Only the
+exact removal turns the file green - which is what makes it a red test for a
+subtraction rather than a wish.
+
+Assertions 1-3 establish that the three files were read at all. Every denial in
+the file is about text *absent* from a file, and a denial about a file that
+failed to load passes while measuring nothing. That is `t/147`'s whole subject
+applied to this file itself, and it is not hypothetical - four denials on
+TKT-585 were rejected by `t/147` that same morning for exactly that shape.
+
 ## 2.22 - what the push gate is asked about
 
 The card check was asked about every card on the board at the moment the hook
@@ -328,12 +459,19 @@ A card walks:
 | `implement` | the fix is being written |
 | `verify` | the full suite and coverage are being run |
 | `document` | the manual, the reference and Changes are being written |
-| `push` | the release is in the push gate, which takes twenty minutes |
+| `push` | the release is in the push gate - seconds since 4.62, twenty minutes before it |
 | `done` | pushed, and the remote has moved |
 
-`push` is the one that matters most to him: it is the only twenty-minute stretch
-where nothing else moves, and an empty board during it reads exactly like a
-stuck one.
+`push` used to be the one that mattered most to him: it was the only
+twenty-minute stretch where nothing else moved, and an empty board during it
+read exactly like a stuck one. TKT-680 removed the suite from the hook in 4.62,
+so the stretch is gone - but the lesson it taught outlived it. His instruction
+on the day, after a screenshot of five empty working columns: *"why not use the
+time you are waiting to pick up the next piece of work? we are busy house here.
+Not a lazy charity"*. The rule that came out of it is that a card LEAVING
+`verify` frees the next one to be picked up - not the push landing, not the
+install. He put it on the board as an entry required action on `pending-push`
+rather than trusting a note in a file.
 
 ## When a checklist is ticked (from his correction, 2026-08-16)
 

@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 #
-# Run the exact suite-and-coverage step the push hook runs, against a
-# checkout of HEAD, and record a pass so the push hook can trust it instead
-# of running the same suite a second time.
+# Run the suite and coverage against a checkout of HEAD, and record a pass
+# against the tree that produced it.
+#
+# Until 4.62 the push hook ran this same step itself, and this tool existed so
+# it would not have to run it twice. TKT-680 removed the suite from the hook
+# entirely, so nothing consults the record automatically any more - the record
+# is for a person asking whether the tree HEAD carries has already been proved.
+# This is now the ONLY place the suite is run against a commit rather than
+# against whatever is lying in the working directory.
 #
 # Built for TKT-351, measured on one release: the gate ran the suite and
 # passed - 258 files, 6072 tests, 100.0 on all three modules - and the push
@@ -14,15 +20,15 @@
 # something already proved.
 #
 # The hook was not wrong to distrust a claim - "I ran it and it passed" is a
-# sentence, and a gate that accepts sentences is not a gate. What it can trust
-# instead is a record naming the exact tree it tested, in git's own hash,
-# checked against the tree it is about to push. See tools/gate-cache-write and
-# tools/gate-cache-read for the record itself.
+# sentence, and a gate that accepts sentences is not a gate. What can be
+# trusted instead is a record naming the exact tree it tested, in git's own
+# hash. That property is why the record is still worth writing even now that
+# no gate reads it: it cannot be produced for a tree nobody had. See
+# tools/gate-cache-write and tools/gate-cache-read for the record itself.
 #
 # Requires a clean tree - commit first. This tests the commit that is about
-# to be pushed, the same commit the hook itself checks out; testing anything
-# else would record a pass for a tree nobody is pushing, which is the exact
-# gap "I ran it and it passed" already had.
+# to be pushed; testing anything else would record a pass for a tree nobody is
+# pushing, which is the exact gap "I ran it and it passed" already had.
 #
 # Usage: tools/gate-run
 
@@ -32,7 +38,7 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
 if [ -n "$(git status --porcelain)" ]; then
-    echo "gate-run: uncommitted changes present - commit first. This records a result against HEAD's tree; an uncommitted change is not part of it, and testing the desk instead of the commit is the exact mistake the push hook itself no longer makes." >&2
+    echo "gate-run: uncommitted changes present - commit first. This records a result against HEAD's tree; an uncommitted change is not part of it, and testing the desk instead of the commit is a mistake nothing else catches now - since 4.62 the push hook runs no suite at all, so this is the only place a committed tree is proved rather than whatever happens to be lying in the working directory." >&2
     exit 1
 fi
 
@@ -41,7 +47,7 @@ compose="$workspace/docker-compose.testing.yml"
 [ -f "$compose" ] || { echo "gate-run: cannot find $compose" >&2; exit 1; }
 
 tree_hash="$(git rev-parse HEAD^{tree})"
-echo "gate-run: testing a checkout of HEAD ($tree_hash), the same commit the push hook will check out"
+echo "gate-run: testing a checkout of HEAD ($tree_hash), the commit about to be pushed - not the working directory"
 
 tree="$(mktemp -d)"
 output="$(mktemp)"

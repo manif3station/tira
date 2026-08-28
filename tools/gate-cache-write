@@ -3,9 +3,11 @@
 # Record a gate result against the tree that produced it, keyed by git's own
 # tree hash - the hash git computes from the actual blob contents HEAD
 # carries, not a checksum this tool invents. That is what makes the record
-# safe for the push hook to trust: producing a matching record means
-# producing the tree it claims to have tested, which is the same thing as
-# actually testing it. See tools/gate-cache-read for how it is consulted, and
+# worth trusting at all: producing a matching record means producing the tree
+# it claims to have tested, which is the same thing as actually testing it.
+# The push hook used to consult it before running the suite; since 4.62 it
+# runs no suite, so nothing reads this automatically and the record answers a
+# person's question instead. See tools/gate-cache-read for how it is read, and
 # TKT-351 for why either exists.
 #
 # Usage: tools/gate-cache-write <output-file>

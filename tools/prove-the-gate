@@ -110,13 +110,6 @@ fi
 # covers: the board backup failed | a board backup that fails
 # covers: tools/card-holes is missing - refusing to push without the card check | tools/card-holes
 # covers: fill the cards in, or discard what is not real work | a card check that fails
-# covers: cannot find | not proved: the compose file is how the gate runs the suite, and a probe that removes it is a probe that breaks the machine the gate runs on. The refusal is one line and its own message; the risk of proving it is a working tree with the test stack deleted under an interrupted run, which this file has already done twice with other files.
-# covers: could not check out the commits being pushed | not proved: provoking it means corrupting the repository the gate is checking, and an interrupted run would leave it that way. The two probes here that stage a repository state do it in a clone; a checkout failure cannot be staged in a clone, because what fails is the checkout of this repository.
-# covers: the suite did not run | a suite that produced nothing
-# covers: the suite did not finish - killed at the | a suite killed by the timeout
-# covers: the suite failed | a failing suite
-# covers: no coverage was measured for | a module with no coverage measured at all
-# covers: coverage is below 100% for | coverage below 100%
 # covers: tools/docs-match-code is missing - refusing to push undocumented | tools/docs-match-code
 # covers: the documentation and the code disagree | an entrypoint nobody documented
 # covers: tools/docs-examples-run is missing - refusing to push examples nobody ran | tools/docs-examples-run
@@ -138,13 +131,14 @@ not_measured=0
 # Returns the hook's exit status; its output lands in $out.
 out=""
 run_hook() {
-    local suite_output="$1" missing="${2:-}" browser="${3:-}" broken="${4:-}"
+    local missing="${1:-}" browser="${2:-}" broken="${3:-}"
     local bin="$sandbox/bin"
     rm -rf "$bin"
     mkdir -p "$bin"
 
-    printf '#!/usr/bin/env bash\ncat <<%s\n%s\n%s\n' 'SUITE_EOF' "$suite_output" 'SUITE_EOF' >"$bin/docker"
-    chmod +x "$bin/docker"
+    # No fake docker any more. It existed to feed the hook a suite result, and
+    # the hook stopped running a suite in TKT-680 - so a stub standing in for a
+    # container nothing starts would be a prop for an absent scene.
 
     # A browser test that fails, rather than a runner that is absent. Hiding
     # the runner proves the gate notices a missing tool; it does not prove the
@@ -243,11 +237,6 @@ refuses() {
     passed=$(( passed + 1 ))
 }
 
-PASSING_SUITE='Result: PASS
-lib/Tira.pm               100.0  100.0  100.0
-lib/Tira/CLI.pm           100.0  100.0  100.0
-lib/Tira/DashboardWeb.pm  100.0  100.0  100.0'
-
 # --- a missing tool is a failure, not a skip ------------------------------
 #
 # The failure mode that matters most: a gate that disappears when somebody
@@ -260,7 +249,7 @@ lib/Tira/DashboardWeb.pm  100.0  100.0  100.0'
 # itself proved. Hiding the runner exercises the guard without opening a
 # browser, which keeps this tool as cheap as its other checks.
 for tool in tools/board-backup tools/card-holes tools/docs-match-code tools/docs-examples-run tools/browser-tests; do
-    refuses "a missing $(basename "$tool")" 'missing|refusing' run_hook "$PASSING_SUITE" "$tool"
+    refuses "a missing $(basename "$tool")" 'missing|refusing' run_hook "$tool"
 done
 
 # --- and a browser test that fails rather than a runner that is absent -----
@@ -276,7 +265,7 @@ done
 # runs last of the cheap ones and says so if the machine cannot support it.
 if command -v node >/dev/null 2>&1 && node -e "require.resolve('playwright')" >/dev/null 2>&1; then
     refuses 'a browser test that fails' 'browser test failed' \
-        run_hook "$PASSING_SUITE" '' failing
+        run_hook '' failing
 else
     printf 'not measured - a browser test that fails, because node or playwright is not here\n'
     not_measured=$(( not_measured + 1 ))
@@ -288,47 +277,26 @@ fi
 # backup runs first, so a stub exiting non-zero is reached immediately. This is
 # the refusal that guards the only copy of the board a push leaves behind.
 refuses 'a board backup that fails' 'the board backup failed' \
-    run_hook "$PASSING_SUITE" '' '' tools/board-backup
+    run_hook '' '' tools/board-backup
 
-# --- a failing suite ------------------------------------------------------
-refuses 'a failing suite' 'suite failed' run_hook 'Result: FAIL
-t/01-cli.t (Wstat: 512 Tests: 3 Failed: 1)'
-
-# --- a suite that did not run at all --------------------------------------
+# --- the suite and coverage probes went with the suite ---------------------
 #
-# Silence read as success on this project the same morning this was written:
-# a dependency install printed nothing because it had timed out.
+# Five probes lived here: a failing suite, a suite that produced nothing, a
+# suite killed by the timeout, coverage below 100%, and a module never measured
+# at all. Each fed the hook a fabricated suite result through a fake docker and
+# checked it refused.
 #
-# The refusal now has to NAME the limit, which is the whole of TKT-323. A run
-# killed by the timeout prints no Result: and no Failed:, so the message used
-# to be a colour code and a blank line - and two pushes were spent working out
-# that the suite had not failed at all, it had run 943 seconds against a 900
-# second limit. A gate that refuses without saying why reads as broken rather
-# than slow.
-refuses 'a suite that produced nothing' 'did not finish' run_hook ''
-# The number is read from the hook rather than written here, because a probe
-# carrying its own copy of the limit is the third copy of a decision that
-# already had two - and it would pass while asserting a figure the gate no
-# longer uses. TKT-350 raised it from 1800 to 3600 and this line did not have
-# to change, which is the point.
-hook_timeout="$(grep -oE '^SUITE_TIMEOUT=[0-9]+' "$root/tools/hooks/pre-push" | cut -d= -f2)"
-[ -n "$hook_timeout" ] || { printf 'NOT PROVED - the hook names no suite timeout to check\n'; failed=$(( failed + 1 )); }
-refuses 'a suite killed by the timeout' "$hook_timeout second limit" run_hook ''
-
-# --- coverage below the line ----------------------------------------------
-refuses 'coverage below 100%' 'coverage is below' run_hook 'Result: PASS
-lib/Tira.pm               100.0  100.0  100.0
-lib/Tira/CLI.pm            99.9  100.0   99.9
-lib/Tira/DashboardWeb.pm  100.0  100.0  100.0'
-
-# --- a module that was never measured -------------------------------------
+# The hook stopped running a suite in TKT-680, so those five refusals no longer
+# exist to provoke. A probe that stays behind after the refusal it proves has
+# gone does not fail - it PASSES, against a hook that never had the chance to
+# refuse, and reports the gate proved. That is the exact shape this tool was
+# written to end, and t/233 now fails on a '# covers:' line naming a refusal
+# the hook cannot make.
 #
-# The quiet one. A module dropped from the -select list is not reported at all,
-# and an absent line reads like a passing line to anything that only greps for
-# numbers below a hundred.
-refuses 'a module with no coverage measured at all' 'no coverage was measured' run_hook 'Result: PASS
-lib/Tira.pm               100.0  100.0  100.0
-lib/Tira/CLI.pm           100.0  100.0  100.0'
+# The suite is still proved. It moved to the verify column, where it runs once
+# per card and its output is recorded on the card as evidence - which is what
+# puts the card in the push column in the first place.
+
 
 # --- the board is checked -------------------------------------------------
 #
@@ -351,7 +319,7 @@ if [ -n "$hollow" ]; then
     # And the hook refusing when that check reports a failure, which is the
     # step above it and was only ever proved for the check being absent.
     refuses 'a card check that fails' 'fill the cards in' \
-        run_hook "$PASSING_SUITE" '' '' tools/card-holes
+        run_hook '' '' tools/card-holes
 
     board_may_be_incomplete=0
     say_why "$hollow"
@@ -370,7 +338,7 @@ fi
 probe="$root/skills/police/cli/undocumented-probe"
 cp "$root/skills/police/cli/suspend" "$probe" 2>/dev/null || cp "$root/cli/police" "$probe"
 chmod +x "$probe"
-refuses 'an entrypoint nobody documented' 'documentation and the code disagree' run_hook "$PASSING_SUITE"
+refuses 'an entrypoint nobody documented' 'documentation and the code disagree' run_hook
 rm -f "$probe"
 
 # --- the examples are run rather than read --------------------------------
@@ -394,13 +362,7 @@ example_probe() {
     cp "$root/tools/docs-examples-run" "$clone/tools/docs-examples-run"
     printf '\n`dashboard tira.project.create --name "Probe" --a-flag-that-does-not-exist`\n' >>"$clone/SKILLS.md"
 
-    local bin="$sandbox/bin"
-    rm -rf "$bin"
-    mkdir -p "$bin"
-    printf '#!/usr/bin/env bash\ncat <<%s\n%s\n%s\n' 'SUITE_EOF' "$PASSING_SUITE" 'SUITE_EOF' >"$bin/docker"
-    chmod +x "$bin/docker"
-
-    out="$(cd "$clone" && PATH="$bin:$PATH" ./tools/docs-examples-run 2>&1)"
+    out="$(cd "$clone" && ./tools/docs-examples-run 2>&1)"
     local status=$?
     rm -rf "$clone"
 
@@ -420,7 +382,7 @@ example_probe
 # --- and it passes when everything is right -------------------------------
 #
 # A gate that refuses everything is not a gate either. This is the control.
-if run_hook "$PASSING_SUITE" >/dev/null; then
+if run_hook >/dev/null; then
     printf 'proved - a clean tree is allowed through\n'
     passed=$(( passed + 1 ))
 else
@@ -460,13 +422,7 @@ version_probe() {
     ( cd "$clone" && printf '\n# probe\n' >>"$shipped_file" &&
       git commit --quiet --no-verify -m "probe: $what" -- "$shipped_file" ) || return
 
-    local bin="$sandbox/bin"
-    rm -rf "$bin"
-    mkdir -p "$bin"
-    printf '#!/usr/bin/env bash\ncat <<%s\n%s\n%s\n' 'SUITE_EOF' "$PASSING_SUITE" 'SUITE_EOF' >"$bin/docker"
-    chmod +x "$bin/docker"
-
-    out="$(cd "$clone" && PATH="$bin:$PATH" ./tools/hooks/pre-push 2>&1)"
+    out="$(cd "$clone" && ./tools/hooks/pre-push 2>&1)"
     local status=$?
 
     if [ "$expect" = 'refused' ]; then

@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.59';
+our $VERSION = '4.60';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -5221,6 +5221,24 @@ sub _proof_entries_for {
     my @entries;
     for my $i ( 0 .. $#commands ) {
         my ( $command, $proof ) = ( $commands[$i], $proofs[$i] );
+
+        # Counting the pair was never the point; the pair is what says the work
+        # happened. Until 4.60 this loop took whatever it was handed, so
+        # --command '' --proof '' marked any item done - cheaper than doing the
+        # work and cheaper than reusing someone else's proof, which TKT-583 had
+        # already made expensive. Whitespace counts as empty: a space is not a
+        # smaller piece of evidence than none. The refusal names the half that
+        # is missing rather than repeating the message for a missing pair,
+        # because a caller who supplied one and was told to supply one has been
+        # sent back to what they already did. TKT-585.
+        my @empty;
+        push @empty, '--command' if !defined $command || $command !~ /\S/;
+        push @empty, '--proof'   if !defined $proof   || $proof   !~ /\S/;
+        die 'Marking done needs evidence: ' . join( ' and ', @empty )
+          . ( @empty == 1 ? ' is empty' : ' are empty' )
+          . ". The pair is what says the work happened.\n"
+          if @empty;
+
         if ( length($proof) > 2000 ) {
             my $attachment = $self->attachment_add_content(
                 %args, filename => 'proof.txt', content => $proof,
@@ -13631,6 +13649,22 @@ Adds a checklist entry to a record.
 =head2 checklist_update
 
 Updates a checklist entry's item text or status.
+
+Marking one C<done> costs at least one C<--command>/C<--proof> pair, and since
+4.60 each half of every pair must contain something. Until then the gate counted
+the pairs and never read them, so C<--command '' --proof ''> marked any item
+done - cheaper than doing the work, and cheaper than reusing another item's
+proof, which already costs a written reason. Whitespace counts as empty. The
+refusal names the half that is missing rather than repeating the message for a
+missing pair, because a caller who supplied a pair and is told to supply one has
+been sent back to what they already did.
+
+Emptiness is what is checked; quality is not. A proof of C<x> is accepted,
+deliberately - whether evidence is any good is not mechanically decidable, and a
+gate that tried would refuse honest work. The check lives in
+C<_proof_entries_for>, which both this and C<required_item_update> call, so the
+CLI and the engine cannot come to different conclusions about the same pair.
+TKT-585.
 
 =head2 required_item_add
 

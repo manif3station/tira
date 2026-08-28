@@ -1,5 +1,42 @@
 Revision history for Tira
 
+4.60  2026-08-28
+
+    - TKT-585. Evidence is read now, not counted.
+      Marking a checklist item or a required action done costs a
+      --command/--proof pair. The gate checked that a pair was there
+      and never looked inside it, so:
+
+        d2 tira.checklist.update --ref REF --id CHK-NNN --status done \
+          --command "" --proof ""
+
+      exited 0 and marked the item done, at the CLI and in the engine
+      alike. That was the cheapest way past any gate on this board -
+      cheaper than doing the work, and cheaper than reusing another
+      item's proof, which already costs a written reason since
+      TKT-583.
+      Measured before it was changed. Five shapes on a scratch board,
+      all accepted: ('',''), ('x','   '), ('','real output'),
+      ('prove -l t',''), and ('prove -l t','All tests successful').
+      Only the last should have been.
+      Either half empty or whitespace-only is now refused, and the
+      refusal names the half that is missing rather than repeating the
+      message for a missing pair - a caller who supplied one and is
+      told to supply one has been sent back to what they already did.
+      Both halves empty names both, so it is fixed once.
+      Whitespace counts as empty: a space is not a smaller piece of
+      evidence than none. The test is /\S/ rather than truthiness,
+      so a proof of exactly '0' - a legitimate captured output - is
+      content and is accepted. A !$proof test would have refused it,
+      which is the bug this shape of guard usually ships with.
+      Emptiness is checked; quality is not. A proof of 'x' passes,
+      deliberately - whether evidence is any good is not mechanically
+      decidable, and a gate that tried would refuse honest work.
+      The check lives in _proof_entries_for, which already raised the
+      pair requirement and which both commands call, so the CLI and
+      the engine cannot disagree about the same pair. Marking an item
+      to any status other than done still needs no pair at all.
+
 4.59  2026-08-28
 
     - TKT-626. A code review no longer runs with the live checkout as

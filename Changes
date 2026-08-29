@@ -1,5 +1,48 @@
 Revision history for Tira
 
+4.77  2026-08-29
+
+    - TKT-593. A coverage refusal says which lines. The gate printed
+      "lib/Tira/CLI.pm 99.8 100.0 99.8" and stopped, while the Devel::Cover
+      database that knows exactly which statement is missing sat in cover_db
+      beside it. Finding the line by hand cost a session twice: CLI.pm 4503,
+      4619 and 4620 after a night of guessing, and lib/Tira.pm:12134 this week
+      after two failed attempts at parsing the text report's columns. The new
+      tools/coverage-holes asks the database instead and prints file:line for
+      every uncovered statement and subroutine, the subroutine by name as well,
+      since "sub never_called" is what a reader searches for. The percentage
+      line stays - it is what proves the threshold was applied - and the lines
+      go beneath it.
+
+      Three things came out of building it that the card could not have known.
+      merge_runs is not optional: without it the database reports zero files and
+      the helper prints nothing, which reads exactly like a clean tree, so the
+      tool would have contained the fault it exists to remove. The helper has to
+      run inside the container, because gate-run deletes cover_db there and
+      judges coverage afterwards on the host from captured text, so that is the
+      only moment the answer can be taken - and it runs under || true, because a
+      gate that refused because its explanation broke would be worse than one
+      that explains nothing. And it caps at twenty lines while always saying how
+      many it held back: a partial run of one test file produces 5,625 uncovered
+      lines in lib/Tira.pm alone, and a refusal that prints those has replaced
+      one unusable output with another. --all prints every one.
+
+      A scoped code review then found two defects in the parts that handle
+      things going wrong, which is the region a green suite never visits. The
+      host grepped for the module path with grep -E, so every "." in a path
+      matched any character and lib/Tira/CLI.pm would also have matched
+      lib/Tira/CLIXpm - no path in lib/ triggers it today, which is why it was
+      worth fixing before one does. And the database traversal sat outside the
+      eval that guards the calls before it, so a malformed database could abort
+      the helper with an uncaught exception instead of the exit 2 it promises -
+      a diagnostic crashing while explaining a failure being the fault it exists
+      to remove.
+
+      A missing or unreadable database exits 2 and says so, rather than printing
+      nothing and being read as a clean gate - the same fault TKT-684 is open
+      about for police.outstanding, one tool over, and not worth shipping a
+      second instance of in the same week.
+
 4.76  2026-08-29
 
     - TKT-704. The documented count of police rules is held to what the engine

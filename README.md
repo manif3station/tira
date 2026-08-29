@@ -463,6 +463,35 @@ block opened one instead — inverting every fence in the thirteen hundred lines
 that followed and hiding one of the three claims inside an example block nobody
 wrote. A reader that quietly checks less than it appears to has to say so.
 
+**A coverage refusal names the lines, not just the percentage.** Since 4.77 the
+gate prints the uncovered statements and subroutines beneath the module it
+refused on:
+
+```
+gate-run: coverage is below 100% for lib/Tira.pm - no record written: lib/Tira.pm 99.8 100.0 99.8
+  lib/Tira.pm:12134
+  lib/Tira.pm:8826 sub _task_changed_mark_seen
+```
+
+The percentage stays, because it is what proves the threshold was applied. To ask
+the same question yourself, against a `cover_db` you already have:
+
+```bash
+./tools/coverage-holes --db cover_db                    # everything it found
+./tools/coverage-holes --db cover_db --module lib/Tira.pm
+./tools/coverage-holes --db cover_db --all              # past the 20-line cap
+```
+
+It reads the `Devel::Cover` database rather than parsing `cover -report text`,
+which is a report for people whose column layout is not a contract — parsing it
+failed five times in one session, and finding `lib/Tira.pm:12134` by hand cost
+another. It prints nothing when everything is covered, so a passing gate is not
+made noisier, and exits 2 when the database is missing or unreadable rather than
+printing nothing and reading as a clean tree. Above twenty holes it caps and says
+how many it held back: a partial run of one test file against this tree produces
+5,625 uncovered lines in `lib/Tira.pm` alone, and a refusal that prints those has
+replaced one unusable output with another. TKT-593.
+
 **Run coverage serially.** `prove -j N` under `Devel::Cover` loses data on merge:
 measured on 4.76, `-j 4` reported `lib/Tira.pm` at 99.8% statement with one
 uncovered `map` body that three separate tests demonstrably enter, and the same

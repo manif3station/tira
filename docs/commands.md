@@ -1169,6 +1169,29 @@ module it skipped. A module can be skipped only by appearing in the script's
 the difference being that an exemption somebody wrote down is a decision, and a
 module missing from a for-loop is an accident. TKT-594.
 
+**A coverage refusal names the lines, since 4.77.** It used to print the module
+and its percentage and stop, while the `Devel::Cover` database that knows which
+statement is missing sat in `cover_db` beside it — and finding the line by hand
+cost a session twice, most recently `lib/Tira.pm:12134` after two failed attempts
+at parsing the text report, whose column layout is not a contract.
+`tools/coverage-holes` asks the database instead and prints `file:line` for every
+uncovered statement and subroutine, the subroutine by name as well, beneath the
+percentage that proves the threshold was applied:
+
+```
+gate-run: coverage is below 100% for lib/Tira.pm - no record written: lib/Tira.pm 99.8 100.0 99.8
+  lib/Tira.pm:12134
+  lib/Tira.pm:8826 sub _task_changed_mark_seen
+```
+
+It runs inside the container, because `gate-run` deletes `cover_db` there and
+judges coverage afterwards on the host from captured output — so that is the only
+moment the answer can be taken. It cannot fail the run: a gate that refused
+because its *explanation* broke would be worse than one that explains nothing, so
+a refusal that finds no lines says so rather than printing the percentage alone.
+Above twenty holes it caps and says how many it held back; `--all` prints every
+one. Ask it yourself with `tools/coverage-holes --db cover_db`. TKT-593.
+
 Without `--pid`, the 600-second ceiling was shorter than either gate this
 repo ran at the time - coverage at 846s, pre-push at 15m and counting - so
 the commonest legitimate reason for a suspension (waiting on a gate) always

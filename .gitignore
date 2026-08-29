@@ -4,3 +4,4 @@
 *.bak
 /.pw-fixtures/
 .prove-the-gate.lock
+.developer-dashboard

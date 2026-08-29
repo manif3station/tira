@@ -1,0 +1,201 @@
+#!/usr/bin/env perl
+# Which statements and subroutines a coverage run did not reach, named as file
+# and line.
+#
+# The gate already prints the percentage - "lib/Tira/CLI.pm 99.8 100.0 99.8" -
+# and then stops, while the Devel::Cover database that knows exactly which
+# statement is missing sits in cover_db beside it. Finding the line has twice
+# cost a session: CLI.pm 4503, 4619 and 4620 after a night of guessing, and
+# lib/Tira.pm:12134 after two failed attempts at parsing the text report's
+# column layout. This asks the database instead, in about a quarter of a second.
+#
+# THE PERCENTAGE IS NOT REPLACED. It is what proves the threshold was applied;
+# these lines go beneath it. A module at 100% prints nothing at all, because a
+# passing gate that grew a paragraph is a passing gate people stop reading.
+#
+# WHY IT MUST RUN WHERE THE DATABASE IS. tools/gate-run removes cover_db inside
+# the container as its last act, and judges coverage afterwards on the host by
+# grepping the captured text. By then the database is gone - so this runs inside
+# the container, next to the run that produced it, and its output travels back
+# in that same captured text.
+
+use strict;
+use warnings;
+
+use Getopt::Long ();
+
+my ( $db_path, @only, $show_help, $limit, $show_all );
+Getopt::Long::GetOptions(
+    'db=s'     => \$db_path,
+    'module=s' => \@only,
+    'limit=i'  => \$limit,
+    'all'      => \$show_all,
+    'help'     => \$show_help,
+) or die "coverage-holes: unrecognised argument\n";
+
+# A refusal is read by somebody deciding where to look next, and twenty lines is
+# already more than anybody opens. Measured rather than guessed: a partial run of
+# one test file against this tree produced 5,625 uncovered lines in lib/Tira.pm
+# alone, and a gate that answers a refusal with five thousand lines of stderr has
+# replaced one unusable output with another.
+#
+# The count is always printed when anything is dropped. A silent cap would be
+# this card's own fault - an output that looks complete and is not.
+$limit = 20 if !defined $limit;
+$limit = 0  if $show_all;
+
+if ($show_help) {
+    print <<'USAGE';
+coverage-holes --db PATH [--module lib/Foo.pm ...]
+
+Prints one line per uncovered statement and subroutine:
+
+    lib/Tira.pm:12134
+    lib/Tira.pm:8826 sub _task_changed_mark_seen
+
+Prints nothing when everything asked about is covered. Exits 2 when the
+database is missing or unreadable, so a caller cannot mistake a broken
+instrument for a clean tree.
+USAGE
+    exit 0;
+}
+
+$db_path = 'cover_db' if !defined $db_path || $db_path eq '';
+
+# Refuse rather than report health. Silence from a missing database and silence
+# from a clean tree are the same bytes, and a gate that cannot tell them apart
+# passes on a run that never happened - which is the fault TKT-684 is open about
+# for police.outstanding, one tool over.
+if ( !-d $db_path ) {
+    print {*STDERR} "coverage-holes: no database at $db_path - nothing was measured\n";
+    exit 2;
+}
+
+eval { require Devel::Cover::DB; 1 }
+  or do {
+    print {*STDERR} "coverage-holes: Devel::Cover is not installed, so the database cannot be read\n";
+    exit 2;
+  };
+
+my $db = eval { Devel::Cover::DB->new( db => $db_path ) };
+if ( !$db ) {
+    print {*STDERR} "coverage-holes: cannot read the database at $db_path\n";
+    exit 2;
+}
+
+# Without this the database reports zero files and this prints nothing - a
+# silent empty answer that reads exactly like a clean tree. It is the single
+# step between "the database knows" and "the database will say".
+eval { $db->merge_runs; 1 }
+  or do {
+    print {*STDERR} "coverage-holes: cannot merge the runs in $db_path - the database is unreadable\n";
+    exit 2;
+  };
+
+my $cover = eval { $db->cover };
+if ( !$cover ) {
+    print {*STDERR} "coverage-holes: cannot read coverage out of $db_path\n";
+    exit 2;
+}
+
+my %wanted = map { $_ => 1 } @only;
+
+# Everything below is inside one eval. new(), merge_runs() and cover() are
+# guarded above, and a review pointed out that the traversal after them is not:
+# statement(), subroutine(), items() and location() are method calls on objects
+# a malformed database produced, and any of them dying would abort with an
+# uncaught exception instead of the exit 2 this tool promises. A diagnostic that
+# crashes while explaining a failure is the fault this tool exists to remove.
+my @holes;
+my $walked = eval {
+for my $file ( sort $cover->items ) {
+    next if %wanted && !$wanted{$file};
+    my $in_file = $cover->file($file) or next;
+
+    # Statements first, because that is the measure the gate refuses on most
+    # often and the one a reader can act on immediately by opening the line.
+    if ( my $statements = $in_file->statement ) {
+        for my $line ( sort { $a <=> $b } $statements->items ) {
+            for my $statement ( @{ $statements->location($line) } ) {
+                next if $statement->covered;
+                push @holes, "$file:$line";
+                last;    # one line, however many statements share it
+            }
+        }
+    }
+
+    # Subroutines are a separate measure with its own threshold, and a helper
+    # that reported only statements would answer half of a refusal that names
+    # both. Named as well as numbered: "sub never_called" is what a reader
+    # searches for, and the line tells them where it starts.
+    if ( my $subroutines = $in_file->subroutine ) {
+        for my $line ( sort { $a <=> $b } $subroutines->items ) {
+            for my $subroutine ( @{ $subroutines->location($line) } ) {
+                next if $subroutine->covered;
+                my $name = $subroutine->can('name') ? $subroutine->name : undef;
+                push @holes, "$file:$line" . ( defined $name ? " sub $name" : ' sub' );
+            }
+        }
+    }
+}
+
+    1;
+};
+if ( !$walked ) {
+    my $why = $@ || 'unknown';
+    $why =~ s/\s+\z//;
+    print {*STDERR} "coverage-holes: could not read coverage out of $db_path - $why\n";
+    exit 2;
+}
+
+if ( $limit && @holes > $limit ) {
+    my $dropped = @holes - $limit;
+    print "$_\n" for @holes[ 0 .. $limit - 1 ];
+    print "... and $dropped more (use --all to see them)\n";
+}
+else {
+    print "$_\n" for @holes;
+}
+exit 0;
+
+__END__
+
+=head1 NAME
+
+coverage-holes - name the statements and subroutines a coverage run did not reach
+
+=head1 SYNOPSIS
+
+    tools/coverage-holes --db cover_db
+    tools/coverage-holes --db cover_db --module lib/Tira.pm
+
+=head1 DESCRIPTION
+
+The coverage gate prints a percentage per module and stops. This reads the
+C<Devel::Cover> database that produced that percentage and prints one line per
+uncovered statement and subroutine, as file and line, so a refusal can be acted
+on by opening the file rather than by writing a parser.
+
+Prints nothing when everything is covered, so a passing gate is not made
+noisier. Exits C<2> when the database is missing or unreadable, because silence
+from a broken instrument and silence from a clean tree are otherwise the same
+bytes.
+
+=head2 Why the database rather than the text report
+
+C<cover -report text> is a report for people, and parsing it to answer this
+question failed five times in one session - the column layout is not a contract.
+The database answers in one call and is what the report is rendered from.
+
+C<merge_runs> is not optional. Without it C<< $db->cover >> reports zero files
+and this prints nothing at all, which is the failure mode this tool exists to
+remove, reproduced inside the tool itself.
+
+=head2 Where it must run
+
+C<tools/gate-run> removes C<cover_db> inside the container as its last act and
+judges coverage afterwards on the host, from captured text. This therefore runs
+inside the container, beside the run that produced the database, and its output
+travels back in that same captured text.
+
+=cut

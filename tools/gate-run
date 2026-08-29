@@ -75,6 +75,25 @@ docker compose -f "$compose" run --rm -v "$tree:/workspace/skills/tira" perl-tes
   fi &&
   cover -ignore_covered_err -report text "${select_args[@]}" \
     -coverage statement -coverage subroutine 2>/dev/null | grep -E "^lib|^Total"
+
+  # The percentage says a module is short; this says which line. It runs HERE,
+  # inside the container, because the next line removes the database and the
+  # refusal happens afterwards on the host, from this captured text - so the
+  # only moment the answer can be taken is before cover_db is gone. Prefixed so
+  # the host can find these lines among the report and the suite output, and
+  # never allowed to fail the run: a gate that refuses because its explanation
+  # broke would be worse than one that explains nothing.
+  #
+  # A review asked whether this || true lets a broken coverage database pass the
+  # gate. It does not, and the reason is forty lines below rather than here: a
+  # database cover cannot read produces no "^lib" percentage lines at all, so
+  # the per-module check finds no line and exits 1 with "no coverage was measured
+  # for $module". The helper failing costs the EXPLANATION, which is only ever
+  # consulted when a module is already below 100% - and that path prints "(no
+  # uncovered lines were recorded - check the helper ran)" rather than a
+  # percentage on its own. TKT-593.
+  ./tools/coverage-holes --db cover_db 2>&1 | sed "s/^/uncovered: /" || true
+
   rm -rf cover_db
 ' >"$output" 2>&1 || { echo "gate-run: the suite did not run:" >&2; tail -3 "$output" >&2; exit 1; }
 
@@ -140,6 +159,24 @@ for module in "${modules[@]}"; do
     fi
     if ! echo "$line" | grep -qE '100\.0[[:space:]]+100\.0[[:space:]]+100\.0'; then
         echo "gate-run: coverage is below 100% for $module - no record written: $line" >&2
+        # The percentage above proves the threshold was applied; these say where
+        # to look. Twice now, finding them by hand has cost a session - CLI.pm
+        # 4503/4619/4620 after a night of guessing, and lib/Tira.pm:12134 after
+        # two failed attempts at parsing the report's columns. TKT-593.
+        # grep -F, not -E: a module path is a literal, and interpolating one
+        # into a regex makes every "." match any character - lib/Tira/CLI.pm
+        # would also match lib/Tira/CLIXpm. No path in lib/ carries a worse
+        # metacharacter today, which is exactly why this is worth fixing before
+        # one does.
+        holes="$(grep -F "uncovered: ${module}:" "$output" | sed 's/^uncovered: /  /' || true)"
+        if [ -n "$holes" ]; then
+            echo "$holes" >&2
+        else
+            # Say so rather than leaving the reader to wonder whether the module
+            # is clean or the explanation is broken - the same distinction the
+            # helper itself refuses to blur.
+            echo "  (no uncovered lines were recorded - check the helper ran)" >&2
+        fi
         exit 1
     fi
 done

@@ -1,5 +1,42 @@
 Revision history for Tira
 
+4.70  2026-08-29
+
+    - TKT-703. The dashboard has a View. Dancer2 served the board and
+      Starman ran it, and no template engine was configured at all: the
+      HTML, the stylesheet and the whole front-end were Perl strings
+      inside lib/Tira.pm. The owner asked for an MVC shape with Template
+      Toolkit as the View, to trim the module down.
+    - lib/Tira.pm is 697,411 bytes, down from 837,202, and no line in it
+      exceeds 2,000 characters. Eight did, holding 113,884 bytes between
+      them; the longest was 54,419 and was the dashboard's JavaScript.
+      That line could not be reviewed in a diff, blamed usefully, or
+      edited except by a scripted replace against an exact substring -
+      which is how every dashboard change was made until now.
+    - Eleven files under lib/Tira/views: the stylesheet, seven scripts,
+      and three templates. The page, the sign-in page and the card and
+      column dialogs each render through Template Toolkit, the last with
+      a FOREACH over the twelve policy fields it used to build with a
+      map.
+    - The board still loads nothing from another host, which is the
+      property this change most endangered. It is narrower than "makes no
+      requests" - the live page polls its own data, fetches a record when
+      a card is opened and posts a move when one is dragged, all to
+      itself. What it must never do is fetch from somewhere else, so the
+      assets are inlined at render rather than linked; a <link> or a
+      <script src> would be exactly that. The test counting external
+      references was written before the move, so it measures the same
+      thing on both sides of it.
+    - Every slice was proved byte-identical rather than eyeballed: the
+      dashboard renders 152,692 bytes and the sign-in page 3,319, before
+      and after each of five moves. One attempt rendered 216 bytes too
+      many - a script fragment emitted twice, once in the wrong place -
+      in a 152KB page where every element was still present and correct.
+      Only the byte comparison found it.
+    - The templates resolve from the module rather than the working
+      directory, so an installed skill finds them: rendered from a copied
+      tree with the working directory set elsewhere, byte-identical.
+
 4.69  2026-08-28
 
     - TKT-645. A source file attached to a card can be read on the card.

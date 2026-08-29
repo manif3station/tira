@@ -97,7 +97,7 @@ catches a finished checklist under an unfinished column, never fired against
 `Done` at all.
 An attachment previews if the board can read it as text, and the twelve
 languages listed on TKT-645 are syntax highlighted by a 4.5KB tokeniser
-embedded in the page — the board makes no network requests, so a CDN
+embedded in the page — the board loads nothing from another host, so a CDN
 highlighter was never an option. A genuinely binary file still refuses rather
 than rendering as mojibake, and an unknown extension is decided by reading its
 first bytes rather than by its name.
@@ -282,7 +282,17 @@ Append `?refresh=30` to the browser URL to select a positive interval in
 seconds; zero is safely clamped to one second. Browser output serves the same
 board shell through Dancer2, defaults to `0.0.0.0:7899`, and accepts `0.0.0.0`,
 `127.0.0.1`, or `localhost` with an optional port. Each request rescans the
-filesystem. The page polls lightweight card placement data and moves cards in
+filesystem.
+Since 4.70 the page comes from a View rather than from Perl string
+concatenation: the markup lives in Template Toolkit templates under
+`lib/Tira/views`, beside the stylesheet and the scripts, and the module keeps
+none of it. They are inlined at render rather than linked, so the board still
+loads nothing from another host — every request the live page makes is to
+itself (it polls its own card data, fetches a record when you open a card, and
+posts a move when you drag one), and a table-mode board saved to a file makes
+none at all. That is the property that ruled a CDN highlighter out on TKT-645
+and it is unchanged here. The templates resolve from the module's
+own location, so an installed skill finds them wherever it is run from. The page polls lightweight card placement data and moves cards in
 place without reloading. Dragging a card calls the real record-move operation,
 which moves its JSON file into the target column folder. Click a card to load
 its complete record on demand in a Jira-style dialog that renders section by

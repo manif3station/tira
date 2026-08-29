@@ -89,7 +89,31 @@ my $source = do {
     <$fh>;
 };
 
-my ($labels) = $source =~ /const priorityLabels=\{([^}]*)\}/;
+# TKT-703 moved the dashboard's scripts out of lib/Tira.pm into
+# lib/Tira/views, so the JS half of this comparison is read from there while
+# the Perl half stays in the module. The point of the test is unchanged and is
+# the reason it must follow the code: the two label maps have to agree, and
+# they now live in two different files, which is exactly when they drift.
+# Every script, not a named one: the labels and the sort comparator sit in
+# different files and a test that had to know which would break on the next
+# move without anything actually being wrong.
+my $views = File::Spec->catdir( 'lib', 'Tira', 'views' );
+opendir my $dh, $views or die "$views: $!";
+my @scripts = sort grep { /\.js\z/ } readdir $dh;
+closedir $dh;
+my $script = '';
+for my $name (@scripts) {
+    open my $fh, '<:encoding(UTF-8)', File::Spec->catfile( $views, $name )
+      or die "$name: $!";
+    local $/;
+    $script .= <$fh>;
+    close $fh;
+}
+ok( $script,
+    'the dashboard scripts were read - '
+      . scalar(@scripts) . ' files, ' . length($script) . ' bytes' );
+
+my ($labels) = $script =~ /const priorityLabels=\{([^}]*)\}/;
 ok( $labels, 'the dashboard still labels the scale' );
 
 my %label = $labels =~ /(\d+):"([^"]+)"/g;
@@ -112,7 +136,7 @@ is_deeply( \%printed, \%label,
 
 # The sort has to agree with the labels, or the column reads top-first by one
 # rule and bottom-first by the other.
-like( $source, qr/mode==="priority"\?\(Number\(b\.dataset\.priority\|\|0\)-Number\(a\.dataset\.priority\|\|0\)/,
+like( $script, qr/mode==="priority"\?\(Number\(b\.dataset\.priority\|\|0\)-Number\(a\.dataset\.priority\|\|0\)/,
     'and the board sorts the high end first, which is what the labels promise' );
 
 # --- and the documents say the same thing ---------------------------------------------

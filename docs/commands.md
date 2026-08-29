@@ -545,6 +545,29 @@ without seeing that.
 the server notices and restarts into the new code. **The browser dashboard is
 behind a login**; see the sign-in section below.
 
+**Where the dashboard's markup lives, since 4.70.** Not in `lib/Tira.pm`. The
+page, the sign-in page and the card and column dialogs are Template Toolkit
+templates under `lib/Tira/views`, beside the stylesheet and seven scripts. The
+module holds no markup at all and no line in it exceeds 2,000 characters; before
+this, eight lines held 113,884 bytes between them and the longest was 54,419.
+
+Two properties of that arrangement are load-bearing rather than incidental.
+The assets are read and **inlined at render, never linked** - a `<link>` or a
+`<script src>` pointing at them would reach outside the page, and nothing the
+board serves does. This is narrower than "makes no requests": the live board
+talks to itself constantly, polling its own card data, fetching a record when a
+card is opened and posting a move when one is dragged. What it never does is
+load anything from another host, which is why a table-mode board saved to a file
+still works with no server at all. And the template directory is resolved from the module's own location
+rather than from the working directory, so an installed skill finds it wherever
+it is run from; a relative path would work only when the board was served out of
+the source tree.
+
+Editing the dashboard now means editing a `.css`, `.js` or `.tt` file and
+reading the change as an ordinary diff. It also removes an escaping layer: a
+script built inside a Perl `q{}` has its backslash pairs halved on the way to
+the browser, which shipped a dead board on TKT-645; a file read verbatim cannot.
+
 ### `tira.usage`
 
 Prints this document. One command, so an agent can read the whole reference

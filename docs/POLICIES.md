@@ -1661,6 +1661,18 @@ as nobody upgraded again.
 older than it last heard about is a board whose agent may be working from a
 rulebook the installed Tira no longer has, and that is worth the same line.
 
+**Since 4.70, not everything the board serves needs that restart.** The
+dashboard's markup, stylesheet and scripts left `lib/Tira.pm` for templates and
+asset files under `lib/Tira/views`, and those are read at render rather than
+loaded once at start — so a changed `.tt`, `.css` or `.js` is live on the next
+page load, while a changed `.pm` still is not. That asymmetry is worth knowing
+before diagnosing a board that seems to be ignoring an upgrade: a page that
+changed while the version did not is the templates doing their job, and a
+version that changed while behaviour did not is the modules still waiting for
+the restart this rule exists to trigger. Police signals on the installed
+version, which reads from the module, so nothing here changes what it counts as
+a release.
+
 
 ## Work taken out of turn
 

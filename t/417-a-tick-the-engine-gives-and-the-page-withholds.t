@@ -43,6 +43,7 @@
 use strict;
 use warnings;
 
+use File::Spec;
 use Test::More;
 
 sub slurp {
@@ -66,19 +67,36 @@ my $file = slurp('lib/Tira.pm');
 # new one is correct and must not fail; a live comparison must. So the counts
 # below run over the module with its POD removed, and the assertions say what
 # they always meant rather than what a whole-file grep happened to catch.
-my $source = $file;
-$source =~ s/^=\w+.*?^=cut\b[^\n]*$//msg;
+like( $file, qr/^package Tira;/m, 'the module was read' );
+
+# TKT-703 moved the dashboard's front-end out of lib/Tira.pm into
+# lib/Tira/views, so every count below is taken over the scripts themselves.
+# The POD stripping this used to need is gone with it: a .js file has neither
+# POD nor Perl comments to confuse a count, which is what the note above was
+# working around.
+my $views = File::Spec->catdir( 'lib', 'Tira', 'views' );
+opendir my $dh, $views or die "$views: $!";
+my @scripts = sort grep { /\.js\z/ } readdir $dh;
+closedir $dh;
+my $source = '';
+for my $name (@scripts) {
+    open my $sh, '<:encoding(UTF-8)', File::Spec->catfile( $views, $name )
+      or die "$name: $!";
+    local $/;
+    $source .= <$sh>;
+    close $sh;
+}
 
 # Established before anything is denied. Every count below is a claim that
 # something is ABSENT, and a count of zero taken over a file that failed to
-# load is zero for the wrong reason - which is t/147's whole subject.
-like( $source, qr/^package Tira;/m, 'the module was read' );
-like( $source, qr/card-required/, 'and it carries the required-action section of the dashboard' );
-
-# And the stripping actually removed something, so a regex that silently
-# matched nothing cannot leave these counts running over the whole file again.
-cmp_ok( length $source, '<', length $file,
-    'the POD was found and removed, so the counts below are about the code' );
+# load is zero for the wrong reason - which is t/147's whole subject. This
+# anchor did exactly that job when the scripts moved: it failed loudly instead
+# of letting the counts pass over a file that no longer held the code.
+like( $source, qr/card-required/,
+    'the dashboard scripts were read and carry the required-action section' );
+cmp_ok( length $source, '>', 50_000,
+    'and it is the whole front-end - ' . scalar(@scripts) . ' files, '
+      . length($source) . ' bytes' );
 
 # --- the three case-sensitive comparisons ----------------------------------
 #

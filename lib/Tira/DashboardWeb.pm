@@ -11,6 +11,16 @@ use File::Spec ();
 use Cpanel::JSON::XS ();
 use Dancer2 appname => 'TiraDashboard';
 
+# The View, which this app has never had - no template engine was configured at
+# all, so every page came from Perl string concatenation in lib/Tira.pm. The
+# views directory resolves from this module rather than from the process's
+# working directory: an installed skill is run from anywhere, and a relative
+# path would find its templates only when the board was served out of the
+# source tree. TKT-703.
+set views => File::Spec->catdir(
+    File::Basename::dirname( File::Spec->rel2abs(__FILE__) ), 'views' );
+set template => 'template_toolkit';
+
 our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $SEARCH, $COMMENT_ADD, $COMMENT_UPDATE, $COMMENT_REMOVE, $PEOPLE,
       $ATTACHMENT_FETCH, $ATTACHMENT_ADD, $ATTACHMENT_REMOVE, $ATTACHMENT_DISCARD, $CHECKLIST_ADD, $CHECKLIST_UPDATE,
       $REQUIRED_ACTION_UPDATE,
@@ -556,6 +566,17 @@ section full CLI parity with C<tira.tasklist.*>, mutations answered the
 same validated-422 way as every other route. C<serve> runs the PSGI
 application through Plack's bundled
 standalone server at a validated CLI bind address.
+
+Since 4.70 the application configures a Template Toolkit engine, which it never
+had before - the board's markup used to be built entirely by string
+concatenation in L<Tira>. C<views> is resolved from this module's own directory
+via C<__FILE__> rather than from the process's working directory, because an
+installed skill is run from anywhere and a relative path would find the
+templates only when the board happened to be served out of the source tree. The
+templates and the stylesheet and scripts beside them are inlined into the page
+at render, never linked: the board answers its own routes constantly, but it
+loads nothing from another host, and a C<< <link> >> or C<< <script src> >>
+would be exactly that. TKT-703.
 
 =head1 METHODS
 

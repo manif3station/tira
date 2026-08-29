@@ -110,11 +110,15 @@ if ( $status != 0 ) {
 }
 
 # The fault that prompted this file, pinned where it happened: a backslash
-# that has to survive q{} to reach the browser as a backslash.
+# that has to reach the browser as a backslash. TKT-703 moved this script out
+# of the q{} that once halved it and into lib/Tira/views/live-helpers.js, which
+# is why the assertion now describes the shape rather than the mechanism - the
+# escaping layer is gone, and this is what proves it did not take the backslash
+# with it.
 like( $script, qr/rest\[j\]==="\\\\"/,
     'the string scanner tests for a literal backslash, not for an escaped '
-      . 'quote - the q{} that builds this script halves every backslash pair '
-      . 'it is given' );
+      . 'quote - the shape that shipped a dead board, and the one an escaping '
+      . 'layer between the source and the browser can silently halve' );
 
 done_testing();
 

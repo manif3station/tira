@@ -1,0 +1,21 @@
+<!doctype html><html lang="en" data-version="
+[%- version -%]
+" data-with-title="
+[%- with_title -%]
+"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>
+[%- heading -%]
+ :: 
+[%- board_label -%]
+ :: 
+[%- cards -%]
+</title><style>
+[%- css -%]
+</style></head><body><main class="shell"><header class="hero"><div><span class="eyebrow">Tira Kanban &middot; Filesystem-native flow</span><h1>
+[%- heading -%]
+</h1></div><div class="hero__aside"><p>Focused work, arranged by state. Select a card to keep your place.</p><span class="refresh-status" aria-live="polite">Refresh 60s</span><span class="last-updated">Last updated: pending</span><span class="stale-notice" hidden></span></div></header>
+[%- boards -%]
+</main>
+[%- dialog -%]
+
+[%- script -%]
+</script></body></html>

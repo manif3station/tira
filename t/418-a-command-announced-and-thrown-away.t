@@ -548,17 +548,31 @@ is( $with_status, '',
 # - an entry carrying a command and no proof - and writing this assertion
 # before that shape existed would have pinned a guess.
 
-my $module = do {
-    open my $fh, '<', 'lib/Tira.pm' or die "lib/Tira.pm: $!";
+# TKT-703 moved the dashboard's front-end out of lib/Tira.pm and into
+# lib/Tira/views, so this reads the scripts themselves. That is a better
+# subject than it had: the note below explains that stripping POD was not
+# enough because prose also lives in Perl comments, and a .js file has neither.
+# The check that the subject is real moved with it - a directory that has
+# stopped holding scripts must fail here rather than pass with nothing to read.
+my $views = File::Spec->catdir( 'lib', 'Tira', 'views' );
+opendir my $dh, $views or die "$views: $!";
+my @scripts = sort grep { /\.js\z/ } readdir $dh;
+closedir $dh;
+cmp_ok( scalar @scripts, '>=', 5,
+    'the dashboard ships its scripts as files - found ' . scalar(@scripts) );
+
+my $js = '';
+for my $name (@scripts) {
+    open my $fh, '<:encoding(UTF-8)', File::Spec->catfile( $views, $name )
+      or die "$name: $!";
     local $/;
-    <$fh>;
-};
-my $js = $module;
-$js =~ s/^=\w+.*?^=cut\b[^\n]*$//msg;
+    $js .= <$fh>;
+    close $fh;
+}
 
 like( $js, qr/card-required/, 'the dashboard JS was read' );
-cmp_ok( length $js, '<', length $module,
-    'with its POD removed, so these are about code' );
+cmp_ok( length $js, '>', 50_000,
+    'and it is the whole front-end rather than one file - ' . length($js) . ' bytes' );
 
 # The predicate, not the glyph: the card asks for a clock, and which clock is a
 # styling decision. What must exist is the dashboard deciding that an item with

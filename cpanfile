@@ -1,6 +1,13 @@
 requires 'Data::TOON', '0.03';
 requires 'YAML::XS', '0.83';
 requires 'Dancer2', '1.1.2';
+
+# The dashboard's View. Dancer2 supports Template Toolkit and had no template
+# engine configured at all, so the page was built as Perl strings inside
+# lib/Tira.pm - 113,884 bytes of it on eight lines, the longest 54,419. It is a
+# hard requirement rather than a preference: an installed skill whose engine is
+# missing has no view layer however the code is written. TKT-703.
+requires 'Template', '3.101';
 requires 'Plack', '1.0051';
 
 # The board is served by Starman, plain or over TLS. The single-connection

@@ -789,8 +789,34 @@ Tira::CLI::Police - the police pass, the bridge, and the world it scans
 C<police_world> gathers what is true of this machine - running processes and
 containers, git branches, worktrees, unpushed commits, when the tree last
 changed - and C<police_pass> in L<Tira> judges the board against it.
-C<police_follow> and C<bridge_follow> are the two loops that keep doing so.
+C<police_follow> and C<bridge_follow> are the two loops in this module.
 C<report_to_tira> is the body behind C<tira.dev.found.bug_or_improvement>.
+
+=head2 Which of these runs a pass
+
+Only three call C<police_pass>, and the difference is the whole reason
+C<--fresh> exists:
+
+=over
+
+=item * C<police_follow> - the C<d2 tira.police> watch loop, on every tick.
+
+=item * C<police_run> - a single pass on demand.
+
+=item * C<police_outstanding> - B<only> when C<--fresh> is given. Without it
+the command reports what the last pass wrote, however old that is.
+
+=back
+
+C<bridge_follow> never runs one. It streams what a pass has already recorded,
+so a board whose watcher has stopped keeps answering from the last pass and the
+bridge cannot tell. That is not a defect in the bridge - one process writes to a
+project, and a reader that started passes of its own would be a second writer -
+but it does mean the loop that looks most like it is watching the board is the
+one that never judges it.
+
+Said here because it was written down nowhere outside this source until 4.81,
+and two cards were raised by somebody who could not find it out. TKT-745.
 
 They lived in C<Tira::CLI> until 4.74. C<Tira::CLI> now loads this module with
 C<require> at each point one of those verbs is entered, so a CLI call that never

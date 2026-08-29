@@ -1,5 +1,59 @@
 Revision history for Tira
 
+4.81  2026-08-29
+
+    - TKT-745. SKILLS.md names --fresh, the option that answers whether
+      police.outstanding is telling you about now or about whenever the
+      last pass happened to run.
+
+      It was documented in docs/commands.md and nowhere else. SKILLS.md
+      calls itself the normative implemented interface and is what an
+      agent reads first; its police.outstanding entry described the
+      command at length - --by-rule, -o json, the grouping, the staleness
+      judgement - without mentioning it. The entry now also names which
+      commands run a pass and which only read, because "is this answer
+      stale" and "what would make it fresh" are one question.
+
+      The cost was already on the board when this was written. TKT-740
+      was filed ending "WORKAROUND MEANWHILE: none available to an
+      agent", and TKT-744 an hour later saying "I do not know what drives
+      a pass". Both were written by somebody reading SKILLS.md, and both
+      are answered by an option only the third document mentioned.
+
+      The guard is the other half. Asserting --fresh appears fixes the
+      instance; the fault is that an option can be added without the
+      normative document following and nothing notices. t/439 reconciles
+      the options SKILLS.md names against the ones lib/Tira/CLI.pm binds,
+      and asserts each flag is genuinely bound before requiring it to be
+      documented - so a renamed flag fails rather than quietly shrinking
+      the list being checked.
+
+      Tira::CLI::Police's own POD said "police_follow and bridge_follow
+      are the two loops that keep doing so", where "so" was judging the
+      board. bridge_follow never judges anything - it streams what a pass
+      already recorded, and police_pass is called from exactly three
+      places, none of them the bridge. Corrected, and the three are now
+      listed there, because the module that owns the knowledge is where a
+      reader of the code looks for it.
+
+      Review caught the entry naming `d2 tira.police.run`, which is not a
+      command - police_run is the body behind `d2 tira.police`, and
+      dispatch recognises only police and policy.bridge. A false command
+      name in the normative document, in the entry being corrected for
+      omitting a real option, is the fault this card is about, arriving
+      while the card was being written. It now names the two commands
+      that do run a pass and says what --once does to the first.
+
+      The guard was strengthened by the same review. Matching a flag in
+      CLI.pm's option table proves the parser accepts the spelling, not
+      that this command reads it - the table is shared by every command.
+      Each flag is now also required to be consumed in Police.pm.
+
+      Half of this card was already delivered when it was picked up:
+      docs/POLICIES.md gained the who-runs-a-pass explanation with
+      TKT-684's own documentation, after the card was filed. That is
+      recorded on the card rather than rewritten here.
+
 4.80  2026-08-29
 
     - TKT-747. record.create refuses instead of crashing when there is no

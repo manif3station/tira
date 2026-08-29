@@ -57,7 +57,7 @@ sub run_in {
     my ( $where, @c ) = @_;
     my @command = shift @c;
     push @command, ( '-C', $where ) if defined $where && $command[0] =~ /git\z/;
-    return Tira::CLI::_reading( @command, @c );
+    return Tira::CLI::Serve::_reading( @command, @c );
 }
 sub _which {
     my ($program) = @_;
@@ -165,7 +165,7 @@ close $after;
 run_in( $untracked, $git, 'add', 'AFTER' );
 run_in( $untracked, $git, 'commit', '--quiet', '-m', 'RLT-004 unpushed, and nothing tracks the branch' );
 
-is( scalar @{ Tira::CLI::_reading( $git, '-C', $untracked, 'rev-parse', '--abbrev-ref',
+is( scalar @{ Tira::CLI::Serve::_reading( $git, '-C', $untracked, 'rev-parse', '--abbrev-ref',
         '--verify', '--quiet', 'master@{upstream}' ) },
     0, 'git really has no upstream configured for this branch' );
 
@@ -264,7 +264,7 @@ is( scalar @{ violations(
 
 is( ref Tira::CLI::Police::_running_containers(), 'ARRAY',
     'asking for containers answers with a list even where Docker is not installed' );
-is_deeply( Tira::CLI::_reading('a-program-that-is-not-installed-anywhere'), [],
+is_deeply( Tira::CLI::Serve::_reading('a-program-that-is-not-installed-anywhere'), [],
     'and a missing program reads as nothing, rather than stopping the watch' );
 
 # Docker output understood without Docker, because the suite runs inside a

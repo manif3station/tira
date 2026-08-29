@@ -28,6 +28,10 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Usage holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Usage;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $now = '2026-08-14T00:00:00Z';
@@ -117,7 +121,7 @@ ok( scalar( grep { ( $_->{ref} // '' ) eq $card{'log-only'} } @{$log} ),
 # worse way round: somebody reads it, believes the second row, and gets the
 # noise they used it to avoid.
 
-my $guide = Tira::CLI::_policy_help();
+my $guide = Tira::CLI::Usage::_policy_help();
 like( $guide, qr/log-only.*said to nobody/,
     'the guide still promises log-only says nothing to anybody' );
 

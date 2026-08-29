@@ -31,8 +31,12 @@ use Test::More;
 use lib 'lib', 't/lib';
 use Shipped qw(runnable_ok);
 use Tira::CLI;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
 
-plan skip_all => 'python3 is not installed here' if !Tira::CLI::_program_exists('python3');
+plan skip_all => 'python3 is not installed here' if !Tira::CLI::Serve::_program_exists('python3');
 
 my $tool = 'tools/docs-examples-run';
 runnable_ok( $tool, 'the documented-examples check ships and is runnable' );

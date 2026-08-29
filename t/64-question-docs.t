@@ -3,6 +3,7 @@
 use strict;
 use warnings;
 
+use File::Find ();
 use File::Spec;
 use Test::More;
 
@@ -47,9 +48,32 @@ for my $command (@commands) {
 }
 
 # Every option the dispatcher actually passes through to a question command.
-my $cli = slurp('lib/Tira/CLI.pm');
-my ($dispatch) = $cli =~ /(if \( \$command =~ \/\\Aquestion.*?\n    \})/s;
-ok( $dispatch, 'the question dispatch block is where it is expected' );
+# Found by looking through lib/, not by naming a file. This read
+# lib/Tira/CLI.pm and matched the `if ( $command =~ /\Aquestion...` block inside
+# _invoke, which was right until 4.74 moved that block into
+# Tira::CLI::Records::question_verbs (TKT-607). It then matched the four-line
+# stub left behind, found one option in it, and failed on a count - a test that
+# looked like it was about documentation reporting a fact about file layout.
+# Whichever module holds the question verbs, this finds it.
+my @sources;
+File::Find::find(
+    {   no_chdir => 1,
+        wanted   => sub { push @sources, slurp($File::Find::name) if /\.pm\z/ },
+    },
+    'lib'
+);
+my ($dispatch) = grep {defined} map { /(sub question_verbs \{.*?\n\})/s } @sources;
+
+# The fallback is asked of every module only AFTER the sub has been looked for
+# in every module, and the order matters: Tira::CLI still carries a four-line
+# stub whose head is `if ( $command =~ /\Aquestion...`, and a per-file loop that
+# tried both patterns on each file in turn matched that stub, found one option in
+# it, and failed on a count. The test then read as a claim about documentation
+# while actually reporting where a block lives.
+($dispatch) = grep {defined} map { /(if \( \$command =~ \/\\Aquestion.*?\n    \})/s } @sources
+  if !$dispatch;
+ok( $dispatch, 'the question dispatch is somewhere under lib/ - '
+      . ( defined $dispatch ? length($dispatch) . ' bytes' : 'not found' ) );
 my %passed;
 $passed{$_} = 1 for map { split ' ' } $dispatch =~ /qw\(([^)]+)\)/g;
 $passed{$_} = 1 for $dispatch =~ /\$question\{(\w+)\}/g;

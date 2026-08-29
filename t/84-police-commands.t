@@ -15,6 +15,10 @@ use Tira::CLI;
 # 4.74 (TKT-607). Tira::CLI loads it with require at the point a police verb
 # runs, so a test calling into it directly has to ask for it itself.
 require Tira::CLI::Police;
+# Tira::CLI::Usage holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Usage;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $now = '2026-08-11T09:00:00Z';
@@ -369,7 +373,7 @@ like( $help, qr/worse than no policy/i,
 # exists, rather than answering nothing at all - so the fallback is exercised
 # rather than left as code that only runs somewhere nobody is looking.
 {
-    my $bare = Tira::CLI::_policy_help(
+    my $bare = Tira::CLI::Usage::_policy_help(
         document => File::Spec->catfile( $tmp, 'no-such-document.md' ) );
     like( $bare, qr/card-stalled/, 'with no document, the rules are still listed' );
     like( $bare, qr/tira\.police/, 'and both commands are still named' );

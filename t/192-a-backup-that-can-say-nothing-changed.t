@@ -44,8 +44,12 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
 
-plan skip_all => 'git is not installed' if !Tira::CLI::_program_exists('git');
+plan skip_all => 'git is not installed' if !Tira::CLI::Serve::_program_exists('git');
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $tira = Tira->new;
@@ -75,7 +79,7 @@ sub backup {
 
 sub tracked {
     my $store = File::Spec->catdir( $root, '.tira' );
-    return [ @{ Tira::CLI::_reading( 'git', '-C', $store, 'ls-files' ) } ];
+    return [ @{ Tira::CLI::Serve::_reading( 'git', '-C', $store, 'ls-files' ) } ];
 }
 
 # --- the first backup has everything to say ------------------------------------------
@@ -141,7 +145,7 @@ is_deeply( [ grep { m{\Asessions/} } @{ tracked() } ], [],
 
     # A store made the way they were made before this change: ignoring the lock
     # and nothing else.
-    Tira::CLI::_running( 'git', '-C', $store, 'init', '--quiet' );
+    Tira::CLI::Serve::_running( 'git', '-C', $store, 'init', '--quiet' );
     open my $ignore, '>', File::Spec->catfile( $store, '.gitignore' ) or die $!;
     print {$ignore} ".lock\n";
     close $ignore;
@@ -152,8 +156,8 @@ is_deeply( [ grep { m{\Asessions/} } @{ tracked() } ], [],
     print {$fh} qq({"person":"claude"}\n);
     close $fh;
 
-    Tira::CLI::_running( 'git', '-C', $store, 'add', '--all' );
-    Tira::CLI::_running( 'git', '-C', $store, '-c', 'user.name=T', '-c', 'user.email=t@t',
+    Tira::CLI::Serve::_running( 'git', '-C', $store, 'add', '--all' );
+    Tira::CLI::Serve::_running( 'git', '-C', $store, '-c', 'user.name=T', '-c', 'user.email=t@t',
         'commit', '--quiet', '-m', 'as boards were before' );
 
     my ( $out, $err ) = ( '', '' );
@@ -166,13 +170,13 @@ is_deeply( [ grep { m{\Asessions/} } @{ tracked() } ], [],
             argv => [ '-o', 'json' ] ) };
     }
 
-    my $files = Tira::CLI::_reading( 'git', '-C', $store, 'ls-files' );
+    my $files = Tira::CLI::Serve::_reading( 'git', '-C', $store, 'ls-files' );
     is_deeply( [ grep { m{\Asessions/} } @{$files} ], [],
         'a board that already tracked sessions stops tracking them' );
 
     # And what it already committed is still there, because rewriting the
     # history of a backup would be worse than the thing it fixes.
-    my $past = Tira::CLI::_reading( 'git', '-C', $store, 'log', '--all', '--name-only',
+    my $past = Tira::CLI::Serve::_reading( 'git', '-C', $store, 'log', '--all', '--name-only',
         '--format=', '--', 'sessions' );
     ok( scalar( grep { m{sessions/} } @{$past} ),
         'while the history it already wrote is left exactly as it was' );

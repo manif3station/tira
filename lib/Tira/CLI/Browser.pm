@@ -3,7 +3,7 @@ package Tira::CLI::Browser;
 # The coderefs the browser dashboard is built from, moved out of Tira::CLI so
 # that reading the CLI to change one command no longer means reading these too.
 #
-# This is 700 lines needed by exactly one invocation - the one that serves a
+# This is 702 lines needed by exactly one invocation - the one that serves a
 # board - and Tira::CLI loads it with require at that point rather than with use
 # at the top, the same way it already treats Tira::DashboardWeb and
 # Tira::OnboardWeb. A CLI call that never serves a board never compiles any of
@@ -27,8 +27,15 @@ use warnings;
 use Cpanel::JSON::XS ();
 use File::Temp ();
 use Tira;
+# Tira::CLI is always in memory when this runs - nothing loads this module
+# except Tira::CLI itself - but the helpers below are called by their full
+# names, and an assumption a reader has to reconstruct is not a dependency.
+# The require is free (%INC already holds it) and it is what makes
+# `perl -c` on this file alone meaningful. TKT-607.
+use Tira::CLI ();
 
 sub providers {
+    require Tira::CLI::Police;
     my (%args) = @_;
     my $tira = $args{tira};
     my $project = $args{project};
@@ -155,7 +162,7 @@ sub providers {
                 $tira->enforcement_log(
                     project => $project,
                     store   => $args{store}
-                      // Tira::CLI::_police_store( $tira->discover_project( project => $project ) ),
+                      // Tira::CLI::Police::_police_store( $tira->discover_project( project => $project ) ),
                     ref     => $payload->{ref},
                 ) );
         },
@@ -781,6 +788,15 @@ Qualifying them is deliberate beyond necessity: a reader of this file can see
 that the helper lives in the index rather than here, which is the distinction
 the split exists to make. An import would have hidden exactly the fact worth
 showing.
+
+=head2 How this module is loaded
+
+C<Tira::CLI> pulls this in with C<require> at the point one of its verbs runs,
+so a command that never needs it never compiles it. It calls into L<Tira::CLI::Police>, and asks for
+that the same way - inside the sub that needs it, not at the top of this
+file. A C<use> there is correct and turns a lazy chain eager, which is how
+C<tira.next> came to compile four modules for the sake of one helper for the
+first hour after the split.
 
 =head1 SEE ALSO
 

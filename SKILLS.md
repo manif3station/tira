@@ -1630,6 +1630,34 @@ this was the third instance of the same fault in a day (the dashboard, and
 `tools/card-holes` twice), and a predicate can be grepped for where four inline
 comparisons cannot.
 
+**Since 4.74 the CLI is nine files, and `Tira::CLI` is the index.** It was 6,048
+lines with every command body in it, so reading it to change one command meant
+reading all of it; it is 2,939 now, and the bodies are in
+`lib/Tira/CLI/<Concern>.pm` - `Browser`, `Police`, `Serve`, `Records`, `Board`,
+`Wizard`, `Usage`, `Backup`. Each is loaded with `require` at the point one of
+its verbs actually runs, the way `Tira::DashboardWeb` and `Tira::OnboardWeb`
+already were, so a CLI call that never serves a board never compiles Dancer2 and
+one that never asks for help never compiles the usage catalogue.
+
+The split is by concern, not by command, and not as a preference: there is no
+dispatch table to cut along. `_invoke` resolves a command name to a `Tira`
+method generically, so what was per-command lived as inline blocks and regex
+special-cases. Eleven of those blocks moved to the concern they are about,
+taking `_invoke` from 1,294 lines to 740.
+
+**What stayed in the index is the part every command passes through**: `run`'s
+argument handling and the one shared `GetOptions` table, the generic dispatch,
+and the four move guards with the bookkeeping that runs after a successful move.
+The guards did not move deliberately - their call order is load-bearing and
+documented in `Tira::CLI`'s own POD (TKT-662), and `t/430` asserts that heading
+is still in the index, so separating the guards from the sentence that describes
+them fails the build.
+
+Entry points kept their names. `Tira::CLI::browser_providers` still exists and
+still answers; twenty test files and the dashboard call it by that name, and a
+refactor that renames its own front door is not behaviour-preserving.
+
+
 None of the four move guards - chain order, exit required actions, unjudged answers, and entry required actions - can be evaded by omitting the board type. `column_list` needs a concrete type to say which columns exist, while `record_show` and `record_move` resolve a card by ref alone, so a guard that asked for columns with the caller's arguments got nothing back and returned "nothing to refuse" - failing silent and open rather than closed. Reproduced on a copy of a real board: a card walked from backlog to in-review through nine gated columns with all 75 of its required actions pending. The browser move provider had already solved this for its own bookkeeping under the principle recorded there - "a caller is never required to say what the engine can already tell for itself" (TKT-532) - and the recovery is now a shared helper with five call sites - all four move guards and the post-move required-action bookkeeping. It said three guards and four sites until TKT-662, written when there were three: TKT-591 added the entry guard afterwards and the count was never revisited, the same drift that left CLI.pm's POD documenting one guard of four. The browser move provider keeps its own recovery, which is where the principle came from and which predates this. The recovered type is written back into the caller's own arguments, not kept to the lookup: the chain guard's refusal ends by naming the move to make instead, and that line is formatted from those arguments, so recovering the type for the lookup alone left the gate correctly closed and the caller told to run a move command with an empty type in it - `tira` then two dots then `move` - which is not a command at all. It matters to two refusals in four - the chain guard names the move to make, and the entry guard ends with `d2 tira.column.update --type TYPE ...`, so both format the recovered type into their own advice. The required-action and unjudged-answer refusals name a command of their own and never print it. This said 'one refusal in three' until TKT-662: the entry guard both raised the count and joined the half of it that prints the type. A guard that refuses correctly and then misdirects has moved the failure rather than fixed it. TKT-597.
 
 A refusal names the items blocking a card WITH THE IDS it tells you to use. It states how many there are, prints one per line with its `REQ-NNN` id beside its own text, and ends with a `tira.required-action.update` carrying a real id from that list rather than a placeholder. Before 4.57 it joined the item texts with semicolons onto one line and suggested the literal `REQ-NNN`, so acting on it meant running `tira.required-action.list`, matching each item by text and reading off the id - on a card with 75 items across a dozen columns, by eye. That cross-reference had already put proofs against the wrong ids twice. Only the wording changed; the same moves are refused. TKT-598.

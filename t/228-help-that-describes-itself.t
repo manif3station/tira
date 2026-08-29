@@ -23,6 +23,10 @@ use Test::More;
 
 use lib 'lib';
 use Tira::CLI;
+# Tira::CLI::Usage holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Usage;
 
 my @verbs = qw(clone create discard list move restore show update);
 
@@ -31,7 +35,7 @@ my @verbs = qw(clone create discard list move restore show update);
 my @wrong;
 for my $type (qw(sow epic ticket)) {
     for my $verb (@verbs) {
-        my $usage = Tira::CLI::_usage( "record.$verb", $type );
+        my $usage = Tira::CLI::Usage::_usage( "record.$verb", $type );
         push @wrong, "tira.$type.$verb -> $usage"
           if $usage !~ /\Qtira.$type.$verb\E/;
     }
@@ -45,16 +49,16 @@ is_deeply( \@wrong, [],
 # Naming itself is not enough. A line that names the command and then describes
 # create's arguments is the same fault with the first word changed.
 
-like( Tira::CLI::_usage( 'record.move', 'ticket' ), qr/--ref/,
+like( Tira::CLI::Usage::_usage( 'record.move', 'ticket' ), qr/--ref/,
     'moving a card says which card' );
-like( Tira::CLI::_usage( 'record.move', 'ticket' ), qr/--column/,
+like( Tira::CLI::Usage::_usage( 'record.move', 'ticket' ), qr/--column/,
     'and where it is going' );
-unlike( Tira::CLI::_usage( 'record.move', 'ticket' ), qr/--title/,
+unlike( Tira::CLI::Usage::_usage( 'record.move', 'ticket' ), qr/--title/,
     'and not the argument for making one' );
 
-like( Tira::CLI::_usage( 'record.create', 'ticket' ), qr/--title/,
+like( Tira::CLI::Usage::_usage( 'record.create', 'ticket' ), qr/--title/,
     'while making a card still says so' );
-like( Tira::CLI::_usage( 'record.list', 'sow' ), qr/tira\.sow\.list/,
+like( Tira::CLI::Usage::_usage( 'record.list', 'sow' ), qr/tira\.sow\.list/,
     'and the board is still the one that was asked' );
 
 # --- and a record verb the table has not heard of ---------------------------
@@ -64,7 +68,7 @@ like( Tira::CLI::_usage( 'record.list', 'sow' ), qr/tira\.sow\.list/,
 # described - still an answer about the command that was asked, which is the
 # whole point of this card.
 
-my $unknown = Tira::CLI::_usage( 'record.rehome', 'ticket' );
+my $unknown = Tira::CLI::Usage::_usage( 'record.rehome', 'ticket' );
 like( $unknown, qr/tira\.ticket\.rehome/,
     'a record verb this does not know is still named rather than described as another' );
 unlike( $unknown, qr/--title/,
@@ -72,9 +76,9 @@ unlike( $unknown, qr/--title/,
 
 # --- the commands that are not records are untouched ------------------------
 
-like( Tira::CLI::_usage( 'checklist.add', undef ), qr/tira\.checklist\.add/,
+like( Tira::CLI::Usage::_usage( 'checklist.add', undef ), qr/tira\.checklist\.add/,
     'a command outside the three boards answers about itself as it always did' );
-like( Tira::CLI::_usage( 'project.create', undef ), qr/tira\.project\.create --name/,
+like( Tira::CLI::Usage::_usage( 'project.create', undef ), qr/tira\.project\.create --name/,
     'and the one with its own line keeps it' );
 
 done_testing;

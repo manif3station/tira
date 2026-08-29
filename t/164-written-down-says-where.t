@@ -35,6 +35,10 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Usage holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Usage;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $now = '2026-08-14T15:00:00Z';
@@ -127,7 +131,7 @@ is( scalar @{ unexplained() }, 0, 'and a comment clears it, unchanged' );
 # A convention that lives only in a violation is one you meet by tripping over
 # it. Theirs cost an escalation to discover.
 
-my $guide = Tira::CLI::_policy_help();
+my $guide = Tira::CLI::Usage::_policy_help();
 like( $guide, qr/answer-ok-not-folded[^\n]*field/i,
     'the guide says a folded answer belongs in a field' );
 like( $guide, qr/discard-unexplained[^\n]*comment/i,

@@ -43,6 +43,10 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub {'2026-08-13T09:00:00Z'} );
@@ -66,7 +70,7 @@ sub serve {
         local *STDERR = $stderr;
         no warnings 'redefine';
         local *Tira::installed_version = sub { $args{env} } if exists $args{env};
-        local *Tira::CLI::_version_on_disk = sub { $args{disk} } if exists $args{disk};
+        local *Tira::CLI::Serve::_version_on_disk = sub { $args{disk} } if exists $args{disk};
         do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
             command => 'dashboard', type => 'ticket',
             argv => [ '-o', 'browser' ],
@@ -119,18 +123,18 @@ is( scalar @{ serve( env => '9.99', disk => undef ) }, 0,
 # must agree with the module in memory - if it does not, every board restarts
 # for ever, which is the fault this test exists to end.
 
-is( Tira::CLI::_version_on_disk(), $Tira::VERSION,
+is( Tira::CLI::Serve::_version_on_disk(), $Tira::VERSION,
     'the version read off disk is the version this process is running' );
 
 my $missing = File::Spec->catfile( $tmp, 'no-such-module.pm' );
-is( Tira::CLI::_version_on_disk($missing), undef,
+is( Tira::CLI::Serve::_version_on_disk($missing), undef,
     'a module that is not there reads as unknown rather than as a difference' );
 
 my $silent = File::Spec->catfile( $tmp, 'Quiet.pm' );
 open my $fh, '>', $silent or die $!;
 print {$fh} "package Quiet;\n1;\n";
 close $fh;
-is( Tira::CLI::_version_on_disk($silent), undef,
+is( Tira::CLI::Serve::_version_on_disk($silent), undef,
     'and a module that declares no version reads as unknown too' );
 
 done_testing;

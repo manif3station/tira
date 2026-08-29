@@ -16,8 +16,12 @@ use Test::More;
 
 use lib 'lib';
 use Tira::CLI;
+# Tira::CLI::Usage holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Usage;
 
-my $usage = Tira::CLI::_usage( 'dev.found.bug_or_improvement', undef );
+my $usage = Tira::CLI::Usage::_usage( 'dev.found.bug_or_improvement', undef );
 
 unlike( $usage, qr/\[options\]\s*\[-o/,
     'tira.dev.found.bug_or_improvement --help no longer answers with a bare [options]' )

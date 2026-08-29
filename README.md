@@ -293,7 +293,11 @@ filesystem.
 Since 4.70 the page comes from a View rather than from Perl string
 concatenation: the markup lives in Template Toolkit templates under
 `lib/Tira/views`, beside the stylesheet and the scripts, and the module keeps
-none of it. They are inlined at render rather than linked, so the board still
+none of it. Since 4.74 the CLI is split the same way for the same
+reason: `lib/Tira/CLI.pm` was 6,048 lines with every command body in it, and is
+2,939 now, with the bodies in `lib/Tira/CLI/` - `Browser`, `Police`, `Serve`,
+`Records`, `Board`, `Wizard`, `Usage`, `Backup`. Each is loaded only when one of
+its commands runs, so an ordinary card command compiles none of them. They are inlined at render rather than linked, so the board still
 loads nothing from another host — every request the live page makes is to
 itself (it polls its own card data, fetches a record when you open a card, and
 posts a move when you drag one), and a table-mode board saved to a file makes

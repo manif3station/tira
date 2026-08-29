@@ -34,8 +34,16 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
+# Tira::CLI::Backup holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Backup;
 
-plan skip_all => 'git is not installed here' if !Tira::CLI::_program_exists('git');
+plan skip_all => 'git is not installed here' if !Tira::CLI::Serve::_program_exists('git');
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub {'2026-08-13T12:00:00Z'} );
@@ -77,7 +85,7 @@ my $repository = File::Spec->catdir( $store, '.git' );
 # board that ever ran a police pass.
 
 ok( !-d $repository, 'a board that has never been backed up has no repository' );
-is( Tira::CLI::_last_backup_commit($store), undef, 'and nothing to report about one' );
+is( Tira::CLI::Backup::_last_backup_commit($store), undef, 'and nothing to report about one' );
 ok( !-d $repository, 'and asking did not make one' );
 
 # --- the first backup ---------------------------------------------------------
@@ -94,7 +102,7 @@ is( $first->{created}, 1, 'saying it was the first, because that is worth knowin
 # A commit that exists and holds nothing is the shape of every backup nobody
 # tested. The card and the attachment have to be in it.
 
-my $tracked = join "\n", @{ Tira::CLI::_reading( 'git', '-C', $store, 'ls-tree', '-r', '--name-only', 'HEAD' ) };
+my $tracked = join "\n", @{ Tira::CLI::Serve::_reading( 'git', '-C', $store, 'ls-tree', '-r', '--name-only', 'HEAD' ) };
 like( $tracked, qr/project\.yml/, 'the commit holds the project' );
 like( $tracked, qr/\Q$card->{ref}\E/, 'and the card' );
 like( $tracked, qr{attachments/}, 'and the attachments, because a backup is everything or it is not one' );
@@ -132,7 +140,7 @@ is( $second->{created}, 0, 'and that the repository was already there' );
 # What board-unbacked has to read. A directory of stamps was the old answer and
 # only one repository on earth wrote it.
 
-my $when = Tira::CLI::_last_backup_commit($store);
+my $when = Tira::CLI::Backup::_last_backup_commit($store);
 like( $when, qr/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/, 'the last backup is readable as a time' );
 
 # --- no origin ----------------------------------------------------------------
@@ -140,7 +148,7 @@ like( $when, qr/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/, 'the last backup is readable a
 # A board that lives on a filesystem must not need somebody else's machine to be
 # backed up.
 
-is_deeply( Tira::CLI::_reading( 'git', '-C', $store, 'remote' ), [],
+is_deeply( Tira::CLI::Serve::_reading( 'git', '-C', $store, 'remote' ), [],
     'the repository has no remote, so a backup cannot fail because a server is down' );
 
 # --- and the engine still touches nothing ------------------------------------

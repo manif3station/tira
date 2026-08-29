@@ -282,11 +282,11 @@ sub attempt {
 # answer is known: this one.
 SKIP: {
     skip 'reading a command line needs /proc', 3 if !-d '/proc';
-    my $me = Tira::CLI::_command_of_pid($$);
+    my $me = Tira::CLI::Serve::_command_of_pid($$);
     ok( defined $me && length $me, 'a running process has a command line to read' );
     like( $me, qr/perl|\.t\b/i,
         'and it is this process\'s real command line, not any old text' );
-    is( Tira::CLI::_command_of_pid('not-a-pid'), undef, 'and something that is not a pid reads as undef' );
+    is( Tira::CLI::Serve::_command_of_pid('not-a-pid'), undef, 'and something that is not a pid reads as undef' );
 }
 
 # The real signalling closure, which every case above injects around. Run

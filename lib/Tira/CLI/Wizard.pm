@@ -4,7 +4,7 @@ package Tira::CLI::Wizard;
 #
 # Only one command in the whole CLI ever prompts - project.new stays purely
 # argument-driven so that no script or agent invoking it can be left waiting on
-# input - and this is that command's 300 lines. Tira::CLI loads it when onboard
+# input - and this is that command's 353 lines. Tira::CLI loads it when onboard
 # actually runs. TKT-607.
 #
 # WHAT STAYED IN Tira::CLI: _expand_home, which the option handling in run()
@@ -17,6 +17,12 @@ use warnings;
 
 use File::Spec ();
 use Tira;
+# Tira::CLI is always in memory when this runs - nothing loads this module
+# except Tira::CLI itself - but the helpers below are called by their full
+# names, and an assumption a reader has to reconstruct is not a dependency.
+# The require is free (%INC already holds it) and it is what makes
+# `perl -c` on this file alone meaningful. TKT-607.
+use Tira::CLI ();
 
 sub _project_wizard {
     my ( $tira, $in, $option ) = @_;
@@ -320,6 +326,74 @@ sub _raw_mode {
     $raw->setattr( $fd, POSIX::TCSANOW() );
     return sub { $saved->setattr( $fd, POSIX::TCSANOW() ); return };
 }
+# project.new and onboard, lifted out of Tira::CLI::_invoke. They belong here
+# rather than in the index because onboard IS this module's command - the
+# wizard was already here and the block that calls it was still in the
+# dispatcher, which is the split arriving halfway. TKT-607.
+
+sub project_new_or_onboard {
+    my ( $tira, $args, $option, $command ) = @_;
+    my %args = %{$args};
+
+    # Before anything is written, not after. project_mode is called below
+    # once the project exists, and it refuses anything but its two values
+    # - which used to mean an invalid --mode produced a failed command AND
+    # a fully created project, with nothing to roll back and nothing
+    # saying so. "It failed" and "it half worked" are different facts, and
+    # only one of them tells the reader to go and look at the directory;
+    # the next attempt then meets a project that should not be there.
+    #
+    # The wizard's own loop already re-asks against these same options, so
+    # ordinary interactive use never got here. What did was the --mode
+    # flag on project.new, and the browser onboarding form, whose mode
+    # field renders its options as a hint and validates nothing before
+    # calling back into this dispatch. Checking here covers both, because
+    # both arrive here.
+    #
+    # The options come from onboarding_questions() rather than a literal
+    # pair, so a third mode cannot be added there and silently refused
+    # here. TKT-562.
+    if ( defined $option->{mode} ) {
+        my ($question) = grep { $_->{id} eq 'mode' } @{ $tira->onboarding_questions };
+        my @allowed = @{ $question->{options} // [] };
+        die "--mode must be one of: " . join( ', ', @allowed ) . "\n"
+          if @allowed && !grep { $_ eq $option->{mode} } @allowed;
+    }
+
+    my $summary = $tira->project_new(
+        name => $option->{name}, dir => $option->{dir} // '.',
+        members => $option->{members}, columns => $option->{columns},
+        map( { ( "${_}_columns" => $option->{"${_}_columns"} ) }
+            grep { defined $option->{"${_}_columns"} } qw(sow epic ticket) ),
+        ( defined $option->{digits} ? ( digits => $option->{digits} ) : () ),
+        map( { ( "${_}_prefix" => $option->{"${_}_prefix"} ) }
+            grep { defined $option->{"${_}_prefix"} } qw(sow epic ticket) ),
+        map( { ( $_ => $option->{$_} ) }
+            grep { defined $option->{$_} } qw(notify_after collector agent session heartbeat) ),
+        ( $option->{nested} ? ( nested => 1 ) : () ),
+    );
+
+    # Written after the project exists, because it is a fact about the
+    # project rather than one of the things that makes one. Unanswered
+    # leaves it unset, and unset is every board that exists today.
+    $tira->project_mode( project => $option->{dir} // '.', mode => $option->{mode} )
+      if defined $option->{mode};
+
+    # Collecting the settings and leaving the job unregistered
+    # looked like it had worked. Onboarding registers it, and reports the
+    # name it will really answer to, which is not the name that was typed.
+    if ( $command eq 'onboard' && defined $summary->{project}{heartbeat} ) {
+        # Project_show carries no root, so use the directory that was created.
+        my $job = eval { $tira->collector_install( project => $option->{dir} // '.' ) };
+        if ($job) {
+            print "\nRegistered the reminder job as '$job->{name}'.\n"
+              . "Start it with: dashboard collector start $job->{name}\n\n";
+            $summary->{collector} = $job;
+        }
+    }
+    return $summary;
+}
+
 1;
 
 __END__
@@ -346,6 +420,15 @@ invocation.
 C<_expand_home> is used by the option handling in C<run> for every command, not
 only for the wizard's answers. C<_agent_available> is asked by the doctor too.
 Both are called from here by their full names.
+
+=head2 How this module is loaded
+
+C<Tira::CLI> pulls this in with C<require> at the point one of its verbs runs,
+so a command that never needs it never compiles it.
+
+It calls into no sibling module. This paragraph said otherwise until 4.74 -
+one note written once and pasted into all eight, describing a chain three of
+them do not sit in.
 
 =head1 SEE ALSO
 

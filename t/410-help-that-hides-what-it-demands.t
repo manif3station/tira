@@ -39,6 +39,10 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Usage holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Usage;
 
 # --- every dispatchable command has a usage line -----------------------------
 
@@ -89,7 +93,7 @@ my %known_bare = map { $_ => 1 } qw(
   rule.suspend tasklist.sessions worklog.show
 );
 
-my @bare = sort grep { Tira::CLI::_usage($_) =~ /\Q [options] \E/ } keys %command;
+my @bare = sort grep { Tira::CLI::Usage::_usage($_) =~ /\Q [options] \E/ } keys %command;
 my @new_bare = grep { !$known_bare{$_} } @bare;
 is_deeply( \@new_bare, [],
     'no command has newly fallen back to a bare [options] - a new one must arrive with its usage line' )
@@ -104,7 +108,7 @@ is_deeply( \@fixed, [],
 # --- and the type-scoped ones an agent uses to walk a card -------------------
 
 for my $command (qw(question.ask question.mark question.answer)) {
-    ok( defined Tira::CLI::_skills_usage_line($command),
+    ok( defined Tira::CLI::Usage::_skills_usage_line($command),
         "$command has a usage line - it is used at every gate and its flags are not guessable" );
 }
 
@@ -115,7 +119,7 @@ for my $command (qw(question.ask question.mark question.answer)) {
 # exist.
 
 for my $command (qw(checklist.update required-action.update)) {
-    my $line = Tira::CLI::_skills_usage_line($command) // '';
+    my $line = Tira::CLI::Usage::_skills_usage_line($command) // '';
     like( $line, qr/--command/,
         "${command}'s usage line names --command, which it refuses done without" );
     like( $line, qr/--proof/,
@@ -137,7 +141,7 @@ for my $command (qw(checklist.update required-action.update)) {
 # without a command and, once any proof is given, the counts must match.
 
 for my $command (qw(checklist.update required-action.update)) {
-    my $line = Tira::CLI::_skills_usage_line($command) // '';
+    my $line = Tira::CLI::Usage::_skills_usage_line($command) // '';
     unlike( $line, qr/\[--command [A-Z]+\]/,
         "$command does not present --command as independently optional" );
 }

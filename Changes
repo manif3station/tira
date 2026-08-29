@@ -1,5 +1,55 @@
 Revision history for Tira
 
+4.74  2026-08-29
+
+    - TKT-607. Tira::CLI is an index. It was 6,048 lines with every command
+      body in it, so reading it to change one command meant reading all of
+      it; it is 2,939 now, and the bodies are in lib/Tira/CLI/ - Browser,
+      Police, Serve, Records, Board, Wizard, Usage, Backup. Each is loaded
+      with require at the point one of its verbs runs, the way
+      Tira::DashboardWeb and Tira::OnboardWeb already were, so a CLI call
+      that never serves a board never compiles Dancer2.
+
+      The split is by concern because there was nothing else to cut along:
+      no dispatch table, no cmd_* subs, no elsif chain. _invoke resolves a
+      command name to a Tira method generically, and what was per-command
+      lived as inline blocks. Eleven of those moved to the concern they are
+      about, taking _invoke from 1,294 lines to 740.
+
+      What stayed is what every command passes through - run's argument
+      handling, the one shared option table, the generic dispatch, and the
+      four move guards with the bookkeeping that follows a successful move.
+      The guards did not move on purpose: their call order is load-bearing,
+      it is stated in the POD (TKT-662), and t/430 asserts that heading is
+      still in the index.
+
+      Entry points kept their names. Tira::CLI::browser_providers still
+      exists and still answers.
+
+    - tools/lift-concern and tools/lift-block, the extractors this was done
+      with, and t/431, which resolves every name in every module. Seven
+      faults in this refactor compiled cleanly and died at runtime: a call
+      to a sub that had moved, a qualified call into a package nothing
+      loaded, a code reference no check looking for calls could see,
+      dirname and abs_path used where they were never imported, a
+      declaration split across two files by a paren walk, and two path
+      readers that counted directories from __FILE__ and fell back quietly
+      when the count was one short. t/431 catches the resolvable ones; the
+      extractors refuse the rest.
+
+    - The worst was a block that fell through: the dashboard verbs prepared
+      %args and continued to the dispatch below, and lifting it turned that
+      into prepare-elsewhere-discard-and-return. Every browser and table
+      board came back with no column order, and it surfaced three modules
+      away as "Table output requires dashboard data". lift-block now
+      refuses a block whose last statement is not a return.
+
+    - t/64, t/144, t/244 and t/289 stopped opening lib/Tira/CLI.pm by name.
+      Each was asserting where code lives while claiming to assert
+      something else - documentation, the bridge writers, translatable
+      messages, the type table - and each now walks lib/, which is what
+      TKT-594 taught the coverage gate the same night.
+
 4.73  2026-08-29
 
     - TKT-594. The coverage gate holds every module in lib/, derived from

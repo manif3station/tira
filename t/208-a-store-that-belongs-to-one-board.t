@@ -31,21 +31,25 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Police holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Police;
 
 my $tmp = tempdir( CLEANUP => 1 );
 
 {
     local $ENV{HOME} = $tmp;
 
-    my $one = Tira::CLI::_police_store('/tmp/board-one');
-    my $two = Tira::CLI::_police_store('/tmp/board-two');
+    my $one = Tira::CLI::Police::_police_store('/tmp/board-one');
+    my $two = Tira::CLI::Police::_police_store('/tmp/board-two');
 
     isnt( $one, $two, 'two boards are given two stores' );
     like( $one, qr/board-one/, 'and each store is named for the board it belongs to' );
 
     # The fault itself: nothing to name meant a shared bucket rather than a
     # refusal, and a shared bucket is silent about being shared.
-    my $nameless = eval { Tira::CLI::_police_store(undef) };
+    my $nameless = eval { Tira::CLI::Police::_police_store(undef) };
     my $refused  = $@;
 
     ok( $refused, 'a store with no board to name is refused rather than invented' );
@@ -78,7 +82,7 @@ my $tmp = tempdir( CLEANUP => 1 );
     );
 
     my $discovered = $tira->discover_project( project => $board );
-    my $expected   = Tira::CLI::_police_store($discovered);
+    my $expected   = Tira::CLI::Police::_police_store($discovered);
 
     unlike( $expected, qr/(?:\A|[\/])here\z/,
         'the store for a discovered board is never the shared one' );

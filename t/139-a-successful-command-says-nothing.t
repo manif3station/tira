@@ -34,8 +34,12 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
 
-plan skip_all => 'git is not installed here' if !Tira::CLI::_program_exists('git');
+plan skip_all => 'git is not installed here' if !Tira::CLI::Serve::_program_exists('git');
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub {'2026-08-13T21:00:00Z'} );
@@ -136,11 +140,11 @@ ok( !-d File::Spec->catdir( $tmp, 'nowhere', '.tira' ),
 # swallows the opinion, so all three outcomes are asked of it directly rather
 # than inferred from a command that happens to use it.
 
-ok( Tira::CLI::_running_quietly( 'git', '--version' ),
+ok( Tira::CLI::Serve::_running_quietly( 'git', '--version' ),
     'a command that works answers true' );
-ok( !Tira::CLI::_running_quietly( 'git', 'bundle', 'verify', $rubbish ),
+ok( !Tira::CLI::Serve::_running_quietly( 'git', 'bundle', 'verify', $rubbish ),
     'a command that fails answers false, whatever it printed' );
-ok( !Tira::CLI::_running_quietly('tira-no-such-program-anywhere'),
+ok( !Tira::CLI::Serve::_running_quietly('tira-no-such-program-anywhere'),
     'and a program that is not installed answers false rather than dying' );
 
 done_testing;

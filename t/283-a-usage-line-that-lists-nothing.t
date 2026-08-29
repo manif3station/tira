@@ -20,6 +20,10 @@ use Test::More;
 
 use lib 'lib';
 use Tira::CLI;
+# Tira::CLI::Usage holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Usage;
 
 # --- the six measured commands now say something real -----------------------
 
@@ -33,7 +37,7 @@ my %expect = (
 );
 
 for my $command ( sort keys %expect ) {
-    my $usage = Tira::CLI::_usage( $command, undef );
+    my $usage = Tira::CLI::Usage::_usage( $command, undef );
     unlike( $usage, qr/\[options\]\s*\[-o/,
         "tira.$command --help no longer answers with a bare [options]" )
       or diag($usage);
@@ -47,7 +51,7 @@ for my $command ( sort keys %expect ) {
 # --- additive, not a new way to fail: an unknown command keeps the old answer ---
 
 {
-    my $usage = Tira::CLI::_usage( 'nonexistent.verb', undef );
+    my $usage = Tira::CLI::Usage::_usage( 'nonexistent.verb', undef );
     like( $usage, qr/\[options\]/,
         'a command genuinely absent from SKILLS.md falls back to the placeholder, not an error' );
 }
@@ -59,19 +63,19 @@ for my $command ( sort keys %expect ) {
 # spells out. Reasserted narrowly here so a change to the generic fallback
 # cannot silently reach this branch too.
 
-like( Tira::CLI::_usage( 'record.move', 'ticket' ), qr/tira\.ticket\.move/,
+like( Tira::CLI::Usage::_usage( 'record.move', 'ticket' ), qr/tira\.ticket\.move/,
     'a record verb still names itself, not a fallback' );
-like( Tira::CLI::_usage( 'record.create', 'ticket' ), qr/\[record field arguments\]/,
+like( Tira::CLI::Usage::_usage( 'record.create', 'ticket' ), qr/\[record field arguments\]/,
     'and still uses its own established shorthand, not this fix\'s lookup' );
 
 # --- proved by breaking it: without the lookup, the old bare answer returns ---
 
 {
     no warnings 'redefine';
-    local *Tira::CLI::_skills_usage_line = sub { return undef };
+    local *Tira::CLI::Usage::_skills_usage_line = sub { return undef };
 
     for my $command (qw(link.add gate.add column.update)) {
-        my $usage = Tira::CLI::_usage( $command, undef );
+        my $usage = Tira::CLI::Usage::_usage( $command, undef );
         like( $usage, qr/\[options\]/,
             "without the lookup, tira.$command reverts to the bare placeholder - the exact defect" );
     }

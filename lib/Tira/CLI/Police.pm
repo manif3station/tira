@@ -1,8 +1,10 @@
 package Tira::CLI::Police;
 
 # Police, the bridge, and the dev-report verb - moved out of Tira::CLI so that
-# reading the CLI to change anything else no longer means reading 368 lines of
-# world-scanning and violation-following.
+# reading the CLI to change anything else no longer means reading it. The first
+# slice moved 368 lines of world-scanning and violation-following; later slices
+# brought the two police command bodies and the store and card-in-progress
+# readers, and the module is 575 lines of subs today.
 #
 # The world scan is the bulk of it: what is running on this machine, which
 # containers, which git branches and worktrees, what is unpushed, when the tree
@@ -29,14 +31,10 @@ use Cwd ();
 use File::Spec ();
 use Tira;
 
-# The world scan reads the machine through Tira::CLI::Serve's process and
-# container helpers. This module is itself only loaded when a police verb runs,
-# so asking for Serve here costs an ordinary card command nothing - and a `use`
-# rather than a scattered `require` says plainly that police cannot work
-# without it, which a lazy load would have left a reader to discover.
-use Tira::CLI::Serve ();
+
 
 sub police_follow {
+    require Tira::CLI::Serve;
     my ( $tira, $args, $store, $option ) = @_;
     my $interval = defined $option->{interval} ? $option->{interval} : 30;
     my $rounds = $option->{rounds};
@@ -63,7 +61,7 @@ sub police_follow {
     # How it replaces itself, injectable for the same reason leaving is: a
     # restart proved by calling the handler is a restart somebody has watched,
     # and one proved by execing the test suite is not.
-    my $restarter = $option->{restarter} || \&_restart_into;
+    my $restarter = $option->{restarter} || \&Tira::CLI::Serve::_restart_into;
     for my $signal (qw(INT TERM HUP)) {
         $SIG{$signal} = sub {
             police_goodbye( $tira, $signal );
@@ -161,6 +159,7 @@ sub police_follow {
 # 2026-08-12, when board-unbacked said the board had never been backed up while
 # the backups the push gate writes sat in ~/.tira-backups.
 sub police_world {
+    require Tira::CLI::Backup;
     my (%args) = @_;
     my $root = $args{project};
 
@@ -216,13 +215,13 @@ sub police_world {
     # a board the gate had backed up 481 times was told its last backup was the
     # one somebody ran by hand six hours earlier - and advised to run that same
     # command. The later of the two is the answer.
-    $world->{backed_up_at} = Tira::CLI::_later_backup(
-        Tira::CLI::_last_backup_commit( Tira::CLI::_backup_store($root) ),
-        Tira::CLI::_last_backup( $args{backups} // Tira::CLI::_backup_home($root) ),
+    $world->{backed_up_at} = Tira::CLI::Backup::_later_backup(
+        Tira::CLI::Backup::_last_backup_commit( Tira::CLI::Backup::_backup_store($root) ),
+        Tira::CLI::Backup::_last_backup( $args{backups} // Tira::CLI::Backup::_backup_home($root) ),
     );
     $world->{card_in_progress} = exists $args{card_in_progress}
       ? $args{card_in_progress}
-      : Tira::CLI::_card_in_progress( $args{tira}, $root );
+      : _card_in_progress( $args{tira}, $root );
     return $world;
 }
 # The claim: read whoever was there before, kill them if they are still
@@ -348,48 +347,54 @@ sub report_to_tira {
     };
 }
 sub _running_containers {
+    require Tira::CLI::Serve;
     return Tira::CLI::Serve::_containers_from(
-        Tira::CLI::_reading( 'docker', 'ps', '--format', '{{.Names}}\t{{.CreatedAt}}' ) );
+        Tira::CLI::Serve::_reading( 'docker', 'ps', '--format', '{{.Names}}\t{{.CreatedAt}}' ) );
 }
 # The process table, with when each one started, because every rule about a
 # leftover asks how long it has been there rather than whether it exists.
 sub _running_processes {
-    return Tira::CLI::Serve::_processes_from_windows( Tira::CLI::_reading( Tira::CLI::Serve::_process_command($Tira::CLI::WINDOWS) ) ) if $Tira::CLI::WINDOWS;
-    return Tira::CLI::Serve::_processes_from( Tira::CLI::_reading( Tira::CLI::Serve::_process_command($Tira::CLI::WINDOWS) ) );
+    require Tira::CLI::Serve;
+    return Tira::CLI::Serve::_processes_from_windows( Tira::CLI::Serve::_reading( Tira::CLI::Serve::_process_command($Tira::CLI::WINDOWS) ) ) if $Tira::CLI::WINDOWS;
+    return Tira::CLI::Serve::_processes_from( Tira::CLI::Serve::_reading( Tira::CLI::Serve::_process_command($Tira::CLI::WINDOWS) ) );
 }
 # -C rather than chdir, so the whole of this module stays in one directory and
 # nothing has to be put back afterwards.
 sub _git_branches {
+    require Tira::CLI::Serve;
     my ($where) = @_;
-    return [] if !Tira::CLI::_is_repository($where);
-    return Tira::CLI::_reading( 'git', '-C', $where, 'branch', '--format=%(refname:short)' );
+    return [] if !Tira::CLI::Serve::_is_repository($where);
+    return Tira::CLI::Serve::_reading( 'git', '-C', $where, 'branch', '--format=%(refname:short)' );
 }
 sub _git_worktrees {
+    require Tira::CLI::Serve;
     my ($where) = @_;
-    return [] if !Tira::CLI::_is_repository($where);
+    return [] if !Tira::CLI::Serve::_is_repository($where);
     return [ map { s/\Aworktree\s+//r } grep { /\Aworktree\s/ }
-          @{ Tira::CLI::_reading( 'git', '-C', $where, 'worktree', 'list', '--porcelain' ) } ];
+          @{ Tira::CLI::Serve::_reading( 'git', '-C', $where, 'worktree', 'list', '--porcelain' ) } ];
 }
 # Commits this branch has and the branch it is pushed to does not. Nowhere to
 # have been pushed means nothing is sitting unpushed - a branch nobody has ever
 # pushed is not the same as work left waiting.
 sub _unpushed_commits {
+    require Tira::CLI::Serve;
     my ($where) = @_;
-    return [] if !Tira::CLI::_is_repository($where);
-    my ($branch) = @{ Tira::CLI::_reading( 'git', '-C', $where, 'rev-parse', '--abbrev-ref', 'HEAD' ) };
+    return [] if !Tira::CLI::Serve::_is_repository($where);
+    my ($branch) = @{ Tira::CLI::Serve::_reading( 'git', '-C', $where, 'rev-parse', '--abbrev-ref', 'HEAD' ) };
     return [] if !defined $branch || $branch eq '' || $branch eq 'HEAD';
-    my $upstream = Tira::CLI::_tracking_branch( $where, $branch );
+    my $upstream = Tira::CLI::Serve::_tracking_branch( $where, $branch );
     return [] if !defined $upstream || $upstream eq '';
-    my $lines = Tira::CLI::_reading( 'git', '-C', $where, 'log', '--format=%H%x09%cI%x09%s', "$upstream..HEAD" );
+    my $lines = Tira::CLI::Serve::_reading( 'git', '-C', $where, 'log', '--format=%H%x09%cI%x09%s', "$upstream..HEAD" );
     return [ map { my ( $sha, $at, $subject ) = split /\t/, $_, 3;
             { sha => $sha, at => $at, subject => $subject // '' } } @{$lines} ];
 }
 # When the working tree last changed, which is what work-without-card means by
 # work. A clean tree is not work in progress, so it answers with nothing.
 sub _tree_changing_since {
+    require Tira::CLI::Serve;
     my ($where) = @_;
-    return undef if !Tira::CLI::_is_repository($where);
-    my $changed = Tira::CLI::_reading( 'git', '-C', $where, 'status', '--porcelain' );
+    return undef if !Tira::CLI::Serve::_is_repository($where);
+    my $changed = Tira::CLI::Serve::_reading( 'git', '-C', $where, 'status', '--porcelain' );
     return undef if !@{$changed};
     my $oldest;
     for my $line ( @{$changed} ) {
@@ -403,6 +408,282 @@ sub _tree_changing_since {
     my @when = gmtime $oldest;
     return sprintf '%04d-%02d-%02dT%02d:%02d:%02dZ',
       $when[5] + 1900, $when[4] + 1, @when[ 3, 2, 1, 0 ];
+}
+# The two command bodies, lifted out of Tira::CLI::_invoke rather than out of
+# its helpers - the first piece of what TKT-607 calls the hard half. _invoke was
+# 1,294 lines, and only about fifty of them are the dispatcher; the rest are
+# per-command blocks like these two, each of which belongs with the concern it
+# is about rather than in the file every other command has to be read through.
+#
+# They take \%args rather than reading a lexical, which is the only thing that
+# had to change: inside _invoke they closed over %args, $option and $command,
+# and here those arrive as arguments. Nothing else in either block moved.
+
+sub police_outstanding {
+    my ( $tira, $args, $option ) = @_;
+    my %args = %{$args};
+    my $store = $option->{store}
+      // _police_store( $tira->discover_project(%args) );
+
+    # A read, by default - fast, and answering from whatever the watcher
+    # last wrote. --fresh runs the same pass the watcher would, inline,
+    # before reading: fixing a violation and asking right away used to
+    # mean it could still read as open for up to the watcher's own
+    # interval (30s by default), because nothing had told the ledger the
+    # fix happened. The loop that clears outstanding violations asks this
+    # after every fix, so a stale answer here reads as "still broken" when
+    # the truth is "not yet asked again". TKT-423.
+    if ( $option->{fresh} ) {
+        my $watching = $tira->discover_project(%args);
+        require Tira::CLI::Police;
+        my $result = $tira->police_pass( %args, store => $store,
+            world => police_world( tira => $tira, project => $watching ) );
+        $tira->bridge_write( store => $store, project => $watching,
+            violations => $result->{violations}, settled => $result->{settled},
+            upgraded => $result->{upgraded} )
+          if $result->{watching};
+    }
+    my $open = $tira->police_outstanding( %args, store => $store );
+
+    # What was actually found, said before the answer is dressed up. The
+    # exit status used to be taken from the rendered rows, which was true
+    # only while a command's output WAS its findings - 2.62 gave this
+    # command a summary and a clean board started exiting 1, saying "No
+    # violations outstanding" and signalling that there were some. A
+    # command that knows its count says so; rendering cannot move the
+    # signal afterwards. TKT-385.
+    $option->{findings_count} = scalar @{$open};
+
+    # -o json is the payload and stays a bare list. The instruction that
+    # drives the clear-violations loop pipes it and indexes the result, and
+    # TKT-354 is already open about tira.next answering with a dict when
+    # work waits and a list when it does not - the same fault from the other
+    # side. Everything below is the human summary the CLI contract asks for.
+    return $open if ( $option->{output} // '' ) eq 'json';
+
+    my $at = $tira->police_outstanding_taken_at( store => $store );
+    return [
+        defined $at
+        ? 'No violations outstanding, as of the pass at ' . $at
+        : 'This board has never been policed, so nothing has been checked'
+    ] if !@{$open};
+
+    # His question, which the old output could not answer: "why the action
+    # all log only? this outstanding command is act-on-it when the agent
+    # look at this. they won't act on it but just log only." Both kinds come
+    # back tone 'note', so tone cannot carry the difference and the action
+    # has to be said.
+    my @chased   = grep { ( $_->{action} // '' ) ne 'log-only' } @{$open};
+    my @recorded = grep { ( $_->{action} // '' ) eq 'log-only' } @{$open};
+    my $line = sub {
+        my ($v) = @_;
+        return sprintf '%s %s %s seen %d',
+          $v->{id} // '', $v->{rule} // '', $v->{ref} // '(board)', $v->{seen} // 0;
+    };
+
+    # Each row its own answer rather than a cell in one. TOON renders an
+    # array of plain strings as a single inline "primitive array" row -
+    # every finding comma-joined behind one bracketed count, quote marks
+    # and all - so a reader had to parse past that to find the first
+    # thing. An array of single-key hashes is a different shape to TOON:
+    # one row per element, which is the whole fix. TKT-291.
+    my $row = sub { return { line => $_[0] } };
+    my $header = scalar(@{$open}) . ' outstanding, as of the pass at '
+      . ( $at // 'a time this board did not record' );
+
+    # Grouped by rule instead of by chased/recorded, opt-in: --by-rule
+    # answers "what does this board have declared against it" rather than
+    # "what should I do next" - a different question, not a strictly
+    # better one, so the default stays the work list. Still-act-on rules
+    # sort before log-only ones, so a reader scanning groups meets the
+    # same order the default view already gives findings in. Each ref
+    # appears once per rule even if two policies for the same rule both
+    # matched it - a display duplicate would be one thing on the board
+    # read as two.
+    if ( $option->{by_rule} ) {
+        my %by_rule;
+        my %seen;
+        for my $v ( @{$open} ) {
+            my $rule = $v->{rule} // '';
+            next if $seen{$rule}{ $v->{ref} // '' }++;
+            push @{ $by_rule{$rule} }, $v;
+        }
+        my @groups;
+        for my $rule (
+            ( sort grep { ( $by_rule{$_}[0]{action} // '' ) ne 'log-only' } keys %by_rule ),
+            ( sort grep { ( $by_rule{$_}[0]{action} // '' ) eq 'log-only' } keys %by_rule ),
+        ) {
+            my @findings = @{ $by_rule{$rule} };
+            push @groups, $row->( "$rule (" . scalar(@findings) . '):' );
+            push @groups, map { $row->( '  ' . $line->($_) ) } @findings;
+        }
+        return [ $row->($header), @groups ];
+    }
+
+    return [
+        $row->($header),
+        ( @chased
+            ? ( $row->( scalar(@chased) . ' to act on:' ),
+                ( map { $row->( '  ' . $line->($_) ) } @chased ) )
+            : () ),
+        ( @recorded
+            ? ( $row->( scalar(@recorded)
+                  . ' only recorded, because the board declared them log-only:' ),
+                ( map { $row->( '  ' . $line->($_) ) } @recorded ) )
+            : () ),
+    ];
+}
+
+sub police_run {
+    my ( $tira, $args, $option, $command ) = @_;
+    my %args = %{$args};
+    my $store = $option->{store}
+      // _police_store( $tira->discover_project(%args) );
+
+    if ( $command eq 'policy.bridge' ) {
+
+        # Line by line, whatever this is attached to. Perl block-buffers
+        # standard output when it is not a terminal, so redirected to a file
+        # - the natural way to leave something running - the bridge wrote
+        # nothing for sixty-eight measured minutes while violations
+        # escalated to critical. The agent's only channel for violations was
+        # silent, and a channel silent because it is buffered looks exactly
+        # like a board that is clean.
+        #
+        # Localised rather than set through the handle. STDOUT->autoflush
+        # was tried first and took the stream away from every later caller
+        # in the process - four test files went quiet at once - which is the
+        # same fault _running_quietly made by reopening it. Nothing here
+        # belongs to this command after it returns.
+        local $| = 1;
+
+        # Who is tailing it. One agent per ticket means an agent's concern
+        # is its own cards, so the bridge narrows to whoever says who they
+        # are - by --author, or by TIRA_AUTHOR in the environment, said
+        # once rather than on every command. Nobody named hears everything,
+        # which is how the owner watches the whole board.
+        my $agent = $option->{author};
+        my $backlog = $tira->bridge_backlog( store => $store, lines => 200, agent => $agent );
+
+        # Through _utf8_bytes like every other output path. Standard output
+        # is deliberately :raw - Perl's text layer on Windows rewrites
+        # newlines and Tira compares output bytes in its own cache - so a
+        # print of decoded characters warns above U+00FF and, worse, writes
+        # a single latin-1 byte between U+0080 and U+00FF without warning.
+        # A card title carrying a multiplication sign put exactly the byte
+        # tira.doctor repairs into the channel that reports it.
+        print Tira::CLI::_utf8_bytes( join '', map { "$_\n" } @{$backlog} );
+        require Tira::CLI::Police;
+        bridge_follow( $tira, $store, rounds => $option->{rounds}, agent => $agent,
+            interval => $option->{interval}, sleeper => $option->{sleeper} )
+          if !$option->{once};
+        return { streamed => scalar @{$backlog} };
+    }
+
+    # Before anything is reported: what to hand the agent. Police watching a
+    # board nobody has set up finds nothing, and that silence looks exactly
+    # like compliance - so the owner gets something to copy across rather
+    # than writing the instructions himself every time. Printed on every
+    # run, because remembering which run was the first is the sort of thing
+    # he should not have to do.
+    #
+    # That was a promise this comment made and the engine did not keep. A
+    # board with every rule declared got undef and printed nothing, so it
+    # looked exactly like a police that had died - and the boards it
+    # happened to were the ones set up most carefully. Every state answers
+    # now, so this line is true as written.
+    my $prompt = eval { $tira->police_prompt(%args) };
+    print {*STDERR} "\n$prompt\n" if defined $prompt;
+
+    # Discovered once and handed to both. The bridge line carries the way
+    # down to its card, and that path used to be looked up from the working
+    # directory because this call did not say which board it was about - so
+    # a violation on one board was reported with a hierarchy from whichever
+    # Tira project the process happened to be standing in.
+    my $watching = $tira->discover_project(%args);
+    require Tira::CLI::Police;
+    my $result = $tira->police_pass( %args, store => $store,
+        world => police_world( tira => $tira, project => $watching ) );
+    die "$result->{advice}\n" if !$result->{watching};
+    $tira->bridge_write( store => $store, project => $watching,
+        violations => $result->{violations}, settled => $result->{settled},
+        upgraded => $result->{upgraded} );
+    print {*STDERR} map { "$_\n" } @{ $result->{terminal} };
+    return $result if $option->{once};
+    require Tira::CLI::Police;
+    return police_follow( $tira, \%args, $store, $option );
+}
+
+# The police store's location, and whether a card is being worked. Both stayed
+# in the index through the first police slice and neither is anybody else's.
+# TKT-607.
+
+# Whether anything on the board is being worked. work-without-card asks it the
+# other way round - a tree that is changing while nothing is at a working gate
+# is work nobody can see - so getting this wrong makes that rule accuse the
+# agent of exactly what it is in the middle of doing properly.
+sub _card_in_progress {
+    my ( $tira, $root ) = @_;
+    return undef if !$tira || !defined $root;
+    # Where work happens, asked of the board rather than read off one role.
+    #
+    # This counted a card as being worked only if it sat in the single column
+    # named by the in-progress role, when a board declared one. On this project's
+    # own board - in-progress=implement, five columns work happens in - that left
+    # tests-red, verify, document and push reading as nobody working, and
+    # work-without-card raised VIO-0013 to CRITICAL five times while a card sat
+    # in verify with its suite running.
+    #
+    # A setting that names one column stops covering the board the moment work
+    # happens in another, which is the fault column-unwatched reports for
+    # policies. The role was accurate when it was set; the board grew.
+    #
+    # The same question card-unassigned and priority-skipped ask: not protected,
+    # and not an ending. A board that has marked nothing terminal ends in `done`,
+    # which is the fallback those rules use too. The in-progress role is still a
+    # role like any other - a policy can name it with --enter-role - it simply no
+    # longer narrows this silently.
+    my $working = 0;
+    for my $type (qw(sow epic ticket)) {
+        my $columns = eval { $tira->column_list( project => $root, type => $type ) } || [];
+        my $records = eval { $tira->record_list( project => $root, type => $type ) } || [];
+        my %ends = map { $_->{name} => 1 } grep { $_->{terminal} } @{$columns};
+        $ends{done} = 1 if !keys %ends;
+        my %here = map { $_->{name} => 1 }
+          grep { !$_->{protected} && !$ends{ $_->{name} } } @{$columns};
+
+        for my $record ( @{$records} ) {
+            $working++, last if $here{ $record->{column} // '' };
+        }
+        last if $working;
+    }
+    return $working ? 1 : 0;
+}
+# Police keeps its state outside the project it watches, so that it can never
+# become a second writer to the board - which is what destroyed this project's
+# own board on the day the subsystem was designed.
+# One directory per board, named for it, so two boards never write over each
+# other - the rule _backup_home states forty lines below and this did not keep.
+#
+# It took the --project OPTION and called the answer 'here' when there was none.
+# Police started from inside a project passes no --project, so every board
+# worked that way shared a single store: the version each board last heard, the
+# violation numbering, the escalation counts, the suspensions, and the bridge
+# log they are written to. A board was never told about an upgrade because a
+# different board had already been told about it.
+#
+# Refused rather than invented now. Every caller has a board to hand - police
+# discovers one before it can watch anything - so there is no case where a name
+# has to be made up, and inventing one is what made the sharing silent.
+sub _police_store {
+    my ($project) = @_;
+    die "A police store has to belong to a board, and none was given\n"
+      if !defined $project || $project !~ /\S/;
+    my $home = $ENV{HOME} // File::Spec->tmpdir;
+    my $slug = $project;
+    $slug =~ s/[^A-Za-z0-9]+/-/g;
+    $slug =~ s/\A-|-\z//g;
+    return File::Spec->catdir( $home, '.tira-police', $slug );
 }
 1;
 
@@ -438,6 +719,15 @@ C<police_claim_singleton>, C<police_release_singleton>, C<police_singleton_path>
 and C<police_goodbye> are the lock that stops two police passes running against
 one board at once, and the farewell the second one prints. They move together
 because they are one mechanism.
+
+=head2 How this module is loaded
+
+C<Tira::CLI> pulls this in with C<require> at the point one of its verbs runs,
+so a command that never needs it never compiles it. It calls into L<Tira::CLI::Backup> and L<Tira::CLI::Serve>, and asks for
+that the same way - inside the sub that needs it, not at the top of this
+file. A C<use> there is correct and turns a lazy chain eager, which is how
+C<tira.next> came to compile four modules for the sake of one helper for the
+first hour after the split.
 
 =head1 SEE ALSO
 

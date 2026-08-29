@@ -5,7 +5,10 @@ package Tira::CLI::Backup;
 # longer means reading these.
 #
 # They were four consecutive special-cases in _invoke and 249 lines of bodies
-# sitting in the middle of the file. Tira::CLI now names the concern once and
+# sitting in the middle of the file; with the readers a later slice brought
+# across, this module is 274 lines of subs today. The two figures are different
+# things - what one slice moved, and what the module holds - and a header that
+# gives only the first leaves a reader unable to tell which they are looking at. Tira::CLI now names the concern once and
 # requires this module when one of those four commands is actually run.
 #
 # WHAT STAYED BEHIND, AND WHY IT IS CALLED BY ITS FULL NAME HERE:
@@ -23,6 +26,7 @@ package Tira::CLI::Backup;
 use strict;
 use warnings;
 
+use Cwd qw(abs_path);
 use File::Path ();
 use File::Spec ();
 use File::Temp ();
@@ -47,16 +51,17 @@ my @BACKUP_AUTHOR = (
 # a command that works only after an invisible setup step is one that leaves the
 # rule firing anyway.
 sub backup {
+    require Tira::CLI::Serve;
     my ( $tira, $args ) = @_;
     my $root = $tira->discover_project( %{$args} );
-    my $store = Tira::CLI::_backup_store($root);
+    my $store = _backup_store($root);
 
     die "Tira needs git to back a board up, and it is not installed here\n"
-      if !Tira::CLI::_program_exists('git');
+      if !Tira::CLI::Serve::_program_exists('git');
 
     my $created = -d File::Spec->catdir( $store, '.git' ) ? 0 : 1;
     if ($created) {
-        Tira::CLI::_running( 'git', '-C', $store, 'init', '--quiet' )
+        Tira::CLI::Serve::_running( 'git', '-C', $store, 'init', '--quiet' )
           or die "Could not start a repository for this board at $store\n";
     }
 
@@ -99,15 +104,15 @@ sub backup {
             # standard output is an in-memory handle - which is how every test
             # in this suite captures output. Raised separately; not worked
             # around here, because the plain call is also the simpler one.
-            Tira::CLI::_running( 'git', '-C', $store, 'rm', '-r', '--cached', '--quiet',
+            Tira::CLI::Serve::_running( 'git', '-C', $store, 'rm', '-r', '--cached', '--quiet',
                 '--ignore-unmatch', 'sessions' );
         }
     }
 
-    Tira::CLI::_running( 'git', '-C', $store, 'add', '--all' )
+    Tira::CLI::Serve::_running( 'git', '-C', $store, 'add', '--all' )
       or die "Could not read the board into the backup\n";
 
-    my $pending = Tira::CLI::_reading( 'git', '-C', $store, 'status', '--porcelain' );
+    my $pending = Tira::CLI::Serve::_reading( 'git', '-C', $store, 'status', '--porcelain' );
     my $changed = @{$pending} ? 1 : 0;
 
     if ($changed) {
@@ -115,14 +120,14 @@ sub backup {
         my $message = $created
           ? 'The board as it stands, backed up for the first time'
           : "$count " . ( $count == 1 ? 'thing' : 'things' ) . ' changed since the last backup';
-        Tira::CLI::_running( 'git', '-C', $store, @BACKUP_AUTHOR, 'commit', '--quiet', '-m', $message )
+        Tira::CLI::Serve::_running( 'git', '-C', $store, @BACKUP_AUTHOR, 'commit', '--quiet', '-m', $message )
           or die "Could not record the backup\n";
     }
 
-    my ($commit) = @{ Tira::CLI::_reading( 'git', '-C', $store, 'rev-parse', '--short', 'HEAD' ) };
+    my ($commit) = @{ Tira::CLI::Serve::_reading( 'git', '-C', $store, 'rev-parse', '--short', 'HEAD' ) };
     return {
         commit  => $commit,
-        at      => Tira::CLI::_last_backup_commit($store),
+        at      => _last_backup_commit($store),
         created => $created,
         changed => $changed,
         store   => $store,
@@ -140,19 +145,20 @@ sub backup {
 # lose work, and a command that destroys in silence is one people either stop
 # running or run without reading.
 sub backup_restore {
+    require Tira::CLI::Serve;
     my ( $tira, $args, $option ) = @_;
     my $root = $tira->discover_project( %{$args} );
-    my $store = Tira::CLI::_backup_store($root);
+    my $store = _backup_store($root);
 
     die "Tira needs git to restore a board, and it is not installed here\n"
-      if !Tira::CLI::_program_exists('git');
+      if !Tira::CLI::Serve::_program_exists('git');
     die "This board has never been backed up, so there is nothing to restore it to.\n"
       . "Make one first: d2 tira.backup\n"
-      if !defined Tira::CLI::_last_backup_commit($store);
+      if !defined _last_backup_commit($store);
 
     # What would be lost, read before anything is touched. Named rather than
     # counted: "3 files would be discarded" tells nobody whether it matters.
-    my $changed = Tira::CLI::_reading( 'git', '-C', $store, 'status', '--porcelain' );
+    my $changed = Tira::CLI::Serve::_reading( 'git', '-C', $store, 'status', '--porcelain' );
     my @losing = map { s/\A.{3}//r } @{$changed};
 
     if ( !$option->{yes} ) {
@@ -171,20 +177,20 @@ sub backup_restore {
         die "Nothing was restored, because --yes was not given\n";
     }
 
-    Tira::CLI::_running( 'git', '-C', $store, 'reset', '--hard', 'HEAD' )
+    Tira::CLI::Serve::_running( 'git', '-C', $store, 'reset', '--hard', 'HEAD' )
       or die "Could not put the board back\n";
 
     # A file added since the backup is untracked, so reset leaves it exactly
     # where it was - and a card raised since would survive a restore that
     # reported success. Cleaning is the half of "put it back" that reset alone
     # does not do.
-    Tira::CLI::_running( 'git', '-C', $store, 'clean', '--force', '-d', '--quiet' )
+    Tira::CLI::Serve::_running( 'git', '-C', $store, 'clean', '--force', '-d', '--quiet' )
       or die "Could not clear what was added since the backup\n";
 
-    my ($commit) = @{ Tira::CLI::_reading( 'git', '-C', $store, 'rev-parse', '--short', 'HEAD' ) };
+    my ($commit) = @{ Tira::CLI::Serve::_reading( 'git', '-C', $store, 'rev-parse', '--short', 'HEAD' ) };
     return {
         commit    => $commit,
-        at        => Tira::CLI::_last_backup_commit($store),
+        at        => _last_backup_commit($store),
         discarded => \@losing,
         store     => $store,
         message   => 'The board is back as it was when it was last backed up.',
@@ -195,24 +201,25 @@ sub backup_restore {
 # storage, so it survives a bad edit and not a lost disk - and a bundle is one
 # file holding the whole history, kept wherever the owner keeps things.
 sub backup_export {
+    require Tira::CLI::Serve;
     my ( $tira, $args, $option ) = @_;
     my $root  = $tira->discover_project( %{$args} );
-    my $store = Tira::CLI::_backup_store($root);
+    my $store = _backup_store($root);
     my $file  = $option->{file}
       or die "Where should the bundle go? Name it: --file board.bundle\n";
 
     die "Tira needs git to export a backup, and it is not installed here\n"
-      if !Tira::CLI::_program_exists('git');
+      if !Tira::CLI::Serve::_program_exists('git');
     die "This board has never been backed up, so there is nothing to export.\n"
       . "Make a backup first: d2 tira.backup\n"
-      if !defined Tira::CLI::_last_backup_commit($store);
+      if !defined _last_backup_commit($store);
 
-    Tira::CLI::_running( 'git', '-C', $store, 'bundle', 'create', $file, '--all' )
+    Tira::CLI::Serve::_running( 'git', '-C', $store, 'bundle', 'create', $file, '--all' )
       or die "Could not write the bundle to $file\n";
 
     return {
         file    => $file,
-        at      => Tira::CLI::_last_backup_commit($store),
+        at      => _last_backup_commit($store),
         message => "The board is in $file. Keep it somewhere the board is not.",
     };
 }
@@ -221,21 +228,22 @@ sub backup_export {
 # git reset --hard - so this can lose work exactly as a restore can, and says
 # what it would discard before it does anything.
 sub backup_import {
+    require Tira::CLI::Serve;
     my ( $tira, $args, $option ) = @_;
     my $file = $option->{file}
       or die "Which bundle? Name it: --file board.bundle\n";
     die "There is no bundle at $file\n" if !-f $file;
 
     die "Tira needs git to import a backup, and it is not installed here\n"
-      if !Tira::CLI::_program_exists('git');
+      if !Tira::CLI::Serve::_program_exists('git');
     # Verified in a repository of its own, because git will not read a bundle
     # from outside one - and the destination must not be touched until the
     # bundle is known to be good, or a refusal leaves a half-made board behind.
     require File::Temp;
     my $scratch = File::Temp::tempdir( CLEANUP => 1 );
-    Tira::CLI::_running( 'git', '-C', $scratch, 'init', '--quiet' )
+    Tira::CLI::Serve::_running( 'git', '-C', $scratch, 'init', '--quiet' )
       or die "Could not check the bundle: no scratch repository\n";
-    Tira::CLI::_running_quietly( 'git', '-C', $scratch, 'bundle', 'verify', $file )
+    Tira::CLI::Serve::_running_quietly( 'git', '-C', $scratch, 'bundle', 'verify', $file )
       or die "$file is not a bundle git can read\n";
 
     # Claimed rather than read out of the bundle, because reading it means
@@ -255,12 +263,12 @@ sub backup_import {
     # an existing board is told which one in the environment. TKT-250.
     my $where = $option->{dir} // $args->{project}
       or die "Where should the board go? Name the folder it should be made in.\n";
-    my $store = Tira::CLI::_backup_store($where);
+    my $store = _backup_store($where);
 
     my $existing = -d File::Spec->catdir( $store, '.git' ) ? 1 : 0;
     if ( $existing && !$option->{yes} ) {
         my @losing = map { s/\A.{3}//r }
-          @{ Tira::CLI::_reading( 'git', '-C', $store, 'status', '--porcelain' ) };
+          @{ Tira::CLI::Serve::_reading( 'git', '-C', $store, 'status', '--porcelain' ) };
         print {*STDERR} "There is already a board here, and importing replaces it\n"
           . "with what the bundle holds. Uncommitted work here:\n\n";
         print {*STDERR} @losing
@@ -272,23 +280,91 @@ sub backup_import {
 
     File::Path::make_path($store) if !-d $store;
     if ( !$existing ) {
-        Tira::CLI::_running( 'git', '-C', $store, 'init', '--quiet' )
+        Tira::CLI::Serve::_running( 'git', '-C', $store, 'init', '--quiet' )
           or die "Could not start a repository at $store\n";
     }
-    Tira::CLI::_running( 'git', '-C', $store, 'fetch', '--quiet', $file, 'HEAD' )
+    Tira::CLI::Serve::_running( 'git', '-C', $store, 'fetch', '--quiet', $file, 'HEAD' )
       or die "Could not read the bundle into the board\n";
-    Tira::CLI::_running( 'git', '-C', $store, 'reset', '--hard', 'FETCH_HEAD' )
+    Tira::CLI::Serve::_running( 'git', '-C', $store, 'reset', '--hard', 'FETCH_HEAD' )
       or die "Could not lay the board out from the bundle\n";
-    Tira::CLI::_running( 'git', '-C', $store, 'clean', '--force', '-d', '--quiet' )
+    Tira::CLI::Serve::_running( 'git', '-C', $store, 'clean', '--force', '-d', '--quiet' )
       or die "Could not clear what was here before the import\n";
 
-    my ($commit) = @{ Tira::CLI::_reading( 'git', '-C', $store, 'rev-parse', '--short', 'HEAD' ) };
+    my ($commit) = @{ Tira::CLI::Serve::_reading( 'git', '-C', $store, 'rev-parse', '--short', 'HEAD' ) };
     return {
         commit  => $commit,
-        at      => Tira::CLI::_last_backup_commit($store),
+        at      => _last_backup_commit($store),
         store   => $store,
         message => 'The board is here, as it was when that bundle was made.',
     };
+}
+# The readers, which stayed in the index through the first backup slice because
+# the police world scan asks them too. They are backup's, and Police calls them
+# here by name - a helper belongs where its subject is, not where a second
+# caller is. TKT-607.
+
+sub _last_backup {
+    my ($directory) = @_;
+    return undef if !defined $directory || !-d $directory;
+    opendir my $handle, $directory or return undef;
+    my @stamps = sort grep { /\A\d{8}T\d{6}Z\z/ } readdir $handle;
+    closedir $handle;
+    return undef if !@stamps;
+    return $stamps[-1] =~ /\A(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z\z/
+      ? "$1-$2-$3T$4:$5:$6Z"
+      : undef;
+}
+# When the last backup was, read from the repository rather than from a
+# directory of stamps that only one machine on earth ever wrote to. Nothing is
+# created by asking: a board that has never been backed up answers undef and is
+# left exactly as it was.
+# Asked as an instant rather than as a local wall clock. This read %cI and
+# threw the offset away, so a commit at 01:03+01:00 was recorded as 01:03Z - an
+# hour later than it happened, labelled with the one timezone it was not in.
+# On its own that was an hour of slack in an age measured in days. It stopped
+# being harmless when this answer began to be compared with the gate's, which
+# stamps its directories in real UTC: the same instant read as two times an
+# hour apart, and the wrong one could win.
+sub _last_backup_commit {
+    require Tira::CLI::Serve;
+    my ($store) = @_;
+    return undef if !defined $store || !-d File::Spec->catdir( $store, '.git' );
+    require Tira::CLI::Serve;
+    my ($when) = @{ Tira::CLI::Serve::_reading( 'git', '-C', $store, 'log', '-1', '--format=%ct' ) };
+    return undef if !defined $when || $when !~ /\A(\d+)\z/;
+    my @moment = gmtime($1);
+    return sprintf '%04d-%02d-%02dT%02d:%02d:%02dZ',
+      $moment[5] + 1900, $moment[4] + 1, $moment[3], $moment[2], $moment[1], $moment[0];
+}
+# Where tools/board-backup writes: one directory per project, named for the
+# absolute path so two projects on one machine never write over each other.
+sub _backup_home {
+    my ($where) = @_;
+    return undef if !defined $where;
+    my $home = $ENV{HOME} // $ENV{USERPROFILE};
+    return undef if !defined $home;
+    my $slug = abs_path($where) // $where;
+    $slug =~ s/[^A-Za-z0-9]+/-/g;
+    $slug =~ s/\A-|-\z//g;
+    return File::Spec->catdir( $home, '.tira-backups', $slug );
+}
+# The board's own storage, which is what gets backed up: everything beside
+# project.yml, because that is where he said the repository goes.
+sub _backup_store {
+    my ($root) = @_;
+    return undef if !defined $root;
+    return File::Spec->catdir( $root, '.tira' );
+}
+# The most recent backup, read from the stamp in its name. The newest one is
+# the only one the rule cares about - it asks how long it has been since the
+# last one, not how many there have ever been.
+# The later of two answers about the same board, either of which may be
+# missing. Both are written as YYYY-MM-DDTHH:MM:SSZ, so the comparison is the
+# one the strings already support.
+sub _later_backup {
+    my @when = grep { defined && length } @_;
+    return undef if !@when;
+    return ( sort @when )[-1];
 }
 1;
 
@@ -314,7 +390,7 @@ anything up never compiles any of it.
 
 C<_backup_store> and C<_last_backup_commit> answer questions other parts of the
 CLI ask - the status output reads the last backup commit, and two test files
-call C<Tira::CLI::_last_backup_commit> by name. Moving them would have changed a
+call C<Tira::CLI::Backup::_last_backup_commit> by name. Moving them would have changed a
 surface this refactor is not allowed to change, so they are called here by their
 full names.
 
@@ -323,6 +399,15 @@ process helpers with nothing to do with backups.
 
 C<$Tira::CLI::SCHEMA_VERSION> is the board's schema version, not the backup
 format's; restore is only its loudest reader.
+
+=head2 How this module is loaded
+
+C<Tira::CLI> pulls this in with C<require> at the point one of its verbs runs,
+so a command that never needs it never compiles it. It calls into L<Tira::CLI::Serve>, and asks for
+that the same way - inside the sub that needs it, not at the top of this
+file. A C<use> there is correct and turns a lazy chain eager, which is how
+C<tira.next> came to compile four modules for the sake of one helper for the
+first hour after the split.
 
 =head1 SEE ALSO
 

@@ -42,6 +42,10 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub {'2026-08-13T10:00:00Z'} );
@@ -65,8 +69,8 @@ sub serve {
         local *STDERR = $stderr;
         no warnings 'redefine';
         local *Tira::installed_version = sub { $args{disk} } if exists $args{disk};
-        local *Tira::CLI::_version_on_disk = sub { $args{disk} } if exists $args{disk};
-        local *Tira::CLI::_serving_pid = sub { $args{worker} ? -1 : $$ };
+        local *Tira::CLI::Serve::_version_on_disk = sub { $args{disk} } if exists $args{disk};
+        local *Tira::CLI::Serve::_serving_pid = sub { $args{worker} ? -1 : $$ };
         do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
             command => 'dashboard', type => 'ticket',
             argv => [ '-o', 'browser' ],
@@ -150,7 +154,7 @@ sub serve {
 # recorded before the server forks, because after the fork there is no way to
 # tell a worker from its master by asking the process itself.
 
-is( Tira::CLI::_serving_pid(), $$,
+is( Tira::CLI::Serve::_serving_pid(), $$,
     'outside a served board, the serving process is this one' );
 
 done_testing;

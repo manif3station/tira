@@ -20,11 +20,18 @@ package Tira::CLI::Serve;
 use strict;
 use warnings;
 
-use Cwd ();
+use Cwd qw(abs_path);
+use File::Basename qw(dirname);
 use Digest::SHA ();
 use File::Basename ();
 use File::Spec ();
 use Tira;
+# Tira::CLI is always in memory when this runs - nothing loads this module
+# except Tira::CLI itself - but the helpers below are called by their full
+# names, and an assumption a reader has to reconstruct is not a dependency.
+# The require is free (%INC already holds it) and it is what makes
+# `perl -c` on this file alone meaningful. TKT-607.
+use Tira::CLI ();
 
 # Which process is holding a port, asked of the kernel rather than of a file
 # somebody wrote earlier. Michael's own point on TKT-565: "Could that be more
@@ -100,7 +107,7 @@ sub _listening_pid {
     # wrong means signalling a worker.
     my %in_set = map { $_ => 1 } @holding;
     my @rootmost = grep {
-        my $ppid = Tira::CLI::_parent_of_pid( $_, proc => $proc );
+        my $ppid = _parent_of_pid( $_, proc => $proc );
         !defined $ppid || !$in_set{$ppid};
     } @holding;
     return @rootmost == 1 ? $rootmost[0] : undef;
@@ -128,10 +135,10 @@ sub _dashboard_hup_if_stale {
     my $port = $opts{port};
     return { hupped => 0, refused => 'no-port' } if !defined $port || $port !~ /\A[0-9]+\z/;
 
-    my $on_disk = exists $opts{on_disk} ? $opts{on_disk} : Tira::CLI::_version_on_disk();
+    my $on_disk = exists $opts{on_disk} ? $opts{on_disk} : _version_on_disk();
     return { hupped => 0, refused => 'unknown-version' } if !defined $on_disk;
 
-    my $path = Tira::CLI::_dashboard_hup_mark_path($store);
+    my $path = _dashboard_hup_mark_path($store);
     if ( open my $fh, '<', $path ) {
         my $done = do { local $/; <$fh> };
         close $fh;
@@ -173,7 +180,7 @@ sub _dashboard_hup_if_stale {
     #
     # An unreadable command line refuses like an unrecognised one, because
     # "cannot tell" is not "is safe to signal". TKT-566.
-    my $identify = $opts{identify} || sub { Tira::CLI::_command_of_pid( $_[0] ) };
+    my $identify = $opts{identify} || sub { _command_of_pid( $_[0] ) };
     my $command = $identify->($pid);
     return { hupped => 0, refused => 'not-a-board' }
       if !defined $command || $command !~ /\bstarman\b/i;
@@ -201,14 +208,14 @@ sub _restart_if_updated {
     # .env again. His four boards did that every sixty seconds for twenty
     # hours, and the test suite did it once and hung for ever. The question is
     # not whether the label moved but whether the code did.
-    my $on_disk = Tira::CLI::_version_on_disk();
+    my $on_disk = _version_on_disk();
     return 0 if !defined $on_disk || $on_disk eq $Tira::VERSION;
 
     # A restart that cannot work is worse than a stale board, because it turns
     # "running slightly old code" into "not running". So the target is checked
     # first, and if anything is missing the board simply carries on.
-    my $script = Tira::CLI::_entrypoint_for( defined $type ? "$command.$type" : $command )
-      // Tira::CLI::_entrypoint_for($command)
+    my $script = _entrypoint_for( defined $type ? "$command.$type" : $command )
+      // _entrypoint_for($command)
       or return 0;
     my @argv = grep { defined }
       map { /\A([^\x00-\x1f\x7f]*)\z/ ? $1 : undef } @Tira::CLI::RESTART_ARGV;
@@ -392,6 +399,286 @@ sub _stamp_from_ps {
     return sprintf '%04d-%02d-%02dT%02d:%02d:%02d',
       $year, $month{$name}, $day, $hour, $minute, $second_of;
 }
+# A second batch, TKT-607: the process and installation questions that were
+# still in the index after the first pass - which pid is serving, what the
+# entrypoint is, what version is on disk, whether a directory is a repository,
+# and the two small program-runners everything here is built on.
+
+# What a process was launched as, read from the same shell-free source the
+# port lookup already uses. The arguments are NUL-separated in /proc, so
+# they are joined with spaces to be matched as one string. Anywhere without
+# /proc this answers undef, and undef refuses. TKT-566.
+sub _command_of_pid {
+    my ( $pid, %opts ) = @_;
+    return undef if !defined $pid || $pid !~ /\A[0-9]+\z/;
+    my $proc = $opts{proc} // '/proc';
+    open my $fh, '<:raw', File::Spec->catfile( $proc, $pid, 'cmdline' ) or return undef;
+    my $raw = do { local $/; <$fh> };
+    close $fh;
+    return undef if !defined $raw || $raw eq '';
+    $raw =~ s/\0/ /g;
+    $raw =~ s/\s+\z//;
+    return $raw;
+}
+# A process's parent, from the same shell-free source as everything else
+# here. Undef when it cannot be read, which the caller treats as "not in the
+# set" - the safe direction, since it can only ever make a pid look more
+# rootmost, and two rootmost candidates refuse rather than pick. TKT-567.
+sub _parent_of_pid {
+    my ( $pid, %opts ) = @_;
+    my $proc = $opts{proc} // '/proc';
+    open my $fh, '<', File::Spec->catfile( $proc, $pid, 'status' ) or return undef;
+    while ( my $line = <$fh> ) {
+        next if $line !~ /\APPid:\s*(\d+)/;
+        close $fh;
+        return 0 + $1;
+    }
+    close $fh;
+    return undef;
+}
+# Through a seam so a test can watch the decision without a process replacing
+# itself mid-suite. exec swaps this process for a new one - nothing is forked,
+# and no shell is involved.
+# The entrypoint this command was reached through. $0 is not reliable: under
+# the dashboard dispatcher it is the dispatcher, so restarting on it re-ran the
+# wrong program and the board died instead of updating. Derived from the module
+# path and the command, and checked before anything is replaced.
+# The skill's own root, found by climbing out of lib/ rather than by counting
+# directories. _entrypoint_for said dirname(dirname(__FILE__)) then updir, which
+# was right in lib/Tira/CLI.pm and one level short in lib/Tira/CLI/Serve.pm -
+# so every cli/ script was looked for one directory too high, _entrypoint_for
+# returned undef, and _restart_if_updated took its "if anything is missing the
+# board simply carries on" branch. A board with new code on disk stopped
+# restarting into it, silently, which is the exact fault that sub was written
+# for. Four test files caught it.
+#
+# Tira::CLI::Usage carries the same climb for SKILLS.md and POLICIES.md, for the
+# same reason and found the same way.
+sub _skill_root {
+    my $here = File::Spec->rel2abs(__FILE__);
+    my @parts = File::Spec->splitdir( ( File::Spec->splitpath($here) )[1] );
+    pop @parts while @parts && $parts[-1] ne 'lib';
+    pop @parts;
+    return File::Spec->catdir(@parts);
+}
+
+sub _entrypoint_for {
+    my ($command) = @_;
+    my $here = __FILE__;
+    $here =~ /\A([^\x00-\x1f\x7f]+)\z/ or return undef;
+    my $root = _skill_root();
+    my @parts = split /\./, $command;
+    my $action = pop @parts;
+    my $path = @parts
+      ? File::Spec->catfile( $root, 'skills', @parts, 'cli', $action )
+      : File::Spec->catfile( $root, 'cli', $action );
+    ($path) = $path =~ /\A([^\x00-\x1f\x7f]+)\z/ or return undef;
+
+    # Executability is what makes a file a command on a POSIX system. Windows
+    # has no such bit, and -x there answers about the extension - so asking for
+    # it found nothing, _entrypoint_for returned undef, and a dashboard on
+    # Windows never picked up a new version however many were installed.
+    return ( $Tira::CLI::WINDOWS ? -f $path : -x $path ) ? $path : undef;
+}
+# The version in the module a restart would load. installed_version() reads a
+# label out of .env, and a label is not what exec changes - the file is. Asking
+# the file is the only way to know whether restarting would run different code
+# or the same code again.
+sub _version_on_disk {
+    my ($path) = @_;
+    $path //= $INC{'Tira.pm'};
+    return undef if !defined $path;
+    $path =~ /\A([^\x00-\x1f\x7f]+)\z/ or return undef;
+    open my $fh, '<:raw', $1 or return undef;
+    my $body = do { local $/; <$fh> };
+    close $fh;
+    return $body =~ /^our \$VERSION = '([^']+)';/m ? $1 : undef;
+}
+# Where the last version police signalled a board about is remembered, so it
+# signals once per release rather than once per pass. Signalling every pass
+# is the exact shape of the loop this whole mechanism was built to avoid -
+# four boards did it every sixty-five seconds for twenty hours.
+sub _dashboard_hup_mark_path {
+    my ($store) = @_;
+    return File::Spec->catfile( $store, '.dashboard.huped' );
+}
+sub _running {
+    my (@command) = @_;
+    return 0 if !_program_exists( $command[0] );
+    my $pid = open my $handle, '-|', @command or return 0;
+    my @said = <$handle>;
+    close $handle;
+    return $? == 0 ? 1 : 0;
+}
+# Running something whose own chatter is not the caller's business. git bundle
+# verify prints "<file> is okay" on the error stream when it succeeds, and a
+# successful import that prints to stderr reads like a warning to anybody
+# watching. Its answer is the exit status; its opinion is noise.
+# Running something whose own chatter is not the caller's business. git prints
+# "<file> is okay" on the error stream when a bundle verifies, and a successful
+# command that writes to stderr reads like a warning to whoever is watching.
+#
+# The parent hands the child a filehandle for its error stream, so nothing in
+# this process is reopened and no Perl runs in the child. Two other ways were
+# tried and both cost more than the line is worth: reopening this process's
+# stream took it away from every caller that had redirected it, and forking a
+# child that silences itself puts lines in the codebase that no coverage tool
+# can measure, because the child execs away before any counter is written.
+# Move the descriptors, not the globs.
+#
+# open3 silences a child by reopening the STDOUT and STDERR globs after it
+# forks, which moves descriptors 1 and 2 only while those globs still own them.
+# A caller that captured its own output into a string - every test in this
+# suite, and the served dashboard collecting a response - leaves the glob with
+# no descriptor at all, so nothing the child does to it reaches descriptor 1,
+# exec passes the real one through, and the command that was run quietly is
+# heard. Measured rather than reasoned: the pipe open3 set up received nothing
+# and the process's own standard output received "git version 2.52.0".
+#
+# No choice of open3 argument fixes that - a handle, a fileno dup string and a
+# second null device were each tried and each leaked identically - because the
+# fault is on the parent's side of the fork. Pointing the descriptors themselves
+# at the null device first means the child inherits harmless ones whatever the
+# globs are doing.
+#
+# The same hole sits on the error stream. t/139 does not reach it because it
+# reopens STDERR onto a real file, which hands descriptor 2 back a real
+# descriptor and hides the fault - the same way an earlier attempt at t/204
+# went green by aiming descriptor 1 at a file.
+#
+# Both are put back before returning, so a caller keeps the output it had; that
+# is the failure t/139 records, and it is asserted here rather than assumed.
+sub _running_quietly {
+    my (@command) = @_;
+    return 0 if !_program_exists( $command[0] );
+    require POSIX;
+    open my $silence, '>', File::Spec->devnull
+      or die "Cannot open the null device to run $command[0] quietly: $!\n";
+    open my $nothing, '<', File::Spec->devnull
+      or die "Cannot open the null device to run $command[0] quietly: $!\n";
+
+    # Remembered as descriptors for the same reason: a glob that has been
+    # captured cannot be duplicated back afterwards.
+    open my $keep_in,  '<&', 0 or die "Cannot remember standard input: $!\n";
+    open my $keep_out, '>&', 1 or die "Cannot remember standard output: $!\n";
+    open my $keep_err, '>&', 2 or die "Cannot remember the error stream: $!\n";
+
+    POSIX::dup2( fileno($nothing), 0 );
+    POSIX::dup2( fileno($silence), 1 );
+    POSIX::dup2( fileno($silence), 2 );
+
+    # The child reads end-of-file rather than blocking on a pipe nobody writes
+    # to, which is what the previous code left it holding.
+    my $status = system(@command);
+
+    POSIX::dup2( fileno($keep_in),  0 );
+    POSIX::dup2( fileno($keep_out), 1 );
+    POSIX::dup2( fileno($keep_err), 2 );
+
+    return $status == 0 ? 1 : 0;
+}
+# Every external command runs through here, in list form so no shell is
+# involved even in this module - a card title with a semicolon in it is a
+# perfectly ordinary card title. A command that is not installed is not a
+# failure: a machine with no Docker has no leftover containers.
+sub _reading {
+    my (@command) = @_;
+
+    # List form: the program is named separately from its arguments, so this is
+    # always "run this program" and never "ask a shell what was meant" - a card
+    # title with a semicolon in it is an ordinary card title. A program that is
+    # not installed is not a failure either: a machine with no Docker has no
+    # leftover containers, and everything else carries on being watched.
+    # Asked for by name first. Perl warns "Can't exec" when a program is not
+    # there, and a machine with no Docker is not an error worth printing into
+    # the middle of whatever the owner was reading.
+    return [] if !_program_exists( $command[0] );
+
+    my @lines;
+    if ( open my $handle, '-|', @command ) {
+        @lines = <$handle>;
+        close $handle;
+    }
+    chomp @lines;
+    return \@lines;
+}
+sub _program_exists {
+    my ($program) = @_;
+    return ( $Tira::CLI::WINDOWS ? -f $program : -x $program ) ? 1 : 0 if $program =~ m{[/\\]};
+    return Tira::CLI::_agent_available($program);
+}
+# Chosen rather than fixed, because a fixed default is exactly the collision
+# tira.dashboard -o browser's own port already accepts for a long-lived
+# board with one obvious address - the wrong trade for a disposable session
+# two people could start at once. The race between closing this socket and
+# Plack::Runner binding the same port is the same one every "ask the OS for a
+# free port" trick accepts; tools/browser-tests picks one the same way.
+sub _free_port {
+    require IO::Socket::INET;
+    my $socket = IO::Socket::INET->new(
+        Listen => 1, LocalAddr => '127.0.0.1', LocalPort => 0, Proto => 'tcp' )
+      or die "Could not find a free port: $!\n";
+    my $port = $socket->sockport;
+    $socket->close;
+    return $port;
+}
+sub _browser_endpoint {
+    my ($endpoint) = @_;
+    $endpoint =~ /\A(0\.0\.0\.0|127\.0\.0\.1|localhost)(?::([0-9]+))?\z/
+      or die "Unsupported browser endpoint '$endpoint'\n";
+    my ( $host, $port ) = ( $1, defined $2 ? 0 + $2 : 7899 );
+    die "Browser port must be between 1 and 65535\n" if $port < 1 || $port > 65535;
+    return ( $host, $port );
+}
+sub _serve_browser {
+    require Tira::DashboardWeb;
+    return Tira::DashboardWeb->serve(@_);
+}
+sub _serve_onboard_browser {
+    require Tira::OnboardWeb;
+    return Tira::OnboardWeb->serve(@_);
+}
+sub _serving_pid { return $Tira::CLI::SERVING_PID // $$ }
+# Asking git about somewhere that is not a repository makes git say so, on
+# standard error, in the middle of whatever the owner was reading. Nothing here
+# silences it, because silencing the whole program's standard error would take
+# it away from whoever else was using it - a test capturing it, most obviously.
+# So it is not provoked in the first place.
+sub _is_repository {
+    my ($where) = @_;
+    return 0 if !defined $where;
+    my $here = abs_path($where) // $where;
+    my $last = '';
+    while ( $here ne $last ) {
+        return 1 if -e File::Spec->catfile( $here, '.git' );
+        ( $last, $here ) = ( $here, dirname($here) );
+    }
+    return 0;
+}
+# Where this branch was last pushed to. Asking git for @{upstream} was the
+# obvious way and the wrong one: this very repository has origin/master and one
+# unpushed commit, and no upstream configured for the branch - so git answered
+# "fatal: no upstream configured", loudly, on somebody else's terminal, and
+# both rules that depend on this went quiet on the one board that most needed
+# them. --verify --quiet asks without complaining, and the remote the branch
+# names is tried when the usual one is not there.
+sub _tracking_branch {
+    my ( $where, $branch ) = @_;
+    my ($configured) =
+      @{ _reading( 'git', '-C', $where, 'rev-parse', '--abbrev-ref', '--verify', '--quiet',
+            "$branch\@{upstream}" ) };
+    return $configured if defined $configured && $configured ne '';
+
+    my @remotes = ('origin');
+    my ($named) = @{ _reading( 'git', '-C', $where, 'config', '--get', "branch.$branch.remote" ) };
+    unshift @remotes, $named if defined $named && $named ne '';
+    for my $remote (@remotes) {
+        my ($found) = @{ _reading( 'git', '-C', $where, 'rev-parse', '--verify', '--quiet',
+                "$remote/$branch" ) };
+        return "$remote/$branch" if defined $found && $found ne '';
+    }
+    return undef;
+}
 1;
 
 __END__
@@ -423,6 +710,15 @@ C<_command_of_pid>, C<_parent_of_pid>, C<_entrypoint_for>, C<_version_on_disk>
 and C<_dashboard_hup_mark_path> answer questions about this installation rather
 than about the machine, so they stayed with the index and are called from here
 by their full names.
+
+=head2 How this module is loaded
+
+C<Tira::CLI> pulls this in with C<require> at the point one of its verbs runs,
+so a command that never needs it never compiles it.
+
+It calls into no sibling module. This paragraph said otherwise until 4.74 -
+one note written once and pasted into all eight, describing a chain three of
+them do not sit in.
 
 =head1 SEE ALSO
 

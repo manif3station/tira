@@ -16,6 +16,10 @@ use GatedApp qw(signed_in);
 use Tira;
 use Tira::CLI;
 use Tira::DashboardWeb;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
 
 require Plack::Runner;
 
@@ -322,7 +326,7 @@ like( $@, qr/Missing dashboard detail provider/, 'PSGI builder requires a detail
     my %received;
     local *Tira::DashboardWeb::serve = sub { shift; %received = @_; return 1 };
     ok(
-        Tira::CLI::_serve_browser(
+        Tira::CLI::Serve::_serve_browser(
             host => 'localhost', port => 7899,
             render => sub { '' }, data => sub { '{}' },
         ),

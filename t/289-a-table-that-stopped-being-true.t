@@ -19,6 +19,7 @@
 use strict;
 use warnings;
 
+use File::Find ();
 use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
@@ -56,11 +57,27 @@ sub run {
 # The declared list, taken from the source rather than retyped here - a
 # hand-copied list is a second copy of the same decision this test exists to
 # stop drifting, which is exactly how the first copy went stale.
-open my $cli_fh, '<', File::Spec->catfile(qw(lib Tira CLI.pm)) or die $!;
-my $source = do { local $/; <$cli_fh> };
-close $cli_fh;
-my ($table) = $source =~ /my %NEEDS_TYPE = map \{ \$_ => 1 \}\n\s*qw\(([^)]+)\);/;
-ok( $table, 'the %NEEDS_TYPE table is where this test expects it' );
+# Looked for in every module under lib/, not in lib/Tira/CLI.pm by name. The
+# comment above is right and was applied one level too shallowly: a hard-coded
+# FILENAME is a second copy of a decision too. The table moved to
+# Tira::CLI::Usage in 4.74 (TKT-607) and this test failed with $table undefined,
+# reporting that a table nobody had touched was missing.
+my @sources;
+File::Find::find(
+    {   no_chdir => 1,
+        wanted   => sub {
+            return if !/\.pm\z/;
+            open my $handle, '<', $File::Find::name or die "$File::Find::name: $!";
+            push @sources, do { local $/; <$handle> };
+            close $handle;
+        },
+    },
+    'lib'
+);
+my ($table) = grep {defined}
+  map { /my %NEEDS_TYPE = map \{ \$_ => 1 \}\n\s*qw\(([^)]+)\);/ } @sources;
+ok( $table, 'the %NEEDS_TYPE table is somewhere under lib/ - '
+      . ( defined $table ? $table : 'not found' ) );
 my @declared = split ' ', $table;
 cmp_ok( scalar @declared, '>=', 3, 'and it names more than a couple of commands' );
 

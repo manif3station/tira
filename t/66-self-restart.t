@@ -52,7 +52,7 @@ sub serve {
         # .env, and it is the module that decides now - a label that moves on
         # its own is a restart into the same code, which is what looped his
         # boards for twenty hours. See t/123.
-        local *Tira::CLI::_version_on_disk = sub { $args{installed} } if exists $args{installed};
+        local *Tira::CLI::Serve::_version_on_disk = sub { $args{installed} } if exists $args{installed};
         local $ENV{TIRA_HOME} = $root;
         $status = do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
             command => 'dashboard', type => 'ticket',
@@ -124,7 +124,7 @@ sub serve {
         local $ENV{TIRA_HOME} = $root;
         no warnings 'redefine';
         local *Tira::installed_version = sub { '9.99' };
-        local *Tira::CLI::_version_on_disk = sub { '9.99' };
+        local *Tira::CLI::Serve::_version_on_disk = sub { '9.99' };
         my $captured;
         Tira::CLI->run(
             command => 'dashboard', type => 'ticket',
@@ -146,7 +146,7 @@ sub serve {
 # code into not running at all.
 {
     no warnings 'redefine';
-    local *Tira::CLI::_entrypoint_for = sub { undef };
+    local *Tira::CLI::Serve::_entrypoint_for = sub { undef };
     my ( $status, $served, $restarted ) = serve( installed => '9.99' );
     is_deeply( $restarted, [],
         'with no entrypoint to restart into, the board carries on rather than dying' );
@@ -213,9 +213,9 @@ is( Tira::CLI::Serve::_restart_into(), 0, 'with no script named, nothing is repl
 
 # And the entrypoint really is found for a plain command as well as a typed one.
 my $bare = File::Spec->catfile( qw(cli dashboard) );
-like( Tira::CLI::_entrypoint_for('dashboard'), qr{\Q$bare\E\z},
+like( Tira::CLI::Serve::_entrypoint_for('dashboard'), qr{\Q$bare\E\z},
     'a command with no type resolves to its own entrypoint' );
-is( Tira::CLI::_entrypoint_for('no.such.command'), undef,
+is( Tira::CLI::Serve::_entrypoint_for('no.such.command'), undef,
     'and a command that ships no entrypoint resolves to nothing, rather than a guess' );
 
 # --- where there is no execute bit ----------------------------------------

@@ -1677,6 +1677,17 @@ the restart this rule exists to trigger. Police signals on the installed
 version, which reads from the module, so nothing here changes what it counts as
 a release.
 
+**Since 4.74 a changed `.pm` may be one of nine rather than one of four**, and
+that changes nothing about the rule and something about diagnosing it. The CLI's
+command bodies moved out of `lib/Tira/CLI.pm` into `lib/Tira/CLI/<Concern>.pm`,
+and those modules are loaded with `require` at the point a verb runs rather than
+at start. A long-running board therefore holds whichever of them it has already
+needed, and picks up a tenth only when a command first reaches it - so a board
+that seems to be running new code for one command and old code for another is
+not a paradox, it is the restart this rule exists to trigger not having happened
+yet. Police still signals on the installed version, which reads from
+`lib/Tira.pm`, so what counts as a release is unchanged.
+
 
 ## Work taken out of turn
 

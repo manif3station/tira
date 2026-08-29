@@ -22,6 +22,7 @@
 use strict;
 use warnings;
 
+use File::Find ();
 use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
@@ -29,6 +30,10 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Usage holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Usage;
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub {'2026-08-16T09:00:00Z'} );
@@ -116,11 +121,26 @@ for my $each (@asking) {
 # less than it claims.
 
 {
-    open my $fh, '<', File::Spec->catfile(qw(lib Tira CLI.pm)) or die $!;
-    my $source = do { local $/; <$fh> };
-    close $fh;
-
-    my ($table) = $source =~ /my %SUPPLIED_BY = \((.*?)\n\);/s;
+    # Looked for in every module under lib/, not in lib/Tira/CLI.pm by name.
+    # %SUPPLIED_BY moved to Tira::CLI::Usage in 4.74 (TKT-607) and this found
+    # nothing, then reported it as "there are messages here to translate" being
+    # false - a test about translations failing on a fact about file layout. The
+    # fourth of these tonight; t/64, t/144 and t/289 were the others.
+    my @sources;
+    File::Find::find(
+        {   no_chdir => 1,
+            wanted   => sub {
+                return if !/\.pm\z/;
+                open my $handle, '<', $File::Find::name or die "$File::Find::name: $!";
+                push @sources, do { local $/; <$handle> };
+                close $handle;
+            },
+        },
+        'lib'
+    );
+    my ($table) = grep {defined} map { /my %SUPPLIED_BY = \((.*?)\n\);/s } @sources;
+    ok( $table, 'the %SUPPLIED_BY table is somewhere under lib/ - '
+          . ( defined $table ? length($table) . ' bytes' : 'not found' ) );
     my @entries = $table =~ /^\s*(?:'([^']+)'|"([^"]+)")\s*=>\s*\[\s*'([^']+)'/gm;
 
     my @said;
@@ -141,7 +161,7 @@ for my $each (@asking) {
     my @silent;
     for my $each (@said) {
         my ( $message, $flag ) = @{$each};
-        my $answered = Tira::CLI::_names_the_option($message);
+        my $answered = Tira::CLI::Usage::_names_the_option($message);
         push @silent, "$message -> $answered" if $answered !~ /--\Q$flag\E\b/;
     }
     is_deeply( \@silent, [], 'and every one of them comes back naming its option' );
@@ -157,10 +177,10 @@ for my $each (@asking) {
 
 {
     my $already = 'Record reference is required - supply it with --ref';
-    is( Tira::CLI::_names_the_option($already), $already,
+    is( Tira::CLI::Usage::_names_the_option($already), $already,
         'a message that already names its option is returned unchanged' );
 
-    my $count = () = Tira::CLI::_names_the_option($already) =~ /--ref/g;
+    my $count = () = Tira::CLI::Usage::_names_the_option($already) =~ /--ref/g;
     is( $count, 1, 'so the advice is not appended to advice' );
 }
 

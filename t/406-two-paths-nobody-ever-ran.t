@@ -48,7 +48,7 @@ open my $status, '>', File::Spec->catfile( $silent, 'status' ) or die $!;
 print {$status} "Name:\tsomething\nState:\tS (sleeping)\nTgid:\t4242\n";
 close $status;
 
-is( Tira::CLI::_parent_of_pid( 4242, proc => $proc ), undef,
+is( Tira::CLI::Serve::_parent_of_pid( 4242, proc => $proc ), undef,
     'a status file with no PPid line reads as undef rather than dying or guessing' );
 
 # The neighbouring case, so the two are asserted together rather than one being
@@ -59,10 +59,10 @@ open my $ok, '>', File::Spec->catfile( $ordinary, 'status' ) or die $!;
 print {$ok} "Name:\tsomething\nPPid:\t17\nState:\tS (sleeping)\n";
 close $ok;
 
-is( Tira::CLI::_parent_of_pid( 4243, proc => $proc ), 17,
+is( Tira::CLI::Serve::_parent_of_pid( 4243, proc => $proc ), 17,
     'and one that does name a parent still reads it' );
 
-is( Tira::CLI::_parent_of_pid( 999999, proc => $proc ), undef,
+is( Tira::CLI::Serve::_parent_of_pid( 999999, proc => $proc ), undef,
     'a pid with no status file at all is undef too, by the same safe direction' );
 
 # --- police says so when it reloads the board -------------------------------

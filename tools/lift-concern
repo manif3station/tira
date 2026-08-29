@@ -76,6 +76,27 @@ def package_vars(text):
     return set(re.findall(r'[\$@%]([A-Z][A-Z0-9_]+)\b', text))
 
 
+def _callers():
+    """Every file that could name a sub by its package.
+
+    The first version globbed 'lib/Tira/CLI/*.pm' and 't/*.t', which is the set
+    that happened to exist when it was written. It misses t/playwright/ and
+    t/lib/, misses lib/Tira.pm and lib/Tira/DashboardWeb.pm, and misses cli/
+    entirely - so a future lift could leave a stale Tira::CLI::_foo behind with
+    no warning and no rewrite, which is precisely the failure this whole tool
+    exists to prevent. A second reader found it. Recursive now, and it walks
+    what is there rather than what was there.
+    """
+    found = []
+    for root in ('lib', 't', 'cli', 'tools'):
+        for path in glob.glob('%s/**/*' % root, recursive=True):
+            if path.endswith(('.pm', '.t', '.pl')) or (
+                    root == 'cli' and '.' not in path.rsplit('/', 1)[-1]):
+                found.append(path)
+    return found
+
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--module', required=True, help='e.g. Backup, for Tira::CLI::Backup')
@@ -109,11 +130,11 @@ def main():
     for var in lexical_needed:
         remaining = []
         for i, line in enumerate(src):
-            if not re.search(r'[\$@%]%s\b' % var, line):
+            if not re.search(r'[\$@%%]%s\b' % var, line):
                 continue
             if any(a <= i <= b for a, b in extents.values()):
                 continue
-            if re.match(r'^my [\$@%]%s' % var, line):
+            if re.match(r'^my [\$@%%]%s' % var, line):
                 continue
             remaining.append(i + 1)
         if remaining:
@@ -126,7 +147,43 @@ def main():
                   % (var, ', '.join(str(n) for n in lines)), file=sys.stderr)
         raise SystemExit(1)
 
+    # A lexical nothing left behind reads comes along, declaration and comment
+    # block together. This branch was missing for four lifts: the check above
+    # detected the case and refused when the variable was read on both sides,
+    # and did nothing at all when it was read only by what moves - which is the
+    # commonest case and the one that produces a module that will not compile.
+    # Four of them (%RECORD_USAGE, %NEEDS_TYPE, $SKILLS_TEXT, %SUPPLIED_BY) had
+    # to be carried across by hand before the gap was obvious.
+    carried = []
+    for var in lexical_needed:
+        for i, line in enumerate(src):
+            if not re.match(r'^my [\$@%%]%s\b' % var, line):
+                continue
+            # Consume to the statement's own semicolon, not to balanced
+            # parentheses. `my %NEEDS_TYPE = map { $_ => 1 }` balances on its
+            # first line and the list it maps is on the next, so a paren walk
+            # took the head and left `qw(...)` behind - half the declaration in
+            # each file. Usage.pm still compiled, with an empty hash, and
+            # Tira::CLI compiled too, with an orphan statement in void context.
+            # Two files that both compile and one of them silently wrong is the
+            # worst outcome this tool can produce.
+            depth = line.count('(') - line.count(')') + line.count('{') - line.count('}')
+            j = i
+            while depth > 0 or not src[j].rstrip().endswith(';'):
+                j += 1
+                if j >= len(src):
+                    raise SystemExit('lift-concern: %s never ends in a semicolon' % var)
+                depth += src[j].count('(') - src[j].count(')')
+                depth += src[j].count('{') - src[j].count('}')
+            k = i
+            while k > 0 and src[k - 1].startswith('#'):
+                k -= 1
+            carried.append((k, j))
+            break
+
     body = moving
+    if carried:
+        body = '\n\n'.join('\n'.join(src[a:b + 1]) for a, b in carried) + '\n\n' + body
     for helper in staying_helpers:
         body = re.sub(r'(?<![\w:>$])%s\(' % helper, 'Tira::CLI::%s(' % helper, body)
     for var in sorted(used_vars & ours):
@@ -159,7 +216,7 @@ def main():
     # itself then called as Tira::CLI::_name - a break the tool could see and
     # did not look for. Eleven test files reached in by package name too. Both
     # are legitimate; neither should be discovered by running the suite.
-    for other in sorted(glob.glob('lib/Tira/CLI/*.pm') + glob.glob('t/*.t')):
+    for other in sorted(_callers()):
         if other == CLI:
             continue
         with open(other) as handle:
@@ -182,7 +239,7 @@ def main():
             '# the point one of its verbs runs, so a caller reaching in directly has to\n'
             '# ask for it itself.\nrequire Tira::CLI::%s;\n') % (args.module, args.module)
     followed = []
-    for other in sorted(glob.glob('lib/Tira/CLI/*.pm') + glob.glob('t/*.t')):
+    for other in sorted(_callers()):
         with open(other) as handle:
             text = handle.read()
         before = text
@@ -216,7 +273,7 @@ def main():
     out = '/tmp/%s-body.pl' % args.module.lower()
     with open(out, 'w') as handle:
         handle.write(body)
-    for a, b in sorted(extents.values(), reverse=True):
+    for a, b in sorted(list(extents.values()) + carried, reverse=True):
         del src[a:b + 1]
     with open(CLI, 'w') as handle:
         handle.write('\n'.join(src))

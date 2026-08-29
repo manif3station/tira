@@ -41,8 +41,12 @@ use Test::More;
 use lib 'lib', 't/lib';
 use Run qw(run_quietly);
 use Tira::CLI;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
 
-plan skip_all => 'git is not installed here' if !Tira::CLI::_program_exists('git');
+plan skip_all => 'git is not installed here' if !Tira::CLI::Serve::_program_exists('git');
 
 my $tmp = tempdir( CLEANUP => 1 );
 

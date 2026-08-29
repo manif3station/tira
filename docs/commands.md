@@ -403,6 +403,59 @@ launched or on what the new process inherits. If it cannot find a valid
 entrypoint it does not restart at all: running slightly old code is better than
 not running.
 
+### What a command loads
+
+Since 4.74 a command loads only the code it needs. `Tira::CLI` is an index -
+argument handling, the one shared option table, the dispatch, and the four move
+guards - and the command bodies live in `lib/Tira/CLI/<Concern>.pm`, each pulled
+in with `require` at the point one of its verbs actually runs.
+
+Measured rather than inferred - each row below is what `%INC` held after that
+command ran, one command per process so nothing accumulated. The two rows marked
+*not measured* say so rather than guessing, because an earlier version of this
+table was written by reading the code and was wrong in three places.
+
+| running this | loads beyond the index |
+|---|---|
+| `tira.ticket.list`, `tira.project.show`, `tira.column.list` | nothing |
+| `tira.ticket.create` | `Records` |
+| `tira.question.list` (and the other question verbs, which share one body) | `Records` |
+| `tira.next`, `tira.column.roles` | `Board` |
+| `tira.login.status`, `tira.policy.list` (and their siblings) | `Board`, `Police` |
+| `tira.police.outstanding` | `Police` |
+| `tira.backup` and its three siblings | `Backup`, `Police`, `Serve` |
+| `tira.project.new` | `Wizard` |
+| `tira.dashboard.ticket -o browser` | `Browser`, `Police`, `Serve` |
+| `--help`, and any refusal that prints a usage line | `Usage` |
+| `tira.onboard` | *not measured* - it prompts, and a probe that hands it an exhausted input handle produces no reading |
+| `tira.police`, `tira.policy.bridge` | *not measured* - the probe's run errored, and an errored run measures the error path rather than the command |
+
+Two things in that table are worth reading twice. `tira.backup` loads `Police`
+because the backup readers and the police store sit either side of one another,
+not because backing up polices anything. And a command that ERRORS loads `Usage`
+on the way to printing its refusal, so any measurement of a failed run reports
+the error path rather than the command - which is how the first version of this
+table came to claim that every command loads four modules.
+
+The dependencies between modules are loaded the same way. `Police`'s world scan
+reads the machine through `Serve` and the last backup through `Backup`, but it
+asks for each inside the sub that needs it rather than at the top of the file -
+otherwise running `tira.next` would pull in the whole chain for the sake of one
+helper, which is what it did for the first hour after the split.
+
+**No command's arguments changed, and no command moved.** The dispatch table is
+the same one, and it still resolves a command name to a `Tira` method; what
+moved is where the bodies of the larger ones are written. `--help` answers for
+every command exactly as before, and a command that never serves a board still
+never compiles Dancer2 - which was already true of `Tira::DashboardWeb` and is
+now true of eight more modules.
+
+This is worth knowing in one situation: a long-running board holds whichever
+modules it has already needed, so it picks up a change to one of them only when
+a command first reaches it *after* a restart. `docs/POLICIES.md` covers the
+consequence for diagnosing a board that looks like it is running two versions
+at once.
+
 ### On the dashboard
 
 A card's dialog carries a **Questions** section, placed directly after the

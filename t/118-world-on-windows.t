@@ -62,9 +62,9 @@ chmod 0755, $posix_git;
     local $ENV{PATHEXT} = '.COM;.EXE;.BAT;.CMD';
     local $ENV{PATH} = $windows_bin;
 
-    ok( Tira::CLI::_program_exists('git'),
+    ok( Tira::CLI::Serve::_program_exists('git'),
         'git is found on Windows, where it is called git.exe' );
-    ok( !Tira::CLI::_program_exists('definitely-not-installed'),
+    ok( !Tira::CLI::Serve::_program_exists('definitely-not-installed'),
         'and something that is not there is still not there' );
 }
 
@@ -83,9 +83,9 @@ SKIP: {
     local $Tira::CLI::WINDOWS = 0;
     local $ENV{PATH} = $posix_bin;
 
-    ok( Tira::CLI::_program_exists('git'),
+    ok( Tira::CLI::Serve::_program_exists('git'),
         'git is found on POSIX, where it is called git' );
-    ok( !Tira::CLI::_program_exists('definitely-not-installed'),
+    ok( !Tira::CLI::Serve::_program_exists('definitely-not-installed'),
         'and something that is not there is still not there' );
 }
 
@@ -99,7 +99,7 @@ SKIP: {
     local $Tira::CLI::WINDOWS = 1;
     local $ENV{PATHEXT} = '.COM;.EXE;.BAT;.CMD';
     local $ENV{PATH} = $windows_bin;
-    is( Tira::CLI::_program_exists('git') ? 1 : 0,
+    is( Tira::CLI::Serve::_program_exists('git') ? 1 : 0,
         Tira::CLI::_agent_available('git') ? 1 : 0,
         'both searches answer the same on Windows, because they are the same search' );
 }

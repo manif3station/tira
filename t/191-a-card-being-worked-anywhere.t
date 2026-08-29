@@ -38,6 +38,10 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Police holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Police;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub {'2026-08-15T12:00:00Z'} );
@@ -61,14 +65,14 @@ my $card = $tira->create_record( project => $root, type => 'ticket',
 
 $tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'verify' );
 
-is( Tira::CLI::_card_in_progress( $tira, $root ), 1,
+is( Tira::CLI::Police::_card_in_progress( $tira, $root ), 1,
     'a card in verify is a card being worked, though the role names implement' );
 
 # --- the column the role does name is unchanged --------------------------------------------
 
 {
     $tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'implement' );
-    is( Tira::CLI::_card_in_progress( $tira, $root ), 1,
+    is( Tira::CLI::Police::_card_in_progress( $tira, $root ), 1,
         'and so is a card in the column the role names' );
 }
 
@@ -80,15 +84,15 @@ is( Tira::CLI::_card_in_progress( $tira, $root ), 1,
 
 {
     $tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'backlog' );
-    is( Tira::CLI::_card_in_progress( $tira, $root ), 0,
+    is( Tira::CLI::Police::_card_in_progress( $tira, $root ), 0,
         'a card waiting in the backlog is not work in progress' );
 
     $tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'done' );
-    is( Tira::CLI::_card_in_progress( $tira, $root ), 0,
+    is( Tira::CLI::Police::_card_in_progress( $tira, $root ), 0,
         'and neither is one that is finished' );
 
     $tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'discard' );
-    is( Tira::CLI::_card_in_progress( $tira, $root ), 0,
+    is( Tira::CLI::Police::_card_in_progress( $tira, $root ), 0,
         'nor one that was set aside' );
 }
 
@@ -108,7 +112,7 @@ is( Tira::CLI::_card_in_progress( $tira, $root ), 1,
     my $ref = $other->create_record( project => $plain, type => 'ticket',
         title => 'Somewhere in the middle' )->{ref};
     $other->record_move(author => 'claude',  project => $plain, ref => $ref, column => 'verify' );
-    is( Tira::CLI::_card_in_progress( $other, $plain ), 1,
+    is( Tira::CLI::Police::_card_in_progress( $other, $plain ), 1,
         'a board that has declared no roles behaves exactly as before' );
 }
 
@@ -129,7 +133,7 @@ is( Tira::CLI::_card_in_progress( $tira, $root ), 1,
     my $ref = $board->create_record( project => $named, type => 'ticket',
         title => 'Shipped' )->{ref};
     $board->record_move(author => 'claude',  project => $named, ref => $ref, column => 'shipped' );
-    is( Tira::CLI::_card_in_progress( $board, $named ), 0,
+    is( Tira::CLI::Police::_card_in_progress( $board, $named ), 0,
         'a card in a column the board marked as its ending is not work in progress' );
 }
 

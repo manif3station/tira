@@ -206,7 +206,6 @@ sub _refuse_unread_options {
 # Outside a served board it is simply this process, so a plain command asking
 # the question gets the honest answer rather than a special case.
 our $SERVING_PID;
-sub _serving_pid { return $SERVING_PID // $$ }
 
 sub run {
     my ( $class, %args ) = @_;
@@ -222,9 +221,24 @@ sub run {
     my $type = $args{type};
     my $argv = $args{argv} || [];
     my $tira = $args{tira} || Tira->new( path_resolver => _dd_path_resolver() );
-    my $browser_server = $args{browser_server} || \&_serve_browser;
-    my $onboard_browser_server = $args{onboard_browser_server} || \&_serve_onboard_browser;
-    my $restarter = $args{restarter} || \&_restart_into;
+    # Left undefined here on purpose, and resolved where they are USED. What they
+    # name lives in Tira::CLI::Serve, which most runs never need, so a bare
+    # \&Package::sub taken here would either load that module on every
+    # invocation or dangle - and dangling is what happened once already:
+    # \&_serve_browser survived the move as a reference nothing had rewritten,
+    # because a code reference is not a call and every check was looking for
+    # calls.
+    #
+    # The obvious fix was a closure per default that required the module and
+    # delegated. It works and it is lazy, and it cost 100% coverage: two of the
+    # three were never called by any test, because every test that serves a
+    # board passes its own. A closure is a subroutine with statements in it; a
+    # code reference resolved inside an expression is neither. So each default
+    # is now taken at its call site, after a require that actually runs there.
+    # TKT-607.
+    my $browser_server         = $args{browser_server};
+    my $onboard_browser_server = $args{onboard_browser_server};
+    my $restarter              = $args{restarter};
     my $guided_input = $args{input};
     my %option = ( output => 'toon' );
     our @RESTART_ARGV = @{$argv};
@@ -452,7 +466,8 @@ sub run {
       if @duplicate_option;
     if ( !$parsed || @{$argv} ) {
         my @unknown = $unknown_option_warning =~ /Unknown option:\s*(\S+)/g;
-        return _error( $tira, $option{output}, _unknown_option_message( \@unknown, \@spec ) )
+        require Tira::CLI::Usage;
+        return _error( $tira, $option{output}, Tira::CLI::Usage::_unknown_option_message( \@unknown, \@spec ) )
           if @unknown;
 
         # Any other Getopt::Long complaint - a value missing, one of the
@@ -485,7 +500,8 @@ sub run {
     $option{$_} = _expand_home( $option{$_} ) for grep { defined $option{$_} } qw(dir project);
 
     if ( $option{help} || $command eq 'policies' ) {
-        print $command eq 'policies' ? _policy_help() : _usage( $command, $type );
+        require Tira::CLI::Usage;
+        print $command eq 'policies' ? Tira::CLI::Usage::_policy_help() : Tira::CLI::Usage::_usage( $command, $type );
         return 0;
     }
 
@@ -528,7 +544,8 @@ sub run {
                 ( $browser_host, $browser_port ) = $given =~ /\A(127\.0\.0\.1|localhost)(?::([0-9]+))?\z/
                   or return _error( $tira, 'toon', "Unsupported browser endpoint '$given'\n" );
             }
-            $browser_port = _free_port() if !defined $browser_port;
+            require Tira::CLI::Serve;
+            $browser_port = Tira::CLI::Serve::_free_port() if !defined $browser_port;
         }
         else {
             # Precedence, stated once: an address on the command line wins, the
@@ -537,8 +554,9 @@ sub run {
                 my $stored = eval { $tira->project_show( project => $option{project} )->{dashboard} };
                 join ':', ( $stored->{host} // '0.0.0.0' ), ( $stored->{port} // 7899 );
             };
+            require Tira::CLI::Serve;
             my $valid = eval {
-                ( $browser_host, $browser_port ) = _browser_endpoint($endpoint);
+                ( $browser_host, $browser_port ) = Tira::CLI::Serve::_browser_endpoint($endpoint);
                 1;
             };
             return _error( $tira, 'toon', $@ || 'Invalid browser endpoint' ) if !$valid;
@@ -561,8 +579,9 @@ sub run {
         my $suggested = $option{dir}
           // eval { $tira->discover_project( defined $option{project} ? ( project => $option{project} ) : () ) }
           // '.';
+        require Tira::CLI::Serve;
         my $served = eval {
-            $onboard_browser_server->(
+            ( $onboard_browser_server || \&Tira::CLI::Serve::_serve_onboard_browser )->(
                 host => $browser_host, port => $browser_port, create => $create,
                 dir  => $suggested,
                 defaults => sub { require Tira::CLI::Wizard;
@@ -650,14 +669,16 @@ sub run {
             # upgrading, and it is why the page appeared to stop refreshing on
             # its own. Proved on an isolated board rather than reasoned about.
             require Tira::CLI::Serve;
-            my $restarted = _serving_pid() == $$
-              && Tira::CLI::Serve::_restart_if_updated( $restarter, $command, $type,
-                $option{project} );
+            my $restarted = Tira::CLI::Serve::_serving_pid() == $$
+              && Tira::CLI::Serve::_restart_if_updated(
+                $restarter || \&Tira::CLI::Serve::_restart_into,
+                $command, $type, $option{project} );
 
             # And when it cannot, it says so instead of failing quietly once a
             # minute. The page reads this payload every sixty seconds already.
             if ( !$restarted ) {
-                my $on_disk = _version_on_disk();
+                require Tira::CLI::Serve;
+                my $on_disk = Tira::CLI::Serve::_version_on_disk();
                 $dashboard->{_stale} = $on_disk
                   if defined $on_disk && $on_disk ne $Tira::VERSION;
             }
@@ -703,8 +724,9 @@ sub run {
 
         my %providers = browser_providers( tira => $tira, project => $serving,
             store => $option{store} );
+        require Tira::CLI::Serve;
         my $served = eval {
-            $browser_server->(
+            ( $browser_server || \&Tira::CLI::Serve::_serve_browser )->(
                 host => $browser_host, port => $browser_port, render => $render, data => $data,
 
                 # Which board, and how to show it. The workers load the
@@ -826,84 +848,13 @@ sub _dd_path_resolver {
     };
 }
 
-sub _browser_endpoint {
-    my ($endpoint) = @_;
-    $endpoint =~ /\A(0\.0\.0\.0|127\.0\.0\.1|localhost)(?::([0-9]+))?\z/
-      or die "Unsupported browser endpoint '$endpoint'\n";
-    my ( $host, $port ) = ( $1, defined $2 ? 0 + $2 : 7899 );
-    die "Browser port must be between 1 and 65535\n" if $port < 1 || $port > 65535;
-    return ( $host, $port );
-}
-
-# Through a seam so a test can watch the decision without a process replacing
-# itself mid-suite. exec swaps this process for a new one - nothing is forked,
-# and no shell is involved.
-# The entrypoint this command was reached through. $0 is not reliable: under
-# the dashboard dispatcher it is the dispatcher, so restarting on it re-ran the
-# wrong program and the board died instead of updating. Derived from the module
-# path and the command, and checked before anything is replaced.
-sub _entrypoint_for {
-    my ($command) = @_;
-    my $here = __FILE__;
-    $here =~ /\A([^\x00-\x1f\x7f]+)\z/ or return undef;
-    my $root = File::Spec->rel2abs(
-        File::Spec->catdir( dirname( dirname($1) ), File::Spec->updir ) );
-    my @parts = split /\./, $command;
-    my $action = pop @parts;
-    my $path = @parts
-      ? File::Spec->catfile( $root, 'skills', @parts, 'cli', $action )
-      : File::Spec->catfile( $root, 'cli', $action );
-    ($path) = $path =~ /\A([^\x00-\x1f\x7f]+)\z/ or return undef;
-
-    # Executability is what makes a file a command on a POSIX system. Windows
-    # has no such bit, and -x there answers about the extension - so asking for
-    # it found nothing, _entrypoint_for returned undef, and a dashboard on
-    # Windows never picked up a new version however many were installed.
-    return ( $WINDOWS ? -f $path : -x $path ) ? $path : undef;
-}
 
 
-# The version in the module a restart would load. installed_version() reads a
-# label out of .env, and a label is not what exec changes - the file is. Asking
-# the file is the only way to know whether restarting would run different code
-# or the same code again.
-sub _version_on_disk {
-    my ($path) = @_;
-    $path //= $INC{'Tira.pm'};
-    return undef if !defined $path;
-    $path =~ /\A([^\x00-\x1f\x7f]+)\z/ or return undef;
-    open my $fh, '<:raw', $1 or return undef;
-    my $body = do { local $/; <$fh> };
-    close $fh;
-    return $body =~ /^our \$VERSION = '([^']+)';/m ? $1 : undef;
-}
 
 
-sub _serve_browser {
-    require Tira::DashboardWeb;
-    return Tira::DashboardWeb->serve(@_);
-}
 
-sub _serve_onboard_browser {
-    require Tira::OnboardWeb;
-    return Tira::OnboardWeb->serve(@_);
-}
 
-# Chosen rather than fixed, because a fixed default is exactly the collision
-# tira.dashboard -o browser's own port already accepts for a long-lived
-# board with one obvious address - the wrong trade for a disposable session
-# two people could start at once. The race between closing this socket and
-# Plack::Runner binding the same port is the same one every "ask the OS for a
-# free port" trick accepts; tools/browser-tests picks one the same way.
-sub _free_port {
-    require IO::Socket::INET;
-    my $socket = IO::Socket::INET->new(
-        Listen => 1, LocalAddr => '127.0.0.1', LocalPort => 0, Proto => 'tcp' )
-      or die "Could not find a free port: $!\n";
-    my $port = $socket->sockport;
-    $socket->close;
-    return $port;
-}
+
 
 # The viewer decides whether an attachment can be shown as text from its
 # content_type and from nothing else - it keeps no extension list of its own,
@@ -2070,64 +2021,8 @@ sub _invoke {
 
     return $tira->create_project( name => $option->{name}, dir => $option->{dir} // '.' ) if $command eq 'project.create';
     if ( $command eq 'project.new' || $command eq 'onboard' ) {
-
-        # Before anything is written, not after. project_mode is called below
-        # once the project exists, and it refuses anything but its two values
-        # - which used to mean an invalid --mode produced a failed command AND
-        # a fully created project, with nothing to roll back and nothing
-        # saying so. "It failed" and "it half worked" are different facts, and
-        # only one of them tells the reader to go and look at the directory;
-        # the next attempt then meets a project that should not be there.
-        #
-        # The wizard's own loop already re-asks against these same options, so
-        # ordinary interactive use never got here. What did was the --mode
-        # flag on project.new, and the browser onboarding form, whose mode
-        # field renders its options as a hint and validates nothing before
-        # calling back into this dispatch. Checking here covers both, because
-        # both arrive here.
-        #
-        # The options come from onboarding_questions() rather than a literal
-        # pair, so a third mode cannot be added there and silently refused
-        # here. TKT-562.
-        if ( defined $option->{mode} ) {
-            my ($question) = grep { $_->{id} eq 'mode' } @{ $tira->onboarding_questions };
-            my @allowed = @{ $question->{options} // [] };
-            die "--mode must be one of: " . join( ', ', @allowed ) . "\n"
-              if @allowed && !grep { $_ eq $option->{mode} } @allowed;
-        }
-
-        my $summary = $tira->project_new(
-            name => $option->{name}, dir => $option->{dir} // '.',
-            members => $option->{members}, columns => $option->{columns},
-            map( { ( "${_}_columns" => $option->{"${_}_columns"} ) }
-                grep { defined $option->{"${_}_columns"} } qw(sow epic ticket) ),
-            ( defined $option->{digits} ? ( digits => $option->{digits} ) : () ),
-            map( { ( "${_}_prefix" => $option->{"${_}_prefix"} ) }
-                grep { defined $option->{"${_}_prefix"} } qw(sow epic ticket) ),
-            map( { ( $_ => $option->{$_} ) }
-                grep { defined $option->{$_} } qw(notify_after collector agent session heartbeat) ),
-            ( $option->{nested} ? ( nested => 1 ) : () ),
-        );
-
-        # Written after the project exists, because it is a fact about the
-        # project rather than one of the things that makes one. Unanswered
-        # leaves it unset, and unset is every board that exists today.
-        $tira->project_mode( project => $option->{dir} // '.', mode => $option->{mode} )
-          if defined $option->{mode};
-
-        # Collecting the settings and leaving the job unregistered
-        # looked like it had worked. Onboarding registers it, and reports the
-        # name it will really answer to, which is not the name that was typed.
-        if ( $command eq 'onboard' && defined $summary->{project}{heartbeat} ) {
-            # Project_show carries no root, so use the directory that was created.
-            my $job = eval { $tira->collector_install( project => $option->{dir} // '.' ) };
-            if ($job) {
-                print "\nRegistered the reminder job as '$job->{name}'.\n"
-                  . "Start it with: dashboard collector start $job->{name}\n\n";
-                $summary->{collector} = $job;
-            }
-        }
-        return $summary;
+        require Tira::CLI::Wizard;
+        return Tira::CLI::Wizard::project_new_or_onboard( $tira, \%args, $option, $command );
     }
     if ( $command eq 'question.attach' ) {
         return $tira->question_attach(
@@ -2143,37 +2038,8 @@ sub _invoke {
             file => $path, remove => $option->{remove} );
     }
     if ( $command =~ /\Aquestion\.(ask|list|answer|update|mark|discard)\z/ ) {
-        my $action = $1;
-
-        # By card reference alone: the reference already names the board, so
-        # asking for the board as well would be asking for what is known.
-        my %question = ( project => $args{project} );
-        $question{ref} = $option->{ref_list}[0] if $option->{ref_list};
-        $question{$_} = $option->{$_} for grep { defined $option->{$_} } qw(id text mark author reason);
-        # ask as well as update. The option was accepted, refused on every
-        # command it does not belong to - "A voice note belongs to the
-        # question.ask, question.update and question.voice commands" - and then
-        # passed through for update alone, so asking with a recording produced a
-        # question whose own reminder told its author to supply the recording
-        # they had just supplied. question_add has always attached it, after the
-        # question exists so a bad recording fails the voice rather than the
-        # question, and the manual has always documented it. Only this line
-        # disagreed.
-        $question{voice} = $option->{voice}
-          if defined $option->{voice} && ( $action eq 'update' || $action eq 'ask' );
-        $question{file} = $option->{file} if defined $option->{file} && $action eq 'answer';
-        $question{options} = $option->{options} if $option->{options};
-        $question{status} = $option->{status} if defined $option->{status};
-        $question{since} = $option->{since} if defined $option->{since};
-        die "Peek is available on the question.list command\n"
-          if $option->{peek} && $action ne 'list';
-        $question{peek} = 1 if $option->{peek};
-        return $tira->question_add(%question) if $action eq 'ask';
-        return $tira->question_list(%question) if $action eq 'list';
-        return $tira->question_answer(%question) if $action eq 'answer';
-        return $tira->question_update(%question) if $action eq 'update';
-        return $tira->question_discard(%question) if $action eq 'discard';
-        return $tira->question_mark(%question);
+        require Tira::CLI::Records;
+        return Tira::CLI::Records::question_verbs( $tira, \%args, $option, $command );
     }
     # Reports by default and writes only when asked. History is the permanent
     # record of a board, and a record somebody's tooling quietly rewrites is not
@@ -2196,193 +2062,8 @@ sub _invoke {
         return $tira->notification_record(%notify);
     }
     if ( $command eq 'record.create' ) {
-
-        # A card created directly into implement, or verify, or done never
-        # needs the move TKT-426's chain check would refuse - reusing the
-        # existing column-roles vocabulary ('which column is the backlog' is
-        # already a role every board can answer) rather than a new mechanism.
-        # Checked here, in the dispatch layer, so create_record itself - and
-        # the dashboard's own create flow, which calls it directly - is
-        # untouched. TKT-428.
-        my $entry = eval { $tira->column_roles(%args) }->{entry};
-
-        # 'entry' may now name more than one column (TKT-496) - a board can
-        # start new cards in more than one place. Normalised to a list here
-        # so the single-entry case (still the common one) needs no branch of
-        # its own: with exactly one entry, this behaves exactly as before -
-        # the same column either matches or is refused.
-        my @entries = ref $entry eq 'ARRAY' ? @{$entry} : ( defined $entry && $entry ne '' ? ($entry) : () );
-        if (@entries) {
-            if ( defined $args{column} && $args{column} ne '' ) {
-                die "Cannot create $args{type} in $args{column} - the entry column"
-                  . ( @entries > 1 ? 's are ' . join( ', ', @entries ) : ' is ' . $entries[0] ) . ".\n"
-                  . "  Create there instead:  d2 tira.$args{type}.create --title TITLE --column $entries[0]\n"
-                  if !grep { $_ eq $args{column} } @entries;
-            }
-            else {
-                # No column named: the first declared entry column, which is
-                # exactly today's only entry column when there is just one -
-                # nothing changes for a board that has never declared more.
-                $args{column} = $entries[0];
-            }
-        }
-
-        # A card landing in a column that carries required_actions needs an
-        # author for the required_item_add calls below - and until now that
-        # was discovered only by getting there: create_record has no author
-        # requirement of its own (hundreds of test fixtures and the
-        # dashboard's own create flow rely on that), so the record was
-        # already written by the time required_item_add's own author check
-        # died, leaving an orphaned, unattributed card on disk that a retry
-        # with --author then duplicated rather than completed. Checked here,
-        # before anything is written, using whichever column the card is
-        # actually about to land in - entry role or explicit --column,
-        # falling back to the same 'backlog' default create_record itself
-        # uses. TKT-485.
-        if ( !defined $args{author} || $args{author} eq '' ) {
-            my $landing = defined $args{column} && $args{column} ne '' ? $args{column} : 'backlog';
-            my $columns = eval { $tira->column_list(%args) };
-            if ( ref $columns eq 'ARRAY' ) {
-                my ($about_to_land) = grep { $_->{name} eq $landing } @{$columns};
-                die "A change needs to say who is making it\n"
-                  if $about_to_land && @{ $about_to_land->{required_actions} // [] };
-            }
-        }
-
-        # The record itself stays exactly what is stored - an agent can trust
-        # that what it holds is what is on disk. The advice about it belongs to
-        # the layer that talks to agents, not to the data.
-        my $created = $tira->create_record(%args);
-
-        # Where it landed, read from the board rather than repeated from the
-        # request. --column used to be accepted and discarded, and a create that
-        # cannot say where the card is is how three projects came to believe
-        # theirs were somewhere they had never been. Asking the board means the
-        # answer cannot drift from the truth the way a second copy of the
-        # default would.
-        # Only what finds the card. Passing the whole request would hand it the
-        # caller's --fields as well, and a create that asked for two fields
-        # would come back with no column at all.
-        my $column = $tira->record_show(
-            ref => $created->{ref},
-            ( defined $args{project} ? ( project => $args{project} ) : () ),
-        )->{column};
-
-        # A column's required-action template is populated on every move-in
-        # (TKT-427), but creation is not a move, so a card landing directly
-        # in its entry column - or any column carrying required_actions -
-        # never received them. Populated here into the card's own
-        # required_items list, tagged with this landing column (TKT-445, not
-        # checklist); the dashboard's own create flow, calling create_record
-        # directly, is untouched. TKT-439.
-        #
-        # BOTH templates, since TKT-681. This used to read required_actions
-        # alone, under a comment saying it mirrored the move-in logic exactly.
-        # It did - it mirrored _populate_column_required_actions, which is the
-        # EXIT seeder. Entry actions on a move come from a different function,
-        # _populate_entry_required_actions, which creation never called. So a
-        # card created straight into a column with an entry list was born past
-        # a gate it could never be asked to pass: no items recorded, nothing
-        # checking it, the gate not failed but skipped in silence.
-        #
-        # That function is called here rather than its logic repeated. The
-        # whole cause of this bug was one path copying another's logic instead
-        # of calling it, and a third copy would be the same mistake again.
-        my $columns = eval { $tira->column_list(%args) };
-        my ( @entry_seeded, @exit_seeded );
-        if ( ref $columns eq 'ARRAY' ) {
-            my ($landed) = grep { $_->{name} eq $column } @{$columns};
-            @exit_seeded  = @{ $landed->{required_actions} // [] };
-            @entry_seeded = @{ $landed->{entry_required_actions} // [] };
-
-            $tira->required_item_add( %args, ref => $created->{ref},
-                item => $_, status => 'pending', column => $column, source => 'required-action' )
-              for @exit_seeded;
-
-            # CREATION IS NEVER REFUSED FOR ONE OF THESE, and cannot be. A
-            # required action's proof is a command and its output, and before
-            # the card exists there is nothing to run a command against - the
-            # owner's own reasoning on TSK-250. So they are recorded as
-            # pending and the caller is told, rather than the create failing.
-            my $unplaced = _populate_entry_required_actions(
-                $tira, { %args, ref => $created->{ref} }, $column, $columns, $created );
-            if ( @{ $unplaced // [] } ) {
-                printf {*STDERR} "%s was created in %s, but %d of that column's entry required action(s) could not be put on the card: %s\n",
-                  $created->{ref}, $column, scalar @{$unplaced},
-                  join( '; ', map { ( length $_->[0] ? $_->[0] : '(an empty entry action)' ) . " - $_->[1]" } @{$unplaced} );
-                my %failed = map { $_->[0] => 1 } @{$unplaced};
-                @entry_seeded = grep { !$failed{$_} } @entry_seeded;
-            }
-
-            if ( @exit_seeded || @entry_seeded ) {
-
-                # $created was captured before these writes; re-read so what
-                # the caller sees is what is actually stored, the same
-                # discipline record.move's own return already holds to.
-                $created = $tira->record_show(
-                    ref => $created->{ref},
-                    ( defined $args{project} ? ( project => $args{project} ) : () ),
-                );
-            }
-        }
-
-        # And SAY so. The exit template has been seeded on create since
-        # TKT-439 and printed by nothing, so an agent met those items only
-        # when a move was refused - a silence older than the one this card was
-        # raised for, and fixing only the newer one would have left it.
-        #
-        # To STDERR, because stdout is the card: -o json has to stay a
-        # document an agent can parse, and the browser move path already
-        # reports its entry-population failures this way.
-        if ( @entry_seeded || @exit_seeded ) {
-
-            # One item, one mention - WITHIN a list as well as across the two.
-            #
-            # required_item_add stores an item once however many times it is
-            # asked for, and column_update does NOT dedupe a template, so both
-            # kinds of repetition are storable: the same text twice inside one
-            # list, and the same text in both lists. "Verify all details in
-            # the card" is a plausible thing to owe on the way in and again
-            # before leaving.
-            #
-            # Reported raw, the message contradicted the card twice over - a
-            # count of two for one stored item, and the SAME REQ id printed
-            # twice beside it, which reads as two items that happen to share
-            # an id. Entry wins a text owed both ways, being the stricter:
-            # owed now rather than owed eventually.
-            my %seen;
-            @entry_seeded = grep { !$seen{$_}++ } @entry_seeded;
-            @exit_seeded  = grep { !$seen{$_}++ } @exit_seeded;
-
-            # WITH THE IDS, because the point is to be actionable from the
-            # message alone. The move refusal already names each item as
-            # "REQ-001  the text" so acting on it is copying what was printed;
-            # a create warning that listed only texts and then said "--id
-            # REQ-NNN" would send its reader to ticket.show to map one to the
-            # other, which is the cross-reference that has already put proofs
-            # against the wrong ids on this board.
-            my %id_of;
-            for my $item ( @{ $created->{required_items} // [] } ) {
-                next if ( $item->{column} // '' ) ne $column;
-                $id_of{ $item->{item} // '' } //= $item->{id};
-            }
-            my $name = sub {
-                join '; ', map { ( $id_of{$_} ? "$id_of{$_} " : '' ) . $_ } @{ $_[0] };
-            };
-
-            my @said;
-            push @said, sprintf( "%d entry required action(s), owed now: %s",
-                scalar @entry_seeded, $name->( \@entry_seeded ) ) if @entry_seeded;
-            push @said, sprintf( "%d exit required action(s), owed before it leaves %s: %s",
-                scalar @exit_seeded, $column, $name->( \@exit_seeded ) ) if @exit_seeded;
-            my $first = ( $id_of{ ( @entry_seeded, @exit_seeded )[0] // '' } ) // 'REQ-NNN';
-            printf {*STDERR} "%s was created in %s carrying %s\n  Work them one at a time: d2 tira.required-action.update --ref %s --id %s --status done --command TEXT --proof TEXT\n",
-              $created->{ref}, $column, join( ', and ', @said ), $created->{ref}, $first;
-        }
-
-        my $reminder = $tira->record_reminder($created);
-        return { %{$created}, column => $column,
-            ( defined $reminder ? ( reminder => $reminder ) : () ) };
+        require Tira::CLI::Records;
+        return Tira::CLI::Records::record_create( $tira, \%args, $option );
     }
     return $tira->export_records(%args) if $command eq 'export';
     return $tira->diff_records(%args) if $command eq 'diff';
@@ -2457,17 +2138,8 @@ sub _invoke {
     # police sentry rather than an agent sentry, so the notifying costs no
     # tokens. TKT-349.
     if ( $command eq 'notify.moves' ) {
-
-        # A bare call is a read, not "turn it on" - defaulting enabled to 1
-        # here made every plain d2 tira.notify.moves look, to the engine, like
-        # --watch had been given. Only pass it when something was actually
-        # named. TKT-398.
-        return $tira->notify_moves(
-            project => $args{project},
-            ( defined $option->{column} ? ( column => $option->{column} ) : () ),
-            ( defined $option->{chat} ? ( chat => $option->{chat} ) : () ),
-            ( defined $option->{watched} ? ( enabled => $option->{watched} ) : () ),
-        );
+        require Tira::CLI::Board;
+        return Tira::CLI::Board::notify_moves( $tira, \%args, $option );
     }
     if ( $command eq 'column.apply' ) {
         my $layout = eval { Tira::json_object()->utf8->decode( $option->{columns_json} // '' ) };
@@ -2477,40 +2149,8 @@ sub _invoke {
     return $tira->column_sync( %args, apply => $option->{apply} ) if $command eq 'column.sync';
 
     if ( $command eq 'column.roles' ) {
-
-        # Taking one back, which nothing could do - a role declared by mistake
-        # was permanent and undoing it meant editing .tira by hand. TKT-384.
-        # The reason is required by the engine and belongs to the removal alone:
-        # accepted-and-ignored beside a --role would be a stored explanation for
-        # something nobody could later find.
-        die "A reason belongs to --remove-role. Declaring a role does not take one\n"
-          if defined $option->{reason} && !$option->{remove_roles};
-        return $tira->column_roles_remove( %args, roles => $option->{remove_roles},
-            reason => $option->{reason}, author => $option->{author} )
-          if $option->{remove_roles};
-        return $tira->column_roles(%args) if !$option->{roles};
-
-        # Written the way he says it: which column is the backlog, which is
-        # in progress. Each --role takes name=column, and any role may be
-        # left unset because most projects have a column for very few of them.
-        #
-        # 'entry' alone may be given more than once - a board can start new
-        # cards in more than one place - and repeating it accumulates rather
-        # than the last one silently winning, the way a second --role of any
-        # other name still does. TKT-496.
-        my %roles;
-        for my $pair ( @{ $option->{roles} } ) {
-            my ( $role, $column ) = split /=/, $pair, 2;
-            die "A role is written as name=column, not '$pair'\n"
-              if !defined $column || $column eq '' || $role eq '';
-            if ( $role eq 'entry' ) {
-                push @{ $roles{$role} }, $column;
-            }
-            else {
-                $roles{$role} = $column;
-            }
-        }
-        return $tira->column_roles_set( %args, roles => \%roles );
+        require Tira::CLI::Board;
+        return Tira::CLI::Board::column_roles( $tira, \%args, $option );
     }
 
     if ( $command =~ /\Arecord\.(show|list|update|move|discard|restore|clone|missing)\z/ ) {
@@ -2598,12 +2238,8 @@ sub _invoke {
     # cost another project's agent three corrections and, in between, every
     # suspension and escalation it should have been reading.
     if ( $command eq 'rule.suspend' ) {
-        my $store = $option->{store}
-          // _police_store( $tira->discover_project(%args) );
-        return $tira->rule_suspend( %args, store => $store,
-            rule => $option->{rule}, seconds => $option->{seconds},
-            reason => $option->{reason},
-            ( defined $option->{pid} ? ( pid => $option->{pid} ) : () ) );
+        require Tira::CLI::Board;
+        return Tira::CLI::Board::rule_suspend( $tira, \%args, $option );
     }
 
     # The definition of a complete card, for anything that is not this program.
@@ -2622,149 +2258,27 @@ sub _invoke {
     # card and sorting by hand was 1.95 MB of JSON on this project's own board
     # to find the eleven that were waiting. TKT-274.
     if ( $command eq 'next' ) {
-        my $order = $tira->work_order( %args,
-            ( $option->{brief} ? ( brief => 1 ) : () ),
-            ( defined $option->{truncate} ? ( truncate => $option->{truncate} ) : () ) );
-
-        # A quiet board used to answer with a bare array while a busy one
-        # answered with {next, then} - the same command returning two
-        # different TYPES depending on state. A caller written against the
-        # documented shape does result->{next}, which works every time the
-        # board has work and raises an error the first time it goes quiet -
-        # precisely when a scheduled caller runs unattended and nobody is
-        # watching. One shape now serves both states: next is undef rather
-        # than an object when nothing is waiting, and the empty answer stays
-        # just as unambiguous. TKT-354.
-        return { next => undef, then => [] } if !@{$order};
-
-        # The first one is the answer; the rest are what it was chosen over,
-        # which is the part that makes the answer checkable rather than taken
-        # on trust.
-        return { next => $order->[0], then => [ @{$order}[ 1 .. $#{$order} ] ] };
+        require Tira::CLI::Board;
+        return Tira::CLI::Board::next_card( $tira, \%args, $option );
     }
 
     # What is still true, rather than everything that ever happened. The bridge
     # is a stream and the log is flat, so neither could answer it and the answer
     # depended on somebody remembering to look. TKT-237.
+    # tira.police.outstanding is in Tira::CLI::Police - the ledger read, and
+    # the --fresh pass that runs one inline before reading it. TKT-607.
     if ( $command eq 'police.outstanding' ) {
-        my $store = $option->{store}
-          // _police_store( $tira->discover_project(%args) );
-
-        # A read, by default - fast, and answering from whatever the watcher
-        # last wrote. --fresh runs the same pass the watcher would, inline,
-        # before reading: fixing a violation and asking right away used to
-        # mean it could still read as open for up to the watcher's own
-        # interval (30s by default), because nothing had told the ledger the
-        # fix happened. The loop that clears outstanding violations asks this
-        # after every fix, so a stale answer here reads as "still broken" when
-        # the truth is "not yet asked again". TKT-423.
-        if ( $option->{fresh} ) {
-            my $watching = $tira->discover_project(%args);
-            require Tira::CLI::Police;
-            my $result = $tira->police_pass( %args, store => $store,
-                world => Tira::CLI::Police::police_world( tira => $tira, project => $watching ) );
-            $tira->bridge_write( store => $store, project => $watching,
-                violations => $result->{violations}, settled => $result->{settled},
-                upgraded => $result->{upgraded} )
-              if $result->{watching};
-        }
-        my $open = $tira->police_outstanding( %args, store => $store );
-
-        # What was actually found, said before the answer is dressed up. The
-        # exit status used to be taken from the rendered rows, which was true
-        # only while a command's output WAS its findings - 2.62 gave this
-        # command a summary and a clean board started exiting 1, saying "No
-        # violations outstanding" and signalling that there were some. A
-        # command that knows its count says so; rendering cannot move the
-        # signal afterwards. TKT-385.
-        $option->{findings_count} = scalar @{$open};
-
-        # -o json is the payload and stays a bare list. The instruction that
-        # drives the clear-violations loop pipes it and indexes the result, and
-        # TKT-354 is already open about tira.next answering with a dict when
-        # work waits and a list when it does not - the same fault from the other
-        # side. Everything below is the human summary the CLI contract asks for.
-        return $open if ( $option->{output} // '' ) eq 'json';
-
-        my $at = $tira->police_outstanding_taken_at( store => $store );
-        return [
-            defined $at
-            ? 'No violations outstanding, as of the pass at ' . $at
-            : 'This board has never been policed, so nothing has been checked'
-        ] if !@{$open};
-
-        # His question, which the old output could not answer: "why the action
-        # all log only? this outstanding command is act-on-it when the agent
-        # look at this. they won't act on it but just log only." Both kinds come
-        # back tone 'note', so tone cannot carry the difference and the action
-        # has to be said.
-        my @chased   = grep { ( $_->{action} // '' ) ne 'log-only' } @{$open};
-        my @recorded = grep { ( $_->{action} // '' ) eq 'log-only' } @{$open};
-        my $line = sub {
-            my ($v) = @_;
-            return sprintf '%s %s %s seen %d',
-              $v->{id} // '', $v->{rule} // '', $v->{ref} // '(board)', $v->{seen} // 0;
-        };
-
-        # Each row its own answer rather than a cell in one. TOON renders an
-        # array of plain strings as a single inline "primitive array" row -
-        # every finding comma-joined behind one bracketed count, quote marks
-        # and all - so a reader had to parse past that to find the first
-        # thing. An array of single-key hashes is a different shape to TOON:
-        # one row per element, which is the whole fix. TKT-291.
-        my $row = sub { return { line => $_[0] } };
-        my $header = scalar(@{$open}) . ' outstanding, as of the pass at '
-          . ( $at // 'a time this board did not record' );
-
-        # Grouped by rule instead of by chased/recorded, opt-in: --by-rule
-        # answers "what does this board have declared against it" rather than
-        # "what should I do next" - a different question, not a strictly
-        # better one, so the default stays the work list. Still-act-on rules
-        # sort before log-only ones, so a reader scanning groups meets the
-        # same order the default view already gives findings in. Each ref
-        # appears once per rule even if two policies for the same rule both
-        # matched it - a display duplicate would be one thing on the board
-        # read as two.
-        if ( $option->{by_rule} ) {
-            my %by_rule;
-            my %seen;
-            for my $v ( @{$open} ) {
-                my $rule = $v->{rule} // '';
-                next if $seen{$rule}{ $v->{ref} // '' }++;
-                push @{ $by_rule{$rule} }, $v;
-            }
-            my @groups;
-            for my $rule (
-                ( sort grep { ( $by_rule{$_}[0]{action} // '' ) ne 'log-only' } keys %by_rule ),
-                ( sort grep { ( $by_rule{$_}[0]{action} // '' ) eq 'log-only' } keys %by_rule ),
-            ) {
-                my @findings = @{ $by_rule{$rule} };
-                push @groups, $row->( "$rule (" . scalar(@findings) . '):' );
-                push @groups, map { $row->( '  ' . $line->($_) ) } @findings;
-            }
-            return [ $row->($header), @groups ];
-        }
-
-        return [
-            $row->($header),
-            ( @chased
-                ? ( $row->( scalar(@chased) . ' to act on:' ),
-                    ( map { $row->( '  ' . $line->($_) ) } @chased ) )
-                : () ),
-            ( @recorded
-                ? ( $row->( scalar(@recorded)
-                      . ' only recorded, because the board declared them log-only:' ),
-                    ( map { $row->( '  ' . $line->($_) ) } @recorded ) )
-                : () ),
-        ];
+        require Tira::CLI::Police;
+        return Tira::CLI::Police::police_outstanding( $tira, \%args, $option );
     }
 
     if (   $command eq 'police.suspend'
         || $command eq 'police.log'
         || $command eq 'policy.bridge.logs' )
     {
+        require Tira::CLI::Police;
         my $store = $option->{store}
-          // _police_store( $tira->discover_project(%args) );
+          // Tira::CLI::Police::_police_store( $tira->discover_project(%args) );
         return $tira->enforcement_log( %args, store => $store )
           if $command eq 'police.log' || $command eq 'policy.bridge.logs';
         my $quiet = $tira->police_suspend(
@@ -2777,82 +2291,11 @@ sub _invoke {
         return $quiet;
     }
 
+    # tira.police and tira.policy.bridge are in Tira::CLI::Police - the pass
+    # itself, and the line-buffered bridge that is left running for days.
     if ( $command eq 'police' || $command eq 'policy.bridge' ) {
-        my $store = $option->{store}
-          // _police_store( $tira->discover_project(%args) );
-
-        if ( $command eq 'policy.bridge' ) {
-
-            # Line by line, whatever this is attached to. Perl block-buffers
-            # standard output when it is not a terminal, so redirected to a file
-            # - the natural way to leave something running - the bridge wrote
-            # nothing for sixty-eight measured minutes while violations
-            # escalated to critical. The agent's only channel for violations was
-            # silent, and a channel silent because it is buffered looks exactly
-            # like a board that is clean.
-            #
-            # Localised rather than set through the handle. STDOUT->autoflush
-            # was tried first and took the stream away from every later caller
-            # in the process - four test files went quiet at once - which is the
-            # same fault _running_quietly made by reopening it. Nothing here
-            # belongs to this command after it returns.
-            local $| = 1;
-
-            # Who is tailing it. One agent per ticket means an agent's concern
-            # is its own cards, so the bridge narrows to whoever says who they
-            # are - by --author, or by TIRA_AUTHOR in the environment, said
-            # once rather than on every command. Nobody named hears everything,
-            # which is how the owner watches the whole board.
-            my $agent = $option->{author};
-            my $backlog = $tira->bridge_backlog( store => $store, lines => 200, agent => $agent );
-
-            # Through _utf8_bytes like every other output path. Standard output
-            # is deliberately :raw - Perl's text layer on Windows rewrites
-            # newlines and Tira compares output bytes in its own cache - so a
-            # print of decoded characters warns above U+00FF and, worse, writes
-            # a single latin-1 byte between U+0080 and U+00FF without warning.
-            # A card title carrying a multiplication sign put exactly the byte
-            # tira.doctor repairs into the channel that reports it.
-            print _utf8_bytes( join '', map { "$_\n" } @{$backlog} );
-            require Tira::CLI::Police;
-            Tira::CLI::Police::bridge_follow( $tira, $store, rounds => $option->{rounds}, agent => $agent,
-                interval => $option->{interval}, sleeper => $option->{sleeper} )
-              if !$option->{once};
-            return { streamed => scalar @{$backlog} };
-        }
-
-        # Before anything is reported: what to hand the agent. Police watching a
-        # board nobody has set up finds nothing, and that silence looks exactly
-        # like compliance - so the owner gets something to copy across rather
-        # than writing the instructions himself every time. Printed on every
-        # run, because remembering which run was the first is the sort of thing
-        # he should not have to do.
-        #
-        # That was a promise this comment made and the engine did not keep. A
-        # board with every rule declared got undef and printed nothing, so it
-        # looked exactly like a police that had died - and the boards it
-        # happened to were the ones set up most carefully. Every state answers
-        # now, so this line is true as written.
-        my $prompt = eval { $tira->police_prompt(%args) };
-        print {*STDERR} "\n$prompt\n" if defined $prompt;
-
-        # Discovered once and handed to both. The bridge line carries the way
-        # down to its card, and that path used to be looked up from the working
-        # directory because this call did not say which board it was about - so
-        # a violation on one board was reported with a hierarchy from whichever
-        # Tira project the process happened to be standing in.
-        my $watching = $tira->discover_project(%args);
         require Tira::CLI::Police;
-        my $result = $tira->police_pass( %args, store => $store,
-            world => Tira::CLI::Police::police_world( tira => $tira, project => $watching ) );
-        die "$result->{advice}\n" if !$result->{watching};
-        $tira->bridge_write( store => $store, project => $watching,
-            violations => $result->{violations}, settled => $result->{settled},
-            upgraded => $result->{upgraded} );
-        print {*STDERR} map { "$_\n" } @{ $result->{terminal} };
-        return $result if $option->{once};
-        require Tira::CLI::Police;
-        return Tira::CLI::Police::police_follow( $tira, \%args, $store, $option );
+        return Tira::CLI::Police::police_run( $tira, \%args, $option, $command );
     }
 
     # The police, bridge and dev-report verbs are in Tira::CLI::Police,
@@ -2919,57 +2362,13 @@ sub _invoke {
     return $tira->policy_review(%args) if $command eq 'policy.review';
 
     if ( $command =~ /\Apolicy\.(add|list|remove)\z/ ) {
-        my $action = $1;
-        return $tira->policy_list(%args) if $action eq 'list';
-        return $tira->policy_remove(%args) if $action eq 'remove';
-        my %policy = map { $_ => $option->{$_} }
-          grep { defined $option->{$_} }
-          qw(rule action enter column age read_age max pattern message require require_link link_to sandbox notify);
-
-        # Where the policy is declared decides how narrow it is: naming a
-        # board, a column or a card each makes it beat the level above.
-        $policy{type} = $option->{type} if defined $option->{type};
-        $policy{on_column} = $option->{on_column} if defined $option->{on_column};
-        $policy{ref} = $args{ref} if defined $args{ref};
-        # The three role fields are not copied here. They arrive in %args
-        # like every other option and policy_add reads them from there, which
-        # was proved by taking the copy away and watching nothing change - so
-        # the line existed to look careful rather than to do anything. TKT-221.
-
-        # --before already means a date filter elsewhere, so the column form
-        # is spelled out rather than overloading a flag that means something
-        # different on every other command.
-        $policy{before} = $option->{before_column} if defined $option->{before_column};
-        return $tira->policy_add( %args, %policy );
+        require Tira::CLI::Board;
+        return Tira::CLI::Board::policy_verbs( $tira, \%args, $option, $command );
     }
 
     if ( $command =~ /\Alogin\.(register|check|status|logout)\z/ ) {
-        my $action = $1;
-        return $tira->login_register( %args, password => $option->{password} )
-          if $action eq 'register';
-
-        # A wrong password and a person who does not exist must look the same
-        # from outside, or the command becomes a way to find out who is here.
-        return { ok => $tira->login_verify( %args, password => $option->{password} )
-              ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false }
-          if $action eq 'check';
-
-        # The listing says who, never what they are holding: a token is the
-        # credential itself.
-        return [ map { { person => $_->{person}, started_at => $_->{started_at},
-                         last_seen_at => $_->{last_seen_at} } }
-                 @{ $tira->session_list(%args) } ]
-          if $action eq 'status';
-
-        die "Use --id PERSON or --all to say whose sessions to end\n"
-          if !$option->{all} && ( !defined $args{id} || $args{id} eq '' );
-        my $ended = 0;
-        for my $session ( @{ $tira->session_list(%args) } ) {
-            next if !$option->{all} && $session->{person} ne $args{id};
-            $tira->session_end( %args, token => $session->{token} );
-            $ended++;
-        }
-        return { ended => $ended };
+        require Tira::CLI::Board;
+        return Tira::CLI::Board::login_verbs( $tira, \%args, $option, $command );
     }
 
     my %method = (
@@ -3030,6 +2429,12 @@ sub _invoke {
         $args{priority} = $option->{priority} if defined $option->{priority};
         $args{assignee} = $option->{assignee} if defined $option->{assignee};
     }
+    # Argument preparation, not a command body: this block sets fields on %args
+    # and FALLS THROUGH to the dispatch below. TKT-607 lifted it into
+    # Tira::CLI::Board and turned `prepare and continue` into `prepare in
+    # another package, discard, and return` - every browser and table board
+    # came back with no column order at all. It is back where it belongs, and
+    # tools/lift-block now refuses a block whose last statement is not a return.
     if ( $command =~ /\Adashboard(?:\.(sow|epic|ticket))?\z/ ) {
         $args{type} = $1 if defined $1;
         # Every board is created with Backlog and Discard, and the
@@ -3074,16 +2479,8 @@ sub _invoke {
     # one: the first version of this loop reported nothing at all on a partial
     # failure, reproducing in a new shape the blindness it was written to fix.
     if ( $command eq 'attachment.add' && $option->{files} && @{ $option->{files} } > 1 ) {
-        my @added;
-        for my $path ( @{ $option->{files} } ) {
-            my $one = eval { $tira->attachment_add( %args, file => $path ) };
-            if ( !$one ) {
-                die "$@" . ( @added ? "\nAttached before the failure: "
-                    . join( ', ', map { $_->{original_filename} } @added ) . "\n" : '' );
-            }
-            push @added, $one;
-        }
-        return \@added;
+        require Tira::CLI::Board;
+        return Tira::CLI::Board::attachment_add_files( $tira, \%args, $option );
     }
 
     if ( $command eq 'comment.add' && $option->{attach} ) {
@@ -3094,101 +2491,9 @@ sub _invoke {
     return $tira->$method(%args);
 }
 
-# Police keeps its state outside the project it watches, so that it can never
-# become a second writer to the board - which is what destroyed this project's
-# own board on the day the subsystem was designed.
-# One directory per board, named for it, so two boards never write over each
-# other - the rule _backup_home states forty lines below and this did not keep.
-#
-# It took the --project OPTION and called the answer 'here' when there was none.
-# Police started from inside a project passes no --project, so every board
-# worked that way shared a single store: the version each board last heard, the
-# violation numbering, the escalation counts, the suspensions, and the bridge
-# log they are written to. A board was never told about an upgrade because a
-# different board had already been told about it.
-#
-# Refused rather than invented now. Every caller has a board to hand - police
-# discovers one before it can watch anything - so there is no case where a name
-# has to be made up, and inventing one is what made the sharing silent.
-sub _police_store {
-    my ($project) = @_;
-    die "A police store has to belong to a board, and none was given\n"
-      if !defined $project || $project !~ /\S/;
-    my $home = $ENV{HOME} // File::Spec->tmpdir;
-    my $slug = $project;
-    $slug =~ s/[^A-Za-z0-9]+/-/g;
-    $slug =~ s/\A-|-\z//g;
-    return File::Spec->catdir( $home, '.tira-police', $slug );
-}
 
 
-# Whether anything on the board is being worked. work-without-card asks it the
-# other way round - a tree that is changing while nothing is at a working gate
-# is work nobody can see - so getting this wrong makes that rule accuse the
-# agent of exactly what it is in the middle of doing properly.
-sub _card_in_progress {
-    my ( $tira, $root ) = @_;
-    return undef if !$tira || !defined $root;
-    # Where work happens, asked of the board rather than read off one role.
-    #
-    # This counted a card as being worked only if it sat in the single column
-    # named by the in-progress role, when a board declared one. On this project's
-    # own board - in-progress=implement, five columns work happens in - that left
-    # tests-red, verify, document and push reading as nobody working, and
-    # work-without-card raised VIO-0013 to CRITICAL five times while a card sat
-    # in verify with its suite running.
-    #
-    # A setting that names one column stops covering the board the moment work
-    # happens in another, which is the fault column-unwatched reports for
-    # policies. The role was accurate when it was set; the board grew.
-    #
-    # The same question card-unassigned and priority-skipped ask: not protected,
-    # and not an ending. A board that has marked nothing terminal ends in `done`,
-    # which is the fallback those rules use too. The in-progress role is still a
-    # role like any other - a policy can name it with --enter-role - it simply no
-    # longer narrows this silently.
-    my $working = 0;
-    for my $type (qw(sow epic ticket)) {
-        my $columns = eval { $tira->column_list( project => $root, type => $type ) } || [];
-        my $records = eval { $tira->record_list( project => $root, type => $type ) } || [];
-        my %ends = map { $_->{name} => 1 } grep { $_->{terminal} } @{$columns};
-        $ends{done} = 1 if !keys %ends;
-        my %here = map { $_->{name} => 1 }
-          grep { !$_->{protected} && !$ends{ $_->{name} } } @{$columns};
 
-        for my $record ( @{$records} ) {
-            $working++, last if $here{ $record->{column} // '' };
-        }
-        last if $working;
-    }
-    return $working ? 1 : 0;
-}
-
-# Every external command runs through here, in list form so no shell is
-# involved even in this module - a card title with a semicolon in it is a
-# perfectly ordinary card title. A command that is not installed is not a
-# failure: a machine with no Docker has no leftover containers.
-sub _reading {
-    my (@command) = @_;
-
-    # List form: the program is named separately from its arguments, so this is
-    # always "run this program" and never "ask a shell what was meant" - a card
-    # title with a semicolon in it is an ordinary card title. A program that is
-    # not installed is not a failure either: a machine with no Docker has no
-    # leftover containers, and everything else carries on being watched.
-    # Asked for by name first. Perl warns "Can't exec" when a program is not
-    # there, and a machine with no Docker is not an error worth printing into
-    # the middle of whatever the owner was reading.
-    return [] if !_program_exists( $command[0] );
-
-    my @lines;
-    if ( open my $handle, '-|', @command ) {
-        @lines = <$handle>;
-        close $handle;
-    }
-    chomp @lines;
-    return \@lines;
-}
 
 # Running a program for its effect rather than its words. _reading throws the
 # exit status away, which is right for reading the machine - a box with no
@@ -3204,134 +2509,6 @@ our $SCHEMA_VERSION = 2;
 
 
 
-# Running something whose own chatter is not the caller's business. git bundle
-# verify prints "<file> is okay" on the error stream when it succeeds, and a
-# successful import that prints to stderr reads like a warning to anybody
-# watching. Its answer is the exit status; its opinion is noise.
-# Running something whose own chatter is not the caller's business. git prints
-# "<file> is okay" on the error stream when a bundle verifies, and a successful
-# command that writes to stderr reads like a warning to whoever is watching.
-#
-# The parent hands the child a filehandle for its error stream, so nothing in
-# this process is reopened and no Perl runs in the child. Two other ways were
-# tried and both cost more than the line is worth: reopening this process's
-# stream took it away from every caller that had redirected it, and forking a
-# child that silences itself puts lines in the codebase that no coverage tool
-# can measure, because the child execs away before any counter is written.
-# Move the descriptors, not the globs.
-#
-# open3 silences a child by reopening the STDOUT and STDERR globs after it
-# forks, which moves descriptors 1 and 2 only while those globs still own them.
-# A caller that captured its own output into a string - every test in this
-# suite, and the served dashboard collecting a response - leaves the glob with
-# no descriptor at all, so nothing the child does to it reaches descriptor 1,
-# exec passes the real one through, and the command that was run quietly is
-# heard. Measured rather than reasoned: the pipe open3 set up received nothing
-# and the process's own standard output received "git version 2.52.0".
-#
-# No choice of open3 argument fixes that - a handle, a fileno dup string and a
-# second null device were each tried and each leaked identically - because the
-# fault is on the parent's side of the fork. Pointing the descriptors themselves
-# at the null device first means the child inherits harmless ones whatever the
-# globs are doing.
-#
-# The same hole sits on the error stream. t/139 does not reach it because it
-# reopens STDERR onto a real file, which hands descriptor 2 back a real
-# descriptor and hides the fault - the same way an earlier attempt at t/204
-# went green by aiming descriptor 1 at a file.
-#
-# Both are put back before returning, so a caller keeps the output it had; that
-# is the failure t/139 records, and it is asserted here rather than assumed.
-sub _running_quietly {
-    my (@command) = @_;
-    return 0 if !_program_exists( $command[0] );
-    require POSIX;
-    open my $silence, '>', File::Spec->devnull
-      or die "Cannot open the null device to run $command[0] quietly: $!\n";
-    open my $nothing, '<', File::Spec->devnull
-      or die "Cannot open the null device to run $command[0] quietly: $!\n";
-
-    # Remembered as descriptors for the same reason: a glob that has been
-    # captured cannot be duplicated back afterwards.
-    open my $keep_in,  '<&', 0 or die "Cannot remember standard input: $!\n";
-    open my $keep_out, '>&', 1 or die "Cannot remember standard output: $!\n";
-    open my $keep_err, '>&', 2 or die "Cannot remember the error stream: $!\n";
-
-    POSIX::dup2( fileno($nothing), 0 );
-    POSIX::dup2( fileno($silence), 1 );
-    POSIX::dup2( fileno($silence), 2 );
-
-    # The child reads end-of-file rather than blocking on a pipe nobody writes
-    # to, which is what the previous code left it holding.
-    my $status = system(@command);
-
-    POSIX::dup2( fileno($keep_in),  0 );
-    POSIX::dup2( fileno($keep_out), 1 );
-    POSIX::dup2( fileno($keep_err), 2 );
-
-    return $status == 0 ? 1 : 0;
-}
-
-sub _running {
-    my (@command) = @_;
-    return 0 if !_program_exists( $command[0] );
-    my $pid = open my $handle, '-|', @command or return 0;
-    my @said = <$handle>;
-    close $handle;
-    return $? == 0 ? 1 : 0;
-}
-
-# The board's own storage, which is what gets backed up: everything beside
-# project.yml, because that is where he said the repository goes.
-sub _backup_store {
-    my ($root) = @_;
-    return undef if !defined $root;
-    return File::Spec->catdir( $root, '.tira' );
-}
-
-# When the last backup was, read from the repository rather than from a
-# directory of stamps that only one machine on earth ever wrote to. Nothing is
-# created by asking: a board that has never been backed up answers undef and is
-# left exactly as it was.
-# Asked as an instant rather than as a local wall clock. This read %cI and
-# threw the offset away, so a commit at 01:03+01:00 was recorded as 01:03Z - an
-# hour later than it happened, labelled with the one timezone it was not in.
-# On its own that was an hour of slack in an age measured in days. It stopped
-# being harmless when this answer began to be compared with the gate's, which
-# stamps its directories in real UTC: the same instant read as two times an
-# hour apart, and the wrong one could win.
-sub _last_backup_commit {
-    my ($store) = @_;
-    return undef if !defined $store || !-d File::Spec->catdir( $store, '.git' );
-    my ($when) = @{ _reading( 'git', '-C', $store, 'log', '-1', '--format=%ct' ) };
-    return undef if !defined $when || $when !~ /\A(\d+)\z/;
-    my @moment = gmtime($1);
-    return sprintf '%04d-%02d-%02dT%02d:%02d:%02dZ',
-      $moment[5] + 1900, $moment[4] + 1, $moment[3], $moment[2], $moment[1], $moment[0];
-}
-
-sub _program_exists {
-    my ($program) = @_;
-    return ( $WINDOWS ? -f $program : -x $program ) ? 1 : 0 if $program =~ m{[/\\]};
-    return _agent_available($program);
-}
-
-# Asking git about somewhere that is not a repository makes git say so, on
-# standard error, in the middle of whatever the owner was reading. Nothing here
-# silences it, because silencing the whole program's standard error would take
-# it away from whoever else was using it - a test capturing it, most obviously.
-# So it is not provoked in the first place.
-sub _is_repository {
-    my ($where) = @_;
-    return 0 if !defined $where;
-    my $here = abs_path($where) // $where;
-    my $last = '';
-    while ( $here ne $last ) {
-        return 1 if -e File::Spec->catfile( $here, '.git' );
-        ( $last, $here ) = ( $here, dirname($here) );
-    }
-    return 0;
-}
 
 
 
@@ -3343,150 +2520,29 @@ sub _is_repository {
 
 
 
-# Where this branch was last pushed to. Asking git for @{upstream} was the
-# obvious way and the wrong one: this very repository has origin/master and one
-# unpushed commit, and no upstream configured for the branch - so git answered
-# "fatal: no upstream configured", loudly, on somebody else's terminal, and
-# both rules that depend on this went quiet on the one board that most needed
-# them. --verify --quiet asks without complaining, and the remote the branch
-# names is tried when the usual one is not there.
-sub _tracking_branch {
-    my ( $where, $branch ) = @_;
-    my ($configured) =
-      @{ _reading( 'git', '-C', $where, 'rev-parse', '--abbrev-ref', '--verify', '--quiet',
-            "$branch\@{upstream}" ) };
-    return $configured if defined $configured && $configured ne '';
-
-    my @remotes = ('origin');
-    my ($named) = @{ _reading( 'git', '-C', $where, 'config', '--get', "branch.$branch.remote" ) };
-    unshift @remotes, $named if defined $named && $named ne '';
-    for my $remote (@remotes) {
-        my ($found) = @{ _reading( 'git', '-C', $where, 'rev-parse', '--verify', '--quiet',
-                "$remote/$branch" ) };
-        return "$remote/$branch" if defined $found && $found ne '';
-    }
-    return undef;
-}
-
-
-
-# Where tools/board-backup writes: one directory per project, named for the
-# absolute path so two projects on one machine never write over each other.
-sub _backup_home {
-    my ($where) = @_;
-    return undef if !defined $where;
-    my $home = $ENV{HOME} // $ENV{USERPROFILE};
-    return undef if !defined $home;
-    my $slug = abs_path($where) // $where;
-    $slug =~ s/[^A-Za-z0-9]+/-/g;
-    $slug =~ s/\A-|-\z//g;
-    return File::Spec->catdir( $home, '.tira-backups', $slug );
-}
-
-# The most recent backup, read from the stamp in its name. The newest one is
-# the only one the rule cares about - it asks how long it has been since the
-# last one, not how many there have ever been.
-# The later of two answers about the same board, either of which may be
-# missing. Both are written as YYYY-MM-DDTHH:MM:SSZ, so the comparison is the
-# one the strings already support.
-sub _later_backup {
-    my @when = grep { defined && length } @_;
-    return undef if !@when;
-    return ( sort @when )[-1];
-}
-
-sub _last_backup {
-    my ($directory) = @_;
-    return undef if !defined $directory || !-d $directory;
-    opendir my $handle, $directory or return undef;
-    my @stamps = sort grep { /\A\d{8}T\d{6}Z\z/ } readdir $handle;
-    closedir $handle;
-    return undef if !@stamps;
-    return $stamps[-1] =~ /\A(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z\z/
-      ? "$1-$2-$3T$4:$5:$6Z"
-      : undef;
-}
 
 
 
 
 
 
-# A process's parent, from the same shell-free source as everything else
-# here. Undef when it cannot be read, which the caller treats as "not in the
-# set" - the safe direction, since it can only ever make a pid look more
-# rootmost, and two rootmost candidates refuse rather than pick. TKT-567.
-sub _parent_of_pid {
-    my ( $pid, %opts ) = @_;
-    my $proc = $opts{proc} // '/proc';
-    open my $fh, '<', File::Spec->catfile( $proc, $pid, 'status' ) or return undef;
-    while ( my $line = <$fh> ) {
-        next if $line !~ /\APPid:\s*(\d+)/;
-        close $fh;
-        return 0 + $1;
-    }
-    close $fh;
-    return undef;
-}
-
-# What a process was launched as, read from the same shell-free source the
-# port lookup already uses. The arguments are NUL-separated in /proc, so
-# they are joined with spaces to be matched as one string. Anywhere without
-# /proc this answers undef, and undef refuses. TKT-566.
-sub _command_of_pid {
-    my ( $pid, %opts ) = @_;
-    return undef if !defined $pid || $pid !~ /\A[0-9]+\z/;
-    my $proc = $opts{proc} // '/proc';
-    open my $fh, '<:raw', File::Spec->catfile( $proc, $pid, 'cmdline' ) or return undef;
-    my $raw = do { local $/; <$fh> };
-    close $fh;
-    return undef if !defined $raw || $raw eq '';
-    $raw =~ s/\0/ /g;
-    $raw =~ s/\s+\z//;
-    return $raw;
-}
-
-# Where the last version police signalled a board about is remembered, so it
-# signals once per release rather than once per pass. Signalling every pass
-# is the exact shape of the loop this whole mechanism was built to avoid -
-# four boards did it every sixty-five seconds for twenty hours.
-sub _dashboard_hup_mark_path {
-    my ($store) = @_;
-    return File::Spec->catfile( $store, '.dashboard.huped' );
-}
 
 
 
 
-sub _policy_help {
-    my (%args) = @_;
-    my $here = __FILE__;
-    $here =~ /\A([^\x00-\x1f\x7f]+)\z/ or return '';
-    my $doc = $args{document}
-      // File::Spec->catfile( dirname( dirname( dirname($1) ) ), 'docs', 'POLICIES.md' );
-    if ( -f $doc && open my $fh, '<:raw', $doc ) {
-        my $text = do { local $/; <$fh> };
-        close $fh;
-        return $text;
-    }
-    return _policy_help_fallback();
-}
 
-# Said when the document is not there. An installation missing its docs should
-# still be able to tell an agent what exists, rather than answering nothing.
-sub _policy_help_fallback {
-    return join "\n",
-      'Tira policies',
-      '',
-      'Rules: ' . join( ', ', @{ Tira::policy_rules() } ),
-      'Actions: ' . join( ', ', @{ Tira::policy_actions() } ),
-      '',
-      'Declare one:  d2 tira.policy.add --rule <rule> --action <action> [parameters]',
-      'See them:     d2 tira.policy.list',
-      'Watch:        d2 tira.police            (the owner runs this)',
-      'Listen:       d2 tira.policy.bridge     (the agent runs this)',
-      '';
-}
+
+
+
+
+
+
+
+
+
+
+
+
 
 sub _text_input {
     my ( $file, %args ) = @_;
@@ -3509,127 +2565,16 @@ sub _json_array_input {
     return $data;
 }
 
-# What supplies the thing a refusal says is missing.
-#
-# The engine raises these messages and has no notion of a command line, which
-# is why they name a thing rather than a flag - "Record reference is required"
-# from forty commands, and not one of them says --ref. Measured by running
-# every entrypoint with no arguments: 83 refusals that name no option at all.
-# The standard is this project's own, and the owner named it: "Policy rule
-# card-sandbox-missing needs --enter" takes no guessing.
-#
-# So the translation lives here, at the boundary where flag names already live,
-# and the engine keeps no table of them. Declared rather than derived, and held
-# honest by a guard that runs every entrypoint: a message reworded out of this
-# table stops naming its option, and the guard says so. TKT-268.
-# Two shapes, because two things can be wrong. A thing that is missing is
-# supplied by an option; a value that is wrong came in through one, and telling
-# somebody to supply what they just supplied would be its own kind of useless.
-my %SUPPLIED_BY = (
-    'Record reference is required'         => [ 'ref',      'supply it with' ],
-    'A card reference is required'         => [ 'ref',      'supply it with' ],
-    'A question id is required'            => [ 'id',       'supply it with' ],
-    'An attachment reference is required'  => [ 'ref',      'supply it with' ],
-    'Record title is required'             => [ 'title',    'supply it with' ],
-    'Project name is required'             => [ 'name',     'supply it with' ],
-    'Project person is required'           => [ 'person',   'supply it with' ],
-    'Person id is required'                => [ 'id',       'supply it with' ],
-    'Password is required'                 => [ 'password', 'supply it with' ],
-    'Import file is required'              => [ 'file',     'supply it with' ],
-    'Replacement pattern is required'      => [ 'pattern',  'supply it with' ],
-    'Link type names are required'         => [ 'outward',  'supply it with' ],
-    'Checklist item is required'           => [ 'item',     'supply it with' ],
-    'Checklist item or status is required' => [ 'item',     'supply it with' ],
-    'A warning message is required'        => [ 'message',  'supply it with' ],
-    'Gate annotation note is required'     => [ 'note',     'supply it with' ],
-    'Evidence annotation note is required' => [ 'note',     'supply it with' ],
-    'A question needs some text'           => [ 'text',     'supply it with' ],
-    'An answer needs some text'            => [ 'text',     'supply it with' ],
-    'How many seconds?'                    => [ 'seconds',  'supply it with' ],
-    'A move needs to say who is making it' => [ 'author',   'supply it with' ],
 
-    # Given rather than missing: the option carried a value the command will
-    # not take, so it is named rather than asked for.
-    'Invalid column name'                  => [ 'name',         'the option is' ],
-    'Invalid attachment SHA'               => [ 'sha',          'the option is' ],
-    'Invalid gate result'                  => [ 'result',       'the option is' ],
-    'Unknown policy rule'                  => [ 'rule',         'the option is' ],
-    "Policy '' not found"                  => [ 'id',           'the option is' ],
-    'A column layout must be JSON'         => [ 'columns-json', 'the option is' ],
-);
 
-sub _names_the_option {
-    my ($message) = @_;
-    for my $said ( sort keys %SUPPLIED_BY ) {
-        next if index( $message, $said ) < 0;
-        my ( $flag, $phrase ) = @{ $SUPPLIED_BY{$said} };
-        return $message if $message =~ /--\Q$flag\E\b/;
-        return "$message - $phrase --$flag";
-    }
-    return $message;
-}
 
-# Every long name a command's own @spec actually answers to - both sides of
-# a '|' alias, with Getopt::Long's value/repeat/negation syntax (=s, =s@,
-# :i, !) stripped back to the bare flag. Built from the same @spec the
-# parse just used, so a suggestion can never name a flag the command does
-# not really have.
-sub _declared_option_names {
-    my ($spec) = @_;
-    my @names;
-    for ( my $i = 0; $i < @{$spec}; $i += 2 ) {
-        ( my $names = $spec->[$i] ) =~ s/[=:!].*//;
-        push @names, split /\|/, $names;
-    }
-    return \@names;
-}
 
-# Levenshtein distance, the standard three-operation edit count - the same
-# measure a spelling-correction "did you mean" is built on anywhere it
-# exists. Iterative, not recursive: the option lists here are short enough
-# (a low hundred, at most) that clarity wins over avoiding an O(n*m) table.
-sub _edit_distance {
-    my ( $left, $right ) = @_;
-    my @prev = ( 0 .. length $right );
-    for my $i ( 1 .. length $left ) {
-        my @row = ($i);
-        for my $j ( 1 .. length $right ) {
-            if ( substr( $left, $i - 1, 1 ) eq substr( $right, $j - 1, 1 ) ) {
-                $row[$j] = $prev[ $j - 1 ];
-                next;
-            }
-            my $least = $prev[$j];
-            $least = $row[ $j - 1 ]     if $row[ $j - 1 ] < $least;
-            $least = $prev[ $j - 1 ]    if $prev[ $j - 1 ] < $least;
-            $row[$j] = 1 + $least;
-        }
-        @prev = @row;
-    }
-    return $prev[-1];
-}
-
-# What an unknown option gets, now: named the way "Command not found" names
-# a mistyped verb - the closest declared names this command actually
-# answers to, not silence past "Invalid command-line options". TKT-298.
-sub _unknown_option_message {
-    my ( $unknown, $spec ) = @_;
-    my $known = _declared_option_names($spec);
-    my @lines;
-    for my $bad ( @{$unknown} ) {
-        my %distance = map { $_ => _edit_distance( $bad, $_ ) } @{$known};
-        my @near = sort { $distance{$a} <=> $distance{$b} || $a cmp $b }
-          grep { $distance{$_} <= 3 } keys %distance;
-        push @lines, "Unknown option: $bad";
-        push @lines, 'Did you mean:', ( map { "  --$_" } @near[ 0 .. ( $#near > 2 ? 2 : $#near ) ] )
-          if @near;
-    }
-    return join( "\n", @lines );
-}
 
 sub _error {
     my ( $tira, $output, $message ) = @_;
     $message =~ s/\s+\z//;
-    $message = _names_the_option($message);
+    require Tira::CLI::Usage;
+    $message = Tira::CLI::Usage::_names_the_option($message);
     my $formatted = eval { $tira->format_output( { error => $message }, output => $output ) };
     $formatted = Tira::json_object()->canonical->pretty->encode( { error => $message } ) if !defined $formatted;
     print STDERR _utf8_bytes($formatted);
@@ -3641,98 +2586,9 @@ sub _utf8_bytes {
     return utf8::is_utf8($text) ? encode_utf8($text) : $text;
 }
 
-# What each record verb takes, so asking a command how to use it does not
-# answer about a different one.
-#
-# Every record command shared one line and the line named create, so
-# tira.ticket.move --help said 'Usage: dashboard tira.ticket.create --title
-# TITLE'. 21 of the 24 record verbs answered about a command that was not the
-# one asked about; the three that were right were the three creates. It adapted
-# the board - tira.sow.list answered with tira.sow.create - which is why it read
-# as considered rather than as a fallback, and why it stood. A wrong answer that
-# looks specific is not questioned.
-#
-# The shapes are the ones verified against the running commands when the command
-# reference was given its record section, rather than written from memory: that
-# is how discard was found to take no reason. TKT-235.
-my %RECORD_USAGE = (
-    create  => '--title TEXT [record field arguments]',
-    show    => '--ref REF [--fields LIST] [--brief|--full]',
-    list    => '[--column SLUG] [--assignee ID] [--fields LIST] [--count]',
-    update  => '--ref REF [record field arguments]',
-    move    => '--ref REF --column SLUG [--author NAME]',
-    clone   => '--ref REF --title TEXT',
-    discard => '--ref REF',
-    restore => '--ref REF [--column SLUG]',
-    missing => '--ref REF',
-);
 
-# The commands that cannot work without a type. Their usage line named no
-# option at all, so a reader who checked it before running anything was told
-# the opposite of the truth: that the command took nothing. TKT-215.
-my %NEEDS_TYPE = map { $_ => 1 }
-  qw(board.refs board.show column.sync column.update);
 
-# SKILLS.md carries a full usage line for every command it documents - the
-# same catalogue docs-match-code already holds every shipped command to - and
-# it says more than the bare "[options]" _usage() answered with on its own.
-# Read once and cached, relative to this module's own file rather than to
-# whichever cli/ script happens to be running, so the answer does not depend
-# on how the command was reached. TKT-343.
-my $SKILLS_TEXT;
 
-sub _skills_usage_line {
-    my ($command) = @_;
-    if ( !defined $SKILLS_TEXT ) {
-        my $path = File::Spec->catfile( dirname(__FILE__), '..', '..', 'SKILLS.md' );
-        local $/;
-        if ( open my $fh, '<:raw', $path ) {
-            $SKILLS_TEXT = <$fh>;
-            close $fh;
-        }
-        $SKILLS_TEXT //= '';
-    }
-    my ($rest) = $SKILLS_TEXT =~ /^tira\.\Q$command\E\s+(\S.*)$/m;
-    return $rest;
-}
-
-sub _usage {
-    my ( $command, $type ) = @_;
-    return "Usage: dashboard tira.project.create --name NAME [--dir DIR] [-o toon|json|human]\n"
-      if $command eq 'project.create';
-
-    if ( $NEEDS_TYPE{ $command // '' } ) {
-        my $known = _skills_usage_line($command);
-        return "Usage: dashboard tira.$command $known\n" if defined $known;
-        return "Usage: dashboard tira.$command --type ticket|epic|sow [options] [-o toon|json|human]\n";
-    }
-
-    if ( defined $type ) {
-        my ($verb) = ( $command // '' ) =~ /\.([a-z]+)\z/;
-
-        # SKILLS.md documents a typed verb two ways - a concrete line per
-        # type ("tira.ticket.create ...") or one generic line for all three
-        # ("tira.<type>.list ...") - and %RECORD_USAGE has drifted from both
-        # without anybody noticing, because this branch never checked either
-        # one. Tried in that order, so a concrete line wins over the generic
-        # placeholder if a command ever carries both. TKT-418.
-        my $known = _skills_usage_line("$type.$verb") // _skills_usage_line("<type>.$verb");
-        return "Usage: dashboard tira.$type.$verb $known\n" if defined $known;
-
-        my $takes = $RECORD_USAGE{ $verb // '' };
-        return "Usage: dashboard tira.$type.$verb $takes [-o toon|json|human]\n"
-          if defined $takes;
-
-        # A record verb this does not know is named rather than described,
-        # which is still an answer about the command that was asked.
-        return "Usage: dashboard tira.$type." . ( $verb // 'command' )
-          . " [options] [-o toon|json|human]\n";
-    }
-
-    my $known = _skills_usage_line($command);
-    return "Usage: dashboard tira.$command $known\n" if defined $known;
-    return "Usage: dashboard tira.$command [options] [-o toon|json|human]\n";
-}
 
 1;
 
@@ -3750,6 +2606,46 @@ selection is intentionally omitted from user-facing help. Text input is decoded
 strictly as UTF-8 and structured output is emitted as UTF-8 bytes; attachment
 content remains raw. Dashboard commands additionally support self-contained
 HTML and validated Dancer2 browser serving.
+
+=head1 THIS MODULE IS AN INDEX
+
+Since 4.74 the command bodies are not here. C<Tira::CLI> holds what every
+command passes through - C<run>'s argument handling, the one shared
+C<GetOptions> table, the generic dispatch in C<_invoke>, and the four move
+guards with the bookkeeping that follows a successful move - and the bodies live
+in modules of their own:
+
+    Tira::CLI::Browser   the provider hash a served board is built from
+    Tira::CLI::Police    the pass, the bridge, the singleton, the world scan
+    Tira::CLI::Serve     the machine - processes, containers, ports, hand-over
+    Tira::CLI::Wizard    onboard's questions, and the line editor that asks them
+    Tira::CLI::Backup    the four backup verbs, and the readers others ask
+    Tira::CLI::Usage     usage lines, policy help, and "did you mean"
+    Tira::CLI::Records   creating a record, and the question verbs
+    Tira::CLI::Board     columns, the next card, logins, policies
+
+Each is loaded with C<require> at the point one of its verbs actually runs, so
+C<tira.ticket.list> compiles none of them and C<tira.backup> compiles two. Every
+entry into a module carries its own C<require> rather than relying on an earlier
+branch having been taken: C<require> consults C<%INC> and returns, so the
+repetition is free, and a reader at any call site can see where control goes.
+
+The dependencies between those modules are loaded the same way, inside the sub
+that needs them rather than at the top of the file. A C<use> at the top is
+correct and turns a lazy chain eager - C<Tira::CLI::Board> loading
+C<Tira::CLI::Police> loading C<Tira::CLI::Serve> made C<tira.next> compile four
+modules for the sake of one helper.
+
+THE GUARDS DID NOT MOVE, and that is deliberate rather than incidental: their
+call order is load-bearing, it is documented below under
+L</The four guards on the move path>, and C<t/430> asserts that heading is still
+in this file. A refactor that separates the guards from the sentence describing
+them fails the build.
+
+C<t/431> resolves every name every module uses - unqualified calls, code
+references, qualified calls into packages nothing loads, and functions imported
+only here. All four of those forms compile cleanly and die at runtime, and all
+four happened while this split was being made.
 
 =head1 METHODS
 
@@ -4023,52 +2919,6 @@ the misleading-option guard was, it would not have run for the create verbs at
 all - C<record.*> returns from the if/elsif chain some seven hundred lines
 earlier - which is how the fix was discovered to change nothing at first. Both
 guards now sit in the block every command passes through. TKT-625.
-
-=head2 _usage
-
-Returns the C<Usage:> line C<--help> prints for a command. C<project.create>
-is written out here; everything else comes from SKILLS.md's own usage
-catalogue via C<_skills_usage_line>, which greps for a line beginning
-C<tira.E<lt>commandE<gt> >. A command with no line there falls back to a bare
-C<[options]>, which names nothing.
-
-Two shapes of failure, and the second is the dangerous one. A bare
-C<[options]> at least admits it is withholding something. A line that
-enumerates the optional flags and omits the mandatory ones looks complete, so
-a caller composes from it with no reason to doubt it - which is what happened
-to C<checklist.update>: it named three optional flags and not the
-C<--command>/C<--proof> pair it refuses C<--status done> without, and another
-board's agent wrote four calls from it, suppressed their output, and believed
-four entries were ticked while the checklist read 0/9.
-
-The pair was written as one bracketed unit, C<[--command TEXT --proof TEXT ...]>,
-rather than two independent optionals: it was required together and repeatable,
-and two brackets would have been true about the parser and false about the
-command.
-
-Since 4.64 that is no longer true and the line says
-C<[--command TEXT ... [--proof TEXT ...]]> - the proofs nest inside the
-commands as a group rather than pairing off one bracket at a time.
-
-The nesting is doing exact work and the obvious shorter form is WRONG. Written
-C<[--command TEXT [--proof TEXT] ...]> it would say each command may
-independently carry a proof, so one command with a proof beside one without
-would be legal. It is not: give any proofs at all and the counts must match,
-"Every --command needs a matching --proof". Either all of them are proved or
-none are. Measured, after writing that shorter form first and checking it. A C<--command> is now usable on its own, which
-records what is being run and leaves the item where it is; the proof arrives
-afterwards, repeating its command. What marks the item done is C<--status
-done>, which refuses without the pair - a full pair given with C<--status
-pending> is accepted, stored, and leaves the item pending. So the pair is still
-required TOGETHER to mark something done, and no longer required at all to say
-something has started. The nesting is what makes both true in one line, and it is the reason
-this entry is worth reading rather than a formatting note: the bracket shape is
-a claim about when the flags are needed, and TKT-628 changed when. TKT-575,
-TKT-628.
-Forty-nine commands still fall back to C<[options]>; t/410 holds that set as a
-ledger so a new one cannot join it silently, and reads C<_usage> itself rather
-than the SKILLS.md lookup, since what matters is what C<--help> prints.
-TKT-575.
 
 =head2 run's onboard -o browser branch
 

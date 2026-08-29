@@ -45,9 +45,13 @@ use Test::More;
 
 use lib 'lib';
 use Tira::CLI;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
 
 plan skip_all => 'git is not installed here'
-  if !Tira::CLI::_program_exists('git');
+  if !Tira::CLI::Serve::_program_exists('git');
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $leak = File::Spec->catfile( $tmp, 'anything-that-got-past.txt' );
@@ -69,7 +73,7 @@ my $worked;
         local *STDOUT;
         open STDOUT, '>', \my $captured
           or die "Cannot capture standard output into a string: $!";
-        $worked = Tira::CLI::_running_quietly( 'git', '--version' );
+        $worked = Tira::CLI::Serve::_running_quietly( 'git', '--version' );
     }
 
     # Silencing a child must not cost the caller its own output. That is the

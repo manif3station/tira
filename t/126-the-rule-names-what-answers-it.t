@@ -33,8 +33,16 @@ use Tira::CLI;
 # 4.74 (TKT-607). Tira::CLI loads it with require at the point a police verb
 # runs, so a test calling into it directly has to ask for it itself.
 require Tira::CLI::Police;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
+# Tira::CLI::Backup holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Backup;
 
-plan skip_all => 'git is not installed here' if !Tira::CLI::_program_exists('git');
+plan skip_all => 'git is not installed here' if !Tira::CLI::Serve::_program_exists('git');
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $now = '2026-08-13T12:00:00Z';
@@ -92,7 +100,7 @@ is( run( 'backup' ), 0, 'the board is backed up with the command that ships' );
 # mocked - so the clock is moved to just after the backup rather than to a date
 # chosen in advance. A fixture that ignores that would prove only that an hour
 # is longer than a minute.
-my $backed_up = Tira::CLI::_last_backup_commit( Tira::CLI::_backup_store($root) );
+my $backed_up = Tira::CLI::Backup::_last_backup_commit( Tira::CLI::Backup::_backup_store($root) );
 like( $backed_up, qr/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\z/,
     'the backup is readable as a time, from the repository rather than a directory of stamps' );
 

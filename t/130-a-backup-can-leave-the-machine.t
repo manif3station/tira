@@ -32,8 +32,12 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
 
-plan skip_all => 'git is not installed here' if !Tira::CLI::_program_exists('git');
+plan skip_all => 'git is not installed here' if !Tira::CLI::Serve::_program_exists('git');
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub {'2026-08-13T14:00:00Z'} );
@@ -91,7 +95,7 @@ is( $exported->{file}, $bundle, 'and it says where it put it' );
 
 # Read from a repository, because git refuses to read a bundle outside one -
 # which is the first thing importing had to learn.
-my $verified = Tira::CLI::_running( 'git', '-C',
+my $verified = Tira::CLI::Serve::_running( 'git', '-C',
     File::Spec->catdir( $root, '.tira' ), 'bundle', 'verify', $bundle );
 ok( $verified, 'git reads it back as a bundle, so another machine could too' );
 

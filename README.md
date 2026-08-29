@@ -74,6 +74,16 @@ same call was accepted and silently discarded, so a list of pending items could
 not say which one was being worked on right now. An announcement that is never
 proved stays visible, which is the point.
 
+The card dialog says which required-action group is yours. It renders one group
+per column, and on a card with a history that is a column of headings, exactly
+one of which is the work actually owed. Since 4.75 the group for the card's own
+column carries an accent border and reads `<column> - N owed here`, where `N` is
+what is unmet in that column rather than the card-wide `Required actions (18/75)`
+count the section heading shows. Both numbers are on screen because they answer
+different questions. `N` is the same number `tira.required-action.list
+--blocking` prints: the browser and the CLI read one selection, so they cannot
+drift.
+
 A required action's status is read the way every gate reads it. `done`, `Done`
 and `DONE` all mean finished, in the count, in the tick, and in whether a
 checkbox is offered — and since 4.68 there is one predicate that says so, asked

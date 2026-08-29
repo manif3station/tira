@@ -131,6 +131,26 @@ sub providers {
                 ref => $payload->{ref},
             );
             Tira::CLI::_stamp_attachment_types( $tira, $project, $payload->{ref}, $record );
+
+            # What is owed in the column this card is actually sitting in,
+            # decided HERE rather than in the dialog. The dialog renders one
+            # group per column and a card with a dozen columns of history gets a
+            # dozen headings, exactly one of which is the work in front of you.
+            #
+            # It travels in the record rather than through a fetch of its own
+            # because the dialog already has the record, and it is computed by
+            # _unmet_in_column rather than by a filter in JavaScript because
+            # that sub is what tira.required-action.list --blocking answers
+            # with. A predicate written again in JS would be a second opinion
+            # about what "done" means - which is exactly the drift TKT-657
+            # fixed when four readers of the same status disagreed about case.
+            # TKT-665.
+            my $unmet = Tira::CLI::_unmet_in_column( $record, $record->{column} );
+            $record->{unmet_in_column} = {
+                column => $record->{column},
+                count  => scalar @{$unmet},
+                items  => [ map { $_->{id} } @{$unmet} ],
+            };
             return $json->encode($record);
         },
         # The browser goes through the same subroutines the command line goes
@@ -155,6 +175,29 @@ sub providers {
         # A card reference is required. Answering an unnamed card with the whole
         # board's enforcement log would put every other card's chasing on
         # whichever card happened to be open.
+        # What is owed in the column the card is sitting in, as opposed to the
+        # card-wide count the dialog's heading shows. A card with a dozen
+        # columns of history renders a dozen groups, exactly one of which is
+        # the work in front of you, and nothing marked it.
+        #
+        # IT RETURNS Tira::CLI::_unmet_in_column'S SELECTION AND NOTHING ELSE.
+        # That sub is what tira.required-action.list --blocking already answers
+        # with - this column, minus exemptions, minus anything already done -
+        # and the card asking for this required the dialog's number to match
+        # --blocking. Two selections cannot be held to that; one selection
+        # served two ways can, which is why this is a provider rather than a
+        # filter written again in JavaScript. TKT-665.
+        unmet_in_column => sub {
+            my ($payload) = @_;
+            die "A card reference is required\n" if !defined $payload->{ref};
+            my $record = $tira->record_show( project => $project, ref => $payload->{ref} );
+            my $unmet = Tira::CLI::_unmet_in_column( $record, $record->{column} );
+            return $json->encode( {
+                column => $record->{column},
+                count  => scalar @{$unmet},
+                items  => $unmet,
+            } );
+        },
         police_log => sub {
             my ($payload) = @_;
             die "A card reference is required\n" if !defined $payload->{ref};
@@ -776,6 +819,38 @@ engine, matching the other eight tasklist providers - previously these six
 silently dropped it, so a session switched in the dashboard's own session box
 could view an item it could not then mutate once TKT-538 began enforcing
 session ownership.
+
+=head2 What is owed in the card's own column
+
+C<providers> exposes C<unmet_in_column>, and the C<detail> provider sets
+C<unmet_in_column> on the record it returns. Both call
+C<Tira::CLI::_unmet_in_column> - this column, minus exemptions, minus anything
+already done - which is the selection C<tira.required-action.list --blocking>
+answers with.
+
+That is the whole design of TKT-665 and it is worth stating rather than
+inferring. The dialog groups required actions by column and marked none of them,
+so a card with a history showed a column of headings and left the reader to work
+out which was owed. Marking the current one needs a number, and a number counted
+in JavaScript would be a second opinion about what C<done> means - which is the
+drift TKT-657 fixed when four readers of one status disagreed about case. So
+Perl decides and the browser renders: the dialog compares a column name and
+prints a count it was given.
+
+One answer, delivered two ways, deliberately - and only one of them reaches a
+browser. The record field is how the dialog gets it, without a fetch on every
+open. C<unmet_in_column> itself is NOT served on any HTTP route:
+L<Tira::DashboardWeb> declares the fifty-eight providers it serves and this is
+not among them, so it is reachable from Perl and nowhere else.
+
+It earns its place regardless. It is the addressable thing C<t/432> pins against
+C<--blocking>, compared item by item rather than by count so that a second
+implementation agreeing on today's total would still fail - and it is what a
+route would call if the dialog ever needed to ask rather than be told.
+
+An earlier draft of this paragraph said "there are two routes to one answer".
+In this codebase a route is an HTTP route, and a reader would have concluded the
+browser could fetch this. It cannot.
 
 =head2 Why the helpers are written out in full
 

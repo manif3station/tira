@@ -1664,6 +1664,22 @@ A refusal names the items blocking a card WITH THE IDS it tells you to use. It s
 
 `tira.required-action.list --blocking` answers the same question without attempting a move: what does the column this card is in still owe. Without it the command returns every item on the card across every column, which is why being refused was the only way to find out. The flag sits on the existing command rather than a new verb because `tira.card.required` already answers a different question - which FIELDS a complete card needs - and a third similarly-named command would mislead. Giving `--blocking` to any other command is refused by name. The refusal and this answer share one selection, so a card cannot be told one thing and refused for another; an item this card is exempt from (`--exempt-required`) drops out of both.
 
+
+**Since 4.75 the browser answers it too.** The card dialog groups required
+actions by column and marked none of them, so a card with a history showed a
+column of headings and left you to work out which one was owed. The group for
+the column the card is in now carries an accent border and its heading reads
+`<column> - N owed here`.
+
+`N` is not the section's `Required actions (18/75)` count, which answers how
+much of the card's whole life is finished. It is what is unmet in this column,
+and it is the same number `--blocking` prints - both read
+`_unmet_in_column`, which selects this column, minus exemptions, minus anything
+already done. The dialog is handed that answer in the record payload and renders
+it; it does not decide which items count. A filter written again in JavaScript
+would be a second opinion about what "done" means, which is what TKT-657 fixed
+when four readers of one status disagreed about case.
+
 One thing it does not yet do: the items are separate lines in the message and not in what you see. A refusal is serialised as a single error string and every format escapes the newlines, `-o human` included. TKT-658 covers that for all three multi-line refusals.
 
 A command's usage line names the arguments it refuses without. `_usage()` answers from this manual's own usage catalogue and falls back to a bare `[options]` for any command with no line here, so `tira.required-action.add`, `.list` and `.update` and `tira.question.ask`, `.answer` and `.mark` - the ones an agent touches at every gate - described themselves as taking nothing in particular. `tira.checklist.update` was the worse shape: it had a line, and that line listed three optional flags while omitting the two mandatory ones, so it read as exhaustive. Another board reported the cost independently - four `checklist.update` calls composed from `--help`, their output suppressed, and the author walked away believing four entries were ticked while the checklist still read 0/9. The enforcement is unchanged and was never the problem; `--help` now says what it demands, with `[--command TEXT ... [--proof TEXT ...]]`, the proofs nested inside the commands rather than paired off one bracket at a time. Until 4.64 it read `[--command TEXT --proof TEXT ...]` as a single unit, because the pair was required together and repeatable; TKT-628 made a `--command` usable alone to record what is being run before it can be proved, so the pair is now required together only for a `done` claim. The nesting is a summary rather than a grammar - the parser takes both as independent repeatable options and the engine pairs them by count afterwards - but it is the summary that misleads least: a proof cannot arrive without a command, and once any proof is given the counts must match. Forty-nine commands still print a bare `[options]` - `tira.police`, `tira.next`, the `policy.*`, `backup.*` and `project.*` families among them - and that set is written down as a ledger a test holds: a new command cannot join it silently, and one that gains a usage line cannot be left in it. `--help` naming nothing at least admits it is withholding something; a list that omits the required half does not. TKT-575.

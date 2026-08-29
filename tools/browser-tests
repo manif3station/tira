@@ -497,6 +497,11 @@ for test in "$tests"/*.js; do
         # card-editors does - the dialog is filled from /record, which a static
         # render does not carry. TKT-601.
         mixed-case-done.js)   run_one "$name" "$browsing_html" "$live_data" ;;
+        # A card whose required actions span five columns, asked which group is
+        # the one in front of you. The LIVE page for the same reason as the
+        # others here - the groups are built from /record, and the answer the
+        # page renders is decided in Perl and carried in that payload. TKT-665.
+        current-column-group.js) run_one "$name" "$browsing_html" "$live_data" ;;
         # A card carrying a .pl and a binary, opened in the attachment viewer.
         # The LIVE page for the same reason as the two above - the dialog and
         # its viewer are filled from /record, which a static render has not

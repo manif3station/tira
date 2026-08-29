@@ -456,6 +456,24 @@ a command first reaches it *after* a restart. `docs/POLICIES.md` covers the
 consequence for diagnosing a board that looks like it is running two versions
 at once.
 
+### Which required actions are yours
+
+The card dialog renders one required-action group per column. On a card with a
+history that is a column of headings, exactly one of which is the work actually
+owed, and until 4.75 nothing said which.
+
+The group for the column the card is in now carries an accent border, and its
+heading reads `<column> - N owed here`. `N` is what is unmet in that column -
+this column, minus exemptions, minus anything already done - and it is the same
+number `tira.required-action.list --ref REF --blocking` prints. Both read one
+selection in Perl; the dialog is handed the answer and renders it rather than
+deciding which items count.
+
+The section's own heading is unchanged and still reads `Required actions
+(18/75)`. That answers a different question - how much of the card's whole life
+is finished - and the two numbers are stated separately because they are not the
+same question.
+
 ### On the dashboard
 
 A card's dialog carries a **Questions** section, placed directly after the

@@ -2678,12 +2678,21 @@ column, minus the card's own exemptions (C<--exempt-required>, TKT-439), minus
 anything already done - the comparison against C<done> being case-insensitive
 so C<--status Done> is not read as outstanding (TKT-434).
 
-Both the move refusal and C<required-action.list --blocking> call it. That
-matters more than the saved lines: the first version of TKT-598 left the
-refusal with its own copy of this grep while the comment beside it claimed the
-two could not drift, which is a promise rather than a fact and is exactly what
-codex review caught. An agent told one thing and refused for another is the
-failure this shape prevents.
+Three readers call it: the move refusal, C<required-action.list --blocking>,
+and - since 4.75 - the browser, through C<Tira::CLI::Browser>'s
+C<unmet_in_column> provider and the C<unmet_in_column> field it sets on a
+record. That matters more than the saved lines: the first version of TKT-598
+left the refusal with its own copy of this grep while the comment beside it
+claimed the two could not drift, which is a promise rather than a fact and is
+exactly what codex review caught. An agent told one thing and refused for
+another is the failure this shape prevents.
+
+The third reader was the same temptation a second time. TKT-665's first attempt
+counted the unmet items in JavaScript, which would have passed the test written
+for it - that test asserts the provider agrees with this sub and says nothing
+about what the dialog then does with the answer. C<isDone> in JavaScript against
+C<_item_is_done> in Perl is precisely the drift TKT-657 fixed. The rule this
+sub exists to enforce is that nobody else decides what a column still owes.
 
 =head2 _outstanding_here
 

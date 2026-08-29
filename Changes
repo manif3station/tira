@@ -1,5 +1,34 @@
 Revision history for Tira
 
+4.75  2026-08-29
+
+    - TKT-665. The card dialog says which required-action group is the one in
+      front of you. It renders one group per column and marked none of them,
+      so a card with a dozen columns of history showed a dozen headings and
+      left the reader to work out which was owed. The group for the card's own
+      column now carries an accent border and a heading reading
+      "<column> - N owed here".
+
+      N comes from _unmet_in_column, the selection
+      tira.required-action.list --blocking already answers with, so the number
+      beside the column and the number the CLI prints cannot drift. It travels
+      in the record the dialog already has rather than through a fetch of its
+      own, and the JavaScript decides nothing.
+
+      The first attempt counted the items in JavaScript instead. It would have
+      passed t/432, which asserts the provider agrees with _unmet_in_column and
+      says nothing about what the dialog does with the answer - and isDone in
+      JavaScript against _item_is_done in Perl is the drift TKT-657 fixed when
+      four readers of one status disagreed about case.
+      t/playwright/current-column-group.js stores an item as "Done" so that
+      implementation fails there.
+
+      That Playwright case failed on its first run for a fault nothing else
+      could see: it answered {} to every route it did not recognise, including
+      /people and /link-types, which the dialog expects to be arrays. node
+      --check passed, the suite passed at 427 files and 8,795 tests, and t/432
+      passed. Only a browser caught it.
+
 4.74  2026-08-29
 
     - TKT-607. Tira::CLI is an index. It was 6,048 lines with every command

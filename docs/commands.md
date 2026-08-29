@@ -1699,6 +1699,21 @@ and `--column` naming any of them succeeds; naming a column that is none of
 them refuses, listing all of the declared entries. A board with zero or one
 entry column is completely unaffected. TKT-496.
 
+Because `entry` is read on the create path, that path also has to survive
+being asked about a board that is not there. **A create run outside any
+project now refuses the way the other board-seeking commands do** - `No Tira
+project found from '<the directory it searched>'`, the message
+`discover_project` raises and `record.show` and `comment.add` were both
+measured giving in the identical condition - naming where it looked, so a
+caller who is in the wrong directory can see that that is what happened.
+It said `Can't use an undefined value as a HASH reference at
+lib/Tira/CLI/Records.pm line 36` until 4.80, alone among the commands, and
+running a create from the wrong directory is the most ordinary mistake
+there is. The entry-role lookup is guarded so that a board declaring no
+entry role still creates cards, and the guard was being applied to the
+lookup's result rather than to the lookup, so the one failure it existed
+to absorb was the one that escaped it. TKT-747.
+
 **The dashboard's Columns dialog can declare `entry` too, since TKT-494.**
 Each column row carries an Entry checkbox; saving sends the whole checked set
 through `column_roles_set`, replacing the declared entry columns the same way

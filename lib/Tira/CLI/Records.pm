@@ -33,7 +33,16 @@ sub record_create {
     # Checked here, in the dispatch layer, so create_record itself - and
     # the dashboard's own create flow, which calls it directly - is
     # untouched. TKT-428.
-    my $entry = eval { $tira->column_roles(%args) }->{entry};
+    # Assigned before it is dereferenced, deliberately. eval BLOCK returns
+    # undef when its block dies, so eval {...}->{entry} applies the arrow to
+    # that undef OUTSIDE the eval's protection - and column_roles reaches
+    # discover_project, which dies when there is no project. That made the one
+    # failure this eval exists to tolerate the one that crashed it, with a
+    # Perl file and line number where every other command refuses cleanly.
+    # Splitting the two lets discover_project's own die reach the caller.
+    # TKT-747.
+    my $roles = eval { $tira->column_roles(%args) } // {};
+    my $entry = $roles->{entry};
 
     # 'entry' may now name more than one column (TKT-496) - a board can
     # start new cards in more than one place. Normalised to a list here
@@ -278,6 +287,30 @@ in C<_invoke> it used to sit inside. A sub cannot read a caller's capture
 safely: C<$1> would hold whatever the last match anywhere happened to leave, and
 the block would take a branch rather than fail, which is the worse of the two
 outcomes. So it matches C<$command> itself and sets its own.
+
+=head2 Asking about a board that is not there
+
+C<record_create> reads the C<entry> column role to decide where a card may
+start, and that read has to survive there being no project at all. The lookup
+is wrapped in C<eval> because a board declaring no entry role must still create
+cards - but until 4.80 the guard was applied to the lookup's B<result>:
+
+    my $entry = eval { $tira->column_roles(%args) }->{entry};
+
+C<eval BLOCK> returns undef when its block dies, so the arrow dereferenced that
+undef outside the protection the eval was written to give. C<column_roles>
+reaches C<discover_project>, which dies when there is no project - so the one
+failure the eval existed to absorb was the one that escaped it, and a create run
+outside a project answered with C<Can't use an undefined value as a HASH
+reference at lib/Tira/CLI/Records.pm line 36> where the other board-seeking
+commands surfaced C<discover_project>'s own C<No Tira project found from '...'>
+- C<record.show> and C<comment.add> were both measured giving it in the
+identical condition.
+
+Assigning before dereferencing lets that die reach the caller, which is why the
+fix adds no message of its own. The C<// {}> matters as much as the split: a
+board that cannot answer the question has no entry role, and creation carries
+on. TKT-747.
 
 =head2 How this module is loaded
 

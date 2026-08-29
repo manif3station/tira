@@ -1,5 +1,31 @@
 Revision history for Tira
 
+4.80  2026-08-29
+
+    - TKT-747. record.create refuses instead of crashing when there is no
+      project. Run a create outside a board and the answer was a Perl error -
+      "Can't use an undefined value as a HASH reference at
+      lib/Tira/CLI/Records.pm line 36" - where the other commands that look
+      for a board say "No Tira project found from '...'"; comment.add and
+      record.show were both measured giving it in the identical condition.
+      It is now the same refusal as record.show's, byte for byte, and it
+      names the directory it searched.
+
+      One line of precedence. eval BLOCK returns undef when its block dies,
+      so eval {...}->{entry} applied the arrow to that undef OUTSIDE the
+      eval's protection; column_roles reaches discover_project, which dies
+      when there is no project, so the one failure the eval existed to
+      tolerate was the one that crashed it. Assigning before dereferencing
+      lets that die reach the caller. No other call site in lib/ dereferences
+      an eval's result: the rest either assign it to a scalar first, or do
+      the dereference inside the eval block where it is protected.
+
+      The eval stays, and two of the four new assertions exist to keep it
+      that way: TKT-428 added it so a board declaring no entry role still
+      creates cards, and the plausible wrong fix - deleting the eval rather
+      than moving the dereference out of it - passes every failing assertion
+      and breaks those boards. Present since 2.96.
+
 4.79  2026-08-29
 
     - TKT-606. police announces a task that arrives, and one that disappears.

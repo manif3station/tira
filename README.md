@@ -405,6 +405,13 @@ not part of the agent interface. Backlog and Discard are always present and
 protected. Use the CLI for every read and mutation; manual managed-file editing
 is unsupported.
 
+Commands find the board by walking up from where they start looking - the
+current directory unless a project is named explicitly - so they work anywhere
+inside a project without being told where it is. When nothing is found on the
+way up, the command refuses and names the directory it searched from -
+`No Tira project found from '/some/where'` - which is usually the fastest way
+to notice you are not where you thought you were.
+
 See [the foundation guide](docs/foundation.md) and [SKILLS.md](SKILLS.md) for
 the complete implemented Tira ecosystem.
 

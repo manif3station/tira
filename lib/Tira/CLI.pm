@@ -5763,12 +5763,57 @@ about a card that is not there has no answer, so the error travels.
 Deliberately not named after C<tira.card.required>, which already exists and
 answers which FIELDS a complete card needs. TKT-598.
 
+=head2 The four guards on the move path
+
+Four guards run on every move, in this order, and the first to refuse is the
+only refusal a caller ever sees - each returns early, so a card failing two of
+them is told about one.
+
+  1  _column_chain_violation              did it come the way the board says
+  2  _column_required_action_violation    is the column it is LEAVING finished
+  3  _unjudged_answer_violation           is an answer still waiting on a judge
+  4  _column_entry_required_action_violation  is the column it is ENTERING ready
+     for it
+
+The order is worth knowing because it is not the order a reader guesses. Entry
+is checked LAST, after the chain, the exit actions and the unjudged answer -
+so a card that has skipped a column and also has an unmet entry item is told
+about the chain, and only meets the entry list once the earlier refusals are
+cleared.
+
+All four decline to interfere with the same three things: a move to C<discard>,
+a move that does not change column, and a backward move. A retreat is
+unconditional by TKT-455's design, because what is unmet may be exactly what
+the card is going back to fix.
+
+=head2 _column_chain_violation
+
+Refuses a move that does not follow the order the board declares - "the next
+column should be X", or "should be X or Y" where a column names a fork with
+C<tira.column.update --next>. It compares the position of the column being left
+with the position of the one being entered, so a card cannot jump a column by
+naming a later one.
+
+=head2 _column_required_action_violation
+
+Refuses to let a card LEAVE a column while that column's required actions are
+unfinished, naming each unmet item with its id so the refusal can be acted on
+rather than only understood. Forward moves only.
+
+=head2 _unjudged_answer_violation
+
+Refuses to move a card forward while a question on it has an answer nobody has
+judged. An answer that has been given and not read is not the same as a question
+resolved, and this is the gate that says so. Forward moves only, for the reason
+above: the person who would judge it may be why the card is going back.
+
 =head2 _column_entry_required_action_violation
 
 The gate for what a card must ALREADY have done before it may be worked in a
-column, declared with C<tira.column.update --entry-required-action>. Its mirror
-image, C<_column_required_action_violation>, asks what is unfinished in the
-column being LEFT; this asks what is unmet in the column being ENTERED. The two
+column, declared with C<tira.column.update --entry-required-action>. Where
+C<_column_required_action_violation> asks what is unfinished in the column being
+LEFT, this asks what is unmet in the column being ENTERED - two of the four
+guards above, not a pair on their own. The two
 are separate templates because they answer different questions: the owner's
 example is work belonging to neither column - "verify all details in the card",
 between backlog and tests-red - which cannot be expressed as an exit action on

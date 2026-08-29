@@ -1723,7 +1723,22 @@ a document an agent can parse - and because the browser move path already
 reports its entry-population failures there. A column with neither template
 prints nothing at all. TKT-681.
 
-None of the four can be skipped by leaving `--type` off - the entry guard included, since it recovers the board type the same way. They need a concrete board type to know which columns exist, while `record_show` and `record_move` resolve a card by ref alone - so a caller who omitted the type used to get a move that succeeded and a guard that returned "nothing to refuse". A card was walked through nine gated columns that way, with 75 required actions pending and not one refusal. The type is now recovered from the record the engine has already loaded, so the guards answer whether or not the caller said which board, and the recovered value goes back into the caller's arguments so the "move here first" line the chain refusal ends with names a command that runs - `d2 tira.ticket.move` - rather than a name with the type missing from the middle of it. The other two refusals name their own command, `tira.required-action.update` and `tira.question.mark`, and never print the type. TKT-597. A related promise about what you are told before you call: a command's usage line names the arguments it refuses without, including the `--command`/`--proof` pair that marking a checklist item or a required action done costs, written as one bracketed unit because the pair is required together. Forty-nine commands still print a bare `[options]`; that set is a written-down ledger a test holds, so no new command joins it unnoticed. TKT-575. Moving back to `backlog` additionally resets the tasklist items that were working on the card, leaving `done` ones alone, crossing session boundaries deliberately, and skipping - but naming - any task linked to more than one card. TKT-596.
+None of the four can be skipped by leaving `--type` off - the entry guard included, since it recovers the board type the same way. They need a concrete board type to know which columns exist, while `record_show` and `record_move` resolve a card by ref alone - so a caller who omitted the type used to get a move that succeeded and a guard that returned "nothing to refuse". A card was walked through nine gated columns that way, with 75 required actions pending and not one refusal. The type is now recovered from the record the engine has already loaded, so the guards answer whether or not the caller said which board, and the recovered value goes back into the caller's arguments so the "move here first" line the chain refusal ends with names a command that runs - `d2 tira.ticket.move` - rather than a name with the type missing from the middle of it. The entry guard's refusal prints the type as well, in the `tira.column.update --type TYPE` line that ends it. The other two name their own command, `tira.required-action.update` and `tira.question.mark`, and never print the type. TKT-597. A related promise about what you are told before you call: a command's usage line names the arguments it refuses without, including the `--command`/`--proof` pair that marking a checklist item or a required action done costs, written as one bracketed unit because the pair is required together. Forty-nine commands still print a bare `[options]`; that set is a written-down ledger a test holds, so no new command joins it unnoticed. TKT-575. Moving back to `backlog` additionally resets the tasklist items that were working on the card, leaving `done` ones alone, crossing session boundaries deliberately, and skipping - but naming - any task linked to more than one card. TKT-596.
+
+**Which refusal you get, when more than one applies.** The four guards run in a
+fixed order and each returns as soon as it refuses, so the first to object is the
+only message you see:
+
+1. the chain - did the card come the way the board declares
+2. the exit required actions - is the column it is leaving finished
+3. the unjudged answer - is an answer still waiting on a judge
+4. the entry required actions - is the column it is entering ready for it
+
+Entry is checked **last**, which is not what the pairing of "entry" and "exit"
+suggests. A card that has skipped a column and also has an unmet entry item is
+told about the chain, and meets the entry list only once that is cleared - so
+clearing one refusal can reveal another, and a caller working through them is
+not going backwards. TKT-662.
 
 A move to `discard` is exempt throughout.
 

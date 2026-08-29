@@ -1,5 +1,41 @@
 Revision history for Tira
 
+4.72  2026-08-29
+
+    - TKT-662. lib/Tira/CLI.pm's POD now documents all four guards that
+      run on a move, and says there are four. It documented one, and
+      that entry opened by calling another 'its mirror image' - so the
+      only guard with an entry was also the sentence telling a reader
+      the set was a pair. The two with no entry at all were the two
+      hardest to guess: _column_chain_violation, which enforces that a
+      card came the way the board declares, and _unjudged_answer_
+      violation, which refuses a move while an answer waits on a judge.
+    - The order is now stated, and it is not the order a reader guesses.
+      The guards return early, so the FIRST to refuse is the only
+      refusal a caller sees - and entry required actions are checked
+      LAST, after the chain, the exit actions and the unjudged answer. A
+      card that has skipped a column and also has an unmet entry item is
+      told about the chain, and meets the entry list only once that is
+      cleared.
+    - What all four decline to interfere with is stated once instead of
+      being written three times in three subs: a move to discard, a move
+      that does not change column, and a retreat - unconditional by
+      TKT-455's design, because what is unmet may be exactly what the
+      card is going back to fix.
+    - t/428 derives the guard list from the move path rather than naming
+      the four, so a fifth guard added without a POD entry fails it and
+      nobody has to remember. A hand-written list would need maintaining
+      by the same discipline that let the POD fall behind.
+    - The same miscount was found in two more places while fixing this
+      one. SKILLS.md and docs/POLICIES.md both described the type
+      recovery as a helper with four call sites - "the three move
+      guards and the post-move bookkeeping". All four guards call it,
+      so there are five. Both were written when there were three
+      guards; TKT-591 added the entry guard and the count went stale in
+      the POD, in SKILLS.md and in POLICIES.md at once. Counted rather
+      than corrected by eye: the call sites are at CLI.pm lines 2356,
+      2475, 2573, 2756 and 3714.
+
 4.71  2026-08-29
 
     - TKT-651. The column editor says which of its two required-action

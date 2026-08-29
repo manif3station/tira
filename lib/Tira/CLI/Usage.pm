@@ -219,10 +219,37 @@ sub _unknown_option_message {
     my $known = _declared_option_names($spec);
     my @lines;
     for my $bad ( @{$unknown} ) {
+        push @lines, "Unknown option: $bad";
+
+        # A VALUE that begins with two dashes, not a mistyped flag. The two are
+        # told apart by the one thing that distinguishes them here: $bad is the
+        # first whitespace-delimited word of the rejected argument, so if it is
+        # EXACTLY an option this command declares, the argument cannot have been
+        # that option - a bare declared option parses. It was a value carrying
+        # more text after the name.
+        #
+        # Worth separating because a card about an option names that option in
+        # its title, so this is ordinary here rather than exotic. And the old
+        # answer was the harmful one: the "Did you mean" list is computed from
+        # the caller's own value, so it suggested back the exact string they had
+        # just typed, which reads as a correct option being rejected. TKT-742.
+        if ( grep { $_ eq $bad } @{$known} ) {
+            # This function only sees the rejected token and the command's
+            # spec, not which earlier option was expecting a value - so the
+            # example below names the VALUE, never a specific carrier option.
+            # Naming one would be a guess, and a wrong guess ("--title=...")
+            # on a command with no --title would be worse than the vague
+            # "Did you mean" this message replaces.
+            push @lines,
+              "--$bad is an option this command has, so this looks like a VALUE",
+              'that begins with two dashes rather than a mistyped flag.',
+              "Join it to its option to pass it as a value: --option=--$bad ...";
+            next;
+        }
+
         my %distance = map { $_ => _edit_distance( $bad, $_ ) } @{$known};
         my @near = sort { $distance{$a} <=> $distance{$b} || $a cmp $b }
           grep { $distance{$_} <= 3 } keys %distance;
-        push @lines, "Unknown option: $bad";
         push @lines, 'Did you mean:', ( map { "  --$_" } @near[ 0 .. ( $#near > 2 ? 2 : $#near ) ] )
           if @near;
     }
@@ -293,6 +320,25 @@ one text rather than two that drift.
 C<_unknown_option_message>, C<_names_the_option>, C<_declared_option_names> and
 C<_edit_distance> are the refusal an unknown option gets, and the suggestion
 that comes with it.
+
+=head2 A typo and a quoted value are not the same "unknown option"
+
+C<_unknown_option_message> tells them apart before suggesting anything.
+Getopt::Long reports the same "Unknown option" for a misspelled flag and for a
+VALUE that begins with two dashes and was passed as a separate argument - the
+parser reads it as the next option. The two are distinguishable by one thing:
+the reported name is the first whitespace-delimited word of the rejected
+argument, so if it EXACTLY matches one of the command's declared option names
+- including a short alias, C<_declared_option_names> keeps every C<|>-joined
+spelling - the argument cannot have been a mistyped flag, because a bare
+declared option, by any of its accepted spellings, parses. It was a value
+carrying more text.
+
+A misspelling almost never matches a declared name exactly, so the edit-distance
+suggestion below is still what a real typo gets. The exact-match case gets a
+different message naming C<--option=VALUE> instead - because suggesting the
+option back to a caller who just typed it reads as a correct flag being
+rejected, which is the fault TKT-742 fixed.
 
 C<_policy_help> and C<_policy_help_fallback> answer the same question for
 policies.

@@ -1,5 +1,62 @@
 Revision history for Tira
 
+4.82  2026-08-29
+
+    - TKT-742. A refusal no longer suggests, as the correction, the exact
+      string the caller just typed.
+
+      A card about an option names that option in its title, so titles
+      beginning with two dashes are ordinary here. Passed as a separate
+      argument the parser reads the value as the next option, and the
+      refusal then computed its "Did you mean" list from the caller's own
+      value:
+
+          ticket create --title "--set-scope-in refuses a plain file"
+          Unknown option: set-scope-in
+          Did you mean:
+            --set-scope-in
+
+      Naming --set-scope-in back to somebody who had just typed
+      --set-scope-in reads as a correct option being rejected, and sends
+      them to the option rather than to the quoting. Nothing mentioned
+      that --title=VALUE works, which it does.
+
+      The parse is Getopt::Long's documented behaviour and is unchanged.
+      What changed is the message, and the two cases turned out to be
+      distinguishable without touching the parser: the reported name is
+      the first whitespace-delimited word of the rejected argument, so if
+      it is EXACTLY an option the command declares, the argument cannot
+      have been that option - a bare declared option parses. It was a
+      value carrying more text. A misspelling never matches an exact
+      declared name, so TKT-298's unknown-option message is untouched for
+      the case it was written for, which three assertions pin.
+
+      SKILLS.md's invocation grammar now says a value beginning with two
+      dashes must be joined with =. That belonged beside the existing
+      "quote whitespace, Markdown, glob characters" line, which implies
+      quoting is sufficient - and here it is not, because the shell strips
+      the quotes and the parser sees an option where a value was meant.
+
+      Review found two problems in the first version of the fix, both
+      corrected before this shipped. The example line named --title
+      specifically ("--title=--set-scope-in ..."), which is right for the
+      one call that motivated the card and wrong for every other command
+      - the function has no way to know which earlier option was
+      expecting the value, so it must not guess one. It now shows the
+      value joined generically, "--option=--VALUE". And the test's key
+      assertion checked only that the example text was present, which a
+      hardcoded --title would also have satisfied; a direct unit test of
+      the message-building function now proves it echoes whatever token
+      it is given rather than anything memorised.
+
+      That work turned up something the review had not: title:s is the
+      only option in this CLI with an optional value, and this fault only
+      reproduces on one of those - a required-value option (=s) simply
+      takes the next token as its value whatever it looks like, measured
+      directly against --description. The fix is written generically and
+      is correct for any future :s option; the trigger today is narrower
+      than the first draft implied.
+
 4.81  2026-08-29
 
     - TKT-745. SKILLS.md names --fresh, the option that answers whether

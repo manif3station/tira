@@ -14,6 +14,15 @@ attachment output, and consistent structured failures - including, since
 declared option name(s) by edit distance rather than only "Invalid
 command-line options". TKT-298.
 
+That suggestion has one exception, since 4.82: when the "unknown option" is
+exactly a name the command declares, it is not a typo - a bare declared option
+would have parsed - so it is a VALUE beginning with two dashes that the parser
+consumed as the next flag. Suggesting the option back in that case would name
+the exact string the caller just typed, reading as a correct flag being
+rejected. Instead the refusal says the value looks like an option and names the
+`--option=VALUE` form, which joins the value to its flag rather than leaving it
+as a separate argument. TKT-742.
+
 ## Questions on cards
 
 An agent working a card often cannot move it but can ask about a procedure or

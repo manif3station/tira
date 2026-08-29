@@ -72,6 +72,15 @@ TYPE   := sow | epic | ticket
 
 References are immutable, case-sensitive values such as `SOW-001`, `EPC-001`,
 and `TKT-001`. Quote whitespace, Markdown, glob characters, and empty strings.
+
+**A value that begins with two dashes must be joined to its option with `=`.**
+Quoting is not enough: the shell strips the quotes and the parser then sees an
+option where a value was meant. `--title "--fresh runs a pass"` is refused,
+while `--title="--fresh runs a pass"` is accepted and keeps the title intact.
+This is ordinary here rather than exotic - a card about an option names that
+option in its title - and until 4.82 the refusal answered it by suggesting the
+very option the caller was quoting, which read as a correct flag being rejected.
+TKT-742.
 Repeat an option only where its table marks it repeatable. `--help` is exclusive
 and performs no mutation. Repeating a single-valued option anyway is refused,
 naming the flag and both competing values, rather than silently keeping the

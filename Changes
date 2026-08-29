@@ -1,5 +1,48 @@
 Revision history for Tira
 
+4.76  2026-08-29
+
+    - TKT-704. The documented count of police rules is held to what the engine
+      reports, in every document and every phrasing. It was stated three times
+      and checked once: README and SKILLS both said "40 rules police", SKILLS
+      also said "the 36 rules police itself" two thousand lines earlier, and the
+      guard matched "(\d+) rules cover" - one sentence of the three. So every
+      rule added since demanded that one sentence be updated and said nothing
+      about the other two, and the stale one sat four rules behind. The guard's
+      existence is what made it invisible: a number nobody checks is obviously
+      unreliable and gets re-read; a number that is checked reads as reliable.
+      t/433 walks every markdown file the repository carries outside its build
+      and dependency directories, and matches the shape of a claim - a number
+      ahead of the word "rules", with at most two words between them - rather
+      than a wording somebody thought of, so a third phrasing in a document nobody
+      listed is caught too. Review widened that shape once before it shipped:
+      it began as "<number> rules <verb>", which heard "40 rules cover" and
+      "40 rules police" but not "40 police rules" or "40 policy rules", and the
+      wider shape was measured across all 121 documents first - same three
+      claims, no false positives. Two evasions came out of the same review and
+      are controls in the fixture now: a claim indented under a bullet is a
+      paragraph continuation rather than an example, and a fence indented four
+      spaces is not a fence, which is the SKILLS.md failure below reproduced
+      inside the tool that detects it. A number inside
+      a fenced or indented example is left alone: a transcript records what was
+      true when it was taken, and demanding history be rewritten on every rule
+      added is how a guard earns being ignored. The narrow check in
+      t/03-metadata.t is retired rather than kept beside it, because two checks
+      of one fact is the shape that produced the bug.
+
+    - TKT-704. SKILLS.md renders again from line 1067 down. A commit on
+      2026-08-11 stripped a ticket reference from "with singular assignment
+      semantics updated by DD-390:" and took the blank line with it, leaving the
+      fence opener glued to the word "by" - where it opens nothing, because an
+      opener must start its line. The nine assignment and comment commands under
+      it have rendered as prose ever since, the ``` meant to close that block
+      opened one instead, and every fence in the following thirteen hundred
+      lines has been inverted. Found by the rule-count guard rather than by
+      reading: honouring fenced examples silently dropped one of the three
+      claims, because it had ended up inside an example block nobody wrote. The
+      guard now asserts that every document's fences close, so a reader that
+      quietly checks less than it appears to says so.
+
 4.75  2026-08-29
 
     - TKT-665. The card dialog says which required-action group is the one in

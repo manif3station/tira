@@ -865,7 +865,7 @@ partway will already have made some of them.
 
 The police policy dialog is **Implemented.** each board control
 also has a Policies button, separate from Columns, opening a modal for
-the board-wide police policy engine — the 36 rules police itself
+the board-wide police policy engine — the 40 rules police itself
 watches (`card-duration`, `wip-limit`, `conversation-not-folded`, and
 the rest), which was CLI-only until TKT-493 and is a different thing
 entirely from a column's own required-action template above. The
@@ -1064,8 +1064,9 @@ Typed links may cross types. Built-ins are `blocks`/`is-blocked-by`,
 
 ### Assignments and comments
 
-All are **Implemented.**, with singular assignment semantics updated
-by ```text
+All are **Implemented.**, with singular assignment semantics.
+
+```text
 tira.assign.list --ref REF [-o FORMAT]
 tira.assign.add --ref REF --person ID [-o FORMAT]
 tira.assign.remove --ref REF --person ID [-o FORMAT]
@@ -2440,3 +2441,19 @@ a terminal by design; redirect it.
 
 This catalogue is the normative implemented interface. Use commands exclusively
 and never emulate them through manual managed-storage edits.
+
+Two of the counts this document asserts are read back out of the running code by
+the suite. The use-case heading above is compared against the `UC-` entries
+beneath it, and any claim of how many rules police this project - a number ahead
+of the word `rules` with at most two words between them, in this file or any
+other markdown file the repository carries outside its build and dependency
+directories - is compared against `policy_rules()`. That is the extent of it: other numbers in this
+catalogue are not guarded, and neither is a rule count worded outside that shape.
+
+Since 4.76 the rule count is matched by shape rather than by sentence, because
+the previous guard read one phrasing and the same count stated differently two
+thousand lines away drifted four releases behind it while the suite stayed
+green. A number in a fenced or indented example is exempt: it records what was
+true when it was taken. That exemption is why the suite also requires this
+document's fences to close - an unclosed one inverts every block after it, and a
+claim that lands inside an example block nobody wrote is a claim nothing checks.

@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=4\.75$/m, '.env stores the version being released' );
+like( $env_text, qr/^VERSION=4\.76$/m, '.env stores the version being released' );
 
 # Read out of .env rather than matched against it, so the module can be
 # compared with what .env actually holds rather than with a literal that
@@ -73,7 +73,7 @@ use Tira;
 # the same literal, so they agreed only through a third party. Changing one
 # literal and not the other was caught by luck rather than by this.
 is( $Tira::VERSION, $env_version, 'module version matches .env, which is now read' );
-is( $Tira::VERSION, '4.75', 'and the release being made is the one intended' );
+is( $Tira::VERSION, '4.76', 'and the release being made is the one intended' );
 
 # And the changelog, which nothing checked. .env, the module and this file
 # agreed with each other for two releases while Changes named a version one
@@ -101,12 +101,24 @@ like( $top, qr/\b(?:TKT|EPC|SOW)-\d+/,
 unlike( $skills_text, qr/\bSpecified\b/i, 'every documented command and use case is implemented' );
 
 # A count written in prose goes stale the moment a rule is added, and nothing
-# says so - SKILLS.md claimed twenty while twenty-two shipped. Every rule is
-# also named in the policies guide, so a rule added without being documented is
-# caught by name rather than by arithmetic.
+# says so - SKILLS.md claimed twenty while twenty-two shipped.
+#
+# The count itself moved to t/433 in 4.76 and is deliberately not checked twice
+# here. This line used to read
+#
+#     my ($claimed) = $skills_text =~ /(\d+) rules cover/;
+#
+# which matched one phrasing of a sentence that appears in three places, so every
+# rule added since has demanded that one sentence be updated and said nothing
+# about "the 36 rules police itself" two thousand lines earlier - four rules
+# behind by the time anyone looked. Its existence is what made the drift
+# invisible: a number nobody checks is obviously unreliable and gets re-read, a
+# number that IS checked reads as reliable. Two checks of one fact is the shape
+# that produced the bug; t/433 is the one.
+#
+# Every rule is also named in the policies guide, so a rule added without being
+# documented is caught by name rather than by arithmetic.
 my $rules = Tira->new->policy_rules;
-my ($claimed) = $skills_text =~ /(\d+) rules cover/;
-is( $claimed, scalar @{$rules}, 'SKILLS.md says how many rules there really are' );
 
 open my $policies_doc, '<', 'docs/POLICIES.md' or die "Cannot read docs/POLICIES.md: $!";
 my $policies_text = do { local $/; <$policies_doc> };
@@ -281,5 +293,19 @@ __END__
 
 Ensures the required repository artifacts exist, version metadata agrees, and
 every shipped Perl module, command, and test contains valid POD.
+
+=head2 What this file no longer checks
+
+The count of police rules stated in the documentation. Until 4.76 that lived
+here as a match on C<< /(\d+) rules cover/ >> - one phrasing of a sentence that
+appears in three places, so the two stated differently were never read and one
+of them sat four rules behind. It moved to
+F<t/433-a-count-stated-three-times-and-checked-once.t>, which matches the shape
+of a claim rather than a sentence, and it is not duplicated back here: two
+checks of one fact is what produced the drift.
+
+The rule I<names> are still checked here, against F<docs/POLICIES.md>, because
+that is a different question - whether a rule shipped without being documented -
+and it is answered by name rather than by arithmetic.
 
 =cut

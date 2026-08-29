@@ -1647,6 +1647,38 @@ few of them, and the absence of one is not a problem. A role naming a column
 that does not exist is refused, because a role pointing at nothing would make
 every rule written against it match nothing at all, silently.
 
+## Which numbers in these documents you can trust
+
+Numbers appear in these documents in two ways — as a claim in prose and as part
+of a transcript — and only one kind is guaranteed to be current.
+
+Two prose claims are guarded. How many use cases `SKILLS.md` lists, checked
+against its own `UC-` entries, and how many rules police the board, checked
+against `policy_rules()`. Since 4.76 the second is matched by the shape of the
+claim — a number ahead of the word `rules`, with at most two words between them
+— in any markdown file the repository carries outside its build and dependency
+directories: this one, `README.md`,
+`SKILLS.md`, `docs/POLICIES.md` alike — rather than by one phrasing of one
+sentence, so it holds a wording nobody has written yet. Those two you can take
+as true of the version you are reading.
+
+Every other number in prose is unguarded. It was correct when it was written and
+nothing checks that it still is, so treat it as a claim about the version it was
+written for.
+
+A number inside a fenced or indented example is a transcript. It records what
+somebody's run printed, it is deliberately exempt from the guard, and it is not a
+statement about your board — the sample release evidence reading `Full suite run,
+6540 tests` is a worked example of the shape, not a count of the current suite. A
+transcript figure may still happen to be current; nothing promises it. Run the
+command if you need the live one.
+
+The distinction is enforced rather than described, and it is why every
+document's fences must close: an unclosed opener inverts every block after it,
+so prose starts being read as an example and stops being checked. `SKILLS.md`
+carried one for eighteen days and one of its three rule-count claims sat inside
+an example block nobody wrote. TKT-704.
+
 ## Every write says who made it
 
 `--author` (or the `TIRA_AUTHOR` environment variable, read when `--author` is

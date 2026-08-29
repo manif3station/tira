@@ -315,6 +315,23 @@ run was the first is exactly the sort of thing the owner should not have to do.
 Every rule needs an `--action`. Parameters marked required are refused if
 missing, at the moment you declare the policy rather than later.
 
+**The table below is complete, and that is checked rather than promised.** The
+suite reads the rule names out of the running engine and fails if any of them is
+absent from this page, so a rule shipped without being documented is caught by
+name. Since 4.76 the other half is checked too: a statement of how many rules
+there are is compared against the engine, in any markdown file including this
+one, bar the build and dependency directories. A claim is a number ahead of the
+word `rules` with at most two words between them, which covers `40 rules cover`, `40 rules police`, `40 police rules` and `40 policy
+rules` alike. That shape is the reach of it — a count worded outside it, or
+stated somewhere that is not a markdown file, is not held,
+and saying so matters more than sounding thorough. Both guards exist because
+their absence was noticed the hard way. A count stated three times and checked in
+one phrasing sat four rules behind for four releases while the suite reported the
+documentation as maintained; the count is now checked by the shape of the claim
+rather than by a sentence somebody thought of. What is deliberately not checked
+is a number inside a fenced or indented example, which records what was true
+when it was written down.
+
 | Rule | Requires | Catches |
 | --- | --- | --- |
 | `card-full-details` | `--enter` | a card reaching a column without the detail that makes it real work. This watches a column boundary; `tira.card.holes` (docs/commands.md) answers the same question board-wide, for every live card right now regardless of which column it sits in - a card left untouched in the backlog stays invisible to a column-scoped rule indefinitely. TKT-374. |

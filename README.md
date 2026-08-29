@@ -428,6 +428,49 @@ Until then the gate named three module paths by hand and
 `lib/Tira/OnboardWeb.pm` was in neither of the two places it needed to be, so
 it had no coverage requirement at all and nothing said so.
 
+The suite also holds two of the counts these documents assert to the code that
+answers them: how many use cases the catalogue lists, checked against the `UC-`
+entries themselves, and how many rules police the board, checked against
+`policy_rules()`. Since 4.76 the second is checked by shape rather than by
+sentence — every markdown file in the repository bar the build and dependency
+directories (`cover_db`, `node_modules`, `.git`), and any claim that puts a
+number ahead of the word `rules` with at most two words between them. That
+covers `40 rules cover`, `40 rules police`, `40 police
+rules` and `40 policy rules`, and it is the whole of its reach, worth stating
+plainly because a guard described more broadly than it works is the failure it
+exists to prevent: a claim worded outside that shape is not held, and neither is
+one made anywhere but a markdown file. The same count stated in a source comment is TKT-736, still open.
+
+The rule count is the case that taught this: it was stated in three places and
+checked in one, because the guard
+matched a single phrasing of it, so every rule added dutifully updated the
+sentence beside the test and left the differently-worded one two thousand lines
+earlier four releases behind. The guard's existence is what hid it. A
+number nobody checks is obviously unreliable and gets re-read; a number that is
+checked reads as reliable. `t/433` now walks the documents rather than a list of
+filenames, and matches the shape rather than the sentence, so a wording nobody
+has thought of yet is held,
+and the narrow check that preceded it was removed rather than widened — two
+checks of one fact is the shape that produced the drift.
+
+A number inside a fenced or indented example is left alone. Those are
+transcripts of what was true when they were taken, and a guard that demanded
+history be rewritten on every rule added would be edited out rather than obeyed.
+That exemption is why the same guard also requires every document's fences to
+close: `SKILLS.md` had carried an opener glued to the end of a prose sentence
+since 2026-08-11, where it opens nothing, and the `` ``` `` meant to close that
+block opened one instead — inverting every fence in the thirteen hundred lines
+that followed and hiding one of the three claims inside an example block nobody
+wrote. A reader that quietly checks less than it appears to has to say so.
+
+**Run coverage serially.** `prove -j N` under `Devel::Cover` loses data on merge:
+measured on 4.76, `-j 4` reported `lib/Tira.pm` at 99.8% statement with one
+uncovered `map` body that three separate tests demonstrably enter, and the same
+tree run with plain `prove -lr t` reported 100.0%. The plain suite parallelises
+safely and is worth `-j 4`; the coverage run is not. `tools/gate-run` already
+runs it serially, so the gate itself was never exposed — the trap is only there
+for someone checking coverage by hand and believing the number.
+
 Bumping the release version means `.env`'s `VERSION=` line and
 `lib/Tira.pm`'s `our $VERSION` always agreeing - `tools/bump-version NEW`
 writes both together and refuses rather than guessing if they already

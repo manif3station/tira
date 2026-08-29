@@ -15,6 +15,10 @@ use Tira;
 # than an argument.
 my $handover;
 use Tira::CLI;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub { '2026-08-09T09:00:00Z' } );
@@ -191,7 +195,7 @@ unlike( $static, qr/data\._version/,
     if ( !$pid ) {
         open my $out, '>', $marker or exit 1;
         open STDOUT, '>&', $out or exit 1;
-        Tira::CLI::_restart_into( $script, 'one', 'two' );
+        Tira::CLI::Serve::_restart_into( $script, 'one', 'two' );
         exit 99;    # only reached if exec failed to replace us
     }
     waitpid $pid, 0;
@@ -205,7 +209,7 @@ unlike( $static, qr/data\._version/,
 }
 
 # Nothing to restart into is a refusal rather than a broken exec.
-is( Tira::CLI::_restart_into(), 0, 'with no script named, nothing is replaced' );
+is( Tira::CLI::Serve::_restart_into(), 0, 'with no script named, nothing is replaced' );
 
 # And the entrypoint really is found for a plain command as well as a typed one.
 my $bare = File::Spec->catfile( qw(cli dashboard) );

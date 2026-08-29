@@ -38,6 +38,10 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Police holds the police pass, the bridge and the world scan since
+# 4.74 (TKT-607). Tira::CLI loads it with require at the point a police verb
+# runs, so a test calling into it directly has to ask for it itself.
+require Tira::CLI::Police;
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub {'2026-08-15T12:00:00Z'} );
@@ -129,7 +133,7 @@ is( $warned, '',
     {
         local *STDOUT = $handle;
         local $SIG{__WARN__} = sub { $tail_warned .= shift };
-        Tira::CLI::_bridge_follow( $tira, $store, rounds => 1, sleeper => sub { } );
+        Tira::CLI::Police::bridge_follow( $tira, $store, rounds => 1, sleeper => sub { } );
     }
     close $handle;
 

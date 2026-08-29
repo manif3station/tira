@@ -28,6 +28,10 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Police holds the police pass, the bridge and the world scan since
+# 4.74 (TKT-607). Tira::CLI loads it with require at the point a police verb
+# runs, so a test calling into it directly has to ask for it itself.
+require Tira::CLI::Police;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $now = '2026-08-12T17:30:00Z';
@@ -46,7 +50,7 @@ my $store = File::Spec->catdir( $tmp, 'police-state' );
 # Named one at a time rather than counted, so a field quietly dropped from the
 # gatherer fails by name instead of by arithmetic.
 
-my $world = Tira::CLI::_police_world( project => $root );
+my $world = Tira::CLI::Police::police_world( project => $root );
 
 for my $list (qw(branches worktrees processes containers commits)) {
     is( ref $world->{$list}, 'ARRAY', "$list is gathered as a list" );
@@ -66,17 +70,17 @@ for my $fact (qw(working_since unpushed_since backed_up_at card_in_progress)) {
 my $backups = File::Spec->catdir( $tmp, 'backups', 'a-board' );
 File::Path::make_path( File::Spec->catdir( $backups, '20260812T164254Z' ) );
 
-my $seen = Tira::CLI::_police_world( project => $root, backups => $backups );
+my $seen = Tira::CLI::Police::police_world( project => $root, backups => $backups );
 like( $seen->{backed_up_at}, qr/\A2026-08-12T16:42:54/,
     'a backup that exists is found, and read as the moment it was taken' );
 
-my $none = Tira::CLI::_police_world(
+my $none = Tira::CLI::Police::police_world(
     project => $root, backups => File::Spec->catdir( $tmp, 'backups', 'never-backed-up' ) );
 ok( !defined $none->{backed_up_at},
     'and a board with no backup at all still says so, rather than inventing one' );
 
 File::Path::make_path( File::Spec->catdir( $backups, '20260812T170000Z' ) );
-my $newest = Tira::CLI::_police_world( project => $root, backups => $backups );
+my $newest = Tira::CLI::Police::police_world( project => $root, backups => $backups );
 like( $newest->{backed_up_at}, qr/\A2026-08-12T17:00:00/,
     'the most recent backup is the one that counts, not the first one found' );
 

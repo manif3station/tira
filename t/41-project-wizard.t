@@ -11,6 +11,10 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Wizard holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Wizard;
 
 my $tmp = tempdir( CLEANUP => 1 );
 
@@ -228,7 +232,7 @@ is( $tira->project_mode( project => $unclear ), 'chain',
 # mode should show that as the mode question's default, the same way
 # every other field's current value is offered - _wizard_defaults must
 # actually carry it for _project_wizard's existing lookup to find it.
-is( Tira::CLI::_wizard_defaults( $tira, $unclear )->{mode}, 'chain',
+is( Tira::CLI::Wizard::_wizard_defaults( $tira, $unclear )->{mode}, 'chain',
     '_wizard_defaults carries the project\'s existing mode answer' );
 
 # TKT-556: the "Do all three boards use the same columns?" question must
@@ -241,12 +245,12 @@ $tira->project_new(
     dir => $mismatched, name => 'Mismatched', sow_columns => 'Draft, Sent',
     epic_columns => 'Planning, Building', ticket_columns => 'Todo, Doing, Done',
 );
-is( Tira::CLI::_wizard_defaults( $tira, $mismatched )->{columns_shared}, 0,
+is( Tira::CLI::Wizard::_wizard_defaults( $tira, $mismatched )->{columns_shared}, 0,
     '_wizard_defaults reports columns as not shared when the boards genuinely differ' );
 
 my $matched = File::Spec->catdir( $tmp, 'matched-columns' );
 $tira->project_new( dir => $matched, name => 'Matched', columns => 'Doing, Done' );
-is( Tira::CLI::_wizard_defaults( $tira, $matched )->{columns_shared}, 1,
+is( Tira::CLI::Wizard::_wizard_defaults( $tira, $matched )->{columns_shared}, 1,
     '_wizard_defaults reports columns as shared when every board genuinely matches' );
 
 # Flags for every question, accepted by pressing enter through the flow.

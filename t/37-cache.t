@@ -12,6 +12,10 @@ use lib 'lib';
 use Tira;
 use Time::HiRes ();
 use Tira::CLI;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $root = File::Spec->catdir( $tmp, 'warmed' );
@@ -131,7 +135,7 @@ is( $status, 2, 'a zero ttl exits 2 rather than meaning something surprising' );
 # or removed, so no directory time changes anywhere. That makes this the real
 # condition rather than an imitation of it.
 {
-    my $before = Tira::CLI::_board_fingerprint($root);
+    my $before = Tira::CLI::Serve::_board_fingerprint($root);
 
     my $column = File::Spec->catdir( $root, '.tira', 'ticket', 'backlog' );
     my ($file) = glob File::Spec->catfile( $column, '*.json' );
@@ -151,7 +155,7 @@ is( $status, 2, 'a zero ttl exits 2 rather than meaning something surprising' );
     is( $directory_after[9], $directory_before[9],
         'rewriting a file in place leaves its directory untouched, which is the whole problem' );
 
-    isnt( Tira::CLI::_board_fingerprint($root), $before,
+    isnt( Tira::CLI::Serve::_board_fingerprint($root), $before,
         'and the fingerprint changes anyway, because it reads the records themselves' );
 }
 
@@ -185,7 +189,7 @@ SKIP: {
     # of time rather than restoring what the write had just set.
     my %was = map { $_ => [ Time::HiRes::stat($_) ] } @watched;
 
-    my $before = Tira::CLI::_board_fingerprint($root);
+    my $before = Tira::CLI::Serve::_board_fingerprint($root);
     $tira->record_update( author => 'claude', project => $root, ref => $ticket->{ref}, title => 'Same tick' );
 
     # Every modification time put back exactly as it was: the strongest form of
@@ -196,7 +200,7 @@ SKIP: {
     # anything.
     Time::HiRes::utime( $was{$_}[8], $was{$_}[9], $_ ) for @watched;
 
-    isnt( Tira::CLI::_board_fingerprint($root), $before,
+    isnt( Tira::CLI::Serve::_board_fingerprint($root), $before,
         'a write is still visible when every modification time says otherwise' );
 }
 

@@ -28,6 +28,10 @@ use Test::More;
 
 use lib 'lib';
 use Tira::CLI;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
 
 my $tmp = tempdir( CLEANUP => 1 );
 
@@ -106,14 +110,14 @@ SKIP: {
 # can only be answered with nothing, and nothing is what "no leftover
 # processes" looks like.
 
-is_deeply( [ Tira::CLI::_process_command(0) ], [ 'ps', '-eo', 'pid=,lstart=,args=' ],
+is_deeply( [ Tira::CLI::Serve::_process_command(0) ], [ 'ps', '-eo', 'pid=,lstart=,args=' ],
     'on POSIX the process table comes from ps' );
-is_deeply( [ Tira::CLI::_process_command(1) ], [ 'tasklist', '/fo', 'csv', '/nh' ],
+is_deeply( [ Tira::CLI::Serve::_process_command(1) ], [ 'tasklist', '/fo', 'csv', '/nh' ],
     'and on Windows from tasklist, which is what exists there' );
 
 # --- and it is read, not merely asked for ---------------------------------
 
-my $listed = Tira::CLI::_processes_from_windows( [
+my $listed = Tira::CLI::Serve::_processes_from_windows( [
     '"perl.exe","4321","Console","1","52,000 K"',
     '"prove.exe","4322","Console","1","9,000 K"',
     '',

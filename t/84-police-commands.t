@@ -11,6 +11,10 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Police holds the police pass, the bridge and the world scan since
+# 4.74 (TKT-607). Tira::CLI loads it with require at the point a police verb
+# runs, so a test calling into it directly has to ask for it itself.
+require Tira::CLI::Police;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $now = '2026-08-11T09:00:00Z';
@@ -146,7 +150,7 @@ is_deeply( fingerprint(), $before,
     {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI::_bridge_follow( $tira, $live, rounds => 2, sleeper => sub {
+        Tira::CLI::Police::bridge_follow( $tira, $live, rounds => 2, sleeper => sub {
             return if $arriving++;
             $tira->bridge_write( store => $live, violations => [ {
                 id => 'VIO-0002', ref => 'PCT-002', detail => 'said while listening',
@@ -171,7 +175,7 @@ is_deeply( fingerprint(), $before,
     my $survived = do {
         local *STDOUT = $so;
         local *STDERR = $se;
-        Tira::CLI::_police_follow( $tira, { project => $root },
+        Tira::CLI::Police::police_follow( $tira, { project => $root },
             File::Spec->catdir( $tmp, 'unreadable' ),
             { rounds => 2, interval => 0 } );
     };
@@ -188,7 +192,7 @@ is_deeply( fingerprint(), $before,
     open my $se, '>', \$err or die $!;
     {
         local *STDERR = $se;
-        Tira::CLI::_police_goodbye( $tira, 'INT' );
+        Tira::CLI::Police::police_goodbye( $tira, 'INT' );
     }
     like( $err, qr/no longer watching/i, 'the farewell says nothing is watching now' );
     like( $err, qr/signal INT/, 'and why it stopped' );
@@ -202,7 +206,7 @@ is_deeply( fingerprint(), $before,
     open my $se, '>', \$err or die $!;
     {
         local *STDERR = $se;
-        Tira::CLI::_police_follow( $tira, { project => $root },
+        Tira::CLI::Police::police_follow( $tira, { project => $root },
             File::Spec->catdir( $tmp, 'signalled' ),
             { rounds => 1, interval => 0, leave => sub { $left++ } } );
         $SIG{$_}->($_) for qw(INT TERM HUP);
@@ -221,7 +225,7 @@ SKIP: {
     die 'cannot fork' if !defined $child;
     if ( !$child ) {
         close STDERR;
-        Tira::CLI::_police_follow( $tira, { project => $root },
+        Tira::CLI::Police::police_follow( $tira, { project => $root },
             File::Spec->catdir( $tmp, 'really-leaving' ), { rounds => 1, interval => 0 } );
         $SIG{INT}->('INT');
         exit 99;    # only reached if the handler did not leave
@@ -248,7 +252,7 @@ SKIP: {
     open my $se, '>', \$err or die $!;
     {
         local *STDERR = $se;
-        Tira::CLI::_police_follow( $tira, { project => $root }, $store,
+        Tira::CLI::Police::police_follow( $tira, { project => $root }, $store,
             { rounds => 8, interval => 0, sleeper => sub { $now = shift @clock if @clock } } );
     }
     like( $err, qr/needs your attention/,

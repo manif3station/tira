@@ -32,6 +32,10 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
 
 my $tmp   = tempdir( CLEANUP => 1 );
 my $store = File::Spec->catdir( $tmp, 'police' );
@@ -39,7 +43,7 @@ my $store = File::Spec->catdir( $tmp, 'police' );
 sub attempt {
     my (%args) = @_;
     my @hupped;
-    my $result = Tira::CLI::_dashboard_hup_if_stale(
+    my $result = Tira::CLI::Serve::_dashboard_hup_if_stale(
         $store,
         port      => exists $args{port} ? $args{port} : 7800,
         on_disk   => exists $args{on_disk} ? $args{on_disk} : '4.35',
@@ -110,7 +114,7 @@ sub attempt {
 
 {
     my @hupped;
-    my $stranger = Tira::CLI::_dashboard_hup_if_stale(
+    my $stranger = Tira::CLI::Serve::_dashboard_hup_if_stale(
         $store, port => 7801, on_disk => '4.40',
         listening => sub { 4242 },
         identify  => sub { 'nginx: worker process' },
@@ -123,7 +127,7 @@ sub attempt {
 
 {
     my @hupped;
-    my $unreadable = Tira::CLI::_dashboard_hup_if_stale(
+    my $unreadable = Tira::CLI::Serve::_dashboard_hup_if_stale(
         $store, port => 7802, on_disk => '4.41',
         listening => sub { 4243 },
         identify  => sub { undef },
@@ -136,7 +140,7 @@ sub attempt {
 
 {
     my @hupped;
-    my $board = Tira::CLI::_dashboard_hup_if_stale(
+    my $board = Tira::CLI::Serve::_dashboard_hup_if_stale(
         $store, port => 7803, on_disk => '4.42',
         listening => sub { 4244 },
         identify  => sub { 'starman master' },
@@ -161,10 +165,10 @@ sub attempt {
         skip 'could not bind a probe port', 2 if !$held;
         skip 'the port lookup reads /proc, which this platform does not have', 2 if !-d '/proc';
         my $port = $held->sockport;
-        is( Tira::CLI::_listening_pid($port), $$,
+        is( Tira::CLI::Serve::_listening_pid($port), $$,
             'the port lookup finds the process genuinely holding a port' );
         $held->close;
-        is( Tira::CLI::_listening_pid($port), undef,
+        is( Tira::CLI::Serve::_listening_pid($port), undef,
             'and finds nothing once it has been let go of' );
     }
 }
@@ -203,7 +207,7 @@ sub attempt {
         symlink "socket:[$inode]", File::Spec->catfile( $fake, $pid, 'fd', '3' );
     }
 
-    is( Tira::CLI::_listening_pid( $port, proc => $fake ), 200,
+    is( Tira::CLI::Serve::_listening_pid( $port, proc => $fake ), 200,
         'the master is returned even though a worker holds a lower pid' );
 }
 
@@ -230,7 +234,7 @@ sub attempt {
         symlink "socket:[$inode]", File::Spec->catfile( $fake, $pid, 'fd', '3' );
     }
 
-    is( Tira::CLI::_listening_pid( $port, proc => $fake ), undef,
+    is( Tira::CLI::Serve::_listening_pid( $port, proc => $fake ), undef,
         'a set with no single parent among it refuses rather than picking one' );
 }
 
@@ -251,7 +255,7 @@ sub attempt {
         skip 'the defaults read /proc, which this platform does not have', 2 if !-d '/proc';
         my $port = $free->sockport;
         $free->close;
-        my $nobody = Tira::CLI::_dashboard_hup_if_stale(
+        my $nobody = Tira::CLI::Serve::_dashboard_hup_if_stale(
             File::Spec->catdir( $tmp, 'defaults' ), port => $port, on_disk => '9.99' );
         ok( !$nobody->{hupped}, 'the real lookup on a port nothing holds signals nothing' );
         is( $nobody->{refused}, 'no-board', 'refusing through the genuine default' );
@@ -265,7 +269,7 @@ sub attempt {
         skip 'could not bind a probe port', 2 if !$mine;
         skip 'the defaults read /proc, which this platform does not have', 2 if !-d '/proc';
         my $port = $mine->sockport;
-        my $self = Tira::CLI::_dashboard_hup_if_stale(
+        my $self = Tira::CLI::Serve::_dashboard_hup_if_stale(
             File::Spec->catdir( $tmp, 'defaults' ), port => $port, on_disk => '9.98' );
         ok( !$self->{hupped}, 'the real identity check refuses this test process' );
         is( $self->{refused}, 'not-a-board',
@@ -294,7 +298,7 @@ SKIP: {
         Listen => 1, LocalAddr => '127.0.0.1', LocalPort => 0, Proto => 'tcp' );
     skip 'could not bind a probe port', 2 if !$mine;
     local $SIG{HUP} = 'IGNORE';
-    my $sent = Tira::CLI::_dashboard_hup_if_stale(
+    my $sent = Tira::CLI::Serve::_dashboard_hup_if_stale(
         File::Spec->catdir( $tmp, 'real-signal' ),
         port      => $mine->sockport,
         on_disk   => '9.97',

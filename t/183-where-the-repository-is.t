@@ -37,6 +37,10 @@ use lib 'lib', 't/lib';
 use Run qw(run_capturing);
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Police holds the police pass, the bridge and the world scan since
+# 4.74 (TKT-607). Tira::CLI loads it with require at the point a police verb
+# runs, so a test calling into it directly has to ask for it itself.
+require Tira::CLI::Police;
 
 plan skip_all => 'git is not installed here' if !Tira::CLI::_program_exists('git');
 
@@ -79,7 +83,7 @@ $tira->project_new(
 # --- today, police finds nothing, because the board is not in a repository ---------
 
 {
-    my $world = Tira::CLI::_police_world( project => $board );
+    my $world = Tira::CLI::Police::police_world( project => $board );
     is_deeply( $world->{branches}, [],
         'a board outside any repository reports no branches, which is what they saw' );
     is_deeply( $world->{worktrees}, [],
@@ -98,7 +102,7 @@ is( $tira->project_show( project => $board )->{repo}, $repo,
 # longer depends on where the board sits.
 
 {
-    my $world = Tira::CLI::_police_world( project => $board );
+    my $world = Tira::CLI::Police::police_world( project => $board );
     ok( scalar @{ $world->{branches} },
         'police now reads the declared repository and finds its branches' );
     ok( scalar @{ $world->{worktrees} },
@@ -133,7 +137,7 @@ is( $tira->project_show( project => $board )->{repo}, $repo,
         columns => ['backlog, done'],
         sow_prefix => 'INS', epic_prefix => 'INE', ticket_prefix => 'INT',
     );
-    my $world = Tira::CLI::_police_world( project => $inside );
+    my $world = Tira::CLI::Police::police_world( project => $inside );
     ok( scalar @{ $world->{branches} },
         'a board that does sit inside its repository still finds it, with nothing declared' );
 }

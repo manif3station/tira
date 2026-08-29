@@ -31,6 +31,10 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Police holds the police pass, the bridge and the world scan since
+# 4.74 (TKT-607). Tira::CLI loads it with require at the point a police verb
+# runs, so a test calling into it directly has to ask for it itself.
+require Tira::CLI::Police;
 
 plan skip_all => 'git is not installed' if !Tira::CLI::_program_exists('git');
 
@@ -52,7 +56,7 @@ $tira->policy_add( project => $root, rule => 'board-unbacked', age => '7d',
 my $gate_store = File::Spec->catdir( $tmp, 'gate-backups' );
 
 sub unbacked {
-    my $world = Tira::CLI::_police_world(
+    my $world = Tira::CLI::Police::police_world(
         tira => $tira, project => $root, backups => $gate_store );
     my $pass = $tira->police_pass( project => $root,
         store => File::Spec->catdir( $tmp, 'police' ), world => $world );

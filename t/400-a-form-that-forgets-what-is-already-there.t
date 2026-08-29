@@ -17,6 +17,10 @@ use lib 'lib';
 use Tira;
 use Tira::CLI;
 use Tira::OnboardWeb;
+# Tira::CLI::Wizard holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Wizard;
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $root = File::Spec->catdir( $tmp, 'zen' );
@@ -29,7 +33,7 @@ $tira->project_new(
 my $app = Tira::OnboardWeb->build_psgi_app(
     create   => sub { die "not used in this test\n" },
     dir      => $root,
-    defaults => sub { Tira::CLI::_wizard_defaults( $tira, $_[0] ) },
+    defaults => sub { Tira::CLI::Wizard::_wizard_defaults( $tira, $_[0] ) },
 );
 
 test_psgi $app, sub {
@@ -56,7 +60,7 @@ $tira->project_mode( project => $root, mode => 'chain' );
 my $app_full = Tira::OnboardWeb->build_psgi_app(
     create   => sub { die "not used in this test\n" },
     dir      => $root,
-    defaults => sub { Tira::CLI::_wizard_defaults( $tira, $_[0] ) },
+    defaults => sub { Tira::CLI::Wizard::_wizard_defaults( $tira, $_[0] ) },
     questions => $tira->onboarding_questions,
 );
 test_psgi $app_full, sub {

@@ -22,6 +22,14 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Police holds the police pass, the bridge and the world scan since
+# 4.74 (TKT-607). Tira::CLI loads it with require at the point a police verb
+# runs, so a test calling into it directly has to ask for it itself.
+require Tira::CLI::Police;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
 
 my $git = _which('git');
 plan skip_all => 'git is not installed, and these rules are about a repository'
@@ -91,7 +99,7 @@ close $sloppy;
 run_in( $root, $git, 'add', 'SLOPPY' );
 run_in( $root, $git, 'commit', '--quiet', '-m', 'fixed the thing' );
 
-my $world = Tira::CLI::_police_world( tira => $tira, project => $root );
+my $world = Tira::CLI::Police::police_world( tira => $tira, project => $root );
 
 is( scalar @{ $world->{commits} }, 2, 'both unpushed commits are gathered' );
 ok( defined $world->{unpushed_since}, 'and the moment work started sitting is known' );
@@ -161,7 +169,7 @@ is( scalar @{ Tira::CLI::_reading( $git, '-C', $untracked, 'rev-parse', '--abbre
         '--verify', '--quiet', 'master@{upstream}' ) },
     0, 'git really has no upstream configured for this branch' );
 
-my $behind = Tira::CLI::_unpushed_commits($untracked);
+my $behind = Tira::CLI::Police::_unpushed_commits($untracked);
 is( scalar @{$behind}, 1,
     'the unpushed commit is found anyway, by the branch it was actually pushed to' );
 like( $behind->[0]{subject}, qr/nothing tracks the branch/, 'and it is the right commit' );
@@ -179,9 +187,9 @@ close $only;
 run_in( $fresh, $git, 'add', 'README' );
 run_in( $fresh, $git, 'commit', '--quiet', '-m', 'RLT-005 never pushed anywhere' );
 
-is_deeply( Tira::CLI::_unpushed_commits($fresh), [],
+is_deeply( Tira::CLI::Police::_unpushed_commits($fresh), [],
     'a branch with nowhere to have been pushed reports nothing unpushed' );
-is_deeply( Tira::CLI::_unpushed_commits( File::Spec->catdir( $tmp, 'not-a-repository' ) ), [],
+is_deeply( Tira::CLI::Police::_unpushed_commits( File::Spec->catdir( $tmp, 'not-a-repository' ) ), [],
     'and somewhere that is not a repository is not asked at all' );
 
 # --- a process that is really running --------------------------------------
@@ -193,7 +201,7 @@ is_deeply( Tira::CLI::_unpushed_commits( File::Spec->catdir( $tmp, 'not-a-reposi
 # seriously. Everything below is still a process genuinely running on this
 # machine, read by ps, with the start time ps gave it.
 
-my $running = Tira::CLI::_police_world( tira => $tira, project => $root );
+my $running = Tira::CLI::Police::police_world( tira => $tira, project => $root );
 ok( scalar @{ $running->{processes} }, 'the process table is gathered' );
 ok( ( grep { defined $_->{started_at} } @{ $running->{processes} } ),
     'and each process carries when it started, which is what every leftover rule asks' );
@@ -224,7 +232,7 @@ print {$dirty} "changed\n";
 close $dirty;
 
 sleep 1;
-my $changing = Tira::CLI::_police_world( tira => $tira, project => $root );
+my $changing = Tira::CLI::Police::police_world( tira => $tira, project => $root );
 ok( defined $changing->{working_since},
     'a dirty tree reports when it started changing' );
 is( $changing->{card_in_progress}, 0,
@@ -242,7 +250,7 @@ is( scalar @{$unwatched}, 1, 'work-without-card fires on a tree changing with no
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Being worked' );
 $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
 
-my $watched = Tira::CLI::_police_world( tira => $tira, project => $root );
+my $watched = Tira::CLI::Police::police_world( tira => $tira, project => $root );
 is( $watched->{card_in_progress}, 1, 'a card at a working column is seen' );
 is( scalar @{ violations(
         policies => [ { rule => 'work-without-card', age => '0s', action => 'log-only' } ],
@@ -254,7 +262,7 @@ is( scalar @{ violations(
 # A command that is not installed is not a failure. A machine with no Docker
 # has no leftover containers, and police must keep watching everything else.
 
-is( ref Tira::CLI::_running_containers(), 'ARRAY',
+is( ref Tira::CLI::Police::_running_containers(), 'ARRAY',
     'asking for containers answers with a list even where Docker is not installed' );
 is_deeply( Tira::CLI::_reading('a-program-that-is-not-installed-anywhere'), [],
     'and a missing program reads as nothing, rather than stopping the watch' );
@@ -262,7 +270,7 @@ is_deeply( Tira::CLI::_reading('a-program-that-is-not-installed-anywhere'), [],
 # Docker output understood without Docker, because the suite runs inside a
 # container that has none - and asking a machine that cannot answer proves
 # nothing about whether the answer would be understood.
-my $containers = Tira::CLI::_containers_from( [
+my $containers = Tira::CLI::Serve::_containers_from( [
     "skills-perl-test-run-abc\t2026-08-12 17:43:23 +0100 BST",
     "tira-board\t2026-08-11 09:00:00 +0100 BST",
     "",
@@ -272,22 +280,22 @@ is( $containers->[0]{name}, 'skills-perl-test-run-abc', 'the container is named'
 is( $containers->[0]{started_at}, '2026-08-12T17:43:23',
     'and carries when it started, which is what leftover-container asks' );
 
-is( Tira::CLI::_stamp_from_docker(undef), undef,
+is( Tira::CLI::Serve::_stamp_from_docker(undef), undef,
     'a container with no time at all is not given an invented one' );
-is( Tira::CLI::_stamp_from_docker('some future format nobody has seen'), undef,
+is( Tira::CLI::Serve::_stamp_from_docker('some future format nobody has seen'), undef,
     'nor is one whose time cannot be read - better no answer than a wrong one' );
 
 # The same for the process table, which does parse here, but whose odd lines
 # only appear on a machine in a particular state.
-my $processes = Tira::CLI::_processes_from( [
+my $processes = Tira::CLI::Serve::_processes_from( [
     '  1234 Wed Aug 12 17:43:23 2026 /usr/bin/perl -e sleep 300',
     'a line that is not a process at all',
 ] );
 is( scalar @{$processes}, 1, 'a line that is not a process is not counted as one' );
 is( $processes->[0]{started_at}, '2026-08-12T17:43:23', 'and the start time is read from ps' );
 
-is( Tira::CLI::_stamp_from_ps('not a date'), undef, 'an unreadable ps time answers with nothing' );
-is( Tira::CLI::_stamp_from_ps('Wed Zzz 12 17:43:23 2026'), undef,
+is( Tira::CLI::Serve::_stamp_from_ps('not a date'), undef, 'an unreadable ps time answers with nothing' );
+is( Tira::CLI::Serve::_stamp_from_ps('Wed Zzz 12 17:43:23 2026'), undef,
     'and so does a month name that does not exist' );
 
 # Every rule that reads the world is asked for by name here, so a seventh one

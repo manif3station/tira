@@ -24,6 +24,10 @@ use Test::More;
 
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
 
 my $tmp = tempdir( CLEANUP => 1 );
 
@@ -110,7 +114,7 @@ my $err = '';
 {
     open my $se, '>', \$err or die $!;
     no warnings 'redefine';
-    local *Tira::CLI::_dashboard_hup_if_stale = sub {
+    local *Tira::CLI::Serve::_dashboard_hup_if_stale = sub {
         return { hupped => 1, pid => 4242, version => '9.99' };
     };
     local *STDERR = $se;
@@ -135,7 +139,7 @@ my $quiet = '';
 {
     open my $se, '>', \$quiet or die $!;
     no warnings 'redefine';
-    local *Tira::CLI::_dashboard_hup_if_stale = sub { return { hupped => 0 } };
+    local *Tira::CLI::Serve::_dashboard_hup_if_stale = sub { return { hupped => 0 } };
     local *STDERR = $se;
     local $ENV{TIRA_HOME} = $board;
     eval {

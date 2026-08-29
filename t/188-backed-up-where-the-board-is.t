@@ -41,6 +41,10 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Police holds the police pass, the bridge and the world scan since
+# 4.74 (TKT-607). Tira::CLI loads it with require at the point a police verb
+# runs, so a test calling into it directly has to ask for it itself.
+require Tira::CLI::Police;
 
 plan skip_all => 'git is not installed' if !Tira::CLI::_program_exists('git');
 
@@ -64,7 +68,7 @@ $tira->policy_add( project => $root, rule => 'board-unbacked', age => '7d',
     action => 'bridge-reminder' );
 
 sub unbacked {
-    my $world = Tira::CLI::_police_world( tira => $tira, project => $root );
+    my $world = Tira::CLI::Police::police_world( tira => $tira, project => $root );
     my $pass = $tira->police_pass( project => $root,
         store => File::Spec->catdir( $tmp, 'police' ), world => $world );
     return ( [ grep { $_->{rule} eq 'board-unbacked' } @{ $pass->{violations} } ], $world );
@@ -114,7 +118,7 @@ is_deeply( $found, [],
     do { local $ENV{TIRA_HOME} = $plain; Tira::CLI->run( command => 'backup', tira => $other,
         argv => [ '-o', 'json' ] ) };
 
-    my $world = Tira::CLI::_police_world( tira => $other, project => $plain );
+    my $world = Tira::CLI::Police::police_world( tira => $other, project => $plain );
     ok( defined $world->{backed_up_at},
         'a board that declares no repository is found exactly as before' );
 }

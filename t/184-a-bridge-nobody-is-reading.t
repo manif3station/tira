@@ -32,6 +32,10 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+# Tira::CLI::Police holds the police pass, the bridge and the world scan since
+# 4.74 (TKT-607). Tira::CLI loads it with require at the point a police verb
+# runs, so a test calling into it directly has to ask for it itself.
+require Tira::CLI::Police;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $now = '2026-08-15T09:00:00Z';
@@ -119,7 +123,7 @@ like( $found->[0]{detail}, qr/policy\.bridge/,
     # Three rounds of the real follow loop, with the waiting stubbed out and the
     # clock moving on between them, which is what a tail left running looks like.
     my @clock = ( '2026-08-15T15:00:00Z', '2026-08-15T16:00:00Z', '2026-08-15T17:00:00Z' );
-    Tira::CLI::_bridge_follow( $tira, $store, rounds => 3,
+    Tira::CLI::Police::bridge_follow( $tira, $store, rounds => 3,
         sleeper => sub { $now = shift @clock if @clock } );
 
     is( scalar @{ unread() }, 0,

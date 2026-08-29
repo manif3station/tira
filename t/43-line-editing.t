@@ -15,6 +15,10 @@ my $has_pty = eval { require IO::Pty; 1 } ? 1 : 0;
 
 use lib 'lib';
 use Tira::CLI;
+# Tira::CLI::Wizard holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Wizard;
 
 my $tmp = tempdir( CLEANUP => 1 );
 
@@ -58,7 +62,7 @@ sub edited {
     open my $capture, '>', \$shown or die $!;
     my $answer = do {
         local *STDOUT = $capture;
-        Tira::CLI::_ask( $slave, 'Question', '' );
+        Tira::CLI::Wizard::_ask( $slave, 'Question', '' );
     };
     return ( $answer, $shown );
 }
@@ -101,11 +105,11 @@ is( ( edited( '', closed => 1 ) )[0], undef, 'reaching the end of input abandons
     open my $capture, '>', \$shown_plain or die $!;
     my $plain_answer = do {
         local *STDOUT = $capture;
-        Tira::CLI::_ask( $plain, 'Question', 'fallback' );
+        Tira::CLI::Wizard::_ask( $plain, 'Question', 'fallback' );
     };
     is( $plain_answer, 'typed', 'a piped answer is read exactly as before' );
     like( $shown_plain, qr/\[fallback\]/, 'and the default is still shown' );
-    ok( !defined Tira::CLI::_raw_mode($plain),
+    ok( !defined Tira::CLI::Wizard::_raw_mode($plain),
         'a handle that is not a terminal never enters raw mode' );
 }
 

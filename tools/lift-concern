@@ -1,0 +1,227 @@
+#!/usr/bin/env python3
+"""Lift a concern out of lib/Tira/CLI.pm into a module of its own.
+
+TKT-607. The CLI was 6,048 lines and every helper was in it, so reading it to
+change one command meant reading all of it. This moves a named group of subs -
+with the comment block each one carries, because in this codebase the comment IS
+the explanation and a sub arriving without it arrives undocumented - into
+lib/Tira/CLI/<Module>.pm, and leaves Tira::CLI naming the concern.
+
+IT REFUSES RATHER THAN GUESSES. A sub it cannot find, a call it cannot resolve,
+a file-scoped lexical read by something staying behind: each is an error and
+nothing is written. The first version of this file happily produced a module
+that referenced @BACKUP_AUTHOR - a `my` variable left behind in the other
+package - and perl -c was the only thing that noticed. A tool that moves 250
+lines at a time has to be the thing that notices.
+
+  tools/lift-concern --module Backup --subs _backup,_backup_restore \
+      --rename _backup=backup --dry-run
+
+Without --dry-run it rewrites lib/Tira/CLI.pm and writes the new module's body
+to /tmp/<module>-body.pl for a human to wrap in a package statement and POD.
+The wrapping is deliberately not automated: the header explaining what stayed
+behind and why is the part worth writing by hand.
+"""
+
+import argparse
+import glob
+import re
+import sys
+
+CLI = 'lib/Tira/CLI.pm'
+
+
+def read(path):
+    with open(path) as handle:
+        return handle.read().split('\n')
+
+
+def sub_extent(src, name):
+    """Return (first_line, last_line) 0-indexed inclusive, comment block included.
+
+    One-line subs are the case that has already been got wrong twice on this
+    card: `sub _serving_pid { return $SERVING_PID // $$ }` opens and closes on
+    its own line, and a search for a closing brace in column zero runs straight
+    past it to whatever closes next - 544 lines later, in that instance. So the
+    balanced-braces case is tested before the search starts.
+    """
+    for i, line in enumerate(src):
+        if not re.match(r'^sub %s\b' % re.escape(name), line):
+            continue
+        if line.count('{') == line.count('}') and '{' in line:
+            end = i
+        else:
+            end = None
+            for j in range(i + 1, len(src)):
+                if re.match(r'^\}\s*$', src[j]):
+                    end = j
+                    break
+            if end is None:
+                raise SystemExit('lift-concern: %s never closes at column 0' % name)
+        # Walk back over the comment block directly above, stopping at a blank
+        # line or at code. A comment separated from its sub by a blank line
+        # belongs to the section, not to the sub, and stays.
+        start = i
+        while start > 0 and src[start - 1].startswith('#'):
+            start -= 1
+        return start, end
+    raise SystemExit('lift-concern: no sub named %s in %s' % (name, CLI))
+
+
+def bare_calls(text):
+    return set(re.findall(r'(?<![\w:>$])(_[a-z][a-z0-9_]*)\s*\(', text))
+
+
+def package_vars(text):
+    return set(re.findall(r'[\$@%]([A-Z][A-Z0-9_]+)\b', text))
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--module', required=True, help='e.g. Backup, for Tira::CLI::Backup')
+    parser.add_argument('--subs', required=True, help='comma-separated sub names to move')
+    parser.add_argument('--rename', action='append', default=[],
+                        help='old=new, repeatable; the module\'s public surface')
+    parser.add_argument('--dry-run', action='store_true')
+    args = parser.parse_args()
+
+    names = [s.strip() for s in args.subs.split(',') if s.strip()]
+    renames = dict(pair.split('=', 1) for pair in args.rename)
+    src = read(CLI)
+
+    extents = {}
+    for name in names:
+        extents[name] = sub_extent(src, name)
+
+    moving = '\n'.join('\n'.join(src[a:b + 1]) for a, b in extents.values())
+
+    # --- what the moved code still needs from Tira::CLI --------------------
+    staying_helpers = sorted(bare_calls(moving) - set(names))
+    ours = set(re.findall(r'^our [\$@%]([A-Z][A-Z0-9_]+)', '\n'.join(src), re.M))
+    mine = set(re.findall(r'^my [\$@%]([A-Z][A-Z0-9_]+)', '\n'.join(src), re.M))
+    used_vars = package_vars(moving)
+
+    # A file-scoped `my` cannot be reached across a package boundary. If the
+    # moved code reads one, it either comes too or the lift is refused - this
+    # is the fault perl -c caught in the Backup lift, not this tool.
+    lexical_needed = sorted(used_vars & mine)
+    stranded = []
+    for var in lexical_needed:
+        remaining = []
+        for i, line in enumerate(src):
+            if not re.search(r'[\$@%]%s\b' % var, line):
+                continue
+            if any(a <= i <= b for a, b in extents.values()):
+                continue
+            if re.match(r'^my [\$@%]%s' % var, line):
+                continue
+            remaining.append(i + 1)
+        if remaining:
+            stranded.append((var, remaining))
+
+    if stranded:
+        for var, lines in stranded:
+            print('lift-concern: %s is a file-scoped lexical read by code that stays '
+                  '(lines %s) and by code that moves - it cannot be in two packages'
+                  % (var, ', '.join(str(n) for n in lines)), file=sys.stderr)
+        raise SystemExit(1)
+
+    body = moving
+    for helper in staying_helpers:
+        body = re.sub(r'(?<![\w:>$])%s\(' % helper, 'Tira::CLI::%s(' % helper, body)
+    for var in sorted(used_vars & ours):
+        body = re.sub(r'([\$@%%])%s\b' % var, r'\1Tira::CLI::' + var, body)
+    for old, new in renames.items():
+        body = re.sub(r'^sub %s\b' % re.escape(old), 'sub %s' % new, body, flags=re.M)
+
+    print('lift-concern: %s <- %d subs, %d lines'
+          % (args.module, len(names), len(body.split('\n'))))
+    print('  calls back into Tira::CLI: %s' % (', '.join(staying_helpers) or 'nothing'))
+    print('  package vars qualified:    %s' % (', '.join(sorted(used_vars & ours)) or 'none'))
+    print('  lexicals coming along:     %s' % (', '.join(lexical_needed) or 'none'))
+
+    # --- who still calls these by their old names --------------------------
+    for name in names:
+        callers = []
+        for i, line in enumerate(src):
+            if any(a <= i <= b for a, b in extents.values()):
+                continue
+            if re.search(r'(?<![\w:>$])%s\s*\(' % name, line):
+                callers.append(i + 1)
+        if callers:
+            print('  %s is still called from Tira::CLI at %s - that call site needs '
+                  'rewriting or the sub needs a forwarder'
+                  % (name, ', '.join(str(n) for n in callers)))
+
+    # --- and who calls them from outside Tira::CLI altogether ---------------
+    #
+    # Added after the Police lift, which moved helpers that Tira::CLI::Police
+    # itself then called as Tira::CLI::_name - a break the tool could see and
+    # did not look for. Eleven test files reached in by package name too. Both
+    # are legitimate; neither should be discovered by running the suite.
+    for other in sorted(glob.glob('lib/Tira/CLI/*.pm') + glob.glob('t/*.t')):
+        if other == CLI:
+            continue
+        with open(other) as handle:
+            text = handle.read()
+        hits = sorted({n for n in names
+                       if re.search(r'Tira::CLI::%s\b' % re.escape(n), text)})
+        if hits:
+            print('  %s calls %s by the old package name' % (other, ', '.join(hits)))
+
+    if args.dry_run:
+        print('  (dry run - nothing written)')
+        return
+
+    # Rewrite the outside callers to follow the code. A test that reaches in by
+    # package name is asserting something about a helper, not about which file
+    # it sits in, so it follows rather than being left to fail. Tira::CLI loads
+    # these modules lazily, so a caller from outside has to ask for the module
+    # itself - which is why the require goes in with the rename.
+    note = ('# Tira::CLI::%s holds these since 4.74 (TKT-607). Tira::CLI requires it at\n'
+            '# the point one of its verbs runs, so a caller reaching in directly has to\n'
+            '# ask for it itself.\nrequire Tira::CLI::%s;\n') % (args.module, args.module)
+    followed = []
+    for other in sorted(glob.glob('lib/Tira/CLI/*.pm') + glob.glob('t/*.t')):
+        with open(other) as handle:
+            text = handle.read()
+        before = text
+        for name in names:
+            text = re.sub(r'Tira::CLI::%s\b' % re.escape(name),
+                          'Tira::CLI::%s::%s' % (args.module, renames.get(name, name)), text)
+        if text == before:
+            continue
+        # A sibling module needs the load too, and needs it at the top: it is
+        # already loaded lazily itself, so there is nothing left to defer, and
+        # a `use` says plainly that it cannot work without the other. The
+        # Police lift got this wrong - the names were rewritten, no load was
+        # added, and the suite reported it as five unrelated failures.
+        if other.endswith('.pm') and 'Tira::CLI::%s' % args.module not in \
+                re.sub(r'Tira::CLI::%s::' % args.module, '', text):
+            text = re.sub(r'^(use Tira;\n)',
+                          r'\1use Tira::CLI::%s ();\n' % args.module, text, count=1, flags=re.M)
+        if other.endswith('.t') and 'require Tira::CLI::%s;' % args.module not in text:
+            anchor = list(re.finditer(r'^(use|require) Tira(::CLI)?\b[^\n]*\n', text, re.M))
+            if not anchor:
+                raise SystemExit('lift-concern: %s calls in but loads neither Tira nor '
+                                 'Tira::CLI - it needs the require by hand' % other)
+            at = anchor[-1].end()
+            text = text[:at] + note + text[at:]
+        with open(other, 'w') as handle:
+            handle.write(text)
+        followed.append(other)
+    if followed:
+        print('  followed by: %s' % ', '.join(followed))
+
+    out = '/tmp/%s-body.pl' % args.module.lower()
+    with open(out, 'w') as handle:
+        handle.write(body)
+    for a, b in sorted(extents.values(), reverse=True):
+        del src[a:b + 1]
+    with open(CLI, 'w') as handle:
+        handle.write('\n'.join(src))
+    print('  body -> %s;  %s now %d lines' % (out, CLI, len(src)))
+
+
+if __name__ == '__main__':
+    main()

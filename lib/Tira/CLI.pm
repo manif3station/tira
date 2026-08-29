@@ -564,7 +564,9 @@ sub run {
         my $served = eval {
             $onboard_browser_server->(
                 host => $browser_host, port => $browser_port, create => $create,
-                dir  => $suggested, defaults => sub { _wizard_defaults( $tira, $_[0] ) },
+                dir  => $suggested,
+                defaults => sub { require Tira::CLI::Wizard;
+                    Tira::CLI::Wizard::_wizard_defaults( $tira, $_[0] ) },
                 questions => $tira->onboarding_questions,
             );
             1;
@@ -578,7 +580,10 @@ sub run {
     # onboard needs no terminal detection: without input it reaches end of
     # stream immediately and aborts rather than blocking.
     if ( $command eq 'onboard' ) {
-        my ( $answers, $guided_status ) = _project_wizard( $tira, $guided_input // \*STDIN, \%option );
+        # The wizard and its line editor are in Tira::CLI::Wizard, loaded here
+        # because tira.onboard is the only command that prompts. TKT-607.
+        require Tira::CLI::Wizard;
+        my ( $answers, $guided_status ) = Tira::CLI::Wizard::_project_wizard( $tira, $guided_input // \*STDIN, \%option );
         if ( !$answers ) {
             print STDERR "Nothing was created.\n";
             return $guided_status;
@@ -644,8 +649,10 @@ sub run {
             # that every sixty-five seconds for twenty hours without ever
             # upgrading, and it is why the page appeared to stop refreshing on
             # its own. Proved on an isolated board rather than reasoned about.
+            require Tira::CLI::Serve;
             my $restarted = _serving_pid() == $$
-              && _restart_if_updated( $restarter, $command, $type, $option{project} );
+              && Tira::CLI::Serve::_restart_if_updated( $restarter, $command, $type,
+                $option{project} );
 
             # And when it cannot, it says so instead of failing quietly once a
             # minute. The page reads this payload every sixty seconds already.
@@ -786,45 +793,6 @@ sub _tira_home {
     return $home;
 }
 
-# An agent working on something else, reporting a fault in Tira. It knows what
-# it found and which project it is; it is told nothing about where the report
-# goes, which is the whole reason this exists rather than an instruction to go
-# and find the board.
-sub _report_to_tira {
-    my ( $tira, $args, $option ) = @_;
-
-    my $from = $option->{from};
-    die "Which project is this coming from? Say so: --from <project>\n"
-      . "A report nobody can go back to is a report nobody can answer.\n"
-      if !defined $from || $from !~ /\S/;
-
-    my $title = $option->{title};
-    die "What did you find? Give it a title: --title <what happened>\n"
-      if !defined $title || $title !~ /\S/;
-
-    my $card = $tira->create_record(
-        project  => _tira_home(),
-        type     => 'ticket',
-        title    => $title,
-
-        # Raised as the owner. An agent in another project is not a member of
-        # this board, and inventing a member per caller would fill the roster
-        # with names nobody here works with. The origin is a label instead, so
-        # the report can be found again and answered on the card.
-        reporter    => 'michael',
-        labels      => [$from],
-        description => $option->{text} // '',
-        source      => "Reported from $from through tira.dev.found.bug_or_improvement",
-    );
-
-    # What comes back names the card and nothing else. A path here would teach
-    # the caller the one thing this command exists to keep from it.
-    return {
-        ref     => $card->{ref},
-        from    => $from,
-        message => "Reported as $card->{ref}. Somebody will pick it up; ask about it there.",
-    };
-}
 
 sub _dd_path_resolver {
     return sub {
@@ -894,24 +862,6 @@ sub _entrypoint_for {
     return ( $WINDOWS ? -f $path : -x $path ) ? $path : undef;
 }
 
-sub _restart_into {
-    my (@argv) = @_;
-    my ($perl) = $^X =~ /\A([^\x00-\x1f\x7f]+)\z/ or return 0;
-    my $script = shift @argv or return 0;
-
-    # Both the interpreter and the script are absolute here, so the search path
-    # is never consulted to find them; taint mode objects to it regardless.
-    # Handing the restarted process a known-safe path is better than laundering
-    # whatever this one happened to inherit, and better than wiping it.
-    # Both are absolute, so the search path is never consulted to find them;
-    # this is about what the restarted process inherits. The POSIX directories
-    # mean nothing on Windows, where emptying the path would break the child
-    # rather than protect it, so only the shell variables go there.
-    local $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin' if !$WINDOWS;
-    delete local @ENV{qw(IFS CDPATH ENV BASH_ENV)};
-
-    exec( $perl, $script, @argv );
-}
 
 # The version in the module a restart would load. installed_version() reads a
 # label out of .env, and a label is not what exec changes - the file is. Asking
@@ -928,48 +878,6 @@ sub _version_on_disk {
     return $body =~ /^our \$VERSION = '([^']+)';/m ? $1 : undef;
 }
 
-sub _restart_if_updated {
-    my ( $restarter, $command, $type, $project ) = @_;
-    my $installed = Tira::installed_version();
-
-    # Unreadable means unknown, and restarting on unknown would loop forever.
-    return 0 if !defined $installed;
-
-    # And so would restarting into the code already running. This used to
-    # compare .env against the running version - two things a restart cannot
-    # reconcile, because exec loads the same module again and disagrees with
-    # .env again. His four boards did that every sixty seconds for twenty
-    # hours, and the test suite did it once and hung for ever. The question is
-    # not whether the label moved but whether the code did.
-    my $on_disk = _version_on_disk();
-    return 0 if !defined $on_disk || $on_disk eq $Tira::VERSION;
-
-    # A restart that cannot work is worse than a stale board, because it turns
-    # "running slightly old code" into "not running". So the target is checked
-    # first, and if anything is missing the board simply carries on.
-    my $script = _entrypoint_for( defined $type ? "$command.$type" : $command )
-      // _entrypoint_for($command)
-      or return 0;
-    my @argv = grep { defined }
-      map { /\A([^\x00-\x1f\x7f]*)\z/ ? $1 : undef } @Tira::CLI::RESTART_ARGV;
-    return 0 if @argv != @Tira::CLI::RESTART_ARGV;
-
-    # The board is handed over explicitly rather than left to be rediscovered,
-    # so the new process does not depend on a working directory. It goes in the
-    # environment because that is the only way to name a board now: there were
-    # three - a flag, the environment and the working directory - and three
-    # ways to say one thing is three behaviours to keep in agreement. It is set
-    # rather than inherited, which is the same guarantee the flag gave.
-    # TKT-250.
-    return $restarter->( $script, @argv )
-      if !defined $project || $project !~ /\S/;
-
-    # Set for the new process rather than left to whatever it inherits, which
-    # is the same guarantee the flag used to give. exec keeps the environment,
-    # so naming it here is naming it there.
-    local $ENV{TIRA_HOME} = $project;
-    return $restarter->( $script, @argv );
-}
 
 sub _serve_browser {
     require Tira::DashboardWeb;
@@ -1057,766 +965,19 @@ sub _attachment_key {
 # One provider set feeds both the CLI-launched Dancer2 server and the
 # standalone dashboard.psgi, so browser mutations can never drift from the
 # engine's validated command surface.
+# 701 lines of provider coderefs used to sit here, needed by the one invocation
+# that serves a board and read by everybody changing anything else. They are in
+# Tira::CLI::Browser now, loaded when a board is actually served - the shape
+# this file already used for Tira::DashboardWeb and Tira::OnboardWeb.
+#
+# The name stays. Twenty test files and the dashboard call
+# Tira::CLI::browser_providers, so it still exists and still answers; a refactor
+# that renames its own front door is not behaviour-preserving. TKT-607.
 sub browser_providers {
-    my (%args) = @_;
-    my $tira = $args{tira};
-    my $project = $args{project};
-    my $json = Tira::json_object()->canonical;
-    my %editable = map { $_ => 1 } qw(
-        title description problem_or_feature solution_needed source
-        sdlc_gate lifecycle fix_version assignee reporter priority
-        start_date due_date
-    );
-    my %list_editable = (
-        labels => 'labels_replace', affects_versions => 'affects_versions_replace',
-        key_details => 'key_details_replace', deliverables => 'deliverables_replace',
-        acceptance_criteria => 'acceptance_replace', test_steps => 'test_steps_replace',
-        bdd => 'bdd_replace', atdd => 'atdd_replace',
-        scope_included => 'scope', scope_excluded => 'scope',
-    );
-    return (
-        move => sub {
-            my ($payload) = @_;
-            die "Move payload must be an object\n" if ref($payload) ne 'HASH';
-            for my $key (qw(ref column)) {
-                die "Move payload requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
-            }
-            my %move_args = (
-                project => $project,
-                ( defined $payload->{type} ? ( type => $payload->{type} ) : () ),
-                ( defined $payload->{_signed_in} ? ( author => $payload->{_signed_in} ) : () ),
-                ref => $payload->{ref}, column => $payload->{column},
-            );
-
-            # The gating half of TKT-426 stays CLI/agent-only on purpose - a
-            # human moving a card in the browser is not an agent skipping a
-            # gate. But the bookkeeping half (populating a destination
-            # column's required-action template, resetting one on the way
-            # back through) is not enforcement, it is keeping the card
-            # accurate for whoever looks at it next - and that has to happen
-            # here too, or a browser move silently leaves required_items
-            # stale in either direction. TKT-452.
-            my $before = eval { $tira->record_show(%move_args) };
-            my $from   = $before ? $before->{column} : undef;
-            my $record = $tira->record_move(%move_args);
-
-            # column_list (and the required-action bookkeeping below) needs a
-            # concrete board type, unlike record_show/record_move above, which
-            # resolve the record by ref alone (TKT-532) - recovered here from
-            # the record record_move already loaded, so a caller is never
-            # required to say what the engine can already tell for itself.
-            my %column_args = ( %move_args, type => $record->{type} );
-            my $columns = eval { $tira->column_list(%column_args) };
-            _apply_column_required_actions( $tira, \%column_args, $from, $payload->{column}, $columns, $record )
-              if ref $columns eq 'ARRAY';
-
-            # The destination's ENTRY actions land here too, for the same
-            # reason its exit ones do: bookkeeping, not gating. The refusal
-            # stays CLI-only (TKT-426), so a dragged card is admitted - but it
-            # arrives carrying what that column asks of it rather than
-            # pretending nothing was asked. TKT-591.
-            # The failure is SAID rather than dropped. This path cannot
-            # refuse - that is TKT-426's whole point - but it can decline to
-            # be silent: a column whose entry list could not be placed leaves
-            # the card claiming nothing was asked of it, and the server log is
-            # where whoever is running the dashboard would find out. Codex
-            # review caught the POD promising a report that nothing made.
-            my $entry_failed = ref $columns eq 'ARRAY'
-              ? _populate_entry_required_actions( $tira, \%column_args, $payload->{column}, $columns, $record )
-              : [];
-            printf {*STDERR} "%s moved into %s, but %d of that column's entry required action(s) could not be put on the card: %s\n",
-              $payload->{ref}, $payload->{column}, scalar @{$entry_failed},
-              join( '; ', map { ( length $_->[0] ? $_->[0] : '(an empty entry action)' ) . " - $_->[1]" } @{$entry_failed} )
-              if @{$entry_failed};
-
-            # Bookkeeping, so it belongs here as well as on the CLI path -
-            # TKT-452's distinction exactly: the gating half stays CLI-only
-            # because a human dragging a card is not an agent skipping a gate,
-            # but keeping the card accurate for whoever looks at it next is
-            # not enforcement and has to happen either way. Left out at first,
-            # which meant a card dragged back to backlog in the browser went
-            # on claiming somebody was working its tasks - the very fault
-            # TKT-596 exists to fix, surviving on the other path. TKT-596.
-            _reset_linked_tasks_on_return( $tira, \%column_args, $payload->{column} );
-
-            $record = $tira->record_show(%column_args) if ref $columns eq 'ARRAY';
-
-            return $json->encode( { ok => Cpanel::JSON::XS::true, record => $record } );
-        },
-        detail => sub {
-            my ($payload) = @_;
-            die "Record detail requires ref\n"
-              if ref($payload) ne 'HASH' || !defined $payload->{ref};
-            my $record = $tira->record_show(
-                project => $project,
-                ( defined $payload->{type} ? ( type => $payload->{type} ) : () ),
-                ref => $payload->{ref},
-            );
-            _stamp_attachment_types( $tira, $project, $payload->{ref}, $record );
-            return $json->encode($record);
-        },
-        # The browser goes through the same subroutines the command line goes
-        # through, so a rule cannot be enforced in one and forgotten in the
-        # other. A failed sign-in answers ok => false rather than dying,
-        # because the login page has to show a message, not a stack trace.
-        # Fetched only when somebody expands the section. A card has a great
-        # deal happen to it, and loading all of it whenever a card is opened
-        # would bury everything else on the card.
-        work_log => sub {
-            my ($payload) = @_;
-            die "A card reference is required\n" if !defined $payload->{ref};
-            return $json->encode(
-                $tira->work_log( project => $project, ref => $payload->{ref} ) );
-        },
-
-        # What police has said about this card, read when the card opens rather
-        # than when a section is expanded: there is at most one line per thing
-        # police has said, unlike the work log, and the section has to know
-        # whether it has anything before it decides to appear at all.
-        #
-        # A card reference is required. Answering an unnamed card with the whole
-        # board's enforcement log would put every other card's chasing on
-        # whichever card happened to be open.
-        police_log => sub {
-            my ($payload) = @_;
-            die "A card reference is required\n" if !defined $payload->{ref};
-            return $json->encode(
-                $tira->enforcement_log(
-                    project => $project,
-                    store   => $args{store}
-                      // _police_store( $tira->discover_project( project => $project ) ),
-                    ref     => $payload->{ref},
-                ) );
-        },
-        login_page => sub {
-            my $project_name = eval { $tira->project_show( project => $project )->{name} };
-            return $tira->login_page_html( name => $project_name );
-        },
-        login_start => sub {
-            my ($payload) = @_;
-            my $token = eval {
-                $tira->login_start(
-                    project => $project, id => $payload->{id},
-                    password => $payload->{password},
-                );
-            };
-            return $json->encode( { ok => Cpanel::JSON::XS::false } ) if !defined $token;
-            return $json->encode( { ok => Cpanel::JSON::XS::true, token => $token } );
-        },
-        login_register => sub {
-            my ($payload) = @_;
-            my $person = eval {
-                $tira->login_register(
-                    project => $project, id => $payload->{id},
-                    password => $payload->{password},
-                );
-            };
-            return $json->encode( { ok => Cpanel::JSON::XS::false } ) if !$person;
-            my $token = $tira->login_start(
-                project => $project, id => $payload->{id}, password => $payload->{password} );
-            return $json->encode( { ok => Cpanel::JSON::XS::true, token => $token, claimed => Cpanel::JSON::XS::true } );
-        },
-        session_resume => sub {
-            my ($payload) = @_;
-            my $session = $tira->session_resume( project => $project, token => $payload->{token} );
-            return $json->encode( $session ? { %{$session} } : { person => undef } );
-        },
-        session_peek => sub {
-            my ($payload) = @_;
-            my $session = $tira->session_peek( project => $project, token => $payload->{token} );
-            return $json->encode( $session ? { %{$session} } : { person => undef } );
-        },
-        session_end => sub {
-            my ($payload) = @_;
-            my $ended = eval { $tira->session_end( project => $project, token => $payload->{token} ) };
-            return $json->encode( { ok => $ended ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false } );
-        },
-        question_answer => sub {
-            my ($payload) = @_;
-            die "Answering needs a question and some text\n"
-              if ref($payload) ne 'HASH' || !defined $payload->{id} || !defined $payload->{text};
-            return $json->encode( {
-                ok => Cpanel::JSON::XS::true,
-                question => $tira->question_answer(
-                    project => $project, id => $payload->{id},
-                    text => $payload->{text}, author => $payload->{author},
-                ),
-            } );
-        },
-        question_attach => sub {
-            my ($payload) = @_;
-            die "Attaching needs a question, a filename and content\n"
-              if ref($payload) ne 'HASH' || !defined $payload->{id}
-              || !defined $payload->{filename} || !defined $payload->{content_base64};
-            require MIME::Base64;
-            my $content = MIME::Base64::decode_base64( $payload->{content_base64} );
-            die "That upload is empty\n" if !length $content;
-
-            # The browser hands over bytes rather than a path, so they are
-            # written somewhere the engine can take a path to and then removed.
-            require File::Temp;
-            my ( $fh, $path ) = File::Temp::tempfile(
-                SUFFIX => ( $payload->{filename} =~ /(\.[A-Za-z0-9]+)\z/ ? $1 : '.bin' ) );
-            binmode $fh;
-            print {$fh} $content;
-            close $fh;
-            my $question = eval {
-                $tira->question_attach(
-                    project => $project, id => $payload->{id},
-                    file => $path, to => $payload->{to},
-                    filename => $payload->{filename} );
-            };
-            my $error = $@;
-            unlink $path;
-            die $error if !$question;
-            return $json->encode( { ok => Cpanel::JSON::XS::true, question => $question } );
-        },
-        question_mark => sub {
-            my ($payload) = @_;
-            die "Marking needs a question and a mark\n"
-              if ref($payload) ne 'HASH' || !defined $payload->{id} || !defined $payload->{mark};
-            return $json->encode( {
-                ok => Cpanel::JSON::XS::true,
-                question => $tira->question_mark(
-                    project => $project, id => $payload->{id}, mark => $payload->{mark} ),
-            } );
-        },
-        columns => sub {
-            my ($query) = @_;
-            my $list = $tira->column_list( project => $project, type => $query->{type} );
-
-            # Which columns already start new cards, so the dialog's own
-            # checkbox opens showing what tira.column.roles --role entry=X
-            # already declared, rather than always opening blank. TKT-494.
-            my $declared = eval { $tira->column_roles( project => $project, type => $query->{type} )->{entry} };
-            my @entries = ref $declared eq 'ARRAY' ? @{$declared}
-              : ( defined $declared && $declared ne '' ? ($declared) : () );
-            my %is_entry = map { $_ => 1 } @entries;
-            $_->{entry} = $is_entry{ $_->{name} } ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false
-              for @{$list};
-            return $json->encode($list);
-        },
-        column_apply => sub {
-            my ($payload) = @_;
-            die "Column layout must be an object with a type and columns\n"
-              if ref($payload) ne 'HASH' || ref $payload->{columns} ne 'ARRAY';
-            my $result = $tira->column_apply(
-                project => $project, type => $payload->{type},
-                columns => $payload->{columns},
-            );
-
-            # An 'entry' field is which columns the dialog's own checkboxes
-            # left checked - a full replacement of the entry role, the same
-            # semantics tira.column.roles --role entry=X already has, not an
-            # add-only merge. Omitted entirely (not an empty array) means the
-            # save was only ever about layout, so the existing entry columns
-            # are left exactly as they were. TKT-494.
-            if ( exists $payload->{entry} && ref $payload->{entry} eq 'ARRAY' ) {
-                $tira->column_roles_set(
-                    project => $project, type => $payload->{type},
-                    roles   => { entry => $payload->{entry} },
-                );
-            }
-            return $json->encode($result);
-        },
-        # The board-wide police policy engine, separate from a column's own
-        # required-action template (the columns/column_apply pair above): 36
-        # rules covering things a column dialog cannot express at all -
-        # conversation-not-folded, question-unanswered, card-stalled and the
-        # rest. Requested directly: "create a new modal on the html
-        # dashboard, the user can view and edit and add the policies not
-        # just column policies." TKT-493.
-        policies => sub {
-            return $json->encode( {
-                declared     => $tira->policy_list( project => $project ),
-                declined     => $tira->policy_declined( project => $project ),
-                undeclared   => $tira->policy_undeclared( project => $project ),
-                rules        => $tira->policy_rule_specs(),
-                actions      => $tira->policy_actions(),
-                token_fields => $tira->policy_message_fields(),
-                token_help   => $tira->policy_message_field_help(),
-            } );
-        },
-        policy_add => sub {
-            my ($payload) = @_;
-            die "Policy payload must be an object\n" if ref($payload) ne 'HASH';
-
-            # Every field policy.add itself accepts, so nothing typeable on
-            # the command line is unreachable from the dashboard - the same
-            # completeness bar TKT-493's own acceptance criteria set.
-            my %policy = map { $_ => $payload->{$_} }
-              grep { defined $payload->{$_} && $payload->{$_} ne '' }
-              qw(rule action enter before column age read_age max pattern
-                 message require sandbox require_link link_to
-                 type on_column ref);
-            return $json->encode(
-                $tira->policy_add( project => $project, %policy ) );
-        },
-        policy_remove => sub {
-            my ($payload) = @_;
-            die "A policy id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
-            return $json->encode(
-                $tira->policy_remove( project => $project, id => $payload->{id} ) );
-        },
-        policy_decline => sub {
-            my ($payload) = @_;
-            die "A policy rule is required\n" if !defined $payload->{rule} || $payload->{rule} eq '';
-            return $json->encode(
-                $tira->policy_decline(
-                    project => $project, rule => $payload->{rule}, reason => $payload->{reason},
-                    ( defined $payload->{_signed_in} ? ( author => $payload->{_signed_in} ) : () ),
-                ) );
-        },
-
-        # TKT-516: the Task List section's own providers, one per CLI verb -
-        # full parity, his words, so every one of these exists even where a
-        # thin dashboard control is all it needs.
-        tasklist => sub {
-            my ($query) = @_;
-            return $json->encode(
-                $tira->tasklist_list( project => $project, session => $query->{session} // '' ) );
-        },
-        tasklist_add => sub {
-            my ($payload) = @_;
-            die "Task text is required\n" if !defined $payload->{text} || $payload->{text} eq '';
-            return $json->encode( $tira->tasklist_add(
-                project => $project, text => $payload->{text}, session => $payload->{session} // '',
-                refs => $payload->{refs} // [],
-            ) );
-        },
-        tasklist_update => sub {
-            my ($payload) = @_;
-            die "A task id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
-            return $json->encode( $tira->tasklist_update(
-                project => $project, id => $payload->{id}, status => $payload->{status},
-                text => $payload->{text}, session => $payload->{session} // '' ) );
-        },
-        tasklist_next => sub {
-            my ($payload) = @_;
-            return $json->encode(
-                $tira->tasklist_next( project => $project, session => $payload->{session} // '' ) // {} );
-        },
-        tasklist_shift => sub {
-            my ($payload) = @_;
-            return $json->encode(
-                $tira->tasklist_shift( project => $project, session => $payload->{session} // '' ) // {} );
-        },
-        tasklist_pop => sub {
-            my ($payload) = @_;
-            return $json->encode(
-                $tira->tasklist_pop( project => $project, session => $payload->{session} // '' ) // {} );
-        },
-        tasklist_unshift => sub {
-            my ($payload) = @_;
-            die "Task text is required\n" if !defined $payload->{text} || $payload->{text} eq '';
-            return $json->encode( $tira->tasklist_unshift(
-                project => $project, text => $payload->{text}, session => $payload->{session} // '' ) );
-        },
-        tasklist_slice => sub {
-            my ($payload) = @_;
-            die "Task text is required\n" if !defined $payload->{text} || $payload->{text} eq '';
-            die "A position is required\n" if !defined $payload->{position};
-            return $json->encode( $tira->tasklist_slice(
-                project => $project, text => $payload->{text}, position => $payload->{position},
-                session => $payload->{session} // '' ) );
-        },
-        tasklist_remove => sub {
-            my ($payload) = @_;
-            die "A task id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
-            return $json->encode( $tira->tasklist_remove(
-                project => $project, id => $payload->{id}, session => $payload->{session} // '' ) );
-        },
-        tasklist_import => sub {
-            my ($payload) = @_;
-            die "A card ref is required\n" if !defined $payload->{ref} || $payload->{ref} eq '';
-            return $json->encode( $tira->tasklist_import(
-                project => $project, ref => $payload->{ref}, session => $payload->{session} // '' ) );
-        },
-        tasklist_prune => sub {
-            my ($payload) = @_;
-            return $json->encode(
-                $tira->tasklist_prune( project => $project, session => $payload->{session} // '' ) );
-        },
-        tasklist_task_attach_add => sub {
-            my ($payload) = @_;
-            die "Attachment upload requires id, filename, and content\n"
-              if ref($payload) ne 'HASH' || !defined $payload->{id} || !defined $payload->{filename}
-              || !defined $payload->{content_base64};
-            require MIME::Base64;
-            my $content = MIME::Base64::decode_base64( $payload->{content_base64} );
-            return $json->encode( $tira->tasklist_task_attach_add_content(
-                project => $project, id => $payload->{id},
-                filename => $payload->{filename}, content => $content,
-                session => $payload->{session} // '',
-            ) );
-        },
-        tasklist_task_attach_discard => sub {
-            my ($payload) = @_;
-            die "A task id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
-            die "A filename is required\n" if !defined $payload->{filename} || $payload->{filename} eq '';
-            return $json->encode( $tira->tasklist_task_attach_discard(
-                project => $project, id => $payload->{id}, files => [ $payload->{filename} ],
-                session => $payload->{session} // '' ) );
-        },
-        tasklist_task_ref_link => sub {
-            my ($payload) = @_;
-            die "A task id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
-            die "A ref is required\n" if !defined $payload->{ref} || $payload->{ref} eq '';
-            return $json->encode( $tira->tasklist_task_ref_link(
-                project => $project, id => $payload->{id}, refs => [ $payload->{ref} ],
-                session => $payload->{session} // '' ) );
-        },
-        tasklist_task_ref_unlink => sub {
-            my ($payload) = @_;
-            die "A task id is required\n" if !defined $payload->{id} || $payload->{id} eq '';
-            die "A ref is required\n" if !defined $payload->{ref} || $payload->{ref} eq '';
-            return $json->encode( $tira->tasklist_task_ref_unlink(
-                project => $project, id => $payload->{id}, refs => [ $payload->{ref} ],
-                session => $payload->{session} // '' ) );
-        },
-        tasklist_sessions => sub {
-            return $json->encode( $tira->tasklist_sessions( project => $project ) );
-        },
-
-        search => sub {
-            my ($query) = @_;
-
-            # No type: the board filter searches the whole project, because a
-            # question reference can name a card on any board.
-            return $json->encode( [] ) if !defined $query->{text} || $query->{text} eq '';
-            return $json->encode(
-                $tira->search(
-                    project => $project, text => $query->{text},
-                    ( defined $query->{type} && $query->{type} ne '' ? ( type => $query->{type} ) : () ),
-                    refs_only => 1,
-                )
-            );
-        },
-        create => sub {
-            my ($payload) = @_;
-            die "Create payload must be an object\n" if ref($payload) ne 'HASH';
-            for my $key (qw(type column title)) {
-                die "Create payload requires type, column, and title\n"
-                  if !defined $payload->{$key} || ref $payload->{$key} || $payload->{$key} eq '';
-            }
-            my %optional;
-            for my $field (qw(description priority assignee reporter)) {
-                next if !defined $payload->{$field} || $payload->{$field} eq '';
-                die "Field '$field' requires a plain value\n" if ref $payload->{$field};
-                $optional{$field} = $payload->{$field};
-            }
-            $optional{reporter} = $payload->{_signed_in}
-              if !defined $optional{reporter} && defined $payload->{_signed_in};
-            my $record = $tira->create_record(
-                project => $project, type => $payload->{type}, title => $payload->{title},
-                ( defined $payload->{_signed_in} ? ( author => $payload->{_signed_in} ) : () ),
-                %optional,
-            );
-            $record = $tira->record_move(
-                project => $project, ref => $record->{ref}, column => $payload->{column},
-                ( defined $payload->{_signed_in} ? ( author => $payload->{_signed_in} ) : () ),
-            ) if $payload->{column} ne 'backlog';
-            return $json->encode( { ok => Cpanel::JSON::XS::true, record => $record } );
-        },
-        update => sub {
-            my ($payload) = @_;
-            die "Update payload must be an object\n" if ref($payload) ne 'HASH';
-            for my $key (qw(ref field)) {
-                die "Update payload requires ref, field, and value\n"
-                  if !defined $payload->{$key} || ref $payload->{$key} || !exists $payload->{value};
-            }
-            my $field = $payload->{field};
-            my $value = $payload->{value};
-            if ( $list_editable{$field} ) {
-                die "Field '$field' requires an array value\n" if ref $value ne 'ARRAY';
-                die "Field '$field' accepts plain text items only\n" if grep { ref $_ || !defined $_ } @{$value};
-                my %change;
-                if ( $field =~ /\Ascope_(included|excluded)\z/ ) {
-                    my $side = $1;
-                    my $scope = $tira->record_show( project => $project, ref => $payload->{ref} )->{scope};
-                    $change{scope} = { %{ $scope // {} }, $side => $value };
-                }
-                else {
-                    $change{ $list_editable{$field} } = $value;
-                }
-                my $record = $tira->record_update(
-                    project => $project, ref => $payload->{ref},
-                    author => $payload->{author} // $payload->{_signed_in}, %change );
-                return $json->encode( { ok => Cpanel::JSON::XS::true, record => $record } );
-            }
-            die "Field '$field' is not editable\n" if !$editable{$field};
-            die "Field '$field' requires a plain value\n" if ref $value;
-            die "Update base must be a plain value\n" if exists $payload->{base} && ref $payload->{base};
-            my $record = $tira->record_update(
-                project => $project, ref => $payload->{ref},
-                author => $payload->{author} // $payload->{_signed_in}, $field => $value,
-                ( exists $payload->{base} ? ( expect => { $field => $payload->{base} } ) : () ),
-            );
-            return $json->encode( { ok => Cpanel::JSON::XS::true, record => $record } );
-        },
-        link_types => sub {
-            return $json->encode(
-                [ map { { outward => $_->{outward}, inward => $_->{inward} } }
-                  @{ $tira->link_type_list( project => $project ) } ]
-            );
-        },
-        ( map {
-            my ( $name, $method ) = @{$_};
-            ( $name => sub {
-                my ($payload) = @_;
-                die ucfirst( $name =~ tr/_/ /r ) . " requires parent and child\n"
-                  if ref($payload) ne 'HASH'
-                  || !defined $payload->{parent} || ref $payload->{parent}
-                  || !defined $payload->{child} || ref $payload->{child};
-                my $result = $tira->$method(
-                    project => $project, parent => $payload->{parent}, child => $payload->{child},
-                );
-                return $json->encode( { ok => Cpanel::JSON::XS::true, result => $result } );
-            } );
-        } ( [ hierarchy_link => 'hierarchy_link' ], [ hierarchy_unlink => 'hierarchy_unlink' ],
-            [ subitem_link => 'subitem_link' ], [ subitem_unlink => 'subitem_unlink' ] ) ),
-        link_add => sub {
-            my ($payload) = @_;
-            die "Link add requires from, type, and to\n"
-              if ref($payload) ne 'HASH'
-              || grep { !defined $payload->{$_} || ref $payload->{$_} } qw(from type to);
-            my $link = $tira->link_add(
-                project => $project, from => $payload->{from},
-                type => $payload->{type}, to => $payload->{to},
-            );
-            return $json->encode( { ok => Cpanel::JSON::XS::true, link => $link } );
-        },
-        link_remove => sub {
-            my ($payload) = @_;
-            die "Link removal requires from, type, and to\n"
-              if ref($payload) ne 'HASH'
-              || grep { !defined $payload->{$_} || ref $payload->{$_} } qw(from type to);
-            my $result = $tira->link_remove(
-                project => $project, from => $payload->{from},
-                type => $payload->{type}, to => $payload->{to},
-            );
-            return $json->encode( { ok => Cpanel::JSON::XS::true, result => $result } );
-        },
-        checklist_add => sub {
-            my ($payload) = @_;
-            die "Checklist payload must be an object\n" if ref($payload) ne 'HASH';
-            for my $key (qw(ref item status)) {
-                die "Checklist add requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
-            }
-            my $entry = $tira->checklist_add(
-                project => $project, ref => $payload->{ref}, author => $payload->{author} // $payload->{_signed_in},
-                item => $payload->{item}, status => $payload->{status},
-            );
-            return $json->encode( { ok => Cpanel::JSON::XS::true, entry => $entry } );
-        },
-        checklist_update => sub {
-            my ($payload) = @_;
-            die "Checklist payload must be an object\n" if ref($payload) ne 'HASH';
-            die "Checklist update requires ref and id\n"
-              if !defined $payload->{ref} || ref $payload->{ref} || !defined $payload->{id} || ref $payload->{id};
-            my $entry = $tira->checklist_update(
-                project => $project, ref => $payload->{ref}, id => $payload->{id},
-                author => $payload->{author} // $payload->{_signed_in},
-                ( defined $payload->{item} ? ( item => $payload->{item} ) : () ),
-                ( defined $payload->{status} ? ( status => $payload->{status} ) : () ),
-                ( defined $payload->{command} ? ( command => $payload->{command} ) : () ),
-                ( defined $payload->{proof} ? ( proof => $payload->{proof} ) : () ),
-            );
-            return $json->encode( { ok => Cpanel::JSON::XS::true, entry => $entry } );
-        },
-        required_action_update => sub {
-            my ($payload) = @_;
-            die "Required action payload must be an object\n" if ref($payload) ne 'HASH';
-            die "Required action update requires ref and id\n"
-              if !defined $payload->{ref} || ref $payload->{ref} || !defined $payload->{id} || ref $payload->{id};
-            my $entry = $tira->required_item_update(
-                project => $project, ref => $payload->{ref}, id => $payload->{id},
-                author => $payload->{author} // $payload->{_signed_in},
-                ( defined $payload->{item} ? ( item => $payload->{item} ) : () ),
-                ( defined $payload->{status} ? ( status => $payload->{status} ) : () ),
-                ( defined $payload->{command} ? ( command => $payload->{command} ) : () ),
-                ( defined $payload->{proof} ? ( proof => $payload->{proof} ) : () ),
-            );
-            return $json->encode( { ok => Cpanel::JSON::XS::true, entry => $entry } );
-        },
-        comment_add => sub {
-            my ($payload) = @_;
-            die "Comment payload must be an object\n" if ref($payload) ne 'HASH';
-
-            # A comment is personal, unlike an assignment or a move - TKT-458.
-            # Everywhere else on the board an explicit author is a deliberate
-            # override the session defers to; here it is the one thing a
-            # signed-in person cannot hand to someone else by picking wrong,
-            # so the session wins even over an author the payload names.
-            $payload->{author} = $payload->{_signed_in}
-              if defined $payload->{_signed_in};
-            for my $key (qw(ref author text)) {
-                die "Comment payload requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
-            }
-            die "Project person '$payload->{author}' is inactive\n"
-              if grep { $_->{id} eq $payload->{author} && !$_->{active} }
-              @{ $tira->person_list( project => $project ) };
-            my $comment = $tira->comment_add(
-                project => $project, ref => $payload->{ref},
-                author => $payload->{author}, text => $payload->{text},
-            );
-            return $json->encode( { ok => Cpanel::JSON::XS::true, comment => $comment } );
-        },
-        comment_update => sub {
-            my ($payload) = @_;
-            die "Comment payload must be an object\n" if ref($payload) ne 'HASH';
-            for my $key (qw(ref comment text)) {
-                die "Comment payload requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
-            }
-
-            # Same reasoning as comment_add (TKT-458): a comment is personal,
-            # so the signed-in session is who edited it - not something a
-            # client-sent field could override even if it tried to. TKT-466.
-            my $comment = $tira->comment_update(
-                project => $project, ref => $payload->{ref},
-                author => $payload->{_signed_in} // $payload->{author},
-                comment => $payload->{comment}, text => $payload->{text},
-            );
-            return $json->encode( { ok => Cpanel::JSON::XS::true, comment => $comment } );
-        },
-        comment_remove => sub {
-            my ($payload) = @_;
-            die "Comment removal payload must be an object\n" if ref($payload) ne 'HASH';
-            for my $key (qw(ref comment)) {
-                die "Comment removal requires $key\n" if !defined $payload->{$key} || ref $payload->{$key};
-            }
-            my $removed = $tira->comment_remove(
-                project => $project, ref => $payload->{ref}, comment => $payload->{comment},
-            );
-            return $json->encode( { ok => Cpanel::JSON::XS::true, removed => $removed } );
-        },
-        people => sub {
-            return $json->encode(
-                [ map { { id => $_->{id}, name => $_->{name} } }
-                  grep { $_->{active} } @{ $tira->person_list( project => $project ) } ]
-            );
-        },
-        attachment_fetch => sub {
-            my ($payload) = @_;
-            die "Attachment fetch requires ref and sha\n"
-              if ref($payload) ne 'HASH' || !defined $payload->{ref} || !defined $payload->{sha};
-            my $got = $tira->attachment_get(
-                project => $project, sha => $payload->{sha},
-                ( defined $payload->{extension} ? ( extension => $payload->{extension} ) : () ),
-            );
-            die "Attachment '$payload->{sha}' not found\n" if $got->{deleted};
-            my $record = $tira->record_show( project => $project, ref => $payload->{ref} );
-            my ($reference) =
-              grep { $_->{sha} eq $payload->{sha} }
-              ( @{ $record->{attachments} }, map { @{ $_->{attachments} // [] } } @{ $record->{comments} } );
-            my $extension = $payload->{extension} // ( $reference ? $reference->{extension} : 'bin' );
-            my $filename = $reference ? $reference->{original_filename} : "$payload->{sha}.$extension";
-            return {
-                content => $got->{content},
-                content_type => _attachment_content_type($extension),
-                filename => $filename,
-                inline => _attachment_content_type($extension) eq 'application/octet-stream' ? 0 : 1,
-            };
-        },
-        attachment_add => sub {
-            my ($payload) = @_;
-            die "Attachment upload requires ref, filename, and content\n"
-              if ref($payload) ne 'HASH' || !defined $payload->{ref} || !defined $payload->{filename}
-              || !defined $payload->{content_base64};
-            require MIME::Base64;
-            my $content = MIME::Base64::decode_base64( $payload->{content_base64} );
-            my $attachment = $tira->attachment_add_content(
-                project => $project, ref => $payload->{ref},
-                filename => $payload->{filename}, content => $content,
-                ( defined $payload->{comment} ? ( comment => $payload->{comment} ) : () ),
-            );
-            return $json->encode( { ok => Cpanel::JSON::XS::true, attachment => $attachment } );
-        },
-        attachment_discard => sub {
-            my ($payload) = @_;
-            die "Discard payload must be an object\n" if ref($payload) ne 'HASH';
-            my $reference = $tira->attachment_discard(
-                project => $project, ref => $payload->{ref}, sha => $payload->{sha},
-                extension => $payload->{extension},
-                ( defined $payload->{comment} ? ( comment => $payload->{comment} ) : () ),
-                ( defined $payload->{_signed_in} ? ( author => $payload->{_signed_in} ) : () ),
-            );
-            return Tira::json_object()->canonical->encode(
-                { ok => Cpanel::JSON::XS::true, attachment => $reference } );
-        },
-
-        attachment_remove => sub {
-            my ($payload) = @_;
-            die "Attachment removal requires ref and sha\n"
-              if ref($payload) ne 'HASH' || !defined $payload->{ref} || !defined $payload->{sha};
-            my $result = $tira->attachment_detach(
-                project => $project, ref => $payload->{ref}, sha => $payload->{sha},
-                ( defined $payload->{extension} ? ( extension => $payload->{extension} ) : () ),
-                ( defined $payload->{comment} ? ( comment => $payload->{comment} ) : () ),
-            );
-            return $json->encode( { ok => Cpanel::JSON::XS::true, %{$result} } );
-        },
-    );
+    require Tira::CLI::Browser;
+    return Tira::CLI::Browser::providers(@_);
 }
 
-# The viewer forces text-like content (html included) to plain text so
-# nothing fetched from the store can execute inside the dialog's frame.
-# CA18: per-call opt-in read-through cache. Entries live under the
-# project's own .tira/cache (never a shared temp path), key on the full
-# argument set, and are valid only while both the ttl holds and a board
-# fingerprint (hi-res mtimes of the config, boards, columns, and
-# attachment store) is unchanged — so any write invalidates immediately
-# and a caller can never read its own stale data. A corrupt entry warns
-# and falls back to a live read; a hit is always reported on stderr.
-sub _board_fingerprint {
-    my ($root) = @_;
-    require Time::HiRes;
-    my @stamps;
-    my @paths = (
-        File::Spec->catfile( $root, '.tira', 'project.yml' ),
-        File::Spec->catdir( $root, '.tira', 'attachments' ),
-    );
-
-    # The counter Tira raises on every write. Modification times are the same
-    # for two writes inside one clock tick on Windows - about sixteen
-    # milliseconds - so a caller could be served the board as it was before its
-    # own write. This has no clock in it.
-    my $generation = File::Spec->catfile( $root, '.tira', '.generation' );
-    if ( open my $fh, '<', $generation ) {
-        my $line = <$fh>;
-        close $fh;
-        push @stamps, 'generation=' . ( defined $line ? $line : '' );
-    }
-    for my $type (qw(sow epic ticket)) {
-        my $board = File::Spec->catdir( $root, '.tira', $type );
-        push @paths, $board;
-        my $dh;
-        next if !opendir $dh, $board;
-        my @entries = map { File::Spec->catdir( $board, $_ ) }
-          sort grep { !/\A\./ } readdir $dh;
-        closedir $dh;
-        push @paths, @entries;
-
-        # And the records themselves. A directory's modification time answers a
-        # different question from the one being asked here: it changes when the
-        # set of names changes, not when a file's contents do. A card edited in
-        # place adds and removes no name, so on Windows the directory was
-        # untouched, the cache was judged current, and the caller was served the
-        # board as it was before its own write.
-        for my $column ( grep { -d } @entries ) {
-            my $files;
-            next if !opendir $files, $column;
-            push @paths, map { File::Spec->catfile( $column, $_ ) }
-              sort grep { /\.json\z/ } readdir $files;
-            closedir $files;
-        }
-    }
-    for my $path (@paths) {
-        my @stat = Time::HiRes::stat($path);
-        push @stamps, $path . '=' . ( @stat ? $stat[9] : 'absent' );
-    }
-    return join ';', @stamps;
-}
 
 sub _cache_context {
     my ( $tira, $command, $type, $option ) = @_;
@@ -1831,9 +992,10 @@ sub _cache_context {
     my $key = Digest::SHA::sha256_hex( encode_utf8($key_source) );
     my $dir = File::Spec->catdir( $root, '.tira', 'cache' );
     my $file = File::Spec->catfile( $dir, "$key.json" );
+    require Tira::CLI::Serve;
     my $context = {
         dir => $dir, file => $file, ttl => $option->{cache_ttl},
-        fingerprint => _board_fingerprint($root),
+        fingerprint => Tira::CLI::Serve::_board_fingerprint($root),
     };
     if ( -f $file ) {
         require MIME::Base64;
@@ -1892,104 +1054,10 @@ sub _expand_home {
     return $path;
 }
 
-# Line editing without a dependency: Term::ReadLine's editing implementations
-# are not installed anywhere this runs, so relying on one would silently give
-# the user nothing. POSIX termios is core, so the editor is written directly
-# against it and degrades to a plain read whenever input is not a terminal.
-sub _raw_mode {
-    my ($fh) = @_;
-    my $fd = fileno($fh);
-    return undef if !defined $fd || $fd < 0 || !-t $fh;
-    require POSIX;
-    my $saved = POSIX::Termios->new;
-    return undef if !eval { $saved->getattr($fd) };
-    my $raw = POSIX::Termios->new;
-    $raw->getattr($fd);
-    $raw->setlflag( ( $raw->getlflag // 0 ) & ~( POSIX::ICANON() | POSIX::ECHO() ) );
-    $raw->setcc( POSIX::VMIN(),  1 );
-    $raw->setcc( POSIX::VTIME(), 0 );
-    $raw->setattr( $fd, POSIX::TCSANOW() );
-    return sub { $saved->setattr( $fd, POSIX::TCSANOW() ); return };
-}
 
-sub _redraw {
-    my ( $prompt, $buffer, $cursor ) = @_;
-    my $column = length($prompt) + $cursor + 1;
-    print "\r\e[2K$prompt$buffer\r\e[${column}G";
-    return;
-}
 
-# Returns the finished line, or undef when the user abandons the prompt.
-sub _edit_line {
-    my ( $in, $prompt, $restore ) = @_;
-    my ( $buffer, $cursor ) = ( '', 0 );
-    _redraw( $prompt, $buffer, $cursor );
-    while (1) {
-        my $char = getc($in);
-        if ( !defined $char || $char eq "\x04" || $char eq "\x03" ) {
-            $restore->();
-            print "\n";
-            return undef;
-        }
-        if ( $char eq "\r" || $char eq "\n" ) {
-            $restore->();
-            print "\n";
-            return $buffer;
-        }
-        if ( $char eq "\x01" ) { $cursor = 0 }                        # Ctrl-A
-        elsif ( $char eq "\x05" ) { $cursor = length $buffer }        # Ctrl-E
-        elsif ( $char eq "\x15" ) { $buffer = ''; $cursor = 0 }       # Ctrl-U
-        elsif ( $char eq "\x0b" ) { substr $buffer, $cursor, length($buffer) - $cursor, '' }  # Ctrl-K
-        elsif ( $char eq "\x7f" || $char eq "\x08" ) {
-            if ( $cursor > 0 ) { substr $buffer, --$cursor, 1, '' }
-        }
-        elsif ( $char eq "\e" ) {
-            my $bracket = getc($in);
-            my $code = defined $bracket && $bracket eq '[' ? getc($in) : undef;
-            if ( defined $code ) {
-                if    ( $code eq 'D' ) { $cursor-- if $cursor > 0 }
-                elsif ( $code eq 'C' ) { $cursor++ if $cursor < length $buffer }
-                elsif ( $code eq 'H' ) { $cursor = 0 }
-                elsif ( $code eq 'F' ) { $cursor = length $buffer }
-            }
-        }
-        elsif ( $char =~ /\A[[:print:]]\z/ ) {
-            substr $buffer, $cursor, 0, $char;
-            $cursor++;
-        }
-        _redraw( $prompt, $buffer, $cursor );
-    }
-}
 
-sub _ask {
-    my ( $in, $question, $default ) = @_;
-    my $shown = defined $default && $default ne '' ? " [$default]" : '';
-    my $prompt = "$question$shown: ";
-    my $answer;
-    if ( my $restore = _raw_mode($in) ) {
-        $answer = _edit_line( $in, $prompt, $restore );
-    }
-    else {
-        print $prompt;
-        $answer = <$in>;
-    }
-    return undef if !defined $answer;
-    chomp $answer;
-    $answer =~ s/\A\s+|\s+\z//g;
-    return length $answer ? $answer : ( defined $default ? $default : '' );
-}
 
-sub _ask_yes {
-    my ( $in, $question, $default ) = @_;
-    while (1) {
-        my $answer = _ask( $in, "$question [" . ( $default ? 'Y/n' : 'y/N' ) . ']', '' );
-        return undef if !defined $answer;
-        return $default if $answer eq '';
-        return 1 if $answer =~ /\Ay(?:es)?\z/i;
-        return 0 if $answer =~ /\An(?:o)?\z/i;
-        print "  Please answer yes or no.\n";
-    }
-}
 
 # Is there a coding agent on this machine at all? Its own sub so a
 # test can drive both answers, rather than proving whichever one this
@@ -2035,216 +1103,8 @@ sub _agent_available {
     return 0;
 }
 
-# Everything an existing project already knows, so re-running onboarding is a
-# matter of pressing enter rather than typing it all again.
-sub _wizard_defaults {
-    my ( $tira, $dir ) = @_;
-    return {} if !defined $dir || $dir eq '';
-    my $project = eval { $tira->project_show( project => $dir ) } or return {};
-    my %defaults = ( name => $project->{name} );
-    my @people = map { $_->{id} } @{ $project->{people} // [] };
-    $defaults{members} = [ join ', ', @people ] if @people;
-    $defaults{$_} = $project->{$_}
-      for grep { defined $project->{$_} } qw(collector agent session heartbeat notify_after);
-    my $mode = eval { $tira->project_mode( project => $dir ) };
-    $defaults{mode} = $mode if defined $mode;
-    my %columns;
-    for my $type (qw(sow epic ticket)) {
-        my $refs = eval { $tira->board_refs( project => $dir, type => $type ) };
-        $defaults{"${type}_prefix"} = $refs->{prefix} if $refs;
-        my $list = eval { $tira->column_list( project => $dir, type => $type ) } or next;
-        $columns{$type} = join ', ', map { $_->{label} // $_->{name} } @{$list};
-        $defaults{"${type}_columns"} = [ $columns{$type} ];
-    }
-    my @distinct = keys %{ { map { $_ => 1 } values %columns } };
-    $defaults{columns} = [ $distinct[0] ] if @distinct == 1;
-    $defaults{columns_shared} = ( @distinct == 1 ? 1 : 0 ) if %columns;
-    return \%defaults;
-}
 
-# Command-line flags win over what the project already stores, but only over
-# the project they were given for: naming a different one rebuilds the defaults
-# from scratch rather than merging, so a setting the new project does not have
-# cannot be inherited from the old one by pressing enter.
-sub _wizard_all_defaults {
-    my ( $tira, $dir, $option ) = @_;
-    my $stored = _wizard_defaults( $tira, $dir );
-    my %default = ( %{$stored},
-        map { $_ => $option->{$_} } grep { defined $option->{$_} } keys %{$option} );
-    return ( $stored, \%default );
-}
 
-sub _project_wizard {
-    my ( $tira, $in, $option ) = @_;
-    print "Tira project setup — answer the questions, or press Ctrl-D to abort.\n\n";
-    my %answers;
-
-    # The directory comes first because everything else can be pre-filled from
-    # the project already living there. Asking it second would mean offering
-    # one project's answers while writing to another.
-    # Asking first is only useful if it can answer itself: offer whatever
-    # project is already resolvable rather than making somebody type the path
-    # before any of the pre-filling can help.
-    my $suggested = $option->{dir}
-      // eval {
-        $tira->discover_project( defined $option->{project} ? ( project => $option->{project} ) : () );
-      }
-      // '.';
-    my ( $stored, $default ) = _wizard_all_defaults( $tira, $suggested, $option );
-    my $dir = _ask( $in, 'Project directory', $suggested );
-    return ( undef, 2 ) if !defined $dir;
-    $answers{dir} = _expand_home($dir);
-    ( $stored, $default ) = _wizard_all_defaults( $tira, $answers{dir}, $option )
-      if $answers{dir} ne $suggested;
-    print "\nEditing the project already at that directory — press enter to keep each answer.\n\n"
-      if %{$stored};
-
-    while (1) {
-        my $name = _ask( $in, 'Project name', $default->{name} );
-        return ( undef, 2 ) if !defined $name;
-        if ( $name eq '' ) {
-            print "  A project needs a name.\n";
-            next;
-        }
-        $answers{name} = $name;
-        last;
-    }
-
-    my $members = _ask( $in, 'People, separated by commas',
-        $default->{members} ? join( ', ', @{ $default->{members} } ) : '' );
-    return ( undef, 2 ) if !defined $members;
-    # Enter means "none yet", not "a person with an empty name" — the
-    # empty-string guard exists for an explicit --members "" on a command line.
-    $answers{members} = [$members] if $members ne '';
-
-    my %default_prefix = ( sow => 'SOW', epic => 'EPC', ticket => 'TKT' );
-    for my $type (qw(sow epic ticket)) {
-        while (1) {
-            my $prefix = _ask( $in, "Reference prefix for \u$type records",
-                $default->{"${type}_prefix"} // $default_prefix{$type} );
-            return ( undef, 2 ) if !defined $prefix;
-            if ( $prefix !~ /\A[A-Z][A-Z0-9-]{0,31}\z/ ) {
-                print "  Invalid prefix: it must start with a capital letter and use capitals, digits, and hyphens.\n";
-                next;
-            }
-            $answers{"${type}_prefix"} = $prefix;
-            last;
-        }
-    }
-
-    my $shared = _ask_yes( $in, 'Do all three boards use the same columns?',
-        $default->{columns_shared} // 1 );
-    return ( undef, 2 ) if !defined $shared;
-    if ($shared) {
-        my $columns = _ask( $in, 'Columns, in order, separated by commas',
-            $default->{columns} ? join( ', ', @{ $default->{columns} } ) : '' );
-        return ( undef, 2 ) if !defined $columns;
-        $answers{columns} = [$columns] if $columns ne '';
-    }
-    else {
-        for my $type (qw(sow epic ticket)) {
-            my $columns = _ask( $in, "Columns for the \u$type board",
-                $default->{"${type}_columns"} ? join( ', ', @{ $default->{"${type}_columns"} } ) : '' );
-            return ( undef, 2 ) if !defined $columns;
-            $answers{"${type}_columns"} = [$columns] if $columns ne '';
-        }
-    }
-
-    # Asked whether or not anything can send reminders: it decides what the
-    # staleness report says, which is useful with no automation at all.
-    while (1) {
-        my $stuck = _ask( $in, 'Minutes before a card counts as stuck (blank for never)',
-            $default->{notify_after} );
-        return ( undef, 2 ) if !defined $stuck;
-        last if $stuck eq '';
-        if ( $stuck !~ /\A[0-9]+(?:\.[0-9]+)?\z/ || $stuck <= 0 ) {
-            print "  That must be a positive number of minutes.\n";
-            next;
-        }
-        $answers{notify_after} = $stuck;
-        last;
-    }
-
-    # With no coding agent installed there is nothing to configure and nothing
-    # that could deliver, so none of this is asked.
-    if ( _agent_available('claude') ) {
-        # TKT-459 already made project_update accept any registered, active
-        # person as the agent - not only literally 'claude' - so a project
-        # whose agent is genuinely someone else (its own example: 'zenbot')
-        # can declare it here too. TKT-560: this question used to refuse
-        # anything but 'claude', stale since that engine change shipped.
-        my $agent = _ask( $in, 'Which coding agent should be reminded', $default->{agent} // 'claude' );
-        return ( undef, 2 ) if !defined $agent;
-        $answers{agent} = $agent if $agent ne '';
-        while (1) {
-            my $session = _ask( $in, 'Session id of the agent to remind', $default->{session} );
-            return ( undef, 2 ) if !defined $session;
-            last if $session eq '';
-            if ( $session !~ /\A[A-Za-z0-9_-]{1,128}\z/ ) {
-                print "  A session id is letters, digits, hyphens and underscores.\n";
-                next;
-            }
-            $answers{session} = $session;
-            last;
-        }
-        while (1) {
-            my $collector = _ask( $in, 'Name for this project reminder job',
-                $default->{collector} // Tira::_column_slug( $answers{name} ) );
-            return ( undef, 2 ) if !defined $collector;
-            last if $collector eq '';
-            if ( $collector !~ /\A[a-z][a-z0-9-]{0,63}\z/ ) {
-                print "  That must be lowercase letters, digits and hyphens.\n";
-                next;
-            }
-            $answers{collector} = $collector;
-            last;
-        }
-    }
-
-    # One number of minutes, not two. The owner read the second as a repeat of
-    # the first, and he was right to: there is no point looking more often than
-    # the shortest window that could make anything stale. An explicit
-    # --heartbeat still wins for anyone who wants to tune it.
-    $answers{heartbeat} = $option->{heartbeat} // $answers{notify_after}
-      if defined $answers{session}
-      && defined( $option->{heartbeat} // $answers{notify_after} );
-
-    # Which kind of project this is, asked rather than assumed. The questions
-    # are the engine's, so what onboarding asks can be read by a test instead
-    # of inferred from a sequence of prints. Left unanswered it stays unset,
-    # and an unset project behaves exactly as every project does today.
-    for my $question ( @{ $tira->onboarding_questions } ) {
-        print "\n$question->{why}\n";
-        while (1) {
-            my $answer = _ask( $in, $question->{text}, $stored->{ $question->{id} } );
-            return ( undef, 2 ) if !defined $answer;
-            last if $answer eq '';
-            if ( !grep { $_ eq $answer } @{ $question->{options} } ) {
-                print '  Answer with ' . join( ' or ', @{ $question->{options} } ) . ".\n";
-                next;
-            }
-            $answers{ $question->{id} } = $answer;
-            last;
-        }
-    }
-
-    print "\nAbout to create:\n";
-    print "  name       $answers{name}\n";
-    print "  directory  $answers{dir}\n";
-    print "  people     " . ( join( ', ', @{ $answers{members} // [] } ) || '(none)' ) . "\n";
-    print "  prefixes   sow $answers{sow_prefix}, epic $answers{epic_prefix}, ticket $answers{ticket_prefix}\n";
-    for my $key ( grep { /_columns\z|\Acolumns\z/ } sort keys %answers ) {
-        print "  $key " . join( ', ', @{ $answers{$key} } ) . "\n";
-    }
-    for my $key (qw(mode notify_after agent session collector heartbeat)) {
-        print "  $key " . ( $answers{$key} // '(none)' ) . "\n" if exists $answers{$key};
-    }
-    print "\n";
-    my $confirmed = _ask_yes( $in, 'Create this project?', 1 );
-    return ( undef, 2 ) if !defined $confirmed;
-    return ( undef, 1 ) if !$confirmed;
-    return ( \%answers, 0 );
-}
 
 sub _attachment_content_type {
     my ($extension) = @_;
@@ -3800,8 +2660,9 @@ sub _invoke {
         # the truth is "not yet asked again". TKT-423.
         if ( $option->{fresh} ) {
             my $watching = $tira->discover_project(%args);
+            require Tira::CLI::Police;
             my $result = $tira->police_pass( %args, store => $store,
-                world => _police_world( tira => $tira, project => $watching ) );
+                world => Tira::CLI::Police::police_world( tira => $tira, project => $watching ) );
             $tira->bridge_write( store => $store, project => $watching,
                 violations => $result->{violations}, settled => $result->{settled},
                 upgraded => $result->{upgraded} )
@@ -3953,7 +2814,8 @@ sub _invoke {
             # A card title carrying a multiplication sign put exactly the byte
             # tira.doctor repairs into the channel that reports it.
             print _utf8_bytes( join '', map { "$_\n" } @{$backlog} );
-            _bridge_follow( $tira, $store, rounds => $option->{rounds}, agent => $agent,
+            require Tira::CLI::Police;
+            Tira::CLI::Police::bridge_follow( $tira, $store, rounds => $option->{rounds}, agent => $agent,
                 interval => $option->{interval}, sleeper => $option->{sleeper} )
               if !$option->{once};
             return { streamed => scalar @{$backlog} };
@@ -3980,24 +2842,40 @@ sub _invoke {
         # a violation on one board was reported with a hierarchy from whichever
         # Tira project the process happened to be standing in.
         my $watching = $tira->discover_project(%args);
+        require Tira::CLI::Police;
         my $result = $tira->police_pass( %args, store => $store,
-            world => _police_world( tira => $tira, project => $watching ) );
+            world => Tira::CLI::Police::police_world( tira => $tira, project => $watching ) );
         die "$result->{advice}\n" if !$result->{watching};
         $tira->bridge_write( store => $store, project => $watching,
             violations => $result->{violations}, settled => $result->{settled},
             upgraded => $result->{upgraded} );
         print {*STDERR} map { "$_\n" } @{ $result->{terminal} };
         return $result if $option->{once};
-        return _police_follow( $tira, \%args, $store, $option );
+        require Tira::CLI::Police;
+        return Tira::CLI::Police::police_follow( $tira, \%args, $store, $option );
     }
 
-    return _report_to_tira( $tira, \%args, $option )
+    # The police, bridge and dev-report verbs are in Tira::CLI::Police,
+    # loaded when one of them actually runs rather than on every CLI
+    # call. require is idempotent, so each entry into that module says
+    # where it is going instead of relying on an earlier branch having
+    # been taken. TKT-607.
+    require Tira::CLI::Police;
+    return Tira::CLI::Police::report_to_tira( $tira, \%args, $option )
       if $command eq 'dev.found.bug_or_improvement';
 
-    return _backup( $tira, \%args ) if $command eq 'backup';
-    return _backup_restore( $tira, \%args, $option ) if $command eq 'backup.restore';
-    return _backup_export( $tira, \%args, $option ) if $command eq 'backup.export';
-    return _backup_import( $tira, \%args, $option ) if $command eq 'backup.import';
+    # The four backup verbs are in Tira::CLI::Backup, loaded when one of them is
+    # actually run. Named here as a concern rather than as four lines, which is
+    # what makes this file an index: the reader learns that backup exists and
+    # where it lives, without reading 249 lines of git plumbing to change
+    # something else. TKT-607.
+    if ( $command =~ /\Abackup(?:\.(?:restore|export|import))?\z/ ) {
+        require Tira::CLI::Backup;
+        return Tira::CLI::Backup::backup( $tira, \%args ) if $command eq 'backup';
+        return Tira::CLI::Backup::backup_restore( $tira, \%args, $option ) if $command eq 'backup.restore';
+        return Tira::CLI::Backup::backup_export( $tira, \%args, $option ) if $command eq 'backup.export';
+        return Tira::CLI::Backup::backup_import( $tira, \%args, $option ) if $command eq 'backup.import';
+    }
 
     return $tira->policy_decline(%args) if $command eq 'policy.decline';
     return $tira->policy_declined(%args) if $command eq 'policy.declined';
@@ -4243,82 +3121,6 @@ sub _police_store {
     return File::Spec->catdir( $home, '.tira-police', $slug );
 }
 
-# The world police needs and the engine will not touch. Gathered here, handed
-# in as plain facts, so that Tira itself still invokes no shell.
-#
-# It used to return five empty lists and nothing else. Six declared rules read
-# this - leftover-process, leftover-container, commit-without-card,
-# work-without-card, unpushed-work and board-unbacked - and every one of them
-# evaluated against nothing and stayed silent. A rule that is silent because it
-# was shown nothing looks exactly like a rule being obeyed, which is the very
-# sentence police prints to the owner when a rule is missing entirely. Found on
-# 2026-08-12, when board-unbacked said the board had never been backed up while
-# the backups the push gate writes sat in ~/.tira-backups.
-sub _police_world {
-    my (%args) = @_;
-    my $root = $args{project};
-
-    # The repository the project declared, when it declared one. Police used to
-    # run git in the directory holding the board, which is the right guess only
-    # when the two are the same place - and on a board that sits outside its
-    # repository every question came back empty, so card-sandbox-missing
-    # reported every card as missing a branch and a work tree that both existed.
-    #
-    # Declared beats guessed and nothing else changes: a board that does sit
-    # inside its repository still finds it without saying anything.
-    my $declared = eval {
-        Tira->new->project_show( project => $root )->{repo};
-    };
-    my $where =
-        ( defined $declared && $declared ne '' && -d $declared ) ? $declared
-      : ( defined $root && -d $root ) ? $root
-      :                                 undef;
-
-    my $world = {
-        branches   => _git_branches($where),
-        worktrees  => _git_worktrees($where),
-        processes  => _running_processes(),
-        containers => _running_containers(),
-        commits    => _unpushed_commits($where),
-    };
-    $world->{unpushed_since} = @{ $world->{commits} } ? $world->{commits}[-1]{at} : undef;
-    $world->{working_since} = _tree_changing_since($where);
-    # The board's own repository first, because that is what tira.backup writes
-    # and what any board can have. The old answer was a directory of stamps
-    # under the home directory that only one repository on earth wrote to, so
-    # every other board was told it had never been backed up and had no way to
-    # change that. It is still read, so a board backed up by the old tool is not
-    # suddenly told it never was.
-    #
-    # Asked about the board, not about $where. Every other question here is
-    # about the repository the work happens in; this one is about the board,
-    # and tira.backup, tira.backup.restore and tira.backup.export all resolve
-    # the store from the board root. Asking it with $where meant that a project
-    # which declared a repository had its backups looked for inside the code -
-    # where there are none - and board-unbacked told it that it had never been
-    # backed up, permanently, whatever anybody did.
-    #
-    # developer-dashboard reported exactly that on 2026-08-15: the rule raised
-    # at 07:55 and escalated twice while the board was backed up three times in
-    # between, against a seven-day age. One variable was answering two
-    # questions, which are the same place until somebody says otherwise.
-    #
-    # And both mechanisms, not the first one that answers. `//` meant "the
-    # commit, or the directories if there is no commit", when the question is
-    # when this board was last backed up by anything at all. tools/board-backup
-    # writes the directories on every push and tira.backup writes the commit, so
-    # a board the gate had backed up 481 times was told its last backup was the
-    # one somebody ran by hand six hours earlier - and advised to run that same
-    # command. The later of the two is the answer.
-    $world->{backed_up_at} = _later_backup(
-        _last_backup_commit( _backup_store($root) ),
-        _last_backup( $args{backups} // _backup_home($root) ),
-    );
-    $world->{card_in_progress} = exists $args{card_in_progress}
-      ? $args{card_in_progress}
-      : _card_in_progress( $args{tira}, $root );
-    return $world;
-}
 
 # Whether anything on the board is being worked. work-without-card asks it the
 # other way round - a tree that is changing while nothing is at a working gate
@@ -4392,166 +3194,6 @@ sub _reading {
 # exit status away, which is right for reading the machine - a box with no
 # Docker has no containers - and wrong for a backup, where "it did not work" is
 # the only answer that matters.
-# An identity given on the command rather than written into the repository. A
-# backup must not depend on whoever runs it having configured git, and must not
-# quietly change what their own git would do.
-my @BACKUP_AUTHOR = (
-    '-c', 'user.name=Tira', '-c', 'user.email=tira@localhost',
-    '-c', 'commit.gpgsign=false',
-);
-
-# A backup is a commit. His design, and the right one: the board is a directory
-# of files, git is what keeps a directory of files, and a repository with no
-# remote cannot fail because somebody else's machine is down.
-#
-# Nothing exists until the first backup, so a board that leaves the policy out
-# is untouched on disk - and nobody has to run git init to obey a rule, because
-# a command that works only after an invisible setup step is one that leaves the
-# rule firing anyway.
-sub _backup {
-    my ( $tira, $args ) = @_;
-    my $root = $tira->discover_project( %{$args} );
-    my $store = _backup_store($root);
-
-    die "Tira needs git to back a board up, and it is not installed here\n"
-      if !_program_exists('git');
-
-    my $created = -d File::Spec->catdir( $store, '.git' ) ? 0 : 1;
-    if ($created) {
-        _running( 'git', '-C', $store, 'init', '--quiet' )
-          or die "Could not start a repository for this board at $store\n";
-    }
-
-    # What a backup leaves out, checked on every run rather than at creation.
-    #
-    # The lock is about right now rather than about the board, and a restored
-    # lock is a wedged board. A session is the server side of somebody's
-    # sign-in: a restored one hands over an identity, which is worse than a
-    # stale lock stopping one write. Neither is state worth having back.
-    #
-    # Written every time because it used to be written only when the store was
-    # created, so a board made before a line was added here would never see it -
-    # and every board that exists today was made before this one.
-    #
-    # Sessions are also rewritten whenever anybody uses the board, so while they
-    # were tracked there was always something pending and tira.backup reported
-    # changed: 1 on runs seconds apart with nothing touched. That is what he
-    # noticed, and why "is this board already backed up" had no answer.
-    {
-        my $ignore = File::Spec->catfile( $store, '.gitignore' );
-        my %already;
-        if ( open my $read, '<', $ignore ) {
-            while ( my $line = <$read> ) { chomp $line; $already{$line} = 1 }
-            close $read;
-        }
-        my @missing = grep { !$already{$_} } ( '.lock', 'sessions/' );
-        if (@missing) {
-            open my $handle, '>>', $ignore or die "Could not write $ignore: $!\n";
-            print {$handle} "$_\n" for @missing;
-            close $handle;
-
-            # Ignoring a path git is already tracking changes nothing, so a
-            # board that has been backed up before has to be told to stop
-            # carrying them. Only the index: what the history already holds
-            # stays there, because rewriting the history of a backup is a worse
-            # thing to own than the tidiness it buys.
-            # _running, not _running_quietly. git's own --quiet and
-            # --ignore-unmatch already keep it silent, and _running_quietly was
-            # measured to silence everything this process prints afterwards when
-            # standard output is an in-memory handle - which is how every test
-            # in this suite captures output. Raised separately; not worked
-            # around here, because the plain call is also the simpler one.
-            _running( 'git', '-C', $store, 'rm', '-r', '--cached', '--quiet',
-                '--ignore-unmatch', 'sessions' );
-        }
-    }
-
-    _running( 'git', '-C', $store, 'add', '--all' )
-      or die "Could not read the board into the backup\n";
-
-    my $pending = _reading( 'git', '-C', $store, 'status', '--porcelain' );
-    my $changed = @{$pending} ? 1 : 0;
-
-    if ($changed) {
-        my $count = scalar @{$pending};
-        my $message = $created
-          ? 'The board as it stands, backed up for the first time'
-          : "$count " . ( $count == 1 ? 'thing' : 'things' ) . ' changed since the last backup';
-        _running( 'git', '-C', $store, @BACKUP_AUTHOR, 'commit', '--quiet', '-m', $message )
-          or die "Could not record the backup\n";
-    }
-
-    my ($commit) = @{ _reading( 'git', '-C', $store, 'rev-parse', '--short', 'HEAD' ) };
-    return {
-        commit  => $commit,
-        at      => _last_backup_commit($store),
-        created => $created,
-        changed => $changed,
-        store   => $store,
-        message => $changed
-          ? 'The board is backed up.'
-          : 'Nothing has changed since the last backup, so it still stands.',
-    };
-}
-
-# Putting a board back. His design: git reset --hard, so a restore is a restore
-# and anything done since the backup is gone.
-#
-# Which is exactly why it says what it is about to discard first and does
-# nothing until that is agreed to. This is the only command in Tira that can
-# lose work, and a command that destroys in silence is one people either stop
-# running or run without reading.
-sub _backup_restore {
-    my ( $tira, $args, $option ) = @_;
-    my $root = $tira->discover_project( %{$args} );
-    my $store = _backup_store($root);
-
-    die "Tira needs git to restore a board, and it is not installed here\n"
-      if !_program_exists('git');
-    die "This board has never been backed up, so there is nothing to restore it to.\n"
-      . "Make one first: d2 tira.backup\n"
-      if !defined _last_backup_commit($store);
-
-    # What would be lost, read before anything is touched. Named rather than
-    # counted: "3 files would be discarded" tells nobody whether it matters.
-    my $changed = _reading( 'git', '-C', $store, 'status', '--porcelain' );
-    my @losing = map { s/\A.{3}//r } @{$changed};
-
-    if ( !$option->{yes} ) {
-
-        # Printed rather than thrown, because a refusal is only useful if it can
-        # be read. A structured error carries one string, and a multi-line
-        # warning inside one arrives as literal backslash-n on the terminal -
-        # which is how the one command that can destroy a board ends up with a
-        # warning nobody reads.
-        print {*STDERR} "Restoring puts this board back to its last backup and discards\n"
-          . "what has happened since. That is:\n\n";
-        print {*STDERR} @losing
-          ? join( '', map { "  $_\n" } @losing )
-          : "  nothing - the board is exactly as it was backed up\n";
-        print {*STDERR} "\nRun it again with --yes if that is what you want.\n\n";
-        die "Nothing was restored, because --yes was not given\n";
-    }
-
-    _running( 'git', '-C', $store, 'reset', '--hard', 'HEAD' )
-      or die "Could not put the board back\n";
-
-    # A file added since the backup is untracked, so reset leaves it exactly
-    # where it was - and a card raised since would survive a restore that
-    # reported success. Cleaning is the half of "put it back" that reset alone
-    # does not do.
-    _running( 'git', '-C', $store, 'clean', '--force', '-d', '--quiet' )
-      or die "Could not clear what was added since the backup\n";
-
-    my ($commit) = @{ _reading( 'git', '-C', $store, 'rev-parse', '--short', 'HEAD' ) };
-    return {
-        commit    => $commit,
-        at        => _last_backup_commit($store),
-        discarded => \@losing,
-        store     => $store,
-        message   => 'The board is back as it was when it was last backed up.',
-    };
-}
 
 # The schema this Tira understands. A board written by a newer one may hold
 # shapes these readers have never seen, and no amount of care here can invent
@@ -4560,105 +3202,7 @@ sub _backup_restore {
 # on read instead of migrating.
 our $SCHEMA_VERSION = 2;
 
-# Getting a backup off the machine. The repository lives inside the board's own
-# storage, so it survives a bad edit and not a lost disk - and a bundle is one
-# file holding the whole history, kept wherever the owner keeps things.
-sub _backup_export {
-    my ( $tira, $args, $option ) = @_;
-    my $root  = $tira->discover_project( %{$args} );
-    my $store = _backup_store($root);
-    my $file  = $option->{file}
-      or die "Where should the bundle go? Name it: --file board.bundle\n";
 
-    die "Tira needs git to export a backup, and it is not installed here\n"
-      if !_program_exists('git');
-    die "This board has never been backed up, so there is nothing to export.\n"
-      . "Make a backup first: d2 tira.backup\n"
-      if !defined _last_backup_commit($store);
-
-    _running( 'git', '-C', $store, 'bundle', 'create', $file, '--all' )
-      or die "Could not write the bundle to $file\n";
-
-    return {
-        file    => $file,
-        at      => _last_backup_commit($store),
-        message => "The board is in $file. Keep it somewhere the board is not.",
-    };
-}
-
-# And bringing one back. The folder becomes what the bundle holds - his words:
-# git reset --hard - so this can lose work exactly as a restore can, and says
-# what it would discard before it does anything.
-sub _backup_import {
-    my ( $tira, $args, $option ) = @_;
-    my $file = $option->{file}
-      or die "Which bundle? Name it: --file board.bundle\n";
-    die "There is no bundle at $file\n" if !-f $file;
-
-    die "Tira needs git to import a backup, and it is not installed here\n"
-      if !_program_exists('git');
-    # Verified in a repository of its own, because git will not read a bundle
-    # from outside one - and the destination must not be touched until the
-    # bundle is known to be good, or a refusal leaves a half-made board behind.
-    require File::Temp;
-    my $scratch = File::Temp::tempdir( CLEANUP => 1 );
-    _running( 'git', '-C', $scratch, 'init', '--quiet' )
-      or die "Could not check the bundle: no scratch repository\n";
-    _running_quietly( 'git', '-C', $scratch, 'bundle', 'verify', $file )
-      or die "$file is not a bundle git can read\n";
-
-    # Claimed rather than read out of the bundle, because reading it means
-    # unpacking it first - and unpacking a bundle from a newer Tira is the thing
-    # being refused. The claim is what an exporter of a later release would
-    # write beside it.
-    my $claimed = $option->{claiming_schema};
-    die "That bundle was made by a newer Tira (schema $claimed, this one reads "
-      . "$SCHEMA_VERSION). Upgrade Tira and import it again.\n"
-      if defined $claimed && $claimed > $SCHEMA_VERSION;
-
-    # Where it is going, named as a folder rather than selected as a board.
-    # discover_project would walk upwards and find somebody else's, so the
-    # folder is taken as given: importing is how a board comes into existence
-    # somewhere, not something done to one that is found. That is why this
-    # takes --dir, like creating a board does, while everything that works on
-    # an existing board is told which one in the environment. TKT-250.
-    my $where = $option->{dir} // $args->{project}
-      or die "Where should the board go? Name the folder it should be made in.\n";
-    my $store = _backup_store($where);
-
-    my $existing = -d File::Spec->catdir( $store, '.git' ) ? 1 : 0;
-    if ( $existing && !$option->{yes} ) {
-        my @losing = map { s/\A.{3}//r }
-          @{ _reading( 'git', '-C', $store, 'status', '--porcelain' ) };
-        print {*STDERR} "There is already a board here, and importing replaces it\n"
-          . "with what the bundle holds. Uncommitted work here:\n\n";
-        print {*STDERR} @losing
-          ? join( '', map { "  $_\n" } @losing )
-          : "  none, but every card in this board would be replaced\n";
-        print {*STDERR} "\nRun it again with --yes if that is what you want.\n\n";
-        die "Nothing was imported, because --yes was not given\n";
-    }
-
-    File::Path::make_path($store) if !-d $store;
-    if ( !$existing ) {
-        _running( 'git', '-C', $store, 'init', '--quiet' )
-          or die "Could not start a repository at $store\n";
-    }
-    _running( 'git', '-C', $store, 'fetch', '--quiet', $file, 'HEAD' )
-      or die "Could not read the bundle into the board\n";
-    _running( 'git', '-C', $store, 'reset', '--hard', 'FETCH_HEAD' )
-      or die "Could not lay the board out from the bundle\n";
-    _running( 'git', '-C', $store, 'clean', '--force', '-d', '--quiet' )
-      or die "Could not clear what was here before the import\n";
-
-    my ($commit) = @{ _reading( 'git', '-C', $store, 'rev-parse', '--short', 'HEAD' ) };
-    return {
-        commit  => $commit,
-        at      => _last_backup_commit($store),
-        store   => $store,
-        message => 'The board is here, as it was when that bundle was made.',
-    };
-}
 
 # Running something whose own chatter is not the caller's business. git bundle
 # verify prints "<file> is okay" on the error stream when it succeeds, and a
@@ -4789,124 +3333,15 @@ sub _is_repository {
     return 0;
 }
 
-# -C rather than chdir, so the whole of this module stays in one directory and
-# nothing has to be put back afterwards.
-sub _git_branches {
-    my ($where) = @_;
-    return [] if !_is_repository($where);
-    return _reading( 'git', '-C', $where, 'branch', '--format=%(refname:short)' );
-}
 
-sub _git_worktrees {
-    my ($where) = @_;
-    return [] if !_is_repository($where);
-    return [ map { s/\Aworktree\s+//r } grep { /\Aworktree\s/ }
-          @{ _reading( 'git', '-C', $where, 'worktree', 'list', '--porcelain' ) } ];
-}
 
-# The process table, with when each one started, because every rule about a
-# leftover asks how long it has been there rather than whether it exists.
-sub _running_processes {
-    return _processes_from_windows( _reading( _process_command($WINDOWS) ) ) if $WINDOWS;
-    return _processes_from( _reading( _process_command($WINDOWS) ) );
-}
 
-# What to ask for the process table. ps does not exist on Windows, and asking
-# for it there is asking a question that can only be answered with nothing -
-# and nothing is exactly what "no leftover processes" looks like.
-#
-# The platform is a parameter rather than read here, so both answers can be
-# checked from anywhere. A Windows claim that can only be checked on Windows is
-# one that goes unchecked, which is how this shipped eleven times.
-sub _process_command {
-    my ($windows) = @_;
-    return $windows
-      ? ( 'tasklist', '/fo', 'csv', '/nh' )
-      : ( 'ps', '-eo', 'pid=,lstart=,args=' );
-}
 
-# tasklist gives a quoted CSV of name, pid, session, session number and memory,
-# and no start time at all. The time is left undefined rather than invented: a
-# rule that asks how long something has been running can then tell that it does
-# not know, where a made-up time would make every age wrong instead of absent.
-sub _processes_from_windows {
-    my ($lines) = @_;
-    my @processes;
-    for my $line ( @{$lines} ) {
-        next if $line !~ /\A"([^"]*)","(\d+)"/;
-        push @processes, { pid => 0 + $2, command => $1, started_at => undef };
-    }
-    return \@processes;
-}
 
-# Reading the table is kept apart from asking for it, so what this understands
-# can be proved against real ps output on a machine where the answer is known.
-sub _processes_from {
-    my ($lines) = @_;
-    my @processes;
-    for my $line ( @{$lines} ) {
 
-        # Day name, then two fields in whichever order this platform prints
-        # them - Linux gives "Tue May 26" and macOS "Thu 13 Aug". Matching a
-        # month name in a fixed position read 711 of 711 lines on Linux and 0
-        # of 192 on macOS, so leftover-process reported nothing on a Mac
-        # whatever was running.
-        next if $line !~ /\A\s*(\d+)\s+(\w{3}\s+\w+\s+\w+\s+[\d:]+\s+\d{4})\s+(.*)\z/;
-        my ( $pid, $started, $command ) = ( $1, $2, $3 );
-        next if $pid == $$;
-        push @processes,
-          { pid => $pid, started_at => _stamp_from_ps($started), command => $command };
-    }
-    return \@processes;
-}
 
-# The month is whichever of the two fields is a month name, and the day is the
-# other one. Deciding by platform would be wrong on the first machine whose
-# locale prints something nobody anticipated; deciding by which field is a
-# month needs no knowledge of where it is running at all.
-sub _stamp_from_ps {
-    my ($text) = @_;
-    my %month = do { my $n = 0; map { $_ => ++$n } qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec) };
-    return undef
-      if $text !~ /\A\w{3}\s+(\w+)\s+(\w+)\s+(\d+):(\d+):(\d+)\s+(\d{4})\z/;
 
-    my ( $first, $second, $hour, $minute, $second_of, $year ) = ( $1, $2, $3, $4, $5, $6 );
-    my ( $name, $day ) =
-        $month{$first}  ? ( $first,  $second )
-      : $month{$second} ? ( $second, $first )
-      :                   ( undef,   undef );
-    return undef if !defined $name || $day !~ /\A\d+\z/;
 
-    return sprintf '%04d-%02d-%02dT%02d:%02d:%02d',
-      $year, $month{$name}, $day, $hour, $minute, $second_of;
-}
-
-sub _running_containers {
-    return _containers_from(
-        _reading( 'docker', 'ps', '--format', '{{.Names}}\t{{.CreatedAt}}' ) );
-}
-
-# Kept apart from asking Docker for the same reason: the suite runs inside a
-# container with no Docker in it, so asking would prove nothing about whether
-# the answer is understood. This is proved against real docker ps output.
-sub _containers_from {
-    my ($lines) = @_;
-    my @containers;
-    for my $line ( @{$lines} ) {
-        my ( $name, $created ) = split /\t/, $line, 2;
-        next if !defined $name || $name eq '';
-        push @containers, { name => $name, started_at => _stamp_from_docker($created) };
-    }
-    return \@containers;
-}
-
-sub _stamp_from_docker {
-    my ($text) = @_;
-    return undef if !defined $text;
-    return $text =~ /(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/
-      ? "$1-$2-$3T$4:$5:$6"
-      : undef;
-}
 
 # Where this branch was last pushed to. Asking git for @{upstream} was the
 # obvious way and the wrong one: this very repository has origin/master and one
@@ -4933,41 +3368,7 @@ sub _tracking_branch {
     return undef;
 }
 
-# Commits this branch has and the branch it is pushed to does not. Nowhere to
-# have been pushed means nothing is sitting unpushed - a branch nobody has ever
-# pushed is not the same as work left waiting.
-sub _unpushed_commits {
-    my ($where) = @_;
-    return [] if !_is_repository($where);
-    my ($branch) = @{ _reading( 'git', '-C', $where, 'rev-parse', '--abbrev-ref', 'HEAD' ) };
-    return [] if !defined $branch || $branch eq '' || $branch eq 'HEAD';
-    my $upstream = _tracking_branch( $where, $branch );
-    return [] if !defined $upstream || $upstream eq '';
-    my $lines = _reading( 'git', '-C', $where, 'log', '--format=%H%x09%cI%x09%s', "$upstream..HEAD" );
-    return [ map { my ( $sha, $at, $subject ) = split /\t/, $_, 3;
-            { sha => $sha, at => $at, subject => $subject // '' } } @{$lines} ];
-}
 
-# When the working tree last changed, which is what work-without-card means by
-# work. A clean tree is not work in progress, so it answers with nothing.
-sub _tree_changing_since {
-    my ($where) = @_;
-    return undef if !_is_repository($where);
-    my $changed = _reading( 'git', '-C', $where, 'status', '--porcelain' );
-    return undef if !@{$changed};
-    my $oldest;
-    for my $line ( @{$changed} ) {
-        next if $line !~ /\A.{3}(.+)\z/;
-        my $path = File::Spec->catfile( $where, $1 );
-        next if !-e $path;
-        my $when = ( stat $path )[9];
-        $oldest = $when if !defined $oldest || $when < $oldest;
-    }
-    return undef if !defined $oldest;
-    my @when = gmtime $oldest;
-    return sprintf '%04d-%02d-%02dT%02d:%02d:%02dZ',
-      $when[5] + 1900, $when[4] + 1, @when[ 3, 2, 1, 0 ];
-}
 
 # Where tools/board-backup writes: one directory per project, named for the
 # absolute path so two projects on one machine never write over each other.
@@ -5006,245 +3407,10 @@ sub _last_backup {
       : undef;
 }
 
-# A loop that never ends cannot be called by anything, including a test - so
-# the number of rounds and the waiting are both injectable. Left alone it runs
-# for ever, which is what an agent tailing a bridge wants.
-sub _bridge_follow {
-    my ( $tira, $store, %args ) = @_;
-    my $rounds = $args{rounds};
-    my $wait = $args{sleeper} || sub { sleep $_[0] if $_[0] };
-    my $every = defined $args{interval} ? $args{interval} : 2;
-    my $path = $tira->bridge_log_path( store => $store );
 
-    # Counted through the same filter the agent reads through, or a line
-    # written for somebody else would advance the mark and swallow the next
-    # line that was actually for this one.
-    my %narrow = ( store => $store, lines => 1_000_000,
-        ( defined $args{agent} ? ( agent => $args{agent} ) : () ) );
-    my $seen = -f $path ? scalar @{ $tira->bridge_backlog(%narrow) } : 0;
-    my $done = 0;
-    while ( !defined $rounds || $done < $rounds ) {
-        $done++;
-        $wait->($every);
-        my $all = $tira->bridge_backlog(%narrow);
-        next if @{$all} <= $seen;
-        # Encoded here too, and not only in the replay: fixing the first screen
-        # and leaving every line after it wrong is the worse half, because a
-        # tail is what an agent leaves running.
-        print _utf8_bytes( join '', map { "$_\n" } @{$all}[ $seen .. $#{$all} ] );
-        $seen = scalar @{$all};
-    }
-    return $seen;
-}
 
-sub _police_follow {
-    my ( $tira, $args, $store, $option ) = @_;
-    my $interval = defined $option->{interval} ? $option->{interval} : 30;
-    my $rounds = $option->{rounds};
-    my $wait = $option->{sleeper} || sub { sleep $_[0] if $_[0] };
 
-    # d2 tira.police is a singleton, his own words after two live daemons on
-    # one board raced the enforcement ledger (TKT-486): "Whoever the last run
-    # it is the winner and the loser process will be killed." Claimed once,
-    # here, before the watch starts - not for --once, a single pass that is
-    # not "a process" in the sense that answer means, and killing a real
-    # watcher because something asked it a quick status question would be
-    # more surprising than helpful. TKT-492.
-    my $claim = _police_claim_singleton( $store, %{ $option->{singleton} // {} } );
-    print {*STDERR} "police: killed a still-running daemon (pid $claim->{killed}) - only the newest watches now\n"
-      if defined $claim->{killed};
 
-    # A supervisor that dies quietly is worse than none, because its silence
-    # reads as everything being fine.
-    # How it leaves is injectable, so that what it says on the way out can be
-    # proved by calling the handler rather than by killing the process - a
-    # handler nothing has ever run is a handler nobody knows works.
-    my $leave = $option->{leave} || sub { exit 0 };
-
-    # How it replaces itself, injectable for the same reason leaving is: a
-    # restart proved by calling the handler is a restart somebody has watched,
-    # and one proved by execing the test suite is not.
-    my $restarter = $option->{restarter} || \&_restart_into;
-    for my $signal (qw(INT TERM HUP)) {
-        $SIG{$signal} = sub {
-            _police_goodbye( $tira, $signal );
-            _police_release_singleton( $store, %{ $option->{singleton} // {} } );
-            $leave->();
-        };
-    }
-    my $done = 0;
-
-    # Which board this round is about, so the bridge can be told. Set inside the
-    # eval that discovers it and cleared at the top of every round, because a
-    # round that could not read the board must not write a line about the last
-    # one.
-    my $watched_board;
-    while ( !defined $rounds || $done < $rounds ) {
-        $done++;
-        undef $watched_board;
-        # Gathered every round, not once at the start: a container that comes up
-        # an hour into a watch is exactly the kind of thing this is for.
-        my $result = eval {
-            my $watching = $tira->discover_project( %{$args} );
-            $watched_board = $watching;
-            $tira->police_pass( %{$args}, store => $store,
-                world => _police_world( tira => $tira, project => $watching ) );
-        };
-        if ( !$result ) {
-            # Transient trouble is not a reason to stop watching.
-            print {*STDERR} 'police could not read the board: ' . ( $@ || 'unknown' ) . "\n";
-        }
-        else {
-            $tira->bridge_write( store => $store, project => $watched_board,
-                violations => $result->{violations}, settled => $result->{settled},
-            upgraded => $result->{upgraded} );
-            print {*STDERR} map { "$_\n" } @{ $result->{terminal} };
-        }
-        # Into the code that is installed, between rounds.
-        #
-        # The machinery has existed since the dashboard needed it and nothing
-        # here ever called it, so a police left running through a release kept
-        # the rulebook it started with: rules that shipped since were not
-        # evaluated, wording that had been corrected was still printed, and it
-        # said nothing about either - a watcher reading old rules looks exactly
-        # like a watcher reading new ones. Reported by the owner on 2026-08-15,
-        # and measured on this project's own board an hour later, where a fix
-        # that had shipped, passed its gate and reached origin went on being
-        # contradicted by the police still running the previous version.
-        #
-        # Between rounds, never during a pass: police writes the bridge and the
-        # enforcement ledger, and a pass cut in half would leave a violation
-        # counted and unsaid, or said and uncounted.
-        #
-        # _restart_if_updated asks whether the code differs rather than whether
-        # a label moved, which is what stops this looping - exec loads the same
-        # module again and disagrees with .env again, and four dashboards did
-        # exactly that every sixty seconds for twenty hours.
-        # Once. _restart_into execs and never comes back, so in a running
-        # police this can only happen once by construction - but if it ever
-        # returns, whether because exec failed or because a caller handed in
-        # something that does not exec, carrying on would try again every
-        # interval for ever. That is the shape of the loop this whole mechanism
-        # was built to avoid, so a restart that returns ends the watch instead:
-        # a police that has stopped is visible, and one restarting on a timer
-        # is not.
-        last
-          if defined $watched_board
-          && _restart_if_updated( $restarter, 'police', undef, $watched_board );
-
-        # And the board it watches, which cannot do this for itself: under a
-        # pre-forked server the process that notices a new version is a
-        # worker, and a worker cannot replace the board. Police is outside
-        # the pool and owns no socket, so it sends the master a HUP and the
-        # workers come back on the installed code, finishing what they hold
-        # first. Signalled once per release, never per pass. TKT-565.
-        my %hup = %{ $option->{dashboard} // {} };
-        if ( !exists $hup{port} && defined $watched_board ) {
-            $hup{port} = eval { $tira->project_show( project => $watched_board )->{dashboard}{port} };
-        }
-        my $board = _dashboard_hup_if_stale( $store, %hup );
-        print {*STDERR} "police: told the dashboard (pid $board->{pid}) to reload into $board->{version}\n"
-          if $board->{hupped};
-
-        $wait->($interval);
-    }
-    return { rounds => $done };
-}
-
-# Split out from the signal handler so that what police says on its way out can
-# be called and checked, rather than only reached by killing the process.
-sub _police_goodbye {
-    my ( $tira, $signal ) = @_;
-    print {*STDERR} $tira->police_farewell( reason => "signal $signal" ) . "\n";
-    return 1;
-}
-
-# Where the singleton claim lives - beside the enforcement ledger itself,
-# since both are per-store, not per-project.
-sub _police_singleton_path {
-    my ($store) = @_;
-    return File::Spec->catfile( $store, '.police.pid' );
-}
-
-# Which process is holding a port, asked of the kernel rather than of a file
-# somebody wrote earlier. Michael's own point on TKT-565: "Could that be more
-# reliable to find the pid on demand by checking which is the master process
-# by the port number?" - and it is, because a pidfile goes stale, survives a
-# crash, and can name a pid the machine has since reused, while a listening
-# socket is the truth at the moment it is asked.
-#
-# Read straight out of /proc, so Tira still invokes no shell: the port's
-# listening socket gives an inode in /proc/net/tcp, and the process holding
-# it is the one with that inode among its open descriptors. Anywhere without
-# /proc this answers undef, which the caller treats as "no board found" and
-# refuses on - the same way it treats every other uncertainty.
-sub _listening_pid {
-    my ( $port, %opts ) = @_;
-    return undef if !defined $port || $port !~ /\A[0-9]+\z/;
-    my $proc = $opts{proc} // '/proc';
-    my $hex = sprintf '%04X', $port;
-
-    my %inode;
-    for my $table (qw(net/tcp net/tcp6)) {
-        open my $fh, '<', File::Spec->catfile( $proc, $table ) or next;
-        while ( my $line = <$fh> ) {
-
-            # local_address is host:port in hex, and 0A is LISTEN. Anything
-            # else on the same port is a connection to it, not the server.
-            # After the 0A come tx:rx, tr:when, retrnsmt, uid and timeout
-            # before the inode. Counting one field short here captured the
-            # timeout - always 0 - and matched nothing, which looked exactly
-            # like "no board is listening".
-            next if $line !~ /\A\s*\d+:\s+\S+:$hex\s+\S+\s+0A\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+(\d+)/;
-            $inode{$1} = 1;
-        }
-        close $fh;
-    }
-    return undef if !%inode;
-
-    opendir my $dh, $proc or return undef;
-    my @pids = sort { $a <=> $b } grep { /\A[0-9]+\z/ } readdir $dh;
-    closedir $dh;
-
-    # Everyone holding it, not the first one found. A pre-forked server's
-    # master and every one of its workers share the listening socket - all
-    # six processes on the owner's own board held inode 35794984 - so the
-    # first match is simply the lowest pid, which is the master only because
-    # it happened to be created first. Once pids wrap past pid_max a worker
-    # can be numbered below its own master, and a container's pid_max is far
-    # smaller than a host's. Signalling a worker would reload that one worker
-    # onto the new code and leave the rest on the old, with the once-per
-    # -release mark written anyway: a board serving two versions at once,
-    # silently and permanently. TKT-567.
-    my @holding;
-    for my $pid (@pids) {
-        opendir my $fds, File::Spec->catdir( $proc, $pid, 'fd' ) or next;
-        my @fd = grep { /\A[0-9]+\z/ } readdir $fds;
-        closedir $fds;
-        for my $fd (@fd) {
-            my $target = readlink File::Spec->catfile( $proc, $pid, 'fd', $fd );
-            next if !defined $target || $target !~ /\Asocket:\[(\d+)\]\z/;
-            next if !$inode{$1};
-            push @holding, 0 + $pid;
-            last;
-        }
-    }
-    return undef if !@holding;
-    return $holding[0] if @holding == 1;
-
-    # The master is the one nothing else in the set fathered: every worker's
-    # parent is the master, and the master's parent is whatever launched the
-    # board. Structural, so it holds whatever order the pids happen to fall
-    # in. Exactly one such process, or none - two would mean this is not the
-    # process tree we think it is, and refusing beats guessing when guessing
-    # wrong means signalling a worker.
-    my %in_set = map { $_ => 1 } @holding;
-    my @rootmost = grep {
-        my $ppid = _parent_of_pid( $_, proc => $proc );
-        !defined $ppid || !$in_set{$ppid};
-    } @holding;
-    return @rootmost == 1 ? $rootmost[0] : undef;
-}
 
 # A process's parent, from the same shell-free source as everything else
 # here. Undef when it cannot be read, which the caller treats as "not in the
@@ -5289,131 +3455,8 @@ sub _dashboard_hup_mark_path {
     return File::Spec->catfile( $store, '.dashboard.huped' );
 }
 
-# HUP, not a kill. Tira serves a .psgi FILE PATH rather than an in-memory
-# coderef precisely so that Starman's HUP re-forks workers which read the
-# modules from disk again - proved when that was chosen, and proved again
-# here before this was built: a two-worker Starman on a .psgi reading a
-# version from a file served "one", the file changed, the master got HUP,
-# and it served "two" from fresh worker pids. Starman's own documentation
-# says the same, and only --preload-app breaks it, which Tira does not use.
-#
-# The first design of this card stopped the master and launched a
-# replacement. Michael asked the question that ended it: "After master
-# process killed. The children still survived. Have you think of this side
-# effect too?" - kill-and-relaunch has to get orphan reaping, port-free
-# timing and a correct relaunch command all right, and HUP has none of those
-# failure modes and drops no request, because workers finish what they are
-# holding before they are replaced.
-#
-# Refusing is the default, and every refusal names itself: a board on
-# slightly old code is a working board.
-sub _dashboard_hup_if_stale {
-    my ( $store, %opts ) = @_;
-    my $port = $opts{port};
-    return { hupped => 0, refused => 'no-port' } if !defined $port || $port !~ /\A[0-9]+\z/;
 
-    my $on_disk = exists $opts{on_disk} ? $opts{on_disk} : _version_on_disk();
-    return { hupped => 0, refused => 'unknown-version' } if !defined $on_disk;
 
-    my $path = _dashboard_hup_mark_path($store);
-    if ( open my $fh, '<', $path ) {
-        my $done = do { local $/; <$fh> };
-        close $fh;
-        $done =~ s/\s+//g if defined $done;
-        return { hupped => 0, refused => 'already-current' }
-          if defined $done && length $done && $done eq $on_disk;
-    }
-
-    my $find = $opts{listening} || sub { _listening_pid( $_[0] ) };
-    my $pid = $find->($port);
-    return { hupped => 0, refused => 'no-board' } if !defined $pid;
-
-    # Whoever holds the port is not necessarily the board, and SIGHUP's
-    # default disposition is Term - so signalling a stranger that installs
-    # no handler kills it outright. Proved rather than assumed: a plain
-    # `perl -e 'sleep 300'` given HUP died with "Hangup". The board port is
-    # a stable configured number, so any time the board is down and another
-    # program has taken it, this would be a real process killed by a
-    # supervisor that was only trying to reload a dashboard.
-    #
-    # What is checked is that it is a Starman, not that it is provably this
-    # board. Two facts from the owner's own running board forced that:
-    # Starman rewrites $0, so a live master's command line reads "starman
-    # master" and names neither dashboard.psgi nor the command that started
-    # it - an earlier version of this check looked for dashboard.psgi and
-    # would have refused every genuine board while looking perfectly safe -
-    # and assigning $0 on Linux clobbers the environ region too, so there is
-    # no TIRA_DASHBOARD_ROOT left to read either. The parent is no help
-    # (d2 tira.dashboard execs into Starman rather than forking, so the
-    # master's parent is whatever shell launched it).
-    #
-    # A Starman is enough, because this guard exists to stop the one thing
-    # that is actually destructive: signalling a process with no HUP handler,
-    # which SIGHUP's default disposition then terminates. Every Starman
-    # handles HUP, so the worst a misidentified one suffers is a graceful
-    # reload of its own workers. The port comes from this board's own
-    # project.yml, which is the real identifier - the owner's point exactly:
-    # "Each application only hold their own port".
-    #
-    # An unreadable command line refuses like an unrecognised one, because
-    # "cannot tell" is not "is safe to signal". TKT-566.
-    my $identify = $opts{identify} || sub { _command_of_pid( $_[0] ) };
-    my $command = $identify->($pid);
-    return { hupped => 0, refused => 'not-a-board' }
-      if !defined $command || $command !~ /\bstarman\b/i;
-
-    my $signal = $opts{hup} || sub { kill 'HUP', $_[0] };
-    $signal->($pid);
-
-    File::Path::make_path($store) if !-d $store;
-    if ( open my $fh, '>', $path ) {
-        print {$fh} $on_disk;
-        close $fh;
-    }
-    return { hupped => 1, pid => $pid, version => $on_disk };
-}
-
-# The claim: read whoever was there before, kill them if they are still
-# alive, then write our own pid over theirs. pid/alive/kill are all
-# injectable - the same shape leave/restarter/sleeper already use in
-# _police_follow - so this is provable without spawning or signalling a
-# real OS process. TKT-492.
-sub _police_claim_singleton {
-    my ( $store, %opts ) = @_;
-    File::Path::make_path($store) if !-d $store;
-    my $path = _police_singleton_path($store);
-    my $my_pid = $opts{pid} // $$;
-    my $alive = $opts{alive} || sub { return kill 0, $_[0] };
-    my $kill_previous = $opts{kill} || sub { kill 'TERM', $_[0] };
-
-    my $killed;
-    if ( open my $fh, '<', $path ) {
-        my $previous = do { local $/; <$fh> };
-        close $fh;
-        $previous =~ s/\s+//g;
-        if ( length $previous && $previous ne $my_pid && $alive->($previous) ) {
-            $kill_previous->($previous);
-            $killed = $previous;
-        }
-    }
-    open my $fh, '>', $path or die "Cannot claim the police singleton at '$path': $!\n";
-    print {$fh} $my_pid;
-    close $fh;
-    return { claimed => $my_pid, killed => $killed };
-}
-
-# The pid file is this process's own claim, so a clean exit removes it
-# rather than leaving a stale entry the next daemon's alive-check has to
-# reason past. A daemon that dies uncleanly (kill -9, a crash) leaves the
-# file behind - the next claim's alive-check still handles that safely,
-# since a dead pid answers false and nothing is killed.
-sub _police_release_singleton {
-    my ( $store, %opts ) = @_;
-    my $path = _police_singleton_path($store);
-    my $remove = $opts{unlink} || sub { unlink $_[0] };
-    $remove->($path);
-    return;
-}
 
 sub _policy_help {
     my (%args) = @_;
@@ -5940,22 +3983,20 @@ does not exist, which is a different mechanism doing the stopping. TKT-597.
 
 =head2 browser_providers
 
-Returns the flat hash of named coderefs L<Tira::DashboardWeb> requires to
-build its Dancer2 app - one entry per route, so a browser mutation can never
-drift from the engine's own validated command surface. TKT-516 added
-C<tasklist>, C<tasklist_add>, C<tasklist_update>, C<tasklist_next>,
-C<tasklist_shift>, C<tasklist_pop>, C<tasklist_unshift>, C<tasklist_slice>,
-C<tasklist_remove>, C<tasklist_import>, C<tasklist_prune>,
-C<tasklist_task_attach_add>, C<tasklist_task_attach_discard>,
-C<tasklist_task_ref_link>, and C<tasklist_task_ref_unlink>, giving the
-browser dashboard's Task List section full parity with C<tira.tasklist.*>.
-TKT-540: C<tasklist_update>, C<tasklist_remove>, C<tasklist_task_attach_add>,
-C<tasklist_task_attach_discard>, C<tasklist_task_ref_link>, and
-C<tasklist_task_ref_unlink> now forward the payload's C<session> field to
-the engine, matching the other eight tasklist providers - previously these
-six silently dropped it, so a session switched in the dashboard's own
-session box could view an item it could not then mutate once TKT-538 began
-enforcing session ownership.
+Returns the flat hash of named coderefs L<Tira::DashboardWeb> requires to build
+its Dancer2 app - one entry per route, so a browser mutation can never drift
+from the engine's own validated command surface.
+
+The coderefs themselves are in L<Tira::CLI::Browser>, and this loads that module
+with C<require> when a board is actually served rather than with C<use> at the
+top - the shape this file already used for L<Tira::DashboardWeb> and
+L<Tira::OnboardWeb>. They were 701 lines of the 6,048 that had to be read to
+change any command at all, needed by the one invocation that serves a board.
+
+THE NAME IS THE FRONT DOOR AND DID NOT MOVE. Twenty test files and the dashboard
+call C<Tira::CLI::browser_providers>, so it still exists and still answers. What
+each provider does, and the TKT-516 and TKT-540 history of the tasklist ones, is
+documented where the code is. TKT-607.
 
 =head2 The --dry-run allow-list
 

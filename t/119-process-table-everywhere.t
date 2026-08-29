@@ -25,6 +25,10 @@ use Test::More;
 
 use lib 'lib';
 use Tira::CLI;
+# Tira::CLI::Serve holds these since 4.74 (TKT-607). Tira::CLI requires it at
+# the point one of its verbs runs, so a caller reaching in directly has to
+# ask for it itself.
+require Tira::CLI::Serve;
 
 # --- captured from the Linux container ------------------------------------
 
@@ -41,14 +45,14 @@ my @macos = (
     '   84 Thu 13 Aug 01:52:57 2026     /usr/libexec/smd',
 );
 
-my $from_linux = Tira::CLI::_processes_from( \@linux );
+my $from_linux = Tira::CLI::Serve::_processes_from( \@linux );
 is( scalar @{$from_linux}, 2, 'every line of Linux ps output is read' );
 is( $from_linux->[0]{pid}, 1, 'with the process number' );
 is( $from_linux->[0]{started_at}, '2026-05-26T08:06:05',
     'and the start time, month named in the second field' );
 like( $from_linux->[0]{command}, qr/systemd/, 'and what is running' );
 
-my $from_macos = Tira::CLI::_processes_from( \@macos );
+my $from_macos = Tira::CLI::Serve::_processes_from( \@macos );
 is( scalar @{$from_macos}, 3, 'every line of macOS ps output is read too' );
 is( $from_macos->[0]{pid}, 1, 'with the process number' );
 is( $from_macos->[0]{started_at}, '2026-08-13T01:52:51',
@@ -64,9 +68,9 @@ is( $from_macos->[1]{started_at}, '2026-08-13T01:52:57',
 # something else. Whichever field is a month name is the month, which needs no
 # knowledge of where it is running.
 
-is( Tira::CLI::_stamp_from_ps('Thu 13 Aug 01:52:51 2026'), '2026-08-13T01:52:51',
+is( Tira::CLI::Serve::_stamp_from_ps('Thu 13 Aug 01:52:51 2026'), '2026-08-13T01:52:51',
     'day before month is read' );
-is( Tira::CLI::_stamp_from_ps('Tue May 26 08:06:05 2026'), '2026-05-26T08:06:05',
+is( Tira::CLI::Serve::_stamp_from_ps('Tue May 26 08:06:05 2026'), '2026-05-26T08:06:05',
     'and month before day' );
 
 # --- and anything else answers with nothing -------------------------------
@@ -74,13 +78,13 @@ is( Tira::CLI::_stamp_from_ps('Tue May 26 08:06:05 2026'), '2026-05-26T08:06:05'
 # Rather than an invented time, which would make every age rule wrong instead
 # of absent - and wrong is worse than absent, because absent can be noticed.
 
-is( Tira::CLI::_stamp_from_ps('not a date at all'), undef, 'an unreadable time answers with nothing' );
-is( Tira::CLI::_stamp_from_ps('Thu 13 Zzz 01:52:51 2026'), undef,
+is( Tira::CLI::Serve::_stamp_from_ps('not a date at all'), undef, 'an unreadable time answers with nothing' );
+is( Tira::CLI::Serve::_stamp_from_ps('Thu 13 Zzz 01:52:51 2026'), undef,
     'and so does one whose month is not a month' );
-is( Tira::CLI::_stamp_from_ps('Thu 13 14 01:52:51 2026'), undef,
+is( Tira::CLI::Serve::_stamp_from_ps('Thu 13 14 01:52:51 2026'), undef,
     'and one with two numbers where a month belongs' );
 
-is_deeply( Tira::CLI::_processes_from( ['a line that is not a process at all'] ), [],
+is_deeply( Tira::CLI::Serve::_processes_from( ['a line that is not a process at all'] ), [],
     'a line that is not a process is not counted as one' );
 
 done_testing();

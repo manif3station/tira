@@ -30,6 +30,7 @@
 use strict;
 use warnings;
 
+use File::Find ();
 use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
@@ -163,11 +164,29 @@ is( scalar( grep { $_->{ref} eq $card->{ref} } @{ $returned->{violations} } ), 1
 # here, and fixing only the one a test happens to exercise is how two copies of
 # one decision come apart.
 
+# Read out of every module under lib/, not out of Tira/CLI.pm by name. The two
+# writers were in one file until 4.74, when the follow loop moved to
+# Tira::CLI::Police (TKT-607) and this assertion started counting one of two -
+# green code, red test, and the test was the thing that was wrong. Naming the
+# file made this test a claim about where the code lives, which was never what
+# it was for. Same lesson TKT-594 taught the coverage gate a few hours earlier:
+# a list of file paths is maintained by somebody remembering, and eventually
+# nobody does.
 {
-    open my $cli, '<', File::Spec->catfile(qw(lib Tira CLI.pm)) or die $!;
-    my $source = do { local $/; <$cli> };
-    close $cli;
-    my @writes = $source =~ /bridge_write\(([^;]*?)\);/gs;
+    my @sources;
+    File::Find::find(
+        {   no_chdir => 1,
+            wanted   => sub {
+                return if !/\.pm\z/;
+                open my $handle, '<', $File::Find::name or die "$File::Find::name: $!";
+                push @sources, do { local $/; <$handle> };
+                close $handle;
+            },
+        },
+        'lib'
+    );
+    ok( scalar @sources >= 4, 'lib/ was read - ' . scalar(@sources) . ' modules' );
+    my @writes = map { /bridge_write\(([^;]*?)\);/gs } @sources;
     is( scalar @writes, 2, 'the bridge is written from a pass in two places' );
     is( scalar( grep { /settled\s*=>/ } @writes ), 2,
         'and both of them carry what has been settled, not just the one under test' );

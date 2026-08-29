@@ -21,6 +21,10 @@ use Test::More;
 use lib 'lib';
 use Tira;
 use Tira::CLI;
+# Tira::CLI::Police holds the police pass, the bridge and the world scan since
+# 4.74 (TKT-607). Tira::CLI loads it with require at the point a police verb
+# runs, so a test calling into it directly has to ask for it itself.
+require Tira::CLI::Police;
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub { '2026-08-24T09:00:00Z' } );
@@ -34,7 +38,7 @@ my $store = File::Spec->catdir( $tmp, 'police' );
 
 sub follow {
     my (%args) = @_;
-    Tira::CLI::_police_follow(
+    Tira::CLI::Police::police_follow(
         $tira, { project => $root }, $store,
         {   rounds => $args{rounds} // 1,
             sleeper => sub { },
@@ -147,8 +151,8 @@ SKIP: {
     # The real default 'alive' answers true for a process that is genuinely
     # still there, and the real default 'kill' really signals it - claiming
     # with no overrides at all, the shape a real second daemon would use.
-    Tira::CLI::_police_claim_singleton( $default_store, pid => $child );
-    Tira::CLI::_police_claim_singleton( $default_store, pid => $$ );
+    Tira::CLI::Police::police_claim_singleton( $default_store, pid => $child );
+    Tira::CLI::Police::police_claim_singleton( $default_store, pid => $$ );
     waitpid $child, 0;
     my $status = $? >> 8;
     is( $status, 0, "the real default kill actually signalled the child, which left cleanly on TERM" );
@@ -159,7 +163,7 @@ SKIP: {
     open my $fh, '>', File::Spec->catfile( $default_store, '.police.pid' ) or die $!;
     print {$fh} 2**30;
     close $fh;
-    my $claim = Tira::CLI::_police_claim_singleton( $default_store, pid => $$ );
+    my $claim = Tira::CLI::Police::police_claim_singleton( $default_store, pid => $$ );
     ok( !defined $claim->{killed}, 'and a pid nothing is using is not treated as a rival to kill' );
     open my $read, '<', File::Spec->catfile( $default_store, '.police.pid' ) or die $!;
     is( do { local $/; <$read> }, $$, 'the claim still passes to this process' );

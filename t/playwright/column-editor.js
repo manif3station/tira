@@ -176,14 +176,56 @@ process.on('unhandledRejection', error => {
   const exitAdds = await page.locator('.column-row[data-name="review"] .column-row__action-add').count();
   if (exitAdds !== 1) fail('the exit required-action add button is no longer unique in its row, found ' + exitAdds);
 
+  // TKT-651: the two lists must be tellable apart, which is a rendering claim
+  // and belongs here rather than in the Perl that reads the source. Measured on
+  // the real page: which block sits higher, what each label says, and what each
+  // add field invites you to type.
+  const entryBox = await page.locator('.column-row[data-name="review"] .column-row__entry-actions-list').boundingBox();
+  const exitBox = await page.locator('.column-row[data-name="review"] .column-row__actions-list').boundingBox();
+  if (!entryBox || !exitBox) fail('one of the two required-action lists did not render in the row');
+  if (!(entryBox.y < exitBox.y))
+    fail(`the entry list must render above the exit list, got entry y=${entryBox.y} exit y=${exitBox.y}`);
+
+  const labels = await page.locator('.column-row[data-name="review"] .column-row__actions-label')
+    .evaluateAll(nodes => nodes.map(n => n.textContent.trim()));
+  if (!labels.includes('Entry required actions') || !labels.includes('Exit required actions'))
+    fail('each list must name itself, got ' + JSON.stringify(labels));
+
+  const placeholders = await page.locator('.column-row[data-name="review"] input[placeholder^="Add an"]')
+    .evaluateAll(nodes => nodes.map(n => n.placeholder));
+  if (new Set(placeholders).size !== placeholders.length)
+    fail('the two add fields still share a placeholder, got ' + JSON.stringify(placeholders));
+
+  // The fourth fault, and the one that is only visible on a rendered page: the
+  // entry input sat at its default width beside a row that stretched, because
+  // it carried only its entry class and the stylesheet dressed the exit one.
+  const entryInput = await page.locator('.column-row[data-name="review"] .column-row__entry-action-input').first().boundingBox();
+  const exitInput = await page.locator('.column-row[data-name="review"] .column-row__action-input').first().boundingBox();
+  if (!(entryInput.width > exitInput.width * 0.9))
+    fail(`the entry input must stretch like the exit one, got entry ${Math.round(entryInput.width)}px against exit ${Math.round(exitInput.width)}px`);
+
   // TKT-476: drag a required-action row above another by its own grip.
-  const actionRows = () => page.locator('.column-row[data-name="review"] .column-row__action-input').evaluateAll(nodes => nodes.map(n => n.value));
+  const actionRows = () => page.locator('.column-row[data-name="review"] .column-row__actions-list .column-row__action-input').evaluateAll(nodes => nodes.map(n => n.value));
   const beforeDrag = await actionRows();
   if (beforeDrag.join('|') !== 'Update the docs|Add a Changes entry|') fail('setup for the reorder test is not what was expected, got ' + beforeDrag.join('|'));
-  const secondGrip = page.locator('.column-row[data-name="review"] .column-row__action-grip').nth(1);
-  const firstRow = page.locator('.column-row[data-name="review"] .column-row__action-row').first();
+  const secondGrip = page.locator('.column-row[data-name="review"] .column-row__actions-list .column-row__action-grip').nth(1);
+  const firstRow = page.locator('.column-row[data-name="review"] .column-row__actions-list .column-row__action-row').first();
+  // Kept from a wrong diagnosis, and worth keeping. When the reorder broke this
+  // drag I guessed the rows had gone below the fold and added the scroll and
+  // the check beneath it; the check never fired, which is how I learned the
+  // guess was wrong - the rows were in view and the locators above were
+  // selecting the entry list's grip. These stay because a drag driven by
+  // absolute coordinates should say so when its target is not on screen,
+  // rather than moving the mouse through empty space and reporting only that
+  // nothing reordered.
+  await secondGrip.scrollIntoViewIfNeeded();
   const gripBox = await secondGrip.boundingBox();
   const targetBox = await firstRow.boundingBox();
+  const viewport = page.viewportSize();
+  if (!gripBox || !targetBox)
+    fail('the required-action rows are not rendered, so the drag has nothing to move');
+  if (gripBox.y > viewport.height || targetBox.y > viewport.height)
+    fail(`the rows to drag are below the fold - grip y=${Math.round(gripBox.y)}, target y=${Math.round(targetBox.y)}, viewport ${viewport.height}`);
   await page.mouse.move(gripBox.x + gripBox.width / 2, gripBox.y + gripBox.height / 2);
   await page.mouse.down();
   await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + 2, { steps: 8 });

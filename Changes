@@ -1,5 +1,29 @@
 Revision history for Tira
 
+4.71  2026-08-29
+
+    - TKT-651. The column editor says which of its two required-action
+      lists is which. The entry list now renders above the exit one -
+      the order a card meets them - and the exit list is labelled 'Exit
+      required actions' rather than being the one you identify by its
+      lack of a qualifier. Each add field names the list it adds to
+      instead of both inviting 'Add a required action'.
+    - The entry inputs stretch like the exit ones. They sat at their
+      default width beside a row that filled: the entry ROW carries both
+      classes and was styled, while the entry INPUT and buttons carry
+      only their own, and the stylesheet dressed the exit list alone.
+      Four existing rules gained their entry variants rather than a
+      parallel block being added beside them.
+    - Nothing about the stored shape, the CLI flags or the gates
+      changed. The browser fixture drives both lists by their input
+      classes and the save collectors query the same two, so t/427 pins
+      those as the property this must not cost - a reorder that renamed
+      them would satisfy every other assertion and quietly stop one list
+      being saved.
+    - Raised by the owner with an annotated screenshot minutes after
+      TKT-591 shipped the second list. Three of the four faults are in
+      his words; the half-width inputs were in the picture.
+
 4.70  2026-08-29
 
     - TKT-703. The dashboard has a View. Dancer2 served the board and

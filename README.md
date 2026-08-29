@@ -125,6 +125,13 @@ an agent skipping a gate — but the dragged card still arrives carrying what th
 column asks of it. Entry actions are declared from the CLI and from the browser
 column editor, and marking one done costs the same `--command`/`--proof` pair as
 any other required action.
+Since 4.71 that editor shows the two lists in the order a card meets them — the
+entry list above the exit one — and each names itself rather than leaving the
+unqualified one to be identified by elimination: **Entry required actions** and
+**Exit required actions**, with each add field inviting the list it belongs to.
+Before that the entry list rendered below the exit one, the exit list was
+labelled simply "Required actions", both add fields read "Add a required
+action", and the entry inputs sat at half width beside a row that filled.
 A card created straight into such a column **through the CLI** gets those
 entry items too, since 4.67, and is never refused for them. The browser's own
 create flow is untouched and still seeds neither list - it calls the engine

@@ -1665,6 +1665,13 @@ When a move IS refused for required actions, the message names each blocking ite
 
 A fourth guard runs on the way IN. A column can declare entry required actions with `tira.column.update --entry-required-action TEXT`, and a move into that column is refused while any of them are unmarked - the card stays where it was, and the refusal names each item with its id and a command that runs. The items are put on the card before the refusal, because an entry requirement is satisfied from outside the column that demands it; a list that only appeared once the card was inside would leave nothing to mark. Forward moves only. Marking one done costs the same `--command`/`--proof` pair as any other required action, and a card exempt from an item is let through. TKT-591.
 
+The browser column editor shows both templates per column, and since 4.71 shows
+them in the order a card meets them: the entry list above the exit one, each
+labelled for itself rather than one being the list without a qualifier, and each
+add field naming which list it adds to. The stored shape is unchanged - the two
+have always been separate fields with separate flags, and the editor was simply
+the one surface that did not say which was which. TKT-651.
+
 **A card created into such a column through the CLI gets them too, since 4.67,
 and is never refused for them.** This covers `tira.TYPE.create`; the browser's
 own create flow calls the engine directly and seeds neither template, which is

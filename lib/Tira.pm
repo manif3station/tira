@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.70';
+our $VERSION = '4.71';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -13836,11 +13836,23 @@ Returns a board's columns, or all three boards' columns when no type is given.
 
 =head2 column_apply
 
-Replaces a board's whole column layout in one call - order, labels, chains, and required-action templates - matching what the column editor dialog sends.
+Replaces a board's whole column layout in one call - order, labels, chains, and
+both required-action templates, the entry one and the exit one - matching what
+the column editor dialog sends. The editor sends an emptied list as an explicit
+empty rather than omitting the key, which is what lets a list be cleared
+entirely rather than read as "nothing changed".
 
 =head2 column_update
 
-Updates one column's notify_after, watched flag, terminal role, chain, or required-action template.
+Updates one column's notify_after, watched flag, terminal role, chain, or
+either of its two required-action templates.
+
+There are two, and this entry said "template" until TKT-651 - the same
+ambiguity the browser editor carried, in the API's own documentation.
+C<required_action> is the list a card must finish before it may LEAVE the
+column; C<entry_required_action> is what it must already have done before it
+may ARRIVE. Each is replaced whole per call and neither touches the other, so
+updating one leaves the other exactly as it was.
 
 =head2 board_show
 

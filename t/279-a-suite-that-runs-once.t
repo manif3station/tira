@@ -37,6 +37,7 @@ use strict;
 use warnings;
 
 use File::Spec;
+use File::Path ();
 use File::Temp qw(tempdir);
 use Test::More;
 
@@ -108,6 +109,22 @@ my $tools = File::Spec->catdir( $repo, 'tools' );
 mkdir File::Spec->catdir( $tmp, 'skills' ) or die $!;
 mkdir $repo  or die $!;
 mkdir $tools or die $!;
+
+# The scratch repo needs the modules gate-run will hold to 100%. Since TKT-594
+# it derives that list by walking lib/ rather than naming three paths, so a
+# fake repo with no lib/ is a repo it now refuses outright - correctly, since a
+# gate that finds no modules and passes is the fault that card removed. The
+# files are empty: nothing reads them, the coverage figures come from the
+# mocked docker below, and what matters is that the names on disk are the names
+# the mock reports.
+my $fake_lib = File::Spec->catdir( $repo, 'lib', 'Tira' );
+File::Path::make_path($fake_lib) or die $! if !-d $fake_lib;
+for my $module ( 'lib/Tira.pm', 'lib/Tira/CLI.pm', 'lib/Tira/DashboardWeb.pm',
+    'lib/Tira/OnboardWeb.pm' ) {
+    open my $fh, '>', File::Spec->catfile( $repo, split m{/}, $module ) or die $!;
+    print {$fh} "1;\n";
+    close $fh;
+}
 
 # gate-run looks two directories up from tools/ for the compose file, so the
 # scratch tree mirrors that shape. Its content is never read - docker is
@@ -196,6 +213,7 @@ Result: PASS
 lib/Tira.pm               100.0  100.0  100.0
 lib/Tira/CLI.pm           100.0  100.0  100.0
 lib/Tira/DashboardWeb.pm  100.0  100.0  100.0
+lib/Tira/OnboardWeb.pm    100.0  100.0  100.0
 Total                     100.0  100.0  100.0
 EOF
 
@@ -365,6 +383,7 @@ Result: PASS
 lib/Tira.pm               98.0  100.0  99.0
 lib/Tira/CLI.pm           100.0  100.0  100.0
 lib/Tira/DashboardWeb.pm  100.0  100.0  100.0
+lib/Tira/OnboardWeb.pm    100.0  100.0  100.0
 EOF
     install_fake_docker($partial_coverage);
 

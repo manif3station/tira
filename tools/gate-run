@@ -66,8 +66,14 @@ docker compose -f "$compose" run --rm -v "$tree:/workspace/skills/tira" perl-tes
   rm -rf cover_db .test-tmp &&
   cpanm --quiet --notest --installdeps . >/dev/null 2>&1 &&
   timeout --signal=KILL '"$SUITE_TIMEOUT"' env HARNESS_PERL_SWITCHES=-MDevel::Cover prove -lr t 2>&1 | tail -4 &&
-  cover -ignore_covered_err -report text \
-    -select lib/Tira.pm -select lib/Tira/CLI.pm -select lib/Tira/DashboardWeb.pm \
+  select_args=() &&
+  while IFS= read -r m; do select_args+=(-select "$m"); done \
+    < <(find lib -name "*.pm" | sort) &&
+  if [ ${#select_args[@]} -eq 0 ]; then
+    echo "gate-run: no modules found under lib/ - refusing to report coverage over nothing" >&2
+    exit 1
+  fi &&
+  cover -ignore_covered_err -report text "${select_args[@]}" \
     -coverage statement -coverage subroutine 2>/dev/null | grep -E "^lib|^Total"
   rm -rf cover_db
 ' >"$output" 2>&1 || { echo "gate-run: the suite did not run:" >&2; tail -3 "$output" >&2; exit 1; }
@@ -79,7 +85,54 @@ if ! grep -q '^Result: PASS' "$output"; then
     exit 1
 fi
 
-for module in 'lib/Tira.pm' 'lib/Tira/CLI.pm' 'lib/Tira/DashboardWeb.pm'; do
+# Modules the gate deliberately does not hold to 100%. Empty, and it should
+# stay that way unless somebody has a reason to write on the line beside the
+# path - which is the whole point of the list existing rather than a module
+# simply being missing from a loop. TKT-594.
+EXEMPT_COVERAGE=(
+)
+
+# Derived from the worktree that was actually tested, not from the working
+# directory. The clean-tree check above means the two agree today, but that is a
+# guarantee living forty lines away from the thing relying on it - and a gate
+# that measures one set of modules and enforces against another would be this
+# card's own fault wearing a different hat.
+modules=()
+while IFS= read -r m; do modules+=("${m#"$tree"/}"); done \
+  < <(find "$tree/lib" -name '*.pm' | sort)
+
+# An empty derivation must refuse. Deriving the list fixed a gate that checked
+# three modules of four; a gate that checks NONE and exits zero would be the
+# same fault taken to its end, and the loop below would simply not run.
+if [ ${#modules[@]} -eq 0 ]; then
+    echo "gate-run: no modules found under lib/ - refusing rather than passing a gate that checked nothing" >&2
+    exit 1
+fi
+
+checked=""
+for module in "${modules[@]}"; do
+    exempt=""
+    for entry in "${EXEMPT_COVERAGE[@]}"; do
+        case "$entry" in
+            # A path with something after it: the reason, which is the whole
+            # point of the list. Matched with a space so the reason cannot be
+            # omitted.
+            "$module "*) exempt="$entry" ;;
+            # A bare path with no reason REFUSES rather than exempting. An
+            # exemption nobody justified is the silence this card removed from
+            # the module list; honouring it here would put it back one line
+            # further in.
+            "$module")
+                echo "gate-run: $module is listed as exempt with no reason beside it - write one, or remove the entry" >&2
+                exit 1
+                ;;
+        esac
+    done
+    if [ -n "$exempt" ]; then
+        echo "gate-run: $module is exempt from the coverage gate - $exempt"
+        continue
+    fi
+    checked="$checked $module"
     line="$(grep -F "$module" "$output" | grep -E '[0-9]+\.[0-9]' || true)"
     if [ -z "$line" ]; then
         echo "gate-run: no coverage was measured for $module - no record written" >&2
@@ -90,5 +143,11 @@ for module in 'lib/Tira.pm' 'lib/Tira/CLI.pm' 'lib/Tira/DashboardWeb.pm'; do
         exit 1
     fi
 done
+
+# Say what was held to the standard, so the guarantee can be read rather than
+# assumed. A gate that checks a subset in silence is what TKT-594 was raised
+# about: lib/Tira/OnboardWeb.pm had no coverage requirement for four releases
+# and nothing said so, because the loop only visited the modules it named.
+echo "gate-run: checked coverage for${checked:- nothing - lib/ held no modules}"
 
 "$root/tools/gate-cache-write" "$output"

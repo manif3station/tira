@@ -1087,6 +1087,17 @@ It still writes a pass record keyed to the commit's tree. Nothing reads those
 records automatically any more: the hook stopped consulting them along with the
 suite they existed to skip. TKT-680.
 
+Which modules it holds to 100% is decided by looking at `lib/`, not by a list in
+the script. Until 4.73 it named three paths in two places - once as `cover`'s
+`--select` arguments and once in the loop that read the result - and
+`lib/Tira/OnboardWeb.pm` was in neither, so it carried no coverage requirement
+and the gate passed without mentioning it. The run now ends with
+`gate-run: checked coverage for ...` naming what it held, and announces any
+module it skipped. A module can be skipped only by appearing in the script's
+`EXEMPT_COVERAGE` list with a reason written beside it, which is empty today -
+the difference being that an exemption somebody wrote down is a decision, and a
+module missing from a for-loop is an accident. TKT-594.
+
 Without `--pid`, the 600-second ceiling was shorter than either gate this
 repo ran at the time - coverage at 846s, pre-push at 15m and counting - so
 the commonest legitimate reason for a suspension (waiting on a gate) always

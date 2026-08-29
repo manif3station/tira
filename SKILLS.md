@@ -1349,8 +1349,12 @@ backup, live-card completeness and `tools/card-holes` before; `tools/docs-match-
 because documentation edited after a gate has shipped a broken build here twice.
 That ordering is what still defends the property the suite step was really for,
 which was never "the tests pass" but "nothing was edited between the proof and
-the push". `tools/gate-run` is unchanged and still proves a committed tree by
-hand; nothing reads its cache records automatically any more. A *new, separate* step reading `fix_version` and `evidence`
+the push". `tools/gate-run` still proves a committed tree by
+hand; nothing reads its cache records automatically any more. Since 4.73 it
+derives the modules it holds to 100% from `lib/` rather than naming three by
+hand, reports which it checked, and takes an exemption only with a reason
+written beside it - `lib/Tira/OnboardWeb.pm` had been in neither of the two
+lists and so had no coverage requirement at all. TKT-594. A *new, separate* step reading `fix_version` and `evidence`
 off each card was proposed and declined - *"only trim away the full test run.
 keep other checks"* - and is recorded in the card's excluded scope so it is not
 reintroduced. It would have been redundant as well as unwanted: `tools/card-holes`,

@@ -405,6 +405,14 @@ docker compose -f ~/projects/skills/docker-compose.testing.yml run --rm perl-tes
 
 The release gate requires 100% statement and subroutine coverage plus the
 post-coverage `perlsec` and taint-mode audit recorded in `tickets/TESTING.md`.
+Since 4.73 that means every module under `lib/`, found by looking rather than
+by a list somebody typed — `tools/gate-run` enumerates them, names the ones it
+checked, and refuses a release for any that is missing from the coverage report
+or below 100%. A module can be exempted, but only by being written into the
+gate's exemption list with a reason beside it; the list is currently empty.
+Until then the gate named three module paths by hand and
+`lib/Tira/OnboardWeb.pm` was in neither of the two places it needed to be, so
+it had no coverage requirement at all and nothing said so.
 
 Bumping the release version means `.env`'s `VERSION=` line and
 `lib/Tira.pm`'s `our $VERSION` always agreeing - `tools/bump-version NEW`

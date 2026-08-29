@@ -1,5 +1,34 @@
 Revision history for Tira
 
+4.73  2026-08-29
+
+    - TKT-594. The coverage gate holds every module in lib/, derived from
+      what is there rather than from a list somebody typed. It named
+      three paths, twice - once as cover's --select arguments and once in
+      the loop that read the result - and lib/Tira/OnboardWeb.pm was in
+      neither. It had no coverage requirement for four releases and
+      nothing said so, because the loop only visited the modules it
+      named: the gate failed open, and silently.
+    - OnboardWeb.pm is gated rather than exempted. It measures 100% today
+      and always has, which is the point rather than a reprieve - it was
+      covered because the suite happens to exercise it, not because
+      anything would have failed if it stopped.
+    - An exemption list exists and is empty. A module that should not be
+      held to 100% is a legitimate thing; one that is not held to 100%
+      because nobody updated a for-loop is not, and the difference is a
+      reason written on the line beside the path. t/429 fails an
+      exemption that carries none.
+    - The gate now says which modules it checked, and names any it
+      skipped. A gate that checks a subset in silence is the fault this
+      card was raised about; one that announces its subset can be read
+      and disagreed with.
+    - t/429 runs the gate's own enumeration and compares it with what is
+      on disk, so a module added to lib/ is asserted from the moment it
+      exists. Its first version searched the script's text instead, which
+      was wrong in both directions once the list was derived: three
+      modules failed while correctly covered, and OnboardWeb.pm passed
+      because a comment mentioned it.
+
 4.72  2026-08-29
 
     - TKT-662. lib/Tira/CLI.pm's POD now documents all four guards that

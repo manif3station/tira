@@ -2272,6 +2272,16 @@ sub _invoke {
         return Tira::CLI::Police::police_outstanding( $tira, \%args, $option );
     }
 
+    # When the last pass ran, rather than what it found. outstanding answers as
+    # of the last pass and an empty list cannot carry when that was, so this is
+    # the command that can - kept separate from the payload rather than folded
+    # into it, because two other projects pipe and index that list. Q-096.
+    # TKT-684.
+    if ( $command eq 'police.freshness' ) {
+        require Tira::CLI::Police;
+        return Tira::CLI::Police::police_freshness( $tira, \%args, $option );
+    }
+
     if (   $command eq 'police.suspend'
         || $command eq 'police.log'
         || $command eq 'policy.bridge.logs' )

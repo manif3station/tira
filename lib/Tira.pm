@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.77';
+our $VERSION = '4.78';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -11576,6 +11576,53 @@ sub police_outstanding_taken_at {
     return $self->_violation_ledger($store)->{last_pass};
 }
 
+# How long a pass may go unrun before its answer stops meaning anything.
+#
+# Ten times the watcher's default interval of thirty seconds. A bridge that has
+# missed ten consecutive passes has stopped rather than run late, and the number
+# is a multiple of the interval rather than a round wall-clock figure because
+# that is what the thing being judged is made of. TKT-684.
+our $POLICE_STALE_AFTER = 300;
+
+# When the last pass ran, how long ago that was, and whether it is recent enough
+# to trust.
+#
+# police_outstanding answers as of the last pass, and on a clean board that
+# answer is an empty list - identical to the answer from a board whose bridge
+# died eleven hours ago. Measured on zenandi, 2026-08-29: last_pass frozen at
+# 03:38:41 and read at 14:41:50, while the board called itself clean all day.
+#
+# A BOARD NOBODY HAS POLICED IS STALE, not fresh, and that branch is the whole
+# card: "nothing has been checked" and "nothing is wrong" must not be the same
+# answer. Reporting an age of zero there would put a confident number on an
+# absence, which is worse than the ambiguity this removes.
+sub police_freshness {
+    my ( $self, %args ) = @_;
+    my $store = $args{store} or die "A police store is required\n";
+    my $at    = $self->police_outstanding_taken_at( store => $store );
+
+    my $age;
+    if ( defined $at ) {
+        my $then = eval { _epoch_of_datetime( $at, 'Pass' ) };
+        my $now  = eval { _epoch_of_datetime( $self->{clock}->(), 'Clock' ) };
+        $age = $now - $then if defined $then && defined $now;
+    }
+
+    # A stamp that is present but unreadable is STALE, not fresh. Review caught
+    # this: both _epoch_of_datetime calls are guarded, so a corrupt last_pass
+    # left $age undefined and the old condition - which only asked whether a
+    # DEFINED age exceeded the threshold - answered stale => 0. That is this
+    # card's own fault turned inward: a broken instrument reporting health.
+    #
+    # Three ways to be stale, and they are one idea: the pass time is missing,
+    # unreadable, or old. In none of them can the board's silence be trusted.
+    return {
+        taken_at    => $at,
+        age_seconds => $age,
+        stale       => ( !defined $at || !defined $age || $age > $POLICE_STALE_AFTER ) ? 1 : 0,
+    };
+}
+
 sub enforcement_log {
     my ( $self, %args ) = @_;
     my $store = $args{store} or die "A police store is required\n";
@@ -14318,6 +14365,17 @@ still says which one to change. TKT-380.
 =head2 police_outstanding_taken_at
 
 Returns the timestamp of the last police pass recorded in a store.
+
+=head2 police_freshness
+
+Returns C<< { taken_at, age_seconds, stale } >> for a police store: when the last
+pass ran, how long ago that was, and whether the answer can still be trusted.
+
+Stale means missing, unreadable, or older than C<$POLICE_STALE_AFTER> seconds -
+ten times the watcher's default interval. All three are one idea: in none of them
+can the board's silence be trusted, so a board nobody has policed and a board
+whose stored stamp will not parse are both reported stale rather than fresh.
+Reporting an age of zero for either would put a confident number on an absence.
 
 =head2 enforcement_log
 

@@ -1394,6 +1394,52 @@ escalating from note to critical, and was read four times and acted on never.
 An answer that depends on somebody remembering to look is the thing this
 subsystem exists to remove.
 
+### `tira.police.freshness`
+
+When the last pass ran, how long ago that was, and whether that is recent enough
+to trust. Since 4.78.
+
+`tira.police.outstanding` answers what is outstanding *as of the last pass*, and
+on a clean board that answer is an empty list. On a board whose bridge stopped
+eleven hours ago it is also an empty list - the same bytes, with no field to
+compare and no arithmetic a caller could do. Measured on a real board on
+2026-08-29: a pass at 03:38:41, read at 14:41:50, unchanged, while the board
+reported itself clean all day and a `card-duration` policy sat an hour past its
+age in that silence.
+
+```
+last pass 2026-08-29T03:38:41+0100, 11h 3m ago - stale, so an empty answer from tira.police.outstanding means nothing
+```
+
+`-o json` answers `{ taken_at, age_seconds, stale }`, so a caller acts on one
+field instead of doing date arithmetic.
+
+**A board nobody has policed is reported stale, not fresh.** `taken_at` is null
+and `stale` is true, because "nothing has been checked" and "nothing is wrong"
+must not be the same answer - which is the whole reason this command exists.
+Reporting an age of zero there would put a confident number on an absence.
+
+**So is a pass time that cannot be read.** A stored stamp that will not parse
+gives `stale` true and no `age_seconds`, and the human output says `UNREADABLE`
+rather than printing the value as though it were usable. Three ways to be stale -
+missing, unreadable, or old - and they are one idea: in none of them can the
+board's silence be trusted.
+
+**Stale means older than 300 seconds**, ten times the watcher's default
+thirty-second interval. A bridge that has missed ten consecutive passes has
+stopped rather than run late, and the threshold is a multiple of the interval
+rather than a round wall-clock figure because that is what it is judging.
+
+**Why this is a separate command rather than a richer payload.** `-o json` on
+`tira.police.outstanding` stays a bare list, and two other projects pipe and
+index it in the loop they use to decide whether work is finished. Changing its
+shape would break them silently, in the one command where silence is worst.
+`TKT-354` chose one-shape-always for `tira.next` in 3.48, and that precedent does
+not transfer: that command had no documented consumers outside this board. The
+cost of a second command - a question answered somewhere other than where it is
+asked - is paid by `tira.police.outstanding` itself, which names this command in
+its own output when the pass it is reporting on has gone stale. TKT-684.
+
 ### `tira.policy.bridge.logs`
 
 Read the enforcement log: what police has had to say, and every suspension that

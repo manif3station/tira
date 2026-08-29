@@ -16,6 +16,17 @@ Police never writes to the board. It reads, and it writes only to a log of its
 own that the bridge streams to the agent. One process writes to a project; that
 is not tidiness, it is the constraint the whole design rests on.
 
+**Only a pass writes what these answers are read from, so ask how old it is.**
+`d2 tira.police` and `d2 tira.police.outstanding --fresh` run passes; the bridge
+does not, and `tira.police.outstanding` without `--fresh` does not - it reports
+what the last pass wrote. So a board whose watcher has stopped keeps answering,
+with an answer that is as old as the stop. Since 4.78 `d2 tira.police.freshness`
+says when that pass ran and whether it is recent enough to trust, and
+`tira.police.outstanding` says so itself when the pass it is reporting on has
+gone stale. A board nobody has policed is reported stale rather than clean,
+because "nothing has been checked" and "nothing is wrong" must not be the same
+answer.
+
 **Every declaration below can also be made from the browser.** The live
 dashboard's Policies button, next to Columns, opens a modal for the same
 declared/declined/undeclared policies this command set works with - a rule

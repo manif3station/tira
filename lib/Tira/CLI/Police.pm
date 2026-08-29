@@ -419,6 +419,55 @@ sub _tree_changing_since {
 # had to change: inside _invoke they closed over %args, $option and $command,
 # and here those arrive as arguments. Nothing else in either block moved.
 
+# When the last pass ran, and whether that is recent enough to trust.
+#
+# tira.police.outstanding answers what is outstanding AS OF THE LAST PASS, and
+# on a clean board that answer is an empty list. On a board whose bridge stopped
+# eleven hours ago it is also an empty list - the same bytes, with no field to
+# compare. Measured on zenandi, 2026-08-29: a pass at 03:38:41 read at 14:41:50,
+# unchanged, while the board reported itself clean all day and a card-duration
+# policy sat an hour past its age in that silence.
+#
+# WHY A SECOND COMMAND RATHER THAN A RICHER PAYLOAD. Q-096, answered by the owner
+# and marked ok: "Keep the bare list and add a separate command for freshness
+# [...] Nothing breaks anywhere; the cost is a second command to remember and a
+# question answered somewhere other than where it is asked." Two other projects
+# pipe and index that payload in the loop they use to decide whether work is
+# finished, and docs/commands.md promises it stays a list. TKT-354 chose
+# one-shape-always for tira.next in 3.48 and that precedent does not transfer:
+# that command had no documented consumers outside this board.
+#
+# The cost he named is paid in police_outstanding's own human output, which names
+# this command when the pass it is reporting on is stale - so the answer is one
+# command away from the question rather than a documentation lookup. TKT-684.
+sub police_freshness {
+    my ( $tira, $args, $option ) = @_;
+    my %args = %{$args};
+    my $store = $option->{store}
+      // _police_store( $tira->discover_project(%args) );
+
+    my $answer = $tira->police_freshness( store => $store );
+    return $answer if ( $option->{output} // '' ) eq 'json';
+
+    return ['This board has never been policed, so nothing has been checked']
+      if !defined $answer->{taken_at};
+
+    # A stamp we cannot read is reported as unreadable rather than printed as
+    # though it were usable. "last pass <garbage>" with no further comment reads
+    # as data; saying it cannot be read says what the caller actually knows.
+    return [ 'last pass ' . $answer->{taken_at}
+          . ' - UNREADABLE, so nothing can be judged from it and an empty answer'
+          . ' from tira.police.outstanding means nothing' ]
+      if defined $answer->{taken_at} && !defined $answer->{age_seconds};
+
+    return [
+        'last pass ' . $answer->{taken_at}
+          . ', ' . Tira::_human_seconds( $answer->{age_seconds} ) . ' ago'
+          . ( $answer->{stale}
+            ? ' - stale, so an empty answer from tira.police.outstanding means nothing' : '' )
+    ];
+}
+
 sub police_outstanding {
     my ( $tira, $args, $option ) = @_;
     my %args = %{$args};
@@ -454,15 +503,52 @@ sub police_outstanding {
     # signal afterwards. TKT-385.
     $option->{findings_count} = scalar @{$open};
 
-    # -o json is the payload and stays a bare list. The instruction that
-    # drives the clear-violations loop pipes it and indexes the result, and
-    # TKT-354 is already open about tira.next answering with a dict when
-    # work waits and a list when it does not - the same fault from the other
-    # side. Everything below is the human summary the CLI contract asks for.
+    # -o json is the payload and stays a bare list. The instruction that drives
+    # the clear-violations loop pipes it and indexes the result, and two other
+    # projects run that loop.
+    #
+    # DECIDED, not deferred. This comment used to say the list stays because
+    # "TKT-354 is already open about tira.next answering with a dict when work
+    # waits and a list when it does not - the same fault from the other side".
+    # TKT-354 closed in 3.48 and chose the OPPOSITE: one shape always, a hash,
+    # over documenting the inconsistency. So this cited a card that had decided
+    # against it, for a year of releases, and nobody noticed because a deferral
+    # reads like a reason.
+    #
+    # Q-096 settled it here, and reached the same conclusion for a current
+    # reason: "Keep the bare list and add a separate command for freshness [...]
+    # Nothing breaks anywhere; the cost is a second command to remember and a
+    # question answered somewhere other than where it is asked." tira.next had
+    # no documented consumers outside this board; this payload has two, and
+    # docs/commands.md promises them a list. That command is police_freshness
+    # above, and the cost he named is paid by the warning below, which names it.
+    # TKT-684.
+    #
+    # Everything below is the human summary the CLI contract asks for.
     return $open if ( $option->{output} // '' ) eq 'json';
 
     my $at = $tira->police_outstanding_taken_at( store => $store );
+
+    # The age is JUDGED, not merely printed. Until 4.78 the timestamp was here
+    # and nothing said whether it was any good, so a pass from ten seconds ago
+    # and one from eleven hours ago rendered identically - and the sentence a
+    # reader is meant to trust came first. Measured on zenandi: "No violations
+    # outstanding, as of the pass at 2026-08-29T03:38:41+0100" on every
+    # thirty-minute run for eleven hours, because nothing had run a pass since
+    # 03:38. The staleness goes BEFORE the reassurance, because a reader who has
+    # already read "No violations outstanding" has stopped reading. TKT-684.
+    my $fresh = $tira->police_freshness( store => $store );
+    my $warning =
+      ( $fresh->{stale} && defined $at )
+      ? 'STALE: the last pass was ' . $at
+      . ( defined $fresh->{age_seconds}
+        ? ', ' . Tira::_human_seconds( $fresh->{age_seconds} ) . ' ago' : '' )
+      . ' - the detector may have stopped, so what follows may not describe the board now.'
+      . ' Ask tira.police.freshness.'
+      : undef;
+
     return [
+        ( defined $warning ? ($warning) : () ),
         defined $at
         ? 'No violations outstanding, as of the pass at ' . $at
         : 'This board has never been policed, so nothing has been checked'
@@ -488,8 +574,13 @@ sub police_outstanding {
     # thing. An array of single-key hashes is a different shape to TOON:
     # one row per element, which is the whole fix. TKT-291.
     my $row = sub { return { line => $_[0] } };
+    # The non-empty case is the one nobody thinks about, and it is worse rather
+    # than better: "5 outstanding, as of the pass at <ts>" reads as a live count,
+    # so a reader acts on a list that may describe a board eleven hours gone. The
+    # card asks for both outputs, and the warning goes first here too.
     my $header = scalar(@{$open}) . ' outstanding, as of the pass at '
       . ( $at // 'a time this board did not record' );
+    $header = "$warning\n$header" if defined $warning;
 
     # Grouped by rule instead of by chased/recorded, opt-in: --by-rule
     # answers "what does this board have declared against it" rather than

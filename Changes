@@ -1,5 +1,54 @@
 Revision history for Tira
 
+4.78  2026-08-29
+
+    - TKT-684. A clean board and a stopped detector no longer give the same
+      answer. tira.police.outstanding reports what is outstanding AS OF THE
+      LAST PASS, and on a clean board that is an empty list - identical to the
+      answer from a board whose policy bridge died eleven hours ago. Measured
+      on a real board: a pass at 03:38:41 read at 14:41:50, unchanged, while
+      the board called itself clean all day and a card-duration policy sat an
+      hour past its age in that silence. Two cards were filed off the back of
+      it by someone who could not tell, and who did the arithmetic by hand
+      across ten invocations.
+
+      The new tira.police.freshness answers when the last pass ran, how long
+      ago, and whether that is recent enough to trust - { taken_at,
+      age_seconds, stale } under -o json, so a caller acts on one field rather
+      than parsing a timestamp. A board nobody has policed is reported STALE
+      with a null pass time, because "nothing has been checked" and "nothing is
+      wrong" must not be the same answer; reporting an age of zero there would
+      put a confident number on an absence. Stale means older than 300 seconds,
+      ten times the watcher's default interval, since a bridge that has missed
+      ten consecutive passes has stopped rather than run late. A stored pass
+      time that will not parse is stale too, with no age invented for it and
+      the word UNREADABLE in the human output - review caught the first version
+      answering "fresh" for a corrupt stamp, which is this command's own fault
+      turned inward. Three ways to be stale, missing, unreadable and old, and
+      they are one idea: in none of them can the board's silence be trusted.
+
+      And tira.police.outstanding now judges the age it was already printing,
+      in both outputs, with the warning BEFORE the reassurance - a reader who
+      has got as far as "No violations outstanding" has stopped reading. The
+      non-empty case gets it too: "5 outstanding, as of the pass at <ts>" reads
+      as a live count, and a count from eleven hours ago is not one.
+
+      THE PAYLOAD IS UNCHANGED, and that is the decision rather than an
+      omission. -o json stays a bare list because two other projects pipe and
+      index it in the loop they use to decide whether work is finished, and
+      docs/commands.md promises them a list. The owner chose it explicitly over
+      the alternative. TKT-354 chose one-shape-always for tira.next in 3.48 and
+      that precedent does not transfer - that command had no documented
+      consumers outside this board. The cost of a second command, a question
+      answered somewhere other than where it is asked, is paid by outstanding
+      itself naming the new command in its stale warning.
+
+      Also corrected: the comment at lib/Tira/CLI/Police.pm justifying the bare
+      list said it stayed one because "TKT-354 is already open". TKT-354 closed
+      in 3.48 deciding the opposite. That deferral had cited a card that
+      decided against it for a year of releases, and nobody noticed, because a
+      deferral reads like a reason.
+
 4.77  2026-08-29
 
     - TKT-593. A coverage refusal says which lines. The gate printed

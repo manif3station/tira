@@ -1956,8 +1956,13 @@ answer) since a tasklist item has no change journal to compare a
 newest author against - what it looked like last time is kept in the
 same store-backed ledger `agent-still`'s own notified-stamp already
 uses. No age (a change is a change the moment it happens); whole-board
-like `task-unlinked`; a freshly-added item is not reported and settles
-the instant it has been seen once.
+like `task-unlinked`. Since 4.79, an item ARRIVING is reported once and one
+DISAPPEARING is reported once - he asked twice why a new task was announced
+by nothing, and the answer was that the branch did not exist. The one case
+that still stays quiet is a first pass on a board that has never been
+policed: an existing tasklist there is every item's first sighting, and a
+rule that reported a hundred at once would be declined and never
+re-enabled. TKT-606.
 
 TKT-549: the Task List section's header has a Prune button again, next
 to Add - removed entirely by TKT-535, brought back with new behavior

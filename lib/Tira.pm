@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.78';
+our $VERSION = '4.79';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -8822,7 +8822,23 @@ sub policy_evaluate {
             # owner-only filter: Michael's own answer, live, to whether this
             # should fire for any actor or the owner only - "Announce every
             # change regardless of actor."
-            my $seen = $args{store} ? ( $self->_violation_ledger( $args{store} )->{task_seen} // {} ) : {};
+            # A BASELINE THAT EXISTS AND ONE THAT DOES NOT ARE DIFFERENT THINGS,
+            # and until TKT-606 this line flattened them with // {}. The
+            # difference is what makes an arrival reportable at all: on a store
+            # nothing has written, every item is a first sighting, and a rule
+            # that announced a hundred of them at once would be declined and
+            # never re-enabled - worse than the silence it replaced. On a store
+            # a pass HAS written, an id that is not in it is genuinely new.
+            #
+            # _violation_ledger returns { counter => 0, open => {} } for a store
+            # with no file, so the key is absent exactly when no pass has
+            # recorded a tasklist; _task_changed_mark_seen is the only thing
+            # that sets it. An empty hash under a PRESENT key means a board that
+            # was policed while its tasklist was empty, which is a baseline.
+            my $ledger = $args{store} ? $self->_violation_ledger( $args{store} ) : {};
+            my $baseline = exists $ledger->{task_seen};
+            my $seen = $ledger->{task_seen} // {};
+
             my %still_here;
             my %next_seen;
             for my $item ( @{ $self->_tasklist_read($root) } ) {
@@ -8842,8 +8858,32 @@ sub policy_evaluate {
                         join( '/', @changed ) . ' changed on "' . $item->{text} . '"' )
                       if @changed;
                 }
+
+                # The branch that did not exist. He asked twice why a new task
+                # was never announced - the answer was that the line below wrote
+                # it into the baseline whatever happened here, so the first pass
+                # adopted it in silence and every later pass found nothing
+                # changed. Not late: unannounceable. TKT-606.
+                elsif ($baseline) {
+                    $report->( $policy, $item->{id},
+                        'new task "' . $item->{text} . '"' );
+                }
+
                 $next_seen{ $item->{id} } = $now_state;
             }
+
+            # And the other half, which was written and abandoned: %still_here
+            # was populated three lines up and read nowhere, so a task
+            # DISAPPEARING was unannounced by the same silence that swallowed a
+            # new one. A list that is one shorter says nothing on its own.
+            if ($baseline) {
+                for my $id ( sort keys %{$seen} ) {
+                    next if $still_here{$id};
+                    $report->( $policy, $id,
+                        'task removed: "' . ( $seen->{$id}{text} // $id ) . '"' );
+                }
+            }
+
             $self->_task_changed_mark_seen( $args{store}, \%next_seen ) if $args{store};
         }
         elsif ( $rule eq 'discard-with-open-questions' ) {

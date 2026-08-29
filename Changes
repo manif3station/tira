@@ -1,5 +1,68 @@
 Revision history for Tira
 
+4.79  2026-08-29
+
+    - TKT-606. police announces a task that arrives, and one that disappears.
+      He asked on 2026-08-27 why a new task was announced by nothing - "broken?
+      missing policy?" - and asked again on 2026-08-29 about another one,
+      because the card raised off the first question was still in the backlog.
+      task-changed was declared and firing the whole time. It reports edits to
+      items it has already seen, and a brand-new item has nothing to compare
+      against, so the branch was skipped - while the line after it wrote the
+      item into the baseline anyway. The first pass adopted it in silence and
+      every later pass found nothing changed. A new task was not announced
+      late; it was unannounceable.
+
+      This needed a decision rather than a missing else. On a board with an
+      existing tasklist and a ledger no pass has written, EVERY item is a first
+      sighting, and a rule that announced a hundred at once would be declined
+      and never re-enabled - worse than the silence it replaced. The ledger
+      already carried what separates the two cases and the code was throwing it
+      away: a store nothing has written has no task_seen key at all, and
+      _task_changed_mark_seen is the only thing that sets one, so `// {}` was
+      flattening "no baseline" and "a baseline that happens to be empty" into
+      one value. A first pass on an unpoliced board still announces nothing; a
+      board that has been policed reports the next arrival.
+
+      Removal comes from the same record, and it was half-written already:
+      %still_here was populated in this rule and read nowhere in the file, so a
+      task vanishing was unannounced by the same silence that swallowed a new
+      one. An id that was in the baseline and is not on the list now is named,
+      because a list one shorter says nothing on its own.
+
+      Both are said once and settle. Edits to known items are unchanged, and
+      t/399's own assertion that "a freshly-added item is not reported" stays
+      green untouched - that is a first pass on a fresh store, which is exactly
+      the case that must keep adopting silently.
+
+      WHICH RULE CARRIES IT WAS ASKED AND ANSWERED. Q-097, answered while this
+      was in verify: both - arrivals ride task-changed now, and a task-created
+      rule splits out later. So this ships as built and a follow-up card holds
+      the split (TKT-758), rather than the rule being shipped and renamed in
+      one release.
+
+      The cost he chose is that boards see the behaviour twice, once when
+      arrivals start arriving under task-changed and again when the rule that
+      sends them changes name. Worth saying here: when the source of task
+      announcements changes on developer-dashboard and zenandi, that is this
+      decision landing and not a regression. The alternatives were a rule named
+      "changed" permanently reporting things that arrived, or an opt-in rule
+      that would have left the boards which prompted this card silent longest.
+
+      FOLDED IN BEFORE THIS RELEASE WAS EVER PUSHED (TKT-761): SKILLS.md's own
+      description of this rule still said "a freshly-added item is not
+      reported" - true before this card, false the moment it shipped, and
+      exactly the belief that made him ask twice in the first place. Caught by
+      the next documentation-gap hunt, three hours after this card was first
+      committed, while it still sat in pending-push. Corrected here, in the
+      same release, along with a second copy of the identical sentence in
+      docs/POLICIES.md's onboarding walkthrough that a first pass at the
+      correction missed - one document repeating a false claim in two places,
+      caught only because a review question asked broadly rather than about
+      the one passage a bug report had pointed at.
+
+Suite 433 files / 8,894 tests green. lib/Tira.pm 100.0% statement and
+subroutine, measured serially.
 4.78  2026-08-29
 
     - TKT-684. A clean board and a stopped detector no longer give the same

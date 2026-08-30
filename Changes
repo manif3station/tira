@@ -1,5 +1,46 @@
 Revision history for Tira
 
+4.84  2026-08-30
+
+    - TKT-609. A cloned card no longer claims a gate or evidence it never
+      earned.
+
+      record_clone copied gate_passing_log and evidence to the new card,
+      so a brand-new card - no required items, nothing done on it -
+      arrived carrying a passed gate and a piece of evidence naming a
+      command and output from work that happened on the ORIGINAL.
+      Reproduced in a container: gate.add and evidence.add on a card,
+      then clone it, and the clone's gate log and evidence are the
+      original's, verbatim.
+
+      This card's own history is worth recording honestly. Its first
+      version, filed 2026-08-27, measured only gate_passing_log leaking
+      and explicitly claimed evidence was "correctly dropped" - wrong,
+      by its own later evidence. A second card, TKT-705, filed a day
+      later, measured both fields leaking and was the accurate report.
+      Picking this card up tonight, the discrepancy was caught by
+      re-measuring rather than trusting either stored claim, and TKT-609
+      was corrected - title, problem statement, solution, acceptance
+      criteria - to the measured truth, with TKT-705 folded in and
+      discarded as the now-redundant duplicate.
+
+      The fix is one line: gate_passing_log and evidence added to
+      record_clone's existing delete list, the same treatment comments
+      already gets. attachments stay - preserving them is deliberate,
+      established by t/05-collaboration.t, and repeated here as a
+      control so this fix cannot widen into dropping something already
+      decided to keep. A clone that later earns its own gate still
+      records it, cleanly, with nothing inherited to collide with.
+
+      Checked while implementing and deliberately not fixed here:
+      fix_version is also absent from the delete list, so it also
+      copies to a clone today. Left out of this card's scope - it is
+      release metadata, not proof-of-work evidence - and named rather
+      than silently noticed, in case it turns out to matter. (An
+      earlier draft of this entry also named release_record; review
+      caught that release_record is a method, not a stored field, and
+      cannot be affected by this delete list at all - corrected here.)
+
 4.83  2026-08-30
 
     - TKT-750. A card's work log marks where it changed column.

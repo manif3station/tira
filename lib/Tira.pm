@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.83';
+our $VERSION = '4.84';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4712,7 +4712,12 @@ sub record_clone {
     my $source = $self->record_show(%args);
     my $clone = $self->create_record( project => $args{project}, type => $source->{type}, title => $args{title}, description => $source->{description} );
     my %copy = %{$source};
-    delete @copy{qw(ref column type title created_at last_updated linkage comments assignee parent)};
+    # gate_passing_log and evidence are proof of work, not content the clone
+    # inherits - a brand-new card with nothing done on it must not arrive
+    # claiming a passed gate or a piece of evidence that happened on the
+    # original. Dropped the same way comments already is. attachments stay:
+    # preserving them is deliberate (t/05-collaboration.t). TKT-609.
+    delete @copy{qw(ref column type title created_at last_updated linkage comments assignee parent gate_passing_log evidence)};
     $clone = $self->record_update( project => $args{project}, ref => $clone->{ref}, author => $args{author}, %copy );
     $self->link_add( project => $args{project}, from => $source->{ref}, type => 'clones', to => $clone->{ref} );
     return $self->record_show( project => $args{project}, ref => $clone->{ref} );

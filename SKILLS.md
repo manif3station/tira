@@ -1737,6 +1737,11 @@ The attachment preview overlay has left/right arrow buttons that step to the pre
 
 ### UC-060: Clone ticket
 **Implemented.** `dashboard tira.ticket.clone --ref TKT-001 --title "Follow-up"`.
+Content fields and attachments carry over to the new card; hierarchy and typed
+links, comments, and - since 4.84 - `gate_passing_log` and `evidence` do not. A
+clone with nothing done on it must not arrive claiming a gate the original
+passed or evidence the original produced; the only link it gets is the fresh
+`clones`/`is-cloned-by` pair back to the record it came from. TKT-609.
 
 ### UC-061: Link SOW and epic
 **Implemented.** `dashboard tira.hierarchy.link --parent SOW-001 --child EPC-001`.

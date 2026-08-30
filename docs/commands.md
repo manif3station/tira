@@ -2785,7 +2785,7 @@ among them. TKT-233.
 - `tira.TYPE.list [--column SLUG] [--fields LIST] [-o FORMAT]`
 - `tira.TYPE.update --ref REF [record field arguments] [-o FORMAT]`
 - `tira.TYPE.move --ref REF --column SLUG [--author NAME] [-o FORMAT]`
-- `tira.TYPE.clone --ref REF [--title TEXT] [-o FORMAT]`
+- `tira.TYPE.clone --ref REF [--title TEXT] [-o FORMAT]` — content fields and attachments carry over; hierarchy/typed links, comments, and now `gate_passing_log`/`evidence` do not, since a brand-new card has done none of the work they would be proof of. The clone gets only the fresh `clones`/`is-cloned-by` link back to the original. TKT-609.
 - `tira.TYPE.discard --ref REF [-o FORMAT]` — takes no reason; a discarded card is explained with `tira.comment.add`, which is what `discard-unexplained` looks for
 - `tira.TYPE.restore --ref REF [-o FORMAT]`
 - `tira.TYPE.missing --ref REF [-o FORMAT]` — answers the same field list `card-full-details` already computes internally to fire a violation, for the named card in any column, on demand, rather than waiting for the card to reach its declared entry column and for police to notice it. TKT-498.

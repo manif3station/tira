@@ -1,5 +1,42 @@
 Revision history for Tira
 
+4.83  2026-08-30
+
+    - TKT-750. A card's work log marks where it changed column.
+
+      His voice, on a screenshot with a red line drawn across TKT-593's
+      work log at exactly the point it moved from document to verify:
+      "I am not asking to complete the worklog entry. For each move
+      event - for example moving a card to another column - just add
+      ONE LINE in the worklog there. That simple, do not make it so
+      complicated." TKT-593's own log is 147 entries and 743 lines, four
+      of them moves, with nothing marking where one column's events end
+      and the next begin.
+
+      Rendering only. work_log() already carries everything a divider
+      needs - kind 'moved' with detail '<from> to <to>' - so the fix is
+      one conditional in the browser card dialog's work-log renderer,
+      inserting a bare separator line before each moved entry, styled
+      with the red border his own screenshot suggested. work_log()
+      itself is unchanged, pinned by a control asserting three moves on
+      one card are still reported in order with correct before/after
+      detail, and that a never-moved card carries none.
+
+      The CLI's worklog.show has no comparable text-mode table to extend
+      - it prints the same array through the generic pretty-printer -
+      so a divider there was evaluated and declined rather than
+      invented; adding new formatting machinery would be the opposite
+      of what he asked for.
+
+      This card's own history is the reason its test carries an
+      unusually deliberate control: an earlier version measured raw
+      history instead of the work log he was actually showing, and
+      reported a fault - "the same row repeated" - that the engine
+      already handles by collapsing repeats into a times count. The
+      control here pins what that investigation found actually true, so
+      a fix chasing a rendering change cannot repeat the same mistake in
+      the other direction.
+
 4.82  2026-08-29
 
     - TKT-742. A refusal no longer suggests, as the correction, the exact

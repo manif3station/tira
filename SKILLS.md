@@ -2338,6 +2338,8 @@ tira.dev.found.bug_or_improvement --from PROJECT --title TEXT [--text TEXT] [-o 
 
 Both this section and the work log are a fixed-width-columns-plus-detail grid, and until TKT-469 a narrow-screen override meant to collapse them to one readable column was declared *before* the unconditional base rule that set the wide desktop widths - same specificity, later source wins, so the override never actually applied at any viewport width. The detail column stayed squeezed to a sliver (or, for the work log's extra "who" column, near zero) on a phone regardless of screen size. Fixed by moving the override after both base rules so it wins when its media query matches. TKT-469.
 
+Since 4.83 the work log also draws a bare divider line before each entry where the card changed column, so a long log reads as the sequence of columns it passed through rather than one undifferentiated list - his own words, asking for exactly one line per move and nothing more. `work_log()` itself is unchanged; the divider is drawn from the same `kind: 'moved'` entries the grid already had. TKT-750.
+
 ### UC-135: Order a column by what matters most
 **Implemented.** Every column can be ordered three ways, and the third is priority: highest first, because the question a column answers is what to pick up next. A card nobody has prioritised goes last and says so rather than pretending to a number — an unprioritised card is unassessed, not lowest. The priority travels in the refresh payload as well as the first render, so the ordering still holds after the board rebuilds itself a minute later. Each board has its own sorter and sorts itself; the mode is shared, so the next refresh brings the others into line.
 

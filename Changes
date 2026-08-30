@@ -1,5 +1,40 @@
 Revision history for Tira
 
+4.86  2026-08-30
+
+    - TKT-632. An unrelated --status on a move silently cancelled
+      TKT-596's task reset.
+
+      _reset_linked_tasks_on_return (lib/Tira/CLI.pm) called
+      tasklist_list( %{$args}, all_sessions => 1 ) - the move command's
+      ENTIRE argument set, not just what tasklist_list is meant to
+      receive. Getopt parses every command's options through one shared
+      @spec, so a move carrying --status (an option move itself does
+      nothing with) handed that value straight to tasklist_list, which
+      honours --status as a filter and dies on a value it does not
+      recognise. That die was swallowed by "return if ref $items ne
+      'ARRAY'" one line later, so a working task's status was silently
+      never reset when its card went back to backlog - the exact side
+      effect TKT-596 shipped this function to guarantee.
+
+      Fixed by passing tasklist_list only project and all_sessions, and
+      by reporting a genuine lookup failure to STDERR instead of
+      swallowing it - the same promise the function already kept for
+      tasklist_update one line lower down.
+
+      Checked the neighbouring helper named in the ticket,
+      _remind_one_at_a_time, for the same splat: it calls record_show,
+      which has no status-filter concept and ignores unrecognised keys,
+      so it was already safe - not a second instance of this bug.
+
+      New test t/446-a-move-that-cancels-its-own-side-effect.t: a
+      control move with no --status resets a working linked task; the
+      same move carrying --status still resets it post-fix (it silently
+      did not, pre-fix).
+
+      Suite 441 files / 8,975 tests green. lib/Tira.pm 100.0% statement
+      and subroutine, measured serially.
+
 4.85  2026-08-30
 
     - TKT-613. Renaming a column strands every required item tagged with

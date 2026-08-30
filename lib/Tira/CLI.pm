@@ -1628,8 +1628,21 @@ sub _reset_linked_tasks_on_return {
     my $ref = $args->{ref};
     return if !defined $ref || $ref eq '';
 
-    my $items = eval { $tira->tasklist_list( %{$args}, all_sessions => 1 ) };
-    return if ref $items ne 'ARRAY';
+    # Only project and all_sessions are meant to reach tasklist_list - not
+    # the move's whole argument set. A move carrying --status (an option
+    # move itself does nothing with, parsed only because Getopt shares one
+    # @spec across every command) used to splat straight through and
+    # tasklist_list treats status as a filter, dying on a value it does not
+    # recognise - silently cancelling the reset below. TKT-632.
+    my $items = eval {
+        $tira->tasklist_list( project => $args->{project}, all_sessions => 1 );
+    };
+    if ( ref $items ne 'ARRAY' ) {
+        my $why = $@ || 'no reason given';
+        $why =~ s/\s+/ /g;
+        printf {*STDERR} "\nCould not check for linked tasks to reset: %s\n", substr( $why, 0, 200 );
+        return;
+    }
 
     my ( @reset, @skipped, @failed );
     for my $item ( @{$items} ) {

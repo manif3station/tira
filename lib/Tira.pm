@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.86';
+our $VERSION = '4.87';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -12297,10 +12297,46 @@ sub _valid_priority {
 sub _valid_datetime {
     my ( $self, $value, $label ) = @_;
     return undef if !defined $value || $value eq '';
-    die "$label must be an ISO 8601 date-time with a timezone, "
-      . "for example 2026-08-19T09:00:00+0100, +01:00 or Z\n"
-      if $value !~ /\A(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2}))\z/;
-    return $1;
+    my $error = "$label must be an ISO 8601 date-time with a timezone, "
+      . "for example 2026-08-19T09:00:00+0100, +01:00 or Z\n";
+    die $error if $value !~ /\A(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2}))\z/;
+
+    # The regex above only counts digits - month 13, day 45, hour 99 and an
+    # offset of +9999 all matched it, so a card could be given a due_date
+    # or start_date that was stored happily here and then killed
+    # _epoch_of_datetime, the OTHER validator in this file, the one police
+    # and dwell actually use to do arithmetic on these fields. Delegating
+    # to it means this accepts exactly what the rest of the system can
+    # read back - the day is checked against its actual month and year via
+    # Time::Local, not just against a digit range. Time::Local's own die
+    # already names which part is wrong ("Month '12' out of range 0..11"),
+    # so that is surfaced instead of repeating the generic shape message
+    # for a value that was shaped correctly but means something impossible.
+    # TKT-633.
+    my $value_string = $1;
+    eval { _epoch_of_datetime( $value_string, $label ); 1 } or do {
+        my $why = $@ || '';
+        $why =~ s/\s+at\s+\S+\s+line\s+\d+\.?\s*\z//;
+
+        # Time::Local counts January as month 0, so its own "Month '12' out
+        # of range 0..11" is a true statement about an off-by-one internal
+        # representation the caller never typed - shown as 13, the value
+        # actually rejected, and the range shifted to match.
+        $why =~ s/\AMonth '(-?\d+)' out of range 0\.\.11\z/"Month '" . ( $1 + 1 ) . "' out of range 1..12"/e;
+        die $why ? "$label $why\n" : $error;
+    };
+
+    # _epoch_of_datetime does arithmetic with an offset's hours/minutes but
+    # never range-checks them, so +9999 - one of this ticket's own four
+    # reproduced values - passed the delegation above unchanged. Checked
+    # here, not there: every other caller of _epoch_of_datetime reads an
+    # already-stored, already-validated stamp, so widening its own
+    # tolerance is not this ticket's fix to make. TKT-633.
+    if ( my ( $offset_hours, $offset_minutes ) = $value_string =~ /[+-](\d{2}):?(\d{2})\z/ ) {
+        die "$label offset hours '$offset_hours' out of range 00..23\n" if $offset_hours > 23;
+        die "$label offset minutes '$offset_minutes' out of range 00..59\n" if $offset_minutes > 59;
+    }
+    return $value_string;
 }
 
 sub _reciprocal_type {

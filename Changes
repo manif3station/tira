@@ -1,5 +1,52 @@
 Revision history for Tira
 
+4.87  2026-08-30
+
+    - TKT-633. A date-time validator that accepted 2026-13-45T99:99:99Z,
+      and a reader that died on it.
+
+      _valid_datetime checked only the SHAPE of a date-time via regex -
+      every field was just a digit count, so month 13, day 45, hour 99
+      and an offset of +9999 all passed. The refusal it would have
+      printed named ISO 8601, a standard the accepted values did not
+      meet. _epoch_of_datetime, the other validator in this file - the
+      one police and dwell actually use to do arithmetic on due_date and
+      start_date - refused the same strings outright. A card could be
+      given a --due-date or --start-date that was stored happily and
+      then killed whatever read it back.
+
+      Fixed by letting _epoch_of_datetime be the judge: _valid_datetime
+      now delegates to it after its own shape check passes, so it
+      accepts exactly what the rest of the system can read back - the
+      day checked against its actual month and year via Time::Local,
+      not just a digit range. The three widened offset forms TKT-572
+      added are unaffected.
+
+      The refusal now names which part is wrong and the value actually
+      typed - "Due date Month '13' out of range 1..12" - rather than
+      Time::Local's own 0-indexed internal number, and rather than
+      repeating the generic "must be an ISO 8601 date-time" message for
+      a value that was already shaped like one.
+
+      Codex review caught a genuine gap in the first pass: delegating to
+      _epoch_of_datetime alone still let the ticket's fourth measured
+      value, an offset of +9999, through - _epoch_of_datetime does
+      arithmetic with an offset's hours and minutes but never
+      range-checks them, since every other caller reads an
+      already-validated stored stamp. Fixed with an explicit offset
+      range check in _valid_datetime itself, deliberately not in
+      _epoch_of_datetime - widening that function's own tolerance was
+      not this ticket's fix to make.
+
+      New test t/447-a-date-nothing-can-actually-read.t: all four
+      measured bad values refused (month/day/hour as one write, the
+      offset separately), a plausible-but-wrong Feb 30th refused
+      separately, a genuinely valid date-time still accepted, and the
+      refusal message itself pinned.
+
+      Suite 442 files / 8,983 tests green. lib/Tira.pm 100.0% statement
+      and subroutine, measured serially.
+
 4.86  2026-08-30
 
     - TKT-632. An unrelated --status on a move silently cancelled

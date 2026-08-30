@@ -1969,6 +1969,21 @@ An offset is still required, and deliberately so: widening what is accepted
 must not turn the check off. A local time with no offset is ambiguous, which is
 the thing the mandatory timezone exists to prevent, so it is still refused.
 
+The three shapes above are checked for genuine calendar validity, not just
+digit counts. Until 4.87 the shape check alone decided acceptance, so
+`2026-13-45T99:99:99Z`, `2026-02-30T00:00:00+0100` and an offset of `+9999`
+were all accepted and stored - only to kill `record.list --since` and the
+police/dwell rules that read a card's `due_date`/`start_date` back and do
+real arithmetic on it, which refuses the same string outright. The refusal
+now names which part is wrong and the value actually typed - `Due date
+Month '13' out of range 1..12` - rather than repeating the generic "must be
+an ISO 8601 date-time" message for a value that was already shaped like
+one. The offset's own hours and minutes are range-checked separately from
+the calendar fields, since the function that does the calendar checking
+(`_epoch_of_datetime`, also used to read an already-stored, already-valid
+stamp elsewhere) does arithmetic with an offset but never range-checks it
+itself. TKT-633.
+
 ## Attachment response truth
 
 Attachment content remains globally deduplicated by SHA-256, while filenames

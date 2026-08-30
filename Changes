@@ -1,5 +1,47 @@
 Revision history for Tira
 
+4.88  2026-08-30
+
+    - TKT-638. discard-unexplained is satisfied by any comment a card
+      ever had, including one written before the discard.
+
+      The rule's test was `next if @{ $record->{comments} // [] }` - it
+      counted comments, never read them, and never asked when they were
+      written. A card discarded after any earlier conversation, about
+      anything unrelated to the discard, was silently exempt - most
+      cards worth discarding have comments.
+
+      Fixed by finding the last move-to-discard timestamp (via
+      history_list on the column field) and requiring a comment written
+      at or after it, with a body that is not empty or whitespace.
+      comment_add itself stays permissive (stores body => text // ''
+      with no validation) - deliberately: the gate is where an empty
+      explanation is caught, not write time, and widening comment_add's
+      own validation was not this ticket's fix to make.
+
+      New test t/448-a-discard-that-explains-nothing-new.t covers all
+      four cases: no comment, an old unrelated one, an empty/whitespace
+      one written after the discard, and a genuine reason - only the
+      last one clears the rule.
+
+      Codex review caught a genuine gap in the first pass: comparing
+      `created_at` and the discard timestamp with raw string `ge`
+      instead of parsed epochs. Tira timestamps can legitimately carry
+      different UTC offset spellings (Z, +0100, +0500) for the same or
+      nearby instants, and a lexical comparison gets some of them
+      backwards - a comment that is lexically "later" but genuinely
+      predates the discard by real clock time incorrectly cleared the
+      rule. Fixed to compare parsed epochs via _epoch_of_datetime, the
+      same function every other instant comparison in this file already
+      uses. A fifth test case pins the adversarial timestamp pair.
+
+      Updated docs/POLICIES.md and SKILLS.md, including two other
+      rules' own cross-references to discard-unexplained's old "any
+      comment" shape, which this fix made stale.
+
+      Suite 443 files / 8,990 tests green. lib/Tira.pm 100.0% statement
+      and subroutine, measured serially.
+
 4.87  2026-08-30
 
     - TKT-633. A date-time validator that accepted 2026-13-45T99:99:99Z,

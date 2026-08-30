@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.87';
+our $VERSION = '4.88';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -8968,10 +8968,30 @@ sub policy_evaluate {
                 # promise that declaring on a card beats declaring on the board.
                 next if !$resolved_for->( $policy, $record );
                 next if ( $record->{column} // '' ) ne 'discard';
-                next if @{ $record->{comments} // [] };
-                # A comment, said so. The rule beside this one wants a field,
-                # and a reader who learns one convention from one rule learns
-                # the wrong thing about the other unless both say which.
+
+                # A comment, said so - but any comment the card ever had
+                # satisfied this, including one written long before the
+                # discard about something else entirely. A comment can only
+                # be the explanation for THIS discard if it exists after the
+                # move that discarded the card, with a body that says
+                # something. TKT-638.
+                my $moved_at;
+                for my $entry ( @{ $self->history_list(
+                    project => $root, ref => $record->{ref}, type => $record->{type}, field => 'column',
+                ) } ) {
+                    $moved_at = $entry->{at} if ( $entry->{after} // '' ) eq 'discard';
+                }
+
+                # Compared as instants, not strings - Tira timestamps can
+                # legitimately carry different offset spellings (Z, +0100,
+                # +01:00) for the same clock, and two of those sort wrong
+                # lexically even though one genuinely comes after the other.
+                my $moved_epoch = defined $moved_at ? eval { _epoch_of_datetime( $moved_at, 'Discard' ) } : undef;
+                next if defined $moved_epoch
+                  && grep {
+                    ( $_->{body} // '' ) =~ /\S/
+                      && ( eval { _epoch_of_datetime( $_->{created_at}, 'Comment' ) } // 0 ) >= $moved_epoch
+                  } @{ $record->{comments} // [] };
                 $report->( $policy, $record,
                     'discarded with no reason given - leave a comment saying why it was set aside' );
             }

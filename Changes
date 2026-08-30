@@ -1,5 +1,33 @@
 Revision history for Tira
 
+4.85  2026-08-30
+
+    - TKT-613. Renaming a column strands every required item tagged with
+      its old name, and the gate goes blind.
+
+      column_rename renamed the column's directory and its config entry,
+      but a required_items entry stores the column name as its own copy
+      at the time required_item_add wrote it, not a live reference to
+      the column record - so it stayed stamped with the OLD name forever.
+      The push/departure gate matches a card's pending required items by
+      its CURRENT column, so after a rename every item still tagged with
+      the old name became invisible to that gate: a card could leave the
+      column with required actions silently unmet.
+
+      Fixed by walking every record across the whole type's board (not
+      only the renamed column - a card that already moved on can still
+      carry an item tagged with the name it left behind) inside the same
+      rename, rewriting any required_items entry whose column matches
+      the old name to the new one.
+
+      New test t/444-a-rename-that-leaves-old-tags-behind.t: creates a
+      card, moves it into a column, adds a required item tagged with
+      that column, renames the column, and asserts the item's column tag
+      followed the rename.
+
+      Suite 440 files / 8,971 tests green. lib/Tira.pm 100.0% statement
+      and subroutine, measured serially.
+
 4.84  2026-08-30
 
     - TKT-609. A cloned card no longer claims a gate or evidence it never

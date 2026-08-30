@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.84';
+our $VERSION = '4.85';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2218,6 +2218,25 @@ sub column_rename {
             rename $new_directory, $old_directory or die "$error; rollback rename failed: $!\n";
             die $error;
         };
+
+        # The directory and the config entry are renamed above, but a
+        # required_items entry stores the column name as its own copy at
+        # the time it was added (required_item_add), not a reference to the
+        # column record - so it stays stamped with the OLD name forever
+        # unless walked and rewritten here. The push/departure gate matches
+        # items by the card's CURRENT column, so a stale tag makes that
+        # gate blind to a pending item. TKT-613.
+        find( { no_chdir => 1, wanted => sub {
+            return if !-f $File::Find::name || basename( $File::Find::name ) !~ /\.json\z/;
+            my $record_path = $self->_canonical_path( $File::Find::name, 'record file' );
+            my $record      = $self->_json_from_content( $self->_slurp($record_path) );
+            my @stale = grep { ( $_->{column} // '' ) eq $args{name} } @{ $record->{required_items} // [] };
+            return if !@stale;
+            $_->{column}       = $args{new_name} for @stale;
+            $_->{last_updated} = $self->{clock}->() for @stale;
+            $self->_replace_record( project => $root, type => $args{type}, ref => $record->{ref}, record => $record );
+        } }, $board );
+
         return $column;
     } );
 }
@@ -13958,7 +13977,12 @@ Adds a new column to a board, at a given position.
 
 =head2 column_rename
 
-Renames a column, moving its on-disk directory to match.
+Renames a column, moving its on-disk directory to match. Also rewrites the
+C<column> tag on every record's C<required_items> entries, board-wide for
+the type, that still name the old column - not only cards currently sitting
+in it - so the departure gate (which matches a card's pending items against
+its CURRENT column) does not go blind to an item left tagged with a name
+that no longer exists. TKT-613.
 
 =head2 column_reorder
 
@@ -13966,7 +13990,12 @@ Moves a column before or after another.
 
 =head2 column_remove
 
-Removes a column, refusing a protected one; any cards in it move to discard.
+Removes a column, refusing a protected one; any cards in it move to
+discard, taking their own required_items with them. Deliberately does not
+retag or scrub required_items entries elsewhere that still name the
+removed column - unlike a rename, a removed column's name can never again
+equal a card's current column, so a stale entry there is harmless history.
+TKT-613.
 
 =head2 board_refs
 

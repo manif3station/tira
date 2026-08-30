@@ -1514,6 +1514,7 @@ without revealing or creating a storage location.
 
 ### UC-032: Rename column
 **Implemented.** `dashboard tira.column.rename --type epic --name doing --new-name in-progress`.
+Also rewrites the `column` tag stored on every record's `required_items` entries that still named the old column name, across the whole board - not just cards currently sitting in the renamed column - so the push/departure gate (which matches items by a card's current column) does not go blind to a pending item left tagged with a name that no longer exists. TKT-613.
 
 ### UC-033: Reorder after
 **Implemented.** `dashboard tira.column.reorder --type ticket --name review --after in-progress`.
@@ -1522,7 +1523,7 @@ without revealing or creating a storage location.
 **Implemented.** `dashboard tira.column.reorder --type sow --name approval --before discard`.
 
 ### UC-035: Remove column
-**Implemented.** `dashboard tira.column.remove --type ticket --name obsolete` moves records to Discard.
+**Implemented.** `dashboard tira.column.remove --type ticket --name obsolete` moves records to Discard. Deliberately does not retag or scrub `required_items` entries elsewhere that still name the removed column - unlike a rename (UC-032), a removed column's name can never again equal a card's current column, so a stale entry is harmless history. TKT-613.
 
 ### UC-036: Protect Backlog
 **Implemented.** Removing Backlog exits `2` unchanged.

@@ -49,7 +49,7 @@ for my $case (
     like( $@, $error, "checklist $action validates input" );
 }
 
-$tira->checklist_add( author => 'claude', project => $root, ref => $ticket->{ref}, item => 'Build', status => 'Open' );
+$tira->checklist_add( author => 'claude', project => $root, ref => $ticket->{ref}, item => 'Build', status => 'pending' );
 my $updated = $tira->checklist_update( author => 'claude',
     project => $root, ref => $ticket->{ref}, id => 'CHK-001', item => 'Build release', status => 'Done',
     command => ['make release'], proof => ['build succeeded'],
@@ -66,7 +66,7 @@ my ( $stdout, $stderr ) = ('', '');
     open my $err, '>', \$stderr or die $!;
     local *STDOUT = $out;
     local *STDERR = $err;
-    is( Tira::CLI->run( command => 'checklist.add', argv => [ '--ref', $ticket->{ref}, '--item', 'Deploy', '--status', 'Ready', '-o', 'json' ] ), 0,
+    is( Tira::CLI->run( command => 'checklist.add', argv => [ '--ref', $ticket->{ref}, '--item', 'Deploy', '--status', 'pending', '-o', 'json' ] ), 0,
         'checklist add CLI succeeds' );
 }
 like( $stdout, qr/"item"\s*:\s*"Deploy"/, 'checklist add CLI returns entry' );

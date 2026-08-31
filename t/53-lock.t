@@ -97,7 +97,7 @@ my ( %during, $watching, $comment, $item );
     for my $case (
         [ comment_add => sub { $comment = $tira->comment_add( %common, author => 'michael', text => 'First' ) } ],
         [ comment_update => sub { $tira->comment_update( author => 'michael', %common, comment => $comment->{id}, text => 'Edited' ) } ],
-        [ checklist_add => sub { $item = $tira->checklist_add( author => 'michael', %common, item => 'A step', status => 'Open' ) } ],
+        [ checklist_add => sub { $item = $tira->checklist_add( author => 'michael', %common, item => 'A step', status => 'pending' ) } ],
         [ checklist_update => sub { $tira->checklist_update( author => 'michael', %common, id => $item->{id}, status => 'Done',
             command => ['did the step'], proof => ['step done'] ) } ],
         [ gate_add => sub { $tira->gate_add( author => 'michael', %common, gate => 'Review', result => 'pass', details => 'Looked over' ) } ],

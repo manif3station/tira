@@ -36,13 +36,15 @@ my $before = $tira->column_list( project => $root, type => 'ticket' );
 my @layout = map {
     { name => $_->{name}, label => $_->{label}, watched => $_->{watched} ? 1 : 0,
       ( defined $_->{notify_after} ? ( notify_after => $_->{notify_after} ) : () ),
-      next => $_->{next}, required_actions => $_->{required_actions} }
+      next => $_->{next}, required_actions => $_->{required_actions},
+      administrative_actions => $_->{administrative_actions} }
 } @{$before};
 
 # --- a layout entry carrying next/required_actions is persisted, not dropped --
 
 ( grep { $_->{name} eq 'planning' } @layout )[0]{next} = ['doc'];
 ( grep { $_->{name} eq 'planning' } @layout )[0]{required_actions} = ['left a note'];
+( grep { $_->{name} eq 'planning' } @layout )[0]{administrative_actions} = ['left a note'];
 
 $tira->column_apply( project => $root, type => 'ticket', columns => \@layout );
 my $after = $tira->column_list( project => $root, type => 'ticket' );
@@ -50,13 +52,16 @@ my ($planning) = grep { $_->{name} eq 'planning' } @{$after};
 is_deeply( $planning->{next}, ['doc'], 'next survives a column_apply round-trip' );
 is_deeply( $planning->{required_actions}, ['left a note'],
     'required_actions survives a column_apply round-trip too' );
+is_deeply( $planning->{administrative_actions}, ['left a note'],
+    'administrative_actions (TKT-678) survives a column_apply round-trip too' );
 
 # --- and a second apply, touching nothing about them, does not silently lose them --
 
 my @second = map {
     { name => $_->{name}, label => $_->{label}, watched => $_->{watched} ? 1 : 0,
       ( defined $_->{notify_after} ? ( notify_after => $_->{notify_after} ) : () ),
-      next => $_->{next}, required_actions => $_->{required_actions} }
+      next => $_->{next}, required_actions => $_->{required_actions},
+      administrative_actions => $_->{administrative_actions} }
 } @{$after};
 $tira->column_apply( project => $root, type => 'ticket', columns => \@second );
 my $again = $tira->column_list( project => $root, type => 'ticket' );
@@ -64,6 +69,8 @@ my ($planning2) = grep { $_->{name} eq 'planning' } @{$again};
 is_deeply( $planning2->{next}, ['doc'], 'and a second apply that changes nothing about it keeps next' );
 is_deeply( $planning2->{required_actions}, ['left a note'],
     'and keeps required_actions too - a save is not a silent reset' );
+is_deeply( $planning2->{administrative_actions}, ['left a note'],
+    'and keeps administrative_actions too' );
 
 done_testing;
 

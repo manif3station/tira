@@ -382,11 +382,9 @@ sub run {
         'said=s' => \$option{said}, 'heard=s' => \$option{heard},
         'agent-session=s' => \$option{agent_session},
         'watch!' => \$option{watched}, 'terminal!' => \$option{terminal}, 'stale' => \$option{stale},
-        'queue!' => \$option{queue},
-        'required-action=s@' => \$option{required_action},
-        'blocking' => \$option{blocking},
+        'queue!' => \$option{queue}, 'required-action=s@' => \$option{required_action}, 'blocking' => \$option{blocking},
         'entry-required-action=s@' => \$option{entry_required_action},
-        'next=s@' => \$option{next},
+        'administrative-action=s@' => \$option{administrative_action}, 'next=s@' => \$option{next},
         'with-level' => \$option{with_level},
         'cache-ttl=i' => \$option{cache_ttl}, 'no-cache' => \$option{no_cache},
         'with=s' => \$option{with}, 'note=s' => \$option{note},
@@ -1467,7 +1465,7 @@ sub _column_required_action_violation {
 # done even though the card was landing back on that exact column; the
 # owner asked for it included (TG msg 4342). TKT-455. discard is excluded
 # on both sides: its position in the declared column order is not a
-# statement about how much work it undoes.
+# statement about how much work it undoes. Since TKT-678, an item declared --administrative-action on its column is exempt from this reset entirely - see the admin-exemption check in _apply_column_required_actions below.
 sub _populate_column_required_actions {
     my ( $tira, $args, $to, $columns, $required_items ) = @_;
     my ($to_col) = grep { $_->{name} eq $to } @{$columns};
@@ -1741,11 +1739,12 @@ sub _apply_column_required_actions {
         _populate_column_required_actions( $tira, $args, $to, $columns, \@required_items );
     }
     elsif ( $to_idx < $from_idx ) {
-        my @reset;
-        for my $item (@required_items) {
+        my %admin; for my $col ( @{$columns} ) { $admin{ $col->{name} } = { map { ( $_, 1 ) } @{ $col->{administrative_actions} // [] } } }
+        my @reset; for my $item (@required_items) {
             next if !defined $item->{column} || !exists $index{ $item->{column} };
             my $item_idx = $index{ $item->{column} };
             next if $item_idx < $to_idx || $item_idx > $from_idx;
+            next if $admin{ $item->{column} }{ $item->{item} };    # TKT-678/Q-100: declared per-item exemption
 
             # Same case-insensitive comparison as the move-out gate above -
             # an item marked --status Done is genuinely done, and must reset
@@ -1931,12 +1930,12 @@ sub _invoke {
     # stop an option being silently dropped had instead stopped it being given.
     die "Watch is available on the column.update and notify.moves commands\n"
       if defined $option->{watched} && $command !~ /\A(?:column\.update|notify\.moves)\z/;
-    die "Queue is available on the column.update command\n"
-      if defined $option->{queue} && $command ne 'column.update';
+    die "Queue is available on the column.update command\n" if defined $option->{queue} && $command ne 'column.update';
     die "Required-action is available on the column.update command\n"
       if defined $option->{required_action} && $command ne 'column.update';
     die "Entry-required-action is available on the column.update command\n"
       if defined $option->{entry_required_action} && $command ne 'column.update';
+    die "Administrative-action is available on the column.update command\n" if defined $option->{administrative_action} && $command ne 'column.update';
     die "Blocking is available on the required-action.list command\n"
       if defined $option->{blocking} && $command ne 'required-action.list';
     die "Next is available on the column.update command\n"

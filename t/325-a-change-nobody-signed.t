@@ -88,7 +88,7 @@ my $card = $tira->create_record( project => $root, type => 'ticket', title => 'A
     like( $error, qr/say who is making it/, 'checklist_update refuses with no author' );
     ok( eval {
         $tira->checklist_update( project => $root, type => 'ticket', ref => $card->{ref},
-            id => $entry->{id}, author => 'claude', status => 'in-progress' );
+            id => $entry->{id}, author => 'claude', status => 'pending' );
         1;
     }, 'and succeeds exactly as before once an author is given' );
 }

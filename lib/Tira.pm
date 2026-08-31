@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.94';
+our $VERSION = '4.97';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1757,10 +1757,40 @@ sub tasklist_task_ref_link {
     die "Task id is required\n" if !defined $args{id} || $args{id} eq '';
     my @refs = @{ $args{refs} // [] };
     die "At least one ref is required\n" if !@refs;
+
     my $session = _tasklist_session(%args);
     return $self->_with_project_lock( $root, sub {
         my $items = $self->_tasklist_read($root);
         my $entry = _tasklist_find_item( $items, $args{id}, $session );
+
+        # Checked only once the item is confirmed to exist AND belong to
+        # this session - t/397 (TKT-538) expects a cross-session attempt
+        # to be told "No task", the same as every other tasklist.task.*
+        # command, even when the ref it carries is also bogus; naming the
+        # wrong problem first would leak a made-up ref's non-existence to
+        # a caller who was never entitled to touch this item at all.
+        #
+        # A ref that names nothing real looked exactly like a real link
+        # once stored - task-unlinked falls silent the moment any ref is
+        # present, whether or not it means anything, so a typo here is
+        # worse than no ref at all: it reads as solved and is not.
+        # link_add already refuses this the same way, via the same
+        # lookup. Checked before any ref is written, so one bad ref among
+        # several good ones refuses the whole call rather than applying
+        # the rest.
+        #
+        # Deliberately NOT extended to tasklist_add/unshift/slice, though
+        # a Codex review on this card found the identical-looking gap
+        # there: a ref naming no card is an accepted, tested state at
+        # CREATION time elsewhere on this board (t/419's own QTK-404
+        # fixture exists specifically to prove task-card-mismatch's
+        # duplicate walk stays silent about a card nobody can open) -
+        # linking is a considered claim an agent makes about existing
+        # work; a fresh, still-unlinked task naming a not-yet-real card
+        # is the ordinary, expected case this whole ticket exists to let
+        # get linked LATER. TKT-682.
+        $self->_record_data( project => $root, ref => $_ ) for @refs;
+
         $entry->{refs} //= [];
         my %have = map { $_ => 1 } @{ $entry->{refs} };
         for my $ref (@refs) {
@@ -1931,6 +1961,7 @@ sub _column_defaults {
         watched                => exists $_->{watched} ? ( $_->{watched} ? 1 : 0 ) : 1,
         required_actions       => $_->{required_actions} // [],
         entry_required_actions => $_->{entry_required_actions} // [],
+        administrative_actions => $_->{administrative_actions} // [],
         next                   => $_->{next} // [],
     } } @{$columns} ];
 }
@@ -2019,6 +2050,12 @@ sub column_apply {
             $entry->{required_actions} = $column->{required_actions} if defined $column->{required_actions};
             $entry->{entry_required_actions} = $column->{entry_required_actions}
               if defined $column->{entry_required_actions};
+
+            # Same TKT-454 gap, same fix, for the third list (TKT-678): a
+            # column_apply round-trip would otherwise silently drop the
+            # backward-move reset exemption too.
+            $entry->{administrative_actions} = $column->{administrative_actions}
+              if defined $column->{administrative_actions};
             $entry->{next} = $column->{next} if defined $column->{next};
             push @columns, $entry;
         }
@@ -2105,6 +2142,19 @@ sub column_update {
         # list per call, exactly as the exit list does. TKT-591.
         $column->{entry_required_actions} = $args{entry_required_action}
           if defined $args{entry_required_action};
+
+        # A per-item exemption from the backward-move reset (TKT-678,
+        # Q-100): the reset only ever knew which COLUMN a required item
+        # belonged to, never what KIND of item it was, so a Codex finding
+        # about a markdown fence invalidated "assign yourself to the card"
+        # and "set the reporter" the same as it invalidated a real build
+        # gate sharing that column - re-proving bookkeeping whose truth
+        # could not possibly have changed. Matched by exact text, the same
+        # way --required-action/--entry-required-action already dedupe;
+        # TKT-455/TKT-525's own column-range design is unchanged - an item
+        # NOT named here still resets exactly as before.
+        $column->{administrative_actions} = $args{administrative_action}
+          if defined $args{administrative_action};
 
         # A column's valid next step is one value, derived from array
         # position - correct for a linear chain, wrong at a genuine fork,
@@ -4986,6 +5036,18 @@ sub checklist_add {
     return $self->_with_project_lock( $root, sub {
         die "Checklist item is required\n" if !defined $args{item} || $args{item} eq '';
         die "Checklist status is required\n" if !defined $args{status} || $args{status} eq '';
+
+        # Q-099 on TKT-668, Michael's own answer: checklists get the SAME
+        # tight vocabulary as required actions, not free text - a
+        # misspelling ('Donee', 'in progress') used to store cleanly and
+        # exit 0 while _item_is_done's own lc(status) eq 'done' comparison
+        # would never recognize it. 'To Do' is included because it is the
+        # actual unmarked spelling this board itself writes on move-in
+        # (required_item_update's own declared set never carries it,
+        # since a required item is only ever added as 'pending').
+        if ( lc( $args{status} ) ne 'pending' && lc( $args{status} ) ne 'done' && lc( $args{status} ) ne 'to do' ) {
+            die "Unknown checklist status '$args{status}' - the values that work are pending, done, and To Do\n";
+        }
         my $record = $self->record_show(%args);
         my $number = @{ $record->{checklist} } + 1;
         my $now = $self->{clock}->();
@@ -5036,6 +5098,22 @@ sub checklist_update {
               if !@ids;
             die "Checklist entry '$args{id}' not found - entries are addressed by id, not position: "
               . join( ', ', @ids ) . "\n";
+        }
+
+        # Checked only once the entry is confirmed to exist - t/366 expects
+        # an unknown id to be told so, even when the status it was also
+        # given is bogus; naming the wrong problem first would tell a
+        # caller their status was wrong on an item that was never there.
+        #
+        # Same declared set checklist_add now enforces at creation - a
+        # status already stranger than the set (written before this fix,
+        # TKT-668) can still be read and moved; it just cannot be written
+        # back unchanged by a later update. See checklist_add for the full
+        # reasoning.
+        if ( defined $args{status}
+            && lc( $args{status} ) ne 'pending' && lc( $args{status} ) ne 'done' && lc( $args{status} ) ne 'to do' )
+        {
+            die "Unknown checklist status '$args{status}' - the values that work are pending, done, and To Do\n";
         }
         $entry->{item} = $args{item} if defined $args{item};
         $entry->{status} = $args{status} if defined $args{status};
@@ -5385,6 +5463,23 @@ sub required_item_update {
               if !@ids;
             die "Required item '$args{id}' not found - entries are addressed by id, not position: "
               . join( ', ', @ids ) . "\n";
+        }
+
+        # Checked only once the item is confirmed to exist - t/367 expects
+        # an unknown id to be told so, even when the status it was also
+        # given is bogus; naming the wrong problem first would tell a
+        # caller their status was wrong on an item that was never there
+        # to update at all.
+        #
+        # Non-empty was the whole check - a misspelling of 'done' (TKT-668:
+        # 'Donee', 'donw') stored cleanly and exited 0, while _item_is_done's
+        # own lc(status) eq 'done' comparison would never recognize it: the
+        # item looked marked and the gate refused the move later for a reason
+        # it never named. required_items only ever carry pending or done, so
+        # that is the declared set - case-insensitive, matching the reader's
+        # own tolerance.
+        if ( defined $args{status} && lc( $args{status} ) ne 'pending' && lc( $args{status} ) ne 'done' ) {
+            die "Unknown required-action status '$args{status}' - the values that work are pending and done\n";
         }
         my $repeated_reason = $self->_refuse_reused_proof(
             items => $record->{required_items}, entry => $entry,
@@ -7630,10 +7725,13 @@ sub policy_evaluate {
                 my $checklist = $record->{checklist} // [];
                 next if !@{$checklist};
 
-                # Status is documented as free text, and stays that way - only
-                # the comparison against "done" is case-insensitive, so a card
-                # ticked --status Done or DONE is not silently invisible to
-                # the one rule whose job is noticing it finished. TKT-434.
+                # Only the comparison against "done" is case-insensitive, so a
+                # card ticked --status Done or DONE is not silently invisible
+                # to the one rule whose job is noticing it finished. TKT-434.
+                # Status is checked against a declared set at write time since
+                # TKT-668, but a value written before that shipped still reads
+                # here unchanged - this comparison predates and is unaffected
+                # by that validation.
                 next if grep { lc( $_->{status} // '' ) ne 'done' } @{$checklist};
                 my $before = $self->_policy_column_for(
                     project => $root, policy => $policy, field => 'before', record => $record );
@@ -8618,7 +8716,8 @@ sub policy_evaluate {
                 next if !$self->_policy_older_than( $item->{created_at}, $policy->{age} );
                 $report->( $policy, $item->{id},
                     "\"$item->{text}\" has no linked ticket - link it to one that already "
-                  . "covers this work, or file a full ticket and link the two" );
+                  . "covers this work (tira.tasklist.task.ref.link --id $item->{id} --ref REF), "
+                  . "or file a full ticket and link the two" );
             }
         }
         elsif ( $rule eq 'task-card-mismatch' ) {
@@ -14048,7 +14147,10 @@ caller's, with the same "No task" error an unknown id gets.
 
 Adds one or more refs to an existing task-list item, by id. TKT-538: refuses
 an item belonging to a different C<session> than the caller's, with the same
-"No task" error an unknown id gets.
+"No task" error an unknown id gets. TKT-682: every ref is validated against
+the board before any of them is stored - a ref naming no record refuses the
+whole call and names the ref that was not found, so a typo'd or invented ref
+can never be stored as if it were a real link.
 
 =head2 tasklist_task_ref_unlink
 
@@ -14087,6 +14189,12 @@ C<required_action> is the list a card must finish before it may LEAVE the
 column; C<entry_required_action> is what it must already have done before it
 may ARRIVE. Each is replaced whole per call and neither touches the other, so
 updating one leaves the other exactly as it was.
+
+C<administrative_action> (TKT-678) declares, by exact item text, which of a
+column's required actions a backward move must never reset - the reset
+otherwise only knows which column an item belongs to, not what kind of item
+it is, so a real build gate and administrative bookkeeping sharing a column
+were reset identically. Replaced whole per call, same as the other two.
 
 =head2 board_show
 
@@ -14297,11 +14405,18 @@ Creates a new record copying a source record's fields, linked back to it as a cl
 
 =head2 checklist_add
 
-Adds a checklist entry to a record.
+Adds a checklist entry to a record. TKT-668: C<--status> is validated
+against the declared set C<{pending, done, To Do}>, case-insensitive - a
+misspelling refuses rather than storing an item no gate can recognize as
+done.
 
 =head2 checklist_update
 
-Updates a checklist entry's item text or status.
+Updates a checklist entry's item text or status. TKT-668: C<--status> is
+validated against the same declared set C<checklist_add> enforces at
+creation - a status already stranger than the set (written before this
+fix shipped) can still be read and moved, it just cannot be written back
+unchanged by a later update.
 
 Marking one C<done> costs at least one C<--command>/C<--proof> pair, and since
 4.60 each half of every pair must contain something. Until then the gate counted
@@ -14401,7 +14516,10 @@ exit one (TKT-445). TKT-652.
 
 =head2 required_item_update
 
-Updates a required-action entry's item text or status.
+Updates a required-action entry's item text or status. TKT-668: C<--status>
+is validated against the declared set C<{pending, done}>, case-insensitive -
+a misspelling refuses rather than storing an item C<_item_is_done> would
+never recognize.
 
 Marking one C<done> is refused when another item in the same column already
 carries the exact same C<command>/C<proof> pair - trimmed before comparison,

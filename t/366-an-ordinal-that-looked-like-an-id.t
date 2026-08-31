@@ -31,9 +31,9 @@ $tira->project_new(
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'A card with a real checklist', priority => 3 );
 $tira->checklist_add( author => 'claude', project => $root, type => 'ticket',
-    ref => $card->{ref}, item => 'First step', status => 'Open' );
+    ref => $card->{ref}, item => 'First step', status => 'pending' );
 $tira->checklist_add( author => 'claude', project => $root, type => 'ticket',
-    ref => $card->{ref}, item => 'Second step', status => 'Open' );
+    ref => $card->{ref}, item => 'Second step', status => 'pending' );
 
 # --- an ordinal, the obvious wrong guess ------------------------------------
 

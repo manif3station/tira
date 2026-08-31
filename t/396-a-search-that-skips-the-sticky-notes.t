@@ -25,9 +25,17 @@ $tira->project_new(
     sow_prefix => 'FTS', epic_prefix => 'FTE', ticket_prefix => 'FTT',
 );
 my $ticket = $tira->create_record( project => $root, type => 'ticket', title => 'Unrelated ticket' );
+
+# A distinct card for the ref-link assertion below, not $ticket itself -
+# TKT-682 made tasklist_task_ref_link validate refs against real records,
+# so the fixture needs one that exists, but it must not be $ticket: search
+# would then also match $ticket by its OWN ref (default record search is
+# always on, --tasklist only adds the tasklist walk), returning the
+# ticket's ref alongside or instead of the linked task's id.
+my $linked_card = $tira->create_record( project => $root, type => 'ticket', title => 'Linked-to card' );
 my $task = $tira->tasklist_add( project => $root, text => 'Reticulate the splines before Thursday' );
 my $other = $tira->tasklist_add( project => $root, text => 'Something else entirely' );
-$tira->tasklist_task_ref_link( project => $root, id => $task->{id}, refs => ['FTT-1'] );
+$tira->tasklist_task_ref_link( project => $root, id => $task->{id}, refs => [ $linked_card->{ref} ] );
 
 is_deeply(
     $tira->search( project => $root, text => 'reticulate', refs_only => 1 ),
@@ -42,8 +50,9 @@ is_deeply(
     [ $task->{id} ], 'a tasklist item is also findable by its own id' );
 
 is_deeply(
-    $tira->search( project => $root, text => 'ftt-1', tasklist => 1, refs_only => 1 ),
-    [ $task->{id} ], 'and by a ref linked to it, case-insensitively' );
+    [ sort @{ $tira->search( project => $root, text => lc( $linked_card->{ref} ), tasklist => 1, refs_only => 1 ) } ],
+    [ sort $task->{id}, $linked_card->{ref} ],
+    'and by a ref linked to it, case-insensitively - alongside the card itself, whose own ref field is always searched' );
 
 is_deeply(
     [ sort @{ $tira->search( project => $root, text => 'Unrelated', tasklist => 1, refs_only => 1 ) } ],

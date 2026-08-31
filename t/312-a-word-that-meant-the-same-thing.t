@@ -1,14 +1,17 @@
 #!/usr/bin/env perl
-# docs/commands.md documents checklist.add/checklist.update's --status as free
-# text, and the engine validates only that it is non-empty - any string is
-# accepted, confirmed by t/151's own --status todo example. But card-stalled,
-# checklist-unmoved, and the required-action move-out/backward-reset checks
-# all compare against the exact lowercase string 'done'. A checklist or
-# required item marked --status Done or --status DONE reads as complete to
-# any person looking at the board, and is silently invisible to all four
-# rules: card-stalled never reports the stall, checklist-unmoved keeps
-# reporting the item as outstanding, and a move refuses forever with a
-# confusing "not done" message even though it plainly says Done.
+# At the time this was written, docs/commands.md documented checklist.add/
+# checklist.update's --status as free text, validated only for being
+# non-empty - any string was accepted. TKT-668 (later) restricted it to a
+# declared set per kind; this file's own concern - a CASE-INSENSITIVE
+# comparison against 'done' - predates and is independent of that, since
+# card-stalled, checklist-unmoved, and the required-action move-out/
+# backward-reset checks all compare against the exact lowercase string
+# 'done'. A checklist or required item marked --status Done or --status
+# DONE reads as complete to any person looking at the board, and was
+# silently invisible to all four rules: card-stalled never reported the
+# stall, checklist-unmoved kept reporting the item as outstanding, and a
+# move refused forever with a confusing "not done" message even though it
+# plainly said Done.
 #
 # Duplicate report TKT-444 (reporter michael, zen-framework project) gave a
 # concrete live repro: ZSD-233's item marked --status Done refused a move
@@ -16,8 +19,9 @@
 # --status done (lowercase only) succeeded immediately with nothing else
 # changed.
 #
-# The fix is a case-insensitive comparison, not a restriction: --status todo
-# and every other non-done value must behave exactly as before.
+# The fix here is a case-insensitive comparison, not a restriction:
+# 'pending' and every other genuinely-unfinished value within the declared
+# set must behave exactly as before.
 
 use strict;
 use warnings;
@@ -139,7 +143,12 @@ sub cli {
         'a required item marked Done still resets on a backward move, the same as done would' );
 }
 
-# --- an unrelated free-text value is entirely unaffected -------------------
+# --- a genuinely-unfinished value within the declared set is unaffected ----
+# (TKT-668 restricted required-action.update's --status to {pending, done};
+# 'todo' - this test's original value - is outside that set and now refused
+# outright by a different, unrelated check. 'pending' is the declared set's
+# own non-done member, and exercises the identical case-insensitivity
+# concern this file is actually about.)
 {
     my $root = File::Spec->catdir( $tmp, 'todo' );
     my $tira = Tira->new;
@@ -153,10 +162,10 @@ sub cli {
     cli( $root, 'record.move', '--ref', $card->{ref}, '--column', 'planning' );
     my ($item) = grep { $_->{item} eq 'left a note' }
       @{ $tira->required_item_list( project => $root, ref => $card->{ref} ) };
-    cli( $root, 'required-action.update', '--ref', $card->{ref}, '--id', $item->{id}, '--status', 'todo' );
+    cli( $root, 'required-action.update', '--ref', $card->{ref}, '--id', $item->{id}, '--status', 'pending' );
 
     my ( $status, $out, $err ) = cli( $root, 'record.move', '--ref', $card->{ref}, '--column', 'doc' );
-    isnt( $status, 0, 'a genuinely unfinished item (--status todo) still refuses the move, exactly as before' );
+    isnt( $status, 0, 'a genuinely unfinished item (--status pending) still refuses the move, exactly as before' );
     like( $err, qr/left a note/, 'naming it' );
 }
 

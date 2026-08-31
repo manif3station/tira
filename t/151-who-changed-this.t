@@ -83,7 +83,7 @@ $ref = ref $ref ? $ref->{ref} : $ref;
 
 # --- everything an agent does to a card, each saying who it is ------------------
 
-is( ( run( 'checklist.add', '--ref', $ref, '--item', 'a step', '--status', 'todo',
+is( ( run( 'checklist.add', '--ref', $ref, '--item', 'a step', '--status', 'pending',
         '--author', 'michael' ) )[0], 0, 'a checklist item is added' );
 is( ( run( 'gate.add', '--ref', $ref, '--author', 'michael', '--gate', 'a gate',
         '--result', 'pass', '--details', 'it passed' ) )[0], 0, 'a gate is recorded' );

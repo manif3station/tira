@@ -1,5 +1,169 @@
 Revision history for Tira
 
+4.97  2026-08-31
+
+    - TKT-678. A backward move (_apply_column_required_actions) resets
+      every required item tagged with a column between the destination
+      and the origin, inclusive on both ends (TKT-455/TKT-525) - a
+      whole-column reset that cannot tell an administrative bookkeeping
+      item ("assign yourself to the card", "set the reporter") from a
+      real build/review gate sharing the same column. Reported from
+      zen-framework: a Codex finding about a markdown fence invalidated
+      both kinds of item alike, forcing re-proof of work whose truth
+      could not possibly have changed - measured there as roughly 20 of
+      76 items per review round, across 16 rounds on one card.
+
+      Two shapes were offered; Q-100 (answered by the owner 2026-08-31)
+      chose a per-item declared flag rather than narrowing the
+      column-range design itself: tira.column.update
+      --administrative-action TEXT names specific required-action items,
+      by exact text (matched the same way --required-action/
+      --entry-required-action already dedupe), that a backward move
+      never resets, regardless of which column they share. TKT-455's
+      inclusive-both-ends range and TKT-525's all-the-way-to-backlog
+      case are otherwise completely unchanged - an item not named this
+      way still resets exactly as before, including a real gate sharing
+      a column with an administrative one.
+
+      New test t/457-a-reset-that-cannot-tell-the-difference.t: an
+      administrative item survives a one-column backward move while a
+      real gate in the same column still resets; an administrative item
+      also survives a return all the way to backlog (TKT-525's own
+      accepted case).
+
+      Caught during full-suite verify: the same ordering mistake found
+      twice already this session (TKT-682, then again in TKT-668's
+      required_item_update/checklist_update) did not recur here - this
+      card's own new code has no id-lookup-then-validate ordering to get
+      wrong, so no equivalent regression was found on this pass.
+
+      Caught by Codex at document: column_apply (the browser dashboard's
+      whole-layout Save path) copied required_actions,
+      entry_required_actions, and next on a round-trip, but not the new
+      administrative_actions - the exact TKT-454 gap recurring for a
+      third list. Fixed identically; extended TKT-454's own test
+      (t/319-a-layout-that-forgot-the-chain.t) to cover it. The text
+      match's own reach - an item is exempted by (column, item text)
+      regardless of whether it arrived via the exit template, the entry
+      template, or a manual required-action.add sharing that text - is
+      deliberate, matching the same column+text dedup TKT-497 already
+      established, not an oversight.
+
+      lib/Tira/CLI.pm sits at 2999 lines against t/430's 3,000-line
+      ceiling - every new line was paired with a merge elsewhere in the
+      same edit to stay under it.
+
+      Suite 452 files / 9000 tests green. lib/Tira.pm and lib/Tira/CLI.pm
+      both 100.0% statement and subroutine, measured serially.
+
+4.96  2026-08-31
+
+    - TKT-668. required_item_update, checklist_add, and checklist_update
+      stored whatever --status they were given, refusing only the empty
+      string - nothing checked the value against the set the gates
+      actually read. _item_is_done (lib/Tira/CLI.pm) compares
+      lc(status) eq 'done', so a misspelling like 'Donee' or 'donw'
+      silently marked an item that no gate would ever recognize as
+      done: the command exited 0, the card looked updated, and the
+      move-in refusal named the item as still outstanding for a reason
+      nobody wrote down.
+
+      required_item_update's half shipped standalone earlier this
+      session: the declared set is {pending, done}, case-insensitive -
+      the two values required_items ever carry.
+
+      This release adds checklist_add/checklist_update's half, per
+      Q-099's answer (asked on this card, answered by the owner
+      2026-08-31): checklists get the same tight vocabulary plus 'To
+      Do' - {pending, done, To Do}, case-insensitive. 'To Do' is
+      included because it is the actual unmarked spelling this board
+      itself writes on move-in, even though a required item never
+      carries it. Both checklist_add (refusing at creation) and
+      checklist_update (refusing at write) validate; reading and moving
+      a card whose checklist already carries an older free-text status
+      (written before this fix) is unaffected - the validation is at
+      the point of writing, not a retroactive migration.
+
+      Extended t/455-a-status-worth-more-than-its-spelling.t (already
+      covering required_item_update): a misspelled status is refused
+      at both checklist_add and checklist_update, naming the value and
+      what works; pending/done/Done/DONE/To Do/to do/TO DO are all
+      accepted, in every case, at both commands; a legacy free-text
+      checklist status (simulated by writing the record directly,
+      since checklist_add is validated too) reads back unchanged and
+      the card can still be moved.
+
+      docs/commands.md's required-action.update entry corrected: it
+      previously said --status was free text with only the done
+      comparison defined - stale since required_item_update's half of
+      this fix shipped, caught during this card's own document gate.
+
+      Caught during full-suite verify: required_item_update and
+      checklist_update both ran the new status validation BEFORE the
+      unknown-id check, the identical ordering mistake TKT-682's own
+      verify caught in tasklist_task_ref_link - t/367 and t/366 each
+      set up an id-not-found refusal test using a plausible but invalid
+      status ('in progress'/'In Progress') purely as fixture noise, and
+      the new validation intercepted first, masking the refusal being
+      tested. Reordered so both now validate only after the entry is
+      confirmed to exist, matching every other lookup-then-act command.
+      Also fixed two unrelated fixture breaks the same coverage run
+      surfaced: t/366's checklist_add setup used a bare 'Open' status
+      (checklist_add validates now too - changed to 'pending'), and
+      t/396's search test linked a tasklist item to a hardcoded,
+      never-real ref 'FTT-1' (tasklist_task_ref_link validates
+      existence now - given a real, dedicated card instead, with the
+      assertion corrected to expect both that card's own ref-field
+      match and the linked task's id, since a real ref can never dodge
+      that collision the way a fake one could).
+
+      Suite 452 files / 9000 tests green. lib/Tira.pm 100.0% statement
+      and subroutine, measured serially.
+
+4.95  2026-08-31
+
+    - TKT-682. Corrected scope during investigation: this card originally
+      claimed no command could link an existing tasklist item to a
+      card, but tasklist.task.ref.link already existed (shipped
+      2026-08-25, TKT-531) - the card's own dispatch-table check had
+      only looked at the tasklist.* command range, missing the
+      separately-namespaced tasklist.task.ref.* commands a few hundred
+      lines earlier. What was genuinely missing: tasklist_task_ref_link
+      accepted any --ref string with no check that it named a real
+      record, so a typo'd or invented ref was stored exactly like a
+      real link and read as solved to task-unlinked and everything else
+      downstream, even though nothing was actually linked.
+
+      Fixed by validating every --ref through the same _record_data
+      lookup link_add already uses, inside the project lock and only
+      after the item is confirmed to exist and belong to the caller's
+      session - one bad ref among several good ones refuses the whole
+      call rather than applying the rest, naming the ref that was not
+      found. tasklist_task_ref_unlink is unchanged: removing a ref,
+      valid or not, can never manufacture a false link. The
+      task-unlinked bridge message now also names the command directly
+      (tira.tasklist.task.ref.link --id ID --ref REF) instead of only
+      describing linking in prose.
+
+      Caught during full-suite verify: the ref check initially ran
+      BEFORE the session-ownership check, so t/397/TKT-538's
+      cross-session refusal test broke - a different session linking a
+      bogus ref onto another session's item got "Record not found"
+      instead of the expected "No task ID..." isolation message,
+      leaking which problem applied to a caller never entitled to touch
+      the item at all. Reordered so session ownership is always checked
+      first, matching every other tasklist.task.* command.
+
+      New test t/456-a-link-that-points-nowhere.t: a bad ref is refused
+      and named, the task is left unchanged, a real ref still links, a
+      mixed good+bad list refuses without partial application, unlink
+      is unaffected, task-unlinked's own message is asserted to name the
+      real command, and a cross-session attempt is refused as a session
+      problem even when its ref is also bogus.
+
+      Suite 452 files / 9000 tests green. lib/Tira.pm 100.0% statement
+      and subroutine, measured serially.
+
 4.94  2026-08-31
 
     - TKT-780. The dashboard's top header (.hero - the "Tira Development"

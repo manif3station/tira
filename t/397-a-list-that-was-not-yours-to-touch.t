@@ -66,10 +66,15 @@ sub exception {
 }
 
 {
+    # A real card, not a bare string - TKT-682 made tasklist_task_ref_link
+    # validate every ref against the board, so this fixture's own setup
+    # call (unguarded, unlike the exception()-wrapped assertion below)
+    # needs one that actually exists.
+    my $card = $tira->create_record( project => $root, type => 'ticket', title => 'ref-unlink target' );
     my $item = $tira->tasklist_add( project => $root, text => 'agent-a task, ref-unlink target', session => 'agent-a' );
-    $tira->tasklist_task_ref_link( project => $root, id => $item->{id}, refs => ['GTT-1'], session => 'agent-a' );
+    $tira->tasklist_task_ref_link( project => $root, id => $item->{id}, refs => [ $card->{ref} ], session => 'agent-a' );
     like(
-        exception( sub { $tira->tasklist_task_ref_unlink( project => $root, id => $item->{id}, refs => ['GTT-1'], session => 'agent-b' ) } ),
+        exception( sub { $tira->tasklist_task_ref_unlink( project => $root, id => $item->{id}, refs => [ $card->{ref} ], session => 'agent-b' ) } ),
         qr/\ANo task '\Q$item->{id}\E'/,
         'a different session cannot unlink a ref from another session\'s item' );
 }

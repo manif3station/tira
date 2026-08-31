@@ -1106,7 +1106,7 @@ Put one rule down for a while, without going deaf to everything else.
 
 The gate is `tools/hooks/pre-push`, installed by `tools/install-hooks` as a
 symlink so it is version-controlled rather than local configuration. It refuses
-a push eleven ways and runs no test suite:
+a push nine ways and runs no test suite, no browser:
 
 | Order | Check | Refuses when |
 | --- | --- | --- |
@@ -1116,7 +1116,14 @@ a push eleven ways and runs no test suite:
 | 4 | `tools/card-holes` | a card has holes in it, or its checklist and its column disagree |
 | 5 | `tools/docs-match-code` | the documentation and the code disagree |
 | 6 | `tools/docs-examples-run` | a documented example is not what the command accepts |
-| 7 | `tools/browser-tests` | a browser test fails, or its runner is absent |
+
+Since 4.99 (TKT-796) the browser suite (`tools/browser-tests`, 21 Playwright
+checks) no longer runs here - a single flaky test used to block an entire
+batch of otherwise-good, individually-verified cards. It runs earlier instead,
+per card, as a conditional required action on the `verify` column (project
+board configuration, not a step in this repo's own release tooling): only a
+card whose changes touch `lib/Tira/views/*`, `DashboardWeb.pm`, or
+`OnboardWeb.pm` needs it.
 
 **One predicate decides whether a required ACTION is finished, since 4.68.**
 The command layer asks `_item_is_done`, which lowercases before comparing, so

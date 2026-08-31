@@ -1,5 +1,40 @@
 Revision history for Tira
 
+4.99  2026-08-31
+
+    - TKT-796. tools/hooks/pre-push ran tools/browser-tests (21
+      Playwright checks) once per push, batching an entire release's
+      worth of cards together - a single flaky browser test (TKT-675)
+      then blocked every card in the batch, even the ones that had
+      nothing to do with the browser and had already passed their own
+      verify gate. The owner's own words: "Browser test should be a
+      separate column and not mix with pushing. When card reaches to
+      push column should be already fully tested" - and, on whether
+      every card needs it, "not all cards need browser test...
+      dynamically".
+
+      tools/hooks/pre-push no longer runs the browser suite at all - the
+      "opening a browser on the board" step is gone, and
+      tools/docs-examples-run is now the hook's last gate. The check
+      moves to project board configuration instead (a verify-column
+      required action, conditional on whether a card's own changes
+      touch a browser-relevant view file) rather than shipped engine
+      code, since column required_actions are per-project data
+      (column_list reads config->{columns}, not a hard-coded default).
+
+      tools/prove-the-gate updated to match: the two "covers:" lines for
+      the removed refusals are gone, the browser-failure node stub in
+      its run_hook helper is gone, tools/browser-tests dropped out of
+      the missing-tool loop, and the dedicated "a browser test that
+      fails" probe is gone - the same TKT-680 precedent (removing the
+      full Perl suite from this hook needed the identical cleanup).
+
+      New test t/462-a-browser-that-answers-for-everyone.t; t/416 and
+      t/233 updated for the new hook/prove-the-gate shape (examples is
+      now the last gate, one fewer missing-tool probe).
+
+      Suite TBD.
+
 4.98  2026-08-31
 
     - TKT-795. TKT-668's status validation (4.96) refused checklist_add/

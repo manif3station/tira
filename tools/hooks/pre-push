@@ -134,21 +134,19 @@ tools/docs-match-code || fail 'the documentation and the code disagree'
 # And every example run rather than read. His words. The policies document
 # shipped with an example the validator refuses, and nothing but executing it
 # would have found that.
+#
+# A browser check ran here too, once per push, from the day it was written
+# until TKT-796: a single flaky drag-simulation test (TKT-675) then blocked an
+# entire batch of otherwise-good, individually-verified cards, because it ran
+# once for the whole push rather than once for the card it was actually
+# about. The owner's own words: "Browser test should be a separate column and
+# not mix with pushing. When card reaches to push column should be already
+# fully tested" - and, asked whether every card needs it, "not all cards need
+# browser test... dynamically". It now runs per-card, at verify, conditional
+# on whether that card's own changes touch a browser-relevant view file -
+# project board configuration, not a step in this repo's own release tooling.
 step 'running every documented example'
 [ -x tools/docs-examples-run ] || fail 'tools/docs-examples-run is missing - refusing to push examples nobody ran'
 tools/docs-examples-run || fail 'a documented example is not what the command accepts'
 
-# And the browser opened, rather than seven files being counted as though it
-# had been. They sat in t/playwright for months: prove reads .t and these are
-# .js, so the suite never saw them, and nothing else ran them either. A check
-# nobody runs is worse than no check, because it is counted - and running them
-# turned up three stale contracts and two dead controls on the page a person
-# looks at.
-#
-# Fails closed. If node or playwright is missing this refuses rather than
-# skipping, because skipping quietly is exactly how they came to be ignored.
-step 'opening a browser on the board'
-[ -x tools/browser-tests ] || fail 'tools/browser-tests is missing - refusing to push with the browser unopened'
-tools/browser-tests || fail 'a browser test failed, or could not be run at all'
-
-step 'board backed up, every live card complete, documentation agrees and every example ran, browser opened - the suite was proved in verify'
+step 'board backed up, every live card complete, documentation agrees and every example ran - the suite was proved in verify'

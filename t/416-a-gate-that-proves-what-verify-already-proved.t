@@ -123,10 +123,11 @@ like( $hook, qr{tools/docs-match-code},
     'the documentation check survives' );
 like( $hook, qr{tools/docs-examples-run},
     'every documented example is still run' );
-like( $hook, qr{tools/browser-tests},
-    'and the browser is still opened on the board' );
+unlike( $hook, qr{tools/browser-tests\s*(?:\|\||&&|;|\z)},
+    'the browser suite no longer runs here - TKT-796 moved it to a per-card, '
+      . 'conditional verify-column check instead of a once-per-push gate' );
 
-# The ordering, not just the presence. These three run last deliberately -
+# The ordering, not just the presence. These run last deliberately -
 # documentation edited after a gate has shipped a broken build here twice - and
 # a removal that hoisted them above the surviving checks would leave them
 # proving nothing about what goes out.
@@ -135,7 +136,6 @@ my $backup_at   = index( $hook, 'tools/board-backup' );
 my $holes_at    = index( $hook, 'tools/card-holes' );
 my $docs_at     = index( $hook, 'tools/docs-match-code' );
 my $examples_at = index( $hook, 'tools/docs-examples-run' );
-my $browser_at  = index( $hook, 'tools/browser-tests' );
 
 cmp_ok( $version_at, '<', $backup_at,
     'the version check still runs before the board backup' );
@@ -145,38 +145,35 @@ cmp_ok( $holes_at, '<', $docs_at,
     'and the card check before the documentation checks' );
 cmp_ok( $docs_at, '<', $examples_at,
     'the documentation check still runs before the examples' );
-cmp_ok( $examples_at, '<', $browser_at,
-    'and the examples before the browser' );
 
 # "Last of all" was claimed by the documentation and NOT asserted here until a
-# review pointed out that an ordering between three names says nothing about
-# what comes after the third. Nothing may run after the browser step except the
-# closing message - a step added below it would run after the last thing the
-# gate can refuse on, which is the same fault as running the documentation
-# checks too early.
+# review pointed out that an ordering between names says nothing about what
+# comes after the last one. TKT-796 removed the browser step that used to hold
+# this position; the examples step is now last, and nothing may run after it
+# except the closing message.
 # Anchored on the INVOCATION, not on the first mention: every tool here is
 # named twice, once in an `[ -x ... ]` guard and once when it runs, and the
 # first mention is the guard. Anchoring on it left the invocation line inside
 # the tail and both counts below were wrong - caught by them failing.
-my $invoked_at = index( $hook, 'tools/browser-tests || fail' );
-cmp_ok( $invoked_at, '>', $browser_at,
-    'the browser tool is guarded before it is invoked' );
+my $invoked_at = index( $hook, 'tools/docs-examples-run || fail' );
+cmp_ok( $invoked_at, '>', $examples_at,
+    'the examples tool is guarded before it is invoked' );
 
-my $after_browser = substr( $hook, $invoked_at );
-$after_browser =~ s/\A[^\n]*\n//;    # the invocation line itself
+my $after_examples = substr( $hook, $invoked_at );
+$after_examples =~ s/\A[^\n]*\n//;    # the invocation line itself
 
 # Counted rather than denied. A denial here would pass against an empty tail
 # just as happily as against a correct one, and the tail is exactly what a new
 # step would be appended to.
-my $steps_after = () = $after_browser =~ /^step\s/mg;
+my $steps_after = () = $after_examples =~ /^step\s/mg;
 is( $steps_after, 1,
-    'exactly one step follows the browser, and it is the closing message' );
+    'exactly one step follows the examples, and it is the closing message' );
 
-my $refusals_after = () = $after_browser =~ /\bfail\s+["']/g;
+my $refusals_after = () = $after_examples =~ /\bfail\s+["']/g;
 is( $refusals_after, 0,
-    'nothing after the browser can refuse a push - it is the last gate' );
+    'nothing after the examples can refuse a push - it is the last gate' );
 
-my $tools_after = () = $after_browser =~ m{\btools/[a-z-]+}g;
+my $tools_after = () = $after_examples =~ m{\btools/[a-z-]+}g;
 is( $tools_after, 0,
     'and no further tool is invoked after it' );
 

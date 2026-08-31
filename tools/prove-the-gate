@@ -114,48 +114,32 @@ fi
 # covers: the documentation and the code disagree | an entrypoint nobody documented
 # covers: tools/docs-examples-run is missing - refusing to push examples nobody ran | tools/docs-examples-run
 # covers: a documented example is not what the command accepts | a documented example the command refuses
-# covers: tools/browser-tests is missing - refusing to push with the browser unopened | tools/browser-tests
-# covers: a browser test failed, or could not be run at all | a browser test that fails
 
 passed=0
 failed=0
-# A probe that could not run is not a probe that passed. Two of them cannot
-# always run - one needs a browser on the machine, one needs a board with no
-# incomplete card on it - and they used to print a line and move on without
-# touching either count, so the closing line read '13 proved, 0 not proved'
-# about a run that had measured twelve. A prover that reports success for what
-# it did not measure is the fault it exists to catch.
+# A probe that could not run is not a probe that passed. One of them cannot
+# always run - it needs a board with no incomplete card on it - and it used
+# to print a line and move on without touching either count, so the closing
+# line read '13 proved, 0 not proved' about a run that had measured twelve. A
+# prover that reports success for what it did not measure is the fault it
+# exists to catch.
 not_measured=0
 
 # A run of the hook with PATH rigged and, optionally, one tool taken away.
 # Returns the hook's exit status; its output lands in $out.
 out=""
 run_hook() {
-    local missing="${1:-}" browser="${2:-}" broken="${3:-}"
+    local missing="${1:-}" broken="${2:-}"
     local bin="$sandbox/bin"
     rm -rf "$bin"
     mkdir -p "$bin"
 
     # No fake docker any more. It existed to feed the hook a suite result, and
     # the hook stopped running a suite in TKT-680 - so a stub standing in for a
-    # container nothing starts would be a prop for an absent scene.
-
-    # A browser test that fails, rather than a runner that is absent. Hiding
-    # the runner proves the gate notices a missing tool; it does not prove the
-    # gate notices a test that has started failing, and those are different
-    # refusals. node answers the installed-check as it always did and exits
-    # non-zero for a spec, which is exactly what a broken board looks like to
-    # this step.
-    if [ -n "$browser" ]; then
-        {
-            printf '#!/usr/bin/env bash\n'
-            printf 'case "$1" in\n'
-            printf '  -e) exec %s "$@" ;;\n' "$(command -v node)"
-            printf '  *)  echo "browser check failed on purpose" >&2; exit 1 ;;\n'
-            printf 'esac\n'
-        } >"$bin/node"
-        chmod +x "$bin/node"
-    fi
+    # container nothing starts would be a prop for an absent scene. The same
+    # is true of the node stub that used to live here: it fed the hook a
+    # failing browser check, and TKT-796 moved that check out of the hook
+    # entirely.
 
     if [ -n "$missing" ]; then
         hidden_from="$root/$missing"
@@ -166,8 +150,8 @@ run_hook() {
     # A gate tool that is present and reports a failure, which is a different
     # refusal from one that is absent: the hook has a line for each and only
     # the absent one was ever exercised. The real tool is stood aside and a
-    # stub that exits non-zero takes its place, so nothing is backed up, no
-    # browser opens, and the hook sees exactly what a broken step looks like.
+    # stub that exits non-zero takes its place, so the hook sees exactly what
+    # a broken step looks like.
     if [ -n "$broken" ]; then
         hidden_from="$root/$broken"
         hidden_to="$sandbox/hidden-$(basename "$broken")"
@@ -197,10 +181,10 @@ run_hook() {
 
 # The gate must refuse, and it must say why in words that name the problem.
 # A refusal that came from an earlier step is not an answer about this one.
-# The hook checks the cards before it runs the suite, the documents or the
-# browser, so anything after that is unreachable while the board carries an
-# incomplete card - and the probe would report the step it was measuring as
-# unproved when what actually happened is that it never ran. TKT-230.
+# The hook checks the cards before it checks the documents, so anything after
+# that is unreachable while the board carries an incomplete card - and the
+# probe would report the step it was measuring as unproved when what
+# actually happened is that it never ran. TKT-230.
 board_is_clean() {
     "$root/tools/card-holes" >/dev/null 2>&1
 }
@@ -242,34 +226,13 @@ refuses() {
 # The failure mode that matters most: a gate that disappears when somebody
 # deletes a file looks exactly like a gate that passed.
 #
-# tools/browser-tests is here because the gate grew a step and this tool did
-# not. The browser step was proved to refuse three ways by hand when it was
-# added, and that proof lived only in a card - nothing re-ran it, so somebody
-# could have made the step skip quietly and the gate would still have called
-# itself proved. Hiding the runner exercises the guard without opening a
-# browser, which keeps this tool as cheap as its other checks.
-for tool in tools/board-backup tools/card-holes tools/docs-match-code tools/docs-examples-run tools/browser-tests; do
+# A missing tool here is a failure, not a skip - the failure mode that matters
+# most: a gate that disappears when somebody deletes a file looks exactly like
+# a gate that passed. tools/browser-tests left this list with TKT-796, which
+# moved the check it ran out of this hook entirely.
+for tool in tools/board-backup tools/card-holes tools/docs-match-code tools/docs-examples-run; do
     refuses "a missing $(basename "$tool")" 'missing|refusing' run_hook "$tool"
 done
-
-# --- and a browser test that fails rather than a runner that is absent -----
-#
-# Those are different refusals and the second is the one that matters: a runner
-# nobody installed is obvious, a test that has started failing is not. The
-# board carries what that looks like in earnest - removing a flag broke nine
-# places in this gate's own fixtures, the push refused with '3 of 10 browser
-# tests failed' and did not land, and it refused again when the first fix was
-# incomplete. This does deliberately what happened by accident. TKT-230.
-#
-# It costs a real board and a real server, unlike every other probe here, so it
-# runs last of the cheap ones and says so if the machine cannot support it.
-if command -v node >/dev/null 2>&1 && node -e "require.resolve('playwright')" >/dev/null 2>&1; then
-    refuses 'a browser test that fails' 'browser test failed' \
-        run_hook '' failing
-else
-    printf 'not measured - a browser test that fails, because node or playwright is not here\n'
-    not_measured=$(( not_measured + 1 ))
-fi
 
 # --- and a board backup that fails rather than one that is absent ----------
 #
@@ -277,7 +240,7 @@ fi
 # backup runs first, so a stub exiting non-zero is reached immediately. This is
 # the refusal that guards the only copy of the board a push leaves behind.
 refuses 'a board backup that fails' 'the board backup failed' \
-    run_hook '' '' tools/board-backup
+    run_hook '' tools/board-backup
 
 # --- the suite and coverage probes went with the suite ---------------------
 #
@@ -319,7 +282,7 @@ if [ -n "$hollow" ]; then
     # And the hook refusing when that check reports a failure, which is the
     # step above it and was only ever proved for the check being absent.
     refuses 'a card check that fails' 'fill the cards in' \
-        run_hook '' '' tools/card-holes
+        run_hook '' tools/card-holes
 
     board_may_be_incomplete=0
     say_why "$hollow"

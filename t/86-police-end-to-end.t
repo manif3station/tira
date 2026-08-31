@@ -358,7 +358,7 @@ $tira->record_update( author => 'michael', project => $root, ref => $bare->{ref}
 # share them, which is the drift TKT-241 removed - so a fixture that was
 # complete by one definition is incomplete by the one there is now.
 $tira->checklist_add( author => 'michael', project => $root, ref => $bare->{ref},
-    item => 'the thing to do', status => 'todo' );
+    item => 'the thing to do', status => 'To Do' );
 $tira->record_move(author => 'claude',  project => $root, ref => $finished->{ref}, column => 'verify' );
 
 my $repaired = $tira->police_pass( project => $root, store => $store, world => $world );

@@ -66,7 +66,7 @@ sub reported {
     my $card = $tira->create_record(
         project => $root, type => 'ticket', title => 'A card', reporter => 'claude' );
     $tira->checklist_add( author => 'claude',
-        project => $root, ref => $card->{ref}, item => 'do the work', status => 'todo' );
+        project => $root, ref => $card->{ref}, item => 'do the work', status => 'To Do' );
 
     # Two moves, because the window is since the PREVIOUS move. On the first
     # move the window reaches back to when the card was raised, and the
@@ -86,14 +86,14 @@ sub reported {
     my $card = $tira->create_record(
         project => $root, type => 'ticket', title => 'A card', reporter => 'claude' );
     $tira->checklist_add( author => 'claude',
-        project => $root, ref => $card->{ref}, item => 'do the work', status => 'todo' );
+        project => $root, ref => $card->{ref}, item => 'do the work', status => 'To Do' );
     $tira->record_move( project => $root, ref => $card->{ref},
         column => 'tests-red', author => 'claude' );
     $tira->checklist_update( author => 'claude',
         project => $root, ref => $card->{ref}, id => 'CHK-001', status => 'done',
         command => ['did the work'], proof => ['it is done'] );
     $tira->checklist_add( author => 'claude',
-        project => $root, ref => $card->{ref}, item => 'more work', status => 'todo' );
+        project => $root, ref => $card->{ref}, item => 'more work', status => 'To Do' );
     $tira->record_move( project => $root, ref => $card->{ref},
         column => 'implement', author => 'claude' );
 
@@ -107,7 +107,7 @@ sub reported {
     my $card = $tira->create_record(
         project => $root, type => 'ticket', title => 'A card', reporter => 'claude' );
     $tira->checklist_add( author => 'claude',
-        project => $root, ref => $card->{ref}, item => 'do the work', status => 'todo' );
+        project => $root, ref => $card->{ref}, item => 'do the work', status => 'To Do' );
     $tira->record_move( project => $root, ref => $card->{ref},
         column => 'tests-red', author => 'claude' );
     $tira->record_move( project => $root, ref => $card->{ref},

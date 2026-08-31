@@ -37,7 +37,7 @@ $tira->checklist_add( project => $root, author => 'claude', ref => $card->{ref},
     item => 'done item 4, uppercase', status => 'DONE' );
 for my $i ( 1 .. 6 ) {
     $tira->checklist_add( project => $root, author => 'claude', ref => $card->{ref},
-        item => "todo item $i", status => 'todo' );
+        item => "todo item $i", status => 'To Do' );
 }
 
 # --- the count is present and correct on a mixed checklist ------------------

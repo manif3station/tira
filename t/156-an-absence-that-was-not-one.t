@@ -68,7 +68,7 @@ $tira->gate_add( project => $root, ref => $card->{ref}, author => 'michael',
 $tira->evidence_add( project => $root, ref => $card->{ref}, author => 'michael',
     summary => 'peak was 9/month on the rig' );
 $tira->checklist_add( author => 'michael', project => $root, ref => $card->{ref},
-    item => 'drain the queue twice', status => 'todo' );
+    item => 'drain the queue twice', status => 'To Do' );
 
 # What passed between the owner and whoever was working the card, and a file
 # somebody attached. Both are text a card carries and both are worth finding -

@@ -32,7 +32,7 @@ my $card = $tira->create_record(
     project => $root, type => 'ticket', title => 'Reviewed by somebody else',
     reporter => 'ada', assignee => 'grace' );
 $tira->checklist_add( author => 'ada',
-    project => $root, ref => $card->{ref}, item => 'do the work', status => 'todo' );
+    project => $root, ref => $card->{ref}, item => 'do the work', status => 'To Do' );
 $tira->record_move( project => $root, ref => $card->{ref}, column => 'tests-red', author => 'ada' );
 $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement', author => 'grace' );
 

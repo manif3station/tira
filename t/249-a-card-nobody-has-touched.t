@@ -124,7 +124,7 @@ is_deeply( still(), {}, 'a board where everything was just touched is quiet' );
 {
     $now = '2026-08-17T12:05:00Z';
     $tira->checklist_add( author => 'claude', project => $root, ref => $abandoned->{ref},
-        item => 'picked it up again', status => 'todo' );
+        item => 'picked it up again', status => 'To Do' );
 
     my $found = still();
     ok( !$found->{ $abandoned->{ref} },

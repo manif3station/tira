@@ -58,7 +58,7 @@ $tira->record_update(
     scope_in => ['x'], scope_out => ['x'],
 );
 $tira->checklist_add( author => 'claude', project => $root, type => 'ticket',
-    ref => $full->{ref}, item => 'Step', status => 'Open' );
+    ref => $full->{ref}, item => 'Step', status => 'pending' );
 
 my $sow = $tira->create_record( project => $root, type => 'sow', title => 'The SOW' );
 my $epic = $tira->create_record( project => $root, type => 'epic', title => 'The epic' );

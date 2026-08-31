@@ -43,7 +43,7 @@ $tira->policy_add( project => $root, rule => 'checklist-unmoved',
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Sent back for more work' );
 $tira->checklist_add( author => 'claude', project => $root, ref => $card->{ref},
-    item => 'The work itself', status => 'todo' );
+    item => 'The work itself', status => 'To Do' );
 
 sub findings {
     my $pass = $tira->police_pass( project => $root, store => $store, world => {} );

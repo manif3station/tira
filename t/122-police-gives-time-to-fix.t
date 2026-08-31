@@ -158,7 +158,7 @@ $tira->record_update( author => 'michael', project => $root, ref => $card->{ref}
 # definitions became one - so a card that was filled in by the old definition
 # is not by the one there is now. TKT-241.
 $tira->checklist_add( author => 'michael', project => $root, ref => $card->{ref},
-    item => 'the thing to do', status => 'todo' );
+    item => 'the thing to do', status => 'To Do' );
 at('2026-08-13T14:00:00Z');
 my $after = sweep();
 is( scalar @{ $after->{violations} }, 0, 'a card that has been filled in is reported no more' );

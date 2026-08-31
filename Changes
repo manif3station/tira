@@ -1,5 +1,30 @@
 Revision history for Tira
 
+4.99  2026-08-31
+
+    - TKT-795. TKT-668's status validation (4.96) refused checklist_add/
+      checklist_update calls carrying a status outside {pending, done,
+      To Do}, and the fixture-fixing pass done at the time (t/366, t/396,
+      t/397) missed 12 other files that still wrote the literal status
+      'todo' (no space) or 'Open'. Both are now refused with an uncaught
+      die, which exits the whole test PROCESS abnormally (exit 25)
+      instead of failing one assertion - prove reports "No plan found in
+      TAP output" for that file rather than a normal test failure, and
+      the file's own already-passed assertions vanish from the count
+      too. Quiet enough that three separate Docker runs earlier this
+      session (verifying TKT-683) misattributed the resulting suite FAIL
+      to Devel::Cover cover_db contention under prove -j, before the real
+      cause was found by running one of the twelve files directly.
+
+      Fixed by updating each fixture's literal to a value the validation
+      accepts: 'todo' -> 'To Do' (t/86, t/122, t/156, t/210, t/223,
+      t/229, t/235, t/249, t/251, t/341, t/361) and 'Open' -> 'pending'
+      (t/377) - the intent each test already had (an unmarked/incomplete
+      item), nothing about what any of them actually verifies.
+
+      Suite 453 files / 9095 tests green. All twelve lib/ modules 100.0%
+      statement and subroutine, measured serially.
+
 4.98  2026-08-31
 
     - TKT-788. TKT-780 (4.94) made .hero position:sticky;top:0;z-index:5 -

@@ -734,7 +734,7 @@ sub run {
                 # refuses without a project rather than starting workers that
                 # die on load.
                 project => $serving, type => $type,
-                with_title => $option{with_title},
+                with_title => defined $option{title},    # TKT-779: was $option{with_title}, never assigned
                 %tls, %providers,
             );
             1;

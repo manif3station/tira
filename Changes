@@ -1,5 +1,30 @@
 Revision history for Tira
 
+4.93  2026-08-31
+
+    - TKT-779. `d2 tira.dashboard -o browser --title` never showed card
+      titles in the served dashboard, only refs, no matter what was
+      typed. Root cause: the browser-serve dispatch in Tira::CLI (the
+      call to Tira::CLI::Serve::_serve_browser) passed 'with_title =>
+      $option{with_title}' - a key never assigned anywhere in the file,
+      always undef. The correct, already-populated key is
+      $option{title}, set by --title's own Getopt::Long spec ('title:s')
+      - a sibling code path (the live-render closure a few lines
+      earlier) already read it correctly as 'with_title => defined
+      $option{title}'. Reported by the owner, placed directly in
+      next-to-work-on.
+
+      Fixed by reading the same correct key at the browser-serve
+      dispatch too.
+
+      New test t/453-a-title-flag-that-reaches-the-wrong-name.t: mocks
+      the browser_server callback to capture the with_title argument
+      directly - --title now makes it true, its absence leaves it
+      false, unchanged from before.
+
+      Suite 448 files / 9022 tests green. lib/Tira/CLI.pm 100.0%
+      statement and subroutine, measured serially.
+
 4.92  2026-08-31
 
     - TKT-776. Tira::OnboardWeb's GET / handler falls back to

@@ -578,6 +578,12 @@ rather than all three.
 | `--with-questions` | no | Mark cards that are waiting on somebody; on by default in the formats a person looks at. |
 | `--no-session-expire` | no | With `-o browser`: a sign-in lasts until somebody signs out. |
 
+Until 4.93, `--title` with `-o browser` had no effect - the live dashboard
+never showed titles regardless, because the serve path read a key
+(`with_title`) that nothing ever set, rather than the one `--title` actually
+populates. `-o table`/`json`/`toon` were unaffected; only the served browser
+dashboard silently ignored the flag. TKT-779.
+
 The default output is deliberately cheap: references only, because that is the
 path an agent queries. The formats a person looks at carry titles, the Discard
 column and the waiting marks, since somebody reading a board wants to see where

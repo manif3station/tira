@@ -1,5 +1,94 @@
 Revision history for Tira
 
+4.91  2026-08-31
+
+    - TKT-778 (TKT-777 folded in). discard-unexplained (TKT-638) required
+      a comment's timestamp to be strictly at-or-after the move-to-
+      discard timestamp, found via history_list on the column field.
+      Two real-world gaps in that anchor.
+
+      TKT-778 (zen-framework): 15 of 19 sampled outstanding cards, across
+      three separate discard batches (2026-08-10, 2026-08-12, 2026-08-24),
+      show the explanation comment written exactly ONE SECOND BEFORE the
+      move - the natural "decide, write, then move" authoring order -
+      failing the strict >= check by exactly that second, despite
+      genuinely and honestly explaining the discard. Two examples: ZSD-1
+      (comment 23:02:46, move 23:02:47), ZSD-101 (comment 23:02:53, move
+      23:02:54). A fifth outlier, ZSD-118, has an explanation 5 DAYS
+      after its move and still fires - a different, more complex shape
+      (possibly a restore + re-discard with no fresh comment) that was
+      not root-caused and is explicitly out of scope for this fix.
+
+      TKT-777 (Developer Dashboard): five cards migrated from a retired
+      board, already in discard, carry ZERO column-change history
+      entries - no move-to-discard timestamp exists to anchor a timing
+      comparison against at all, so the rule read that as permanently
+      unsatisfied rather than not-applicable. Confirmed via a same-board
+      control card (DD-687, with real column-change history) that
+      settled normally once it had a comment.
+
+      Fixed with a GRACE_SECONDS=5 tolerance on the timing comparison
+      (accepts a comment up to 5 seconds before the move, comfortably
+      covering the measured 1-second gap without accepting an unrelated
+      comment from an hour earlier), and a fallback to "any non-empty
+      comment" when no move timestamp exists at all - a card with no
+      history to compare against is judged the same way a card with a
+      move timestamp but no comment always has been: it still needs a
+      real explanation, just not a precisely-timed one.
+
+      New test t/451-a-discard-explained-a-second-too-early.t: a comment
+      1 second before the move now clears the rule; a comment an hour
+      before does not (control); no comment at all still fires
+      (control); a card with no column-change history but a genuine
+      comment now clears the rule; a card with no history AND no comment
+      still fires (control - the fallback is not a blanket exemption for
+      migrated-in cards). t/448 (TKT-638's own test, including its
+      timezone-offset boundary case) re-confirmed green, unaffected.
+
+      Suite 446 files / 9011 tests green. lib/Tira.pm 100.0% statement
+      and subroutine, measured serially.
+
+4.90  2026-08-31
+
+    - TKT-775. sub run's @spec array, passed whole to
+      GetOptionsFromArray on every command, declared 'attach=s@' twice
+      (lines 326 and 407, both pointing at the same destination).
+      Getopt::Long prints "Duplicate specification \"attach=s@\" for
+      option \"attach\"" straight to STDERR - not through warn(), so the
+      $SIG{__WARN__} capture built around the GetOptionsFromArray call
+      never sees it - on every single invocation of the raw entrypoint
+      script. Harmless (both entries shared a destination, so parsing
+      still succeeded), but unconditional noise and a confusing read of
+      @spec for anyone auditing what --attach actually does. Found as a
+      byproduct of the TKT-520 hourly bug hunt.
+
+      Fixed by removing the redundant entry at line 407 and keeping the
+      one at line 326.
+
+      New test t/450-an-option-declared-twice-in-one-spec.t: parses
+      @spec's source text directly and asserts no option name is
+      declared twice, rather than grepping for the one literal string -
+      this also guards every other option name in the same array, not
+      just --attach, and it does not depend on Tira::CLI->run()
+      reproducing the STDERR line the same way the raw entrypoint script
+      does (it does not, when invoked the way the test suite calls it).
+
+      Whether the installed d2/dashboard wrapper genuinely masks this
+      line during ordinary use, or was simply not exercised the way the
+      raw entrypoint was, is out of this ticket's scope - noted on the
+      card for a separate look if it resurfaces.
+
+      The first version of the new POD paragraph under =head2 run pushed
+      lib/Tira/CLI.pm to 3,003 lines, past t/430's 3,000-line index
+      ceiling (TSK-183) - caught by the full suite run, not written
+      against it beforehand. Tightened to five lines instead of nine,
+      same content, back under the ceiling at 2,999. A one-line fix
+      should not need to fight the index for room; shorter documentation
+      of the same fact was the right answer, not raising the ceiling.
+
+      Suite 445 files / 9004 tests green. lib/Tira/CLI.pm 100.0%
+      statement and subroutine, measured serially.
+
 4.89  2026-08-30
 
     - TKT-652. Renaming a column's entry-required-action wording

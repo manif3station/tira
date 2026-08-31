@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.89';
+our $VERSION = '4.91';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -9021,9 +9021,9 @@ sub policy_evaluate {
                 # A comment, said so - but any comment the card ever had
                 # satisfied this, including one written long before the
                 # discard about something else entirely. A comment can only
-                # be the explanation for THIS discard if it exists after the
-                # move that discarded the card, with a body that says
-                # something. TKT-638.
+                # be the explanation for THIS discard if it exists at or
+                # after the move that discarded the card, with a body that
+                # says something. TKT-638.
                 my $moved_at;
                 for my $entry ( @{ $self->history_list(
                     project => $root, ref => $record->{ref}, type => $record->{type}, field => 'column',
@@ -9036,11 +9036,29 @@ sub policy_evaluate {
                 # +01:00) for the same clock, and two of those sort wrong
                 # lexically even though one genuinely comes after the other.
                 my $moved_epoch = defined $moved_at ? eval { _epoch_of_datetime( $moved_at, 'Discard' ) } : undef;
-                next if defined $moved_epoch
-                  && grep {
-                    ( $_->{body} // '' ) =~ /\S/
-                      && ( eval { _epoch_of_datetime( $_->{created_at}, 'Comment' ) } // 0 ) >= $moved_epoch
-                  } @{ $record->{comments} // [] };
+
+                # Two gaps measured in real boards, TKT-778: the natural
+                # "decide, write, then move" authoring order writes the
+                # explanation a second or two BEFORE the move, which a
+                # strict >= rejected outright - a card explaining itself is
+                # not the same failure as a card saying nothing, and a small
+                # grace window closes that second without opening the door
+                # to an unrelated comment from an hour earlier. TKT-777: a
+                # card migrated in already-discarded carries no column-
+                # change history at all, so there is no $moved_epoch to
+                # compare against - treated before this fix as permanently
+                # unsatisfied, when the honest answer is that a real comment
+                # is all that CAN be asked for without a timestamp to anchor
+                # to.
+                my $GRACE_SECONDS = 5;
+                my $explained = defined $moved_epoch
+                  ? grep {
+                      ( $_->{body} // '' ) =~ /\S/
+                        && ( eval { _epoch_of_datetime( $_->{created_at}, 'Comment' ) } // 0 )
+                        >= $moved_epoch - $GRACE_SECONDS
+                    } @{ $record->{comments} // [] }
+                  : grep { ( $_->{body} // '' ) =~ /\S/ } @{ $record->{comments} // [] };
+                next if $explained;
                 $report->( $policy, $record,
                     'discarded with no reason given - leave a comment saying why it was set aside' );
             }

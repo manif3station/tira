@@ -404,7 +404,6 @@ sub run {
         'acceptance|acceptance-criteria=s@' => \$option{acceptance}, 'test-step=s@' => \$option{test_steps},
         'bdd=s@' => \$option{bdd}, 'atdd=s@' => \$option{atdd},
         'assignee=s' => \$option{assignee}, 'person=s@' => \$option{people},
-        'attach=s@' => \$option{attach},
         'affects-version=s@' => \$option{affects_versions},
         'set-key-details=s' => \$option{set_key_details},
         'set-deliverables=s' => \$option{set_deliverables},
@@ -2716,6 +2715,12 @@ item by item, so the reminder lands at the moment the list arrives rather
 than when the damage is already attempted. Printed to STDERR, so it stays out
 of C<-o json> output, and only when the column actually brought outstanding
 items - a reminder that fires on every move is one nobody reads. TSK-168.
+
+C<@spec>, built at the top of this sub, is one flat list shared by every
+command. Until 4.90 it declared C<'attach=s@'> twice (TKT-775) - harmless,
+but Getopt::Long's own duplicate-specification warning bypasses the
+C<$SIG{__WARN__}> capture below and printed to STDERR on every invocation.
+One array for every command means a stray duplicate is noise on all of them.
 
 =head2 _unmet_in_column
 

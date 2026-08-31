@@ -23,6 +23,14 @@ rejected. Instead the refusal says the value looks like an option and names the
 `--option=VALUE` form, which joins the value to its flag rather than leaving it
 as a separate argument. TKT-742.
 
+That parser is one array declared once, shared by every command - an option
+declared twice in it, `'attach=s@'` for years until 4.90 (TKT-775), is silent
+noise rather than a per-command bug: parsing still worked (both entries pointed
+at the same destination), but Getopt::Long's own duplicate-specification
+warning prints straight to STDERR, bypassing the `$SIG{__WARN__}` capture the
+unknown-option suggestion above depends on, on every single invocation of the
+raw entrypoint script.
+
 ## Questions on cards
 
 An agent working a card often cannot move it but can ask about a procedure or

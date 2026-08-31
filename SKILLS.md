@@ -1659,6 +1659,12 @@ taking `_invoke` from 1,294 lines to 740.
 **What stayed in the index is the part every command passes through**: `run`'s
 argument handling and the one shared `GetOptions` table, the generic dispatch,
 and the four move guards with the bookkeeping that runs after a successful move.
+The table's size cuts both ways: `'attach=s@'` was declared in it twice for
+years (TKT-775), both pointing at the same destination, so parsing never broke
+- but Getopt::Long's own "Duplicate specification" warning bypasses `run`'s
+`$SIG{__WARN__}` capture and prints straight to STDERR on every invocation of
+the raw entrypoint. One flat array shared by every command means one stray
+entry is noise on every command, not just the one it was meant for.
 The guards did not move deliberately - their call order is load-bearing and
 documented in `Tira::CLI`'s own POD (TKT-662), and `t/430` asserts that heading
 is still in the index, so separating the guards from the sentence that describes

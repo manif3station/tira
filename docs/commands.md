@@ -590,14 +590,6 @@ board scrolls, rather than scrolling away with the rest of the page - the
 Refresh button and freshness indicator stay reachable no matter how far down
 a long board you have scrolled. Owner request. TKT-780.
 
-That pinned header and a column's own sticky name band anchored to the
-identical top offset, so a column header scrolling up disappeared behind the
-opaque, higher-layered hero panel instead of stopping visibly below it. Since
-4.98 both read one shared height (a `--hero-h` CSS variable): the hero
-declares its own minimum height from it, and a column header's sticky offset
-is the same value, so the two cannot drift back into colliding independently.
-TKT-788.
-
 The default output is deliberately cheap: references only, because that is the
 path an agent queries. The formats a person looks at carry titles, the Discard
 column and the waiting marks, since somebody reading a board wants to see where

@@ -131,7 +131,20 @@ sub _answers_from_params {
     my ($params) = @_;
     my @question_ids = map { $_->{id} } @{$QUESTIONS};
     my %fields = map { $_ => ( $params->{$_} // '' ) } ( map( { $_->[0] } @FIELDS ), @question_ids );
-    my %answers = ( dir => ( $fields{dir} ne '' ? $fields{dir} : '.' ), name => $fields{name} );
+
+    # GET / already falls back to $INITIAL_DIR - the real directory this
+    # session was launched for - when the field is empty. POST / used to
+    # default straight to the literal string '.' instead, which resolves
+    # to whatever directory the onboarding web SERVER PROCESS happens to
+    # be running from at request time - no relationship to the session's
+    # own intended project. Nothing marks the field required, so clearing
+    # it (by accident, or trying to reset a pre-filled value) silently
+    # created a project in the wrong place. Left undef rather than
+    # defaulted here when neither source has one, so the caller can refuse
+    # the same way it already refuses a failed $CREATE, instead of a
+    # second silent default swallowing the first fix. TKT-776.
+    my $dir = $fields{dir} ne '' ? $fields{dir} : $INITIAL_DIR;
+    my %answers = ( dir => $dir, name => $fields{name} );
     $answers{members} = [ $fields{members} ] if $fields{members} ne '';
     $answers{"${_}_prefix"} = $fields{"${_}_prefix"}
       for grep { $fields{"${_}_prefix"} ne '' } qw(sow epic ticket);
@@ -154,6 +167,18 @@ post '/' => sub {
     return _stopped_response() if $STOPPED;
     content_type 'text/html; charset=UTF-8';
     my ( $fields, $answers ) = _answers_from_params( scalar params );
+
+    # The field was cleared and this session was launched with no
+    # directory of its own either - nothing left to fall back to. Refused
+    # the same way a failed $CREATE already is, rather than reaching
+    # $CREATE with an undef dir and letting whatever it does with that
+    # stand in for a real refusal. TKT-776.
+    if ( !defined $answers->{dir} || $answers->{dir} eq '' ) {
+        status 422;
+        return _response_bytes(
+            _render_form( error => 'No project directory to use - the field is empty and this session has none of its own', fields => $fields ) );
+    }
+
     my $summary = eval { $CREATE->($answers) };
     if ( !$summary ) {
         my $error = $@ || 'Could not create the project';
@@ -243,7 +268,8 @@ field the CLI wizard's guided flow collects (TKT-553).
 
 Accepts a C<create> coderef (called with a hashref of answers, expected to
 either return a project summary or die with a validation message), an
-optional C<dir> (the directory C<GET /> pre-fills from), an optional
+optional C<dir> (the directory C<GET /> pre-fills from, and the fallback
+C<POST /> uses when the submitted field is cleared - TKT-776), an optional
 C<defaults> coderef (called with that directory, expected to return a
 hashref shaped like C<Tira::CLI::_wizard_defaults>' own return value), and
 an optional C<questions> arrayref (shaped like

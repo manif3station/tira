@@ -1,5 +1,36 @@
 Revision history for Tira
 
+4.92  2026-08-31
+
+    - TKT-776. Tira::OnboardWeb's GET / handler falls back to
+      $INITIAL_DIR (the real directory the onboarding session was
+      launched for, set in build_psgi_app) when the 'dir' form param is
+      missing or empty. POST / did NOT consult $INITIAL_DIR at all -
+      _answers_from_params computed dir purely from submitted form
+      fields, defaulting to the literal string '.' when empty. Nothing
+      in the rendered form marks the 'dir' input as required, so a
+      person could clear it - accidentally, or trying to reset a
+      pre-filled value - and submit successfully. '.' resolves to
+      whatever directory the onboarding web SERVER PROCESS happens to be
+      running from at request time, which has no necessary relationship
+      to the project the onboarding session was meant to set up. Found
+      during the TKT-520 hourly bug hunt, reproduced in a developer-
+      dashboard perl-test container via Plack::Test.
+
+      Fixed by having POST / fall back to $INITIAL_DIR the same way
+      GET / already does, and adding a genuine refusal (HTTP 422, the
+      same status a failed create already returns) when neither the
+      submitted field nor $INITIAL_DIR carry a usable directory - rather
+      than a second silent '.' default swallowing the first fix.
+
+      New test t/452-a-cleared-field-that-remembers-the-wrong-
+      directory.t: a cleared dir field now falls back to the session's
+      own intended directory; a session with no directory of its own
+      either is refused, naming why, and the create provider never runs.
+
+      Suite 447 files / 9018 tests green. lib/Tira/OnboardWeb.pm 100.0%
+      statement and subroutine, measured serially.
+
 4.91  2026-08-31
 
     - TKT-778 (TKT-777 folded in). discard-unexplained (TKT-638) required

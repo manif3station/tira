@@ -2107,6 +2107,14 @@ afterward gets a 503, and the process itself exits shortly after (a forked
 watchdog sends it SIGTERM once the response has had a moment to leave the
 socket).
 
+Clearing the form's directory field and submitting anyway falls back to the
+session's own directory (the one this invocation was launched for) rather
+than the server process's own working directory - until 4.92 a cleared
+field silently created the project wherever the onboarding server happened
+to be running from, with no field marked required to catch it. A session
+with no directory of its own either is refused outright, naming why,
+instead of reaching the create step with nothing usable. TKT-776.
+
 TKT-527: `-o browser=0.0.0.0:PORT` is refused for `onboard` specifically,
 naming why - this server has no login at all (by design, for its one
 submission), so a network-reachable session would be an unauthenticated

@@ -1,5 +1,47 @@
 Revision history for Tira
 
+4.98  2026-08-31
+
+    - TKT-788. TKT-780 (4.94) made .hero position:sticky;top:0;z-index:5 -
+      a real, opaque, blurred panel. .column__head was already
+      position:sticky;top:0;z-index:2 (an earlier ticket, covered by
+      t/16). Both anchored to the identical top:0 offset, so a column
+      header scrolling up reached the viewport top at exactly the point
+      the opaque hero already occupied - the hero's higher z-index
+      painted over it, hiding the column's name/count/accent border
+      instead of stacking it visibly below the hero band.
+
+      Fixed with a shared CSS custom property: :root now declares
+      --hero-h:6.5rem, .hero declares min-height:var(--hero-h) (so the
+      offset it hands out is honest), and .column__head's top changed
+      from 0 to var(--hero-h) - the two can no longer drift back to
+      colliding independently, since both read the one variable.
+
+      New test t/460-a-header-that-hides-what-follows.t: the hero still
+      pins to top:0 (TKT-780 unchanged), the sticky .column__head rule no
+      longer anchors to the same top:0, and both rules reference the same
+      --hero-h variable. Existing t/454 (TKT-780's own test) and t/16
+      (column__head's pre-existing sticky coverage) pass unmodified.
+
+      Found during the TKT-521 2-hourly improvement hunt; owner placed
+      this card in next-to-work-on directly.
+
+      Caught by Codex at document: the static --hero-h:6.5rem fallback
+      does not cover the hero's real, fluid rendered height (a clamp()-
+      sized h1, and a mobile @media(max-width:720px) override that
+      stacks the hero's content vertically instead of side-by-side) -
+      the fix would still have collided on common desktop widths and on
+      mobile. Fixed by measuring --hero-h from the hero's own
+      offsetHeight at runtime (board-bindings.js, on load and resize)
+      rather than guessing a static value. Live-verified afterward with
+      Playwright at 7 viewports (375-1440px): the hero's real rendered
+      height, --hero-h, and column__head's computed top were exactly
+      equal at every width tested, including the mobile stacked layout
+      (220-227px) versus desktop (145px).
+
+      Suite 453 files / 9095 tests green. All twelve lib/ modules 100.0%
+      statement and subroutine, measured serially.
+
 4.97  2026-08-31
 
     - TKT-678. A backward move (_apply_column_required_actions) resets

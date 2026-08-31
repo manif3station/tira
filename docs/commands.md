@@ -59,11 +59,22 @@ Ask about a card.
 | `--reason TEXT` | no | Why you are asking: what you are blocked on, what you already tried. |
 | `--option TEXT` | no | One choice you can see. **Repeat it** for each. On the dashboard these become buttons the owner clicks. |
 | `--author WHO` | no | Who is asking. |
+| `--caller-kind agent\|human` | no | Defaults to `human`. See below. |
 | `-o FORMAT` | no | `toon` (default), `json`, `json-pretty`, `human`. |
 
 Both `--reason` and `--option` are optional, but an owner answering a question
 with neither is composing an answer from nothing. With them he can pick a
 choice in one click.
+
+`--caller-kind` (TKT-787) tells the question who is asking: a human, who can
+record a voice note on a phone, or an agent, who cannot. Every question
+defaults to `human`, so nothing already relying on the voice reminder changes.
+An agent-filed question that passes `--caller-kind agent` is not reminded to
+attach `--voice` - the reminder's reason/options half still fires the same as
+for anyone else, since that costs nothing an agent cannot produce. Refused on
+every other `question.*` command, the same restriction `--voice` already has
+on `question.update`/`question.voice`. A question asked before this shipped
+carries no `caller_kind` field at all and still reads as `human`.
 
 ### `tira.question.list`
 

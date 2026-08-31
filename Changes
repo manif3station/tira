@@ -1,5 +1,34 @@
 Revision history for Tira
 
+5.00  2026-08-31
+
+    - TKT-787. tira.question.ask's own reminder said "missing: voice |
+      fix: tira.question.update --id Q-NNN --voice FILE" whether the
+      caller was a human with a phone or an agent with none - nothing in
+      Tira could produce that recording, and satisfying the reminder
+      honestly meant reaching into a sibling project's own TTS tooling,
+      exactly the cross-project coupling this workspace's own governance
+      warns against.
+
+      Decided (Q-101/Q-102, owner 2026-08-31): tira.question.ask gained
+      --caller-kind agent|human, defaulting to human so every existing
+      and human-filed question keeps today's reminder unchanged.
+      _question_reminder (lib/Tira.pm) skips the voice half of its check
+      when the stored caller_kind is 'agent' - the reason/options half
+      still applies to everyone, since that costs nothing an agent
+      cannot produce. --caller-kind is refused on every other question.*
+      command, the same restriction --voice already has on
+      question.update/question.voice.
+
+      New test t/461-a-recording-nobody-with-hands-can-make.t (11
+      assertions): default and explicit human callers keep the voice
+      reminder; an agent caller does not; the kind is normalized to
+      lowercase and refused by name when unrecognised; --caller-kind is
+      refused outside question.ask; a legacy question with no
+      caller_kind field at all still reads as human.
+
+      Suite TBD.
+
 4.99  2026-08-31
 
     - TKT-796. tools/hooks/pre-push ran tools/browser-tests (21

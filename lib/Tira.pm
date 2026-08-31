@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.99';
+our $VERSION = '5.00';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -3708,8 +3708,11 @@ sub _question_reminder {
         push @update, '--option TEXT --option TEXT';
     }
 
+    # Undef reads as human - every question asked before TKT-787 carries no
+    # caller_kind at all, and was asked by someone with a phone.
+    my $caller_kind = $entry->{caller_kind} // 'human';
     my $voice = $entry->{voice};
-    if ( !$voice || $voice->{stale} ) {
+    if ( $caller_kind ne 'agent' && ( !$voice || $voice->{stale} ) ) {
         push @missing, $voice ? 'voice(stale)' : 'voice';
         push @update, '--voice FILE';
     }
@@ -3819,6 +3822,14 @@ sub question_add {
     my $root = $self->discover_project(%args);
     my $text = $args{text};
     die "A question needs some text\n" if !defined $text || $text !~ /\S/;
+    # Defaults to human: every question asked before this existed, and most
+    # asked since, comes from a caller with a phone who can record one. An
+    # agent has none - TKT-787 - and names itself explicitly so the voice
+    # reminder can tell the two apart instead of nudging an agent toward
+    # workarounds outside this project entirely.
+    my $caller_kind = defined $args{caller_kind} ? lc( $args{caller_kind} ) : 'human';
+    die "Unknown caller kind '$args{caller_kind}' - the values that work are agent and human\n"
+      if $caller_kind ne 'agent' && $caller_kind ne 'human';
     my $type = $self->_type_for_ref( $root, $args{ref} );
     my $added = $self->_with_project_lock( $root, sub {
         my $record = $self->record_show( project => $root, type => $type, ref => $args{ref} );
@@ -3829,7 +3840,7 @@ sub question_add {
         my $entry = {
             id => $self->_next_question_id($root), text => $text,
             reason => ( defined $args{reason} && $args{reason} =~ /\S/ ? $args{reason} : undef ),
-            options => \@options,
+            options => \@options, caller_kind => $caller_kind,
             author => $args{author}, asked_at => $self->{clock}->(), answer => undef,
         };
         push @{ $record->{questions} }, $entry;

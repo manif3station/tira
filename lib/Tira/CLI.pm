@@ -272,7 +272,7 @@ sub run {
         'nested' => \$option{nested},
         'mark=s' => \$option{mark},
         'reason=s' => \$option{reason}, 'option=s@' => \$option{options},
-        'voice=s' => \$option{voice}, 'remove' => \$option{remove},
+        'voice=s' => \$option{voice}, 'remove' => \$option{remove}, 'caller-kind=s' => \$option{caller_kind},
         'question=s@' => \$option{questions}, 'filename=s' => \$option{filename},
 
         # Both of these were documented and neither could be passed: the
@@ -1922,6 +1922,7 @@ sub _invoke {
       if defined $option->{voice} && $command !~ /\Aquestion\.(?:ask|update|voice)\z/;
     die "Remove belongs to the question.voice and question.attach commands\n"
       if $option->{remove} && $command !~ /\Aquestion\.(?:voice|attach)\z/;
+    die "--caller-kind is available on the question.ask command\n" if defined $option->{caller_kind} && $command ne 'question.ask';
     die "Naming a question belongs to the attachment.list command\n"
       if $option->{questions} && $command ne 'attachment.list';
     # notify.moves reads it too, and adding the verb without widening this made

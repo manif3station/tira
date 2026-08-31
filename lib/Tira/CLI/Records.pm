@@ -249,6 +249,7 @@ sub question_verbs {
     $question{voice} = $option->{voice}
       if defined $option->{voice} && ( $action eq 'update' || $action eq 'ask' );
     $question{file} = $option->{file} if defined $option->{file} && $action eq 'answer';
+    $question{caller_kind} = $option->{caller_kind} if defined $option->{caller_kind} && $action eq 'ask';
     $question{options} = $option->{options} if $option->{options};
     $question{status} = $option->{status} if defined $option->{status};
     $question{since} = $option->{since} if defined $option->{since};

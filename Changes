@@ -1,5 +1,29 @@
 Revision history for Tira
 
+4.94  2026-08-31
+
+    - TKT-780. The dashboard's top header (.hero - the "Tira Development"
+      title bar, board subtitle, Refresh control, and Last-updated
+      timestamp) scrolled out of view along with the rest of the page
+      content. On a board with many columns/cards, scrolling down to see
+      cards lost the header entirely, taking the Refresh button and
+      freshness indicator with it. Owner request, via Telegram.
+
+      Fixed with `position:sticky;top:0` on `.hero`, plus a translucent,
+      blurred background (matching the site's existing panel aesthetic)
+      so cards scrolling underneath read cleanly rather than showing
+      through unstyled.
+
+      New test t/454-a-header-that-scrolls-away.t: asserts `.hero`
+      carries `position:sticky` and `top:0` in the rendered CSS,
+      following t/16-dashboard-table.t's own established precedent for
+      testing `.column__head`'s sticky behavior the same way.
+
+      Suite 449 files / 9027 tests green. No Perl module touched - this
+      is a CSS-only fix (lib/Tira/views/dashboard.css) - so the
+      statement/subroutine coverage gate does not apply to this card;
+      every module remains at 100.0%, unaffected.
+
 4.93  2026-08-31
 
     - TKT-779. `d2 tira.dashboard -o browser --title` never showed card

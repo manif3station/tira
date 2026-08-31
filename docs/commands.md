@@ -584,6 +584,12 @@ never showed titles regardless, because the serve path read a key
 populates. `-o table`/`json`/`toon` were unaffected; only the served browser
 dashboard silently ignored the flag. TKT-779.
 
+Since 4.94 the page's top header (title, board subtitle, Refresh control,
+Last-updated timestamp) stays pinned to the top of the viewport while the
+board scrolls, rather than scrolling away with the rest of the page - the
+Refresh button and freshness indicator stay reachable no matter how far down
+a long board you have scrolled. Owner request. TKT-780.
+
 The default output is deliberately cheap: references only, because that is the
 path an agent queries. The formats a person looks at carry titles, the Discard
 column and the waiting marks, since somebody reading a board wants to see where

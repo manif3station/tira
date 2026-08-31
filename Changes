@@ -1,5 +1,63 @@
 Revision history for Tira
 
+4.89  2026-08-30
+
+    - TKT-652. Renaming a column's entry-required-action wording
+      silently un-gated every card already carrying an item under the
+      old text.
+
+      The entry gate (_column_entry_required_action_violation) matched
+      a required_items entry against the column's live entry template
+      by TEXT alone. That is right as far as it goes - TKT-445/t/422
+      established that a manual required-action.add item satisfies a
+      column's own template exactly like a template-derived one, "do
+      the work early" is a real, intentional capability. What text
+      matching alone got wrong: change the template's wording and
+      every card already carrying an item under the OLD wording stops
+      matching and silently stops gating, with no signal that anything
+      changed.
+
+      Fixed by adding an `entry` marker, stamped on any item genuinely
+      populated from a column's entry template. The gate now trusts
+      the marker OR a live text match - either is sufficient - so a
+      rename cannot un-gate a marked item, and doing the work early
+      still gates entry the same way it has always gated exit.
+
+      A first version of this fix required the marker EXCLUSIVELY,
+      dropping the text-match path entirely on the theory that a
+      manual item satisfying an entry requirement was itself the bug.
+      It was not: t/422 (TKT-657, TKT-445) went red under it - a
+      manually-added, already-Done item stopped being recognized as
+      "already there", and a fresh duplicate pending item was created
+      and announced as outstanding on the very next move, even though
+      the work was already proven. Caught only after this card had
+      already reached pending-push and the coverage/suite re-run
+      surfaced the regression; corrected before commit by restoring
+      the plain text+column dedup in required_item_add,
+      _populate_entry_required_actions, and
+      _populate_column_required_actions, and changing the entry
+      gate's own check from `entry` alone to `entry || live text
+      match`.
+
+      New test t/449-a-required-item-with-no-memory-of-where-it-came-
+      from.t: doing the entry work early still gates entry (symmetric
+      with exit), a genuine entry item still gates normally, a renamed
+      entry template does not un-gate an item already marked under the
+      old wording, and an exit-template item carries the template
+      marker but never the entry one.
+
+      Also closes a coverage gap left by the already-shipped TKT-632
+      (4.86): _reset_linked_tasks_on_return's genuine-tasklist-failure
+      branch had no test exercising it, found while verifying this
+      card (lib/Tira/CLI.pm sat at 99.5%, not 100%). New assertion in
+      t/446-a-move-that-cancels-its-own-side-effect.t corrupts the
+      tasklist storage file directly and confirms the failure is
+      reported rather than swallowed.
+
+      Suite 444 files / 9000 tests green. lib/Tira.pm and
+      lib/Tira/CLI.pm both 100.0% statement and subroutine, measured
+      serially.
+
 4.88  2026-08-30
 
     - TKT-638. discard-unexplained is satisfied by any comment a card

@@ -83,6 +83,20 @@ is( $after->{status}, 0,
     'a move carrying an unrelated --status still resets the linked task to pending - '
       . "if this is 1 (working), the --status splat into tasklist_list silently cancelled the reset" );
 
+# --- a genuine tasklist_list failure is reported, not swallowed -------------
+
+my $card3 = $tira->create_record( project => $root, type => 'ticket', title => 'Corrupted tasklist' );
+$tira->record_move( project => $root, ref => $card3->{ref}, type => 'ticket', column => 'implement', author => 'claude' );
+
+my $tasklist_path = File::Spec->catfile( $root, '.tira', 'tasklist.json' );
+open my $fh, '>', $tasklist_path or die $!;
+print {$fh} 'not valid json';
+close $fh;
+
+my ( undef, $said3 ) = run( 'ticket.move', '--ref', $card3->{ref}, '--column', 'backlog' );
+like( $said3, qr/Could not check for linked tasks to reset/,
+    'a genuine tasklist_list failure (corrupt storage, not a bad --status) is reported to the caller, not silently swallowed' );
+
 done_testing();
 
 __END__

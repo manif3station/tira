@@ -1259,10 +1259,15 @@ sub _populate_entry_required_actions {
     my @existing = @{ ( ref $record eq 'HASH' ? $record->{required_items} : undef ) // [] };
     my @failed;
     for my $text (@template) {
+
+        # Matched by text and column alone - a fast-path skip only, mirroring
+        # required_item_add's own authoritative check inside the lock, which
+        # deliberately does not require the template marker either (TKT-652:
+        # narrowing this broke t/422/TKT-445's "do the work early" case).
         next if grep { ( $_->{item} // '' ) eq $text && ( $_->{column} // '' ) eq $to } @existing;
         my $added = eval {
             $tira->required_item_add( %{$args}, item => $text, status => 'pending',
-                column => $to, source => 'required-action' );
+                column => $to, source => 'required-action', entry => 1 );
             1;
         };
         next if $added;
@@ -1312,8 +1317,20 @@ sub _column_entry_required_action_violation {
       @{ $refreshed->{required_exempt} // [] };
     my %wanted = map { $_ => 1 } @template;
     my @unmet = grep {
+
+        # Trusted on the marker OR a live text match against the CURRENT
+        # entry template - either is sufficient evidence this item is an
+        # entry obligation. The marker alone survives a column rename
+        # (TKT-652: an item populated under the old wording keeps gating
+        # after the column's entry text changes, since its stored text no
+        # longer matches %wanted but its marker still says entry). The text
+        # match alone is what keeps TKT-445/t/422's "do the work early"
+        # capability working: a manual required-action.add item, or one
+        # written before this column ever had an entry template, has no
+        # marker but still satisfies a live-matching entry requirement,
+        # symmetric with how it already satisfies the exit list.
         ( $_->{column} // '' ) eq $to
-          && $wanted{ $_->{item} // '' }
+          && ( $_->{entry} || $wanted{ $_->{item} // '' } )
           && !$exempt{ $_->{item} }
           && !_item_is_done($_);
     } @{ $refreshed->{required_items} // [] };
@@ -1456,6 +1473,12 @@ sub _populate_column_required_actions {
     my ( $tira, $args, $to, $columns, $required_items ) = @_;
     my ($to_col) = grep { $_->{name} eq $to } @{$columns};
     for my $text ( @{ $to_col->{required_actions} // [] } ) {
+
+        # Matched by text and column alone, the same as it always has been -
+        # TKT-445/t/422 established that a manual required-action.add item
+        # satisfies this column's own template exactly like a
+        # template-derived one, and this dedup existing before that item is
+        # what makes "do the work early" not create a spurious duplicate.
         next if grep { $_->{item} eq $text && $_->{column} eq $to } @{$required_items};
         $tira->required_item_add( %{$args}, item => $text, status => 'pending', column => $to, source => 'required-action' );
     }

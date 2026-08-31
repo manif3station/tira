@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '4.88';
+our $VERSION = '4.89';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -5117,10 +5117,40 @@ sub required_item_add {
         # asking for the same text twice on purpose still gets it. TKT-497.
         if ( ( $args{source} // '' ) eq 'required-action' ) {
             my $want_column = $args{column} // $record->{column};
+
+            # Matched by text and column alone, same as always (TKT-497) -
+            # deliberately NOT narrowed to only a previously template-marked
+            # item. t/422/TKT-445 established that a manual required-action.add
+            # item satisfies a column's OWN required-action template exactly
+            # like a template-derived one - "do the work early" is a real,
+            # intentional capability, not a hole. Narrowing this dedup to
+            # require the marker broke exactly that: a manually-added,
+            # already-Done item stopped being recognized, and a fresh
+            # duplicate pending item was created and announced as
+            # outstanding on the next move-in, even though the work was
+            # already proven. TKT-652 fixed a real, different problem -
+            # the entry GATE trusting stale wording after a rename - without
+            # needing to touch who counts as "already there" here.
             my ($existing) = grep {
                 ( $_->{item} // '' ) eq $args{item} && ( $_->{column} // '' ) eq ( $want_column // '' )
             } @{ $record->{required_items} };
-            return $existing if $existing;
+            if ($existing) {
+
+                # The same wording in both a column's exit and entry
+                # templates is a single obligation, not two - t/421 pins
+                # this: "Say the same thing" in both lists produces one
+                # item, read as owed now (entry), the stricter of the two.
+                # Also how a manual/exit item picks up the entry marker the
+                # first time an entry template asks for the same wording -
+                # TKT-652's fix for the rename case depends on this marker
+                # existing at all.
+                if ( $args{entry} && !$existing->{entry} ) {
+                    $existing->{entry} = Cpanel::JSON::XS::true;
+                    $existing->{last_updated} = $self->{clock}->();
+                    $self->_replace_record( %args, record => $record );
+                }
+                return $existing;
+            }
         }
 
         my $number = @{ $record->{required_items} } + 1;
@@ -5131,6 +5161,25 @@ sub required_item_add {
             item => $args{item}, status => $args{status},
             created_at => $now, last_updated => $now,
         };
+
+        # A column's exit and entry templates both populate items tagged with
+        # the same column, through this same call, with the same source - so
+        # nothing on the item said which list it came from, and the entry
+        # gate had to guess by matching TEXT against the column's live entry
+        # template instead. That guess broke the moment the template's wording
+        # was renamed: every card already carrying an item under the OLD text
+        # silently stopped gating. Two markers instead: `template` says this
+        # call is what populated the item (a manual required-action.add item
+        # carries neither key at creation), and `entry` narrows that to
+        # specifically the entry list - trusted by the gate ALONGSIDE a live
+        # text match, not instead of it, so a manual item worded and columned
+        # like the entry template still satisfies entry by that text match
+        # (TKT-445/t/422's "do the work early", symmetric with exit) even
+        # though it carries no `entry` marker of its own. TKT-652.
+        if ( ( $args{source} // '' ) eq 'required-action' ) {
+            $entry->{template} = Cpanel::JSON::XS::true;
+            $entry->{entry} = Cpanel::JSON::XS::true if $args{entry};
+        }
         push @{ $record->{required_items} }, $entry;
 
         # Same distinction checklist_add's own --source draws (TKT-438): the
@@ -14319,7 +14368,18 @@ of what was proved. TKT-585, TKT-628.
 
 =head2 required_item_add
 
-Adds a required-action entry to a record.
+Adds a required-action entry to a record. An item a column's exit or
+entry template itself populates (C<source =E<gt> 'required-action'>)
+carries a C<template> marker, and an entry-list item also carries an
+C<entry> marker; a manually added item carries neither at creation,
+whatever its wording - though it picks up C<entry> retroactively the
+first time an entry template asks for that same wording (a manual/exit
+item and an entry template saying the same thing are one obligation,
+not two, per t/421). The entry-move guard trusts C<entry> OR a live
+text match against the column's current entry list - the marker
+survives a rename, the text match keeps a manually-completed item
+satisfying an entry requirement the same way it already satisfies an
+exit one (TKT-445). TKT-652.
 
 =head2 required_item_update
 

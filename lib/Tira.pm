@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.24';
+our $VERSION = '5.25';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -12705,10 +12705,12 @@ sub _safe_path_input {
     return $1;
 }
 
-# format_output's 'toon' branch requires Tira::Toon lazily, at the call site,
-# for the encoder/decoder overrides Data::TOON needs to render this project's
-# own output correctly - see that module for the full account of what it
-# fixes and why the fix cannot be pure delegation. TKT-746.
+# Both rendering concerns are required lazily, at the branch that needs them,
+# so a caller gets only the one it asked for. 'toon' pulls in Tira::Toon for
+# the encoder/decoder overrides Data::TOON needs to render this project's own
+# output correctly; 'human' and 'table' pull in Tira::Render, which holds the
+# markdown and HTML builders. A caller asking for json compiles neither.
+# TKT-746, via TKT-830 and TKT-834.
 sub format_output {
     my ( $self, $data, %args ) = @_;
     my $output = $args{output} // 'toon';
@@ -12719,48 +12721,25 @@ sub format_output {
     }
     return json_object()->canonical->allow_nonref->encode($data) . "\n" if $output eq 'json';
     return json_object()->canonical->allow_nonref->pretty->encode($data) if $output eq 'json-pretty';
-    # A record narrowed to named fields is shown as those fields. The card
-    # template below assumes a whole record and prints an empty placeholder for
-    # every key it does not find, so asking for one field rendered a filled card
-    # as a hollow one and left out the field that was asked for - wrong in both
-    # directions at once, and worst on a board whose rules exist to catch
-    # exactly the hollow card it was drawing.
-    return $self->_markdown_fields( $data, %args )
-      if $output eq 'human' && $args{fields} && @{ $args{fields} };
 
-    return $self->_markdown( $data, %args ) if $output eq 'human';
-    return $self->_dashboard_table( $data, %args ) if $output eq 'table';
+    if ( $output eq 'human' || $output eq 'table' ) {
+        require Tira::Render;
+
+        # A record narrowed to named fields is shown as those fields. The card
+        # template below assumes a whole record and prints an empty placeholder
+        # for every key it does not find, so asking for one field rendered a
+        # filled card as a hollow one and left out the field that was asked
+        # for - wrong in both directions at once, and worst on a board whose
+        # rules exist to catch exactly the hollow card it was drawing.
+        return Tira::Render::_markdown_fields( $self, $data, %args )
+          if $output eq 'human' && $args{fields} && @{ $args{fields} };
+
+        return Tira::Render::_markdown( $self, $data, %args ) if $output eq 'human';
+        return Tira::Render::_dashboard_table( $self, $data, %args );
+    }
     die "Unsupported output format '$output'\n";
 }
 
-# The narrowed answer: what is here, named, and nothing invented about what is
-# not. Records keep their reference as a heading because that is how a reader
-# tells one from the next; everything else is a line.
-sub _markdown_fields {
-    my ( $self, $data, %args ) = @_;
-    my @records = ref $data eq 'ARRAY' ? @{$data} : ($data);
-    my $text = '';
-    for my $record (@records) {
-        my %shown = %{$record};
-        my $ref = delete $shown{ref};
-        $text .= '# ' . $ref . "\n\n" if defined $ref;
-        for my $field ( sort keys %shown ) {
-            $text .= "- $field: " . _markdown_value( $shown{$field} ) . "\n";
-        }
-        $text .= "\n";
-    }
-    return $text;
-}
-
-sub _markdown_value {
-    my ($value) = @_;
-    return '_None_' if !defined $value;
-    return @{$value} ? join( ', ', map { _markdown_value($_) } @{$value} ) : '_Empty._'
-      if ref $value eq 'ARRAY';
-    return join ', ', map { "$_: " . _markdown_value( $value->{$_} ) } sort keys %{$value}
-      if ref $value eq 'HASH';
-    return $value eq '' ? '_Empty._' : $value;
-}
 
 sub _html_escape {
     my ( $self, $value ) = @_;
@@ -12773,144 +12752,6 @@ sub _html_escape {
     return $value;
 }
 
-sub _dashboard_table {
-    my ( $self, $data, %args ) = @_;
-    die "Table output requires dashboard data\n"
-      if ref($data) ne 'HASH' || ref( $data->{_column_order} ) ne 'HASH';
-    my %heading = ( sow => 'Statements of Work', epic => 'Epics', ticket => 'Tickets' );
-    my ( $rendered_cards, @rendered_boards ) = (0);
-    my $boards = '';
-    for my $type (qw(sow epic ticket)) {
-        next if !exists $data->{_column_order}{$type};
-        my @columns = @{ $data->{_column_order}{$type} };
-        my $cells = join '', map {
-            my $column = $_;
-            my $cards = join '', map {
-                my $ref = $self->_html_escape( $_->{ref} );
-                my $title = defined $_->{title}
-                  ? '<span class="card__title">' . $self->_html_escape( $_->{title} ) . '</span>' : '';
-                my $mtime = 0 + ( $_->{_mtime} // 0 );
-
-                # Empty rather than nought when nobody has set one. A card
-                # nobody has prioritised is unassessed, not lowest, and the
-                # sort has to be able to tell the difference.
-                my $priority = defined $_->{priority} ? 0 + $_->{priority} : '';
-                my $waiting = ( $_->{waiting} ? ' card--waiting' : '' )
-                  . ( $_->{to_review} ? ' card--to-review' : '' );
-                '<li data-ref="' . $ref . '" data-mtime="' . $mtime
-                  . '" data-priority="' . $priority
-                  . '"><button class="card' . $waiting . '" type="button" data-ref="' . $ref
-                  . '"><span class="card__ref">' . $ref . '</span>' . $title . '</button></li>';
-            } @{ $data->{$type}{$column} // [] };
-            my $slug = $self->_html_escape($column);
-            $rendered_cards += scalar @{ $data->{$type}{$column} // [] };
-            '<section class="column' . ( $column eq 'discard' ? ' column--discard' : '' )
-              . '"><h3 class="column__head"><span class="column__name">' . $slug
-              . '</span><span class="column__count" data-count-for="' . $slug . '" hidden></span></h3>'
-              . '<div class="column__body"><ol class="cards" data-column="' . $slug . '">' . $cards . '</ol>'
-              . ( $args{live} && $column ne 'discard'
-
-                # Nobody creates work straight into the discard pile. Offering
-                # it there was a side effect of showing the column at all.
-                ? '<button class="column__add" type="button" data-add-card="' . $slug . '">+ Add card</button>'
-                : '' )
-              . '</div></section>';
-        } @columns;
-        push @rendered_boards, $heading{$type};
-        $boards .= '<section class="board board--' . $type . '" data-type="' . $type . '">'
-          . '<header class="board__header"><span class="board__kicker">Tira board</span><h2>'
-          . $heading{$type} . '</h2><div class="sorter" role="group" aria-label="Sort cards">'
-          . '<button type="button" data-sort="mtime" class="is-active">Last modified</button>'
-          . '<button type="button" data-sort="ref">Card reference</button>'
-          . '<button type="button" data-sort="priority">Priority</button></div>'
-          . '<input class="board-filter" type="search" data-filter="' . $type
-          . '" placeholder="Filter cards" aria-label="Filter cards">'
-          . '<div class="widther" role="group" aria-label="Column width">'
-          . '<button type="button" data-width="standard" class="is-active">Standard</button>'
-          . '<button type="button" data-width="fit">Fit all</button></div>'
-          . '<button type="button" class="board-review" data-queue="answer"'
-          . ' aria-pressed="false" title="Show only cards with a question nobody has answered">'
-          . 'Questions to answer</button>'
-          . '<button type="button" class="board-review" data-queue="review"'
-          . ' aria-pressed="false" title="Show only cards whose answers are waiting to be accepted or rejected">'
-          . 'Answers to review</button>'
-          . (
-            # Only where it can work. Editing columns posts to the server, so
-            # on a page saved to disk this was a button that looked live, said
-            # "Columns", and did nothing when clicked - the second such control
-            # found on that page, after the queue toggles, and found the same
-            # way. The toggles could be bound because filtering happens in the
-            # page; this cannot, so the page does not offer it.
-            $args{live}
-            ? '<button type="button" class="board-columns" data-columns="' . $type . '">Columns</button>'
-              . '<button type="button" class="board-policies" data-policies="1">Policies</button>'
-            : ''
-          )
-          . '</header>'
-          . '<div class="board__scroll"><div class="board__columns">'
-          . $cells . '</div></div></section>';
-    }
-
-    # TKT-516: a lightweight sticky-note section below the ticket board -
-    # his words, "not a messy piece of shit" - full CLI parity for the
-    # tasklist feature. Live-only, the same way the Policies dialog is,
-    # since it needs the server to actually do anything.
-    $boards .= '<section class="board board--tasklist" data-type="tasklist">'
-      . '<header class="board__header"><span class="board__kicker">Tira board</span><h2>Task List</h2>'
-      . '<input class="tasklist-session" type="text" placeholder="Session (blank = shared)" aria-label="Session">'
-      . '<select class="tasklist-sessions-list" aria-label="Known sessions"><option value="">Known sessions...</option></select></header>'
-      . '<div class="tasklist-controls">'
-      . '<input class="tasklist-text" type="text" placeholder="New task text" aria-label="New task text">'
-      . '<button type="button" class="tasklist-add">Add</button>'
-      . '<button type="button" class="tasklist-prune">Prune</button>'
-      . '</div><p class="tasklist-error" hidden></p><ol class="tasklist-cards"></ol></section>'
-      if $args{live};
-    my $project_heading = 'Tira Kanban';
-    if ( defined $args{project} ) {
-        my $project_name = eval { $self->project_show( project => $args{project} )->{name} };
-        $project_heading = $self->_html_escape($project_name) if defined $project_name && $project_name ne '';
-    }
-    my $refresh_action = $args{live}
-      ? q{fetch("/data",{cache:"no-store"}).then(response=>{if(response.status===401){location.reload();return null}if(!response.ok)throw new Error("refresh failed");return response.json()}).then(data=>{if(!data)return;if(data._version&&data._version!==document.documentElement.dataset.version){location.reload();return}markStale(data._stale);updateBoards(data);markUpdated();maybeRefreshDialog()}).catch(()=>{})}
-      : q{location.reload()};
-        my $column_editor = $args{live} ? _view_asset('column-editor.js') : '';
-        my $policy_editor = $args{live} ? _view_asset('policy-editor.js') : '';
-        my $tasklist_editor = $args{live} ? _view_asset('tasklist-editor.js') : '';
-my $live_helpers = $args{live} ? _view_asset('live-helpers.js')
-      : '';
-    my $card_binding = $args{live}
-      ? q{card.onclick=event=>{if(window.__tiraDragEndAt&&Date.now()-window.__tiraDragEndAt<50){window.__tiraDragEndAt=0;return}if(event.shiftKey){event.preventDefault();toggleSelection(card);return}if(selection.size)clearSelection();const ref=card.dataset.ref;const type=card.closest(".board").dataset.type;fetch("/record?type="+encodeURIComponent(type)+"&ref="+encodeURIComponent(ref),{cache:"no-store"}).then(response=>{if(!response.ok)throw new Error("detail failed");return response.json()}).then(record=>{cardNavStack=[];updateBackButton();showCard(record)}).catch(()=>{});};}
-      : q{card.onclick=()=>card.classList.toggle("is-selected");};
-    my $dialog = $args{live}
-      ? _render_view( 'dialogs.tt',
-        { fields => [qw(enter before column age read_age max pattern message require sandbox require_link link_to)] } )
-      : '';
-    my $with_title = $args{with_title} ? '1' : '0';
-    my $initial_refresh = $args{live} ? 'refreshDashboard();' : '';
-    my $drag_script = $args{live}
-      ? _view_asset('selection.js')
-      : '';
-    my $script = _view_asset('base-script.js') . $live_helpers . $column_editor . $policy_editor . $tasklist_editor
-      . 'const bindBoards=()=>{document.querySelectorAll(".card").forEach(card=>{'
-      . $card_binding . _view_asset('board-bindings.js') . $refresh_action
-      . ';const scheduleRefresh=()=>setTimeout(()=>{Promise.resolve(refreshDashboard()).finally(scheduleRefresh)},refreshSeconds*1000);'
-      . $initial_refresh
-      . 'scheduleRefresh();'
-      . _view_asset('hero-counts.js')
-      . $drag_script;
-
-    return _render_view( 'dashboard.tt', {
-        version     => $VERSION,
-        with_title  => $with_title,
-        heading     => $project_heading,
-        board_label => ( @rendered_boards == 1 ? $rendered_boards[0] : 'Kanban' ),
-        cards       => $rendered_cards,
-        css         => _view_asset('dashboard.css'),
-        boards      => $boards,
-        dialog      => $dialog,
-        script      => $script,
-    } );
-}
 
 sub _empty_linkage {
     my ( $self, $type ) = @_;
@@ -12935,96 +12776,6 @@ sub _empty_linkage {
     };
 }
 
-sub _markdown {
-    my ( $self, $data, %args ) = @_;
-
-    # a question list carries a ref, so without this it was taken for a
-    # record and drawn as a card with no title. The person who owns the
-    # decision reads this view, not the JSON, so it is the one that matters.
-    if ( ref($data) eq 'HASH' && ref( $data->{questions} ) eq 'ARRAY' && exists $data->{instruction} ) {
-        my $heading = '# Questions on ' . $data->{ref}
-          . ( defined $data->{title} && $data->{title} ne '' ? ": $data->{title}" : '' )
-          . "\n\n";
-        return $heading . "_No questions have been asked about this card._\n"
-          if !@{ $data->{questions} };
-        my $body = '';
-        for my $question ( @{ $data->{questions} } ) {
-            my $asked = $question->{author} ? " by $question->{author}" : '';
-            $body .= "## $question->{id} \x{2014} $question->{status}\n\n"
-              . "$question->{text}\n\n";
-            $body .= "_Why:_ $question->{reason}\n\n" if $question->{reason};
-            if ( @{ $question->{options} // [] } ) {
-                my $n = 0;
-                $body .= "_Options:_\n\n"
-                  . join( '', map { ++$n . ". $_\n" } @{ $question->{options} } ) . "\n";
-            }
-            $body .= "_Asked $question->{asked_at}$asked._\n\n";
-            $body .= "_Set aside $question->{discarded_at}._\n\n" if $question->{discarded_at};
-            my $answer = $question->{answer};
-            if ( !$answer ) {
-                $body .= "_No answer yet \x{2014} this card is waiting on the owner._\n\n";
-                next;
-            }
-            $body .= "> " . join( "\n> ", split /\n/, $answer->{text} ) . "\n\n";
-            my @state = ("answered $answer->{answered_at}");
-            push @state, "edited $answer->{updated_at}" if $answer->{updated_at};
-            push @state, $answer->{read_at} ? "read $answer->{read_at}" : 'not yet read';
-            push @state, $answer->{mark} ? "marked $answer->{mark}" : 'not yet marked';
-            $body .= '_' . join( ', ', @state ) . "._\n\n";
-        }
-        return $heading . $body . "---\n\n$data->{instruction}\n";
-    }
-
-    if ( ref($data) eq 'HASH' && exists $data->{ref} ) {
-
-        # An absent description is normal, not a reason to warn on every read.
-        my $description = ( $data->{description} // '' ) ne ''
-          ? $data->{description} : '_No description._';
-        my %priority = ( 1 => 'Low', 2 => 'Medium Low', 3 => 'Medium', 4 => 'High', 5 => 'Very High' );
-        my %names;
-        my $people = eval {
-            $self->person_list( defined $args{project} ? ( project => $args{project} ) : () );
-        } // [];
-        %names = map { $_->{id} => $_->{name} } @{$people};
-        my $assignee = defined $data->{assignee} ? ( $names{ $data->{assignee} } // $data->{assignee} ) : '_Unassigned_';
-        my $reporter = defined $data->{reporter} ? ( $names{ $data->{reporter} } // $data->{reporter} ) : '_None_';
-        my $priority = defined $data->{priority} ? $priority{ $data->{priority} } : '_None_';
-        my $checklist = @{ $data->{checklist} // [] }
-          ? "\n## Checklist\n\n" . join( '', map { "- [$_->{status}] $_->{item}\n" } @{ $data->{checklist} } )
-          : "\n## Checklist\n\n_Empty._\n";
-        my $children = exists $data->{children}
-          ? "\n## Children\n\n" . ( @{ $data->{children} }
-              ? join( '', map { "- `$_->{ref}`" . ( defined $_->{title} ? " $_->{title}" : '' ) . "\n" }
-                  @{ $data->{children} } )
-              : "_Empty._\n" )
-          : '';
-        return '# ' . $data->{ref} . ': ' . ( $data->{title} // '' ) . "\n\n$description\n\n"
-          . '- Type: `' . ( $data->{type} // '' ) . "`\n"
-          . "- Assignee: $assignee\n"
-          . "- Reporter: $reporter\n"
-          . "- Priority: $priority\n"
-          . '- Created: ' . ( $data->{created_at} // '' ) . "\n"
-          . '- Last Updated: ' . ( $data->{last_updated} // '' ) . "\n"
-          . $checklist
-          . $children;
-    }
-    if ( ref($data) eq 'HASH' && ref( $data->{_column_order} ) eq 'HASH' ) {
-        my $markdown = "# Tira Dashboard\n";
-        for my $type (qw(sow epic ticket)) {
-            next if !exists $data->{_column_order}{$type};
-            $markdown .= "\n## " . uc($type) . "\n";
-            for my $column ( @{ $data->{_column_order}{$type} } ) {
-                $markdown .= "\n### $column\n";
-                my $records = $data->{$type}{$column};
-                $markdown .= @{$records}
-                  ? join( '', map { "- `$_->{ref}`" . ( defined $_->{title} ? " $_->{title}" : '' ) . "\n" } @{$records} )
-                  : "_Empty._\n";
-            }
-        }
-        return $markdown;
-    }
-    return "# Tira Result\n\n```json\n" . json_object()->canonical->allow_nonref->pretty->encode($data) . "```\n";
-}
 
 sub _with_project_lock {
     my ( $self, $root, $code ) = @_;
@@ -13253,11 +13004,15 @@ refused, since 3.45.
 
 =head2 format_output
 
-Encodes data as TOON by default, pretty JSON, or Markdown. The C<toon> branch
-C<require>s L<Tira::Toon> lazily, at this call site only, for the
-encoder/decoder overrides Data::TOON needs to render this project's own
-output correctly - a call asking for C<json> or C<human> output never loads
-it. TKT-746.
+Encodes data as TOON by default, pretty JSON, Markdown, or an HTML board.
+
+Both rendering concerns are loaded lazily, at the branch that needs them, so
+a caller gets only the one it asked for. The C<toon> branch C<require>s
+L<Tira::Toon>, for the encoder/decoder overrides Data::TOON needs to render
+this project's own output correctly. The C<human> and C<table> branches
+C<require> L<Tira::Render>, which holds the markdown renderer and the HTML
+board builder. A caller asking for C<json> or C<json-pretty> compiles
+neither. TKT-746, via TKT-830 and TKT-834.
 
 =head2 record_update
 

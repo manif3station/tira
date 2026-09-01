@@ -323,10 +323,11 @@ its commands runs, so an ordinary card command compiles none of them.
 Since 5.23 the engine is being split the same way and for the same reason:
 `lib/Tira.pm` was 15,264 lines, and the concerns that can stand alone are
 moving out one per release - `lib/Tira/Toon.pm` (the TOON encoder/decoder
-overrides, 5.23) and `lib/Tira/Tasklist.pm` (the shared to-do queue, 5.24),
-each loaded with `require` at the point it is actually needed. `lib/Tira.pm`
-is 14,419 lines so far. Entry points keep their names throughout - the split
-is where the code lives, not what anything is called. They are inlined at render rather than linked, so the board still
+overrides, 5.23), `lib/Tira/Tasklist.pm` (the shared to-do queue, 5.24) and
+`lib/Tira/Render.pm` (the human and table renderers, 5.25), each loaded with
+`require` at the point it is actually needed. `lib/Tira.pm` is 14,177 lines
+so far. Entry points keep their names throughout - the split is where the
+code lives, not what anything is called. They are inlined at render rather than linked, so the board still
 loads nothing from another host — every request the live page makes is to
 itself (it polls its own card data, fetches a record when you open a card, and
 posts a move when you drag one), and a table-mode board saved to a file makes

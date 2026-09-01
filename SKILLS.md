@@ -1716,19 +1716,44 @@ the same reason - `_tasklist_read`, because `search` and `police_pass` read
 the list from outside the concern, and `_tasklist_session`, which `search`
 calls as a plain function rather than a method.
 
-`lib/Tira.pm` is 14,419 lines after both lifts, down from 15,264 (measured,
-not estimated). The remaining candidates named on TKT-746 - the police engine
-and the HTML dashboard builder - are unmoved; each is its own future lift,
-not assumed to be as self-contained as these two turned out to be.
+The third is `lib/Tira/Render.pm` - the human and table renderers, 346 lines,
+required by `format_output` immediately before its `human` and `table`
+branches, so a caller asking for `json` or `toon` compiles none of it
+(TKT-834, 5.25). Three helpers stayed on `Tira` because they have callers
+outside the concern: `_html_escape`, which the login page HTML also uses, and
+the plain functions `_render_view`, `_view_asset` and `json_object`.
 
-**The two lifts needed different shapes, and the reason is worth keeping.**
-`Tira::Toon` had no callers outside the one branch that used it, so it moved
-whole and left a single `require` behind. `Tira::Tasklist` is called from
-three places that are not the tasklist (the browser providers, `search`,
-`police_pass`) and by name from the test suite, so what stayed behind is a
-forwarder per entry point rather than one require. The rule the second lift
-established: what a concern owns can move, but every name anything outside it
-already says has to keep answering where it was.
+`lib/Tira.pm` is 14,177 lines after three lifts, down from 15,264 (measured,
+not estimated). The one candidate named on TKT-746 still unmoved is the
+police engine - its own future lift, not assumed to be as self-contained as
+these three turned out to be.
+
+**The three lifts needed two different shapes, and the deciding factor is the
+callers, not the size.** `Tira::Toon` had no callers outside the one branch
+that used it, so it moved whole and left a single `require`. `Tira::Render`
+is the same shape for the same reason - four subs reached only from
+`format_output`, so nothing was left behind at all and `format_output` calls
+into the module directly. `Tira::Tasklist` is the other shape: it is called
+from three places that are not the tasklist (the browser providers, `search`,
+`police_pass`) and by name from the test suite, so a forwarder per entry
+point stayed. The rule: what a concern owns can move, but every name anything
+outside it already says has to keep answering where it was. Count the callers
+before choosing the shape.
+
+**Two things a lift keeps costing, both now expected rather than discovered.**
+First, `perl -c` accepts a moved sub calling a helper that did not move -
+`$self->_helper(...)` resolves against the original package, and a bare
+`_helper(...)` resolves against the new one; both compile and die when
+reached. TKT-607 shipped seven of these, TKT-832 had thirty-six, and TKT-834
+had twelve, but TKT-834's were found by grepping the moved region for its own
+dependencies *before* moving it rather than by the suite afterwards, which is
+the practice to keep. (`strict` does catch the variable form: `$VERSION`
+became `$Tira::VERSION` because an undeclared global is visible to `perl -c`
+in a way an undefined sub is not.) Second, every lift so far has exposed a
+real pre-existing coverage hole - four branches on TKT-830, the
+attach-content dedup path on TKT-832 - because 100% over a 15,000-line file
+and 100% over a 700-line one are not the same claim, and shrinking the
+denominator stops the rounding hiding what was never tested.
 
 Entry points kept their names. `Tira::CLI::browser_providers` still exists and
 still answers; twenty test files and the dashboard call it by that name, and a

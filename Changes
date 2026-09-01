@@ -1,5 +1,45 @@
 Revision history for Tira
 
+5.25  2026-09-01
+
+    - TKT-834 (TKT-746's third lift). The human and table renderers -
+      _markdown, _markdown_fields, _markdown_value and the HTML
+      _dashboard_table - move out of lib/Tira.pm into lib/Tira/Render.pm,
+      required by format_output immediately before its human and table
+      branches. A caller asking for json or toon compiles none of it.
+
+      This is the Tira::Toon shape rather than the Tira::Tasklist shape,
+      and the difference was measured before choosing it: all four subs
+      are reached only from format_output, and nothing in t/, cli/ or the
+      CLI modules names them. One caller means format_output calls into
+      the module directly and no forwarder is left behind.
+
+      Three helpers deliberately stayed on Tira because they have callers
+      outside this concern. _html_escape is used by the login page HTML
+      as well, and is reached as a method on $self. _render_view,
+      _view_asset and json_object are plain functions used across the
+      engine, so the moved code calls them fully qualified - twelve call
+      sites. Left unqualified they would have resolved against
+      Tira::Render, compiled cleanly under perl -c, and died the first
+      time a board was rendered: the fault TKT-607 produced seven times
+      and TKT-832 produced at 36 sites. This time it was found by
+      grepping the moved region for its own dependencies before moving
+      it, rather than by the suite afterwards. $VERSION needed the same
+      treatment and perl -c did catch that one, since strict sees an
+      undeclared global but not an undefined sub.
+
+      t/485 proves the pair every lift owes: the module compiles
+      standalone without Tira.pm loaded first, and format_output for json
+      or toon leaves Tira::Render out of %INC. Its other twelve
+      assertions are a no-behaviour-change baseline that passed before
+      the lift as well as after - whole-record and narrowed human output,
+      table rendering, escaping through the helper that stayed behind,
+      and both refusals.
+
+      lib/Tira.pm was 14,419 lines before this lift and is 14,177 after
+      (measured, not estimated); lib/Tira/Render.pm is 346. Across the
+      three lifts the engine is down from 15,264 to 14,177.
+
 5.24  2026-09-01
 
     - TKT-832 (TKT-746's second lift). The tasklist commands - tasklist_add,

@@ -31,6 +31,7 @@
 use strict;
 use warnings;
 
+use File::Find ();
 use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
@@ -83,20 +84,39 @@ like( $refusal, qr/\b5\b[^\n]*\b(?:urgent|highest|most)\b|\b(?:urgent|highest|mo
 # A claim in a header that describes something other than what the file does is
 # the fault this file exists to catch, one level up. TKT-207.
 
-my $source = do {
-    open my $fh, '<:raw', 'lib/Tira.pm' or die $!;
-    local $/;
-    <$fh>;
-};
+# WALKED, NOT NAMED. This read 'lib/Tira.pm' by name and broke the moment
+# TKT-834 lifted the renderers into lib/Tira/Render.pm - the third time a
+# test in this suite has asserted where code lives while claiming to assert
+# something else, and the third time the test was the thing that was wrong
+# (t/64, t/144, t/244 and t/289 all did it before, and TKT-703 patched this
+# very file by naming a second location rather than by walking). The label
+# map has to agree with the dashboard's wherever either one sits, so the
+# Perl half is now found by reading every module under lib/. Same reasoning
+# as t/429 and t/431, which walk for exactly this reason.
+my $source = '';
+{
+    my @modules;
+    File::Find::find(
+        { no_chdir => 1, wanted => sub { push @modules, $File::Find::name if /\.pm\z/ } },
+        'lib' );
+    cmp_ok( scalar @modules, '>=', 4,
+        'lib/ was walked for the Perl half - ' . scalar(@modules) . ' modules' );
+    for my $module ( sort @modules ) {
+        open my $fh, '<:raw', $module or die "$module: $!";
+        local $/;
+        $source .= <$fh>;
+    }
+}
 
 # TKT-703 moved the dashboard's scripts out of lib/Tira.pm into
-# lib/Tira/views, so the JS half of this comparison is read from there while
-# the Perl half stays in the module. The point of the test is unchanged and is
-# the reason it must follow the code: the two label maps have to agree, and
-# they now live in two different files, which is exactly when they drift.
-# Every script, not a named one: the labels and the sort comparator sit in
-# different files and a test that had to know which would break on the next
-# move without anything actually being wrong.
+# lib/Tira/views, so the JS half of this comparison is read from there - and
+# TKT-834 later moved the Perl half into lib/Tira/Render.pm, which is why the
+# block above walks lib/ instead of naming a file. The point of the test is
+# unchanged and is the reason it must follow the code: the two label maps have
+# to agree, and they live in different files, which is exactly when they drift.
+# Every script, not a named one, for the same reason: the labels and the sort
+# comparator sit in different files and a test that had to know which would
+# break on the next move without anything actually being wrong.
 my $views = File::Spec->catdir( 'lib', 'Tira', 'views' );
 opendir my $dh, $views or die "$views: $!";
 my @scripts = sort grep { /\.js\z/ } readdir $dh;

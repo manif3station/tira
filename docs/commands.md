@@ -560,6 +560,15 @@ consequence of an action is skipped by taking one route rather than the other.
 - Self-contained `-o table` HTML for combined and type-specific dashboards,
   with polished offline CSS, selectable cards, and client-side mtime/ref sorts.
 
+Since 5.25 the code behind `-o human` and `-o table` lives in
+`lib/Tira/Render.pm` rather than `lib/Tira.pm`, loaded by `format_output`
+only when one of those two formats is asked for - so a command answering in
+`json` or `toon` never compiles the renderers (TKT-834, the third lift under
+TKT-746). Nothing about either format changed: the same markdown, the same
+self-contained HTML, the same escaping, and the same two refusals - `-o table`
+handed data that is not a board still says `Table output requires dashboard
+data`, and an unrecognised format is still refused by `format_output` itself.
+
 ## Transaction boundaries
 
 Every mutation takes the private project lock. Reciprocal record changes first

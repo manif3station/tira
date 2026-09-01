@@ -511,13 +511,25 @@ how many it held back: a partial run of one test file against this tree produces
 5,625 uncovered lines in `lib/Tira.pm` alone, and a refusal that prints those has
 replaced one unusable output with another. TKT-593.
 
-**Run coverage serially.** `prove -j N` under `Devel::Cover` loses data on merge:
-measured on 4.76, `-j 4` reported `lib/Tira.pm` at 99.8% statement with one
-uncovered `map` body that three separate tests demonstrably enter, and the same
-tree run with plain `prove -lr t` reported 100.0%. The plain suite parallelises
-safely and is worth `-j 4`; the coverage run is not. `tools/gate-run` already
-runs it serially, so the gate itself was never exposed — the trap is only there
-for someone checking coverage by hand and believing the number.
+**Coverage under `prove -j N` was once unsafe here; retested and no longer
+reproduces.** Measured on 4.76, `-j 4` under `Devel::Cover` reported
+`lib/Tira.pm` at 99.8% statement with one uncovered `map` body that three
+separate tests demonstrably enter, while the same tree run with plain
+`prove -lr t` reported 100.0%. That measurement stood as the reason
+`tools/gate-run` ran the suite serially for several releases. TKT-683
+re-tested it properly - after two earlier attempts had been reverted for
+the wrong reason (both blamed `-j`/`Devel::Cover` for failures that turned
+out to be an unrelated fixture bug, corrected without ever isolating a
+clean serial baseline first) - and could not reproduce the data loss:
+three separate runs (`-j 7` twice, `-j 4` once, the same worker count the
+4.76 measurement used) each reported 100.0/100.0/100.0 on both
+`lib/Tira.pm` and `lib/Tira/CLI.pm`, with wallclock roughly half the
+serial baseline (509-555s versus 1238-1449s). `tools/gate-run` now runs
+`-j`, deriving the worker count from the machine and leaving one core
+free. The original incident is kept here rather than deleted: it was a
+real, measured failure once, on this same suite, and a future report of
+coverage loss under `-j` deserves to find this history rather than
+assume it has never happened.
 
 Bumping the release version means `.env`'s `VERSION=` line and
 `lib/Tira.pm`'s `our $VERSION` always agreeing - `tools/bump-version NEW`

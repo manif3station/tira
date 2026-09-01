@@ -204,7 +204,7 @@ cmp_ok( scalar @refusals, '>=', 8,
 # otherwise. tools/gate-run is how a tree is proved by hand and it still writes
 # the records; only the hook stops reading them.
 
-like( $gate_run, qr/\bprove\s+-lr\b/,
+like( $gate_run, qr/\bprove\s+(?:-j\S+\s+)?-lr\b/,
     'tools/gate-run still runs the suite by hand' );
 like( $gate_run, qr{tools/gate-cache-write|gate-cache-write},
     'and still records the pass for the tree it proved' );

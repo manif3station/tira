@@ -95,7 +95,7 @@ unlike( $hook_source, qr/\bprove\s+-lr\b/,
     'and runs no suite, so there is no second run for a record to prevent' );
 
 my $runner_source = slurp( File::Spec->catfile( $root, 'tools', 'gate-run' ) );
-like( $runner_source, qr/\bprove\s+-lr\b/,
+like( $runner_source, qr/\bprove\s+(?:-j\S+\s+)?-lr\b/,
     'the one place that runs the suite still runs it' );
 like( $runner_source, qr/gate-cache-write/,
     'and records the pass, so what proved a tree survives the run that proved it' );

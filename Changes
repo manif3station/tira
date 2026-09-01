@@ -1,5 +1,37 @@
 Revision history for Tira
 
+5.06  2026-09-01
+
+    - TKT-683 (re-attempted, safely this time). tools/gate-run ran the
+      full suite under Devel::Cover serially, taking roughly twice as
+      long as it needed to on a multi-core machine.
+
+      Two earlier attempts at -j were reverted. The first wrongly
+      blamed Devel::Cover's shared cover_db for a set of spurious
+      "exit 25 / No plan found" failures; the second, corrected
+      attempt found the real cause was an unrelated pre-existing
+      fixture bug (12 test files still writing status literals TKT-668
+      had made invalid) that would have failed serially too, had a
+      clean baseline been checked first - which it now has, repeatedly,
+      this session.
+
+      tools/gate-run now derives its worker count from nproc, leaving
+      at least one core free, using arithmetic ($(( CORES > 1 ? CORES
+      - 1 : 1 )) rather than a conditional command whose own false
+      exit would abort the &&-chained script around it on a
+      single-core machine - the exact shape of bug the earlier
+      reverted draft carried. Measured twice on this machine (8 cores,
+      -j7): 509s and 513s wallclock, both clean (Files=459, Tests=9177,
+      Result: PASS) and both 100.0/100.0/100.0 on lib/Tira.pm and
+      lib/Tira/CLI.pm - well under the 700s target, versus this
+      session's own repeated serial baselines of 1238-1449s. A genuine
+      deliberate test failure was confirmed still caught under -j.
+
+      New test t/467 asserts the worker-count formula's shape and
+      actually executes it against five simulated core counts (1, 2,
+      4, 8, 16). t/279 and t/416's prove-invocation regex updated to
+      tolerate the new -jN flag.
+
 5.05  2026-09-01
 
     - TKT-797. Follow-up on TKT-780's sticky header. The owner asked for

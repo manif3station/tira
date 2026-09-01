@@ -65,7 +65,9 @@ docker compose -f "$compose" run --rm -v "$tree:/workspace/skills/tira" perl-tes
   cd /workspace/skills/tira &&
   rm -rf cover_db .test-tmp &&
   cpanm --quiet --notest --installdeps . >/dev/null 2>&1 &&
-  timeout --signal=KILL '"$SUITE_TIMEOUT"' env HARNESS_PERL_SWITCHES=-MDevel::Cover prove -lr t 2>&1 | tail -4 &&
+  CORES=$(nproc) &&
+  JOBS=$(( CORES > 1 ? CORES - 1 : 1 )) &&
+  timeout --signal=KILL '"$SUITE_TIMEOUT"' env HARNESS_PERL_SWITCHES=-MDevel::Cover prove -j"$JOBS" -lr t 2>&1 | tail -4 &&
   select_args=() &&
   while IFS= read -r m; do select_args+=(-select "$m"); done \
     < <(find lib -name "*.pm" | sort) &&

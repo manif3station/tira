@@ -39,7 +39,7 @@ $tira->project_new(
 # --- column_remove scrubs a removed column out of every other column's next --
 
 $tira->column_update( project => $root, type => 'ticket', name => 'a', next => [ 'b', 'done' ], author => 'claude' );
-$tira->column_remove( project => $root, type => 'ticket', name => 'b' );
+$tira->column_remove( project => $root, type => 'ticket', name => 'b', author => 'claude', reason => 'no longer needed' );
 my $after_remove = $tira->column_list( project => $root, type => 'ticket' );
 my ($a1) = grep { $_->{name} eq 'a' } @{$after_remove};
 is_deeply( $a1->{next}, ['done'], 'removing a column strips it from every other column\'s stored next array' );

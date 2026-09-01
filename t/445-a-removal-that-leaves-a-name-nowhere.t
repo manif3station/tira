@@ -47,7 +47,7 @@ $tira->required_item_add(
 );
 $tira->record_move( project => $root, ref => $record->{ref}, type => 'ticket', column => 'done', author => 'claude' );
 
-$tira->column_remove( project => $root, type => 'ticket', name => 'review' );
+$tira->column_remove( project => $root, type => 'ticket', name => 'review', author => 'claude', reason => 'consolidating review into done' );
 
 my $after = $tira->record_show( project => $root, ref => $record->{ref}, type => 'ticket' );
 is( $after->{column}, 'done', 'the card itself is untouched by removing a column it already left' );

@@ -119,7 +119,7 @@ ok( !-d File::Spec->catdir( $root, '.tira', 'ticket', 'failed-add' ), 'failed co
 $yaml_failure->column_add( project => $root, type => 'ticket', name => 'rollback' );
 $yaml_failure->record_move(author => 'ada',  project => $root, ref => $ticket2->{ref}, column => 'rollback' );
 $yaml_failure->fail_yaml;
-eval { $yaml_failure->column_remove( project => $root, type => 'ticket', name => 'rollback' ) };
+eval { $yaml_failure->column_remove( project => $root, type => 'ticket', name => 'rollback', author => 'ada', reason => 'testing rollback' ) };
 like( $@, qr/Injected column/, 'column remove config failure is returned' );
 is( $tira->record_show( project => $root, ref => $ticket2->{ref} )->{column}, 'rollback', 'failed column removal restores moved records' );
 $yaml_failure->fail_yaml;

@@ -534,7 +534,7 @@ tira.column.list [--type TYPE] [-o FORMAT]
 tira.column.add --type TYPE --name SLUG [--label TEXT] [--after SLUG|--before SLUG] [-o FORMAT]
 tira.column.rename --type TYPE --name SLUG --new-name SLUG [--label TEXT] [-o FORMAT]
 tira.column.reorder --type TYPE --name SLUG (--after SLUG|--before SLUG) [-o FORMAT]
-tira.column.remove --type TYPE --name SLUG [-o FORMAT]
+tira.column.remove --type TYPE --name SLUG --reason TEXT [--author ID] [-o FORMAT]
 tira.column.sync --type TYPE [--apply] [-o FORMAT]
 tira.board.refs --type TYPE [--prefix PREFIX] [--digits N] [-o FORMAT]
 ```
@@ -1529,7 +1529,7 @@ Also rewrites the `column` tag stored on every record's `required_items` entries
 **Implemented.** `dashboard tira.column.reorder --type sow --name approval --before discard`.
 
 ### UC-035: Remove column
-**Implemented.** `dashboard tira.column.remove --type ticket --name obsolete` moves records to Discard. Deliberately does not retag or scrub `required_items` entries elsewhere that still name the removed column - unlike a rename (UC-032), a removed column's name can never again equal a card's current column, so a stale entry is harmless history. TKT-613.
+**Implemented.** `dashboard tira.column.remove --type ticket --name obsolete --reason "consolidating columns"` moves records to Discard. `--reason` is required (TKT-701), mirroring `column.roles --remove-role`'s own precedent - a column leaving the board discards every card resting in it, and a change nobody can account for is worse than the mistake it corrects. Each discarded card is moved through the ordinary discard path rather than by a filesystem rename, so it is journalled with an author and given a comment carrying the reason - `discard-unexplained` no longer fires forever on a card nobody chose to abandon. Deliberately does not retag or scrub `required_items` entries elsewhere that still name the removed column - unlike a rename (UC-032), a removed column's name can never again equal a card's current column, so a stale entry is harmless history. TKT-613.
 
 ### UC-036: Protect Backlog
 **Implemented.** Removing Backlog exits `2` unchanged.

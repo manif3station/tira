@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.20';
+our $VERSION = '5.21';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2067,7 +2067,19 @@ sub column_apply {
 
     my %present = map { $_->{name} => 1 } @{$current};
     my @removed = grep { !$seen{$_} } map { $_->{name} } @{$current};
-    $self->column_remove( project => $root, type => $args{type}, name => $_ ) for @removed;
+    # column_apply's own --author/--reason are a separate question (TKT-701
+    # left it out of scope deliberately, as a whole-layout replace rather
+    # than the single-column removal this fix is about). A real project
+    # person is required if the removed column holds any cards - comment_add
+    # validates its author against the roster - so a made-up name would die
+    # on the very case that matters; the first person on the roster is
+    # always real, even when the caller supplied nothing more specific.
+    my $fallback_author = $args{author}
+      // ( $self->person_list( project => $root )->[0] // {} )->{id};
+    $self->column_remove(
+        project => $root, type => $args{type}, name => $_,
+        author => $fallback_author, reason => 'removed by a column layout replacement',
+    ) for @removed;
 
     my @added = grep { !$present{$_} } map { $_->{name} } @plan;
     return $self->_with_project_lock( $root, sub {
@@ -2361,22 +2373,41 @@ sub column_remove {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
     $args{name} = $self->_valid_slug( $args{name} );
+
+    # The same rule column_roles_remove already makes, for the same reason:
+    # "a role leaving a board's vocabulary changes what every policy naming
+    # it means, and a change nobody can account for is worse than the
+    # mistake it corrects." Removing a column discards actual cards, which
+    # is the larger change of the two, and asked for nothing. TKT-701.
+    my $reason = $args{reason};
+    die "A reason is required - a column leaving the board discards every card resting "
+      . "in it, and a change nobody can account for is worse than the mistake it corrects\n"
+      if !defined $reason || $reason eq '';
+    die "A move needs to say who is making it\n" if !defined $args{author} || $args{author} eq '';
+
+    my $type = $self->_valid_type( $args{type} );
     return $self->_with_project_lock( $root, sub {
-        my ( $path, $config ) = $self->_board_data( project => $root, type => $args{type} );
+        my ( $path, $config ) = $self->_board_data( project => $root, type => $type );
         my ($column) = grep { $_->{name} eq ( $args{name} // '' ) } @{ $config->{columns} };
         die "Column '$args{name}' not found\n" if !$column;
         die "Column '$args{name}' is protected\n" if $column->{protected};
         my $board = dirname($path);
         my $source = File::Spec->catdir( $board, $args{name} );
-        my $discard = File::Spec->catdir( $board, 'discard' );
         opendir my $dh, $source or die "Cannot read column '$args{name}': $!\n";
-        my @names = map { /\A([A-Z][A-Z0-9-]{0,31}-\d{1,12}\.json)\z/ ? $1 : () }
+        my @refs = map { /\A([A-Z][A-Z0-9-]{0,31}-\d{1,12})\.json\z/ ? $1 : () }
           grep { -f File::Spec->catfile( $source, $_ ) } readdir $dh;
-        for my $name (@names) {
-            my $file = File::Spec->catfile( $source, $name );
-            rename $file, File::Spec->catfile( $discard, $name ) or die "Cannot discard '$file': $!\n";
-        }
         closedir $dh;
+
+        # Moved through the ordinary discard path rather than by rename, so
+        # each one is journalled with an author like every other move - and
+        # explained with a comment carrying the given reason, so
+        # discard-unexplained answers the very act that caused it instead of
+        # firing forever on a card nobody chose to abandon.
+        for my $ref (@refs) {
+            $self->record_move( project => $root, ref => $ref, column => 'discard', author => $args{author} );
+            $self->comment_add( project => $root, ref => $ref, author => $args{author}, text => $reason );
+        }
+
         $config->{columns} = [ grep { $_->{name} ne $args{name} } @{ $config->{columns} } ];
 
         # A removed column is a dangling fork target for anything that named
@@ -2390,11 +2421,29 @@ sub column_remove {
         }
         eval { $self->_write_yaml( $path, $config ); 1 } or do {
             my $error = $@ || 'Unknown column configuration failure';
-            rename File::Spec->catfile( $discard, $_ ), File::Spec->catfile( $source, $_ ) for @names;
+
+            # The cards already moved for real - record_move writes and
+            # journals immediately, unlike the old raw rename this replaced,
+            # so there is no half-done filesystem state to undo. What is
+            # undone is the DECISION: each discarded card is moved back to
+            # the column it was actually resting in, so a config write that
+            # failed leaves the board exactly as it was, the same promise
+            # the old rollback made.
+            $self->record_move( project => $root, ref => $_, column => $args{name}, author => $args{author} )
+              for @refs;
             die $error;
         };
         rmdir $source or die "Cannot remove column '$args{name}': $!\n";
-        return { removed => $args{name}, destination => 'discard' };
+
+        # A card that already moved on before the removal can keep a
+        # required item tagged with the column it left - deliberately left
+        # alone, per TKT-613/t/445: the departure gate matches an item by
+        # the card's CURRENT column, and a removed column's name can never
+        # again equal any card's current column, so the stale tag is inert
+        # history rather than a live gap. Only a card physically IN the
+        # removed column carried a real one, and it went to discard above
+        # with the rest of that card.
+        return { removed => $args{name}, destination => 'discard', discarded => \@refs };
     } );
 }
 
@@ -14419,12 +14468,15 @@ Moves a column before or after another.
 
 =head2 column_remove
 
-Removes a column, refusing a protected one; any cards in it move to
-discard, taking their own required_items with them. Deliberately does not
-retag or scrub required_items entries elsewhere that still name the
-removed column - unlike a rename, a removed column's name can never again
-equal a card's current column, so a stale entry there is harmless history.
-TKT-613.
+Removes a column, refusing a protected one or a missing C<reason>/C<author>;
+any cards in it are moved to discard through the ordinary C<record_move>
+path (journalled, attributed) and given a comment carrying the reason, so
+C<discard-unexplained> never fires on a card discarded by this rather than
+abandoned. A config-write failure rolls the discarded cards back to their
+original column. TKT-701. Deliberately does not retag or scrub
+required_items entries elsewhere that still name the removed column -
+unlike a rename, a removed column's name can never again equal a card's
+current column, so a stale entry there is harmless history. TKT-613.
 
 =head2 board_refs
 

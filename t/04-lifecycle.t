@@ -63,7 +63,7 @@ $tira->record_discard(author => 'ada',  project => $root, ref => $ticket->{ref} 
 $ticket = $tira->record_restore(author => 'ada',  project => $root, ref => $ticket->{ref}, column => 'verification' );
 is( $ticket->{column}, 'verification', 'discarded record can restore to a chosen column' );
 
-$tira->column_remove( project => $root, type => 'ticket', name => 'verification' );
+$tira->column_remove( project => $root, type => 'ticket', name => 'verification', author => 'ada', reason => 'no longer needed' );
 is( $tira->record_show( project => $root, ref => $ticket->{ref} )->{column}, 'discard', 'removing a column discards its records' );
 
 $tira->board_refs( project => $root, type => 'ticket', prefix => 'DEV', digits => 5 );

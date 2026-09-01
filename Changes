@@ -1,5 +1,26 @@
 Revision history for Tira
 
+5.21  2026-09-01
+
+    - TKT-701. column_remove moved every card in the removed column by a
+      filesystem rename straight into discard - not through record_move -
+      so there was no journal entry, no author, and nothing had ever asked
+      for a reason. discard-unexplained then fired on every one of them
+      forever, unable to tell an administrative removal from abandoned
+      work.
+
+      column_remove now refuses without --reason, mirroring
+      column_roles_remove's existing precedent, and moves each card
+      through record_move (journalled, attributed) followed by a
+      comment_add carrying the reason. A config-write failure now rolls
+      the discarded cards back to their original column, the same
+      guarantee the old rollback made. Required items on cards that had
+      already left the removed column are deliberately left untouched -
+      TKT-613/t/445 already decided this is inert history rather than a
+      live gap, and that decision stands; an earlier draft of this ticket
+      proposed the opposite without checking for the conflict, corrected
+      before implementing. New test t/481.
+
 5.20  2026-09-01
 
     - TKT-698. The violation ledger keys an entry by (rule, policy, ref)

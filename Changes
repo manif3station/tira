@@ -1,5 +1,23 @@
 Revision history for Tira
 
+5.13  2026-09-01
+
+    - TKT-806. tasklist_add had zero deduplication - a brand-new item on
+      every call, even when a pending or working item already existed for
+      the same --ref and session. Hit three separate times in one real
+      session (TKT-675, TKT-788, TKT-793): each card already had a
+      pickup item from an earlier session, and a fresh one went
+      unnoticed until a manual cross-check of the shared list.
+
+      Fixed as a soft signal, not a hard refusal, matching tasklist's own
+      sticky-note design (Q-075): the new item carries a
+      possible_duplicate key naming the existing item's id and text, but
+      is created regardless - a caller may genuinely want two distinct
+      tasks on one card. A done item does not count as still owed, an
+      unrelated card's item is never compared, and an item with no --ref
+      at all has nothing to compare against. New test t/473.
+      docs/commands.md updated.
+
 5.12  2026-09-01
 
     - TKT-805. column-editor.js's actionDragMove excluded a row from being

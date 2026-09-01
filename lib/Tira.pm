@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.12';
+our $VERSION = '5.13';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1466,14 +1466,42 @@ sub tasklist_add {
             $max_order = $item->{order} if ( $item->{order} // 0 ) > $max_order;
         }
         my $now = $self->{clock}->();
+        my $refs = $args{refs} // [];
         my $entry = {
             id => _tasklist_next_id( $root, $items ), text => $args{text}, status => 0,
-            session => $session, refs => $args{refs} // [], order => $max_order + 1,
+            session => $session, refs => $refs, order => $max_order + 1,
             attachments => [ map { $self->_tasklist_store_attachment( $root, $_ ) } @{ $args{attach} // [] } ],
             created_at => $now, last_updated => $now,
         };
+
         push @{$items}, $entry;
         $self->_write_json( $self->_tasklist_path($root), $items );
+
+        # A soft signal, not a hard refusal - tasklist's own "sticky-note,
+        # no gates" design (Q-075). Hit three times in one real session
+        # (TKT-675, TKT-788, TKT-793): each card already had a pending or
+        # working item from an earlier pickup, and adding a fresh "pick
+        # this up" item for the same card created a second,
+        # indistinguishable entry, found only by manually cross-checking
+        # the shared list by hand. A caller may still legitimately want
+        # two distinct tasks on one card, so the new item is created
+        # regardless - it just now names what it may be duplicating. A
+        # done item is not "still owed" and does not count; an item with
+        # no refs at all has nothing to compare against. Computed on the
+        # response only, not written to the store - a stored value would
+        # go stale the moment the item it names is later marked done or
+        # removed, and this call has no reason to ever be re-read the way
+        # a written field would be. TKT-806, Codex review.
+        if (@{$refs}) {
+            my %wanted = map { $_ => 1 } @{$refs};
+            my ($existing) = grep {
+                $_->{id} ne $entry->{id}
+                  && ( $_->{session} // '' ) eq $session
+                  && ( $_->{status} // 0 ) != 2
+                  && grep { $wanted{$_} } @{ $_->{refs} // [] }
+            } @{$items};
+            return { %{$entry}, possible_duplicate => { id => $existing->{id}, text => $existing->{text} } } if $existing;
+        }
         return $entry;
     } );
 }

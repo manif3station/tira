@@ -3103,6 +3103,16 @@ has to run a migration by hand.
 - `tira.tasklist.add --text TEXT [--session ID] [--ref REF ...] [--attach FILE ...] [-o FORMAT]`
   - `--attach` is repeatable and content-addressed, the same store record
     attachments already use.
+  - When `--ref` names a card that already has a pending or working item in
+    the same session, the new item's response carries a `possible_duplicate`
+    key (`{id, text}` of that existing item) - a soft signal rather than a
+    refusal, matching tasklist's own sticky-note design (Q-075): the new item
+    is created regardless, since a caller may genuinely want two distinct
+    tasks on one card. A done item does not count as still owed, an
+    unrelated card's item is never compared, and an item with no `--ref` at
+    all has nothing to compare against. Hit three times in one real session
+    before this shipped - each card already had a pickup item from earlier,
+    and a fresh one went unnoticed until a manual cross-check. TKT-806.
 - `tira.tasklist.list [--session ID] [--all-sessions] [--status STATUS] [--unlinked] [--ref REF] [--sort FIELD:DIR[,FIELD:DIR...]] [-o FORMAT]`
   - `--ref REF` (TKT-802) narrows to items whose `refs` array contains REF -
     "what does this one card have on the shared tasklist", without fetching

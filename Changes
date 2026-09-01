@@ -1,5 +1,18 @@
 Revision history for Tira
 
+5.19  2026-09-01
+
+    - TKT-694. TKT-807 (this session) added /tasklist and /tasklist/sessions
+      to DashboardWeb's %POLLED after both had been extending every signed-in
+      session's expiry on a one- and five-second timer since before %POLLED
+      existed. The specific fix was one line per route; nothing caught the
+      case of a THIRD timer-driven route being added later without the same
+      exemption. New test t/479 scans every file under lib/Tira/views/ for a
+      setInterval-driven fetch(...) and fails if its target route is not a
+      key in %POLLED, so the next one cannot silently opt itself out the way
+      these two did. No production code changed - the underlying fix already
+      shipped as TKT-807.
+
 5.18  2026-09-01
 
     - TKT-690. replace_records listed comments and checklist among its

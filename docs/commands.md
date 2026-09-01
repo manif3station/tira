@@ -763,7 +763,9 @@ session without extending it, so a tab left open overnight does not keep
 itself signed in. Before TKT-807, only `/data` was exempted: a dashboard tab
 with the Task List section visible polled far more often than `/data` ever
 did and never let its own session actually expire, defeating the mechanism
-this exemption exists to provide.
+this exemption exists to provide. A test (TKT-694) now scans every view file
+for a timer-driven poll and fails if its route is not exempted, so a future
+one cannot silently repeat the same gap.
 
 ## Policies, and the police that follow them
 

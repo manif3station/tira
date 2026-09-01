@@ -40,10 +40,14 @@ our $COOKIE = 'tira_session';
 # only the front door serves the page, and everything else answers 401 JSON.
 my %PUBLIC = map { $_ => 1 } qw(/login /logout);
 
-# The board polls this on a timer whether anybody is at the keyboard or not.
-# Reading a session through it must not push the expiry out, or a tab left open
-# overnight would keep itself signed in for ever.
-my %POLLED = ( '/data' => 1 );
+# The board polls these on a timer whether anybody is at the keyboard or not.
+# Reading a session through one must not push the expiry out, or a tab left
+# open overnight would keep itself signed in for ever. /tasklist and
+# /tasklist/sessions joined /data here only in TKT-807 - the Task List
+# section's own 1-second and 5-second refresh timers (tasklist-editor.js)
+# polled far more aggressively than /data ever did, and neither was exempt,
+# so a tab with that section visible never actually expired its session.
+my %POLLED = ( '/data' => 1, '/tasklist' => 1, '/tasklist/sessions' => 1 );
 
 sub _cookie_token {
     my $header = request->header('Cookie') // '';

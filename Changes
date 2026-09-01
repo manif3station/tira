@@ -1,5 +1,23 @@
 Revision history for Tira
 
+5.14  2026-09-01
+
+    - TKT-807. lib/Tira/DashboardWeb.pm's %POLLED set exempted only
+      '/data' from extending session expiry. lib/Tira/views/tasklist-
+      editor.js polls GET /tasklist every 1 second and GET
+      /tasklist/sessions every 5 seconds, forever, whenever the Task
+      List section is rendered - neither route was exempted, so every
+      poll extended the session's expiry. A dashboard tab left open
+      with the Task List section visible never expired its session,
+      defeating the mechanism %POLLED exists to provide. Found live
+      during TKT-797's own verify pass while auditing a new /tasklist
+      poll being added there.
+
+      Fixed by adding both routes to %POLLED. hero-counts.js's own
+      60-second /tasklist poll (TKT-797) is covered by the same fix,
+      since the exemption is per-route. New test t/474.
+      docs/commands.md updated.
+
 5.13  2026-09-01
 
     - TKT-806. tasklist_add had zero deduplication - a brand-new item on

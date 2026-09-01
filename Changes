@@ -1,5 +1,23 @@
 Revision history for Tira
 
+5.12  2026-09-01
+
+    - TKT-805. column-editor.js's actionDragMove excluded a row from being
+      a valid reorder drop target by checking for the EXIT list's own
+      add-button class specifically (.column-row__action-add). The entry
+      list's blank/add row uses .column-row__entry-action-add instead,
+      and since TKT-793 the administrative list's uses
+      .column-row__administrative-action-add - neither matched the
+      hardcoded check, so dragging a real item in the entry or
+      administrative list could drop it AFTER the blank add row, which
+      must always stay last. Found by Codex review during TKT-793's own
+      verify pass.
+
+      Fixed by checking all three add-row class variants in one
+      selector. New Playwright assertion in t/playwright/column-editor.js
+      exercises the entry list specifically; the same code path covers
+      the administrative list.
+
 5.11  2026-09-01
 
     - TKT-804. required-action.list's --status silently did nothing: it

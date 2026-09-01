@@ -233,6 +233,47 @@ process.on('unhandledRejection', error => {
   const afterDrag = await actionRows();
   if (afterDrag.join('|') !== 'Add a Changes entry|Update the docs|') fail('dragging a required-action row by its grip did not reorder it, got ' + afterDrag.join('|'));
 
+  // TKT-805: the exit list's own blank add row (.column-row__action-add) was
+  // the only variant actionDragMove's exclusion check recognized - the entry
+  // list's blank row uses .column-row__entry-action-add instead, so dragging
+  // a real entry item down past it could drop it AFTER the blank row, which
+  // must always stay last. Found by Codex review during TKT-793's own verify
+  // pass. Drag the entry list's first real item down past its own add row
+  // and confirm the add row (identified by its own class, not by position)
+  // is still the last child of the list afterward.
+  const entryList = page.locator('.column-row[data-name="review"] .column-row__entry-actions-list');
+  const entryOrderBefore = await entryList.locator('.column-row__entry-action-input').evaluateAll(nodes => nodes.map(n => n.value));
+  const entryFirstGrip = entryList.locator('.column-row__action-grip').first();
+  const entryAddRow = entryList.locator('.column-row__entry-action-row', { has: page.locator('.column-row__entry-action-add') });
+  await entryFirstGrip.scrollIntoViewIfNeeded();
+  const entryGripBox = await entryFirstGrip.boundingBox();
+  const entryAddBox = await entryAddRow.boundingBox();
+  if (!entryGripBox || !entryAddBox) fail('the entry list rows are not rendered, so the drag has nothing to move');
+  await page.mouse.move(entryGripBox.x + entryGripBox.width / 2, entryGripBox.y + entryGripBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(entryAddBox.x + entryAddBox.width / 2, entryAddBox.y + entryAddBox.height + 4, { steps: 8 });
+  await page.mouse.up();
+  const entryRowsAfter = await entryList.locator('.column-row__action-row').evaluateAll(
+    nodes => nodes.map(n => n.querySelector('.column-row__entry-action-add') ? 'ADD' : 'item'));
+  if (entryRowsAfter[entryRowsAfter.length - 1] !== 'ADD')
+    fail('dragging an entry-list item past its own blank add row landed the item after it - the fix, got ' + entryRowsAfter.join(','));
+
+  // Restores the entry list's order for the save-payload assertion further
+  // down, which expects the pre-drag order - this test's own reorder is not
+  // itself a claim about what the saved order should be, only that it stops
+  // before the add row. Restored to the EXACT order captured before the
+  // drag (entryOrderBefore), not re-derived by sorting - a sort would only
+  // coincidentally match if the fixture happened to be alphabetical, and
+  // silently stop matching the moment it was not. Codex review.
+  await entryList.evaluate((list, order) => {
+    const addRow = list.querySelector('.column-row__entry-action-row:has(.column-row__entry-action-add)');
+    const items = Array.from(list.querySelectorAll('.column-row__entry-action-row:not(:has(.column-row__entry-action-add))'));
+    order.forEach(value => {
+      const row = items.find(r => r.querySelector('input').value === value);
+      if (row) list.insertBefore(row, addRow);
+    });
+  }, entryOrderBefore);
+
   // TKT-481: emptying a column's existing required-action list or chain
   // entirely - not trimming it, removing the last row/check - must still
   // be sent as an explicit empty list. The owner reported the removed item

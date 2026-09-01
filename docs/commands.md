@@ -2712,6 +2712,18 @@ historical: a legacy string in a description is an instruction to fix; the
 same string in a comment is a record to preserve. Omitting `--field` from
 replace selects every mutable field.
 
+**`comments` and `checklist` only replace their one genuine prose leaf**
+(TKT-690) - a comment's `body`, and a checklist item's `item` text. Both are
+structured, not prose: their other leaves are identity (`id`), `status`,
+timestamps, and - for a checklist item - the `proof` array recording what a
+command actually produced. A pattern aimed at ordinary text used to rewrite
+any of these too: `'done' -> 'FINISHED'` on `--field checklist` silently
+turned a completed item into one every gate reads as unfinished, and
+`'0' -> '9'` corrupted an id and produced a date no validator would ever
+accept. A pattern that would have matched one of these protected leaves is
+now named in the response's `protected_hits` (`{ref, field, leaf}` per hit)
+rather than silently left alone or silently changed.
+
 `tira.import --file changes.json` accepts a JSON object keyed by record ref.
 Values are exact replacement fields. It validates every record and field before
 writing the complete set transactionally; `--dry-run` returns the same diff

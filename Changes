@@ -1,5 +1,24 @@
 Revision history for Tira
 
+5.18  2026-09-01
+
+    - TKT-690. replace_records listed comments and checklist among its
+      mutable fields, and _replace_value recursed into every array and
+      hash it met, rewriting every scalar leaf - not only the prose those
+      two structures hold, but also identity (id), status, timestamps and
+      a checklist item's recorded proof. Measured: 'done' -> 'FINISHED'
+      on --field checklist silently turned a completed item into one
+      every gate reads as unfinished; '0' -> '9' turned CHK-001 into
+      CHK-991 and a valid date into an impossible one (month 98).
+
+      comments and checklist are now restricted to their one genuine
+      prose leaf - the comment body, and a checklist item's text -
+      declared in a named allow-list rather than inferred from shape.
+      Every other leaf (id, author, status, timestamps, recorded proof)
+      is left alone, and a pattern that would have matched one of them is
+      reported in the response's new `protected_hits` rather than
+      silently skipped. New test t/478.
+
 5.17  2026-09-01
 
     - TKT-687. A required-action or checklist proof over 2000 characters

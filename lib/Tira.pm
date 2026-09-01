@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.17';
+our $VERSION = '5.18';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6006,19 +6006,42 @@ sub _field_hits {
     return @hits;
 }
 
+# comments and checklist are structured, not prose: their leaves include
+# identity (id), status, timestamps and - for a checklist item - the proof
+# array recording what actually happened. A find-and-replace has no
+# business rewriting any of those, so each is given a named allow-list of
+# the one leaf that genuinely is prose. Every other mutable field is a
+# string or an array of strings, so leaving it out of this map means
+# "recurse everywhere," which is the behaviour those fields have always
+# had and still need. TKT-690.
+my %STRUCTURED_LEAF = ( comments => 'body', checklist => 'item' );
+
 sub _replace_value {
-    my ( $self, $value, $regex, $replacement ) = @_;
+    my ( $self, $value, $regex, $replacement, $allowed_leaf, $protected, $path ) = @_;
+    $path //= '';
     my $changed = 0;
     if ( !ref($value) && defined $value ) {
+        if ( defined $allowed_leaf && $path ne $allowed_leaf ) {
+            # A pattern that would have rewritten a protected leaf is named
+            # rather than silently left alone - a caller who trusted --dry-run
+            # deserves to be told what it could not have shown them, since a
+            # rewritten id and a rewritten sentence look alike in that diff.
+            push @{$protected}, $path if $value =~ /$regex/;
+            return 0;
+        }
         my $copy = $value;
         $changed = ( $copy =~ s/$regex/$replacement/g );
         $_[1] = $copy if $changed;
     }
     elsif ( ref($value) eq 'ARRAY' ) {
-        $changed += $self->_replace_value( $value->[$_], $regex, $replacement ) for 0 .. $#{$value};
+        $changed += $self->_replace_value( $value->[$_], $regex, $replacement, $allowed_leaf, $protected, $path )
+          for 0 .. $#{$value};
     }
     elsif ( ref($value) eq 'HASH' ) {
-        $changed += $self->_replace_value( $value->{$_}, $regex, $replacement ) for keys %{$value};
+        $changed += $self->_replace_value(
+            $value->{$_}, $regex, $replacement, $allowed_leaf, $protected,
+            $path eq '' ? $_ : "$path.$_",
+        ) for keys %{$value};
     }
     return $changed;
 }
@@ -6100,7 +6123,7 @@ sub replace_records {
     }
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
-        my ( @updates, @diffs );
+        my ( @updates, @diffs, @protected_hits );
         for my $summary ( @{ $self->record_list( project => $root, defined $args{type} ? ( type => $args{type} ) : () ) } ) {
             my ( $path, $record ) = $self->_record_data( project => $root, ref => $summary->{ref} );
             my @fields = @selected ? @selected : sort keys %mutable;
@@ -6108,7 +6131,12 @@ sub replace_records {
                 next if !exists $record->{$field};
                 my $cloner = json_object()->canonical->allow_nonref;
                 my $before = $cloner->decode( $cloner->encode( $record->{$field} ) );
-                next if !$self->_replace_value( $record->{$field}, $regex, $args{with} );
+                my @protected;
+                my $changed = $self->_replace_value(
+                    $record->{$field}, $regex, $args{with}, $STRUCTURED_LEAF{$field}, \@protected,
+                );
+                push @protected_hits, { ref => $record->{ref}, field => $field, leaf => $_ } for @protected;
+                next if !$changed;
                 push @diffs, { ref => $record->{ref}, field => $field, before => $before, after => $record->{$field} };
             }
             if ( grep { $_->{ref} eq $record->{ref} } @diffs ) {
@@ -6119,7 +6147,7 @@ sub replace_records {
         $self->_write_json_transaction( \@updates ) if @updates && !$args{dry_run};
         my %changed = map { $_->{ref} => 1 } @diffs;
         return { dry_run => $args{dry_run} ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false,
-          changed_records => scalar keys %changed, changes => \@diffs };
+          changed_records => scalar keys %changed, changes => \@diffs, protected_hits => \@protected_hits };
     } );
 }
 
@@ -14698,7 +14726,7 @@ cross-session answer that cannot say whose item matched is not an answer.
 
 =head2 replace_records
 
-Bulk find-and-replace across one or more text fields, scoped by a regular expression pattern.
+Bulk find-and-replace across one or more text fields, scoped by a regular expression pattern. C<comments> and C<checklist> only replace their one genuine prose leaf (a comment's body, a checklist item's text); a pattern matching any other leaf (id, status, timestamps, recorded proof) is reported in C<protected_hits> rather than rewritten.
 
 =head2 login_register
 

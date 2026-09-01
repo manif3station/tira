@@ -1,5 +1,34 @@
 Revision history for Tira
 
+5.03  2026-09-01
+
+    - TKT-788 (third attempt). .hero and .column__head are both
+      position:sticky;top:0 - once scrolled past the hero's height, both
+      stick to the same point on the viewport, and .hero's higher
+      z-index painted over .column__head, hiding the column header
+      during scroll.
+
+      Two earlier attempts shifted .column__head's own top offset to
+      var(--hero-h) instead, and both broke real pointer interactions in
+      the Playwright interaction suite (dashboard-table.js/
+      dashboard-browser.js), confirmed via a controlled A/B test and
+      reverted twice. Hypothesis for why: .board__scroll{overflow-x:auto}
+      likely forces its computed overflow-y away from 'visible' too (a
+      well-known CSS Overflow spec quirk), making .board__scroll rather
+      than the viewport the sticky positioning containing block for
+      .column__head - so a nonzero top resolves against the wrong box.
+
+      This attempt avoids that landmine entirely: both rules keep top:0
+      exactly as shipped, unchanged. Only .column__head's z-index moves
+      from 2 to 6, above .hero's 5, so it paints on top instead of
+      hiding underneath - zero geometry change, so it cannot reproduce
+      the interaction regression. New test t/464 asserts both rules stay
+      sticky/top:0 and that .column__head's z-index is strictly above
+      .hero's. Confirmed via tools/browser-tests: dashboard-table.js
+      (the test that broke twice before) passes clean; the only
+      remaining failure is the separate, already-tracked TKT-675-class
+      dashboard-browser.js drag flake, unrelated to this change.
+
 5.02  2026-09-01
 
     - TKT-675. t/playwright/required-actions.js's "marking one done updates

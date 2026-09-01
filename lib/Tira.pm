@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.14';
+our $VERSION = '5.15';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6190,6 +6190,30 @@ sub _card_to_review {
 # collector asks it to decide whether to chase. One rule, so they cannot drift
 # into disagreeing about whose move it is.
 sub _card_waiting { return _card_blocked(@_) }
+
+# TKT-797 gave the browser dashboard's sticky header a live count of how
+# many cards have an unanswered question and how many tasklist items are
+# outstanding, project-wide - a human glancing at the board could see it,
+# an agent working purely through the CLI could not, short of iterating
+# every card by hand or opening a browser. Answers the same question
+# directly. `questions` reuses the identical _policy_questions/_card_blocked
+# logic the dashboard and work_order already use, so the two cannot
+# disagree. `tasks` counts pending and working items only - deliberately
+# NOT what hero-counts.js's own browser count currently does (every item
+# regardless of status, a separate tracked bug, TKT-817) - "outstanding"
+# means still owed, and a done item is not. TKT-808.
+sub outstanding_summary {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $questions = 0;
+    for my $type (qw(sow epic ticket)) {
+        my $records = eval { $self->record_list( project => $root, type => $type ) } || [];
+        $questions += grep { grep { !$_->{answer} } _policy_questions($_) } @{$records};
+    }
+    my $tasks = grep { my $status = $_->{status} // 0; $status == 0 || $status == 1 }
+      @{ $self->tasklist_list( project => $root, all_sessions => 1 ) };
+    return { questions => $questions, tasks => $tasks };
+}
 
 sub dashboard {
     my ( $self, %args ) = @_;
@@ -15015,6 +15039,12 @@ Removes a subitem link.
 
 Builds or refreshes the SQLite full-text index C<search> reads. Requires
 DBD::SQLite and says so plainly when it is missing.
+
+=head2 outstanding_summary
+
+The project-wide count of cards with a genuinely unanswered question and of
+tasklist items still pending or working - the same aggregate the browser
+dashboard's sticky header shows, for a caller working through the CLI alone.
 
 =head2 dashboard
 

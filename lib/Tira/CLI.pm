@@ -812,7 +812,6 @@ sub _tira_home {
     return $home;
 }
 
-
 sub _dd_path_resolver {
     return sub {
         my ($name) = @_;
@@ -2440,6 +2439,7 @@ sub _invoke {
         'required-action.update' => 'required_item_update',
         'search' => 'search', 'search.index' => 'search_index', 'dashboard' => 'dashboard',
         'dashboard.sow' => 'dashboard', 'dashboard.epic' => 'dashboard', 'dashboard.ticket' => 'dashboard',
+        'outstanding' => 'outstanding_summary',
     );
     my $method = $method{$command} or die "Unsupported Tira command '$command'\n";
 

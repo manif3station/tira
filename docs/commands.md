@@ -2520,6 +2520,19 @@ disagree about the same board. Without it a caller read every card - 1.95 MB of
 JSON for 292 cards on this project's own board, to find the eleven that were
 waiting - and sorted by priority and age by hand.
 
+`tira.outstanding [-o FORMAT]` (TKT-808) answers `{questions, tasks}` -
+the same project-wide totals TKT-797 already put in the browser dashboard's
+sticky header: how many cards carry a genuinely unanswered question
+(`questions`, the identical `_policy_questions`/`_card_blocked` logic the
+dashboard and `tira.next`'s own ordering both use), and how many tasklist
+items are still owed (`tasks`, counting `pending` and `working` only). An
+agent working purely through the CLI had no way to answer either half of
+this without iterating every card by hand or opening a browser - a real,
+newly-widened gap the moment TKT-797 gave the browser its own answer.
+Deliberately does NOT match `hero-counts.js`'s own current task count,
+which counts every tasklist item regardless of status (a separate, tracked
+defect, TKT-817) - "outstanding" means still owed, and a `done` item is not.
+
 `done` is where work ends unless the board says otherwise. Marking another
 column terminal is a statement about that column, not a withdrawal of the
 default: until 2.46 it switched the assumption off everywhere at once, so every

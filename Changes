@@ -1,5 +1,23 @@
 Revision history for Tira
 
+5.15  2026-09-01
+
+    - TKT-808. TKT-797 gave the browser dashboard's sticky header a live
+      project-wide count: how many cards have an unanswered question,
+      how many tasklist items are outstanding. The CLI had no
+      equivalent - tira.question.list requires --ref (one card at a
+      time), tira.search --text needs a text term, not a status filter.
+      An agent working purely through the CLI had strictly less
+      visibility into this than a human looking at the browser.
+
+      New command tira.outstanding answers {questions, tasks} directly,
+      reusing the identical question-unanswered logic the dashboard and
+      tira.next's own ordering already use. Deliberately does NOT match
+      hero-counts.js's own current task count, which counts every item
+      regardless of status (a separate, tracked defect, TKT-817) -
+      "outstanding" means still owed. New test t/475. SKILLS.md
+      (UC-143) and docs/commands.md updated.
+
 5.14  2026-09-01
 
     - TKT-807. lib/Tira/DashboardWeb.pm's %POLLED set exempted only

@@ -1418,7 +1418,7 @@ usable at phone width.
 The visible last-updated time advances only after fresh data is applied. Stop
 the foreground server with Ctrl-C.
 
-## 142 use cases
+## 143 use cases
 
 Every case below is implemented and executable.
 
@@ -2468,6 +2468,9 @@ told the two apart. TKT-412.
 
 ### UC-103: Catch up on what changed without re-reading everything
 **Implemented.** Set a question aside with `dashboard tira.question.discard --id Q-007` when it stops mattering — nothing is deleted, it keeps its answer and shows struck through. `dashboard tira.question.list --ref TKT-001 --status new -o json` shows only what is still unanswered; `--status answered` only what has been answered, and `--status discarded` what was set aside. `--since 2026-08-09T09:00:00Z` reads the answer's stamp when there is an answer and the question's when there is not, so a newly answered question shows up as newly changed. A question reference is project-wide, so `--id Q-007` reaches it from anywhere without naming the card.
+
+### UC-143: See how much is outstanding from the CLI alone
+**Implemented.** `dashboard tira.outstanding` answers `{questions, tasks}` - the same project-wide totals TKT-797 already put in the browser dashboard's sticky header, for a caller working through the CLI alone: how many cards carry a genuinely unanswered question, and how many tasklist items are still owed (`pending`/`working`, not `done`). Before this, an agent working purely through the CLI - the common case for this whole project - had strictly less visibility into this than a human glancing at the browser, a gap widened the moment TKT-797 gave the browser its own answer. Deliberately does not match `hero-counts.js`'s own current task count, which counts every item regardless of status (a separate, tracked defect, TKT-817). TKT-808.
 
 ### UC-142: See how much is outstanding without scrolling to find it
 **Implemented.** The dashboard's sticky page header shrinks once you actually scroll (title/padding compact on a class toggle, restoring at the top) and shows two live counts alongside it: how many cards have a question awaiting an answer (read from the same marker the Questions-to-answer toggle already uses) and how many tasklist items are outstanding - both stay visible no matter how far down the board you have scrolled. Deliberately does not touch the column headers' own sticky positioning: TKT-788 already spent two attempts learning that shifting a sticky element's own geometry can intercept real clicks, so this only changes `.hero`'s own size. TKT-797.

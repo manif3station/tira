@@ -83,8 +83,8 @@ my %known_bare = map { $_ => 1 } qw(
   agent.sessions backup backup.export backup.import backup.restore
   card.holes card.required check.owner column.roles conversation.add
   conversation.list doctor dwell.report gates.install next notify.moves
-  onboard police police.log police.outstanding police.suspend policies
-  policy.bridge policy.bridge.logs policy.decline policy.declined
+  onboard outstanding police police.log police.outstanding police.suspend
+  policies policy.bridge policy.bridge.logs policy.decline policy.declined
   policy.review policy.undeclared project.gates project.limit
   project.link-types.add project.link-types.list project.link-types.remove
   project.mode project.new project.people.add project.people.list

@@ -1,0 +1,18 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use File::Spec;
+use FindBin;
+unshift @INC, File::Spec->catdir( $FindBin::Bin, '..', 'lib' );
+require Tira::CLI;
+exit Tira::CLI->run( command => 'outstanding', argv => \@ARGV );
+__END__
+=head1 NAME
+Tira outstanding - How many cards have an unanswered question, and how many
+tasklist items are outstanding, project-wide
+=head1 DESCRIPTION
+The same aggregate the browser dashboard's own sticky header shows (TKT-797),
+for a caller working through the CLI alone. C<questions> counts cards with at
+least one genuinely unanswered question; C<tasks> counts tasklist items in
+status pending or working. Never writes.
+=cut

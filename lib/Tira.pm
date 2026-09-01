@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.16';
+our $VERSION = '5.17';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4361,6 +4361,18 @@ sub attachment_add_content {
         die "Attachment upload requires filename and content\n"
           if !defined $args{filename} || $args{filename} eq '' || !defined $content;
         die "Attachment upload is too large (16 MB maximum)\n" if length($content) > 16 * 1024 * 1024;
+
+        # A long proof quoting the dashboard's own emoji, an em dash, or an
+        # accented name arrives as a character string, and Digest::SHA dies
+        # on one containing code points above 255 - "Wide character in
+        # subroutine entry" naming a hashing routine the caller has never
+        # heard of. Encoded to bytes first, the same pattern DashboardWeb's
+        # and OnboardWeb's own _response_bytes already use, hashing and
+        # writing see exactly what was sent - and a byte string (the common
+        # case: a file already read with :raw, or pure ASCII) passes through
+        # unchanged, so an existing attachment keeps the hash it always had.
+        # TKT-687.
+        $content = encode_utf8($content) if utf8::is_utf8($content);
         my $sha = sha256_hex($content);
         $sha =~ /\A([0-9a-f]{64})\z/ or die "Cannot validate attachment SHA\n";
         $sha = $1;
@@ -14519,7 +14531,7 @@ Attaches a file, given by path, to a record or comment.
 
 =head2 attachment_add_content
 
-Content-based twin of C<attachment_add> for browser uploads: same sha dedup, no temporary file, with a 16 MB cap.
+Content-based twin of C<attachment_add> for browser uploads: same sha dedup, no temporary file, with a 16 MB cap. Character content is encoded to UTF-8 bytes before hashing and writing, so content containing non-ASCII characters stores instead of dying inside C<sha256_hex>.
 
 =head2 attachment_detach
 

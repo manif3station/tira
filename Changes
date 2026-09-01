@@ -1,5 +1,25 @@
 Revision history for Tira
 
+5.17  2026-09-01
+
+    - TKT-687. A required-action or checklist proof over 2000 characters
+      routes to attachment_add_content, which hashed it with sha256_hex
+      before encoding it to bytes - Digest::SHA dies with "Wide character
+      in subroutine entry" on a character string containing code points
+      above 255, so a long proof quoting an emoji, an em dash, or an
+      accented name (all ordinary in captured terminal output, and this
+      board's own dashboard renders required-action state as emoji) was
+      refused with a message naming an internal hashing routine rather
+      than anything about the proof. A short proof never reached the
+      hash and a long ASCII proof hashed fine - only the combination
+      failed.
+
+      attachment_add_content now encodes character content to UTF-8
+      bytes before hashing and writing, the same _response_bytes pattern
+      DashboardWeb and OnboardWeb already use. A pure-ASCII attachment
+      keeps the exact hash it always had, since encoding a byte string
+      is a no-op - nothing needs migrating. New test t/477.
+
 5.16  2026-09-01
 
     - TKT-686. login_verify checked a stored password record's algorithm,

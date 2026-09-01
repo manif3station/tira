@@ -1,5 +1,36 @@
 Revision history for Tira
 
+5.24  2026-09-01
+
+    - TKT-832 (TKT-746's second lift). The tasklist commands - tasklist_add,
+      tasklist_list, tasklist_next, shift, pop, unshift, slice, remove,
+      import, update, prune, sessions, the four tasklist.task.* sub-verbs,
+      and their private _tasklist_* helpers - move out of lib/Tira.pm into
+      lib/Tira/Tasklist.pm, the second of the four concerns TKT-746 names.
+
+      Every entry point keeps its old name. Tira::tasklist_add and the rest
+      still answer as Tira methods; each is now a one-line forwarder that
+      requires Tira::Tasklist at the call site, so a command that never
+      touches the tasklist never compiles it. Tira::CLI::Browser's sixteen
+      tasklist providers and every existing test call them exactly as
+      before and were not touched - a lift is a move, not a rename.
+
+      _tasklist_read and _tasklist_session keep forwarders too, because
+      they have callers outside the tasklist concern: search reads the list
+      to answer --tasklist, and police_pass walks it for task-unlinked and
+      task-card-mismatch. _tasklist_session is the one of the two called as
+      a plain function rather than a method, and its forwarder is written
+      that way to match.
+
+      t/484 proves both halves of "lazy", the same pair t/483 asserts for
+      Tira::Toon: the module compiles and works standalone, without Tira.pm
+      loaded first, and a command that never touches the tasklist leaves
+      Tira::Tasklist out of %INC.
+
+      lib/Tira.pm was 15,019 lines before this lift and is 14,419 after
+      (measured, not estimated); lib/Tira/Tasklist.pm is 692. Across both
+      lifts so far the engine is down from 15,264 to 14,419.
+
 5.23  2026-09-01
 
     - TKT-746 (first lift). lib/Tira.pm was 15,264 lines and growing, so

@@ -319,7 +319,14 @@ none of it. Since 4.74 the CLI is split the same way for the same
 reason: `lib/Tira/CLI.pm` was 6,048 lines with every command body in it, and is
 2,939 now, with the bodies in `lib/Tira/CLI/` - `Browser`, `Police`, `Serve`,
 `Records`, `Board`, `Wizard`, `Usage`, `Backup`. Each is loaded only when one of
-its commands runs, so an ordinary card command compiles none of them. They are inlined at render rather than linked, so the board still
+its commands runs, so an ordinary card command compiles none of them.
+Since 5.23 the engine is being split the same way and for the same reason:
+`lib/Tira.pm` was 15,264 lines, and the concerns that can stand alone are
+moving out one per release - `lib/Tira/Toon.pm` (the TOON encoder/decoder
+overrides, 5.23) and `lib/Tira/Tasklist.pm` (the shared to-do queue, 5.24),
+each loaded with `require` at the point it is actually needed. `lib/Tira.pm`
+is 14,419 lines so far. Entry points keep their names throughout - the split
+is where the code lives, not what anything is called. They are inlined at render rather than linked, so the board still
 loads nothing from another host — every request the live page makes is to
 itself (it polls its own card data, fetches a record when you open a card, and
 posts a move when you drag one), and a table-mode board saved to a file makes

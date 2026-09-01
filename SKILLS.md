@@ -1361,7 +1361,21 @@ documentation and version commits exist - 93 records and not one matching. The
 owner's rule is about where readiness is decided rather than about speed:
 *"anything landed on push column is ready to pushed"*. A card reaches that column
 because verify proved it and recorded the evidence on the card, so re-deriving
-it at push time was the hook contradicting the board. Seven checks stay and
+it at push time was the hook contradicting the board.
+**And the owner is the only one who puts a card there.** That rule says what the
+column means; it does not say who fills it, and an agent read the gap as
+permission and moved a four-card batch through it itself (TKT-698, TKT-701,
+TKT-713, TKT-830, all at 21:40 on 2026-09-01). His ruling, the same day:
+*"Card reach to pending push then wait for my review. That is why call 'PENDING'
+right? And I (Michael) will be the only one authorized to move any card from
+pending push to push. Then you can continue from the push column."* So
+`pending-push` is his review gate, named for the thing that is pending, and it
+mirrors `next-to-work-on`: that column is a one-way channel from him to the
+agent, this one is the channel back - the agent fills it, only he empties it.
+The agent walks every gate up to and including the move *into* `pending-push`,
+then stops and takes the next card; cards accumulating there is the normal state
+and not a backlog to drain. Once he moves one to `push`, the agent finishes it -
+push, install, done - without pausing whatever else is in flight. Seven checks stay and
 their ORDER stays with them - the version against what is shipping, the board
 backup, live-card completeness and `tools/card-holes` before; `tools/docs-match-code`,
 `tools/docs-examples-run` and `tools/browser-tests` after, last on purpose,
@@ -1689,11 +1703,32 @@ record shape, the project lock, the clock and `_atomic_write`, so the lift has
 to go one genuinely self-contained concern at a time rather than in one pass.
 The first is `lib/Tira/Toon.pm` - the `Data::TOON` encoder/decoder overrides,
 227 lines, required from `format_output`'s `toon` branch only, so a command
-asking for `json` or `human` output never compiles it. `lib/Tira.pm` is 15,019
-lines after this lift (measured, not estimated). The remaining candidates
-named on TKT-746 - the police engine, the HTML dashboard builder, the tasklist
-- are unmoved; each is its own future lift, not assumed to be as
-self-contained as this one turned out to be.
+asking for `json` or `human` output never compiles it (TKT-830, 5.23).
+
+The second is `lib/Tira/Tasklist.pm` - the shared to-do queue, 692 lines,
+required by each of its own entry points rather than from one call site,
+because unlike the TOON block it is not one branch of one sub but eighteen
+public commands (TKT-832, 5.24). Those entry points keep their old names:
+`Tira::tasklist_add` and the rest still answer as `Tira` methods and are now
+one-line forwarders, so `Tira::CLI::Browser`'s sixteen tasklist providers and
+every existing test were not touched. Two private helpers keep forwarders for
+the same reason - `_tasklist_read`, because `search` and `police_pass` read
+the list from outside the concern, and `_tasklist_session`, which `search`
+calls as a plain function rather than a method.
+
+`lib/Tira.pm` is 14,419 lines after both lifts, down from 15,264 (measured,
+not estimated). The remaining candidates named on TKT-746 - the police engine
+and the HTML dashboard builder - are unmoved; each is its own future lift,
+not assumed to be as self-contained as these two turned out to be.
+
+**The two lifts needed different shapes, and the reason is worth keeping.**
+`Tira::Toon` had no callers outside the one branch that used it, so it moved
+whole and left a single `require` behind. `Tira::Tasklist` is called from
+three places that are not the tasklist (the browser providers, `search`,
+`police_pass`) and by name from the test suite, so what stayed behind is a
+forwarder per entry point rather than one require. The rule the second lift
+established: what a concern owns can move, but every name anything outside it
+already says has to keep answering where it was.
 
 Entry points kept their names. `Tira::CLI::browser_providers` still exists and
 still answers; twenty test files and the dashboard call it by that name, and a

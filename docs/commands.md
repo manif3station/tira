@@ -3144,6 +3144,18 @@ Status is a stored integer enum (0 = pending, 1 = working, 2 = done).
 `tasklist.update --status` accepts either the word or the number; every
 other command returns the number.
 
+Since 5.24 the implementation of every command in this section lives in
+`lib/Tira/Tasklist.pm` rather than `lib/Tira.pm`, loaded with `require` by
+each entry point at the moment it is called - so a command that never
+touches the task list never compiles any of it (TKT-832, the second lift
+under TKT-746). Nothing about the grammar, arguments, return values or
+session scoping described here changed: `Tira::tasklist_add` and its
+siblings still answer on the `Tira` class, as one-line forwarders. Two
+private helpers stayed reachable from `Tira` for the same reason, because
+callers outside the task list use them - `search` reads the list to answer
+`--tasklist`, and the police pass walks it for `task-unlinked` and
+`task-card-mismatch`.
+
 That status is checked against the board. `task-card-mismatch` (TKT-639)
 reports an item whose status contradicts the column its linked card sits in -
 saying working about a card nobody is working, saying pending about a card

@@ -1,5 +1,21 @@
 Revision history for Tira
 
+5.09  2026-09-01
+
+    - TKT-800. policy_review is documented as printing "the whole set in
+      one place" - every rule declared, declined, or unanswered. Per-card
+      declines (policy.decline --ref CARD, TKT-303) were a real fourth
+      category the review never read: they live in a separate store
+      (card_declines) from the board-wide declined_policies its declined
+      array was built from. Measured on a real board: 2 board-wide + 2
+      per-card declines existed, and policy.review's declined[] held only
+      the 2 board-wide ones, with the per-card ref appearing nowhere.
+
+      Fixed by adding a new declined_per_card key, read directly from
+      card_declines - additive, so anything already reading declined[] as
+      board-wide-only is unaffected. New test t/470. docs/commands.md and
+      SKILLS.md updated.
+
 5.08  2026-09-01
 
     - TKT-814 (partial - descender clipping only, scroll-to-top spacing

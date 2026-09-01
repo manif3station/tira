@@ -2256,7 +2256,8 @@ declared or declined the prompt says nothing at all.
 The whole policy set in one place: every rule in the catalogue, exactly once,
 either declared with the columns it covers, declined with the reason, or
 unanswered - plus `duplicates`, policies already in the store that collide on
-rule and scope. No arguments beyond `-o FORMAT`.
+rule and scope, and `declined_per_card`, the same reason recorded against one
+specific card rather than the whole board. No arguments beyond `-o FORMAT`.
 
     d2 tira.policy.review
 
@@ -2281,6 +2282,18 @@ of `policy.list` by hand means grouping the JSON yourself. Each group names its
 rule and the ids that collide on it; a different scope on the same rule - a
 different column, a different `--ref` - is never grouped, matching what
 `policy.add` itself would still allow.
+
+`declined_per_card` names every `policy.decline --ref CARD` recorded on this
+board, each entry carrying `rule`, `ref`, and `reason`. TKT-303 added that
+`--ref` scoping to `policy.decline` and `policy.declined` so a rule could be
+answered for one card without declining it board-wide, but `policy.review`
+kept reading only the board-wide store - "the whole set in one place" it is
+documented to print was missing an entire category of decisions, and the only
+way to enumerate them was one `policy.declined --ref CARD` call per card
+already suspected. `declined_per_card` is a new key rather than a change to
+`declined`'s own shape, so a reader already treating `declined` as board-wide
+sees no difference; it is present and empty on a board with no per-card
+declines, never absent. TKT-800.
 
 ### `tira.project.mode`
 

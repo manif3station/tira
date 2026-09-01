@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.08';
+our $VERSION = '5.09';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -10075,12 +10075,28 @@ sub _police_environment_violations {
 #
 # Every rule in the catalogue appears exactly once, in one of three states, with
 # the columns a declared rule covers, so a gap can be seen rather than worked
-# out.
+# out. declined_per_card is a fourth thing, alongside rather than inside those
+# three: a rule answered for one card (TKT-303) rather than the whole board,
+# read straight from card_declines - previously invisible here entirely. TKT-800.
 sub policy_review {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
 
     my $declined = $self->policy_declined( project => $root );
+
+    # A per-card decline (TKT-303's --ref scoping on policy_decline) lives in
+    # its own store, card_declines, entirely separate from the board-wide
+    # declined_policies the loop above reads. policy_review never read it, so
+    # "the whole set in one place" it is documented to print silently
+    # excluded an entire category of decisions - a board using per-card
+    # declines could not get a true total-declines answer from any single
+    # command. A new key rather than folding these into declined[] above, so
+    # anything already reading declined[] as board-wide-only keeps working.
+    # TKT-800.
+    my ( undef, $data ) = $self->_project_data($root);
+    my @declined_per_card = map {
+        { rule => $_->{rule}, ref => $_->{ref}, reason => $_->{reason} }
+    } @{ $data->{card_declines} // [] };
 
     my %columns;
     my %declared;
@@ -10096,9 +10112,10 @@ sub policy_review {
     } sort keys %declared;
 
     return {
-        declared   => \@declared,
-        declined   => [ map { { rule => $_->{rule}, reason => $_->{reason} } } @{$declined} ],
-        unanswered => $self->policy_undeclared( project => $root ),
+        declared          => \@declared,
+        declined          => [ map { { rule => $_->{rule}, reason => $_->{reason} } } @{$declined} ],
+        declined_per_card => \@declined_per_card,
+        unanswered        => $self->policy_undeclared( project => $root ),
 
         # Declared, declined and unanswered are three states a RULE can be
         # in; a duplicate is a fourth thing entirely - two policies already

@@ -1,5 +1,27 @@
 Revision history for Tira
 
+5.16  2026-09-01
+
+    - TKT-686. login_verify checked a stored password record's algorithm,
+      salt and hash, but passed the fourth field - iterations - straight
+      into _password_derive, whose `for ( 2 .. $iterations )` loop
+      silently does nothing when $iterations is undef, 0 or 1. Measured:
+      all three produced the identical single-round digest in place of
+      the real 210,000-round cost, and undef also printed an
+      uninitialized-value warning. A record still claiming
+      pbkdf2-hmac-sha256 could be verified as a bare HMAC, and an
+      absurdly large stored value made sign-in hang.
+
+      login_verify now refuses a stored record whose iterations is not a
+      positive integer at or above the new $PASSWORD_ITERATIONS_FLOOR
+      (210,000), or above the new $PASSWORD_ITERATIONS_CEILING
+      (2,000,000) - both refused before any hashing is attempted. The
+      floor is a separate constant from $PASSWORD_ITERATIONS on purpose,
+      so raising the write-time cost later cannot lock out a password
+      already on file. _password_derive now dies rather than returning a
+      digest when given no usable count. New test t/476. No change to
+      login_register or any record this board has already written.
+
 5.15  2026-09-01
 
     - TKT-808. TKT-797 gave the browser dashboard's sticky header a live

@@ -716,6 +716,20 @@ drive the board through the command line, not a browser.
 `password` block from that person in the project file by hand; they are
 unregistered again and the next sign-in claims a new one.
 
+**Every field of the stored record is validated, including the work factor**
+(TKT-686). `algorithm`, `salt` and `hash` were always checked before a
+password was accepted; `iterations` was not, and `for ( 2 .. $iterations )`
+silently does nothing when it is undef, `0` or `1` - all three verified
+against a single HMAC round instead of the real cost, with no error. A
+record's `iterations` must now be a positive integer at or above
+`$Tira::PASSWORD_ITERATIONS_FLOOR` (210,000) and at or below
+`$Tira::PASSWORD_ITERATIONS_CEILING` (2,000,000), checked before any hashing
+runs - so a record nobody could have written honestly is refused instead of
+verified cheaply or made to hash for minutes. The floor is a separate
+constant from the write-time `$Tira::PASSWORD_ITERATIONS`, deliberately:
+raising the write-time cost later must not lock out a password already on
+file.
+
 ### `tira.login.check`
 
 Ask whether a password is right. Exits clean either way, because being wrong is

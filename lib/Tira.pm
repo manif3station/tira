@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.15';
+our $VERSION = '5.16';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6302,8 +6302,20 @@ sub _set_person_active {
 our $PASSWORD_ALGORITHM = 'pbkdf2-hmac-sha256';
 our $PASSWORD_ITERATIONS = 210_000;
 
+# Separate from $PASSWORD_ITERATIONS on purpose: that constant is the cost
+# new passwords are written at and is free to rise, while this is the
+# minimum a stored record must already meet to be trusted at verify time.
+# Collapsing them into one constant would mean raising the write-time cost
+# later locks out every password already on file. The ceiling exists so a
+# stored value nobody could have written honestly - hand-edited, imported,
+# or corrupted - cannot make sign-in hash for minutes before failing.
+our $PASSWORD_ITERATIONS_FLOOR   = 210_000;
+our $PASSWORD_ITERATIONS_CEILING = 2_000_000;
+
 sub _password_derive {
     my ( $password, $salt, $iterations ) = @_;
+    die "A positive iteration count is required\n"
+      if !defined $iterations || $iterations !~ /\A[1-9][0-9]*\z/;
     my $bytes = utf8::is_utf8($password) ? encode_utf8($password) : $password;
     my $block = Digest::SHA::hmac_sha256( pack( 'H*', $salt ) . pack( 'N', 1 ), $bytes );
     my $result = $block;
@@ -6405,7 +6417,17 @@ sub login_verify {
     return 0 if ref $stored ne 'HASH';
     return 0 if ( $stored->{algorithm} // '' ) ne $PASSWORD_ALGORITHM;
     return 0 if !defined $stored->{salt} || !defined $stored->{hash};
-    my $candidate = _password_derive( $args{password}, $stored->{salt}, $stored->{iterations} );
+
+    # As strict as the other three checks above, and checked before any
+    # hashing runs - a record whose claimed work factor cannot be trusted is
+    # refused the same way a wrong algorithm or a missing hash already is.
+    my $iterations = $stored->{iterations};
+    return 0
+      if !defined $iterations
+      || $iterations !~ /\A[1-9][0-9]*\z/
+      || $iterations < $PASSWORD_ITERATIONS_FLOOR
+      || $iterations > $PASSWORD_ITERATIONS_CEILING;
+    my $candidate = _password_derive( $args{password}, $stored->{salt}, $iterations );
     return _secret_equals( $candidate, $stored->{hash} );
 }
 
@@ -14672,7 +14694,10 @@ Sets a person's initial password.
 
 =head2 login_verify
 
-Checks a login attempt's id and password against the stored hash.
+Checks a login attempt's id and password against the stored hash. Refuses a
+record whose C<iterations> is not a positive integer within
+C<$PASSWORD_ITERATIONS_FLOOR> and C<$PASSWORD_ITERATIONS_CEILING>, before any
+hashing is attempted.
 
 =head2 login_start
 

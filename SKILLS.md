@@ -1786,7 +1786,7 @@ A further screenshot, TKT-508: status became a stored integer enum (0 = pending,
 
 ```text
 tira.tasklist.add --text TEXT [--session ID] [--ref REF ...] [--attach FILE ...] [-o FORMAT]
-tira.tasklist.list [--session ID] [--sort FIELD:DIR[,FIELD:DIR...]] [-o FORMAT]
+tira.tasklist.list [--session ID] [--ref REF] [--sort FIELD:DIR[,FIELD:DIR...]] [-o FORMAT]
 tira.tasklist.update --id ID [--status pending|working|done|0|1|2] [--text TEXT] [-o FORMAT]
 tira.tasklist.next [--session ID] [-o FORMAT]
 tira.tasklist.shift [--session ID] [-o FORMAT]

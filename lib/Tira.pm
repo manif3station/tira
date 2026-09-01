@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.09';
+our $VERSION = '5.10';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1358,6 +1358,20 @@ sub tasklist_list {
     # narrower question than the one asked. It composes with status rather
     # than replacing it, since the two read different fields.
     @mine = grep { !@{ $_->{refs} // [] } } @mine if $args{unlinked};
+
+    # The same gap TKT-552 closed for --unlinked, open on the opposite
+    # question - not "which items have no card at all" but "which items
+    # belong to THIS card". --ref was a normal option name on many other
+    # commands, so the generic CLI parser accepted it without complaint and
+    # tasklist_list silently ignored it, returning the whole list instead of
+    # refusing or filtering - a caller checking one card's own items got
+    # every session's every item back, wrongly, with nothing saying so.
+    # Composes with status/unlinked rather than replacing them, the same way
+    # those two already compose with each other. TKT-802.
+    if ( defined $args{ref} && $args{ref} ne '' ) {
+        my $wanted_ref = $args{ref};
+        @mine = grep { grep { $_ eq $wanted_ref } @{ $_->{refs} // [] } } @mine;
+    }
 
     # Filter before sort, so an explicit --sort orders what survived rather
     # than being applied to a set the caller never asked for.

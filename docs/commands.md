@@ -3092,7 +3092,19 @@ has to run a migration by hand.
 - `tira.tasklist.add --text TEXT [--session ID] [--ref REF ...] [--attach FILE ...] [-o FORMAT]`
   - `--attach` is repeatable and content-addressed, the same store record
     attachments already use.
-- `tira.tasklist.list [--session ID] [--all-sessions] [--status STATUS] [--unlinked] [--sort FIELD:DIR[,FIELD:DIR...]] [-o FORMAT]`
+- `tira.tasklist.list [--session ID] [--all-sessions] [--status STATUS] [--unlinked] [--ref REF] [--sort FIELD:DIR[,FIELD:DIR...]] [-o FORMAT]`
+  - `--ref REF` (TKT-802) narrows to items whose `refs` array contains REF -
+    "what does this one card have on the shared tasklist", without fetching
+    every item and filtering by hand. Composes with `--status`/`--unlinked`
+    the same way those two already compose with each other; a REF matching
+    nothing returns an empty list rather than every item. Before this, `--ref`
+    was accepted by the generic option parser (it is a normal option name on
+    many other commands) and silently ignored - `tasklist.list --ref CARD`
+    returned the WHOLE shared list, wrongly, with nothing saying so. Found
+    live needing exactly this filter, and independently by the owner, who had
+    closed a required action on a real card citing `--ref CARD` as proof -
+    right only by coincidence (one card had tasks at the time), and wrong the
+    moment a second one did.
   - `--unlinked` (TKT-552) returns only items with an empty `refs` array.
     `task-unlinked` (TKT-547) already watches for these, but only reports one
     once it has aged past its grace — so finding them *before* the police

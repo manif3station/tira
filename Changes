@@ -1,5 +1,20 @@
 Revision history for Tira
 
+5.10  2026-09-01
+
+    - TKT-802 (merged with the owner's independent report, TKT-803).
+      tasklist.list's --ref REF silently did nothing: it is a normal
+      option name on many other commands, so the generic parser accepted
+      it, but tasklist_list only ever read all_sessions/status/unlinked/
+      sort - a caller asking "what does this one card have on the shared
+      tasklist" got back the whole list instead, wrongly, with nothing
+      saying so.
+
+      Fixed by filtering on refs the same way --unlinked already filters
+      on an empty refs array, composing with --status/--unlinked rather
+      than replacing them. New test t/471. docs/commands.md and
+      SKILLS.md updated.
+
 5.09  2026-09-01
 
     - TKT-800. policy_review is documented as printing "the whole set in

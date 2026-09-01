@@ -1,5 +1,29 @@
 Revision history for Tira
 
+5.08  2026-09-01
+
+    - TKT-814 (partial - descender clipping only, scroll-to-top spacing
+      still open). .hero h1's line-height:.9, combined with the gradient
+      text fill (-webkit-background-clip:text;color:transparent), left
+      descenders (the tail of a g, j, p, q, y) unpainted: the gradient
+      background used to fill the glyph is sized to the line-box, and a
+      line-height under 1 makes that box shorter than the font's actual
+      glyph extent, so the descender pixels get no fill at all. Owner
+      report via Telegram photo (the 'g' in "Budgeting" losing its
+      bottom loop).
+
+      Confirmed by direct reproduction rather than a guess from reading
+      the CSS - a standalone Playwright render of the real dashboard.css
+      against the real header markup showed the missing fill; raising
+      line-height to 1.15 in the same render fully restored it with no
+      other visible change. New test t/469.
+
+      The scroll-to-top blank-spacing regression (also reported, same
+      TKT-797 header area) could not be reproduced live against a real
+      running dashboard server at desktop or mobile viewport - it stays
+      open, tracked on the same card, pending more detail from the
+      owner.
+
 5.07  2026-09-01
 
     - TKT-809. README.md's command examples still read `dashboard tira.*`;

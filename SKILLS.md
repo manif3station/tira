@@ -1418,7 +1418,7 @@ usable at phone width.
 The visible last-updated time advances only after fresh data is applied. Stop
 the foreground server with Ctrl-C.
 
-## 140 use cases
+## 141 use cases
 
 Every case below is implemented and executable.
 
@@ -2468,6 +2468,9 @@ told the two apart. TKT-412.
 
 ### UC-103: Catch up on what changed without re-reading everything
 **Implemented.** Set a question aside with `dashboard tira.question.discard --id Q-007` when it stops mattering — nothing is deleted, it keeps its answer and shows struck through. `dashboard tira.question.list --ref TKT-001 --status new -o json` shows only what is still unanswered; `--status answered` only what has been answered, and `--status discarded` what was set aside. `--since 2026-08-09T09:00:00Z` reads the answer's stamp when there is an answer and the question's when there is not, so a newly answered question shows up as newly changed. A question reference is project-wide, so `--id Q-007` reaches it from anywhere without naming the card.
+
+### UC-141: Manage a column's administrative-action exemptions without the CLI
+**Implemented.** The browser dashboard's Columns dialog now has a fourth list, alongside Next/Entry/Exit: Administrative actions - `--administrative-action`'s own capability (TKT-678: required-action items, by exact text, that a backward move never resets), previously reachable only through the CLI. Add, remove, or reorder items the same way the other three lists already work, and Save round-trips them through `/columns/apply` exactly like `required_actions`/`entry_required_actions`. TKT-793.
 
 ### UC-140: See what Tira looks like before installing it
 **Implemented.** `README.md` used to describe the terminal, the board, and the card modal in prose alone. It now carries four real screenshots — a terminal transcript of `tira.police` and `tira.ticket.show`, the ticket board's column view, and the card-detail modal in two states (its top fields and description, then scrolled down to linkage and attachments) — each with a one-line caption, captured from a throwaway scratch project and never the production board. Michael, Telegram voice message: asked for the README to "look nicer" (靚仔一點) with real screenshots rather than pure text. TKT-790.

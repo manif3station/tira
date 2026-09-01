@@ -1,5 +1,31 @@
 Revision history for Tira
 
+5.04  2026-09-01
+
+    - TKT-793. The browser dashboard's Columns dialog rendered dedicated
+      UI for a column's Next targets, Exit required actions, and Entry
+      required actions - but TKT-678 added a fourth column-level list,
+      administrative_actions (--administrative-action on the CLI), with
+      the identical shape and identical column_apply round-trip support
+      underneath. The dialog had no rendering, no input row, and no
+      save-path for it: a board managed through the browser could never
+      see, set, or clear an administrative-action exemption.
+
+      lib/Tira/views/column-editor.js's buildActionRow() - already the
+      shared row-builder for the exit and entry lists - is generalized
+      from an isEntry boolean into a three-way kind
+      (exit|entry|administrative), and a fourth UI block
+      (administrativeActionsWrap) is appended to each column row.
+      columnLayout() (the save-path) reads it back into the
+      /columns/apply payload as administrative_actions, using the same
+      "flag a non-empty list at render time" trick the other three
+      already use so clearing every item still saves an empty list
+      rather than dropping the field. dashboard.css gained matching
+      input/button rules so the new list does not repeat TKT-591's
+      half-width regression. New test t/465 asserts the new list
+      renders, saves, and empty-round-trips correctly; existing t/427
+      (the two-list test) still passes unmodified.
+
 5.03  2026-09-01
 
     - TKT-788 (third attempt). .hero and .column__head are both

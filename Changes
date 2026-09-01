@@ -1,5 +1,17 @@
 Revision history for Tira
 
+5.01  2026-09-01
+
+    - TKT-790. README.md was purely textual. Added four real screenshots
+      captured from a scratch, non-production project (never the production
+      board): terminal output of `tira.police` and `tira.ticket.show`, the
+      live dashboard board view, and the card-detail modal in two states
+      (its top fields and description, then scrolled to linkage and
+      attachments) - each embedded as a markdown image with a one-line
+      caption. New test t/463 asserts the image files exist under
+      docs/images/ and are actually referenced from README.md with a
+      non-empty caption, not just dropped into the repo unused.
+
 5.00  2026-08-31
 
     - TKT-787. tira.question.ask's own reminder said "missing: voice |
@@ -27,7 +39,8 @@ Revision history for Tira
       refused outside question.ask; a legacy question with no
       caller_kind field at all still reads as human.
 
-      Suite TBD.
+      Suite: Files=454, Tests=9109, All tests successful. Coverage: all 12
+      modules 100.0/100.0/100.0 statement/subroutine.
 
 4.99  2026-08-31
 
@@ -62,7 +75,8 @@ Revision history for Tira
       t/233 updated for the new hook/prove-the-gate shape (examples is
       now the last gate, one fewer missing-tool probe).
 
-      Suite TBD.
+      Suite: Files=453, Tests=9090, All tests successful. Coverage: all 12
+      modules 100.0/100.0/100.0 statement/subroutine.
 
 4.98  2026-08-31
 

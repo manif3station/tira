@@ -207,6 +207,9 @@ Tira deliberately has no HTTP transaction layer. Commands operate directly on
 validated local files and column folders, keeping the system simple,
 inspectable, and efficient.
 
+![Terminal output from `tira.police` and `tira.ticket.show`](docs/images/terminal-example.png)
+*Terminal output from `tira.police` and `tira.ticket.show`.*
+
 ## Requirements
 
 Tira is a Developer Dashboard (DD) skill and does not run without DD
@@ -259,6 +262,15 @@ dashboard tira.dashboard.ticket --title -o browser=localhost:4567
 dashboard tira.tasklist.add --text "read the README"
 dashboard tira.tasklist.list
 ```
+
+![The ticket board rendered by `-o browser`, columns and cards](docs/images/dashboard-board.png)
+*The ticket board rendered by `-o browser`: columns and cards.*
+
+![The card-detail modal, showing description, priority, and other fields](docs/images/dashboard-card-modal.png)
+*The card-detail modal: description, priority, and other fields.*
+
+![The same modal scrolled down, showing linkage and attachments](docs/images/dashboard-card-modal-attachments.png)
+*The same modal scrolled down: linkage and attachments.*
 
 `-o browser` also renders a Task List section below the ticket board: every
 item from `tira.tasklist.*` as a colored sticky-note card (pending=amber,

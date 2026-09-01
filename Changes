@@ -1,5 +1,20 @@
 Revision history for Tira
 
+5.11  2026-09-01
+
+    - TKT-804. required-action.list's --status silently did nothing: it
+      is a normal option name on other commands, so the generic parser
+      accepted it, but required_item_list only ever read --ref - every
+      item came back regardless of status, identical in shape to
+      TKT-802/803's tasklist.list --ref bug found immediately before it.
+
+      Fixed by filtering on status (pending/done, case-insensitive),
+      refusing an unrecognized value by name. Scoped to the non-blocking
+      path only - --blocking answers a different question through its
+      own helper and never reaches this filter, so --status and
+      --blocking do not compose. New test t/472. docs/commands.md and
+      SKILLS.md updated.
+
 5.10  2026-09-01
 
     - TKT-802 (merged with the owner's independent report, TKT-803).

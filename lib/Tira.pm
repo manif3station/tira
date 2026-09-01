@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.10';
+our $VERSION = '5.11';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -5190,7 +5190,28 @@ sub checklist_update {
 # non-gating extra. TKT-445.
 sub required_item_list {
     my ( $self, %args ) = @_;
-    return $self->record_show(%args)->{required_items};
+    my $items = $self->record_show(%args)->{required_items};
+
+    # The same silent-ignore gap TKT-802/803 found on tasklist.list's --ref,
+    # here on --status: it is a normal option name on other commands
+    # (tasklist.list, required-action.update's own validation), so the
+    # generic CLI parser accepted it without complaint, but this command
+    # never read it - every required item came back regardless of status,
+    # plausible-but-wrong rather than refused. A caller citing
+    # required-action.list --status pending as evidence of what remained
+    # got an answer that silently included items already done. Refuses an
+    # unrecognized value rather than matching nothing, the same reasoning
+    # tasklist_list's own --status already uses. Scoped to this path only:
+    # --blocking bypasses required_item_list entirely (the CLI dispatch
+    # returns _outstanding_here before this is ever called), so
+    # --status/--blocking composition is a separate concern. TKT-804.
+    if ( defined $args{status} ) {
+        my $wanted = lc $args{status};
+        die "Unknown required-action status '$args{status}' - the values that work are pending and done\n"
+          if $wanted ne 'pending' && $wanted ne 'done';
+        $items = [ grep { lc( $_->{status} // 'pending' ) eq $wanted } @{$items} ];
+    }
+    return $items;
 }
 
 sub required_item_add {

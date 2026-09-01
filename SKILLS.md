@@ -1141,7 +1141,7 @@ All are **Implemented.**
 tira.checklist.list --ref REF [-o FORMAT]
 tira.checklist.add --ref REF --item TEXT --status TEXT [-o FORMAT]
 tira.checklist.update --ref REF --id CHK-NNN [--item TEXT] [--status TEXT] [--command TEXT ... [--proof TEXT ...]] [-o FORMAT]
-tira.required-action.list --ref REF [--blocking] [-o FORMAT]
+tira.required-action.list --ref REF [--status STATUS] [--blocking] [-o FORMAT]
 tira.required-action.add --ref REF --item TEXT --status TEXT [--column SLUG] [-o FORMAT]
 tira.required-action.update --ref REF --id REQ-NNN [--item TEXT] [--status TEXT] [--command TEXT ... [--proof TEXT ...]] [--repeated-reason TEXT] [--repeated-confirm CODE] [-o FORMAT]
 tira.question.ask --ref REF --text TEXT [--reason TEXT] [--option TEXT ...] [--voice FILE] [--author ID] [-o FORMAT]

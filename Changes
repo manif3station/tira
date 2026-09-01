@@ -1,5 +1,29 @@
 Revision history for Tira
 
+5.23  2026-09-01
+
+    - TKT-746 (first lift). lib/Tira.pm was 15,264 lines and growing, so
+      reading it to change one command meant reading all of it. This moves
+      the TOON encoder/decoder overrides - the numeric-string quoting fix
+      and the nested-map encode/decode fix - into lib/Tira/Toon.pm, the
+      first of the concerns the ticket names as candidates.
+
+      The module is loaded with require, from inside format_output's
+      'toon' branch only, rather than with use at the top of the engine: a
+      command asking for json or human output never compiles it. Its
+      globals ($TOON_PRIMITIVE_BEFORE, $TOON_ARRAY_BEFORE,
+      $TOON_ARRAY_DECODE_BEFORE) are aliased back into the Tira:: package
+      under their old names, since three existing tests read them as
+      $Tira::TOON_* to restore the original Data::TOON subs - a lift is a
+      move, not a rename, and those tests were not touched.
+
+      t/483 proves both halves of "lazy": Tira::Toon compiles and applies
+      its patches standalone, without Tira.pm having been loaded first,
+      and a format_output call that does not ask for toon output leaves
+      Tira::Toon out of %INC. lib/Tira.pm was 15,264 lines before this
+      lift and is 15,019 after (measured, not estimated); lib/Tira/Toon.pm
+      is 227.
+
 5.22  2026-09-01
 
     - TKT-713. _attachment_content_type decides an extension in neither of

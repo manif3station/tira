@@ -4,10 +4,7 @@ use strict;
 use warnings;
 
 use Cwd qw(abs_path realpath);
-use B ();
 use Data::TOON;
-use Data::TOON::Decoder;
-use Data::TOON::Encoder;
 use Digest::SHA qw(sha256_hex);
 use Encode qw(decode encode_utf8 FB_QUIET);
 use Fcntl qw(:flock);
@@ -53,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.22';
+our $VERSION = '5.23';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -13312,257 +13309,15 @@ sub _safe_path_input {
     return $1;
 }
 
-# A string that looks like a number is still a string.
-#
-# TOON is the default output and the one every agent reads. Data::TOON tests a
-# scalar against a number pattern before it tests whether it needs quoting, so
-# "2.20" is encoded as the number 2.2 - a different release - and 1.10 as 1.1,
-# 007 as 7, 0100 as 100. Measured across this project's own board: 20,732 string
-# values, 22 of which did not survive a round trip, 19 of them a fix_version.
-# Every release whose version ends in a zero has always read as another one.
-#
-# The module has the right rule and never reaches it: its _needs_quoting returns
-# true for a numeric-looking string, and _encode_primitive returns the
-# canonicalised number first. That is a check that exists and cannot fire.
-#
-# So the order is restored here, for values Perl still knows are strings. A
-# number stays a number and is not quoted; a string is only quoted when leaving
-# it alone would change it, so ordinary output is untouched. Delegated to the
-# module rather than reimplemented, which means a version that stops needing
-# this stops being changed by it.
-our $TOON_PRIMITIVE_BEFORE = \&Data::TOON::Encoder::_encode_primitive;
-
-sub _toon_is_string {
-    my ($value) = @_;
-    return 0 if ref $value;
-    my $flags = B::svref_2object( \$value )->FLAGS;
-    return 0 if !( $flags & B::SVp_POK() );
-    return 0 if $flags & ( B::SVp_IOK() | B::SVp_NOK() );
-    return 1;
-}
-
-{
-    no warnings 'redefine';
-    *Data::TOON::Encoder::_encode_primitive = sub {
-        my ( $self, $value ) = @_;
-        my $encoded = $TOON_PRIMITIVE_BEFORE->( $self, $value );
-        return $encoded if !defined $value || !defined $encoded;
-        return $encoded if !_toon_is_string($value);
-        return $encoded if $encoded eq $value;
-        return $encoded if $encoded =~ /\A"/;
-        return '"' . $self->_escape_string($value) . '"';
-    };
-}
-
-# A map nested inside a list element was printed flattened into the map
-# around it. Data::TOON's list branch renders each of an item's keys as
-# "$key: $value" with the value already encoded, which assumes a value is one
-# line. A map is many, so its first key landed on its own key's line and the
-# rest at the outer map's indent - two 'author' keys at one level, with 'mark'
-# reading as a field of the question rather than of its answer.
-#
-# What it cost, measured on a real reader. A project filed two bug reports
-# saying tira.question.mark stores nothing, citing 0 marks across 89
-# questions. The mark was stored the whole time, at answer.mark. They read the
-# flattened output, applied one bad predicate 89 times, and got a confident
-# wrong number; they retracted it themselves after recounting 86 of 89 marked.
-# TOON is the default output and its readers are agents, so an output that
-# makes the correct reading unreachable is a defect here, not in the reader.
-#
-# Unlike the _encode_primitive patch above, this one cannot be pure
-# delegation - there is nothing to delegate to when the branch itself is
-# wrong. So it delegates every shape the module renders correctly (the
-# tabular form, lists of primitives, lists of flat maps, arrays inside items)
-# and reimplements only the case where an item carries a map.
-#
-# The predicate was narrowed twice while being written. Widening it to any
-# ref turned the compact "tags[2]: a,b" into a dash list nobody asked for;
-# and the first version re-indented nested lines flat, which read correctly
-# for one level and destroyed everything below it - {a=>{b=>{c=>1}}} came
-# back with c standing beside b. Both were found by testing shapes the fix
-# was not aimed at, and both are asserted now.
-#
-# Round-tripping is NOT fixed and is no longer claimed: Data::TOON's decoder
-# has the matching gap and cannot read this shape even written correctly.
-# Raised as TKT-393. Nothing inside Tira is affected - it decodes TOON in one
-# test only, and cards are stored as YAML. TKT-386.
-our $TOON_ARRAY_BEFORE = \&Data::TOON::Encoder::_encode_object_with_array;
-
-sub _toon_item_carries_map {
-    my ($array) = @_;
-    return 0 if ref $array ne 'ARRAY';
-    for my $item ( @{$array} ) {
-        next if ref $item ne 'HASH';
-        return 1 if grep { ref $_ eq 'HASH' } values %{$item};
-    }
-    return 0;
-}
-
-{
-    no warnings 'redefine';
-    *Data::TOON::Encoder::_encode_object_with_array = sub {
-        my ( $self, $indent, $key, $array ) = @_;
-        return $TOON_ARRAY_BEFORE->( $self, $indent, $key, $array )
-          if !_toon_item_carries_map($array);
-
-        my @lines = ( $indent . $key . '[' . scalar( @{$array} ) . ']:' );
-        local $self->{depth} = $self->{depth} + 1;
-        my $item_indent  = ' ' x ( $self->{depth} * $self->{indent} );
-        my $field_indent = ' ' x ( ( $self->{depth} + 1 ) * $self->{indent} );
-
-        for my $obj ( @{$array} ) {
-            my @keys = $self->_sort_fields( keys %{$obj} );
-            if ( !@keys ) { push @lines, $item_indent . '-'; next }
-
-            for my $i ( 0 .. $#keys ) {
-                my $k     = $keys[$i];
-                my $value = $obj->{$k};
-
-                my $lead = $i == 0 ? $item_indent . '- ' : $field_indent;
-                my $own  = $i == 0 ? $item_indent . '  ' : $field_indent;
-
-                if ( ref $value ne 'HASH' ) {
-                    local $self->{depth} = $self->{depth} + 1;
-                    my $v = $self->_encode_value($value);
-                    $v = '' if !defined $v;
-                    my @sub = split /\n/, $v;
-                    if ( @sub <= 1 ) { push @lines, $lead . "$k: $v"; next }
-                    push @lines, $lead . "$k:";
-                    push @lines, $own . ( ' ' x $self->{indent} ) . $_ for @sub;
-                    next;
-                }
-
-                if ( !%{$value} ) { push @lines, $lead . "$k:"; next }
-
-                local $self->{depth} = $self->{depth} + 1;
-                my $body = $self->_encode_object($value);
-                my @sub = split /\n/, ( defined $body ? $body : '' );
-
-                my $least;
-                for my $line (@sub) {
-                    next if $line !~ /\S/;
-                    my ($lead_ws) = $line =~ /\A(\s*)/;
-                    $least = length $lead_ws
-                      if !defined $least || length($lead_ws) < $least;
-                }
-                $least //= 0;
-                my $body_indent = $own . ( ' ' x $self->{indent} );
-                push @lines, $lead . "$k:";
-                push @lines, $body_indent . substr( $_, $least ) for @sub;
-            }
-        }
-        return join "\n", @lines;
-    };
-}
-
-# The decoder half of the same gap the encoder override above closes. With
-# well-formed input - a map nested inside a list item, written correctly -
-# Data::TOON::Decoder's list-item branch (_decode_array_value) only checks
-# whether the FIRST key on a "- key: value" line has an empty value (meaning
-# a nested object) and recurses into _decode_object for it. Every key AFTER
-# the first is parsed by a second loop that calls _parse_primitive on
-# whatever follows the colon unconditionally - an empty value there (a
-# nested map's own key line) becomes the empty string rather than a
-# recursive object, and the map's own indented lines are then seen at one
-# depth deeper than the loop expects, so it stops there and drops every
-# field after the nested map too.
-#
-# _decode_object (above it in the same file) already has the right rule:
-# empty after the colon means recurse into _decode_object. This gives the
-# same rule to the array-item loop that never had it, changing only the
-# branch that mishandles it - reimplemented rather than delegated, for the
-# same reason the encoder override could not delegate: the flaw is inside
-# the loop this overrides, not somewhere this could hand off to instead.
-# TKT-393.
-our $TOON_ARRAY_DECODE_BEFORE = \&Data::TOON::Decoder::_decode_array_value;
-
-{
-    no warnings 'redefine';
-    *Data::TOON::Decoder::_decode_array_value = sub {
-        my ( $self, $bracket_part, $fields_part, $rest ) = @_;
-
-        return $TOON_ARRAY_DECODE_BEFORE->( $self, $bracket_part, $fields_part, $rest )
-          if $fields_part || $bracket_part !~ /^\[(\d+)([\t|])?\]/;
-
-        my $delimiter = defined $2 ? $2 : ',';
-
-        # Peek ahead the same way the original does, to decide list-format
-        # vs. inline-primitive-array - unaffected by the bug, delegated by
-        # falling through to the original once that decision is made, for
-        # every shape except the one this fixes.
-        my $has_list_format = 0;
-        my $peek_pos        = $self->{pos};
-        while ( $peek_pos < @{ $self->{lines} } ) {
-            my $peek_line = $self->{lines}[$peek_pos];
-            if ( !$peek_line || $peek_line =~ /^\s*$/ ) { $peek_pos++; next }
-            last if $self->_get_depth($peek_line) <= 0;
-            my $peek_trimmed = $peek_line;
-            $peek_trimmed =~ s/^\s+//;
-            if ( $peek_trimmed =~ /^-/ ) { $has_list_format = 1; last }
-            last;
-        }
-        return $TOON_ARRAY_DECODE_BEFORE->( $self, $bracket_part, $fields_part, $rest )
-          if !$has_list_format;
-
-        my @items;
-        while ( $self->{pos} < @{ $self->{lines} } ) {
-            my $line = $self->{lines}[ $self->{pos} ];
-            if ( !$line || $line =~ /^\s*$/ ) { $self->{pos}++; next }
-            my $depth = $self->_get_depth($line);
-            last if $depth <= 0;
-            my $trimmed = $line;
-            $trimmed =~ s/^\s+//;
-            last if $trimmed !~ /^-\s(.*)$/;
-            $self->{pos}++;
-            my $item_content = $1;
-
-            if ( $item_content !~ /^(\w+):\s*(.*)$/ ) {
-                push @items, $self->_parse_primitive($item_content);
-                next;
-            }
-            my ( $first_key, $first_value ) = ( $1, $2 );
-            my $item = {};
-
-            # The original stopped here when the FIRST key was a nested map -
-            # _decode_object($depth+2) reads that map's own fields and
-            # returns the moment it meets a depth+1 line, which is every
-            # sibling key after it, and nothing kept parsing them. Whether
-            # the first key was a map or a primitive, the remaining depth+1
-            # siblings are read the same way below - one loop, not two
-            # copies of it depending on which the first key happened to be.
-            $item->{$first_key} = $first_value =~ /^\s*$/
-              ? $self->_decode_object( $depth + 2 )
-              : $self->_parse_primitive($first_value);
-
-            while ( $self->{pos} < @{ $self->{lines} } ) {
-                my $next_line = $self->{lines}[ $self->{pos} ];
-                if ( !$next_line || $next_line =~ /^\s*$/ ) { $self->{pos}++; next }
-                my $next_depth = $self->_get_depth($next_line);
-                last if $next_depth != $depth + 1;
-                my $next_trimmed = $next_line;
-                $next_trimmed =~ s/^\s+//;
-                last if $next_trimmed =~ /^-/;
-                last if $next_trimmed !~ /^(\w+):\s*(.*)$/;
-                my ( $sub_key, $sub_rest ) = ( $1, $2 );
-                $self->{pos}++;
-
-                # The fix: an empty value here is a nested map's own key
-                # line, the same rule _decode_object already applies - not
-                # a primitive, and not skippable.
-                $item->{$sub_key} = length($sub_rest)
-                  ? $self->_parse_primitive($sub_rest)
-                  : $self->_decode_object( $next_depth + 1 );
-            }
-            push @items, $item;
-        }
-        return \@items;
-    };
-}
-
+# format_output's 'toon' branch requires Tira::Toon lazily, at the call site,
+# for the encoder/decoder overrides Data::TOON needs to render this project's
+# own output correctly - see that module for the full account of what it
+# fixes and why the fix cannot be pure delegation. TKT-746.
 sub format_output {
     my ( $self, $data, %args ) = @_;
     my $output = $args{output} // 'toon';
     if ( $output eq 'toon' ) {
+        require Tira::Toon;
         local $SIG{__WARN__} = sub { };
         return Data::TOON->encode($data) . "\n";
     }
@@ -14102,7 +13857,11 @@ refused, since 3.45.
 
 =head2 format_output
 
-Encodes data as TOON by default, pretty JSON, or Markdown.
+Encodes data as TOON by default, pretty JSON, or Markdown. The C<toon> branch
+C<require>s L<Tira::Toon> lazily, at this call site only, for the
+encoder/decoder overrides Data::TOON needs to render this project's own
+output correctly - a call asking for C<json> or C<human> output never loads
+it. TKT-746.
 
 =head2 record_update
 

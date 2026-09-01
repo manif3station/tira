@@ -1680,6 +1680,21 @@ documented in `Tira::CLI`'s own POD (TKT-662), and `t/430` asserts that heading
 is still in the index, so separating the guards from the sentence that describes
 them fails the build.
 
+**The engine itself started the same move in 5.23 (TKT-746).** `lib/Tira.pm`
+reached 15,264 lines and 412 subs - every command, every police rule, every
+record operation, the TOON overrides, the HTML dashboard builder and the JSON
+backend selection, all in one file. Unlike `Tira::CLI`, which was a dispatch
+table of loosely-coupled concerns, `Tira.pm` is the engine: its subs share the
+record shape, the project lock, the clock and `_atomic_write`, so the lift has
+to go one genuinely self-contained concern at a time rather than in one pass.
+The first is `lib/Tira/Toon.pm` - the `Data::TOON` encoder/decoder overrides,
+227 lines, required from `format_output`'s `toon` branch only, so a command
+asking for `json` or `human` output never compiles it. `lib/Tira.pm` is 15,019
+lines after this lift (measured, not estimated). The remaining candidates
+named on TKT-746 - the police engine, the HTML dashboard builder, the tasklist
+- are unmoved; each is its own future lift, not assumed to be as
+self-contained as this one turned out to be.
+
 Entry points kept their names. `Tira::CLI::browser_providers` still exists and
 still answers; twenty test files and the dashboard call it by that name, and a
 refactor that renames its own front door is not behaviour-preserving.

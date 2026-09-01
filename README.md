@@ -231,36 +231,36 @@ dashboard skills install tira
 Create a project:
 
 ```bash
-dashboard tira.project.create --name "Delivery" --dir ./delivery
+d2 tira.project.create --name "Delivery" --dir ./delivery
 ```
 
 Create free-ranging records and link them later:
 
 ```bash
-dashboard tira.sow.create --title "Ship v1"
-dashboard tira.epic.create --title "Authentication"
-dashboard tira.ticket.create --title "Implement login"
+d2 tira.sow.create --title "Ship v1"
+d2 tira.epic.create --title "Authentication"
+d2 tira.ticket.create --title "Implement login"
 ```
 
 Operate the board, relationships, and collaboration data:
 
 ```bash
-dashboard tira.column.add --type ticket --name in-progress --after backlog
-dashboard tira.hierarchy.link --parent SOW-001 --child EPC-001
-dashboard tira.link.add --from TKT-001 --type blocks --to TKT-002
-dashboard tira.comment.add --ref TKT-001 --author ada --text "Ready for review"
-dashboard tira.checklist.add --ref TKT-001 --item "Run regression" --status "To Do"
-dashboard tira.checklist.update --ref TKT-001 --id CHK-001 --status Done
-dashboard tira.attachment.add --ref TKT-001 --file ./evidence.png -o json
-dashboard tira.project.people.deactivate --id ada
-dashboard tira.dashboard --type all
-dashboard tira.dashboard --type all --title -o human
-dashboard tira.dashboard -o table > kanban.html
-dashboard tira.dashboard.ticket --title -o table > tickets.html
-dashboard tira.dashboard -o browser
-dashboard tira.dashboard.ticket --title -o browser=localhost:4567
-dashboard tira.tasklist.add --text "read the README"
-dashboard tira.tasklist.list
+d2 tira.column.add --type ticket --name in-progress --after backlog
+d2 tira.hierarchy.link --parent SOW-001 --child EPC-001
+d2 tira.link.add --from TKT-001 --type blocks --to TKT-002
+d2 tira.comment.add --ref TKT-001 --author ada --text "Ready for review"
+d2 tira.checklist.add --ref TKT-001 --item "Run regression" --status "To Do"
+d2 tira.checklist.update --ref TKT-001 --id CHK-001 --status Done
+d2 tira.attachment.add --ref TKT-001 --file ./evidence.png -o json
+d2 tira.project.people.deactivate --id ada
+d2 tira.dashboard --type all
+d2 tira.dashboard --type all --title -o human
+d2 tira.dashboard -o table > kanban.html
+d2 tira.dashboard.ticket --title -o table > tickets.html
+d2 tira.dashboard -o browser
+d2 tira.dashboard.ticket --title -o browser=localhost:4567
+d2 tira.tasklist.add --text "read the README"
+d2 tira.tasklist.list
 ```
 
 ![The ticket board rendered by `-o browser`, columns and cards](docs/images/dashboard-board.png)
@@ -345,12 +345,12 @@ to one machine.
 Read or correct many records without spawning one process per ticket:
 
 ```bash
-dashboard tira.export -o json
-dashboard tira.ticket.list --full -o json
-dashboard tira.search --text Jira --field description -o json
-dashboard tira.import --file changes.json --dry-run -o json
-dashboard tira.replace --pattern Jira --with Local --field description --dry-run -o json
-dashboard tira.gate.annotate --ref TKT-001 --id GATE-001 \
+d2 tira.export -o json
+d2 tira.ticket.list --full -o json
+d2 tira.search --text Jira --field description -o json
+d2 tira.import --file changes.json --dry-run -o json
+d2 tira.replace --pattern Jira --with Local --field description --dry-run -o json
+d2 tira.gate.annotate --ref TKT-001 --id GATE-001 \
   --note "Use local documentation" --author ada
 ```
 
@@ -358,9 +358,9 @@ Repeat `--field` to review or change several fields while preserving historical
 comments:
 
 ```bash
-dashboard tira.search --text 'dashboard doc.' \
+d2 tira.search --text 'dashboard doc.' \
   --field description --field bdd --field atdd -o json
-dashboard tira.replace --pattern 'dashboard doc\.' --with 'the docs vault' \
+d2 tira.replace --pattern 'dashboard doc\.' --with 'the docs vault' \
   --field description --field bdd --field atdd --dry-run -o json
 ```
 
@@ -379,7 +379,7 @@ anyway - `tira.ticket.create --dry-run` used to create the card. TKT-625.
 SOWs, epics, and tickets share planning metadata. For example:
 
 ```bash
-dashboard tira.ticket.create --title "Security review" --assignee ada \
+d2 tira.ticket.create --title "Security review" --assignee ada \
   --reporter grace --label Security --priority 5 \
   --start-date 2026-08-06T09:00:00Z \
   --due-date 2026-08-08T17:00:00+01:00 --fix-version 3.0.0
@@ -395,14 +395,14 @@ TOON is the default and is also selected explicitly with `-o toon`.
 `-o json` returns canonical pretty JSON. `-o human` returns Markdown:
 
 ```bash
-dashboard tira.ticket.create --title "Add tests" -o json
-dashboard tira.epic.create --title "Release gate" -o human
+d2 tira.ticket.create --title "Add tests" -o json
+d2 tira.epic.create --title "Release gate" -o human
 ```
 
 Print the complete agent manual as raw Markdown:
 
 ```bash
-dashboard tira.skills
+d2 tira.skills
 ```
 
 The manual is the complete technical contract. It records every command

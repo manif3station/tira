@@ -1,5 +1,13 @@
 Revision history for Tira
 
+5.07  2026-09-01
+
+    - TKT-809. README.md's command examples still read `dashboard tira.*`;
+      the real entry point is `d2`. 32 lines matching `dashboard tira.`
+      rewritten to `d2 tira.`, leaving the CLAUDE.md-mandated
+      `dashboard skills install tira` install instruction and unrelated
+      quoted search text untouched.
+
 5.06  2026-09-01
 
     - TKT-683 (re-attempted, safely this time). tools/gate-run ran the

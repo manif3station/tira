@@ -1054,8 +1054,8 @@ sub _agent_available {
 
 
 sub _attachment_content_type {
-    my ($extension) = @_;
-    return Tira::_attachment_content_type($extension);
+    my ( $extension, $path ) = @_;
+    return Tira::_attachment_content_type( $extension, $path );
 }
 
 # Who is doing this, for the work log, set once for whatever runs next.

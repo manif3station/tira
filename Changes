@@ -1,5 +1,25 @@
 Revision history for Tira
 
+5.22  2026-09-01
+
+    - TKT-713. _attachment_content_type decides an extension in neither of
+      its named lists by reading the stored file's first bytes (TKT-645),
+      but only when handed the path to read. The browser's own
+      attachment_fetch route called it with the extension alone, so a
+      file the card dialog correctly called text/plain (reading
+      record_show's own content_type, computed with the path) was served
+      by the /attachment route as raw application/octet-stream and forced
+      as a download rather than shown inline.
+
+      attachment_fetch now looks the stored path up the same way
+      attachment_list already does. A second, deeper instance of the same
+      bug was found while debugging: Tira::CLI's own
+      _attachment_content_type wrapper - the single point every caller in
+      that package goes through - was silently discarding any second
+      argument before forwarding to the real implementation, so the
+      route-level fix alone did nothing until the wrapper was fixed too.
+      New test t/482.
+
 5.21  2026-09-01
 
     - TKT-701. column_remove moved every card in the removed column by a

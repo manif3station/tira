@@ -2887,6 +2887,15 @@ answer on by `sha`, comment and question attachments included, since the viewer
 opens those from the same strip. If the attachment store cannot be read the
 card still opens: the cost is the preview, not the card.
 
+**The `/attachment` route computes the same content type, from the same
+stored bytes** (TKT-713). It once called `_attachment_content_type` with
+only the extension - the stored path that lets it read the first bytes of
+an unlisted extension was silently dropped by a thin wrapper the route's
+own call went through, so the route always fell to `application/octet-stream`
+for such a file and served it as a forced download, while the card dialog
+(reading `attachment.list`'s already-sniffed answer) correctly called it
+text. Both surfaces now agree, because both are handed the path.
+
 ### Records: SOWs, epics and tickets
 
 The three boards carry the same nine verbs. `TYPE` below is one of `sow`,

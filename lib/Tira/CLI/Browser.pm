@@ -732,11 +732,22 @@ sub providers {
               ( @{ $record->{attachments} }, map { @{ $_->{attachments} // [] } } @{ $record->{comments} } );
             my $extension = $payload->{extension} // ( $reference ? $reference->{extension} : 'bin' );
             my $filename = $reference ? $reference->{original_filename} : "$payload->{sha}.$extension";
+
+            # An extension in neither of _attachment_content_type's named
+            # lists is decided by reading the file's own first bytes
+            # (TKT-645) - but only when it is GIVEN the stored path to read.
+            # This route omitted it, so the same file's type disagreed with
+            # what record_show/attachment_list already tell the card dialog:
+            # the dialog said text/plain by sniffing, this route fell
+            # through to application/octet-stream having nothing to sniff.
+            # TKT-713.
+            my $stored = eval { $tira->_attachment_path( $project, sha => $payload->{sha}, extension => $extension ) };
+            my $content_type = Tira::CLI::_attachment_content_type( $extension, $stored );
             return {
                 content => $got->{content},
-                content_type => Tira::CLI::_attachment_content_type($extension),
+                content_type => $content_type,
                 filename => $filename,
-                inline => Tira::CLI::_attachment_content_type($extension) eq 'application/octet-stream' ? 0 : 1,
+                inline => $content_type eq 'application/octet-stream' ? 0 : 1,
             };
         },
         attachment_add => sub {

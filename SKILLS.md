@@ -686,7 +686,11 @@ means binary. Nothing to examine means refusal rather than a guess. The
 browser viewer holds no extension list of its own; it reads this field,
 and the twelve languages named on TKT-645 are highlighted in the page by
 an embedded 4.5KB tokeniser, since the board loads nothing over the
-network.
+network. The `/attachment` download route computes the same answer from
+the same stored bytes (TKT-713) - it once decided from the extension
+alone, since the stored path that lets an unlisted extension be sniffed
+was silently dropped on the way there, so a file the dialog correctly
+called text was served as a forced binary download.
 Server-side filtering is **Implemented.** on list and export:
 `--where` is repeatable and clauses combine with AND. `FIELD=VALUE` is
 string equality; `FIELD=` (empty value) matches a field that is empty or

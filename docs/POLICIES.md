@@ -496,6 +496,16 @@ counts the times it has been said, and rises through four tones: note, warning,
 urgent, critical. Past five tellings it also reaches the owner's terminal with a
 message he can paste straight to the agent.
 
+**"The same problem" is not always "the same card."** A card carrying two
+open questions is two problems, not one - `question-unanswered`,
+`answer-waiting`, `answer-unjudged`, `answer-ok-not-folded` and
+`answer-not-ok-no-followup` each key their finding on the question as well
+as the card, so a second waiting question gets its own number, its own
+count, and its own settling rather than sharing the first one's and going
+unmentioned until the first is dealt with (TKT-698). The card named in the
+finding is unaffected - the fix command still opens the card, not a
+question - only the ledger's own bookkeeping tells the two apart.
+
 Fixing the cause silences it on the next pass. There is nothing to acknowledge
 and nothing to clear by hand.
 

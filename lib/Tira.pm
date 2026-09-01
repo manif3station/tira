@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.19';
+our $VERSION = '5.20';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -7771,7 +7771,7 @@ sub policy_evaluate {
     $card_declined{"$_->{rule}\x00$_->{ref}"} = 1 for @{ $project_data->{card_declines} // [] };
 
     my $report = sub {
-        my ( $policy, $record, $detail, $for ) = @_;
+        my ( $policy, $record, $detail, $for, $sub_key ) = @_;
         my $ref = ref $record ? $record->{ref} : ( $record // '' );
         return if $self->_rule_suspended( $quieted, $policy->{rule}, $ref );
         return if $card_declined{"$policy->{rule}\x00$ref"};
@@ -7779,6 +7779,7 @@ sub policy_evaluate {
             rule => $policy->{rule},
             policy => $policy->{id},
             ref => $ref,
+            ( defined $sub_key ? ( sub_key => $sub_key ) : () ),
             detail => $detail,
             message => _policy_message( $policy, $record, $detail, $ref ),
             action => $policy->{action},
@@ -8085,7 +8086,8 @@ sub policy_evaluate {
                     next if $question->{answer};
                     next if !$self->_policy_older_than( $question->{asked_at}, $policy->{age} );
                     $report->( $policy, $record,
-                        "$question->{id} has been waiting since $question->{asked_at}" );
+                        "$question->{id} has been waiting since $question->{asked_at}",
+                        undef, $question->{id} );
                 }
             }
         }
@@ -8229,7 +8231,7 @@ sub policy_evaluate {
                       && !_policy_stamp_after( $said, $answer->{read_at} );
                     $report->( $policy, $record,
                         "$question->{id} was answered at $said and nobody has read it",
-                        $question->{author} );
+                        $question->{author}, $question->{id} );
                 }
             }
         }
@@ -8249,14 +8251,14 @@ sub policy_evaluate {
                           if !$self->_policy_older_than( $answer->{read_at}, $policy->{read_age} );
                         $report->( $policy, $record,
                             "$question->{id} was read at $answer->{read_at} and never marked",
-                            $question->{author} );
+                            $question->{author}, $question->{id} );
                         next;
                     }
 
                     next if !$self->_policy_older_than( $answer->{answered_at}, $policy->{age} );
                     $report->( $policy, $record,
                         "$question->{id} was answered and never marked",
-                        $question->{author} );
+                        $question->{author}, $question->{id} );
                 }
             }
         }
@@ -8319,14 +8321,14 @@ sub policy_evaluate {
                         $report->( $policy, $record,
                             "$question->{id} was marked ok and nothing was folded into the card"
                               . ' - write the decision into a card field (a comment is not folding it in)',
-                            $asker );
+                            $asker, $question->{id} );
                     }
                     else {
                         # A cross on its own settles nothing.
                         next if grep { ( $_->{asked_at} // '' ) gt $marked } @questions;
                         $report->( $policy, $record,
                             "$question->{id} was marked not-ok and nothing further was asked",
-                            $asker );
+                            $asker, $question->{id} );
                     }
                 }
             }
@@ -9503,7 +9505,20 @@ sub _violation_may_speak {
 
 sub _violation_key {
     my ($violation) = @_;
-    return join '|', map { $violation->{$_} // '' } qw(rule policy ref);
+    my @parts = map { $violation->{$_} // '' } qw(rule policy ref);
+
+    # A rule that loops over several things on one card - a card's own
+    # questions, so far - and reports each with the CARD's ref needs more
+    # than (rule, policy, ref) to tell its findings apart: two questions on
+    # one card would otherwise share a single ledger entry, and the second
+    # is marked quiet by the escalation ladder and never reaches the bridge.
+    # sub_key exists for exactly that, and only when a rule sets it - every
+    # other rule's key is unchanged, byte for byte, so an existing entry's
+    # seen count and escalation history survive this unaffected. ref itself
+    # stays the card ref for those rules too, so suspension, decline and the
+    # bridge's fix command still address the card. TKT-698.
+    push @parts, $violation->{sub_key} if defined $violation->{sub_key};
+    return join '|', @parts;
 }
 
 # Telling the owner a card moved, without an agent spending tokens to do it.
@@ -14121,7 +14136,12 @@ clears.
 =head2 policy_evaluate
 
 Runs every declared policy rule against the board and returns the
-violations found. C<checklist-unmoved> is addressed to a card's reporter,
+violations found. A rule that loops over several things on one card and
+reports each with the card's own ref - C<question-unanswered>,
+C<answer-waiting>, C<answer-unjudged>, C<answer-ok-not-folded>,
+C<answer-not-ok-no-followup> - passes the looped-over thing's own id as a
+C<sub_key>, so two findings about one card get distinct ledger entries
+instead of colliding into one. C<checklist-unmoved> is addressed to a card's reporter,
 not its assignee, since the assignee is often the reviewer for a card in
 review and cannot tick an item only the card's own author left unticked.
 C<card-still>'s finding names the limit that was actually crossed and

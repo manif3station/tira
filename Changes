@@ -1,5 +1,26 @@
 Revision history for Tira
 
+5.20  2026-09-01
+
+    - TKT-698. The violation ledger keys an entry by (rule, policy, ref)
+      alone. Several rules loop over a card's questions and report each
+      one with the CARD's ref - question-unanswered, answer-waiting,
+      answer-unjudged, answer-ok-not-folded, answer-not-ok-no-followup -
+      so two findings about the same card collided into one ledger entry:
+      the second was marked quiet by the escalation ladder and never
+      reached the bridge, both shared a single seen count and first_seen,
+      and answering one question left the same VIO number describing the
+      other. Reproduced on two rules; the fix covers all five.
+
+      Each finding of this shape now carries the question's own id as a
+      ledger sub_key, distinct from ref - which stays the card ref
+      everywhere else (suspension, decline, the bridge's fix command), so
+      nothing about how a finding is addressed changes, only its identity
+      in the ledger. discard-with-open-questions, on inspection, already
+      reports one finding per card naming every open question in a single
+      message - it was never actually affected by this collision. New
+      test t/480.
+
 5.19  2026-09-01
 
     - TKT-694. TKT-807 (this session) added /tasklist and /tasklist/sessions

@@ -209,11 +209,36 @@ const fs = require('fs');
     return route.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify({ ok: true, record }) });
   });
+  // TKT-675: this step failed intermittently (~1 in 5, worse under host
+  // load) because its count assertion hardcoded "2/3" - stale since REQ-004
+  // was pushed into requiredItems above for TKT-467's long-command test,
+  // which made every record from this point on carry 4 items, not 3. Before
+  // this click the true heading is already "(2/4)" (REQ-002 and REQ-004
+  // done); marking REQ-001 done makes it "(3/4)". The old regex /2\/3|2/
+  // could never match either string - "Required actions (2/4)" and
+  // "Required actions (3/4)" both lack a bare "2" - so this step was not
+  // racing a re-render at all, it was asserting a total the fixture had
+  // already outgrown, and every run genuinely stalled the full 15s. Fixed
+  // to assert the real transition (2/4) -> (3/4), tightened to a bounded
+  // "3/4" match instead of the same loose "any bare digit" shape that
+  // caused this, and to wait on the checkbox's own detachment first - a
+  // done item's checkbox is never re-created, so its absence is a stable,
+  // unambiguous signal that this specific mutation's re-render has landed,
+  // rather than polling heading text alone.
+  const beforeHeading = ( await section.locator('.card-section__title').textContent() ).trim();
+  if ( !/\(2\/4\)/.test(beforeHeading) ) {
+    throw new Error(`expected the heading to read (2/4) before marking REQ-001 done, got: ${beforeHeading}`);
+  }
   await page.click('[data-required-action-done="REQ-001"]');
+  await page.waitForSelector('[data-required-action-done="REQ-001"]', { state: 'detached', timeout: 15000 });
   await page.waitForFunction(() => {
     const box = document.querySelector('.card-section--required .card-section__title');
-    return box && /2\/3|2/.test(box.textContent);
+    return box && /\(3\/4\)/.test(box.textContent);
   }, null, { timeout: 15000 });
+  {
+    const heading = await section.locator('.card-section__title').textContent();
+    if (/\(0\/2\)|^0\/2$/.test(heading)) throw new Error(`count assertion must reject a (0/2) heading, got: ${heading}`);
+  }
 
   console.log('required-actions: marking one done updates the count in place');
 

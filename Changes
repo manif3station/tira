@@ -1,5 +1,26 @@
 Revision history for Tira
 
+5.02  2026-09-01
+
+    - TKT-675. t/playwright/required-actions.js's "marking one done updates
+      the count" step failed intermittently in the push gate (~1 in 5,
+      worse under host load) - not because of a race, as first suspected,
+      but because its count assertion hardcoded "2/3" while the fixture,
+      by that point in the file, already carried 4 required items (REQ-004
+      was pushed in earlier for TKT-467's long-command popup test). The
+      real heading was always "(2/4)" before the click and "(3/4)" after -
+      neither string contains a bare "2", so the old loose /2\/3|2/ regex
+      could never match either one, and the step deterministically stalled
+      the full 15s every single run once that fixture change landed.
+
+      Fixed to assert the real (2/4) -> (3/4) transition, tightened to a
+      bounded regex instead of the same "any bare digit" shape that hid
+      this, plus an explicit wait for the marked checkbox's own
+      detachment (a done item's checkbox is never re-created, so its
+      absence is a stable, unambiguous signal the re-render landed) before
+      trusting the heading text. Confirmed via two consecutive
+      tools/browser-tests runs: required-actions.js clean both times.
+
 5.01  2026-09-01
 
     - TKT-790. README.md was purely textual. Added four real screenshots

@@ -53,7 +53,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.04';
+our $VERSION = '5.05';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -13515,6 +13515,7 @@ my $live_helpers = $args{live} ? _view_asset('live-helpers.js')
       . ';const scheduleRefresh=()=>setTimeout(()=>{Promise.resolve(refreshDashboard()).finally(scheduleRefresh)},refreshSeconds*1000);'
       . $initial_refresh
       . 'scheduleRefresh();'
+      . _view_asset('hero-counts.js')
       . $drag_script;
 
     return _render_view( 'dashboard.tt', {

@@ -1,5 +1,40 @@
 Revision history for Tira
 
+5.05  2026-09-01
+
+    - TKT-797. Follow-up on TKT-780's sticky header. The owner asked for
+      two things: shrink the header once the reader has actually
+      scrolled, so a narrow (mobile) screen keeps more room for cards
+      while the header stays present; and show, in the page header
+      itself - not any per-board header, not any column title - how
+      many cards have a question awaiting an answer, and how many
+      tasklist items are outstanding, so both stay visible regardless
+      of scroll position.
+
+      Deliberately does not touch .column__head at all: TKT-788 spent
+      two attempts learning that shifting a sticky element's own
+      geometry can intercept real pointer events. This fix only toggles
+      .hero's own padding/font-size via a class (.hero--compact,
+      compound-selector CSS so it wins regardless of source order or
+      the mobile media query), driven by a scroll listener. The question
+      count reads the same .card--waiting marker the existing
+      Questions-to-answer toggle already relies on; the task count reads
+      the existing /tasklist route. New lib/Tira/views/hero-counts.js.
+
+      Caught during this card's own implementation, before it ever
+      reached verify: wiring the new script between board-bindings.js
+      and the refresh-scheduling code split a cross-file arrow-function
+      definition in half, throwing a page-wide SyntaxError that silently
+      broke every interaction on the page - tools/browser-tests failed
+      nearly every one of its 21 checks with unrelated-looking timeouts,
+      which a plain source-text test could not have caught (t/466's own
+      regex assertions all still "passed" against the broken script,
+      since they never executed it). Found by running the assembled
+      script through a real headless browser directly. Fixed by moving
+      the new code to after the refresh scheduler is fully defined; two
+      consecutive tools/browser-tests runs afterward showed only the
+      pre-existing, unrelated dashboard-browser.js drag flake.
+
 5.04  2026-09-01
 
     - TKT-793. The browser dashboard's Columns dialog rendered dedicated

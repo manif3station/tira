@@ -260,6 +260,8 @@ d2 tira.dashboard.ticket --title -o table > tickets.html
 d2 tira.dashboard -o browser
 d2 tira.dashboard.ticket --title -o browser=localhost:4567
 d2 tira.tasklist.add --text "read the README"
+d2 tira.job.add --schedule "0 * * * *" --message "go hunt some bugs"
+d2 tira.job.list
 d2 tira.tasklist.list
 ```
 

@@ -1996,6 +1996,18 @@ and look at, while a job that never announces leaves nothing behind at all, and
 before the section existed the only way to tell a disabled job from a broken
 one was to open the board's stored job records by hand.
 
+A job is put on the board with `tira.job.add`, which is what the schedule above
+was created by:
+
+    d2 tira.job.add --schedule "0 * * * *" --message "go hunt some bugs"
+    d2 tira.job.list
+
+`--command TEXT` takes the place of `--message` for a job that runs something
+rather than says something. A malformed schedule is refused at that point,
+naming the field and the range it takes, and nothing is stored - so a rule that
+can only speak about jobs that exist is never left waiting on one that could
+never have fired.
+
 ### A task and its card telling two different stories
 
 `task-unlinked` catches a task with no card. Nothing caught a task whose status

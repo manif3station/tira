@@ -2819,6 +2819,12 @@ per-command option catalogue C<%MISLEADING_OPTIONS> declines to be, and the
 reason it declines is unchanged: there is no way to derive which options each
 command reads, so a general version would refuse things that work today.
 
+C<%MISLEADING_OPTIONS> and C<%OPTION_READ_BY> live in L<Tira::CLI::Options> as
+of TKT-837, lifted to make room under F<t/430>'s cap. C<_refuse_unread_options>
+keeps a forwarder in this package on purpose: three test files disable the
+guard by localising it here to prove what the refusal is worth, and calling the
+lifted subroutine at its new address moved the name out from under them.
+
 Its position is the other half. Written beside the C<%method> dispatch, where
 the misleading-option guard was, it would not have run for the create verbs at
 all - C<record.*> returns from the if/elsif chain some seven hundred lines

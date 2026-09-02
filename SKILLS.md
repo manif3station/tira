@@ -1755,6 +1755,15 @@ attach-content dedup path on TKT-832 - because 100% over a 15,000-line file
 and 100% over a 700-line one are not the same claim, and shrinking the
 denominator stops the rounding hiding what was never tested.
 
+**And new engine code now starts in its own module (TKT-836, 5.27).** The
+first feature written since the decomposition began - repeated jobs, EPC-014 -
+went straight into `lib/Tira/Job.pm` rather than into `lib/Tira.pm`. Adding a
+few hundred lines to the file three tickets have been shrinking would have
+meant lifting the same lines back out later, so the pattern the lifts
+established is now the default for new work as well as the remedy for old:
+a concern module under `lib/Tira/`, loaded with `require` at the call site,
+with thin same-named forwarders on `Tira` so callers are unaffected.
+
 **A third cost was paid once and then removed (TKT-835, 5.26).** A test that
 opens `lib/Tira.pm` by name is asserting where code lives while claiming to
 assert something else, so it breaks on a lift that broke nothing - and the

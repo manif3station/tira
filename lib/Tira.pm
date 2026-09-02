@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.26';
+our $VERSION = '5.27';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1254,6 +1254,16 @@ sub _tasklist_read { my $self = shift; require Tira::Tasklist; return Tira::Task
 # _tasklist_session is the one bareword (non-method) call into this concern
 # from outside it - Tira::search calls it directly, not through $self.
 sub _tasklist_session { require Tira::Tasklist; return Tira::Tasklist::_tasklist_session(@_) }
+
+# Repeated jobs live in lib/Tira/Job.pm and are reached the same lazy way.
+# New code went straight into its own module rather than into this file
+# because TKT-746 is actively shrinking this file; adding to it would have
+# meant lifting the same lines back out later. EPC-014, TKT-836.
+sub job_add    { my $self = shift; require Tira::Job; return Tira::Job::job_add( $self, @_ ) }
+sub job_list   { my $self = shift; require Tira::Job; return Tira::Job::job_list( $self, @_ ) }
+sub job_update { my $self = shift; require Tira::Job; return Tira::Job::job_update( $self, @_ ) }
+sub job_delete { my $self = shift; require Tira::Job; return Tira::Job::job_delete( $self, @_ ) }
+sub job_is_due { my $self = shift; require Tira::Job; return Tira::Job::job_is_due( $self, @_ ) }
 
 sub warning_clear {
     my ( $self, %args ) = @_;

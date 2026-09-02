@@ -1,5 +1,42 @@
 Revision history for Tira
 
+5.27  2026-09-02
+
+    - TKT-836 (EPC-014). Repeated jobs: a schedule the board owns rather
+      than a loop a session owns. lib/Tira/Job.pm holds the record and the
+      cron evaluation; Tira keeps lazy forwarders, so callers still say
+      $tira->job_add.
+
+      It exists because a schedule that lived in a session died with it.
+      Three standing hunts - hourly bugs, two-hourly improvements,
+      three-hourly doc-gaps - had been dead for hours on 2026-09-02 and
+      nobody noticed, because a loop that has stopped and a loop with
+      nothing to report produce identical output: none.
+
+      THE REFUSAL IS THE POINT. A malformed schedule is rejected when it
+      is written, naming the field that was wrong and the range it takes,
+      and nothing is stored. A job whose cron is nonsense would never
+      fire, and a job that never fires is indistinguishable from a job
+      with nothing to say - so storing it would rebuild the very
+      ambiguity this feature removes, one layer down.
+
+      A job carries either a command, whose output the police will send
+      to the bridge, or a message it announces directly - never both,
+      never neither, with the mode stored explicitly rather than inferred
+      from which field is populated. Its schedule is a crontab string or
+      the literal 'monitor', and schedule_kind records which so no caller
+      re-parses to find out. Both pairs are his design (msg 6487).
+
+      job_is_due always takes the instant as an argument rather than
+      reading the clock, so an assertion is about the schedule and not
+      about when the suite happened to run.
+
+      NEW CODE WENT STRAIGHT INTO ITS OWN MODULE. TKT-746 is shrinking
+      lib/Tira.pm - 15,264 lines down to 14,177 across three lifts - so
+      adding a few hundred lines to it would have meant lifting the same
+      lines back out later. lib/Tira/Job.pm follows the shape Tira::Toon,
+      Tira::Tasklist and Tira::Render already established.
+
 5.26  2026-09-02
 
     - TKT-835. Seven tests stopped locating engine code by naming

@@ -1764,6 +1764,23 @@ established is now the default for new work as well as the remedy for old:
 a concern module under `lib/Tira/`, loaded with `require` at the call site,
 with thin same-named forwarders on `Tira` so callers are unaffected.
 
+**And a command-mode job actually runs (TKT-841).** When it comes due, the
+rule announces it as `runs: <command>` and then `Tira::CLI::Police::run_due_job`
+runs it, putting stdout, stderr and the exit status back on the bridge. A
+command that fails says so: a job that ran and failed would otherwise be
+indistinguishable from one that never ran, which is the ambiguity this epic
+exists to remove. Until this, `job-due` skipped command-mode jobs outright and
+nothing downstream ever heard they were due.
+
+Execution sits in the CLI layer rather than the engine, and that was decided by
+a test rather than by preference. The engine is forbidden every shell-invoking
+construct, and the guard's own exclusion list already contains `lib/Tira/CLI`
+because the board server legitimately needs one - so no second exception had to
+be invented, and the assertion that the rule body runs nothing stays true. The
+command is run in list form, so a semicolon in it is an argument rather than an
+instruction; the honest cost is that there is no quoting, and a job needing it
+should be a script.
+
 **Repeated jobs can be typed at the command line (TKT-837, 5.30).** A job
 carries a schedule and something to do when it comes due: `tira.job.add
 --schedule "0 * * * *" --message "go hunt some bugs"`, or `--command` instead,

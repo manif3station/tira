@@ -907,6 +907,34 @@ file. A C<use> there is correct and turns a lazy chain eager, which is how
 C<tira.next> came to compile four modules for the sake of one helper for the
 first hour after the split.
 
+=head2 run_due_job
+
+Runs a due command-mode job and returns C<< { ran, status, output } >>. A
+message-mode job returns C<< ran => 0 >> and is not executed; the engine has
+already announced it and that is all it owes.
+
+B<This is where execution lives, and the placement was decided by a test.> The
+engine is forbidden every shell-invoking construct, and the guard's pattern
+catches the list form as well - so "without a shell" buys no exception there.
+C<Suite::engine_source()> already excludes F<lib/Tira/CLI> because
+L<Tira::CLI::Serve> legitimately needs one to serve a board, so this layer is
+the sanctioned home and no second exception was invented for jobs.
+F<t/489> still asserts the C<job-due> rule body runs nothing and F<t/492>
+asserts it of the whole engine.
+
+The command is split on whitespace and handed to C<IPC::Open3> as a list, so
+the program is named separately from its arguments and a semicolon in a
+command is an argument rather than an instruction. B<There is no quoting>:
+C<echo "two words"> is four arguments. A job that needs quoting should be a
+script, which is also the answer that keeps the guarantee.
+
+Stdout and stderr are captured together, and the exit status is returned rather
+than discarded, because a command that failed silently cannot be told apart
+from one that never ran - the ambiguity EPC-014 exists to remove. A program
+that is not installed is a B<result>, not a crash: what could not be run is
+named in C<output> with a status of -1, the same judgement
+C<Tira::CLI::Serve::_reading> already makes about a missing C<docker>.
+
 =head1 SEE ALSO
 
 L<Tira::CLI>, L<Tira::CLI::Backup>

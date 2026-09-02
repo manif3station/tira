@@ -3451,6 +3451,14 @@ reader never has to infer it from whichever field is populated.
     job is never "due", and neither is a disabled one, which is why the
     `job-due` rule stays silent about both.
 
+    A `--command` job RUNS when it comes due, and what it produced goes to the
+    police bridge - stdout and stderr together, with the exit status. A command
+    that fails reports the failure rather than falling silent, because a job
+    that ran and failed would otherwise look exactly like a job that never ran.
+    The command is run in list form, the program named separately from its
+    arguments, so a semicolon in it is an argument and not an instruction;
+    there is no quoting, so a command needing it should be a script.
+
     A malformed schedule is refused when it is written, naming the field and
     the range it takes, and nothing is stored. The refusal is the engine's own,
     surfaced unchanged rather than decided a second time here — the command line

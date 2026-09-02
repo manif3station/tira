@@ -1,5 +1,45 @@
 Revision history for Tira
 
+5.26  2026-09-02
+
+    - TKT-835. Seven tests stopped locating engine code by naming
+      lib/Tira.pm and now ask t/lib/Suite.pm's new engine_source() for it,
+      which walks lib/ and asserts it found modules before reading any.
+      t/486 refuses new instances.
+
+      This is preparation for TKT-746's last lift, not tidying. t/177 broke
+      on TKT-834 for exactly this reason, TKT-703 had "fixed" the same line
+      before by naming a second file rather than by walking, and
+      MISTAKE.md records four earlier instances from TKT-607. Three of the
+      seven converted here read police content, so the police-engine lift
+      would have broken them together.
+
+      THE RULE IS NARROWER THAN IT FIRST LOOKED, and four predicates were
+      tried before one held. "Opens any lib/*.pm" missed the slurp form.
+      "Names any lib/*.pm" was too wide: it would have forced wrong changes
+      on tests whose claim is about a particular file, and it caught t/279,
+      which WRITES fixture modules. "Reads lib/Tira.pm" with a file-level
+      write exclusion silently dropped t/126, which writes a fixture
+      elsewhere. What holds is reading lib/Tira.pm, checked per occurrence:
+      that file is the one being decomposed, so code read out of it is
+      mobile by definition, while a stable concern module is a legitimate
+      subject for a test to be about.
+
+      Two files therefore keep naming it, and say why on the line, using
+      the marker convention t/176 already established rather than a list of
+      exempt filenames: t/426 asserts lib/Tira.pm ITSELF carries no page
+      markup, which is true of the engine and false of lib/Tira/
+      DashboardWeb.pm, the View; and t/344 takes only Tira.pm's own POD,
+      which is deliberately where the lifted modules' methods stay
+      documented. t/486 asserts those exceptions exist and carry a reason,
+      so the escape hatch cannot be used silently.
+
+      engine_source() excludes the Tira::CLI layer for the same class of
+      reason: t/106 asserts the engine invokes no shell, and
+      lib/Tira/CLI/Serve.pm legitimately does. Measured rather than
+      assumed - Serve.pm is the only file under lib/ that matches that
+      pattern at all.
+
 5.25  2026-09-01
 
     - TKT-834 (TKT-746's third lift). The human and table renderers -

@@ -24,6 +24,8 @@ use File::Path ();
 use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
+use lib 't/lib';
+use Suite qw(engine_source);
 
 use lib 'lib';
 use Tira;
@@ -108,7 +110,7 @@ is( scalar @{ police($none)->{violations} }, 1,
 # The whole reason the world is gathered out here is that the engine promises
 # to invoke nothing. Gathering it must not quietly move that line.
 
-my $engine = do { local $/; open my $fh, '<', 'lib/Tira.pm' or die $!; <$fh> };
+my $engine = engine_source();
 # Code only. The prose in this file says "system" and quotes commands in
 # backticks all over, and a check that reads its own documentation as a
 # violation is a check nobody will keep.

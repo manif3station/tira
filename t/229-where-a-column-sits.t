@@ -22,6 +22,8 @@ use warnings;
 use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
+use lib 't/lib';
+use Suite qw(engine_source);
 
 use lib 'lib';
 use Tira;
@@ -92,9 +94,7 @@ ok( reported(), 'and is reported again once the order reads as it did before' );
 # two can disagree about a board neither of them changed.
 
 {
-    open my $source, '<', 'lib/Tira.pm' or die "Tira.pm: $!";
-    my $text = do { local $/; <$source> };
-    close $source;
+    my $text = engine_source();
 
     my ($before) = $text =~ /(sub _policy_before_column \{.*?\n\})/s;
     ok( $before, 'the rule that asks whether a card is before a marker is there' );

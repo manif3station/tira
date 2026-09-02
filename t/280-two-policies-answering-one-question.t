@@ -24,6 +24,8 @@ use warnings;
 use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
+use lib 't/lib';
+use Suite qw(engine_source);
 
 use lib 'lib';
 use Tira;
@@ -45,7 +47,7 @@ sub slurp {
 # scope field added to one and not the other is caught structurally.
 
 {
-    my $source = slurp('lib/Tira.pm');
+    my $source = engine_source();
     like( $source, qr/POLICY_SCOPE_FIELDS/,
         'the scope fields policy_add compares are named once, not copied into a second list' );
 }

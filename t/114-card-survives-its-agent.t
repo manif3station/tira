@@ -22,6 +22,8 @@ use warnings;
 use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
+use lib 't/lib';
+use Suite qw(engine_source);
 
 use lib 'lib';
 use Tira;
@@ -131,7 +133,7 @@ like( $@, qr/Unknown project person/, 'refused for being nobody, not for somethi
 # Tira records what the thing that spawns agents needs to find, and spawns
 # nothing itself. The same boundary that keeps it invoking no shell.
 
-my $engine = do { local $/; open my $fh, '<', 'lib/Tira.pm' or die $!; <$fh> };
+my $engine = engine_source();
 $engine =~ s/^=\w.*?^=cut//gmsx;
 $engine =~ s/^\s*#.*$//gm;
 like( $engine, qr/package Tira/,

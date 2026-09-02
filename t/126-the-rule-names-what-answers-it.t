@@ -25,6 +25,8 @@ use warnings;
 use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
+use lib 't/lib';
+use Suite qw(engine_source);
 
 use lib 'lib';
 use Tira;
@@ -143,11 +145,7 @@ is( Tira::_violation_fix( { rule => 'orphan-card', ref => 'EPC-001' } ),
 # the same expression written out twice, which is how the program lookup and the
 # message substitution both drifted before this.
 
-my $source = do {
-    open my $handle, '<', 'lib/Tira.pm' or die $!;
-    local $/;
-    <$handle>;
-};
+my $source = engine_source();
 my $count = () = $source =~ /tira\.ticket\.show --ref \$ref/g;
 is( $count, 1, 'the fix line is worked out in one place, not written out twice' );
 

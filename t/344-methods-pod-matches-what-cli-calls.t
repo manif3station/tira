@@ -20,6 +20,11 @@ use warnings;
 use File::Find qw(find);
 use Test::More;
 
+# READS THE ENGINE FILE ON PURPOSE - t/486 marker: about this file, not its code.
+# Only the POD is taken from it, and Tira.pm's POD is deliberately where the
+# lifted modules' methods stay documented (TKT-832) - so the section this
+# compares really is this file's own. The CALLERS are already found by walking
+# lib/Tira below, which is the half that had to follow the code.
 my $module = 'lib/Tira.pm';
 open my $fh, '<', $module or die "Cannot read $module: $!";
 my $body = do { local $/; <$fh> };

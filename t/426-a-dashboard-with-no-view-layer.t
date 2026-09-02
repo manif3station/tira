@@ -36,6 +36,11 @@ use Test::More;
 use lib 'lib';
 use Tira;
 
+# READS THE ENGINE FILE ON PURPOSE - t/486 marker: about this file, not its code.
+# The claim is that lib/Tira.pm ITSELF holds no page markup, because the View
+# layer holds it instead. Widening this to every engine module makes it false
+# for a reason that is not a defect: lib/Tira/DashboardWeb.pm legitimately
+# carries <!doctype html>, being the web layer. Naming the file is the claim.
 my $module = 'lib/Tira.pm';
 open my $fh, '<', $module or die "cannot read $module: $!";
 my $source = do { local $/; <$fh> };

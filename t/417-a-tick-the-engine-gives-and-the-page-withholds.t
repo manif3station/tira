@@ -45,6 +45,8 @@ use warnings;
 
 use File::Spec;
 use Test::More;
+use lib 't/lib';
+use Suite qw(engine_source);
 
 sub slurp {
     my ($path) = @_;
@@ -54,7 +56,7 @@ sub slurp {
     return $text;
 }
 
-my $file = slurp('lib/Tira.pm');
+my $file = engine_source();
 
 # POD stripped before anything is counted, and this is not tidiness - the first
 # version of this file counted the whole module and went red the moment the

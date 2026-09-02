@@ -30,6 +30,8 @@ use strict;
 use warnings;
 
 use Test::More;
+use lib 't/lib';
+use Suite qw(engine_source);
 
 use lib 'lib';
 use Tira;
@@ -110,14 +112,10 @@ is( Tira::_attachment_content_type( 'zzz', File::Spec->catfile( $scratch, 'not-h
 # tables of the same nine extensions is what put the engine and the browser in
 # disagreement about one file.
 
-my $dash = do {
-    open my $fh, '<', 'lib/Tira.pm' or die "Tira.pm: $!";
-    local $/;
-    <$fh>;
-};
+my $dash = engine_source();
 
 ok( $dash,
-    'lib/Tira.pm was read before anything is denied about it - '
+    'the engine source was read before anything is denied about it - '
       . length($dash)
       . ' bytes, so the denial below is about the real file rather than '
       . 'about an empty string' );

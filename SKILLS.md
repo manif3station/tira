@@ -1755,6 +1755,35 @@ attach-content dedup path on TKT-832 - because 100% over a 15,000-line file
 and 100% over a 700-line one are not the same claim, and shrinking the
 denominator stops the rounding hiding what was never tested.
 
+**A third cost was paid once and then removed (TKT-835, 5.26).** A test that
+opens `lib/Tira.pm` by name is asserting where code lives while claiming to
+assert something else, so it breaks on a lift that broke nothing - and the
+first reading is always that the change is wrong rather than the test.
+`t/177` did exactly this on TKT-834, having been "fixed" for the same fault
+on TKT-703 by naming a *second* file instead of by walking; MISTAKE.md
+records four more from TKT-607's split. Seven such tests now ask
+`t/lib/Suite.pm`'s `engine_source()` for the engine instead, which walks
+`lib/` and asserts it found modules before reading any, and `t/486` refuses
+new instances. Three of the seven read police content, so this was owed
+before TKT-746's last lift rather than after it.
+
+The rule is narrower than "never name a module", and the narrowing was
+forced rather than chosen: **only *reading* `lib/Tira.pm` is refused.** That
+is the file being decomposed, so code read out of it is mobile by
+definition, while a stable concern module is a legitimate subject for a test
+to be about. There are two such tests and each says why: `t/426` asserts
+`lib/Tira.pm` *itself* carries no page markup, which is true of the engine
+and false of `lib/Tira/DashboardWeb.pm`, the View - walking the engine made
+that true claim fail. `t/344` takes only `Tira.pm`'s own POD, which is
+deliberately where the lifted modules' methods stay documented (TKT-832), and
+it already walks `lib/Tira` for the *callers* - the half that genuinely had
+to follow the code. Those exceptions stay, and say why on the line using the
+marker
+convention `t/176` already established; `t/486` asserts they exist and carry
+a reason, so the escape hatch cannot be used silently. `engine_source()`
+excludes the `Tira::CLI` layer for the same class of reason: `t/106` asserts
+the engine invokes no shell, and `lib/Tira/CLI/Serve.pm` legitimately does.
+
 Entry points kept their names. `Tira::CLI::browser_providers` still exists and
 still answers; twenty test files and the dashboard call it by that name, and a
 refactor that renames its own front door is not behaviour-preserving.

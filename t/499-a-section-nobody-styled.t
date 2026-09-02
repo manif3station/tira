@@ -43,6 +43,11 @@ use Test::More;
 use lib 'lib';
 use lib 't/lib';
 
+# Loaded for the assembled-page block at the end. The rest of this file only
+# reads the two view assets off disk, which is why the engine was not needed
+# until the page check was added.
+use Tira;
+
 sub slurp {
     my ($path) = @_;
     open my $fh, '<:raw', $path or die "$path: $!";
@@ -133,6 +138,56 @@ like( $css, qr/\.jobs-card__edit\{[^}]*grid-row:/,
 
 like( $js, qr/cannot run/,
     'a monitor with no command says it cannot run rather than claiming to be up' );
+
+# --- and the page that is actually served -----------------------------------
+#
+# Everything above reads the two source files. This reads the page they become,
+# and it is here because walking the card's own test steps found something the
+# source checks could not: the view asset is embedded VERBATIM, comments and
+# all, so an explanatory comment quoting the old strings shipped them to every
+# browser that loaded the board. The rows were clean and the page was not.
+#
+# I recorded on the card's tests-red gate that steps 2 and 4 were not covered by
+# this file. They are now, because walking them was what found it.
+
+{
+    use File::Spec;
+    use File::Temp ();
+
+    my $tmp  = File::Temp::tempdir( CLEANUP => 1 );
+    my $root = File::Spec->catdir( $tmp, 'styled' );
+    my $tira = Tira->new( clock => sub {'2026-09-03T00:30:00Z'} );
+    $tira->project_new(
+        name => 'Styled', dir => $root, members => ['claude'],
+        columns    => ['backlog, done'],
+        sow_prefix => 'STS', epic_prefix => 'STE', ticket_prefix => 'STT',
+    );
+    $tira->job_add( project => $root, schedule => '0 5 * * *', command => 'd2 tira.police' );
+    $tira->job_add( project => $root, schedule => 'monitor',   command => 'd2 is-agent-sleeping' );
+
+    my $page = $tira->format_output(
+        $tira->dashboard( project => $root, live => 1 ),
+        output => 'table', live => 1 );
+
+    # non-empty is the whole claim: every denial below is about what the page
+    # does not contain, and a page that failed to render would satisfy all of
+    # them while proving nothing.
+    like( $page, qr/\S/, 'the live board page renders' );
+
+    like( $page, qr/board--jobs/, 'and carries the Repeated Jobs section' );
+    like( $page, qr/\.jobs-card\b/,
+        'with the section rules embedded, not only present in the stylesheet file' );
+
+    for my $leak ( 'command - cron', 'command - monitor', 'message - cron' ) {
+        unlike( $page, qr/\Q$leak\E/,
+            "the served page does not carry the string '$leak' anywhere" );
+    }
+
+    like( $page, qr/Stays running/,
+        'a monitor describes itself in words the reader can follow' );
+    like( $page, qr/Runs a command when due/,
+        'and so does a cron job' );
+}
 
 done_testing();
 

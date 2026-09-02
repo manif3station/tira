@@ -427,16 +427,99 @@ sub providers {
         # because the browser one is advice to a person and this one is the
         # record refusing. A save that got past a stale page still cannot
         # store a broken schedule.
+        # One route, two verbs, chosen by whether the payload names a job.
+        #
+        # TKT-858. Until then this died without an id and only ever updated, so
+        # a job could be run, edited and listed from the page and created only
+        # from a terminal - which stopped being a curiosity the afternoon the
+        # five standing monitors moved onto board-owned jobs and this section
+        # became where he watches them.
+        #
+        # DISPATCHING HERE RATHER THAN ADDING A job_create PROVIDER: the page
+        # already posts to /jobs/save, and every entry in @PROVIDERS is a
+        # breaking change to every hand-built caller of build_psgi_app in the
+        # suite. One payload shape, one route, one place the refusals live.
+        #
+        # THE REFUSALS ARE NOT REWRITTEN. job_add calls _job_fields, which owns
+        # the schedule requirement and the refusal of a message-mode monitor
+        # (TKT-842 - a monitor with no command can never be found alive in the
+        # process table, so it would be reported dead forever). The create path
+        # inherits both by calling the engine rather than checking for itself.
+        # A second copy of those rules is the fault this section already
+        # declined to grow on TKT-843, and the one that made the engine and the
+        # browser disagree about attachment content types on TKT-713.
         job_save => sub {
             my ($payload) = @_;
-            die "A job id is required\n"
-              if !defined $payload->{id} || $payload->{id} eq '';
-            return $json->encode( $tira->job_update(
-                project => $project,
-                id      => $payload->{id},
+            my %given = (
                 ( defined $payload->{schedule} ? ( schedule => $payload->{schedule} ) : () ),
                 ( defined $payload->{command}  ? ( command  => $payload->{command} )  : () ),
                 ( defined $payload->{message}  ? ( message  => $payload->{message} )  : () ),
+            );
+
+            if ( !defined $payload->{id} || $payload->{id} eq '' ) {
+                my $made = $tira->job_add( project => $project, %given );
+
+                # A MONITOR IS STARTED ON CREATION. His answer to Q-109 on
+                # TKT-858: "Create it and start it, for monitor-kind only. The
+                # page then does what somebody adding a monitor obviously
+                # meant, at the cost of a save that launches a process."
+                #
+                # My own default had been the other way - create it stopped and
+                # say so - so this is his call, not a fallback. The cost he
+                # accepted is real: saving a form spawns a process. What it buys
+                # is that a monitor created here is not immediately reported dead
+                # by monitor-dead, which is the confusing state the key detail on
+                # that card warned about.
+                #
+                # run_now rather than a spawn written here: it is the same
+                # executor the play button uses, and it carries the
+                # already-running refusal and the spawn/record atomicity fix
+                # that only came out of review. Cron jobs are untouched - they
+                # have nothing to start.
+                if ( ( $made->{schedule_kind} // '' ) eq 'monitor' ) {
+                    require Tira::CLI::Job;
+
+                    # THE JOB IS ALREADY WRITTEN BY HERE, so a start that fails
+                    # must not read as a create that failed. Raised in review:
+                    # letting run_now's die escape would answer the page with an
+                    # error over a job that exists, and the obvious response to
+                    # that is to press Add again - which creates a second one.
+                    # So the refusal names what actually happened and what to do
+                    # about it, rather than pretending nothing was written.
+                    my $started = eval {
+                        Tira::CLI::Job::run_now( $tira,
+                            { project => $project, id => $made->{id} } );
+                        1;
+                    };
+                    if ( !$started ) {
+                        my $why = $@ || 'it could not be started';
+                        $why =~ s/\s+\z//;
+                        die "Job $made->{id} was created but not started: $why. "
+                          . "It exists on the board - start it with "
+                          . "tira.job.start --id $made->{id} rather than adding it again.\n";
+                    }
+
+                    # Read back so the page is told the pid and started_at the
+                    # start actually recorded, rather than the pre-start record
+                    # job_add returned.
+                    #
+                    # Falling back to the pre-start record rather than letting a
+                    # miss become undef: also from review. A grep that finds
+                    # nothing would encode JSON null, and the page would report
+                    # "no job" about a job that had just been created AND
+                    # started - the most misleading answer available.
+                    my ($fresh) = grep { $_->{id} eq $made->{id} }
+                      @{ $tira->job_list( project => $project ) };
+                    $made = $fresh if $fresh;
+                }
+
+                return $json->encode($made);
+            }
+
+            return $json->encode( $tira->job_update(
+                project => $project,
+                id      => $payload->{id},
+                %given,
                 ( defined $payload->{enabled}  ? ( enabled  => $payload->{enabled} )  : () ),
             ) );
         },
@@ -890,11 +973,30 @@ session ownership.
 
 TKT-839 added C<jobs>, a read-only provider returning the board's repeated
 jobs as JSON for the dashboard's Repeated Jobs section and its C<GET /jobs>
-route. It has no mutating siblings on purpose: the section shows the schedule
-and does not run or edit it. Note that adding any name here makes it
-B<mandatory> - C<build_psgi_app> refuses a provider hash missing an entry - so
-a new provider breaks every hand-built caller that does not also gain it,
-which is what five test files had to be taught when this one arrived.
+route. Note that adding any name here makes it B<mandatory> -
+C<build_psgi_app> refuses a provider hash missing an entry - so a new provider
+breaks every hand-built caller that does not also gain it, which is what five
+test files had to be taught when this one arrived.
+
+That last sentence is why the section's mutating verbs are three providers and
+not four. C<jobs> arrived with none, on the stated grounds that the section
+showed a schedule and did not run or edit it; TKT-843 then added C<job_run>,
+C<job_check> and C<job_save> for the play button and the editor, and TKT-858
+needed creation as well. Creation went into C<job_save> as a dispatch on
+whether the payload names a job - no id means C<job_add>, an id means
+C<job_update> - rather than becoming a C<job_create> entry, because the page
+already posts to one route and each extra name is a breaking change to every
+hand-built caller in the suite.
+
+C<job_save> does not validate. C<job_add> and C<job_update> both reach
+C<_job_fields>, which owns the schedule requirement and the refusal of a
+message-mode monitor, so both paths inherit those rules by asking the engine.
+A monitor created through C<job_save> is started with
+C<Tira::CLI::Job::run_now>, the same executor C<job_run> uses - Michael's
+answer to Q-109 on TKT-858, chosen over creating it stopped, so a monitor made
+on the page is not immediately reported dead by C<monitor-dead>. A second
+spawn written here would not carry C<run_now>'s already-running refusal or its
+spawn/record atomicity fix.
 
 =head2 What is owed in the card's own column
 

@@ -1,5 +1,34 @@
 Revision history for Tira
 
+5.37  2026-09-02
+
+    - TKT-858. A repeated job can be created from the browser dashboard. Until
+      now the Repeated Jobs section could run, edit and list jobs and a job
+      could be brought into existence only from a terminal - which stopped
+      being a curiosity the afternoon the five standing hunts moved onto
+      board-owned jobs and that section became where the schedule is watched.
+
+      An "Add a job" control opens the existing editor with nothing in it, and
+      `job_save` now dispatches on whether the payload names a job: no id means
+      `job_add`. One route and two verbs rather than a second provider, because
+      every `@PROVIDERS` entry is a breaking change to every hand-built caller
+      of `build_psgi_app`. The refusals are not rewritten - `job_add` calls
+      `_job_fields`, so the schedule requirement and the message-mode-monitor
+      refusal are inherited - and the crontab is still judged by the same
+      `POST /jobs/check` the edit path uses.
+
+      A monitor created this way is STARTED, which was asked as Q-109 on the
+      card rather than decided quietly. Michael: "Create it and start it, for
+      monitor-kind only. The page then does what somebody adding a monitor
+      obviously meant, at the cost of a save that launches a process." It
+      starts through `run_now`, the executor the play button already uses, so
+      it inherits the already-running refusal and the spawn/record atomicity
+      fix. Cron jobs have nothing to start and are untouched.
+
+      Also corrects README and docs/commands.md, which still described the
+      Repeated Jobs section as read-only - untrue since the play button and the
+      editor shipped in TKT-843.
+
 5.36  2026-09-02
 
     - TKT-849. `tira.ticket.create --text` is refused instead of swallowed.

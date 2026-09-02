@@ -295,9 +295,20 @@ attach, ref) - full parity with the CLI commands below.
 
 Below that sits a Repeated Jobs section, one row per scheduled job the board
 carries: its id, whether it is enabled, its schedule, what it says or runs,
-and its mode and schedule kind. It is read-only and refreshes every thirty
-seconds, so what a board is scheduled to do is visible on the board rather
-than only in its stored job records.
+and its mode and schedule kind. It refreshes every thirty seconds, so what a
+board is scheduled to do is visible on the board rather than only in its stored
+job records.
+
+The section began read-only. Each row now carries a play button that runs the
+job at once whatever its schedule says, and a control that opens an editor for
+its schedule; a bad crontab is highlighted and cannot be saved, with the
+message coming from the engine rather than a second check written in the page.
+Since 5.36 an **Add a job** control opens that same editor with nothing in it,
+so a job can be created from the board as well as from `tira.job.add` — until
+then a job could be run, edited and listed here and brought into existence only
+from a terminal. A job created this way is the same record `tira.job.add`
+makes, and if its schedule is the literal `monitor` the page starts it, so it
+is not left in the state `monitor-dead` reports as dead.
 
 A job whose schedule is the literal `monitor` is a long-running poller rather
 than a tick. It is started with `tira.job.start`, which records the pid it

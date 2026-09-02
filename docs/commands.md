@@ -3606,6 +3606,19 @@ reader never has to infer it from whichever field is populated.
     section under the Task List, one row per job. EPC-014, TKT-836 for the
     record, TKT-837 for these verbs.
 
+    That section is not read-only. Each row has a play button that runs the job
+    at once whatever its schedule says (`tira.job.run`, TKT-843) and a control
+    that opens an editor for its schedule, where a bad crontab is highlighted
+    with the engine's own message and cannot be saved. Since 5.36 an **Add a
+    job** control opens that editor with nothing in it, so a job can be created
+    from the page as well as with `tira.job.add` (TKT-858) — the same record,
+    the same defaults, and the same refusals, because the page calls `job_add`
+    rather than validating for itself.
+
+    A `monitor` created from the page is also started, so it is not left in the
+    state `monitor-dead` reports as dead. A `cron` job is not: there is nothing
+    to start until it is due.
+
 ### Warnings
 
 - `tira.warning.add --message TEXT [-o FORMAT]`

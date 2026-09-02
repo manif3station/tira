@@ -2363,6 +2363,37 @@ that runs a job is a different kind of thing from a table that shows one.
 refresh does not hold a session open past its expiry the way an unlisted
 polled route would - the exemption `t/479` exists to enforce.
 
+**Creating a job from the page (TKT-858, 5.36).** An **Add a job** control
+opens the TKT-843 editor with no job in it. Until then a job could be run,
+edited and listed here and created only from a terminal, which stopped being a
+curiosity the afternoon the five standing hunts moved onto board-owned jobs
+(TKT-840) and this section became where the schedule is actually watched.
+
+One route, two verbs. `job_save` used to die without an id and only ever call
+`job_update`; it now dispatches on whether the payload names a job - no id
+means `job_add`. Adding a `job_create` provider instead would have meant
+another `@PROVIDERS` entry, and every entry is a breaking change to every
+hand-built caller of `build_psgi_app` in the suite. The refusals are not
+rewritten either: `job_add` calls `_job_fields`, which owns the schedule
+requirement and the refusal of a message-mode monitor, so the create path
+inherits both by asking the engine rather than checking for itself. The crontab
+is still judged by `POST /jobs/check`, the same route the edit path uses -
+a second validator is how the engine and the browser came to disagree about
+attachment content types on TKT-713.
+
+**A monitor created here is started.** Asked as Q-109 on the card rather than
+decided quietly, because it is about how the page behaves: a monitor is only
+running once `job.start` records a pid, so creating one and leaving it stopped
+means `monitor-dead` reports it dead within the hour - correctly, and
+bafflingly for whoever just created it on that page. Michael's answer: "Create
+it and start it, for monitor-kind only. The page then does what somebody adding
+a monitor obviously meant, at the cost of a save that launches a process." The
+agent's own default had been the opposite, so this is his call rather than a
+fallback. It starts through `run_now`, the executor the play button already
+uses, which carries the already-running refusal and the spawn/record atomicity
+fix that only came out of review; a spawn written for this path would carry
+neither. Cron jobs are untouched - they have nothing to start.
+
 TKT-568: `t/344` now sees the engine methods the CLI reaches through
 its string dispatch table. That guard exists to stop `lib/Tira.pm`'s
 METHODS section going stale, and scoped itself to what `Tira::CLI`

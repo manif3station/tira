@@ -81,6 +81,18 @@ sub _start_monitor {
     my @command = split ' ', ( $job->{command} // '' );
     die "Job $job->{id} has no command to run\n" if !@command;
 
+    # ALREADY RUNNING IS A REFUSAL, not a second process. Without this, starting
+    # a live monitor spawns a twin and overwrites the recorded pid, so the first
+    # process keeps running with nothing on the board pointing at it - an orphan
+    # monitor-dead cannot see, which is precisely the failure EPC-014 exists to
+    # end. From a terminal that takes a deliberate mistake; with TKT-843's play
+    # button it is one stray click, which is what made it worth fixing here.
+    require Tira::Job;
+    die "Job $job->{id} is already running as pid $job->{pid} - starting it "
+      . "again would leave the first process with nothing on the board "
+      . "pointing at it\n"
+      if Tira::Job::job_monitor_alive( $job, _running_processes_for_jobs() );
+
     my $log = $tira->job_log_path( %{$args}, id => $job->{id} );
     open my $handle, '>>', $log
       or die "Cannot open the monitor's log at '$log': $!\n";
@@ -118,10 +130,51 @@ sub _start_monitor {
     return $started;
 }
 
+# The process table, asked for once and by the CLI layer, because the engine is
+# forbidden every construct that could read it. Kept as its own sub so the
+# start path can be tested without a real process table.
+sub _running_processes_for_jobs {
+    require Tira::CLI::Police;
+    return Tira::CLI::Police::_running_processes();
+}
+
+# Run one job NOW, whatever its schedule says.
+#
+# His msg 6484: "each repeated job record has a play button. That the user can
+# run them anytime bypass the schedule."
+#
+# ONE EXECUTOR. This is TKT-841's run_due_job with the due-check simply not
+# asked - not a second implementation of running a command. That executor
+# carries a deadlock fix (a pipe nobody drains blocks the child forever) and a
+# signal-status fix (a killed job reported success) that only came out of
+# review; a fresh executor written for a button would have carried neither.
+#
+# A MONITOR IS STARTED RATHER THAN FIRED, decided as TKT-843's CHK-001 before
+# any of this was written. A monitor has no schedule to bypass - it is either up
+# or it is not - so "run it now" on that row means start it, which is the action
+# that answers the monitor-dead finding printed beside it.
+sub run_now {
+    my ( $tira, $args ) = @_;
+    my $id = $args->{id} // '';
+    my ($job) = grep { $_->{id} eq $id } @{ $tira->job_list( %{$args} ) };
+    die "No job $id on this board\n" if !$job;
+
+    return _start_monitor( $tira, $args, $job )
+      if ( $job->{schedule_kind} // '' ) eq 'monitor';
+
+    die "Job $job->{id} is disabled - enable it before running it\n"
+      if !$job->{enabled};
+
+    require Tira::CLI::Police;
+    return Tira::CLI::Police::run_due_job( job => $job );
+}
+
 sub dispatch {
     my ( $tira, $args, $option, $command ) = @_;
 
     return $tira->job_list( %{$args} ) if $command eq 'job.list';
+
+    return run_now( $tira, $args ) if $command eq 'job.run';
 
     if ( $command eq 'job.start' ) {
         my ($job) = grep { $_->{id} eq ( $args->{id} // '' ) }

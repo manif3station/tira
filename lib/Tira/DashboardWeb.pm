@@ -21,6 +21,7 @@ set views => File::Spec->catdir(
     File::Basename::dirname( File::Spec->rel2abs(__FILE__) ), 'views' );
 set template => 'template_toolkit';
 
+our ( $JOB_RUN, $JOB_CHECK, $JOB_SAVE );
 our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $SEARCH, $COMMENT_ADD, $COMMENT_UPDATE, $COMMENT_REMOVE, $PEOPLE,
       $ATTACHMENT_FETCH, $ATTACHMENT_ADD, $ATTACHMENT_REMOVE, $ATTACHMENT_DISCARD, $CHECKLIST_ADD, $CHECKLIST_UPDATE,
       $REQUIRED_ACTION_UPDATE,
@@ -196,6 +197,16 @@ post '/question/answer' => sub { return _mutation( \$QUESTION_ANSWER ) };
 post '/question/mark' => sub { return _mutation( \$QUESTION_MARK ) };
 post '/question/attach' => sub { return _mutation( \$QUESTION_ATTACH ) };
 post '/update' => sub { return _mutation( \$UPDATE ) };
+post '/jobs/run' => sub { return _mutation( \$JOB_RUN ) };
+
+# A GET would be wrong here even though nothing is stored: it is a question
+# asked while somebody types, and the answer is the ENGINE's refusal rather
+# than a second opinion written in JavaScript. Two validators for one format is
+# how the engine and the browser ended up disagreeing about attachment content
+# types (TKT-713), so the browser asks rather than decides.
+post '/jobs/check' => sub { return _mutation( \$JOB_CHECK ) };
+post '/jobs/save' => sub { return _mutation( \$JOB_SAVE ) };
+
 post '/comment/add' => sub { return _mutation( \$COMMENT_ADD ) };
 post '/comment/update' => sub { return _mutation( \$COMMENT_UPDATE ) };
 post '/comment/remove' => sub { return _mutation( \$COMMENT_REMOVE ) };
@@ -439,6 +450,14 @@ my @PROVIDERS = (
     [ tasklist_task_ref_unlink => \$TASKLIST_TASK_REF_UNLINK, 'tasklist task ref unlink provider' ],
     [ tasklist_sessions => \$TASKLIST_SESSIONS, 'tasklist sessions provider' ],
     [ jobs => \$JOBS, 'repeated jobs provider' ],
+
+    # His msg 6484 - a play button that runs a job "anytime bypass the
+    # schedule" - and msg 6485, a modal that will not let a malformed crontab
+    # be saved. Two providers rather than one compound verb, which is the
+    # convention every other operation here already follows. EPC-014, TKT-843.
+    [ job_run => \$JOB_RUN, 'job run provider' ],
+    [ job_check => \$JOB_CHECK, 'job schedule check provider' ],
+    [ job_save => \$JOB_SAVE, 'job save provider' ],
 );
 
 sub build_psgi_app {
@@ -624,7 +643,15 @@ these existed):
 
 =item * People: people
 
-=item * Repeated jobs: jobs
+=item * Repeated jobs: jobs, job_run, job_check, job_save
+
+C<job_run> answers the play button - it runs one job now whatever its
+schedule says, and starts a C<monitor> row rather than firing it, since a
+monitor has no schedule to bypass. C<job_check> answers the editor modal
+while somebody types, returning the B<engine's> own refusal for a
+malformed crontab rather than a second opinion written in JavaScript -
+two validators for one format is how the engine and the browser came to
+disagree about attachment content types (TKT-713).
 
 =item * Task List: tasklist, tasklist_add, tasklist_update, tasklist_next, tasklist_shift, tasklist_pop, tasklist_unshift, tasklist_slice, tasklist_remove, tasklist_import, tasklist_prune, tasklist_task_attach_add, tasklist_task_attach_discard, tasklist_task_ref_link, tasklist_task_ref_unlink, tasklist_sessions
 

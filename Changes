@@ -1,5 +1,41 @@
 Revision history for Tira
 
+5.33  2026-09-02
+
+    - TKT-843 (EPC-014). A play button on every repeated-job row, and an editor
+      that will not save a crontab the engine would refuse. His msg 6484: "each
+      repeated job record has a play button. That the user can run them anytime
+      bypass the schedule." His msg 6485: "if the format is wrong, will be
+      highlighted red and not letting the user save it until it is corrected".
+
+    - `tira.job.run --id JOB-NNN` runs one job now whatever its schedule says.
+      It is TKT-841's executor with the due-check simply not asked, rather than
+      a second way to run a command - that executor carries a deadlock fix and
+      a signal-status fix that only came out of review, and a fresh one written
+      for a button would have carried neither. A failing job reports its exit
+      status, because silence after a failure cannot be told from never having
+      run.
+
+    - A MONITOR row starts rather than fires, since a monitor has no schedule
+      to bypass. And `job.start` now REFUSES a monitor that is already running:
+      before this it spawned a second process and overwrote the recorded pid,
+      leaving the first with nothing on the board pointing at it - an orphan
+      `monitor-dead` could not see, which is the failure this epic exists to
+      end. From a terminal that took a deliberate mistake; with a play button
+      it was one stray click.
+
+    - The editor validates through `Tira::Job::schedule_refusal`, the same
+      answer the write path would give. For a cron expression that is
+      `_cron_parse`'s own message (trailing whitespace trimmed); the literal
+      `monitor` is accepted without parsing, and a blank schedule is refused by
+      `schedule_refusal` itself rather than by the parser. The point is that
+      the browser ASKS rather than decides, so it cannot drift into accepting
+      something the save would reject - the fault this project already shipped
+      once, when the engine and the browser disagreed about attachment content
+      types.
+
+    - Three new dashboard providers: `job_run`, `job_check` and `job_save`.
+
 5.32  2026-09-02
 
     - TKT-842 (EPC-014). A monitor-kind repeated job can now be STARTED, and

@@ -154,6 +154,9 @@ my %providers = (
     tasklist_task_ref_unlink => sub { '{}' },
     tasklist_sessions => sub { '[]' },
     jobs              => sub { '[]' },
+    job_run           => sub { '{}' },
+    job_check         => sub { '{"ok":true}' },
+    job_save          => sub { '{}' },
 );
 
 for my $missing (qw(checklist_add checklist_update)) {

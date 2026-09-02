@@ -134,6 +134,31 @@ sub _cron_parse {
     return \@sets;
 }
 
+# Why a schedule would be refused, as a string, or undef when it is fine.
+#
+# THE SAME VALIDATOR THE WRITE PATH USES, which is the whole point. The editor
+# modal has to tell somebody their crontab is wrong while they type, and the
+# obvious way to do that is a regex in JavaScript - which is how the engine and
+# the browser ended up disagreeing about attachment content types (TKT-713).
+# Two validators for one format do not stay equal; they drift, and the drift is
+# only discovered when a value the browser accepted is refused on save.
+#
+# So this asks _cron_parse and reports what it said. It does not decide
+# anything itself, which means it cannot disagree with the write path however
+# the rules change later. EPC-014, TKT-843.
+sub schedule_refusal {
+    my ($schedule) = @_;
+    return 'A schedule is required - a cron expression, or \'monitor\''
+      if !defined $schedule || $schedule eq '';
+    return undef if $schedule eq 'monitor';
+
+    local $@;
+    return undef if eval { _cron_parse($schedule); 1 };
+    my $why = $@ || 'That schedule cannot be read';
+    $why =~ s/\s+\z//;
+    return $why;
+}
+
 sub _job_next_id {
     my ( $root, $jobs ) = @_;
     my $max = 0;

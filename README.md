@@ -263,6 +263,7 @@ d2 tira.tasklist.add --text "read the README"
 d2 tira.job.add --schedule "0 * * * *" --message "go hunt some bugs"
 d2 tira.job.add --schedule monitor --command "d2 tira.policy.bridge"
 d2 tira.job.start --id JOB-002
+d2 tira.job.run --id JOB-001
 d2 tira.job.list
 d2 tira.tasklist.list
 ```
@@ -305,6 +306,22 @@ different coat. On Windows the process table carries no command line, so the
 check falls back to comparing program names and is correspondingly weaker.
 What it does not catch is a monitor that is alive but wedged: process up,
 polling stopped.
+
+`tira.job.run` runs a job now without waiting for its schedule, and it is what
+the dashboard's play button calls. It reuses the executor a due job uses rather
+than being a second way to run a command, so a job that fails reports its exit
+status instead of going quiet. On a `monitor` row it starts the monitor
+instead, since a monitor has no schedule to bypass — and starting one that is
+already running is refused rather than leaving a second process behind. It is
+the SCHEDULE that is bypassed and nothing else: a disabled job is still
+refused, and must be enabled before it will run.
+
+The job editor on the board page validates a schedule by **asking the engine**
+and showing its answer: a malformed one is highlighted and the save stays
+blocked until it is fixed. The browser does not judge the format itself, so it
+cannot drift into accepting something the save would then reject. The literal
+`monitor` is accepted without being parsed as cron, and a blank schedule is
+refused too.
 
 `dashboard tira.onboard` asks for everything a new project needs and creates
 it from the answers. `dashboard tira.onboard -o browser` does the same thing

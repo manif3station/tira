@@ -2014,6 +2014,14 @@ and look at, while a job that never announces leaves nothing behind at all, and
 before the section existed the only way to tell a disabled job from a broken
 one was to open the board's stored job records by hand.
 
+A due job can also be run without waiting for it to come due - `d2 tira.job.run
+--id JOB-001`, or the play button on the dashboard row. That runs the same
+executor this rule's own output comes from, with the due-check simply not
+asked, so what reaches you is what would have reached the bridge: the output,
+and the exit status when it fails. Only the schedule is bypassed - a disabled
+job is still refused, which is the same silence this rule keeps about one. A rule about schedules is easier to trust
+when the schedule can be tried on demand rather than waited for.
+
 A job is put on the board with `tira.job.add`, which is what the schedule above
 was created by:
 
@@ -2050,6 +2058,15 @@ being exact about when it does: the monitor is running after `job.start`, so
 police says nothing. The finding above is what the next pass prints once that
 process has DIED - which is the whole event this rule exists to make visible,
 and the reason the example is worth reading at all.
+
+Since 5.33 there is a button beside that finding rather than only a message
+about it: the dashboard's job list gives every row a play button, and on a
+monitor row it starts the monitor. So the answer to `monitor JOB-001 is not
+running` is one click on the same page that reported it, or `d2 tira.job.run
+--id JOB-001` from a terminal. Starting one that is ALREADY running is refused,
+because a second process would leave the first with nothing on the board
+pointing at it - an orphan this rule cannot see, which is the failure it exists
+to end.
 
 Starting a monitor records the pid it started as. The rule confirms that pid
 against the process table and checks what that pid is running, which is the

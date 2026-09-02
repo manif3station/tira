@@ -406,6 +406,54 @@ sub providers {
         jobs => sub {
             return $json->encode( $tira->job_list( project => $project ) );
         },
+
+        # The play button. Runs one job now whatever its schedule says, and a
+        # MONITOR row starts rather than fires - a monitor has no schedule to
+        # bypass, so "run it now" there means start it. Both go through
+        # Tira::CLI::Job::run_now, which is TKT-841's executor with the
+        # due-check not asked, rather than a second way to run a command.
+        # EPC-014, TKT-843.
+        job_run => sub {
+            my ($payload) = @_;
+            die "A job id is required\n"
+              if !defined $payload->{id} || $payload->{id} eq '';
+            require Tira::CLI::Job;
+            return $json->encode(
+                Tira::CLI::Job::run_now( $tira, { project => $project, id => $payload->{id} } ) );
+        },
+
+        # Saving the modal. The engine validates again on write - this is not
+        # trusting the browser check above, it is the same rule asked twice
+        # because the browser one is advice to a person and this one is the
+        # record refusing. A save that got past a stale page still cannot
+        # store a broken schedule.
+        job_save => sub {
+            my ($payload) = @_;
+            die "A job id is required\n"
+              if !defined $payload->{id} || $payload->{id} eq '';
+            return $json->encode( $tira->job_update(
+                project => $project,
+                id      => $payload->{id},
+                ( defined $payload->{schedule} ? ( schedule => $payload->{schedule} ) : () ),
+                ( defined $payload->{command}  ? ( command  => $payload->{command} )  : () ),
+                ( defined $payload->{message}  ? ( message  => $payload->{message} )  : () ),
+                ( defined $payload->{enabled}  ? ( enabled  => $payload->{enabled} )  : () ),
+            ) );
+        },
+
+        # What the modal shows while somebody types. The answer is the ENGINE's
+        # own refusal, not a regex written again in JavaScript - the browser
+        # asks rather than decides, so the two cannot drift apart and accept
+        # something the save would then reject.
+        job_check => sub {
+            my ($payload) = @_;
+            require Tira::Job;
+            my $refusal = Tira::Job::schedule_refusal( $payload->{schedule} );
+            return $json->encode( {
+                ok      => $refusal ? Cpanel::JSON::XS::false : Cpanel::JSON::XS::true,
+                refusal => $refusal,
+            } );
+        },
         tasklist_add => sub {
             my ($payload) = @_;
             die "Task text is required\n" if !defined $payload->{text} || $payload->{text} eq '';

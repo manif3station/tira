@@ -3440,6 +3440,7 @@ reader never has to infer it from whichever field is populated.
 - `tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TEXT] [--enabled 1|yes|true|on|0|no|false|off] [-o FORMAT]`
 - `tira.job.delete --id ID [-o FORMAT]`
 - `tira.job.start --id ID [-o FORMAT]`
+- `tira.job.run --id ID [-o FORMAT]`
 
     ```
     d2 tira.job.add --schedule "0 * * * *" --message "go hunt some bugs"
@@ -3514,6 +3515,22 @@ reader never has to infer it from whichever field is populated.
     What this does not catch is a monitor that is alive but wedged — the
     process is up and the polling has stopped. That needs the monitor to report
     progress, which is a different mechanism and a different card.
+
+    `tira.job.run` runs one job NOW, whatever its schedule says — the command
+    line behind the dashboard's play button:
+
+    ```
+    d2 tira.job.run --id JOB-001
+    ```
+
+    It is the same executor a due job uses, with the due-check simply not
+    asked, so a failing job reports its exit status here exactly as it would on
+    the bridge. A `monitor` job is STARTED rather than fired, because a monitor
+    has no schedule to bypass — it is either up or it is not — and starting one
+    that is already running is refused rather than spawning a second process.
+
+    The SCHEDULE is the only thing bypassed. A disabled job is still refused
+    and must be enabled first, which the dashboard play button hits too.
 
     A malformed schedule is refused when it is written, naming the field and
     the range it takes, and nothing is stored. The refusal is the engine's own,

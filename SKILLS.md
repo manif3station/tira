@@ -1793,6 +1793,27 @@ be populated. The schedule is a crontab expression or the literal `monitor`,
 for a long-running poller rather than a tick, and `schedule_kind` says which so
 nothing has to re-parse to find out.
 
+**A job can be run without waiting for it (TKT-843, 5.33).** `tira.job.run
+--id JOB-001` runs one job now whatever its schedule says, and it is what the
+dashboard's play button calls. It reuses the due-job executor rather than
+being a second way to run a command, so a failing job reports its exit status
+the same way. What is bypassed is the SCHEDULE and nothing else - a disabled
+job is refused rather than run, from the button as well as the command line.
+A `monitor` row starts instead of firing, and starting one that is already up
+is refused — before that refusal existed it spawned a second
+process and overwrote the recorded pid, leaving the first as an orphan
+`monitor-dead` could not see.
+
+The dashboard's job editor validates a schedule by **asking the engine** —
+`Tira::Job::schedule_refusal`, which gives the same answer the write path
+would. For a cron expression that is `_cron_parse`'s own message with trailing
+whitespace trimmed; the literal `monitor` is accepted without parsing at all,
+and a blank schedule is refused by `schedule_refusal` itself. The browser never
+judges the format in JavaScript. A malformed schedule is highlighted and the save is blocked until
+it is fixed. Two validators for one format is how the engine and the browser
+came to disagree about attachment content types, so the browser asks rather
+than decides.
+
 **A monitor that dies says so (TKT-842, 5.32).** A `monitor` job is started
 with `tira.job.start --id JOB-001` rather than fired on a tick, and starting it
 records the pid it started as; its output is appended to a log named for the
@@ -1846,6 +1867,7 @@ tira.job.list [-o FORMAT]
 tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TEXT] [--enabled 1|yes|true|on|0|no|false|off] [-o FORMAT]
 tira.job.delete --id ID [-o FORMAT]
 tira.job.start --id ID [-o FORMAT]
+tira.job.run --id ID [-o FORMAT]
 ```
 
 **Making room was the work, not raising the cap (TKT-837, 5.30).** These four

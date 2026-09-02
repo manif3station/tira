@@ -8354,16 +8354,38 @@ sub policy_evaluate {
             # comes due - the mechanism TKT-698 added for exactly this shape
             # of "same rule, same subject, different occurrence".
             #
-            # ANNOUNCES, DOES NOT EXECUTE. A command-mode job is skipped
-            # here and belongs to TKT-841, so the execution surface lands
-            # with its own tests rather than as a side effect of this rule
-            # already holding the job. t/489 asserts the absence.
+            # ANNOUNCES, DOES NOT EXECUTE - and that is still true now that
+            # command-mode jobs are announced too (TKT-841). A due job of
+            # either mode reaches the bridge from here; what RUNS a
+            # command-mode one is Tira::CLI::Police::run_due_job, in the CLI
+            # layer, because t/106 forbids every shell-invoking construct
+            # anywhere in the engine, and its pattern catches the list form
+            # as well. (Naming those constructs literally here would trip
+            # that same pattern - the guard reads comments too, which is how
+            # this very paragraph failed t/492 on its first draft.)
+            # Suite::engine_source() already excludes
+            # lib/Tira/CLI for exactly this reason - Serve.pm legitimately
+            # shells out to serve a board - so execution has a sanctioned
+            # home and does not need a second exception invented for it.
+            # t/489 still asserts this rule body runs nothing; t/492 asserts
+            # the whole engine does.
+            #
+            # Until this card, a command-mode job was skipped outright with
+            # `next if mode ne 'message'`, so nothing downstream ever heard
+            # that it was due - a schedule nobody read, one level below the
+            # one this epic was filed about.
             my $when = $self->{clock}->();
             for my $job ( @{ $self->job_list( project => $root ) } ) {
-                next if ( $job->{mode} // '' ) ne 'message';
                 next if !$self->job_is_due( $job, $when );
                 my ($window) = $when =~ /\A(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2})/;
-                $report->( $policy, $job->{id}, $job->{message}, undef,
+
+                # A command-mode job announces the command it is about to
+                # run, so the bridge says what is happening before it says
+                # what happened.
+                my $said = ( $job->{mode} // '' ) eq 'command'
+                  ? "runs: $job->{command}"
+                  : $job->{message};
+                $report->( $policy, $job->{id}, $said, undef,
                     ( $window // $when ) );
             }
         }

@@ -346,6 +346,67 @@ sub report_to_tira {
         message => "Reported as $card->{ref}. Somebody will pick it up; ask about it there.",
     };
 }
+# Run a due command-mode job and hand back what it produced. TKT-841.
+#
+# THIS IS WHERE EXECUTION LIVES, and the placement is decided by a test rather
+# than by taste. t/106 forbids qx, system(, exec( and piped open anywhere in
+# the engine, and its pattern catches list-form system( too - so "no shell"
+# buys no exception there. Suite::engine_source() already excludes
+# lib/Tira/CLI because Serve.pm legitimately shells out to serve a board, so
+# the CLI layer is the sanctioned home and no second exception was invented.
+# The engine announces a due job; this runs it.
+#
+# LIST FORM, NEVER A SHELL STRING. The command is split on whitespace and
+# handed to open3 as a list, so the program is named separately from its
+# arguments and a semicolon in a command is an argument rather than an
+# instruction. The cost is honest and worth stating: there is no quoting, so
+# `echo "two words"` is four arguments, not two. Jobs on this board run
+# commands like `d2 tira.police.bridge`; a job needing quoting should be a
+# script, which is also the answer that keeps the no-shell guarantee.
+#
+# STDERR IS CAPTURED WITH STDOUT because a failing command usually says why on
+# stderr, and the whole point of this card is that a job which ran and failed
+# must be distinguishable from one that never ran. Dropping stderr would leave
+# the bridge saying "it failed" with no reason, which is a smaller version of
+# the same silence.
+sub run_due_job {
+    my (%args) = @_;
+    my $job = $args{job};
+    die "A job is required\n" if !$job;
+
+    # A message-mode job is announced by the engine and runs nothing. Said
+    # here rather than assumed by the caller, so the boundary is in one place.
+    return { ran => 0, status => 0, output => '' }
+      if ( $job->{mode} // '' ) ne 'command';
+
+    my @command = split ' ', ( $job->{command} // '' );
+    return { ran => 0, status => -1, output => 'the job has no command to run' }
+      if !@command;
+
+    require IPC::Open3;
+    require Symbol;
+
+    my ( $in, $out, $error ) = ( undef, Symbol::gensym(), Symbol::gensym() );
+    my $pid = eval { IPC::Open3::open3( $in, $out, $error, @command ) };
+    if ( !$pid ) {
+
+        # A program that is not there is a RESULT, not a crash. The bridge is
+        # told what could not be run, which is more use than silence and is
+        # the same judgement _reading makes about a missing docker.
+        my $why = $@ || 'could not be run';
+        $why =~ s/\s+\z//;
+        return { ran => 1, status => -1, output => "$command[0]: $why" };
+    }
+
+    close $in if $in;
+    my $output = do { local $/; ( <$out> // '' ) . ( <$error> // '' ) };
+    close $out;
+    close $error;
+    waitpid $pid, 0;
+
+    return { ran => 1, status => $? >> 8, output => $output };
+}
+
 sub _running_containers {
     require Tira::CLI::Serve;
     return Tira::CLI::Serve::_containers_from(

@@ -766,8 +766,9 @@ End sessions.
 
 A session lasts ten minutes from the last deliberate action, not from signing
 in, so an afternoon of work is never interrupted. The board's own background
-polls - `/data`, and since TKT-807 also `/tasklist` and `/tasklist/sessions`
-(the Task List section's own 1-second and 5-second refresh timers) - read a
+polls - `/data`, since TKT-807 also `/tasklist` and `/tasklist/sessions`
+(the Task List section's own 1-second and 5-second refresh timers), and since
+TKT-839 `/jobs` (the Repeated Jobs section's 30-second one) - read a
 session without extending it, so a tab left open overnight does not keep
 itself signed in. Before TKT-807, only `/data` was exempted: a dashboard tab
 with the Task List section visible polled far more often than `/data` ever

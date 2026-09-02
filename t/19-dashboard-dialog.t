@@ -470,6 +470,7 @@ my %providers = (
     tasklist_task_ref_link => sub { '{}' },
     tasklist_task_ref_unlink => sub { '{}' },
     tasklist_sessions => sub { '[]' },
+    jobs              => sub { '[]' },
 );
 
 for my $missing (qw(update comment_add comment_update comment_remove people)) {

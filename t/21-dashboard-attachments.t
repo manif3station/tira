@@ -174,6 +174,7 @@ my %providers = (
     tasklist_task_ref_link => sub { '{}' },
     tasklist_task_ref_unlink => sub { '{}' },
     tasklist_sessions => sub { '[]' },
+    jobs              => sub { '[]' },
 );
 
 for my $missing (qw(attachment_fetch attachment_add attachment_remove)) {

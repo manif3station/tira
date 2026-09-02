@@ -163,6 +163,16 @@ sub _dashboard_table {
       . '<button type="button" class="tasklist-prune">Prune</button>'
       . '</div><p class="tasklist-error" hidden></p><ol class="tasklist-cards"></ol></section>'
       if $args{live};
+
+    # Repeated jobs, directly under the Task List because that is where he
+    # asked for them: "a new section under the tasklist to see all the
+    # scheduled jobs, they like cronjob style the record". Read-only here -
+    # the play button and the editor modal are their own card, so this
+    # section is a table and nothing else. EPC-014, TKT-839.
+    $boards .= '<section class="board board--jobs" data-type="jobs">'
+      . '<header class="board__header"><span class="board__kicker">Tira board</span><h2>Repeated Jobs</h2></header>'
+      . '<p class="jobs-error" hidden></p><ol class="jobs-cards"></ol></section>'
+      if $args{live};
     my $project_heading = 'Tira Kanban';
     if ( defined $args{project} ) {
         my $project_name = eval { $self->project_show( project => $args{project} )->{name} };
@@ -174,6 +184,7 @@ sub _dashboard_table {
         my $column_editor = $args{live} ? Tira::_view_asset('column-editor.js') : '';
         my $policy_editor = $args{live} ? Tira::_view_asset('policy-editor.js') : '';
         my $tasklist_editor = $args{live} ? Tira::_view_asset('tasklist-editor.js') : '';
+        my $jobs_editor = $args{live} ? Tira::_view_asset('jobs-editor.js') : '';
 my $live_helpers = $args{live} ? Tira::_view_asset('live-helpers.js')
       : '';
     my $card_binding = $args{live}
@@ -188,7 +199,7 @@ my $live_helpers = $args{live} ? Tira::_view_asset('live-helpers.js')
     my $drag_script = $args{live}
       ? Tira::_view_asset('selection.js')
       : '';
-    my $script = Tira::_view_asset('base-script.js') . $live_helpers . $column_editor . $policy_editor . $tasklist_editor
+    my $script = Tira::_view_asset('base-script.js') . $live_helpers . $column_editor . $policy_editor . $tasklist_editor . $jobs_editor
       . 'const bindBoards=()=>{document.querySelectorAll(".card").forEach(card=>{'
       . $card_binding . Tira::_view_asset('board-bindings.js') . $refresh_action
       . ';const scheduleRefresh=()=>setTimeout(()=>{Promise.resolve(refreshDashboard()).finally(scheduleRefresh)},refreshSeconds*1000);'

@@ -397,6 +397,15 @@ sub providers {
             return $json->encode(
                 $tira->tasklist_list( project => $project, session => $query->{session} // '' ) );
         },
+
+        # Repeated jobs, read-only here. Every job the board holds, so the
+        # page can show the whole schedule at a glance rather than sending
+        # somebody to .tira/jobs.json - which is the same "nobody can see it"
+        # problem EPC-014 started from. Running one from the page and editing
+        # one are TKT-843; this provider only reads. TKT-839.
+        jobs => sub {
+            return $json->encode( $tira->job_list( project => $project ) );
+        },
         tasklist_add => sub {
             my ($payload) = @_;
             die "Task text is required\n" if !defined $payload->{text} || $payload->{text} eq '';

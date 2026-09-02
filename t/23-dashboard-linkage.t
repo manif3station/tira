@@ -147,6 +147,7 @@ my %providers = (
     tasklist_task_ref_link => sub { '{}' },
     tasklist_task_ref_unlink => sub { '{}' },
     tasklist_sessions => sub { '[]' },
+    jobs              => sub { '[]' },
     hierarchy_link => sub { '{"ok":true}' }, hierarchy_unlink => sub { '{"ok":true}' },
     subitem_link => sub { '{"ok":true}' }, subitem_unlink => sub { '{"ok":true}' },
     link_add => sub { '{"ok":true}' },

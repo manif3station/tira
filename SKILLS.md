@@ -2184,6 +2184,26 @@ because an empty list reads as "no such work" when it means "no such
 status". Filtering runs before sorting, so `--sort` orders what
 survived rather than being applied to a set nobody asked for.
 
+TKT-839: a `board--jobs` section renders below the Task List, listing every
+repeated job the board carries. Michael, msg 6480: "On the dashboard, a new
+section under the tasklist to see all the scheduled jobs, they like cronjob
+style the record. In the dashboard each repeated job has its own entry on the
+table." EPC-014 had shipped the record (TKT-836) and the police rule that
+announces a due one (TKT-838), and neither made the schedule visible: to see
+what a board was scheduled to do you opened its stored job records by hand,
+which is the same shape of problem the epic was filed to end - a schedule
+nobody can see is a schedule nobody checks. Built the way the Task List section already is, and
+deliberately so: Perl emits an empty `<ol class="jobs-cards">` shell and
+`lib/Tira/views/jobs-editor.js` fills it from a new `GET /jobs` route, backed
+by a `jobs` provider closure in `Tira::CLI::browser_providers` beside the
+`tasklist` one. Read-only - each row states the job's schedule, its kind
+(`cron` or `monitor`), what it runs or says, and whether it is enabled. The
+play button and the editor modal are TKT-843, kept separate because a control
+that runs a job is a different kind of thing from a table that shows one.
+`/jobs` is listed in `Tira::DashboardWeb`'s `%POLLED`, so its 30-second
+refresh does not hold a session open past its expiry the way an unlisted
+polled route would - the exemption `t/479` exists to enforce.
+
 TKT-568: `t/344` now sees the engine methods the CLI reaches through
 its string dispatch table. That guard exists to stop `lib/Tira.pm`'s
 METHODS section going stale, and scoped itself to what `Tira::CLI`

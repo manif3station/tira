@@ -1,5 +1,43 @@
 Revision history for Tira
 
+5.29  2026-09-02
+
+    - TKT-839 (EPC-014). A Repeated Jobs section on the dashboard, directly
+      under the Task List, where he asked for it: "a new section under the
+      tasklist to see all the scheduled jobs, they like cronjob style the
+      record". Until now, seeing what a board was scheduled to do meant
+      reading .tira/jobs.json - the same "nobody can see it" problem the
+      epic started from.
+
+      Built the way the Task List section already is, rather than a new
+      pattern: a browser provider, an empty list in the page shell, and
+      lib/Tira/views/jobs-editor.js filling it from a /jobs route. Each job
+      is its own row with its id, whether it is enabled, its schedule, what
+      it says or runs, and its mode and schedule kind.
+
+      /jobs is in %POLLED, and that is checked rather than remembered:
+      jobs-editor.js refreshes on a timer, and t/479 refuses any
+      setInterval-driven GET whose route %POLLED does not name. That guard
+      exists because /tasklist and /tasklist/sessions were missed exactly
+      this way until TKT-807, leaving a tab that never expired its session.
+      The refresh is 30 seconds rather than the Task List's one second: a
+      schedule changes when somebody edits it, which is rare, and the
+      cheapest way not to repeat TKT-694 is not to create the pressure.
+
+      READ-ONLY. The play button and the editor modal with its crontab
+      tooltip and save-blocking validation are their own card - a control
+      that runs a job is a different kind of thing from a table that shows
+      one, and deserves its own tests.
+
+      Three of the test's own assertions were wrong before the code was.
+      They asked for the section in a .tt template, when the Task List
+      section is not in one either - it is built by tasklist-editor.js - and
+      they asked the static HTML to contain each job's message and id, when
+      that data arrives by fetch. Both would have forced a design the rest
+      of the page does not use. What is asserted now is that the section
+      exists, that it comes after the Task List, and that it lives in
+      lib/Tira/views rather than in Perl string concatenation.
+
 5.28  2026-09-02
 
     - TKT-838 (EPC-014). job-due: the police rule that makes a schedule on

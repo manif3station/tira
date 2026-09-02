@@ -31,7 +31,8 @@ our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $SEARCH, $COMMENT_ADD, $
       $TASKLIST, $TASKLIST_ADD, $TASKLIST_UPDATE, $TASKLIST_NEXT, $TASKLIST_SHIFT, $TASKLIST_POP,
       $TASKLIST_UNSHIFT, $TASKLIST_SLICE, $TASKLIST_REMOVE, $TASKLIST_IMPORT, $TASKLIST_PRUNE,
       $TASKLIST_TASK_ATTACH_ADD, $TASKLIST_TASK_ATTACH_DISCARD,
-      $TASKLIST_TASK_REF_LINK, $TASKLIST_TASK_REF_UNLINK, $TASKLIST_SESSIONS );
+      $TASKLIST_TASK_REF_LINK, $TASKLIST_TASK_REF_UNLINK, $TASKLIST_SESSIONS,
+      $JOBS );
 
 our $COOKIE = 'tira_session';
 
@@ -47,7 +48,12 @@ my %PUBLIC = map { $_ => 1 } qw(/login /logout);
 # section's own 1-second and 5-second refresh timers (tasklist-editor.js)
 # polled far more aggressively than /data ever did, and neither was exempt,
 # so a tab with that section visible never actually expired its session.
-my %POLLED = ( '/data' => 1, '/tasklist' => 1, '/tasklist/sessions' => 1 );
+# /jobs is here for the reason the two tasklist routes are: jobs-editor.js
+# refreshes on a timer, and a timer-driven read must not push a session's
+# expiry out or a tab left open overnight stays signed in for ever. t/479
+# refuses any setInterval-driven GET whose route this does not name, so this
+# line is checked rather than remembered. EPC-014, TKT-839.
+my %POLLED = ( '/data' => 1, '/tasklist' => 1, '/tasklist/sessions' => 1, '/jobs' => 1 );
 
 sub _cookie_token {
     my $header = request->header('Cookie') // '';
@@ -237,6 +243,11 @@ get '/tasklist' => sub {
     content_type 'application/json; charset=UTF-8';
     return _response_bytes( $TASKLIST->( \%query ) );
 };
+get '/jobs' => sub {
+    content_type 'application/json; charset=UTF-8';
+    return _response_bytes( $JOBS->() );
+};
+
 post '/tasklist/add' => sub { return _mutation( \$TASKLIST_ADD ) };
 post '/tasklist/update' => sub { return _mutation( \$TASKLIST_UPDATE ) };
 post '/tasklist/next' => sub { return _mutation( \$TASKLIST_NEXT ) };
@@ -427,6 +438,7 @@ my @PROVIDERS = (
     [ tasklist_task_ref_link => \$TASKLIST_TASK_REF_LINK, 'tasklist task ref link provider' ],
     [ tasklist_task_ref_unlink => \$TASKLIST_TASK_REF_UNLINK, 'tasklist task ref unlink provider' ],
     [ tasklist_sessions => \$TASKLIST_SESSIONS, 'tasklist sessions provider' ],
+    [ jobs => \$JOBS, 'repeated jobs provider' ],
 );
 
 sub build_psgi_app {
@@ -611,6 +623,8 @@ these existed):
 =item * Work log and police: work_log, police_log, policies, policy_add, policy_remove, policy_decline
 
 =item * People: people
+
+=item * Repeated jobs: jobs
 
 =item * Task List: tasklist, tasklist_add, tasklist_update, tasklist_next, tasklist_shift, tasklist_pop, tasklist_unshift, tasklist_slice, tasklist_remove, tasklist_import, tasklist_prune, tasklist_task_attach_add, tasklist_task_attach_discard, tasklist_task_ref_link, tasklist_task_ref_unlink, tasklist_sessions
 

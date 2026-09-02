@@ -399,12 +399,45 @@ sub run_due_job {
     }
 
     close $in if $in;
-    my $output = do { local $/; ( <$out> // '' ) . ( <$error> // '' ) };
+
+    # BOTH HANDLES, AS THEY BECOME READY. Reading stdout to EOF first and only
+    # then reading stderr deadlocks: a child that fills the stderr pipe blocks
+    # writing it, never exits, and this side blocks forever waiting for stdout
+    # to end - waitpid is never reached and the police bridge hangs with it.
+    # The pipe buffer is around 64KB, so it takes a chatty command rather than
+    # a malicious one. Caught in review before it shipped; it would have looked
+    # like a job that never returned, which is precisely the silence this card
+    # exists to remove.
+    require IO::Select;
+    my $select = IO::Select->new( $out, $error );
+    my %text = ( "$out" => '', "$error" => '' );
+    while ( my @ready = $select->can_read ) {
+        for my $handle (@ready) {
+            my $chunk = '';
+            my $read = sysread $handle, $chunk, 65536;
+            if ( !$read ) { $select->remove($handle); next }
+            $text{"$handle"} .= $chunk;
+        }
+    }
     close $out;
     close $error;
     waitpid $pid, 0;
 
-    return { ran => 1, status => $? >> 8, output => $output };
+    # A CHILD KILLED BY A SIGNAL IS NOT A SUCCESS. $? >> 8 alone reports 0 for
+    # one - SIGKILL leaves $? as 9, and 9 >> 8 is 0 - so a job the system killed
+    # would have read as having exited cleanly. That is the failure-looks-like-
+    # success inversion this whole card exists to prevent, and it was sitting
+    # inside the fix for it. Reported the way a shell reports it: 128 plus the
+    # signal number.
+    my $raw    = $?;
+    my $signal = $raw & 127;
+    my $status = $signal ? 128 + $signal : $raw >> 8;
+
+    return {
+        ran    => 1,
+        status => $status,
+        output => $text{"$out"} . $text{"$error"},
+    };
 }
 
 sub _running_containers {

@@ -135,6 +135,58 @@ sub announced {
           . 'is the same silence this card exists to remove, one level down' );
 }
 
+# --- a chatty command does not hang the bridge ------------------------------
+#
+# The first draft read stdout to EOF and only then read stderr. A child that
+# fills the stderr pipe - roughly 64KB - blocks writing it, never exits, and
+# this side blocks forever waiting for stdout to end: waitpid is never reached
+# and the police bridge hangs with the job. Found in review rather than by a
+# test, which is why one exists now.
+#
+# 200KB on stderr is comfortably past the pipe buffer, so this deadlocks the
+# old code and passes the new. It is a plain perl one-liner rather than a shell
+# pipeline, because the command is run in list form - and the -e body carries
+# NO SPACES for the same reason: run_due_job splits the command on whitespace,
+# so `print STDERR "x"` would arrive as three separate arguments. The block
+# form `print{*STDERR}(...)` says the same thing without them. The first draft
+# used print(STDERR(...)), which is not a filehandle at all but a call to a
+# function named STDERR, and perl exited non-zero telling me so.
+
+{
+    my $chatty = $tira->job_add( project => $root, schedule => '0 * * * *',
+        command => qq{$^X -e print{*STDERR}("x"x200000);print("done")} );
+
+    require Tira::CLI::Police;
+    my $ran = Tira::CLI::Police::run_due_job(
+        tira => $tira, project => $root, job => $chatty );
+
+    ok( ref $ran eq 'HASH', 'a command that floods stderr still returns' );
+    is( $ran->{status}, 0, 'with its real exit status' );
+    cmp_ok( length( $ran->{output} // '' ), '>', 100_000,
+        'and everything it wrote is there - both streams were drained, not one then the other' );
+    like( $ran->{output} // '', qr/done/, 'including what went to stdout' );
+}
+
+# --- a job the system kills is not a success --------------------------------
+#
+# $? >> 8 on its own reports 0 for a signal death: SIGKILL leaves $? as 9, and
+# 9 >> 8 is 0. So a killed job read as having exited cleanly - the exact
+# failure-looks-like-success inversion this card exists to prevent, sitting
+# inside the fix for it.
+
+{
+    my $doomed = $tira->job_add( project => $root, schedule => '0 * * * *',
+        command => qq{$^X -e kill("KILL",\$\$);sleep(30)} );
+
+    require Tira::CLI::Police;
+    my $ran = Tira::CLI::Police::run_due_job(
+        tira => $tira, project => $root, job => $doomed );
+
+    ok( ref $ran eq 'HASH', 'a job killed by a signal returns a result' );
+    isnt( $ran->{status}, 0,
+        'and does NOT report success - a signal death read as exit 0 before this' );
+}
+
 # --- a message-mode job runs nothing ----------------------------------------
 #
 # The other half of the boundary. Establishing the subject first: this pass

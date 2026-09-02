@@ -1822,15 +1822,16 @@ blocks the monitor forever. The `monitor-dead` police rule then reports any
 enabled monitor that should be running and is not — including one that was
 never started, which is what every monitor looks like after a restart.
 
-Liveness is the recorded pid **plus what that pid is actually running** — the
-command line must contain the job's command — and the second half is the point.
-Containment rather than equality, because `ps` reports the command as the
-kernel has it. The recorded and running **start times are compared** too: a
-reused pid began later than the one the board wrote down, which is what
-separates a dead monitor from a live impostor when the command text lines up
-as well. On Windows there is no command line to contain anything, so the
-check falls back to comparing program names; two monitors run by the same
-interpreter are indistinguishable there, which is weaker and is said rather
+Liveness is the recorded pid **plus when that pid started**. The board writes
+the moment it spawned the monitor, so the process at that pid either began then
+or it is something else wearing a recycled pid — a one-minute symmetric window,
+because a process that started *before* the spawn could not have held that pid
+while alive either. The command is compared only where no start time exists,
+and since 5.34 that order matters: comparing commands first reported every
+`d2`-wrapped monitor as **dead**, since `d2` execs perl with the resolved path
+and the stored string never appears in the child's argv. On Windows there are
+no start times at all, so the command is all there is; two monitors run by the
+same interpreter are indistinguishable there, which is weaker and is said rather
 than glossed. Asking `kill 0` alone is this
 board's own precedent in `police_claim_singleton`, but pids are reused and a
 reused pid answers yes — which would report a dead monitor as alive, rebuilding

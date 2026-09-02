@@ -135,8 +135,14 @@ sub violations {
     return $result->{violations};
 }
 
+# The process start matches what job_started recorded, because that is the only
+# thing that can be true: the board writes started_at immediately after the
+# spawn. An earlier fixture here had them an HOUR apart, which cannot happen -
+# a process that began before we spawned ours could not have been handed our
+# pid while it was still alive. TKT-860 made the start times authoritative, and
+# a fixture that disagreed with reality would have hidden that.
 my $alive_row = {
-    pid => $pid, started_at => '2026-09-02T11:00:00Z',
+    pid => $pid, started_at => '2026-09-02T12:00:00Z',
     command => 'tira-monitor-under-test --poll',
 };
 my $unrelated = {
@@ -236,7 +242,10 @@ my $ran = Tira::CLI::Job::dispatch(
 ok( $ran->{pid}, 'starting a monitor records the pid it started as' );
 ok( kill( 0, $ran->{pid} ), 'and the process is really there' );
 
-my $live = [ { pid => $ran->{pid}, started_at => '2026-09-02T12:00:00Z',
+# started_at taken from the record rather than written by hand: this monitor was
+# started with a REAL clock a moment ago, so the only stamp that matches it is
+# its own. TKT-860.
+my $live = [ { pid => $ran->{pid}, started_at => $ran->{started_at},
         command => 'perl -e sleep' } ];
 ok( Tira::Job::job_monitor_alive( $ran, $live ),
     'a monitor started this way reads as alive' );

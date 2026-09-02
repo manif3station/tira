@@ -1,5 +1,36 @@
 Revision history for Tira
 
+5.34  2026-09-02
+
+    - TKT-860. `monitor-dead` reported a RUNNING monitor as dead whenever its
+      command was a `d2` wrapper - which is nearly every command on this board.
+      Found in production on the first real use of the feature, an hour after
+      it shipped: JOB-005 was started as `d2 is-agent-sleeping`, its process
+      was alive, and the bridge said it was not.
+
+      `d2` execs perl with the resolved cli path, so the process table holds
+      `/usr/bin/perl -I ... /cli/is-agent-sleeping` and the stored string
+      `d2 is-agent-sleeping` never appears in it. The containment check
+      therefore failed. The comment defending that check claimed it coped with
+      "the interpreter, the absolute path and whatever the shell expanded" -
+      true when the stored command IS the program that runs, false for a
+      wrapper, whose own name is gone the moment it execs.
+
+    - The fix needs no new stored field: when both start times are known they
+      settle identity between them, and the command is only consulted where no
+      start time exists (Windows, where tasklist supplies none). A reused pid is
+      now rejected on a FACT - when it started - rather than on command text
+      that can coincide. The window is symmetric: later means a recycled pid,
+      and earlier cannot be ours either, since a process that began before we
+      spawned ours could not have held our pid while alive.
+
+    - Two consequences worth naming. The false-dead reading also defeated the
+      already-running refusal added in 5.33, so `job.start` would happily launch
+      a SECOND copy and orphan the first - observed live, two
+      `is-agent-sleeping` processes for one job record. And two fixtures in
+      t/493 had a monitor's process starting an hour before the board recorded
+      it, which cannot happen; they are corrected rather than worked around.
+
 5.33  2026-09-02
 
     - TKT-843 (EPC-014). A play button on every repeated-job row, and an editor

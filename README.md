@@ -299,11 +299,12 @@ should be running and is not, naming it.
 That rule is why the feature exists. On 2026-09-02 three standing hunt loops on
 this board had been dead for hours and nothing said so, because a loop that has
 stopped and a loop with nothing to report produce identical output: none.
-Liveness is the recorded pid **plus what that pid is running** — the command
-line must contain the job's command. Asking `kill 0` alone would be fooled by a
-reused pid and report a dead monitor as alive, which is the same silence in a
-different coat. On Windows the process table carries no command line, so the
-check falls back to comparing program names and is correspondingly weaker.
+Liveness is the recorded pid **plus when that pid started**. Asking `kill 0`
+alone would be fooled by a reused pid and report a dead monitor as alive, which
+is the same silence in a different coat; a reused pid began later than the one
+the board wrote down, and that is what separates them. The command is only
+compared where no start time exists — on Windows, whose process table carries
+neither — so the check is correspondingly weaker there.
 What it does not catch is a monitor that is alive but wedged: process up,
 polling stopped.
 

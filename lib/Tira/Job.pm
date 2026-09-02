@@ -387,27 +387,45 @@ sub job_monitor_alive {
         next if ( $process->{pid} // '' ) ne "$pid";
         my $seen = $process->{command} // '';
 
-        # A PID THAT WAS REUSED STARTED LATER THAN THE ONE WE RECORDED, and
-        # that is the one fact which separates them when the command text
-        # happens to line up too. Without this, a monitor that died and whose
-        # pid was taken by anything carrying the same string in its argv - the
-        # same command started again by hand, most obviously - reads as alive,
-        # and the death goes unreported. That is the exact failure this card
-        # forbids, so the start times are compared rather than left unread.
+        # WHEN BOTH START TIMES ARE KNOWN THEY SETTLE IT BY THEMSELVES, and
+        # the command is not consulted at all. The board records the moment it
+        # spawned the monitor; the process at that pid either started then or
+        # it is something else wearing a recycled pid. That is a fact about
+        # identity, where a command comparison is only a resemblance.
         #
-        # A minute of slack, because the pid is recorded a moment AFTER the
-        # spawn and `ps` reports whole seconds. Only applied when both stamps
-        # are really there: Windows supplies no process start time at all, and
-        # guessing one would make every Windows monitor read dead, which is
-        # the opposite mistake and a louder one.
+        # THIS ORDER IS THE FIX FOR TKT-860, and the bug it closes was live in
+        # production. Comparing commands FIRST reported a running monitor as
+        # dead whenever the command was a wrapper: `d2 is-agent-sleeping` execs
+        # perl with the resolved path, so the stored string never appears in
+        # the child's argv and containment failed. Nearly every command on this
+        # board begins with d2, so the rule written to end a silence cried on
+        # every pass instead. The earlier comment here claimed containment
+        # coped with "the interpreter, the absolute path and whatever the shell
+        # expanded" - true when the stored command is the program that ends up
+        # running, false for a wrapper, whose own name is gone after exec.
+        #
+        # The window is symmetric and a minute wide. Later means a reused pid.
+        # EARLIER means it cannot be ours either - a process that began before
+        # we spawned ours cannot have been given our pid while it was still
+        # alive - so both directions are rejected rather than only the one that
+        # was obvious first.
         my $recorded = _stamp_seconds( $job->{started_at} );
         my $running  = _stamp_seconds( $process->{started_at} );
-        return 0 if defined $recorded && defined $running && $running > $recorded + 60;
+        if ( defined $recorded && defined $running ) {
+            my $apart = $running - $recorded;
+            $apart = -$apart if $apart < 0;
+            return $apart <= 60 ? 1 : 0;
+        }
 
+        # NO START TIME TO COMPARE, so the command is what is left. Windows is
+        # the case that matters: tasklist reports a program name and no start
+        # time at all. A record written before starts were recorded lands here
+        # too, and keeps working rather than reading dead for ever.
+        #
         # index rather than equality: ps reports the command as the kernel has
-        # it, which carries the interpreter, the absolute path and whatever
-        # the shell expanded - none of which the stored command has to match
-        # character for character to be the same job.
+        # it, which carries the interpreter and absolute paths the stored
+        # command need not repeat - which is true here, where the stored
+        # command IS the program, and was never true for a wrapper.
         return 1 if index( $seen, $wanted ) >= 0;
 
         # WINDOWS CANNOT ANSWER THE FULL QUESTION, so it is asked a smaller
@@ -530,15 +548,24 @@ it announces directly. Never both - a record carrying both cannot say which
 the bridge should get - and never neither. C<mode> records which, so a reader
 never has to infer it from which field happens to be populated.
 
-=head1 A MONITOR IS KNOWN TO BE ALIVE BY A PID AND ITS COMMAND
+=head1 A MONITOR IS KNOWN TO BE ALIVE BY A PID AND WHEN IT STARTED
 
 C<job_started> records the pid a monitor was started as, and
 C<job_monitor_alive> decides whether it is still running by finding that pid
 in the process table B<and> matching the command it is running.
 
-Both halves are load-bearing. Asking C<kill 0, $pid> is this distribution's
-own precedent - C<police_claim_singleton> has done exactly that since it was
-written - and for a singleton claimed seconds ago it is correct. It is not
+The START TIMES are what decide it when both are known, and the command is
+consulted only when one is missing. That order is the fix for TKT-860: comparing
+commands first reported every C<d2>-wrapped monitor as B<dead>, because C<d2>
+execs perl with the resolved path and the stored string never appears in the
+child's argv. Nearly every command on this board begins with C<d2>, so the rule
+written to end a silence cried on every pass instead - and the false-dead
+reading also defeated the already-running refusal, so C<job.start> would launch
+a second copy and orphan the first.
+
+Both halves are still load-bearing. Asking C<kill 0, $pid> is this
+distribution's own precedent - C<police_claim_singleton> has done exactly that
+since it was written - and for a singleton claimed seconds ago it is correct. It is not
 correct for a monitor whose pid may have been recorded days ago, because pids
 are reused, and a reused pid answers C<kill 0> in the affirmative. A liveness
 check built on that alone would report a dead monitor as B<alive>, which is

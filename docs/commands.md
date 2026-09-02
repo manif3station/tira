@@ -3477,17 +3477,21 @@ reader never has to infer it from whichever field is populated.
 
     That pid is what makes a death detectable. The `monitor-dead` police rule
     reports a monitor that should be running and is not. It confirms the pid
-    against the process table and checks what that pid is running: the command
-    line must CONTAIN the job's command. Containment, not equality — `ps`
-    reports what the kernel has, carrying the interpreter and absolute paths
-    the stored command never had. The check exists because pids are reused, and
-    a reused pid would otherwise report a dead monitor as alive.
+    against the process table **by when that pid started**: the board records
+    the moment it spawned the monitor, so the process either began then or it
+    is something else wearing a recycled pid. The window is one minute and
+    symmetric — later means a reused pid, and earlier cannot be that monitor
+    either, since a process that began before the spawn could not have held its
+    pid while alive.
 
-    The start times are compared as well, because a reused pid began later
-    than the pid the board recorded - that is what tells a dead monitor from
-    an impostor when the command text matches too, such as the same command
-    started again by hand. A minute of slack is allowed, since the pid is
-    written just after the spawn.
+    The stored command is compared only where no start time is available, and
+    since 5.34 that order matters. Comparing commands first reported every
+    `d2`-wrapped monitor as **dead**: `d2` execs perl with the resolved cli
+    path, so `d2 is-agent-sleeping` never appears in the child's argv and a
+    containment test could not succeed. Nearly every command on this board
+    begins with `d2`, so the rule written to end a silence cried on every pass
+    instead — and the false-dead reading also defeated the already-running
+    refusal below, letting `job.start` launch a second copy.
 
     If a monitor starts but its pid cannot be written to the board, the
     process is stopped again rather than left running unrecorded: an

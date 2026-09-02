@@ -111,6 +111,30 @@ sub announced {
       if ref $ran eq 'HASH';
 }
 
+# --- a program that is not installed is a result, not a crash ---------------
+#
+# The branch that says so was written and then not exercised: the coverage run
+# named lib/Tira/CLI/Police.pm as the only module under 100% and pointed at
+# exactly these three lines. Arguing in a commit message that a missing program
+# should report rather than die, and then never running that path, is how a
+# considered decision becomes an untested one.
+
+{
+    my $absent = $tira->job_add( project => $root, schedule => '0 * * * *',
+        command => 'tira-no-such-program-exists-here --please' );
+
+    require Tira::CLI::Police;
+    my $ran = Tira::CLI::Police::run_due_job(
+        tira => $tira, project => $root, job => $absent );
+
+    ok( ref $ran eq 'HASH', 'a missing program returns a result rather than dying' );
+    is( $ran->{ran}, 1, 'and the attempt is recorded as having been made' );
+    isnt( $ran->{status}, 0, 'with a non-zero status, because nothing ran successfully' );
+    like( $ran->{output} // '', qr/tira-no-such-program-exists-here/,
+        'and the output NAMES what could not be run - "it failed" without saying what '
+          . 'is the same silence this card exists to remove, one level down' );
+}
+
 # --- a message-mode job runs nothing ----------------------------------------
 #
 # The other half of the boundary. Establishing the subject first: this pass

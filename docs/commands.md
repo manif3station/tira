@@ -3452,7 +3452,8 @@ reader never has to infer it from whichever field is populated.
     `job-due` rule stays silent about both.
 
     A `--command` job RUNS when it comes due, and what it produced goes to the
-    police bridge - stdout and stderr together, with the exit status. A command
+    police bridge - stdout first, then stderr, with the exit status. The two are
+    appended rather than interleaved, so ordering between them is not kept. A command
     that fails reports the failure rather than falling silent, because a job
     that ran and failed would otherwise look exactly like a job that never ran.
     The command is run in list form, the program named separately from its

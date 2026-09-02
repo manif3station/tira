@@ -1986,8 +1986,11 @@ continuously rather than firing on a tick, so it is never "due".
 A command-mode job is announced as `runs: <command>`, and then actually runs.
 The rule itself still executes nothing: it reports that the job is due, and
 `Tira::CLI::Police::run_due_job` runs it and puts the output back on the
-bridge - stdout and stderr together, with the exit status, because a command
-that failed and said nothing is indistinguishable from one that never ran.
+bridge - stdout first and then stderr, with the exit status, because a command
+that failed and said nothing is indistinguishable from one that never ran. The
+two streams are appended rather than interleaved, so ordering between them is
+not preserved: what a failing command wrote to stderr is all there, after
+whatever it wrote to stdout.
 That split is not tidiness. The engine is forbidden every shell-invoking
 construct, and the guard's own exclusion list already contains the CLI layer,
 where the board server legitimately needs one; putting execution there meant

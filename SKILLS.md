@@ -1766,7 +1766,9 @@ with thin same-named forwarders on `Tira` so callers are unaffected.
 
 **And a command-mode job actually runs (TKT-841).** When it comes due, the
 rule announces it as `runs: <command>` and then `Tira::CLI::Police::run_due_job`
-runs it, putting stdout, stderr and the exit status back on the bridge. A
+runs it, putting stdout, then stderr, then the exit status back on the bridge -
+appended rather than interleaved, so ordering between the two streams is not
+preserved. A
 command that fails says so: a job that ran and failed would otherwise be
 indistinguishable from one that never ran, which is the ambiguity this epic
 exists to remove. Until this, `job-due` skipped command-mode jobs outright and

@@ -928,8 +928,9 @@ command is an argument rather than an instruction. B<There is no quoting>:
 C<echo "two words"> is four arguments. A job that needs quoting should be a
 script, which is also the answer that keeps the guarantee.
 
-Stdout and stderr are captured together, and the exit status is returned rather
-than discarded, because a command that failed silently cannot be told apart
+Stdout and stderr are both captured - stdout in full, then stderr appended, so
+ordering B<between> the streams is not preserved - and the exit status is
+returned rather than discarded, because a command that failed silently cannot be told apart
 from one that never ran - the ambiguity EPC-014 exists to remove. A program
 that is not installed is a B<result>, not a crash: what could not be run is
 named in C<output> with a status of -1, the same judgement

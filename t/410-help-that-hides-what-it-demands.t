@@ -37,6 +37,8 @@ use File::Spec;
 use Test::More;
 
 use lib 'lib';
+use lib 't/lib';
+use Suite qw(cli_source);
 use Tira;
 use Tira::CLI;
 # Tira::CLI::Usage holds these since 4.74 (TKT-607). Tira::CLI requires it at
@@ -46,12 +48,15 @@ require Tira::CLI::Usage;
 
 # --- every dispatchable command has a usage line -----------------------------
 
-my $cli = do {
-    local $/;
-    open my $fh, '<:encoding(UTF-8)', File::Spec->catfile( 'lib', 'Tira', 'CLI.pm' )
-      or die "cannot read lib/Tira/CLI.pm: $!";
-    <$fh>;
-};
+# The whole command layer, walked, not lib/Tira/CLI.pm by name. TKT-837 lifted
+# the option guard into lib/Tira/CLI/Options.pm and took five `$command eq
+# '...'` literals with it, so a named read stopped seeing record.clone and
+# record.update - and this test failed saying they "now have a usage line and
+# should leave the ledger" when they had merely moved out of view. The ledger
+# was right; the reading of it was not. Third test today to need this: t/239
+# parsed the same tables by name, and t/237 localised a subroutine that had
+# moved packages.
+my $cli = cli_source();
 
 # The first version of this guard read only the %method table and asserted
 # "every dispatchable command has a usage line". It passed, and it was wrong:

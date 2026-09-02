@@ -146,6 +146,25 @@ sub run_cli {
     unlike( $after->{out}, qr/JOB-001"/, 'and the job is gone from the list' );
 }
 
+# --- one command, given once ------------------------------------------------
+#
+# --command is shared with required-action proofs, which take it repeatably, so
+# the job verbs read an array. Two of them is refused rather than quietly
+# resolved to one: a job runs a single command, and silently dropping the other
+# is the fault the option guard exists to prevent. Covered here because the
+# refusal was written and then left untested - the coverage run named
+# lib/Tira/CLI/Job.pm as the only module under 100%, and this line was the hole.
+
+{
+    my $two = run_cli( 'job.add', '--schedule', '0 * * * *',
+        '--command', 'first', '--command', 'second' );
+    isnt( $two->{status}, 0, 'two --command flags on one job are refused' );
+    like( $two->{err} . $two->{out}, qr/one command/,
+        'and the refusal says why rather than printing a usage dump' );
+    unlike( $two->{err} . $two->{out}, qr/Unsupported Tira command/,
+        'refused by the verb, not by the verb being absent' );
+}
+
 # --- a flag that parses is not a flag that was understood -------------------
 #
 # --enabled took anything recognisably true as true and EVERYTHING ELSE as

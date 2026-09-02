@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.31';
+our $VERSION = '5.32';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1264,6 +1264,8 @@ sub job_list   { my $self = shift; require Tira::Job; return Tira::Job::job_list
 sub job_update { my $self = shift; require Tira::Job; return Tira::Job::job_update( $self, @_ ) }
 sub job_delete { my $self = shift; require Tira::Job; return Tira::Job::job_delete( $self, @_ ) }
 sub job_is_due { my $self = shift; require Tira::Job; return Tira::Job::job_is_due( $self, @_ ) }
+sub job_started { my $self = shift; require Tira::Job; return Tira::Job::job_started( $self, @_ ) }
+sub job_log_path { my $self = shift; require Tira::Job; return Tira::Job::job_log_path( $self, @_ ) }
 
 sub warning_clear {
     my ( $self, %args ) = @_;
@@ -6254,6 +6256,13 @@ my %POLICY_RULES = (
     'board-unbacked'            => { needs => ['age'] },
     'gate-missing'              => { needs => ['column'] },
     'discard-unexplained'       => { needs => [] },
+    # No age, and it is refused rather than ignored. A monitor that has stopped
+    # does not become more stopped, and the acceptance this rule was written
+    # for asks for it "within one bridge pass, rather than after somebody
+    # notices the silence" - a grace period is the silence, spelled as policy.
+    # The quiet ladder already stops the same line arriving twice a minute.
+    'monitor-dead'              => { needs => [], forbids => ['age'] },
+
     'leftover-process'          => { needs => [ 'pattern', 'age' ] },
     'leftover-container'        => { needs => [ 'pattern', 'age' ] },
     'card-sandbox-missing'      => { needs => [ 'enter', 'sandbox' ] },
@@ -9692,6 +9701,53 @@ sub _police_environment_violations {
             next if !$self->_policy_older_than( $world->{working_since}, $policy->{age} );
             $report->( $policy, undef,
                 "the tree has been changing since $world->{working_since} with no card at a working gate" );
+        }
+        elsif ( $rule eq 'monitor-dead' ) {
+
+            # THE RULE EPC-014 WAS FILED FOR. Three hunt loops died on
+            # 2026-09-02 and produced what three quiet ones produce: nothing.
+            # Everything else in the epic is arrangement; this is the part
+            # that makes a stopped monitor say so.
+            # NOT `eval { ... } || []`. Swallowing a read failure into "there
+            # are no jobs" would make a locked or corrupt jobs file look
+            # exactly like a board with no monitors - silence standing in for
+            # an answer, which is the precise failure this rule exists to end,
+            # rebuilt inside the rule itself. The failure is REPORTED instead,
+            # so a pass that could not tell says so.
+            my $jobs = eval { $self->job_list(%args) };
+            if ( !defined $jobs ) {
+                my $why = $@ || 'the jobs record could not be read';
+                $why =~ s/\s+\z//;
+                $report->( $policy, undef,
+                    "the repeated jobs could not be read, so no monitor could "
+                      . "be checked this pass: $why" );
+                next;
+            }
+            for my $job ( @{$jobs} ) {
+                next if ( $job->{schedule_kind} // '' ) ne 'monitor';
+
+                # Disabled is absent on purpose. Reporting it would make the
+                # rule fire on every monitor anybody ever turned off, and a
+                # channel that cries about deliberate silence is one nobody
+                # reads - which is how the original silence got missed.
+                next if !$job->{enabled};
+
+                # A monitor with no command cannot be running, and cannot be
+                # made to run either - job.start refuses it. _job_fields now
+                # refuses writing one at all, but a board may already carry
+                # one, and reporting it every pass forever would be noise
+                # nobody can act on except by deleting the record. Skipped
+                # rather than reported, which is the same judgement this rule
+                # makes about a disabled monitor.
+                next if !defined $job->{command} || $job->{command} eq '';
+
+                require Tira::Job;
+                next if Tira::Job::job_monitor_alive( $job, $world->{processes} );
+
+                my $what = $job->{command} // $job->{message} // '';
+                $report->( $policy, undef,
+                    "monitor $job->{id} is not running: $what" );
+            }
         }
         elsif ( $rule eq 'unpushed-work' ) {
             next if !$world->{unpushed_since};
@@ -13307,6 +13363,23 @@ having no command.
 =head2 job_delete
 
 Removes a job by C<id>.
+
+=head2 job_started
+
+Records the pid a C<monitor> job was started as, and when. Refused for a
+cron job: that is not supposed to be up between runs, so a pid on one would
+be a fact about a process that has already exited, and C<job_monitor_alive>
+would then have to decide which pids it is allowed to believe. Refusing the
+write keeps that question from existing. EPC-014, TKT-842.
+
+=head2 job_log_path
+
+Where a monitor's output goes - beside the jobs record, named for the job.
+The engine owns the path and the CLI owns the writing, for the same reason
+the liveness check is split that way: the engine may not open a process, but
+it is the only thing that knows where this board keeps its records. An id
+that would escape the directory is refused rather than sanitised, since
+quietly rewriting one would make two jobs share a log.
 
 =head2 job_is_due
 

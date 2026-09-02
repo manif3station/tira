@@ -111,7 +111,7 @@ embedded in the page — the board loads nothing from another host, so a CDN
 highlighter was never an option. A genuinely binary file still refuses rather
 than rendering as mojibake, and an unknown extension is decided by reading its
 first bytes rather than by its name.
-The board-wide police policy engine — the 41 rules police itself watches,
+The board-wide police policy engine — the 42 rules police itself watches,
 separate from a column's own required-action template — is editable from
 the browser too: a Policies button opens a modal listing every declared,
 declined, and undeclared rule, with a rule-specific parameter picker that
@@ -261,6 +261,8 @@ d2 tira.dashboard -o browser
 d2 tira.dashboard.ticket --title -o browser=localhost:4567
 d2 tira.tasklist.add --text "read the README"
 d2 tira.job.add --schedule "0 * * * *" --message "go hunt some bugs"
+d2 tira.job.add --schedule monitor --command "d2 tira.policy.bridge"
+d2 tira.job.start --id JOB-002
 d2 tira.job.list
 d2 tira.tasklist.list
 ```
@@ -285,6 +287,24 @@ carries: its id, whether it is enabled, its schedule, what it says or runs,
 and its mode and schedule kind. It is read-only and refreshes every thirty
 seconds, so what a board is scheduled to do is visible on the board rather
 than only in its stored job records.
+
+A job whose schedule is the literal `monitor` is a long-running poller rather
+than a tick. It is started with `tira.job.start`, which records the pid it
+started as and appends its output to a log named for the job — a file, not a
+pipe, because a pipe with no reader fills at around 64KB and blocks the
+monitor forever. The `monitor-dead` rule then reports any enabled monitor that
+should be running and is not, naming it.
+
+That rule is why the feature exists. On 2026-09-02 three standing hunt loops on
+this board had been dead for hours and nothing said so, because a loop that has
+stopped and a loop with nothing to report produce identical output: none.
+Liveness is the recorded pid **plus what that pid is running** — the command
+line must contain the job's command. Asking `kill 0` alone would be fooled by a
+reused pid and report a dead monitor as alive, which is the same silence in a
+different coat. On Windows the process table carries no command line, so the
+check falls back to comparing program names and is correspondingly weaker.
+What it does not catch is a monitor that is alive but wedged: process up,
+polling stopped.
 
 `dashboard tira.onboard` asks for everything a new project needs and creates
 it from the answers. `dashboard tira.onboard -o browser` does the same thing
@@ -470,8 +490,8 @@ entries themselves, and how many rules police the board, checked against
 sentence — every markdown file in the repository bar the build and dependency
 directories (`cover_db`, `node_modules`, `.git`), and any claim that puts a
 number ahead of the word `rules` with at most two words between them. That
-covers `41 rules cover`, `41 rules police`, `41 police
-rules` and `41 policy rules`, and it is the whole of its reach, worth stating
+covers `42 rules cover`, `42 rules police`, `42 police
+rules` and `42 policy rules`, and it is the whole of its reach, worth stating
 plainly because a guard described more broadly than it works is the failure it
 exists to prevent: a claim worded outside that shape is not held, and neither is
 one made anywhere but a markdown file. The same count stated in a source comment is TKT-736, still open.

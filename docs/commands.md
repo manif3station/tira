@@ -3439,6 +3439,7 @@ reader never has to infer it from whichever field is populated.
 - `tira.job.list [-o FORMAT]`
 - `tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TEXT] [--enabled 1|yes|true|on|0|no|false|off] [-o FORMAT]`
 - `tira.job.delete --id ID [-o FORMAT]`
+- `tira.job.start --id ID [-o FORMAT]`
 
     ```
     d2 tira.job.add --schedule "0 * * * *" --message "go hunt some bugs"
@@ -3459,6 +3460,60 @@ reader never has to infer it from whichever field is populated.
     The command is run in list form, the program named separately from its
     arguments, so a semicolon in it is an argument and not an instruction;
     there is no quoting, so a command needing it should be a script.
+
+    A `monitor` job is STARTED rather than fired, with `tira.job.start`:
+
+    ```
+    d2 tira.job.add --schedule monitor --command "d2 tira.policy.bridge"
+    d2 tira.job.start --id JOB-001
+    ```
+
+    Starting one records the pid it started as, and its output is appended to
+    a log named for the job beside the board's own records. The output goes to
+    a file rather than a pipe on purpose: a pipe nobody drains fills at around
+    64KB and blocks the monitor forever, which is a stopped monitor that still
+    looks started.
+
+    That pid is what makes a death detectable. The `monitor-dead` police rule
+    reports a monitor that should be running and is not. It confirms the pid
+    against the process table and checks what that pid is running: the command
+    line must CONTAIN the job's command. Containment, not equality — `ps`
+    reports what the kernel has, carrying the interpreter and absolute paths
+    the stored command never had. The check exists because pids are reused, and
+    a reused pid would otherwise report a dead monitor as alive.
+
+    The start times are compared as well, because a reused pid began later
+    than the pid the board recorded - that is what tells a dead monitor from
+    an impostor when the command text matches too, such as the same command
+    started again by hand. A minute of slack is allowed, since the pid is
+    written just after the spawn.
+
+    If a monitor starts but its pid cannot be written to the board, the
+    process is stopped again rather than left running unrecorded: an
+    unrecorded monitor would be reported dead every pass and started a second
+    time by the next `job.start`.
+
+    On Windows there is no command line to contain anything: `tasklist` reports
+    a program name only, so the check falls back to comparing program names
+    (path, `.exe` and case ignored). Two monitors run by the same interpreter
+    cannot be told apart there. That is weaker than the Unix guarantee and
+    stronger than trusting a bare pid.
+
+    A `monitor` job must carry a `--command`, and `--message` is refused for
+    one. A monitor stays running rather than firing on a tick, so it has
+    nothing to announce - such a record would be unreachable in every
+    direction: never due, refusable by `job.start` for having nothing to run,
+    and with no command for the liveness check to look for.
+
+    Starting a cron job is refused (it runs when due), and so is starting a
+    disabled one, or one with no command. A monitor that cannot be spawned at
+    all is refused naming the program and is NOT recorded as started — whether
+    the program does not exist, is not executable, or the spawn failed for any
+    other reason.
+
+    What this does not catch is a monitor that is alive but wedged — the
+    process is up and the polling has stopped. That needs the monitor to report
+    progress, which is a different mechanism and a different card.
 
     A malformed schedule is refused when it is written, naming the field and
     the range it takes, and nothing is stored. The refusal is the engine's own,

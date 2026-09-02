@@ -105,6 +105,12 @@ my %declare = (
     # when it is due, and a job is not about a card. EPC-014, TKT-838.
     'job-due'                   => {},
 
+    # A monitor that should be up and is not. No age: a stopped monitor does
+    # not become more stopped, and the rule refuses one rather than ignoring
+    # it. Whole-board, like job-due - a job is not about a card. EPC-014,
+    # TKT-842.
+    'monitor-dead'              => {},
+
     # Column-scoped, and the column is the whole of TKT-639: the board cannot
     # infer which of its own columns mean somebody is WORKING, so the rule is
     # told. 'implement' here, which is where the fixture's card sits.
@@ -178,6 +184,13 @@ $tira->tasklist_add( project => $root, text => 'A note nobody turned into a card
 # job's own message is what should reach the bridge. EPC-014, TKT-838.
 $tira->job_add( project => $root, schedule => '0 * * * *',
     message => 'go hunt some bugs' );
+
+# And a monitor that is supposed to be running and is not - monitor-dead's
+# case. It is enabled and has never been started, so it carries no pid at all,
+# which is exactly what every monitor on a machine looks like after a restart.
+# EPC-014, TKT-842.
+$tira->job_add( project => $root, schedule => 'monitor',
+    command => 'tira-a-monitor-nobody-started --poll' );
 
 # A tasklist item left saying pending while the card it names is being worked -
 # task-card-mismatch's case, and the half of the owner's request that

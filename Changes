@@ -1,5 +1,56 @@
 Revision history for Tira
 
+5.32  2026-09-02
+
+    - TKT-842 (EPC-014). A monitor-kind repeated job can now be STARTED, and
+      a monitor that DIES is reported by name instead of going quiet. This is
+      the rule the epic was filed for: on 2026-09-02 three standing hunt loops
+      had been dead for hours and nothing said so, because a loop that has
+      stopped and a loop with nothing to report produce identical output.
+
+    - `tira.job.start --id JOB-NNN` starts a monitor and records the pid it
+      started as. Its output is appended to a log named for the job rather
+      than to a pipe: a pipe with no reader fills at around 64KB and blocks
+      the monitor forever, which is a stopped monitor that still looks
+      started.
+
+    - New police rule `monitor-dead`, taking the rule count to 42. Liveness is
+      the recorded pid CONFIRMED BY A COMMAND MATCH against the process table.
+      The second half is not belt-and-braces: pids are reused, a reused pid
+      answers `kill 0` in the affirmative, and a check built on the pid alone
+      would report a dead monitor as alive - the exact silence the rule exists
+      to end. A disabled monitor and a cron job stay silent; an enabled
+      monitor that was never started is reported, having no pid at all.
+
+    - The rule takes no `--age`, and refuses one rather than ignoring it: a
+      monitor that has stopped does not become more stopped, and a grace
+      period is that silence spelled as policy.
+
+    - A `monitor` job now requires a command: `--message` is refused for one.
+      A monitor announces nothing, so such a record was unreachable in every
+      direction - never due, unstartable, and with no command to look for in
+      the process table - and `monitor-dead` would have reported it dead on
+      every pass forever. Found reading the diff rather than by a failing
+      test. A commandless monitor already stored is skipped by the rule rather
+      than reported, since refusing new ones does not clean up old ones.
+
+    - Three defects found in adversarial review before release, all of them
+      failure-looks-like-success shapes inside the rule meant to end exactly
+      that. The liveness check now compares START TIMES as well as the pid and
+      command, so a pid reused by the same command started again by hand no
+      longer reads as alive. `monitor-dead` REPORTS a jobs record it cannot
+      read instead of treating the failure as "no monitors", which had put the
+      card's own thesis - silence standing in for an answer - inside its
+      implementation. And a monitor that starts but whose pid cannot be
+      written is now stopped again rather than left running unrecorded, where
+      it would have been reported dead every pass and duplicated by the next
+      `job.start`.
+
+    - Known limit, documented rather than left to be discovered: a monitor
+      that is alive but WEDGED - process up, polling stopped - reads as alive.
+      Detecting that needs the monitor to report progress, and every monitor
+      this feature absorbs is an existing command that will never do so.
+
 5.31  2026-09-02
 
     - TKT-841 (EPC-014). A command-mode repeated job now RUNS when it is due,

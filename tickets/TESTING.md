@@ -595,3 +595,60 @@ way an ordinary relative write can still reach the checkout. Both are refused by
 name rather than left to be discovered.
 
 `t/414-a-review-that-edits-what-it-reviews.t` holds all of it.
+
+## TKT-842 — a monitor whose death is noticed (5.32)
+
+`t/493-a-monitor-that-died.t`, 41 assertions. The one the card exists for is
+"kill it, and the very next pass reports it — the whole card, end to end": a
+real process started through `tira.job.start`, really killed, and the next
+police pass names it.
+
+### The vacuous half, stated up front
+
+Three assertions in this file — the "stays quiet" ones for a running monitor, a
+cron job and a disabled monitor — passed **before any code was written**, and
+the file's header says so. A rule that does not exist reports nothing about
+anything, so a negative assertion is satisfied by absence. They became
+meaningful only once the six fires-assertions went green. Written down because
+this project has shipped four red tests that passed on the shape of absence, and
+the pattern is only obvious in hindsight.
+
+The genuinely red set at the start was nine of fourteen: both `can` subjects,
+the rule being unknown to the engine, and every assertion demanding a violation
+fire.
+
+### The platform gate — not run, and why
+
+**Neither lab was available.** `ssh macdev` and `ssh windev` both refused on
+connect, and `docker ps -a` showed no mac or win container exists at all — so
+the Windows disk is gone and booting it means a fresh unattended install, not a
+resume. The machine had 4G of 15G free with the suite running; macdev alone
+asks for 50G swap-backed. Recorded rather than skipped quietly, per the
+openvpn precedent.
+
+**This change does touch platform-dependent behaviour**, so that absence is not
+a shrug. `tasklist /fo csv /nh` reports a process NAME — `perl.exe` — and no
+command line, while `ps -eo args` reports the whole thing. The command-match
+half of the liveness check therefore cannot succeed on Windows, and left alone
+it would have reported **every running monitor on Windows as dead**: a rule
+written against silence turned into a rule that cries every pass, which gets
+read past exactly the same way the original three deaths were.
+
+That was found by reading the Windows branch of `_processes_from_windows`
+before shipping, not by a lab. The fallback (match the program name, ignoring
+path, extension and case, and only when `$Tira::WINDOWS`) is asserted on both
+settings of the flag, so the platform difference is proved rather than assumed
+— and the last two assertions run the check against output produced by the
+**real** `_processes_from_windows` parser from real `tasklist` lines, rather
+than against a hash shaped by hand to suit the matcher.
+
+What a Windows lab would still add: that `tasklist` on that machine really
+prints what the fixture says it prints. That is the half worth booting a VM
+for, and it is owed the next time the lab is up.
+
+### The known limit, in the tests as well as the docs
+
+A monitor that is alive but **wedged** — process up, polling stopped — reads as
+alive. There is no assertion claiming otherwise, deliberately; catching it needs
+the monitor to report progress, and every monitor this feature absorbs is an
+existing command that will never write a heartbeat.

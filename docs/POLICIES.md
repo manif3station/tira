@@ -332,7 +332,7 @@ absent from this page, so a rule shipped without being documented is caught by
 name. Since 4.76 the other half is checked too: a statement of how many rules
 there are is compared against the engine, in any markdown file including this
 one, bar the build and dependency directories. A claim is a number ahead of the
-word `rules` with at most two words between them, which covers `41 rules cover`, `41 rules police`, `41 police rules` and `41 policy
+word `rules` with at most two words between them, which covers `42 rules cover`, `42 rules police`, `42 police rules` and `42 policy
 rules` alike. That shape is the reach of it — a count worded outside it, or
 stated somewhere that is not a markdown file, is not held,
 and saying so matters more than sounding thorough. Both guards exist because
@@ -384,6 +384,7 @@ when it was written down.
 | `board-unbacked` | `--age` | a board with no recent backup, by either mechanism: `tira.backup` or an exported backup on disk. Whichever ran last is the answer. |
 | `card-unlinked` | `--require-link` | a card with no dependency link, optionally to a named card |
 | `card-sandbox-missing` | `--enter --sandbox` | a card being implemented with no branch or worktree of its own. The rule assumes one project maps to one repository - a card whose work legitimately lives in a second one used to have no honest way to clear this but declining the whole rule (losing the check for every other card). `tira.policy.decline --rule card-sandbox-missing --ref CARD --reason TEXT` now answers just that one card, reusable by any rule. TKT-303. Declaring it twice, once per acceptable sandbox, used to be able to report the same card twice with character-for-character identical wording, when the card recorded no sandbox at all and both declared paths fell back to the same generic phrasing. Any two policies of any of the six machine-watching rules now report once, not twice, for the same underlying fact on the same card - a second identical finding is noise, not a second fact. Two policies describing genuinely different problems (one satisfied, one not) still both report. TKT-499. |
+| `monitor-dead` | — | a `monitor`-kind repeated job that should be running and is not. **This is the rule EPC-014 was filed for.** On 2026-09-02 three standing hunt loops had been dead for hours and nobody noticed, because a loop that has stopped and a loop with nothing to report produce identical output: none. Every other part of repeated jobs is arrangement; this is the part that makes a stopped monitor say so. **How liveness is known**: the pid recorded by `tira.job.start`, confirmed against the process table - the pid must be there, and the command line that pid is running must CONTAIN the job's command. Containment, not equality: `ps` reports the command as the kernel has it, carrying the interpreter and absolute paths the stored command never had. **And the start times are compared**: a reused pid started LATER than the pid the board recorded, so a process that began well after `job.start` wrote the record is not that monitor however well its command line matches - which closes the case where the same command was simply started again by hand. A minute of slack is allowed, since the pid is written just after the spawn. **On Windows the check is weaker and says so**: `tasklist` reports a program name and no command line at all, so there the fallback compares program names (path, `.exe` and case ignored), and two monitors run by the same interpreter are indistinguishable. The pid narrows and the command confirms, because pids are reused - and a reused pid answers `kill 0` in the affirmative, which would report a dead monitor as alive. That is the one failure this rule exists to prevent, so believing a bare pid was rejected even though it is the board's own precedent in `police_claim_singleton`. **A disabled monitor is silent**: it is absent on purpose, and a rule that cries about deliberate silence is one nobody reads - which is how the original silence got missed. **A cron job is silent too**, since it is not supposed to be up between runs. **An enabled monitor that was never started IS reported**, having no pid at all - the commonest way for one to be missing after a machine restart. **No age**, and it is refused rather than ignored: a monitor that has stopped does not become more stopped, and a grace period here is the silence spelled as policy. **Whole-board**, like `job-due` - a job is not about a card. **What it does not catch**, stated because a rule read as more than it is becomes cover: a monitor that is alive but WEDGED - process up, polling stopped - reads as alive. Catching that needs the monitor to report progress, which needs it to cooperate, and every monitor this feature absorbs is an existing command that will never do so. EPC-014, TKT-842. |
 | `leftover-process` | `--pattern --age` | something started and never stopped. Always exempts the bridge tail (`d2 tira.policy.bridge`) - the one process `bridge-unread` itself tells an agent to keep running - however broadly `--pattern` is written; a pattern matching a project's own path can otherwise match the tail of that same project's own bridge. |
 | `leftover-container` | `--pattern --age` | a container still running |
 
@@ -2024,6 +2025,71 @@ rather than says something. A malformed schedule is refused at that point,
 naming the field and the range it takes, and nothing is stored - so a rule that
 can only speak about jobs that exist is never left waiting on one that could
 never have fired.
+
+### A monitor that stopped, and nobody could tell
+
+`job-due` is about a schedule arriving. This is about the other kind of job —
+the one that is supposed to be up all the time — and it is the rule the whole
+of EPC-014 was filed for.
+
+On 2026-09-02 three standing hunt loops on this board had been dead for hours.
+Nothing reported it, and nothing could have: a loop that has stopped and a loop
+with nothing to say produce exactly the same output, which is none. The
+question that found it came from the owner rather than from the board — "The
+bug hunting and improvement hunting and doc-gap hunting loops all stoped?" —
+and the honest answer was that the agent had no way to know.
+
+    d2 tira.job.add --schedule monitor --command "d2 tira.policy.bridge"
+    d2 tira.job.start --id JOB-001
+    d2 tira.policy.add --rule monitor-dead --action bridge-reminder
+
+    monitor JOB-001 is not running: d2 tira.policy.bridge
+
+That finding does not appear from those three lines alone, and it is worth
+being exact about when it does: the monitor is running after `job.start`, so
+police says nothing. The finding above is what the next pass prints once that
+process has DIED - which is the whole event this rule exists to make visible,
+and the reason the example is worth reading at all.
+
+Starting a monitor records the pid it started as. The rule confirms that pid
+against the process table and checks what that pid is running, which is the
+part worth explaining, because the obvious implementation is wrong in a way
+that matters here more than anywhere else.
+
+The check is containment, not equality - the running command line must contain
+the job's command, since `ps` reports what the kernel has, carrying the
+interpreter and absolute paths the stored command never had. On Windows there
+is no command line to contain anything: `tasklist` gives a program name, so the
+check falls back to comparing program names and two monitors run by the same
+interpreter cannot be told apart. That is weaker, it is said here rather than
+discovered, and it is still stronger than believing a bare pid.
+
+Asking `kill 0, $pid` is this board's own precedent — `police_claim_singleton`
+has done it since it was written, and for a singleton claimed seconds ago it is
+right. It is not right for a monitor that may have been recorded days ago,
+because pids are reused, and a reused pid answers in the affirmative. A rule
+built on that would report a dead monitor as alive: the exact silence it was
+written to end, rebuilt inside the fix for it. So the pid narrows the search
+and the command confirms it.
+
+Three things are deliberately not reported. A disabled monitor is absent on
+purpose — a rule that cries about deliberate silence is one people learn to
+read past, and being read past is how the original three deaths were missed. A
+cron job is not expected to be up between runs. And there is no `--age`; an
+age is refused rather than quietly ignored, because a monitor that has stopped
+does not become more stopped, and a grace period is the silence written down as
+policy.
+
+An enabled monitor that was never started *is* reported, having no pid at all.
+That is not an edge case: it is what every monitor on a machine looks like
+after a restart.
+
+What the rule does not catch should be read as carefully as what it does. A
+monitor that is alive but wedged — the process is up, the polling has stopped —
+reads as alive here. Catching that needs the monitor to report progress rather
+than merely exist, and every monitor this feature was built to absorb is an
+existing command that will never do so. A rule believed to cover more than it
+does is worse than one that says where it stops.
 
 ### A task and its card telling two different stories
 

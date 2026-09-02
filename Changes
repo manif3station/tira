@@ -1,5 +1,59 @@
 Revision history for Tira
 
+5.31  2026-09-02
+
+    - TKT-841 (EPC-014). A command-mode repeated job now RUNS when it is due,
+      and what it produced reaches the police bridge - including when it
+      fails. His msg 6487: "either set to run a command and output to the
+      police bridge or direct message to the bridge".
+
+      Until this, job-due did `next if mode ne 'message'`, so a command-mode
+      job was skipped outright and nothing downstream ever heard it was due -
+      a schedule nobody read, one level below the one this epic was filed
+      about. The rule now announces a due job of either mode, a command-mode
+      one as "runs: <command>", so the bridge says what is about to happen
+      before it says what happened.
+
+      WHERE EXECUTION LIVES WAS DECIDED BY A TEST. The engine is forbidden
+      every shell-invoking construct and the guard catches the list form too,
+      so "without a shell" bought no exception there; writing the list form
+      without parentheses to slip past the pattern would have been defeating a
+      guard rather than respecting it. Suite::engine_source() already excludes
+      lib/Tira/CLI, because the board server legitimately needs a shell, so
+      the CLI layer was the sanctioned home and no second exception had to be
+      invented. t/489's assertion that the rule body runs nothing did not need
+      to move after all: execution went to another layer, so the text is
+      unchanged and its meaning strengthened - it now guards a boundary that
+      exists rather than one not yet crossed. t/492 asserts the same denial of
+      the whole engine.
+
+      Tira::CLI::Police::run_due_job splits the command and hands the list to
+      IPC::Open3, so the program is named separately from its arguments and a
+      semicolon is an argument rather than an instruction. Stdout is captured
+      in full and stderr appended - all of both, but ordering BETWEEN them is
+      not preserved, which every document now says rather than leaving a
+      reader to assume otherwise. The exit status is returned rather than
+      discarded, because a command that failed silently cannot be told apart
+      from one that never ran. A program that is not installed is a result and
+      not a crash: what could not be run is named, the same judgement
+      _reading already makes about a missing docker.
+
+      The honest limitation, stated in the code and in all four documents:
+      splitting on whitespace means no quoting, so `echo "two words"` is four
+      arguments. A job needing quoting should be a script, which is also the
+      answer that keeps the no-shell guarantee.
+
+      One assertion in t/492 was vacuous in its first draft. isnt($ran->{status},
+      0) passed against the pre-fix code because run_due_job did not exist, so
+      $ran was undef and "not zero" was true - a MISSING EXECUTOR looked exactly
+      like A REPORTED FAILURE, the precise inversion this card exists to
+      prevent, reproduced inside its own test. It establishes the result before
+      reading a field out of it now.
+
+      And the comment explaining the no-shell rule failed t/492 by naming the
+      forbidden constructs literally: the guard reads comments as well as code,
+      so the prose describing the rule violated the rule's own pattern.
+
 5.30  2026-09-02
 
     - TKT-837 (EPC-014). tira.job.add, list, update and delete: the repeated

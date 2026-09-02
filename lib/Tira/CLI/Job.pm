@@ -33,6 +33,28 @@ sub _command_of {
     return $given->[0];
 }
 
+# Anything that is not recognisably true was previously false, so
+# --enabled banana quietly disabled a job and said nothing. That is the "a
+# wrong flag that parses looks accepted" fault the option guard two files away
+# exists to prevent, and this board refuses the same shape everywhere else: a
+# checklist status of 'todo' is refused rather than guessed, and a malformed
+# cron is refused rather than treated as never-due. Found by a documentation
+# review before it shipped, which is why the accepted words are now a list
+# rather than a regex with an implicit else.
+my %ENABLED = (
+    ( map { $_ => 1 } qw(1 yes true on) ),
+    ( map { $_ => 0 } qw(0 no false off) ),
+);
+
+sub _enabled_of {
+    my ($given) = @_;
+    my $value = $ENABLED{ lc $given };
+    die "Unknown --enabled value '$given' - the words that work are "
+      . join( ', ', sort keys %ENABLED ) . "\n"
+      if !defined $value;
+    return $value;
+}
+
 sub dispatch {
     my ( $tira, $args, $option, $command ) = @_;
 
@@ -52,8 +74,7 @@ sub dispatch {
         ( defined $option->{schedule} ? ( schedule => $option->{schedule} ) : () ),
         ( defined $job_command        ? ( command  => $job_command )        : () ),
         ( defined $option->{message}  ? ( message  => $option->{message} )  : () ),
-        ( defined $option->{enabled}
-            ? ( enabled => ( $option->{enabled} =~ /\A(?:1|yes|true|on)\z/i ? 1 : 0 ) ) : () ),
+        ( defined $option->{enabled} ? ( enabled => _enabled_of( $option->{enabled} ) ) : () ),
     ) if $command eq 'job.update';
 
     return $tira->job_delete( %{$args} );

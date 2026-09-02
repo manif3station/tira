@@ -146,6 +146,35 @@ sub run_cli {
     unlike( $after->{out}, qr/JOB-001"/, 'and the job is gone from the list' );
 }
 
+# --- a flag that parses is not a flag that was understood -------------------
+#
+# --enabled took anything recognisably true as true and EVERYTHING ELSE as
+# false, so "--enabled banana" disabled a job and said nothing. Found by a
+# documentation review rather than by a test, which is why one exists now: the
+# docs said yes|no, the code took 1/yes/true/on, and neither said what happened
+# to a fifth word. This board refuses that shape everywhere else - a checklist
+# status of 'todo' is refused rather than guessed at, and a malformed cron is
+# refused rather than stored as never-due.
+
+{
+    my $job = Tira->new->job_add( project => $root, schedule => '0 * * * *',
+        message => 'enabled round trip' );
+
+    my $off = run_cli( 'job.update', '--id', $job->{id}, '--enabled', 'no', '-o', 'json' );
+    is( $off->{status}, 0, 'a job can be disabled' ) or diag( $off->{err} );
+    like( $off->{out}, qr/"enabled"\s*:\s*(?:0|false)/, 'and the record says so' );
+
+    my $on = run_cli( 'job.update', '--id', $job->{id}, '--enabled', 'TRUE', '-o', 'json' );
+    is( $on->{status}, 0, 'and enabled again, in any casing' ) or diag( $on->{err} );
+
+    my $nonsense = run_cli( 'job.update', '--id', $job->{id}, '--enabled', 'banana' );
+    isnt( $nonsense->{status}, 0, 'a word that is neither true nor false is refused' );
+    like( $nonsense->{err} . $nonsense->{out}, qr/banana/,
+        'and the refusal quotes what was actually given, rather than a bare usage dump' );
+    unlike( $nonsense->{err} . $nonsense->{out}, qr/Unsupported Tira command/,
+        'refused by the verb, not by the verb being absent' );
+}
+
 # --- the usage line names what it refuses without ---------------------------
 
 {

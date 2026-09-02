@@ -3437,7 +3437,7 @@ reader never has to infer it from whichever field is populated.
 
 - `tira.job.add --schedule CRON|monitor (--command TEXT | --message TEXT) [-o FORMAT]`
 - `tira.job.list [-o FORMAT]`
-- `tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TEXT] [--enabled yes|no] [-o FORMAT]`
+- `tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TEXT] [--enabled 1|yes|true|on|0|no|false|off] [-o FORMAT]`
 - `tira.job.delete --id ID [-o FORMAT]`
 
     ```
@@ -3455,6 +3455,12 @@ reader never has to infer it from whichever field is populated.
     the range it takes, and nothing is stored. The refusal is the engine's own,
     surfaced unchanged rather than decided a second time here — the command line
     and the stored record cannot disagree about what a valid schedule is.
+
+    `--enabled` takes any of `1`, `yes`, `true`, `on` or their negatives `0`,
+    `no`, `false`, `off`, in any casing. A word that is neither is refused and
+    quoted back. It used to be read as "true if recognisably true, false
+    otherwise", so `--enabled banana` disabled a job and said nothing — the
+    same shape as a wrong flag that parses and looks accepted.
 
     `--command` is the option required actions use for their proofs, which take
     it repeatably, and it is not declared a second time for jobs: a duplicate

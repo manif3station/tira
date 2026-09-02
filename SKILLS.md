@@ -1793,7 +1793,7 @@ and quietly dropping the other is the fault the option guard exists to prevent.
 ```text
 tira.job.add --schedule CRON|monitor (--command TEXT | --message TEXT) [-o FORMAT]
 tira.job.list [-o FORMAT]
-tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TEXT] [--enabled yes|no] [-o FORMAT]
+tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TEXT] [--enabled 1|yes|true|on|0|no|false|off] [-o FORMAT]
 tira.job.delete --id ID [-o FORMAT]
 ```
 

@@ -13228,6 +13228,38 @@ Adds a warning, or returns the existing one if the same message is already stand
 
 Clears one warning by id, or every one with C<--all>.
 
+=head2 job_add
+
+Creates a repeated job: a C<schedule> (a crontab expression, or the literal
+C<monitor>) and either a C<command> to run or a C<message> to announce -
+never both, never neither. Refuses a malformed schedule when it is written,
+naming the field that was wrong and the range it takes, and stores nothing;
+a job that could never fire would be indistinguishable from one with
+nothing to say, which is the ambiguity this record exists to remove.
+Implemented in L<Tira::Job>, required at the call site. EPC-014, TKT-836.
+
+=head2 job_list
+
+Returns every repeated job on the board.
+
+=head2 job_update
+
+Changes a job's schedule, command, message or C<enabled> flag. The schedule
+is validated against the job as it would be, not against the arguments
+alone, so changing only the schedule of a command job is not refused for
+having no command.
+
+=head2 job_delete
+
+Removes a job by C<id>.
+
+=head2 job_is_due
+
+Answers whether a job is due at a given instant, which is always passed in
+rather than read from the clock. A disabled job is never due, and neither
+is a C<monitor> job - that runs continuously rather than on a tick, so
+answering otherwise would have a caller restart it every minute.
+
 =head2 tasklist_list
 
 Every C<tasklist_*> method, from here down to C<tasklist_task_ref_unlink>, is

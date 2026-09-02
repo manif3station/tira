@@ -7,6 +7,13 @@ Revision history for Tira
       cron evaluation; Tira keeps lazy forwarders, so callers still say
       $tira->job_add.
 
+      ENGINE ONLY SO FAR - this is the foundation, not the feature. There
+      are no CLI verbs yet (TKT-837), no police rule to announce a due job
+      (TKT-838), no command execution (TKT-841), no monitor runtime
+      (TKT-842) and no dashboard section (TKT-839, TKT-843). A job can be
+      created and asked whether it is due; nothing yet acts on the
+      answer.
+
       It exists because a schedule that lived in a session died with it.
       Three standing hunts - hourly bugs, two-hourly improvements,
       three-hourly doc-gaps - had been dead for hours on 2026-09-02 and

@@ -344,6 +344,14 @@ after the Task List section, and the C<jobs-editor.js> view asset that fills
 it from the C<GET /jobs> route. Only the shell is built here: no job data is
 concatenated into the page, which is what keeps F<t/426>'s claim true.
 
+The classes that shell emits are the contract F<dashboard.css> styles against.
+Until TKT-859 there were no C<.jobs-> rules at all - the shell was written here,
+the rows were built in the view asset, and neither step styled anything, so the
+section sat next to a Task List with twenty-two rules looking like nothing else
+on the page. Anything added to the shell or to C<jobs-editor.js> needs a rule to
+match, and F<t/499> names the classes it checks for so a new one cannot be added
+silently unstyled.
+
 Loaded with C<require> from C<format_output> immediately before its C<human>
 and C<table> branches, so a caller asking for C<toon> or C<json> never
 compiles it.

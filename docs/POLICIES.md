@@ -2016,9 +2016,19 @@ script, which is also the answer that keeps the guarantee.
 
 Which jobs this rule can ever speak about is visible on the board itself. The
 browser dashboard carries a Repeated Jobs section under the Task List, one row
-per job with its id, its schedule, its mode and schedule kind, what it says or
-runs, and whether it is enabled - so the two silences above can be read off the page
-rather than inferred from what the bridge did not say. That matters here more
+per job with its id, its schedule, what it says or runs, whether it is enabled,
+and - since 5.38 - a plain description of what kind of job it is rather than the
+stored field values. A monitor row says "Stays running"; a cron row says "Runs a
+command when due" or "Announces a message when due". Until then it printed the
+`mode` and `schedule_kind` fields joined by a dash, so the row read
+`command - monitor`, which is the vocabulary of this rule's implementation
+rather than anything a reader could act on (TKT-859). A disabled job is also
+dimmed rather than only labelled, which matters for the first of the two
+silences below: **a disabled monitor is silent on purpose**, and the row now
+shows that at a glance instead of requiring the word to be found and read.
+
+So the two silences above can be read off the page rather than inferred from
+what the bridge did not say. That matters here more
 than it would for most rules: every other rule reports a card somebody can go
 and look at, while a job that never announces leaves nothing behind at all, and
 before the section existed the only way to tell a disabled job from a broken

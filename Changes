@@ -1,5 +1,34 @@
 Revision history for Tira
 
+5.38  2026-09-03
+
+    - TKT-859. The Repeated Jobs section is styled. It had no stylesheet rules
+      at all - zero matching `.jobs-` in dashboard.css, against twenty-two for
+      the Task List sitting beside it - so it shipped in TKT-839 as raw list
+      markup inheriting whatever surrounded it, and TKT-843's play button and
+      editor were added into that same unstyled frame. Michael: "The entries of
+      the repeated job section looks ugly."
+
+      Modelled on the `.tasklist-*` rules rather than newly designed. The two
+      sections sit against each other and the complaint was that one looks
+      unlike the rest of the board, so matching the neighbour is the fix;
+      inventing a third visual language would have made the page more
+      inconsistent. Every value is a token or a figure already in the file.
+
+      A disabled job now reads as disabled without anybody finding the word:
+      the row already carried `data-enabled` and only a rule using it was
+      missing.
+
+      The rows also stop printing storage values at the reader. They used to
+      join the mode and schedule-kind fields with a dash, so every row said
+      "command - monitor" or "command - cron"; they now say "Stays running",
+      "Announces a message when due" or "Runs a command when due". Three
+      renderings and not four, because a monitor whose only content is a
+      message is refused at write time. The line was rewritten rather than
+      deleted - it carries real information, and the test asserts the row still
+      distinguishes a monitor from a cron job so a later change cannot quietly
+      drop it.
+
 5.37  2026-09-02
 
     - TKT-858. A repeated job can be created from the browser dashboard. Until

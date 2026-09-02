@@ -2355,13 +2355,45 @@ nobody can see is a schedule nobody checks. Built the way the Task List section 
 deliberately so: Perl emits an empty `<ol class="jobs-cards">` shell and
 `lib/Tira/views/jobs-editor.js` fills it from a new `GET /jobs` route, backed
 by a `jobs` provider closure in `Tira::CLI::browser_providers` beside the
-`tasklist` one. Read-only - each row states the job's id, its schedule, its
+`tasklist` one. Each row states the job's id, its schedule, its
 kind (`cron` or `monitor`), what it runs or says, and whether it is enabled. The
 play button and the editor modal are TKT-843, kept separate because a control
 that runs a job is a different kind of thing from a table that shows one.
 `/jobs` is listed in `Tira::DashboardWeb`'s `%POLLED`, so its 30-second
 refresh does not hold a session open past its expiry the way an unlisted
 polled route would - the exemption `t/479` exists to enforce.
+
+**Nobody styled it (TKT-859, 5.38).** The section shipped with markup, a view
+asset and **no stylesheet rules at all** - zero matching `.jobs-` in
+`dashboard.css` against twenty-two for the Task List sitting beside it - so it
+was raw list markup inheriting whatever surrounded it, and TKT-843's play button
+and editor were added into that same unstyled frame. His words: "The entries of
+the repeated job section looks ugly." Literally true, and measurable.
+
+Modelled on the `.tasklist-*` rules rather than newly designed. The two sections
+sit against each other and the complaint is that one looks unlike the rest of
+the board, so matching the neighbour *is* the fix; a third visual language would
+have made the page more inconsistent, not less. Every value is a token or a
+figure already in the file. A disabled job now reads as disabled without anybody
+finding the word: the row already carried `data-enabled` and only a rule using
+it was missing.
+
+The rows also stopped printing storage values. They joined the mode and
+schedule-kind fields with a dash, so every row said `command - monitor` or
+`command - cron`; they now say "Stays running", "Announces a message when due"
+or "Runs a command when due". Three renderings and not four, because a monitor
+whose only content is a message is refused at write time by `_job_fields`
+(TKT-842). Rewritten rather than deleted - the line carries real information,
+and `t/499` asserts the row still distinguishes a monitor from a cron job so a
+later change cannot quietly drop it.
+
+**How an appearance card is tested without a browser**, since he keeps the
+browser tests: `t/499` does not assert the section looks good - nothing can. It
+asserts the section *has* styling, that the rules cover the classes the markup
+actually carries, and that internal field values do not reach the page. It also
+establishes the Task List's rule count **first**, so its failures mean "the jobs
+rules are missing" rather than "the stylesheet did not load" - without that, a
+typo in the filename would have produced identical output.
 
 **Creating a job from the page (TKT-858, 5.36).** An **Add a job** control
 opens the TKT-843 editor with no job in it. Until then a job could be run,

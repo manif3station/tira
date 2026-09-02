@@ -299,6 +299,12 @@ and its mode and schedule kind. It refreshes every thirty seconds, so what a
 board is scheduled to do is visible on the board rather than only in its stored
 job records.
 
+Since 5.38 the section is styled like the rest of the board — it had no
+stylesheet rules of its own at all until then, which is what made it look
+unlike everything around it. A disabled job is dimmed rather than only saying
+so, and each row describes itself in words ("Stays running", "Runs a command
+when due") instead of printing the internal mode and schedule-kind values.
+
 The section began read-only. Each row now carries a play button that runs the
 job at once whatever its schedule says, and a control that opens an editor for
 its schedule; a bad crontab is highlighted and cannot be saved, with the

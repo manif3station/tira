@@ -3619,6 +3619,14 @@ reader never has to infer it from whichever field is populated.
     state `monitor-dead` reports as dead. A `cron` job is not: there is nothing
     to start until it is due.
 
+    Since 5.38 the section is styled to the same depth as the Task List beside
+    it — it had no stylesheet rules of its own at all before that — and a
+    disabled job is dimmed rather than only saying so. Each row also describes
+    itself in words: "Stays running" for a monitor, "Runs a command when due" or
+    "Announces a message when due" for a cron job. It used to print the stored
+    `mode` and `schedule_kind` values joined by a dash, so a row read
+    `command - monitor` (TKT-859).
+
 ### Warnings
 
 - `tira.warning.add --message TEXT [-o FORMAT]`

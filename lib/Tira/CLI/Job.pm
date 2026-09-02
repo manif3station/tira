@@ -77,7 +77,17 @@ sub dispatch {
         ( defined $option->{enabled} ? ( enabled => _enabled_of( $option->{enabled} ) ) : () ),
     ) if $command eq 'job.update';
 
-    return $tira->job_delete( %{$args} );
+    return $tira->job_delete( %{$args} ) if $command eq 'job.delete';
+
+    # NOT a fallthrough. This used to be a bare `return $tira->job_delete(...)`
+    # with no condition, safe only because the caller admits exactly four verbs
+    # and the other three return above it - so the safety lived in a regex in
+    # another file. TKT-841 and TKT-842 are both queued to add behaviour here,
+    # and adding a verb to that regex without adding a branch here would have
+    # DELETED the job instead of running it. A destructive default is the wrong
+    # way round: the unknown case should refuse, and deleting should need to be
+    # asked for by name.
+    die "Tira::CLI::Job cannot dispatch '$command'\n";
 }
 
 1;

@@ -146,6 +146,30 @@ sub run_cli {
     unlike( $after->{out}, qr/JOB-001"/, 'and the job is gone from the list' );
 }
 
+# --- the unknown verb refuses rather than deleting ---------------------------
+#
+# dispatch() used to end in a bare `return $tira->job_delete(...)`, safe only
+# because Tira::CLI admits exactly four verbs and the other three return above
+# it - the safety lived in a regex in another file. TKT-841 and TKT-842 are
+# both queued to add behaviour here, and adding a verb to that regex without
+# adding a branch would have DELETED the job instead of running it.
+#
+# Called directly rather than through the CLI, because the CLI is exactly what
+# makes this unreachable today. The point is that it stops being unreachable
+# the moment somebody widens that regex, and the refusal is what makes that
+# safe rather than silent.
+
+{
+    require Tira::CLI::Job;
+    my $tira = Tira->new;
+    my $died = '';
+    eval { Tira::CLI::Job::dispatch( $tira, { project => $root }, {}, 'job.invented' ); 1 }
+      or $died = $@;
+    like( $died, qr/cannot dispatch/,
+        'a verb dispatch does not know is refused, not silently treated as delete' );
+    like( $died, qr/job\.invented/, 'and the refusal names the verb it was given' );
+}
+
 # --- one command, given once ------------------------------------------------
 #
 # --command is shared with required-action proofs, which take it repeatably, so

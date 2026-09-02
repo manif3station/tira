@@ -120,6 +120,7 @@ sub run {
         # tables, which is where almost every flag here is written down.
         'with-questions!' => \$option{with_questions},
         'no-session-expire' => \$option{no_session_expire},
+        'show-logs' => \$option{show_logs},
         'ssl' => \$option{ssl},
         'sandbox=s' => \$option{sandbox},
         'repo=s' => \$option{repo}, 'repair!' => \$option{repair},
@@ -523,6 +524,17 @@ sub run {
         # His decision, taken here and said out loud. A board serving sessions
         # that never expire is a different thing from one that does, and
         # somebody starting it should be able to tell without reading a manual.
+        # His msg on TKT-852, answering what --show-logs should mean: "A logs
+        # panel inside the browser dashboard itself, so the log is read in the
+        # page rather than in the terminal." Off unless asked for, because a
+        # board that records every request it answers should do so because
+        # somebody wanted to look, not by default.
+        if ( $option{show_logs} ) {
+            $Tira::DashboardWeb::SHOW_LOGS = 1;
+            print {*STDERR} "This board keeps its recent requests and shows them in the page.\n"
+              . "The last 200 are held in memory and go no further - nothing is written to disk.\n";
+        }
+
         if ( $option{no_session_expire} ) {
             $Tira::SESSION_NEVER_EXPIRES = 1;
             print {*STDERR} "Sessions on this board never expire: a sign-in lasts until somebody signs out.\n"

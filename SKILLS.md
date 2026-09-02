@@ -1182,7 +1182,7 @@ tira.changelog.check [--file FILE] [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [--count] [--refs-only] [-o FORMAT]
 tira.search.index [-o FORMAT]
 tira.replace --pattern REGEX --with TEXT [--field FIELD ...] [--type TYPE] [--dry-run] [-o FORMAT]
-tira.dashboard [--type TYPE|all] [--include-discard] [--title] [--with-questions] [--no-session-expire] [--ssl] [-o DASHBOARD_FORMAT]
+tira.dashboard [--type TYPE|all] [--include-discard] [--title] [--with-questions] [--no-session-expire] [--show-logs] [--ssl] [-o DASHBOARD_FORMAT]
 tira.dashboard.sow [--include-discard] [--title] [-o DASHBOARD_FORMAT]
 tira.dashboard.epic [--include-discard] [--title] [-o DASHBOARD_FORMAT]
 tira.dashboard.ticket [--include-discard] [--title] [-o DASHBOARD_FORMAT]
@@ -1869,6 +1869,7 @@ tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TE
 tira.job.delete --id ID [-o FORMAT]
 tira.job.start --id ID [-o FORMAT]
 tira.job.run --id ID [-o FORMAT]
+tira.dashboard -o browser [--show-logs]
 ```
 
 **Making room was the work, not raising the cap (TKT-837, 5.30).** These four

@@ -597,6 +597,7 @@ rather than all three.
 | `--include-discard` | no | Force the Discard column in or out; shown by default in the formats a person looks at. |
 | `--with-questions` | no | Mark cards that are waiting on somebody; on by default in the formats a person looks at. |
 | `--no-session-expire` | no | With `-o browser`: a sign-in lasts until somebody signs out. |
+| `--show-logs` | no | With `-o browser`: keep the last 200 requests the board answered, and serve them at `/logs` for the page to show. |
 
 Until 4.93, `--title` with `-o browser` had no effect - the live dashboard
 never showed titles regardless, because the serve path read a key
@@ -648,6 +649,23 @@ and your session cookie off the wire, which over plain HTTP they can. It does
 not stop somebody who can already stand between you and the machine, because
 nothing has vouched for the certificate except the board that made it. Your
 browser will say so the first time and you accept it once.
+
+`--show-logs` makes the board keep a record of the requests it answers — path
+and status — and serve it at `/logs`. Without the flag there is no record and
+`/logs` answers 404 saying so, rather than an empty list: an empty list would
+tell a reader the board had answered nothing, which is a different claim from
+not keeping a record at all.
+
+It exists because a board that will not load says nothing about why. Starting
+one and watching it answer is the difference between a request being refused
+and a request never arriving — and only the first of those leaves a trace here,
+which is the honest limit of it: a page that never reaches the server produces
+no entries.
+
+The record is a fixed ring of 200 entries rather than a time window. A window
+bounds memory only if a request rate is assumed, and this is read precisely
+when the rate is unusual. Nothing is written to disk and nothing leaves the
+process; the board says as much on the terminal it starts from.
 
 `--no-session-expire` turns off the idle timeout for the board it serves. A
 session normally ends after ten minutes of inactivity, and the board's own

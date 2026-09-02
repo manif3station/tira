@@ -54,7 +54,8 @@ my %PUBLIC = map { $_ => 1 } qw(/login /logout);
 # expiry out or a tab left open overnight stays signed in for ever. t/479
 # refuses any setInterval-driven GET whose route this does not name, so this
 # line is checked rather than remembered. EPC-014, TKT-839.
-my %POLLED = ( '/data' => 1, '/tasklist' => 1, '/tasklist/sessions' => 1, '/jobs' => 1 );
+my %POLLED = ( '/data' => 1, '/tasklist' => 1, '/tasklist/sessions' => 1, '/jobs' => 1,
+    '/logs' => 1 );
 
 sub _cookie_token {
     my $header = request->header('Cookie') // '';
@@ -459,6 +460,71 @@ my @PROVIDERS = (
     [ job_check => \$JOB_CHECK, 'job schedule check provider' ],
     [ job_save => \$JOB_SAVE, 'job save provider' ],
 );
+
+# What this server has answered, for the panel his --show-logs asks for.
+#
+# TKT-852. He asked for it after the dashboard would not load and nothing could
+# say whether requests were arriving at all: `tira.dashboard -o browser` starts
+# a server and then says nothing about what it serves.
+#
+# A FIXED RING, NOT A TIME WINDOW, decided as CHK-001 before this was written.
+# A window bounds memory only if a request rate is assumed, and this panel is
+# read precisely when the rate is unusual. 200 entries is about twenty-five
+# minutes of idle history, since the page already polls four routes every
+# thirty seconds - long enough to see a pattern, small enough that a dashboard
+# left open overnight holds kilobytes rather than a day of polling.
+#
+# RECORDED WITH THE STATUS, which is the half that says what HAPPENED rather
+# than what was attempted. A request that was refused is the case he was
+# actually diagnosing, and it looks identical to a successful one until the
+# status is there.
+our $SHOW_LOGS = 0;
+my $REQUEST_LOG_LIMIT = 200;
+my @REQUEST_LOG;
+
+sub _record_request {
+    my ( $path, $status ) = @_;
+    push @REQUEST_LOG, { path => $path, status => $status };
+    shift @REQUEST_LOG while @REQUEST_LOG > $REQUEST_LOG_LIMIT;
+    return scalar @REQUEST_LOG;
+}
+
+# A copy, so a caller cannot reach in and change the server's own record - the
+# same reason Tira::CLI::Options::misleading_for hands out a deep copy.
+sub _request_log {
+    return [ map { { %{$_} } } @REQUEST_LOG ];
+}
+
+sub _request_log_reset {
+    @REQUEST_LOG = ();
+    return 1;
+}
+
+# Recorded here rather than in the `before` hook, and the difference matters:
+# `before` returns early for public paths and halts for unauthorised ones, so
+# the status does not exist yet there. A request that was REFUSED is the case he
+# was diagnosing, and in `before` it would have been recorded as though it had
+# merely arrived.
+hook after => sub {
+    my ($response) = @_;
+    return if !$SHOW_LOGS;
+    _record_request( request->path, $response->status );
+    return;
+};
+
+get '/logs' => sub {
+    content_type 'application/json; charset=UTF-8';
+
+    # Absent rather than empty when the flag was not given. An empty list would
+    # tell a reader the server had answered nothing, which is a different claim
+    # from "this board is not keeping a record".
+    if ( !$SHOW_LOGS ) {
+        status 404;
+        return _response_bytes( Tira::json_object()->encode(
+            { error => 'This board was not started with --show-logs' } ) );
+    }
+    return _response_bytes( Tira::json_object()->encode( _request_log() ) );
+};
 
 sub build_psgi_app {
     my ( $class, %args ) = @_;

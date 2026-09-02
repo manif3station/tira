@@ -1,5 +1,37 @@
 Revision history for Tira
 
+5.35  2026-09-02
+
+    - TKT-852. `tira.dashboard -o browser --show-logs` keeps a record of the
+      requests the board answers, so somebody can see whether requests are
+      arriving at all. His words, asked what the flag should mean: "A logs
+      panel inside the browser dashboard itself, so the log is read in the page
+      rather than in the terminal."
+
+      He asked after the dashboard would not load for him and nothing could
+      say whether a request was being refused or never arriving - the server
+      starts and then says nothing about what it serves.
+
+    - The record is a fixed ring of 200 entries, not a time window. A window
+      bounds memory only if a request rate is assumed, and this is read
+      precisely when the rate is unusual. The page already polls four routes
+      every thirty seconds, so 200 is about twenty-five minutes of idle
+      history.
+
+    - Recorded in an `after` hook, which is the half that matters: the `before`
+      hook returns early for public paths and halts for unauthorised ones, so
+      the status does not exist there yet. A REFUSED request is the case he was
+      diagnosing, and in `before` it would have been recorded as though it had
+      merely arrived.
+
+    - `/logs` answers 404 with a reason when the flag was not given, rather
+      than an empty list. An empty list would say the board had answered
+      nothing, which is a different claim from not keeping a record.
+
+    - Nothing is written to disk and nothing leaves the process: the last 200
+      are held in memory, and starting the board with the flag says so on
+      stderr.
+
 5.34  2026-09-02
 
     - TKT-860. `monitor-dead` reported a RUNNING monitor as dead whenever its

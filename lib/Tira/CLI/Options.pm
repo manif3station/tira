@@ -205,9 +205,16 @@ sub _refuse_unread_options {
 # %MISLEADING_OPTIONS is read by Tira::CLI::_invoke, which stayed behind. It is
 # reached through this accessor rather than by poking the package variable, so
 # the table has exactly one owner and a caller cannot quietly add to it.
+#
+# THE COPY IS WHAT MAKES THAT SENTENCE TRUE. The first version returned the
+# stored arrayref, so `push @{ misleading_for($c) }, ...` would have edited the
+# table for every later caller - the accessor said "one owner" while handing
+# out the keys. Caught by a code review before it shipped. Copied a level down
+# as well, because the entries are themselves arrayrefs and a shallow copy
+# would have left those shared: the guarantee has to reach as far as the claim.
 sub misleading_for {
     my ($command) = @_;
-    return $MISLEADING_OPTIONS{ $command // '' } // [];
+    return [ map { [ @{$_} ] } @{ $MISLEADING_OPTIONS{ $command // '' } // [] } ];
 }
 
 1;

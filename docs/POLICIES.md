@@ -1986,6 +1986,16 @@ announces and runs nothing: executing a command-mode job is its own separate
 piece of work, so that surface arrives with its own tests rather than as a
 side effect of this rule already holding the job.
 
+Which jobs this rule can ever speak about is visible on the board itself. The
+browser dashboard carries a Repeated Jobs section under the Task List, one row
+per job with its id, its schedule, its mode and schedule kind, what it says or
+runs, and whether it is enabled - so the two silences above can be read off the page
+rather than inferred from what the bridge did not say. That matters here more
+than it would for most rules: every other rule reports a card somebody can go
+and look at, while a job that never announces leaves nothing behind at all, and
+before the section existed the only way to tell a disabled job from a broken
+one was to open the board's stored job records by hand.
+
 ### A task and its card telling two different stories
 
 `task-unlinked` catches a task with no card. Nothing caught a task whose status

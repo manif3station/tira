@@ -840,6 +840,14 @@ silently dropped it, so a session switched in the dashboard's own session box
 could view an item it could not then mutate once TKT-538 began enforcing
 session ownership.
 
+TKT-839 added C<jobs>, a read-only provider returning the board's repeated
+jobs as JSON for the dashboard's Repeated Jobs section and its C<GET /jobs>
+route. It has no mutating siblings on purpose: the section shows the schedule
+and does not run or edit it. Note that adding any name here makes it
+B<mandatory> - C<build_psgi_app> refuses a provider hash missing an entry - so
+a new provider breaks every hand-built caller that does not also gain it,
+which is what five test files had to be taught when this one arrived.
+
 =head2 What is owed in the card's own column
 
 C<providers> exposes C<unmet_in_column>, and the C<detail> provider sets

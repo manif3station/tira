@@ -278,6 +278,12 @@ working=purple-blue, done=green), with list-level controls (add, session,
 next/shift/pop/unshift/slice/prune) and per-card controls (status, remove,
 attach, ref) - full parity with the CLI commands below.
 
+Below that sits a Repeated Jobs section, one row per scheduled job the board
+carries: its id, whether it is enabled, its schedule, what it says or runs,
+and its mode and schedule kind. It is read-only and refreshes every thirty
+seconds, so what a board is scheduled to do is visible on the board rather
+than only in its stored job records.
+
 `dashboard tira.onboard` asks for everything a new project needs and creates
 it from the answers. `dashboard tira.onboard -o browser` does the same thing
 over one HTML form instead of a terminal prompt: a disposable, no-login

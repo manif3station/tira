@@ -35,8 +35,14 @@ Revision history for Tira
       they asked the static HTML to contain each job's message and id, when
       that data arrives by fetch. Both would have forced a design the rest
       of the page does not use. What is asserted now is that the section
-      exists, that it comes after the Task List, and that it lives in
-      lib/Tira/views rather than in Perl string concatenation.
+      exists, that it comes after the Task List, and that the part which
+      renders a job lives in lib/Tira/views rather than in Perl string
+      concatenation. The empty shell itself IS emitted from Perl - exactly
+      as the Task List's own <ol> is - so the claim is about the rows, not
+      about the section element. Worth stating precisely: an earlier
+      wording here said the section lived in the View layer full stop,
+      which overstated it, and t/426's rule is about job data never being
+      concatenated into the page rather than about the container.
 
 5.28  2026-09-02
 

@@ -326,6 +326,12 @@ Everything C<Tira::format_output> delegates to except the TOON encoder, which
 lives in L<Tira::Toon>. C<_markdown> and C<_markdown_fields> render the
 C<human> format; C<_dashboard_table> builds the HTML board.
 
+Under C<live>, C<_dashboard_table> also emits the Repeated Jobs section - an
+empty C<< <ol class="jobs-cards"> >> inside C<section.board--jobs>, placed
+after the Task List section, and the C<jobs-editor.js> view asset that fills
+it from the C<GET /jobs> route. Only the shell is built here: no job data is
+concatenated into the page, which is what keeps F<t/426>'s claim true.
+
 Loaded with C<require> from C<format_output> immediately before its C<human>
 and C<table> branches, so a caller asking for C<toon> or C<json> never
 compiles it.

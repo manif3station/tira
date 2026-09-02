@@ -2196,8 +2196,8 @@ nobody can see is a schedule nobody checks. Built the way the Task List section 
 deliberately so: Perl emits an empty `<ol class="jobs-cards">` shell and
 `lib/Tira/views/jobs-editor.js` fills it from a new `GET /jobs` route, backed
 by a `jobs` provider closure in `Tira::CLI::browser_providers` beside the
-`tasklist` one. Read-only - each row states the job's schedule, its kind
-(`cron` or `monitor`), what it runs or says, and whether it is enabled. The
+`tasklist` one. Read-only - each row states the job's id, its schedule, its
+kind (`cron` or `monitor`), what it runs or says, and whether it is enabled. The
 play button and the editor modal are TKT-843, kept separate because a control
 that runs a job is a different kind of thing from a table that shows one.
 `/jobs` is listed in `Tira::DashboardWeb`'s `%POLLED`, so its 30-second

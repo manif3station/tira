@@ -508,6 +508,15 @@ sub _request_log_reset {
 hook after => sub {
     my ($response) = @_;
     return if !$SHOW_LOGS;
+
+    # THE PANEL DOES NOT RECORD ITSELF. logs-panel.js polls /logs every five
+    # seconds, which is twelve requests a minute on an otherwise idle board -
+    # more than the four polled board routes produce between them. Recording
+    # those would fill the ring with the act of looking, and the requests
+    # somebody opened the panel to see would fall off the end within minutes.
+    # Raised in review, where the retention arithmetic gave it away.
+    return if $response && request->path eq '/logs';
+
     _record_request( request->path, $response->status );
     return;
 };
@@ -710,6 +719,13 @@ these existed):
 =item * People: people
 
 =item * Repeated jobs: jobs, job_run, job_check, job_save
+
+The C</logs> route takes no provider: the record lives in this module, written
+by an C<after> hook and read back by C<_request_log>. It is served only when
+C<$SHOW_LOGS> is set, which C<tira.dashboard --show-logs> does. The C<after>
+hook rather than C<before> is deliberate - C<before> returns early for public
+paths and halts for unauthorised ones, so the status does not exist there yet,
+and a B<refused> request is the case the flag was asked for. EPC-007, TKT-852.
 
 C<job_run> answers the play button - it runs one job now whatever its
 schedule says, and starts a C<monitor> row rather than firing it, since a

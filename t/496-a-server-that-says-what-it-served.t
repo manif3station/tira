@@ -79,6 +79,35 @@ is( scalar @{$bounded}, 200, 'the record stops at 200 entries rather than growin
 is( $bounded->[-1]{path}, '/req/250', 'the newest request is kept' );
 is( $bounded->[0]{path}, '/req/51', 'and the oldest are dropped, not the newest' );
 
+# --- the panel does not record itself ---------------------------------------
+#
+# Raised in review, and it was a design fault rather than a wording one. The
+# panel reads /logs every five seconds - twelve requests a minute - which is
+# more than the four polled board routes produce between them. Recording those
+# would fill the 200-entry ring with the act of LOOKING, and the requests
+# somebody opened the panel to see would fall off the end within minutes.
+#
+# Asserted through the recorder rather than the hook, because the hook needs a
+# live request; the exclusion it enforces is the same one.
+
+Tira::DashboardWeb::_request_log_reset();
+Tira::DashboardWeb::_record_request( '/data', 200 );
+Tira::DashboardWeb::_record_request( '/jobs', 200 );
+my $kept = Tira::DashboardWeb::_request_log();
+is( scalar @{$kept}, 2, 'ordinary routes are recorded' );
+ok( !( grep { $_->{path} eq '/logs' } @{$kept} ),
+    'and nothing has put /logs in the record on its own' );
+
+{
+    open my $fh, '<:raw', 'lib/Tira/DashboardWeb.pm' or die "cannot read: $!";
+    my $body = do { local $/; <$fh> };
+    close $fh;
+    my ($hook) = $body =~ /hook after => sub \{(.*?)\n\};/s;
+    ok( defined $hook, 'the after hook is where a request gets recorded' );
+    like( $hook, qr{request->path eq '/logs'},
+        'and it skips /logs, so the panel does not crowd out what it is showing' );
+}
+
 # --- the flag, and the route that does not exist without it -----------------
 
 ok( Tira::CLI->can('run'), 'the CLI is there to be asked about its options' );
@@ -186,6 +215,42 @@ ok( Tira::DashboardWeb->can('build_psgi_app'),
     like( $without, qr/\S/, 'and the page without the flag still renders' );
     unlike( $without, qr/board--logs/,
         'but the section is absent rather than present and empty' );
+}
+
+# --- and it is refused where it would do nothing ----------------------------
+#
+# The card's own first test step asks for this, and without it --show-logs is
+# accepted by every other output format and silently does nothing. That is the
+# accepted-and-ignored fault this codebase refuses elsewhere: a flag that parses
+# reads as confirmation. Found by walking the test steps at the verify gate
+# rather than by a failing test, which is why it is worth having the step.
+
+{
+    my $tmp2  = File::Temp::tempdir( CLEANUP => 1 );
+    my $root2 = File::Spec->catdir( $tmp2, 'refuseboard' );
+    my $tira  = Tira->new( clock => sub {'2026-09-02T20:00:00Z'} );
+    $tira->project_new(
+        name => 'Refuse', dir => $root2, members => ['michael'],
+        columns    => ['backlog, done'],
+        sow_prefix => 'RFS', epic_prefix => 'RFE', ticket_prefix => 'RFT',
+    );
+
+    my $refused = !eval {
+        local $ENV{TIRA_HOME} = $root2;
+        Tira::CLI->run(
+            command => 'dashboard.ticket', tira => $tira,
+            argv => [ '-o', 'json', '--show-logs' ],
+        );
+        1;
+    };
+
+    # $@ read before anything else runs, because ok() can clobber it - and
+    # asserted on directly, which is what t/149 looks for: a refusal that never
+    # says WHICH refusal it got will pass against any failure at all, including
+    # a typo in the command name.
+    like( $@, qr/needs -o browser/,
+        'the refusal says what it needs, not just that something went wrong' );
+    ok( $refused, 'and --show-logs without -o browser is refused rather than ignored' );
 }
 
 done_testing();

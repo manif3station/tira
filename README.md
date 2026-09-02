@@ -324,6 +324,16 @@ cannot drift into accepting something the save would then reject. The literal
 `monitor` is accepted without being parsed as cron, and a blank schedule is
 refused too.
 
+Started with `--show-logs`, the board keeps the last 200 requests it answered —
+path and status — and shows them in a Requests panel on the page itself, rather
+than in the terminal it was started from. It exists because a board that will
+not load says nothing about why: watching it answer is the difference between a
+request being refused and a request never arriving. Only the first of those
+leaves a trace here, which is the honest limit — a page that never reaches the
+server produces no entries, and the panel says so on screen rather than looking
+broken. Without the flag there is no panel and `/logs` answers 404 with a
+reason, because an empty list would claim the board had answered nothing.
+
 `dashboard tira.onboard` asks for everything a new project needs and creates
 it from the answers. `dashboard tira.onboard -o browser` does the same thing
 over one HTML form instead of a terminal prompt: a disposable, no-login

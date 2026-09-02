@@ -359,6 +359,16 @@ sub run {
     # engine is told which board it is working on and always was. TKT-250.
     $option{project} = $environment_project;
 
+    # --show-logs only means anything to a served board: the record it turns on
+    # is read through /logs by a page, and there is no page in any other output
+    # format. Accepted-and-ignored is the fault this file refuses everywhere
+    # else - a flag that parses and does nothing reads as confirmation, which is
+    # how --field was stored and dropped by every command that did not read it.
+    # Refused by name rather than defaulted away from. EPC-007, TKT-852.
+    die "--show-logs needs -o browser: the record it keeps is read through the "
+      . "page the board serves, and there is no page in '$option{output}'\n"
+      if $option{show_logs} && $option{output} !~ /\Abrowser(?:=|\z)/;
+
     my ( $browser_host, $browser_port );
     if ( $option{output} =~ /\Abrowser(?:=(.*))?\z/ ) {
         my $given = $1;
@@ -532,7 +542,8 @@ sub run {
         if ( $option{show_logs} ) {
             $Tira::DashboardWeb::SHOW_LOGS = 1;
             print {*STDERR} "This board keeps its recent requests and shows them in the page.\n"
-              . "The last 200 are held in memory and go no further - nothing is written to disk.\n";
+              . "The last 200 are held in memory and nothing is written to disk - they are\n"
+              . "served to the page that shows them, and nowhere else.\n";
         }
 
         if ( $option{no_session_expire} ) {

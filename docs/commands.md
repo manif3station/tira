@@ -651,7 +651,10 @@ nothing has vouched for the certificate except the board that made it. Your
 browser will say so the first time and you accept it once.
 
 `--show-logs` makes the board keep a record of the requests it answers — path
-and status — and serve it at `/logs`. Without the flag there is no record and
+and status — and serve it at `/logs`. It is **refused** with any other output
+format, naming what it needs: the record is read through the page the board
+serves, and there is no page in `-o json`. Accepted-and-ignored would be worse
+than refused, because a flag that parses reads as confirmation. Without the flag there is no record and
 `/logs` answers 404 saying so, rather than an empty list: an empty list would
 tell a reader the board had answered nothing, which is a different claim from
 not keeping a record at all.
@@ -663,9 +666,17 @@ which is the honest limit of it: a page that never reaches the server produces
 no entries.
 
 The record is a fixed ring of 200 entries rather than a time window. A window
-bounds memory only if a request rate is assumed, and this is read precisely
-when the rate is unusual. Nothing is written to disk and nothing leaves the
-process; the board says as much on the terminal it starts from.
+bounds memory only if a request rate is assumed, and this is read precisely when
+the rate is unusual.
+
+The panel does not record its own polling. It reads `/logs` every five seconds,
+which is more traffic than the four board routes produce between them, so
+recording it would fill the ring with the act of looking and push out the
+requests you opened the panel to see.
+
+Nothing is written to disk — the entries are held in memory and served to the
+page that shows them, and the board says as much on the terminal it starts
+from.
 
 `--no-session-expire` turns off the idle timeout for the board it serves. A
 session normally ends after ten minutes of inactivity, and the board's own

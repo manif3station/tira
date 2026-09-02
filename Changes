@@ -14,9 +14,14 @@ Revision history for Tira
 
     - The record is a fixed ring of 200 entries, not a time window. A window
       bounds memory only if a request rate is assumed, and this is read
-      precisely when the rate is unusual. The page already polls four routes
-      every thirty seconds, so 200 is about twenty-five minutes of idle
-      history.
+      precisely when the rate is unusual.
+
+      The panel does NOT record its own polling. It reads `/logs` every five
+      seconds - twelve requests a minute, more than the four board routes
+      produce between them - so recording those would fill the ring with the
+      act of looking, and the requests somebody opened the panel to see would
+      fall off the end within minutes. Raised in review, where the retention
+      arithmetic gave it away.
 
     - Recorded in an `after` hook, which is the half that matters: the `before`
       hook returns early for public paths and halts for unauthorised ones, so
@@ -24,13 +29,20 @@ Revision history for Tira
       diagnosing, and in `before` it would have been recorded as though it had
       merely arrived.
 
+    - `--show-logs` is refused with any output format but `-o browser`, naming
+      what it needs. Accepted-and-ignored is the fault this file refuses
+      everywhere else - a flag that parses reads as confirmation, which is how
+      `--field` was stored and dropped by every command that never read it.
+
     - `/logs` answers 404 with a reason when the flag was not given, rather
       than an empty list. An empty list would say the board had answered
       nothing, which is a different claim from not keeping a record.
 
-    - Nothing is written to disk and nothing leaves the process: the last 200
-      are held in memory, and starting the board with the flag says so on
-      stderr.
+    - Nothing is written to disk: the last 200 are held in memory and served
+      to the page that shows them. Starting the board with the flag says so on
+      stderr. An earlier draft of that line claimed the record "goes no
+      further", which was false - serving it to the browser is the whole
+      feature.
 
 5.34  2026-09-02
 

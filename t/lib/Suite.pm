@@ -6,7 +6,7 @@ use warnings;
 use File::Find ();
 use Test::More ();
 use Exporter qw(import);
-our @EXPORT_OK = qw(assertion_files engine_source);
+our @EXPORT_OK = qw(assertion_files engine_source cli_source);
 
 # Which files the suite's own guards read, decided once.
 #
@@ -75,6 +75,39 @@ sub engine_source {
     # asserts it found something before anything is read.
     Test::More::cmp_ok( scalar @modules, '>=', 4,
         'lib/ was walked for engine source - ' . scalar(@modules) . ' modules' );
+
+    my $source = '';
+    for my $module ( sort @modules ) {
+        open my $fh, '<:raw', $module or die "$module: $!";
+        local $/;
+        $source .= <$fh>;
+    }
+    return $source;
+}
+
+# The CLI layer, for guards that read what the command surface declares rather
+# than what the engine does. The mirror image of engine_source: this one walks
+# ONLY lib/Tira/CLI.pm and lib/Tira/CLI/, and the two together are lib/.
+#
+# It walks for the reason engine_source does. t/239 parsed %MISLEADING_OPTIONS
+# and %OPTION_READ_BY out of lib/Tira/CLI.pm by name, and TKT-837 lifted both
+# tables into lib/Tira/CLI/Options.pm to make room under t/430's cap - so the
+# parse found nothing, the declared-refusal count fell to zero, and the test
+# failed claiming a table was empty when it had merely moved. That is the same
+# fault TKT-835 removed from seven engine tests: a test that opens a file by
+# name is asserting where code lives while claiming to assert something else.
+sub cli_source {
+    my @modules;
+    File::Find::find(
+        { no_chdir => 1, wanted => sub {
+              return if !/\.pm\z/;
+              return if $File::Find::name !~ m{\blib/Tira/CLI(?:\.pm|/)};
+              push @modules, $File::Find::name;
+          } },
+        'lib' );
+
+    Test::More::cmp_ok( scalar @modules, '>=', 2,
+        'lib/Tira/CLI was walked for command-surface source - ' . scalar(@modules) . ' modules' );
 
     my $source = '';
     for my $module ( sort @modules ) {

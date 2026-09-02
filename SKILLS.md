@@ -1764,6 +1764,63 @@ established is now the default for new work as well as the remedy for old:
 a concern module under `lib/Tira/`, loaded with `require` at the call site,
 with thin same-named forwarders on `Tira` so callers are unaffected.
 
+**Repeated jobs can be typed at the command line (TKT-837, 5.30).** A job
+carries a schedule and something to do when it comes due: `tira.job.add
+--schedule "0 * * * *" --message "go hunt some bugs"`, or `--command` instead,
+whose output reaches the police bridge. Never both and never neither - a record
+carrying both cannot say which the bridge should get - and `mode` records which
+it is rather than leaving a reader to infer it from whichever field happens to
+be populated. The schedule is a crontab expression or the literal `monitor`,
+for a long-running poller rather than a tick, and `schedule_kind` says which so
+nothing has to re-parse to find out.
+
+A malformed schedule is refused when it is written, naming the field and the
+range it takes, and nothing is stored. The CLI surfaces the engine's refusal
+verbatim rather than deciding validity a second time, and `t/488` asserts that
+by capturing the engine's message, extracting its core, and requiring the
+command-line output to contain that exact string - so a second validator would
+fail the test rather than quietly disagree with the first. Two validators for
+one format is how the engine and the browser came to disagree about attachment
+content types on TKT-713.
+
+`--command` is the same option required actions use for their proofs, which
+take it repeatably. It is not declared twice: a duplicate Getopt specification
+makes Getopt::Long print "Duplicate specification" to standard error on every
+invocation, which `t/450` refuses. The job verbs read the existing repeatable
+form and refuse two `--command` flags outright, because a job runs one command
+and quietly dropping the other is the fault the option guard exists to prevent.
+
+```text
+tira.job.add --schedule CRON|monitor (--command TEXT | --message TEXT) [-o FORMAT]
+tira.job.list [-o FORMAT]
+tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TEXT] [--enabled yes|no] [-o FORMAT]
+tira.job.delete --id ID [-o FORMAT]
+```
+
+**Making room was the work, not raising the cap (TKT-837, 5.30).** These four
+verbs took `lib/Tira/CLI.pm` past `t/430`'s 3,000-line limit, and the card sat
+blocked overnight on what had been framed as a decision for the owner: raise
+the cap, shave comments, or split further. It was never his to make. The
+decomposition epic and the standing rule that any Perl file over 500 lines is
+decomposed had already answered it, and raising a cap to fit new code into a
+file three tickets had been shrinking is the opposite of that. So the option
+guard - `%MISLEADING_OPTIONS`, `%OPTION_READ_BY` and the refusal enforcing them
+- moved to `lib/Tira/CLI/Options.pm`, and the index went from 2,999 lines to
+2,817 before the verbs and 2,844 after: comfortably under a cap that did not
+move.
+
+The lift broke two tests, both in ways worth recording. Three test files
+disable the guard by localising `*Tira::CLI::_refuse_unread_options` to prove
+what the refusal is worth, and calling the lifted subroutine at its new address
+moved the name out from under them - the override silently stopped overriding,
+the guard still fired, and the tests failed as though the code had regressed.
+The name now stays put as a forwarder: a lift must not change what a caller can
+reach. And `t/239` parsed both tables out of `lib/Tira/CLI.pm` by name, so
+after the lift it found nothing and reported zero declared refusals, which
+reads as "the table is empty" rather than "the table moved". It asks
+`t/lib/Suite.pm` for the command surface now, the same way seven engine tests
+were taught to ask for the engine on TKT-835.
+
 **A third cost was paid once and then removed (TKT-835, 5.26).** A test that
 opens `lib/Tira.pm` by name is asserting where code lives while claiming to
 assert something else, so it breaks on a lift that broke nothing - and the

@@ -31,6 +31,8 @@ use File::Temp qw(tempdir);
 use Test::More;
 
 use lib 'lib';
+use lib 't/lib';
+use Suite qw(cli_source);
 use Tira;
 use Tira::CLI;
 
@@ -65,11 +67,12 @@ sub run {
     return ( $status, $out . $err );
 }
 
-my $source = do {
-    open my $fh, '<', File::Spec->catfile(qw(lib Tira CLI.pm)) or die $!;
-    local $/;
-    <$fh>;
-};
+# The whole CLI layer, walked, not lib/Tira/CLI.pm by name. TKT-837 lifted both
+# tables this test parses into lib/Tira/CLI/Options.pm to make room under
+# t/430's cap; a named read then found nothing and this test failed reporting
+# zero declared refusals, which reads as "the table is empty" rather than "the
+# table moved". Same fault TKT-835 removed from the engine tests.
+my $source = cli_source();
 
 # --- what the two tables declare ---------------------------------------------
 #

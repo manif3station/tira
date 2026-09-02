@@ -1,5 +1,62 @@
 Revision history for Tira
 
+5.30  2026-09-02
+
+    - TKT-837 (EPC-014). tira.job.add, list, update and delete: the repeated
+      jobs TKT-836 gave the board a record for can now be typed at a command
+      line. The bodies live in Tira::CLI::Job, required at the point one of
+      those verbs runs. What makes a schedule valid stays in Tira::Job - this
+      layer passes arguments through and lets the engine's refusal reach the
+      caller unchanged, and t/488 proves it by capturing the engine's message,
+      extracting its core, and requiring the command-line output to contain
+      that exact string. Two validators for one format is how the engine and
+      the browser came to disagree about attachment content types on TKT-713.
+
+      THE CAP WAS THE POINT, NOT AN OBSTACLE. These verbs took
+      lib/Tira/CLI.pm past t/430's 3,000-line limit, and the card sat blocked
+      overnight on what had been framed as a decision for the owner: raise the
+      cap, shave comments, or split further. It was never his to make. TKT-746
+      is an open epic for lifting concerns out of oversized files and TKT-751
+      makes decomposition of any Perl file over 500 lines standing policy, so
+      "make room" was already the answer the board held. The option guard -
+      %MISLEADING_OPTIONS, %OPTION_READ_BY and the refusal enforcing them -
+      moved to Tira::CLI::Options; the index went 2,999 -> 2,817 before the
+      verbs and 2,844 after, under a cap that did not move.
+
+      A duplicate option specification was caught before it shipped. The
+      draft declared 'command=s' for a job's command while CLI.pm already
+      binds 'command=s@' for required-action proofs - what t/450 refuses,
+      since Getopt::Long then prints "Duplicate specification" to STDERR on
+      every invocation. Its own comment claimed 'command' was a new name
+      rather than a reuse, which was not true. Tira::CLI::Job reads the
+      existing repeatable form and refuses two --command flags outright: a job
+      runs one command, and quietly taking one of two is the fault the option
+      guard exists to prevent.
+
+      The lift broke two tests, and both breakages were about where code
+      lives rather than what it does. Three test files disable the guard by
+      localising *Tira::CLI::_refuse_unread_options; calling the lifted
+      subroutine at its new address moved the name out from under them, so the
+      override silently stopped overriding and the tests failed as though the
+      code had regressed. The name stays here as a forwarder - a lift must not
+      change what a caller can reach. And t/239 parsed both tables out of
+      lib/Tira/CLI.pm by name, so after the lift it reported zero declared
+      refusals, which reads as "the table is empty" rather than "the table
+      moved". It asks t/lib/Suite.pm's new cli_source() for the command
+      surface now, the same way seven engine tests were taught to ask for the
+      engine on TKT-835.
+
+      Four entrypoints ship with this: skills/job/cli/{add,list,update,delete}.
+      Their absence was invisible until the documented examples were run - the
+      verbs dispatched correctly from inside Tira::CLI and could not be reached
+      from a shell at all, and t/172 is what said so.
+
+      Five of t/488's assertions passed against code where nothing existed.
+      All five were negative - three "refused with non-zero status", two "not
+      present in the output" - and a missing verb has exactly that shape. Each
+      is now anchored so it can only pass for the right reason; 21 assertions
+      became 27.
+
 5.29  2026-09-02
 
     - TKT-839 (EPC-014). A Repeated Jobs section on the dashboard, directly

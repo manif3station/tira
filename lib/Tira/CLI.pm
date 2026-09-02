@@ -18,7 +18,20 @@ our $WINDOWS = $^O eq 'MSWin32' ? 1 : 0;
 
 # The option guard - %MISLEADING_OPTIONS, %OPTION_READ_BY and the refusal that
 # enforces them - lives in Tira::CLI::Options. Lifted on TKT-837 to make room
-# under t/430's cap, and loaded with require at the two points that read it.
+# under t/430's cap, and loaded with require at the points that read it.
+#
+# THE NAME STAYS HERE. _refuse_unread_options keeps a forwarder in this package
+# rather than being called at its new address, because three test files disable
+# the guard by localising *Tira::CLI::_refuse_unread_options to prove what the
+# refusal is worth - t/237, t/252 and others. Calling the lifted sub directly
+# moved the name out from under them, and the override silently stopped
+# overriding: the guard still fired, the command still refused, and the tests
+# failed claiming the code had regressed. A lift must not change what a caller
+# can reach, which is the same rule the Tasklist lift followed on TKT-832.
+sub _refuse_unread_options {
+    require Tira::CLI::Options;
+    goto &Tira::CLI::Options::_refuse_unread_options;
+}
 
 # The process that set a served board up, recorded before the server forks.
 # Outside a served board it is simply this process, so a plain command asking
@@ -1624,8 +1637,7 @@ sub _invoke {
     # Before anything is dispatched, because a record command returns long
     # before the misleading-option table is reached and the whole point is that
     # nothing acts on an option it will not use.
-    require Tira::CLI::Options;
-    Tira::CLI::Options::_refuse_unread_options( $command, $option );
+    _refuse_unread_options( $command, $option );
 
     my %args = %{$option};
     delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions set_scope_in set_scope_out field_selection exclude_fields include_empty older_than stale with_level all columns_json nested mark members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};

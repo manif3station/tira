@@ -3427,6 +3427,45 @@ it in TKT-535; this is a fresh policyInlineCapture scoped to the policy
 editor). An empty reason closes the capture without posting, matching
 the old prompt's behavior on an empty answer.
 
+### Repeated jobs
+
+A job carries a schedule and something to do when it comes due. It says either
+a `--message`, which reaches the police bridge in the words somebody chose, or
+runs a `--command` — never both and never neither, because a record carrying
+both cannot say which the bridge should get. `mode` records which it is, so a
+reader never has to infer it from whichever field is populated.
+
+- `tira.job.add --schedule CRON|monitor (--command TEXT | --message TEXT) [-o FORMAT]`
+- `tira.job.list [-o FORMAT]`
+- `tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TEXT] [--enabled yes|no] [-o FORMAT]`
+- `tira.job.delete --id ID [-o FORMAT]`
+
+    ```
+    d2 tira.job.add --schedule "0 * * * *" --message "go hunt some bugs"
+    d2 tira.job.list
+    ```
+
+    The schedule is a crontab expression, or the literal `monitor` for a
+    long-running poller that runs continuously rather than firing on a tick;
+    `schedule_kind` records which so nothing re-parses to find out. A `monitor`
+    job is never "due", and neither is a disabled one, which is why the
+    `job-due` rule stays silent about both.
+
+    A malformed schedule is refused when it is written, naming the field and
+    the range it takes, and nothing is stored. The refusal is the engine's own,
+    surfaced unchanged rather than decided a second time here — the command line
+    and the stored record cannot disagree about what a valid schedule is.
+
+    `--command` is the option required actions use for their proofs, which take
+    it repeatably, and it is not declared a second time for jobs: a duplicate
+    Getopt specification makes Getopt::Long print "Duplicate specification" to
+    standard error on every invocation. Giving `--command` twice to a job verb
+    is refused rather than silently resolved, because a job runs one command.
+
+    The whole schedule is visible on the browser dashboard as a Repeated Jobs
+    section under the Task List, one row per job. EPC-014, TKT-836 for the
+    record, TKT-837 for these verbs.
+
 ### Warnings
 
 - `tira.warning.add --message TEXT [-o FORMAT]`

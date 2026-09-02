@@ -127,6 +127,57 @@ my %OPTION_READ_BY = (
         commands => qr/\A(?:project\.mode|project\.new|onboard)\z/,
         instead  => 'tira.project.mode --mode VALUE, which is the command that sets it',
     },
+
+    # The body of a card, typed into the option that carries a body everywhere
+    # else. record.create accepted --text, kept none of it, exited 0 and printed
+    # the whole new card back - and a printed card reads as confirmation.
+    #
+    # It is worse than the entries above rather than merely the same shape,
+    # because the name is the plausible one. A caller asking "how do I give this
+    # card a body" reaches for --text, and --text is real: it is the option
+    # comment.add and question.ask carry their content in. So the parser takes
+    # it, record.create has nothing to do with it, and the requirement is
+    # destroyed at the moment it is written down, on a board whose whole purpose
+    # is that the record is true. Michael reported it on TKT-849 after a card he
+    # filed came back empty, having noticed only because he read it back.
+    #
+    # THE READER LIST NEEDED BOTH WALKS, and getting that wrong in either
+    # direction breaks a working command.
+    #
+    # Walking the ENGINE - every .pm under lib/ except lib/Tira/CLI, recording
+    # which sub each $args{text} read sits in - gives eleven: comment_add,
+    # comment_update, question_add, question_answer, question_update,
+    # record_list, search, tasklist_add, tasklist_slice, tasklist_unshift,
+    # tasklist_update.
+    #
+    # record.list is why the engine walk is necessary. It is what ticket.list,
+    # epic.list and sow.list all reach, where --text is a working filter, and it
+    # is INVISIBLE from the CLI side - so a CLI-only list would have refused it.
+    # The `fields` entry above records that exact near-miss for --field, where a
+    # CLI count found one reader and missed two working commands. Here it is
+    # sharper: record.create and record.list arrive under the same prefix, one
+    # dropping --text and one reading it, so the two commands this entry has to
+    # separate are the two that look most alike.
+    #
+    # dev.found.bug_or_improvement is why the engine walk is NOT SUFFICIENT, and
+    # it was the suite that said so rather than the reading. It reads --text in
+    # the CLI layer (Tira::CLI::Police) and passes it to create_record as the
+    # description, so no $args{text} read exists in the engine to be counted. An
+    # engine-only list refused it, and t/132 failed - the one command whose
+    # entire job is letting an agent in another project report a fault in Tira,
+    # which is this very card's own filing path.
+    #
+    # So: engine readers catch what the CLI hides, CLI readers catch what the
+    # engine never sees. Either walk alone produces a refusal that breaks
+    # something that works today.
+    text => {
+        flag     => 'text',
+        commands => qr/\A(?:record\.list|comment\.(?:add|update)
+                          |question\.(?:ask|answer|update)|search
+                          |tasklist\.(?:add|update|unshift|slice)
+                          |dev\.found\.bug_or_improvement)\z/x,
+        instead  => 'tira.<type>.create --problem TEXT, which is the option that carries a card body',
+    },
 );
 
 sub _refuse_unread_options {
@@ -257,6 +308,21 @@ complete-looking entry while half of what was typed went nowhere.
 rejected: the readers of C<--field> were counted from the engine rather than
 the CLI, and a count taken from the CLI alone would have broken C<search> and
 C<replace>, which receive it through the arguments every command passes.
+
+=item * B<Count the readers from BOTH layers.> The C<--field> lesson above is
+half of the rule and reading it as the whole rule breaks things. Walking the
+engine for C<$args{OPTION}> finds the commands that receive an option through
+the shared argument hash - for C<--text> that is C<record_list>, which
+C<ticket.list>, C<epic.list> and C<sow.list> all reach and which is invisible
+from the CLI side. But a command can also read an option in the CLI layer and
+pass it on under another name:
+C<tira.dev.found.bug_or_improvement> reads C<--text> in L<Tira::CLI::Police>
+and hands it to C<create_record> as the description, so no C<$args{text}> read
+exists in the engine at all. The first version of the C<text> entry was
+engine-counted, refused that command, and F<t/132> failed - on the one command
+whose whole job is letting an agent in another project report a fault in Tira.
+Engine readers catch what the CLI hides; CLI readers catch what the engine
+never sees. TKT-849.
 
 =back
 

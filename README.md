@@ -166,6 +166,16 @@ actions are done still goes through: the point is knowing which columns exist,
 not making the caller repeat what the board already knows. Where a refusal
 ends by naming the move to make instead, it uses the recovered type, so the
 command it prints is one that runs.
+An option the command will not act on is refused rather than quietly dropped,
+because the shared parser means every command sees every option and a wrong
+name looks accepted. Since 5.36 that includes `--text` on a create:
+`tira.ticket.create --title "..." --text "the whole explanation"` used to keep
+none of what it carried and exit 0 having printed the whole new card back, so
+the explanation went nowhere and the success message was the only thing that
+came out. It now refuses, naming `--problem`, before any card is written. The
+name is the plausible one — `--text` is how `tira.comment.add` and
+`tira.question.ask` carry their content — which is exactly why the silent drop
+cost what it did.
 `--help` names the arguments a command refuses without, including the
 `--command`/`--proof` pair that marking a required action or a checklist item
 done costs. Forty-nine commands are not there yet and still answer with a bare

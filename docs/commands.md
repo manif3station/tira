@@ -1619,7 +1619,27 @@ d2 tira.attachment.discard --ref TKT-001 --sha SHA256 --comment "Wrong file"   #
 d2 tira.project.update --mode chain   # refused
   project.update does not act on --mode. Use tira.project.mode --mode VALUE,
   which is the command that sets it.
+
+d2 tira.ticket.create --title "A card" --text "the whole explanation"   # refused
+  record.create does not act on --text. Use tira.<type>.create --problem TEXT,
+  which is the option that carries a card body.
 ```
+
+`--text` is the sharpest of these, because the name is the plausible one. It is
+a real option — it is how `tira.comment.add` and `tira.question.ask` carry their
+content — so the shared parser accepts it on `tira.ticket.create`, which then
+has nothing to do with it. Before this refusal the card was created, the whole
+record was printed back, and the command exited 0, so a caller who wrote the
+explanation into `--text` got a success message and an empty card. Michael
+reported it after filing a card that came back empty, having noticed only
+because he read it back (TKT-849, 5.36).
+
+The commands that genuinely read `--text` are untouched: `tira.comment.add` and
+`comment.update`, `tira.question.ask`, `question.answer` and `question.update`,
+`tira.search`, the `tasklist` verbs `add`, `update`, `unshift` and `slice`,
+`tira.dev.found.bug_or_improvement`, and — the one that is easy to miss —
+`tira.ticket.list`, `epic.list` and `sow.list`, where `--text` is a working
+filter over card content.
 
 `attachment.discard` genuinely reads `--comment`, but as an identifier - which
 comment to detach the attachment from (`--comment CMT-001`) - not a reason, so

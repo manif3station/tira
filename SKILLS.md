@@ -1235,6 +1235,33 @@ per-command option list, which the neighbouring `%MISLEADING_OPTIONS` guard
 explains it deliberately is not, because deriving one would refuse things that
 work today. TKT-625.
 
+**`--text` on a create is refused (TKT-849, 5.36).** `tira.ticket.create --text
+"the whole explanation"` used to be accepted, keep none of it, and exit 0 having
+printed the whole new card back — and a printed card reads as confirmation. It
+is the sharpest case the guard has taken on, because the name is the plausible
+one: `--text` is real, it is how `tira.comment.add` and `tira.question.ask`
+carry their content, so a caller asking "how do I give this card a body" reaches
+for it, gets no error, and gets an empty card. Michael reported it after filing
+a card that came back empty, having noticed only because he read it back. It now
+refuses, naming `--problem`.
+
+The reader list took two walks, and either alone produces a refusal that breaks
+something. Walking the **engine** for `$args{text}` finds eleven subs and is the
+only way to see `record_list` — what `tira.ticket.list`, `epic.list` and
+`sow.list` all reach, where `--text` is a working filter, and which is invisible
+from the CLI side. Walking only the engine, though, misses
+`tira.dev.found.bug_or_improvement`, which reads `--text` in the CLI layer and
+hands it to `create_record` as the description: the first version of the guard
+refused it and `t/132` failed — the one command whose whole job is letting an
+agent in another project report a fault in Tira. Engine readers catch what the
+CLI hides; CLI readers catch what the engine never sees.
+
+The same shape as `--field` before it, and `t/237` records that near-miss: a
+reader list counted from the CLI found one reader and would have broken two
+working commands. Here `record.create` and `record.list` arrive under the same
+prefix, one dropping `--text` and one reading it, so the two commands the entry
+has to separate are the two that look most alike.
+
 Dashboard scans each selected board once and groups records by configured
 column in memory. Column count therefore does not multiply JSON file reads;
 configured order and optional Discard inclusion remain unchanged.

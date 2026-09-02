@@ -1,5 +1,28 @@
 Revision history for Tira
 
+5.36  2026-09-02
+
+    - TKT-849. `tira.ticket.create --text` is refused instead of swallowed.
+      It used to be accepted, keep none of what it carried, and exit 0 having
+      printed the whole new card back - so a caller who typed the explanation
+      into `--text` got a success message and an empty card. Michael reported
+      it after filing a card that came back empty, having noticed only because
+      he read it back. The refusal names `--problem`, and happens before
+      anything is written, so no card is left behind.
+
+      It is the sharpest case this guard has taken on because the name is the
+      plausible one: `--text` is real, and is how `tira.comment.add` and
+      `tira.question.ask` carry their content.
+
+      The reader list needed two walks and either alone breaks something.
+      Walking the engine finds `record_list` - what `ticket.list`, `epic.list`
+      and `sow.list` reach, where `--text` is a working filter, invisible from
+      the CLI side. Walking only the engine misses
+      `tira.dev.found.bug_or_improvement`, which reads `--text` in the CLI
+      layer: the first version of the guard refused it and t/132 failed, on the
+      one command whose whole job is letting an agent in another project report
+      a fault in Tira.
+
 5.35  2026-09-02
 
     - TKT-852. `tira.dashboard -o browser --show-logs` keeps a record of the

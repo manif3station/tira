@@ -626,6 +626,16 @@ warning above again before copying more than a handful.
 
 ### Detail before work starts
 
+`card-full-details` catches a card that is still a title when work starts. It is
+worth knowing that until 5.36 one CAUSE of that was the tool itself:
+`tira.ticket.create --text "..."` accepted the body, kept none of it, and exited
+0 having printed the card back, so a caller who wrote the explanation into
+`--text` produced exactly the card this rule fires on and had no way to tell.
+That option is now refused, naming `--problem` (TKT-849). The rule still
+matters — it catches the card nobody filled in — but a card reaching implement
+as a title is now a person's omission rather than possibly a swallowed
+argument.
+
 **1.** A card left the backlog as a title and a shrug, and nobody could say what it was for.
 
 ```

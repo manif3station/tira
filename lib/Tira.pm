@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.27';
+our $VERSION = '5.28';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6208,6 +6208,12 @@ my %POLICY_RULES = (
     # seconds ago is not flagged before anyone has had a chance to link it.
     'task-unlinked'             => { needs => [ 'age' ] },
 
+    # No age and no scope. A repeated job's schedule already says when it is
+    # due, so a grace on top would only delay what the schedule was for; and
+    # a card scope means nothing to a job, which is not about a card.
+    # EPC-014, TKT-838.
+    'job-due'                   => { needs => [] },
+
     # A column and no age. The column because the board cannot work out which
     # of its own columns mean somebody is WORKING - backlog and discard are
     # protected and a queue column is not, so "not protected" sweeps the queue
@@ -6322,6 +6328,9 @@ my %WHOLE_BOARD_RULE = (
     # scope could never narrow which tasklist items count.
     'task-unlinked' => 'the whole board',
     'task-changed'  => 'the whole board',
+
+    # A job is not about a card, so there is nothing for a --ref to narrow.
+    'job-due'       => 'the whole board',
 
     # Column-scoped for WHICH columns count as work, but never narrowable to
     # one card: the tasklist is walked whole, and a card scope could not say
@@ -8332,6 +8341,30 @@ sub policy_evaluate {
                     "\"$item->{text}\" has no linked ticket - link it to one that already "
                   . "covers this work (tira.tasklist.task.ref.link --id $item->{id} --ref REF), "
                   . "or file a full ticket and link the two" );
+            }
+        }
+        elsif ( $rule eq 'job-due' ) {
+
+            # EPC-014's point of contact with reality: a schedule on the
+            # board only matters if something reads it. TKT-838.
+            #
+            # ONCE PER DUE WINDOW, not once per pass. The window's own
+            # timestamp goes in the finding's sub_key, so the ledger settles
+            # this announcement and re-opens a new one when the job next
+            # comes due - the mechanism TKT-698 added for exactly this shape
+            # of "same rule, same subject, different occurrence".
+            #
+            # ANNOUNCES, DOES NOT EXECUTE. A command-mode job is skipped
+            # here and belongs to TKT-841, so the execution surface lands
+            # with its own tests rather than as a side effect of this rule
+            # already holding the job. t/489 asserts the absence.
+            my $when = $self->{clock}->();
+            for my $job ( @{ $self->job_list( project => $root ) } ) {
+                next if ( $job->{mode} // '' ) ne 'message';
+                next if !$self->job_is_due( $job, $when );
+                my ($window) = $when =~ /\A(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2})/;
+                $report->( $policy, $job->{id}, $job->{message}, undef,
+                    ( $window // $when ) );
             }
         }
         elsif ( $rule eq 'task-card-mismatch' ) {

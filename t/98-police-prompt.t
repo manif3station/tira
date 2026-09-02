@@ -112,6 +112,7 @@ like( $behind, qr/one ticket|a single ticket|single backlog/i,
         'column-skipped'            => { enter => 'done', require => 'implement' },
         'task-unlinked'             => { age => '30m' },
     'task-changed'              => {},
+    'job-due'                   => {},
         'task-card-mismatch'        => { column => 'implement' },
     );
     $tira->policy_add( project => $root, rule => $_, action => 'log-only', %{ $needs{$_} } )

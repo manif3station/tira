@@ -332,7 +332,7 @@ absent from this page, so a rule shipped without being documented is caught by
 name. Since 4.76 the other half is checked too: a statement of how many rules
 there are is compared against the engine, in any markdown file including this
 one, bar the build and dependency directories. A claim is a number ahead of the
-word `rules` with at most two words between them, which covers `40 rules cover`, `40 rules police`, `40 police rules` and `40 policy
+word `rules` with at most two words between them, which covers `41 rules cover`, `41 rules police`, `41 police rules` and `41 policy
 rules` alike. That shape is the reach of it — a count worded outside it, or
 stated somewhere that is not a markdown file, is not held,
 and saying so matters more than sounding thorough. Both guards exist because
@@ -379,6 +379,7 @@ when it was written down.
 | `unpushed-work` | `--age` | commits sitting unpushed |
 | `task-unlinked` | `--age` | a pending or working tasklist item whose `refs` array is empty, older than the grace `--age` gives it. The tasklist is deliberately lighter than a ticket - free text, no gates - but a task can still be real work nobody tied back to a governed card. **Whole-board, like `board-still`/`agent-still`**: a `--ref` scope is refused, since the rule sweeps every session's items, not one ticket's own. The finding names the tasklist item by its own `TSK-NNN` id and instructs linking it to an existing ticket that already covers the work, or filing a full one and linking the two - the police engine detects and instructs, it never creates or links a ticket itself. Since TKT-682 the instruction names the command directly (`tira.tasklist.task.ref.link --id ID --ref REF`), which itself refuses a `--ref` naming no record on the board rather than storing it silently - a task pointing at a card that does not exist would otherwise read as linked to everything downstream, including this rule. Settles when the item is linked, marked done, or ages back under the grace. TKT-547. |
 | `task-changed` | — | a tasklist item whose text, attachments, or linked refs changed since the last police pass saw it - mirroring `card-changed-by-owner`'s purpose (the agent might not otherwise notice) without its mechanism, since a tasklist item has no change journal to compare a newest author against; what it looked like last time is kept in the same store-backed ledger `agent-still`'s own notified-stamp already uses. **Fires for any actor**, not owner-only - Michael's own answer, live, to the question: "Announce every change regardless of actor." **No age**: a change is a change the moment it happens, the same reasoning `conversation-not-folded` already gives. **Whole-board**, like `task-unlinked`. **Since 4.79 an item ARRIVING is reported too, and one DISAPPEARING** - he asked twice why a new task was announced by nothing, and the answer was that the branch did not exist: an item with no prior state fell through the comparison and was written into the baseline anyway, so the first pass adopted it in silence and every later pass found nothing changed. Not late - unannounceable. **A first pass on a board that has never been policed still announces nothing**, which is the whole reason this took a decision rather than an `else`: on a board with an existing tasklist every item is a first sighting, and a rule that reported a hundred at once would be declined and never re-enabled. The two cases are told apart by the ledger itself - a store no pass has written carries no task-seen record at all, while one that does makes an unknown id genuinely new. Removal reads the same record: an id that was there last time and is not now is named, since a list one shorter says nothing on its own. Each is said once and settles, like every other change here. TKT-548, TKT-606. |
+| `job-due` | — | a repeated job whose schedule says it is due now. The job's own MESSAGE is what reaches the bridge, not a generic reminder - the point of the record is that the agent is told the thing it needs to do, in the words somebody chose. **No age**: the schedule already says when it is due, and a grace on top would only delay what the schedule was for. **Whole-board**, like `task-unlinked` - a job is not about a card, so a `--ref` scope would have nothing to narrow. **Announced once per due window, not once per pass**, using the same ledger every other bridge rule settles through, with the due minute as the finding's `sub_key` (the mechanism TKT-698 added for one rule reporting several distinct occurrences about one subject) - so the next due window opens a fresh entry and speaks again. A rule that repeated every pass would make the bridge unreadable, which fails the same way silence does. **A disabled job and a `monitor` job are both silent**: the first is switched off, and the second runs continuously rather than firing on a tick, so it is never "due". **This rule announces and does not execute** - running a command-mode job is its own card, so the execution surface arrives with its own tests rather than as a side effect of this rule already holding the job. EPC-014, TKT-838. |
 | `task-card-mismatch` | `--column` (a name, or a comma-separated list; several policies compose) or `--column-role` | a tasklist item whose status contradicts the column its linked card is in, and a card carrying the same note twice. Three directions, all from one comparison. A task saying **working** about a card in a column nobody called work - the case the owner named, and the one that catches five tasks left saying working after their cards moved on. A task saying **pending** about a card that is being worked - the work started and the queue was never told. And a task that is **not done** about a card that has gone *past* the work columns - the card finished and the loose end stayed open; "past" is read from the board's own column order, per record type, not asked for as a second option. Separately, two tasks about one card whose text matches on the **first sixty characters**, lowercased and trimmed: multiplicity alone is not a fault (an incoming message, a follow-up question and a scope change legitimately name one card) but the same note written twice means one gets ticked and the other lingers - and a pair that is entirely done is left alone, since nothing is waiting. **`--column` is the whole design and is declared, never inferred**: the hand-run script this replaces counted `next-to-work-on` as work, and that one line made seven of its eight findings false - a card waiting to be picked up has not been started, so its task saying pending is the board telling the truth. The board cannot guess it either, since `backlog` and `discard` are protected and `next-to-work-on` is not. **The columns are one set, however they are spelled.** A policy's `--column` is a scope everywhere else in the engine - the same rule watching a different column is a different intention - and this rule is the exception, because its columns say what work *means* rather than what to act on. Read the ordinary way, one policy per working column made each policy report the other three's honest tasks. So they compose: several policies, one `--column` carrying a comma-separated list the way `project.new` already takes its columns, or both, all describe the same set, and the pass reports from the first of them. **No `--age`** - a contradiction is wrong the moment it exists, not after a grace. **Whole-board**, like `task-unlinked`, and it sweeps every session rather than the caller's own. It reports and nothing else; closing the gap is the agent's job. TKT-639. |
 | `board-unbacked` | `--age` | a board with no recent backup, by either mechanism: `tira.backup` or an exported backup on disk. Whichever ran last is the answer. |
 | `card-unlinked` | `--require-link` | a card with no dependency link, optionally to a named card |
@@ -1953,6 +1954,37 @@ to a ticket, marked done, or the moment it is created is far enough behind
 that the age no longer applies. The police engine only detects and instructs
 here - it never creates or links a ticket on its own, the same restraint every
 other rule already keeps.
+
+### A schedule that nobody reads
+
+Three standing hunts - hourly bugs, two-hourly improvements, three-hourly
+doc-gaps - ran as loops inside an agent session. On 2026-09-02 all three had
+been dead for hours and nothing said so, because a loop that has stopped and a
+loop with nothing to report produce the same output: none. Michael noticed the
+absence and asked; the agent could not have.
+
+`job-due` is the half of repeated jobs that makes a schedule reach somebody. A
+job on the board carries a schedule and a message, and when the schedule says
+it is due, the message is what appears on the bridge - the agent is told the
+thing it needs to do, in the words somebody chose for it.
+
+    d2 tira.policy.add --rule job-due --action bridge-reminder
+
+    go hunt some bugs
+
+    go hunt some improvements
+
+It announces once per due window rather than once per pass, settling through
+the same ledger every other bridge rule uses, with the due minute as the
+finding's sub_key so the next window opens a fresh entry and speaks again. A
+rule that repeated itself every pass would make the bridge unreadable, which
+fails the same way silence does.
+
+A disabled job is silent, and so is a `monitor` job - that one runs
+continuously rather than firing on a tick, so it is never "due". The rule
+announces and runs nothing: executing a command-mode job is its own separate
+piece of work, so that surface arrives with its own tests rather than as a
+side effect of this rule already holding the job.
 
 ### A task and its card telling two different stories
 

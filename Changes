@@ -1,5 +1,43 @@
 Revision history for Tira
 
+5.28  2026-09-02
+
+    - TKT-838 (EPC-014). job-due: the police rule that makes a schedule on
+      the board reach somebody. When a repeated job comes due, its own
+      message is announced on the bridge - not a generic reminder, but the
+      words whoever wrote the job chose.
+
+      ANNOUNCED ONCE PER DUE WINDOW, not once per pass. The due minute is
+      the finding's sub_key, so the ledger settles this announcement and
+      opens a fresh one when the job next comes due - the mechanism TKT-698
+      added for one rule reporting several distinct occurrences about one
+      subject. A rule that repeated every pass would make the bridge
+      unreadable, which fails the same way silence does.
+
+      A disabled job is silent, and so is a monitor job: that runs
+      continuously rather than firing on a tick, so it is never due.
+
+      THE RULE ANNOUNCES AND RUNS NOTHING. Executing a command-mode job is
+      its own card, so that surface arrives with its own tests rather than
+      as a side effect of this rule already holding the job. t/489 asserts
+      the rule body contains no system, exec or qx.
+
+      ADDING A RULE RIPPLES, and five test files caught it - which is the
+      suite working rather than the change being wrong. Three declare every
+      rule the tool offers so none can be forgotten (t/79, t/86, t/98) and
+      needed job-due added; t/86 additionally requires every declared rule
+      to be seen FIRING against its fixture board, so it gained a job that
+      is due at the fixture clock. t/85 requires every rule to appear in a
+      worked --rule example in docs/POLICIES.md, which a table row alone
+      does not satisfy. And t/147 caught two denials of mine that an empty
+      pass would have satisfied for the wrong reason.
+
+      Rule count is now 41. Ten places across SKILLS.md, README.md and
+      docs/POLICIES.md said 40 and were corrected, including two that quote
+      the phrase as an example of what t/433's guard matches - a stale
+      example beside a live count reads as the count. SKILLS.md also said
+      lib/Tira.pm was 14,177 lines in the present tense; it is 14,256.
+
 5.27  2026-09-02
 
     - TKT-836 (EPC-014). Repeated jobs: a schedule the board owns rather

@@ -101,6 +101,10 @@ my %declare = (
     'task-unlinked'             => { age => '30m' },
     'task-changed'              => {},
 
+    # A repeated job needs no age and no scope - its schedule already says
+    # when it is due, and a job is not about a card. EPC-014, TKT-838.
+    'job-due'                   => {},
+
     # Column-scoped, and the column is the whole of TKT-639: the board cannot
     # infer which of its own columns mean somebody is WORKING, so the rule is
     # told. 'implement' here, which is where the fixture's card sits.
@@ -168,6 +172,12 @@ $now = '2026-08-11T09:00:00Z';
 # A tasklist item nobody ever tied back to a card - real, trackable work, no
 # refs, sitting where task-unlinked watches.
 $tira->tasklist_add( project => $root, text => 'A note nobody turned into a card' );
+
+# A repeated job that is due right now, which is job-due's whole case: the
+# clock above is 09:00, so an on-the-hour schedule has come round and the
+# job's own message is what should reach the bridge. EPC-014, TKT-838.
+$tira->job_add( project => $root, schedule => '0 * * * *',
+    message => 'go hunt some bugs' );
 
 # A tasklist item left saying pending while the card it names is being worked -
 # task-card-mismatch's case, and the half of the owner's request that

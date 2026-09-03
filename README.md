@@ -340,7 +340,8 @@ The editor is one form for creating and for editing, filled from the job. The
 schedule kind is a pair of radio buttons rather than the word `monitor` typed
 into a schedule box, and Message is not offered for a monitor because the engine
 refuses that pairing — a monitor with no command could never be found alive in
-the process table. Looping is a checkbox with an interval, off unless asked for;
+the process table. Looping is a checkbox with an interval, off unless asked for,
+and unticking it removes the interval rather than leaving the old one behind;
 keep it above about two seconds, or the output collector's quiet window never
 elapses and a healthy monitor looks silent.
 

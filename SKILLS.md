@@ -2453,7 +2453,11 @@ refuse, which is the same reason the schedule field is disabled rather than
 hidden: the form keeps its shape as you click through it.
 
 **Looping is a checkbox** with an interval, off unless asked for, defaulting to
-his five seconds with a floor of two. The floor is measured, not chosen: the
+his five seconds with a floor of two, and unticking it *clears* the interval
+rather than leaving the old one behind — the engine reads `restart_every` and
+`expect_every` with `exists` rather than `defined`, so an explicit null clears
+while an absent key leaves alone, and collapsing those two made the checkbox
+one-way until the verify walkthrough caught it. The floor is measured, not chosen: the
 feeder flushes after 25 lines or two seconds of quiet, so a command restarting
 every second never leaves a gap and a perfectly healthy monitor reports no
 output at all.

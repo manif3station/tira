@@ -3807,6 +3807,13 @@ reader never has to infer it from whichever field is populated.
     elapses and a healthy monitor reports no output at all. `expect_every` is on
     the same form, and left blank it means *no expectation* rather than zero.
 
+    Both can be **unset** as well as set. Unticking the box sends an explicit
+    null and the engine clears the field; a save that omits the key leaves it
+    alone. `job_update` reads these two with `exists` rather than `defined`, so
+    absent and null are different instructions — which is what lets an unrelated
+    edit leave a monitor's declared expectation untouched while unticking the
+    box actually removes the interval.
+
     The schedule shows as words on the card face — `Every 30 minutes`, `Every
     day at 09:00`, `Runs continuously` — with the cron string kept as the
     tooltip. `Tira::Job::job_schedule_words` produces them, in the engine rather

@@ -338,7 +338,13 @@ A monitor with no command could never be found alive in the process table, so it
 would be reported dead for ever.
 
 **Looping is a checkbox with an interval**, off unless asked for, defaulting to
-five seconds. Do not set it below about two seconds. The reason is measured
+five seconds. Unticking it *removes* the interval rather than leaving the old one
+in place, and clearing the expectation field removes the expectation - the form
+can unset what it can set. That is not free: an absent field and an empty one
+mean different things to the engine, absent meaning "leave it alone" and empty
+meaning "take it away", and a save that does not mention a field still leaves it
+untouched, so an unrelated edit cannot wipe what a monitor declared about
+itself. Do not set it below about two seconds. The reason is measured
 rather than theoretical: the feeder that collects a monitor's output flushes
 after 25 lines or two seconds of quiet, and a command restarting every second
 never leaves a two-second gap - so a perfectly healthy monitor reports no output

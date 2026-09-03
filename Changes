@@ -32,6 +32,13 @@ Revision history for Tira
       offered a control whose value the save discarded - the form reporting
       success while the board held something else.
 
+      Both can also be UNSET, which the first attempt missed and the card's own
+      test step caught: unticking the box left the old interval in place. The
+      engine reads these two with `exists` rather than `defined`, so an explicit
+      null clears and an absent key leaves alone - two instructions the provider
+      had collapsed into one. The checkbox was one-way: it could add an interval
+      and never take one away, over a form reporting success.
+
       `job_schedule_words` puts the schedule into words on the card face, with
       the cron kept as the tooltip. In the engine rather than the browser, for
       the reason the schedule check already is: two readings of one format drift

@@ -152,6 +152,9 @@ my $app = Tira::DashboardWeb->build_psgi_app(
     job_run           => sub { '{}' },
     job_check         => sub { '{"ok":true}' },
     job_save          => sub { '{}' },
+    job_delete        => sub { '{}' },
+    job_stop          => sub { '{}' },
+    job_start         => sub { '{}' },
     columns => sub { '[]' },
     question_answer => sub { '{"ok":true}' },
     question_mark => sub { '{"ok":true}' },
@@ -202,6 +205,9 @@ my $app = Tira::DashboardWeb->build_psgi_app(
     job_run           => sub { '{}' },
     job_check         => sub { '{"ok":true}' },
     job_save          => sub { '{}' },
+    job_delete        => sub { '{}' },
+    job_stop          => sub { '{}' },
+    job_start         => sub { '{}' },
 );
 my @warnings;
 {
@@ -286,6 +292,9 @@ like( $@, qr/Missing dashboard detail provider/, 'PSGI builder requires a detail
     job_run           => sub { '{}' },
     job_check         => sub { '{"ok":true}' },
     job_save          => sub { '{}' },
+    job_delete        => sub { '{}' },
+    job_stop          => sub { '{}' },
+    job_start         => sub { '{}' },
             signed_in(),
             render => sub { '<!doctype html>' },
             data => sub { '{}' },

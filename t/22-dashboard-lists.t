@@ -157,6 +157,9 @@ my %providers = (
     job_run           => sub { '{}' },
     job_check         => sub { '{"ok":true}' },
     job_save          => sub { '{}' },
+    job_delete        => sub { '{}' },
+    job_stop          => sub { '{}' },
+    job_start         => sub { '{}' },
 );
 
 for my $missing (qw(checklist_add checklist_update)) {

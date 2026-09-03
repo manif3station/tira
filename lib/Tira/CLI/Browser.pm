@@ -513,10 +513,26 @@ sub providers {
         # browser disagree about attachment content types on TKT-713.
         job_save => sub {
             my ($payload) = @_;
+            # EVERY FIELD A JOB HAS, not the three it had when this was written.
+            # expect_every (TKT-863) and restart_every (TKT-891) both landed
+            # after TKT-858 built this, and neither was added here - so the page
+            # could offer a control whose value the save silently discarded,
+            # which is worse than not offering it: the form would report success
+            # and the board would hold something else. TKT-892.
+            #
+            # Still `defined` rather than truthy, for the reason the engine
+            # cares about: an UNDECLARED expectation is not a zero. Omitting the
+            # key leaves the job's value alone; sending it sets it. A truthy test
+            # would make 0 unsendable, and 0 is exactly what the engine refuses
+            # and must be allowed to refuse rather than have swallowed here.
             my %given = (
                 ( defined $payload->{schedule} ? ( schedule => $payload->{schedule} ) : () ),
                 ( defined $payload->{command}  ? ( command  => $payload->{command} )  : () ),
                 ( defined $payload->{message}  ? ( message  => $payload->{message} )  : () ),
+                ( defined $payload->{expect_every}
+                    ? ( expect_every => $payload->{expect_every} ) : () ),
+                ( defined $payload->{restart_every}
+                    ? ( restart_every => $payload->{restart_every} ) : () ),
             );
 
             if ( !defined $payload->{id} || $payload->{id} eq '' ) {
@@ -585,6 +601,62 @@ sub providers {
                 %given,
                 ( defined $payload->{enabled}  ? ( enabled  => $payload->{enabled} )  : () ),
             ) );
+        },
+
+        # HIS COMPLAINT 1 OF 2026-09-03: "In the UI there is no way i can delete
+        # any existing job card". The verb has always existed; the surface never
+        # did. TKT-892, absorbing TKT-889.
+        #
+        # THE REFUSAL IS THE POINT, not an edge case. tira.job.delete refuses a
+        # RUNNING monitor and names tira.job.stop in doing so (TKT-893), because
+        # deleting the record while the process runs leaves a pid nothing on the
+        # board points at - the orphan TKT-869 is about. That die travels to the
+        # page as the engine's own words, the same way a save refusal already
+        # does, rather than being caught and softened into "could not delete".
+        # A person told WHY can act; a person told THAT cannot.
+        job_delete => sub {
+            my ($payload) = @_;
+            die "A job id is required\n"
+              if !defined $payload->{id} || $payload->{id} eq '';
+            return $json->encode(
+                $tira->job_delete( project => $project, id => $payload->{id} ) );
+        },
+
+        # TKT-883's buttons, absorbed here: a running monitor offers Stop, a
+        # stopped one offers Start. Both verbs exist - job.stop is new from
+        # TKT-893, and it is what unblocked this card, since a Stop button that
+        # can only refuse is worse than no button at all.
+        #
+        # THROUGH THE CLI DISPATCHER, NOT THE ENGINE SUB. Tira::CLI::Job owns the
+        # half that touches the process: the engine clears the record and the CLI
+        # signals, in that order, so a stop that races a dying process still
+        # leaves the board honest. Calling $tira->job_stop from here would clear
+        # the record and signal nothing, which is the exact state - board says
+        # stopped, process still running - this card exists to stop happening.
+        job_stop => sub {
+            my ($payload) = @_;
+            die "A job id is required\n"
+              if !defined $payload->{id} || $payload->{id} eq '';
+            require Tira::CLI::Job;
+            return $json->encode(
+                Tira::CLI::Job::dispatch( $tira,
+                    { project => $project, id => $payload->{id} }, {}, 'job.stop' ) );
+        },
+
+        # And the other half of the pair. run_now rather than a spawn written
+        # here, for the reason the create path already gives: it is the same
+        # executor the play button uses, and it carries the already-running
+        # refusal and the spawn/record atomicity fix that only came out of
+        # review. A monitor has no schedule to bypass, so starting it and
+        # running it now are the same act.
+        job_start => sub {
+            my ($payload) = @_;
+            die "A job id is required\n"
+              if !defined $payload->{id} || $payload->{id} eq '';
+            require Tira::CLI::Job;
+            return $json->encode(
+                Tira::CLI::Job::run_now( $tira,
+                    { project => $project, id => $payload->{id} } ) );
         },
 
         # What the modal shows while somebody types. The answer is the ENGINE's

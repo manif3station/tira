@@ -21,7 +21,7 @@ set views => File::Spec->catdir(
     File::Basename::dirname( File::Spec->rel2abs(__FILE__) ), 'views' );
 set template => 'template_toolkit';
 
-our ( $JOB_RUN, $JOB_CHECK, $JOB_SAVE );
+our ( $JOB_RUN, $JOB_CHECK, $JOB_SAVE, $JOB_DELETE, $JOB_STOP, $JOB_START );
 our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $SEARCH, $COMMENT_ADD, $COMMENT_UPDATE, $COMMENT_REMOVE, $PEOPLE,
       $ATTACHMENT_FETCH, $ATTACHMENT_ADD, $ATTACHMENT_REMOVE, $ATTACHMENT_DISCARD, $CHECKLIST_ADD, $CHECKLIST_UPDATE,
       $REQUIRED_ACTION_UPDATE,
@@ -207,6 +207,13 @@ post '/jobs/run' => sub { return _mutation( \$JOB_RUN ) };
 # types (TKT-713), so the browser asks rather than decides.
 post '/jobs/check' => sub { return _mutation( \$JOB_CHECK ) };
 post '/jobs/save' => sub { return _mutation( \$JOB_SAVE ) };
+
+# The row's own verbs. Deleting is his complaint 1; stop and start are
+# TKT-883's buttons, which needed a stop verb that only arrived with TKT-893.
+# POSTs, not GETs: each one changes the board or a process. TKT-892.
+post '/jobs/delete' => sub { return _mutation( \$JOB_DELETE ) };
+post '/jobs/stop' => sub { return _mutation( \$JOB_STOP ) };
+post '/jobs/start' => sub { return _mutation( \$JOB_START ) };
 
 post '/comment/add' => sub { return _mutation( \$COMMENT_ADD ) };
 post '/comment/update' => sub { return _mutation( \$COMMENT_UPDATE ) };
@@ -459,6 +466,13 @@ my @PROVIDERS = (
     [ job_run => \$JOB_RUN, 'job run provider' ],
     [ job_check => \$JOB_CHECK, 'job schedule check provider' ],
     [ job_save => \$JOB_SAVE, 'job save provider' ],
+
+    # His three complaints of 2026-09-03 - a job card cannot be deleted, cannot
+    # be edited, and command-or-message cannot be chosen. The verbs all existed;
+    # the row had no way to reach them. TKT-892, absorbing TKT-883 and TKT-889.
+    [ job_delete => \$JOB_DELETE, 'job delete provider' ],
+    [ job_stop => \$JOB_STOP, 'job stop provider' ],
+    [ job_start => \$JOB_START, 'job start provider' ],
 );
 
 # What this server has answered, for the panel his --show-logs asks for.
@@ -718,7 +732,7 @@ these existed):
 
 =item * People: people
 
-=item * Repeated jobs: jobs, job_run, job_check, job_save
+=item * Repeated jobs: jobs, job_run, job_check, job_save, job_delete, job_stop, job_start
 
 The C</logs> route takes no provider: the record lives in this module, written
 by an C<after> hook and read back by C<_request_log>. It is served only when
@@ -734,6 +748,20 @@ while somebody types, returning the B<engine's> own refusal for a
 malformed crontab rather than a second opinion written in JavaScript -
 two validators for one format is how the engine and the browser came to
 disagree about attachment content types (TKT-713).
+
+C<job_delete>, C<job_stop> and C<job_start> are the row's own verbs, added
+for his three complaints of 2026-09-03 - a job card could not be deleted,
+could not be edited, and command-or-message could not be chosen. Each verb
+already existed on the board; none of them had a surface. C<job_delete>
+lets the engine's refusal travel to the page rather than catching it: a
+B<running> monitor is refused with words that name C<tira.job.stop>,
+because removing the record while the process runs leaves a pid nothing
+points at. C<job_stop> goes through the CLI dispatcher rather than the
+engine sub, since the engine clears the record and the CLI signals, in
+that order - calling the engine alone would clear the record and signal
+nothing, which is the board-says-stopped-process-still-running state the
+card exists to remove. C<job_start> uses the same C<run_now> executor the
+play button does. EPC-014, TKT-892.
 
 =item * Task List: tasklist, tasklist_add, tasklist_update, tasklist_next, tasklist_shift, tasklist_pop, tasklist_unshift, tasklist_slice, tasklist_remove, tasklist_import, tasklist_prune, tasklist_task_attach_add, tasklist_task_attach_discard, tasklist_task_ref_link, tasklist_task_ref_unlink, tasklist_sessions
 

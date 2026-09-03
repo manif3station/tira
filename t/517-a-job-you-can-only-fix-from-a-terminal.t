@@ -185,8 +185,15 @@ sub board {
 
         my $running = $tira->job_add(
             project => $root, schedule => 'monitor', command => 'd2 tira.police' );
-        $tira->job_update(
-            project => $root, id => $running->{id}, pid => 999999 );
+
+        # job_started, not job_update - the pid is not an ordinary editable
+        # field, and an update naming one leaves the record with no pid at all,
+        # so the delete below would be refusing nothing. And $$ rather than a
+        # made-up number: the guard asks whether the process is ALIVE, and an
+        # invented pid is a job the board thinks has already died. This test's
+        # own pid is the one pid it can be certain about. Nothing signals it -
+        # delete only refuses.
+        $tira->job_started( project => $root, id => $running->{id}, pid => $$ );
 
         # any failure is what this means. The only intended way for this call to
         # fail is the engine's refusal reaching the page - and a refusal that

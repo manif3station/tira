@@ -1263,6 +1263,7 @@ sub job_add    { my $self = shift; require Tira::Job; return Tira::Job::job_add(
 sub job_list   { my $self = shift; require Tira::Job; return Tira::Job::job_list( $self, @_ ) }
 sub job_update { my $self = shift; require Tira::Job; return Tira::Job::job_update( $self, @_ ) }
 sub job_delete { my $self = shift; require Tira::Job; return Tira::Job::job_delete( $self, @_ ) }
+sub job_stop { my $self = shift; require Tira::Job; return Tira::Job::job_stop( $self, @_ ) }
 sub job_is_due { my $self = shift; require Tira::Job; return Tira::Job::job_is_due( $self, @_ ) }
 sub job_started { my $self = shift; require Tira::Job; return Tira::Job::job_started( $self, @_ ) }
 
@@ -9340,6 +9341,15 @@ sub _police_environment_violations {
                 # escalation ladder against exactly the thing it was told
                 # never to stop. TKT-379.
                 next if _is_bridge_tail( $process->{command} );
+
+                # AND NEVER THIS PROCESS. Police is always in the table it is
+                # reading, so without this it reports itself as a leftover on
+                # every pass. The exclusion used to live in _processes_from,
+                # where it also hid a monitor from the liveness check that reads
+                # the same list - a monitor whose command is a police pass is
+                # the current process during that pass, and monitor-dead called
+                # it dead. TKT-874 moved it here, to the one rule that wants it.
+                next if ( $process->{pid} // 0 ) == $$;
 
                 next if !$self->_policy_older_than( $process->{started_at}, $policy->{age} );
                 $report->( $policy, undef, "still running: $process->{command}" );

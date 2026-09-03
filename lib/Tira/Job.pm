@@ -318,6 +318,18 @@ sub job_update {
         );
         my %fields = _job_fields(%merged);
 
+        # ONLY WHAT WOULD MAKE THE RECORD UNTRUE. Changing the schedule of a
+        # running monitor is harmless - it is already running, and 'monitor' is
+        # what it stays. Changing the COMMAND makes the board name something the
+        # pid is not executing, and DISABLING it makes monitor-dead go silent
+        # about a process that is still there, which is the one change that
+        # hides it in both directions at once. TKT-868, TKT-870.
+        _refuse_while_running( $job, 'changing its command' )
+          if defined $args{command}
+          && $args{command} ne ( $job->{command} // '' );
+        _refuse_while_running( $job, 'disabling it' )
+          if defined $args{enabled} && !$args{enabled} && $job->{enabled};
+
         %{$job} = ( %{$job}, %fields );
         $job->{enabled} = $args{enabled} ? 1 : 0 if defined $args{enabled};
         $job->{last_updated} = $self->{clock}->();
@@ -408,11 +420,45 @@ sub job_output_drain {
         my $count = defined $args{count} ? $args{count} : scalar @held;
         $count = @held if $count > @held;
 
+        # AND NEVER MORE THAN SURVIVED. Taking N off the front is right only
+        # while nothing trims the front in between - and job_feed trims exactly
+        # there when the buffer overflows, keeping the newest and discarding the
+        # oldest. So a chatty monitor between the read and this drain shifts the
+        # queue out from under the count, and the first N become lines nobody
+        # has heard.
+        #
+        # Measured before the fix: 200 announced, 200 more fed, and the drain
+        # took NEW-1..NEW-200 - two hundred lines the bridge never saw, with the
+        # dropped counter accounting for none of them.
+        #
+        # The overflow already tells us how many of the announced lines are
+        # gone, so the count is reduced by exactly that. What is left at the
+        # front is still the oldest surviving announced lines; anything the
+        # overflow removed was announced and lost, which is a real loss the
+        # dropped counter reports, rather than a silent one this drain adds to.
+        #
+        # THE EXISTING CODE GUARDED THE OTHER HALF OF THIS. Its comment already
+        # says taking everything "would discard lines nobody announced", and it
+        # is right - the count stops the buffer having GROWN from costing us.
+        # This stops it having SHRUNK. TKT-893, found by the hourly hunt.
         # Likewise for the drops: subtracted rather than zeroed, because the
         # buffer may have overflowed again between the read and the write and
         # that count is a real loss somebody still has to be told about.
         my $dropped = defined $args{dropped} ? $args{dropped} : $have;
         $dropped = $have if $dropped > $have;
+
+        # ONLY WHEN THE CALLER SAID WHAT IT ANNOUNCED. Without a count this is
+        # "take what is here now", there was no gap between a read and this
+        # call, and nothing in the buffer is unannounced - so subtracting drops
+        # would refuse to drain a chatty monitor at all. The first version of
+        # this guard did exactly that and t/503 caught it: 500 lines fed, every
+        # one of them left in place.
+        if ( defined $args{count} ) {
+            my $trimmed = $have - $dropped;
+            $trimmed = 0 if $trimmed < 0;
+            $count -= $trimmed;
+            $count = 0 if $count < 0;
+        }
 
         return { lines => [], dropped => 0 } if !$count && !$dropped;
 
@@ -454,6 +500,60 @@ sub job_started {
         $self->_write_json( _job_path( $self, $root ), $jobs );
         return $job;
     } );
+}
+
+# A monitor stops, and the board stops pointing at its process. TKT-893, from
+# the decision recorded as KD13: the board never silently claims something
+# false, so update, delete and disable refuse while a monitor is running - and a
+# refusal is only actionable if there is something to act with. This is it, and
+# TKT-892's Stop button is the other reason it exists.
+#
+# IT SUCCEEDS WHETHER OR NOT THE PROCESS IS THERE, which is the part worth
+# understanding. The engine cannot read the process table - it is forbidden qx,
+# system, exec and piped open, which is why liveness is decided from a table the
+# CLI gathers and hands over. So all this knows is whether a pid was RECORDED.
+# A pid whose process has already died is exactly the case somebody needs to
+# clear, and refusing to clear it would leave the record wrong for ever with no
+# way out. Stopping is therefore "the board is no longer responsible for that
+# pid", and killing the process is what it does on the way if it is still there.
+sub job_stop {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    die "A job id is required\n" if !defined $args{id} || $args{id} eq '';
+
+    return $self->_with_project_lock( $root, sub {
+        my $jobs = _job_read( $self, $root );
+        my $job  = _job_find( $jobs, $args{id} );
+        die "Job $args{id} is a cron job, not a monitor - a cron job is not up "
+          . "between runs, so there is nothing to stop\n"
+          if ( $job->{schedule_kind} // '' ) ne 'monitor';
+
+        my $pid = $job->{pid};
+
+        # Signalling is the caller's to do, not the engine's: killing needs a
+        # process table to be sure of what is being killed, and this module
+        # deliberately cannot reach one. The pid is returned so the CLI can act
+        # on it, and the record is cleared either way - a board pointing at a
+        # process nobody is responsible for is the fault this closes.
+        $job->{pid}          = undef;
+        $job->{started_at}   = undef;
+        $job->{last_updated} = $self->{clock}->();
+        $self->_write_json( _job_path( $self, $root ), $jobs );
+        return { %{$job}, stopped_pid => $pid };
+    } );
+}
+
+# What update, delete and disable all ask before changing a monitor. Named once
+# because three callers asking the same question three ways is how they came to
+# give three different answers. TKT-868, TKT-869, TKT-870.
+sub _refuse_while_running {
+    my ( $job, $what ) = @_;
+    return if ( $job->{schedule_kind} // '' ) ne 'monitor';
+    return if !defined $job->{pid} || $job->{pid} eq '';
+    die "Job $job->{id} is running as pid $job->{pid}, so $what would leave the "
+      . "board saying something untrue about it. Stop it first:\n"
+      . "  d2 tira.job.stop --id $job->{id}\n"
+      . "That clears the record even if the process has already gone.\n";
 }
 
 # The wall-clock seconds in a stamp, or undef if it does not carry one.
@@ -596,6 +696,12 @@ sub job_delete {
     return $self->_with_project_lock( $root, sub {
         my $jobs = _job_read( $self, $root );
         my $job  = _job_find( $jobs, $args{id} );
+
+        # The worst of the three, because it removes the only thing that could
+        # have reported the orphan: once the job is gone, monitor-dead has no
+        # record to notice the process by. TKT-869.
+        _refuse_while_running( $job, 'deleting it' );
+
         $self->_write_json( _job_path( $self, $root ),
             [ grep { $_->{id} ne $args{id} } @{$jobs} ] );
         return $job;

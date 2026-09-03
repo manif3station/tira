@@ -418,6 +418,12 @@ sub advance_monitor_output {
     return;
 }
 
+# How long a command-mode job is given before the board stops waiting. Generous,
+# because the cost of cutting a slow-but-working job short is a false failure on
+# the bridge, and the cost of waiting is bounded now rather than infinite. A job
+# that genuinely needs longer says so with its own run_timeout. TKT-864.
+our $RUN_TIMEOUT = 300;
+
 sub run_due_job {
     my (%args) = @_;
     my $job = $args{job};
@@ -457,10 +463,33 @@ sub run_due_job {
     # a malicious one. Caught in review before it shipped; it would have looked
     # like a job that never returned, which is precisely the silence this card
     # exists to remove.
+    # AND BOUNDED, because can_read with no argument waits for ever. A child that
+    # neither writes nor exits - `sleep 60`, a poll against something that has
+    # stopped answering, a prompt nobody will type into - left this blocked, and
+    # waitpid was never reached. The police pass never finished, so NOTHING was
+    # reported: one bad command silenced the whole board.
+    #
+    # That is the same failure shape EPC-014 exists to end, arriving through the
+    # machinery built to end it. The deadlock guarded against above is one way
+    # to never return; this is the general case. TKT-864.
+    #
+    # The deadline is absolute rather than per-read, so a command that dribbles
+    # a byte a second cannot renew it for ever.
     require IO::Select;
+    require POSIX;
+    my $limit = $job->{run_timeout} || $RUN_TIMEOUT;
+    my $deadline = time + $limit;
+    my $timed_out = 0;
+
     my $select = IO::Select->new( $out, $error );
     my %text = ( "$out" => '', "$error" => '' );
-    while ( my @ready = $select->can_read ) {
+    while ( $select->handles ) {
+        my $left = $deadline - time;
+        if ( $left <= 0 ) { $timed_out = 1; last }
+
+        my @ready = $select->can_read($left);
+        if ( !@ready ) { $timed_out = 1; last }
+
         for my $handle (@ready) {
             my $chunk = '';
             my $read = sysread $handle, $chunk, 65536;
@@ -468,6 +497,22 @@ sub run_due_job {
             $text{"$handle"} .= $chunk;
         }
     }
+
+    # KILLED, NOT ABANDONED. Returning while the child runs would leave a
+    # process nothing on the board points at - the orphan TKT-869 is about -
+    # and the next pass would start another beside it. TERM first because a
+    # command given the chance to stop tidily usually should be.
+    if ($timed_out) {
+        kill 'TERM', $pid;
+        my $gone = 0;
+        for ( 1 .. 20 ) {
+            $gone = waitpid( $pid, POSIX::WNOHANG() );
+            last if $gone;
+            select undef, undef, undef, 0.1;
+        }
+        kill 'KILL', $pid if !$gone;
+    }
+
     close $out;
     close $error;
     waitpid $pid, 0;
@@ -482,10 +527,23 @@ sub run_due_job {
     my $signal = $raw & 127;
     my $status = $signal ? 128 + $signal : $raw >> 8;
 
+    # A TIMED-OUT JOB IS NOT A SUCCESS, and it is not merely "killed" either.
+    # Left to the signal arithmetic above it would read as 143 - a job somebody
+    # stopped - with nothing to say the board stopped it, and a reader of the
+    # bridge could not tell it from a command that failed on its own terms. So
+    # the status is named and the output says so, because a pass that finishes
+    # and reports nothing about this job is a hang traded for a lie.
+    my $output = $text{"$out"} . $text{"$error"};
+    if ($timed_out) {
+        $status = -1;
+        $output .= "\n" if length $output && $output !~ /\n\z/;
+        $output .= "the job timed out after ${limit}s and was stopped";
+    }
+
     return {
         ran    => 1,
         status => $status,
-        output => $text{"$out"} . $text{"$error"},
+        output => $output,
     };
 }
 

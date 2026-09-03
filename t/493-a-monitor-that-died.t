@@ -210,6 +210,14 @@ is( scalar @{$cron_quiet}, 0,
 # enabled, so silence here is the enabled flag being read, not the rule being
 # broken.
 
+# STOPPED FIRST, which the board began requiring in TKT-893. Disabling a
+# monitor the board still has a pid for is refused, because monitor-dead is
+# deliberately silent about a disabled monitor - so disabling one that is
+# running is the single change that hides a live process in both directions at
+# once (TKT-870). The engine cannot tell a stale pid from a live one, so the
+# refusal fires on this fixture's invented pid too, and job_stop is how a record
+# pointing at a process nobody is responsible for is cleared either way.
+$tira->job_stop( project => $root, id => $monitor->{id} );
 $tira->job_update( project => $root, id => $monitor->{id}, enabled => 0 );
 my $disabled = violations( world => { processes => [$unrelated] } );
 is( scalar @{$disabled}, 0,
@@ -301,6 +309,12 @@ for my $why ( sort keys %refused ) {
 
 # A monitor whose command is not a program is a result, not a crash - the same
 # judgement run_due_job makes about a command that is not there.
+#
+# STOPPED FIRST, for the reason given above: since TKT-893 the board refuses to
+# change the command of a monitor it still holds a pid for, because the pid
+# would go on running the old one while the record named the new. This fixture
+# recorded a pid earlier in the file, so it has to let go of it before editing.
+$tira->job_stop( project => $root, id => $monitor->{id} );
 $tira->job_update(
     project => $root, id => $monitor->{id},
     command => 'tira-no-such-program-anywhere' );
@@ -311,6 +325,14 @@ ok( !eval {
     },
     'a monitor whose command does not exist is refused, naming it' );
 
+# STOPPED FIRST, which the board began requiring in TKT-893. Disabling a
+# monitor the board still has a pid for is refused, because monitor-dead is
+# deliberately silent about a disabled monitor - so disabling one that is
+# running is the single change that hides a live process in both directions at
+# once (TKT-870). The engine cannot tell a stale pid from a live one, so the
+# refusal fires on this fixture's invented pid too, and job_stop is how a record
+# pointing at a process nobody is responsible for is cleared either way.
+$tira->job_stop( project => $root, id => $monitor->{id} );
 $tira->job_update( project => $root, id => $monitor->{id}, enabled => 0 );
 ok( !eval {
         Tira::CLI::Job::dispatch(

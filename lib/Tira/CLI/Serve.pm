@@ -327,7 +327,25 @@ sub _processes_from {
         # whatever was running.
         next if $line !~ /\A\s*(\d+)\s+(\w{3}\s+\w+\s+\w+\s+[\d:]+\s+\d{4})\s+(.*)\z/;
         my ( $pid, $started, $command ) = ( $1, $2, $3 );
-        next if $pid == $$;
+
+        # THE CURRENT PROCESS STAYS IN. It used to be dropped here, which was
+        # right for the only consumer that existed at the time: leftover-process
+        # walks this list looking for things that should have stopped, and
+        # police is always in it, so without an exclusion police accused itself
+        # on every pass.
+        #
+        # monitor-dead then began reading the same list to ask whether a
+        # recorded pid is still there, and wants the opposite - a monitor whose
+        # command is a police pass IS the current process during that pass, and
+        # a table built without it made job_monitor_alive answer "not there"
+        # about something demonstrably running. TKT-874.
+        #
+        # Two consumers, opposite needs, one list. So the exclusion moved to the
+        # rule that needs it rather than staying in the gathering they share:
+        # this reports what is running, and leftover-process decides what to say
+        # about itself. Deleting it from both would have traded a monitor
+        # reported dead for police reported as a leftover - the same fault
+        # wearing the other coat.
         push @processes,
           { pid => $pid, started_at => _stamp_from_ps($started), command => $command };
     }

@@ -3812,7 +3812,7 @@ reader never has to infer it from whichever field is populated.
     tooltip. `Tira::Job::job_schedule_words` produces them, in the engine rather
     than the browser for the same reason the crontab check is asked of the
     engine, and anything it cannot describe with certainty is shown unchanged.
-    Run now writes into a tail below the card: a hundred lines, newest visible,
+    Run now writes into a tail at the foot of the card: a hundred lines, newest visible,
     under a minute old highlighted.
 
     Since 5.39 a monitor row also reports whether its process is up, as a green

@@ -2466,7 +2466,7 @@ attachment content types (TKT-713) — and it refuses to guess: anything it cann
 describe with certainty is returned unchanged, because a nearly-right
 description would be believed and the cron never read again.
 
-**Run now writes into a tail below the card**: a hundred lines, newest visible,
+**Run now writes into a tail at the foot of the card**: a hundred lines, newest visible,
 under a minute old in yellow. The care is in it surviving the section's own
 30-second refresh — a log owned by the card element would be wiped twice a
 minute by the reload that rebuilds every card, leaving *less* than the single

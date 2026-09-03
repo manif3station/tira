@@ -325,9 +325,17 @@ is the same distinction the running indicator beside it makes.
 fills them from the job. The schedule kind is a pair of radio buttons rather
 than the word `monitor` typed into a schedule box, which was a magic value
 somebody had to know. Command or Message is a second pair, and Message is not
-offered under Monitor - not because the page has an opinion, but because the
-engine refuses that pairing outright: a monitor with no command can never be
-found alive in the process table, so it would be reported dead for ever.
+offered under Monitor. The page is making a choice there, but it is not the
+authority for it - the engine refuses that pairing outright, and the page is
+declining to offer what the save would reject:
+
+```
+A 'monitor' job runs a command - give --command, not --message. A monitor stays
+running rather than firing on a tick, so there is nothing for it to announce
+```
+
+A monitor with no command could never be found alive in the process table, so it
+would be reported dead for ever.
 
 **Looping is a checkbox with an interval**, off unless asked for, defaulting to
 five seconds. Do not set it below about two seconds. The reason is measured
@@ -352,7 +360,7 @@ monitor            ->  Runs continuously
 17 3 5,20 */2 1-5  ->  17 3 5,20 */2 1-5
 ```
 
-**Run now writes into a tail below the card** - the last hundred lines, scrolled
+**Run now writes into a tail at the foot of the card** - the last hundred lines, scrolled
 to the newest, with anything under a minute old in yellow. It survives the
 section's own thirty-second refresh, which is the part that took care: a log
 owned by the card element would be wiped twice a minute by the reload that

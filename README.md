@@ -348,7 +348,7 @@ The schedule shows as words — *Every 30 minutes*, *Every day at 09:00*, *Runs
 continuously* — with the cron string kept as the tooltip. The words are produced
 by the engine rather than the browser, and anything it cannot describe with
 certainty is shown unchanged rather than guessed at. Run now writes into a tail
-below the card: the last hundred lines, newest visible, with anything under a
+at the foot of the card: the last hundred lines, newest visible, with anything under a
 minute old highlighted.
 
 Since 5.41 a running monitor's own output reaches the police bridge instead of

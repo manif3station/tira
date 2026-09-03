@@ -139,6 +139,44 @@ sub running_monitor {
     like( $why, qr/tira\.job\.stop|stop/i, 'and it says what to do first' );
 }
 
+# --- and a schedule change that would stop it being a monitor ----------------
+#
+# THIS ASSERTION EXISTS BECAUSE A REVIEW CHALLENGED A SENTENCE, not because a
+# test failed. The first version of this card documented, three times, that
+# "changing the schedule of a running monitor is harmless - it is already
+# running, and monitor is what it stays". The second half is false: a schedule
+# of "0 * * * *" makes it a CRON job and keeps the pid, and job_monitor_alive
+# answers 0 for anything that is not a monitor - so the process ran on with
+# nothing on the board watching it.
+#
+# Measured before this was written: kind=cron, pid=424242, and monitor_alive
+# NOT ALIVE. That is TKT-870's own fault, reached through the guard written to
+# close it.
+
+{
+    my ( $tira, $root ) = board();
+    my $id = running_monitor( $tira, $root );
+
+    # any failure is what this means. One call, one intended refusal.
+    my $ok = eval {
+        $tira->job_update( project => $root, id => $id, schedule => '0 * * * *' );
+        1;
+    };
+    my $why = $@;
+
+    ok( !$ok, 'turning a running monitor into a cron job is refused - the pid '
+          . 'would stay on a record monitor-dead no longer watches, which is '
+          . 'the same live-process-nobody-sees fault by another door' );
+    like( $why, qr/tira\.job\.stop|stop/i, 'and it says what to do first' );
+
+    # AND THE HARMLESS CASE IS STILL ALLOWED, or this refusal has gone too far:
+    # a monitor staying a monitor is not a change the board can be wrong about.
+    my $same = $tira->job_update(
+        project => $root, id => $id, schedule => 'monitor' );
+    is( $same->{schedule_kind}, 'monitor',
+        'while a monitor staying a monitor is untouched' );
+}
+
 # --- and stopping it makes all three ordinary again ---------------------------
 #
 # The refusals are only reasonable if the way past them works. A gate that can
@@ -208,6 +246,40 @@ sub running_monitor {
     my @left = grep { $_->{id} eq $cron->{id} }
       @{ $tira->job_list( project => $root ) };
     is( scalar @left, 0, 'and deleted freely' );
+}
+
+# --- and the command the refusals name actually EXISTS -----------------------
+#
+# THIS ASSERTION WAS ADDED AFTER THE FACT AND IT SHOULD HAVE BEEN HERE FIRST.
+# Every refusal above tells the reader to run `d2 tira.job.stop --id ...`, and
+# all of them passed while that command did not exist: the engine sub was
+# written and reachable from Perl, but nothing routed the verb, no entrypoint
+# was installed, and a person following the message would have got "command not
+# found".
+#
+# That is the same shape as TKT-895, filed today - a refusal whose way out is
+# not actually available. A test proving the engine while the message names the
+# CLI proves the half nobody reads.
+
+{
+    my $entrypoint = File::Spec->catfile( 'skills', 'job', 'cli', 'stop' );
+    ok( -f $entrypoint && -x $entrypoint,
+        'tira.job.stop is an installed entrypoint, not just an engine sub - '
+          . 'the refusals above name it, and a person follows the message '
+          . 'rather than calling Perl' );
+
+    my $cli = do {
+        open my $fh, '<:raw', 'lib/Tira/CLI.pm' or die "CLI.pm: $!";
+        local $/;
+        <$fh>;
+    };
+
+    # non-empty is the whole claim: the assertion below searches this text.
+    like( $cli, qr/\S/, 'the dispatcher is there to be read' );
+
+    like( $cli, qr/job\\\.\(\?:[a-z|]*\bstop\b/,
+        'and the dispatcher routes it, so the verb reaches the code rather '
+          . 'than being refused as unknown' );
 }
 
 done_testing();

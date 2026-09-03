@@ -3559,11 +3559,12 @@ runs a `--command` — never both and never neither, because a record carrying
 both cannot say which the bridge should get. `mode` records which it is, so a
 reader never has to infer it from whichever field is populated.
 
-- `tira.job.add --schedule CRON|monitor (--command TEXT | --message TEXT) [--expect-every MINUTES] [-o FORMAT]`
+- `tira.job.add --schedule CRON|monitor (--command TEXT | --message TEXT) [--expect-every MINUTES] [--restart-every SECONDS] [-o FORMAT]`
 - `tira.job.list [-o FORMAT]`
-- `tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TEXT] [--expect-every MINUTES] [--enabled 1|yes|true|on|0|no|false|off] [-o FORMAT]`
+- `tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TEXT] [--expect-every MINUTES] [--restart-every SECONDS] [--enabled 1|yes|true|on|0|no|false|off] [-o FORMAT]`
 - `tira.job.delete --id ID [-o FORMAT]`
 - `tira.job.start --id ID [-o FORMAT]`
+- `tira.job.stop --id ID [-o FORMAT]`
 - `tira.job.run --id ID [-o FORMAT]`
 - `tira.job.feed --id ID`
 - `tira.job.help`
@@ -3594,6 +3595,38 @@ reader never has to infer it from whichever field is populated.
     quiet for hours because it only speaks when something happens. What reads the
     field is the dashboard heartbeat, and the `monitor-silent` police rule when
     it lands.
+
+    **`tira.job.stop` lets go of a running monitor** (TKT-893). It clears the
+    pid the board recorded **and the start time recorded with it**, then signals
+    the process - in that order, so a signal that fails cannot leave the board
+    still pointing at a pid nobody is responsible for. It succeeds **whether or
+    not that process is still there** - the engine cannot read a process table
+    by design, so all it knows is that a pid was recorded, and a pid whose
+    process already died is exactly what somebody needs to clear. Refusing that
+    would leave the record wrong for ever with no way out.
+
+    **Three verbs now refuse while a monitor is running**, and each names this
+    one: changing its `--command` (the pid would still be running the old one),
+    `--enabled 0` (`monitor-dead` is deliberately silent about a disabled
+    monitor, so this is the one change that hides a live process in both
+    directions), and `tira.job.delete` (the record would go and the process
+    would not, and `monitor-dead` cannot report an orphan whose job no longer
+    exists). Changing a running monitor's *schedule* is allowed while it stays a monitor,
+    and refused when it would turn it into a **cron job** - that would keep the
+    pid on a record `monitor-dead` no longer watches, leaving the process
+    running with nothing on the board looking at it.
+
+    A monitor that is **not** running, and every cron job, behave exactly as
+    before. The rule is only about the board claiming something untrue.
+
+    **`--restart-every SECONDS` keeps a command running** (TKT-891). When the
+    command ends, the board waits that long and runs it again - so nobody types
+    a `while` loop into a command field, which is one opaque string the board
+    cannot report on. Whole seconds greater than zero; leaving it out means no
+    restarting, which is not the same as zero. Refused on a cron job (it fires
+    on a tick rather than staying up) and on a message job (a loop can only wrap
+    a command). The loop lives in the fixed pipeline script and wraps the
+    positional parameters, so a job command still never becomes shell source.
 
     **`tira.job.help` takes no arguments and prints `docs/JOBS.md` whole**, the
     way `tira.policies` prints `docs/POLICIES.md` - the same mechanism, not a

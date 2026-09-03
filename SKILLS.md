@@ -1938,11 +1938,12 @@ form and refuse two `--command` flags outright, because a job runs one command
 and quietly dropping the other is the fault the option guard exists to prevent.
 
 ```text
-tira.job.add --schedule CRON|monitor (--command TEXT | --message TEXT) [--expect-every MINUTES] [-o FORMAT]
+tira.job.add --schedule CRON|monitor (--command TEXT | --message TEXT) [--expect-every MINUTES] [--restart-every SECONDS] [-o FORMAT]
 tira.job.list [-o FORMAT]
-tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TEXT] [--expect-every MINUTES] [--enabled 1|yes|true|on|0|no|false|off] [-o FORMAT]
+tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TEXT] [--expect-every MINUTES] [--restart-every SECONDS] [--enabled 1|yes|true|on|0|no|false|off] [-o FORMAT]
 tira.job.delete --id ID [-o FORMAT]
 tira.job.start --id ID [-o FORMAT]
+tira.job.stop --id ID [-o FORMAT]
 tira.job.run --id ID [-o FORMAT]
 tira.job.feed --id ID
 tira.job.help

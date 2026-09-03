@@ -13293,6 +13293,23 @@ be a fact about a process that has already exited, and C<job_monitor_alive>
 would then have to decide which pids it is allowed to believe. Refusing the
 write keeps that question from existing. EPC-014, TKT-842.
 
+=head2 job_stop
+
+Lets go of a running monitor: clears the recorded pid and start time, and
+returns the pid it was holding as C<stopped_pid> so the caller can signal it.
+Refused for a cron job, which is not up between runs and has nothing to stop.
+
+B<It succeeds whether or not the process is still there>, and that is the
+engine's constraint deciding the shape rather than a preference. This module
+cannot read a process table - it is forbidden C<qx>, C<system>, C<exec> and
+piped C<open> - so all it can know is that a pid was RECORDED. A pid whose
+process has already died is exactly the record somebody needs to clear, and
+refusing would leave the board wrong for ever with no way out.
+
+That is why C<job_update> and C<job_delete> can point at it when they refuse to
+touch a running monitor: the way past a refusal has to work in every case that
+reaches it. TKT-893.
+
 =head2 job_feed
 
 Records what a monitor has called in with, against the job that said it, and

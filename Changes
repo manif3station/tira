@@ -2,6 +2,64 @@ Revision history for Tira
 
 5.42  2026-09-03
 
+    - TKT-893. What the board knows about a running monitor, and nine ways it
+      was wrong. Grouped on his instruction - "group the same type into one
+      ticket... the full process is slow" - and they turned out to be one root
+      rather than nine faults: the board records a monitor's pid and command at
+      start, and nothing kept that record true afterwards.
+
+      `tira.job.stop` is new, and three verbs now refuse while a monitor is
+      running rather than quietly diverging from it: changing its command (the
+      pid still runs the old one), disabling it (`monitor-dead` is silent about
+      a disabled monitor, so this hid a live process in both directions), and
+      deleting it (the record went and the process did not, taking with it the
+      only thing that could have reported the orphan). One shared guard, named
+      once. A monitor that is not running, and every cron job, are unaffected.
+
+      `monitor-silent` is a new police rule for the case `monitor-dead` and
+      `monitor-output` leave between them - a monitor that is up and has stopped
+      speaking. It reads the expectation the monitor itself declared, so the
+      bridge and the dashboard heartbeat cannot disagree about whether something
+      is overdue. Silent for a cron job, a disabled monitor, one with no
+      command, one that declared no expectation, and one that has never spoken
+      at all - the last because there is no silence to measure yet. Whole-board,
+      and it refuses `--age` rather than ignoring it, since the lateness is
+      already measured against what the monitor said. A jobs record it cannot
+      read is reported, not taken for a board with no monitors.
+
+      `tira.job.stop` clears the recorded start time as well as the pid, and
+      clears both BEFORE signalling, so a signal that fails cannot leave the
+      board pointing at a process nobody is responsible for.
+
+      `--restart-every` keeps a command running without anybody typing a `while`
+      loop. The loop is in the fixed pipeline script and wraps the positional
+      parameters, so a job command still never becomes shell source - and
+      because the supervising shell survives, the pid the board holds never
+      changes and a restart is invisible to `monitor-dead`.
+
+      A monitor that runs a police pass no longer reports ITSELF dead: the
+      process table was built with the current process removed, which was right
+      for `leftover-process` and broken for `monitor-dead`, and they read one
+      list. The exclusion moved to the rule that wants it.
+
+      `run_due_job` can no longer block the bridge for ever. It waited on
+      `can_read` with no timeout, so one command that neither wrote nor exited
+      silenced the whole board. Now an absolute deadline - 300 seconds, or a
+      job's own `run_timeout` - then TERM and KILL rather than abandoning the
+      process, a status of -1 rather than the 143 the signal arithmetic would
+      give, and output naming the timeout. A timeout that finished the pass and
+      said nothing would have swapped a hang for a lie.
+
+      And `job_output_drain` stops removing lines the bridge never announced.
+      It took the announced count off the front, which holds only while nothing
+      trims the front - and `job_feed` trims exactly there on overflow. The
+      count is now reduced by what the overflow already took, and only when the
+      caller passed one: without a count the call means "take what is here", so
+      adjusting there would have stopped a chatty monitor being drained at all.
+
+      One of the nine needed nothing: TKT-871's spool-offset fault lives in code
+      TKT-851 deleted, recorded with the evidence rather than ticked.
+
     - TKT-863. A monitor can say how often it expects to speak, and the
       dashboard shows one that has stopped saying it. His title: "List the
       monitors heatbeat with a red/green dim and light up on and off".
@@ -55,7 +113,7 @@ Revision history for Tira
       because an agent reading an invented cautionary tale has no reason to
       believe it and there were four real ones to hand.
 
-      60 worked examples, not the hundred he asked for, and the document states
+      65 worked examples, not the hundred he asked for, and the document states
       the count and the reason in its second paragraph rather than letting the
       number pass. A hundred was reachable only by writing the same example with
       different words, which would have met the number and defeated the purpose

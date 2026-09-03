@@ -353,12 +353,31 @@ sub job_update {
         );
         my %fields = _job_fields(%merged);
 
-        # ONLY WHAT WOULD MAKE THE RECORD UNTRUE. Changing the schedule of a
-        # running monitor is harmless - it is already running, and 'monitor' is
-        # what it stays. Changing the COMMAND makes the board name something the
-        # pid is not executing, and DISABLING it makes monitor-dead go silent
-        # about a process that is still there, which is the one change that
-        # hides it in both directions at once. TKT-868, TKT-870.
+        # ONLY WHAT WOULD MAKE THE RECORD UNTRUE - and the first version of this
+        # comment got one of them wrong, which is worth leaving on the record.
+        # It said "changing the schedule of a running monitor is harmless - it
+        # is already running, and 'monitor' is what it stays". THE SECOND HALF
+        # IS FALSE: a schedule of '0 * * * *' makes it a CRON job, keeps the
+        # pid, and job_monitor_alive answers 0 for anything that is not a
+        # monitor - so the process goes on running with nothing on the board
+        # watching it. That is TKT-870's fault reached by another door, left
+        # open by the guard written to close it.
+        #
+        # So the schedule is refused when it would change the KIND. Monitor to
+        # monitor really is harmless and stays allowed; monitor to cron is the
+        # case above.
+        #
+        # Found by a review challenging the sentence, not by a test - the tests
+        # asserted the three refusals and never asked what else could make the
+        # record untrue.
+        _refuse_while_running( $job, 'changing it from a monitor to a cron job' )
+          if defined $args{schedule}
+          && $args{schedule} ne 'monitor'
+          && ( $job->{schedule_kind} // '' ) eq 'monitor';
+
+        # Changing the COMMAND makes the board name something the pid is not
+        # executing, and DISABLING it makes monitor-dead go silent about a
+        # process that is still there. TKT-868, TKT-870.
         _refuse_while_running( $job, 'changing its command' )
           if defined $args{command}
           && $args{command} ne ( $job->{command} // '' );
@@ -868,6 +887,56 @@ whole number of minutes, and B<undeclared means no expectation> rather than a
 default. The dashboard heartbeat reads it. A police rule that announces the
 silence on the bridge is TKT-873, absorbed into TKT-893, and it will read the
 same field rather than inventing a second notion of late.
+
+=head1 WHAT THE BOARD SAYS ABOUT A PROCESS IT DID NOT START
+
+TKT-893, grouping nine findings that turned out to be one: the board records a
+monitor's pid and command when it starts, and until this card nothing kept that
+record true afterwards.
+
+Each verb answered differently and none of them said so. C<job_update> changed
+the command while the pid went on running the old one. C<job_delete> removed the
+record and left the process, taking with it the only thing C<monitor-dead> could
+have reported the orphan by. Setting C<enabled> to 0 cleared nothing, and since
+C<monitor-dead> is deliberately silent about a disabled monitor, that was the one
+change making a live process invisible in both directions at once.
+
+B<The rule is that the board never silently claims something false.> So the three
+refuse while a monitor is running, through one shared C<_refuse_while_running> -
+named once, because three callers asking the same question three ways is exactly
+how they came to give three answers. Only what would make the record untrue is
+refused: a running monitor's schedule may change while it stays a monitor, and
+is refused when it would turn it into a cron job - which would keep the pid on a
+record C<monitor-dead> no longer watches.
+
+B<C<job_stop> succeeds whether or not the process is there, and signals nothing.>
+That is the engine's own constraint deciding the shape rather than a preference:
+this module is forbidden C<qx>, C<system>, C<exec> and piped C<open>, which is
+why liveness is decided from a table L<Tira::CLI::Police> gathers and hands over.
+So all it can know is that a pid was RECORDED. A pid whose process has already
+died is precisely what somebody needs to clear, and refusing would leave the
+record wrong for ever - the trap of a gate satisfiable only by giving up. The pid
+comes back as C<stopped_pid> so the CLI, which is allowed to, can signal it.
+
+B<And the record is cleared BEFORE the signal.> A signal that fails - the process
+already gone, or owned by somebody else - must not leave the board still pointing
+at a pid nobody is responsible for, which is the whole fault being closed.
+
+=head1 KEEPING A COMMAND RUNNING
+
+C<restart_every> is how a monitor says it should be started again when its
+command ends. TKT-891, from his own JOB-006: a C<while> loop typed into a command
+field to keep police alive, which never ran once.
+
+B<A field rather than shell, because the board can see a field.> A command
+containing a loop is one opaque string - nothing can report the interval, tell a
+supervised job from a plain one, or count restarts.
+
+The loop itself is in L<Tira::CLI::Job>'s fixed pipeline script, wrapping the
+positional parameters. Nothing of the job's becomes shell source, which is
+TKT-851's guarantee and is untouched: what is looped is the same C<"$@"> that was
+exec'd before. Refused on a cron job, which fires on a tick rather than staying
+up, and on a message job, because a loop can only wrap a command.
 
 =head1 A MONITOR CALLS IN - ITS LEAVINGS ARE NOT READ
 

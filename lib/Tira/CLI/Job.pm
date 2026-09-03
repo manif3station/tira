@@ -349,6 +349,8 @@ sub dispatch {
         ( defined $option->{message} ? ( message => $option->{message} ) : () ),
         ( defined $option->{expect_every}
             ? ( expect_every => $option->{expect_every} ) : () ),
+        ( defined $option->{restart_every}
+            ? ( restart_every => $option->{restart_every} ) : () ),
     ) if $command eq 'job.add';
 
     return $tira->job_update(
@@ -363,9 +365,27 @@ sub dispatch {
         # monitor no longer declares one; _job_fields reads that as undef.
         ( defined $option->{expect_every}
             ? ( expect_every => $option->{expect_every} ) : () ),
+        ( defined $option->{restart_every}
+            ? ( restart_every => $option->{restart_every} ) : () ),
     ) if $command eq 'job.update';
 
     return $tira->job_delete( %{$args} ) if $command eq 'job.delete';
+
+    # STOPPING IS TWO THINGS, and only one of them belongs to the engine. The
+    # record is cleared there - Tira::Job cannot read a process table, and must
+    # not, which is the boundary TKT-874 was fixed to respect. Signalling the
+    # process is this layer's, because this layer is allowed to.
+    #
+    # The record is cleared FIRST and the signal follows. A signal that fails -
+    # the process already gone, or owned by somebody else - must not leave the
+    # board still pointing at a pid nobody is responsible for, which is the
+    # whole fault TKT-869 is about. TKT-893.
+    if ( $command eq 'job.stop' ) {
+        my $stopped = $tira->job_stop( %{$args} );
+        my $pid = $stopped->{stopped_pid};
+        kill 'TERM', $pid if $pid && $pid =~ /\A[1-9][0-9]*\z/;
+        return $stopped;
+    }
 
     # NOT a fallthrough. This used to be a bare `return $tira->job_delete(...)`
     # with no condition, safe only because the caller admits exactly four verbs

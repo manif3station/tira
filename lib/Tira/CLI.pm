@@ -109,6 +109,9 @@ sub run {
         # How often a monitor expects to speak, in minutes. TKT-863, his answer
         # to Q-115. Empty means no expectation, which the dashboard shows dim.
         'expect-every=s' => \$option{expect_every},
+        # How long to wait before running a monitor's command again when it
+        # ends. TKT-891, his voice 6694 - so nobody types a while loop.
+        'restart-every=s' => \$option{restart_every},
         'columns-json=s' => \$option{columns_json},
         'nested' => \$option{nested},
         'mark=s' => \$option{mark},
@@ -2241,7 +2244,7 @@ sub _invoke {
     return $tira->policy_declined(%args) if $command eq 'policy.declined';
 
     # Repeated jobs. EPC-014, TKT-837 - bodies in Tira::CLI::Job.
-    if ( $command =~ /\Ajob\.(?:add|list|update|delete|start|run|feed)\z/ ) {
+    if ( $command =~ /\Ajob\.(?:add|list|update|delete|start|run|stop|feed)\z/ ) {
         require Tira::CLI::Job;
         return Tira::CLI::Job::dispatch( $tira, \%args, $option, $command );
     }

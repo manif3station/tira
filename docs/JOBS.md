@@ -5,7 +5,7 @@ scheduling, with worked examples. It is not the argument list — every verb and
 every option is in `docs/commands.md`, and duplicating that here is how two
 documents drift apart.
 
-**60 worked examples**, and the number is stated because it was asked to be a
+**65 worked examples**, and the number is stated because it was asked to be a
 hundred. Every one of these does something the others do not, and every one is
 executed by `t/509` — a hundred was reachable only by writing the same example
 with different words, which would have met the number and defeated the reason
@@ -188,15 +188,54 @@ d2 tira.job.update --id JOB-002 --message "now an announcement"
 d2 tira.job.update --id JOB-002 --command "now a command again"
 ```
 
-### Starting, running and removing
+### Starting, stopping, running and removing
 
-A monitor is started; a cron job is run now regardless of its schedule.
+A monitor is started and stopped; a cron job is run now regardless of its
+schedule.
 
 ```
 d2 tira.job.start --id JOB-005
+d2 tira.job.stop --id JOB-005
 d2 tira.job.run --id JOB-001
 d2 tira.job.delete --id JOB-006
 ```
+
+**Stop before you change a running monitor.** The board refuses to change a
+running monitor's command, to disable it, or to delete it, because each of those
+would leave the board saying something untrue about a process that is still
+there. Stopping is what lets go of it:
+
+```
+d2 tira.job.stop --id JOB-005
+d2 tira.job.update --id JOB-005 --command "d2 tira.police.outstanding"
+```
+
+Stopping works whether or not the process is still alive - a pid whose process
+already died is exactly the record somebody needs to clear. Changing the
+*schedule* of a running monitor is not refused, and neither is anything about a
+monitor that was never started or any cron job.
+
+### Keeping a command running
+
+Instead of typing a loop, say how long to wait before running it again:
+
+```
+d2 tira.job.add --schedule monitor --command "d2 tira.stale" --restart-every 5
+d2 tira.job.update --id JOB-001 --restart-every 30
+```
+
+Whole seconds, greater than zero. Leaving it out means no restarting, which is
+not the same as zero. It belongs to a monitor running a command: a cron job
+fires on a tick rather than staying up, and a message job announces text and
+runs nothing, so both are refused:
+
+```
+d2 tira.job.add --schedule "0 * * * *" --command "d2 tira.stale" --restart-every 5
+```
+
+This is what JOB-006 in the problem statement was reaching for. The difference is
+that the board can see it: an interval is a field it can report, where a `while`
+loop inside a command is one opaque string.
 
 ### A monitor telling the board it is alive
 

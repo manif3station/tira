@@ -562,7 +562,7 @@ something. **Read it before you write a crontab entry, a `while` loop, or a
 monitor inside your own agent session.** It carries why the board owns repeated
 work, what has actually gone wrong here when it did not — three standing hunts
 that died unnoticed, a monitor reported dead while demonstrably running, a shell
-loop typed into a command field that never ran once — 60 worked examples, the
+loop typed into a command field that never ran once — 65 worked examples, the
 refusals worth knowing before you meet them and what each one protects, and a
 section of straight replacements for the habits it argues against. Every one of its examples is executed by the test
 suite, so none of them is merely plausible.

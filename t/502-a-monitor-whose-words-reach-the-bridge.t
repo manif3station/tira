@@ -95,13 +95,14 @@ my $alive = {
     command => 'tira-monitor-under-test --poll',
 };
 
+# THE MONITOR CALLS IN. Was say_into_log, appending to a per-job spool that
+# police followed from an offset; TKT-851's second implementation replaced that
+# with a feeder, after his Q-112 answer that each output be registered to
+# whoever talked to the police. This calls what the feeder calls.
 sub say_into_log {
     my (@lines) = @_;
-    my $path = $tira->job_log_path( project => $root, id => $monitor->{id} );
-    open my $fh, '>>:raw', $path or die "cannot append to the monitor's spool: $!";
-    print {$fh} "$_\n" for @lines;
-    close $fh;
-    return $path;
+    $tira->job_feed( project => $root, id => $monitor->{id}, lines => \@lines );
+    return;
 }
 
 # NOT named pass(). The first version was, and it redefined Test::More's own
@@ -117,10 +118,10 @@ sub carried {
     my $result = $tira->police_pass(
         project => $root, store => $store, world => { processes => [$alive] } );
 
-    # The pass does NOT advance the offset - t/86 requires a pass to change not
-    # one byte of the board, so the engine hands the offsets out and the CLI
-    # writes them after the bridge. This stands in for that step, which is what
-    # makes the "not announced twice" assertion below mean anything.
+    # The pass does NOT drain - t/86 requires a pass to change not one byte of
+    # the board, so the engine hands out what it announced and the CLI clears it
+    # after the bridge. This stands in for that step, which is what makes the
+    # "not announced twice" assertion below mean anything.
     require Tira::CLI::Police;
     Tira::CLI::Police::advance_monitor_output( $tira, { project => $root }, $result );
 
@@ -148,19 +149,21 @@ my $second = carried();
 is( scalar @{$second}, 0,
     'the same output is not announced a second time' );
 
-# --- and the offset is what does it, not text matching -----------------------
+# --- taking it is what does it, not text matching ----------------------------
 #
 # A poller doing the same work every minute prints the same line constantly, so
-# a ledger keyed on the text would swallow real repetitions. The offset must
-# live on the job record, decided as CHK-002 before implementing.
+# a ledger keyed on the text would swallow real repetitions. What has been
+# carried is REMOVED from the record instead, which is why the same words can
+# arrive again and still be news.
 
 {
     my ($record) = grep { $_->{id} eq $monitor->{id} }
       @{ $tira->job_list( project => $root ) };
-    ok( defined $record->{output_offset},
-        'the job record carries how far its output has been read' );
-    cmp_ok( $record->{output_offset}, '>', 0,
-        'and it advanced past what was already announced' );
+    is( scalar @{ $record->{output} || [] }, 0,
+        'what was carried to the bridge is gone from the record' );
+    ok( $record->{last_output_at},
+        'but that it called in is still on the record - draining what a monitor '
+          . 'said must not erase that it spoke' );
 }
 
 # --- a line the monitor really did repeat is announced again -----------------
@@ -168,8 +171,8 @@ is( scalar @{$second}, 0,
 say_into_log('hunt found nothing this hour');
 my $again = carried();
 cmp_ok( scalar @{$again}, '>', 0,
-    'a line the monitor genuinely printed twice is announced twice - the offset '
-      . 'says which bytes were said, not which words' );
+    'a line the monitor genuinely printed twice is announced twice - what was '
+      . 'carried is taken, not remembered as text' );
 
 # --- the timestamp TKT-863 will read -----------------------------------------
 #
@@ -193,15 +196,17 @@ is( scalar @{$quiet}, 0,
 
 # --- and a cron job is never followed ----------------------------------------
 #
-# It has no long-running process and no spool to follow. Asserted rather than
+# It has no long-running process and never calls in. Asserted rather than
 # assumed, because the same mistake on the dashboard would have put an
 # indicator on every cron row.
 
 {
     my ($record) = grep { $_->{id} eq $cron->{id} }
       @{ $tira->job_list( project => $root ) };
-    ok( !defined $record->{output_offset},
-        'a cron job is not followed at all - no offset is kept for it' );
+    is( scalar @{ $record->{output} || [] }, 0,
+        'a cron job is not followed at all - nothing is kept for it' );
+    ok( !defined $record->{last_output_at},
+        'and it has never called in, because it is not asked to' );
 }
 
 # --- a chatty monitor cannot flood the bridge --------------------------------
@@ -215,6 +220,16 @@ is( scalar @{$quiet}, 0,
     my $flood = carried();
     cmp_ok( scalar @{$flood}, '<', 500,
         'a monitor printing 500 lines does not put 500 findings on the bridge' );
+
+    # THE NEWEST LINES, NOT THE FIRST. Raised in review: what somebody wants
+    # from a poller that has said five hundred things is what it is saying NOW,
+    # not how the flood began. The dropped count still says how much came
+    # before it.
+    my $said = join ' ', map { $_->{detail} // '' } @{$flood};
+    like( $said, qr/line 500 of a very chatty poller/,
+        'and the lines it does show are the NEWEST, which is what a monitor is for' );
+    unlike( $said, qr/line 1 of a very chatty poller\b/,
+        'rather than the opening of the burst' );
     like( join( ' ', map { $_->{detail} // '' } @{$flood} ), qr/\b\d+ (?:more|dropped|further)\b/,
         'and the bridge is told how many it did not show, rather than being '
           . 'quietly truncated' );
@@ -241,6 +256,28 @@ is( scalar @{$quiet}, 0,
     like( $@, qr/age/i,
         'an age on monitor-output is refused, and the refusal says which option' );
     ok( $refused, 'so the policy is not stored with a grace period on it' );
+}
+
+# --- a carriage return does not reach the bridge -----------------------------
+#
+# Also from review. A monitor writing Windows line endings would otherwise put a
+# CR inside the message, where it corrupts the line rather than ending it.
+
+{
+    # Fed with the CR still on it, the way the feeder receives it from a
+    # monitor reading a Windows-ended stream - stripping it here would test the
+    # fixture rather than the code.
+    $tira->job_feed( project => $root, id => $monitor->{id},
+        lines => ["a line that ends the Windows way\r"] );
+
+    my $crlf = carried();
+    my $said = join ' ', map { $_->{detail} // '' } @{$crlf};
+
+    # non-empty is the whole claim: the denial below is about what this message
+    # does not contain, and an empty one would satisfy it while proving nothing.
+    like( $said, qr/\S/, 'the CRLF line was carried' );
+    like( $said, qr/a line that ends the Windows way/, 'with its text intact' );
+    unlike( $said, qr/\r/, 'and no carriage return reached the bridge' );
 }
 
 done_testing();

@@ -399,14 +399,14 @@ sub advance_monitor_output {
     my $seen = $result->{monitor_output} || [];
     require Tira::Job;
     for my $mark ( @{$seen} ) {
-        next if !defined $mark->{offset};
+        next if !$mark->{spoke};
 
         # A failure to record is REPORTED, not swallowed. Silently failing here
         # means the same lines arrive again next pass, and a bridge repeating
         # itself is the noise this rule was careful to avoid.
         eval {
-            Tira::Job::job_output_seen( $tira, %{$args}, id => $mark->{id},
-                offset => $mark->{offset}, spoke => $mark->{spoke} );
+            Tira::Job::job_output_drain( $tira, %{$args}, id => $mark->{id},
+                count => $mark->{count}, dropped => $mark->{dropped} );
             1;
         } or do {
             my $why = $@ || 'it could not be recorded';

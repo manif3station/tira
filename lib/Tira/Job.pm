@@ -38,7 +38,6 @@ package Tira::Job;
 use strict;
 use warnings;
 
-use File::Path ();
 use File::Spec;
 use POSIX ();
 use Time::Local ();
@@ -233,51 +232,19 @@ sub job_add {
     } );
 }
 
-# How much of a monitor's spool has already been carried to the bridge, and
-# what is new since. TKT-851.
+# How many of a monitor's lines one police pass will carry to the bridge.
 #
 # THE CAP IS PER PASS AND ANNOUNCED. A chatty poller must not be able to fill
 # the bridge, but a bridge that truncates silently is a bridge that lies - this
 # epic exists because silence and nothing-to-say looked identical - so the
 # caller is handed the count it did not get as well as the lines it did.
-#
-# A SHORT FILE MEANS IT WAS TRUNCATED OR REPLACED, not that bytes vanished.
-# Reading from a stale offset past the end would return nothing forever, so the
-# offset resets and the file is read from the start. That is the case a naive
-# "seek to offset" gets wrong the first time somebody rotates a log.
 our $MONITOR_OUTPUT_LINES = 20;
 
-sub monitor_output_since {
-    my ( $self, $job, %args ) = @_;
-    my $path = eval { $self->job_log_path( %args, id => $job->{id} ) };
-    return ( [], 0, undef ) if !defined $path || !-f $path;
-
-    my $size = -s $path;
-    my $from = $job->{output_offset} || 0;
-    $from = 0 if $from > $size;
-    return ( [], 0, $from ) if $from == $size;
-
-    open my $fh, '<:raw', $path or return ( [], 0, undef );
-    seek $fh, $from, 0;
-    my $chunk = do { local $/; <$fh> };
-    close $fh;
-    $chunk = '' if !defined $chunk;
-
-    # Only WHOLE lines are carried. A pass that arrives mid-write would
-    # otherwise announce half a sentence and then announce the other half next
-    # time, which reads as two findings about nothing.
-    my $keep = rindex( $chunk, "\n" );
-    return ( [], 0, $from ) if $keep < 0;
-    my $consumed = $from + $keep + 1;
-    my @lines = grep { /\S/ } split /\n/, substr( $chunk, 0, $keep );
-
-    my $dropped = 0;
-    if ( @lines > $MONITOR_OUTPUT_LINES ) {
-        $dropped = @lines - $MONITOR_OUTPUT_LINES;
-        @lines   = @lines[ 0 .. $MONITOR_OUTPUT_LINES - 1 ];
-    }
-    return ( \@lines, $dropped, $consumed );
-}
+# Read through a call rather than reached for as a package variable. The police
+# pass lives in Tira.pm and loads this module at runtime, so a fully-qualified
+# name there is a symbol the compiler has never seen - which Perl reports as a
+# possible typo, and which would be one the day this is renamed.
+sub monitor_output_per_pass { return $MONITOR_OUTPUT_LINES }
 
 sub job_list {
     my ( $self, %args ) = @_;
@@ -322,54 +289,104 @@ sub job_update {
     } );
 }
 
-# What has been carried to the bridge, written back. TKT-851.
+# What a monitor said, told to the board by the monitor itself. TKT-851, after
+# his answer to Q-112: "each output will be registered who talked to the police."
 #
-# THE OFFSET AND THE TIMESTAMP MOVE TOGETHER, under the one project lock, and
-# that is the whole reason they live on the job record rather than in a sidecar
-# beside the log. If announcing and advancing could come apart, they eventually
-# would, and the failure is either losing a monitor's output or repeating it
-# forever.
+# WHY THIS AND NOT A SPOOL TAIL, which is what this card built first: following a
+# file tells police WHAT was said. A monitor calling in tells it that THIS
+# monitor said it, at this moment - and a monitor that has not called in for an
+# hour is a fact about the monitor, where a file nobody has written to is not.
+# TKT-873's silence rule needs the former and cannot be built on the latter.
 #
-# The timestamp advances ONLY when something was actually said. TKT-863 will
-# read it as a heartbeat - "when did this monitor last speak" - so a pass that
-# carried nothing must not look like a monitor that reported in.
-sub job_output_seen {
+# BOUNDED, because the feeder writes continuously and police may not read for
+# thirty seconds. The buffer keeps the NEWEST lines - what a poller is saying now
+# beats how its flood began - and counts what it could not keep, because a buffer
+# that drops quietly is the silent loss this whole epic exists to end.
+our $MONITOR_OUTPUT_HELD = 200;
+
+sub job_feed {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
     die "A job id is required\n" if !defined $args{id} || $args{id} eq '';
 
+    my @lines = grep { defined && /\S/ } @{ $args{lines} || [] };
+    s/\r\z// for @lines;
+    return if !@lines;
+
     return $self->_with_project_lock( $root, sub {
         my $jobs = _job_read( $self, $root );
         my $job  = _job_find( $jobs, $args{id} );
-        $job->{output_offset}  = $args{offset} if defined $args{offset};
-        $job->{last_output_at} = $self->{clock}->() if $args{spoke};
+
+        my @held = ( @{ $job->{output} || [] }, @lines );
+        my $over = @held - $MONITOR_OUTPUT_HELD;
+        if ( $over > 0 ) {
+            @held = @held[ -$MONITOR_OUTPUT_HELD .. -1 ];
+            $job->{output_dropped} = ( $job->{output_dropped} || 0 ) + $over;
+        }
+        $job->{output} = \@held;
+
+        # THE REGISTRATION. This is the whole difference from a spool: the board
+        # now knows when this monitor last spoke, rather than when a file last
+        # changed.
+        $job->{last_output_at} = $self->{clock}->();
+        $job->{last_updated}   = $self->{clock}->();
         $self->_write_json( _job_path( $self, $root ), $jobs );
         return $job;
     } );
 }
 
-# Where a monitor's output goes. Beside the jobs file, named for the job, so
-# that finding it needs no lookup and deleting the board takes it with it.
+# What police takes on its pass, and it TAKES rather than reads - the lines are
+# removed, so nothing is announced twice and there is no offset to keep. That is
+# the simplification the feeder buys: with a spool, "how far have I read" had to
+# be stored and could disagree with the file (TKT-871). A queue that is drained
+# cannot disagree with itself.
 #
-# The engine owns the PATH and the CLI owns the writing, for the same reason
-# the liveness check is split that way: the engine may not open a process, but
-# it is the only thing that knows where this board keeps its records.
-sub job_log_path {
+# DRAINING NOTHING MUST NOT LOOK LIKE SPEAKING. last_output_at is untouched here
+# - only job_feed moves it - because TKT-873 reads it as "when did this monitor
+# last call in", and a pass that found an empty queue has learned nothing about
+# the monitor at all.
+sub job_output_drain {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
     die "A job id is required\n" if !defined $args{id} || $args{id} eq '';
 
-    my $directory = File::Spec->catdir( $root, '.tira', 'jobs' );
-    File::Path::make_path($directory) if !-d $directory;
+    # A STRUCTURE THROUGH THE LOCK, unpacked outside it. _with_project_lock does
+    # not preserve list context, so returning a two-element list from inside
+    # collapses to its last value - which showed up as the drained lines
+    # arriving as the number 0.
+    my $taken = $self->_with_project_lock( $root, sub {
+        my $jobs = _job_read( $self, $root );
+        my $job  = _job_find( $jobs, $args{id} );
 
-    # The id is generated by _job_next_id and is JOB-NNN, but a path is built
-    # from it and a board file is not a place to find out that an id could
-    # contain a slash. Refused rather than sanitised: quietly rewriting an id
-    # would make the log for JOB-1/x and JOB-1-x the same file.
-    die "Job id '$args{id}' cannot be used as a file name\n"
-      if $args{id} =~ m{[/\\]} || $args{id} eq '.' || $args{id} eq '..';
+        my @held = @{ $job->{output} || [] };
+        my $have = $job->{output_dropped} || 0;
 
-    return File::Spec->catfile( $directory, "$args{id}.log" );
+        # HOW MANY WERE ANNOUNCED, not "whatever is here now". Police reads the
+        # buffer during the pass and drains after the bridge write, and the
+        # monitor may have called in during the gap. Taking everything would
+        # discard lines nobody announced - losing a monitor's output silently,
+        # which is the single failure this rule exists to prevent, arriving
+        # through the fix for it. Lines are added at the BACK, so removing the
+        # first N removes exactly the N that were read.
+        my $count = defined $args{count} ? $args{count} : scalar @held;
+        $count = @held if $count > @held;
+
+        # Likewise for the drops: subtracted rather than zeroed, because the
+        # buffer may have overflowed again between the read and the write and
+        # that count is a real loss somebody still has to be told about.
+        my $dropped = defined $args{dropped} ? $args{dropped} : $have;
+        $dropped = $have if $dropped > $have;
+
+        return { lines => [], dropped => 0 } if !$count && !$dropped;
+
+        my @lines = splice @held, 0, $count;
+        $job->{output}         = \@held;
+        $job->{output_dropped} = $have - $dropped;
+        $job->{last_updated}   = $self->{clock}->();
+        $self->_write_json( _job_path( $self, $root ), $jobs );
+        return { lines => \@lines, dropped => $dropped };
+    } );
+    return ( $taken->{lines}, $taken->{dropped} );
 }
 
 # A monitor has started, and this is the pid it started as. Recorded through
@@ -659,37 +676,53 @@ to absorb is an existing command that will never write a heartbeat. A check
 believed to cover more than it does is worse than one that says where it
 stops.
 
-=head1 A MONITOR'S OUTPUT IS FOLLOWED, NOT COLLECTED
+=head1 A MONITOR CALLS IN - ITS LEAVINGS ARE NOT READ
 
-TKT-851, from his instruction that monitors should not have separate logs. A
-monitor never finishes, so its output cannot be handed over in one piece the way
-a command-mode job's can - and it cannot be handed a pipe either, because one
-with no reader fills at about 64KB and blocks the child forever. The file this
-module already writes stays; C<monitor_output_since> follows it from a stored
-offset, and C<job_output_seen> records how far.
+TKT-851, from his instruction that monitors should not have separate logs and
+his answer to Q-112 on 2026-09-03: "each output will be registered who talked to
+the police".
 
-Three things about that pair are easy to get wrong and are asserted in F<t/502>:
+A monitor never finishes, so its output cannot be handed over in one piece the
+way a command-mode job's can. The first implementation gave it a per-job file
+and had police follow that from a stored offset. It worked, and it was wrong
+twice over: it kept the log he had said should not exist, and it made "this
+monitor is alive and working" an inference from a file's contents rather than a
+fact the monitor reported. A spool nobody has written to and a monitor that has
+died look identical from outside.
+
+So the monitor is started inside a pipeline and its output goes B<through>
+C<skills/job/cli/feed>, which calls C<job_feed> to record what it said against
+the job that said it, with C<last_output_at> as the moment it called in. That
+timestamp is the fact a silence rule can be built on, and no file can provide
+it.
+
+A pipe is safe here for the one reason a pipe was rejected before: the feeder is
+its reader and drains continuously, inside the same pipeline, so it cannot be
+forgotten. An unread pipe fills at about 64KB and blocks the child forever.
+
+Three things about the pair are easy to get wrong and are asserted in F<t/503>:
 
 =over 4
 
-=item * B<Whole lines only.> A pass arriving mid-write would announce half a
-sentence and the other half next time, which reads as two findings about
-nothing.
+=item * B<The buffer is bounded and says what it dropped.> The feeder writes
+continuously and police may not read for thirty seconds, so the record needs its
+own limit. What it could not keep is counted, because this epic exists precisely
+because silence and nothing-to-say looked identical.
 
-=item * B<A short file means truncation, not vanished bytes.> Reading from a
-stale offset past the end returns nothing forever, so the offset resets. That is
-what a naive seek gets wrong the first time somebody rotates a log.
+=item * B<The newest lines are the ones kept.> When a chatty poller overruns the
+buffer, the oldest go - what a monitor is for is telling you what is true now.
 
-=item * B<The offset is a byte count, not a ledger key.> A poller doing the same
-work every minute prints the same line every minute, and a ledger keyed on text
-would swallow those repetitions. The test requires a genuinely repeated line to
-be announced twice.
+=item * B<Draining nothing does not move the last-called-in time.> A monitor
+that has not spoken must not look like one that has, or the silence rule is
+built on a timestamp that police refreshes for it.
 
 =back
 
-C<job_output_seen> is called from L<Tira::CLI::Police> after the bridge write,
+C<job_output_drain> is called from L<Tira::CLI::Police> after the bridge write,
 never from the pass: F<t/86> requires a police pass to change not one byte of
-the board.
+the board. It takes the count that was announced rather than whatever is in the
+buffer when it runs, because the monitor may have called in during the gap and
+taking those lines would discard output nobody ever saw.
 
 =head1 CALL IT THROUGH TIRA
 

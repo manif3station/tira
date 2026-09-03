@@ -1265,7 +1265,12 @@ sub job_update { my $self = shift; require Tira::Job; return Tira::Job::job_upda
 sub job_delete { my $self = shift; require Tira::Job; return Tira::Job::job_delete( $self, @_ ) }
 sub job_is_due { my $self = shift; require Tira::Job; return Tira::Job::job_is_due( $self, @_ ) }
 sub job_started { my $self = shift; require Tira::Job; return Tira::Job::job_started( $self, @_ ) }
-sub job_log_path { my $self = shift; require Tira::Job; return Tira::Job::job_log_path( $self, @_ ) }
+
+# What a monitor said, and what police takes. TKT-851. Forwarded here for the
+# same reason every other job verb is: Tira is the index, and a caller should
+# not have to know which module a job behaviour lives in.
+sub job_feed { my $self = shift; require Tira::Job; return Tira::Job::job_feed( $self, @_ ) }
+sub job_output_drain { my $self = shift; require Tira::Job; return Tira::Job::job_output_drain( $self, @_ ) }
 
 sub warning_clear {
     my ( $self, %args ) = @_;
@@ -9807,10 +9812,32 @@ sub _police_environment_violations {
                 next if !$job->{enabled};
                 next if !defined $job->{command} || $job->{command} eq '';
 
+                # WHAT THE MONITOR CALLED IN WITH, read straight off the record
+                # job_list already handed us. The first implementation followed
+                # a per-job spool from a stored offset; his answer to Q-112
+                # replaced that with a feeder, so the output is on the job
+                # record before this rule ever looks - and the pass needs no
+                # second read, no file, and no offset arithmetic to find it.
+                my @queued  = @{ $job->{output} || [] };
+                my $dropped = $job->{output_dropped} || 0;
+                next if !@queued && !$dropped;
+
+                # THE NEWEST, capped - and the whole queue is taken either way.
+                # Carrying the OLDEST instead was the first version and it was
+                # wrong: a monitor printing more per minute than a bridge line
+                # can hold would never catch up, so every pass would announce
+                # stale lines while the current ones aged out behind them. A
+                # monitor exists to say what is true NOW.
+                #
+                # What is skipped to get there is counted with what the buffer
+                # already dropped, and announced. A bridge that truncates
+                # silently is a bridge that lies, which is the failure this
+                # whole epic is about.
                 require Tira::Job;
-                my ( $lines, $dropped, $offset ) =
-                  Tira::Job::monitor_output_since( $self, $job, %args );
-                next if !@{$lines} && !defined $offset;
+                my $cap = Tira::Job::monitor_output_per_pass();
+                my $lines =
+                  @queued > $cap ? [ @queued[ -$cap .. -1 ] ] : [@queued];
+                $dropped += @queued - @{$lines};
 
                 # ONE FINDING PER MONITOR PER PASS, carrying everything it
                 # said - not one finding per line. Two attempts got this wrong
@@ -9837,8 +9864,14 @@ sub _police_environment_violations {
                 if ( @{$lines} || $dropped ) {
                     my $said = join ' | ', @{$lines};
                     $said .= " (+$dropped more line(s) not shown)" if $dropped;
+
+                    # The sub_key was the offset, which no longer exists. What
+                    # it is for is unchanged: the quiet ladder keys on it, so
+                    # two passes carrying different words must not look like
+                    # one rule repeating itself. What was said IS the subject
+                    # here, so it is what distinguishes them.
                     $report->( $policy, undef, "$job->{id} said: $said",
-                        undef, "$job->{id}:$offset" );
+                        undef, "$job->{id}:$said" );
                 }
 
                 # THE PASS DOES NOT WRITE, and that was not my first
@@ -9864,8 +9897,13 @@ sub _police_environment_violations {
                 # again in between, and advancing past bytes nobody announced
                 # loses them silently - which is the one failure this rule
                 # exists to prevent, arriving through the fix for it.
+                # The COUNT taken is the whole queue, not the lines shown: what
+                # was skipped to reach the newest has been announced as dropped
+                # and must not come back next pass as news. What arrived while
+                # this pass ran is at the back and is untouched.
                 push @output_seen,
-                  { id => $job->{id}, offset => $offset,
+                  { id => $job->{id}, count => scalar @queued,
+                    dropped => $job->{output_dropped} || 0,
                     spoke => ( @{$lines} || $dropped ) ? 1 : 0 };
             }
         }
@@ -12035,6 +12073,17 @@ command -v d2 >/dev/null || {
   exit 1
 }
 
+# Does this commit change CODE? The columns below are a claim about code, and
+# documentation is written in the columns that come AFTER the code is settled -
+# so a gate that treated every file as code would refuse the documentation
+# stage it exists to protect.
+#
+# The paths are the conventional ones for a Perl project because that is what
+# this gate is installed into. A project laying its code out differently gets a
+# gate that asks less, which is the safe direction for a check that refuses.
+code_changed="$(git diff --cached --name-only \
+  | grep -cE '^(lib|t|cli|skills|tools|src|bin)/' || true)"
+
 named=0
 for ref in $refs; do
   card=""
@@ -12060,6 +12109,35 @@ for ref in $refs; do
       exit 1
       ;;
   esac
+
+  # AND THE OTHER DIRECTION, which the list above cannot see.
+  #
+  # Those columns mean the work has not started or is over. They say nothing
+  # about a card that has gone too FAR - one sitting in a column that claims the
+  # code is settled while the code is being changed. Both are the same broken
+  # rule: a card's column must match its real state.
+  #
+  # Learned three times on Tira's own board. Twice the work ran ahead of the
+  # card; the third time the card sat in 'verify' while its implementation was
+  # rewritten, and every gate waved it through because 'verify' is not idle.
+  if [ "$code_changed" -gt 0 ]; then
+    # WHERE A CODE COMMIT IS LEGITIMATE, which is not the same as where code may
+    # be WRITTEN. A project that makes its release commit in a verify column
+    # would have every such commit refused - Tira's own board does exactly that,
+    # and the first version of this check would have blocked it.
+    case "$column" in
+      tests-red|implement|verify) : ;;
+      *)
+        echo "commit-msg: $ref is in '$column', which claims the code is settled -" >&2
+        echo "but this commit changes code." >&2
+        echo "Move the card to where the work actually is, BEFORE doing it:" >&2
+        echo "  d2 tira.$kind.move --ref $ref --column implement" >&2
+        echo "A verify that finds a code defect is not a check that failed - it is" >&2
+        echo "the card returning to implement." >&2
+        exit 1
+        ;;
+    esac
+  fi
 done
 
 if [ "$named" = "0" ]; then
@@ -13503,14 +13581,25 @@ be a fact about a process that has already exited, and C<job_monitor_alive>
 would then have to decide which pids it is allowed to believe. Refusing the
 write keeps that question from existing. EPC-014, TKT-842.
 
-=head2 job_log_path
+=head2 job_feed
 
-Where a monitor's output goes - beside the jobs record, named for the job.
-The engine owns the path and the CLI owns the writing, for the same reason
-the liveness check is split that way: the engine may not open a process, but
-it is the only thing that knows where this board keeps its records. An id
-that would escape the directory is refused rather than sanitised, since
-quietly rewriting one would make two jobs share a log.
+Records what a monitor has called in with, against the job that said it, and
+stamps C<last_output_at> - once for the delivery, not once per line, so it
+answers when the monitor last spoke rather than when a given line was printed. A monitor is started inside a pipeline whose other half is
+C<skills/job/cli/feed>, so its output arrives here rather than being left in a
+file for police to follow - his instruction that monitors should not have
+separate logs, and his answer to Q-112 that each output be registered to
+whoever talked to the police. The buffer is bounded and counts what it could
+not keep. EPC-014, TKT-851.
+
+=head2 job_output_drain
+
+Takes what a monitor has said so it can be carried to the bridge, and clears
+exactly that much. Called from L<Tira::CLI::Police> after the write, never
+from the pass, which changes not one byte of the board. It removes the count
+that was announced rather than whatever is in the buffer when it runs: the
+monitor may have called in during the gap, and taking those lines would lose
+output nobody ever saw. EPC-014, TKT-851.
 
 =head2 job_is_due
 
@@ -14185,6 +14274,18 @@ Puts one rule down for a bounded number of seconds, with a required reason.
 =head2 gates_install
 
 Installs the commit-msg and pre-push git hooks into the project's repository.
+
+C<commit-msg> refuses a commit that names no card on this board, one whose card
+is in backlog, discard or done, and - since 5.41 - one that changes B<code>
+while its card sits in a column claiming the code is settled, meaning anything
+other than C<tests-red> or C<implement>. The last two are the same rule read in
+both directions: a card's column must match its real state whichever way they
+have come apart. It decides by what the commit actually touches, so a
+documentation commit in a documentation column is not refused as code.
+
+C<pre-push> asks police about the board and refuses the push if it has anything
+to say. Both fail closed - a missing C<d2>, or a board that cannot be read, is a
+refusal rather than a skip.
 
 =head2 work_log
 

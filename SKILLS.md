@@ -1843,9 +1843,13 @@ than decides.
 
 **A monitor that dies says so (TKT-842, 5.32).** A `monitor` job is started
 with `tira.job.start --id JOB-001` rather than fired on a tick, and starting it
-records the pid it started as; its output is appended to a log named for the
-job, not to a pipe, because a pipe nobody drains fills at around 64KB and
-blocks the monitor forever. The `monitor-dead` police rule then reports any
+records the pid it started as. Its output goes through a pipeline to the
+feeder, which registers it against the job — see *The monitor calls in; its
+leavings are not read* below.
+Until 5.41 it was appended to a per-job log instead, because a pipe nobody
+drains fills at around 64KB and blocks the monitor forever; the pipe is safe
+now only because the feeder is its reader and drains continuously. The
+`monitor-dead` police rule then reports any
 enabled monitor that should be running and is not — including one that was
 never started, which is what every monitor looks like after a restart.
 
@@ -1896,6 +1900,7 @@ tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TE
 tira.job.delete --id ID [-o FORMAT]
 tira.job.start --id ID [-o FORMAT]
 tira.job.run --id ID [-o FORMAT]
+tira.job.feed --id ID
 tira.dashboard -o browser [--show-logs]
 ```
 
@@ -2403,37 +2408,73 @@ unheard, writing to its own per-job log and nowhere else. That is why TKT-840
 could not migrate the Telegram bridge onto a board-owned job — it would have put
 his messages in a file nobody opens and silently cut the channel.
 
-New rule `monitor-output`, which takes the declared count to 43. It follows each
-enabled monitor's spool from a stored offset and announces whole new lines.
+New rule `monitor-output`, which takes the declared count to 43. It announces
+what each enabled monitor has called in with since the last pass.
 
-**The file stays, and that is not a compromise.** TKT-842 chose one because a
-pipe with no reader fills at about 64KB and blocks the child forever — a monitor
-that has stopped working while still looking started, which is worse than the
-silence being fixed. So the rule FOLLOWS the spool rather than replacing it.
+**The monitor calls in; its leavings are not read.** The first implementation
+gave each monitor a file and had police follow it from a stored offset. It
+worked, and it was wrong twice: it kept the per-job log his instruction said
+should not exist, and it made "this monitor is alive and working" an inference
+from a file's contents. A spool nobody has written to and a monitor that has
+died look identical from outside. His answer to Q-112 on 2026-09-03 settled it —
+"each output will be registered who talked to the police" — so `job.start` runs
+the monitor inside a pipeline whose other half is the feeder, and what it says
+arrives on the job record, along with when it last called in - stamped once
+per delivery, not per line.
 
-**An offset, not the ledger.** `job-due` announces once per due *window* using
-`sub_key`; a stream has no windows, and the question is which BYTES have been
-said. A ledger keyed on text would swallow the repetitions a poller
-legitimately prints, so `t/502` asserts that a line the monitor genuinely
+**A pipe is safe here for the reason one was rejected before.** TKT-842 chose a
+file because a pipe with no reader fills at about 64KB and blocks the child
+forever — a monitor that has stopped working while still looking started, which
+is worse than the silence being fixed. The feeder IS the reader, drains
+continuously, and lives inside the same pipeline as the monitor, so it cannot be
+forgotten or started separately.
+
+**A batch that will not fill must still go in.** The feeder writes when it has
+gathered 25 lines *or* when its input has been quiet for two seconds — and the
+second half was missing at first. A monitor never ends, so flushing only at a
+full batch or at end of input left a once-a-minute poller unheard for
+twenty-five minutes and an hourly one for a day, while the board read "never
+called in". The count keeps a chatty poller from taking the project lock
+hundreds of times a minute; the timeout keeps a rare speaker from waiting on a
+batch that will not fill. Found by the container walkthrough *after* the suite
+and the coverage gate were both green: the handler's loop was driven from a
+string filehandle, which reaches end of input at once, so every statement ran
+and the one situation that mattered never occurred.
+
+**Taking it, not the ledger.** `job-due` announces once per due *window* using
+`sub_key`; a stream has no windows. A ledger keyed on text would swallow the
+repetitions a poller legitimately prints, so what has been carried is REMOVED
+from the record instead, and `t/502` asserts that a line the monitor genuinely
 printed twice is announced twice. The ledger's `sub_key` is still used for the
 finding itself — both halves of that precedent matter, which the card's own note
 did not anticipate.
 
-**The pass does not write.** The first version advanced the offset inside the
+**The pass does not write.** The first version advanced its position inside the
 rule, so announcing and advancing could not drift apart. `t/86` overturned it:
 *"a pass that found twenty different things wrong changed not one byte of the
-board"*. Police observes and does not mutate. The offsets travel out on the
-result and `Tira::CLI::Police::advance_monitor_output` writes them after the
+board"*. Police observes and does not mutate. What was announced travels out on
+the result and `Tira::CLI::Police::advance_monitor_output` drains it after the
 bridge — at all three `bridge_write` sites, the watch loop included, since that
-is the one that runs continuously and a monitor left unrecorded there would
-repeat forever. The bridge write comes first, so a failure there cannot leave
-the offset past output nobody saw.
+is the one that runs continuously and a monitor left undrained there would
+repeat forever. The bridge write comes first, so a failure there cannot discard
+output nobody saw.
 
-Capped at twenty lines per pass with the dropped count **in the same finding**,
-because a bridge that truncates silently is a bridge that lies. Silent for a
-cron job, a disabled monitor, one with no command, and one with nothing new —
-and that last exemption was a real bug first: the rule emitted `JOB-001 said: `
-on every quiet pass, which is the noise it exists to prevent.
+**The drain takes the count that was announced**, not whatever is in the buffer
+when it runs. The monitor may have called in during the gap between the pass and
+the write, and taking those lines would lose output nobody ever saw — the one
+failure this rule exists to prevent, arriving through the fix for it. Lines
+arrive at the back, so removing the announced count from the front removes
+exactly what was read.
+
+Capped at twenty lines per pass — **the newest**, because a monitor is for what
+is true now, and carrying the oldest first would leave a fast poller permanently
+announcing stale lines while the current ones aged out behind them. What is
+skipped to reach them is counted with whatever the record could not hold and
+said **in the same finding**, because a bridge that truncates silently is a
+bridge that lies. Silent for a cron job, a disabled monitor, one with no
+command, and one with nothing new — and that last exemption was a real bug
+first: the rule emitted `JOB-001 said: ` on every quiet pass, which is the noise
+it exists to prevent.
 
 Each monitor also records `last_output_at`, only when something was actually
 said. That is the heartbeat TKT-863 will read, so that card becomes a light on

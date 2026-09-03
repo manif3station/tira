@@ -97,6 +97,33 @@ for my $hook (qw(commit-msg pre-push)) {
     close $fh;
     like( $body, qr/SOW\|EPC\|TKT|tira\./, 'the commit gate looks for a card reference' );
     like( $body, qr/backlog/, 'and refuses a card that is not being worked on' );
+
+    # MSK-02, THE OTHER DIRECTION. The backlog list above catches a card that
+    # has not started. It cannot catch a card that has gone too FAR: TKT-851 sat
+    # in 'verify' - not idle, so nothing objected - while its implementation was
+    # rewritten. Twice the work ran ahead of the card and once the card ran
+    # ahead of the work, so the gate has to ask what a column CLAIMS rather than
+    # hold a list of bad ones.
+    like( $body, qr/tests-red\|implement\|verify/,
+        'and knows which columns a code commit may legitimately come from, so '
+          . 'a card that has run AHEAD of its work is refused too' );
+
+    # VERIFY IS IN THAT SET DELIBERATELY, and leaving it out was a real defect
+    # caught by running the gate rather than by reading it. This board makes its
+    # release commit in verify - REQ-037 and REQ-038 check the commit message
+    # there - so a set of only tests-red and implement refused the next commit
+    # of the very card that prompted the gate. "Where a code commit is
+    # legitimate" is not the same question as "where code may be written".
+    like( $body, qr/verify/,
+        'including the column this board commits from, which a stricter set '
+          . 'would have blocked' );
+
+    # It must decide on what the commit actually touches. Without this the gate
+    # would refuse the documentation stage that comes straight after implement,
+    # which is the process it exists to protect.
+    like( $body, qr/diff --cached --name-only/,
+        'deciding on the files this commit really changes, so a documentation '
+          . 'commit in a documentation column is not refused as code' );
 }
 
 {

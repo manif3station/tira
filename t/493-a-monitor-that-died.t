@@ -227,9 +227,14 @@ require Tira::CLI::Job;
 
 $tira->job_update( project => $root, id => $monitor->{id}, enabled => 1 );
 
-my $log = $tira->job_log_path( project => $root, id => $monitor->{id} );
-like( $log, qr/\Q$monitor->{id}\E\.log\z/,
-    'a monitor has somewhere for its output to go, named for the job' );
+# A monitor's output no longer has "somewhere to go" - it goes THROUGH the
+# feeder to the job record. TKT-851, his Q-112 answer. The assertion that used
+# to stand here checked the per-job log path, which is the thing his original
+# instruction said should not exist; it is gone with the file it named, and
+# t/503 asserts what replaced it.
+ok( Tira::Job->can('job_feed'),
+    'a monitor has somewhere for its output to go - the job record it is '
+      . 'registered against, rather than a log beside it' );
 
 # perl -e sleep, and not "sleep 30": the command is split on whitespace, so an
 # argument with a space in it is two arguments. Bare sleep with no argument
@@ -283,9 +288,11 @@ my %refused = (
     'job_started without an id' => sub {
         $tira->job_started( project => $root, pid => 4242 );
     },
-    'a log path without an id' => sub { $tira->job_log_path( project => $root ) },
-    'a log path from an id that would escape the directory' => sub {
-        $tira->job_log_path( project => $root, id => '../../etc/passwd' );
+    'feeding output without an id' => sub {
+        $tira->job_feed( project => $root, lines => ['orphaned'] );
+    },
+    'draining output without an id' => sub {
+        Tira::Job::job_output_drain( $tira, project => $root );
     },
 );
 for my $why ( sort keys %refused ) {

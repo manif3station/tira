@@ -46,6 +46,38 @@ command -v d2 >/dev/null || fail 'd2 is not on PATH, so the card cannot be check
 # board says nothing is happening.
 idle='backlog|discard|done'
 
+# And the narrower question, added after MSK-02 happened a THIRD time.
+#
+# The list above catches a card that has not started yet. It does not catch the
+# mirror: TKT-851 sat in 'verify' - which is not idle, so nothing here objected
+# - while its implementation was being rewritten. 'verify' asserts the code is
+# settled and being checked, so the moment the code changed the column became a
+# false statement, and this gate waved it through.
+#
+# Two occurrences ran one way and one ran the other, so the fix has to be about
+# the CLAIM each column makes rather than about a list of bad ones.
+#
+# THE SET IS "WHERE A CODE COMMIT IS LEGITIMATE", not "where code may be
+# written", and the difference cost a correction. The first version listed only
+# tests-red and implement - and this board's own process makes the release
+# commit in VERIFY, where REQ-037 and REQ-038 check the commit message. So the
+# gate would have refused the very next commit of the card that prompted it.
+# Found by running it, one move before it would have blocked the release.
+#
+# The honest cost is stated rather than hidden: allowing verify means the gate
+# no longer catches code CHANGED in verify, which is MSK-02's third occurrence.
+# What still catches that is card-stalled on the bridge and the discipline
+# itself. The gate covers backlog, document, pending-push, push, install and
+# done, where a code commit has no legitimate reading at all.
+writing='tests-red|implement|verify'
+
+# Whether this commit changes CODE, which is the thing those columns are a
+# claim about. Documentation, tickets and the mistake log are written in
+# 'document' and after, so treating every file as code would refuse the very
+# stage that comes next - the gate would stop the process it exists to protect.
+code_changed="$(git diff --cached --name-only \
+  | grep -cE '^(lib|t|cli|skills|tools)/' || true)"
+
 for ref in $refs; do
   case "$ref" in
     SOW-*) kind=sow ;;
@@ -64,6 +96,25 @@ for ref in $refs; do
     fail "$ref is in '$column'.
 Move it to the gate the work is actually at before committing against it:
   d2 tira.$kind.move --ref $ref --column implement"
+  fi
+
+  # MSK-02, both directions. Code may only change where a column claims it is
+  # being written. The card running ahead of the work is the same broken rule as
+  # the work running ahead of the card, and it is the direction that went
+  # unwatched until TKT-851.
+  if [ "$code_changed" -gt 0 ] && ! grep -qE "^($writing)$" <<<"$column"; then
+    fail "$ref is in '$column', which claims the code is settled - but this
+commit changes code.
+
+This is MSK-02: a card's column not matching its real state. It has happened
+three times, twice with the work ahead of the card and once with the card ahead
+of the work.
+
+Move the card to where the work actually is BEFORE doing it, not after:
+  d2 tira.$kind.move --ref $ref --column implement
+
+A verify that finds a code defect is not a check that failed - it is the card
+returning to implement."
   fi
 done
 

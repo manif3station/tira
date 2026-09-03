@@ -1140,6 +1140,21 @@ names one that is sitting in backlog, discard or done - if the work is real
 enough to commit, the card is real enough to have been moved. `pre-push` asks
 police about the board and refuses the push if it has anything to say.
 
+Since 5.41 the commit gate also refuses the opposite drift: a commit that
+changes **code** while its card sits in a column claiming the code is settled -
+anything other than `tests-red` or `implement`. The two refusals are the same
+rule read in both directions, because a card's column must match its real state
+whichever way they have come apart. It decides by what the commit actually
+touches (`git diff --cached --name-only`), so a documentation commit in a
+documentation column is not refused as code - a gate that blocked the stage
+after `implement` would stop the process it exists to protect.
+
+That direction was added because the first one could not see it. A card sat in
+`verify` - not idle, so nothing objected - while its implementation was being
+rewritten after the verify walkthrough found a defect. A verify that finds a
+code defect is not a check that failed; it is the card returning to `implement`,
+and this is what says so at the moment it matters.
+
 Both fail closed: if `d2` is not on the path, or police cannot read the board,
 the gate refuses rather than skipping. A gate that disappears when something is
 missing is not a gate.
@@ -3497,6 +3512,7 @@ reader never has to infer it from whichever field is populated.
 - `tira.job.delete --id ID [-o FORMAT]`
 - `tira.job.start --id ID [-o FORMAT]`
 - `tira.job.run --id ID [-o FORMAT]`
+- `tira.job.feed --id ID`
 
     ```
     d2 tira.job.add --schedule "0 * * * *" --message "go hunt some bugs"
@@ -3525,11 +3541,15 @@ reader never has to infer it from whichever field is populated.
     d2 tira.job.start --id JOB-001
     ```
 
-    Starting one records the pid it started as, and its output is appended to
-    a log named for the job beside the board's own records. The output goes to
-    a file rather than a pipe on purpose: a pipe nobody drains fills at around
-    64KB and blocks the monitor forever, which is a stopped monitor that still
-    looks started.
+    Starting one records the pid it started as, and runs it inside a pipeline
+    whose other half feeds everything it prints back to the board, registered
+    against the job that said it. A pipe is safe here only because that feeder
+    is its reader and drains continuously: an unread pipe fills at around 64KB
+    and blocks the monitor forever, which is a stopped monitor that still looks
+    started. Until 5.41 the output went to a per-job log file for exactly that
+    reason, and the file is gone — a monitor that has not CALLED IN is a fact
+    about the monitor, where a file nobody has written to and a monitor that
+    has died look identical from outside.
 
     That pid is what makes a death detectable. The `monitor-dead` police rule
     reports a monitor that should be running and is not. It confirms the pid
@@ -3611,11 +3631,28 @@ reader never has to infer it from whichever field is populated.
 
     Since 5.41 a running `monitor`'s own output reaches the police bridge, so
     its findings arrive on the one stream an agent reads rather than sitting in
-    a per-job log nobody opens. The `monitor-output` rule follows each spool from a
-    stored offset and announces whole new lines, capped per pass and saying how
-    many it dropped. The file stays — a pipe with no reader fills at about 64KB
-    and blocks the monitor — so the rule follows it rather than replacing it
-    (TKT-851).
+    a per-job log nobody opens. `tira.job.start` runs the monitor inside a
+    pipeline whose other half is the feeder, which records what it prints
+    against the job that said it; the `monitor-output` rule then announces it,
+    twenty lines a pass, the newest, saying how many it skipped or dropped. A
+    pipe is safe because the feeder is its reader and drains continuously — an
+    unread one fills at about 64KB and blocks the monitor. Registering the
+    output rather than leaving it in a file is also what lets the board know
+    WHEN a monitor last called in (TKT-851).
+
+    `tira.job.feed` is that other half. It reads standard input and records each
+    line against the named job, and it is not a verb anybody types: `job.start`
+    builds the pipeline that uses it. It is documented because it ships as an
+    entrypoint, and an entrypoint nobody can find is how a feature ends up being
+    reimplemented by the next person who needs it.
+
+    It reads CONTINUOUSLY rather than collecting and writing at the end, which
+    is the whole reason the pipe is safe — a feeder that waited for EOF would be
+    a deadlock with extra steps, since the monitor it is reading never finishes.
+    Lines are batched before they are written, because taking the project lock
+    once per line would have a chatty poller hammering the board, and whatever
+    is left goes in when the input goes quiet so a rare speaker is not held
+    hostage to a batch that never fills.
 
     The whole schedule is visible on the browser dashboard as a Repeated Jobs
     section under the Task List, one row per job. EPC-014, TKT-836 for the

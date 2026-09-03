@@ -9,31 +9,117 @@ Revision history for Tira
       migrate the Telegram bridge onto a board-owned job - it would have put
       those messages in a file nobody opens and silently cut the channel.
 
-      New rule `monitor-output`, taking the rule count to 43. It follows each
-      enabled monitor's spool from a stored offset and announces whole new
-      lines. The FILE STAYS, and that is not a compromise: TKT-842 chose one
-      because a pipe with no reader fills at about 64KB and blocks the child
-      forever. So this follows the spool rather than replacing it.
+      New rule `monitor-output`, taking the rule count to 43.
 
-      An OFFSET, not the ledger `job-due` uses - that announces once per due
-      window, and a stream has no windows. The question is which bytes have
-      been said. A ledger keyed on text would also swallow the repetitions a
-      poller legitimately prints, so the test asserts that a line the monitor
-      genuinely printed twice is announced twice.
+      THE MONITOR CALLS IN; ITS LEAVINGS ARE NOT READ. The first implementation
+      gave each monitor a per-job file and had police follow it from a stored
+      offset. It worked, and he challenged it before it shipped: it kept the log
+      his instruction said should not exist, and it made "this monitor is alive
+      and working" an inference from a file's contents. A spool nobody has
+      written to and a monitor that has died look identical from outside. His
+      answer to Q-112 on 2026-09-03 settled the shape: "each output will be
+      registered who talked to the police."
 
-      THE PASS DOES NOT WRITE. The first version advanced the offset inside the
-      rule; `t/86` asserts that a pass which found twenty things wrong changed
-      not one byte of the board. Police observes and does not mutate, so the
-      offsets travel out on the result and `Tira::CLI::Police` writes them after
-      the bridge - at all three call sites, the watch loop included, since that
-      is the one that runs continuously.
+      So `tira.job.start` now runs the monitor inside a pipeline whose other
+      half is the new `tira.job.feed` entrypoint, which records what it prints
+      against the job that said it and stamps `last_output_at` - once per
+      delivery rather than per line, so the field answers when the monitor
+      last spoke. That timestamp is a fact the
+      monitor reported rather than one inferred from a file, and it is what
+      TKT-873's silence rule needs to exist at all.
 
-      Capped at twenty lines per pass with the dropped count in the same
-      finding, because a bridge that truncates silently is a bridge that lies.
-      Silent for a cron job, a disabled monitor, one with no command, and one
-      with nothing new to say. Each monitor also records when output last
-      arrived, which is the heartbeat TKT-863 will read - so that card needs no
-      cooperation from any monitor beyond what it already prints.
+      A PIPE IS SAFE HERE FOR THE REASON ONE WAS REJECTED BEFORE. TKT-842 chose
+      a file because a pipe with no reader fills at about 64KB and blocks the
+      child forever. The feeder IS the reader: it drains continuously, and it
+      lives inside the same pipeline as the monitor, so it cannot be forgotten
+      or started separately.
+
+      NOTHING OF THE JOB'S IS SHELL TEXT. The shell owns the pipe, but the words
+      it runs arrive as positional parameters, so a command holding a semicolon
+      or a backtick stays an argument - which is what `open3(@command)` gave
+      before there was a pipeline, and what a stored, editable job record has to
+      keep.
+
+      AND THE COMMAND IS CHECKED BEFORE THE SHELL IS ASKED TO RUN IT. `open3`
+      gave that refusal for free by failing to exec; a shell always starts and
+      then fails inside itself, so a monitor with a misspelled command would
+      have looked started until `monitor-dead` noticed minutes later. Caught by
+      t/493 and t/498, which had asserted the refusal.
+
+      TAKING IT, not the ledger `job-due` uses - that announces once per due
+      window, and a stream has no windows. A ledger keyed on text would swallow
+      the repetitions a poller legitimately prints, so what has been carried is
+      removed from the record instead, and the test asserts that a line the
+      monitor genuinely printed twice is announced twice.
+
+      THE PASS DOES NOT WRITE. `t/86` asserts that a pass which found twenty
+      things wrong changed not one byte of the board. Police observes and does
+      not mutate, so what was announced travels out on the result and
+      `Tira::CLI::Police` drains it after the bridge - at all three call sites,
+      the watch loop included, since that is the one that runs continuously.
+      The drain takes the COUNT that was announced rather than whatever is in
+      the buffer: the monitor may have called in during the gap, and taking
+      those lines would lose output nobody ever saw.
+
+      Capped at twenty lines per pass - the NEWEST, because a monitor is for
+      what is true now, and carrying the oldest first would leave a fast poller
+      permanently announcing stale lines while the current ones aged out behind
+      them. What is skipped to reach them is counted with whatever the record
+      could not hold and said in the same finding, because a bridge that
+      truncates silently is a bridge that lies. Silent for a cron job, a
+      disabled monitor, one with no command, and one with nothing new to say.
+
+      AND THE FEEDER WAITS FOR A BOUNDED QUIET, not only for a full batch.
+      The first version wrote when it had 25 lines or when its input ended -
+      and a monitor never ends, which is what makes it a monitor. A poller
+      printing once a minute would have sat unheard for twenty-five minutes and
+      an hourly one for a day, with the board reading "never called in" while
+      the monitor was talking. That is the silence this epic exists to end,
+      rebuilt inside the fix for it, and it would have made TKT-873's silence
+      rule fire on monitors that were working. It now blocks for at most two
+      seconds for more input and writes what it holds if none arrives, so a
+      chatty poller still batches and a rare one is heard within seconds.
+
+      Found by the container walkthrough, with the full suite green and 100%
+      statement and subroutine coverage on all three touched modules. The
+      handler's loop was being driven from a string filehandle, which reaches
+      end of input at once, so every statement ran and the one situation that
+      mattered - input open, nothing arriving, batch not full - never occurred.
+      Coverage measures which lines ran, not which situations were tried.
+
+      The per-job log path goes with the spool it named, along with the offset
+      machinery that followed it.
+
+    - TKT-875. The commit gate refuses the opposite drift too. It already
+      refused a commit whose card was in backlog, discard or done - work
+      running ahead of the board. It could not see a card that had run ahead of
+      its WORK: one sitting in a column that claims the code is settled while
+      the code is being changed. Both are the same broken rule, a card's column
+      not matching its real state, and it has now happened three times on this
+      board - twice one way, once the other.
+
+      The third time is what forced this. TKT-851 sat in `verify` while its
+      implementation was rewritten after the walkthrough found a defect;
+      `verify` is not idle, so every gate waved it through, and Michael caught
+      it by eye. His words: "Why MSK-02 kept on repeating?" and "Find a solution
+      to prevent it happening again and again."
+
+      The answer is that its prevention had been a rule to remember and
+      detectors that fire once a trace appears, where every other lesson in this
+      project became a gate. The pre-push hook already says why that is not
+      enough: "Everything here was previously something I always do ... None of
+      those were caught by a habit. They are caught here."
+
+      So the gate now asks what a column CLAIMS - only `tests-red` and
+      `implement` claim the code is being written - rather than holding a list
+      of bad columns, and it decides by what the commit actually touches, so a
+      documentation commit in a documentation column is not refused as code.
+      Both copies carry it: this repository's own hook, and the gate
+      `tira.gates.install` writes into every other project, which is the one
+      that matters more.
+
+      It stands at the commit, so work between commits is still unguarded. That
+      limit is stated rather than claimed away.
 
 5.40  2026-09-03
 

@@ -307,10 +307,12 @@ board is scheduled to do is visible on the board rather than only in its stored
 job records.
 
 Since 5.41 a running monitor's own output reaches the police bridge instead of
-sitting in a per-job log nobody opens — the `monitor-output` rule follows each
-monitor's spool and announces whole new lines, capped per pass and saying how
-many it dropped. The file itself stays, because a pipe with no reader fills and
-blocks the monitor; the rule follows it rather than replacing it.
+sitting in a per-job log nobody opens. `job.start` runs the monitor inside a
+pipeline whose other half feeds what it prints back to the board, registered
+against the job that said it, and the `monitor-output` rule announces it —
+twenty lines a pass, the newest, saying how many it skipped or dropped. Because
+the output is registered rather than left in a file, the board also knows WHEN
+each monitor last called in, which a file cannot tell it.
 
 Since 5.39 a monitor row also says whether its process is actually up — a green
 or red dot and the words "Running" or "Not running" — so a monitor that died an

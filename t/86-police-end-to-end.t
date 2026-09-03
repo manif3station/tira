@@ -207,10 +207,13 @@ my $unstarted_monitor = $tira->job_add( project => $root, schedule => 'monitor',
 # having. EPC-014, TKT-851.
 sub monitor_says {
     my ($line) = @_;
-    my $spool = $tira->job_log_path( project => $root, id => $unstarted_monitor->{id} );
-    open my $spool_fh, '>>:raw', $spool or die "cannot write the spool: $!";
-    print {$spool_fh} "$line\n";
-    close $spool_fh;
+
+    # THROUGH THE FEEDER, not into a spool. TKT-851's second implementation,
+    # after his Q-112 answer: a monitor's output is registered against the job
+    # that said it rather than left in a file for police to follow. The fixture
+    # calls what the feeder calls, which is what the rule now reads.
+    $tira->job_feed( project => $root, id => $unstarted_monitor->{id},
+        lines => [$line] );
     return;
 }
 

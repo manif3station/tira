@@ -106,6 +106,9 @@ sub run {
         # specification" to STDERR on every invocation. Tira::CLI::Job reads
         # the existing array form instead.
         'schedule=s' => \$option{schedule}, 'enabled=s' => \$option{enabled},
+        # How often a monitor expects to speak, in minutes. TKT-863, his answer
+        # to Q-115. Empty means no expectation, which the dashboard shows dim.
+        'expect-every=s' => \$option{expect_every},
         'columns-json=s' => \$option{columns_json},
         'nested' => \$option{nested},
         'mark=s' => \$option{mark},

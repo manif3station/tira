@@ -326,6 +326,8 @@ sub dispatch {
         schedule => $option->{schedule},
         ( defined $job_command ? ( command => $job_command ) : () ),
         ( defined $option->{message} ? ( message => $option->{message} ) : () ),
+        ( defined $option->{expect_every}
+            ? ( expect_every => $option->{expect_every} ) : () ),
     ) if $command eq 'job.add';
 
     return $tira->job_update(
@@ -334,6 +336,12 @@ sub dispatch {
         ( defined $job_command        ? ( command  => $job_command )        : () ),
         ( defined $option->{message}  ? ( message  => $option->{message} )  : () ),
         ( defined $option->{enabled} ? ( enabled => _enabled_of( $option->{enabled} ) ) : () ),
+
+        # Passed only when named, so job_update's merge can tell "leave it
+        # alone" from "clear it". An empty string is how a caller says the
+        # monitor no longer declares one; _job_fields reads that as undef.
+        ( defined $option->{expect_every}
+            ? ( expect_every => $option->{expect_every} ) : () ),
     ) if $command eq 'job.update';
 
     return $tira->job_delete( %{$args} ) if $command eq 'job.delete';

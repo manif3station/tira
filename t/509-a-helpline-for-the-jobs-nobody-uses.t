@@ -50,6 +50,10 @@ use Tira;
 
 my $doc = 'docs/JOBS.md';
 
+# For the fallback: a directory that exists so the path is well formed, holding
+# no document - which is what an install missing its docs looks like.
+my $tmp_for_absent = tempdir( CLEANUP => 1 );
+
 ok( -f $doc, 'there is a jobs document for tira.job.help to print' );
 
 my $text = '';
@@ -145,6 +149,54 @@ like(
     qr/_job_help/,
     'and it is served the way _policy_help serves tira.policies'
 );
+
+# CALLED, NOT GREPPED FOR. The two assertions above read the source text, which
+# proves the names are typed somewhere and nothing else - and gate-run caught
+# exactly that: both subs were uncovered, because asserting a sub exists never
+# executes it. A test that greps for a function is a test that passes when the
+# function is broken.
+
+require Tira::CLI::Usage;
+
+{
+    my $printed = Tira::CLI::Usage::_job_help();
+
+    # non-empty is the whole claim: the comparison below is meaningless against
+    # an empty string, and an empty string is what a broken lookup returns.
+    like( $printed, qr/\S/, 'calling it produces something' );
+
+    is( $printed, $text,
+        'and what it produces is this document, whole - not a summary of it, '
+          . 'and not a second copy that could drift from the file' );
+}
+
+# --- and the fallback, exercised rather than assumed --------------------------
+#
+# This is the half a test most easily fakes, and the half that matters most: an
+# agent that asks for help and receives silence has been taught the surface is
+# unreliable, which is how it decides to go and build its own scheduling. So the
+# lookup is pointed at a path that is not there, which is what an install
+# missing its docs actually looks like.
+
+{
+    my $absent = File::Spec->catfile( $tmp_for_absent, 'no-such-JOBS.md' );
+    my $fallen = Tira::CLI::Usage::_job_help( document => $absent );
+
+    # non-empty is the whole claim: "the fallback said something" is the entire
+    # point of having one, and every assertion below reads its text.
+    like( $fallen, qr/\S/,
+        'an install with no document still answers rather than saying nothing' );
+
+    isnt( $fallen, $text, 'and it is the fallback, not the document' );
+
+    like( $fallen, qr/tira\.job\.add/, 'it names how to make a job' );
+    like( $fallen, qr/tira\.job\.list/, 'and how to see them' );
+    like( $fallen, qr/tira\.policy\.bridge/,
+        'and the one bridge - the thing an agent left to guess reinvents' );
+    like( $fallen, qr/crontab/,
+        'and it still says the thing the document exists to say, because an '
+          . 'install missing its docs is exactly when nobody is being told' );
+}
 
 # A fallback, for the same reason POLICIES.md has one: "an installation missing
 # its docs should still be able to tell an agent what exists, rather than

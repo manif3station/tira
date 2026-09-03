@@ -73,6 +73,8 @@
 .jobs-card__beat[data-beat="beating"]:before{background:#60a5fa;box-shadow:0 0 8px #60a5fa}
 .jobs-card__beat[data-beat="unknown"]{color:#6b7280}
 .jobs-card__beat[data-beat="unknown"]:before{background:#4b5563;box-shadow:none}
+.jobs-card__beat[data-beat="stale"]{color:#fca5a5}
+.jobs-card__beat[data-beat="stale"]:before{background:#f87171;box-shadow:0 0 8px #f87171}
 .jobs-card__play{grid-column:2;grid-row:1}
 .jobs-card__edit{grid-column:2;grid-row:2}
 .jobs-card__play,.jobs-card__edit{justify-self:end;padding:.38rem .6rem;color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:.55rem;font-size:.72rem;font-weight:750;cursor:pointer;white-space:nowrap}

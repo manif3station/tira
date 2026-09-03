@@ -207,12 +207,38 @@ sub _job_fields {
       . "nothing for it to announce\n"
       if $kind eq 'monitor' && $has_message;
 
+    # HOW OFTEN THIS MONITOR EXPECTS TO SPEAK, in minutes. His answer to Q-115
+    # on TKT-863, choosing it over a board-wide constant and over deriving it:
+    # "Each monitor declares its own expectation when it is created - a field
+    # like 'expect a line every N minutes', empty meaning no expectation and a
+    # dim light."
+    #
+    # Per-job because there is nothing to derive it from - a monitor's schedule
+    # is the literal string 'monitor' - and because a constant cannot fit both a
+    # poller that should speak every minute and JOB-005, which is legitimately
+    # quiet for over an hour because it only speaks when the owner goes away.
+    #
+    # EMPTY IS NOT ZERO AND NOT A DEFAULT. Undeclared means no expectation at
+    # all, and the dashboard shows dim rather than judging. A default here would
+    # be the board-wide constant he turned down, arriving through the back door.
+    my $expect = $args{expect_every};
+    $expect = undef if defined $expect && $expect eq '';
+    if ( defined $expect ) {
+        die "An expectation belongs to a 'monitor' job - a cron job is not "
+          . "supposed to be up between runs, so it has no heartbeat to miss\n"
+          if $kind ne 'monitor';
+        die "How often a monitor expects to speak is a whole number of "
+          . "minutes, greater than zero - '$expect' is not\n"
+          if $expect !~ /\A[1-9][0-9]*\z/;
+    }
+
     return (
         schedule      => $schedule,
         schedule_kind => $kind,
         mode          => $has_command ? 'command' : 'message',
         command       => $has_command ? $args{command} : undef,
         message       => $has_message ? $args{message} : undef,
+        expect_every  => defined $expect ? 0 + $expect : undef,
     );
 }
 
@@ -276,6 +302,15 @@ sub job_update {
         # message would silently leave a stale command behind it.
         my %merged = (
             schedule => $args{schedule} // $job->{schedule},
+
+            # Carried like the schedule, and for the same reason: an update
+            # naming only the command must not silently drop how often this
+            # monitor said it would speak. A new field that vanishes when
+            # something else is touched is worse than no field, because it
+            # looks set.
+            expect_every => exists $args{expect_every}
+              ? $args{expect_every}
+              : $job->{expect_every},
             ( defined $args{command} ? ( command => $args{command} )
               : defined $args{message} ? ( message => $args{message} )
               : $job->{mode} eq 'command' ? ( command => $job->{command} )

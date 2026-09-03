@@ -95,6 +95,11 @@ sub police_follow {
             $tira->bridge_write( store => $store, project => $watched_board,
                 violations => $result->{violations}, settled => $result->{settled},
             upgraded => $result->{upgraded} );
+
+            # The watch loop matters most of the three: it is the one that runs
+            # continuously, so a monitor's output left unrecorded here would be
+            # re-announced every round forever.
+            advance_monitor_output( $tira, $args, $result );
             print {*STDERR} map { "$_\n" } @{ $result->{terminal} };
         }
         # Into the code that is installed, between rounds.
@@ -369,6 +374,50 @@ sub report_to_tira {
 # must be distinguishable from one that never ran. Dropping stderr would leave
 # the bridge saying "it failed" with no reason, which is a smaller version of
 # the same silence.
+# What the pass read from each monitor's spool, written back AFTER the bridge
+# has it. TKT-851.
+#
+# THE ENGINE DELIBERATELY DOES NOT DO THIS. My first version advanced the offset
+# inside the rule, under the same lock as the announcement, on the grounds that
+# announcing and advancing must not drift apart. t/86 overturned it: it
+# fingerprints the board across a pass and asserts that one which "found twenty
+# different things wrong changed not one byte". Police observes and does not
+# mutate, and that guarantee is older and better established than my argument
+# against it.
+#
+# So the split is the one this epic already uses for job-due - announce in the
+# engine, act in the CLI - and the drift I was worried about is answered by
+# doing it here, in the same command, immediately after the write rather than
+# in some later pass.
+#
+# ORDER MATTERS. The bridge write comes first: if this ran before it and the
+# write then failed, the offset would have moved past output nobody ever saw,
+# which is the exact loss this rule exists to prevent.
+sub advance_monitor_output {
+    my ( $tira, $args, $result ) = @_;
+    return if ref $result ne 'HASH';
+    my $seen = $result->{monitor_output} || [];
+    require Tira::Job;
+    for my $mark ( @{$seen} ) {
+        next if !defined $mark->{offset};
+
+        # A failure to record is REPORTED, not swallowed. Silently failing here
+        # means the same lines arrive again next pass, and a bridge repeating
+        # itself is the noise this rule was careful to avoid.
+        eval {
+            Tira::Job::job_output_seen( $tira, %{$args}, id => $mark->{id},
+                offset => $mark->{offset}, spoke => $mark->{spoke} );
+            1;
+        } or do {
+            my $why = $@ || 'it could not be recorded';
+            $why =~ s/\s+\z//;
+            print {*STDERR} "could not record how far $mark->{id} has been read, "
+              . "so its output may be announced again: $why\n";
+        };
+    }
+    return;
+}
+
 sub run_due_job {
     my (%args) = @_;
     my $job = $args{job};
@@ -581,10 +630,12 @@ sub police_outstanding {
         require Tira::CLI::Police;
         my $result = $tira->police_pass( %args, store => $store,
             world => police_world( tira => $tira, project => $watching ) );
-        $tira->bridge_write( store => $store, project => $watching,
-            violations => $result->{violations}, settled => $result->{settled},
-            upgraded => $result->{upgraded} )
-          if $result->{watching};
+        if ( $result->{watching} ) {
+            $tira->bridge_write( store => $store, project => $watching,
+                violations => $result->{violations}, settled => $result->{settled},
+                upgraded => $result->{upgraded} );
+            advance_monitor_output( $tira, \%args, $result );
+        }
     }
     my $open = $tira->police_outstanding( %args, store => $store );
 
@@ -793,6 +844,7 @@ sub police_run {
     $tira->bridge_write( store => $store, project => $watching,
         violations => $result->{violations}, settled => $result->{settled},
         upgraded => $result->{upgraded} );
+    advance_monitor_output( $tira, \%args, $result );
     print {*STDERR} map { "$_\n" } @{ $result->{terminal} };
     return $result if $option->{once};
     require Tira::CLI::Police;

@@ -110,6 +110,7 @@ my %declare = (
     # it. Whole-board, like job-due - a job is not about a card. EPC-014,
     # TKT-842.
     'monitor-dead'              => {},
+    'monitor-output'            => {},
 
     # Column-scoped, and the column is the whole of TKT-639: the board cannot
     # infer which of its own columns mean somebody is WORKING, so the rule is
@@ -189,8 +190,29 @@ $tira->job_add( project => $root, schedule => '0 * * * *',
 # case. It is enabled and has never been started, so it carries no pid at all,
 # which is exactly what every monitor on a machine looks like after a restart.
 # EPC-014, TKT-842.
-$tira->job_add( project => $root, schedule => 'monitor',
+my $unstarted_monitor = $tira->job_add( project => $root, schedule => 'monitor',
     command => 'tira-a-monitor-nobody-started --poll' );
+
+# The same monitor also has something to say - monitor-output's case.
+#
+# REUSING THIS ONE RATHER THAN ADDING A SECOND, and the first attempt did add a
+# second on the grounds that a fixture doing double duty lets one rule's failure
+# hide behind another's. It backfired: a second enabled monitor with a command
+# is a second monitor-dead case, the quiet ladder suppressed the duplicate
+# finding, and the "every violation reached the bridge" count came out one
+# short - a failure caused entirely by the fixture, in a rule that was working.
+#
+# And the shape is honest anyway: a monitor that printed something and then died
+# is exactly when its last words matter most, so carrying them is the case worth
+# having. EPC-014, TKT-851.
+sub monitor_says {
+    my ($line) = @_;
+    my $spool = $tira->job_log_path( project => $root, id => $unstarted_monitor->{id} );
+    open my $spool_fh, '>>:raw', $spool or die "cannot write the spool: $!";
+    print {$spool_fh} "$line\n";
+    close $spool_fh;
+    return;
+}
 
 # A tasklist item left saying pending while the card it names is being worked -
 # task-card-mismatch's case, and the half of the owner's request that
@@ -303,9 +325,25 @@ $now = '2026-08-11T23:00:00Z';
     my $first = $tira->police_pass( project => $root, store => $store, world => $world );
     $tira->bridge_write( store => $store, project => $root,
         violations => $first->{violations}, settled => $first->{settled} );
+
+    # What the real caller does after every bridge write, and this fixture has
+    # to do it too: the pass hands out how far each monitor's spool was read and
+    # the CLI records it. Without this the second pass re-reports the same lines,
+    # the bridge correctly suppresses them as already said, and the violation
+    # count outruns the delivered count - which is what it did here, 114 against
+    # 112, before this line existed. TKT-851.
+    require Tira::CLI::Police;
+    Tira::CLI::Police::advance_monitor_output( $tira, { project => $root }, $first );
 }
 
 $tira->tasklist_update( project => $root, id => $edited_task->{id}, text => 'Revised wording' );
+
+# The monitor speaks again between the passes, for the same reason the task is
+# edited here: the first pass is bridge-unread's setup and it CARRIES what the
+# spool held, advancing the offset. A fixture that only wrote before it would
+# leave nothing new for the pass under test - which is monitor-output working
+# correctly, and would look exactly like the rule failing to fire. TKT-851.
+monitor_says('a line printed between the two passes, which the second must carry');
 
 my $before = fingerprint();
 my $pass = $tira->police_pass( project => $root, store => $store, world => $world );

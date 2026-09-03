@@ -143,6 +143,7 @@ my %needs = (
     'checklist-unmoved'         => {},
     'orphan-card'               => {},
     'monitor-dead'              => {},
+    'monitor-output'            => {},
     'rules-undeclared'          => {},
     'card-still'                => { age => '2h' },
     'question-unanswered'       => { age => '1h' },

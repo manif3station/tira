@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.40';
+our $VERSION = '5.41';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6263,6 +6263,19 @@ my %POLICY_RULES = (
     # The quiet ladder already stops the same line arriving twice a minute.
     'monitor-dead'              => { needs => [], forbids => ['age'] },
 
+    # A RUNNING monitor's output, carried to the one stream the agent reads.
+    # His instruction, 2026-09-02 16:55: "Monitors should not have separate
+    # logs. They all go to the policy bridge." monitor-dead made a STOPPED
+    # monitor say so; this is a running one still being unheard, which is why
+    # the Telegram bridge could not be migrated onto a board-owned job
+    # (TKT-840).
+    #
+    # NO AGE, for the same reason monitor-dead has none: output that has
+    # arrived does not become more arrived by waiting, and a grace period here
+    # is the silence spelled as policy. Whole-board, since a job is not about a
+    # card. TKT-851.
+    'monitor-output'            => { needs => [], forbids => ['age'] },
+
     'leftover-process'          => { needs => [ 'pattern', 'age' ] },
     'leftover-container'        => { needs => [ 'pattern', 'age' ] },
     'card-sandbox-missing'      => { needs => [ 'enter', 'sandbox' ] },
@@ -9546,6 +9559,13 @@ sub _police_environment_violations {
     my $world = $args{world} || {};
     my @violations;
 
+    # How far each monitor's spool was read this pass, for the caller to write
+    # back AFTER the bridge. It cannot be written here: t/86 asserts that a
+    # pass changes not one byte of the board, and police observing without
+    # mutating is older and better established than the argument I made for
+    # doing it inline. TKT-851.
+    my @output_seen;
+
     # The same reading for the six rules that watch the machine rather than the
     # board. A rule put down is put down whichever half of police it lives in;
     # quieting it in one and not the other is the two-copies fault this codebase
@@ -9749,6 +9769,106 @@ sub _police_environment_violations {
                     "monitor $job->{id} is not running: $what" );
             }
         }
+        elsif ( $rule eq 'monitor-output' ) {
+
+            # His instruction: monitors should not have separate logs, they all
+            # go to the policy bridge. A monitor writes to a file and nowhere
+            # else, so a live poller can be saying something useful while the
+            # agent, which reads the bridge, never hears it.
+            #
+            # THE FILE STAYS, and that is not a compromise. TKT-842 chose one
+            # because a pipe with no reader fills at about 64KB and blocks the
+            # child forever - a monitor that has stopped doing anything while
+            # still looking started, which is worse than the silence being
+            # fixed. So this FOLLOWS the file rather than replacing it.
+            #
+            # AN OFFSET, NOT THE LEDGER job-due uses. That announces once per
+            # due WINDOW with a sub_key; a stream has no windows. The question
+            # is which BYTES have been said, and an offset answers it exactly -
+            # where a ledger keyed on text would swallow the repetitions a
+            # poller legitimately prints, which one doing the same work every
+            # minute does constantly.
+            #
+            # Read failures are REPORTED rather than swallowed, the same
+            # judgement monitor-dead makes above: a pass that could not tell
+            # says so, instead of a locked file looking like a quiet monitor.
+            my $jobs = eval { $self->job_list(%args) };
+            if ( !defined $jobs ) {
+                my $why = $@ || 'the jobs record could not be read';
+                $why =~ s/\s+\z//;
+                $report->( $policy, undef,
+                    "the repeated jobs could not be read, so no monitor's "
+                      . "output could be carried this pass: $why" );
+                next;
+            }
+
+            for my $job ( @{$jobs} ) {
+                next if ( $job->{schedule_kind} // '' ) ne 'monitor';
+                next if !$job->{enabled};
+                next if !defined $job->{command} || $job->{command} eq '';
+
+                require Tira::Job;
+                my ( $lines, $dropped, $offset ) =
+                  Tira::Job::monitor_output_since( $self, $job, %args );
+                next if !@{$lines} && !defined $offset;
+
+                # ONE FINDING PER MONITOR PER PASS, carrying everything it
+                # said - not one finding per line. Two attempts got this wrong
+                # before the suite explained it. Per-line findings share a rule
+                # and have no ref, so the ledger settles them as one; giving
+                # each a sub_key fixed that, and then the QUIET LADDER
+                # suppressed the extras anyway, which is its whole job - it is
+                # what stops a rule saying the same thing twice a minute.
+                #
+                # Measured on the way: t/86 counted 112 delivered against 114
+                # violations, then 113. The system's shape is one subject, one
+                # finding, and bundling is also what keeps the bridge readable,
+                # which is what the cap is for in the first place.
+                #
+                # THE CAP SAYS WHAT IT DROPPED, in the same line. A bridge that
+                # truncates silently is a bridge that lies, and this epic exists
+                # because silence and nothing-to-say looked identical.
+                # NOTHING NEW IS NOT A FINDING. Without this guard a monitor
+                # that had said nothing since the last pass produced
+                # "JOB-001 said: " with an empty tail, every pass, forever -
+                # which is the bridge noise this rule was careful to avoid,
+                # arriving from the rule itself. The offset is still recorded
+                # below either way.
+                if ( @{$lines} || $dropped ) {
+                    my $said = join ' | ', @{$lines};
+                    $said .= " (+$dropped more line(s) not shown)" if $dropped;
+                    $report->( $policy, undef, "$job->{id} said: $said",
+                        undef, "$job->{id}:$offset" );
+                }
+
+                # THE PASS DOES NOT WRITE, and that was not my first
+                # instinct. I decided the opposite - advance the offset here,
+                # under the same lock as the announcement, so announcing and
+                # advancing could not drift apart - and the suite overturned
+                # it: t/86 asserts that "a pass that found twenty different
+                # things wrong changed not one byte of the board", fingerprint
+                # by fingerprint. Police observes; it does not mutate. That
+                # guarantee is older and better established than my reasoning
+                # against it, and breaking it quietly for one rule would have
+                # been the worst of both.
+                #
+                # So the offset travels OUT with the finding and
+                # Tira::CLI::Police advances it after the bridge write - the
+                # same split this epic already uses for job-due, which
+                # announces here and runs in the CLI layer. The drift I was
+                # worried about is answered by doing it in the same command,
+                # immediately, rather than by writing from inside the pass.
+                # The offset travels ON THE FINDING rather than being
+                # recomputed later. The CLI could re-read the spool and advance
+                # to wherever it had reached, but the monitor may have written
+                # again in between, and advancing past bytes nobody announced
+                # loses them silently - which is the one failure this rule
+                # exists to prevent, arriving through the fix for it.
+                push @output_seen,
+                  { id => $job->{id}, offset => $offset,
+                    spoke => ( @{$lines} || $dropped ) ? 1 : 0 };
+            }
+        }
         elsif ( $rule eq 'unpushed-work' ) {
             next if !$world->{unpushed_since};
             next if !$self->_policy_older_than( $world->{unpushed_since}, $policy->{age} );
@@ -9762,7 +9882,7 @@ sub _police_environment_violations {
                 defined $when ? "last backup was $when" : 'the board has never been backed up' );
         }
     }
-    return \@violations;
+    return ( \@violations, \@output_seen );
 }
 
 # One pass. The loop that calls this lives in the command, so that everything
@@ -10478,12 +10598,19 @@ sub police_pass {
 
     my ( $found, $error );
     my @unreadable;
+
+    # How far each monitor's spool was read, carried out for the CALLER to
+    # write back after the bridge. The pass itself must not - t/86 fingerprints
+    # the board across a pass and requires not one byte to differ. TKT-851.
+    my $output_seen = [];
     my $ok = eval {
         my $records = $self->record_list( %args, include_discard => 1 );
+        my ( $environment, $seen ) = $self->_police_environment_violations(
+            %args, policies => $policies, records => $records );
+        $output_seen = $seen;
         $found = [
             @{ $self->policy_evaluate( %args, unreadable => \@unreadable ) },
-            @{ $self->_police_environment_violations(
-                    %args, policies => $policies, records => $records ) },
+            @{$environment},
         ];
         1;
     };
@@ -10644,6 +10771,10 @@ sub police_pass {
     return {
         watching => 1,
         violations => $view,
+
+        # For the caller to write back after the bridge, not for the pass to
+        # apply. See the accumulator above and t/86's fingerprint. TKT-851.
+        monitor_output => $output_seen,
 
         # What stopped being true on this pass. Handed back rather than left in
         # the ledger for somebody to notice, because the reader who was told

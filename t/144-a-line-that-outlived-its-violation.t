@@ -186,10 +186,26 @@ is( scalar( grep { $_->{ref} eq $card->{ref} } @{ $returned->{violations} } ), 1
         'lib'
     );
     ok( scalar @sources >= 4, 'lib/ was read - ' . scalar(@sources) . ' modules' );
+    # THREE, not two, and the number was wrong here rather than in the code.
+    # There have been three writers since the --fresh path was added: the watch
+    # loop, --fresh, and the police command itself. This assertion saw two,
+    # because --fresh ended its call with a statement-modifier `if` -
+    #
+    #     $tira->bridge_write( ... )
+    #       if $result->{watching};
+    #
+    # so the terminating `;` sat after the condition and the pattern below,
+    # which stops at the first `;`, never matched it. TKT-851 turned that line
+    # into a block for an unrelated reason and the hidden writer appeared.
+    #
+    # Counting three is the more accurate claim, and the assertion that MATTERS
+    # is the second one - that every writer carries what has been settled. All
+    # three do, and did before this change; the guard simply could not see one
+    # of them saying so.
     my @writes = map { /bridge_write\(([^;]*?)\);/gs } @sources;
-    is( scalar @writes, 2, 'the bridge is written from a pass in two places' );
-    is( scalar( grep { /settled\s*=>/ } @writes ), 2,
-        'and both of them carry what has been settled, not just the one under test' );
+    is( scalar @writes, 3, 'the bridge is written from a pass in three places' );
+    is( scalar( grep { /settled\s*=>/ } @writes ), 3,
+        'and every one of them carries what has been settled, not just the one under test' );
 }
 
 done_testing;

@@ -3609,6 +3609,14 @@ reader never has to infer it from whichever field is populated.
     standard error on every invocation. Giving `--command` twice to a job verb
     is refused rather than silently resolved, because a job runs one command.
 
+    Since 5.41 a running `monitor`'s own output reaches the police bridge, so
+    its findings arrive on the one stream an agent reads rather than sitting in
+    a per-job log nobody opens. The `monitor-output` rule follows each spool from a
+    stored offset and announces whole new lines, capped per pass and saying how
+    many it dropped. The file stays — a pipe with no reader fills at about 64KB
+    and blocks the monitor — so the rule follows it rather than replacing it
+    (TKT-851).
+
     The whole schedule is visible on the browser dashboard as a Repeated Jobs
     section under the Task List, one row per job. EPC-014, TKT-836 for the
     record, TKT-837 for these verbs.

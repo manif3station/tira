@@ -233,6 +233,52 @@ sub job_add {
     } );
 }
 
+# How much of a monitor's spool has already been carried to the bridge, and
+# what is new since. TKT-851.
+#
+# THE CAP IS PER PASS AND ANNOUNCED. A chatty poller must not be able to fill
+# the bridge, but a bridge that truncates silently is a bridge that lies - this
+# epic exists because silence and nothing-to-say looked identical - so the
+# caller is handed the count it did not get as well as the lines it did.
+#
+# A SHORT FILE MEANS IT WAS TRUNCATED OR REPLACED, not that bytes vanished.
+# Reading from a stale offset past the end would return nothing forever, so the
+# offset resets and the file is read from the start. That is the case a naive
+# "seek to offset" gets wrong the first time somebody rotates a log.
+our $MONITOR_OUTPUT_LINES = 20;
+
+sub monitor_output_since {
+    my ( $self, $job, %args ) = @_;
+    my $path = eval { $self->job_log_path( %args, id => $job->{id} ) };
+    return ( [], 0, undef ) if !defined $path || !-f $path;
+
+    my $size = -s $path;
+    my $from = $job->{output_offset} || 0;
+    $from = 0 if $from > $size;
+    return ( [], 0, $from ) if $from == $size;
+
+    open my $fh, '<:raw', $path or return ( [], 0, undef );
+    seek $fh, $from, 0;
+    my $chunk = do { local $/; <$fh> };
+    close $fh;
+    $chunk = '' if !defined $chunk;
+
+    # Only WHOLE lines are carried. A pass that arrives mid-write would
+    # otherwise announce half a sentence and then announce the other half next
+    # time, which reads as two findings about nothing.
+    my $keep = rindex( $chunk, "\n" );
+    return ( [], 0, $from ) if $keep < 0;
+    my $consumed = $from + $keep + 1;
+    my @lines = grep { /\S/ } split /\n/, substr( $chunk, 0, $keep );
+
+    my $dropped = 0;
+    if ( @lines > $MONITOR_OUTPUT_LINES ) {
+        $dropped = @lines - $MONITOR_OUTPUT_LINES;
+        @lines   = @lines[ 0 .. $MONITOR_OUTPUT_LINES - 1 ];
+    }
+    return ( \@lines, $dropped, $consumed );
+}
+
 sub job_list {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
@@ -271,6 +317,32 @@ sub job_update {
         %{$job} = ( %{$job}, %fields );
         $job->{enabled} = $args{enabled} ? 1 : 0 if defined $args{enabled};
         $job->{last_updated} = $self->{clock}->();
+        $self->_write_json( _job_path( $self, $root ), $jobs );
+        return $job;
+    } );
+}
+
+# What has been carried to the bridge, written back. TKT-851.
+#
+# THE OFFSET AND THE TIMESTAMP MOVE TOGETHER, under the one project lock, and
+# that is the whole reason they live on the job record rather than in a sidecar
+# beside the log. If announcing and advancing could come apart, they eventually
+# would, and the failure is either losing a monitor's output or repeating it
+# forever.
+#
+# The timestamp advances ONLY when something was actually said. TKT-863 will
+# read it as a heartbeat - "when did this monitor last speak" - so a pass that
+# carried nothing must not look like a monitor that reported in.
+sub job_output_seen {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    die "A job id is required\n" if !defined $args{id} || $args{id} eq '';
+
+    return $self->_with_project_lock( $root, sub {
+        my $jobs = _job_read( $self, $root );
+        my $job  = _job_find( $jobs, $args{id} );
+        $job->{output_offset}  = $args{offset} if defined $args{offset};
+        $job->{last_output_at} = $self->{clock}->() if $args{spoke};
         $self->_write_json( _job_path( $self, $root ), $jobs );
         return $job;
     } );
@@ -586,6 +658,38 @@ needs the monitored thing to cooperate; every monitor this feature was built
 to absorb is an existing command that will never write a heartbeat. A check
 believed to cover more than it does is worse than one that says where it
 stops.
+
+=head1 A MONITOR'S OUTPUT IS FOLLOWED, NOT COLLECTED
+
+TKT-851, from his instruction that monitors should not have separate logs. A
+monitor never finishes, so its output cannot be handed over in one piece the way
+a command-mode job's can - and it cannot be handed a pipe either, because one
+with no reader fills at about 64KB and blocks the child forever. The file this
+module already writes stays; C<monitor_output_since> follows it from a stored
+offset, and C<job_output_seen> records how far.
+
+Three things about that pair are easy to get wrong and are asserted in F<t/502>:
+
+=over 4
+
+=item * B<Whole lines only.> A pass arriving mid-write would announce half a
+sentence and the other half next time, which reads as two findings about
+nothing.
+
+=item * B<A short file means truncation, not vanished bytes.> Reading from a
+stale offset past the end returns nothing forever, so the offset resets. That is
+what a naive seek gets wrong the first time somebody rotates a log.
+
+=item * B<The offset is a byte count, not a ledger key.> A poller doing the same
+work every minute prints the same line every minute, and a ledger keyed on text
+would swallow those repetitions. The test requires a genuinely repeated line to
+be announced twice.
+
+=back
+
+C<job_output_seen> is called from L<Tira::CLI::Police> after the bridge write,
+never from the pass: F<t/86> requires a police pass to change not one byte of
+the board.
 
 =head1 CALL IT THROUGH TIRA
 

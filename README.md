@@ -111,7 +111,7 @@ embedded in the page — the board loads nothing from another host, so a CDN
 highlighter was never an option. A genuinely binary file still refuses rather
 than rendering as mojibake, and an unknown extension is decided by reading its
 first bytes rather than by its name.
-The board-wide police policy engine — the 42 rules police itself watches,
+The board-wide police policy engine — the 43 rules police itself watches,
 separate from a column's own required-action template — is editable from
 the browser too: a Policies button opens a modal listing every declared,
 declined, and undeclared rule, with a rule-specific parameter picker that
@@ -305,6 +305,12 @@ carries: its id, whether it is enabled, its schedule, what it says or runs,
 and its mode and schedule kind. It refreshes every thirty seconds, so what a
 board is scheduled to do is visible on the board rather than only in its stored
 job records.
+
+Since 5.41 a running monitor's own output reaches the police bridge instead of
+sitting in a per-job log nobody opens — the `monitor-output` rule follows each
+monitor's spool and announces whole new lines, capped per pass and saying how
+many it dropped. The file itself stays, because a pipe with no reader fills and
+blocks the monitor; the rule follows it rather than replacing it.
 
 Since 5.39 a monitor row also says whether its process is actually up — a green
 or red dot and the words "Running" or "Not running" — so a monitor that died an
@@ -560,8 +566,8 @@ entries themselves, and how many rules police the board, checked against
 sentence — every markdown file in the repository bar the build and dependency
 directories (`cover_db`, `node_modules`, `.git`), and any claim that puts a
 number ahead of the word `rules` with at most two words between them. That
-covers `42 rules cover`, `42 rules police`, `42 police
-rules` and `42 policy rules`, and it is the whole of its reach, worth stating
+covers `43 rules cover`, `43 rules police`, `43 police
+rules` and `43 policy rules`, and it is the whole of its reach, worth stating
 plainly because a guard described more broadly than it works is the failure it
 exists to prevent: a claim worded outside that shape is not held, and neither is
 one made anywhere but a markdown file. The same count stated in a source comment is TKT-736, still open.

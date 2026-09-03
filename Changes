@@ -1,5 +1,40 @@
 Revision history for Tira
 
+5.41  2026-09-03
+
+    - TKT-851. A running monitor's output reaches the police bridge. His
+      instruction, 2026-09-02 16:55: "Monitors should not have separate logs.
+      They all go to the policy bridge." `monitor-dead` made a STOPPED monitor
+      say so; a RUNNING one was still unheard, which is why TKT-840 could not
+      migrate the Telegram bridge onto a board-owned job - it would have put
+      those messages in a file nobody opens and silently cut the channel.
+
+      New rule `monitor-output`, taking the rule count to 43. It follows each
+      enabled monitor's spool from a stored offset and announces whole new
+      lines. The FILE STAYS, and that is not a compromise: TKT-842 chose one
+      because a pipe with no reader fills at about 64KB and blocks the child
+      forever. So this follows the spool rather than replacing it.
+
+      An OFFSET, not the ledger `job-due` uses - that announces once per due
+      window, and a stream has no windows. The question is which bytes have
+      been said. A ledger keyed on text would also swallow the repetitions a
+      poller legitimately prints, so the test asserts that a line the monitor
+      genuinely printed twice is announced twice.
+
+      THE PASS DOES NOT WRITE. The first version advanced the offset inside the
+      rule; `t/86` asserts that a pass which found twenty things wrong changed
+      not one byte of the board. Police observes and does not mutate, so the
+      offsets travel out on the result and `Tira::CLI::Police` writes them after
+      the bridge - at all three call sites, the watch loop included, since that
+      is the one that runs continuously.
+
+      Capped at twenty lines per pass with the dropped count in the same
+      finding, because a bridge that truncates silently is a bridge that lies.
+      Silent for a cron job, a disabled monitor, one with no command, and one
+      with nothing new to say. Each monitor also records when output last
+      arrived, which is the heartbeat TKT-863 will read - so that card needs no
+      cooperation from any monitor beyond what it already prints.
+
 5.40  2026-09-03
 
     - TKT-855. The dashboard gives about 3.75rem back to the columns. `.shell`

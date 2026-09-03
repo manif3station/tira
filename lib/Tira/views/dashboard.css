@@ -67,6 +67,12 @@
 .jobs-card__up[data-running="1"]:before{background:#34d399;box-shadow:0 0 10px #34d399}
 .jobs-card__up[data-running="0"]{color:#fca5a5}
 .jobs-card__up[data-running="0"]:before{background:#f87171;box-shadow:0 0 10px #f87171}
+.jobs-card__beat{grid-column:2;grid-row:5;display:inline-flex;align-items:center;gap:.4rem;justify-self:end;font-size:.72rem;font-weight:700;color:var(--muted)}
+.jobs-card__beat:before{content:"";width:.45rem;height:.45rem;border-radius:50%;background:currentColor}
+.jobs-card__beat[data-beat="beating"]{color:#93c5fd}
+.jobs-card__beat[data-beat="beating"]:before{background:#60a5fa;box-shadow:0 0 8px #60a5fa}
+.jobs-card__beat[data-beat="unknown"]{color:#6b7280}
+.jobs-card__beat[data-beat="unknown"]:before{background:#4b5563;box-shadow:none}
 .jobs-card__play{grid-column:2;grid-row:1}
 .jobs-card__edit{grid-column:2;grid-row:2}
 .jobs-card__play,.jobs-card__edit{justify-self:end;padding:.38rem .6rem;color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:.55rem;font-size:.72rem;font-weight:750;cursor:pointer;white-space:nowrap}

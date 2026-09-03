@@ -362,9 +362,18 @@ monitor            ->  Runs continuously
 */30 * * * *       ->  Every 30 minutes
 0 * * * *          ->  Every hour, on the hour
 0 9 * * *          ->  Every day at 09:00
-30 8 * * 1         ->  Every week on Monday, at 08:30
+30 8 * * 1         ->  Every Monday at 08:30
 17 3 5,20 */2 1-5  ->  17 3 5,20 */2 1-5
+*/7 * * * *        ->  */7 * * * *
 ```
+
+That last pair is the rule doing its job rather than failing at it. A step is
+only "every N minutes" when N divides the hour: cron restarts the step at the
+top of each hour, so `*/7` fires at 0, 7, ... 56 and then at 0 again - a gap of
+**four** minutes, not seven. `*/60` and anything larger fire at minute zero only,
+which is hourly. Those are shown as themselves, because "every 7 minutes" is
+exactly the nearly-right phrase somebody would believe and then stop checking
+the cron.
 
 **Run now writes into a tail at the foot of the card** - the last hundred lines, scrolled
 to the newest, with anything under a minute old in yellow. It survives the

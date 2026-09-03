@@ -1052,7 +1052,11 @@ exactly that way. The row carries the words; the page renders a string it is not
 asked to understand.
 
 B<And it refuses to guess.> Only shapes whose meaning is unambiguous from the
-five fields are described. Anything naming a day of the month or a month, and any
+five fields are described. A step is one of the places that is easy to get
+wrong: C<*/N> is "every N minutes" only when N divides the hour, because cron
+restarts the step at the top of each hour - C<*/7> fires at 0, 7, ... 56 and then
+at 0 again, a gap of four minutes rather than seven, and C<*/60> and above fire
+at minute zero only. Those come back unchanged. Anything naming a day of the month or a month, and any
 field it cannot read with certainty, is returned B<as itself>. A description that
 is nearly right is worse than none: it would be read, believed, and the cron never
 looked at again - which is the same failure the raw-cron card had, one layer along.

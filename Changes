@@ -40,7 +40,10 @@ Revision history for Tira
       and never take one away, over a form reporting success.
 
       `job_schedule_words` puts the schedule into words on the card face, with
-      the cron kept as the tooltip. In the engine rather than the browser, for
+      the cron kept as the tooltip. A step is described only when it divides the
+      hour - `*/7` fires at 0,7,...,56 and then at 0 again, a gap of four minutes
+      rather than seven, and `*/60` and above are hourly - so those are shown as
+      themselves rather than described nearly-rightly. In the engine rather than the browser, for
       the reason the schedule check already is: two readings of one format drift
       apart. It refuses to guess - anything it cannot describe with certainty is
       returned unchanged, because a nearly-right description would be believed

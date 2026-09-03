@@ -172,14 +172,35 @@ sub _start_monitor {
     # semicolon or a backtick stays an argument - which is what open3(@command)
     # gave us before there was a pipeline, and what a stored, editable job record
     # has to keep. The only text sh parses is the fixed script on the next line.
-    my $script = 'PERL="$1"; FEEDER="$2"; ID="$3"; shift 3; '
-      . 'exec "$@" 2>&1 | exec "$PERL" "$FEEDER" --id "$ID"';
+    # AND THE LOOP, WHEN THE JOB ASKED FOR ONE, IS PART OF THIS FIXED TEXT.
+    # TKT-891, his voice 6694: an option to keep a command running, so a person
+    # types "only the middle part" instead of a while loop. JOB-006 is what
+    # happens without it - a loop typed into a command field that never ran.
+    #
+    # THE GUARANTEE IS UNCHANGED because the shape is unchanged: what is looped
+    # is the same "$@" that was exec'd before, and "$@" is positional
+    # parameters. Interpolating the job's command INTO this string would be the
+    # thing TKT-851 removed, put back in the worst possible place; wrapping the
+    # parameters is not.
+    #
+    # AND THE SHELL STAYS. Without a loop it execs the command and the recorded
+    # pid becomes the command itself; with one it must survive to run the next
+    # iteration, so the pid the board recorded is the SUPERVISOR's - and that is
+    # what makes a restart invisible to monitor-dead. TKT-891's own card worried
+    # that a restart changes the pid and every restart would read as a death;
+    # keeping the supervisor answers it without a special case.
+    my $script = 'PERL="$1"; FEEDER="$2"; ID="$3"; EVERY="$4"; shift 4; '
+      . 'if [ "$EVERY" -gt 0 ]; then '
+      . 'while :; do "$@"; sleep "$EVERY"; done 2>&1 | exec "$PERL" "$FEEDER" --id "$ID"; '
+      . 'else '
+      . 'exec "$@" 2>&1 | exec "$PERL" "$FEEDER" --id "$ID"; '
+      . 'fi';
 
     my $pid = eval {
         local $ENV{TIRA_HOME} = $root;
         IPC::Open3::open3( my $in, my $out, my $err,
             'sh', '-c', $script, 'tira-monitor',
-            $^X, $feeder, $job->{id}, @command );
+            $^X, $feeder, $job->{id}, ( $job->{restart_every} || 0 ), @command );
     };
     if ( !$pid ) {
         my $why = $@ || 'could not be started';

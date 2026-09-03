@@ -221,6 +221,33 @@ sub _job_fields {
     # EMPTY IS NOT ZERO AND NOT A DEFAULT. Undeclared means no expectation at
     # all, and the dashboard shows dim rather than judging. A default here would
     # be the board-wide constant he turned down, arriving through the back door.
+    # HOW LONG TO WAIT BEFORE RUNNING IT AGAIN, when the command ends. His voice
+    # 6694 on TKT-891: an option called looping, off by default, and when it is
+    # on "the user does not have to type the while loop - they only type the
+    # middle part, the thing they want to run".
+    #
+    # It comes from JOB-006, which was a while loop typed into a command field
+    # to keep police alive and never ran once. A command containing a loop is
+    # one opaque string: nothing can report the interval, tell a supervised job
+    # from a plain one, or count restarts. A field can be seen.
+    #
+    # A LOOP CAN ONLY WRAP A COMMAND, which is his own reason for it not
+    # applying in message mode, and a cron job is the same case from the other
+    # side - it fires on a tick and is not up between runs.
+    my $restart = $args{restart_every};
+    $restart = undef if defined $restart && $restart eq '';
+    if ( defined $restart ) {
+        die "Restarting belongs to a 'monitor' job - a cron job fires on a "
+          . "tick rather than staying up, so there is nothing to restart\n"
+          if $kind ne 'monitor';
+        die "A loop can only wrap a command - a message job announces its text "
+          . "and runs nothing, so there is nothing to restart\n"
+          if !$has_command;
+        die "How long to wait before restarting is a whole number of seconds, "
+          . "greater than zero - '$restart' is not\n"
+          if $restart !~ /\A[1-9][0-9]*\z/;
+    }
+
     my $expect = $args{expect_every};
     $expect = undef if defined $expect && $expect eq '';
     if ( defined $expect ) {
@@ -239,6 +266,7 @@ sub _job_fields {
         command       => $has_command ? $args{command} : undef,
         message       => $has_message ? $args{message} : undef,
         expect_every  => defined $expect ? 0 + $expect : undef,
+        restart_every => defined $restart ? 0 + $restart : undef,
     );
 }
 
@@ -311,6 +339,13 @@ sub job_update {
             expect_every => exists $args{expect_every}
               ? $args{expect_every}
               : $job->{expect_every},
+
+            # Carried for the same reason, and it matters more here: a job that
+            # silently stopped being supervised would look supervised on the
+            # card and let its command die unnoticed.
+            restart_every => exists $args{restart_every}
+              ? $args{restart_every}
+              : $job->{restart_every},
             ( defined $args{command} ? ( command => $args{command} )
               : defined $args{message} ? ( message => $args{message} )
               : $job->{mode} eq 'command' ? ( command => $job->{command} )

@@ -152,6 +152,56 @@ use Tira::CLI::Police;
           . 'job that was given up on from one that failed on its own terms' );
 }
 
+# --- THE DEADLINE HAS ALREADY PASSED WHEN THE LOOP COMES ROUND ----------------
+#
+# The block above leaves by one door and this one leaves by the other, which is
+# why it exists. There are two ways out of the read loop: can_read waits its
+# share and returns nothing, and the deadline is ALREADY past at the top of the
+# loop before can_read is called at all. The first is what a silent command
+# does. The second is what an absolute deadline is FOR - a command that dribbles
+# output cannot renew its timeout for ever, so after enough reads the loop comes
+# round with nothing left to spend.
+#
+# Found by coverage, not by thinking: gate-run held Police.pm at 99.4% and named
+# this one line. Every timeout test written for TKT-864 left through can_read.
+#
+# The guard is not decoration. Without it the loop would call can_read with a
+# zero or negative timeout, and asking a select to wait for a length of time
+# that has already elapsed is not a question with an answer worth relying on -
+# it is exactly the "waits for ever" this card removed, reintroduced at the end.
+#
+# Driven by the package default rather than a job field, so the deadline is
+# already behind us on the first pass and no timing race decides which door the
+# loop leaves by.
+
+{
+    local $Tira::CLI::Police::RUN_TIMEOUT = -1;
+
+    my $started = time;
+    my $result  = Tira::CLI::Police::run_due_job(
+        job => {
+            mode    => 'command',
+            command => 'sleep 60',
+        } );
+
+    cmp_ok( time - $started, '<', 10,
+        'a deadline that has already passed ends the read immediately - it does '
+          . 'not wait, and it certainly does not wait the sixty seconds the '
+          . 'command asked for' );
+
+    # non-empty is the whole claim: the two assertions below read this result,
+    # and an undef one would fail them for reasons that are not this branch.
+    ok( ref $result eq 'HASH', 'with a result to inspect' );
+
+    isnt( ( $result || {} )->{status}, 0,
+        'and it is not a success, for the same reason the other door is not - a '
+          . 'command that was never allowed to run has not run cleanly' );
+
+    like( ( $result || {} )->{output} // '', qr/timed out|timeout/i,
+        'and it names the timeout, so both ways of giving up read the same on '
+          . 'the bridge rather than one of them being a silence' );
+}
+
 done_testing();
 
 __END__

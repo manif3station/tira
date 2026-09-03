@@ -282,6 +282,54 @@ sub running_monitor {
           . 'than being refused as unknown' );
 }
 
+# --- and the CLI layer really signals, which is the half the engine cannot do -
+#
+# ANOTHER LESSON FROM THE SAME MISTAKE. The block above asserts the entrypoint
+# exists and the dispatcher routes the verb; gate-run then refused the card with
+# lib/Tira/CLI/Job.pm at 97.5%, naming the three lines of the job.stop branch.
+# Asserting a route exists is not exercising it - which is exactly what went
+# wrong when the verb was missing entirely.
+#
+# A REAL CHILD, so the kill is real. Using a made-up pid would exercise the
+# branch and prove nothing about whether the signal lands; using $$ would
+# terminate the test. So this forks something that would outlive the test, hands
+# its pid to the board, and asks the dispatcher to stop it.
+
+SKIP: {
+    my $child = fork();
+    skip 'fork is unavailable here', 3 if !defined $child;
+
+    if ( !$child ) {
+        # The child: long enough that only the signal can end it.
+        sleep 60;
+        exit 0;
+    }
+
+    my ( $tira, $root ) = board();
+    my $job = $tira->job_add(
+        project => $root, schedule => 'monitor', command => 'sleep 60' );
+    $tira->job_started( project => $root, id => $job->{id}, pid => $child );
+
+    require Tira::CLI::Job;
+    my $stopped = Tira::CLI::Job::dispatch(
+        $tira, { project => $root, id => $job->{id} }, {}, 'job.stop' );
+
+    is( $stopped->{stopped_pid}, $child,
+        'the dispatcher hands back the pid it let go of, so the CLI knows what '
+          . 'to signal - the engine cannot, being forbidden the process table' );
+
+    ok( !$stopped->{pid},
+        'and the record is cleared, which happens BEFORE the signal so a signal '
+          . 'that fails cannot leave the board pointing at it' );
+
+    # Reaped rather than left: waitpid confirms the child actually ended, and
+    # without it the test would leave a zombie for the harness to trip over.
+    my $reaped = waitpid $child, 0;
+    is( $reaped, $child,
+        'and the process is gone - the CLI layer signals for real, which is the '
+          . 'half of stopping the engine is not allowed to do' );
+}
+
 done_testing();
 
 __END__

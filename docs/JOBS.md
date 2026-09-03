@@ -293,6 +293,76 @@ d2 tira.policy.bridge
 d2 tira.police.outstanding
 ```
 
+### From the dashboard rather than a terminal
+
+Everything above is the CLI, and until 5.42 the dashboard could do a strict
+subset of it: a job could be listed, run, and given a new schedule. It could not
+be corrected, stopped, or removed, and the two newest fields could not be set
+from there at all.
+
+That was his complaint, in his own words: *"In the UI there is no way i can
+delete any existing job card / I cannot edit and card / I cannot pick between
+command or message."*
+
+The Repeated Jobs section now offers, on each card:
+
+| Control | What it does | The verb underneath |
+| --- | --- | --- |
+| **Edit** | opens one form, pre-filled from the job | `tira.job.update` |
+| **Run now** / **Start** | runs a cron job now, or starts a monitor | `tira.job.start` |
+| **Stop**, **Restart** | only on a monitor the board can see running | `tira.job.stop` |
+| **Enable** / **Disable** | stops a job being due, without removing it | `tira.job.update` |
+| **Delete** | removes the job, after a confirm | `tira.job.delete` |
+
+**The buttons follow the job's state rather than offering everything.** A
+monitor the board can see running offers Stop and Restart and does *not* offer
+Start - offering it would be the board inviting a second process to sit beside
+the first. A monitor whose liveness cannot be determined - the process table
+could not be read - keeps the button it already had rather than guessing, which
+is the same distinction the running indicator beside it makes.
+
+**The form is one form.** Creating and editing use the same fields, and editing
+fills them from the job. The schedule kind is a pair of radio buttons rather
+than the word `monitor` typed into a schedule box, which was a magic value
+somebody had to know. Command or Message is a second pair, and Message is not
+offered under Monitor - not because the page has an opinion, but because the
+engine refuses that pairing outright: a monitor with no command can never be
+found alive in the process table, so it would be reported dead for ever.
+
+**Looping is a checkbox with an interval**, off unless asked for, defaulting to
+five seconds. Do not set it below about two seconds. The reason is measured
+rather than theoretical: the feeder that collects a monitor's output flushes
+after 25 lines or two seconds of quiet, and a command restarting every second
+never leaves a two-second gap - so a perfectly healthy monitor reports no output
+at all and reads as dead.
+
+**The schedule reads as words on the card face**, with the cron string kept as
+the tooltip. It is still *stored* as cron; the words are produced by the engine,
+not by the browser, for the same reason the schedule check is - two readings of
+one format drift apart, and only one of them can be the one that decides.
+Anything the engine cannot describe with certainty is shown unchanged, because a
+nearly-right description would be believed and the cron never read again:
+
+```
+monitor            ->  Runs continuously
+*/30 * * * *       ->  Every 30 minutes
+0 * * * *          ->  Every hour, on the hour
+0 9 * * *          ->  Every day at 09:00
+30 8 * * 1         ->  Every week on Monday, at 08:30
+17 3 5,20 */2 1-5  ->  17 3 5,20 */2 1-5
+```
+
+**Run now writes into a tail below the card** - the last hundred lines, scrolled
+to the newest, with anything under a minute old in yellow. It survives the
+section's own thirty-second refresh, which is the part that took care: a log
+owned by the card element would be wiped twice a minute by the reload that
+rebuilds every card, leaving less behind than the single status line it replaced.
+
+Deleting a **running** monitor is refused, and the page shows the engine's own
+words rather than a softened version of them. The refusal names
+`tira.job.stop`, because the useful thing to know is not that the delete failed
+but what to do first.
+
 ### This page
 
 `tira.job.help` is itself one of the job verbs, and the only one that takes no

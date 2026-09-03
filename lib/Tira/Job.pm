@@ -1003,6 +1003,31 @@ TKT-851's guarantee and is untouched: what is looped is the same C<"$@"> that wa
 exec'd before. Refused on a cron job, which fires on a tick rather than staying
 up, and on a message job, because a loop can only wrap a command.
 
+=head1 A SCHEDULE THAT READS AS WORDS
+
+C<job_schedule_words> turns a stored schedule into a phrase - "Every 30 minutes",
+"Every day at 09:00", "Runs continuously" for a monitor. TKT-884: the dashboard
+card was the one place a schedule was visible and the one place it could not be
+read.
+
+B<In the engine rather than the browser, deliberately.> L<Tira::CLI::Browser>
+already refuses to let the page interpret a schedule - the editor asks the engine
+whether a crontab is valid instead of running a regex in JavaScript, because two
+validators for one format is how the engine and the browser came to disagree
+about attachment content types. A cron-to-English translator written in the page
+would be a second reading of the same format, free to drift from the first in
+exactly that way. The row carries the words; the page renders a string it is not
+asked to understand.
+
+B<And it refuses to guess.> Only shapes whose meaning is unambiguous from the
+five fields are described. Anything naming a day of the month or a month, and any
+field it cannot read with certainty, is returned B<as itself>. A description that
+is nearly right is worse than none: it would be read, believed, and the cron never
+looked at again - which is the same failure the raw-cron card had, one layer along.
+
+The words are an addition, never a substitution. A job is still stored as cron,
+and the editor puts the real string back into the field when it opens.
+
 =head1 A MONITOR CALLS IN - ITS LEAVINGS ARE NOT READ
 
 TKT-851, from his instruction that monitors should not have separate logs and

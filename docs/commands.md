@@ -3566,11 +3566,20 @@ reader never has to infer it from whichever field is populated.
 - `tira.job.start --id ID [-o FORMAT]`
 - `tira.job.run --id ID [-o FORMAT]`
 - `tira.job.feed --id ID`
+- `tira.job.help`
 
     ```
     d2 tira.job.add --schedule "0 * * * *" --message "go hunt some bugs"
     d2 tira.job.list
     ```
+
+    **`tira.job.help` takes no arguments and prints `docs/JOBS.md` whole**, the
+    way `tira.policies` prints `docs/POLICIES.md` - the same mechanism, not a
+    second one, and it falls back to naming the verbs when the document is
+    absent. It is the only documentation command that exists to talk an agent
+    out of something: writing a crontab entry, or keeping a loop inside its own
+    session. This list is the reference; that page is the reason, and it does
+    not repeat this one. TKT-886.
 
     The schedule is a crontab expression, or the literal `monitor` for a
     long-running poller that runs continuously rather than firing on a tick;

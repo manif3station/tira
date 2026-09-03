@@ -335,9 +335,17 @@ sub run {
     $option{ref} = $option{ref_list}[-1] if $option{ref_list};
     $option{$_} = _expand_home( $option{$_} ) for grep { defined $option{$_} } qw(dir project);
 
-    if ( $option{help} || $command eq 'policies' ) {
+    # job.help joins policies here rather than going to Tira::CLI::Job with the
+    # other job verbs, because it is the same KIND of thing as tira.policies: a
+    # document printed whole, not a command that touches a board. Routing it
+    # through the job dispatcher would have meant a verb taking no --id, no
+    # --schedule and no project, sitting beside seven that do. TKT-886.
+    #
+    if ( $option{help} || $command eq 'policies' || $command eq 'job.help' ) {
         require Tira::CLI::Usage;
-        print $command eq 'policies' ? Tira::CLI::Usage::_policy_help() : Tira::CLI::Usage::_usage( $command, $type );
+        print $command eq 'policies' ? Tira::CLI::Usage::_policy_help()
+          : $command eq 'job.help'   ? Tira::CLI::Usage::_job_help()
+          :                            Tira::CLI::Usage::_usage( $command, $type );
         return 0;
     }
 

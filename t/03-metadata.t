@@ -229,7 +229,7 @@ is( dotted_command('skills/project/skills/people/cli/remove'),
 is_deeply( \@undocumented, [],
     'every command that ships is named in a document an agent reads' );
 
-is( scalar @commands, 187, 'release ships exactly 187 executable CLI entrypoints' );
+is( scalar @commands, 188, 'release ships exactly 188 executable CLI entrypoints' );
 
 # --- and every command the documents name can be run --------------------------
 #

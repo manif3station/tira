@@ -116,6 +116,21 @@ d2 tira.policy.bridge
 because it looks like cover. Police will be saying things and nobody will be
 listening. Keep the bridge running for as long as you are working.
 
+**One bridge, for everything, including repeated jobs.** A job's output reaches
+this same stream - `job-due` announces a message job here, and a monitor's own
+output arrives through the feeder. So there is nothing to arrange per job: no
+second bridge to run, and nothing for you to tail.
+
+A monitor may keep its own log file, and the owner's ruling is that this is
+fine - he keeps one for the Telegram poller and reads it himself. What the log
+is not is the **channel**: by standard everything reaches you here, and a log
+that something has to follow in order for you to hear about it is the
+arrangement this rule exists to replace. Keep a log if it is useful to a human;
+do not build a path from it to yourself.
+
+If you are about to set up a way to hear from a job you have just created, read
+`d2 tira.job.help` first - it exists because agents keep building exactly that.
+
 **Run it exactly as shown above - `d2 tira.policy.bridge`, nothing else.** It
 streams every event to its own stdout as it happens; that is what "tail it"
 means everywhere else in this guide. It is not an instruction to pipe the

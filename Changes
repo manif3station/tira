@@ -2,6 +2,40 @@ Revision history for Tira
 
 5.42  2026-09-03
 
+    - TKT-886. `tira.job.help` prints a jobs document the way `tira.policies`
+      prints POLICIES.md - his words: "a dedicated helpline for the agent to
+      read like the tira.policies... so that will be read by the agent to stop
+      using share crontab and built in monitor or schedual jobs."
+
+      It is the fifth documentation command and the only one written to talk an
+      agent out of something. `docs/commands.md` already documented every job
+      verb throughout, and it stopped nobody: three standing hunts ran as
+      in-session monitors and were dead for hours on 2026-09-02 with nothing to
+      say so, the Telegram poller is still a log tailed by a monitor, and
+      JOB-006 was a `while` loop typed into a command field that never ran once.
+      What was missing was never the argument list. So this page is the reason
+      rather than the reference, and it says so in its own first paragraph.
+
+      Its problem statement is drawn entirely from this board's own history,
+      because an agent reading an invented cautionary tale has no reason to
+      believe it and there were four real ones to hand.
+
+      56 worked examples, not the hundred he asked for, and the document states
+      the count and the reason in its second paragraph rather than letting the
+      number pass. A hundred was reachable only by writing the same example with
+      different words, which would have met the number and defeated the purpose
+      he gave for it.
+
+      Every example is executed by `t/509`, which exists because `t/70` scans
+      only SKILLS.md and docs/commands.md - a new document would have been run
+      by nothing at all, and all 56 would have shipped unproven. POLICIES.md is
+      outside that list too and answers it the same way, with `t/85`.
+
+      A fallback names the verbs when the document is absent, for the reason
+      `_policy_help_fallback` gives and which matters more here: an agent that
+      asks for help and gets silence has been taught the surface is unreliable,
+      which is how it decides to build its own scheduling.
+
     - TKT-881. The Task List section stops growing with the queue, so the
       Repeated Jobs section below it is reachable. His words: "Huge Task List
       section bury the Jobs", and the fix he specified - "initially only show 5

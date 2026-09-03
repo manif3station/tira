@@ -373,6 +373,19 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
   see what happened to it. `--since` bounds by exactly the two version
   numbers an upgrade notice already states in one sentence, rather than
   requiring the whole history to reach the newest entry. TKT-404.
+- `tira.job.help` — **Implemented (5.42).** No arguments; prints
+  `docs/JOBS.md` whole, the way `tira.policies` prints `docs/POLICIES.md`.
+  **Read this before you write a crontab entry, a `while` loop, or a monitor
+  inside your own session** — it is the fifth documentation command and the
+  only one that exists to talk you out of something. It carries why the board
+  owns repeated work, what has actually gone wrong here when it did not, worked
+  examples for every job verb including this one, the refusals worth knowing
+  before you meet them and what each is protecting,
+  and a section of straight replacements for the habits it is arguing against.
+  Falls back to naming the verbs when the document is missing, so an install
+  without its docs still answers. His words on TKT-886: "a dedicated helpline
+  for the agent to read like the tira.policies... so that will be read by the
+  agent to stop using share crontab and built in monitor or schedual jobs."
 - `tira.project.create --name TEXT [--dir DIR] [-o FORMAT]` — **Implemented.**
   Name required; directory defaults to `.`; existing projects are preserved.
 - `tira.project.new --name TEXT [--dir DIR] [--members LIST] [--columns LIST]
@@ -1932,6 +1945,7 @@ tira.job.delete --id ID [-o FORMAT]
 tira.job.start --id ID [-o FORMAT]
 tira.job.run --id ID [-o FORMAT]
 tira.job.feed --id ID
+tira.job.help
 tira.dashboard -o browser [--show-logs]
 ```
 

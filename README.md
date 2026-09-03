@@ -547,6 +547,26 @@ signature, argument interaction, output and exit contract, transaction
 invariant, and 100 implemented use cases while intentionally keeping managed
 project location opaque.
 
+Four more documents print the same way, each answering a question the manual
+answers only in passing:
+
+```bash
+d2 tira.usage
+d2 tira.policies
+d2 tira.changes
+d2 tira.job.help
+```
+
+`tira.job.help` is the newest (5.42) and the only one written to talk you out of
+something. **Read it before you write a crontab entry, a `while` loop, or a
+monitor inside your own agent session.** It carries why the board owns repeated
+work, what has actually gone wrong here when it did not — three standing hunts
+that died unnoticed, a monitor reported dead while demonstrably running, a shell
+loop typed into a command field that never ran once — 56 worked examples, the
+refusals worth knowing before you meet them and what each one protects, and a
+section of straight replacements for the habits it argues against. Every one of its examples is executed by the test
+suite, so none of them is merely plausible.
+
 ## Managed-storage model
 
 Tira owns a local filesystem-backed database, but its location is intentionally

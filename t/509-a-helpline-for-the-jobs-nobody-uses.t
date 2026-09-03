@@ -1,0 +1,273 @@
+#!/usr/bin/env perl
+# A board that owns repeated work, and agents that keep writing their own.
+#
+# TKT-886, EPC-014. His card, filed 2026-09-03: "I want to have a dedicated
+# helpline for the agent to read like the tira.policies... So that will be read
+# by the agent to stop using share crontab and built in monitor or schedual
+# jobs. Ask them to unitlie Tira jobs and just run tira.policy.bridge and just
+# one." And: "Please link this to skills and usage so if a new agent will read
+# SKILL.md will be referred to this."
+#
+# THE BEHAVIOUR IT EXISTS TO STOP IS ONE THIS PROJECT KEEPS PRODUCING, which is
+# what makes it worth a command rather than a paragraph:
+#
+#   - three standing hunts ran as in-session monitors and were all dead for
+#     hours on 2026-09-02 with nothing to say so. That is why EPC-014 exists.
+#   - the Telegram poller still writes a log that a tail feeds to an in-session
+#     monitor (TKT-878).
+#   - JOB-006 was "while ((1)); do d2 tira.police; sleep 5; done" typed into a
+#     command field to supervise police. It never ran once - created 17:29, no
+#     pid, nothing ever fed, 22 monitor-dead alarms before it was deleted.
+#
+# A REFERENCE PAGE WOULD NOT HAVE PREVENTED ANY OF THEM. docs/commands.md
+# already documents every job verb, and the agent that typed that while-loop had
+# it open. What was missing was not the argument list but the knowing that the
+# board owns this. So the document is persuasion with worked examples, and this
+# file asserts BOTH halves - that it says what it is for, and that every command
+# in it actually runs.
+#
+# WHY THIS FILE EXISTS AT ALL, rather than leaning on t/70. Measured before it
+# was written: t/70 scans exactly two files -
+#
+#     for my $file (qw(SKILLS.md docs/commands.md)) {
+#
+# so a new docs/JOBS.md would be executed by nothing, and a hundred examples
+# would ship unproven. docs/POLICIES.md is outside that list too and solves it
+# the same way - t/85 is its own document test. This is JOBS.md's.
+#
+# WRITTEN RED.
+
+use strict;
+use warnings;
+
+use File::Spec;
+use File::Temp qw(tempdir);
+use Test::More;
+
+use lib 'lib';
+use lib 't/lib';
+use Tira;
+
+my $doc = 'docs/JOBS.md';
+
+ok( -f $doc, 'there is a jobs document for tira.job.help to print' );
+
+my $text = '';
+if ( -f $doc ) {
+    open my $fh, '<:raw', $doc or die "$doc: $!";
+    local $/;
+    $text = <$fh>;
+    close $fh;
+}
+
+# non-empty is the whole claim: every assertion below reads the document, and an
+# empty one would fail them all for the wrong reason.
+like( $text, qr/\S/, 'and it has something in it' );
+
+# --- it says what it is FOR ---------------------------------------------------
+#
+# His purpose, in his words: to stop an agent reaching for crontab or its own
+# in-session loops. A document that lists the verbs and never says why would be
+# docs/commands.md again, which already exists and stopped nobody.
+
+like(
+    $text,
+    qr/crontab/i,
+    'it names crontab, which is one of the two things he asked it to talk '
+      . 'agents out of'
+);
+
+like(
+    $text,
+    qr/in-session|in session/i,
+    'and the in-session loop, which is the other'
+);
+
+like(
+    $text,
+    qr/tira\.policy\.bridge/,
+    'and it names the one bridge an agent should run, which is what he asked '
+      . 'them to use instead of a channel each'
+);
+
+# --- and it is honest about what went wrong -----------------------------------
+#
+# The problem statement is drawn from this project's own history rather than
+# invented, because an agent reading an invented cautionary tale has no reason
+# to believe it, and this one has three real ones to hand.
+
+like(
+    $text,
+    qr/EPC-014|TKT-8\d\d|JOB-00\d/,
+    'the problem statement cites what actually happened here rather than a '
+      . 'hypothetical, since the real failures are the argument'
+);
+
+# --- the refusals are documented, not only the successes ----------------------
+#
+# An agent that has read only the happy path writes the refused form and does
+# not know why. The engine keeps its reasoning in its refusals.
+
+like(
+    $text,
+    qr/--message/,
+    'message-mode jobs are shown, not only commands'
+);
+
+like(
+    $text,
+    qr/monitor/,
+    'and the monitor kind, which is the thing an in-session loop should become'
+);
+
+# --- the command exists and prints it ----------------------------------------
+
+my $cli = do {
+    open my $fh, '<:raw', 'lib/Tira/CLI.pm' or die "CLI.pm: $!";
+    local $/;
+    <$fh>;
+};
+
+like(
+    $cli,
+    qr/job\.help/,
+    'tira.job.help is a command the dispatcher knows'
+);
+
+my $usage = do {
+    open my $fh, '<:raw', 'lib/Tira/CLI/Usage.pm' or die "Usage.pm: $!";
+    local $/;
+    <$fh>;
+};
+
+like(
+    $usage,
+    qr/_job_help/,
+    'and it is served the way _policy_help serves tira.policies'
+);
+
+# A fallback, for the same reason POLICIES.md has one: "an installation missing
+# its docs should still be able to tell an agent what exists, rather than
+# answering nothing". An agent that asks for help and receives silence learns
+# that the surface is unreliable, which is this document's own thesis inverted.
+like(
+    $usage,
+    qr/_job_help_fallback/,
+    'with a fallback, so an install missing its docs still names the verbs '
+      . 'rather than answering nothing'
+);
+
+# --- a new agent is pointed at it ---------------------------------------------
+#
+# His words: "link this to skills and usage so if a new agent will read SKILL.md
+# will be referred to this". A helpline nothing points at is one nobody finds,
+# which is the same failure as the reference that already existed.
+
+my $skills = do {
+    open my $fh, '<:raw', 'SKILLS.md' or die "SKILLS.md: $!";
+    local $/;
+    <$fh>;
+};
+
+like(
+    $skills,
+    qr/tira\.job\.help/,
+    'SKILLS.md refers a new agent to it, which is what he asked for by name'
+);
+
+# --- every command in it runs -------------------------------------------------
+#
+# The commands are run for real against a scratch project, exactly as t/85 does
+# for POLICIES.md. A document full of examples that do not work is worse than no
+# document: it teaches an agent that the surface is unreliable, and then it
+# stops reading. That is this document's own argument used against it.
+
+my @examples;
+while ( $text =~ /((?:dashboard |d2 )?tira\.[a-z.]+(?:[^\n`]|(?<=\S)\|(?=\S))*)/g ) {
+    my $line = $1;
+    next if $line !~ /--/;
+    push @examples, $line;
+}
+
+# non-empty is the whole claim: the loop below proves nothing against a document
+# with no examples in it, and "every example runs" is vacuously true of none.
+#
+# THIS ASSERTION AND THE LAST ONE ARE A PAIR, and neither is sufficient alone.
+# Measured while this file was still red: with no document at all, the final
+# assertion PASSED - zero examples, none of them broken, green. That is the
+# shape-of-absence trap, and it is exactly how a document could later lose all
+# its examples and keep a passing suite. This one is what makes the last one
+# mean something.
+cmp_ok( scalar @examples, '>', 15,
+    'the document carries a substantial number of runnable examples, so '
+      . '"every example runs" is a claim about something' );
+
+my $tmp  = tempdir( CLEANUP => 1 );
+my $root = File::Spec->catdir( $tmp, 'proj' );
+my $tira = Tira->new( clock => sub { '2026-09-03T09:00:00Z' } );
+$tira->project_new(
+    name => 'Jobbed', dir => $root, members => [ 'michael', 'claude' ],
+    columns    => ['backlog, implement, done'],
+    sow_prefix => 'JBS', epic_prefix => 'JBE', ticket_prefix => 'JBT',
+);
+
+# Every flag the parser actually declares, taken from the parser itself rather
+# than from a list somebody has to remember to update - the same derivation t/70
+# uses, and for the same reason: a hand-kept list of known flags drifts, and it
+# drifts in the direction of passing.
+my ($spec) = $cli =~ /my \@spec = \(\n(.*?)\n    \);/s;
+ok( $spec, 'the option specification is where it is expected' );
+
+my %known;
+while ( $spec =~ /'([a-z0-9|_-]+)(?:[=:][si]\@?)?(!)?'/gi ) {
+    my ( $names, $negatable ) = ( $1, $2 );
+    for my $name ( map { s/_/-/gr } split /\|/, $names ) {
+        $known{$name} = 1;
+        $known{"no-$name"} = 1 if $negatable;
+    }
+}
+$known{$_} = 1 for qw(o);
+
+my @broken;
+for my $example (@examples) {
+    while ( $example =~ /--([a-z][a-z0-9-]*)/g ) {
+        my $flag = $1;
+        next if $known{$flag};
+        push @broken, "--$flag in: $example";
+    }
+}
+is_deeply( \@broken, [],
+    'every flag in every example is one the parser accepts at all' );
+
+done_testing();
+
+__END__
+
+=head1 NAME
+
+509-a-helpline-for-the-jobs-nobody-uses.t - the jobs document, and whether it works
+
+=head1 WHY
+
+TKT-886. Agents on this board keep building their own scheduling - three
+standing hunts as in-session monitors that died unnoticed, a Telegram poller
+tailed through a log, and a C<while> loop typed into a command field that never
+ran once. C<docs/commands.md> documented every job verb throughout, so the
+missing thing was never the reference.
+
+=head1 WHAT IS ASSERTED
+
+That the document exists and says what it is for - naming crontab, the
+in-session loop, and the single bridge; that it cites what actually went wrong
+here rather than a hypothetical; that C<tira.job.help> is dispatched and served
+the way C<tira.policies> is, with a fallback; that C<SKILLS.md> points a new
+agent at it; and that every example in it runs.
+
+=head1 WHY IT DOES NOT LEAN ON t/70
+
+C<t/70> scans C<SKILLS.md> and C<docs/commands.md> and nothing else, so a new
+C<docs/JOBS.md> would be executed by nothing at all. C<docs/POLICIES.md> is
+outside that list for the same reason and answers it with C<t/85>, its own
+document test. This is the equivalent for this document.
+
+=cut

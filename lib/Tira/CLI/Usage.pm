@@ -211,6 +211,53 @@ sub _policy_help_fallback {
       'Listen:       d2 tira.policy.bridge     (the agent runs this)',
       '';
 }
+
+# The same arrangement for repeated jobs, and for the same reason - the document
+# is the answer, this only finds it. TKT-886: his words, "I want to have a
+# dedicated helpline for the agent to read like the tira.policies", so that an
+# agent stops reaching for crontab or its own in-session loops.
+sub _job_help {
+    my (%args) = @_;
+    my $here = __FILE__;
+    $here =~ /\A([^\x00-\x1f\x7f]+)\z/ or return '';
+    my $doc = $args{document}
+      // File::Spec->catfile( _skill_root(), 'docs', 'JOBS.md' );
+    if ( -f $doc && open my $fh, '<:raw', $doc ) {
+        my $text = do { local $/; <$fh> };
+        close $fh;
+        return $text;
+    }
+    return _job_help_fallback();
+}
+
+# Said when the document is not there, for the reason _policy_help_fallback
+# gives: an installation missing its docs should still name what exists rather
+# than answering nothing. It matters more here than there - this document exists
+# because agents invent their own scheduling, and one that asks for help and
+# gets silence has just been taught that the surface is unreliable.
+sub _job_help_fallback {
+    return join "\n",
+      'Tira repeated jobs',
+      '',
+      'The board owns repeated work. Do not write a crontab entry, and do not',
+      'keep a loop inside your own session - a session that ends takes the',
+      'schedule with it, and a stopped loop looks exactly like a quiet one.',
+      '',
+      'A job announces a message or runs a command, on a cron schedule or as a',
+      'monitor that stays running. Its output reaches the police bridge, which',
+      'is the one channel - you do not need a log per job to watch.',
+      '',
+      'Make one:     d2 tira.job.add --schedule "0 * * * *" --message "TEXT"',
+      '              d2 tira.job.add --schedule "0 * * * *" --command "COMMAND"',
+      '              d2 tira.job.add --schedule monitor --command "COMMAND"',
+      'See them:     d2 tira.job.list',
+      'Change one:   d2 tira.job.update --id JOB-001 --schedule "0 */2 * * *"',
+      'Start one:    d2 tira.job.start --id JOB-001    (monitor kind)',
+      'Run one now:  d2 tira.job.run --id JOB-001',
+      'Remove one:   d2 tira.job.delete --id JOB-001',
+      'Listen:       d2 tira.policy.bridge            (one bridge, not a tail each)',
+      '';
+}
 # What an unknown option gets, now: named the way "Command not found" names
 # a mistyped verb - the closest declared names this command actually
 # answers to, not silence past "Invalid command-line options". TKT-298.
@@ -342,6 +389,25 @@ rejected, which is the fault TKT-742 fixed.
 
 C<_policy_help> and C<_policy_help_fallback> answer the same question for
 policies.
+
+C<_job_help> and C<_job_help_fallback> do it once more for repeated jobs
+(TKT-886), printing F<docs/JOBS.md>. The three-way arrangement is deliberate:
+these subs FIND a document, they do not generate one. The answer lives in the
+file, so improving what an agent is told means editing Markdown rather than
+this module - and a document is reviewable in a way a here-doc buried in a
+dispatcher is not.
+
+The fallbacks earn their place at the moment an install is incomplete. An agent
+that asks for help and receives nothing has just been taught that the surface is
+unreliable, and F<docs/JOBS.md> exists precisely because agents who believe that
+go and build their own scheduling instead. Answering with the verb list is worth
+more there than anywhere else on this page.
+
+B<C<job.help> is dispatched in F<lib/Tira/CLI.pm> beside C<policies>, not with
+the other job verbs in L<Tira::CLI::Job>.> It is the same kind of thing as
+C<tira.policies> - a document printed whole - and routing it through the job
+dispatcher would have produced a verb taking no C<--id>, no C<--schedule> and no
+project, sitting among seven that do.
 
 All of it is asked for by C<--help> and by the error paths, which is a minority
 of invocations - so C<Tira::CLI> loads this module at the point one of them is

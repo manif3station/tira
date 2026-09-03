@@ -5,7 +5,7 @@ scheduling, with worked examples. It is not the argument list — every verb and
 every option is in `docs/commands.md`, and duplicating that here is how two
 documents drift apart.
 
-**56 worked examples**, and the number is stated because it was asked to be a
+**60 worked examples**, and the number is stated because it was asked to be a
 hundred. Every one of these does something the others do not, and every one is
 executed by `t/509` — a hundred was reachable only by writing the same example
 with different words, which would have met the number and defeated the reason
@@ -205,6 +205,44 @@ directly if you are writing something that reports on its own behalf:
 
 ```
 d2 tira.job.feed --id JOB-005
+```
+
+### Saying how often a monitor should speak
+
+A monitor can declare its own cadence, and a stopped-but-alive monitor is
+visible on the dashboard because of it:
+
+```
+d2 tira.job.add --schedule monitor --command "d2 tira.policy.bridge" --expect-every 5
+d2 tira.job.update --id JOB-001 --expect-every 60
+```
+
+It is a whole number of minutes and must be greater than zero; `--expect-every 0`
+is refused rather than read as "never expect anything".
+
+Leaving it out is not zero and not a default - it means this monitor declares no
+expectation, and the dashboard shows it dim rather than judging it. That is
+deliberate: a monitor that speaks only when something happens can be quiet for
+hours and be perfectly healthy, and a light that is usually red is one nobody
+reads.
+
+**What you will see on the dashboard**, for an enabled monitor:
+
+| state | when |
+| --- | --- |
+| lit | it spoke within its declared expectation, or it declares none |
+| red | it has been silent longer than the expectation it declared |
+| dim | it has never spoken at all, whatever it declares |
+
+A **cron job** shows no heartbeat and a **disabled monitor** shows none either -
+the same two silences `monitor-dead` already keeps, for the same reason. Neither
+is supposed to be up, so neither has a heartbeat to miss.
+
+That is also why the expectation belongs to a monitor. A cron job is refused
+one, rather than storing a number nothing would ever read:
+
+```
+d2 tira.job.add --schedule "0 * * * *" --command "d2 tira.stale" --expect-every 5
 ```
 
 ### Watching all of it

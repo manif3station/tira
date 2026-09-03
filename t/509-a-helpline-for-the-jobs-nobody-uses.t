@@ -254,6 +254,33 @@ cmp_ok( scalar @examples, '>', 15,
     'the document carries a substantial number of runnable examples, so '
       . '"every example runs" is a claim about something' );
 
+# AND THE NUMBER IT CLAIMS IS THE NUMBER IT HAS. The document states its own
+# count, because the owner asked for a hundred and got fewer - so the figure is
+# the honest reporting of a shortfall rather than decoration, and a stale one
+# would be a quiet lie about exactly the thing he is owed an answer on.
+#
+# It went stale within the hour: the count was written as 56, TKT-863 added four
+# more examples for --expect-every, and nothing would have noticed. This
+# assertion is here so the next person to add an example cannot leave the claim
+# behind.
+
+# COUNTED THE WAY THE DOCUMENT MEANS IT, which is not the way @examples is
+# gathered. That list exists to check flags, so it skips a line with none -
+# `d2 tira.job.list` and `d2 tira.policy.bridge` are worked examples to a
+# reader and have nothing for the flag check to look at. Measured while writing
+# this: 54 carry flags, 60 are shown. Counting the wrong one here would have
+# forced the document to understate itself to satisfy a test.
+my %shown;
+$shown{$1} = 1 while $text =~ /^\s*(d2 tira\.[^\n]*)$/mg;
+
+my ($claimed) = $text =~ /\*\*(\d+) worked examples\*\*/;
+
+ok( $claimed, 'the document states how many examples it carries' );
+
+is( $claimed, scalar keys %shown,
+    'and that is how many it actually has - the count is the honest reporting '
+      . 'of a shortfall against the hundred he asked for, so it must not drift' );
+
 my $tmp  = tempdir( CLEANUP => 1 );
 my $root = File::Spec->catdir( $tmp, 'proj' );
 my $tira = Tira->new( clock => sub { '2026-09-03T09:00:00Z' } );

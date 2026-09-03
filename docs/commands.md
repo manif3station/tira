@@ -3559,9 +3559,9 @@ runs a `--command` — never both and never neither, because a record carrying
 both cannot say which the bridge should get. `mode` records which it is, so a
 reader never has to infer it from whichever field is populated.
 
-- `tira.job.add --schedule CRON|monitor (--command TEXT | --message TEXT) [-o FORMAT]`
+- `tira.job.add --schedule CRON|monitor (--command TEXT | --message TEXT) [--expect-every MINUTES] [-o FORMAT]`
 - `tira.job.list [-o FORMAT]`
-- `tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TEXT] [--enabled 1|yes|true|on|0|no|false|off] [-o FORMAT]`
+- `tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TEXT] [--expect-every MINUTES] [--enabled 1|yes|true|on|0|no|false|off] [-o FORMAT]`
 - `tira.job.delete --id ID [-o FORMAT]`
 - `tira.job.start --id ID [-o FORMAT]`
 - `tira.job.run --id ID [-o FORMAT]`
@@ -3572,6 +3572,28 @@ reader never has to infer it from whichever field is populated.
     d2 tira.job.add --schedule "0 * * * *" --message "go hunt some bugs"
     d2 tira.job.list
     ```
+
+    **`--expect-every MINUTES` is how a monitor says how often it ought to
+    speak** (TKT-863). It is a whole number of minutes **greater than zero** -
+    `0` is refused rather than read as "expect nothing". Leaving it out means
+    the monitor declares no expectation, which is not the same as zero and is
+    not a default. Refused on a cron job, which is not supposed to be up between
+    runs and has no heartbeat to miss. It survives an update that names
+    something else, the way `--command` and `--message` do.
+
+    What the dashboard does with it, for an enabled monitor: **lit** when it
+    spoke within its declared expectation or declares none, **red** when it has
+    been silent longer than what it declared, and **dim** when it has never
+    spoken at all. A cron job and a disabled monitor show no heartbeat at all -
+    the same two silences `monitor-dead` keeps, and for the same reason.
+
+    The owner chose this shape over a board-wide constant and over deriving one
+    from the job (Q-115 on TKT-863). There is nothing to derive from - a
+    monitor's `schedule` is the literal string `monitor` - and a constant cannot
+    fit both a poller that should speak every minute and one that is legitimately
+    quiet for hours because it only speaks when something happens. What reads the
+    field is the dashboard heartbeat, and the `monitor-silent` police rule when
+    it lands.
 
     **`tira.job.help` takes no arguments and prints `docs/JOBS.md` whole**, the
     way `tira.policies` prints `docs/POLICIES.md` - the same mechanism, not a

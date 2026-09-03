@@ -713,6 +713,21 @@ to absorb is an existing command that will never write a heartbeat. A check
 believed to cover more than it does is worse than one that says where it
 stops.
 
+B<That paragraph was written before the monitors cooperated, and half of it is
+now out of date.> TKT-851's feeder means every started monitor reports progress
+by the act of speaking, and C<job_feed> stamps C<last_output_at> as it does. So
+the missing ingredient exists. What is still true is that C<job_monitor_alive>
+does not use it: this sub answers "is the process there", and nothing more.
+
+Deciding a wedged monitor needs a second fact - how often this monitor ought to
+speak - which the record could not supply, since a monitor's C<schedule> is the
+literal string C<monitor>. TKT-863 asked the owner where that should come from
+and he chose per-job declaration over a board-wide constant: C<expect_every>, a
+whole number of minutes, and B<undeclared means no expectation> rather than a
+default. The dashboard heartbeat reads it. A police rule that announces the
+silence on the bridge is TKT-873, absorbed into TKT-893, and it will read the
+same field rather than inventing a second notion of late.
+
 =head1 A MONITOR CALLS IN - ITS LEAVINGS ARE NOT READ
 
 TKT-851, from his instruction that monitors should not have separate logs and

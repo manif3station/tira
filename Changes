@@ -2,6 +2,41 @@ Revision history for Tira
 
 5.42  2026-09-03
 
+    - TKT-863. A monitor can say how often it expects to speak, and the
+      dashboard shows one that has stopped saying it. His title: "List the
+      monitors heatbeat with a red/green dim and light up on and off".
+
+      TKT-861's indicator answers one question - is the process there. A monitor
+      that is alive but WEDGED, process up and polling stopped, read as green
+      for ever. docs/POLICIES.md admitted that in its own words and said
+      catching it "needs the monitor to report progress, which needs it to
+      cooperate". TKT-851's feeder made them cooperate; `last_output_at` has
+      been arriving at the browser unread ever since.
+
+      So each enabled monitor row carries its own heartbeat beside the running
+      light. Two facts, not one - a monitor can be up and silent, which is the
+      whole case this exists for.
+
+      Deciding when silence is too long had no source in the record: a monitor's
+      schedule is the literal string `monitor`, and JOB-005 is legitimately
+      quiet for over an hour because it speaks only when the owner goes away, so
+      any short constant would paint the only real monitor on the board red most
+      of the day. Q-115 asked him; he chose per-job declaration over a
+      board-wide constant and over deriving one. `--expect-every MINUTES` is
+      that, refused on a cron job, and UNDECLARED MEANS NO EXPECTATION rather
+      than a default - a default would be the constant he turned down arriving
+      through the back door.
+
+      Never spoken is a third state, not a bad one: null, an absent field and an
+      unparseable stamp all land on it, where a version guarding only null would
+      paint an unparseable stamp as fresh.
+
+      The comparison reads `last_output_at` itself. A probe over the real
+      expressions caught the label reading "Silent 3 hours ago, expects every 3
+      hours" for a 3h09m silence against a 180-minute expectation - both numbers
+      true, both rounded, and together reading as though the monitor were not
+      late at all.
+
     - TKT-886. `tira.job.help` prints a jobs document the way `tira.policies`
       prints POLICIES.md - his words: "a dedicated helpline for the agent to
       read like the tira.policies... so that will be read by the agent to stop
@@ -20,7 +55,7 @@ Revision history for Tira
       because an agent reading an invented cautionary tale has no reason to
       believe it and there were four real ones to hand.
 
-      56 worked examples, not the hundred he asked for, and the document states
+      60 worked examples, not the hundred he asked for, and the document states
       the count and the reason in its second paragraph rather than letting the
       number pass. A hundred was reachable only by writing the same example with
       different words, which would have met the number and defeated the purpose

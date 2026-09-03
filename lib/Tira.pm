@@ -5928,6 +5928,26 @@ my %POLICY_RULES = (
     # card. TKT-851.
     'monitor-output'            => { needs => [], forbids => ['age'] },
 
+    # A monitor that is UP and has stopped saying anything. Between the two
+    # rules above sits the case neither covers: monitor-dead finds a process
+    # that is gone, monitor-output carries a running monitor's words, and a
+    # wedged monitor - process alive, polling stopped - satisfies both.
+    # docs/POLICIES.md admitted that in its own words and said catching it
+    # "needs the monitor to report progress, which needs it to cooperate".
+    #
+    # THEY COOPERATE NOW. TKT-851's feeder stamps last_output_at whenever a
+    # monitor speaks, and TKT-863 added expect_every - how often a monitor says
+    # it OUGHT to speak, which the owner chose over a board-wide constant
+    # (Q-115) because a monitor's schedule is the literal string 'monitor' and
+    # there is nothing to derive a cadence from.
+    #
+    # NO AGE, and it is refused rather than ignored, for the reason the two
+    # rules above give: the lateness is measured against what the monitor
+    # itself declared, so a second grace period on top would be a threshold
+    # nobody chose sitting over one somebody did. Whole-board, since a job is
+    # not about a card. TKT-873, inside TKT-893.
+    'monitor-silent'            => { needs => [], forbids => ['age'] },
+
     'leftover-process'          => { needs => [ 'pattern', 'age' ] },
     'leftover-container'        => { needs => [ 'pattern', 'age' ] },
     'card-sandbox-missing'      => { needs => [ 'enter', 'sandbox' ] },
@@ -9428,6 +9448,60 @@ sub _police_environment_violations {
                 my $what = $job->{command} // $job->{message} // '';
                 $report->( $policy, undef,
                     "monitor $job->{id} is not running: $what" );
+            }
+        }
+        elsif ( $rule eq 'monitor-silent' ) {
+
+            # The gap between the two rules either side of this one: a monitor
+            # whose process is there and whose words have stopped. TKT-873.
+            # Read the way monitor-dead reads it, including the refusal to
+            # swallow a failure: a locked or corrupt jobs file must not look
+            # like a board with no monitors, which would be silence standing in
+            # for an answer inside a rule about silence.
+            my $jobs = eval { $self->job_list(%args) };
+            if ( !defined $jobs ) {
+                my $why = $@ || 'the jobs record could not be read';
+                $why =~ s/\s+\z//;
+                $report->( $policy, undef,
+                    "the jobs record could not be read, so no monitor could be "
+                      . "checked for silence: $why" );
+                next;
+            }
+
+            for my $job ( @{$jobs} ) {
+                next if ( $job->{schedule_kind} // '' ) ne 'monitor';
+
+                # The same two silences monitor-dead keeps, and for the same
+                # reasons: a disabled monitor is absent on purpose, and a
+                # monitor with no command was never going to say anything.
+                next if !$job->{enabled};
+                next if !defined $job->{command} || $job->{command} eq '';
+
+                # UNDECLARED MEANS NEVER LATE. The owner's answer to Q-115:
+                # each monitor declares its own expectation, and one that
+                # declares none cannot be overdue because nobody said when it
+                # was due. JOB-005 is quiet for over an hour by design, and a
+                # rule that judged it by a number nobody chose would be one
+                # nobody reads.
+                my $expect = $job->{expect_every};
+                next if !$expect;
+
+                # NEVER SPOKEN IS NOT THE SAME AS STOPPED. With no
+                # last_output_at there is no silence to measure - it has not
+                # begun. An enabled monitor with no pid is monitor-dead's case,
+                # and one that is up and has never fed a line is the dashboard's
+                # dim heartbeat. A third opinion here would only disagree.
+                my $spoke = $job->{last_output_at};
+                next if !defined $spoke || $spoke eq '';
+
+                # Against the timestamp itself, never a rounded label - the
+                # same rule the dashboard heartbeat follows, so the page and
+                # the bridge cannot disagree about whether a monitor is late.
+                next if !$self->_policy_older_than( $spoke, $expect . 'm' );
+
+                $report->( $policy, undef,
+                    "monitor $job->{id} has said nothing since $spoke, "
+                      . "and expects to speak every ${expect}m: $job->{command}" );
             }
         }
         elsif ( $rule eq 'monitor-output' ) {

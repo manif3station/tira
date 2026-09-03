@@ -111,6 +111,7 @@ my %declare = (
     # TKT-842.
     'monitor-dead'              => {},
     'monitor-output'            => {},
+    'monitor-silent'            => {},
 
     # Column-scoped, and the column is the whole of TKT-639: the board cannot
     # infer which of its own columns mean somebody is WORKING, so the rule is
@@ -217,6 +218,21 @@ sub monitor_says {
     return;
 }
 
+# And a monitor that IS running and has stopped saying anything - monitor-silent's
+# case, and the one the two rules above leave between them. It needs a pid the
+# process table below actually carries, or it would be a monitor-dead finding
+# instead and prove the wrong rule.
+#
+# A SECOND ENABLED MONITOR IS EXACTLY WHAT THE COMMENT ABOVE WARNS ABOUT, so it
+# is given a live pid rather than left unstarted: alive, monitor-dead says
+# nothing about it, and the count that broke last time is undisturbed.
+my $quiet_monitor = $tira->job_add(
+    project => $root, schedule => 'monitor',
+    command => 'tira-a-monitor-that-went-quiet --poll', expect_every => 5 );
+$tira->job_started( project => $root, id => $quiet_monitor->{id}, pid => 9911 );
+$tira->job_feed( project => $root, id => $quiet_monitor->{id},
+    lines => ['the last thing it ever said'] );
+
 # A tasklist item left saying pending while the card it names is being worked -
 # task-card-mismatch's case, and the half of the owner's request that
 # task-unlinked above does not cover. The card has to be IN a declared working
@@ -308,7 +324,16 @@ at('2026-08-11T11:30:00Z');
 
 my $world = {
     branches => [], worktrees => [],
-    processes => [ { command => 'bash -c sleep 25', started_at => '2026-08-11T09:00:00Z' } ],
+    processes => [
+        { command => 'bash -c sleep 25', started_at => '2026-08-11T09:00:00Z' },
+
+        # The quiet monitor, genuinely up. Its start time matches what the
+        # board recorded when job_started ran, because liveness compares the
+        # two within a minute in both directions (TKT-860) - a process that
+        # began before the spawn cannot be the one we spawned either.
+        { pid => 9911, command => 'tira-a-monitor-that-went-quiet --poll',
+            started_at => '2026-08-11T09:00:00Z' },
+    ],
     containers => [ { name => 'skills-perl-test-run-abc', started_at => '2026-08-11T09:00:00Z' } ],
     commits => [ { sha => 'abc1234', subject => 'tidy up a few things' } ],
     working_since => '2026-08-11T09:00:00Z',

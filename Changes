@@ -1,5 +1,54 @@
 Revision history for Tira
 
+5.42  2026-09-03
+
+    - TKT-746. The fourth concern leaves the engine. `lib/Tira/Attachment.pm`
+      takes the attachment subsystem - store a file, sniff its type, read its
+      head, attach it to a record, list, fetch, detach, discard - out of
+      `lib/Tira.pm`, which goes from 14,584 lines to 14,164.
+
+      BOTH NUMBERS MEASURED AT THE MOMENT OF WRITING, which on this card is the
+      point rather than a nicety. Four places in the tree stated this file's
+      size when the work began - README said 14,177, SKILLS.md 14,256,
+      `lib/Tira/Job.pm` 14,177, and the card's own title 14,621 - and every one
+      was wrong, because each had been copied from the last sentence that looked
+      authoritative. Three now agree at the measured figure; the fourth is the
+      card title, left to TKT-876, which is filed for the guard none of them has.
+
+      It takes `$self` and reaches the engine's shared helpers through it, the
+      shape `Tira::Job` already uses, so only the concern moved. `Tira` keeps a
+      forwarder at every public name, requiring the module at the call site, so
+      a command that never touches an attachment never compiles it.
+
+      THREE HELPERS KEEP A NAME IN THE ENGINE, and working out which took three
+      attempts. `_store_attachment_file` and `_attachment_path` are called by
+      `question_attach`, `question_voice` and `_backfill_added_at` - questions
+      attach files through this store. `_attachment_content_type` is called by
+      `lib/Tira/CLI.pm` and `t/423` as `Tira::_attachment_content_type`, fully
+      qualified across a file boundary; nothing inside `lib/Tira.pm` calls it at
+      all, so two caller searches in a row said it was free to leave and the
+      suite caught it - "Undefined subroutine &Tira::_attachment_content_type
+      called at lib/Tira/CLI.pm line 919". A leading underscore marks a name
+      private to a PACKAGE, not to a file.
+
+      TWO THINGS TRAVELLED THAT THEIR NAMES DID NOT SUGGEST.
+      `%QUESTION_VOICE_TYPES` was declared `our`, but its only reader across
+      `lib/` and `t/` was `_store_attachment_file`, so the `our` was vestigial.
+      `_looks_like_text` had one caller, `_attachment_content_type` - leaving it
+      behind would have split "is this file text?" across two files.
+
+      `t/431` found three dangling references before any of this was true:
+      `_epoch_of_datetime` called bare (50 callers in the engine, so it stays
+      and is reached by package name), `_looks_like_text` called bare, and
+      `encode_utf8` imported by `Tira.pm` and not by the new module - which is
+      exactly the third failure that file was written for: it compiles, and dies
+      when reached. A hand-check against a list of remembered imports found two
+      of the three.
+
+      No behaviour changed, and that is what the suite says rather than what the
+      change intends: 495 files, 9944 tests, green, with no existing test file
+      edited to accommodate the move.
+
 5.41  2026-09-03
 
     - TKT-851. A running monitor's output reaches the police bridge. His

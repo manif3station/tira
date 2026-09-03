@@ -29,11 +29,13 @@ package Tira::Job;
 # 'monitor' for a long-running poller. schedule_kind records which, so no
 # caller re-parses the schedule to find out.
 #
-# IN ITS OWN MODULE FROM THE START. TKT-746 is decomposing lib/Tira.pm - three
-# concerns lifted so far, 15,264 lines down to 14,177 - so new code goes
-# beside those rather than into the file they are being pulled out of. Tira
-# keeps thin forwarders that require this lazily, the same shape Tira::Toon,
-# Tira::Tasklist and Tira::Render already use.
+# IN ITS OWN MODULE FROM THE START. TKT-746 is decomposing lib/Tira.pm - four
+# concerns lifted so far, 15,264 lines down to 14,164, measured at the fourth
+# lift rather than carried forward (TKT-876 is what happens when it is carried
+# forward) - so new code goes beside those rather than into the file they are
+# being pulled out of. Tira keeps thin forwarders that require this lazily, the
+# same shape Tira::Toon, Tira::Tasklist, Tira::Render and Tira::Attachment
+# already use.
 
 use strict;
 use warnings;

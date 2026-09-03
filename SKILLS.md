@@ -1750,12 +1750,43 @@ branches, so a caller asking for `json` or `toon` compiles none of it
 outside the concern: `_html_escape`, which the login page HTML also uses, and
 the plain functions `_render_view`, `_view_asset` and `json_object`.
 
-`lib/Tira.pm` is 14,256 lines after three lifts and the work since, down from 15,264 (measured,
-not estimated). The one candidate named on TKT-746 still unmoved is the
-police engine - its own future lift, not assumed to be as self-contained as
-these three turned out to be.
+`lib/Tira.pm` is 14,164 lines after four lifts and the work since, down from
+15,264 — measured at the fourth lift rather than carried forward, which is the
+only reason it is right. The figure it replaced said 14,256, README said 14,177,
+`lib/Tira/Job.pm` said 14,177 and TKT-746's own title said 14,621: four claims,
+four numbers, none of them the file. That is TKT-876, and it is the argument for
+measuring at the moment of writing rather than copying the last sentence that
+looked authoritative.
 
-**The three lifts needed two different shapes, and the deciding factor is the
+The one candidate named on TKT-746 still unmoved is the police engine — its own
+future lift, not assumed to be as self-contained as these four turned out to
+be.
+
+**The fourth lift: `Tira::Attachment` (TKT-746, 5.42).** 12 subs and 420 lines —
+store a file, sniff its type, read its head, attach it to a record, list, fetch,
+detach, discard. It takes `$self` and reaches the engine's shared furniture
+through it, the shape `Tira::Job` already uses, so only the concern moved.
+
+Two of its private helpers keep a name in the engine as forwarders:
+`_store_attachment_file` and `_attachment_path`, because `question_attach`,
+`question_voice` and `_backfill_added_at` call them — questions attach files
+through this store, and a lift that breaks its callers is not a lift. Two other
+things travelled that the name would not have suggested: `%QUESTION_VOICE_TYPES`,
+declared `our` but read only by `_store_attachment_file`, and `_looks_like_text`,
+whose only caller was `_attachment_content_type` — leaving it behind would have
+split "is this file text?" across two files.
+
+**`t/431` found three dangling references this lift would otherwise have
+shipped**, and it is worth naming what they were, because a hand-check missed
+all three. `_epoch_of_datetime` called bare (50 callers in the engine — shared
+furniture, now reached by package name), `_looks_like_text` called bare (its
+only caller had just left), and `encode_utf8` imported by `Tira.pm` and not by
+the new module — which is exactly the third failure `t/431` was written for: it
+compiles, and dies when reached. The check that caught them resolves *every*
+call in *every* module under `lib/`; the check that missed them was a grep
+against a list of function names somebody thought of.
+
+**The three earlier lifts needed two different shapes, and the deciding factor is the
 callers, not the size.** `Tira::Toon` had no callers outside the one branch
 that used it, so it moved whole and left a single `require`. `Tira::Render`
 is the same shape for the same reason - four subs reached only from
@@ -2952,7 +2983,7 @@ tira.police.freshness [--store PATH] [-o FORMAT]
 **Implemented.** The Questions panel puts what still needs doing first: unanswered, then answered but not yet judged, then judged, then set aside. A question you have already marked collapses to its question, its answer and a tick or a cross — everything else is only in the way once it is settled — so a card with a long history stays readable.
 
 ### UC-115: Find every file on a card, wherever it is attached
-**Implemented.** `dashboard tira.attachment.list --ref TKT-001 -o json` counts and lists every file belonging to the card: attached to the card itself, to one of its comments, or recorded as a voice note on one of its questions. Each entry says which in `attached_to`. A zero means there is genuinely nothing there — it used to mean nothing on the card itself, which read as failure when the files were one level down.
+**Implemented.** `dashboard tira.attachment.list --ref TKT-001 -o json` counts and lists every file belonging to the card: attached to the card itself, to one of its comments, to one of its questions - whether a voice note or an ordinary attachment - or to a question's answer. Each entry says which in `attached_to`. A zero means there is genuinely nothing there — it used to mean nothing on the card itself, which read as failure when the files were one level down.
 
 ### UC-114: Be told what a new ticket still owes
 **Implemented.** Creating a record hands back a `reminder` in the same terse line: `missing: description,reporter,gate,questions(if unclear) | fix: tira.ticket.update --ref TKT-001 --description TEXT --reporter NAME; …`. A title alone is not a ticket. The reporter is whoever asked for it — name the owner if he did, name yourself if you found the bug or the enhancement. A gate records how the work will be judged. And a question is offered because guessing at something unclear is the expensive mistake, not because every ticket needs one. Fields that share a command share one, the fix names the board the record lives on, and a record that owes nothing says nothing.

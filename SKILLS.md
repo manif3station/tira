@@ -2397,9 +2397,39 @@ at `top: 0` is *why* the clearance is dead, so it is asserted: if somebody makes
 the header static later, the file fails and tells the next reader the number
 needs rethinking rather than defending. And it asserts what must **not** change —
 the header's own padding, the compact state, and `align-items`, which belongs to
-TKT-854 and is parked on Q-110. Without those, "make the numbers smaller" would
-have been satisfied by stripping the header's padding: a worse page and a green
-suite.
+TKT-854. Without those, "make the numbers smaller" would have been satisfied by
+stripping the header's padding: a worse page and a green suite.
+
+That last guard has since earned itself. TKT-854 landed and changed
+`align-items`, and `t/501` failed — correctly, because it was pinning a value it
+did not own. The expected value moved to `stretch` and the assertion stayed:
+what it guards is that a card about *padding* must not quietly alter how the two
+columns line up, which is still true whatever the value is.
+
+**Both sides of the header, not one (TKT-854, 5.41).** His words:
+"Page header project title on the left not align to the right side", with a
+screenshot carrying **two** red lines — one along the top edges, one along the
+bottom — and "make both sides align" written between them.
+
+`.hero` was already `align-items: end`, which is why "add an alignment" was the
+wrong reading. It aligns the two columns' **boxes** at the bottom, and the left
+box is far taller than its text: the h1 is `clamp(2.2rem, 6vw, 4.8rem)` with
+`line-height: 1.15`, so there is leading below the baseline. The boxes met; the
+text did not, and nothing met at the top because the left column is simply
+taller.
+
+`align-items: stretch` gives both columns the height of the taller one — which
+is what creates a shared top edge and a shared bottom edge at all — and
+`align-content: space-between` on `.hero__aside` spreads its rows across that
+height so the first reaches the top and the last reaches the bottom.
+`align-content` and not `justify-content`: the aside is `display: grid`, so the
+block axis is the `align-` one, and `justify-content` would have moved its
+columns sideways and changed neither edge.
+
+**The requirement was in an attachment, not in the card's text**, and it sat
+there for four hours while a question was asked that the image already answered.
+An entry-gate audit that walks every *field* and never asks whether anything is
+*attached* will do that again.
 
 **A monitor's own words, on the bridge (TKT-851, 5.41).** His instruction on
 2026-09-02: "Monitors should not have separate logs. They all go to the policy

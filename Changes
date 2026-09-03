@@ -121,6 +121,35 @@ Revision history for Tira
       It stands at the commit, so work between commits is still unguarded. That
       limit is stated rather than claimed away.
 
+    - TKT-854. Both sides of the page header line up. His words: "Page header
+      project title on the left not align to the right side", with a screenshot
+      carrying TWO red lines - one along the top edges, one along the bottom -
+      and "make both sides align" written between them.
+
+      `.hero` was already `align-items: end`, which is why this was not a
+      missing alignment. That aligns the columns' BOXES at the bottom, and the
+      left box is much taller than its text: the h1 is
+      `clamp(2.2rem, 6vw, 4.8rem)` with `line-height: 1.15`, so leading sits
+      below the baseline. The boxes met and the text did not, and nothing met at
+      the top at all, because the left column is simply taller.
+
+      Now `align-items: stretch`, so both columns take the height of the taller
+      one and there is a shared top and bottom edge to line up against, with
+      `align-content: space-between` on `.hero__aside` spreading its rows across
+      that height. `align-content` rather than `justify-content`: the aside is a
+      grid, so the block axis is the `align-` one, and `justify-content` would
+      have moved its columns sideways and changed neither edge.
+
+      `t/501` failed on this and was right to - TKT-855 had pinned
+      `align-items: end` with the note that it belonged to another card. That
+      card is this one. The expected value moved and the assertion stayed: what
+      it guards is that a card about padding must not quietly change the
+      alignment.
+
+      The requirement was in an ATTACHMENT rather than in the card's text, and
+      it sat there for four hours while a question was asked that the image
+      already answered.
+
 5.40  2026-09-03
 
     - TKT-855. The dashboard gives about 3.75rem back to the columns. `.shell`
@@ -147,8 +176,10 @@ Revision history for Tira
       sticky at top:0 - so if that ever stops being true the file fails and says
       the number needs rethinking, rather than leaving a value nobody can
       justify. It also asserts what must NOT change: the header's own padding,
-      the compact state, and its alignment, which belongs to TKT-854 and is
-      waiting on an answer.
+      the compact state, and its alignment, which belonged to TKT-854 and was
+      waiting on an answer at the time. TKT-854 landed in 5.41 and changed that
+      alignment, so `t/501` failed - correctly, because it was pinning a value
+      it did not own. The expected value moved and the assertion stayed.
 
 5.39  2026-09-03
 

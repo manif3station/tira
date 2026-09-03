@@ -108,11 +108,20 @@ isnt( value( '.hero', 'padding' ), '',
 like( rule('.hero--compact'), qr/padding:\s*\.4rem/,
     'and the compact state is untouched, since it is what the page collapses to on scroll' );
 
-# The header's internal layout belongs to TKT-854, which is parked awaiting his
-# answer to Q-110 about which axis he means. Editing it here would pre-empt an
-# answer I asked for.
-like( rule('.hero'), qr/align-items:\s*end/,
-    'the header alignment is left exactly as it was, because that is another card' );
+# The header's internal layout belongs to TKT-854, and when this file was
+# written that card was parked awaiting his answer to Q-110 about which axis he
+# meant - so this asserted align-items:end, pinning the value TKT-855 must not
+# touch. TKT-854 has since landed: his screenshot answered it with two red lines
+# and "make both sides align", and the value is now stretch.
+#
+# THE ASSERTION IS KEPT RATHER THAN DELETED, and only its expected value moved.
+# What it guards is unchanged and is still worth guarding: a card about PADDING
+# must not quietly alter how the two columns line up. Deleting it because the
+# number changed would remove that guarantee for the next appearance card, which
+# is how a suite loses the checks that were never about the number.
+like( rule('.hero'), qr/align-items:\s*stretch/,
+    'the header alignment is whatever TKT-854 settled on, and this card - which '
+      . 'is about padding - did not move it' );
 
 cmp_ok( $shell_top, '>', 0,
     'and the clearance is not zero - the sticky header has rounded bottom corners '

@@ -145,6 +145,77 @@ sub board {
           . 'given one without being deleted and made again' );
 }
 
+# --- AND THE FORM CAN UNSET WHAT IT CAN SET ----------------------------------
+#
+# Found in verify, by walking the card's own test step: "untick it and confirm
+# the field is cleared rather than set to zero". It was not cleared.
+#
+# The engine reads both fields with `exists` rather than `defined`, so an
+# explicit undef CLEARS and an absent key LEAVES ALONE - two different
+# instructions. The provider tested `defined`, which collapses them, and the
+# page omitted the key when the box was unticked. So the checkbox was one-way:
+# it could add a restart interval and never take one away, and the form reported
+# success over a job it had not changed.
+#
+# Measured before the fix, and this is the whole bug in three lines:
+#   start:           restart_every=5 expect_every=7
+#   after unticking: restart_every=5 expect_every=7
+#   explicit undef:  restart_every=(cleared) expect_every=(cleared)
+
+{
+    my ( $tira, $root ) = board();
+    my %provider = Tira::CLI::Browser::providers( tira => $tira, project => $root );
+
+    my $job = $tira->job_add(
+        project       => $root,
+        schedule      => 'monitor',
+        command       => 'd2 tira.police',
+        restart_every => 5,
+        expect_every  => 7 );
+
+    # What the page sends with the box unticked and the expectation emptied.
+    $provider{job_save}->( {
+            id            => $job->{id},
+            schedule      => 'monitor',
+            command       => 'd2 tira.police',
+            restart_every => undef,
+            expect_every  => undef,
+        } );
+
+    my ($cleared) = grep { $_->{id} eq $job->{id} }
+      @{ $tira->job_list( project => $root ) };
+
+    is( ( $cleared || {} )->{restart_every}, undef,
+        'UNTICKING CLEARS THE INTERVAL rather than leaving the old one in '
+          . 'place. A checkbox that can only add is not a checkbox' );
+
+    is( ( $cleared || {} )->{expect_every}, undef,
+        'and emptying the expectation removes it - not zero, which the engine '
+          . 'refuses and which would mean something different anyway' );
+
+    # THE OTHER HALF, and it is what stops the fix going too far: a save that
+    # does not mention these fields must still leave them alone, or every
+    # unrelated edit would silently wipe them.
+    my $again = $tira->job_update(
+        project => $root, id => $job->{id}, restart_every => 9, expect_every => 4 );
+    is( $again->{restart_every}, 9, 'the interval can be set again afterwards' );
+
+    $provider{job_save}->(
+        { id => $job->{id}, schedule => 'monitor', command => 'd2 tira.stale' } );
+
+    my ($untouched) = grep { $_->{id} eq $job->{id} }
+      @{ $tira->job_list( project => $root ) };
+
+    is( ( $untouched || {} )->{restart_every}, 9,
+        'AND A SAVE THAT DOES NOT MENTION THEM LEAVES THEM ALONE - absent and '
+          . 'null are different instructions, which is the distinction the '
+          . 'whole fix rests on' );
+
+    is( ( $untouched || {} )->{expect_every}, 4,
+        'the same for the expectation, so an unrelated edit cannot silently '
+          . 'wipe what a monitor declared about itself' );
+}
+
 # --- the three verbs the row needs -------------------------------------------
 #
 # HIS COMPLAINT 1 is job_delete. The buttons TKT-883 absorbed are job_stop and

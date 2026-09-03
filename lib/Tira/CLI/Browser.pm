@@ -537,9 +537,26 @@ sub providers {
                 ( defined $payload->{schedule} ? ( schedule => $payload->{schedule} ) : () ),
                 ( defined $payload->{command}  ? ( command  => $payload->{command} )  : () ),
                 ( defined $payload->{message}  ? ( message  => $payload->{message} )  : () ),
-                ( defined $payload->{expect_every}
+                # EXISTS, NOT DEFINED, AND ONLY FOR THESE TWO. The engine
+                # reads these with `exists` (Tira::Job job_update), so an
+                # explicit undef CLEARS the field while an absent key leaves it
+                # alone. A `defined` test here collapses those two into one and
+                # loses the clearing half: unticking the looping box or emptying
+                # the expectation would send nothing, the engine would leave the
+                # old value, and the form would report success over a job it had
+                # not changed.
+                #
+                # Measured before it was fixed - a job with restart_every 5 and
+                # expect_every 7, saved with the box unticked and the field
+                # blank, came back holding 5 and 7. The form could set these and
+                # never unset them.
+                #
+                # The other three keep `defined` deliberately: a job must always
+                # have a schedule, and clearing a command or a message is not a
+                # thing the engine offers - it refuses a job with neither.
+                ( exists $payload->{expect_every}
                     ? ( expect_every => $payload->{expect_every} ) : () ),
-                ( defined $payload->{restart_every}
+                ( exists $payload->{restart_every}
                     ? ( restart_every => $payload->{restart_every} ) : () ),
             );
 

@@ -340,6 +340,75 @@ sub board {
           . 'field when it opens' );
 }
 
+# --- the controls he asked for, as far as source can honestly show ----------
+#
+# HOW MUCH THESE ARE WORTH, said plainly rather than implied. They assert that
+# the editor DECLARES the controls - a radio group for the schedule kind, a
+# second for command-or-message, a checkbox for looping - and that the payload
+# stops depending on somebody typing the word "monitor". They cannot tell you
+# the form looks right, that the radios line up, or that the schedule field
+# actually greys out, because nothing here renders a page. That is his to look
+# at, by standing instruction.
+#
+# They are still worth having: without them the whole of his voice 6691 and 6694
+# could be deleted from the editor and every test in this suite would pass.
+
+{
+    my $views = File::Spec->catdir( 'lib', 'Tira', 'views' );
+    opendir my $dh, $views or die "$views: $!";
+    my @scripts = sort grep { /\.js\z/ } readdir $dh;
+    closedir $dh;
+
+    my $editor = '';
+    for my $name (@scripts) {
+        open my $fh, '<:encoding(UTF-8)', File::Spec->catfile( $views, $name )
+          or die "$name: $!";
+        local $/;
+        my $body = <$fh>;
+        $editor .= $body if $body =~ m{/jobs/save};
+    }
+
+    # non-empty is the whole claim: every assertion below greps this text, and
+    # an empty string would report every control as missing.
+    like( $editor, qr/\S/, 'the editor script was found to read' );
+
+    like( $editor, qr/type\s*=\s*"radio"/,
+        'THE KIND IS CHOSEN, NOT TYPED. His 6691 asks for radio buttons rather '
+          . 'than typing the word monitor into a schedule field - which was a '
+          . 'magic value somebody had to know' );
+
+    like( $editor, qr/type\s*=\s*"checkbox"/,
+        'and looping is a CHECKBOX, which is his word in 6694 and is what it '
+          . 'means - on or off, not one of two alternatives' );
+
+    # payload.<name>, NOT the bare field name, and the difference is a real one
+    # this test got wrong first. A bare /expect_every/ passed against the editor
+    # BEFORE any of this was built, because TKT-863 already READ that field to
+    # print "expects every N min" beside a monitor. Reading a field and being
+    # able to set one are different claims, and only the second is this card's.
+    # Checked by grepping the previous commit's copy of the script rather than
+    # by reasoning about it: bare expect_every appeared twice there, so the
+    # assertion proved nothing.
+    like( $editor, qr/payload\.restart_every/,
+        'the looping interval is SENT, under the name the engine stores it by' );
+
+    like( $editor, qr/payload\.expect_every/,
+        'and so is the expectation - the page could already show one since '
+          . 'TKT-863 and still had no way to set one, which is what made it the '
+          . 'one place a monitor could not be fully described' );
+
+    like( $editor, qr/messageWrap\.hidden\s*=\s*monitoring/,
+        'MESSAGE IS NOT OFFERED UNDER MONITOR. Not the page deciding - the '
+          . 'engine refuses that pairing outright, because a monitor with no '
+          . 'command can never be found alive in the process table and would be '
+          . 'reported dead for ever (TKT-842). The page declines to offer what '
+          . 'the save would refuse' );
+
+    unlike( $editor, qr/schedule:\s*field\.value\s*,?\s*\n?\s*command:/,
+        'and the payload no longer takes the schedule straight from the text '
+          . 'field, since the radio is what decides it now' );
+}
+
 done_testing();
 
 __END__

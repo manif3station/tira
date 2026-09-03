@@ -681,30 +681,62 @@ sub job_schedule_words {
     my @DAY = qw(Sunday Monday Tuesday Wednesday Thursday Friday Saturday);
     my $on_day = '';
     if ( $dow ne '*' ) {
-        return $schedule if $dow !~ /\A[0-6]\z/;
-        $on_day = " on $DAY[$dow]";
+        # 7 IS SUNDAY AS WELL AS 0, which is standard cron and was being
+        # returned unchanged - safe, but needlessly silent about a schedule
+        # whose meaning is not in doubt.
+        return $schedule if $dow !~ /\A[0-7]\z/;
+        $on_day = " on $DAY[ $dow == 7 ? 0 : $dow ]";
     }
 
     if ( $hour eq '*' ) {
         return "Every minute$on_day" if $min eq '*';
+        # A STEP IS ONLY EVERY-N WHEN N DIVIDES THE HOUR, and this is the one
+        # place this sub came close to lying. Cron restarts the step at the top
+        # of each hour, so */7 fires at 0,7,...,56 and then again at 0 - a gap
+        # of FOUR minutes, not seven. Measured rather than reasoned about:
+        #   */5  gaps [5 x12]                -> every 5 minutes, true
+        #   */7  gaps [7 x8, 4]              -> MISLEADING
+        #   */45 gaps [45, 15]               -> MISLEADING
+        #   */90 fires at minute 0 only      -> hourly, so the words would be
+        #                                       flatly wrong rather than merely
+        #                                       imprecise
+        # "Every 7 minutes" is exactly the nearly-right description this sub
+        # exists to refuse: it would be read, believed, and the cron never
+        # checked again. So anything that does not divide 60 is returned as
+        # itself, which is what the contract already promised.
         if ( $min =~ m{\A\*/([1-9][0-9]*)\z} ) {
-            return "Every $1 minutes$on_day";
+            my $step = $1;
+            # */1 is every minute, and saying "Every 1 minutes" is the kind of
+            # wording a reader stops on instead of reading the schedule.
+            return "Every minute$on_day" if $step == 1;
+            return "Every $step minutes$on_day"
+              if $step < 60 && 60 % $step == 0;
+            return $schedule;
         }
-        if ( $min =~ /\A(0|[1-9][0-9]?)\z/ && $min < 60 ) {
-            return $min == 0
-              ? "Every hour, on the hour$on_day"
-              : "Every hour at $min minutes past$on_day";
+        if ( $min =~ /\A[0-9]{1,2}\z/ && $min < 60 ) {
+            return "Every hour, on the hour$on_day" if $min == 0;
+            # Singular at one, because "1 minutes past" is the kind of thing a
+            # reader notices instead of the schedule.
+            # 0 + $min, so a zero-padded field does not leak its padding into
+            # the words: "09" is a perfectly good cron minute and a poor English
+            # one.
+            my $past = 0 + $min;
+            my $unit = $past == 1 ? 'minute' : 'minutes';
+            return "Every hour at $past $unit past$on_day";
         }
         return $schedule;
     }
 
-    if (   $hour =~ /\A(0|[1-9][0-9]?)\z/
+    if (   $hour =~ /\A[0-9]{1,2}\z/
         && $hour < 24
-        && $min =~ /\A(0|[1-9][0-9]?)\z/
+        && $min =~ /\A[0-9]{1,2}\z/
         && $min < 60 )
     {
         my $at = sprintf 'at %02d:%02d', $hour, $min;
-        return $on_day ? "Every week$on_day, $at" : "Every day $at";
+        # "Every Monday at 09:00" rather than "Every week, on Monday, at 09:00" -
+        # the day is the subject, and the shorter form is what a person would say.
+        $on_day =~ s/\A on //;
+        return $on_day ? "Every $on_day $at" : "Every day $at";
     }
 
     return $schedule;

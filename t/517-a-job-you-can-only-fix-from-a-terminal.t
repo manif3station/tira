@@ -367,6 +367,12 @@ sub board {
         '0 * * * *'     => qr/every hour/i,
         '0 9 * * *'     => qr/09:00/,
         '* * * * *'     => qr/every minute/i,
+        '*/1 * * * *'   => qr/\Aevery minute\z/i,
+        '30 8 * * 1'    => qr/\AEvery Monday at 08:30\z/,
+        '0 9 * * 0'     => qr/\AEvery Sunday at 09:00\z/,
+        '0 9 * * 7'     => qr/\AEvery Sunday at 09:00\z/,
+        '1 * * * *'     => qr/1 minute past/,
+        '09 * * * *'    => qr/\bat 9 minutes past/,
     );
 
     for my $cron ( sort keys %said ) {
@@ -383,6 +389,30 @@ sub board {
         'and a schedule it cannot describe with certainty is returned AS ITSELF '
           . 'rather than guessed at - a wrong description would be believed, '
           . 'and then nobody would read the cron again' );
+
+    # A STEP THAT DOES NOT DIVIDE THE HOUR IS NOT "EVERY N MINUTES", and this is
+    # the case that nearly shipped as a lie. Cron restarts the step at the top of
+    # each hour, so */7 fires at 0,7,...,56 and then again at 0 - a gap of four
+    # minutes, not seven. Measured:
+    #   */5  gaps [5 x12]           -> true
+    #   */7  gaps [7 x8, 4]         -> misleading
+    #   */45 gaps [45, 15]          -> misleading
+    #   */60 and above fire at minute 0 only, so the words would be flatly wrong
+    #
+    # A reviewer found the >= 60 half of this independently; the non-dividing
+    # steps below 60 are the same fault and were fixed with it.
+    for my $step (qw(7 45 60 61)) {
+        my $cron = "*/$step * * * *";
+        is( Tira::Job::job_schedule_words($cron), $cron,
+            "'$cron' is NOT described as every $step minutes - the step restarts "
+              . 'at the top of the hour, so the phrase would be believed and '
+              . 'would be wrong' );
+    }
+
+    # And a day-of-week outside the range stays undescribed rather than indexing
+    # off the end of the day names.
+    is( Tira::Job::job_schedule_words('0 9 * * 8'), '0 9 * * 8',
+        'a day-of-week that is not a day is left alone' );
 }
 
 # --- and the row carries them, so the page renders rather than interprets ----

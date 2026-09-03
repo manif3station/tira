@@ -407,6 +407,50 @@ sub board {
     unlike( $editor, qr/schedule:\s*field\.value\s*,?\s*\n?\s*command:/,
         'and the payload no longer takes the schedule straight from the text '
           . 'field, since the radio is what decides it now' );
+
+    # TKT-882's log box. The assertion that matters is not that a box exists -
+    # it is that the output SURVIVES the thirty-second refresh. A log owned by
+    # the card element would be wiped twice a minute by the reload that rebuilds
+    # every card, leaving less behind than the one-line status it replaces.
+    like( $editor, qr/runLogs/,
+        'the run output is kept OUTSIDE the card element, so the thirty-second '
+          . 'refresh that rebuilds every card does not wipe the log it is '
+          . 'showing - which would leave less than the status line it replaces' );
+
+    like( $editor, qr/LOG_LINES\s*=\s*100/,
+        'bounded to a hundred lines, the same fixed-ring shape and reasoning as '
+          . 'the request log this dashboard already keeps' );
+
+    like( $editor, qr/FRESH_MS\s*=\s*60000/,
+        'and a line is yellow for its first minute - computed from when it '
+          . 'arrived rather than tracked by a timer per line, so a tab left in '
+          . 'the background catches up when it comes forward' );
+}
+
+# --- the styles those class names need ---------------------------------------
+#
+# A class the script sets and the stylesheet has never heard of is invisible
+# rather than broken, which is the failure mode that survives every test that
+# only reads the script.
+
+{
+    my $css = do {
+        open my $fh, '<:encoding(UTF-8)',
+          File::Spec->catfile( 'lib', 'Tira', 'views', 'dashboard.css' )
+          or die "dashboard.css: $!";
+        local $/;
+        <$fh>;
+    };
+
+    # non-empty is the whole claim: the assertions below grep this text.
+    like( $css, qr/\S/, 'the stylesheet was read' );
+
+    for my $class (qw(jobs-card__log jobs-card__log-line jobs-editor__loop
+        jobs-editor__kind jobs-editor__mode)) {
+        like( $css, qr/\Q.$class\E[,.{: ]/,
+            "the stylesheet knows .$class, so the control it names is visible "
+              . 'rather than merely present' );
+    }
 }
 
 done_testing();

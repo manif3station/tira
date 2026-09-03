@@ -293,6 +293,28 @@ working=purple-blue, done=green), with list-level controls (add, session,
 next/shift/pop/unshift/slice/prune) and per-card controls (status, remove,
 attach, ref) - full parity with the CLI commands below.
 
+Since 5.42 that section shows **five cards, then ten more per press** of the
+button below it, which also says how many are left. Before that it rendered the
+whole list, and the list is a working queue rather than something to read whole -
+142 items on this board when the card was filed, in a grid about ten columns
+wide, which is fifteen rows of task cards standing between the ticket board and
+the Repeated Jobs section underneath. The cap is on what is **built**, not a scrolling box: a `max-height`
+would have made the section short while the page still constructed every card,
+which is a different thing from there being less to scroll past.
+
+Tasks being **worked** are ranked above pending ones before the cut, so they
+fill the visible slots first. They are still subject to the cap - it is a sort,
+not an exemption, so with more than five of them the rest wait behind the same
+button as everything else. This matters more than it looks: the list's own default order
+is `last_updated:desc,status:asc`, where status is only a tiebreak and ranks
+pending *above* working, so a working task nobody has touched since yesterday
+sorts below a pending one edited an hour ago.
+
+The filter narrows before the cap, so a search returns five of the *matches*
+rather than five of everything; and the count survives the section's 1-second
+refresh, so the list does not snap back to five while you are reading it.
+Reloading the page resets it.
+
 Since 5.40 the page starts closer to the top. `.shell` had put 3.5rem of padding
 above a header that is `position: sticky; top: 0` — a band of empty background
 on first paint that vanished at the first scroll. It also delayed how far you

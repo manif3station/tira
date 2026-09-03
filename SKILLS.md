@@ -2437,6 +2437,77 @@ did not own. The expected value moved to `stretch` and the assertion stayed:
 what it guards is that a card about *padding* must not quietly alter how the two
 columns line up, which is still true whatever the value is.
 
+**A queue with no ceiling (TKT-881, 5.42).** His words: "Huge Task List section
+bury the Jobs", and the fix he gave with it — "initially only show 5 and every
+next show 10".
+
+**The section's height was the queue's length.** `reconcileTasklist` built one
+card per surviving item and nothing capped it, so Repeated Jobs began wherever
+that ended. Measured on this board when he filed it: **142 tasks, 139 pending
+and 3 working**, all 142 in the DOM. That is the band of empty page in his
+screenshot — the section below was not missing, it was under one that grows
+every day the board is used. 142 is not an unusual state; the task list is a
+working queue, added to constantly and pruned when done, so "render all of it"
+was never the useful behaviour.
+
+**The cap is on what is built, not on what is visible.** A `max-height` with
+`overflow` would have made the section short while the page still constructed
+all 142 cards, and Jobs would have come back into view only by scrolling past a
+scroll container — a worse page than the one he complained about, and one that
+would have satisfied any test that merely asked for the section to be shorter.
+`t/507` asserts the absence of both properties on `.tasklist-cards` for exactly
+that reason.
+
+**What the cap applies to was the real decision**, and it was made on the card
+before the test was written. Three of the 142 are `working` — the ones being
+done right now — so five arbitrary pending cards above three active ones would
+have been worse than the complaint. Working tasks rank first through a named
+`tlRank`, not the raw status number, which sorts the wrong way in both
+directions: ascending puts pending above working, descending puts done at the
+top. The rejected alternative was exempting working tasks from the cap
+entirely; it reads well at three and defeats the card at fifty, because a cap
+any status can escape is not a cap.
+
+**That sort is load-bearing even though it changes nothing today**, which is
+worth stating because the opposite is the easy conclusion. His screenshot shows
+the working tasks already at the front, and the live list agrees — but not for
+the reason it looks like. The store's default sort is
+`last_updated:desc,status:asc`, so `status` is only a **tiebreak**, and it ranks
+pending *above* working. The working tasks lead the list because they are the
+most recently touched — the state at the moment he filed the card:
+
+```
+TSK-443  status=1  last_updated=2026-09-03T11:06:03
+TSK-318  status=1  last_updated=2026-09-03T10:01:51
+TSK-441  status=1  last_updated=2026-09-03T08:51:39
+TSK-426  status=0  last_updated=2026-09-02T16:52:35
+TSK-430  status=0  last_updated=2026-09-02T16:43:18
+```
+
+A working task nobody has touched since yesterday sorts below a pending one
+edited an hour ago, and before the cap that cost nothing — it was still on the
+page, further down. Under a cap of five it disappears. So the client rank is not
+a restatement of what the store already does; it is the guarantee the store does
+not make.
+
+**There is deliberately no "show less" control**, and the omission is a decision
+rather than an oversight. The count only ever goes up until the page is
+reloaded, which is the obvious thing to want to fix while writing the button —
+and he did not ask for one. Reloading resets it, which is the honest minimum;
+adding a second control would have turned a one-line request into a feature he
+never requested, and a page grows a control far more easily than it loses one.
+
+**Two things a careless version breaks silently.** The filter must narrow
+*before* the cut — slice-then-filter shows at most five results however many
+match, so searching for a task in position 90 finds nothing and the filter looks
+broken rather than capped. And the shown-count must survive the **1000ms**
+reload; declared inside `loadTasklist` it snaps back to five every second while
+he reads, which a test counting only the initial render would pass. `t/507`
+pairs the two assertions that cover it: one forces `tlShown` to exist at section
+scope, the other forces `loadTasklist` never to assign it — neither is
+sufficient alone, since before the fix the second passed only because the
+variable did not exist.
+
 **Both sides of the header, not one (TKT-854, 5.41).** His words:
 "Page header project title on the left not align to the right side", with a
 screenshot carrying **two** red lines — one along the top edges, one along the

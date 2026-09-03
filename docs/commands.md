@@ -3406,6 +3406,34 @@ attach, and ref controls on each card. Full CLI parity: nothing above is
 CLI-only, and every route above still works regardless of what the
 browser's own header shows (see TKT-535).
 
+TKT-881: the Task List section renders **five cards, then ten more per press**
+of a `.tasklist-more` button below the grid, which names how many are left
+(`Show 10 more (137 left)`). No new route and no change to any command above -
+`GET /tasklist` still returns the whole list, and the cap is applied when the
+cards are built. It is deliberately not a scroll container: a `max-height` on
+`.tasklist-cards` would have shortened the section while the page still
+constructed every card, so the section below would have been reachable only by
+scrolling past a scrollbar. The list held 142 items when the card was filed, in
+a grid about ten columns wide - fifteen rows between the ticket board and the
+Repeated Jobs section under it.
+
+Three behaviours the cap deliberately does not disturb. The **search box**
+(TKT-529, above) still narrows first, so a filtered list shows five of the
+*matches* rather than five of everything and then filtered - otherwise a search
+for a task in position 90 would find nothing. A card being **edited in place**
+(TKT-554) is still not replaced by a reload. And tasks that are **working** are
+ranked above pending ones before the cut, so they fill the visible slots first.
+They are still subject to the cap rather than exempt from it: with more than
+five of them, the rest queue behind the button like anything else. That last one
+is not redundant with the
+list's own order - `tasklist.list` defaults to `last_updated:desc,status:asc`,
+where `status` is a tiebreak that ranks pending *above* working, so a working
+task untouched since yesterday sorts below a pending one edited an hour ago.
+
+How many have been asked for survives the section's 1-second refresh, so the
+list does not snap back to five while it is being read; reloading the page
+resets it.
+
 TKT-540: `POST /tasklist/{update,remove,task/attach/add,task/attach/discard,
 task/ref/link,task/ref/unlink}` now forward the session box's value the way
 the other eight routes always have - previously these six ignored it, so

@@ -161,7 +161,15 @@ sub _dashboard_table {
       . '<input class="tasklist-text" type="text" placeholder="New task text" aria-label="New task text">'
       . '<button type="button" class="tasklist-add">Add</button>'
       . '<button type="button" class="tasklist-prune">Prune</button>'
-      . '</div><p class="tasklist-error" hidden></p><ol class="tasklist-cards"></ol></section>'
+      . '</div><p class="tasklist-error" hidden></p><ol class="tasklist-cards"></ol>'
+
+      # TKT-881, his words: "Huge Task List section bury the Jobs" / "initially
+      # only show 5 and every next show 10". The queue is a working list rather
+      # than something to read whole - 142 items when he complained - so the
+      # section's height is bounded by what has been asked for. Emitted here
+      # rather than created in script so it is in the page source, the same way
+      # every other control in this section is.
+      . '<button type="button" class="tasklist-more" hidden>Show more</button></section>'
       if $args{live};
 
     # Repeated jobs, directly under the Task List because that is where he
@@ -343,6 +351,16 @@ empty C<< <ol class="jobs-cards"> >> inside C<section.board--jobs>, placed
 after the Task List section, and the C<jobs-editor.js> view asset that fills
 it from the C<GET /jobs> route. Only the shell is built here: no job data is
 concatenated into the page, which is what keeps F<t/426>'s claim true.
+
+The Task List section above it carries one more empty control for the same
+reason: a C<< <button class="tasklist-more" hidden> >> after its C<< <ol> >>,
+which C<tasklist-editor.js> unhides and labels once it knows how many items
+are behind the cap (TKT-881). It is emitted here rather than created in script
+so that it is in the page source, the way every other control in that section
+is - and because a button that exists only after the first successful fetch is
+a button that is missing exactly when the fetch fails. Nothing about the cap
+itself lives in this module: the section renders the same empty list it always
+did, and how much of it gets built is the view asset's decision.
 
 The page's own frame is a contract too, and a quieter one. F<dashboard.tt> emits
 C<< <main class="shell"> >> wrapping C<< <header class="hero"> >>, and the hero

@@ -14,6 +14,8 @@
 .tasklist-session{padding:.4rem .6rem;border:1px solid var(--line);border-radius:.55rem;background:rgba(2,6,23,.5);color:var(--ink);font:inherit;margin-left:auto}
 .tasklist-error{color:#fca5a5;margin:0 .45rem .6rem}.tasklist-error[hidden]{display:none}
 .tasklist-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:.8rem;list-style:none;margin:0;padding:.4rem .45rem 1.2rem}
+.tasklist-more{display:block;width:calc(100% - .9rem);margin:0 .45rem 1.2rem;padding:.55rem .68rem;color:var(--muted);background:transparent;border:1px dashed var(--line);border-radius:.55rem;font-size:.72rem;font-weight:750;cursor:pointer}
+.tasklist-more:hover{color:var(--ink);border-style:solid}
 .tasklist-card{padding:.9rem;border-radius:.6rem .6rem 1.4rem .6rem;color:#241d06;box-shadow:0 12px 26px rgba(0,0,0,.32),0 1px 0 rgba(255,255,255,.35) inset;transform:rotate(-1deg);font-size:.86rem;line-height:1.4;display:flex;flex-direction:column;gap:.5rem;transition:transform .15s ease}.tasklist-card.is-dragover{outline:2px dashed var(--accent,#818cf8);outline-offset:2px}
 .tasklist-card:nth-child(even){transform:rotate(1deg)}
 .tasklist-card:hover{transform:rotate(0deg) translateY(-2px)}

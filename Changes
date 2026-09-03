@@ -2,6 +2,32 @@ Revision history for Tira
 
 5.42  2026-09-03
 
+    - TKT-881. The Task List section stops growing with the queue, so the
+      Repeated Jobs section below it is reachable. His words: "Huge Task List
+      section bury the Jobs", and the fix he specified - "initially only show 5
+      and every next show 10".
+
+      The list held 142 tasks when he complained, 139 of them pending, and every
+      one was rendered - so the section was exactly as tall as the queue was
+      long, and Jobs started wherever that ended. That is the band of empty page
+      in his screenshot: the section below was not missing, it was under one
+      with no ceiling.
+
+      Five cards now, ten more per press, with the remaining count on the
+      button. The cap is on what is BUILT rather than a scrolling box - a
+      max-height would have made the section short while the page still
+      constructed all 142 cards, and Jobs would have come back into view only by
+      scrolling past a scroll container.
+
+      Working tasks rank above pending ones before the cut, so the three being
+      worked right now are not hidden behind five arbitrary pending ones. The
+      cap still applies to them: it is a sort, not an exemption, because a cap
+      any status can escape stops being a cap at fifty working tasks.
+
+      The filter still narrows first - five of the matches, not five of
+      everything - and the shown-count survives the 1000ms reload, so the list
+      does not snap back to five while it is being read.
+
     - TKT-879. An answer that is replaced is kept, and the card stops naming
       the wrong person. `question_answer` replaced the text and left the
       `author` alone, so a second answer showed one person's name above another

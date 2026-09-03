@@ -1967,6 +1967,25 @@ that the age no longer applies. The police engine only detects and instructs
 here - it never creates or links a ticket on its own, the same restraint every
 other rule already keeps.
 
+**Do not read the dashboard's Task List section as the tasklist (TKT-881,
+5.42).** Since that release the section renders five cards and ten more per
+press, so what is on screen is a page of the queue rather than the queue. Every
+rule on this page - `task-unlinked` above, `task-changed` and
+`task-card-mismatch` in the table - evaluates the **whole** list through the
+engine and is unaffected; but a human comparing a police finding against the
+page can now be looking at five items out of a list that held 142 when the cap
+was built, and conclude the rule is talking about something that is not there.
+`d2 tira.tasklist.list` is what the rules see. The button names the remainder
+(`Show 10 more (137 left)`) precisely so the page never implies it is showing
+everything.
+
+The section ranks **working** tasks above pending ones before that cut, which
+is worth knowing here because `task-card-mismatch` is mostly a statement about
+tasks in those two states. It is a display rank in the browser only: the
+underlying order from `tasklist.list` is `last_updated:desc,status:asc`, where
+`status` is a tiebreak that ranks pending *above* working. Neither ordering
+changes what any rule reports.
+
 ### A schedule that nobody reads
 
 Three standing hunts - hourly bugs, two-hourly improvements, three-hourly

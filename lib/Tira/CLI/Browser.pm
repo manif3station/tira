@@ -403,8 +403,71 @@ sub providers {
         # somebody to .tira/jobs.json - which is the same "nobody can see it"
         # problem EPC-014 started from. Running one from the page and editing
         # one are TKT-843; this provider only reads. TKT-839.
+        # TKT-861. The section listed a monitor and said nothing about whether
+        # it was up, so one that died an hour ago looked like one polling
+        # happily - the gap EPC-014 was filed for, one layer up: monitor-dead
+        # announces a stopped monitor on the bridge while the board he actually
+        # watches stays silent.
+        #
+        # THE VERDICT IS NOT DECIDED HERE. job_monitor_alive is the same call
+        # monitor-dead makes, so the page and the bridge cannot answer one
+        # question differently in front of him. A liveness check written for the
+        # browser is the fault TKT-860 had to unpick.
+        #
+        # THE PROCESS TABLE IS READ ONCE, not once per monitor: it is the
+        # expensive half, and this route is polled every thirty seconds. Read
+        # lazily, so a board with no live monitors to judge does not pay for it
+        # at all.
+        #
+        # SILENT FOR A CRON JOB AND A DISABLED MONITOR, both absent on purpose -
+        # the stance monitor-dead already takes. A row reading "not running"
+        # against every cron job is a false alarm by design, and an indicator
+        # that cries wolf is one he stops reading, which is the failure this is
+        # meant to end.
         jobs => sub {
-            return $json->encode( $tira->job_list( project => $project ) );
+            my $jobs = $tira->job_list( project => $project );
+            my $processes;
+            my @rows;
+            for my $job ( @{$jobs} ) {
+                my %row = %{$job};
+
+                # SCRUBBED BEFORE IT IS DECIDED. Raised in review: the copy
+                # takes every stored field, so a record that already carried a
+                # running key - a hand-edited file, an import, a later engine
+                # change - would arrive at the page with one even on a cron row,
+                # and render "Not running" against a job that is not supposed to
+                # be up. That is the false alarm this whole field is arranged to
+                # avoid, delivered by the one path that does not check.
+                #
+                # The same lesson as TKT-859's message-mode monitor: a
+                # constraint the engine enforces on WRITE is not a guarantee at
+                # READ, so the read decides for itself.
+                delete $row{running};
+
+                if ( ( $job->{schedule_kind} // '' ) eq 'monitor' && $job->{enabled} ) {
+                    require Tira::CLI::Job;
+                    require Tira::Job;
+
+                    # A COSMETIC FIELD MUST NOT TAKE DOWN THE ROUTE IT RIDES ON,
+                    # also from review. This is polled every thirty seconds; one
+                    # transient failure reading the process table would turn the
+                    # whole jobs list into an error page, and the list is the
+                    # part somebody needs. So the read is attempted once, and if
+                    # it fails the liveness is simply absent - the page then
+                    # shows the row with no indicator, which is what it already
+                    # does for a cron job and reads as "not known" rather than
+                    # as "not running".
+                    $processes //= eval { Tira::CLI::Job::_running_processes_for_jobs() } // [];
+
+                    $row{running} =
+                      Tira::Job::job_monitor_alive( $job, $processes )
+                      ? Cpanel::JSON::XS::true
+                      : Cpanel::JSON::XS::false
+                      if @{$processes};
+                }
+                push @rows, \%row;
+            }
+            return $json->encode( \@rows );
         },
 
         # The play button. Runs one job now whatever its schedule says, and a
@@ -987,6 +1050,16 @@ whether the payload names a job - no id means C<job_add>, an id means
 C<job_update> - rather than becoming a C<job_create> entry, because the page
 already posts to one route and each extra name is a breaking change to every
 hand-built caller in the suite.
+
+C<jobs> gained one field of its own on TKT-861: C<running>, for enabled
+C<monitor>-kind jobs, so the section can say whether a monitor's process is up
+rather than only that the job exists. The verdict is
+C<Tira::Job::job_monitor_alive> - the same call the C<monitor-dead> rule makes -
+because a liveness check written for the browser would let the page and the
+police bridge answer one question two ways, which is the fault TKT-860 had to
+unpick. The process table is read once per request and only when there is an
+enabled monitor to judge; a cron job and a disabled monitor get no field at all,
+matching the rule's own silences.
 
 C<job_save> does not validate. C<job_add> and C<job_update> both reach
 C<_job_fields>, which owns the schedule requirement and the refusal of a

@@ -299,6 +299,14 @@ and its mode and schedule kind. It refreshes every thirty seconds, so what a
 board is scheduled to do is visible on the board rather than only in its stored
 job records.
 
+Since 5.39 a monitor row also says whether its process is actually up — a green
+or red dot and the words "Running" or "Not running" — so a monitor that died an
+hour ago no longer looks like one polling happily. The verdict comes from the
+same check the `monitor-dead` rule makes, so the page and the police bridge
+cannot disagree. A cron job and a disabled monitor show nothing: neither is
+supposed to be up, and a row reading "Not running" against every cron job would
+be a false alarm by design.
+
 Since 5.38 the section is styled like the rest of the board — it had no
 stylesheet rules of its own at all until then, which is what made it look
 unlike everything around it. A disabled job is dimmed rather than only saying

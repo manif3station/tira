@@ -3619,6 +3619,14 @@ reader never has to infer it from whichever field is populated.
     state `monitor-dead` reports as dead. A `cron` job is not: there is nothing
     to start until it is due.
 
+    Since 5.39 a monitor row also reports whether its process is up, as a green
+    or red dot and the words "Running" / "Not running". The verdict is the same
+    `job_monitor_alive` the `monitor-dead` rule uses, so the page and the police
+    bridge cannot disagree about one monitor. A cron job and a disabled monitor
+    show nothing at all — neither is supposed to be up between runs, and a row
+    reading "Not running" against every cron job would be a false alarm by
+    design (TKT-861).
+
     Since 5.38 the section is styled to the same depth as the Task List beside
     it — it had no stylesheet rules of its own at all before that — and a
     disabled job is dimmed rather than only saying so. Each row also describes

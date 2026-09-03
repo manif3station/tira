@@ -2363,6 +2363,37 @@ that runs a job is a different kind of thing from a table that shows one.
 refresh does not hold a session open past its expiry the way an unlisted
 polled route would - the exemption `t/479` exists to enforce.
 
+**Whether the monitor is up (TKT-861, 5.39).** The section listed a monitor and
+said nothing about its process, so one that died an hour ago looked exactly like
+one polling happily — the gap `monitor-dead` exists to close, on the page rather
+than the bridge. `GET /jobs` now carries a `running` field for enabled
+monitor-kind jobs, and the row shows it as a green or red dot plus the words.
+
+Nothing new decides liveness. The verdict is `Tira::Job::job_monitor_alive`, the
+same call the rule makes, so the page and the bridge cannot answer one question
+two ways in front of him — a liveness check written for the browser is the fault
+TKT-860 had to unpick. The test asserts that agreement directly rather than
+trusting it.
+
+The process table is read **once per request**, lazily, and only when there is an
+enabled monitor to judge: it is the expensive half and this route is polled every
+thirty seconds, so a six-monitor board would otherwise read it six times a poll.
+The test replaces the read with a counter and requires exactly one call, because
+a cost claim asserted by reading the code is not asserted at all.
+
+A cron job and a disabled monitor carry **no field at all**, and the page keys on
+the field's presence rather than its truth. Both are absent on purpose — the
+stance `monitor-dead` already takes — and an indicator saying "Not running"
+against every cron row is one he would learn to ignore, which is the failure this
+was built to end.
+
+One thing this cost that is worth writing down: the first test injected a fixed
+clock, as every other suite here does, and a demonstrably-running monitor was
+reported dead. Since TKT-860 liveness compares the start time the BOARD recorded
+against the one the PROCESS TABLE reports, and only one of those can be faked —
+so a fixed clock makes the board record a fictional moment and the comparison
+fails against correct code. That file uses the real clock and says why.
+
 **Nobody styled it (TKT-859, 5.38).** The section shipped with markup, a view
 asset and **no stylesheet rules at all** - zero matching `.jobs-` in
 `dashboard.css` against twenty-two for the Task List sitting beside it - so it

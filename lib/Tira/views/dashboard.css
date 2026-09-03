@@ -54,6 +54,17 @@
 .jobs-card__schedule{grid-column:1;grid-row:2;font:750 .8rem/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;color:#dbeafe;overflow-wrap:anywhere}
 .jobs-card__what{grid-column:1;grid-row:3;color:#dbeafe;font-size:.84rem;overflow-wrap:anywhere}
 .jobs-card__mode{grid-column:1;grid-row:4;color:var(--muted);font-size:.74rem;font-weight:700}
+/* TKT-861: whether the monitor is up. Present only on a monitor that is
+   supposed to be running - a cron row and a disabled monitor carry no field,
+   so this rule never renders for them. Colour is not the only signal: the row
+   says "Running" or "Not running" in words, because a dot alone is unreadable
+   to anyone who cannot separate the two hues. */
+.jobs-card__up{grid-column:1;grid-row:5;display:inline-flex;align-items:center;gap:.4rem;font-size:.74rem;font-weight:750}
+.jobs-card__up:before{content:"";width:.5rem;height:.5rem;border-radius:50%}
+.jobs-card__up[data-running="1"]{color:#6ee7b7}
+.jobs-card__up[data-running="1"]:before{background:#34d399;box-shadow:0 0 10px #34d399}
+.jobs-card__up[data-running="0"]{color:#fca5a5}
+.jobs-card__up[data-running="0"]:before{background:#f87171;box-shadow:0 0 10px #f87171}
 .jobs-card__play{grid-column:2;grid-row:1}
 .jobs-card__edit{grid-column:2;grid-row:2}
 .jobs-card__play,.jobs-card__edit{justify-self:end;padding:.38rem .6rem;color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:.55rem;font-size:.72rem;font-weight:750;cursor:pointer;white-space:nowrap}

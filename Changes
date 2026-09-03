@@ -1,5 +1,32 @@
 Revision history for Tira
 
+5.39  2026-09-03
+
+    - TKT-861. The Repeated Jobs section says whether a monitor is actually
+      running. Until now it showed a monitor's id, schedule, command and
+      enabled flag and nothing about the process, so one that died an hour ago
+      looked exactly like one polling happily - the gap EPC-014 was filed for,
+      one layer up: `monitor-dead` announces a stopped monitor on the police
+      bridge while the board he actually watches stays silent. Michael: "No way
+      to tell if the monitor is running."
+
+      The verdict comes from `Tira::Job::job_monitor_alive`, the same call
+      `monitor-dead` makes, so the page and the bridge cannot answer one
+      question two ways. Nothing new decides liveness; the payload carries what
+      the engine already knows.
+
+      The process table is read once per request and only when there is an
+      enabled monitor to judge - it is the expensive half, and `/jobs` is
+      polled every thirty seconds. A test replaces the read with a counter and
+      requires exactly one call.
+
+      A cron job and a disabled monitor carry no liveness field at all, matching
+      `monitor-dead`'s own stance: neither is supposed to be up, and a row
+      reading "Not running" against every cron job is a false alarm by design.
+      The page tests for the field's PRESENCE rather than its truth, which is
+      what keeps that distinction. The state is shown as a green or red dot and
+      also in words, because colour alone is not a signal everybody can read.
+
 5.38  2026-09-03
 
     - TKT-859. The Repeated Jobs section is styled. It had no stylesheet rules

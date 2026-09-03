@@ -425,6 +425,23 @@ sub board {
         'and a line is yellow for its first minute - computed from when it '
           . 'arrived rather than tracked by a timer per line, so a tab left in '
           . 'the background catches up when it comes forward' );
+
+    # THE CONTROLS THAT CALL THE VERBS, and this block exists because the
+    # required-action audit found them missing. The providers and routes were
+    # built, the tests passed, and no button on the page called any of them - a
+    # surface half-built reads as finished from the Perl side alone. So the
+    # buttons are asserted here rather than assumed from the routes.
+    for my $route (qw(jobs/delete jobs/stop jobs/start)) {
+        like( $editor, qr{\Q$route\E},
+            "something on the page actually posts to /$route - the provider "
+              . 'existing is not the same as a control calling it' );
+    }
+
+    like( $editor, qr/job\.schedule_words/,
+        'AND THE CARD FACE SHOWS THE WORDS. The row has carried schedule_words '
+          . 'since the engine started sending it, and the card went on printing '
+          . 'the raw cron - a field added and never read is the same gap as a '
+          . 'field read and never settable' );
 }
 
 # --- the styles those class names need ---------------------------------------
@@ -446,7 +463,8 @@ sub board {
     like( $css, qr/\S/, 'the stylesheet was read' );
 
     for my $class (qw(jobs-card__log jobs-card__log-line jobs-editor__loop
-        jobs-editor__kind jobs-editor__mode)) {
+        jobs-editor__kind jobs-editor__mode
+        jobs-card__stop jobs-card__delete jobs-card__toggle)) {
         like( $css, qr/\Q.$class\E[,.{: ]/,
             "the stylesheet knows .$class, so the control it names is visible "
               . 'rather than merely present' );

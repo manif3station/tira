@@ -273,6 +273,73 @@ sub board {
     );
 }
 
+# --- the schedule reads as words, and the words are the ENGINE's -------------
+#
+# TKT-884, absorbed here: the card face shows the raw cron string, so the one
+# place a schedule is visible is the one place it cannot be read.
+#
+# IN PERL, NOT IN THE PAGE, and that is a design decision rather than a
+# convenience. This module already refuses to let the browser interpret a
+# schedule: job_check asks the ENGINE whether a crontab is valid rather than
+# running a regex in JavaScript, because two validators for one format is how
+# the engine and the browser came to disagree about attachment content types
+# (TKT-713). A cron-to-English translator written in the page would be a second
+# reading of the same format, free to drift from the first in exactly the way
+# that comment exists to prevent. So the row carries the words and the page
+# renders a string it is not asked to understand.
+
+{
+    my %said = (
+        'monitor'       => qr/continuous|monitor/i,
+        '*/30 * * * *'  => qr/every 30 minutes/i,
+        '*/5 * * * *'   => qr/every 5 minutes/i,
+        '0 * * * *'     => qr/every hour/i,
+        '0 9 * * *'     => qr/09:00/,
+        '* * * * *'     => qr/every minute/i,
+    );
+
+    for my $cron ( sort keys %said ) {
+        like( Tira::Job::job_schedule_words($cron), $said{$cron},
+            "'$cron' reads as words a person can check at a glance" );
+    }
+
+    # THE FALLBACK IS THE IMPORTANT ONE. A description that guesses is worse
+    # than no description: somebody would read the words, believe them, and stop
+    # checking the cron. Anything this cannot describe with certainty comes back
+    # as itself, unchanged.
+    my $odd = '17 3 5,20 */2 1-5';
+    is( Tira::Job::job_schedule_words($odd), $odd,
+        'and a schedule it cannot describe with certainty is returned AS ITSELF '
+          . 'rather than guessed at - a wrong description would be believed, '
+          . 'and then nobody would read the cron again' );
+}
+
+# --- and the row carries them, so the page renders rather than interprets ----
+
+{
+    my ( $tira, $root ) = board();
+    my %provider = Tira::CLI::Browser::providers( tira => $tira, project => $root );
+
+    $tira->job_add(
+        project => $root, schedule => '*/30 * * * *', command => 'd2 tira.stale' );
+
+    my $rows = Tira::json_decode( $provider{jobs}->() );
+
+    # non-empty is the whole claim: the assertion below reads the first row, and
+    # an empty list would fail it for a reason that is not this feature.
+    ok( ref $rows eq 'ARRAY' && @{$rows}, 'the jobs provider answered with rows' );
+
+    like( ( $rows->[0] || {} )->{schedule_words} // '', qr/every 30 minutes/i,
+        'the row carries the readable schedule, so the card face can show words '
+          . 'without the browser having to parse cron for itself' );
+
+    is( ( $rows->[0] || {} )->{schedule}, '*/30 * * * *',
+        'AND THE RAW SCHEDULE IS STILL THERE. The words are an addition, not a '
+          . 'replacement - it is still stored as cron, which is his own '
+          . 'requirement, and the editor has to put the real string back in the '
+          . 'field when it opens' );
+}
+
 done_testing();
 
 __END__

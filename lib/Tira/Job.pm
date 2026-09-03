@@ -645,6 +645,71 @@ sub _stamp_seconds {
 # by this measure. Catching that needs the monitor to report progress, which
 # is a heartbeat, which needs the monitored thing to cooperate; every monitor
 # EPC-014 is meant to absorb is an existing command that will never write one.
+# The schedule, in words a person can check at a glance. TKT-884, inside
+# TKT-892: the card face showed the raw cron string, so the one place a schedule
+# is visible was the one place it could not be read.
+#
+# HERE RATHER THAN IN THE PAGE, and deliberately. lib/Tira/CLI/Browser.pm already
+# refuses to let the browser interpret a schedule - job_check asks the ENGINE
+# whether a crontab is valid instead of running a regex in JavaScript, because
+# two validators for one format is how the engine and the browser came to
+# disagree about attachment content types (TKT-713). A cron-to-English
+# translator written in the page would be a second reading of the same format,
+# free to drift from the first in exactly the way that comment exists to
+# prevent. So the row carries the words and the page renders a string it is not
+# asked to understand.
+#
+# AND IT REFUSES TO GUESS. Everything it cannot describe with CERTAINTY comes
+# back as itself. A description that is nearly right is worse than none: it
+# would be read, believed, and the cron would never be looked at again - which
+# is precisely the failure this card is fixing, one layer along. Every shape
+# below is one whose meaning is unambiguous from the five fields alone.
+sub job_schedule_words {
+    my ($schedule) = @_;
+    return '' if !defined $schedule;
+    return 'Runs continuously' if $schedule eq 'monitor';
+
+    my @field = split /\s+/, $schedule;
+    return $schedule if @field != 5;
+    my ( $min, $hour, $dom, $mon, $dow ) = @field;
+
+    # Anything naming a day of the month or a month is left alone. Those read
+    # perfectly well as cron to the people who write them, and describing them
+    # correctly needs more care than the value it adds here.
+    return $schedule if $dom ne '*' || $mon ne '*';
+
+    my @DAY = qw(Sunday Monday Tuesday Wednesday Thursday Friday Saturday);
+    my $on_day = '';
+    if ( $dow ne '*' ) {
+        return $schedule if $dow !~ /\A[0-6]\z/;
+        $on_day = " on $DAY[$dow]";
+    }
+
+    if ( $hour eq '*' ) {
+        return "Every minute$on_day" if $min eq '*';
+        if ( $min =~ m{\A\*/([1-9][0-9]*)\z} ) {
+            return "Every $1 minutes$on_day";
+        }
+        if ( $min =~ /\A(0|[1-9][0-9]?)\z/ && $min < 60 ) {
+            return $min == 0
+              ? "Every hour, on the hour$on_day"
+              : "Every hour at $min minutes past$on_day";
+        }
+        return $schedule;
+    }
+
+    if (   $hour =~ /\A(0|[1-9][0-9]?)\z/
+        && $hour < 24
+        && $min =~ /\A(0|[1-9][0-9]?)\z/
+        && $min < 60 )
+    {
+        my $at = sprintf 'at %02d:%02d', $hour, $min;
+        return $on_day ? "Every week$on_day, $at" : "Every day $at";
+    }
+
+    return $schedule;
+}
+
 sub job_monitor_alive {
     my ( $job, $processes ) = @_;
     return 0 if !$job || ( $job->{schedule_kind} // '' ) ne 'monitor';

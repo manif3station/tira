@@ -444,6 +444,14 @@ sub providers {
                 # READ, so the read decides for itself.
                 delete $row{running};
 
+                # The words the card face shows. Added rather than substituted:
+                # it is still STORED as cron, which is his own requirement, and
+                # the editor puts the real string back into the field when it
+                # opens. TKT-884, inside TKT-892.
+                require Tira::Job;
+                $row{schedule_words} =
+                  Tira::Job::job_schedule_words( $job->{schedule} );
+
                 if ( ( $job->{schedule_kind} // '' ) eq 'monitor' && $job->{enabled} ) {
                     require Tira::CLI::Job;
                     require Tira::Job;

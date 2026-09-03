@@ -2,6 +2,37 @@ Revision history for Tira
 
 5.42  2026-09-03
 
+    - TKT-879. An answer that is replaced is kept, and the card stops naming
+      the wrong person. `question_answer` replaced the text and left the
+      `author` alone, so a second answer showed one person's name above another
+      person's words - silently, with nothing in the history to recover the
+      original from.
+
+      It happened here. An agent read Michael's answer to Q-113, ran the command
+      to record that it had acted on it, and replaced his answer with its own
+      acknowledgement. Police surfaced it as "Q-113 was answered at 10:50:03 and
+      nobody has read it" - a fresh answer timestamp on a question already read.
+      His words came back only because they had been quoted verbatim into a key
+      detail first.
+
+      The previous answer now moves to a `superseded` list on the answer, with
+      its text, its author, when it was given, when it was replaced and by whom.
+      The `author` becomes whoever wrote the new text - but only when one is
+      given, since answering again without naming an author should not blank the
+      name that is there.
+
+      IT IS NOT REFUSED, AND THE FIRST VERSION OF THIS FIX WAS WRONG TO TRY.
+      Requiring a `--replace` flag broke `t/57`, whose assertion predates this
+      card: "answering again replaces the answer". An owner correcting himself
+      is a supported operation and this card does not get to revoke it. The
+      honest limit is that the fix would not have PREVENTED the mistake above -
+      it would have made it visible the moment it happened, and recoverable
+      afterwards.
+
+      `--replace` was implemented, then removed with the refusal it existed for.
+      Leaving a flag the parser accepts and nothing acts on would have been the
+      exact fault TKT-748 is about, added by the card fixing a neighbouring one.
+
     - TKT-746. The fourth concern leaves the engine. `lib/Tira/Attachment.pm`
       takes the attachment subsystem - store a file, sniff its type, read its
       head, attach it to a record, list, fetch, detach, discard - out of

@@ -121,6 +121,31 @@ Answering the first time stamps `answered_at`; answering again stamps
 `updated_at` and leaves the first stamp alone. The question keeps the time it
 was asked, always.
 
+**Answering again keeps what it replaced, and re-attributes the answer.** Since
+5.42 the previous answer moves to a `superseded` list on the answer itself,
+carrying its text, its author, when it was given, when it was replaced and by
+whom. The answer's `author` becomes whoever wrote the new text — before that it
+kept pointing at whoever answered first, so a card could show one person's name
+above another person's words, with nothing anywhere to recover the original
+from. It happened on Tira's own board: an agent ran this command to record that
+it had *read* an answer, and replaced it.
+
+`--author` is optional here as elsewhere, and leaving it out on a second answer
+does **not** blank the name already recorded — a missing author is not a claim
+that nobody wrote it.
+
+**If you only meant to record that you had read an answer, you have already
+done it.** Reading marks it: `tira.question.list` sets `read_at` as a side
+effect of showing you the answer, and `--peek` is the way to look without that
+counting as reading. `tira.question.mark` is a different thing again - it
+records `ok` or `not-ok`, a judgement, and its own section says so: "Separate
+from having read it: reading is not agreeing." Marking an answer leaves
+`read_at` untouched.
+
+What to use for "I have acted on this" is `tira.comment.add`, or a card field if
+the decision belongs on the card - which is what the `answer-ok-not-folded` rule
+asks for. Neither overwrites the answer. TKT-879.
+
 ### `tira.question.update`
 
 Reword a question, or **take a crammed one apart**. Questions asked before

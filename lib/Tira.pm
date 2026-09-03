@@ -3434,7 +3434,53 @@ sub question_answer {
         # The question keeps the stamp of when it was asked. Editing an answer
         # stamps the answer, never the question.
         if ( $entry->{answer} ) {
+
+            # REPLACING AN ANSWER IS DELIBERATE OR IT DOES NOT HAPPEN. TKT-879.
+            # This branch used to run on any second call, and it set the text
+            # while leaving the AUTHOR alone - so the card went on naming
+            # whoever answered first, above words they had not written. It
+            # happened on this board: an agent ran the command to record that it
+            # had read Michael's answer to Q-113, and replaced it. The board is
+            # what people read INSTEAD of asking him, and it was attributing a
+            # sentence to him that he never wrote.
+            #
+            # IT IS NOT REFUSED, and the first version of this fix got that
+            # wrong. Requiring a --replace flag broke t/57, whose assertion has
+            # said since long before this card that "answering again replaces
+            # the answer" - an owner correcting himself is a supported
+            # operation, not an accident to guard against. The suite is what
+            # said so, which is the argument for running it before believing a
+            # design.
+            #
+            # So the accident is made VISIBLE and RECOVERABLE rather than
+            # impossible: the author below stops lying about who wrote the text,
+            # and the superseded list keeps what was there. Those two are what
+            # actually went wrong on Q-113; the refusal was reaching past the
+            # fault.
+
+            # The previous answer goes on the record before it is lost. Nothing
+            # else keeps it: neither the question nor the answer is a
+            # history-tracked field, so before this a replaced answer could not
+            # be recovered by any command on the board.
+            push @{ $entry->{answer}{superseded} ||= [] }, {
+                text       => $entry->{answer}{text},
+                author     => $entry->{answer}{author},
+                answered_at => $entry->{answer}{answered_at},
+                replaced_at => $now,
+                replaced_by => $args{author},
+            };
+
             $entry->{answer}{text} = $text;
+
+            # THE AUTHOR IS WHOEVER IS WRITING NOW. Leaving it alone is the
+            # misattribution this card is about: the card went on naming the
+            # first answerer above words somebody else had written.
+            #
+            # Only when one is GIVEN, though. t/57 answers again without an
+            # author, and taking that literally would erase his name rather than
+            # correct it - trading a wrong attribution for no attribution, which
+            # is not an improvement.
+            $entry->{answer}{author} = $args{author} if defined $args{author};
             $entry->{answer}{updated_at} = $now;
         }
         else {
@@ -13457,7 +13503,25 @@ Marks a question discarded.
 
 =head2 question_answer
 
-Records an answer to a question.
+Records an answer to a question, or replaces one already there.
+
+Answering again is allowed - an owner corrects himself, or an agent records an
+answer he gave elsewhere - and since 5.42 it keeps what it replaced. The
+previous answer moves to a C<superseded> list on the answer, carrying its text,
+its author, when it was given, when it was replaced and by whom, and the
+C<author> becomes whoever wrote the new text.
+
+The author changes only when one is B<given>. Answering again without naming an
+author leaves the name already recorded, because a missing author is not a claim
+that nobody wrote it.
+
+Before 5.42 a second answer replaced the text and left the author alone, so a
+card could show one person's name above another person's words with nothing
+anywhere to recover the original from. TKT-879.
+
+Note that recording that an answer has been READ is not this method's job and
+needs no call: C<question_list> sets C<read_at> as a side effect, and
+C<question_mark> records a judgement rather than a reading.
 
 =head2 question_attach
 

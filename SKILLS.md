@@ -2462,6 +2462,42 @@ there for four hours while a question was asked that the image already answered.
 An entry-gate audit that walks every *field* and never asks whether anything is
 *attached* will do that again.
 
+**An answer that was replaced is kept, and says who wrote it (TKT-879, 5.42).**
+Answering a question again has always been allowed — an owner corrects himself,
+or an agent records an answer he gave somewhere else. What it used to do was
+replace the text and leave the `author` alone, so the card went on naming
+whoever answered first above words somebody else had written, with nothing
+anywhere to recover the original from.
+
+It happened on this board. An agent read Michael's answer to a question, ran
+`tira.question.answer` to record that it had acted on it — reading was already recorded, and
+`question.answer` was simply the nearest-looking verb to a wrong question — and replaced his
+answer with its own acknowledgement. Police surfaced it as *"Q-113 was answered
+at 10:50:03 and nobody has read it"*: a fresh answer timestamp on a question
+already read. His words survived only because they had been quoted verbatim
+into a key detail beforehand, which was luck rather than method.
+
+Now the previous answer moves to a `superseded` list on the answer, carrying its
+text, its author, when it was given, when it was replaced and by whom; and the
+`author` becomes whoever wrote the new text. Leaving `--author` off a second
+answer does **not** blank the name already there — a missing author is not a
+claim that nobody wrote it.
+
+**It is not refused, and the first attempt at this fix was wrong to try.**
+Requiring a `--replace` flag broke `t/57`, whose assertion has said since long
+before this card that "answering again replaces the answer". A card fixing one
+fault does not get to revoke a documented operation as a side effect, and the
+suite is what said so. So the accident is made visible and recoverable rather
+than impossible — which is the honest limit: it would not have *stopped* the
+mistake above, it would have made it obvious the moment it happened.
+
+**If you only meant to record that you had read an answer, you have already done
+it** — `tira.question.list` sets `read_at` as a side effect of showing it to
+you, and `--peek` is how to look without that counting. `tira.question.mark` is
+not that: it records `ok` or `not-ok`, a judgement, and leaves `read_at` alone.
+For "I have acted on this", use `tira.comment.add` or a card field, which is
+what `answer-ok-not-folded` asks for. Neither overwrites the answer.
+
 **A monitor's own words, on the bridge (TKT-851, 5.41).** His instruction on
 2026-09-02: "Monitors should not have separate logs. They all go to the policy
 bridge." `monitor-dead` made a STOPPED monitor say so; a RUNNING one was still

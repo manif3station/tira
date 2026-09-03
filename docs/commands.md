@@ -3788,6 +3788,33 @@ reader never has to infer it from whichever field is populated.
     state `monitor-dead` reports as dead. A `cron` job is not: there is nothing
     to start until it is due.
 
+    Since 5.42 the editor is one form for creating **and** for editing, filled
+    from the job, and the row carries the rest of the verbs. **Edit** can
+    correct a command, which it could not before — the save had always accepted
+    one, and the page had no field to type it into. **Delete** removes the job
+    after a confirm, and is refused on a running monitor with the engine's own
+    words, which name `tira.job.stop`. **Enable**/**Disable** stops a job being
+    due without removing it. A monitor the board can see running carries
+    **Stop** and **Restart** and does *not* carry the play button: offering
+    Start to something already running invites a second process beside the
+    first. Restart stops and then starts, and only if the stop succeeded.
+
+    The schedule kind is a pair of radio buttons rather than the word `monitor`
+    typed into a schedule box, and `Message` is not offered for a monitor,
+    because `_job_fields` refuses that pairing outright. Looping — the
+    `restart_every` field — is a checkbox with an interval, off unless asked
+    for; keep it above about two seconds, or the feeder's quiet window never
+    elapses and a healthy monitor reports no output at all. `expect_every` is on
+    the same form, and left blank it means *no expectation* rather than zero.
+
+    The schedule shows as words on the card face — `Every 30 minutes`, `Every
+    day at 09:00`, `Runs continuously` — with the cron string kept as the
+    tooltip. `Tira::Job::job_schedule_words` produces them, in the engine rather
+    than the browser for the same reason the crontab check is asked of the
+    engine, and anything it cannot describe with certainty is shown unchanged.
+    Run now writes into a tail below the card: a hundred lines, newest visible,
+    under a minute old highlighted.
+
     Since 5.39 a monitor row also reports whether its process is up, as a green
     or red dot and the words "Running" / "Not running". The verdict is the same
     `job_monitor_alive` the `monitor-dead` rule uses, so the page and the police

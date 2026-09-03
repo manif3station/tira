@@ -2414,6 +2414,72 @@ that runs a job is a different kind of thing from a table that shows one.
 refresh does not hold a session open past its expiry the way an unlisted
 polled route would - the exemption `t/479` exists to enforce.
 
+**The job card and its editor, rebuilt once (TKT-892, 5.42).** His three
+complaints: *"In the UI there is no way i can delete any existing job card / I
+cannot edit and card / I cannot pick between command or message."* Six tickets
+grouped into one on his instruction, so one gate walk delivers all six rather
+than the same surface being opened six times.
+
+Almost none of it was missing capability. `job_delete`, `job_stop`, `job_start`,
+`job_add` and `job_update` all existed as verbs; what they had no way to reach
+was the page. So the work is three provider closures and three routes —
+`POST /jobs/delete`, `/jobs/stop`, `/jobs/start` — plus the controls that call
+them. `tira.job.stop` itself is TKT-893's, and its arrival is what unblocked
+this: a Stop button that can only refuse is worse than no button.
+
+`job_stop` goes through `Tira::CLI::Job::dispatch` rather than the engine sub,
+and the distinction is the card's whole subject. The engine clears the record
+and the CLI signals, **in that order**. Calling the engine alone would clear the
+record and signal nothing — the board saying stopped while the process runs on,
+which is exactly the state EPC-014 exists to remove.
+
+**The buttons follow the job's state.** A monitor the board can see running
+offers Stop and Restart and hides Start, because offering it invites a second
+process beside the first. `running` is treated as true only when it is exactly
+true: it is *absent* rather than false when the process table could not be read,
+so an unknown state keeps the button the row already had instead of guessing —
+the same distinction TKT-861's indicator makes. Restart stops and then starts,
+and only if the stop succeeded; starting before the stop lands leaves two
+processes and a board pointing at one of them.
+
+**One form for create and edit**, filled from the job. The command input used to
+be built inside `if (creating)`, which is what his complaint 2 actually was: the
+save had always accepted a corrected command, and nothing ever sent one. The
+schedule kind is a radio pair rather than the word `monitor` typed into a
+schedule box — a magic value somebody had to know — and Command/Message is a
+second pair, with Message withheld under Monitor because the engine refuses that
+pairing outright (TKT-842). The page declines to offer what the save would
+refuse, which is the same reason the schedule field is disabled rather than
+hidden: the form keeps its shape as you click through it.
+
+**Looping is a checkbox** with an interval, off unless asked for, defaulting to
+his five seconds with a floor of two. The floor is measured, not chosen: the
+feeder flushes after 25 lines or two seconds of quiet, so a command restarting
+every second never leaves a gap and a perfectly healthy monitor reports no
+output at all.
+
+**The schedule reads as words**, produced by `Tira::Job::job_schedule_words` and
+carried on the row, with the cron kept as the tooltip. In the engine rather than
+the page for the reason `job_check` already is — two readings of one format
+drift apart, which is how the engine and the browser came to disagree about
+attachment content types (TKT-713) — and it refuses to guess: anything it cannot
+describe with certainty is returned unchanged, because a nearly-right
+description would be believed and the cron never read again.
+
+**Run now writes into a tail below the card**: a hundred lines, newest visible,
+under a minute old in yellow. The care is in it surviving the section's own
+30-second refresh — a log owned by the card element would be wiped twice a
+minute by the reload that rebuilds every card, leaving *less* than the single
+status line it replaced. It is held in a map keyed by job id and repainted onto
+whatever card exists. Freshness is computed from when each line arrived rather
+than by a timer per line, so a backgrounded tab catches up instead of showing an
+hour of yellow, and the ageing timer requests nothing — which is why it is not
+one of the routes `t/479` governs.
+
+The editor now opens directly beneath its own card. It was appended to the end
+of the section, so editing the first of a dozen jobs put the form far below the
+card it belonged to, the two never on screen together.
+
 **A band of nothing above a sticky header (TKT-855, 5.40).** `.shell` put 3.5rem
 of padding above `.hero`, which is `position: sticky; top: 0`. That space earns almost nothing, and the sticky
 rule is why. It is empty background on first paint, and once the header pins

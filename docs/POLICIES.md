@@ -2167,8 +2167,12 @@ process has DIED - which is the whole event this rule exists to make visible,
 and the reason the example is worth reading at all.
 
 Since 5.33 there is a button beside that finding rather than only a message
-about it: the dashboard's job list gives every row a play button, and on a
-monitor row it starts the monitor. So the answer to `monitor JOB-001 is not
+about it: the dashboard's job list gives a stopped row a play button, and on a
+monitor row it starts the monitor. **Since 5.42 a monitor the board can see
+RUNNING carries Stop and Restart in its place** (TKT-892) - so the row offering
+Start is itself a statement that the board believes the monitor is down, and a
+row that cannot determine its own liveness keeps the button it had rather than
+guessing. So the answer to `monitor JOB-001 is not
 running` is one click on the same page that reported it, or `d2 tira.job.run
 --id JOB-001` from a terminal. Starting one that is ALREADY running is refused,
 because a second process would leave the first with nothing on the board

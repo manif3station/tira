@@ -328,6 +328,29 @@ and its mode and schedule kind. It refreshes every thirty seconds, so what a
 board is scheduled to do is visible on the board rather than only in its stored
 job records.
 
+Since 5.42 that section is somewhere a job can be *managed* rather than only
+watched. Each card carries Edit, Run now (or Start), Enable/Disable and Delete,
+and a monitor the board can see running carries Stop and Restart instead of
+Start — offering Start to something already running invites a second process
+beside the first. Deleting a running monitor is refused, and the page shows the
+engine's own words, which name `tira.job.stop`: the useful thing to know is not
+that the delete failed but what to do first.
+
+The editor is one form for creating and for editing, filled from the job. The
+schedule kind is a pair of radio buttons rather than the word `monitor` typed
+into a schedule box, and Message is not offered for a monitor because the engine
+refuses that pairing — a monitor with no command could never be found alive in
+the process table. Looping is a checkbox with an interval, off unless asked for;
+keep it above about two seconds, or the output collector's quiet window never
+elapses and a healthy monitor looks silent.
+
+The schedule shows as words — *Every 30 minutes*, *Every day at 09:00*, *Runs
+continuously* — with the cron string kept as the tooltip. The words are produced
+by the engine rather than the browser, and anything it cannot describe with
+certainty is shown unchanged rather than guessed at. Run now writes into a tail
+below the card: the last hundred lines, newest visible, with anything under a
+minute old highlighted.
+
 Since 5.41 a running monitor's own output reaches the police bridge instead of
 sitting in a per-job log nobody opens. `job.start` runs the monitor inside a
 pipeline whose other half feeds what it prints back to the board, registered

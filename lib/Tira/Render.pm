@@ -344,6 +344,20 @@ after the Task List section, and the C<jobs-editor.js> view asset that fills
 it from the C<GET /jobs> route. Only the shell is built here: no job data is
 concatenated into the page, which is what keeps F<t/426>'s claim true.
 
+The page's own frame is a contract too, and a quieter one. F<dashboard.tt> emits
+C<< <main class="shell"> >> wrapping C<< <header class="hero"> >>, and the hero
+is C<position: sticky; top: 0>. That single property decides what the space
+above it is worth. Padding on the shell above a sticky header is seen once, on
+first paint, and not again once anybody scrolls - and, less obviously, it is
+part of the header's normal-flow position, so it also sets how far the page must
+scroll before the header pins. A larger value both wastes a band nobody sees
+twice and keeps the header out of its useful position for longer. It stood at 3.5rem until
+TKT-859's neighbour TKT-855 cut it to 1rem - kept non-zero only because the
+header has rounded bottom corners and would otherwise meet the viewport edge as
+a torn line. Anybody making that header static again should reconsider the
+number rather than defend it, and F<t/501> asserts the sticky premise so the
+question is asked rather than missed.
+
 The classes that shell emits are the contract F<dashboard.css> styles against.
 Until TKT-859 there were no C<.jobs-> rules at all - the shell was written here,
 the rows were built in the view asset, and neither step styled anything, so the

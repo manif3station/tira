@@ -2363,6 +2363,39 @@ that runs a job is a different kind of thing from a table that shows one.
 refresh does not hold a session open past its expiry the way an unlisted
 polled route would - the exemption `t/479` exists to enforce.
 
+**A band of nothing above a sticky header (TKT-855, 5.40).** `.shell` put 3.5rem
+of padding above `.hero`, which is `position: sticky; top: 0`. That space earns almost nothing, and the sticky
+rule is why. It is empty background on first paint, and once the header pins
+itself to the viewport the band is gone for good. With `.hero`'s own 2.5rem
+bottom margin, roughly 6rem stood between the top of the page and the first
+board.
+
+It is **not** a no-op, though, and the first version of this note said it was.
+Review corrected it: the shell's top padding is part of the header's
+normal-flow position, so it also decides *how far you must scroll before the
+header pins*. At 3.5rem the header stuck later; at 1rem it sticks sooner. On a
+board page that is a second reason to cut it rather than an argument against —
+the header gets out of the way earlier — but it is a different claim from
+"nobody ever sees it", and the number should be defended on both.
+
+Cut to 1rem — not 0, because the sticky header has rounded bottom corners and
+would meet the viewport edge as a torn line with nothing above it. The 2.5rem is
+**halved rather than removed**: it is genuine separation, and the card's
+acceptance draws that line explicitly — remove the clearance, keep the breathing
+room. About 3.75rem returns to the columns, which is roughly one more card row
+per screen. His reason for caring, in his own note: vertical space above the
+columns comes directly off how many cards are visible, and that is the whole
+point of the view.
+
+`t/501` asserts the **premise** as well as the numbers. That the header is sticky
+at `top: 0` is *why* the clearance is dead, so it is asserted: if somebody makes
+the header static later, the file fails and tells the next reader the number
+needs rethinking rather than defending. And it asserts what must **not** change —
+the header's own padding, the compact state, and `align-items`, which belongs to
+TKT-854 and is parked on Q-110. Without those, "make the numbers smaller" would
+have been satisfied by stripping the header's padding: a worse page and a green
+suite.
+
 **Whether the monitor is up (TKT-861, 5.39).** The section listed a monitor and
 said nothing about its process, so one that died an hour ago looked exactly like
 one polling happily — the gap `monitor-dead` exists to close, on the page rather

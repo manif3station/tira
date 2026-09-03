@@ -1,5 +1,34 @@
 Revision history for Tira
 
+5.40  2026-09-03
+
+    - TKT-855. The dashboard gives about 3.75rem back to the columns. `.shell`
+      put 3.5rem of padding above a header that is `position: sticky; top: 0` -
+      a band of empty background on first paint that is gone once
+      anybody scrolls - and, less obviously, part of the header's normal-flow
+      position, so it also decided how far the page had to scroll before the
+      header pinned itself. Review corrected that second half after the first
+      draft called the padding a no-op; it is not, and cutting it makes the
+      header reach its useful position sooner as well as reclaiming the band. Michael: "Useless whitespace on top of dashboard."
+
+      Cut to 1rem rather than 0: the sticky header has rounded bottom corners
+      and would meet the viewport edge as a torn line with nothing above it.
+      `.hero`'s 2.5rem bottom margin is HALVED rather than removed - that one is
+      genuine separation between the header and the first board, and the
+      acceptance criterion draws the line explicitly: remove the clearance, keep
+      the breathing room.
+
+      Roughly one more card row visible without scrolling, which is his own
+      stated reason for caring: vertical space above the columns comes directly
+      off how many cards are visible, and that is the whole point of the view.
+
+      The test asserts the PREMISE as well as the numbers - that the header is
+      sticky at top:0 - so if that ever stops being true the file fails and says
+      the number needs rethinking, rather than leaving a value nobody can
+      justify. It also asserts what must NOT change: the header's own padding,
+      the compact state, and its alignment, which belongs to TKT-854 and is
+      waiting on an answer.
+
 5.39  2026-09-03
 
     - TKT-861. The Repeated Jobs section says whether a monitor is actually

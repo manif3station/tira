@@ -293,6 +293,13 @@ working=purple-blue, done=green), with list-level controls (add, session,
 next/shift/pop/unshift/slice/prune) and per-card controls (status, remove,
 attach, ref) - full parity with the CLI commands below.
 
+Since 5.40 the page starts closer to the top. `.shell` had put 3.5rem of padding
+above a header that is `position: sticky; top: 0` — a band of empty background
+on first paint that vanished at the first scroll. It also delayed how far you
+had to scroll before the sticky header pinned itself. That is cut to 1rem, and the gap below the header halved, giving roughly one more
+card row per screen. The header keeps its own padding: what was removed is
+clearance above a sticky element, not breathing room around content.
+
 Below that sits a Repeated Jobs section, one row per scheduled job the board
 carries: its id, whether it is enabled, its schedule, what it says or runs,
 and its mode and schedule kind. It refreshes every thirty seconds, so what a

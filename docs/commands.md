@@ -559,6 +559,13 @@ consequence of an action is skipped by taking one route rather than the other.
   `-o json` records, all ordered newest-first by file modification time.
 - Self-contained `-o table` HTML for combined and type-specific dashboards,
   with polished offline CSS, selectable cards, and client-side mtime/ref sorts.
+  Since 5.40 the page begins closer to the top: the shell had 3.5rem of padding
+  above a header that is `position: sticky; top: 0`, which is empty background
+  on first paint, gone at the first scroll, and until then delaying how far you
+  must scroll before the header pins. That is 1rem now, and
+  the gap below the header halved, returning roughly one card row per screen
+  (TKT-855). The header keeps its own padding — what went was clearance above a
+  sticky element, not breathing room around content.
 
 Since 5.25 the code behind `-o human` and `-o table` lives in
 `lib/Tira/Render.pm` rather than `lib/Tira.pm`, loaded by `format_output`

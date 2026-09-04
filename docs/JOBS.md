@@ -512,6 +512,16 @@ an explanation. The day-field OR is **stated** rather than marked: cron fires
 `0 0 1 * 1` on the 1st *and* on every Monday, exactly, and *and also* is the one
 phrasing that cannot be read as an AND. TKT-917.
 
+**And since 5.55 it delivers a block whole.** The reader waited on `select` and
+then read a *line*, which are questions about two different things: `select`
+answers about the pipe, `readline` answers about its own buffer and fills that
+buffer from the pipe. So a monitor printing three lines at once had the first
+delivered and the other two left in memory, invisible to `select`, until the
+next write woke it - a monitor permanently one message behind rather than lossy.
+It reads the pipe itself now and splits complete lines out of a buffer it owns,
+keeping any half-line for the next read. TKT-930, found because a Telegram
+message reached the board as its header line with the text missing.
+
 **A monitor is one process, since 5.53, and its `ps` line says whose it is.**
 It used to be three - a `perl -e` shim that set a process group and exec'd `sh`,
 a fixed `sh` script that owned the pipe and looped, and the command - with the

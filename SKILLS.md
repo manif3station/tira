@@ -2785,6 +2785,17 @@ explanation. The day-field OR is **stated rather than marked**, the one place hi
 instruction is not followed literally: it is exact and surprising, not imprecise,
 and *and also* is the only phrasing that cannot be read as an AND. TKT-917.
 
+**A monitor's block arrives whole since 5.55.** The feeder's reader asked
+`select` whether to read and then read a line - and those are questions about
+different things, since `readline` fills its own buffer from the descriptor.
+A three-line block therefore delivered one line and held two where `select`
+could not see them, until the next write. Measured on this board: a Telegram
+message reached the bridge as `JOB-006 said: NEW TG [6903] from Michael` with
+the text absent, which is worse than silence because it looks like delivery. The
+loop now reads the descriptor with `sysread` into its own buffer and splits
+complete lines from it, keeping a partial tail; TKT-851's bounded quiet is
+untouched. It is 5.42's loop, so the fix reaches `tira.job.feed` too. TKT-930.
+
 **A monitor is one process since 5.53, and `ps` says whose it is.** It was
 three - a `perl -e` shim setting a process group, an `sh` script owning the pipe
 and looping, and the command - with the feeder on the far end. His own `JOB-006`

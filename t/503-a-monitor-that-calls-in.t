@@ -174,11 +174,14 @@ ok( Tira::Job->can('job_feed'),
     # It must READ CONTINUOUSLY. A feeder that collected and wrote at the end
     # would be a deadlock with extra steps - the monitor fills the pipe at about
     # 64KB and stops, which is the failure TKT-842 chose a file to avoid.
-    like( $feeder, qr/<\$handle>/,
+    like( $feeder, qr/sysread \s+ \$handle/x,
         'that reads its input as it arrives rather than collecting it - from a '
-          . 'handle now rather than from STDIN by name, because the same loop '
+          . 'handle rather than from STDIN by name, because the same loop '
           . 'serves the verb somebody pipes into and the feeder that owns its '
-          . 'own pipe' );
+          . 'own pipe, and from the DESCRIPTOR rather than a line at a time. '
+          . 'It read lines until TKT-930: readline fills its own buffer, so '
+          . 'select then reported nothing to read while the loop held lines it '
+          . 'had already been given, and a monitor stayed one message behind' );
 
     # And the WAIT MUST BE BOUNDED. Reading line by line is not enough on its
     # own: a blocking read with a batch that only empties at 25 lines or EOF

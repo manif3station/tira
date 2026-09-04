@@ -78,6 +78,25 @@ sub feed_from_handle {
     my $watch = IO::Select->new();
     $watch->add($handle);
 
+    # THE LOOP OWNS THE BUFFER, and until TKT-930 it did not - it asked select
+    # whether to read and then read a LINE. select answers about the
+    # descriptor; readline answers about its own buffer, which it fills from
+    # that descriptor. So readline would take the whole block, hand back the
+    # first line, and leave the rest in Perl's memory where select cannot see
+    # them: the next can_read said there was nothing to read and the loop sat
+    # out its quiet window holding lines it had already been given. They
+    # arrived only when the NEXT write woke select, which made a monitor
+    # permanently one message behind rather than lossy.
+    #
+    # Measured on his own board: a Telegram message reached the police bridge
+    # as its header line alone, with the text he sent absent - the board saying
+    # he had spoken without saying what he said.
+    #
+    # So select is only ever asked about the descriptor now, and the lines come
+    # out of $held, which the loop keeps. A read can end mid-line, so what is
+    # left over stays for the next one.
+    my $held = '';
+
     while (1) {
         # can_read returns on timeout with nothing, which is the quiet this is
         # watching for - not an error and not end of input.
@@ -86,11 +105,25 @@ sub feed_from_handle {
             next;
         }
 
-        my $line = <$handle>;
-        last if !defined $line;    # the monitor's output really did end
-        $line =~ s/\r?\n\z//;
-        push @batch, $line;
-        $flush->() if @batch >= $batch_size;
+        my $chunk = '';
+        my $read = sysread $handle, $chunk, 65536;
+
+        # undef is a read error and 0 is end of input. Both end the loop, and
+        # both keep whatever partial line is held: a monitor cut off
+        # mid-sentence has still spoken, and dropping it would be the silent
+        # truncation this epic exists to end.
+        if ( !$read ) {
+            push @batch, $held if length $held;
+            last;
+        }
+
+        $held .= $chunk;
+        while ( $held =~ s/\A([^\n]*)\n// ) {
+            my $line = $1;
+            $line =~ s/\r\z//;
+            push @batch, $line;
+            $flush->() if @batch >= $batch_size;
+        }
     }
     $flush->();
     return;

@@ -1,5 +1,43 @@
 Revision history for Tira
 
+5.55  2026-09-04
+
+    - TKT-930. A monitor that prints a block of lines gets all of them onto the
+      board, rather than the first and then nothing until it speaks again.
+
+      Found by his question - *"So why I sent message on TG you didn't see any
+      notification from the policy bridge? Still something broken?"* - and it
+      was. His message reached the police bridge as
+
+          VIO-3057 JOB-006 said: NEW TG [6903] from Michael (chat 398296603):
+
+      with the line under it, the text he actually sent, absent. The board said
+      he had spoken without saying what he said, which is worse than silence
+      because it looks like delivery.
+
+      **`select` answers about the descriptor; `readline` answers about its own
+      buffer.** The loop asked `select` whether to read and then read a *line*:
+      `readline` filled its buffer from the pipe - typically the whole block -
+      handed back the first line, and left the rest in Perl's memory where
+      `select` could not see them. The next `can_read` reported nothing to read,
+      so the loop sat out its quiet window holding lines it had already been
+      given, and delivered them only when the *next* write woke it. A monitor
+      was permanently one message behind rather than lossy.
+
+      It now reads the descriptor with `sysread` into a buffer the loop owns and
+      splits complete lines out of it, keeping any half-line for the next read.
+      At end of input, or on a read error, whatever is held still goes in: a
+      monitor cut off mid-sentence has spoken, and dropping it would be the
+      silent truncation this epic exists to end.
+
+      TKT-851's bounded quiet is untouched - a monitor that speaks once an hour
+      is still heard within seconds rather than after twenty-five lines.
+
+      **The loop is from 5.42 and TKT-927 only moved it**, so this reaches
+      `tira.job.feed` as well as the feeder. It did not matter until a monitor
+      printed a block, and his Telegram poller is the one that does - so the
+      epic's own instrument for hearing him was the thing hiding him.
+
 5.54  2026-09-04
 
     - TKT-924. The dashboard header says what is wrong rather than what exists.

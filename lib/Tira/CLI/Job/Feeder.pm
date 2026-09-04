@@ -3,6 +3,7 @@ package Tira::CLI::Job::Feeder;
 use strict;
 use warnings;
 
+use Encode ();
 use Tira::Job ();
 
 our $VERSION = '5.52';
@@ -113,7 +114,8 @@ sub feed_from_handle {
         # mid-sentence has still spoken, and dropping it would be the silent
         # truncation this epic exists to end.
         if ( !$read ) {
-            push @batch, $held if length $held;
+            push @batch, Encode::decode( 'UTF-8', $held, Encode::FB_QUIET() )
+              if length $held;
             last;
         }
 
@@ -121,6 +123,20 @@ sub feed_from_handle {
         while ( $held =~ s/\A([^\n]*)\n// ) {
             my $line = $1;
             $line =~ s/\r\z//;
+
+            # A MONITOR'S LINE IS TEXT, AND THIS IS WHERE IT BECOMES TEXT.
+            # It arrives from a pipe as octets, and until TKT-932 it stayed
+            # octets all the way onto the record - so a ledger held a mixture
+            # of characters (anything read back through json_decode) and bytes,
+            # and every write of one warned "Wide character in print" over what
+            # police was saying. Decoding here means every value in every
+            # ledger is characters and the writers have nothing to guess at.
+            #
+            # FB_QUIET rather than a die, which is this codebase's own answer
+            # for reading the bridge log: a corrupted byte somewhere in a
+            # monitor's output must not stop the board hearing the rest of it.
+            $line = Encode::decode( 'UTF-8', $line, Encode::FB_QUIET() );
+
             push @batch, $line;
             $flush->() if @batch >= $batch_size;
         }

@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.57';
+our $VERSION = '5.58';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -5732,7 +5732,7 @@ sub _session_expired {
 
 sub _session_write {
     my ( $self, $path, $session ) = @_;
-    $self->_atomic_write( $path, json_object()->canonical->encode($session) );
+    $self->_atomic_write( $path, json_object()->canonical->utf8->encode($session) );
     chmod 0600, $path;
     return 1;
 }
@@ -8993,7 +8993,7 @@ sub _announce_moves {
         }
 
         $self->_atomic_write( $self->_violation_ledger_path($store),
-            json_object()->canonical->encode($ledger) )
+            json_object()->canonical->utf8->encode($ledger) )
           if $changed;
         return 1;
     } );
@@ -9062,7 +9062,7 @@ sub _agent_still_mark_notified {
             since => $acted, at => _epoch_of_datetime( $self->{clock}->(), 'Clock' ),
         };
         $self->_atomic_write( $self->_violation_ledger_path($store),
-            json_object()->canonical->encode($ledger) );
+            json_object()->canonical->utf8->encode($ledger) );
         return 1;
     } );
     return 1;
@@ -9079,7 +9079,7 @@ sub _task_changed_mark_seen {
         my $ledger = $self->_violation_ledger($store);
         $ledger->{task_seen} = $next_seen;
         $self->_atomic_write( $self->_violation_ledger_path($store),
-            json_object()->canonical->encode($ledger) );
+            json_object()->canonical->utf8->encode($ledger) );
         return 1;
     } );
     return 1;
@@ -9370,7 +9370,7 @@ sub _violation_record_locked {
     $ledger->{last_pass} = $self->{clock}->();
     $self->_atomic_write(
         $self->_violation_ledger_path($store),
-        json_object()->canonical->encode($ledger) );
+        json_object()->canonical->utf8->encode($ledger) );
 
     # Two answers, and the caller that only wants the violations still gets
     # exactly what it always did.
@@ -11599,7 +11599,7 @@ sub _enforcement_read {
 sub _enforcement_write {
     my ( $self, $store, $log ) = @_;
     $self->_atomic_write( $self->_enforcement_path($store),
-        json_object()->canonical->encode($log) );
+        json_object()->canonical->utf8->encode($log) );
     return 1;
 }
 

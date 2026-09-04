@@ -2785,6 +2785,8 @@ explanation. The day-field OR is **stated rather than marked**, the one place hi
 instruction is not followed literally: it is exact and surprising, not imprecise,
 and *and also* is the only phrasing that cannot be read as an AND. TKT-917.
 
+**And it arrives as TEXT since 5.58** (TKT-932). A line comes off a pipe as octets, and until then it stayed octets all the way onto the record - so a ledger held a mixture of characters and bytes, and every write of one printed `Wide character in print` over what police was saying. The fix is at the boundary rather than at the write: the feeder decodes once as the line arrives, with `FB_QUIET` for the same reason the bridge-log reader uses it, and the six JSON writers encode with `->utf8`. Copying `_write_yaml`'s is-it-flagged guard instead **fails**, and its own test caught it: JSON returns one string for the whole structure and flags it if any value was text, so encoding that double-encodes the byte-valued parts. The data was never wrong - the bytes on disk were correct UTF-8 throughout - which is why this was noise rather than damage.
+
 **A monitor's block arrives whole since 5.55.** The feeder's reader asked
 `select` whether to read and then read a line - and those are questions about
 different things, since `readline` fills its own buffer from the descriptor.

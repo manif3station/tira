@@ -1,5 +1,47 @@
 Revision history for Tira
 
+5.58  2026-09-04
+
+    - TKT-932. Police stops printing a Perl warning over its own findings. His
+      terminal, forty times in one pass:
+
+          Wide character in print at .../lib/Tira.pm line 13171.
+
+      That line is the print inside `_atomic_write`, whose handle is opened
+      `:raw` - so a caller must hand it bytes. Six handed it characters: the
+      session record, four violation ledgers and the enforcement log.
+
+      **He pasted two line numbers and they are one defect.** 13171 is that
+      print in 5.56; 13066 is the same statement in 5.43, the version installed
+      before tonight - a long-running process holds the code it loaded, so the
+      police bridge reported the old file's numbers while a fresh call reported
+      the new one's.
+
+      **It surfaced with 5.55.** A ledger only holds a non-ASCII character once
+      something non-ASCII reaches it, and a monitor's whole block began reaching
+      the bridge then; his Telegram lines carry an arrow and a paperclip.
+
+      **Nothing was damaged, and that was measured rather than assumed** - the
+      bytes on disk were correct UTF-8 and read back identical. Perl warns and
+      writes the right thing. What was broken was his terminal.
+
+      **The obvious fix is wrong and its own test caught it.** Copying
+      `_write_yaml`'s guard - encode when the string is characters, pass it
+      through when it is bytes - fails here, because a ledger is a *mixture*:
+      characters from anything read back through `json_decode`, octets from a
+      line the feeder took off a pipe. JSON returns one string for the whole
+      structure and flags it if any value was text, so encoding it encodes the
+      byte-valued parts a second time and puts mojibake on disk. Real damage,
+      where the warning did none.
+
+      So the fix is at the **boundary**: a monitor's line is text, and the
+      feeder decodes it once as it arrives, with `FB_QUIET` - this codebase's
+      own answer for reading the bridge log, since a corrupted byte must not
+      stop the board hearing the rest. Every ledger then holds characters and
+      the six writers encode with `->utf8`. The journal at line 12818 had this
+      same bug and was fixed this same way; its comment says a card with a
+      pound sign wrote a warning and broken bytes.
+
 5.57  2026-09-04
 
     - TKT-913. A job is edited on its own card, the way a task is. His words:

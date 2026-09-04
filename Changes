@@ -1,5 +1,37 @@
 Revision history for Tira
 
+5.54  2026-09-04
+
+    - TKT-924. The dashboard header says what is wrong rather than what exists.
+      His message, 6812: *"Add X monitor(s) stopped if any / X schedual jobs is
+      disabled if any along the line of `0 questions awaiting - 0 tasks` / Same
+      for quesitons and tasks, if 0 no need to show / At the top right of the
+      screen"*.
+
+      Two requests, and the second is easy to read past. The counts are the
+      obvious half; the other is a change to what already shipped, since the
+      header printed `0 questions awaiting - 0 tasks` on a board with nothing
+      outstanding. That spends the corner somebody checks for trouble on the
+      news that there is none - and adding two counts without fixing it would
+      have made the header worse, with a stopped monitor arriving beside two
+      zeroes. **Every count is hidden when it is zero**, and the line is empty
+      when there is nothing at all to report.
+
+      A stopped monitor is why this epic exists: three standing hunts died on
+      2026-09-02 and nobody noticed for hours. The count comes from the jobs
+      provider's own `running` field - `Tira::Job::job_monitor_alive` against
+      the process table, the same call `monitor-dead` makes and the same one
+      the row indicator shows - rather than a second opinion computed in the
+      page, because the top of the page disagreeing with a row halfway down it
+      is worse than either being wrong.
+
+      **`running === false` rather than falsy**, and that is what keeps a
+      disabled monitor out of the stopped count. The provider sets `running`
+      only for an *enabled* monitor, so a disabled one and a cron job carry no
+      such field: absent means *not applicable*. A disabled monitor is counted
+      once, as disabled, because it is off on purpose - which is also why
+      `monitor-dead` says nothing about it.
+
 5.53  2026-09-04
 
     - TKT-927. A monitor is one process and its ps line says whose it is. His

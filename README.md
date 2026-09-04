@@ -322,6 +322,14 @@ had to scroll before the sticky header pinned itself. That is cut to 1rem, and t
 card row per screen. The header keeps its own padding: what was removed is
 clearance above a sticky element, not breathing room around content.
 
+**The header's counts say what is wrong, not what exists (5.54).** It shows how
+many cards carry a question awaiting an answer, how many tasklist items are
+outstanding, how many monitors have stopped and how many jobs are disabled — and
+each of those disappears when it is zero, so a quiet board shows nothing at all
+in that corner rather than a row of noughts. A stopped monitor is counted from
+the same liveness verdict the jobs rows and the police rule use, and a *disabled*
+monitor is counted once as disabled rather than twice: it is off on purpose.
+
 Below that sits a Repeated Jobs section, one row per scheduled job the board
 carries: its id, whether it is enabled, its schedule, what it says or runs,
 and its mode and schedule kind. It refreshes every thirty seconds, so what a

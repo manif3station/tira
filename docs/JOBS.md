@@ -425,6 +425,16 @@ the first. A monitor whose liveness cannot be determined - the process table
 could not be read - keeps the button it already had rather than guessing, which
 is the same distinction the running indicator beside it makes.
 
+**The form opens on the job's own card, since 5.53's successor.** Editing marks
+the card, hides its contents and puts the form inside it - the way a task card
+becomes its own editor - so what you clicked and what you are typing into are one
+object. Closing puts the card back. It was a separate panel beside the card until
+5.57: that was a deliberate judgement (the form is large) which he overruled by
+asking the same question again after seeing the compromise, and size is a layout
+problem rather than a reason to keep two editing idioms on one page. Creating
+still opens a form of its own, because there is no card for a job that does not
+exist yet. TKT-913.
+
 **The form is one form.** Creating and editing use the same fields, and editing
 fills them from the job. The schedule kind is a pair of radio buttons rather
 than the word `monitor` typed into a schedule box, which was a magic value

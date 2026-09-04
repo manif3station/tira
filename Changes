@@ -1,5 +1,37 @@
 Revision history for Tira
 
+5.57  2026-09-04
+
+    - TKT-913. A job is edited on its own card, the way a task is. His words:
+      *"When I edit, Why a separated card pop next to it as an editor and not
+      on the actual card itself like the task card?"*
+
+      He is comparing it to something that already works on the same page,
+      which is what makes it a consistency defect rather than a preference: the
+      tasklist card becomes its own editor, while the jobs editor built a panel
+      and inserted it beside the card, so a reader looked at one object and
+      typed into another.
+
+      **This was decided the other way once, and he has overruled it.** TKT-880
+      raised the question; TKT-892 answered it in the code - *"too much to
+      inline into a card row the way a tasklist card edits itself, so it stays
+      a panel"* - and softened it by opening the panel directly beneath its
+      card rather than at the foot of the section. He has seen that result and
+      asked the same question again, which is a rejection of the compromise.
+      The objection was about **size**, and size is a layout problem rather
+      than a reason to keep two editing idioms on one page.
+
+      The card now takes the form: it is marked, its own contents are hidden
+      rather than removed, and closing puts them back - because a card that
+      becomes an editor and cannot become a card again is worse than the panel,
+      which at least closed. Creating still appends to the section, since there
+      is no card for a job that does not exist yet.
+
+      The form itself is untouched, and four assertions hold it there: the
+      schedule-kind radio, the mode row hidden under Monitor (5.46), the loop
+      row for a command-mode monitor only (5.52), and a hidden row sending null
+      rather than nothing (5.52).
+
 5.56  2026-09-04
 
     - TKT-916. The police bridge is readable from the dashboard. His report

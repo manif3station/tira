@@ -392,6 +392,11 @@ monitor was signalled, `process` when only the recorded one was (a monitor
 started before 5.45 leads no group, so the rest of it is still running), and
 `gone` when there was nothing there.
 
+The editor opens **on the job's own card** since 5.57 — the card is marked, its
+contents hidden, and the form put inside it, the way a task card becomes its own
+editor; closing puts the card back. It was a panel beside the card before that,
+which he asked about twice.
+
 The editor is one form for creating and for editing, filled from the job. The
 schedule kind is a pair of radio buttons rather than the word `monitor` typed
 into a schedule box, and the Command/Message choice is not shown at all for a

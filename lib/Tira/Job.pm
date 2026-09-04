@@ -1423,6 +1423,13 @@ TKT-851's guarantee and is untouched: what is looped is the same C<"$@"> that wa
 exec'd before. Refused on a cron job, which fires on a tick rather than staying
 up, and on a message job, because a loop can only wrap a command.
 
+B<And since 5.52 the jobs editor asks the same two questions before it offers the
+control.> It had asked only one: the row carrying the interval was shown for
+anything in command mode, so a cron job displayed a checkbox and a seconds field
+and the save answered with the refusal above. The page is not the authority for
+that - this sub is - but a form that offers what the save rejects teaches
+somebody the rule by failing at them. TKT-911.
+
 =head1 A COMMAND IS A PROGRAM AND ITS ARGUMENTS
 
 C<job_command_words> turns a job's stored command into the list a process is

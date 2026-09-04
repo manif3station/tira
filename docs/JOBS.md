@@ -447,7 +447,21 @@ A monitor with no command could never be found alive in the process table, so it
 would be reported dead for ever.
 
 **Looping is a checkbox with an interval**, off unless asked for, defaulting to
-five seconds. Unticking it *removes* the interval rather than leaving the old one
+five seconds, and **since 5.52 it is offered only where the save would take it**.
+The row was shown for anything in command mode, which is the message rule applied
+and the cron rule forgotten — the engine refuses an interval on a cron job in the
+line before it refuses one on a message job, *"a cron job fires on a tick rather
+than staying up, so there is nothing to restart"*. So a cron job showed a
+checkbox that ticked and a seconds field that took a number, and the save died on
+it. It is now a **monitor** in command mode or nothing, which is exactly the set
+`_job_fields` accepts. Hidden rather than disabled, for 5.46's reason rather than
+the schedule box's: the box is disabled-with-a-reason because the form should
+keep its shape, and a control whose only possible answer is *no* is not shape. The
+save needed no change — it already asked whether the row was in play, so a cron
+job sends no interval at all rather than a null, and a monitor switched to cron
+keeps what it declared instead of having it quietly cleared. TKT-911.
+
+Unticking it *removes* the interval rather than leaving the old one
 in place, and clearing the expectation field removes the expectation - the form
 can unset what it can set. That is not free: an absent field and an empty one
 mean different things to the engine, absent meaning "leave it alone" and empty

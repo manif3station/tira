@@ -373,7 +373,10 @@ command could never be found alive in the process table, so the group had a
 single real option and read as a question nobody had answered. Looping is a checkbox with an interval, off unless asked for,
 and unticking it removes the interval rather than leaving the old one behind;
 keep it above about two seconds, or the output collector's quiet window never
-elapses and a healthy monitor looks silent.
+elapses and a healthy monitor looks silent. That checkbox is offered **only for
+a monitor** since 5.52 — it used to appear on any command job, so a cron job
+carried a control the save then refused, since restarting belongs to something
+that stays up rather than firing on a tick.
 
 **Save comes back when the schedule has been checked (5.46).** The button is
 disabled while the form asks the server whether the schedule parses, and

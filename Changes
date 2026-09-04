@@ -1,5 +1,32 @@
 Revision history for Tira
 
+5.52  2026-09-04
+
+    - TKT-911. The jobs editor stops offering a restart interval on a cron job.
+      The row that carries "Restart when it ends, every N seconds" was shown
+      whenever the job was in command mode, without asking whether it was a
+      **monitor** - so on a cron job the checkbox ticked, the seconds field took
+      a number, and the save died with the engine's own sentence: *"Restarting
+      belongs to a 'monitor' job - a cron job fires on a tick rather than staying
+      up, so there is nothing to restart"*.
+
+      One term, and the interesting part is which rule was already there. The
+      condition excluded a **message** job, for the engine's other refusal - a
+      loop can only wrap a command. `_job_fields` refuses the cron case two
+      lines earlier and the form had never been told. The fix adds the kind and
+      keeps both halves of the mode test, because the kind alone would offer the
+      row on a cron **message** job, which is refused for its own separate
+      reason.
+
+      Hidden rather than disabled, following 5.46's mode radio rather than the
+      schedule box: the box is disabled-with-a-reason so the form keeps its
+      shape as somebody clicks through it, and a control whose only possible
+      answer is "no" is not shape. The save path needed no change - it already
+      asked whether the row was in play before sending an interval, so a cron
+      job now sends no `restart_every` key at all rather than a null, and a
+      monitor switched to cron keeps its stored interval instead of having it
+      silently cleared.
+
 5.51  2026-09-04
 
     - TKT-928. `tira.job.feed` looks the job up before it watches standard

@@ -2680,6 +2680,20 @@ feeder flushes after 25 lines or two seconds of quiet, so a command restarting
 every second never leaves a gap and a perfectly healthy monitor reports no
 output at all.
 
+**Since 5.52 that checkbox is offered only for a monitor.** It was shown for
+anything in command mode — the message rule applied and its neighbour forgotten,
+since `_job_fields` refuses an interval on a cron job (*"a cron job fires on a
+tick rather than staying up"*) in the line before it refuses one on a message
+job. So a cron job carried a checkbox that ticked and a seconds field that took a
+number, and the save died on the value it had just been given. The condition now
+tests the kind **and keeps both mode terms**, because the kind alone would leave
+the row on a cron *message* job, which is refused for the other reason entirely.
+This is the same exception TKT-912 drew above rather than a new one: hidden, not
+disabled, because a control with one possible answer is noise rather than shape.
+The save path was already right — `if (!loopRow.hidden)` means a cron job now
+sends no `restart_every` key rather than a null, so switching a monitor to cron
+leaves its stored interval alone instead of clearing it. TKT-911.
+
 **The schedule reads as words**, produced by `Tira::Job::job_schedule_words` and
 carried on the row, with the cron kept as the tooltip. In the engine rather than
 the page for the reason `job_check` already is — two readings of one format

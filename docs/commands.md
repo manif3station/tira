@@ -3997,7 +3997,12 @@ reader never has to infer it from whichever field is populated.
     because `_job_fields` refuses that pairing outright. Looping — the
     `restart_every` field — is a checkbox with an interval, off unless asked
     for; keep it above about two seconds, or the feeder's quiet window never
-    elapses and a healthy monitor reports no output at all. `expect_every` is on
+    elapses and a healthy monitor reports no output at all. **Since 5.52 that
+    row is shown only for a monitor** (TKT-911): it had been shown for anything
+    in command mode, so a cron job offered a checkbox and a seconds field whose
+    use the save refused — `_job_fields` declines an interval on a cron job in
+    the line before it declines one on a message job. Both mode terms remain,
+    since the kind alone would leave the row on a cron *message* job. `expect_every` is on
     the same form, and left blank it means *no expectation* rather than zero.
 
     Both can be **unset** as well as set. Unticking the box sends an explicit

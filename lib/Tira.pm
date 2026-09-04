@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.60';
+our $VERSION = '5.61';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -5881,8 +5881,8 @@ JS
 # refused when it is set rather than discovered later, when it has been reading
 # as cover the whole time.
 my %POLICY_RULES = (
-    'card-full-details'         => { needs => ['enter'] },
-    'card-metrics'              => { needs => [ 'enter', 'require' ] },
+    'card-full-details'         => { needs => ['enter'], forbids => ['age'] },
+    'card-metrics'              => { needs => [ 'enter', 'require' ], forbids => ['age'] },
     'card-duration'             => { needs => [ 'column', 'age' ] },
     'card-stalled'              => { needs => ['before'] },
     'checklist-idle'            => { needs => [ 'column', 'age' ] },
@@ -5893,8 +5893,8 @@ my %POLICY_RULES = (
     # without the checklist moving, which is an event rather than a
     # duration: the moment it has happened, waiting longer tells nobody
     # anything they did not already know.
-    'checklist-unmoved'         => { needs => [] },
-    'orphan-card'               => { needs => [] },
+    'checklist-unmoved'         => { needs => [], forbids => ['age'] },
+    'orphan-card'               => { needs => [], forbids => ['age'] },
 
     # An upgrade traced to its end rather than announced and forgotten.
     #
@@ -5909,7 +5909,7 @@ my %POLICY_RULES = (
     # read cannot be checked, and a rule that settles on a promise is worse than
     # no rule; a rule this board has neither declared nor declined can be, and
     # it is the gap the reading is for. TKT-276.
-    'rules-undeclared'          => { needs => [] },
+    'rules-undeclared'          => { needs => [], forbids => ['age'] },
 
     # A card nothing has happened to, wherever it is sitting. His question:
     # is there a policy for a card that has been in the same column with no
@@ -5926,7 +5926,7 @@ my %POLICY_RULES = (
     # and a change is not more or less true an hour later - waiting would only
     # decide how long the agent works from a card somebody has already
     # rewritten. TKT-307.
-    'card-changed-by-owner'     => {},
+    'card-changed-by-owner'     => { forbids => ['age'] },
     'question-unanswered'       => { needs => ['age'] },
     # An optional second age, counted from when the answer was read. Having
     # read it removes the excuse for not judging it, and the record already
@@ -5946,8 +5946,8 @@ my %POLICY_RULES = (
     # policy naming one column would stop covering the board the moment
     # somebody added another - silently, which is the shape of every check
     # this project has found not firing.
-    'card-unassigned'           => { needs => [], forbids => [ 'column', 'enter' ] },
-    'card-agentless'            => { needs => [ 'enter' ] },
+    'card-unassigned'           => { needs => [], forbids => [ 'column', 'enter', 'age' ] },
+    'card-agentless'            => { needs => [ 'enter' ], forbids => ['age'] },
 
     # TKT-547: the tasklist is deliberately lighter than a ticket - free
     # text, no gates - but a pending/working item can still represent real
@@ -5960,7 +5960,7 @@ my %POLICY_RULES = (
     # due, so a grace on top would only delay what the schedule was for; and
     # a card scope means nothing to a job, which is not about a card.
     # EPC-014, TKT-838.
-    'job-due'                   => { needs => [] },
+    'job-due'                   => { needs => [], forbids => ['age'] },
 
     # A column and no age. The column because the board cannot work out which
     # of its own columns mean somebody is WORKING - backlog and discard are
@@ -5981,13 +5981,13 @@ my %POLICY_RULES = (
     # should be: "Announce every change regardless of actor." No age: a
     # change is a change the moment it happens, the same reasoning
     # conversation-not-folded already gives.
-    'task-changed'              => { needs => [] },
+    'task-changed'              => { needs => [], forbids => ['age'] },
 
     # Arriving somewhere without having done the steps before it. Declared
     # rather than inferred from the column order: a documentation-only card has
     # no red test to write, and a rule that assumed the whole sequence would
     # report every legitimate shortcut, which is the noise that kills a channel.
-    'column-skipped'            => { needs => [ 'enter', 'require' ] },
+    'column-skipped'            => { needs => [ 'enter', 'require' ], forbids => ['age'] },
 
     # No age. A comment that has not been folded in is not neglect that
     # ripens - the card is already carrying two stories - and the quiet
@@ -5995,13 +5995,13 @@ my %POLICY_RULES = (
     'conversation-not-folded'   => { needs => [], forbids => ['age'] },
     'answer-ok-not-folded'      => { needs => ['age'] },
     'answer-not-ok-no-followup' => { needs => ['age'] },
-    'wip-limit'                 => { needs => ['column'] },
-    'commit-without-card'       => { needs => [] },
+    'wip-limit'                 => { needs => ['column'], forbids => ['age'] },
+    'commit-without-card'       => { needs => [], forbids => ['age'] },
     'work-without-card'         => { needs => ['age'] },
     'unpushed-work'             => { needs => ['age'] },
     'board-unbacked'            => { needs => ['age'] },
-    'gate-missing'              => { needs => ['column'] },
-    'discard-unexplained'       => { needs => [] },
+    'gate-missing'              => { needs => ['column'], forbids => ['age'] },
+    'discard-unexplained'       => { needs => [], forbids => ['age'] },
     # No age, and it is refused rather than ignored. A monitor that has stopped
     # does not become more stopped, and the acceptance this rule was written
     # for asks for it "within one bridge pass, rather than after somebody
@@ -6044,9 +6044,9 @@ my %POLICY_RULES = (
 
     'leftover-process'          => { needs => [ 'pattern', 'age' ] },
     'leftover-container'        => { needs => [ 'pattern', 'age' ] },
-    'card-sandbox-missing'      => { needs => [ 'enter', 'sandbox' ] },
-    'card-unlinked'             => { needs => ['require_link'] },
-    'parent-ahead-of-children'  => { needs => [] },
+    'card-sandbox-missing'      => { needs => [ 'enter', 'sandbox' ], forbids => ['age'] },
+    'card-unlinked'             => { needs => ['require_link'], forbids => ['age'] },
+    'parent-ahead-of-children'  => { needs => [], forbids => ['age'] },
 
     # No age. Being passed over does not ripen into being passed over more, and
     # the quiet ladder already stops the same line arriving twice a minute. An
@@ -6359,6 +6359,21 @@ sub policy_add {
     # is their third suggestion and this project's own rule about missing
     # arguments: a policy police cannot follow is worse than no policy, because
     # it reads as cover.
+    # card-stalled watches a checklist finishing without the card moving - an
+    # EVENT, not a duration - and nothing in its body has ever read an age.
+    # His screenshot: the declare form let him set a stall threshold anyway,
+    # and it was stored and shown back doing nothing. His answer, Q-120/Q-122,
+    # 2026-09-05: "Refuse an age on card-stalled, and name card-duration in
+    # the refusal" - card-duration is the rule that actually reads one, so
+    # somebody typing 30m here is redirected rather than quietly ignored.
+    # TKT-933.
+    if ( $rule eq 'card-stalled' && defined $args{age} && $args{age} ne '' ) {
+        die "Policy rule 'card-stalled' takes no --age: it watches a checklist "
+          . "finishing without the card moving, which is an event rather than a "
+          . "duration. For a threshold on how long a card sits, use card-duration "
+          . "instead\n";
+    }
+
     if ( $rule eq 'card-sandbox-missing' ) {
         my $root = $self->discover_project(%args);
         my $declared = eval { $self->project_show( project => $root )->{repo} };

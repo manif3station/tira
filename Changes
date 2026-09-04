@@ -4,9 +4,12 @@ Revision history for Tira
 
     - TKT-753. `comment.add` accepted an empty `--text`, stored a comment whose
       body was the empty string, exited 0 and printed the comment back. It was
-      alone in that among its siblings: evidence.add requires a summary,
-      warning.add a message, question.answer some text, and
-      checklist.add/required-action.add an item.
+      alone in accepting an EMPTY one: every sibling refuses that - evidence.add
+      a summary, warning.add a message, question.answer some text,
+      checklist.add/required-action.add an item. On WHITESPACE they disagree,
+      and comment.add joins the stricter pair: warning.add and question.answer
+      test /\S/, while evidence.add, checklist.add and required-action.add test
+      `eq ''` and still accept a value made of spaces.
 
       An empty or whitespace-only body is refused now - "A comment needs some
       text". The test is /\S/ rather than a length check for two reasons: a

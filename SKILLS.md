@@ -248,9 +248,13 @@ ones with the wanted status. It is very straightforward to me. No?" The card had
 asked for `--status` to be *refused* on a list, which is the opposite. TKT-748.
 
 **Implemented (5.43).** `comment.add` refuses an empty or whitespace-only
-`--text` — *A comment needs some text*. It was alone in accepting one among its
-siblings: `evidence.add` requires a summary, `warning.add` a message,
-`question.answer` some text, and `checklist.add`/`required-action.add` an item.
+`--text` — *A comment needs some text*. It was alone in accepting an **empty**
+body: every sibling refuses one — `evidence.add` a summary, `warning.add` a
+message, `question.answer` some text, `checklist.add`/`required-action.add` an
+item. On **whitespace** the siblings disagree, and comment.add joins the stricter
+pair: `warning.add` and `question.answer` test `/\S/`, while `evidence.add`,
+`checklist.add` and `required-action.add` test `eq ''` and still accept a value
+made of spaces.
 
 The test is `/\S/` rather than a length check for two reasons. A space is not a
 smaller comment than none, which this project settled on TKT-585 for

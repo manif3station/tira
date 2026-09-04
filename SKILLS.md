@@ -2680,6 +2680,28 @@ not that: it records `ok` or `not-ok`, a judgement, and leaves `read_at` alone.
 For "I have acted on this", use `tira.comment.add` or a card field, which is
 what `answer-ok-not-folded` asks for. Neither overwrites the answer.
 
+**The fourth reader of the jobs record (TKT-899, 5.42).** `job-due` read that
+record without guarding the read, so a locked or corrupt jobs file made every due
+job silently invisible and the pass said nothing at all — a board with a broken
+jobs file looked exactly like a board with nothing due.
+
+The other three rules that read it — `monitor-dead`, `monitor-output`,
+`monitor-silent` — had carried an identical guard from the start, with the
+argument written beside `monitor-dead`: swallowing a read failure into "there are
+no jobs" is *silence standing in for an answer*, which is the failure EPC-014
+exists to end, rebuilt inside a rule.
+
+**Written in their shape rather than a better one.** Four rules read one record,
+and a fourth guard with its own wording would be a second thing to keep in
+agreement — the way two validators for one format came to disagree on TKT-713.
+The test asserts the sameness as well as the behaviour: it counts the guards in
+the engine and refuses a bare read anywhere in the file, so a fifth reader added
+later fails the suite rather than waiting to be noticed.
+
+Found by an improvement hunt looking at the *shape* of the code — three rules
+carrying an identical eight-line guard and a fourth without one — rather than by
+anything failing.
+
 **A command torn into pieces (TKT-898, 5.42).** A job command was `split ' '` at
 three sites, so any argument containing a space was torn apart — and the job ran,
 exited 0, and did the wrong thing. `--text "two words"` reached the program as

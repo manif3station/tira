@@ -2,6 +2,25 @@ Revision history for Tira
 
 5.42  2026-09-03
 
+    - TKT-899. `job-due` read the jobs record without guarding the read, so a
+      record that could not be read made every due job silently invisible and
+      the pass reported nothing at all - a board with a corrupt jobs file looked
+      exactly like a board with nothing due.
+
+      The other three rules that read that record - `monitor-dead`,
+      `monitor-output`, `monitor-silent` - had guarded it from the start, and the
+      reasoning was already written beside `monitor-dead`: swallowing a read
+      failure into "there are no jobs" is silence standing in for an answer,
+      which is the failure this epic exists to end, rebuilt inside a rule.
+
+      This was the fourth reader and the only unguarded one. It is written in
+      their shape rather than a better one: four rules reading one record should
+      read alike, and a fourth guard with its own wording would be a second thing
+      to keep in agreement. The test asserts that too - it counts the guards and
+      refuses a bare read anywhere in the engine, so a fifth reader cannot
+      quietly go unguarded.
+
+
     - TKT-898. A job command was split on spaces alone, so any argument
       containing one was torn into pieces - and the job ran, exited 0, and did
       the wrong thing. `--text "two words"` reached the program as three

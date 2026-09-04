@@ -10365,6 +10365,14 @@ $questions
 BEHIND
 }
 
+# Every rule that reads the jobs record guards the read and REPORTS a failure.
+# There are four of them - job-due, monitor-dead, monitor-output and
+# monitor-silent - and they are written alike on purpose: swallowing a read
+# failure into "there are no jobs" makes a locked or corrupt file look identical
+# to a board with nothing to say, and a fourth guard with its own wording would
+# be a second thing to keep in agreement. t/521 counts them and refuses a bare
+# read anywhere in this file, so a fifth reader cannot quietly go unguarded.
+# TKT-899.
 sub police_pass {
     my ( $self, %args ) = @_;
     my $store = $args{store} or die "A violation store is required\n";

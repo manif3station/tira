@@ -151,6 +151,40 @@ sub links_on {
           . 'correcting it: the state can no longer be created' );
 }
 
+# --- every declared type, not the three that occurred to me -------------------
+#
+# CHK-002 asks for all of them, and the board declares four:
+#
+#   blocks / is-blocked-by      clones / is-cloned-by
+#   duplicates / is-duplicated-by                relates-to / relates-to
+#
+# Read off `tira.project.link-types.list` rather than remembered - the first
+# version of this file covered three and would have ticked that item while
+# leaving `clones` unasserted. A refusal keyed on the type rather than on the two
+# refs being equal would pass three of these and fail one, which is exactly the
+# gap a partial list hides.
+
+{
+    my ( $tira, $root ) = board();
+
+    for my $type (qw(blocks clones duplicates relates-to)) {
+        my $solo = card( $tira, $root, "Self $type" );
+
+        my $ok = eval {
+            $tira->link_add( project => $root, from => $solo, type => $type,
+                to => $solo, author => 'claude' );
+            1;
+        };
+
+        ok( !$ok, "a self-link of type '$type' is refused - every declared type, "
+              . 'because the rule is about the two ends being one card and not '
+              . 'about which relation was asked for' );
+
+        is( links_on( $tira, $root, $solo ), '',
+            "and nothing was stored for '$type'" );
+    }
+}
+
 # --- the refusal is the ENGINE's ---------------------------------------------
 #
 # Criterion 2, and the reason it is one line rather than three. The browser

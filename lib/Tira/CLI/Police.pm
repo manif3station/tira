@@ -265,7 +265,15 @@ sub police_claim_singleton {
     # A bare pid cannot express that - a later claimant reading the file has to
     # be able to tell a dashboard from an ordinary daemon before it decides
     # whether to kill it or stand down.
-    my $my_holder = $opts{holder} // 'police';
+    #
+    # NORMALISED TO THE TWO STATES THAT EXIST, rather than trusting whatever
+    # arrives. A review pointed out that the first version preserved the bare-pid
+    # write only for the exact string 'police': holder => '' wrote "1234 " with a
+    # trailing space, and holder => 'Police' wrote a second field - so a caller
+    # being slightly wrong changed the on-disk format that three other tests read.
+    # There are two holders, not a free-text field, and saying so here means an
+    # unrecognised one is ordinary rather than a new kind of record.
+    my $my_holder = ( $opts{holder} // '' ) eq 'dashboard' ? 'dashboard' : 'police';
 
     my $killed;
     if ( open my $fh, '<', $path ) {
@@ -275,9 +283,24 @@ sub police_claim_singleton {
         # Two fields now, and the second is optional so a file written by an
         # older version - a bare pid - still reads correctly as an ordinary
         # police daemon rather than as a malformed claim.
-        my ( $previous_pid, $previous_holder ) = split ' ', ( $previous // '' );
-        $previous_pid    = '' if !defined $previous_pid;
-        $previous_holder = 'police' if !defined $previous_holder;
+        # Read the same way it is written: a pid, and at most one holder that
+        # means anything. Anything else in the file - a third token, a
+        # hand-edit, a partial write - reads as an ordinary claim rather than as
+        # a dashboard, because the failure that matters is a stranger being
+        # treated as the one holder nobody may kill.
+        my @field = split ' ', ( $previous // '' );
+        my $previous_pid = @field ? $field[0] : '';
+
+        # EXACTLY what this code writes, or it is an ordinary claim. Two fields
+        # and the second is 'dashboard' - a third token, a different word, a
+        # hand-edit or a partial write all read as ordinary. The direction is
+        # chosen rather than incidental: the dashboard is the one holder nobody
+        # may kill, so anything the parser is unsure about must fall on the side
+        # of the ordinary rule, where the worst case is a process being replaced
+        # as it always was. Falling the other way would let a malformed file
+        # protect a stranger.
+        my $previous_holder =
+          ( @field == 2 && $field[1] eq 'dashboard' ) ? 'dashboard' : 'police';
 
         if ( length $previous_pid && $previous_pid ne $my_pid && $alive->($previous_pid) ) {
 
@@ -311,7 +334,7 @@ sub police_claim_singleton {
     # holds the pid and nothing else is a fair thing to assert, and it caught
     # this when the first version wrote the holder unconditionally.
     open my $fh, '>', $path or die "Cannot claim the police singleton at '$path': $!\n";
-    print {$fh} ( $my_holder eq 'police' ? $my_pid : "$my_pid $my_holder" );
+    print {$fh} ( $my_holder eq 'dashboard' ? "$my_pid dashboard" : $my_pid );
     close $fh;
     return { claimed => $my_pid, killed => $killed, holder => $my_holder };
 }

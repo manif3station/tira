@@ -454,6 +454,65 @@ use Tira::CLI::Police;
           . 'is how a signal ends up somewhere nobody meant' );
 }
 
+# --- a holder is one of two things, not free text ---------------------------
+#
+# From an adversarial review of the claim function. The first version preserved
+# the bare-pid write only for the exact string 'police', so a caller being
+# slightly wrong changed the on-disk format that three other tests read - and a
+# third token in the file made an ordinary claim read as a dashboard, which is
+# the failure that matters, because the dashboard is the one holder nobody may
+# kill.
+
+{
+    my $store = tempdir( CLEANUP => 1 );
+    my $path  = Tira::CLI::Police::police_singleton_path($store);
+
+    my $read = sub {
+        open my $fh, '<', $path or die "$path: $!";
+        local $/;
+        return scalar <$fh>;
+    };
+
+    for my $odd ( '', 'Police', 'nonsense' ) {
+        Tira::CLI::Police::police_claim_singleton( $store,
+            pid => 9001, holder => $odd, alive => sub { 0 }, kill => sub { } );
+        is( $read->(), '9001',
+            "holder '$odd' is written as a BARE PID - an unrecognised holder is "
+              . 'ordinary, not a new kind of record, and the file three other '
+              . 'tests read keeps its shape' );
+    }
+
+    Tira::CLI::Police::police_claim_singleton( $store,
+        pid => 9002, holder => 'dashboard', alive => sub { 0 }, kill => sub { } );
+    is( $read->(), '9002 dashboard',
+        'and only the dashboard marks itself' );
+}
+
+# A FILE THAT SAYS SOMETHING ELSE IS AN ORDINARY CLAIM, not a dashboard. The
+# dashboard is the holder nobody may kill, so anything the parser is unsure
+# about must fall on the side of the ordinary rule rather than inherit that
+# protection.
+{
+    my $store = tempdir( CLEANUP => 1 );
+    my $path  = Tira::CLI::Police::police_singleton_path($store);
+
+    for my $written ( '9100 dashboard garbage', '9100 Dashboard', '9100 police', '9100' ) {
+        open my $fh, '>', $path or die "$path: $!";
+        print {$fh} $written;
+        close $fh;
+
+        my @killed;
+        my $claim = Tira::CLI::Police::police_claim_singleton( $store,
+            pid => 9200, alive => sub { 1 }, kill => sub { push @killed, $_[0] } );
+
+        ok( !$claim->{yield},
+            "a claim file reading '$written' does not buy the protection only an "
+              . 'exact dashboard claim earns' );
+        is_deeply( \@killed, [9100],
+            'and the ordinary rule applies to it - TKT-486, unchanged' );
+    }
+}
+
 done_testing();
 
 __END__

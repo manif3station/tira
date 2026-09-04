@@ -110,7 +110,7 @@ sub _start_monitor {
     die "Job $job->{id} is disabled - enable it before starting it\n"
       if !$job->{enabled};
 
-    my @command = split ' ', ( $job->{command} // '' );
+    my @command = Tira::Job::job_command_words( $job->{command} );
     die "Job $job->{id} has no command to run\n" if !@command;
 
     # ALREADY RUNNING IS A REFUSAL, not a second process. Without this, starting

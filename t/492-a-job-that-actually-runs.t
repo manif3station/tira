@@ -154,7 +154,13 @@ sub announced {
 
 {
     my $chatty = $tira->job_add( project => $root, schedule => '0 * * * *',
-        command => qq{$^X -e print{*STDERR}("x"x200000);print("done")} );
+        # q() rather than double quotes in the perl one-liner: since TKT-898 a
+        # job command's quotes GROUP arguments instead of reaching the program
+        # as literal characters, which is the whole point of that card. This
+        # fixture never cared about quoting - it wants a command that floods
+        # stderr and also prints to stdout - so it is written in a form that
+        # says the same thing without spending quote marks.
+        command => qq{$^X -e print{*STDERR}(q(x)x200000);print(q(done))} );
 
     require Tira::CLI::Police;
     my $ran = Tira::CLI::Police::run_due_job(

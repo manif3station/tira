@@ -136,24 +136,56 @@ use Tira::CLI::Police;
           . 'printed with single spaces between them' );
 }
 
-# --- the runnable check reads the same command the same way ------------------
+# --- and every other site that reads the same field --------------------------
 #
-# The third site, found in the pickup audit rather than named on the card:
-# Tira::Job takes the FIRST WORD of a command to ask whether the system can run
-# it. Split the same way, a quoted program path with a space in it is torn there
-# too, and the check then asks about a program nobody named.
+# The pickup audit found a third site and MISIDENTIFIED it, which is worth
+# recording rather than quietly correcting: I called Tira::Job's split "the
+# runnable check". It is not. It is _same_program, the Windows liveness
+# comparator, which takes a job's stored command and asks whether its program is
+# the one tasklist reports. The runnable check is in Tira::CLI::Job and reads the
+# first word of the ALREADY-PARSED list, so it is fixed by its caller rather than
+# by itself.
+#
+# Both are asserted here, because "the same field parsed two ways" is the fault
+# this card is about and a second reading is exactly how it comes back.
 
 {
     require Tira::Job;
 
-    ok( !Tira::Job::_command_is_runnable(q{'/opt/no such dir/thing'}),
-        'a quoted program path is judged as ONE program - it is not runnable '
-          . 'here and should say so, rather than being torn at the space and '
-          . 'judged on a prefix nobody wrote' );
+    my @words = Tira::Job::job_command_words(q{'/opt/my tools/run' --flag});
+    is( scalar @words, 2,
+        'a quoted program path is ONE word, not torn at the space' );
+    is( $words[0], '/opt/my tools/run',
+        'and the quotes grouped it rather than becoming part of it' );
 
-    ok( Tira::Job::_command_is_runnable('echo hello'),
-        'and an ordinary command is still runnable, so the check has not simply '
-          . 'started refusing everything' );
+    is_deeply( [ Tira::Job::job_command_words('echo plain words') ],
+        [qw(echo plain words)],
+        'an unquoted command still yields exactly the words it always did' );
+
+    is_deeply( [ Tira::Job::job_command_words(undef) ], [],
+        'and no command is no words rather than a list with one empty string in '
+          . 'it, which is what the callers check for when they refuse a job with '
+          . 'nothing to run' );
+
+    # An unbalanced quote is a mistake somebody will make. It must not take the
+    # module down: the honest failure is the command not running, which the
+    # executor already reports.
+    my @broken = Tira::Job::job_command_words(q{echo "unbalanced});
+    ok( scalar @broken,
+        'an unbalanced quote falls back to the old split rather than dying '
+          . 'inside a module nobody was looking at' );
+}
+
+{
+    require Tira::CLI::Job;
+
+    ok( Tira::CLI::Job::_command_is_runnable('echo'),
+        'the runnable check still passes an ordinary program - it now receives '
+          . 'a word that was parsed rather than one that was cut at a space' );
+
+    ok( !Tira::CLI::Job::_command_is_runnable('/opt/no such dir/thing'),
+        'and still refuses one that is not there, given the whole path rather '
+          . 'than the prefix before the first space' );
 }
 
 done_testing();

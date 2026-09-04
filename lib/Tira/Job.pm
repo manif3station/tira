@@ -664,6 +664,85 @@ sub _stamp_seconds {
 # would be read, believed, and the cron would never be looked at again - which
 # is precisely the failure this card is fixing, one layer along. Every shape
 # below is one whose meaning is unambiguous from the five fields alone.
+# How a job command becomes a list of arguments.
+#
+# TKT-898. It was split ' ' at three sites, so any argument containing a space
+# was torn into pieces - and the job ran, exited 0, and did the wrong thing:
+#
+#   stored : d2 tira.comment.add --ref TKT-1 --text "two words"
+#   ran as : [d2] [tira.comment.add] [--ref] [TKT-1] [--text] ["two] [words"]
+#
+# THE CONFUSION WAS BETWEEN TWO THINGS A SHELL DOES. It GROUPS arguments and it
+# INTERPRETS metacharacters. TKT-851 removed the shell to stop the second, and
+# took the first with it - which was never the intention: its own worked
+# examples pass --message strings with spaces in them.
+#
+# shellwords GROUPS AND DOES NOT INTERPRET, which is exactly the missing half. A
+# semicolon, a backtick, a $(...) or a redirect inside a quoted argument comes
+# back as literal text, so TKT-851's guarantee is untouched: nothing of the job's
+# becomes shell source, and the six injection attempts it was proved against are
+# still contained.
+#
+# AN UNPARSEABLE COMMAND FALLS BACK TO THE OLD SPLIT rather than dying. An
+# unbalanced quote is a mistake somebody will make, and the honest failure for it
+# is the command not running - which the runnable check and the executor already
+# report - rather than a job that vanishes with a parse error from inside a
+# module nobody was looking at.
+sub job_command_words {
+    my ($command) = @_;
+    return () if !defined $command || $command !~ /\S/;
+
+    # WRITTEN OUT RATHER THAN Text::ParseWords, and the reason is Windows.
+    # shellwords is POSIX-shell-like and treats a backslash as an ESCAPE, so
+    # C:\strawberry\perl\bin\perl.exe comes back as C:strawberryperlbinperl.exe -
+    # every separator eaten. t/493 caught it immediately, asserting that a full
+    # path and a .exe on either side still name the same program. This board runs
+    # on Windows too, where a job command is far more likely to contain
+    # backslashes than escapes.
+    #
+    # So: quotes GROUP, and everything else is literal. That is the whole of what
+    # was missing. A backslash, a semicolon, a backtick or a $(...) inside an
+    # argument is text, which keeps TKT-851's guarantee exactly as it was - the
+    # words still arrive as positional parameters and nothing of the job's
+    # becomes shell source.
+    my @words;
+    my $current = '';
+    my $started = 0;
+    my $quote   = '';
+
+    for my $character ( split //, $command ) {
+        if ($quote) {
+            if   ( $character eq $quote ) { $quote = '' }
+            else                          { $current .= $character }
+            next;
+        }
+        if ( $character eq q{"} || $character eq q{'} ) {
+            $quote   = $character;
+            $started = 1;
+            next;
+        }
+        if ( $character =~ /\s/ ) {
+            if ( $started || length $current ) {
+                push @words, $current;
+                $current = '';
+                $started = 0;
+            }
+            next;
+        }
+        $current .= $character;
+        $started = 1;
+    }
+
+    # AN UNBALANCED QUOTE FALLS BACK rather than guessing where it ended. It is a
+    # mistake somebody will make, and the honest failure is the command not
+    # running - which the runnable check and the executor already report - rather
+    # than a job quietly running something the author did not write.
+    return split ' ', $command if $quote;
+
+    push @words, $current if $started || length $current;
+    return @words;
+}
+
 sub job_schedule_words {
     my ($schedule) = @_;
     return '' if !defined $schedule;
@@ -829,7 +908,7 @@ sub job_monitor_alive {
 # consulted on Windows, where the process table has nothing else to offer.
 sub _same_program {
     my ( $wanted, $seen ) = @_;
-    my ($program) = split ' ', $wanted;
+    my ($program) = job_command_words($wanted);
     return 0 if !defined $program || $program eq '' || $seen eq '';
 
     for my $name ( \$program, \$seen ) {

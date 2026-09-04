@@ -526,7 +526,13 @@ sub run_due_job {
     return { ran => 0, status => 0, output => '' }
       if ( $job->{mode} // '' ) ne 'command';
 
-    my @command = split ' ', ( $job->{command} // '' );
+    # Loaded HERE rather than relying on the require in another sub of this
+    # module: that one runs only if that sub is called first, which is exactly
+    # the assumption that made this line die with "Undefined subroutine" the
+    # moment a test reached run_due_job directly. require is idempotent, so
+    # naming it at the call site costs nothing and removes the ordering.
+    require Tira::Job;
+    my @command = Tira::Job::job_command_words( $job->{command} );
     return { ran => 0, status => -1, output => 'the job has no command to run' }
       if !@command;
 

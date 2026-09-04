@@ -799,6 +799,65 @@ sub job_command_words {
     return @words;
 }
 
+# The names cron accepts for a weekday, so "sun" reads as well as "0". Cron takes
+# both and a person writing a schedule by hand usually takes the word.
+my @DAY = qw(Sunday Monday Tuesday Wednesday Thursday Friday Saturday);
+
+my %DAY_NAME = (
+    sun => 0, mon => 1, tue => 2, wed => 3, thu => 4, fri => 5, sat => 6,
+);
+
+my @MONTH = qw(January February March April May June
+               July August September October November December);
+
+my %MONTH_NAME = do {
+    my $n = 0;
+    map { ( lc substr( $_, 0, 3 ) => ++$n ) } @MONTH;
+};
+
+# 1st, 2nd, 3rd, 4th - because "on the 1 of each month" is the kind of wording a
+# reader stops on instead of reading the schedule.
+sub _ordinal {
+    my ($n) = @_;
+    return "${n}th" if $n % 100 >= 11 && $n % 100 <= 13;
+    my %suffix = ( 1 => 'st', 2 => 'nd', 3 => 'rd' );
+    return $n . ( $suffix{ $n % 10 } // 'th' );
+}
+
+# A list of things as a sentence rather than as data: "08:00, 12:00 and 18:00".
+# IS THIS EVERY-N, or does it just look like it? Cron restarts a step at the
+# start of its range, so */7 on minutes fires at 0,7,...,56 and then 0 - a gap of
+# FOUR, not seven - and */5 on hours leaves a four-hour gap at midnight. "Every 7
+# minutes" is the nearly-right description this sub exists to refuse.
+#
+# ASKED OF THE EXPANDED VALUES RATHER THAN THE TEXT, which is stronger than the
+# divisibility test it replaces: it answers for ranges and lists too, and it
+# includes the WRAP - the gap from the last value back to the first - which is
+# exactly where */7 stops being every-seven.
+sub _even_step {
+    my ( $values, $size ) = @_;
+    return undef if @{$values} < 2;
+    my $step = $values->[1] - $values->[0];
+    for my $i ( 2 .. $#{$values} ) {
+        return undef if $values->[$i] - $values->[ $i - 1 ] != $step;
+    }
+
+    # AND THE WRAP, which is the gap this whole guard exists for. */7 on minutes
+    # has seven between every pair and FOUR from 56 back to 0; 0-20/2 on hours
+    # has two between every pair and four from 20 back to 0. Checking only the
+    # pairs would call both of them even, which is the exact sentence this sub
+    # refuses to write.
+    return undef if $size - $values->[-1] + $values->[0] != $step;
+    return $step;
+}
+
+sub _and_list {
+    my (@item) = @_;
+    return $item[0] if @item == 1;
+    my $last = pop @item;
+    return join( ', ', @item ) . " and $last";
+}
+
 sub job_schedule_words {
     my ( $schedule, $restart_every ) = @_;
     return '' if !defined $schedule;
@@ -827,73 +886,168 @@ sub job_schedule_words {
     return $schedule if @field != 5;
     my ( $min, $hour, $dom, $mon, $dow ) = @field;
 
-    # Anything naming a day of the month or a month is left alone. Those read
-    # perfectly well as cron to the people who write them, and describing them
-    # correctly needs more care than the value it adds here.
-    return $schedule if $dom ne '*' || $mon ne '*';
+    # THE OR TRAP, AND IT IS THE ONE THING IN CRON MOST OFTEN GOT WRONG. When
+    # BOTH day fields are restricted cron ORs them: "0 0 1 * 1" fires on the 1st
+    # of the month AND on every Monday, not on Mondays that fall on the 1st.
+    # Every short English phrasing reads as an AND, so there is none that is not
+    # wrong, and this sub does not write sentences that are not right. TKT-917.
+    return $schedule if $dom ne '*' && $dow ne '*';
 
-    my @DAY = qw(Sunday Monday Tuesday Wednesday Thursday Friday Saturday);
-    my $on_day = '';
-    if ( $dow ne '*' ) {
-        # 7 IS SUNDAY AS WELL AS 0, which is standard cron and was being
-        # returned unchanged - safe, but needlessly silent about a schedule
-        # whose meaning is not in doubt.
-        return $schedule if $dow !~ /\A[0-7]\z/;
-        $on_day = " on $DAY[ $dow == 7 ? 0 : $dow ]";
+    # THE EXPANDER THIS MODULE ALREADY HAS, not a second one. _cron_field_values
+    # and %CRON_FIELDS have parsed every cron field since _cron_parse was
+    # written - steps, ranges, lists and cron's own "5/10" - and they are the
+    # validator the write path uses. I wrote a rival by the same name here and
+    # it silently REDEFINED the original, which is how a fresh sub with the same
+    # name behaves in Perl: the later one wins and everything that called the
+    # first gets the second. TKT-917.
+    # NAMES FIRST. Cron accepts "sun" and "jan" and a person writing a schedule
+    # by hand usually writes them; _cron_field_values takes numbers, so they are
+    # turned into numbers here rather than by teaching the validator a second
+    # syntax it would then have to refuse consistently.
+    my @field_text = @field;
+    $field_text[3] =~ s/([a-z]{3,})/exists $MONTH_NAME{lc $1} ? $MONTH_NAME{lc $1} : $1/gie;
+    $field_text[4] =~ s/([a-z]{3,})/exists $DAY_NAME{lc $1}   ? $DAY_NAME{lc $1}   : $1/gie;
+
+    my %values;
+    for my $i ( 0 .. 4 ) {
+        my $set = _cron_field_values( $field_text[$i], $CRON_FIELDS[$i] );
+        return $schedule if !$set;
+        $values{ $CRON_FIELDS[$i]{name} } = [ sort { $a <=> $b } keys %{$set} ];
+    }
+    my $minutes = $values{minute};
+    my $hours   = $values{hour};
+
+    # A STEP THAT SELECTS ONE VALUE IS A TYPO, NOT A SCHEDULE. */60 and */61 on
+    # minutes both expand to minute 0 alone, and "Every hour, on the hour" would
+    # be exactly TRUE of them - but somebody who typed */61 meant something else,
+    # and smoothing a typo into a confident sentence is how it never gets found.
+    # t/517 made this decision after a reviewer found the >= 60 half; it applies
+    # to hours for the same reason, so the two fields do not disagree.
+    #
+    # Only the collapse is refused. An uneven step that selects several values -
+    # */5 on hours, at 0,5,10,15,20 - is listed further down, which is exactly
+    # right where "every 5 hours" would not be.
+    for my $pair ( [ $field[0], $minutes, 60 ], [ $field[1], $hours, 24 ] ) {
+        my ( $text, $set, $size ) = @{$pair};
+        next if $text !~ m{\A\*/[0-9]+\z};
+        return $schedule if @{$set} < 2;
     }
 
-    if ( $hour eq '*' ) {
-        return "Every minute$on_day" if $min eq '*';
-        # A STEP IS ONLY EVERY-N WHEN N DIVIDES THE HOUR, and this is the one
-        # place this sub came close to lying. Cron restarts the step at the top
-        # of each hour, so */7 fires at 0,7,...,56 and then again at 0 - a gap
-        # of FOUR minutes, not seven. Measured rather than reasoned about:
-        #   */5  gaps [5 x12]                -> every 5 minutes, true
-        #   */7  gaps [7 x8, 4]              -> MISLEADING
-        #   */45 gaps [45, 15]               -> MISLEADING
-        #   */90 fires at minute 0 only      -> hourly, so the words would be
-        #                                       flatly wrong rather than merely
-        #                                       imprecise
-        # "Every 7 minutes" is exactly the nearly-right description this sub
-        # exists to refuse: it would be read, believed, and the cron never
-        # checked again. So anything that does not divide 60 is returned as
-        # itself, which is what the contract already promised.
-        if ( $min =~ m{\A\*/([1-9][0-9]*)\z} ) {
-            my $step = $1;
-            # */1 is every minute, and saying "Every 1 minutes" is the kind of
-            # wording a reader stops on instead of reading the schedule.
-            return "Every minute$on_day" if $step == 1;
-            return "Every $step minutes$on_day"
-              if $step < 60 && 60 % $step == 0;
-            return $schedule;
+    # WHICH DAYS, as a phrase appended to whatever the time reads as. Empty when
+    # the schedule runs every day, which is the common case and needs no words.
+    my $on_day = '';
+    if ( $dow ne '*' ) {
+        # 7 IS SUNDAY AS WELL AS 0, which is standard cron.
+        my %once;
+        my @day = sort { $a <=> $b }
+          grep { !$once{$_}++ } map { $_ == 7 ? 0 : $_ }
+          @{ $values{'day of week'} };
+
+        return $schedule if @day == 0 || @day == 7;
+        if ( @day == 5 && "@day" eq '1 2 3 4 5' ) {
+            $on_day = ' every weekday';
         }
-        if ( $min =~ /\A[0-9]{1,2}\z/ && $min < 60 ) {
-            return "Every hour, on the hour$on_day" if $min == 0;
-            # Singular at one, because "1 minutes past" is the kind of thing a
-            # reader notices instead of the schedule.
-            # 0 + $min, so a zero-padded field does not leak its padding into
-            # the words: "09" is a perfectly good cron minute and a poor English
-            # one.
-            my $past = 0 + $min;
-            my $unit = $past == 1 ? 'minute' : 'minutes';
-            return "Every hour at $past $unit past$on_day";
+        elsif ( @day == 2 && "@day" eq '0 6' ) {
+            $on_day = ' every weekend day';
         }
+        else {
+            $on_day = ' every ' . _and_list( map { $DAY[$_] } @day );
+        }
+    }
+    elsif ( $dom ne '*' || $mon ne '*' ) {
+        my @date  = @{ $values{'day of month'} };
+        my @month = @{ $values{month} };
+
+        my $which = $dom eq '*' ? '' : _and_list( map { _ordinal($_) } @date );
+        if ( $mon eq '*' ) {
+            $on_day = " on the $which of each month";
+        }
+        elsif ( $dom eq '*' ) {
+            $on_day = ' every day in ' . _and_list( map { $MONTH[ $_ - 1 ] } @month );
+        }
+        else {
+            $on_day = " on $which " . _and_list( map { $MONTH[ $_ - 1 ] } @month );
+            $on_day =~ s/(\d+)(?:st|nd|rd|th)/$1/g;
+        }
+    }
+
+    # --- and now the time of day ---------------------------------------------
+
+    my $every_minute = @{$minutes} == 60;
+    my $every_hour   = @{$hours} == 24;
+
+    if ($every_minute) {
+        return "Every minute$on_day" if $every_hour;
         return $schedule;
     }
 
-    if (   $hour =~ /\A[0-9]{1,2}\z/
-        && $hour < 24
-        && $min =~ /\A[0-9]{1,2}\z/
-        && $min < 60 )
-    {
-        my $at = sprintf 'at %02d:%02d', $hour, $min;
-        # "Every Monday at 09:00" rather than "Every week, on Monday, at 09:00" -
-        # the day is the subject, and the shorter form is what a person would say.
-        $on_day =~ s/\A on //;
-        return $on_day ? "Every $on_day $at" : "Every day $at";
+    # A minute STEP, which is only every-N when N divides the hour. Cron restarts
+    # the step at the top of each hour, so */7 fires at 0,7,...,56 and then 0 - a
+    # gap of FOUR minutes, not seven. _cron_field_values refuses those, so
+    # anything that reaches here with several minutes is an honest step.
+    if ( @{$minutes} > 1 ) {
+        return $schedule if !$every_hour;
+        my $step = _even_step( $minutes, 60 );
+        return $schedule if !$step || $step == 1;
+        return "Every $step minutes$on_day";
     }
 
-    return $schedule;
+    # 0 + it, so a zero-padded field does not leak its padding into the words:
+    # "09" is a perfectly good cron minute and a poor English one.
+    my $at_minute = 0 + $minutes->[0];
+
+    if ($every_hour) {
+        return "Every hour, on the hour$on_day" if $at_minute == 0;
+        # Singular at one, because "1 minutes past" is the kind of thing a
+        # reader notices instead of the schedule.
+        my $unit = $at_minute == 1 ? 'minute' : 'minutes';
+        return "Every hour at $at_minute $unit past$on_day";
+    }
+
+    my $clock = sub { return sprintf '%02d:%02d', $_[0], $at_minute };
+
+    # An hour STEP - his 0 */2 * * *. Same divisibility rule as the minute step,
+    # against 24 rather than 60: */5 on hours fires at 0,5,10,15,20 then 0, a
+    # four-hour gap, and _cron_field_values has already refused it.
+    # A contiguous RANGE of hours is a range, not a step of one - and it is
+    # tested before the step so "9-17" does not read as "every 1 hours".
+    if ( @{$hours} > 1 && $hours->[-1] - $hours->[0] == $#{$hours} ) {
+        return 'Every hour from '
+          . $clock->( $hours->[0] ) . ' to ' . $clock->( $hours->[-1] ) . $on_day;
+    }
+
+    if ( @{$hours} > 2 && _even_step( $hours, 24 ) ) {
+        my $step = _even_step( $hours, 24 );
+        my $when = $at_minute == 0
+          ? 'on the hour'
+          : "at $at_minute " . ( $at_minute == 1 ? 'minute' : 'minutes' ) . ' past';
+        return "Every $step hours, $when$on_day";
+    }
+
+    # A LIST of hours, which is how twice a day is written - and how an uneven
+    # step is written too, since "At 00:00, 05:00, 10:00, 15:00 and 20:00" is
+    # EXACTLY right where "every 5 hours" would not be. That is the distinction
+    # this sub cares about: not whether a schedule is simple, but whether the
+    # sentence is true.
+    #
+    # CAPPED AT SIX, because past that it stops being a sentence and becomes a
+    # data dump - eleven times in a row is harder to check at a glance than the
+    # cron it replaced, and the contract has always been that anything this sub
+    # cannot say WELL it returns unchanged.
+    if ( @{$hours} > 1 ) {
+        return $schedule if @{$hours} > 6;
+        return 'At ' . _and_list( map { $clock->($_) } @{$hours} ) . $on_day;
+    }
+
+    my $at = 'at ' . $clock->( $hours->[0] );
+
+    # "Every Monday at 09:00" rather than "Every week, on Monday, at 09:00" - the
+    # day is the subject, and the shorter form is what a person would say.
+    if ( $on_day =~ s/\A every // ) {
+        return "Every $on_day $at";
+    }
+    return "At " . $clock->( $hours->[0] ) . $on_day if $on_day;
+    return "Every day $at";
 }
 
 sub job_monitor_alive {
@@ -1244,6 +1398,27 @@ liveness comparator treats unreadable as unmatched, because it is asked whether 
 process is the one we started and a typo is not a reason to stop answering.
 
 =head1 A SCHEDULE THAT READS AS WORDS
+
+C<job_schedule_words> reads the values a cron field B<selects> rather than the
+text it was written as, using the same C<_cron_field_values> expander
+C<_cron_parse> has always had. So a schedule is described by what it means:
+C<0 0,4,8,12,16,20 * * *> reads as I<Every 4 hours> however it was typed.
+
+That is also what makes the step check honest. It used to be C<60 % $step == 0>;
+it now asks whether the gaps between the selected values are all equal
+B<including the wrap> - the half divisibility could not see, since C<0-20/2> has
+two between every pair and B<four> from 20 back to 0, which is exactly where
+I<every 2 hours> stops being true.
+
+B<Three things it refuses, and each is a decision rather than a gap.> Both day
+fields restricted: cron B<ORs> them, so C<0 0 1 * 1> fires on the 1st I<and> on
+every Monday, and every short English phrasing reads as an AND. A list longer
+than six: exactly right and unreadable is still not worth printing. And a step
+that selects a single value: C<*/60> and C<*/61> fire at minute 0 alone, so
+I<Every hour, on the hour> would be B<true> of them - and whoever typed C<*/61>
+meant something else, so describing it would hide the typo rather than surface
+it. An B<uneven> step is listed instead of refused, because C<At 00:00, 05:00,
+10:00, 15:00 and 20:00> is exactly right where I<every 5 hours> is not. TKT-917.
 
 C<job_schedule_words> takes a schedule and, optionally, a monitor's restart
 interval. B<The second argument is optional and must stay so>: L<Tira::CLI::Browser>

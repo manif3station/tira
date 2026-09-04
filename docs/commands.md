@@ -3998,7 +3998,13 @@ reader never has to infer it from whichever field is populated.
     box actually removes the interval.
 
     The schedule shows as words on the card face — `Every 30 minutes`, `Every
-    day at 09:00`, `Runs continuously`, and since 5.49 `Runs continuously,
+    day at 09:00`, `Runs continuously`, and since 5.50 hour steps, ranges and
+    lists (`Every 2 hours, on the hour`, `Every hour from 09:00 to 17:00`, `At
+    09:00 and 17:00`), named weekdays, days of the month and named months
+    (TKT-917) — with three deliberate refusals: both day fields restricted,
+    since cron ORs them; a list longer than six; and a step selecting one value,
+    since `*/60` fires at minute 0 alone and describing it hides a typo — and
+    since 5.49 `Runs continuously,
     restarting 5 seconds after it ends` for a monitor with `--restart-every`
     (TKT-915; before that the interval appeared on no card at all) — with the
     cron string kept as the

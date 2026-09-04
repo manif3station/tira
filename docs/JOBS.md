@@ -460,6 +460,19 @@ one format drift apart, and only one of them can be the one that decides.
 Anything the engine cannot describe with certainty is shown unchanged, because a
 nearly-right description would be believed and the cron never read again.
 
+**Since 5.50 it describes far more of cron, and refuses three things by name.**
+It reads the values a field *selects* rather than the text it was written as, so
+`0 0,4,8,12,16,20 * * *` reads as *Every 4 hours* however it was typed. What it
+still returns unchanged:
+
+- **Both day fields restricted.** Cron **ORs** them — `0 0 1 * 1` fires on the
+  1st *and* on every Monday — and every short phrasing reads as an AND.
+- **A list longer than six.** Exactly right and completely unreadable is still
+  not something worth printing.
+- **A step that selects one value.** `*/60` and `*/61` fire at minute 0 alone,
+  so *Every hour, on the hour* would be true of them — and whoever typed `*/61`
+  meant something else. TKT-917.
+
 **A looping monitor says so, since 5.49.** `--restart-every` appeared nowhere on
 a card before that: the interval was in the editor and in the save and in no
 third place, so a monitor that restarts itself and one that runs once read
@@ -475,7 +488,19 @@ monitor, restart every 1s     ->  Runs continuously, restarting 1 second after i
 0 * * * *          ->  Every hour, on the hour
 0 9 * * *          ->  Every day at 09:00
 30 8 * * 1         ->  Every Monday at 08:30
+0 */2 * * *        ->  Every 2 hours, on the hour
+30 */2 * * *       ->  Every 2 hours, at 30 minutes past
+0 9-17 * * *       ->  Every hour from 09:00 to 17:00
+0 9,17 * * *       ->  At 09:00 and 17:00
+0 22 * * 1-5       ->  Every weekday at 22:00
+5 4 * * sun        ->  Every Sunday at 04:05
+30 9 1 * *         ->  At 09:30 on the 1st of each month
+0 0 1 1 *          ->  At 00:00 on 1 January
+0 */5 * * *        ->  At 00:00, 05:00, 10:00, 15:00 and 20:00
 17 3 5,20 */2 1-5  ->  17 3 5,20 */2 1-5
+0 0 1 * 1          ->  0 0 1 * 1
+23 0-20/2 * * *    ->  23 0-20/2 * * *
+*/60 * * * *       ->  */60 * * * *
 */7 * * * *        ->  */7 * * * *
 ```
 

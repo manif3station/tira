@@ -514,12 +514,28 @@ if ( ref $made eq 'HASH' && $made->{pid} ) {
               . 'function exists to refuse' );
     }
 
-    # And an hour that is not a plain hour, which is the last door out.
-    for my $cron ( '0 */2 * * *', '0 9-17 * * *' ) {
-        is( Tira::Job::job_schedule_words($cron), $cron,
-            "'$cron' is left alone - the hour is a step or a range, so there is "
-              . 'no single time of day to name' );
-    }
+    # AN HOUR THAT IS NOT A PLAIN HOUR IS NOW DESCRIBED, and this assertion is
+    # the one TKT-917 was filed to change. It read "'0 */2 * * *' is left alone -
+    # the hour is a step or a range, so there is no single time of day to name",
+    # and that was the contract until his report: "the cron schedualer style
+    # translation on the card to human readable isn't fully covered. like
+    # `0 */2 * * *` is not showing readable text."
+    #
+    # The reasoning behind the old line was sound and is not being discarded -
+    # there is indeed no SINGLE time of day to name. What changed is that a step
+    # and a range have their own phrasings now, so naming a single time is no
+    # longer the only way to describe an hour field.
+    #
+    # The refusals this block exists for are untouched and asserted above and
+    # below: a minute list, a minute range, a non-dividing minute step, a step
+    # that selects one value, a bad weekday, and both day fields at once.
+    is( Tira::Job::job_schedule_words('0 */2 * * *'), 'Every 2 hours, on the hour',
+        'an hour STEP reads as one - his own example, and the reason TKT-917 '
+          . 'exists' );
+
+    is( Tira::Job::job_schedule_words('0 9-17 * * *'),
+        'Every hour from 09:00 to 17:00',
+        'and an hour RANGE reads as one' );
 }
 
 # --- and the row carries them, so the page renders rather than interprets ----

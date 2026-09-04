@@ -2676,6 +2676,26 @@ attachment content types (TKT-713) — and it refuses to guess: anything it cann
 describe with certainty is returned unchanged, because a nearly-right
 description would be believed and the cron never read again.
 
+**Since 5.50 it covers far more of cron.** Hour steps (`0 */2 * * *` — his own
+example), hour ranges, hour lists, named and ranged weekdays, days of the month
+and named months all read as words now. It works from the values a field
+*selects* rather than the text it was written as — reusing the expander
+`_cron_parse` has always had, rather than a second one — so `0 0,4,8,12,16,20 *
+* *` reads as *Every 4 hours* however it was typed. That also made the step check
+stronger: instead of `60 % $step == 0` it asks whether the gaps between the
+selected values are all equal **including the wrap**, which is the half
+divisibility could not see — `0-20/2` has two between every pair and four from 20
+back to 0.
+
+**Three things it still refuses**, each because the sentence would not be exactly
+true or would not be readable: both day fields restricted (cron **ORs** them, so
+`0 0 1 * 1` fires on the 1st *and* every Monday and no short phrasing says that);
+a list longer than six; and a step that selects a single value, since `*/60` fires
+at minute 0 alone and describing it smooths over what is almost certainly a typo.
+An *uneven* step is listed rather than refused — `0 */5 * * *` reads *At 00:00,
+05:00, 10:00, 15:00 and 20:00*, exactly right where *every 5 hours* would be
+nearly right. TKT-917.
+
 **And a looping monitor says so, since 5.49.** `job_schedule_words` takes the
 restart interval as an optional second argument and answers *Runs continuously,
 restarting 5 seconds after it ends*. Before that the interval appeared nowhere on

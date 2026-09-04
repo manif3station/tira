@@ -1,5 +1,60 @@
 Revision history for Tira
 
+5.50  2026-09-04
+
+    - TKT-917. The schedule on a job card reads as words for far more of cron.
+      His report: *"the cron schedualer style translation on the card to human
+      readable isn't fully covered. like `0 */2 * * *` is not showing readable
+      text."* Measured before anything was written, twelve of sixteen common
+      shapes fell through to raw cron. Now:
+
+          0 */2 * * *      Every 2 hours, on the hour
+          30 */2 * * *     Every 2 hours, at 30 minutes past
+          0 9-17 * * *     Every hour from 09:00 to 17:00
+          0 9,17 * * *     At 09:00 and 17:00
+          0 22 * * 1-5     Every weekday at 22:00
+          0 22 * * 6,0     Every weekend day at 22:00
+          5 4 * * sun      Every Sunday at 04:05
+          30 9 1 * *       At 09:30 on the 1st of each month
+          0 0 1 1 *        At 00:00 on 1 January
+
+      **It reads the values a field selects, not the text it was written as.**
+      `Tira::Job` has expanded cron fields since `_cron_parse` was written, and
+      this now uses that expander instead of matching patterns. So a schedule is
+      described by what it MEANS: `0 0,4,8,12,16,20 * * *` reads as *Every 4
+      hours*, however it was typed.
+
+      That also made the step check stronger than the arithmetic it replaces.
+      The old test was `60 % $step == 0`; the new one asks whether the gaps
+      between the selected values are all equal **including the wrap**, which is
+      the half divisibility could not see for ranges and lists: `0-20/2` has two
+      between every pair and **four** from 20 back to 0, which is exactly where
+      *every 2 hours* stops being true.
+
+    - TKT-917. And three things it still refuses, each for the reason the
+      function has always given - anything it cannot say exactly, it returns
+      unchanged.
+
+      **A day-of-month and a day-of-week together.** Cron **ORs** them when both
+      are restricted: `0 0 1 * 1` fires on the 1st *and* on every Monday. Every
+      short English phrasing reads as an AND. It is the most misread thing in
+      cron and there is no sentence for it that is not wrong.
+
+      **A list longer than six.** `23 0-20/2 * * *` is eleven times; listing them
+      would be exactly right and completely unreadable, which is the other half
+      of the same contract - what it cannot say *well* it returns unchanged.
+
+      **A step that selects a single value.** `*/60` and `*/61` fire at minute 0
+      alone, so *Every hour, on the hour* would be exactly TRUE of them - and
+      somebody who typed `*/61` meant something else. Smoothing a typo into a
+      confident sentence is how it never gets found. `t/517` decided that for
+      minutes after a reviewer found it; it now applies to hours too, so the two
+      fields do not disagree.
+
+      An **uneven** step is listed rather than refused: `0 */5 * * *` reads *At
+      00:00, 05:00, 10:00, 15:00 and 20:00*, which is exactly right where *every
+      5 hours* would be nearly right.
+
 5.49  2026-09-04
 
     - TKT-915. A looping monitor says so on the board. `restart_every` appeared

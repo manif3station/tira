@@ -25,6 +25,24 @@ Revision history for Tira
       t/525 asserts the rule's current behaviour as a control - so the two halves
       are now pinned to the same test.
 
+      The refusal immediately found three test fixtures that had never done what
+      they said. t/141, t/86 and t/523 called comment_add with `body => '...'`;
+      the engine takes `text`, and `body` is the STORED field name, so all three
+      had been writing comments with an empty body and passing anyway - the rules
+      they exercise care that a comment exists, not what is in it. t/141 asserts
+      conversation-not-folded fires over "Look at this example, it is the best
+      evidence on the card", and that string was never stored. commands.md
+      already calls comment "the only one of four write/read pairs where the
+      write flag and the field name disagree", which is why the mistake is the
+      predictable one.
+
+      t/448 records TKT-638's decision to leave comment_add permissive, "since
+      the rule below is where an empty explanation should be caught, not at write
+      time". That principle is preserved and sharpened rather than overruled: the
+      rule still catches it, and the whitespace body now arrives through
+      comment_update - the one path this card deliberately left permissive - so
+      the rule is proved against a body it did not control the writing of.
+
     - TKT-751. The standing rule that any Perl file over 500 lines is decomposed
       had nothing enforcing it, and had been losing ground quietly. The card was
       filed naming fourteen files; there were eighteen when it was picked up,

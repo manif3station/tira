@@ -1127,6 +1127,35 @@ TKT-851's guarantee and is untouched: what is looped is the same C<"$@"> that wa
 exec'd before. Refused on a cron job, which fires on a tick rather than staying
 up, and on a message job, because a loop can only wrap a command.
 
+=head1 A COMMAND IS A PROGRAM AND ITS ARGUMENTS
+
+C<job_command_words> turns a job's stored command into the list a process is
+started with. Quotes GROUP; everything else is literal.
+
+TKT-898. It was C<split ' '> at three sites, so C<--text "two words"> reached the
+program as three arguments with the quote marks attached, and the job exited 0
+having done the wrong thing. The confusion was between the two things a shell
+does: it groups arguments and it interprets metacharacters. TKT-851 removed the
+shell to stop the second and took the first with it.
+
+B<Written out rather than using Text::ParseWords>, and Windows is the reason:
+C<shellwords> treats a backslash as an escape, so
+C<C:\strawberry\perl\bin\perl.exe> comes back with every separator eaten. That
+was caught by the test asserting a full path and a C<.exe> on either side still
+name the same program.
+
+B<An unbalanced quote is refused>, naming the quote and showing the command back,
+rather than falling back to the old split - which would run something the author
+did not write, silently. It is refused here rather than by returning an empty
+list, because empty already means "the job has no command to run" at both call
+sites, and a job whose command has a typo in it is not a job with no command.
+
+Two callers must not die of that refusal and do not: the police pass reports it
+as a failed run carrying these words, since the bridge is the single reporting
+path and one malformed command must not silence a whole pass; and the Windows
+liveness comparator treats unreadable as unmatched, because it is asked whether a
+process is the one we started and a typo is not a reason to stop answering.
+
 =head1 A SCHEDULE THAT READS AS WORDS
 
 C<job_schedule_words> turns a stored schedule into a phrase - "Every 30 minutes",

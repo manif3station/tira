@@ -3648,6 +3648,18 @@ reader never has to infer it from whichever field is populated.
     a command). The loop lives in the fixed pipeline script and wraps the
     positional parameters, so a job command still never becomes shell source.
 
+    **A command is a program and its arguments, and since 5.42 quotes group
+    them.** `--text "two words"` reaches the program as one argument with the
+    quote marks removed, and a cron expression can be passed as one; before that
+    the command was split on spaces alone, so both were torn into pieces and the
+    job exited 0 having done the wrong thing (TKT-898). Everything that is not a
+    quote stays literal, backslashes included — a Windows path keeps its
+    separators — so a semicolon, backtick, `$(...)`, pipe or redirect inside an
+    argument is text rather than something that happens. There is still no
+    shell: if you want one, the command is `sh` and the script is its argument.
+    An unbalanced quote is refused, naming the quote and showing the command
+    back, rather than running half of what was written.
+
     **`tira.job.help` takes no arguments and prints `docs/JOBS.md` whole**, the
     way `tira.policies` prints `docs/POLICIES.md` - the same mechanism, not a
     second one, and it falls back to naming the verbs when the document is

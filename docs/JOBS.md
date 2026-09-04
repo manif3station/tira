@@ -5,7 +5,7 @@ scheduling, with worked examples. It is not the argument list — every verb and
 every option is in `docs/commands.md`, and duplicating that here is how two
 documents drift apart.
 
-**65 worked examples**, and the number is stated because it was asked to be a
+**68 worked examples**, and the number is stated because it was asked to be a
 hundred. Every one of these does something the others do not, and every one is
 executed by `t/509` — a hundred was reachable only by writing the same example
 with different words, which would have met the number and defeated the reason
@@ -86,6 +86,50 @@ which the bridge should get.
 A `monitor` job must have a command. A message-only monitor would never be due,
 could not be started, and would be reported dead for ever — so it is refused at
 the point of writing.
+
+### What a command may contain
+
+**A command is a program and its arguments. It is not a shell line.** Nothing
+interprets it, and that is deliberate — the words you write are the words the
+program receives, so a semicolon, a backtick, a `$(...)`, a pipe or a redirect
+inside an argument is *text* rather than something that happens.
+
+```
+d2 tira.comment.add --ref TKT-1 --text "two words"
+d2 tira.job.add --schedule '0 * * * *' --message 'hunt due'
+```
+
+**Quotes group; they do not survive into the argument.** Either style works, and
+a quoted stretch arrives as one argument with the quote marks removed — which is
+what lets `--text` take a sentence and `--schedule` take a cron expression.
+Before 5.42 the command was split on spaces alone, so `--text "two words"` reached
+the program as three arguments with the quote marks still attached, and the job
+exited 0 having done the wrong thing.
+
+**Everything that is not a quote is literal, backslashes included.** A Windows
+path keeps its separators:
+
+```
+C:\tools\bin\thing.exe --flag
+```
+
+**There is no shell, so these do nothing:**
+
+```
+d2 tira.stale ; rm -rf /        # the semicolon is an argument, not a separator
+echo `id`                       # backticks are characters
+echo $(whoami)                  # so is a dollar-paren
+thing > /tmp/out                # nothing is redirected
+a | b                           # nothing is piped
+```
+
+If you need any of that, the command is `sh` and the script is its argument —
+then the shell is a thing you asked for by name rather than something the board
+did on your behalf.
+
+**An unbalanced quote is refused** rather than guessed at, and the refusal names
+the quote and shows the command back. A job whose command is a typo is not a job
+with no command, and it does not run half of itself.
 
 ---
 

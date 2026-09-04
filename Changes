@@ -2,6 +2,34 @@ Revision history for Tira
 
 5.42  2026-09-03
 
+    - TKT-898. A job command was split on spaces alone, so any argument
+      containing one was torn into pieces - and the job ran, exited 0, and did
+      the wrong thing. `--text "two words"` reached the program as three
+      arguments with the quote marks still attached; a cron expression passed as
+      an argument arrived as five.
+
+      The confusion was between two things a shell does. It GROUPS arguments and
+      it INTERPRETS metacharacters. TKT-851 removed the shell to stop the second
+      and took the first with it, which was never the intention - its own
+      examples pass messages with spaces in them.
+
+      So quotes group, and everything else is literal: a semicolon, backtick,
+      `$(...)`, pipe or redirect inside an argument is text, and TKT-851's
+      guarantee is untouched. Written out rather than using Text::ParseWords,
+      because shellwords treats a backslash as an escape and ate every separator
+      in a Windows path - caught by the test that asserts a full path and a .exe
+      on either side still name the same program.
+
+      An unbalanced quote is refused, with a message naming the quote and showing
+      the command back. A job whose command is a typo is not a job with no
+      command, and it does not run half of itself. The police pass reports that
+      as a failed run rather than dying of it: the bridge is the single reporting
+      path, and one malformed command must not silence every other finding.
+
+      Three sites read that field and now share one helper - both execution
+      sites and the Windows liveness comparator.
+
+
     - TKT-897. `tira.dashboard -o browser --with-police` runs the board and the
       police bridge in one terminal, which is what he asked for: "So the user
       doesn't need to run 2 terminals. All in 1 go." The pass is forked beside

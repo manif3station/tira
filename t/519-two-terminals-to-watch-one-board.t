@@ -457,6 +457,27 @@ is( Tira::CLI::Serve::_stop_police_beside_board(undef), 0,
     'and stopping nothing does nothing - a stopper handed an undefined pid is '
       . 'how a signal ends up somewhere nobody meant' );
 
+# --- and so does the store, when there is one -------------------------------
+#
+# Both sides normally DERIVE the same store from the project, so they agree
+# without being told. --store overrides that, and a dashboard given one would
+# claim in the store it was told about while the pass it started claimed in the
+# one it derived - two claims, and the yielding rule silently never fires.
+#
+# Found by WALKING it rather than reading it: a walkthrough with an explicit
+# store showed the spawned pass leaving no claim where the parent was looking.
+
+{
+    my @spawned;
+    Tira::CLI::Serve::_start_police_beside_board(
+        project => '/board', store => '/somewhere/else',
+        spawn   => sub { push @spawned, {@_}; return 4242 } );
+
+    is( ( $spawned[0] || {} )->{store}, '/somewhere/else',
+        'the store the parent is using reaches the spawn rather than being left '
+          . 'for a separate process to derive differently' );
+}
+
 # --- the holder travels in the environment ----------------------------------
 #
 # The pass is a separate process now, not a fork carrying our variables, so the

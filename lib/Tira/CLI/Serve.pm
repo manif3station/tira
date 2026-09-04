@@ -709,10 +709,24 @@ sub _spawn_police_beside_board {
     local $ENV{TIRA_HOME} = defined $args{project} ? $args{project} : ( $ENV{TIRA_HOME} // '' );
     local $ENV{TIRA_POLICE_HOLDER} = 'dashboard';
 
+    # THE STORE IS HANDED OVER WHEN THERE IS ONE, and this is not tidiness. Both
+    # sides normally DERIVE the same store from the project, so they agree
+    # without being told - but --store overrides that, and a dashboard given one
+    # would claim in the store it was told about while the pass it started
+    # claimed in the one it derived. Two processes, two claims, and the yielding
+    # rule silently never fires.
+    #
+    # Found by walking it rather than by reading it: a walkthrough with an
+    # explicit store showed the spawned pass leaving no claim where the parent
+    # was looking.
+    my @argv = ( $^X, $script );
+    push @argv, '--store', $args{store}
+      if defined $args{store} && $args{store} =~ /\S/;
+
     # A spawn that fails answers undef rather than dying: the board is still
     # worth serving without the bridge, and the caller says so.
     my $pid = eval {
-        IPC::Open3::open3( my $to_child, '>&STDOUT', '>&STDERR', $^X, $script );
+        IPC::Open3::open3( my $to_child, '>&STDOUT', '>&STDERR', @argv );
     };
     return undef if !$pid;
     return $pid;

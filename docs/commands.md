@@ -3308,7 +3308,7 @@ has to run a migration by hand.
     all has nothing to compare against. Hit three times in one real session
     before this shipped - each card already had a pickup item from earlier,
     and a fresh one went unnoticed until a manual cross-check. TKT-806.
-- `tira.tasklist.list [--session ID] [--all-sessions] [--status STATUS] [--unlinked] [--ref REF] [--sort FIELD:DIR[,FIELD:DIR...]] [-o FORMAT]`
+- `tira.tasklist.list [--session ID] [--all-sessions] [--status STATUS] [--unlinked] [--ref REF] [--sort FIELD:DIR[,FIELD:DIR...]] [-o FORMAT]` — `--sort` takes `asc` or `desc`, and **`DESC` in any capitalisation is read as `desc`** because that is how SQL and every spreadsheet write it. **Anything else is refused**, naming what was given and what is accepted: since 5.42 a direction the parser cannot honour, and a field a tasklist item does not have, are both errors rather than silently wrong answers. Before that, `status:DESC` returned *ascending* order and `bogus:desc` returned the list unsorted — a wrong answer that looked exactly like a right one (TKT-888). The sortable fields are `created_at`, `id`, `last_updated`, `order`, `session`, `status` and `text`. The default is `last_updated:desc,status:asc`, and a bare field with no direction means ascending.
   - `--ref REF` (TKT-802) narrows to items whose `refs` array contains REF -
     "what does this one card have on the shared tasklist", without fetching
     every item and filtering by hand. Composes with `--status`/`--unlinked`

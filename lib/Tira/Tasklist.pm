@@ -718,6 +718,38 @@ C<Tira> method: C<$self> is a blessed C<Tira> object throughout, so calls
 like C<$self-E<gt>_with_project_lock(...)> resolve exactly as they did
 before the lift, with nothing here needing C<use Tira>.
 
+=head1 A SORT SPEC IS REFUSED OR HONOURED, NEVER GUESSED
+
+C<--sort> takes C<FIELD:DIR> pairs. C<asc> and C<desc> are the directions, and
+B<DESC in any capitalisation is read as desc> - SQL writes it that way, every
+spreadsheet writes it that way, and somebody typing it means desc unambiguously.
+
+Everything else is B<refused>, naming what was given and what is accepted, and a
+field a tasklist item does not have is refused naming the fields that do exist.
+
+TKT-888. Until then anything that was not the exact string C<desc> meant
+ascending, and an unknown field fell through to comparing two undefs - which is
+always equal, so no sort happened at all. Both returned a wrong answer that
+looked like a right one:
+
+    status:DESC        ascending, the opposite of the ask
+    status:descending  ascending
+    bogus:desc         unsorted, dressed as sorted
+
+That is the fault this codebase names beside C<--show-logs> - a flag that parses
+and does nothing reads as confirmation - and a sort is worse than a flag, because
+it hands back a list in an order nobody asked for and gives the caller no reason
+to doubt it.
+
+B<The sortable fields are named, not inferred> from whatever the first item
+carries. Inferring would accept every field on an EMPTY list, and refuse a
+perfectly real field when the first item happened to lack an optional one - both
+intermittent and data-dependent, which is the worst kind of wrong to debug.
+
+B<The refusal is here, in the engine>, so the browser's one-second tasklist poll
+is guarded by the same rule rather than a second copy of it - the way the engine
+and the browser came to disagree about attachment content types on TKT-713.
+
 =head1 CALL IT THROUGH TIRA, NOT DIRECTLY
 
 C<Tira> is the public entry point and this module is an implementation

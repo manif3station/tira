@@ -2,6 +2,24 @@ Revision history for Tira
 
 5.42  2026-09-03
 
+    - TKT-888. `tasklist.list --sort` accepted a direction it could not honour
+      and a field that does not exist, and answered both with a wrong list that
+      looked like a right one: `status:DESC` returned ASCENDING order, and
+      `bogus:desc` returned the list unsorted.
+
+      `DESC` in any capitalisation is now read as `desc` - SQL writes DESC,
+      every spreadsheet writes DESC, and somebody typing it means desc.
+      Refusing it would be pedantry; silently returning the opposite never had
+      a defence. Anything else is refused, naming what was given and what is
+      accepted, and an unknown field is refused naming the fields that exist.
+
+      The refusal is the engine's, so the browser's one-second tasklist poll is
+      guarded by the same rule rather than a second copy of it. The default
+      spec, a bare field meaning ascending, and both working directions are
+      unchanged and asserted - a refusal that broke those would be a worse bug
+      than the one it fixes.
+
+
     - TKT-899. `job-due` read the jobs record without guarding the read, so a
       record that could not be read made every due job silently invisible and
       the pass reported nothing at all - a board with a corrupt jobs file looked

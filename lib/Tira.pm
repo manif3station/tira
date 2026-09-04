@@ -4197,7 +4197,39 @@ sub release_record {
 
 sub checklist_list {
     my ( $self, %args ) = @_;
-    return $self->record_show(%args)->{checklist};
+    my $items = $self->record_show(%args)->{checklist};
+
+    # The same silent-ignore gap TKT-804 closed on required-action.list, still
+    # open here. --status is parsed in the GLOBAL option table, so every command
+    # in the tool accepts it and only the nine that read it honour it; this was
+    # one of the ones that did not. A sweep of all twenty *.list entrypoints
+    # found it the only list with a status field that ignored the option, which
+    # is the worst place for the gap to be: a caller asking for the done items
+    # got every item back, dressed as a filtered answer, with exit 0.
+    #
+    # Michael's answer to Q-113 is the requirement rather than the card's
+    # original title: "if --status goes with *.list like this. We should should
+    # only those ones with the wanted status." So this filters rather than
+    # refusing, and the refusal in Tira::CLI::Options covers the lists that have
+    # no status to filter on.
+    #
+    # THE VOCABULARY IS WIDER THAN required_item_list's, and that is the part
+    # worth getting right. checklist_add accepts pending, done and 'To Do' - the
+    # last being the spelling this board itself writes on move-in - so a filter
+    # that understood only the first two would make every unmarked item
+    # unfindable, which is the same silent wrong answer wearing new clothes.
+    #
+    # An unrecognized value is refused rather than matching nothing, for
+    # required_item_list's reason: an empty list reads as "no items are done".
+    # TKT-748.
+    if ( defined $args{status} ) {
+        my $wanted = lc $args{status};
+        die "Unknown checklist status '$args{status}' - the values that work "
+          . "are pending, done, and To Do\n"
+          if $wanted ne 'pending' && $wanted ne 'done' && $wanted ne 'to do';
+        $items = [ grep { lc( $_->{status} // 'pending' ) eq $wanted } @{$items} ];
+    }
+    return $items;
 }
 
 sub checklist_add {

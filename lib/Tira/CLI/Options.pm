@@ -178,6 +178,51 @@ my %OPTION_READ_BY = (
                           |dev\.found\.bug_or_improvement)\z/x,
         instead  => 'tira.<type>.create --problem TEXT, which is the option that carries a card body',
     },
+
+    # The filter a list would not apply. Parsed in the global option table, so
+    # every command in the tool accepts --status and nine of them read it.
+    #
+    # IT IS THE WORST OF THESE ENTRIES TO LEAVE OPEN, because the ones above
+    # drop a value and this one answers a question nobody asked. --status done
+    # on a list that ignores it returns every item, in a shape indistinguishable
+    # from a filtered answer, and exits 0. A caller reading 47 required actions
+    # back from --status pending concludes there are 47 outstanding on a card
+    # that has none. Michael reported that reading on this card.
+    #
+    # WHAT HIS ANSWER SETTLED, Q-113 on TKT-748: "if --status goes with *.list
+    # like this. We should should only those ones with the wanted status. It is
+    # very straightforward to me. No?" So --status on a list that HAS a status
+    # is an option the command should HONOUR, not one to refuse - checklist_list
+    # was made to filter rather than added to this table. What is refused here
+    # is the case that cannot be honoured at any price: a list with no status
+    # field, of which the sweep found fifteen.
+    #
+    # THE READERS WERE WALKED TWICE, which the two entries above exist to insist
+    # on. The engine walk - every .pm outside lib/Tira/CLI, recording which sub
+    # each $args{status} read sits in - gives eight: checklist_add,
+    # checklist_update, question_list, required_item_add, required_item_list,
+    # required_item_update, tasklist_list, tasklist_update, plus checklist_list
+    # once it filters. Two matches are not readers: _proof_entries_for is called
+    # BY two of them, and the _replace_file hit is POD prose about --status
+    # rather than code. The CLI walk finds one place --status is taken from the
+    # parsed options, Tira::CLI::Records, and it passes it to question_list -
+    # already counted, so nothing hides on this side the way
+    # dev.found.bug_or_improvement did for --text.
+    #
+    # AND THAT WALK FOUND TWO MORE INSTANCES nobody had named. Tira::CLI::Records
+    # sets status for EVERY question action, but question_add and question_update
+    # never read it - so question.ask and question.update took the option and
+    # dropped it. Neither is a list, so the refusal is the whole of their fix.
+    # TKT-748.
+    status => {
+        flag     => 'status',
+        commands => qr/\A(?:checklist\.(?:add|list|update)|question\.list
+                          |required-action\.(?:add|list|update)
+                          |tasklist\.(?:list|update))\z/x,
+        instead  => 'a list that has a status to filter on - checklist.list,'
+          . ' question.list, required-action.list or tasklist.list - since the'
+          . ' others have no status field to match against',
+    },
 );
 
 sub _refuse_unread_options {

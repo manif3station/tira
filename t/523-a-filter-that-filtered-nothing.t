@@ -81,11 +81,17 @@ sub cli {
     };
     my $why = $@ // '';
 
-    # The CLI reports some failures by dying and some by printing {"error":...}
-    # and exiting non-zero. A test that read only one of those would call a
-    # refusal an acceptance for every command that uses the other.
-    if ( !length $why && $out =~ /"error"\s*:\s*"((?:[^"\\]|\\.)*)"/ ) {
-        ( $why, $ok ) = ( $1, 0 );
+    # The CLI reports some failures by dying and some by printing an error and
+    # exiting non-zero, and it does not always put that error on the same
+    # stream. A first version read STDOUT alone and called eleven working
+    # refusals acceptances, which is the same mistake as grepping output for
+    # the success line: what is not looked at reads as nothing happening.
+    if ( !length $why ) {
+        for my $stream ( $out, $err ) {
+            next if $stream !~ /"error"\s*:\s*"((?:[^"\\]|\\.)*)"|^error:\s*"?(.+)/m;
+            ( $why, $ok ) = ( ( $1 // $2 ), 0 );
+            last;
+        }
     }
     return { out => $out, err => $err, ok => $ok, why => $why };
 }
@@ -305,33 +311,42 @@ sub board {
 # alone would need a fixture for every one of the twenty-plus commands.
 
 {
-    my $source = do {
-        open my $fh, '<:raw', File::Spec->catfile( 'lib', 'Tira', 'CLI', 'Options.pm' )
-          or die "Options.pm: $!";
-        local $/;
-        <$fh>;
+    require Tira::CLI::Options;
+
+    # ASKED OF THE GUARD ITSELF, not of the file it is written in. The first
+    # version grepped Options.pm for each command name and five of the nine
+    # passed against unfixed code - because the entry's prose names four lists
+    # in its own "use this instead" sentence. An assertion that a word appears
+    # somewhere in a file cannot tell a rule from a comment about a rule.
+    my $refuses = sub {
+        my ($command) = @_;
+        my $ok = eval {
+            Tira::CLI::Options::_refuse_unread_options( $command, { status => 'done' } );
+            1;
+        };
+        return $ok ? 0 : 1;
     };
-
-    # non-empty is the whole claim: an unreadable file would report every
-    # command below as absent and pass a test that proved nothing.
-    like( $source, qr/\S/, 'the option table was read to check the reader list' );
-
-    my ($entry) = $source =~ /\n\s{4}status\s*=>\s*\{(.*?)\n\s{4}\},/s;
-
-    ok( defined $entry,
-        'THERE IS A status ENTRY IN %OPTION_READ_BY. Without one, --status is a '
-          . 'globally-parsed option that every command accepts and nine read' );
 
     for my $reader (
         qw(checklist.add checklist.list checklist.update question.list),
         qw(required-action.add required-action.list required-action.update),
         qw(tasklist.list tasklist.update) )
     {
-        my $pattern = $reader;
-        $pattern =~ s/[.-]/./g;
-        like( $entry // '', qr/\Q$pattern\E|\Q$reader\E/,
-            "$reader is named as a reader - it genuinely reads --status, and "
-              . 'leaving it out would refuse a command that works today' );
+        ok( !$refuses->($reader),
+            "$reader is a reader and is NOT refused - it genuinely reads "
+              . '--status, and a reader list too narrow by one name breaks a '
+              . 'command that works today. The table has two of those in its own '
+              . 'history: --field counted one reader from the CLI and would have '
+              . 'broken search and replace' );
+    }
+
+    # And the other side of the same rule, so the loop above cannot be satisfied
+    # by a guard that refuses nothing at all.
+    for my $stranger (qw(column.list comment.list job.list record.list question.ask)) {
+        ok( $refuses->($stranger),
+            "$stranger IS refused - it has nothing to act on, and the loop above "
+              . 'would pass against a table with no status entry in it if this '
+              . 'were not asserted beside it' );
     }
 }
 

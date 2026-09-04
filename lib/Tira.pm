@@ -8083,15 +8083,11 @@ sub policy_evaluate {
             # wording would be a second thing to keep in agreement - which is how
             # two validators for one format came to disagree on TKT-713.
             # TKT-899.
-            my $jobs = eval { $self->job_list( project => $root ) };
-            if ( !defined $jobs ) {
-                my $why = $@ || 'the jobs record could not be read';
-                $why =~ s/\s+\z//;
-                $report->( $policy, undef,
-                    "the repeated jobs could not be read, so no due job could "
-                      . "be announced this pass: $why" );
-                next;
-            }
+            my $jobs = $self->_jobs_or_report(
+                { project => $root }, $report, $policy,
+                'the repeated jobs could not be read, so no due job could be '
+                  . 'announced this pass' );
+            next if !defined $jobs;
             for my $job ( @{$jobs} ) {
                 next if !$self->job_is_due( $job, $when );
                 my ($window) = $when =~ /\A(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2})/;
@@ -9438,15 +9434,10 @@ sub _police_environment_violations {
             # an answer, which is the precise failure this rule exists to end,
             # rebuilt inside the rule itself. The failure is REPORTED instead,
             # so a pass that could not tell says so.
-            my $jobs = eval { $self->job_list(%args) };
-            if ( !defined $jobs ) {
-                my $why = $@ || 'the jobs record could not be read';
-                $why =~ s/\s+\z//;
-                $report->( $policy, undef,
-                    "the repeated jobs could not be read, so no monitor could "
-                      . "be checked this pass: $why" );
-                next;
-            }
+            my $jobs = $self->_jobs_or_report( \%args, $report, $policy,
+                'the repeated jobs could not be read, so no monitor could be '
+                  . 'checked this pass' );
+            next if !defined $jobs;
             for my $job ( @{$jobs} ) {
                 next if ( $job->{schedule_kind} // '' ) ne 'monitor';
 
@@ -9481,15 +9472,10 @@ sub _police_environment_violations {
             # swallow a failure: a locked or corrupt jobs file must not look
             # like a board with no monitors, which would be silence standing in
             # for an answer inside a rule about silence.
-            my $jobs = eval { $self->job_list(%args) };
-            if ( !defined $jobs ) {
-                my $why = $@ || 'the jobs record could not be read';
-                $why =~ s/\s+\z//;
-                $report->( $policy, undef,
-                    "the jobs record could not be read, so no monitor could be "
-                      . "checked for silence: $why" );
-                next;
-            }
+            my $jobs = $self->_jobs_or_report( \%args, $report, $policy,
+                'the jobs record could not be read, so no monitor could be '
+                  . 'checked for silence' );
+            next if !defined $jobs;
 
             for my $job ( @{$jobs} ) {
                 next if ( $job->{schedule_kind} // '' ) ne 'monitor';
@@ -9550,15 +9536,10 @@ sub _police_environment_violations {
             # Read failures are REPORTED rather than swallowed, the same
             # judgement monitor-dead makes above: a pass that could not tell
             # says so, instead of a locked file looking like a quiet monitor.
-            my $jobs = eval { $self->job_list(%args) };
-            if ( !defined $jobs ) {
-                my $why = $@ || 'the jobs record could not be read';
-                $why =~ s/\s+\z//;
-                $report->( $policy, undef,
-                    "the repeated jobs could not be read, so no monitor's "
-                      . "output could be carried this pass: $why" );
-                next;
-            }
+            my $jobs = $self->_jobs_or_report( \%args, $report, $policy,
+                "the repeated jobs could not be read, so no monitor's output "
+                  . 'could be carried this pass' );
+            next if !defined $jobs;
 
             for my $job ( @{$jobs} ) {
                 next if ( $job->{schedule_kind} // '' ) ne 'monitor';
@@ -10373,6 +10354,36 @@ BEHIND
 # be a second thing to keep in agreement. t/521 counts them and refuses a bare
 # read anywhere in this file, so a fifth reader cannot quietly go unguarded.
 # TKT-899.
+# The jobs record, or a reported failure - for the four police rules that read it.
+#
+# TKT-899. All four carried this guard as their own copy, identical but for one
+# clause, and the fourth (job-due) carried nothing at all: a locked or corrupt
+# jobs file made every due job silently invisible.
+#
+# LIFTED INTO ONE PLACE, which is the card's own instruction and better than what
+# I built first. I had written the fourth copy in the same shape as the other
+# three and defended it as sameness - but four copies kept the same by intention
+# are four things to keep in agreement, and one helper is the stronger form of
+# exactly that argument.
+#
+# THE CLAUSE STAYS PER-RULE, because it is the part that differs and should: what
+# could not be CHECKED is different for a due job, a dead monitor, a silent one
+# and one whose output is being carried. A shared message would tell the reader
+# less than four honest ones.
+#
+# Returns undef having ALREADY REPORTED, so the caller's only job is to stop.
+sub _jobs_or_report {
+    my ( $self, $args, $report, $policy, $clause ) = @_;
+
+    my $jobs = eval { $self->job_list( %{ $args || {} } ) };
+    return $jobs if defined $jobs;
+
+    my $why = $@ || 'the jobs record could not be read';
+    $why =~ s/\s+\z//;
+    $report->( $policy, undef, "$clause: $why" );
+    return undef;
+}
+
 sub police_pass {
     my ( $self, %args ) = @_;
     my $store = $args{store} or die "A violation store is required\n";

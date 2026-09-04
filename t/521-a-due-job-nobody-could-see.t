@@ -139,17 +139,34 @@ sub board {
     # as zero and pass the comparison below by accident.
     like( $engine, qr/\S/, 'the engine source was read to count the guards' );
 
-    my $guards = () = $engine =~ /my \$jobs = eval \{ \$self->job_list/g;
+    # ONE HELPER, FOUR CALLERS - which is the card's own checklist item and not
+    # what I built first. My first version wrote a fourth copy of the guard in
+    # the same shape as the other three and defended it as sameness. Four copies
+    # kept identical by intention are four things to keep in agreement; one
+    # helper is the stronger form of that same argument, and the card asked for
+    # it.
+    my $callers = () = $engine =~ /\$self->_jobs_or_report\(/g;
 
-    cmp_ok( $guards, '>=', 4,
-        'FOUR RULES READ THE JOBS RECORD AND ALL FOUR GUARD IT. Three did '
-          . 'before this card, in an identical shape; the fourth is the one this '
-          . 'card is about, and it is written the same way rather than better - '
-          . 'a second shape would be a second thing to keep in agreement' );
+    cmp_ok( $callers, '>=', 4,
+        'ALL FOUR RULES THAT READ THE JOBS RECORD GO THROUGH ONE HELPER - '
+          . 'job-due, monitor-dead, monitor-silent and monitor-output. A fifth '
+          . 'reader written its own way would show up here as a shortfall' );
+
+    like( $engine, qr/sub _jobs_or_report \{/,
+        'and the helper is there to be read, in one place, with the reasoning '
+          . 'beside it rather than repeated four times' );
+
+    # EXACTLY ONE, not none - the helper itself does the eval, and that is the
+    # point of it. Asserting zero was my first version and it failed honestly:
+    # it would have been satisfied only by a helper that did not guard anything.
+    my $evals = () = $engine =~ /my \$jobs = eval \{ \$self->job_list/g;
+    is( $evals, 1,
+        'the guarded read exists in exactly ONE place - the helper. Four copies '
+          . 'kept identical by intention are four things to keep in agreement; '
+          . 'this is the stronger form of the same argument' );
 
     unlike( $engine, qr/for my \$job \( \@\{ \$self->job_list\(/,
-        'and no rule reads it bare any more - the unguarded loop is gone rather '
-          . 'than joined by a guarded one somewhere else in the file' );
+        'and none reads the record bare, which is the fault this card is about' );
 }
 
 done_testing();

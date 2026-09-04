@@ -96,6 +96,15 @@ sub feed_from_handle {
     return;
 }
 
+# What the feeder does between runs of a command that ends. A named sub rather
+# than a bare `sleep` so that the looping branch above can be run in a test with
+# a wait of its own - the loop otherwise has no end, which is the point of it.
+sub _wait {
+    my ($seconds) = @_;
+    sleep $seconds;
+    return 1;
+}
+
 # The verb itself: run the monitor's command, read what it says, and feed it.
 #
 # NO fork OF ITS OWN. open3 does the forking, which keeps the child's branch
@@ -132,6 +141,14 @@ sub run_feeder {
 
     my $every = $args->{interval} // $job->{restart_every} // 0;
 
+    # THE WAIT IS INJECTABLE, and for the reason t/529 made _signal_monitor's
+    # killer injectable: the looping branch cannot be asserted by running it,
+    # because a monitor that restarts itself does not end. A caller that hands
+    # in a wait which answers false gets exactly one pass and the branch is
+    # exercised rather than exempted. Nothing in the command surface passes it;
+    # the default is _wait, which is what the verb actually does.
+    my $wait = $args->{wait} || \&_wait;
+
     require IPC::Open3;
     while (1) {
         my $pid = IPC::Open3::open3( my $in, my $out, undef, @command );
@@ -141,7 +158,7 @@ sub run_feeder {
         waitpid $pid, 0;
 
         last if !$every;
-        sleep $every;
+        last if !$wait->($every);
     }
 
     return { id => $id, board => $board, command => [@command],

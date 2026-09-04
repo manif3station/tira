@@ -217,6 +217,127 @@ like( $cli, qr/job_command_words/,
           . 'shell that would have run it' );
 }
 
+# --- and the verb runs, which is the only way to know it does ------------------
+#
+# RUN RATHER THAN READ. Everything above this point is a source assertion or a
+# pure function, and the gate said so plainly: the module sat at 61.5% because
+# nothing had ever executed run_feeder. A verb asserted only by grepping for it
+# is a verb nobody has run.
+#
+# A COMMAND THAT ENDS, so the loop ends with it. The monitors this serves do not
+# end - which is what makes the looping branch below need an injected wait
+# rather than patience.
+
+{
+    my $spoke = $tira->job_add( project => $root, schedule => 'monitor',
+        command => '/bin/echo a-line-the-monitor-said', author => 'claude' );
+
+    my $ran = Tira::CLI::Job::Feeder::run_feeder( $tira,
+        { project => $root, id => $spoke->{id} }, 1, 25 );
+
+    is( $ran->{id}, $spoke->{id}, 'the feeder ran the job it was given' );
+    is( $ran->{board}, $BOARD, 'and knows whose board it is' );
+    is_deeply( $ran->{command}, [ '/bin/echo', 'a-line-the-monitor-said' ],
+        'and ran the command from the record, split by the engine\'s splitter' );
+
+    my ($after) = grep { ( $_->{id} // '' ) eq $spoke->{id} }
+      @{ $tira->job_list( project => $root ) };
+
+    is_deeply( $after->{output}, ['a-line-the-monitor-said'],
+        'AND WHAT THE COMMAND PRINTED IS ON THE JOB RECORD. That is the whole '
+          . 'point of the feeder existing: the monitor speaks, the board hears '
+          . 'it, and the police bridge carries it - rather than output going to '
+          . 'a log nobody opens' );
+
+    ok( $after->{last_output_at},
+        'and the board stamped when it called in' );
+}
+
+# --- the looping branch, without waiting for ever -----------------------------
+#
+# The wait is injected, exactly as t/529 injects _signal_monitor's killer: a
+# monitor that restarts itself has no end, so the only honest way to assert the
+# branch is to hand it a wait that says stop. What is asserted is that the
+# branch is taken - the wait is CALLED, and with the job's own interval.
+
+{
+    my $looping = $tira->job_add( project => $root, schedule => 'monitor',
+        command => '/bin/echo again', restart_every => 7, author => 'claude' );
+
+    my @waited;
+    my $ran = Tira::CLI::Job::Feeder::run_feeder( $tira,
+        { project => $root, id => $looping->{id},
+          wait => sub { push @waited, $_[0]; return 0 } }, 1, 25 );
+
+    is_deeply( \@waited, [7],
+        'A LOOPING MONITOR WAITS ITS OWN INTERVAL between runs - seven seconds '
+          . 'here, taken from the record rather than from a default. Before '
+          . 'TKT-891 this was a while loop somebody typed into a command field' );
+
+    is( $ran->{restart_every}, 7, 'and reports the interval it was running on' );
+}
+
+# The default wait is the one the verb actually uses, so it is called rather
+# than described. Zero seconds, because what is being asserted is that it
+# returns true to keep the loop going - not that sleep sleeps.
+is( Tira::CLI::Job::Feeder::_wait(0), 1,
+    'the default wait answers "keep going", which is what makes the injected '
+      . 'one above a stop rather than a different behaviour' );
+
+# --- and what it refuses ------------------------------------------------------
+#
+# The same three refusals job.feed makes, and for the same reasons - TKT-928.
+# Asserted here because the feeder looks the job up itself rather than trusting
+# the caller.
+
+{
+    my $refused = !eval { Tira::CLI::Job::Feeder::run_feeder( $tira,
+        { project => $root, id => '' }, 1, 25 ); 1 };
+
+    like( $@, qr/job id is required/,
+        'an empty id is refused, and says which monitor is missing' );
+    ok( $refused, 'and nothing ran' );
+}
+
+{
+    my $refused = !eval { Tira::CLI::Job::Feeder::run_feeder( $tira,
+        { project => $root, id => 'NOSUCHJOB' }, 1, 25 ); 1 };
+
+    like( $@, qr/NOSUCHJOB/,
+        'an id that names nothing is refused BY NAME rather than waited on - '
+          . 'the fault TKT-928 fixed in job.feed, which would be back here if '
+          . 'the feeder trusted its caller' );
+    ok( $refused, 'and nothing ran' );
+}
+
+{
+    my $cron = $tira->job_add( project => $root, schedule => '*/30 * * * *',
+        command => 'a-cron-job', author => 'claude' );
+
+    my $refused = !eval { Tira::CLI::Job::Feeder::run_feeder( $tira,
+        { project => $root, id => $cron->{id} }, 1, 25 ); 1 };
+
+    like( $@, qr/cron job/i,
+        'and a cron job is refused - it is not up between runs, so nothing is '
+          . 'feeding on its behalf' );
+    ok( $refused, 'and nothing ran' );
+}
+
+{
+    my $silent = $tira->job_add( project => $root, schedule => 'monitor',
+        command => 'a-poller-with-a-command', author => 'claude' );
+    $tira->job_update( project => $root, id => $silent->{id},
+        command => 'still-a-command', author => 'claude' );
+
+    my $refused = !eval { Tira::CLI::Job::Feeder::run_feeder( $tira,
+        { project => $root, id => $silent->{id}, command => '  ' }, 1, 25 ); 1 };
+
+    like( $@, qr/no command to run/,
+        'and a --command of nothing but spaces is refused rather than run as '
+          . 'an empty list, which would be exec of nothing at all' );
+    ok( $refused, 'and nothing ran' );
+}
+
 done_testing();
 
 __END__

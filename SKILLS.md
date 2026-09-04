@@ -2008,6 +2008,31 @@ tira.job.help
 tira.dashboard -o browser [--show-logs]
 ```
 
+**Taking a card from his column is no longer reported as working out of turn
+(TKT-760, 5.44).** `next-to-work-on` is how he hands out work, and TKT-383 makes
+a card sitting there outrank everything **while it waits**. But `priority-skipped`
+judges the card being **worked**, and taking a card means moving it out — so the
+act of obeying him was the act that destroyed the evidence that obeying him was
+right. It fired three times on correct picks, escalating to URGENT on one, and
+the third was a genuine rank inversion: the card left waiting outranked the one
+worked, and only his placement made the pick correct.
+
+The fact is recovered from the card's own column history, where every move is
+journalled with its `before` and `after`. History rather than a new field,
+because a field would have to be written by every path that moves a card — the
+CLI, the browser dashboard, the wizard — and the one that forgot would reproduce
+this exact bug. The exemption follows the **role**, so a board naming that column
+something else is covered and a board declaring no `next` role behaves exactly as
+before.
+
+Two things it deliberately does not do. A card taken out of turn from the
+**backlog** is still reported — that is the check the rule exists for, and a rule
+falling silent is invisible. And a card already being worked **keeps** its
+authorisation when he queues a newer one behind it, because the exemption reads a
+move that really happened rather than the column's current contents: his column
+governs what is picked up next, and stopping an active card to take it is the
+pause he has forbidden.
+
 **The 500-line rule is enforced (TKT-751, 5.43).** Michael's instruction,
 Telegram 6104: *"Any Perl file more that 500 lines will be decomposed."* Until
 now nothing checked it, and the ground was lost quietly — the card was filed

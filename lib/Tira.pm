@@ -3754,6 +3754,34 @@ sub check_owner {
 
 sub comment_add {
     my ( $self, %args ) = @_;
+
+    # A comment with nothing in it was stored, exited 0, and printed the comment
+    # back - which reads as confirmation because the comment is right there.
+    # comment_add was ALONE in accepting that among the commands it sits beside:
+    # evidence_add, warning_add, question_answer, checklist_add and
+    # required_item_add all refuse content that says nothing, and this one wrote
+    # `body => $args{text} // ''` with no check.
+    #
+    # /\S/ RATHER THAN A LENGTH TEST, and the reason is not style. A space is not
+    # a smaller comment than none - TKT-585 settled that for --command/--proof,
+    # where whitespace was cheaper than doing the work - and, more to the point,
+    # it is the exact test the discard-unexplained rule applies to a comment
+    # body when deciding whether a card was explained. Anything looser here
+    # would leave the command and the rule disagreeing about the same string,
+    # which is the split that cost TKT-713 an engine and a browser answering
+    # differently about one file.
+    #
+    # In the engine rather than the option parser, because comment_add is
+    # reached by the CLI, by the browser dashboard's comment provider, and by
+    # the discard path passing a --comment through. A parser check would leave
+    # the browser writing what the CLI refuses.
+    #
+    # Raised before the project lock: nothing here needs the record, and a
+    # refusal that took a lock first would serialise callers behind a call that
+    # was never going to write. TKT-753.
+    die "A comment needs some text\n"
+      if !defined $args{text} || $args{text} !~ /\S/;
+
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         $self->_require_person( %args, person => $args{author} );

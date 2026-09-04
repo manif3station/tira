@@ -689,7 +689,9 @@ and one listening. The pass is a child of the serving command, so interrupting
 the command stops both and the singleton claim is released rather than left
 naming a process that has gone. It writes to the same handles as the server —
 which is the point of the flag, and also keeps its findings out of a pipe nobody
-is reading.
+is reading. A `--store` given to the dashboard is handed to the pass as well, so
+both are claiming in the same place; without that they would derive stores
+separately and the standing-down rule would never fire.
 
 **While the dashboard holds police, a later `tira.police` stands down.** It says
 which process holds the watch and exits 0, because standing aside is the correct

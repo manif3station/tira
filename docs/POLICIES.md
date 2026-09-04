@@ -146,6 +146,22 @@ re-reports a finding that is already settled, or worse, treats a quiet bridge as
 a broken one and goes back to building the private channel this rule exists to
 replace. TKT-894.
 
+**One terminal, if you also want the board.** `tira.dashboard -o browser
+--with-police` serves the board and runs police beside it, so watching a board
+does not take two terminals (TKT-897, 5.42). The pass is a child of the serving
+command: interrupting the command stops both, and the singleton claim is
+released rather than left naming a process that has gone.
+
+**While the dashboard holds police, a separate `d2 tira.policy.bridge` or
+`d2 tira.police` stands down.** It says which process holds the watch and exits
+0 - standing aside is the correct outcome, not a failure. This is the one
+exception to the ordinary rule, which is otherwise unchanged: between two
+ordinary police daemons the newest wins and the previous one is killed. The
+owner's words, answering Q-117: *"The dashboard is a special case - while it
+holds police, a later tira.police says so and exits 0. TKT-486 still applies
+everywhere else."* If you find your police quietly gone, that message is why,
+and its findings are in the terminal running the dashboard.
+
 **Run it exactly as shown above - `d2 tira.policy.bridge`, nothing else.** It
 streams every event to its own stdout as it happens; that is what "tail it"
 means everywhere else in this guide. It is not an instruction to pipe the

@@ -336,6 +336,19 @@ beside the first. Deleting a running monitor is refused, and the page shows the
 engine's own words, which name `tira.job.stop`: the useful thing to know is not
 that the delete failed but what to do first.
 
+**Stopping stops all of it, since 5.45.** A monitor is not one process — a shell
+owns the pipe, the command runs on one side of it and the feeder reads the
+other, and a looping monitor adds a fourth. Until 5.45 the stop signalled only
+the pid the board recorded, and the rest carried on as orphans while the record
+was cleared; the board then forgot a monitor that was still running, and the
+next Start — the button that hides itself precisely to avoid a second process —
+began one anyway, because the record it consults had just been emptied. A
+monitor now runs in a process group of its own and the stop signals the group.
+`tira.job.stop` says which happened in `signalled`: `group` when the whole
+monitor was signalled, `process` when only the recorded one was (a monitor
+started before 5.45 leads no group, so the rest of it is still running), and
+`gone` when there was nothing there.
+
 The editor is one form for creating and for editing, filled from the job. The
 schedule kind is a pair of radio buttons rather than the word `monitor` typed
 into a schedule box, and Message is not offered for a monitor because the engine

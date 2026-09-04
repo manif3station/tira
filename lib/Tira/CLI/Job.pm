@@ -67,192 +67,38 @@ sub _enabled_of {
     return $value;
 }
 
-# Start a monitor, and record what it started as.
+# The monitor lifecycle lives in Tira::CLI::Job::Monitor - lifted there by his
+# 500-line rule when TKT-920's work took this file from 496 lines to 583.
 #
-# WHY open3 AND NOT fork/setsid/exec. A hand-rolled detach puts the child's
-# redirections and its exec in a branch that only ever runs in the child
-# process, where Devel::Cover cannot follow it - so the mandatory 100%
-# statement gate would be met by writing the fork out again in a shape nobody
-# runs, or by lowering the gate. open3 is already this codebase's spawn (see
-# run_due_job) and does the forking in code that is not ours to cover. The
-# monitor is reparented when this process exits, which is what "keeps running"
-# needs; it is not setsid'd, and a terminal hangup would still reach it. That
-# is a real difference from a daemon and is written here rather than implied.
-#
-# OUTPUT GOES THROUGH A PIPELINE to the feeder, which is its reader. An UNREAD
-# pipe fills at about 64KB and blocks the monitor forever - the deadlock TKT-841
-# was reviewed for - and until TKT-851 this said the output went to a file for
-# exactly that reason. The constraint is unchanged; what satisfies it is not.
-
-# Is this word something the system can actually run? Answered the way a shell
-# answers it: a word with a slash is a path and is asked directly, a bare word is
-# looked for along PATH. A directory is not a program, which -x alone would say
-# yes to.
+# THE OLD NAMES STAY AS FORWARDERS. A lift that renames what callers reach is
+# indistinguishable from a regression to every test that walks lib/, and this
+# board has had three of those from one lift. Nothing outside this file has to
+# know the code moved.
 sub _command_is_runnable {
-    my ($word) = @_;
-    return 0 if !defined $word || $word eq '';
-
-    require File::Spec;
-    return ( -x $word && !-d $word ) ? 1 : 0 if $word =~ m{/};
-
-    for my $dir ( File::Spec->path ) {
-        my $try = File::Spec->catfile( $dir, $word );
-        return 1 if -x $try && !-d $try;
-    }
-    return 0;
+    require Tira::CLI::Job::Monitor;
+    return Tira::CLI::Job::Monitor::_command_is_runnable(@_);
 }
 
 sub _start_monitor {
-    my ( $tira, $args, $job ) = @_;
-
-    die "Job $job->{id} is a cron job - it runs when due, and is not started\n"
-      if ( $job->{schedule_kind} // '' ) ne 'monitor';
-    die "Job $job->{id} is disabled - enable it before starting it\n"
-      if !$job->{enabled};
-
-    my @command = Tira::Job::job_command_words( $job->{command} );
-    die "Job $job->{id} has no command to run\n" if !@command;
-
-    # ALREADY RUNNING IS A REFUSAL, not a second process. Without this, starting
-    # a live monitor spawns a twin and overwrites the recorded pid, so the first
-    # process keeps running with nothing on the board pointing at it - an orphan
-    # monitor-dead cannot see, which is precisely the failure EPC-014 exists to
-    # end. From a terminal that takes a deliberate mistake; with TKT-843's play
-    # button it is one stray click, which is what made it worth fixing here.
-    require Tira::Job;
-    die "Job $job->{id} is already running as pid $job->{pid} - starting it "
-      . "again would leave the first process with nothing on the board "
-      . "pointing at it\n"
-      if Tira::Job::job_monitor_alive( $job, _running_processes_for_jobs() );
-
-    # A PIPELINE, NOT A REDIRECT. TKT-851, after his instruction that monitors
-    # should not have separate logs and his answer to Q-112 choosing a feeder:
-    # the monitor's output goes THROUGH a Tira command that records it against
-    # this job, so the board hears from the monitor rather than reading its
-    # leavings. That is what makes "when did this monitor last call in" a fact,
-    # which is what TKT-873's silence rule needs.
-    #
-    # The shell owns the pipe, so the feeder lives and dies with the monitor
-    # instead of being a second thing somebody has to start. And the feeder
-    # drains continuously, which is the whole reason a pipe is safe here at all -
-    # TKT-842 chose a file because a pipe with NO READER fills at about 64KB and
-    # blocks the child forever. A pipe with a reader does not.
-    #
-    # THE FEEDER IS RESOLVED FROM THIS FILE, not from PATH. A monitor started by
-    # a board that happens to have d2 on its PATH and one started by a board that
-    # does not must behave the same, and the entrypoint sits at a known place
-    # relative to this module - the same reasoning _view_dir uses for templates.
-    require File::Basename;
-    require File::Spec;
-    my $feeder = File::Spec->catfile(
-        File::Basename::dirname( File::Spec->rel2abs(__FILE__) ),
-        File::Spec->updir, File::Spec->updir, File::Spec->updir,
-        'skills', 'job', 'cli', 'feed' );
-
-    # THE BOARD TRAVELS IN THE ENVIRONMENT, not on the command line. The feeder
-    # has to find the same project this monitor belongs to, and a --project
-    # argument would put the board's location into the process table for anyone
-    # running ps. An inherited variable does not.
-    my $root = $tira->discover_project( %{$args} );
-
-    # THE COMMAND IS CHECKED BEFORE THE SHELL IS ASKED TO RUN IT. open3 used to
-    # give this refusal for free: exec'ing a program that is not there failed,
-    # and job.start said so. A shell ALWAYS starts, then fails inside itself with
-    # exit 127 that nobody is waiting on - so a monitor whose command is
-    # misspelled would look started, and only monitor-dead would notice, minutes
-    # later and as an alarm rather than an answer. The check has to move here or
-    # the refusal is lost with the redirect.
-    die "$command[0]: command not found\n"
-      if !_command_is_runnable( $command[0] );
-
-    require IPC::Open3;
-
-    # NOTHING OF THE JOB'S IS SHELL TEXT. The shell is here only to own the pipe;
-    # the words it runs arrive as positional parameters, so a command holding a
-    # semicolon or a backtick stays an argument - which is what open3(@command)
-    # gave us before there was a pipeline, and what a stored, editable job record
-    # has to keep. The only text sh parses is the fixed script on the next line.
-    # AND THE LOOP, WHEN THE JOB ASKED FOR ONE, IS PART OF THIS FIXED TEXT.
-    # TKT-891, his voice 6694: an option to keep a command running, so a person
-    # types "only the middle part" instead of a while loop. JOB-006 is what
-    # happens without it - a loop typed into a command field that never ran.
-    #
-    # THE GUARANTEE IS UNCHANGED because the shape is unchanged: what is looped
-    # is the same "$@" that was exec'd before, and "$@" is positional
-    # parameters. Interpolating the job's command INTO this string would be the
-    # thing TKT-851 removed, put back in the worst possible place; wrapping the
-    # parameters is not.
-    #
-    # AND THE SHELL STAYS. Without a loop it execs the command and the recorded
-    # pid becomes the command itself; with one it must survive to run the next
-    # iteration, so the pid the board recorded is the SUPERVISOR's - and that is
-    # what makes a restart invisible to monitor-dead. TKT-891's own card worried
-    # that a restart changes the pid and every restart would read as a death;
-    # keeping the supervisor answers it without a special case.
-    my $script = 'PERL="$1"; FEEDER="$2"; ID="$3"; EVERY="$4"; shift 4; '
-      . 'if [ "$EVERY" -gt 0 ]; then '
-      . 'while :; do "$@"; sleep "$EVERY"; done 2>&1 | exec "$PERL" "$FEEDER" --id "$ID"; '
-      . 'else '
-      . 'exec "$@" 2>&1 | exec "$PERL" "$FEEDER" --id "$ID"; '
-      . 'fi';
-
-    my $pid = eval {
-        local $ENV{TIRA_HOME} = $root;
-        IPC::Open3::open3( my $in, my $out, my $err,
-            'sh', '-c', $script, 'tira-monitor',
-            $^X, $feeder, $job->{id}, ( $job->{restart_every} || 0 ), @command );
-    };
-    if ( !$pid ) {
-        my $why = $@ || 'could not be started';
-        $why =~ s/\s+\z//;
-        die "$command[0]: $why\n";
-    }
-
-    # SPAWNING AND RECORDING MUST NOT COME APART. The process exists the
-    # instant open3 returns; the board only learns its pid on the next line.
-    # If that write fails - a held lock, a full disk - the old code left a
-    # RUNNING monitor that the board had no pid for, which monitor-dead then
-    # reported dead on every pass while job.start, run again, started a second
-    # copy. A live monitor reported dead is the noise that gets this rule
-    # ignored, and a silent duplicate is worse.
-    #
-    # So the child is killed if it cannot be recorded, and the failure is
-    # raised. Leaving nothing running is the state the caller can retry from.
-    my $started = eval { $tira->job_started( %{$args}, id => $job->{id}, pid => $pid ) };
-    if ( !$started ) {
-        my $why = $@ || 'the start could not be recorded';
-        $why =~ s/\s+\z//;
-        kill 'TERM', $pid;
-        waitpid $pid, 0;
-        die "Started $job->{id} as pid $pid but could not record it, so it "
-          . "was stopped again rather than left running unrecorded: $why\n";
-    }
-    return $started;
+    require Tira::CLI::Job::Monitor;
+    return Tira::CLI::Job::Monitor::_start_monitor(@_);
 }
 
-# The process table, asked for once and by the CLI layer, because the engine is
-# forbidden every construct that could read it. Kept as its own sub so the
-# start path can be tested without a real process table.
 sub _running_processes_for_jobs {
-    require Tira::CLI::Police;
-    return Tira::CLI::Police::_running_processes();
+    require Tira::CLI::Job::Monitor;
+    return Tira::CLI::Job::Monitor::_running_processes_for_jobs(@_);
 }
 
-# Run one job NOW, whatever its schedule says.
-#
-# His msg 6484: "each repeated job record has a play button. That the user can
-# run them anytime bypass the schedule."
-#
-# ONE EXECUTOR. This is TKT-841's run_due_job with the due-check simply not
-# asked - not a second implementation of running a command. That executor
-# carries a deadlock fix (a pipe nobody drains blocks the child forever) and a
-# signal-status fix (a killed job reported success) that only came out of
-# review; a fresh executor written for a button would have carried neither.
-#
-# A MONITOR IS STARTED RATHER THAN FIRED, decided as TKT-843's CHK-001 before
-# any of this was written. A monitor has no schedule to bypass - it is either up
-# or it is not - so "run it now" on that row means start it, which is the action
-# that answers the monitor-dead finding printed beside it.
+sub _spawn_monitor {
+    require Tira::CLI::Job::Monitor;
+    return Tira::CLI::Job::Monitor::_spawn_monitor(@_);
+}
+
+sub _signal_monitor {
+    require Tira::CLI::Job::Monitor;
+    return Tira::CLI::Job::Monitor::_signal_monitor(@_);
+}
+
 sub run_now {
     my ( $tira, $args ) = @_;
     my $id = $args->{id} // '';
@@ -383,8 +229,20 @@ sub dispatch {
     if ( $command eq 'job.stop' ) {
         my $stopped = $tira->job_stop( %{$args} );
         my $pid = $stopped->{stopped_pid};
-        kill 'TERM', $pid if $pid && $pid =~ /\A[1-9][0-9]*\z/;
-        return $stopped;
+
+        # THE WHOLE TREE, and how much of it there was. TKT-920: a monitor is
+        # the shell that owns the pipe, the command and the feeder - four
+        # processes when restart_every adds a loop - and TERM to the recorded
+        # pid alone orphaned the rest to init while the record was cleared, so
+        # the board forgot a monitor that was still running and the next
+        # job.start's duplicate guard read that emptied record and began a
+        # second one. Stop, start, stop, start is how JOB-006 came to be running
+        # under two pids.
+        #
+        # The count is returned because a stop that signalled nothing and a stop
+        # that signalled four looked identical from the board, which is what let
+        # this go a day unseen.
+        return { %{$stopped}, signalled => _signal_monitor($pid) };
     }
 
     # NOT a fallthrough. This used to be a bare `return $tira->job_delete(...)`
@@ -431,6 +289,14 @@ runs where C<Devel::Cover> cannot follow it, so the mandatory 100% statement
 gate could only be met by writing code nobody runs, or by lowering the gate.
 The honest cost is that the monitor is reparented rather than session-led, so
 a terminal hangup still reaches it.
+
+Since 5.45 the spawn and the signal that stops it live together in
+L<Tira::CLI::Job::Monitor>, and the names here are forwarders. They were moved
+because they have to agree about what the recorded pid B<is> and for one
+release they did not: the spawn returned the pid of the shell owning the
+pipeline and the stop signalled that pid alone, orphaning the command and the
+feeder. The subs stayed forty lines and one sub apart in a file that had grown
+to 583 lines, which is how the disagreement went unnoticed. TKT-920.
 
 =head1 THE MONITOR IS STARTED INSIDE A PIPELINE
 

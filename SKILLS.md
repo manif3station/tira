@@ -2573,6 +2573,24 @@ and the CLI signals, **in that order**. Calling the engine alone would clear the
 record and signal nothing — the board saying stopped while the process runs on,
 which is exactly the state EPC-014 exists to remove.
 
+**And the CLI signals the process group, not the recorded pid (TKT-920, 5.45).**
+A monitor is three processes — a shell owning the pipe, the command, and the
+feeder reading its output — or four when `--restart-every` adds a loop. Signalling
+the recorded pid reached the shell alone and orphaned the rest to init, while the
+record was cleared in the same breath; the board then forgot a monitor that was
+still running, and the next start began a second one beside it. `JOB-006` was
+found under two pids that way, with the board holding a third that was dead.
+`Tira::CLI::Job::Monitor::_spawn_monitor` now execs through a shim that makes the
+recorded pid a group leader, and `_signal_monitor` signals the group — answering
+`group`, `process` or `gone` so a stop that stopped nothing no longer reads like
+one that worked. That word is why this took a release to notice: reporting
+success either way made a leaked stop indistinguishable from a clean one.
+
+The two subs live in one file for the same reason. They must agree about what
+the recorded pid *is*, they sat in different subs of a 583-line `Tira::CLI::Job`,
+and for a release they disagreed — so the monitor lifecycle was lifted to
+`Tira::CLI::Job::Monitor`, which his 500-line rule required anyway.
+
 **The buttons follow the job's state.** A monitor the board can see running
 offers Stop and Restart and hides Start, because offering it invites a second
 process beside the first. `running` is treated as true only when it is exactly

@@ -1,5 +1,59 @@
 Revision history for Tira
 
+5.45  2026-09-04
+
+    - TKT-920. Stopping a monitor stops all of it. `tira.job.stop` sent `TERM`
+      to the pid the board recorded, which is the shell that owns the pipe
+      between the command and the feeder reading its output - so the command,
+      the feeder, and the loop subshell `--restart-every` adds were orphaned to
+      init and carried on running. The record was cleared at the same moment,
+      which is correct for the fault TKT-893 fixed and is also why this was
+      invisible: a leaked stop and a clean one read identically from the board.
+
+      The next `tira.job.start` then asked that emptied record whether the job
+      was already running, was told no, and started a second monitor beside the
+      first. `JOB-006` was found running under two pids with the board holding a
+      third that was dead, which is how this was noticed at all.
+
+      A monitor is now spawned through a shim that makes the recorded pid a
+      **process group leader**, and the stop signals the group. The recorded pid
+      is unchanged - the shim execs, so it is the same process it always was.
+
+      `tira.job.stop` now answers with `signalled`: `group` when the whole
+      monitor was signalled, `process` when only the recorded one was - a
+      monitor started before this release leads no group, so the rest of it is
+      still running - and `gone` when there was nothing there. Reporting success
+      either way is what let this go a release unseen, so the word matters as
+      much as the group does.
+
+      A **process group rather than a walk of parents**, and that is forced
+      rather than preferred: the process table this CLI gathers is
+      `ps -eo pid=,lstart=,args=`, and `tasklist` has no parent column either,
+      so walking `ppid` would mean changing gathering code every police rule
+      reads. `setpgrp` is wrapped in `eval` because Windows has none; there the
+      shim execs anyway, behaviour is exactly what it was, and `signalled` says
+      `process` rather than pretending otherwise.
+
+      NOT a regression. `TKT-851` put the feeder on the far end of a pipe in
+      5.41 and `tira.job.stop` arrived in 5.42, so a monitor was already three
+      processes on the day the single `kill` was written. `--restart-every`
+      (5.42) is not the cause either - it adds a fourth process and makes the
+      orphans self-restarting, which is what made an old fault loud.
+
+    - The monitor lifecycle moved to `Tira::CLI::Job::Monitor`. The work above
+      took `Tira::CLI::Job` from 496 lines to 583, past the 500-line rule
+      `t/524` enforces, and raising the number is not how that guard is
+      answered. The split is the concern this card is about: the spawn and the
+      signal have to agree about which pid the board records, they sat in
+      different subs of a 583-line file, and for a release they disagreed. The
+      old names stay as forwarders so nothing outside has to know.
+
+    - `t/516` stopped naming `lib/Tira/CLI/Job.pm` by path and reads
+      `cli_source()` instead. When the lift above moved the shell script, three
+      of its assertions failed and reported a loop that had been deleted. It had
+      not been deleted; it had moved. That is the third time a lift has been
+      read as a regression, and walking `lib/` is the fix the suite already had.
+
 5.44  2026-09-04
 
     - TKT-914. The jobs editor never read job.mode on load, and the two symptoms

@@ -3717,6 +3717,30 @@ reader never has to infer it from whichever field is populated.
     process already died is exactly what somebody needs to clear. Refusing that
     would leave the record wrong for ever with no way out.
 
+    **It stops the whole monitor, not the process the board recorded** (TKT-920).
+    A monitor is three processes - the shell that owns the pipe, the command, and
+    the feeder reading its output - or four when `--restart-every` adds a loop.
+    Until 5.45 the signal went to the recorded pid alone, which is the shell, and
+    the rest were orphaned to init and carried on. The record was cleared at the
+    same time, so the board forgot a monitor that was still running; the next
+    `tira.job.start` asked that emptied record whether the job was already up,
+    was told no, and started a second one. `JOB-006` was found running under two
+    pids that way, with the board holding a third that was dead.
+
+    A monitor is now started in a **process group of its own**, and the stop
+    signals the group. The answer says which happened:
+
+    | `signalled` | what it means |
+    |---|---|
+    | `group` | the whole monitor was signalled |
+    | `process` | only the recorded process was - a monitor started before 5.45 leads no group, so whatever else it forked is **still running** |
+    | `gone` | there was nothing to signal |
+
+    That word is the point of the change as much as the group is. The old
+    `tira.job.stop` reported success whether it stopped a monitor or orphaned
+    three quarters of one, which is why the leak went a release without being
+    seen.
+
     **Three verbs now refuse while a monitor is running**, and each names this
     one: changing its `--command` (the pid would still be running the old one),
     `--enabled 0` (`monitor-dead` is deliberately silent about a disabled

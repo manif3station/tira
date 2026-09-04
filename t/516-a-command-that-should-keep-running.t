@@ -42,6 +42,7 @@ use Test::More;
 
 use lib 'lib';
 use lib 't/lib';
+use Suite qw(cli_source);
 use Tira;
 
 sub board {
@@ -154,11 +155,13 @@ sub board {
 # arrive as positional parameters and the only thing sh parses is a fixed
 # script. A loop that interpolated the command would end that.
 
-my $starter = do {
-    open my $fh, '<:raw', 'lib/Tira/CLI/Job.pm' or die "Job.pm: $!";
-    local $/;
-    <$fh>;
-};
+# WALKED, NOT NAMED. This read lib/Tira/CLI/Job.pm by path until TKT-920 lifted
+# the monitor lifecycle into Tira::CLI::Job::Monitor to stay under his 500-line
+# rule - at which point three assertions here failed and reported a loop that
+# had been deleted. It had not: it had moved. A test that names a file fails as
+# "the code regressed" every time the code is reorganised, which is the whole
+# reason Suite walks lib/ instead.
+my $starter = cli_source();
 
 # non-empty is the whole claim: the assertions below read this source, and an
 # unreadable file would fail them for the wrong reason.

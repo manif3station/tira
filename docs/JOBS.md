@@ -258,6 +258,19 @@ d2 tira.job.stop --id JOB-005
 d2 tira.job.update --id JOB-005 --command "d2 tira.police.outstanding"
 ```
 
+**Stopping stops all of it.** A monitor is not one process: a shell owns the
+pipe, the command runs on one side of it and the feeder reads the other, and
+`--restart-every` adds a loop. Until 5.45 the stop signalled only the pid the
+board recorded, and the rest kept running as orphans while the record was
+cleared - so the board forgot a monitor that was still going, and the next
+`tira.job.start` started a second one beside it. A monitor now runs in a process
+group of its own and the stop signals the group.
+
+The answer says which happened, in `signalled`: `group` means the whole monitor
+was signalled, `gone` means there was nothing there, and `process` means only
+the recorded process was reached - which happens for a monitor started before
+5.45, and means whatever else it forked is still running.
+
 Stopping works whether or not the process is still alive - a pid whose process
 already died is exactly the record somebody needs to clear. Changing the
 *schedule* of a running monitor is not refused, and neither is anything about a

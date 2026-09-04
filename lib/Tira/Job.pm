@@ -1124,6 +1124,18 @@ B<And the record is cleared BEFORE the signal.> A signal that fails - the proces
 already gone, or owned by somebody else - must not leave the board still pointing
 at a pid nobody is responsible for, which is the whole fault being closed.
 
+B<That ordering is right and it hid a worse fault for a release.> Because the
+record is cleared either way, a stop that signalled the whole monitor and a stop
+that orphaned three quarters of it left the board in identical states - and until
+5.45 the CLI signalled C<stopped_pid> alone, which is the shell owning the
+pipeline, while the command and the feeder carried on. The board then held no pid
+for a running monitor, C<job_monitor_alive> answered honestly that nothing was
+running, and the duplicate-start refusal in C<job.start> let a second monitor
+begin beside the first. Nothing here was wrong; what was missing was that the
+signal reached one process of several. The CLI now signals the process group the
+monitor was started in and reports which - C<group>, C<process> or C<gone> - so
+the two outcomes are distinguishable at last. TKT-920.
+
 =head1 KEEPING A COMMAND RUNNING
 
 C<restart_every> is how a monitor says it should be started again when its

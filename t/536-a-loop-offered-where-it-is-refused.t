@@ -75,16 +75,19 @@ my ( $tira, $root );
             command => 'a-cron-job', restart_every => 5, author => 'claude' );
         1;
     };
-    my $why = $@ // '';
 
-    ok( $refused,
-        'THE SAVE REFUSES A RESTART INTERVAL ON A CRON JOB. That is the premise '
-          . 'of this whole card: the form is offering something the engine will '
-          . 'not take' );
+    # $@ read immediately and matched rather than merely counted, which is
+    # t/149's rule: ok(!eval{...}) passes against a typo in an argument name,
+    # and the assertion would then be hiding the failure it looks like it
+    # catches.
+    like( $@, qr/cron job fires on a tick/,
+        'THE SAVE REFUSES A RESTART INTERVAL ON A CRON JOB, and refuses it by '
+          . 'name. That is the premise of this whole card: the form is offering '
+          . 'something the engine will not take, with a reason a person can '
+          . 'read - so this is a form that forgot a rule rather than a rule '
+          . 'worth adding' );
 
-    like( $why, qr/cron job fires on a tick/,
-        'and refuses it by name, with a reason a person can read - which is why '
-          . 'this is a form that forgot a rule rather than a rule worth adding' );
+    ok( $refused, 'and nothing was stored' );
 }
 
 {

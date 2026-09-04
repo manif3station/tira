@@ -132,7 +132,15 @@ ok( !exists $row{ $off->{id} }{running},
 # The half that makes the indicator worth having. A field that only ever says
 # "up" is a decoration.
 
-kill 'TERM', $started->{pid};
+# STOPPED THE WAY THE BOARD STOPS ONE. A monitor is three processes - the shell
+# that owns the pipe, the command, and the feeder reading its output - so TERM to
+# the recorded pid alone leaves the other two running as orphans. That was
+# TKT-920, and these fixtures were written before it: the leak did not fail
+# anything, it just left two processes per run holding the test harness's own
+# output pipes open, which showed up as `prove -j` hanging with one file
+# apparently stuck for ever.
+require Tira::CLI::Job;
+Tira::CLI::Job::_signal_monitor($started->{pid});
 waitpid $started->{pid}, 0;
 
 my $after = $decode->decode( $provider{jobs}->() );

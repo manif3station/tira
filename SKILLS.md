@@ -2610,6 +2610,18 @@ pairing outright (TKT-842). The page declines to offer what the save would
 refuse, which is the same reason the schedule field is disabled rather than
 hidden: the form keeps its shape as you click through it.
 
+**And a monitor's card shows them, since 5.48.** The panel under a job card had
+one source: the answer to a Run-now click. A monitor's button is Start (TKT-843
+CHK-001 — a monitor has no schedule to bypass) and starting one returns a job
+record, so the branch that fills the panel could not run for a monitor at all.
+Reading the output queue instead would not have helped, because that queue is a
+handover the police pass empties. The record keeps a bounded tail beside it now
+— one feeder delivery, newest kept — and the card seeds it into the same log a
+run's output goes into, so there is one rendering path rather than two. Seeded
+only when nothing is remembered: a card is rebuilt on every poll, and re-seeding
+would reset the freshness colouring so a monitor that spoke an hour ago rendered
+as though it had just called in. TKT-922.
+
 **A monitor's words reached the bridge for the first time in 5.47**, which is
 worth stating plainly because this document has described the channel as working
 since 5.41. It was not. `monitor-output` reports with a `sub_key` of

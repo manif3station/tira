@@ -3923,6 +3923,13 @@ reader never has to infer it from whichever field is populated.
     section under the Task List, one row per job. EPC-014, TKT-836 for the
     record, TKT-837 for these verbs.
 
+    **A monitor's card shows its recent output from 5.48.** Until then the log
+    panel under a job card was painted from one thing only - the response to a
+    Run-now click - and a monitor's button is Start, which returns a job record
+    rather than output. The job record now carries a short tail of a monitor's
+    own words, separate from the output queue the police pass drains, and the
+    card renders from it. TKT-922.
+
     **A monitor's output did not reach the bridge until 5.47**, which matters
     here because this reference has described that channel as working since
     5.41. The `monitor-output` rule tags each finding with the job id and what

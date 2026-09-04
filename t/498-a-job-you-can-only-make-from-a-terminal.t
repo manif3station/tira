@@ -202,7 +202,17 @@ is( scalar @{$after}, 2, 'the board now carries the job the page created' );
     ok( $made->{started_at},
         'with the moment it started, which is what monitor-dead compares against' );
 
-    kill 'TERM', $made->{pid} if $made->{pid};
+    # STOPPED THE WAY THE BOARD STOPS ONE. A monitor is three processes - the shell
+# that owns the pipe, the command, and the feeder reading its output - so TERM to
+# the recorded pid alone leaves the other two running as orphans. That was
+# TKT-920, and these fixtures were written before it: the leak did not fail
+# anything, it just left two processes per run holding the test harness's own
+# output pipes open, which showed up as `prove -j` hanging with one file
+# apparently stuck for ever.
+if ( $made->{pid} ) {
+    require Tira::CLI::Job;
+    Tira::CLI::Job::_signal_monitor($made->{pid});
+}
 }
 
 # --- and a cron job is not, because there is nothing to start ----------------

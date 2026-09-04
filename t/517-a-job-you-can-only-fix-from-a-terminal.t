@@ -92,7 +92,17 @@ sub board {
     my ($made) = @{ $tira->job_list( project => $root ) };
 
     # Started means a real child, and leaving it behind would outlive the test.
-    kill 'TERM', $made->{pid} if ref $made eq 'HASH' && $made->{pid};
+    # STOPPED THE WAY THE BOARD STOPS ONE. A monitor is three processes - the shell
+# that owns the pipe, the command, and the feeder reading its output - so TERM to
+# the recorded pid alone leaves the other two running as orphans. That was
+# TKT-920, and these fixtures were written before it: the leak did not fail
+# anything, it just left two processes per run holding the test harness's own
+# output pipes open, which showed up as `prove -j` hanging with one file
+# apparently stuck for ever.
+if ( ref $made eq 'HASH' && $made->{pid} ) {
+    require Tira::CLI::Job;
+    Tira::CLI::Job::_signal_monitor($made->{pid});
+}
 
     # non-empty is the whole claim: every assertion below reads this record, and
     # a save that created nothing would fail them for the wrong reason.

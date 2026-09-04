@@ -336,6 +336,13 @@ beside the first. Deleting a running monitor is refused, and the page shows the
 engine's own words, which name `tira.job.stop`: the useful thing to know is not
 that the delete failed but what to do first.
 
+**A monitor's card shows what it is saying, since 5.48.** It never had. The log
+panel on a job card was filled only from the response to a Run-now click, and a
+monitor's button is Start — which returns a job record, not output — so a
+monitor's card could not show a line however much it was saying. The record now
+keeps a bounded tail of a monitor's own words beside the queue the police empties,
+and the card paints from it on render.
+
 **And what a monitor says reaches the bridge, since 5.47.** Before that it did
 not: the rule that carries a monitor's output tags each finding with the job and
 the words, so two passes carrying different output are not read as one rule

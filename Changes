@@ -1,5 +1,36 @@
 Revision history for Tira
 
+5.48  2026-09-04
+
+    - TKT-922. A monitor's card shows what the monitor is saying. It never had:
+      the log panel on a job card was filled only from the response to a
+      **Run now** click, and a monitor's button is **Start** - decided that way
+      at TKT-843 because a monitor has no schedule to bypass - which returns a
+      job record rather than output. So the branch that paints the panel could
+      not run for a monitor, however much it was saying. His report, with a
+      screenshot of two running monitors beside a cron job with a full panel:
+      *"why only 1 job got the tail logs?"*.
+
+      Reading `job.output` would not have fixed it. That queue is a **handover**:
+      the feeder fills it, the police pass takes what it announced, and it is
+      meant to be emptied - so a card reading it finds nothing a second after the
+      monitor spoke. The record now keeps a second, smaller thing beside it: a
+      bounded tail the drain never touches, newest kept and oldest dropped, for
+      the same reason the queue does it.
+
+      One feeder delivery's worth. That number is **mirrored** from
+      `Tira::CLI::Job`'s batch size rather than referenced, because the engine
+      does not depend on the CLI - the same boundary that keeps `Tira::Job` away
+      from the process table - and `t/532` asserts the two stay equal, which buys
+      back what a shared reference would have guaranteed without the dependency.
+
+      The page was already being handed whole job records, so the new field
+      arrived without a line of provider code. The card seeds it into the log the
+      way a run's output is seeded, so there is one rendering path rather than
+      two - and only when nothing is remembered already, since a card is rebuilt
+      on every poll and re-seeding would reset the freshness colouring, making a
+      monitor that spoke an hour ago look as though it had just called in.
+
 5.47  2026-09-04
 
     - TKT-925. A monitor's words reach the bridge. They had not, since the

@@ -258,6 +258,16 @@ d2 tira.job.stop --id JOB-005
 d2 tira.job.update --id JOB-005 --command "d2 tira.police.outstanding"
 ```
 
+**And a monitor's card shows its recent output, since 5.48.** The black panel
+under a job card used to be filled from one place only: the answer to a **Run
+now** click. A monitor has no Run now — its button is **Start**, because a
+monitor has no schedule to bypass — and starting one hands back a job record
+rather than output, so a monitor's card could never show a line. Reading the
+job's output queue would not have helped either, since that queue exists to be
+emptied by the police pass. The record keeps a short tail of its own now, which
+the drain leaves alone, and the card paints from it as it renders. It holds one
+feeder delivery's worth, newest first out.
+
 **A monitor's output reaches the bridge, and until 5.47 it did not.** The feeder
 puts a monitor's words on its job record; the `monitor-output` police rule reads
 them, announces them, and they are then removed so the bridge does not repeat

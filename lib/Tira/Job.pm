@@ -407,6 +407,30 @@ sub job_update {
 # that drops quietly is the silent loss this whole epic exists to end.
 our $MONITOR_OUTPUT_HELD = 200;
 
+# What a monitor's own CARD shows, which is a different question from what the
+# queue above holds.
+#
+# The queue is a HANDOVER: the feeder fills it, the police pass takes what it
+# announced, and it is meant to be emptied. So a card reading it finds nothing a
+# second after the monitor spoke - which is why a second, smaller thing exists.
+# His report, 2026-09-04: "why only 1 job got the tail logs?", beside a
+# screenshot of two running monitors whose cards showed nothing at all.
+#
+# ONE DELIVERY'S WORTH, matched to the feeder's batch rather than invented: the
+# feeder hands over $Tira::CLI::Job::BATCH_LINES at a time, so a card showing the
+# last batch shows what the board most recently heard. A number chosen freely
+# here would be a third constant nobody could reason about against the two above.
+#
+# WRITTEN OUT RATHER THAN REFERENCED, deliberately: $BATCH_LINES belongs to
+# Tira::CLI::Job, and the engine does not depend on the CLI - that direction is
+# the whole reason liveness is decided from a table the CLI gathers and hands
+# over. So the value is mirrored and t/532 asserts the two stay equal, which
+# catches the drift a shared reference would have prevented at the cost of the
+# dependency. TKT-922.
+our $MONITOR_RECENT_KEPT = 25;
+
+sub monitor_recent_kept { return $MONITOR_RECENT_KEPT }
+
 sub job_feed {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
@@ -427,6 +451,17 @@ sub job_feed {
             $job->{output_dropped} = ( $job->{output_dropped} || 0 ) + $over;
         }
         $job->{output} = \@held;
+
+        # AND THE CARD'S OWN COPY, which the drain never touches. Everything
+        # above is about the queue the police pass empties; this is what is left
+        # for somebody looking at the dashboard. Kept newest-first-out for the
+        # same reason the queue is: a card shows what is true now, and a tail
+        # that dropped the newest would show a monitor's first minutes for ever.
+        # TKT-922.
+        my @recent = ( @{ $job->{recent} || [] }, @lines );
+        @recent = @recent[ -$MONITOR_RECENT_KEPT .. -1 ]
+          if @recent > $MONITOR_RECENT_KEPT;
+        $job->{recent} = \@recent;
 
         # THE REGISTRATION. This is the whole difference from a spool: the board
         # now knows when this monitor last spoke, rather than when a file last
@@ -1265,6 +1300,30 @@ never from the pass: F<t/86> requires a police pass to change not one byte of
 the board. It takes the count that was announced rather than whatever is in the
 buffer when it runs, because the monitor may have called in during the gap and
 taking those lines would discard output nobody ever saw.
+
+
+=head2 The queue and the tail are different things
+
+C<output> is a B<handover>. The feeder fills it, the police pass takes what it
+announced, and it is meant to be emptied - that is what stops the bridge saying
+the same thing twice. A caller reading it to find out what a monitor has been
+saying finds nothing a second after it spoke.
+
+So since 5.48 the record also carries C<recent>: a bounded tail of the monitor's
+own words that the drain never touches. It exists for the dashboard, whose job
+cards could not show a line of a monitor's output before it - the panel there was
+filled only from the answer to a B<Run now> click, and a monitor's button is
+B<Start>. TKT-922.
+
+It holds one feeder delivery's worth, and that number is B<mirrored> from
+C<$Tira::CLI::Job::BATCH_LINES> rather than referenced: this module does not
+depend on the CLI, which is the same boundary that keeps it away from the process
+table. F<t/532> asserts the two stay equal, which buys back what a shared
+reference would have guaranteed without taking on the dependency.
+
+Newest kept, oldest dropped, for the reason the queue does the same: a card shows
+what is true now, and a tail that discarded the newest would show a monitor's
+first minutes for ever.
 
 =head1 CALL IT THROUGH TIRA
 

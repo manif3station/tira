@@ -670,21 +670,52 @@ sub _serve_browser {
 # did return could not run on as a second copy of the serving process.
 sub _start_police_beside_board {
     my (%args) = @_;
+    my $spawn = $args{spawn} || \&_spawn_police_beside_board;
+    return $spawn->(%args);
+}
 
-    # Injectable for the same reason police_follow's own leave and restarter
-    # are: a fork that FAILS is a branch somebody has to be able to reach, and
-    # the only honest way to reach it is to hand the sub a fork that fails.
-    my $forker = $args{forker} || sub { return fork() };
+# Police beside the served board, for tira.dashboard -o browser --with-police.
+# His words on TKT-897: "So the user doesn't need to run 2 terminals. All in 1
+# go."
+#
+# WHY open3 AND NOT fork/exec, which is the same argument Tira::CLI::Job already
+# makes for starting a monitor and is worth repeating rather than pointing at: a
+# hand-rolled fork puts the child's exec in a branch that ONLY EVER RUNS IN THE
+# CHILD, where Devel::Cover cannot follow it. The first version of this did
+# exactly that, and gate-run refused it twice - first at the exec, then again at
+# the injectable defaults added to make the child reachable. The gate was right
+# both times: code that only runs in a child is code no test has watched, and
+# writing seams until it looks covered is meeting the number rather than the
+# point. open3 does the forking in code that is not ours to cover.
+#
+# THE CHILD KEEPS THIS TERMINAL, which is the entire feature. Its output goes to
+# the parent's own handles rather than a pipe - a pipe would put the findings
+# somewhere nobody is reading, and worse, an unread pipe fills at about 64KB and
+# would block police forever, which is the deadlock TKT-841 was reviewed for.
+#
+# IT LEARNS IT IS THE DASHBOARD'S FROM THE ENVIRONMENT, because it is a separate
+# process now rather than a fork carrying our variables. police_follow reads
+# TIRA_POLICE_HOLDER, and an unrecognised value is normalised to an ordinary
+# claim, so a stray environment cannot buy the protection only the dashboard
+# earns.
+sub _spawn_police_beside_board {
+    my (%args) = @_;
 
-    my $child = $forker->();
-    return undef if !defined $child;
-    return $child if $child;
+    my $script = _entrypoint_for('police');
+    return undef if !defined $script;
 
-    require Tira::CLI::Police;
-    Tira::CLI::Police::police_follow(
-        $args{tira}, { project => $args{project} }, $args{store},
-        { singleton => { holder => 'dashboard' } } );
-    exit 0;
+    require IPC::Open3;
+
+    local $ENV{TIRA_HOME} = defined $args{project} ? $args{project} : ( $ENV{TIRA_HOME} // '' );
+    local $ENV{TIRA_POLICE_HOLDER} = 'dashboard';
+
+    # A spawn that fails answers undef rather than dying: the board is still
+    # worth serving without the bridge, and the caller says so.
+    my $pid = eval {
+        IPC::Open3::open3( my $to_child, '>&STDOUT', '>&STDERR', $^X, $script );
+    };
+    return undef if !$pid;
+    return $pid;
 }
 
 # THE PASS DIES WITH THE BOARD. A police child outliving the server it was

@@ -2487,7 +2487,7 @@ card it belonged to, the two never on screen together.
 **One terminal for the board and the bridge (TKT-897, 5.42).** His own filing:
 *"add a new --with-police argument that will run the police and the starman at
 the same terminal. So the user doesn't need to run 2 terminals. All in 1 go."*
-`tira.dashboard -o browser --with-police` forks a police pass beside the server
+`tira.dashboard -o browser --with-police` starts a police pass beside the server
 and reaps it when the server stops, so nothing is left holding the singleton
 claim after the board has gone. The flag is refused in any other output format,
 for the reason `--show-logs` is: a JSON dump exits immediately, so there is no

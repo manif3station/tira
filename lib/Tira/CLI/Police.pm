@@ -47,7 +47,18 @@ sub police_follow {
     # not "a process" in the sense that answer means, and killing a real
     # watcher because something asked it a quick status question would be
     # more surprising than helpful. TKT-492.
-    my $claim = police_claim_singleton( $store, %{ $option->{singleton} // {} } );
+    # WHO this pass is, when it was started by something that cannot pass
+    # arguments into it. --with-police spawns a separate police process rather
+    # than forking one, so the fact that it belongs to a dashboard travels in
+    # the environment. An injected singleton wins, so tests still say it
+    # directly; an unrecognised value is normalised by the claim itself, so a
+    # stray environment cannot buy the protection only the dashboard earns.
+    # TKT-897.
+    my %singleton = %{ $option->{singleton} // {} };
+    $singleton{holder} = $ENV{TIRA_POLICE_HOLDER}
+      if !exists $singleton{holder} && defined $ENV{TIRA_POLICE_HOLDER};
+
+    my $claim = police_claim_singleton( $store, %singleton );
 
     # THE LOSER SAYS WHY AND LEAVES, which is his answer to Q-117 on TKT-897 -
     # "a later tira.police says so and exits 0" - and the reason it exits 0 is

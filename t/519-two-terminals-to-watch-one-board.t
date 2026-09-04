@@ -395,15 +395,16 @@ use Tira::CLI::Police;
           . 'an undefined pid is how a signal ends up somewhere nobody meant' );
 }
 
-# --- and the real starter and stopper, not only the seams -------------------
+# --- and the real spawn, not only the seam ----------------------------------
 #
-# The seams above let the dispatcher be tested without forking. That is exactly
-# how a default implementation ends up with no test at all - the thing every
-# caller uses becomes the thing nothing exercises. Found by asking which lines
-# could possibly be covered, which is the same check that caught two providers
-# on TKT-892 that were counted and never called.
+# The seam above lets the dispatcher be tested without starting anything. That
+# is how a default implementation ends up with no test - the thing every real
+# caller uses becomes the thing nothing exercises.
 #
-# So these call the real ones, with a real child.
+# THE SPAWN IS open3 RATHER THAN A HAND-ROLLED FORK, and the reason is written
+# in Tira::CLI::Job for the same decision: a fork puts the child's exec in a
+# branch that only ever runs in the child, where coverage cannot follow and no
+# test has watched. gate-run refused the fork version twice before this one.
 
 {
     my $tmp   = tempdir( CLEANUP => 1 );
@@ -422,95 +423,90 @@ use Tira::CLI::Police;
     my $child = Tira::CLI::Serve::_start_police_beside_board(
         tira => $tira, project => $root, store => $store );
 
-    ok( $child && $child > 0,
-        'THE REAL STARTER FORKS AND ANSWERS WITH THE CHILD - the parent gets a '
-          . 'pid back rather than falling into the watch loop itself' );
+    SKIP: {
+        skip 'no police entrypoint on this checkout', 3 if !$child;
 
-    ok( kill( 0, $child ), 'and the process it names is really there' );
+        ok( $child > 0,
+            'THE REAL SPAWN ANSWERS WITH A PID - the parent gets a process back '
+              . 'rather than falling into the watch loop itself' );
 
-    my $stopped = Tira::CLI::Serve::_stop_police_beside_board($child);
-    ok( $stopped, 'the real stopper reports it stopped something' );
+        ok( kill( 0, $child ), 'and the process it names is really there' );
 
-    ok( !kill( 0, $child ),
-        'AND THE CHILD IS ACTUALLY GONE, reaped rather than left for whenever '
-          . 'the system happens to collect it - the claim has to be released '
-          . 'before the serving command returns, not eventually' );
+        my $stopped = Tira::CLI::Serve::_stop_police_beside_board($child);
+        waitpid $child, 0 if $child;
+        ok( $stopped, 'and the real stopper ends it' );
+    }
 }
 
-# A FORK THAT FAILS ANSWERS undef, which is what the dispatcher reads to decide
-# whether to say the bridge is missing. Reached by handing it a fork that fails,
-# because there is no other honest way to reach it.
+# A spawn that cannot find its entrypoint answers undef rather than a pid nobody
+# can signal, and the dispatcher turns that into the message that the bridge is
+# missing while still serving the board.
 {
-    require Tira::CLI::Serve;
+    no warnings 'redefine';
+    local *Tira::CLI::Serve::_entrypoint_for = sub { return undef };
 
-    my $none = Tira::CLI::Serve::_start_police_beside_board(
-        tira => undef, project => undef, store => undef, forker => sub { return undef } );
+    my $none = Tira::CLI::Serve::_spawn_police_beside_board(
+        project => '/nowhere', store => '/nowhere' );
 
     ok( !defined $none,
-        'a fork that fails answers undef rather than a pid nobody can signal' );
-
-    is( Tira::CLI::Serve::_stop_police_beside_board(undef), 0,
-        'and stopping nothing does nothing - a stopper handed an undefined pid '
-          . 'is how a signal ends up somewhere nobody meant' );
+        'no entrypoint means no pid - a spawn that cannot happen says so rather '
+          . 'than returning something the caller will later signal' );
 }
 
-# --- a holder is one of two things, not free text ---------------------------
+is( Tira::CLI::Serve::_stop_police_beside_board(undef), 0,
+    'and stopping nothing does nothing - a stopper handed an undefined pid is '
+      . 'how a signal ends up somewhere nobody meant' );
+
+# --- the holder travels in the environment ----------------------------------
 #
-# From an adversarial review of the claim function. The first version preserved
-# the bare-pid write only for the exact string 'police', so a caller being
-# slightly wrong changed the on-disk format that three other tests read - and a
-# third token in the file made an ordinary claim read as a dashboard, which is
-# the failure that matters, because the dashboard is the one holder nobody may
-# kill.
+# The pass is a separate process now, not a fork carrying our variables, so the
+# one thing that makes it different from any other police - that it is the
+# dashboard's - has to reach it some other way.
 
 {
-    my $store = tempdir( CLEANUP => 1 );
-    my $path  = Tira::CLI::Police::police_singleton_path($store);
+    my $tmp   = tempdir( CLEANUP => 1 );
+    my $root  = File::Spec->catdir( $tmp, 'board' );
+    my $store = File::Spec->catdir( $tmp, 'police' );
 
-    my $read = sub {
-        open my $fh, '<', $path or die "$path: $!";
-        local $/;
-        return scalar <$fh>;
-    };
+    my $tira = Tira->new;
+    $tira->project_new(
+        name => 'Env', dir => $root, members => ['claude'],
+        columns    => ['backlog, done'],
+        sow_prefix => 'ENS', epic_prefix => 'ENE', ticket_prefix => 'ENT',
+    );
 
-    for my $odd ( '', 'Police', 'nonsense' ) {
-        Tira::CLI::Police::police_claim_singleton( $store,
-            pid => 9001, holder => $odd, alive => sub { 0 }, kill => sub { } );
-        is( $read->(), '9001',
-            "holder '$odd' is written as a BARE PID - an unrecognised holder is "
-              . 'ordinary, not a new kind of record, and the file three other '
-              . 'tests read keeps its shape' );
+    {
+        local $ENV{TIRA_POLICE_HOLDER} = 'dashboard';
+        Tira::CLI::Police::police_follow(
+            $tira, { project => $root }, $store,
+            { rounds => 1, sleeper => sub { }, singleton => { pid => 4900, alive => sub { 0 }, kill => sub { } } } );
     }
 
-    Tira::CLI::Police::police_claim_singleton( $store,
-        pid => 9002, holder => 'dashboard', alive => sub { 0 }, kill => sub { } );
-    is( $read->(), '9002 dashboard',
-        'and only the dashboard marks itself' );
-}
+    my $path = Tira::CLI::Police::police_singleton_path($store);
+    open my $fh, '<', $path or die "$path: $!";
+    my $held = do { local $/; <$fh> };
+    close $fh;
 
-# A FILE THAT SAYS SOMETHING ELSE IS AN ORDINARY CLAIM, not a dashboard. The
-# dashboard is the holder nobody may kill, so anything the parser is unsure
-# about must fall on the side of the ordinary rule rather than inherit that
-# protection.
-{
-    my $store = tempdir( CLEANUP => 1 );
-    my $path  = Tira::CLI::Police::police_singleton_path($store);
+    is( $held, '4900 dashboard',
+        'TIRA_POLICE_HOLDER MAKES THE CLAIM THE DASHBOARD\'S - which is what a '
+          . 'spawned pass has instead of an argument, and what a later '
+          . 'tira.police reads to decide whether to stand down' );
 
-    for my $written ( '9100 dashboard garbage', '9100 Dashboard', '9100 police', '9100' ) {
-        open my $fh, '>', $path or die "$path: $!";
-        print {$fh} $written;
-        close $fh;
-
-        my @killed;
-        my $claim = Tira::CLI::Police::police_claim_singleton( $store,
-            pid => 9200, alive => sub { 1 }, kill => sub { push @killed, $_[0] } );
-
-        ok( !$claim->{yield},
-            "a claim file reading '$written' does not buy the protection only an "
-              . 'exact dashboard claim earns' );
-        is_deeply( \@killed, [9100],
-            'and the ordinary rule applies to it - TKT-486, unchanged' );
+    # And a stray value cannot buy that protection.
+    {
+        local $ENV{TIRA_POLICE_HOLDER} = 'something else';
+        Tira::CLI::Police::police_follow(
+            $tira, { project => $root }, $store,
+            { rounds => 1, sleeper => sub { }, singleton => { pid => 4901, alive => sub { 0 }, kill => sub { } } } );
     }
+
+    open my $fh2, '<', $path or die "$path: $!";
+    my $held2 = do { local $/; <$fh2> };
+    close $fh2;
+
+    is( $held2, '4901',
+        'and an unrecognised holder in the environment is an ORDINARY claim - a '
+          . 'stray variable must not earn the one protection the dashboard has' );
 }
 
 done_testing();

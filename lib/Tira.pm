@@ -8702,6 +8702,50 @@ sub policy_evaluate {
 sub _priority_skipped_exempt {
     my ( $self, $root, $record, $records ) = @_;
     my $type = $record->{type} // 'ticket';
+
+    # A card he handed out, taken from the column that exists to hand it out.
+    #
+    # TKT-383 made a card in the 'next' column outrank everything WHILE IT
+    # WAITS, and work_order's own comment quotes him: "His channel, not the
+    # agent's - you do not add card on it. i will add which cards on it. A card
+    # he moves there must come first, ahead of priority." But this rule judges
+    # the card being WORKED, and taking a card means moving it out of that
+    # column - so the act of obeying him is the act that destroys the evidence
+    # that obeying him was right. It fired three times on correct picks:
+    # VIO-1789 and VIO-1794 in August, escalating to URGENT on the first, and
+    # VIO-2843 against TKT-888 on 2026-09-04.
+    #
+    # THE THIRD DECIDED THE SHAPE OF THIS. The first two were same-priority
+    # complaints, which a tie-break on waiting time could have softened. The
+    # third was a genuine rank inversion - the card left waiting outranked the
+    # one worked - so the fact "he placed this" has to be RECOVERED rather than
+    # inferred from any comparison.
+    #
+    # It is recoverable because the move is journalled. Reading the history
+    # rather than writing a new field is deliberate: a field would have to be
+    # set by every path that moves a card - the CLI, the browser dashboard, the
+    # wizard - and the one that forgot would reproduce this exact bug. The
+    # journal already records every move, by every path, unconditionally. This
+    # project has been bitten by the hand-kept shape twice this week alone.
+    #
+    # The role is read, never a column name: a board may call it anything, and
+    # one that declares no 'next' role at all gets exactly the behaviour it has
+    # today, because there is no column to have come from.
+    #
+    # HERE RATHER THAN IN THE RULE'S OWN LOOP, so a card taken out of turn from
+    # the backlog is still reported. That check is what the rule exists for and
+    # is the one thing this fix must not spend - and a rule falling silent is
+    # invisible, which is why it has its own control in t/526. TKT-760.
+    my $next_column = $self->column_roles( project => $root, type => $type )->{next};
+    if ( defined $next_column && length $next_column ) {
+        my $history = eval {
+            $self->history_list( project => $root, type => $type,
+                ref => $record->{ref}, field => 'column' );
+        } || [];
+        return 1
+          if grep { ( $_->{before} // '' ) eq $next_column } @{$history};
+    }
+
     return 0 if $type eq 'ticket';
     return 0 if defined $record->{assignee} && $record->{assignee} ne '';
     my @open_children = grep {

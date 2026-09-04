@@ -2,6 +2,39 @@ Revision history for Tira
 
 5.44  2026-09-04
 
+    - TKT-894. The Telegram poller is the last repeated process still living
+      inside a session rather than on the board, and two things had to change in
+      it before it could move - both the kind that only appear when a private
+      process becomes a shared one.
+
+      Its output carried a reply hint on every message: a shell command naming a
+      venv python, a reply script, a chat id and a message id. Harmless while one
+      session read its own process's output; on the police bridge it would put a
+      command line into a stream other agents and other boards read, when the ids
+      are on the event already. Michael's ruling, Q-116: "Keep it in bot.log for
+      you, strip it from what reaches the bridge - both, since the log is yours
+      and the bridge is shared." The poller now writes two sinks, through one
+      emit point so the media path cannot be fixed while the text path is
+      forgotten.
+
+      And its log WAS stdout, by shell redirection. Once the process writes the
+      log itself that redirect has to go, or every line lands twice - asserted
+      rather than left as a thing to remember.
+
+      The cutover is not a code step and is not done: Telegram allows one
+      getUpdates consumer per token, so the running poller must stop as the
+      monitor starts, and a message sent in that window can land in either. It is
+      timed by the person whose messages they are.
+
+      Documented in SKILLS.md beside the jobs table, and in docs/POLICIES.md as
+      guidance to declare monitor-silent BEFORE owning a poller - it is the only
+      rule that separates a process which is up but wedged from one with nothing
+      to say.
+
+      The poller lives in a directory that is not a git repository, so this
+      entry is the only place in this repo that records the change to it. Its
+      own test is ~/projects/skills/tg/t/test_hint_off_the_bridge.py.
+
     - TKT-760. priority-skipped reported a card as worked out of turn whenever it
       came from the column the owner uses to hand out work. TKT-383 makes a card
       sitting in that column outrank everything WHILE IT WAITS, but this rule

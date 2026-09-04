@@ -607,6 +607,16 @@ bridge log — outside the project entirely.
 `--age` means knowing how long a push actually takes here, because a grace
 shorter than the gate reports a push that is already running.
 
+**Declare `monitor-silent` before you own a poller, not after.** It reads the
+`--expect-every` a monitor declares, and it is the only rule that separates a
+process which is *up but wedged* from one that simply has nothing to say —
+`monitor-dead` sees a process that is **gone**, `monitor-output` carries a
+running one's **words**, and a stuck poll loop is neither. This board declared it
+on 2026-09-04 while preparing to move the Telegram poller onto a board monitor
+(TKT-894), which is the right order: the rule that catches the new failure mode
+should be in place before the failure mode can happen, not added after the first
+silence nobody noticed.
+
 A note for anyone declaring `checklist-unmoved` or `checklist-idle`: the
 engine's checklist counts are case-insensitive, and since 4.66 so is every
 comparison the push gate makes against them.

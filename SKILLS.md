@@ -3020,6 +3020,38 @@ used to be an arrangement inside one agent's session, and an arrangement nobody
 can see is one nobody can check. A reader can now compare this table against
 `d2 tira.job.list` rather than taking a number on trust.
 
+**The last in-session monitor, and what it takes to move it (TKT-894, 5.44).**
+The Telegram poller is the one repeated process still living inside a session
+rather than on the board. Everything it needs now exists — `--schedule monitor`
+for a long-running process, `--expect-every MINUTES` so a poller that is *up but
+wedged* is distinguishable from a quiet channel, and `--restart-every SECONDS`.
+`monitor-silent` is the rule that reads the first of those, and a board about to
+own a poller should declare it: `monitor-dead` sees a process that is **gone**,
+`monitor-output` carries a running one's **words**, and a stuck `getUpdates`
+loop is neither.
+
+Two things had to change in the poller itself, and both are the kind that only
+show up once a private process becomes a shared one.
+
+Its output carried a **reply hint** — a shell command naming a venv python, a
+reply script, a chat id and a message id — appended to every message. Harmless
+while one session read its own process's output; on the bridge it would put a
+command line into a stream other agents and other boards read, when the ids are
+on the event already. Michael's ruling (Q-116): *"Keep it in bot.log for you,
+strip it from what reaches the bridge — both, since the log is yours and the
+bridge is shared."* So the poller now writes two sinks: the whole block to a log
+it opens itself, and the block without the hint to stdout, which is what a
+monitor feeds the bridge.
+
+And its log **was** stdout, by shell redirection. Once the process writes the log
+itself, that redirect has to go or every line lands twice — a detail worth
+stating because it is invisible until the day it doubles a bridge.
+
+**The cutover is not a code step.** Telegram allows one `getUpdates` consumer per
+token, so the running poller must stop as the monitor starts, and a message sent
+in that window can land in either. It is timed by the person whose messages they
+are, not by the agent doing the migration.
+
 One route, two verbs. `job_save` used to die without an id and only ever call
 `job_update`; it now dispatches on whether the payload names a job - no id
 means `job_add`. Adding a `job_create` provider instead would have meant

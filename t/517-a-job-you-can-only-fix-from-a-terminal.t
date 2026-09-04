@@ -488,6 +488,28 @@ sub board {
     # off the end of the day names.
     is( Tira::Job::job_schedule_words('0 9 * * 8'), '0 9 * * 8',
         'a day-of-week that is not a day is left alone' );
+
+    # THE TWO REMAINING WAYS OUT, both of them refusals, and both found by
+    # gate-run rather than by me: it held Job.pm at 99.3% and named these two
+    # lines. A function whose main promise is what it DECLINES to say had two
+    # declining paths no test had ever taken - which is the same shape as the
+    # provider that was counted and never called, one file along.
+    #
+    # A list or a range in the minute, with the hour left open: neither is
+    # "every N minutes" and neither is a single minute past the hour.
+    for my $cron ( '1,2 * * * *', '1-5 * * * *' ) {
+        is( Tira::Job::job_schedule_words($cron), $cron,
+            "'$cron' is left alone - a list and a range are not a step, and "
+              . 'describing either as one would be the nearly-right phrase this '
+              . 'function exists to refuse' );
+    }
+
+    # And an hour that is not a plain hour, which is the last door out.
+    for my $cron ( '0 */2 * * *', '0 9-17 * * *' ) {
+        is( Tira::Job::job_schedule_words($cron), $cron,
+            "'$cron' is left alone - the hour is a step or a range, so there is "
+              . 'no single time of day to name' );
+    }
 }
 
 # --- and the row carries them, so the page renders rather than interprets ----

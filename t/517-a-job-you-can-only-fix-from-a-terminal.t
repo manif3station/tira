@@ -231,6 +231,81 @@ sub board {
     }
 }
 
+# --- AND THEY ARE CALLED, NOT MERELY COUNTED ---------------------------------
+#
+# The block above asserts three coderefs exist. That is exactly the mistake this
+# project has made before and gate-run caught by coverage: a refusal naming a
+# command nobody had routed, with fifteen assertions passing because every one of
+# them called the engine sub from Perl instead of the thing being claimed.
+#
+# Asserting a provider EXISTS is not exercising it. So each one is called here
+# against a real child process, and the assertions are about what happened to
+# that process rather than about the shape of a hash.
+
+{
+    my ( $tira, $root ) = board();
+    my %provider = Tira::CLI::Browser::providers( tira => $tira, project => $root );
+
+    my $job = $tira->job_add(
+        project => $root, schedule => 'monitor', command => 'sleep 60' );
+
+    # STARTED THROUGH THE PROVIDER, which is the path the row's button takes.
+    my $answer = $provider{job_start}->( { id => $job->{id} } );
+
+    # non-empty is the whole claim: an encode that returned nothing would make
+    # the assertions below fail for a reason that is not this feature.
+    like( $answer // '', qr/\S/, 'the start provider answered the page' );
+
+    my ($running) = grep { $_->{id} eq $job->{id} }
+      @{ $tira->job_list( project => $root ) };
+
+    ok( $running && $running->{pid},
+        'STARTING FROM THE PAGE RECORDS A PID - the button does what the play '
+          . 'button does, through the same executor, rather than a second spawn '
+          . 'written beside it' );
+
+    my $pid = ( $running || {} )->{pid};
+    ok( $pid && kill( 0, $pid ),
+        'and the process it names is really there - a recorded pid nothing is '
+          . 'running is the state this whole epic exists to remove' );
+
+    # STOPPED THROUGH THE PROVIDER. A made-up pid would cover these lines and
+    # prove nothing about whether the signal lands.
+    $provider{job_stop}->( { id => $job->{id} } );
+
+    my ($stopped) = grep { $_->{id} eq $job->{id} }
+      @{ $tira->job_list( project => $root ) };
+
+    ok( !( $stopped || {} )->{pid},
+        'stopping from the page clears the pid, so the board stops pointing at '
+          . 'a process it no longer claims' );
+
+    # Reaped rather than assumed gone: waitpid confirms it ended AND keeps a
+    # zombie out of the harness.
+    waitpid $pid, 0 if $pid;
+    ok( !kill( 0, $pid ),
+        'AND THE PROCESS IS ACTUALLY GONE. The engine clears the record and the '
+          . 'CLI signals, in that order - a provider that called the engine sub '
+          . 'alone would pass every assertion above this one and leave the '
+          . 'process running' );
+}
+
+# --- an id is required, and saying so is the provider's own job --------------
+
+{
+    my ( $tira, $root ) = board();
+    my %provider = Tira::CLI::Browser::providers( tira => $tira, project => $root );
+
+    for my $name (qw(job_delete job_stop job_start)) {
+        # any failure is what this means: the only intended way for this call to
+        # fail is the refusal being asserted, and a call that failed some other
+        # way is equally a provider that did not answer a payload with no id.
+        my $ok = eval { $provider{$name}->( {} ); 1 };
+        ok( !$ok, "$name refuses a payload with no id rather than acting on "
+              . 'whatever undef resolves to' );
+    }
+}
+
 # --- deleting from the page, and the refusal it has to carry -----------------
 
 {

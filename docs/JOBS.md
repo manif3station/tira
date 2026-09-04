@@ -456,10 +456,23 @@ checkbox that ticked and a seconds field that took a number, and the save died o
 it. It is now a **monitor** in command mode or nothing, which is exactly the set
 `_job_fields` accepts. Hidden rather than disabled, for 5.46's reason rather than
 the schedule box's: the box is disabled-with-a-reason because the form should
-keep its shape, and a control whose only possible answer is *no* is not shape. The
-save needed no change — it already asked whether the row was in play, so a cron
-job sends no interval at all rather than a null, and a monitor switched to cron
-keeps what it declared instead of having it quietly cleared. TKT-911.
+keep its shape, and a control whose only possible answer is *no* is not shape.
+TKT-911.
+
+**A hidden row sends an explicit null**, and that is the half worth reading twice.
+`job_update` validates the job as it *would* be, merging any field the payload
+does not mention with what the record already holds — deliberately, so an edit
+naming only the command cannot drop how often a monitor said it would speak. The
+save used to skip a field whose row was hidden, on the mirror-image reasoning.
+Together those two make hiding a row dangerous rather than tidy: a monitor with an
+interval, switched to cron, sent no interval, had its own merged back in, and was
+refused for holding one — a save that fails over a control that is no longer on
+screen, where before it could at least be unticked. The expectation row had that
+fault from the day it was written, since it has always been hidden for a cron job:
+a monitor that declared how often it speaks could not be turned into a cron job
+from this page at all. Both send null now. Hidden means exactly *the engine
+refuses this field for this kind*, so null is the only legal value and clearing it
+cannot take away anything that was allowed to stay.
 
 Unticking it *removes* the interval rather than leaving the old one
 in place, and clearing the expectation field removes the expectation - the form

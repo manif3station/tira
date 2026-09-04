@@ -28,7 +28,15 @@
 # words about the Command radio - a control with only one possible answer is not
 # shape, it is noise. A loop interval on a cron job has one possible value.
 #
-# WRITTEN RED.
+# AND HIDING A ROW IS NOT THE WHOLE OF IT, which the first version of this file
+# missed and the card's own walkthrough caught. The save skipped a field whose
+# row was hidden, and job_update merges what a payload does not mention with
+# what the record holds - so a monitor with an interval, switched to cron, had
+# its own interval merged back in and refused. Hiding the row took away the
+# untick that used to be the way out. The engine section below measures that on
+# a real board before the assertions about the save are made.
+#
+# WRITTEN RED, twice.
 
 use strict;
 use warnings;
@@ -90,6 +98,78 @@ my ( $tira, $root );
           . 'card is about where it is shown and not about removing it' );
 }
 
+# --- and what happens when a monitor is turned into a cron job ----------------
+#
+# THE CARD'S OWN TEST STEP, walked against the engine: "set restart-every on a
+# monitor, switch the schedule to cron, and confirm the control cannot be set".
+# It is the half that hiding a row does not answer by itself, and it is where
+# the first version of this fix made things WORSE than it found them.
+#
+# job_update validates the job as it WOULD be, merging what the payload does not
+# mention with what the record already holds. That is deliberate and right - an
+# edit naming only the command must not silently drop how often a monitor said
+# it would speak. But the save omits a field whose row is hidden, on the same
+# "absent means leave it alone" reasoning, and the two together turn "the user
+# cannot set it" into "the stored value is carried into a kind that refuses it".
+
+my $switching = $tira->job_add( project => $root, schedule => 'monitor',
+    command => 'a-third-poller', restart_every => 5, expect_every => 10,
+    author => 'claude' );
+
+is( $switching->{restart_every}, 5, 'a monitor with an interval' );
+is( $switching->{expect_every},  10, 'and an expectation - the control, since '
+      . 'both are about to be carried across a kind change' );
+
+{
+    my $saved = eval {
+        $tira->job_update( project => $root, id => $switching->{id},
+            schedule => '0 * * * *', author => 'claude' );
+    };
+    my $why = $@ // '';
+
+    like( $why, qr/nothing to restart/,
+        'A PAYLOAD THAT MENTIONS ONLY THE SCHEDULE IS REFUSED, which is exactly '
+          . 'what the editor sends once the loop row is hidden. The interval is '
+          . 'merged from the record into a cron job and the engine will not '
+          . 'have it - so the save fails over a control that is no longer on '
+          . 'screen, and before this card it could at least be unticked' );
+
+    ok( !$saved, 'and nothing was written' );
+}
+
+{
+    my $saved = eval {
+        $tira->job_update( project => $root, id => $switching->{id},
+            schedule => '0 * * * *', restart_every => undef, author => 'claude' );
+    };
+    my $why = $@ // '';
+
+    like( $why, qr/no heartbeat to miss/,
+        'AND THE SAME TRAP IS ALREADY THERE ON THE OTHER FIELD. expectRow has '
+          . 'always been hidden for a cron job, so a monitor with an '
+          . 'expectation could never be turned into one from the page at all - '
+          . 'it died here before this card existed. One mechanism, used twice' );
+
+    ok( !$saved, 'and nothing was written for that one either' );
+}
+
+{
+    my $saved = eval {
+        $tira->job_update( project => $root, id => $switching->{id},
+            schedule => '0 * * * *', restart_every => undef,
+            expect_every => undef, author => 'claude' );
+    };
+
+    is( ( $saved || {} )->{schedule_kind}, 'cron',
+        'WITH BOTH SENT AS EXPLICIT NULLS THE SAVE GOES THROUGH - so what the '
+          . 'page owes is a null rather than a silence. Hidden means precisely '
+          . '"the engine refuses this field for this kind", which is why '
+          . 'clearing it cannot wipe anything that was allowed to stay' );
+
+    is( ( $saved || {} )->{restart_every}, undef, 'the interval is cleared' );
+    is( ( $saved || {} )->{expect_every},  undef, 'and so is the expectation' );
+}
+
 # --- the editor ---------------------------------------------------------------
 #
 # Source-read, the way t/500, t/508, t/510, t/517, t/528, t/530 and t/533 all
@@ -148,15 +228,44 @@ like( $apply // '', qr/looping\s*=[^\n;]*!modeMessage\.checked/,
 
 # The row must be HIDDEN rather than removed, for the same reason TKT-912 gave
 # about the mode radios: the save path reads the controls inside it.
-like( $editor, qr/if\s*\(\s*!loopRow\.hidden\s*\)/,
-    'and the save still asks whether the row is in play before sending an '
-      . 'interval - which is what makes hiding it sufficient: a cron job stops '
-      . 'sending restart_every at all rather than sending a null the engine '
-      . 'would have to forgive' );
-
 like( $editor, qr/loopBox\.checked\s*\?\s*Number\(\s*loopEvery\.value\s*\)/,
     'and the controls themselves still exist to be read on save - hiding a row '
       . 'must not become deleting what the payload is built from' );
+
+# --- and the save says so out loud --------------------------------------------
+#
+# The other half of the fix, and the half the first version of this card got
+# wrong. The engine calls above prove that omitting these fields is not
+# neutral: the record's own value is merged in and refused. So a hidden row
+# must send an explicit null.
+
+my ($save) = $editor =~ /(const \s payload \s* = .*? \n \s{4} \})/xs;
+
+ok( defined $save && length $save,
+    'the save payload was extracted - the region that decides which fields go '
+      . 'to the engine at all' );
+
+like( $save // '', qr/loopRow\.hidden\s*\n?\s*\?\s*null/,
+    'A HIDDEN LOOP ROW SENDS NULL RATHER THAN NOTHING. Today the save skips the '
+      . 'field entirely when the row is out of play, and job_update then merges '
+      . 'the stored interval into a cron job and refuses it - a failure about a '
+      . 'control the user cannot see, where before this card they could at '
+      . 'least untick it' );
+
+like( $save // '', qr/expectRow\.hidden\s*\n?\s*\?\s*null/,
+    'AND SO DOES A HIDDEN EXPECTATION ROW. That row has been hidden for a cron '
+      . 'job since it was written, so a monitor that declared how often it '
+      . 'speaks could never be turned into a cron job from the page at all. '
+      . 'Same mechanism, same fix, and fixing only the loop half would leave a '
+      . 'form that still cannot make the change' );
+
+like( $save // '', qr/loopBox\.checked\s*\?\s*Number/,
+    'and a row that IS in play still sends what the controls hold, ticked or '
+      . 'unticked - the null is what hidden means, not what the field is worth' );
+
+like( $save // '', qr/expectField\.value\s*===\s*""\s*\?\s*null/,
+    'with an empty expectation still meaning no expectation rather than zero, '
+      . 'which is his Q-115 answer and is untouched by any of this' );
 
 done_testing();
 
@@ -186,6 +295,15 @@ that C<looping> tests the kind, that it B<still> tests the mode - a fix reduced
 to the kind alone would offer the row on a cron message job, which the engine
 refuses for its own separate reason - and that the row is hidden rather than
 removed, since the save path reads the controls inside it.
+
+Then B<what hiding a row obliges the save to do>, which is the half the first
+version of this fix got wrong. C<job_update> validates the job as it I<would>
+be, merging fields the payload does not mention with what the record holds - so
+omitting a hidden field carries a stored interval into a cron job, where the
+engine refuses it. The save must send an explicit C<null>. That is asserted for
+B<both> rows: the expectation row has been hidden for a cron job since it was
+written, so a monitor that declared how often it speaks could never be turned
+into a cron job from the page at all.
 
 =head1 WHAT IS NOT ASSERTED, AND WHY
 

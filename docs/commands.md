@@ -4012,6 +4012,17 @@ reader never has to infer it from whichever field is populated.
     edit leave a monitor's declared expectation untouched while unticking the
     box actually removes the interval.
 
+    **And since 5.52 a hidden row sends null too**, which is not the same
+    statement. `job_update` validates the job as it *would* be, merging any
+    field the payload does not mention with the record's own value; the save
+    used to skip a field whose row was hidden. So a monitor with an interval,
+    switched to cron, sent no interval, had its own merged back in, and was
+    refused for holding one — a failure about a control that is no longer on
+    screen. The expectation row had that fault from the day it was written,
+    having always been hidden for a cron job. Hidden means precisely *the engine
+    refuses this field for this kind*, so null is the only legal value there and
+    clearing it cannot remove anything that was allowed to stay (TKT-911).
+
     The schedule shows as words on the card face — `Every 30 minutes`, `Every
     day at 09:00`, `Runs continuously`, and since 5.50 hour steps, ranges and
     lists (`Every 2 hours, on the hour`, `Every hour from 09:00 to 17:00`, `At

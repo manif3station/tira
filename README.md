@@ -376,7 +376,11 @@ keep it above about two seconds, or the output collector's quiet window never
 elapses and a healthy monitor looks silent. That checkbox is offered **only for
 a monitor** since 5.52 — it used to appear on any command job, so a cron job
 carried a control the save then refused, since restarting belongs to something
-that stays up rather than firing on a tick.
+that stays up rather than firing on a tick. A row that is hidden sends an
+explicit null rather than nothing, which is what lets a monitor with an interval
+or an expectation be turned into a cron job at all: the engine merges a field the
+save does not mention, so silence there meant carrying a value into a kind that
+refuses it.
 
 **Save comes back when the schedule has been checked (5.46).** The button is
 disabled while the form asks the server whether the schedule parses, and

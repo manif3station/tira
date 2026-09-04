@@ -2690,9 +2690,23 @@ tests the kind **and keeps both mode terms**, because the kind alone would leave
 the row on a cron *message* job, which is refused for the other reason entirely.
 This is the same exception TKT-912 drew above rather than a new one: hidden, not
 disabled, because a control with one possible answer is noise rather than shape.
-The save path was already right — `if (!loopRow.hidden)` means a cron job now
-sends no `restart_every` key rather than a null, so switching a monitor to cron
-leaves its stored interval alone instead of clearing it. TKT-911.
+TKT-911.
+
+**And hiding a row changed what omitting a field means, which the card's own
+walkthrough caught after the first fix was written.** `job_update` validates the
+job as it *would* be, merging any field the payload does not mention with what
+the record already holds — deliberately, so an edit naming only the command
+cannot drop how often a monitor said it would speak. The save skipped a field
+whose row was hidden, on the mirror-image reasoning. Each is right alone and
+together they made a save impossible: a monitor with an interval, switched to
+cron, sent no interval, had its own merged back in, and was refused for holding
+one — over a control no longer on screen, where before the fix it could at least
+be unticked. That is a regression the fix introduced, and the expectation row had
+the same fault from the day it was written, having always been hidden for a cron
+job. Both fields now send an explicit null when their row is hidden. **Hidden
+means exactly "the engine refuses this field for this kind"**, so null is the only
+legal value and clearing it cannot take away anything that was allowed to stay —
+which is the property the omit-when-hidden guard was there to protect.
 
 **The schedule reads as words**, produced by `Tira::Job::job_schedule_words` and
 carried on the row, with the cron kept as the tooltip. In the engine rather than

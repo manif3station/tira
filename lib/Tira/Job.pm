@@ -1430,6 +1430,14 @@ and the save answered with the refusal above. The page is not the authority for
 that - this sub is - but a form that offers what the save rejects teaches
 somebody the rule by failing at them. TKT-911.
 
+B<And hiding a control is not enough on its own, because C<job_update> merges.>
+It validates the job as it I<would> be, so a field the payload does not mention
+keeps the record's own value - which is what stops an edit naming only the
+command from dropping a monitor's declared expectation. A form that hides a row
+and therefore stops sending the field hands this sub the stored value against the
+new kind, and gets the refusal above for something nobody can see. The editor
+sends an explicit null for a hidden row for that reason.
+
 =head1 A COMMAND IS A PROGRAM AND ITS ARGUMENTS
 
 C<job_command_words> turns a job's stored command into the list a process is

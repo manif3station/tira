@@ -1721,13 +1721,19 @@ d2 tira.comment.list --ref TKT-001 --status done   # refused
 `--status` is parsed in the global option table, so **every** command in the
 tool accepts it and nine of them read it. A sweep of all twenty `*.list`
 entrypoints, run against a board carrying two items of differing status in
-every list that has one, found fifteen that took the option with no status
+every list that has one, found sixteen that took the option with no status
 field to act on — `assign.list`, `attachment.list`, `column.list`,
 `comment.list`, `conversation.list`, `evidence.list`, `gate.list`,
-`history.list`, `job.list`, `link.list`, `policy.list`,
+`history.list`, `job.list`, `link.list`, `notify.list`, `policy.list`,
 `project.link-types.list`, `project.people.list`, `record.list` (what
 `ticket.list`, `epic.list` and `sow.list` all reach) and `warning.list`. Those
 are refused now.
+
+`notify.list` is sixteenth rather than fifteenth because the sweep could not
+measure it: nothing in the fixture produces a notification, so it came back
+empty, and an empty list says nothing about whether a filter works. It was
+settled by reading `notification_list` instead, which returns `ref`, `column`
+and `at` — no status to filter on.
 
 **Where a list does have a status, the answer was to make it filter, not to
 refuse it.** Michael's answer to Q-113 on TKT-748: "if `--status` goes with

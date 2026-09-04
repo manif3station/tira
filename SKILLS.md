@@ -229,9 +229,11 @@ global option table, so every command in the tool accepts it and only the nine
 that read it honour it; a sweep of all twenty `*.list` entrypoints found
 `checklist.list` was the one list with a status field that did not — `--status
 done` returned every item, in a shape indistinguishable from a filtered answer,
-and exited 0. The same sweep found fifteen lists taking `--status` with no
+and exited 0. The same sweep found sixteen lists taking `--status` with no
 status field at all, and those are refused now, `question.ask` and
-`question.update` with them.
+`question.update` with them. Fifteen were measured; `notify.list` came back
+empty in the fixture and was settled by reading `notification_list`, which
+returns `ref`, `column` and `at` and has no status to filter on.
 
 The filter went in the engine and the refusal in the option parser, and the
 split is deliberate: the browser dashboard reads the checklist through a

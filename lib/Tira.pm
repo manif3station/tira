@@ -2993,6 +2993,40 @@ sub _require_link_arguments {
 sub link_add {
     my ( $self, %args ) = @_;
     $self->_require_link_arguments( 'link.add', %args );
+
+    # A relation needs two records.
+    #
+    # Both ends naming one card was accepted and stored, and with a directional
+    # type it recorded the OPPOSITE of what was asked for. The reason is four
+    # lines below: _record_data is called twice, and when from and to are the
+    # same ref it hands back two separate in-memory copies of one record. The
+    # forward type is pushed onto one copy, the reciprocal onto the other, and
+    # whichever is written last wins - so `A blocks A` comes back as
+    # `A is blocked by A`, silently.
+    #
+    # REFUSING REMOVES THE OVERWRITE RATHER THAN CORRECTING IT. There is no
+    # other way for both writes to land on one record, so the case that produced
+    # the wrong answer can no longer be created; guarding it further down would
+    # be writing code for a state nothing can reach.
+    #
+    # Here rather than in the CLI, because three callers reach this sub - the
+    # link.add verb, the browser dashboard's /link/add route, and a direct
+    # engine call. A check in the dispatch layer would leave the browser writing
+    # what the CLI refuses, which is how the engine and the browser came to
+    # disagree about attachment content types on TKT-713.
+    #
+    # Before the project lock: the comparison needs no record, and a refusal
+    # that took a lock first would serialise callers behind a call that was
+    # never going to write.
+    #
+    # The message names the record because a caller who reaches it has pasted
+    # one ref twice and needs to see which. TKT-762.
+    die "A card cannot be linked to itself - '$args{from}' is both ends of "
+      . "this link\n"
+      if defined $args{from}
+      && defined $args{to}
+      && $args{from} eq $args{to};
+
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         my ( $from_path, $from ) = $self->_record_data( project => $root, ref => $args{from} );

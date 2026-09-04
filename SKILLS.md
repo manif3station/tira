@@ -2687,14 +2687,26 @@ selected values are all equal **including the wrap**, which is the half
 divisibility could not see — `0-20/2` has two between every pair and four from 20
 back to 0.
 
-**Three things it still refuses**, each because the sentence would not be exactly
-true or would not be readable: both day fields restricted (cron **ORs** them, so
-`0 0 1 * 1` fires on the 1st *and* every Monday and no short phrasing says that);
-a list longer than six; and a step that selects a single value, since `*/60` fires
-at minute 0 alone and describing it smooths over what is almost certainly a typo.
-An *uneven* step is listed rather than refused — `0 */5 * * *` reads *At 00:00,
-05:00, 10:00, 15:00 and 20:00*, exactly right where *every 5 hours* would be
-nearly right. TKT-917.
+**Nothing renders as raw cron.** That is his answer to Q-119 — *"describe
+everything, marking the approximate ones as approximate"* — and it replaced the
+rule this function had followed since it was written. The old rule protected a
+reader from a **confident** sentence that is false; a sentence opening with
+*About*, saying what makes it inexact, is not confident, so the premise is gone
+rather than the reasoning being wrong.
+
+```
+*/7 * * * *        ->  About every 7 minutes (restarts each hour)
+23 0-20/2 * * *    ->  About every 2 hours from 00:23 to 20:23 (restarts each day)
+*/60 * * * *       ->  Every hour, on the hour
+0 0 1 * 1          ->  At 00:00 on the 1st of each month, and also every Monday
+```
+
+The mark is for **inexactness, not complexity** — `*/60` fires at minute 0 alone,
+so that phrase is exact and is said plainly — and it **carries its reason**,
+because *About every 7 minutes* alone is a hedge while the bracket makes it an
+explanation. The day-field OR is **stated rather than marked**, the one place his
+instruction is not followed literally: it is exact and surprising, not imprecise,
+and *and also* is the only phrasing that cannot be read as an AND. TKT-917.
 
 **And a looping monitor says so, since 5.49.** `job_schedule_words` takes the
 restart interval as an optional second argument and answers *Runs continuously,

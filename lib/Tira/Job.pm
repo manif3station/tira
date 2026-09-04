@@ -834,6 +834,48 @@ sub _ordinal {
 # divisibility test it replaces: it answers for ranges and lists too, and it
 # includes the WRAP - the gap from the last value back to the first - which is
 # exactly where */7 stops being every-seven.
+# WHAT MAKES A DESCRIPTION APPROXIMATE, said in the description itself. His
+# answer to Q-119: "Describe everything, marking the approximate ones as
+# approximate - e.g. 'About every 7 minutes (restarts each hour)'".
+#
+# The mark and the REASON travel together on purpose. "About every 7 minutes" on
+# its own is a hedge; with "(restarts each hour)" it is an explanation, and a
+# reader who needs the exact firing times knows where the imprecision is.
+# " every Monday", " every weekday", " every weekend day" - or undef when the
+# field selects no day or all of them, which is not a restriction worth wording.
+sub _weekday_phrase {
+    my ($selected) = @_;
+    # 7 IS SUNDAY AS WELL AS 0, which is standard cron.
+    my %once;
+    my @day = sort { $a <=> $b }
+      grep { !$once{$_}++ } map { $_ == 7 ? 0 : $_ } @{$selected};
+    return undef if @day == 0 || @day == 7;
+    return ' every weekday'     if @day == 5 && "@day" eq '1 2 3 4 5';
+    return ' every weekend day' if @day == 2 && "@day" eq '0 6';
+    return ' every ' . _and_list( map { $DAY[$_] } @day );
+}
+
+# " on the 1st of each month", " on 1 January", " every day in March"
+sub _monthday_phrase {
+    my ( $dom, $mon, $values ) = @_;
+    my @date  = @{ $values->{'day of month'} };
+    my @month = @{ $values->{month} };
+    return undef if !@date || !@month;
+
+    my $which = $dom eq '*' ? '' : _and_list( map { _ordinal($_) } @date );
+    return " on the $which of each month" if $mon eq '*';
+    return ' every day in ' . _and_list( map { $MONTH[ $_ - 1 ] } @month )
+      if $dom eq '*';
+    my $phrase = " on $which " . _and_list( map { $MONTH[ $_ - 1 ] } @month );
+    $phrase =~ s/(\d+)(?:st|nd|rd|th)/$1/g;
+    return $phrase;
+}
+
+sub _about {
+    my ( $phrase, $why ) = @_;
+    return "About $phrase ($why)";
+}
+
 sub _even_step {
     my ( $values, $size ) = @_;
     return undef if @{$values} < 2;
@@ -889,9 +931,12 @@ sub job_schedule_words {
     # THE OR TRAP, AND IT IS THE ONE THING IN CRON MOST OFTEN GOT WRONG. When
     # BOTH day fields are restricted cron ORs them: "0 0 1 * 1" fires on the 1st
     # of the month AND on every Monday, not on Mondays that fall on the 1st.
-    # Every short English phrasing reads as an AND, so there is none that is not
-    # wrong, and this sub does not write sentences that are not right. TKT-917.
-    return $schedule if $dom ne '*' && $dow ne '*';
+    #
+    # IT IS DESCRIBED RATHER THAN REFUSED, on his answer to Q-119 - and NOT
+    # marked "About", because it is not approximate. It is exact and surprising,
+    # and a hedge would describe the wrong difficulty. What it needs is the OR
+    # said outright, which "and also" does and no shorter phrasing does. TKT-917.
+    my $both_days = $dom ne '*' && $dow ne '*';
 
     # THE EXPANDER THIS MODULE ALREADY HAS, not a second one. _cron_field_values
     # and %CRON_FIELDS have parsed every cron field since _cron_parse was
@@ -917,58 +962,30 @@ sub job_schedule_words {
     my $minutes = $values{minute};
     my $hours   = $values{hour};
 
-    # A STEP THAT SELECTS ONE VALUE IS A TYPO, NOT A SCHEDULE. */60 and */61 on
-    # minutes both expand to minute 0 alone, and "Every hour, on the hour" would
-    # be exactly TRUE of them - but somebody who typed */61 meant something else,
-    # and smoothing a typo into a confident sentence is how it never gets found.
-    # t/517 made this decision after a reviewer found the >= 60 half; it applies
-    # to hours for the same reason, so the two fields do not disagree.
-    #
-    # Only the collapse is refused. An uneven step that selects several values -
-    # */5 on hours, at 0,5,10,15,20 - is listed further down, which is exactly
-    # right where "every 5 hours" would not be.
-    for my $pair ( [ $field[0], $minutes, 60 ], [ $field[1], $hours, 24 ] ) {
-        my ( $text, $set, $size ) = @{$pair};
-        next if $text !~ m{\A\*/[0-9]+\z};
-        return $schedule if @{$set} < 2;
-    }
 
     # WHICH DAYS, as a phrase appended to whatever the time reads as. Empty when
     # the schedule runs every day, which is the common case and needs no words.
     my $on_day = '';
-    if ( $dow ne '*' ) {
-        # 7 IS SUNDAY AS WELL AS 0, which is standard cron.
-        my %once;
-        my @day = sort { $a <=> $b }
-          grep { !$once{$_}++ } map { $_ == 7 ? 0 : $_ }
-          @{ $values{'day of week'} };
+    my $also   = '';
+    if ( $both_days ) {
+        # Both halves, joined by "and also" - the one phrasing that cannot be
+        # read as an AND of the two conditions.
+        $also = _weekday_phrase( $values{'day of week'} );
+        return $schedule if !defined $also;
+        my $dates = _monthday_phrase( $dom, $mon, \%values );
+        return $schedule if !defined $dates;
 
-        return $schedule if @day == 0 || @day == 7;
-        if ( @day == 5 && "@day" eq '1 2 3 4 5' ) {
-            $on_day = ' every weekday';
-        }
-        elsif ( @day == 2 && "@day" eq '0 6' ) {
-            $on_day = ' every weekend day';
-        }
-        else {
-            $on_day = ' every ' . _and_list( map { $DAY[$_] } @day );
-        }
+        # "and also" rather than "and", because "and" reads as an AND of the two
+        # conditions - which is the misreading this whole branch exists to stop.
+        $on_day = "$dates, and also$also";
+    }
+    elsif ( $dow ne '*' ) {
+        $on_day = _weekday_phrase( $values{'day of week'} );
+        return $schedule if !defined $on_day;
     }
     elsif ( $dom ne '*' || $mon ne '*' ) {
-        my @date  = @{ $values{'day of month'} };
-        my @month = @{ $values{month} };
-
-        my $which = $dom eq '*' ? '' : _and_list( map { _ordinal($_) } @date );
-        if ( $mon eq '*' ) {
-            $on_day = " on the $which of each month";
-        }
-        elsif ( $dom eq '*' ) {
-            $on_day = ' every day in ' . _and_list( map { $MONTH[ $_ - 1 ] } @month );
-        }
-        else {
-            $on_day = " on $which " . _and_list( map { $MONTH[ $_ - 1 ] } @month );
-            $on_day =~ s/(\d+)(?:st|nd|rd|th)/$1/g;
-        }
+        $on_day = _monthday_phrase( $dom, $mon, \%values );
+        return $schedule if !defined $on_day;
     }
 
     # --- and now the time of day ---------------------------------------------
@@ -988,8 +1005,16 @@ sub job_schedule_words {
     if ( @{$minutes} > 1 ) {
         return $schedule if !$every_hour;
         my $step = _even_step( $minutes, 60 );
-        return $schedule if !$step || $step == 1;
-        return "Every $step minutes$on_day";
+        return "Every $step minutes$on_day" if $step && $step > 1;
+
+        # NOT EVEN, SO IT IS MARKED RATHER THAN REFUSED. His answer to Q-119.
+        # */7 fires at 0,7,...,56 then 0 - a gap of four - so "every 7 minutes"
+        # would be false, and "About every 7 minutes (restarts each hour)" is
+        # true, useful, and says where the imprecision is.
+        if ( $field[0] =~ m{\A\*/([1-9][0-9]*)\z} ) {
+            return _about( "every $1 minutes$on_day", 'restarts each hour' );
+        }
+        return $schedule;
     }
 
     # 0 + it, so a zero-padded field does not leak its padding into the words:
@@ -1035,8 +1060,19 @@ sub job_schedule_words {
     # cron it replaced, and the contract has always been that anything this sub
     # cannot say WELL it returns unchanged.
     if ( @{$hours} > 1 ) {
-        return $schedule if @{$hours} > 6;
-        return 'At ' . _and_list( map { $clock->($_) } @{$hours} ) . $on_day;
+        return 'At ' . _and_list( map { $clock->($_) } @{$hours} ) . $on_day
+          if @{$hours} <= 6;
+
+        # TOO LONG TO READ, SO IT IS MARKED RATHER THAN LEFT AS CRON. Eleven
+        # times in a row is exact and unreadable; "About every 2 hours from
+        # 00:23 to 20:23" is inexact only at the wrap, readable, and honest
+        # because it says so. His answer to Q-119.
+        my $step = _even_step( $hours, 24 );
+        my $gap  = $step || ( $hours->[1] - $hours->[0] );
+        return _about(
+            "every $gap hours from "
+              . $clock->( $hours->[0] ) . ' to ' . $clock->( $hours->[-1] ) . $on_day,
+            'restarts each day' );
     }
 
     my $at = 'at ' . $clock->( $hours->[0] );
@@ -1410,15 +1446,26 @@ B<including the wrap> - the half divisibility could not see, since C<0-20/2> has
 two between every pair and B<four> from 20 back to 0, which is exactly where
 I<every 2 hours> stops being true.
 
-B<Three things it refuses, and each is a decision rather than a gap.> Both day
-fields restricted: cron B<ORs> them, so C<0 0 1 * 1> fires on the 1st I<and> on
-every Monday, and every short English phrasing reads as an AND. A list longer
-than six: exactly right and unreadable is still not worth printing. And a step
-that selects a single value: C<*/60> and C<*/61> fire at minute 0 alone, so
-I<Every hour, on the hour> would be B<true> of them - and whoever typed C<*/61>
-meant something else, so describing it would hide the typo rather than surface
-it. An B<uneven> step is listed instead of refused, because C<At 00:00, 05:00,
-10:00, 15:00 and 20:00> is exactly right where I<every 5 hours> is not. TKT-917.
+B<Nothing comes back as raw cron.> That is his answer to Q-119 - "describe
+everything, marking the approximate ones as approximate" - and it replaced the
+rule this function had followed since it was written. The old rule protected a
+reader from a B<confident> sentence that is false; a sentence opening with
+I<About> and naming what makes it inexact is not confident, so its premise is
+gone rather than its reasoning being wrong.
+
+B<The mark is for inexactness, not for complexity.> C<*/60> fires at minute 0
+alone, so I<Every hour, on the hour> is exactly true and is said plainly - a
+hedge there would spend the reader's attention on a doubt that does not exist.
+
+B<The mark carries its reason.> I<About every 7 minutes> alone is a hedge;
+C<(restarts each hour)> makes it an explanation, and a reader who needs the exact
+firing times knows where the imprecision is.
+
+B<The day-field OR is stated rather than marked>, which is the one place his
+instruction is not followed literally. C<0 0 1 * 1> fires on the 1st I<and> on
+every Monday - exactly, and surprisingly - so I<About> would describe the wrong
+difficulty. It reads I<and also>, the one phrasing that cannot be read as an AND
+of the two conditions. TKT-917.
 
 C<job_schedule_words> takes a schedule and, optionally, a monitor's restart
 interval. B<The second argument is optional and must stay so>: L<Tira::CLI::Browser>

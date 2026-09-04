@@ -465,33 +465,53 @@ if ( ref $made eq 'HASH' && $made->{pid} ) {
             "'$cron' reads as words a person can check at a glance" );
     }
 
-    # THE FALLBACK IS THE IMPORTANT ONE. A description that guesses is worse
-    # than no description: somebody would read the words, believe them, and stop
-    # checking the cron. Anything this cannot describe with certainty comes back
-    # as itself, unchanged.
-    my $odd = '17 3 5,20 */2 1-5';
-    is( Tira::Job::job_schedule_words($odd), $odd,
-        'and a schedule it cannot describe with certainty is returned AS ITSELF '
-          . 'rather than guessed at - a wrong description would be believed, '
-          . 'and then nobody would read the cron again' );
-
-    # A STEP THAT DOES NOT DIVIDE THE HOUR IS NOT "EVERY N MINUTES", and this is
-    # the case that nearly shipped as a lie. Cron restarts the step at the top of
-    # each hour, so */7 fires at 0,7,...,56 and then again at 0 - a gap of four
-    # minutes, not seven. Measured:
-    #   */5  gaps [5 x12]           -> true
-    #   */7  gaps [7 x8, 4]         -> misleading
-    #   */45 gaps [45, 15]          -> misleading
-    #   */60 and above fire at minute 0 only, so the words would be flatly wrong
+    # THE FALLBACK USED TO BE THE IMPORTANT ONE, AND IT IS GONE. This block read
+    # "a description that guesses is worse than no description: somebody would
+    # read the words, believe them, and stop checking the cron. Anything this
+    # cannot describe with certainty comes back as itself, unchanged."
     #
-    # A reviewer found the >= 60 half of this independently; the non-dividing
-    # steps below 60 are the same fault and were fixed with it.
-    for my $step (qw(7 45 60 61)) {
+    # That reasoning is quoted rather than deleted because it was sound, and
+    # because his answer to Q-119 on 2026-09-04 does not contradict it - it
+    # removes its premise: "Describe everything, marking the approximate ones as
+    # approximate - e.g. 'About every 7 minutes (restarts each hour)'".
+    #
+    # The old rule protected a reader from a CONFIDENT sentence that is false. A
+    # sentence that opens with "About" and says what makes it inexact is not
+    # confident, so there is nothing left to protect against - and the reader
+    # gets something instead of a cron string. TKT-917.
+    is( Tira::Job::job_schedule_words('17 3 5,20 */2 1-5'),
+        'At 03:17 on 5 and 20 January, March, May, July, September and November,'
+          . ' and also every weekday',
+        'a schedule that used to come back as itself is now described in full - '
+          . 'exactly, and at length, because it IS exact and there is nothing '
+          . 'to hedge' );
+
+    # A STEP THAT DOES NOT DIVIDE THE HOUR IS STILL NOT "EVERY N MINUTES" - that
+    # part has not changed and is the reason the mark exists. Cron restarts the
+    # step at the top of the hour, so */7 fires at 0,7,...,56 and then again at 0
+    # - a gap of four minutes, not seven. Measured:
+    #   */5  gaps [5 x12]           -> true, and said plainly
+    #   */7  gaps [7 x8, 4]         -> marked
+    #   */45 gaps [45, 15]          -> marked
+    #   */60 and above fire at minute 0 only - which is EXACTLY "every hour, on
+    #        the hour", so it is said plainly rather than marked
+    #
+    # A reviewer found the >= 60 half independently. What changed is the answer,
+    # not the arithmetic.
+    for my $step (qw(7 45)) {
         my $cron = "*/$step * * * *";
-        is( Tira::Job::job_schedule_words($cron), $cron,
-            "'$cron' is NOT described as every $step minutes - the step restarts "
-              . 'at the top of the hour, so the phrase would be believed and '
-              . 'would be wrong' );
+        is( Tira::Job::job_schedule_words($cron),
+            "About every $step minutes (restarts each hour)",
+            "'$cron' is MARKED rather than called every $step minutes - the "
+              . 'step restarts at the top of the hour, so the plain phrase '
+              . 'would be believed and would be wrong' );
+    }
+
+    for my $cron ( '*/60 * * * *', '*/61 * * * *' ) {
+        is( Tira::Job::job_schedule_words($cron), 'Every hour, on the hour',
+            "'$cron' fires at minute 0 alone, so that IS every hour on the hour "
+              . '- and what is exact is not marked, because a hedge would spend '
+              . "the reader's attention on a doubt that does not exist" );
     }
 
     # And a day-of-week outside the range stays undescribed rather than indexing

@@ -389,11 +389,14 @@ restarting 5 seconds after it ends*. Before that the interval appeared nowhere o
 a card, so a monitor that restarts itself and one that runs once read
 identically.
 
-Since 5.50 that covers most of cron: hour steps, ranges and lists, named
-weekdays, days of the month and named months. It refuses three things on purpose
-— both day fields restricted, because cron *ORs* them; a list longer than six;
-and a step selecting a single value, because `*/60` fires at minute 0 alone and
-describing it would hide a typo.
+Since 5.50 that covers all of cron: hour steps, ranges and lists, named weekdays,
+days of the month and named months, and **nothing is left as raw cron**. Anything
+it cannot say exactly is marked and says why — *About every 7 minutes (restarts
+each hour)*. What is exact is said plainly, so `*/60` reads *Every hour, on the
+hour* without a hedge. And when both day fields are set, cron *ORs* them, so
+`0 0 1 * 1` reads *At 00:00 on the 1st of each month, and also every Monday* —
+stated rather than hedged, because that is exact and surprising rather than
+imprecise.
 
 The schedule shows as words — *Every 30 minutes*, *Every day at 09:00*, *Runs
 continuously* — with the cron string kept as the tooltip. The words are produced

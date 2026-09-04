@@ -22,10 +22,12 @@
 # hour, so it fires at 0,7,...,56 and then 0 - a gap of four. "Every 7 minutes"
 # is a sentence somebody reads, believes, and acts on, and it is false.
 #
-# So widening this sub means widening it only to shapes that are EXACT, and the
-# same divisibility test the minute step applies against 60 has to apply to an
-# hour step against 24. Q-119 asks him what happens to the remainder; this file
-# asserts what is true whichever way he answers.
+# Q-119 ASKED HIM WHAT HAPPENS TO THE REMAINDER, and he answered: "Describe
+# everything, marking the approximate ones as approximate - e.g. 'About every 7
+# minutes (restarts each hour)'". So nothing renders as raw cron. A description
+# that is not exactly true opens with a mark and says what makes it inexact,
+# which is a better rule than the refusals this file first asserted: the mark
+# does the work the refusal was doing, and the reader gets something.
 #
 # WRITTEN RED.
 
@@ -120,31 +122,72 @@ is( words('0 0 1 1 *'), 'At 00:00 on 1 January',
 # every Monday, not on Mondays that fall on the 1st. It is the most misread
 # thing in cron, and there is no short English for it that is not wrong.
 
-is( words('0 0 1 * 1'), '0 0 1 * 1',
-    'A DAY-OF-MONTH AND A DAY-OF-WEEK TOGETHER STAY AS CRON. Cron ORs them - '
-      . 'this fires on the 1st AND on every Monday - and any short phrasing '
-      . 'reads as an AND, which is the single most misread thing in cron' );
-
-is( words('23 0-20/2 * * *'), '23 0-20/2 * * *',
-    'A LIST TOO LONG TO READ STAYS AS CRON. This one is eleven times; listing '
-      . 'them would be exactly right and completely unreadable, which is the '
-      . 'other half of the same contract - anything this sub cannot say WELL it '
-      . 'returns unchanged' );
-
-is( words('0 1,4,8,12,16,20 * * *'), 'At 01:00, 04:00, 08:00, 12:00, 16:00 and 20:00',
-    'and six is the most it will read out - the boundary is asserted rather '
-      . 'than left to whoever next reads the code. Deliberately NOT an even '
-      . 'series: 0,4,8,12,16,20 is every 4 hours and reads as that instead' );
+# --- nothing renders as raw cron -------------------------------------------
+#
+# HIS ANSWER TO Q-119, 2026-09-04: "Describe everything, marking the approximate
+# ones as approximate - e.g. 'About every 7 minutes (restarts each hour)'".
+#
+# THAT REPLACES THE RULE THIS FILE WAS FIRST WRITTEN AGAINST, and his reasoning
+# is better than the one it replaces. The no-guessing principle protected a
+# reader from a CONFIDENT sentence that is false. A sentence opening with
+# "About" is not confident, so there is nothing to protect against - the mark
+# does the work the refusal was doing, and the reader gets something instead of
+# a cron string.
 
 is( words('0 0,4,8,12,16,20 * * *'), 'Every 4 hours, on the hour',
-    'because an even series is described as the step it is, however it was '
-      . 'written - the words follow what a schedule MEANS, not how it was typed' );
+    'an even series is described as the step it is, however it was written - '
+      . 'the words follow what a schedule MEANS, not how it was typed' );
 
-is( words('*/60 * * * *'), '*/60 * * * *',
-    'A FIELD WRITTEN AS A STEP MUST BE ONE. */60 fires at minute 0 alone, so '
-      . '"Every hour, on the hour" would be exactly TRUE of it - and somebody '
-      . 'who typed */60 meant something else. Smoothing a typo into a confident '
-      . 'sentence is how it never gets found. t/517 decided this and it holds' );
+is( words('0 1,4,8,12,16,20 * * *'), 'At 01:00, 04:00, 08:00, 12:00, 16:00 and 20:00',
+    'and an uneven one is listed while the list is short enough to read' );
+
+is( words('*/7 * * * *'), 'About every 7 minutes (restarts each hour)',
+    'HIS OWN EXAMPLE OF THE MARK. */7 fires at 0,7,...,56 then 0 - a gap of '
+      . 'four - so "every 7 minutes" would be false. "About", with the reason '
+      . 'in brackets, is true AND useful, which raw cron was not' );
+
+is( words('*/45 * * * *'), 'About every 45 minutes (restarts each hour)',
+    'and any other minute step that does not divide the hour' );
+
+is( words('0 */5 * * *'), 'At 00:00, 05:00, 10:00, 15:00 and 20:00',
+    'an uneven HOUR step is still listed rather than marked, because the list '
+      . 'is exact and short - a mark is for what cannot be said exactly, not '
+      . 'for everything irregular' );
+
+like( words('23 0-20/2 * * *'), qr/\AAbout every 2 hours/,
+    'A LIST TOO LONG TO READ IS MARKED RATHER THAN LEFT AS CRON. Eleven times '
+      . 'is exact and unreadable; "About every 2 hours" is inexact at the wrap '
+      . 'and readable, and the mark is what makes that honest' );
+
+like( words('23 0-20/2 * * *'), qr/restarts each day/,
+    'and it says WHAT makes it approximate, which is the whole difference '
+      . 'between a hedge and an explanation' );
+
+is( words('*/60 * * * *'), 'Every hour, on the hour',
+    'AND WHAT IS EXACT IS NOT MARKED. */60 fires at minute 0 alone, so this is '
+      . 'exactly true - marking it "About" would spend the reader\'s attention '
+      . 'on a doubt that does not exist' );
+
+# --- the day fields, which are not approximate ------------------------------
+#
+# THE ONE PLACE HIS INSTRUCTION IS NOT FOLLOWED LITERALLY, and it is on the card
+# as well as here. Cron ORs the day fields when both are restricted: this fires
+# on the 1st AND on every Monday. That is not APPROXIMATE - it is exact and
+# surprising - so it gets the OR stated outright rather than a hedge. The mark
+# is for imprecision, not for complexity.
+
+like( words('0 0 1 * 1'), qr/1st/,
+    'both day fields restricted is described rather than left as cron' );
+
+like( words('0 0 1 * 1'), qr/\balso\b.*Monday/,
+    'AND IT STATES THE OR OUTRIGHT. Cron fires this on the 1st AND on every '
+      . 'Monday, which is the single most misread thing in cron - so the words '
+      . 'say "and also", which is the one phrasing that cannot be read as an '
+      . 'AND of the two conditions' );
+
+unlike( words('0 0 1 * 1'), qr/\AAbout/,
+    'and it is NOT marked approximate, because it is not - a hedge here would '
+      . 'describe the wrong difficulty' );
 
 done_testing();
 

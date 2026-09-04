@@ -460,18 +460,24 @@ one format drift apart, and only one of them can be the one that decides.
 Anything the engine cannot describe with certainty is shown unchanged, because a
 nearly-right description would be believed and the cron never read again.
 
-**Since 5.50 it describes far more of cron, and refuses three things by name.**
-It reads the values a field *selects* rather than the text it was written as, so
-`0 0,4,8,12,16,20 * * *` reads as *Every 4 hours* however it was typed. What it
-still returns unchanged:
+**Since 5.50 nothing renders as raw cron.** It reads the values a field
+*selects* rather than the text it was written as, so `0 0,4,8,12,16,20 * * *`
+reads as *Every 4 hours* however it was typed — and anything it cannot say
+exactly is **marked** rather than withheld:
 
-- **Both day fields restricted.** Cron **ORs** them — `0 0 1 * 1` fires on the
-  1st *and* on every Monday — and every short phrasing reads as an AND.
-- **A list longer than six.** Exactly right and completely unreadable is still
-  not something worth printing.
-- **A step that selects one value.** `*/60` and `*/61` fire at minute 0 alone,
-  so *Every hour, on the hour* would be true of them — and whoever typed `*/61`
-  meant something else. TKT-917.
+```
+*/7 * * * *        ->  About every 7 minutes (restarts each hour)
+23 0-20/2 * * *    ->  About every 2 hours from 00:23 to 20:23 (restarts each day)
+*/60 * * * *       ->  Every hour, on the hour
+0 0 1 * 1          ->  At 00:00 on the 1st of each month, and also every Monday
+```
+
+The mark is for **inexactness, not complexity** — `*/60` fires at minute 0 alone,
+so that phrase is exactly true and is said plainly — and it carries its reason,
+because *About every 7 minutes* alone is a hedge while `(restarts each hour)` is
+an explanation. The day-field OR is **stated** rather than marked: cron fires
+`0 0 1 * 1` on the 1st *and* on every Monday, exactly, and *and also* is the one
+phrasing that cannot be read as an AND. TKT-917.
 
 **A looping monitor says so, since 5.49.** `--restart-every` appeared nowhere on
 a card before that: the interval was in the editor and in the save and in no

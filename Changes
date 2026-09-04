@@ -31,29 +31,34 @@ Revision history for Tira
       between every pair and **four** from 20 back to 0, which is exactly where
       *every 2 hours* stops being true.
 
-    - TKT-917. And three things it still refuses, each for the reason the
-      function has always given - anything it cannot say exactly, it returns
-      unchanged.
+    - TKT-917. And nothing renders as raw cron, on his answer to Q-119:
+      *"Describe everything, marking the approximate ones as approximate - e.g.
+      'About every 7 minutes (restarts each hour)'"*.
 
-      **A day-of-month and a day-of-week together.** Cron **ORs** them when both
-      are restricted: `0 0 1 * 1` fires on the 1st *and* on every Monday. Every
-      short English phrasing reads as an AND. It is the most misread thing in
-      cron and there is no sentence for it that is not wrong.
+          */7 * * * *        About every 7 minutes (restarts each hour)
+          */45 * * * *       About every 45 minutes (restarts each hour)
+          23 0-20/2 * * *    About every 2 hours from 00:23 to 20:23 (restarts each day)
+          */60 * * * *       Every hour, on the hour
+          0 0 1 * 1          At 00:00 on the 1st of each month, and also every Monday
 
-      **A list longer than six.** `23 0-20/2 * * *` is eleven times; listing them
-      would be exactly right and completely unreadable, which is the other half
-      of the same contract - what it cannot say *well* it returns unchanged.
+      That replaces the rule this function has followed since it was written -
+      anything it could not describe with certainty came back unchanged - and his
+      reasoning removes its premise rather than contradicting it. The old rule
+      protected a reader from a **confident** sentence that is false. A sentence
+      opening with *About*, saying what makes it inexact, is not confident; there
+      is nothing left to protect against, and the reader gets something instead
+      of a cron string.
 
-      **A step that selects a single value.** `*/60` and `*/61` fire at minute 0
-      alone, so *Every hour, on the hour* would be exactly TRUE of them - and
-      somebody who typed `*/61` meant something else. Smoothing a typo into a
-      confident sentence is how it never gets found. `t/517` decided that for
-      minutes after a reviewer found it; it now applies to hours too, so the two
-      fields do not disagree.
+      **The mark is for inexactness, not for complexity.** `*/60` fires at minute
+      0 alone, so *Every hour, on the hour* is exactly true and is said plainly.
+      **The mark carries its reason**: *About every 7 minutes* alone is a hedge,
+      and `(restarts each hour)` makes it an explanation.
 
-      An **uneven** step is listed rather than refused: `0 */5 * * *` reads *At
-      00:00, 05:00, 10:00, 15:00 and 20:00*, which is exactly right where *every
-      5 hours* would be nearly right.
+      **The day-field OR is stated rather than marked**, which is the one place
+      his instruction is not followed literally and the card says so. `0 0 1 * 1`
+      fires on the 1st **and** on every Monday - exactly, and surprisingly - so
+      *About* would describe the wrong difficulty. It gets *and also*, the one
+      phrasing that cannot be read as an AND of the two conditions.
 
 5.49  2026-09-04
 

@@ -2799,8 +2799,25 @@ typo in the filename would have produced identical output.
 **Creating a job from the page (TKT-858, 5.36).** An **Add a job** control
 opens the TKT-843 editor with no job in it. Until then a job could be run,
 edited and listed here and created only from a terminal, which stopped being a
-curiosity the afternoon the five standing hunts moved onto board-owned jobs
-(TKT-840) and this section became where the schedule is actually watched.
+curiosity the afternoon the standing work moved onto board-owned jobs (TKT-840)
+and this section became where the schedule is actually watched.
+
+**What is actually on the board (TKT-894, 5.42).** Five jobs, of which THREE are
+the standing hunts - the count is worth stating because "the five standing
+hunts" was written here and conflates the two:
+
+| Job | Schedule | What it is |
+| --- | --- | --- |
+| `JOB-001` | `0 * * * *` | the hourly bug hunt (TKT-520) |
+| `JOB-002` | `0 */2 * * *` | the two-hourly improvement hunt (TKT-521) |
+| `JOB-003` | `0 */3 * * *` | the three-hourly doc-accuracy hunt (TKT-522) |
+| `JOB-004` | `*/30 * * * *` | a run of `tira.police.outstanding` - not a hunt |
+| `JOB-005` | `monitor` | `is-agent-sleeping` - a monitor, not a hunt |
+
+They announce on the bridge like any other job, which is the point: the hunts
+used to be an arrangement inside one agent's session, and an arrangement nobody
+can see is one nobody can check. A reader can now compare this table against
+`d2 tira.job.list` rather than taking a number on trust.
 
 One route, two verbs. `job_save` used to die without an id and only ever call
 `job_update`; it now dispatches on whether the payload names a job - no id

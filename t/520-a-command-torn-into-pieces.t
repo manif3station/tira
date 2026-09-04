@@ -180,6 +180,27 @@ use Tira::CLI::Police;
           . 'literal, backslashes included - a splitter that escaped them would '
           . 'silently rename every program on a Windows board' );
 
+    # A QUOTE IN THE MIDDLE OF A WORD IS AN ORDINARY CHARACTER, and this is the
+    # regression an adversarial review caught. The first version made every quote
+    # syntactic, so `can't` and a path like C:\O'Reilly\tool.exe DIED as
+    # unbalanced quotes - both of which split perfectly well before this card.
+    # The promise here was that an unquoted command is unchanged, and an
+    # apostrophe in ordinary text is not somebody opening a quote.
+    is_deeply( [ Tira::Job::job_command_words(q{echo can't}) ], [ 'echo', "can't" ],
+        'an apostrophe inside a word is text - a job that says can\'t must not '
+          . 'refuse to run because of it' );
+
+    is_deeply(
+        [ Tira::Job::job_command_words(q{C:\O'Reilly\tool.exe --flag}) ],
+        [ q{C:\O'Reilly\tool.exe}, '--flag' ],
+        'and so is one inside a Windows path, which is the case that makes this '
+          . 'more than a curiosity' );
+
+    is_deeply( [ Tira::Job::job_command_words(q{foo"bar baz}) ], [ 'foo"bar', 'baz' ],
+        'a double quote mid-word is literal too, and the word splits exactly '
+          . 'where it did before - the safe direction, since the promise was '
+          . 'that an unquoted command is unchanged' );
+
     # AN UNBALANCED QUOTE IS REFUSED, which is the card's own checklist item and
     # not what I built first. My first version fell back to the old split - which
     # runs something the author did not write, silently, and that is the shape

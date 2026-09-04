@@ -102,6 +102,10 @@ d2 tira.job.add --schedule '0 * * * *' --message 'hunt due'
 **Quotes group; they do not survive into the argument.** Either style works, and
 a quoted stretch arrives as one argument with the quote marks removed — which is
 what lets `--text` take a sentence and `--schedule` take a cron expression.
+
+A quote only groups when it **starts** a word. Anywhere else it is an ordinary
+character, so `can't` is one word and `C:\O'Reilly\tool.exe` is one path —
+neither is somebody opening a quote, and neither should stop a job running.
 Before 5.42 the command was split on spaces alone, so `--text "two words"` reached
 the program as three arguments with the quote marks still attached, and the job
 exited 0 having done the wrong thing.

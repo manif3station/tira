@@ -716,7 +716,20 @@ sub job_command_words {
             else                          { $current .= $character }
             next;
         }
-        if ( $character eq q{"} || $character eq q{'} ) {
+        # A QUOTE ONLY GROUPS AT THE START OF A WORD. Anywhere else it is an
+        # ordinary character, which is what keeps `can't` a word and
+        # C:\O'Reilly\tool.exe a path - both of which split perfectly well before
+        # this card and would otherwise now DIE as an unbalanced quote. A review
+        # found that; the first version made every quote syntactic and turned an
+        # apostrophe in ordinary text into a job that refuses to run.
+        #
+        # The cost is that x"y z"w does not group the way a shell would. That is
+        # the safe direction: it splits exactly as it did before, and the rule
+        # this card promised is that an UNQUOTED command is unchanged.
+        if ( ( $character eq q{"} || $character eq q{'} )
+            && !$started
+            && $current eq '' )
+        {
             $quote   = $character;
             $started = 1;
             next;
@@ -1143,6 +1156,14 @@ C<shellwords> treats a backslash as an escape, so
 C<C:\strawberry\perl\bin\perl.exe> comes back with every separator eaten. That
 was caught by the test asserting a full path and a C<.exe> on either side still
 name the same program.
+
+B<A quote only groups when it starts a word.> Anywhere else it is an ordinary
+character, which is what keeps C<can't> one word and C<C:\O'Reilly\tool.exe> one
+path. An adversarial review found the first version making every quote syntactic,
+so an apostrophe in ordinary text died as an unbalanced quote - a regression
+against this card's own promise that an unquoted command is unchanged. The cost
+is that C<x"y z"w> does not group the way a shell would, which is the safe
+direction: it splits exactly where it did before.
 
 B<An unbalanced quote is refused>, naming the quote and showing the command back,
 rather than falling back to the old split - which would run something the author

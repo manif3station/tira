@@ -10,6 +10,17 @@ Revision history for Tira
       output format - a JSON dump exits immediately, so there is no terminal to
       share and the flag would parse, do nothing, and read as confirmation.
 
+      The pass is started with `open3` rather than a hand-rolled fork, which is
+      the same decision `tira.job.start` already made for starting a monitor and
+      for the same reason: a fork puts the child's work in a branch that only
+      ever runs in the child, where coverage cannot follow and no test has
+      watched it. It writes to the server's own handles, so its findings land in
+      the terminal somebody is already looking at rather than in a pipe nobody
+      reads. Being a separate process it cannot inherit the fact that it belongs
+      to a dashboard, so `TIRA_POLICE_HOLDER` carries it - and an unrecognised
+      value normalises to an ordinary claim, so a stray environment cannot buy
+      the one protection the dashboard has.
+
       His second sentence asked for the opposite of his own earlier ruling, and
       the card described that ruling backwards - it said a second police is
       refused today, when in fact the newest claimant kills the previous one and

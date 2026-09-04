@@ -687,7 +687,9 @@ browser will say so the first time and you accept it once.
 is what it is for: watching a board otherwise takes two terminals, one serving
 and one listening. The pass is a child of the serving command, so interrupting
 the command stops both and the singleton claim is released rather than left
-naming a process that has gone.
+naming a process that has gone. It writes to the same handles as the server —
+which is the point of the flag, and also keeps its findings out of a pipe nobody
+is reading.
 
 **While the dashboard holds police, a later `tira.police` stands down.** It says
 which process holds the watch and exits 0, because standing aside is the correct

@@ -8069,7 +8069,30 @@ sub policy_evaluate {
             # that it was due - a schedule nobody read, one level below the
             # one this epic was filed about.
             my $when = $self->{clock}->();
-            for my $job ( @{ $self->job_list( project => $root ) } ) {
+
+            # GUARDED, LIKE THE OTHER THREE. monitor-dead, monitor-output and
+            # monitor-silent each wrap this read and report a failure, and the
+            # reasoning written beside monitor-dead is exactly as true here:
+            # swallowing a read failure into "there are no jobs" makes a locked
+            # or corrupt jobs file look identical to a board with nothing due -
+            # silence standing in for an answer, which is the failure this epic
+            # exists to end, rebuilt inside the rule itself.
+            #
+            # Written in the same shape as the other three rather than better.
+            # Four rules read one record, and a fourth guard with its own
+            # wording would be a second thing to keep in agreement - which is how
+            # two validators for one format came to disagree on TKT-713.
+            # TKT-899.
+            my $jobs = eval { $self->job_list( project => $root ) };
+            if ( !defined $jobs ) {
+                my $why = $@ || 'the jobs record could not be read';
+                $why =~ s/\s+\z//;
+                $report->( $policy, undef,
+                    "the repeated jobs could not be read, so no due job could "
+                      . "be announced this pass: $why" );
+                next;
+            }
+            for my $job ( @{$jobs} ) {
                 next if !$self->job_is_due( $job, $when );
                 my ($window) = $when =~ /\A(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2})/;
 

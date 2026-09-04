@@ -2484,6 +2484,32 @@ The editor now opens directly beneath its own card. It was appended to the end
 of the section, so editing the first of a dozen jobs put the form far below the
 card it belonged to, the two never on screen together.
 
+**One terminal for the board and the bridge (TKT-897, 5.42).** His own filing:
+*"add a new --with-police argument that will run the police and the starman at
+the same terminal. So the user doesn't need to run 2 terminals. All in 1 go."*
+`tira.dashboard -o browser --with-police` forks a police pass beside the server
+and reaps it when the server stops, so nothing is left holding the singleton
+claim after the board has gone. The flag is refused in any other output format,
+for the reason `--show-logs` is: a JSON dump exits immediately, so there is no
+terminal to share and the flag would parse, do nothing, and read as
+confirmation.
+
+The second half of his request inverted a rule he had made himself, and the card
+originally described that rule BACKWARDS — it said a second police is refused
+today, when in fact `police_claim_singleton` kills the previous holder and the
+newest wins, which is TKT-486 and is quoted in the code that implements it. So
+it was asked rather than inferred (Q-117), and his answer scoped the change:
+*"The dashboard is a special case - while it holds police, a later tira.police
+says so and exits 0. TKT-486 still applies everywhere else."*
+
+That made the singleton record who holds it rather than only which pid — a bare
+pid cannot tell a later claimant whether it is looking at a dashboard or at an
+ordinary daemon. A yielding claimant does not write the file, deliberately:
+stamping its own pid on the way out would leave the record naming a process
+about to exit while the dashboard ran on unrecorded. And a claim left by a
+dashboard that has *died* is not a reason to stand down, or one unclean exit
+would block police until somebody deleted a file by hand.
+
 **A band of nothing above a sticky header (TKT-855, 5.40).** `.shell` put 3.5rem
 of padding above `.hero`, which is `position: sticky; top: 0`. That space earns almost nothing, and the sticky
 rule is why. It is empty background on first paint, and once the header pins

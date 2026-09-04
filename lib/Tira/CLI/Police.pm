@@ -48,6 +48,23 @@ sub police_follow {
     # watcher because something asked it a quick status question would be
     # more surprising than helpful. TKT-492.
     my $claim = police_claim_singleton( $store, %{ $option->{singleton} // {} } );
+
+    # THE LOSER SAYS WHY AND LEAVES, which is his answer to Q-117 on TKT-897 -
+    # "a later tira.police says so and exits 0" - and the reason it exits 0 is
+    # that standing aside is the correct outcome rather than a failure. A
+    # non-zero status here would make every wrapper treat a working board as a
+    # broken one.
+    #
+    # It says WHICH process holds it, because "something else is running" is the
+    # kind of message that sends somebody hunting. EPC-014, TKT-897.
+    if ( $claim->{yield} ) {
+        print {*STDERR} "police: the browser dashboard is already running police "
+          . "(pid $claim->{holding_pid}), and it keeps the watch - so this one is "
+          . "standing down rather than taking it over. Its findings appear in the "
+          . "terminal running the dashboard.\n";
+        return 0;
+    }
+
     print {*STDERR} "police: killed a still-running daemon (pid $claim->{killed}) - only the newest watches now\n"
       if defined $claim->{killed};
 
@@ -242,20 +259,61 @@ sub police_claim_singleton {
     my $alive = $opts{alive} || sub { return kill 0, $_[0] };
     my $kill_previous = $opts{kill} || sub { kill 'TERM', $_[0] };
 
+    # WHO is claiming, not just which pid. His answer to Q-117 on TKT-897:
+    # "The dashboard is a special case - while it holds police, a later
+    # tira.police says so and exits 0. TKT-486 still applies everywhere else."
+    # A bare pid cannot express that - a later claimant reading the file has to
+    # be able to tell a dashboard from an ordinary daemon before it decides
+    # whether to kill it or stand down.
+    my $my_holder = $opts{holder} // 'police';
+
     my $killed;
     if ( open my $fh, '<', $path ) {
         my $previous = do { local $/; <$fh> };
         close $fh;
-        $previous =~ s/\s+//g;
-        if ( length $previous && $previous ne $my_pid && $alive->($previous) ) {
-            $kill_previous->($previous);
-            $killed = $previous;
+
+        # Two fields now, and the second is optional so a file written by an
+        # older version - a bare pid - still reads correctly as an ordinary
+        # police daemon rather than as a malformed claim.
+        my ( $previous_pid, $previous_holder ) = split ' ', ( $previous // '' );
+        $previous_pid    = '' if !defined $previous_pid;
+        $previous_holder = 'police' if !defined $previous_holder;
+
+        if ( length $previous_pid && $previous_pid ne $my_pid && $alive->($previous_pid) ) {
+
+            # THE ONE EXCEPTION, and it is scoped exactly as he scoped it: an
+            # ordinary police finding the DASHBOARD in possession stands down.
+            # It does not kill, and it does not write - a loser that stamped its
+            # own pid on the way out would leave the record naming a process
+            # about to exit while the dashboard ran on unrecorded, which is the
+            # board saying something untrue about a live process.
+            #
+            # A dashboard meeting a dashboard falls through to the ordinary rule
+            # deliberately: the exception is about the dashboard outranking
+            # police, not about dashboards being immortal.
+            if ( $previous_holder eq 'dashboard' && $my_holder ne 'dashboard' ) {
+                return {
+                    yield       => 1,
+                    holder      => $previous_holder,
+                    holding_pid => $previous_pid,
+                };
+            }
+
+            $kill_previous->($previous_pid);
+            $killed = $previous_pid;
         }
     }
+    # THE ORDINARY CLAIM IS WRITTEN EXACTLY AS IT ALWAYS WAS - a bare pid - and
+    # only the dashboard adds a marker. Nothing about TKT-486's case has
+    # changed, so nothing about its record should: a format that grew a second
+    # field for every claimant would rewrite a file three other tests read, to
+    # describe a situation that is still the default. t/373 asserting the file
+    # holds the pid and nothing else is a fair thing to assert, and it caught
+    # this when the first version wrote the holder unconditionally.
     open my $fh, '>', $path or die "Cannot claim the police singleton at '$path': $!\n";
-    print {$fh} $my_pid;
+    print {$fh} ( $my_holder eq 'police' ? $my_pid : "$my_pid $my_holder" );
     close $fh;
-    return { claimed => $my_pid, killed => $killed };
+    return { claimed => $my_pid, killed => $killed, holder => $my_holder };
 }
 # Split out from the signal handler so that what police says on its way out can
 # be called and checked, rather than only reached by killing the process.

@@ -127,6 +127,7 @@ sub run {
         'with-questions!' => \$option{with_questions},
         'no-session-expire' => \$option{no_session_expire},
         'show-logs' => \$option{show_logs},
+        'with-police' => \$option{with_police},
         'ssl' => \$option{ssl},
         'sandbox=s' => \$option{sandbox},
         'repo=s' => \$option{repo}, 'repair!' => \$option{repair},
@@ -383,6 +384,18 @@ sub run {
       . "page the board serves, and there is no page in '$option{output}'\n"
       if $option{show_logs} && $option{output} !~ /\Abrowser(?:=|\z)/;
 
+    # --with-police is refused outside a served board for the same reason, and
+    # the reason is worth repeating rather than pointing at: the flag's whole
+    # purpose is that ONE TERMINAL carries the board and the bridge. A JSON dump
+    # exits immediately, so there is no terminal to share and nothing for police
+    # to run alongside - the flag would parse, do nothing, and read as
+    # confirmation that it had worked. His words are about terminals: "So the
+    # user doesn't need to run 2 terminals. All in 1 go." EPC-014, TKT-897.
+    die "--with-police needs -o browser: it runs police alongside the served "
+      . "board so one terminal carries both, and '$option{output}' does not "
+      . "serve anything to run alongside\n"
+      if $option{with_police} && $option{output} !~ /\Abrowser(?:=|\z)/;
+
     my ( $browser_host, $browser_port );
     if ( $option{output} =~ /\Abrowser(?:=(.*))?\z/ ) {
         my $given = $1;
@@ -597,6 +610,39 @@ sub run {
         my %providers = browser_providers( tira => $tira, project => $serving,
             store => $option{store} );
         require Tira::CLI::Serve;
+
+        # POLICE BESIDE THE BOARD, in one terminal. His first sentence on
+        # TKT-897: "So the user doesn't need to run 2 terminals. All in 1 go."
+        #
+        # Forked HERE rather than inside the serving code, for two reasons. The
+        # serving side is engine source and t/106 holds the engine to inviting
+        # no processes at all; and this is the only place that already holds the
+        # Tira object and the store the pass needs, so nothing has to be
+        # reconstructed in a child that starts with less context than its parent.
+        #
+        # The CHILD claims, not the parent, because the claim names a pid and
+        # the pid that matters is the one actually watching. Marked as the
+        # dashboard's, which is what makes a later tira.police stand down rather
+        # than kill it - his answer to Q-117.
+        my $police_child;
+        if ( $option{with_police} ) {
+            $police_child = fork();
+            if ( !defined $police_child ) {
+                # Said rather than swallowed, and the board still served: losing
+                # the bridge is worse with no explanation than with one, and it
+                # is not a reason to refuse somebody their board.
+                print {*STDERR} "tira: could not start police beside the board ($!) - "
+                  . "serving without it; run d2 tira.police in another terminal\n";
+            }
+            elsif ( $police_child == 0 ) {
+                require Tira::CLI::Police;
+                Tira::CLI::Police::police_follow(
+                    $tira, { project => $serving }, $option{store},
+                    { singleton => { holder => 'dashboard' } } );
+                exit 0;
+            }
+        }
+
         my $served = eval {
             ( $browser_server || \&Tira::CLI::Serve::_serve_browser )->(
                 host => $browser_host, port => $browser_port, render => $render, data => $data,
@@ -608,10 +654,28 @@ sub run {
                 # die on load.
                 project => $serving, type => $type,
                 with_title => defined $option{title},    # TKT-779: was $option{with_title}, never assigned
+
+                # TKT-897, his first sentence. Passed rather than acted on here
+                # because the serving side owns the process the police pass has
+                # to live and die beside - a pass started here would outlive a
+                # server that failed to bind, and the claim it holds would point
+                # at a pid nobody could find.
+                with_police => $option{with_police} ? 1 : 0,
                 %tls, %providers,
             );
             1;
         };
+
+        # THE PASS DIES WITH THE BOARD. A police child outliving the server it
+        # was started beside would hold the singleton claim while nothing served
+        # the board - so the next tira.police would stand down in favour of a
+        # dashboard that is gone. Reaped as well as signalled, so the claim is
+        # released before this process returns.
+        if ($police_child) {
+            kill 'TERM', $police_child;
+            waitpid $police_child, 0;
+        }
+
         return _error( $tira, 'toon', $@ || 'Unable to serve dashboard' ) if !$served;
         return 0;
     }

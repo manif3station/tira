@@ -630,6 +630,7 @@ rather than all three.
 | `--with-questions` | no | Mark cards that are waiting on somebody; on by default in the formats a person looks at. |
 | `--no-session-expire` | no | With `-o browser`: a sign-in lasts until somebody signs out. |
 | `--show-logs` | no | With `-o browser`: keep the last 200 requests the board answered, and serve them at `/logs` for the page to show. |
+| `--with-police` | no | With `-o browser`: run the police bridge beside the served board, so one terminal carries both. Refused in any other output format — there is nothing to run alongside. While the dashboard holds the watch, a later `tira.police` says so and exits 0 rather than taking it over. |
 
 Until 4.93, `--title` with `-o browser` had no effect - the live dashboard
 never showed titles regardless, because the serve path read a key
@@ -681,6 +682,21 @@ and your session cookie off the wire, which over plain HTTP they can. It does
 not stop somebody who can already stand between you and the machine, because
 nothing has vouched for the certificate except the board that made it. Your
 browser will say so the first time and you accept it once.
+
+`--with-police` runs the police bridge in the same terminal as the board, which
+is what it is for: watching a board otherwise takes two terminals, one serving
+and one listening. The pass is a child of the serving command, so interrupting
+the command stops both and the singleton claim is released rather than left
+naming a process that has gone.
+
+**While the dashboard holds police, a later `tira.police` stands down.** It says
+which process holds the watch and exits 0, because standing aside is the correct
+outcome rather than a failure — a non-zero status there would make every wrapper
+read a working board as a broken one. This is the one exception to TKT-486's
+rule, which is otherwise unchanged: between two ordinary police daemons the
+newest still wins and the previous one is killed. The owner's words, answering
+Q-117 on TKT-897: *"The dashboard is a special case - while it holds police, a
+later tira.police says so and exits 0. TKT-486 still applies everywhere else."*
 
 `--show-logs` makes the board keep a record of the requests it answers — path
 and status — and serve it at `/logs`. It is **refused** with any other output

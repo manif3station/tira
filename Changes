@@ -40,6 +40,23 @@ Revision history for Tira
       It does no `fork` of its own: `open3` does that, which keeps a branch that
       `exec`s - and therefore can never report coverage - out of the file.
 
+      **And it fixes a monitor that could not start at all, shipped in 5.45.**
+      The spawn resolved its entrypoint as `dirname(__FILE__)` plus three
+      updirs - correct while that code lived in `lib/Tira/CLI/Job.pm`. TKT-920
+      lifted it one level deeper to stay under the 500-line rule, so the same
+      three updirs landed on `lib/` and the path became
+      `<root>/lib/skills/job/cli/feed`. `exec` fails, the child is a zombie
+      before it can print anything, and `open3` has already returned the pid the
+      board records - so the board held a pid for a monitor that never started.
+
+      Nothing caught it because every test passes the feeder path **in**;
+      `t/529` says so in its own comment. So no test compared the path the spawn
+      *computes* with the file that exists, and `t/538` now does. The resolution
+      walks up for the directory holding `lib/Tira/CLI.pm` - what every
+      entrypoint script itself looks for - rather than counting levels, because
+      a path counted in levels is the same fault as a test that names a file
+      (TKT-921, the same evening).
+
 5.52  2026-09-04
 
     - TKT-921. No test finds code by naming a file under `lib/`. `t/486` has

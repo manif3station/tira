@@ -531,6 +531,14 @@ it stays out of the process table. The verb is
 spawns it in place of the shim and the script; the recorded pid is still the
 supervisor's, so a restart stays invisible to `monitor-dead`.
 
+**It also fixed a monitor that could not start at all.** The spawn found its
+entrypoint by counting three directories up from its own file, which stopped
+being right the moment that code was lifted one level deeper (5.45): the path
+became `<root>/lib/skills/job/cli/feed`, `exec` failed, and the board recorded a
+pid for a process that was already a zombie. Every test passed the path in, so
+none of them compared what the spawn *computes* with what exists. It walks up for
+the skill root now, the same way the entrypoint scripts do.
+
 It is a **subtraction** from the three cards that built the old shape rather than
 a fourth mechanism beside them, which is the test of whether it was written
 correctly. The command is split by the engine's own splitter and run through

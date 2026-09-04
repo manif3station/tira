@@ -89,12 +89,7 @@ sub _start_monitor {
     # a board that happens to have d2 on its PATH and one started by a board that
     # does not must behave the same, and the entrypoint sits at a known place
     # relative to this module - the same reasoning _view_dir uses for templates.
-    require File::Basename;
-    require File::Spec;
-    my $feeder = File::Spec->catfile(
-        File::Basename::dirname( File::Spec->rel2abs(__FILE__) ),
-        File::Spec->updir, File::Spec->updir, File::Spec->updir,
-        'skills', 'job', 'cli', 'feeder' );
+    my $feeder = _feeder_entrypoint();
 
     # THE BOARD TRAVELS IN THE ENVIRONMENT, not on the command line. The feeder
     # has to find the same project this monitor belongs to, and a --project
@@ -183,6 +178,44 @@ sub _running_processes_for_jobs {
 # resolves it relative to this file, where it lives after an install; the source
 # tree has no skills/job/cli/feed at all, so a spawn that resolved it internally
 # could not be exercised in a test.
+# WHERE THE ENTRYPOINT IS, FOUND RATHER THAN COUNTED.
+#
+# This used to be dirname(__FILE__) plus three updirs plus skills/job/cli/...,
+# which was correct while the code lived in lib/Tira/CLI/Job.pm. TKT-920 lifted
+# it one level deeper into this file to stay under the 500-line rule, and the
+# same three updirs then landed on lib/ - so the resolved path was
+# <root>/lib/skills/job/cli/feed, exec failed, and the child was a zombie
+# before it could say anything. open3 had already returned the pid the board
+# recorded, so the board held a pid for a monitor that had never started.
+#
+# IT SHIPPED IN 5.45 and was found by reading ps in a container on TKT-927.
+# Nothing caught it because every test passes the feeder path IN - t/529 says
+# so in its own comment - so no test exercised the resolution.
+#
+# COUNTING LEVELS IS THE SAME FAULT AS NAMING A FILE, which TKT-921 spent an
+# evening removing from the suite: both encode where something sits today, and
+# both fail as "the code regressed" when it moves. So this WALKS UP looking for
+# the skill root - the directory holding lib/Tira/CLI.pm, which is what every
+# entrypoint script itself looks for - and the answer survives this module
+# being lifted again.
+sub _feeder_entrypoint {
+    require File::Basename;
+    require File::Spec;
+
+    my $cursor = File::Basename::dirname( File::Spec->rel2abs(__FILE__) );
+    while ( !-f File::Spec->catfile( $cursor, 'lib', 'Tira', 'CLI.pm' ) ) {
+        my $parent = File::Basename::dirname($cursor);
+
+        # The root of the filesystem is its own parent, which is where this
+        # stops rather than looping. A caller that gets undef gets the same
+        # refusal it would have got from a path that did not exist.
+        last if $parent eq $cursor;
+        $cursor = $parent;
+    }
+
+    return File::Spec->catfile( $cursor, 'skills', 'job', 'cli', 'feeder' );
+}
+
 sub _spawn_monitor {
     my ( $perl, $feeder, $id, $every, $command ) = @_;
     require IPC::Open3;

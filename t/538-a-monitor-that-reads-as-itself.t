@@ -112,6 +112,46 @@ SKIP: {
           . 'argument was kept out of the spawn for' );
 }
 
+# --- and the entrypoint it spawns is one that exists --------------------------
+#
+# THE ASSERTION NOBODY HAD MADE, and its absence shipped a broken release.
+# Monitor.pm resolves the feeder from its own location by counting levels:
+# dirname(__FILE__) plus three updirs plus skills/job/cli/... That was right
+# when the code lived in lib/Tira/CLI/Job.pm. TKT-920 lifted it one level
+# deeper into lib/Tira/CLI/Job/Monitor.pm, so the same three updirs land on
+# lib/ and the path becomes <root>/lib/skills/job/cli/feed - which does not
+# exist. exec fails, the child is a zombie before it can print anything, and
+# open3 has already returned the pid the board records.
+#
+# It went out in 5.45 and was found by walking ps in a container for this card.
+# Every existing test passes the feeder path IN - t/529 says so in its own
+# comment - so nothing exercised the resolution.
+#
+# A PATH COUNTED IN LEVELS IS THE SAME FAULT AS A TEST THAT NAMES A FILE
+# (TKT-921, this evening): both encode where something sits today. So the
+# assertion is not "three updirs" but "what it resolves to is there".
+
+# Behind a can_ok, because a call to a sub that does not exist DIES and takes
+# the rest of the file with it - a red test must fail, not stop the run.
+can_ok( 'Tira::CLI::Job::Monitor', '_feeder_entrypoint' );
+
+SKIP: {
+    skip 'the spawn cannot yet say what it would run', 2
+      if !Tira::CLI::Job::Monitor->can('_feeder_entrypoint');
+
+    my $resolved = Tira::CLI::Job::Monitor::_feeder_entrypoint();
+
+    ok( -f ( $resolved // '' ),
+        'AND THAT FILE EXISTS. This is the assertion whose absence let a lift '
+          . 'ship a monitor that dies on start: the path was computed by '
+          . 'counting directory levels, the module moved one level deeper, and '
+          . 'nothing compared the computed path with the file' )
+      or diag("resolved to: " . ( $resolved // 'undef' ));
+
+    ok( -x ( $resolved // '' ),
+        'and is executable, like every other entrypoint' );
+}
+
 # --- what the spawn no longer is ----------------------------------------------
 #
 # Source-read, and scoped to the command surface through Suite rather than by

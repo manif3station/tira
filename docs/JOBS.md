@@ -375,6 +375,20 @@ The Repeated Jobs section now offers, on each card:
 | **Enable** / **Disable** | stops a job being due, without removing it | `tira.job.update` |
 | **Delete** | removes the job, after a confirm | `tira.job.delete` |
 
+**Save waits for the schedule to be checked, and until 5.46 it waited for ever
+on a monitor.** The button is disabled while the form asks the server whether the
+schedule parses, and re-enabled when the answer arrives - unless the input
+changed while the request was in flight, in which case the stale answer is
+discarded rather than painted onto text the user has since retyped. That
+staleness test compared the schedule box against the value that had been sent.
+For a cron job they are the same string; for a monitor the value sent is the
+literal `monitor` while the box holds whatever was typed before, or nothing, so
+they could never match and the answer was discarded every time. The line that
+re-enables Save sits below that test and never ran, so the button was dead from
+the first keystroke of any monitor - which is exactly what he reported: *"after
+filled in the command, the save button still cannot be clicked"*. The command was
+never the point; the code that reads it was never reached. TKT-912.
+
 **The buttons follow the job's state rather than offering everything.** A
 monitor the board can see running offers Stop and Restart and does *not* offer
 Start - offering it would be the board inviting a second process to sit beside
@@ -385,10 +399,15 @@ is the same distinction the running indicator beside it makes.
 **The form is one form.** Creating and editing use the same fields, and editing
 fills them from the job. The schedule kind is a pair of radio buttons rather
 than the word `monitor` typed into a schedule box, which was a magic value
-somebody had to know. Command or Message is a second pair, and Message is not
-offered under Monitor. The page is making a choice there, but it is not the
-authority for it - the engine refuses that pairing outright, and the page is
-declining to offer what the save would reject:
+somebody had to know. Command or Message is a second pair, and since 5.46 that
+pair is not shown at all under Monitor - his words, *"you don't need to show the
+Command radio button since there is only 1 option to select"*. A group with one
+choice reads as a question nobody has answered. The row is hidden rather than
+removed: the save reads which mode is ticked, and the form itself ticks Command
+when a message job is switched to Monitor, so deleting the controls would build
+the payload from one that no longer exists. The page is making a choice there,
+but it is not the authority for it - the engine refuses that pairing outright,
+and the page is declining to offer what the save would reject:
 
 ```
 A 'monitor' job runs a command - give --command, not --message. A monitor stays

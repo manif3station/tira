@@ -3926,7 +3926,24 @@ reader never has to infer it from whichever field is populated.
     That section is not read-only. Each row has a play button that runs the job
     at once whatever its schedule says (`tira.job.run`, TKT-843) and a control
     that opens an editor for its schedule, where a bad crontab is highlighted
-    with the engine's own message and cannot be saved. Since 5.36 an **Add a
+    with the engine's own message and cannot be saved.
+
+    **Until 5.46 that last clause was true of monitors in a way nobody
+    intended: they could not be saved at all** (TKT-912). Save is disabled while
+    the editor asks the server whether the schedule parses, and re-enabled when
+    the answer arrives - unless the input changed while the request was in
+    flight, in which case the stale answer is discarded rather than painted onto
+    text that has since been retyped. That staleness test compared the schedule
+    box against the value the request had carried. For a cron job those are the
+    same string. For a monitor the value carried is the literal `monitor` while
+    the box holds whatever was typed before it, or nothing, so they never matched
+    and the answer was thrown away every time - and the line that re-enables Save
+    sits below that test. The button went out on the first keystroke of any
+    monitor and never came back, whatever else was filled in. The guard now
+    recomputes the carried value the same way it was built; it is not removed,
+    because without it a verdict about an old schedule lands on a new one.
+
+    Since 5.36 an **Add a
     job** control opens that editor with nothing in it, so a job can be created
     from the page as well as with `tira.job.add` (TKT-858) — the same record,
     the same defaults, and the same refusals, because the page calls `job_add`

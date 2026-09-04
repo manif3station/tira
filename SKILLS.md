@@ -2610,6 +2610,30 @@ pairing outright (TKT-842). The page declines to offer what the save would
 refuse, which is the same reason the schedule field is disabled rather than
 hidden: the form keeps its shape as you click through it.
 
+**Since 5.46 the Command/Message pair is hidden entirely under Monitor**, rather
+than shown with its one remaining option selected. His words: *"you don't need to
+show the Command radio button since there is only 1 option to select"*. A group
+offering one choice reads as a question nobody has answered. The row is hidden
+and not removed, because the save path reads `modeMessage.checked` and
+`applyKind` itself sets `modeCommand.checked` when a message job is switched to
+Monitor — deleting the controls would build the payload from an undefined one.
+That is the narrower exception to the keep-its-shape rule above: a control with
+nothing to decide is not shape, it is noise. TKT-912.
+
+**And Save was dead for every monitor until the same release, which is the half
+of that report worth understanding.** The button is disabled while the form asks
+the server whether the schedule parses and re-enabled when the answer comes back
+— unless the input changed while the request was in flight, in which case the
+stale answer is dropped. That staleness test compared the schedule *box* against
+the value it had *sent*. For a cron job those are the same string. For a monitor
+the value sent is the literal `monitor` while the box holds whatever cron text
+was typed before, or nothing, so they could never match: the callback returned on
+its first line every pass and the line that re-enables Save, below it, never ran.
+The command field was never the point — the code that reads it was never reached.
+The guard now recomputes the sent value the same way it was built. It was **not**
+deleted: without it, a verdict about an old schedule paints itself onto one the
+user has since retyped, which is the fault it exists for.
+
 **Looping is a checkbox** with an interval, off unless asked for, defaulting to
 his five seconds with a floor of two, and unticking it *clears* the interval
 rather than leaving the old one behind — the engine reads `restart_every` and

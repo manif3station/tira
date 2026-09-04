@@ -351,12 +351,22 @@ started before 5.45 leads no group, so the rest of it is still running), and
 
 The editor is one form for creating and for editing, filled from the job. The
 schedule kind is a pair of radio buttons rather than the word `monitor` typed
-into a schedule box, and Message is not offered for a monitor because the engine
-refuses that pairing — a monitor with no command could never be found alive in
-the process table. Looping is a checkbox with an interval, off unless asked for,
+into a schedule box, and the Command/Message choice is not shown at all for a
+monitor (5.46) — the engine refuses a message-mode monitor, since one with no
+command could never be found alive in the process table, so the group had a
+single real option and read as a question nobody had answered. Looping is a checkbox with an interval, off unless asked for,
 and unticking it removes the interval rather than leaving the old one behind;
 keep it above about two seconds, or the output collector's quiet window never
 elapses and a healthy monitor looks silent.
+
+**Save comes back when the schedule has been checked (5.46).** The button is
+disabled while the form asks the server whether the schedule parses, and
+re-enabled when the answer arrives — unless the input changed while the request
+was in flight, in which case the stale answer is discarded. Until 5.46 that
+staleness test compared the schedule box against the value it had sent, which
+matches for a cron job and never matches for a monitor, where the value sent is
+the literal `monitor`. So Save was disabled on the first keystroke of any
+monitor and never came back, whatever else was filled in.
 
 The schedule shows as words — *Every 30 minutes*, *Every day at 09:00*, *Runs
 continuously* — with the cron string kept as the tooltip. The words are produced

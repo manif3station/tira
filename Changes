@@ -1,5 +1,36 @@
 Revision history for Tira
 
+5.46  2026-09-04
+
+    - TKT-912. The dashboard's Save button was dead for every monitor. Not a
+      validation refusing the form - a validation that never finished. The jobs
+      editor disables Save while it asks the server whether the schedule parses,
+      then throws the answer away if the input changed while the request was in
+      flight. It tested that by comparing the schedule box against the value it
+      had sent, which is the same thing for a cron job and never true for a
+      monitor: there the value sent is the literal `monitor` while the box holds
+      whatever cron text was typed before, or nothing. So the callback returned
+      on its first line every time and the line that re-enables Save, below it,
+      never ran. The button was dead from the first keystroke whatever else was
+      filled in - his report was "after filled in the command, the save button
+      still cannot be clicked", and the command field was never the point,
+      because the code that reads it was never reached.
+
+      The guard now recomputes the value the same way it was built and compares
+      that. For a cron job this is byte-for-byte the old behaviour. The guard is
+      **not** removed: deleting it would re-enable the button by throwing away
+      the protection it was written for, and let a verdict about an old schedule
+      paint itself onto one the user has since retyped.
+
+    - TKT-912. The Command/Message radio is no longer offered for a monitor.
+      His words: "you don't need to show the Command radio button since there is
+      only 1 option to select". A monitor cannot be message-mode - the engine
+      refuses that pairing, since a monitor with no command could never be found
+      alive in the process table - so the group showed one real choice and read
+      as a question nobody had answered. The row is **hidden, not removed**: the
+      save path reads `modeMessage.checked`, and the form itself sets
+      `modeCommand.checked` when a message job is switched to Monitor.
+
 5.45  2026-09-04
 
     - TKT-920. Stopping a monitor stops all of it. `tira.job.stop` sent `TERM`

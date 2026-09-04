@@ -76,15 +76,31 @@ my $violations3 = $tira3->policy_evaluate( project => $root );
 my @none_hits = grep { ( $_->{rule} // '' ) eq 'discard-unexplained' && $_->{ref} eq $none->{ref} } @{$violations3};
 ok( @none_hits, 'a card discarded with no comment at all is still flagged, same as before this fix' );
 
-# --- the ticket's own comment_add decision: an empty-body comment does not -
-# clear the rule either, even though comment_add itself is left permissive
-# (it stores body => text // '' with no validation - a decision recorded
-# here as a test rather than a code change, since the rule below is where
-# an empty explanation should be caught, not at write time).
+# --- an empty-body comment does not clear the rule either ---------------------
+#
+# TKT-638 decided this belonged here rather than at write time: "the rule below
+# is where an empty explanation should be caught, not at write time", and left
+# comment_add storing `body => text // ''` with no validation.
+#
+# THAT PRINCIPLE STILL HOLDS AND THIS TEST STILL PROVES IT. What changed is the
+# door: since 5.43 comment_add REFUSES a whitespace-only body (TKT-753), so this
+# block can no longer write one that way, and asserting the rule through a
+# refused call would be asserting nothing.
+#
+# comment_update is the door now, and that is not a workaround - it is the
+# reason TKT-753 left comment_update deliberately out of scope. A body can still
+# arrive whitespace-only from an edit, from an import, from a board written by an
+# older version, or from a migration. The rule has to catch it wherever it came
+# from, which is exactly what TKT-638 argued. Writing it through the one path
+# that still permits it makes that argument sharper than the original did: the
+# rule is not relying on the writer being careful.
 
 my $empty = $tira1->create_record( project => $root, type => 'ticket', title => 'Discarded with an empty comment' );
 $tira2->record_move( project => $root, ref => $empty->{ref}, type => 'ticket', column => 'discard', author => 'claude' );
-$tira3->comment_add( project => $root, ref => $empty->{ref}, author => 'claude', text => '   ' );
+my $blanked = $tira3->comment_add( project => $root, ref => $empty->{ref},
+    author => 'claude', text => 'placeholder, about to be blanked' );
+$tira3->comment_update( project => $root, ref => $empty->{ref},
+    comment => $blanked->{id}, text => '   ', author => 'claude' );
 
 my $violations4 = $tira3->policy_evaluate( project => $root );
 my @empty_hits = grep { ( $_->{rule} // '' ) eq 'discard-unexplained' && $_->{ref} eq $empty->{ref} } @{$violations4};

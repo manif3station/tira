@@ -60,7 +60,7 @@ sub outrun {
 
 $now = '2026-08-13T23:01:00Z';
 $tira->comment_add( project => $root, ref => $card->{ref}, author => 'michael',
-    body => 'Look at this example, it is the best evidence on the card' );
+    text => 'Look at this example, it is the best evidence on the card' );
 is( scalar @{ outrun() }, 0, 'a board that has not declared the rule hears nothing' );
 
 $tira->policy_add( project => $root, rule => 'conversation-not-folded',
@@ -89,7 +89,7 @@ is( scalar @{ outrun() }, 0, 'once the card is written down again it is not repo
 
 $now = '2026-08-13T23:05:00Z';
 $tira->comment_add( project => $root, ref => $card->{ref}, author => 'michael',
-    body => 'One more thing' );
+    text => 'One more thing' );
 $now = '2026-08-13T23:06:00Z';
 is( scalar @{ outrun() }, 1,
     'a comment after that is reported again, because the card has moved on since' );

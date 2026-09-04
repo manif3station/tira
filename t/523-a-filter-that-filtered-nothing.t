@@ -141,8 +141,8 @@ sub board {
     $tira->tasklist_add( project => $root, text => 'task two' );
     $tira->tasklist_update( project => $root, id => $task->{id}, status => 'done' );
 
-    $tira->comment_add( project => $root, ref => $card, body => 'c one', author => 'claude' );
-    $tira->comment_add( project => $root, ref => $card, body => 'c two', author => 'claude' );
+    $tira->comment_add( project => $root, ref => $card, text => 'c one', author => 'claude' );
+    $tira->comment_add( project => $root, ref => $card, text => 'c two', author => 'claude' );
 
     chdir $root or die "chdir $root: $!";
     return ( $tira, $root, $card );

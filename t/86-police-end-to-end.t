@@ -174,7 +174,7 @@ $tira->record_update( author => 'michael', project => $root, ref => $talked->{re
     description => 'what it said when it was raised' );
 $now = '2026-08-11T09:30:00Z';
 $tira->comment_add( project => $root, ref => $talked->{ref}, author => 'michael',
-    body => 'The evidence that is not on the card yet' );
+    text => 'The evidence that is not on the card yet' );
 $now = '2026-08-11T09:00:00Z';
 
 # A tasklist item nobody ever tied back to a card - real, trackable work, no

@@ -2,6 +2,30 @@ Revision history for Tira
 
 5.44  2026-09-04
 
+    - TKT-914. The jobs editor never read job.mode on load, and the two symptoms
+      he reported were one omission. The mode radios were hardcoded, so every job
+      opened showing Command; and the single text input was filled from
+      job.command whatever the job was, then read back into payload.message on
+      save. A message job opened with an empty box, and saving from that screen
+      wrote the empty box over the stored message.
+
+      The mode now derives from job.mode the way the kind radio already derived
+      from job.schedule eight lines earlier, and the field is filled from
+      job.message or job.command accordingly. Both halves ship together
+      deliberately: fixing the radio alone would be worse than the bug, because
+      Message selected over an empty box looks correct where Command over an
+      empty box at least looks wrong.
+
+      A save that would erase a stored message is REFUSED rather than warned
+      about. JOB-001, JOB-002 and JOB-003 carry their hunt instruction in
+      `message`, and an emptied one fires on schedule and says nothing - which
+      reads as the agent ignoring a hunt rather than as a lost field. There is no
+      undo on that form.
+
+      Reported by Michael, and the fault is entirely client-side: the test
+      asserts the jobs provider already hands the page both mode and message
+      before it asserts anything about the JS.
+
     - TKT-762. link.add accepted --from and --to naming the same card, and with a
       directional type it recorded the OPPOSITE of what was asked for. A link
       writes the forward type on --from and the reciprocal on --to; when both are

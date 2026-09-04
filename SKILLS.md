@@ -2525,6 +2525,35 @@ that runs a job is a different kind of thing from a table that shows one.
 refresh does not hold a session open past its expiry the way an unlisted
 polled route would - the exemption `t/479` exists to enforce.
 
+**The editor asks what mode a job is (TKT-914, 5.44).** It did not, and the two
+symptoms he reported were one omission. The mode radios were hardcoded — every
+job opened showing **Command** — and the single text input was filled from
+`job.command` whatever the job was, then read back into `payload.message` on
+save. So a message job opened with an empty box, and saving from that screen
+wrote the empty box over the stored message.
+
+The file already had the pattern eight lines earlier: `startsMonitor` derives the
+**kind** radio from `job.schedule`. The mode radio now derives the same way from
+`job.mode`, and the field is filled from `job.message` or `job.command`
+accordingly.
+
+**Both halves shipped together deliberately.** Fixing the radio alone would have
+been worse than the bug — *Message* selected over an empty box looks correct,
+where *Command* over an empty box at least looks wrong.
+
+And a save that would erase a stored message is **refused**, not warned about.
+`JOB-001`, `JOB-002` and `JOB-003` carry their hunt instruction in `message`; an
+emptied one fires on schedule and says nothing, which reads as the agent ignoring
+a hunt rather than as a lost field. There is no undo on that form and the value
+is not recoverable from it once gone.
+
+The test asserts the `jobs` provider hands the page `mode` and `message`
+**before** it asserts anything about the JS — that is what places the fault in
+the editor and stops a later fix being aimed at the provider. Its source
+assertions are scoped to the editor region, because both names appear later in
+the same file where the card is rendered, and a whole-file grep would have passed
+against the broken code.
+
 **The job card and its editor, rebuilt once (TKT-892, 5.42).** His three
 complaints: *"In the UI there is no way i can delete any existing job card / I
 cannot edit and card / I cannot pick between command or message."* Six tickets

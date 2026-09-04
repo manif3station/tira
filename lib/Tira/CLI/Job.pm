@@ -163,46 +163,24 @@ sub dispatch {
           . "nothing feeds on its behalf\n"
           if ( $known->{schedule_kind} // '' ) ne 'monitor';
 
-        my @batch;
-        my $flush = sub {
-            return if !@batch;
-            $tira->job_feed( %{$args}, id => $id, lines => [@batch] );
-            @batch = ();
-            return;
-        };
+        # THE READER IS SHARED WITH THE FEEDER since TKT-927. It was written
+        # out here and the feeder would have been a second copy of it - and the
+        # bounded wait below is exactly the thing two copies would drift on,
+        # since it is what lets a monitor speaking once an hour be heard within
+        # seconds rather than after twenty-five lines.
+        require Tira::CLI::Job::Feeder;
+        Tira::CLI::Job::Feeder::feed_from_handle( $tira, $args, $id, \*STDIN,
+            $QUIET_AFTER_SECONDS, $BATCH_LINES );
 
-        # A BATCH THAT NEVER FILLS MUST STILL GO IN, and the first version got
-        # this wrong in a way only the container walkthrough showed. It flushed
-        # at 25 lines or at end of input - and a monitor never ends, so a
-        # poller printing a line a minute sat unheard for twenty-five minutes,
-        # and one printing hourly for a day. The board read "never called in"
-        # while the monitor was talking, which is the exact silence this epic
-        # exists to end, rebuilt inside the fix for it. It would also have made
-        # TKT-873's silence rule fire on monitors that were working.
-        #
-        # So the wait is bounded: block for at most this long, and if nothing
-        # arrived, hand over whatever is held. A monitor is heard within seconds
-        # of speaking however rarely it speaks, and a chatty one still batches.
-        require IO::Select;
-        my $watch = IO::Select->new();
-        $watch->add( \*STDIN );
-
-        while (1) {
-            # can_read returns on timeout with nothing, which is the quiet this
-            # is watching for - not an error and not end of input.
-            if ( !$watch->can_read($QUIET_AFTER_SECONDS) ) {
-                $flush->();
-                next;
-            }
-
-            my $line = <STDIN>;
-            last if !defined $line;    # the monitor's output really did end
-            $line =~ s/\r?\n\z//;
-            push @batch, $line;
-            $flush->() if @batch >= $BATCH_LINES;
-        }
-        $flush->();
         return { id => $id, fed => 1 };
+    }
+
+    # THE MONITOR ITSELF, as one process. TKT-927, and his own words: a helper
+    # so that ps shows a readable line instead of the script that runs it.
+    if ( $command eq 'job.feeder' ) {
+        require Tira::CLI::Job::Feeder;
+        return Tira::CLI::Job::Feeder::run_feeder( $tira, $args,
+            $QUIET_AFTER_SECONDS, $BATCH_LINES );
     }
 
     return run_now( $tira, $args ) if $command eq 'job.run';

@@ -512,6 +512,33 @@ an explanation. The day-field OR is **stated** rather than marked: cron fires
 `0 0 1 * 1` on the 1st *and* on every Monday, exactly, and *and also* is the one
 phrasing that cannot be read as an AND. TKT-917.
 
+**A monitor is one process, since 5.53, and its `ps` line says whose it is.**
+It used to be three - a `perl -e` shim that set a process group and exec'd `sh`,
+a fixed `sh` script that owned the pipe and looped, and the command - with the
+feeder reading the far end. His own `JOB-006` showed all of that in `ps`, plus a
+resolved absolute path into the install, and **it never said which board the job
+belonged to**. Job ids are per-board and one machine runs this skill for several
+projects, so `JOB-006` exists four times over; that omission is how another
+project's monitors were once reported as his.
+
+```
+tira.job.feeder JOB-006 [Tira Development] -- tail -F -n0 /home/mv/dd-tg/bot.log
+```
+
+The board's **name**, never its path — the path travels in `TIRA_HOME` exactly so
+it stays out of the process table. The verb is
+`tira.job.feeder --id ID [--interval SECONDS] [--command TEXT]`, and `job.start`
+spawns it in place of the shim and the script; the recorded pid is still the
+supervisor's, so a restart stays invisible to `monitor-dead`.
+
+It is a **subtraction** from the three cards that built the old shape rather than
+a fourth mechanism beside them, which is the test of whether it was written
+correctly. The command is split by the engine's own splitter and run through
+`open3` as a list, so a semicolon or a backtick is still an argument and there is
+no longer a shell to keep it away from. The reader is the same process that owns
+the pipe, so it cannot be forgotten. The `setpgrp` is inside the process that
+owns the child. TKT-927.
+
 **A looping monitor says so, since 5.49.** `--restart-every` appeared nowhere on
 a card before that: the interval was in the editor and in the save and in no
 third place, so a monitor that restarts itself and one that runs once read

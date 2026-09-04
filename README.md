@@ -352,6 +352,16 @@ were suppressed as repeats — while the words were still removed from the recor
 so nothing was left to announce later. A monitor could speak all day and not one
 word appear.
 
+**A monitor is one process since 5.53, and `ps` says which board's it is.** It
+was three — a shim that set a process group, a shell script that owned the pipe
+and looped, and the command — and the line in `ps` was that whole script plus an
+absolute path into the install, naming no board. Job ids are per-board and one
+machine can run this skill for several projects, so a monitor could not be
+identified from `ps` at all. `tira.job.feeder` is now the monitor: it runs the
+command as a list, reads its output itself, restarts it if the job asked for
+that, and sets its process title to `tira.job.feeder JOB-006 [Board Name] -- the
+command`. The board's name, never its path.
+
 **Stopping stops all of it, since 5.45.** A monitor is not one process — a shell
 owns the pipe, the command runs on one side of it and the feeder reads the
 other, and a looping monitor adds a fourth. Until 5.45 the stop signalled only

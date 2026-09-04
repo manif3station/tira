@@ -2307,7 +2307,7 @@ sub _invoke {
     return $tira->policy_declined(%args) if $command eq 'policy.declined';
 
     # Repeated jobs. EPC-014, TKT-837 - bodies in Tira::CLI::Job.
-    if ( $command =~ /\Ajob\.(?:add|list|update|delete|start|run|stop|feed)\z/ ) {
+    if ( $command =~ /\Ajob\.(?:add|list|update|delete|start|run|stop|feed|feeder)\z/ ) {
         require Tira::CLI::Job;
         return Tira::CLI::Job::dispatch( $tira, \%args, $option, $command );
     }

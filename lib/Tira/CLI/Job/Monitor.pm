@@ -94,7 +94,7 @@ sub _start_monitor {
     my $feeder = File::Spec->catfile(
         File::Basename::dirname( File::Spec->rel2abs(__FILE__) ),
         File::Spec->updir, File::Spec->updir, File::Spec->updir,
-        'skills', 'job', 'cli', 'feed' );
+        'skills', 'job', 'cli', 'feeder' );
 
     # THE BOARD TRAVELS IN THE ENVIRONMENT, not on the command line. The feeder
     # has to find the same project this monitor belongs to, and a --project
@@ -187,56 +187,30 @@ sub _spawn_monitor {
     my ( $perl, $feeder, $id, $every, $command ) = @_;
     require IPC::Open3;
 
-    # NOTHING OF THE JOB'S IS SHELL TEXT. The shell is here only to own the pipe;
-    # the words it runs arrive as positional parameters, so a command holding a
-    # semicolon or a backtick stays an argument - which is what open3(@command)
-    # gave us before there was a pipeline, and what a stored, editable job record
-    # has to keep. The only text sh parses is the fixed script on the next line.
-    # AND THE LOOP, WHEN THE JOB ASKED FOR ONE, IS PART OF THIS FIXED TEXT.
-    # TKT-891, his voice 6694: an option to keep a command running, so a person
-    # types "only the middle part" instead of a while loop. JOB-006 is what
-    # happens without it - a loop typed into a command field that never ran.
+    # ONE PROCESS, since TKT-927. It was three - a perl shim that set a process
+    # group and exec'd sh, an sh script that owned the pipe and looped, and the
+    # command - with the feeder on the far end. His own JOB-006 in ps was that
+    # whole script plus a resolved absolute path into the install, and it never
+    # said which board the job was on. Job ids are per-board and this machine
+    # runs the skill for several projects, so that omission is what let me
+    # report another project's monitors as his.
     #
-    # THE GUARANTEE IS UNCHANGED because the shape is unchanged: what is looped
-    # is the same "$@" that was exec'd before, and "$@" is positional
-    # parameters. Interpolating the job's command INTO this string would be the
-    # thing TKT-851 removed, put back in the worst possible place; wrapping the
-    # parameters is not.
+    # EVERYTHING THE SCRIPT DID IS NOW THE FEEDER'S, and none of it is text a
+    # shell parses: it puts itself in a process group (TKT-920), runs the
+    # command through open3 as a LIST (TKT-851 - a semicolon stays an
+    # argument), reads that pipe itself (TKT-842 - the reader cannot be
+    # forgotten because it is the same process), and starts the command again
+    # after it ends when the job asked for that (TKT-891).
     #
-    # AND THE SHELL STAYS. Without a loop it execs the command and the recorded
-    # pid becomes the command itself; with one it must survive to run the next
-    # iteration, so the pid the board recorded is the SUPERVISOR's - and that is
-    # what makes a restart invisible to monitor-dead. TKT-891's own card worried
-    # that a restart changes the pid and every restart would read as a death;
-    # keeping the supervisor answers it without a special case.
-    my $script = 'PERL="$1"; FEEDER="$2"; ID="$3"; EVERY="$4"; shift 4; '
-      . 'if [ "$EVERY" -gt 0 ]; then '
-      . 'while :; do "$@"; sleep "$EVERY"; done 2>&1 | exec "$PERL" "$FEEDER" --id "$ID"; '
-      . 'else '
-      . 'exec "$@" 2>&1 | exec "$PERL" "$FEEDER" --id "$ID"; '
-      . 'fi';
-
-    # THE SHIM IS WHY THE STOP CAN WORK. TKT-920: a monitor is three processes,
-    # or four with a loop, and TERM to the shell that owns the pipe orphaned the
-    # rest - which is how JOB-006 came to be running under two pids with the
-    # board holding a third that was dead.
+    # THE RECORDED PID IS STILL THE SUPERVISOR'S, which is what keeps a restart
+    # invisible to monitor-dead: the feeder outlives each run of the command.
     #
-    # A PROCESS GROUP RATHER THAN A DESCENDANT WALK, and that is forced rather
-    # than preferred: the table this file gathers is `ps -eo pid=,lstart=,args=`
-    # and tasklist's has no parent column either, so walking ppid would mean
-    # changing shared gathering code that every police rule reads.
-    #
-    # perl execs sh, so the pid open3 returns is the same process it always was
-    # and nothing about the recorded pid changes - it is simply now a group
-    # leader, and every process the pipeline forks inherits the group.
-    #
-    # setpgrp IS IN AN eval BECAUSE WINDOWS HAS NONE. There the shim execs
-    # anyway and the behaviour is exactly what it was; _signal_monitor's count
-    # is what says so out loud rather than pretending otherwise.
+    # NOTHING OF THE JOB'S IS ON THE COMMAND LINE except its id. The command
+    # comes from the record and the board travels in TIRA_HOME, so ps shows what
+    # the feeder chooses to show rather than the board's location.
     return IPC::Open3::open3( my $in, my $out, my $err,
-        $perl, '-e', 'eval { setpgrp 0, 0 }; exec @ARGV or die "$!\n"',
-        'sh', '-c', $script, 'tira-monitor',
-        $perl, $feeder, $id, ( $every || 0 ), @{ $command || [] } );
+        $perl, $feeder, '--id', $id,
+        ( $every ? ( '--interval', $every ) : () ) );
 }
 
 # STOPPING THE WHOLE MONITOR, and reporting how much of it there was.

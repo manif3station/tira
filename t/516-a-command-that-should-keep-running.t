@@ -148,13 +148,21 @@ sub board {
     is( $changed->{restart_every}, 30, 'and it can be corrected' );
 }
 
-# --- THE LOOP IS IN THE FIXED SCRIPT, AND THE JOB'S WORDS ARE STILL ARGUMENTS -
+# --- THE LOOP IS IN THE FEEDER, AND THE JOB'S WORDS ARE STILL ARGUMENTS ------
 #
 # The whole safety question, asserted against the source rather than described.
-# TKT-851's guarantee is that nothing of the job's is shell TEXT: the words
-# arrive as positional parameters and the only thing sh parses is a fixed
-# script. A loop that interpolated the command would end that.
-
+# TKT-851's guarantee is that nothing of the job's is shell TEXT, and a loop
+# that interpolated the command would end it.
+#
+# THE SHAPE CHANGED ON TKT-927 AND THE CLAIM DID NOT. Until 5.52 the loop lived
+# in a fixed sh script, and these assertions read that script: that it contained
+# a `while`, that it did not contain the job's command, and that what it looped
+# was `"$@"` - the quoted positional parameters. The reasoning was sound and is
+# quoted here rather than deleted, because it is still why the code looks as it
+# does. What changed is that there is no shell at all now: the feeder runs the
+# command through open3 as a LIST and starts it again itself, so the guarantee
+# is structural rather than a property of some careful quoting.
+#
 # WALKED, NOT NAMED. This read lib/Tira/CLI/Job.pm by path until TKT-920 lifted
 # the monitor lifecycle into Tira::CLI::Job::Monitor to stay under his 500-line
 # rule - at which point three assertions here failed and reported a loop that
@@ -167,36 +175,45 @@ my $starter = cli_source();
 # unreadable file would fail them for the wrong reason.
 like( $starter, qr/\S/, 'the starter is there to be read' );
 
-# THE SCRIPT ITSELF, not the file. A bare /while/ over Job.pm matched ordinary
-# Perl loops elsewhere in the module and passed before anything was built - an
-# assertion that cannot fail is worth less than none, because it reports success.
-my ($script) = $starter =~ /my \$script\s*=\s*(.*?);\n/s;
+# THE FEEDER'S LOOP, extracted rather than matched loosely. A bare /while/ over
+# the command surface matches ordinary Perl loops everywhere and would pass
+# against code that had never been written - an assertion that cannot fail is
+# worth less than none, because it reports success.
+my ($loop) = $starter =~ /(my \$every = .*?\n    \})/s;
 
-# non-empty is the whole claim: the three assertions below read this text, and
-# an extraction that found nothing would pass the unlike and fail the likes for
-# reasons that have nothing to do with the code.
-like( $script // '', qr/\S/, 'the pipeline script was found to read' );
+# non-empty is the whole claim, for the reason the extraction above has.
+like( $loop // '', qr/\S/, 'the feeder\'s run loop was found to read' );
 
 like(
-    $script // '',
-    qr/while/,
-    'the loop is IN THE SHELL SCRIPT, so the board restarts the command rather '
-      . 'than a person typing a while loop into a command field'
+    $loop // '',
+    qr/\bsleep \$every\b/,
+    'THE BOARD RESTARTS THE COMMAND, so nobody has to type a while loop into a '
+      . 'command field. It waits the job\'s own interval between runs - which '
+      . 'is what JOB-006 was reaching for with a shell loop that never ran'
+);
+
+like(
+    $loop // '',
+    qr/last if !\$every/,
+    'and a monitor with no interval runs its command ONCE and stops, rather '
+      . 'than looping by default - restarting is something a job asks for'
 );
 
 unlike(
-    $script // '',
-    qr/\$job->\{command\}|\@command/,
-    'AND THE COMMAND IS NOT IN IT. A loop built by interpolating the job command '
-      . 'into shell source would undo TKT-851 exactly - user text inside a loop '
-      . 'body is the worst place to put back what that card removed'
+    $loop // '',
+    qr/sh\b.*-c|\$script/,
+    'AND NOTHING IS HANDED TO A SHELL. The loop used to be text sh parsed, with '
+      . 'the job\'s words passed in as positional parameters so that a '
+      . 'semicolon stayed an argument. There is no shell left to keep the '
+      . 'command away from, which is TKT-851\'s guarantee made structural'
 );
 
 like(
-    $script // '',
-    qr/"\$\@"/,
-    'the words are still the quoted positional parameters, which is what keeps '
-      . 'a semicolon or a backtick an argument rather than syntax'
+    $starter,
+    qr/IPC::Open3::open3\( my \$in, my \$out, undef, \@command \)/,
+    'the command is run as a LIST, which is what keeps a semicolon or a '
+      . 'backtick an argument rather than syntax - the fact the old `"$@"` '
+      . 'assertion was really about'
 );
 
 done_testing();

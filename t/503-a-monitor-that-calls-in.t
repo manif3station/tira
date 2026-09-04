@@ -161,7 +161,11 @@ ok( Tira::Job->can('job_feed'),
     # being wrong about where the code lives rather than the code being wrong.
         my $body = Suite::cli_source();
 
-    my ($feeder) = $body =~ /job\.feed'\s*\)\s*\{(.*?)\n    \}/s;
+    # THE READER MOVED ON TKT-927 and this reads it where it is now. The
+    # job.feed branch used to hold the loop; the feeder that owns its own pipe
+    # would have been a second copy of it, so both call one sub. The claims
+    # below are unchanged - they were never about which branch the loop sat in.
+    my ($feeder) = $body =~ /(sub \s feed_from_handle .*? \n \} )/xs;
 
     # non-empty is the whole claim: the assertions below ask what the feeder
     # does, and an unmatched block would let them pass against nothing.
@@ -170,8 +174,11 @@ ok( Tira::Job->can('job_feed'),
     # It must READ CONTINUOUSLY. A feeder that collected and wrote at the end
     # would be a deadlock with extra steps - the monitor fills the pipe at about
     # 64KB and stops, which is the failure TKT-842 chose a file to avoid.
-    like( $feeder, qr/<STDIN>/,
-        'that reads its input as it arrives rather than collecting it' );
+    like( $feeder, qr/<\$handle>/,
+        'that reads its input as it arrives rather than collecting it - from a '
+          . 'handle now rather than from STDIN by name, because the same loop '
+          . 'serves the verb somebody pipes into and the feeder that owns its '
+          . 'own pipe' );
 
     # And the WAIT MUST BE BOUNDED. Reading line by line is not enough on its
     # own: a blocking read with a batch that only empties at 25 lines or EOF
@@ -179,7 +186,7 @@ ok( Tira::Job->can('job_feed'),
     # found after the suite and the coverage gate were both green. Asserted on
     # the source because it is a property of how long the feeder will WAIT, and
     # the behaviour itself is proven against a real pipe further down.
-    like( $feeder, qr/can_read\s*\(\s*\$QUIET_AFTER_SECONDS/,
+    like( $feeder, qr/can_read\s*\(\s*\$quiet/,
         'and gives up waiting after a bounded quiet, so a batch that will not '
           . 'fill does not hold a rare speaker for ever' );
 

@@ -2016,6 +2016,7 @@ tira.job.start --id ID [-o FORMAT]
 tira.job.stop --id ID [-o FORMAT]
 tira.job.run --id ID [-o FORMAT]
 tira.job.feed --id ID
+tira.job.feeder --id ID [--interval SECONDS] [--command TEXT]
 tira.job.help
 tira.dashboard -o browser [--show-logs]
 ```
@@ -2783,6 +2784,21 @@ because *About every 7 minutes* alone is a hedge while the bracket makes it an
 explanation. The day-field OR is **stated rather than marked**, the one place his
 instruction is not followed literally: it is exact and surprising, not imprecise,
 and *and also* is the only phrasing that cannot be read as an AND. TKT-917.
+
+**A monitor is one process since 5.53, and `ps` says whose it is.** It was
+three - a `perl -e` shim setting a process group, an `sh` script owning the pipe
+and looping, and the command - with the feeder on the far end. His own `JOB-006`
+line was that whole script plus a resolved absolute path into the install, and it
+never named the board. That is not cosmetic: job ids are per-board and one
+machine runs this skill for several projects, so `JOB-006` exists four times over
+and a monitor cannot be identified from `ps` at all - which is how another
+project's monitors came to be reported as his, with an offer to kill four of
+them. `tira.job.feeder` now runs the command, reads its pipe and sets `$0` to
+`tira.job.feeder JOB-006 [Board Name] -- the command`: the board's name, never
+its path. The three cards that built the old shape are **subtracted** rather than
+joined - no shell to keep the job's words out of, a reader that cannot be
+forgotten because it is the same process, and `setpgrp` inside the thing that
+owns the child. TKT-927.
 
 **And a looping monitor says so, since 5.49.** `job_schedule_words` takes the
 restart interval as an optional second argument and answers *Runs continuously,

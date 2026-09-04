@@ -3679,6 +3679,7 @@ reader never has to infer it from whichever field is populated.
 - `tira.job.stop --id ID [-o FORMAT]`
 - `tira.job.run --id ID [-o FORMAT]`
 - `tira.job.feed --id ID`
+- `tira.job.feeder --id ID [--interval SECONDS] [--command TEXT]`
 - `tira.job.help`
 
     ```
@@ -3754,6 +3755,20 @@ reader never has to infer it from whichever field is populated.
 
     A monitor that is **not** running, and every cron job, behave exactly as
     before. The rule is only about the board claiming something untrue.
+
+    **`tira.job.feeder` is the monitor itself** (TKT-927, 5.53), and
+    `job.start` spawns it rather than a shim and a shell script. In one process
+    it puts itself in a process group, splits the command with the engine's own
+    splitter, runs it through `open3` as a **list**, reads that pipe itself, and
+    starts the command again after it ends when `--interval` or the job's
+    `restart_every` asks for that. Its `$0` is set to
+    `tira.job.feeder JOB-006 [Board Name] -- the command` — the board's **name**
+    and never its path, since the path travels in `TIRA_HOME` precisely to stay
+    out of the process table. `--command` is accepted for running one by hand;
+    without it the command comes from the record. It replaced three processes
+    rather than joining them: the `sh` script and the `perl -e` shim are gone,
+    and the guarantees they carried — a semicolon stays an argument, the pipe
+    always has a reader, the recorded pid stops all of it — are now structural.
 
     **`--restart-every SECONDS` keeps a command running** (TKT-891). When the
     command ends, the board waits that long and runs it again - so nobody types

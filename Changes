@@ -1,5 +1,45 @@
 Revision history for Tira
 
+5.53  2026-09-04
+
+    - TKT-927. A monitor is one process and its ps line says whose it is. His
+      message, quoting his own JOB-006:
+
+        sh -c PERL="$1"; FEEDER="$2"; ID="$3"; EVERY="$4"; shift 4; if [ ...
+        tira-monitor /usr/bin/perl /home/.../lib/Tira/CLI/../../../skills/job/
+        cli/feed JOB-006 5 tail -F -n0 /home/mv/dd-tg/bot.log
+
+      and asking for "a helper like `tira.job.feeder ... --ref <which project>
+      -JOB-NNN` / on the ps -ef table show much more tidy process list".
+
+      **The missing word was the board, and it is not cosmetic.** Job ids are
+      per-board and one machine runs this skill for several projects, so
+      `JOB-006` exists four times over and a monitor cannot be identified from
+      `ps` at all. That is how another project's monitors came to be reported
+      as his, with an offer to kill four of them.
+
+      `tira.job.feeder --id ID [--interval SECONDS] [--command TEXT]` is now the
+      whole monitor: it puts itself in a process group, runs the command through
+      `open3` as a **list**, reads that pipe itself, and starts the command
+      again after it ends when the job asked for that. Its `$0` reads
+
+        tira.job.feeder JOB-006 [Tira Development] -- tail -F -n0 /home/.../bot.log
+
+      the board's **name** and never its path, which travels in `TIRA_HOME`
+      precisely so that it stays out of the process table.
+
+      **It is a subtraction from three cards rather than a fourth mechanism
+      beside them**, which was the card's own test of whether it had been
+      written correctly. TKT-851 kept the job's words out of shell text - there
+      is now no shell to keep them from. TKT-842 chose a file because a pipe
+      with no reader blocks the child - the reader is the same process, so it
+      cannot be forgotten. TKT-920 put the pipeline in a process group - the
+      `setpgrp` is inside the process that owns the child. The `sh` script and
+      the `perl -e` shim are both gone, and `t/538` asserts they are.
+
+      It does no `fork` of its own: `open3` does that, which keeps a branch that
+      `exec`s - and therefore can never report coverage - out of the file.
+
 5.52  2026-09-04
 
     - TKT-921. No test finds code by naming a file under `lib/`. `t/486` has

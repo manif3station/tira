@@ -187,11 +187,11 @@ sub feeding {
 
 my $source = Suite::cli_source();
 
-my ($feed) = $source =~ /(if \s* \( \s* \$command \s+ eq \s+ 'job\.feed' .*? \n \s{4} \})/xs;
+my ($feed) = $source =~ /(sub \s feed_from_handle .*? \n \} )/xs;
 
 ok( defined $feed && length $feed, 'the job.feed branch was extracted' );
 
-like( $feed // '', qr/can_read\(\s*\$QUIET_AFTER_SECONDS/,
+like( $feed // '', qr/can_read\(\s*\$quiet/,
     'the bounded wait survives - a monitor that speaks rarely is still heard '
       . 'within seconds, which is what TKT-851 put it there for' );
 

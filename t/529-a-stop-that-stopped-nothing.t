@@ -69,15 +69,38 @@ ok( Tira::CLI::Job->can('_signal_monitor'),
       . 'lines and one sub away from the spawn it has to agree with - which is '
       . 'the shape of this bug' );
 
-# A feeder that drains and nothing more. The real one lives at
-# skills/job/cli/feed, which exists only after an install - the source tree has
-# no such file - so a spawn that resolved it internally could not be exercised
-# here at all. Passing it in is part of the fix.
+# A STAND-IN FOR THE FEEDER, and on TKT-927 it had to change shape with the
+# thing it stands in for.
+#
+# It used to be a drain: `while (<STDIN>) {}`, because the monitor was a
+# pipeline and the feeder was only its reader. Since 5.52 the feeder IS the
+# monitor - it puts itself in a process group, runs the command as its own
+# child and reads that child's pipe - so a stub that only drained STDIN would
+# spawn nothing, lead no group, and make every assertion below fail while
+# reporting the code as broken.
+#
+# So this stub does what the real feeder does and nothing else: setpgrp, then
+# run the command it was handed. It is deliberately NOT the real verb - that
+# would need a board, and this file is about _spawn_monitor and
+# _signal_monitor rather than about the feeder's own behaviour, which t/538
+# covers.
 my $tmp = tempdir( CLEANUP => 1 );
-my $feeder = File::Spec->catfile( $tmp, 'feed' );
+my $feeder = File::Spec->catfile( $tmp, 'feeder' );
 {
     open my $fh, '>', $feeder or die "$feeder: $!";
-    print {$fh} "while ( my \$line = <STDIN> ) { }\n";
+    print {$fh} <<'STUB';
+eval { setpgrp 0, 0 };
+my @command = ( 'sleep', '47' );
+require IPC::Open3;
+while (1) {
+    my $pid = IPC::Open3::open3( my $in, my $out, undef, @command );
+    close $in;
+    while ( my $line = <$out> ) { }
+    waitpid $pid, 0;
+    last if !$ENV{STUB_EVERY};
+    sleep $ENV{STUB_EVERY};
+}
+STUB
     close $fh;
 }
 
@@ -153,8 +176,8 @@ for my $every ( 0, 5 ) {
     my $shape = $every ? "with restart_every $every" : 'with no restart_every';
 
     my $pid = eval {
-        Tira::CLI::Job::_spawn_monitor( $^X, $feeder, 'JOB-T', $every,
-            [ 'sleep', '47' ] );
+        local $ENV{STUB_EVERY} = $every;
+        Tira::CLI::Job::_spawn_monitor( $^X, $feeder, 'JOB-T', $every );
     };
 
     # non-zero is the whole claim: a spawn that returned nothing would make
@@ -169,10 +192,12 @@ for my $every ( 0, 5 ) {
     my @tree = tree_of($pid);
     my @up   = alive(@tree);
 
-    cmp_ok( scalar @up, '>=', 3,
-        "$shape: the monitor is more than one process - the command, the "
-          . 'feeder and the shell that owns the pipe between them. That is '
-          . 'what makes a single kill insufficient' );
+    cmp_ok( scalar @up, '>=', 2,
+        "$shape: the monitor is more than one process - the feeder and the "
+          . 'command it runs. It was three, or four with a loop, until TKT-927 '
+          . 'removed the shell and the shim; the number changed and the reason '
+          . 'this test exists did not, because signalling the recorded pid '
+          . 'alone still leaves the command running' );
 
     my $signalled = eval { Tira::CLI::Job::_signal_monitor($pid) };
 
@@ -204,8 +229,7 @@ for my $every ( 0, 5 ) {
 
 {
     my $pid = eval {
-        Tira::CLI::Job::_spawn_monitor( $^X, $feeder, 'JOB-T', 0,
-            [ 'sleep', '47' ] );
+        Tira::CLI::Job::_spawn_monitor( $^X, $feeder, 'JOB-T', 0 );
     };
 
     SKIP: {

@@ -1950,8 +1950,20 @@ feeder, which registers it against the job — see *The monitor calls in; its
 leavings are not read* below.
 Until 5.41 it was appended to a per-job log instead, because a pipe nobody
 drains fills at around 64KB and blocks the monitor forever; the pipe is safe
-now only because the feeder is its reader and drains continuously. The
-`monitor-dead` police rule then reports any
+now only because the feeder is its reader and drains continuously.
+
+**The feeder refuses a job it cannot find, since 5.51.** It refused an *empty*
+id and accepted a nonexistent one, then watched standard input for ever without
+ever looking the job up — and since `tira.job.feed --id ID` is a documented
+example and `t/70-doc-examples.t` runs every documented example in-process, the
+suite ran it against a job called `ID`. It hung whenever `prove` gave that worker
+a standard input that stayed open, which is why it only bit sometimes and why it
+cost two coverage gate runs before being found. A cron job is refused too, for
+the reason `job_started` already refuses one. The lookup is once, before the
+loop; the bounded wait that lets a rare speaker be heard in seconds is untouched
+and `t/535` asserts so. TKT-928.
+
+The `monitor-dead` police rule then reports any
 enabled monitor that should be running and is not — including one that was
 never started, which is what every monitor looks like after a restart.
 

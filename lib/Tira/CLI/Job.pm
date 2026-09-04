@@ -135,6 +135,34 @@ sub dispatch {
         my $id = $args->{id} // '';
         die "A job id is required - which monitor is speaking?\n" if $id eq '';
 
+        # WHICH MONITOR, ASKED BEFORE ANYTHING IS WATCHED. An empty id was
+        # refused here and a NONEXISTENT one was not: the verb went straight to
+        # the loop below, took the timeout branch, flushed an empty batch and
+        # went round again - for ever, at two-second intervals, never touching
+        # the job record and so never discovering the job was not there.
+        #
+        # THAT IS NOT A TIDINESS FIX. `tira.job.feed --id ID` is a documented
+        # example and t/70-doc-examples.t runs every documented example
+        # in-process, so the suite ran this against a job called "ID". It hangs
+        # whenever prove hands that worker a standard input that stays open,
+        # which is why it only bit sometimes - it cost two coverage gate runs,
+        # twenty-one and twenty-nine minutes. TKT-928.
+        #
+        # A CRON JOB IS REFUSED TOO, for the reason job_started already refuses
+        # to record a pid for one: a cron job is not up between runs, so nothing
+        # is feeding on its behalf and a feed against one is a mistake somebody
+        # wants told about rather than a wait.
+        #
+        # Once, before the loop. Inside it this would be a lookup per poll, and
+        # the loop's shape is TKT-851's answer to a monitor that speaks rarely.
+        my ($known) = grep { ( $_->{id} // '' ) eq $id }
+          @{ $tira->job_list( %{$args} ) };
+        die "Job '$id' is not on this board - which monitor is speaking?\n"
+          if !$known;
+        die "Job $id is a cron job, not a monitor - it runs when due, so "
+          . "nothing feeds on its behalf\n"
+          if ( $known->{schedule_kind} // '' ) ne 'monitor';
+
         my @batch;
         my $flush = sub {
             return if !@batch;
@@ -344,6 +372,29 @@ uses for templates.
 
 The board's location travels to the feeder in the environment rather than as an
 argument, so it does not appear in the process table for anyone running C<ps>.
+
+=head1 THE FEEDER REFUSES BEFORE IT READS
+
+C<job.feed> resolves the job and refuses by name before standard input is
+watched at all. Until 5.51 it refused an B<empty> id and accepted a
+B<nonexistent> one: it went straight to the read loop, took the timeout branch,
+flushed an empty batch and went round again - for ever, never touching the job
+record and so never discovering the job was not there.
+
+B<That mattered because the verb is a documented example.> F<t/70-doc-examples.t>
+runs every documented example in-process, and C<tira.job.feed --id ID> is one -
+so the suite ran it against a job called C<ID> and hung whenever C<prove> handed
+that worker a standard input that stayed open. When prove had already closed the
+write end, C<< <STDIN> >> returned undef and nothing looked wrong, which is why
+it bit only sometimes and cost two coverage gate runs to find. TKT-928.
+
+A cron job is refused for the reason L<Tira::Job>'s C<job_started> already
+refuses to record a pid for one: it is not up between runs, so nothing is feeding
+on its behalf.
+
+The lookup happens B<once, before the loop>. Inside it, it would be a job-list
+read every two seconds - and the loop's shape is TKT-851's answer to a monitor
+that speaks rarely.
 
 =head1 THE FEEDER
 

@@ -1,5 +1,36 @@
 Revision history for Tira
 
+5.51  2026-09-04
+
+    - TKT-928. `tira.job.feed` looks the job up before it watches standard
+      input. It refused an **empty** job id and accepted a **nonexistent** one,
+      then added standard input to a watcher and looped for ever - two-second
+      polls, no CPU, never touching the job record and so never discovering the
+      job was not there.
+
+      That is not a tidiness fix. `tira.job.feed --id ID` is a **documented
+      example**, and `t/70-doc-examples.t` runs every documented example
+      in-process - so the suite ran this verb against a job called `ID` on a
+      fixture board. It hangs whenever `prove` hands that worker a standard input
+      that stays open, which is why it only bit sometimes: when prove has already
+      closed the write end, `<STDIN>` returns undef, the loop ends, and nothing
+      looks wrong. It cost two coverage gate runs, twenty-one and twenty-nine
+      minutes.
+
+      A **cron job** is refused too, for the reason `job_started` already refuses
+      to record a pid for one: a cron job is not up between runs, so nothing is
+      feeding on its behalf.
+
+      The lookup happens **once, before the loop**. Inside it, it would be a
+      job-list read every two seconds - and the loop's shape is TKT-851's answer
+      to a monitor that speaks rarely: the wait is bounded and whatever is held
+      is flushed on the timeout, so a poller printing once an hour is heard in
+      seconds rather than after twenty-five lines. `t/535` asserts both survive.
+
+      The existing empty-id check is **added to, not replaced**, and `t/535`
+      asserts that separately - a fix that swapped one for the other would
+      satisfy the new assertion and silently lose the old behaviour.
+
 5.50  2026-09-04
 
     - TKT-917. The schedule on a job card reads as words for far more of cron.

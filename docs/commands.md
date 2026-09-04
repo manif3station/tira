@@ -3911,6 +3911,16 @@ reader never has to infer it from whichever field is populated.
     entrypoint, and an entrypoint nobody can find is how a feature ends up being
     reimplemented by the next person who needs it.
 
+    **It refuses a job it cannot find, before it reads anything** (5.51). Until
+    then it refused an *empty* id and accepted a nonexistent one, then waited on
+    standard input for ever without ever looking the job up. Since this page's
+    own example is `tira.job.feed --id ID`, and `t/70-doc-examples.t` runs every
+    documented example, the suite ran it against a job called `ID` — and hung
+    whenever `prove` gave that worker a standard input that stayed open. A cron
+    job is refused too, for the reason `job_started` already refuses to record a
+    pid for one: it is not up between runs, so nothing feeds on its behalf.
+    TKT-928.
+
     It reads CONTINUOUSLY rather than collecting and writing at the end, which
     is the whole reason the pipe is safe — a feeder that waited for EOF would be
     a deadlock with extra steps, since the monitor it is reading never finishes.

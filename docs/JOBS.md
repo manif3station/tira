@@ -330,6 +330,12 @@ directly if you are writing something that reports on its own behalf:
 d2 tira.job.feed --id JOB-005
 ```
 
+**It refuses a job it cannot find, and a cron job, before it reads anything**
+(5.51). Given an id that names nothing it used to wait on standard input for
+ever - never looking the job up, so never discovering there was nothing to feed.
+A cron job is refused for the reason a cron job cannot be *started* either: it is
+not up between runs, so nothing is feeding on its behalf. TKT-928.
+
 ### Saying how often a monitor should speak
 
 A monitor can declare its own cadence, and a stopped-but-alive monitor is

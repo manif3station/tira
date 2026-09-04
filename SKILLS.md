@@ -2680,6 +2680,43 @@ not that: it records `ok` or `not-ok`, a judgement, and leaves `read_at` alone.
 For "I have acted on this", use `tira.comment.add` or a card field, which is
 what `answer-ok-not-folded` asks for. Neither overwrites the answer.
 
+**A command torn into pieces (TKT-898, 5.42).** A job command was `split ' '` at
+three sites, so any argument containing a space was torn apart — and the job ran,
+exited 0, and did the wrong thing. `--text "two words"` reached the program as
+three arguments with the quote marks still attached; a cron expression passed as
+an argument arrived as five.
+
+The confusion is worth naming because it is easy to repeat: **a shell does two
+things.** It GROUPS arguments and it INTERPRETS metacharacters. TKT-851 removed
+the shell to stop the second and took the first with it, which was never the
+intention — its own worked examples pass messages with spaces in them.
+
+So `Tira::Job::job_command_words` restores the grouping alone. Quotes group;
+everything else is literal, so a semicolon, backtick, `$(...)`, pipe or redirect
+inside an argument is text and TKT-851's guarantee is untouched.
+
+**It is written out rather than using `Text::ParseWords`, and Windows is the
+reason.** `shellwords` treats a backslash as an escape, so
+`C:\strawberry\perl\bin\perl.exe` came back as `C:strawberryperlbinperl.exe`
+with every separator eaten. `t/493` caught that within a minute — it asserts a
+full path and a `.exe` on either side still name the same program — and t/520 now
+asserts it on purpose, so the next person reaching for the obvious module gets a
+failure that names the reason.
+
+**An unbalanced quote is refused**, naming the quote and showing the command
+back, rather than falling back to the old split. The fallback was my first
+implementation and the card's own checklist corrected it: a fallback runs
+something the author did not write, silently, which is the shape EPC-014 exists
+to remove. It is refused in the parser rather than by returning an empty list,
+because empty already means "the job has no command to run" at both call sites,
+and a job whose command is a typo is not a job with no command.
+
+Two callers must not die of that refusal. The police pass reports it as a failed
+run carrying the engine's words — the bridge is the single reporting path, so one
+malformed command must not silence every other finding — and the Windows liveness
+comparator treats unreadable as unmatched, since it is asked whether a process is
+the one we started.
+
 **A monitor's own words, on the bridge (TKT-851, 5.41).** His instruction on
 2026-09-02: "Monitors should not have separate logs. They all go to the policy
 bridge." `monitor-dead` made a STOPPED monitor say so; a RUNNING one was still

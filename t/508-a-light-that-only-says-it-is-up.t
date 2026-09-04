@@ -51,19 +51,12 @@ use Test::More;
 
 use lib 'lib';
 use lib 't/lib';
+use Suite ();
 use Tira;
 
-my $js = do {
-    open my $fh, '<:raw', 'lib/Tira/views/jobs-editor.js' or die "jobs-editor.js: $!";
-    local $/;
-    <$fh>;
-};
+my $js = Suite::view_source('jobs-editor.js');
 
-my $css = do {
-    open my $fh, '<:raw', 'lib/Tira/views/dashboard.css' or die "dashboard.css: $!";
-    local $/;
-    <$fh>;
-};
+my $css = Suite::view_source('dashboard.css');
 
 # non-empty is the whole claim: every assertion below reads something out of
 # these two files, and an unreadable one would fail them all for the wrong

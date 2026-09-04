@@ -215,12 +215,7 @@ SKIP: {
 # and 1 when bridge_write later skipped the violation as quiet. Either way the
 # words are gone and nobody saw them.
 
-my $police = do {
-    open my $fh, '<:encoding(UTF-8)', 'lib/Tira/CLI/Police.pm'
-      or die "Police.pm: $!";
-    local $/;
-    <$fh>;
-};
+my $police = Suite::cli_source();
 
 my ($drain) = $police =~ /(sub \s advance_monitor_output .*? \n \} )/xs;
 

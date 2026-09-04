@@ -30,17 +30,20 @@ use warnings;
 
 use Test::More;
 
-my $file = do {
-    open my $fh, '<', 'lib/Tira/CLI.pm' or die "lib/Tira/CLI.pm: $!";
-    local $/;
-    <$fh>;
-};
+use lib 't/lib';
+use Suite ();
+# THE COMMAND SURFACE, not lib/Tira/CLI.pm by name, since TKT-921. Both halves
+# of this file survive the move path being lifted: the guards are found
+# wherever they are called, and their POD entries wherever they are written.
+# Naming the file would have made a lift look like an undocumented guard, which
+# is the failure that widened t/486 in the first place.
+my $file = Suite::cli_source();
 
 # Established before anything is counted. Every assertion below is about this
-# text, and a count taken over a file that failed to load is zero for the wrong
+# text, and a count taken over a read that failed is zero for the wrong
 # reason - t/147's subject, and the thing that made t/417 fail loudly rather
 # than silently when the front-end moved out of lib/Tira.pm.
-ok( $file, 'lib/Tira/CLI.pm was read - ' . length($file) . ' bytes' );
+ok( $file, 'the command surface was read - ' . length($file) . ' bytes' );
 
 my ($pod) = $file =~ /^(=head1 NAME.*)\z/ms;
 ok( $pod, 'and its POD was found - ' . length( $pod // '' ) . ' bytes' );

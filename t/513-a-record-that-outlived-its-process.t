@@ -44,6 +44,7 @@ use Test::More;
 
 use lib 'lib';
 use lib 't/lib';
+use Suite ();
 use Tira;
 
 # A pid that is certainly running and is certainly not a monitor: this test.
@@ -268,11 +269,7 @@ sub running_monitor {
           . 'the refusals above name it, and a person follows the message '
           . 'rather than calling Perl' );
 
-    my $cli = do {
-        open my $fh, '<:raw', 'lib/Tira/CLI.pm' or die "CLI.pm: $!";
-        local $/;
-        <$fh>;
-    };
+    my $cli = Suite::cli_source();
 
     # non-empty is the whole claim: the assertion below searches this text.
     like( $cli, qr/\S/, 'the dispatcher is there to be read' );

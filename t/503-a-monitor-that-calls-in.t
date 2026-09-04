@@ -34,6 +34,7 @@ use Test::More;
 
 use lib 'lib';
 use lib 't/lib';
+use Suite ();
 use Tira;
 
 require Tira::Job;
@@ -158,9 +159,7 @@ ok( Tira::Job->can('job_feed'),
     # Tira entrypoint is a thin shim that forwards to Tira::CLI - the first
     # version of this assertion read the shim and failed, which was the test
     # being wrong about where the code lives rather than the code being wrong.
-    open my $fh, '<:raw', 'lib/Tira/CLI/Job.pm' or die "the job handler: $!";
-    my $body = do { local $/; <$fh> };
-    close $fh;
+        my $body = Suite::cli_source();
 
     my ($feeder) = $body =~ /job\.feed'\s*\)\s*\{(.*?)\n    \}/s;
 

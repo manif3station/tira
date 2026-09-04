@@ -24,6 +24,8 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
 
+use lib 't/lib';
+use Suite ();
 use lib 'lib';
 use Tira;
 
@@ -33,12 +35,7 @@ use Tira;
 # reading the JS source and asserting on its content - because this is a
 # client-rendering change with no server-side counterpart to exercise.
 
-my $live_js = do {
-    local $/;
-    open my $fh, '<:encoding(UTF-8)', 'lib/Tira/views/live-helpers.js'
-      or die "Cannot read live-helpers.js: $!";
-    <$fh>;
-};
+my $live_js = Suite::view_source('live-helpers.js');
 
 ok( length($live_js), 'live-helpers.js has content to check' )
   or BAIL_OUT('live-helpers.js is empty');

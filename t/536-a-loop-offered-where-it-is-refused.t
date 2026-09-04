@@ -47,6 +47,7 @@ use Test::More;
 
 use lib 'lib';
 use lib 't/lib';
+use Suite ();
 use Tira;
 use Tira::Job;
 
@@ -180,12 +181,7 @@ is( $switching->{expect_every},  10, 'and an expectation - the control, since '
 # source assertion can be satisfied by code that decides correctly and still
 # renders wrongly, and saying so is worth more than implying otherwise.
 
-my $editor = do {
-    open my $fh, '<:encoding(UTF-8)', 'lib/Tira/views/jobs-editor.js'
-      or die "jobs-editor.js: $!";
-    local $/;
-    <$fh>;
-};
+my $editor = Suite::view_source('jobs-editor.js');
 
 ok( length $editor, 'the jobs editor was read' );
 

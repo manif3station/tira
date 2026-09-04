@@ -53,13 +53,10 @@ use Test::More;
 
 use lib 'lib';
 use lib 't/lib';
+use Suite ();
 use Tira;
 
-my $css = do {
-    open my $fh, '<:raw', 'lib/Tira/views/dashboard.css' or die "dashboard.css: $!";
-    local $/;
-    <$fh>;
-};
+my $css = Suite::view_source('dashboard.css');
 
 # non-empty is the whole claim: every assertion below reads a rule out of this
 # text, and an unreadable file would fail them all for the wrong reason.

@@ -59,26 +59,14 @@ use Test::More;
 
 use lib 'lib';
 use lib 't/lib';
+use Suite ();
 use Tira;
 
-my $js = do {
-    open my $fh, '<:raw', 'lib/Tira/views/tasklist-editor.js'
-      or die "tasklist-editor.js: $!";
-    local $/;
-    <$fh>;
-};
+my $js = Suite::view_source('tasklist-editor.js');
 
-my $render = do {
-    open my $fh, '<:raw', 'lib/Tira/Render.pm' or die "Render.pm: $!";
-    local $/;
-    <$fh>;
-};
+my $render = Suite::engine_source();
 
-my $css = do {
-    open my $fh, '<:raw', 'lib/Tira/views/dashboard.css' or die "dashboard.css: $!";
-    local $/;
-    <$fh>;
-};
+my $css = Suite::view_source('dashboard.css');
 
 # non-empty is the whole claim: every assertion below reads something out of
 # these three files, and an unreadable one would fail them all for the wrong

@@ -44,6 +44,7 @@ use Test::More;
 
 use lib 'lib';
 use lib 't/lib';
+use Suite ();
 use JSON::PP ();
 use Tira;
 use Tira::Job;
@@ -143,12 +144,7 @@ is( Tira::Job::job_schedule_words('*/30 * * * *'), 'Every 30 minutes',
 # Pinning the half that does not reproduce, so it is eliminated rather than
 # assumed. Source-read, like every other jobs-editor assertion in this suite.
 
-my $editor = do {
-    open my $fh, '<:encoding(UTF-8)', 'lib/Tira/views/jobs-editor.js'
-      or die "jobs-editor.js: $!";
-    local $/;
-    <$fh>;
-};
+my $editor = Suite::view_source('jobs-editor.js');
 
 like( $editor, qr/loopBox\.checked\s*=\s*Boolean\(\s*job\s*&&\s*job\.restart_every/,
     'the editor ticks the loop box from the stored interval' );

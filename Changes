@@ -2,6 +2,35 @@ Revision history for Tira
 
 5.52  2026-09-04
 
+    - TKT-921. No test finds code by naming a file under `lib/`. `t/486` has
+      refused this since 5.26, for `lib/Tira.pm` alone - the file TKT-746 is
+      decomposing, and TKT-835 converted exactly the tests that read it. The
+      eighth occurrence came from elsewhere: TKT-920 lifted the monitor
+      lifecycle out of `lib/Tira/CLI/Job.pm` and `t/516` failed three
+      assertions reporting a shell loop that had moved twenty lines into
+      another file, which reads as "the code regressed" and is really "the test
+      named a file".
+
+      So the guard covers `.pm`, `.js` and `.css` under `lib/` now. Thirty
+      files were converted: thirteen view reads to a new
+      `Suite::view_source(BASENAME)`, the rest to the existing
+      `engine_source()` and `cli_source()`. `view_source` finds a view by
+      **basename** and does not concatenate the way its siblings do - a test
+      about `jobs-editor.js` asks what that file does, and a concatenation
+      would let an assertion match another view and pass for the wrong reason.
+
+      Four tests keep their path and now say why on the line, joining the four
+      that already did: `t/430` compares `lib/Tira/CLI.pm`'s own size against
+      the modules it indexes, `t/402` asserts a module's POD describes its own
+      providers, `t/426` asserts the View carries a template engine and the
+      engine carries none, and `t/439`'s second half asks whether the module
+      implementing `police.outstanding` consumes an option - a claim the whole
+      layer would answer wrongly.
+
+      Seven of the thirty offenders were written the same day the widening was,
+      hours after the card describing the fault was filed. That is why this is
+      a guard rather than a sweep.
+
     - TKT-911. The jobs editor stops offering a restart interval on a cron job.
       The row that carries "Restart when it ends, every N seconds" was shown
       whenever the job was in command mode, without asking whether it was a

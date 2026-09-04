@@ -45,6 +45,7 @@ use Test::More;
 
 use lib 'lib';
 use lib 't/lib';
+use Suite ();
 use Tira;
 use Tira::CLI::Job;
 
@@ -184,11 +185,7 @@ sub feeding {
 # speaks once an hour is heard in seconds rather than after twenty-five lines,
 # and it is the thing a careless fix here would remove.
 
-my $source = do {
-    open my $fh, '<:encoding(UTF-8)', 'lib/Tira/CLI/Job.pm' or die "Job.pm: $!";
-    local $/;
-    <$fh>;
-};
+my $source = Suite::cli_source();
 
 my ($feed) = $source =~ /(if \s* \( \s* \$command \s+ eq \s+ 'job\.feed' .*? \n \s{4} \})/xs;
 

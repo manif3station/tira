@@ -24,6 +24,8 @@ use warnings;
 use File::Find;
 use Test::More;
 
+use lib 't/lib';
+use Suite ();
 sub slurp {
     my ($path) = @_;
     open my $fh, '<', $path or die "$path: $!";
@@ -71,11 +73,15 @@ is_deeply( \@naming, [],
 # floors under a mistake already made once: the CLI resolves before it serves,
 # so reaching them at all means something upstream is wrong.
 
-my $web = slurp('lib/Tira/DashboardWeb.pm');
+# The engine rather than the dashboard module by name, since TKT-921: what the
+# claim needs is "a refusal the code prints", and which file prints it is the
+# thing that keeps moving. Wider than it was, and the wider version is the one
+# the assertion above already makes over every file that can carry a message.
+my $web = Suite::engine_source();
 my @refusals = $web =~ /die\s+"([^"]*)"/g;
-ok( scalar @refusals, 'the dashboard module refuses things' );
+ok( scalar @refusals, 'the engine refuses things' );
 unlike( join( ' ', @refusals ), $selector,
-    'and none of its refusals names the selector' );
+    'and none of those refusals names the selector' );
 
 # It still has to say something a reader can act on. A message emptied of
 # everything useful passes the check above and helps nobody, which would be the

@@ -46,6 +46,7 @@ use Test::More;
 
 use lib 'lib';
 use lib 't/lib';
+use Suite ();
 use Tira;
 
 my $doc = 'docs/JOBS.md';
@@ -126,11 +127,7 @@ like(
 
 # --- the command exists and prints it ----------------------------------------
 
-my $cli = do {
-    open my $fh, '<:raw', 'lib/Tira/CLI.pm' or die "CLI.pm: $!";
-    local $/;
-    <$fh>;
-};
+my $cli = Suite::cli_source();
 
 like(
     $cli,
@@ -138,11 +135,7 @@ like(
     'tira.job.help is a command the dispatcher knows'
 );
 
-my $usage = do {
-    open my $fh, '<:raw', 'lib/Tira/CLI/Usage.pm' or die "Usage.pm: $!";
-    local $/;
-    <$fh>;
-};
+my $usage = Suite::cli_source();
 
 like(
     $usage,

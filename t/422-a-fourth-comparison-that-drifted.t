@@ -32,6 +32,8 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
 
+use lib 't/lib';
+use Suite ();
 use lib 'lib';
 use Tira;
 use Tira::CLI;
@@ -159,9 +161,7 @@ unlike( $forward->{err}, qr/brought \d+ required action/,
 # rather than run, the way t/224 and t/416 already assert things about code
 # they cannot execute.
 
-open my $fh, '<', 'lib/Tira/CLI.pm' or die "CLI.pm: $!";
-my $cli = do { local $/; <$fh> };
-close $fh;
+my $cli = Suite::cli_source();
 
 # Everything OUTSIDE the predicate. The first version scanned the whole file
 # and flagged the predicate's own line - lc( ... $item->{status} ... ) eq

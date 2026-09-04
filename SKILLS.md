@@ -2109,11 +2109,40 @@ records four more from TKT-607's split. Seven such tests now ask
 new instances. Three of the seven read police content, so this was owed
 before TKT-746's last lift rather than after it.
 
+**Widened to every source file under `lib/` in 5.52 (TKT-921), and the narrow
+version was right when it was written.** Until then the rule refused reading
+`lib/Tira.pm` alone, because that is the file TKT-746 is decomposing and
+TKT-835 converted exactly the tests that read it. The eighth occurrence arrived
+from somewhere else entirely: TKT-920 lifted the monitor lifecycle out of
+`lib/Tira/CLI/Job.pm` and `t/516` failed three assertions reporting a shell
+loop that had moved twenty lines into another file. The rule was never about
+*which* file is mobile - every file here is, and this repository lifts one most
+weeks - so the guard now covers `.pm`, `.js` and `.css` under `lib/`.
+
+Thirty files were converted: thirteen view reads to a new
+`Suite::view_source(BASENAME)`, the rest to `engine_source()` or
+`cli_source()`. `view_source` finds a view by **basename** and deliberately
+does not concatenate the way its two siblings do - a test about
+`jobs-editor.js` is asking what *that* file does, and handing it every view
+would let an assertion match another file's source and pass for the wrong
+reason. It dies on a name that matches nothing, because an empty string reads
+as "a file with none of what I asked for in it".
+
+Seven of the thirty offenders had been written **that same day**, hours after
+the card describing the fault was filed. That is the argument for the guard
+being wide rather than for another sweep.
+
 The rule is narrower than "never name a module", and the narrowing was
-forced rather than chosen: **only *reading* `lib/Tira.pm` is refused.** That
-is the file being decomposed, so code read out of it is mobile by
-definition, while a stable concern module is a legitimate subject for a test
-to be about. There are two such tests and each says why: `t/426` asserts
+forced rather than chosen: only *reading* a source file to find code is
+refused, and only where the filename was incidental. A stable module is a
+legitimate subject for a test to be about. There are eight such tests and each says why. Four were added by the widening:
+`t/430` compares `lib/Tira/CLI.pm`'s own size against the modules it indexes,
+so a lift is what it must *notice* rather than survive; `t/402` asserts one
+module's POD describes that module's own providers; and `t/439`'s second half
+asks whether the module implementing `police.outstanding` consumes an option -
+over the whole layer that would be satisfied by any command anywhere reading
+it, which is exactly the confusion its two halves exist to prevent, so its
+first half walks and its second keeps the path. `t/426` asserts
 `lib/Tira.pm` *itself* carries no page markup, which is true of the engine
 and false of `lib/Tira/DashboardWeb.pm`, the View - walking the engine made
 that true claim fail. `t/344` takes only `Tira.pm`'s own POD, which is

@@ -37,6 +37,7 @@ use Test::More;
 
 use lib 'lib';
 use lib 't/lib';
+use Suite ();
 use Tira;
 require Tira::DashboardWeb;
 require Tira::CLI;
@@ -99,9 +100,7 @@ ok( !( grep { $_->{path} eq '/logs' } @{$kept} ),
     'and nothing has put /logs in the record on its own' );
 
 {
-    open my $fh, '<:raw', 'lib/Tira/DashboardWeb.pm' or die "cannot read: $!";
-    my $body = do { local $/; <$fh> };
-    close $fh;
+        my $body = Suite::engine_source();
     my ($hook) = $body =~ /hook after => sub \{(.*?)\n\};/s;
     ok( defined $hook, 'the after hook is where a request gets recorded' );
     like( $hook, qr{request->path eq '/logs'},
@@ -111,12 +110,7 @@ ok( !( grep { $_->{path} eq '/logs' } @{$kept} ),
 # --- the flag, and the route that does not exist without it -----------------
 
 ok( Tira::CLI->can('run'), 'the CLI is there to be asked about its options' );
-my $spec = do {
-    open my $fh, '<:raw', 'lib/Tira/CLI.pm' or die "cannot read CLI.pm: $!";
-    my $body = do { local $/; <$fh> };
-    close $fh;
-    $body;
-};
+my $spec = Suite::cli_source();
 like( $spec, qr/'show-logs'/,
     'the CLI declares a --show-logs option at all' );
 

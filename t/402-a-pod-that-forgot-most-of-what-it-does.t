@@ -12,6 +12,11 @@ use warnings;
 
 use Test::More;
 
+# t/486 marker: about this file, not its code - this file asserts that THIS
+# module's own POD describes what THIS module does, so the POD and the code
+# have to come from the same file. A walker over the layer would let one
+# module's POD answer for another's providers, which is the fault in reverse.
+# TKT-921.
 my $module = 'lib/Tira/DashboardWeb.pm';
 open my $fh, '<', $module or die "Cannot read $module: $!";
 my $body = do { local $/; <$fh> };

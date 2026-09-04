@@ -39,6 +39,7 @@ use Test::More;
 
 use lib 'lib';
 use lib 't/lib';
+use Suite ();
 use JSON::PP ();
 use Tira;
 use Tira::Job;
@@ -193,12 +194,7 @@ SKIP: {
 # Scoped to the card-building region, because paintLog is called from the play
 # handler too and a whole-file match would pass today.
 
-my $editor = do {
-    open my $fh, '<:encoding(UTF-8)', 'lib/Tira/views/jobs-editor.js'
-      or die "jobs-editor.js: $!";
-    local $/;
-    <$fh>;
-};
+my $editor = Suite::view_source('jobs-editor.js');
 
 my ($card) = $editor =~ /(const \s logBox \s* = .*? play\.addEventListener)/xs;
 

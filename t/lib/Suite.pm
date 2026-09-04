@@ -3,10 +3,11 @@ package Suite;
 use strict;
 use warnings;
 
+use File::Basename ();
 use File::Find ();
 use Test::More ();
 use Exporter qw(import);
-our @EXPORT_OK = qw(assertion_files engine_source cli_source);
+our @EXPORT_OK = qw(assertion_files engine_source cli_source view_source);
 
 # Which files the suite's own guards read, decided once.
 #
@@ -118,6 +119,42 @@ sub cli_source {
     return $source;
 }
 
+# A VIEW FILE, BY NAME RATHER THAN BY PATH. The third walker, and it does not
+# concatenate the way the two above do - deliberately.
+#
+# engine_source() and cli_source() answer "does the engine say X anywhere",
+# which is the right question for a layer. A test about jobs-editor.js is
+# asking what THAT file does, and thirteen of them exist: hand them a
+# concatenation of every view and an assertion starts matching another file's
+# source and passing for the wrong reason. So this keeps each assertion
+# pointed at one file while removing the thing that broke them - the path.
+#
+# lib/Tira/views/ is where they live today; the point is that no test needs to
+# know that. TKT-921, and the same lesson as TKT-835: a test that opens a path
+# is asserting where code lives while claiming to assert something else.
+sub view_source {
+    my ($name) = @_;
+
+    my @found;
+    File::Find::find(
+        { no_chdir => 1, wanted => sub {
+              push @found, $File::Find::name
+                if ( File::Basename::basename($File::Find::name) eq ( $name // '' ) );
+          } },
+        'lib' );
+
+    # DIES rather than returning empty. An empty string would be read by every
+    # caller as "a file with none of what I asked for in it", which is the
+    # absence-proven-by-a-broken-instrument fault the walkers above assert
+    # their way out of - and a renamed view is exactly when this must shout.
+    die "no view named '" . ( $name // '' ) . "' under lib/\n" if !@found;
+    die "more than one file named '$name' under lib/: @found\n" if @found > 1;
+
+    open my $fh, '<:encoding(UTF-8)', $found[0] or die "$found[0]: $!";
+    local $/;
+    return scalar <$fh>;
+}
+
 1;
 
 __END__
@@ -147,6 +184,25 @@ cannot be mistaken for an absence. TKT-835.
 Not for a test whose claim is about a particular module: F<t/430> reads
 F<lib/Tira/CLI.pm> precisely to assert the index is smaller than the modules
 it indexes, and naming the file there is the point.
+
+=head2 cli_source
+
+The command surface - F<lib/Tira/CLI.pm> and everything under
+F<lib/Tira/CLI/> - concatenated, for guards that read what the commands
+declare rather than what the engine does. The mirror image of
+C<engine_source>, and together the two are F<lib/>. TKT-837 lifted two option
+tables out of F<lib/Tira/CLI.pm> and F<t/239>, which parsed them by filename,
+reported a table as empty when it had merely moved.
+
+=head2 view_source
+
+One view file, found by B<basename> wherever it lives under F<lib/>. Dies if
+the name matches nothing or more than one thing.
+
+Not a concatenation, unlike the two above, and the difference is the point: a
+test about F<jobs-editor.js> is asking what that file does, so handing it every
+view would let an assertion match another file's source and pass for the wrong
+reason. This removes the path without widening the subject. TKT-921.
 
 =head2 assertion_files
 

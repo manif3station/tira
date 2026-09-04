@@ -42,7 +42,7 @@ use Test::More;
 
 use lib 'lib';
 use lib 't/lib';
-
+use Suite ();
 # Loaded for the assembled-page block at the end. The rest of this file only
 # reads the two view assets off disk, which is why the engine was not needed
 # until the page check was added.
@@ -56,8 +56,8 @@ sub slurp {
     return $body;
 }
 
-my $css = slurp('lib/Tira/views/dashboard.css');
-my $js  = slurp('lib/Tira/views/jobs-editor.js');
+my $css = Suite::view_source('dashboard.css');
+my $js  = Suite::view_source('jobs-editor.js');
 
 # --- the neighbour, established first ----------------------------------------
 #

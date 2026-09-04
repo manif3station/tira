@@ -24,6 +24,8 @@ use warnings;
 
 use Test::More;
 
+use lib 't/lib';
+use Suite ();
 my $skills = do {
     local $/;
     open my $fh, '<:encoding(UTF-8)', 'SKILLS.md' or die "Cannot read SKILLS.md: $!";
@@ -61,18 +63,25 @@ like( $entry, qr/--fresh[^\n]{0,400}?\bpass\b/,
 # not tomorrow, so the options the command accepts and the options SKILLS.md
 # names are reconciled here.
 
-my $cli = do {
-    local $/;
-    open my $fh, '<:encoding(UTF-8)', 'lib/Tira/CLI.pm' or die "Cannot read CLI.pm: $!";
-    <$fh>;
-};
+my $cli = Suite::cli_source();
 
 # The three options this command accepts and a reader would act on. Taken from
 # the binding table rather than from memory, and asserted to still be bound - a
 # renamed flag must fail here rather than quietly shrink the list being checked.
+#
+# READ BY NAME, and this one has to be. The half below asks whether THE MODULE
+# THAT IMPLEMENTS police.outstanding consumes the option, which is a claim
+# about which file the code is in - asked of the whole command surface it would
+# be satisfied by any command anywhere reading $option->{fresh}, which is
+# exactly the confusion the two halves exist to prevent. So the path stays and
+# says why, while the half above uses the walker: the shared option table has
+# already moved once, on TKT-837. TKT-921.
+#
+# t/486 marker: about this file, not its code
 my $police = do {
     local $/;
-    open my $fh, '<:encoding(UTF-8)', 'lib/Tira/CLI/Police.pm' or die "Cannot read Police.pm: $!";
+    open my $fh, '<:encoding(UTF-8)', 'lib/Tira/CLI/Police.pm'
+      or die "Cannot read Police.pm: $!";
     <$fh>;
 };
 
@@ -85,7 +94,7 @@ for my $flag (@accepted) {
     # that this command is the one that reads it - so the second half looks for
     # the option being consumed in the module that implements police.outstanding.
     like( $cli, qr/'\Q$flag\E(?:=[si])?'\s*=>/,
-        "--$flag is bound in lib/Tira/CLI.pm's option table" );
+        "--$flag is bound in the command surface's option table" );
     like( $police, qr/\$option->\{\Q$key\E\}/,
         "and lib/Tira/CLI/Police.pm actually reads \$option->{$key}, so it is an "
           . 'option of this command rather than one the shared parser happens to accept' );

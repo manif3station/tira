@@ -26,6 +26,8 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
 
+use lib 't/lib';
+use Suite ();
 use lib 'lib';
 use Tira;
 use Tira::CLI;
@@ -89,9 +91,7 @@ sub run {
 # only drove one command would pass while another kept its own copy.
 
 {
-    open my $source, '<', 'lib/Tira/CLI.pm' or die "CLI.pm: $!";
-    my $text = do { local $/; <$source> };
-    close $source;
+        my $text = Suite::cli_source();
 
     my @declared = $text =~ /'(project(?:=s)?)'\s*=>\s*\\\$option\{project\}/g;
     is_deeply( \@declared, [], 'no command declares a board-selecting option' );

@@ -36,6 +36,10 @@ use File::Find ();
 use Test::More;
 
 my $index = do {
+    # t/486 marker: about this file, not its code - every assertion below
+    # compares THIS file's size against the modules it indexes, so a lift is
+    # exactly what it must notice rather than survive. TKT-921 widened that
+    # guard to every path under lib/, and this is the case it was narrowed for.
     open my $fh, '<', 'lib/Tira/CLI.pm' or die "lib/Tira/CLI.pm: $!";
     local $/;
     <$fh>;

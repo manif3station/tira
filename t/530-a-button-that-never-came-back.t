@@ -44,17 +44,12 @@ use Test::More;
 
 use lib 'lib';
 use lib 't/lib';
-
+use Suite ();
 # The editor is read as source, the way t/500, t/508, t/510, t/517 and t/528 all
 # read it: this suite drives no browser and browser tests are his. A source
 # assertion can be satisfied by code that compares the right things and still
 # renders wrongly, and saying so is worth more than implying otherwise.
-my $editor = do {
-    open my $fh, '<:encoding(UTF-8)', 'lib/Tira/views/jobs-editor.js'
-      or die "jobs-editor.js: $!";
-    local $/;
-    <$fh>;
-};
+my $editor = Suite::view_source('jobs-editor.js');
 
 # non-empty is the whole claim: an unreadable file would fail every assertion
 # below for a reason that has nothing to do with the button.

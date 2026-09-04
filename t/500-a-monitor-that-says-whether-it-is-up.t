@@ -46,6 +46,7 @@ use Test::More;
 
 use lib 'lib';
 use lib 't/lib';
+use Suite ();
 use Tira;
 
 require Tira::Job;
@@ -254,9 +255,7 @@ ok( !$later{ $live->{id} }{running},
 # t/499 does, because the row and its styling are where he actually sees it.
 
 {
-    open my $fh, '<:raw', 'lib/Tira/views/jobs-editor.js' or die $!;
-    my $js = do { local $/; <$fh> };
-    close $fh;
+        my $js = Suite::view_source('jobs-editor.js');
 
     # non-empty is the whole claim: the assertions below are about what this
     # asset contains, and an unreadable file would fail them for the wrong
@@ -272,9 +271,7 @@ ok( !$later{ $live->{id} }{running},
     like( $js, qr/hasOwnProperty[^\n]*running/,
         'and decides by whether the field is PRESENT, not whether it is true' );
 
-    open my $css_fh, '<:raw', 'lib/Tira/views/dashboard.css' or die $!;
-    my $css = do { local $/; <$css_fh> };
-    close $css_fh;
+        my $css = Suite::view_source('dashboard.css');
 
     like( $css, qr/\.jobs-card__up\b/, 'the stylesheet has a rule for it' );
     like( $css, qr/\.jobs-card__up\[data-running="1"\]/,

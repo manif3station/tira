@@ -26,16 +26,30 @@
 # open - the same reason t/431 asserts once per module instead of once overall.
 #
 # WHAT IS REFUSED IS NARROWER THAN "NAMES A MODULE", and the narrowing was
-# forced by evidence rather than chosen. Only READING lib/Tira.pm is refused:
-# that is the file TKT-746 is decomposing, so code read out of it is mobile by
-# definition. A test that reads a stable concern module because its claim is
-# ABOUT that module is correct and is left alone - t/430 reads lib/Tira/CLI.pm
-# precisely to assert the index is smaller than the modules it indexes, and
-# t/402 reads DashboardWeb.pm for its own @PROVIDERS block.
+# forced by evidence rather than chosen. Reading a source file under lib/ by
+# name is refused; a test that reads one because its claim is ABOUT that file
+# says so on the line and is left alone - t/430 reads lib/Tira/CLI.pm precisely
+# to assert the index is smaller than the modules it indexes, and t/402 reads
+# DashboardWeb.pm for its own @PROVIDERS block.
 #
 # THE EXEMPTION IS BY MECHANISM, NOT BY A LIST OF NAMES. A list of allowed
 # filenames would be maintained by exactly the discipline that let seven of
 # these through.
+#
+# WIDENED ON TKT-921, AND THE NARROW VERSION WAS RIGHT WHEN IT WAS WRITTEN.
+# Until 5.52 this refused lib/Tira.pm alone, because that is the file TKT-746
+# is decomposing and TKT-835 converted exactly the files that read it. The
+# eighth occurrence came from somewhere else: TKT-920 lifted the monitor
+# lifecycle out of lib/Tira/CLI/Job.pm and t/516 failed three assertions
+# reporting a shell loop that had moved twenty lines into another file. The
+# rule was never about which file was mobile - every file is mobile, and this
+# repository lifts one most weeks - so the scope is now every source file
+# under lib/, .pm and view alike.
+#
+# MEASURED WHEN THE SCOPE CHANGED: 36 (file, path) pairs across 28 files, and
+# SEVEN of those files were written the same day this widening was, hours
+# after the card describing the fault was filed. That is the argument for the
+# guard being wide rather than for another sweep.
 
 use strict;
 use warnings;
@@ -89,6 +103,11 @@ cmp_ok( scalar @tests, '>=', 400,
 # any \w+ followed by '(' - matched `for my $module (` and reported the
 # fixture writer as a reader. A predicate that catches the thing it is named
 # for and one other thing is not a predicate.
+# THE PATH IS ANY SOURCE FILE UNDER lib/, since TKT-921. It was lib/Tira\.pm
+# alone; the capture is now the whole path so a failure names what was opened,
+# and the extensions are listed rather than left open because lib/ also holds
+# things a test may legitimately point at as DELIVERABLES rather than read as
+# code.
 my $READS_THE_ENGINE = qr{
     (?:
         open [^;\n]* ['"] < [^;\n]* ['"] \s* ,? \s*   # open my $fh, '<', ...
@@ -96,7 +115,7 @@ my $READS_THE_ENGINE = qr{
       | (?: slurp | read_file ) \s* \( \s*             # a named read helper
       | = \s*                                          # or bound to a variable first
     )
-    ['"] (lib/Tira\.pm) ['"]
+    ['"] (lib/ [^'"\s]+ \. (?: pm | js | css ) ) ['"]
 }x;
 
 # The write form, excluded explicitly rather than by hoping the pattern above
@@ -151,7 +170,7 @@ for my $test (@tests) {
 
 my @named = sort keys %offender;
 is_deeply( \@named, [],
-    'no test reads lib/Tira.pm by name to find engine code - '
+    'no test reads a file under lib/ by name to find code - '
       . ( @named ? join( '; ', map { "$_ opens " . join( ', ', @{ $offender{$_} } ) } @named ) : 'none' ) );
 
 # And the walkers are still walking, so this file cannot be satisfied by

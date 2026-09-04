@@ -42,6 +42,7 @@ use Test::More;
 
 use lib 'lib';
 use lib 't/lib';
+use Suite ();
 use Tira;
 
 my $tmp  = tempdir( CLEANUP => 1 );
@@ -140,11 +141,7 @@ is( $touched->{expect_every}, 30,
 
 # --- the view reads it -------------------------------------------------------
 
-my $js = do {
-    open my $fh, '<:raw', 'lib/Tira/views/jobs-editor.js' or die "jobs-editor.js: $!";
-    local $/;
-    <$fh>;
-};
+my $js = Suite::view_source('jobs-editor.js');
 
 # non-empty is the whole claim: the assertions below read this file, and an
 # unreadable one would fail them for the wrong reason.
@@ -177,11 +174,7 @@ unlike(
 
 # --- and the stylesheet can draw it ------------------------------------------
 
-my $css = do {
-    open my $fh, '<:raw', 'lib/Tira/views/dashboard.css' or die "dashboard.css: $!";
-    local $/;
-    <$fh>;
-};
+my $css = Suite::view_source('dashboard.css');
 
 # non-empty is the whole claim: the rule below is looked up in this text.
 like( $css, qr/\S/, 'the stylesheet is there to be read' );

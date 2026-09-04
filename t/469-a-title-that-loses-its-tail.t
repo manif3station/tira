@@ -15,9 +15,9 @@ use warnings;
 
 use Test::More;
 
-open my $css, '<', 'lib/Tira/views/dashboard.css' or die "Cannot read dashboard.css: $!";
-my $text = do { local $/; <$css> };
-close $css;
+use lib 't/lib';
+use Suite ();
+my $text = Suite::view_source('dashboard.css');
 
 my ($hero_h1) = $text =~ /\.hero h1\{([^}]*)\}/;
 ok( defined $hero_h1, 'the .hero h1 rule exists at all' );

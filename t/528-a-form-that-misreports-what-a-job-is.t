@@ -47,6 +47,7 @@ use Test::More;
 
 use lib 'lib';
 use lib 't/lib';
+use Suite ();
 use JSON::PP ();
 use Tira;
 use Tira::CLI::Browser;
@@ -119,12 +120,7 @@ my ( $tira, $root, $message_job, $command_job );
 # morning, where five assertions passed against unfixed code because the string
 # appeared in a comment.
 
-my $editor = do {
-    open my $fh, '<:encoding(UTF-8)', 'lib/Tira/views/jobs-editor.js'
-      or die "jobs-editor.js: $!";
-    local $/;
-    <$fh>;
-};
+my $editor = Suite::view_source('jobs-editor.js');
 
 my ($region) = $editor =~ /(const \s startsMonitor .*? payload\.command \s* = )/xs;
 

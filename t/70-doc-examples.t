@@ -6,6 +6,8 @@ use warnings;
 use Cwd ();
 use Test::More;
 
+use lib 't/lib';
+use Suite ();
 # An agent reported twenty-seven failed attempts against an example in the
 # manual that named a flag the command does not take. The existing doc test
 # checked that flags were *mentioned* somewhere in the section, which a wrong
@@ -20,7 +22,7 @@ sub slurp {
     return $body;
 }
 
-my $cli = slurp('lib/Tira/CLI.pm');
+my $cli = Suite::cli_source();
 
 # Every flag the parser actually declares, taken from the parser itself rather
 # than from a list somebody has to remember to update.

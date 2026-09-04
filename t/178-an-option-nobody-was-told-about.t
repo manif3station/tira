@@ -33,6 +33,8 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
 
+use lib 't/lib';
+use Suite ();
 use lib 'lib';
 use Tira;
 
@@ -62,11 +64,7 @@ is( $made->{notify_after}, 30,            'and notify-after' );
 
 # --- and the guard says so ----------------------------------------------------------
 
-my $cli = do {
-    open my $fh, '<:raw', 'lib/Tira/CLI.pm' or die $!;
-    local $/;
-    <$fh>;
-};
+my $cli = Suite::cli_source();
 
 my ($reminder) = $cli =~ /Reminder settings belong to ([^\\"]+)/;
 ok( $reminder, 'the guard names the commands reminder settings belong to' );

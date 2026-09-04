@@ -688,6 +688,18 @@ Until then the gate named three module paths by hand and
 `lib/Tira/OnboardWeb.pm` was in neither of the two places it needed to be, so
 it had no coverage requirement at all and nothing said so.
 
+**No test finds code by naming a file under `lib/`** (5.52). A test that opens
+a path is asserting where code lives while claiming to assert something else, so
+it breaks on a lift that broke nothing — and the first reading is always that
+the change is wrong rather than the test. `t/486` has refused this since 5.26
+for the engine module alone; it now covers every `.pm`, `.js` and `.css` under
+`lib/`, after a lift out of a *different* file broke three assertions in `t/516`
+that were reporting a shell loop as deleted when it had moved twenty lines away.
+Tests ask `t/lib/Suite.pm` instead — `engine_source()`, `cli_source()`, or
+`view_source(BASENAME)` for a single view file. A test whose claim really is
+about a path keeps it and says why on the line, and the guard asserts those
+reasons exist so the exemption cannot be used silently.
+
 The suite also holds two of the counts these documents assert to the code that
 answers them: how many use cases the catalogue lists, checked against the `UC-`
 entries themselves, and how many rules police the board, checked against

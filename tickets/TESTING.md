@@ -652,3 +652,51 @@ A monitor that is alive but **wedged** — process up, polling stopped — reads
 alive. There is no assertion claiming otherwise, deliberately; catching it needs
 the monitor to report progress, and every monitor this feature absorbs is an
 existing command that will never write a heartbeat.
+
+## TKT-921 — a test that knows where code lives (5.52)
+
+Thirty test files opened a path under `lib/` in order to read code. `t/486` had
+refused this since 5.26 and its scope was `lib/Tira.pm` alone, on the reasoning
+that this is the file TKT-746 is decomposing and therefore the mobile one.
+
+The reasoning did not survive contact with a different lift. TKT-920 moved the
+monitor lifecycle out of `lib/Tira/CLI/Job.pm` and `t/516` failed three
+assertions reporting a shell loop that had been *deleted* — it had moved twenty
+lines into another file. Every file here is mobile; this repository lifts one
+most weeks.
+
+**What the widening measured.** 30 files, and **seven of them written the same
+day**, hours after the card describing the fault was filed. A sweep would have
+fixed twenty-nine of them and said nothing about the thirtieth.
+
+**Three groups, and the split is the work.**
+
+- **Walker (25 files).** Thirteen view reads became
+  `Suite::view_source('jobs-editor.js')`; the rest became `cli_source()` or
+  `engine_source()` by layer.
+- **`view_source` is by basename and does not concatenate.** Its two siblings
+  answer "does the engine say X anywhere", which is right for a layer. A test
+  about `jobs-editor.js` asks what *that* file does, and a concatenation of
+  every view would let its assertion match another file's source and pass for
+  the wrong reason. It dies on a name matching nothing or more than one thing,
+  because an empty string reads as "a file with none of what I asked for".
+- **Marked (4 new, 8 in total).** `t/430` compares `lib/Tira/CLI.pm`'s own size
+  against the modules it indexes — a lift is what it must *notice*. `t/402`
+  asserts a module's POD describes that module's own providers. `t/426` asserts
+  the View carries a template engine and the engine carries none. `t/439` is
+  the instructive one: its two halves deliberately ask different files, since
+  finding a flag in the shared option table proves the parser accepts the
+  spelling and not that this command reads it — so the first half walks the
+  layer and the second keeps the path.
+
+**A guard for a rule that already had one.** The first version of this work was
+a new test file with its own marker convention, written without finding `t/486`.
+It surfaced only because a file being classified carried `t/486`'s marker in a
+comment. Two guards for one rule, each with its own way of declaring an
+exception, is the same two-implementations-of-one-decision fault this suite
+keeps catching in the product code. Deleted, and the work became a widening —
+which also inherited a better predicate: `t/486` catches the `slurp` form, the
+two-argument `open`, and a path bound to a variable before it is opened, and it
+excludes fixture *writes* per occurrence. Widened it found 30 files where the
+new file had found 28.
+

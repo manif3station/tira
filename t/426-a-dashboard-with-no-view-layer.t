@@ -84,6 +84,11 @@ ok( scalar @dirs,
       . 'lib/Tira/views, found ' . ( @dirs ? join( ', ', @dirs ) : 'none' ) );
 
 # The engine, which is absent entirely rather than merely unused.
+#
+# t/486 marker: about this file, not its code - the whole claim is that the
+# VIEW carries the template engine while lib/Tira.pm carries none of it, and a
+# walker that concatenated the two would answer both questions with one blob.
+# TKT-921.
 open my $web, '<', 'lib/Tira/DashboardWeb.pm'
   or die "cannot read lib/Tira/DashboardWeb.pm: $!";
 my $app = do { local $/; <$web> };

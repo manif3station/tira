@@ -100,6 +100,13 @@ sub _tasklist_session {
 # without needing to rewrite every other item's created_at. TKT-507.
 my %TASKLIST_NUMERIC_FIELD = map { $_ => 1 } qw(status order);
 
+# What a tasklist item can be sorted BY. Named rather than inferred from
+# whatever the first item happens to carry: an empty list would then accept
+# every field, and a list whose first item lacks an optional one would refuse a
+# field that is perfectly real. TKT-888.
+my @TASKLIST_SORT_FIELD = qw(created_at id last_updated order session status text);
+my %TASKLIST_SORT_FIELD = map { $_ => 1 } @TASKLIST_SORT_FIELD;
+
 # His screenshot: "tira.tasklist.list --sort last_updated:desc,status:asc by
 # default." A display sort, independent of the order field next/shift/pop
 # use for queue position - this is what a person reading the list sees, not
@@ -108,7 +115,29 @@ sub _tasklist_sort_items {
     my ( $items, $sort_spec ) = @_;
     my @specs = map {
         my ( $field, $dir ) = split /:/, $_, 2;
-        [ $field, ( ( $dir // 'asc' ) eq 'desc' ? -1 : 1 ) ];
+
+        # DESC IS ACCEPTED, and the decision is recorded rather than left to be
+        # inferred from the code. SQL writes DESC, every spreadsheet writes
+        # DESC, and somebody typing it means desc unambiguously - refusing it
+        # would be pedantry. What was never defensible is what this did before:
+        # reading it as ASCENDING and handing back the opposite of the ask,
+        # which looks exactly like an answer. TKT-888.
+        $dir = defined $dir && $dir =~ /\S/ ? lc $dir : 'asc';
+
+        # ANYTHING ELSE IS REFUSED rather than accepted and ignored - the fault
+        # this file's own neighbours name by name: a flag that parses and does
+        # nothing reads as confirmation. A sort is worse than a flag, because it
+        # returns a list in an order nobody asked for and gives the caller no
+        # reason to doubt it.
+        die "A sort direction of '$dir' is not one this board understands - "
+          . "use asc or desc (DESC and Desc are read as desc)\n"
+          if $dir ne 'asc' && $dir ne 'desc';
+
+        die "There is no '$field' to sort a tasklist by. The fields are: "
+          . join( ', ', @TASKLIST_SORT_FIELD ) . "\n"
+          if !defined $field || !$TASKLIST_SORT_FIELD{$field};
+
+        [ $field, ( $dir eq 'desc' ? -1 : 1 ) ];
     } split /,/, $sort_spec;
     return [ sort {
         my $cmp = 0;

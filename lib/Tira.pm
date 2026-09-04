@@ -13767,7 +13767,21 @@ exempt, exactly as the push gate exempts it. TKT-374.
 
 =head2 comment_add
 
-Adds a comment to a record.
+Adds a comment to a record. A body that is empty or whitespace-only is refused -
+C<A comment needs some text> - which this was alone in accepting among its
+siblings: C<evidence_add> requires a summary, C<warning_add> a message,
+C<question_answer> some text, and C<checklist_add>/C<required_item_add> an item.
+
+The test is C</\S/> rather than a length check, and that is not style. It is the
+same test C<discard-unexplained> applies to a comment body when deciding whether
+a discarded card was explained, so the command and the rule cannot drift apart
+about what counts as saying something - the failure the earlier state of this
+sub produced, where an agent could satisfy a rule about accountability by adding
+nothing.
+
+Refused before the project lock is taken: nothing in the check needs the record,
+and a refusal that locked first would serialise other callers behind a call that
+was never going to write. TKT-753.
 
 =head2 comment_update
 

@@ -247,6 +247,30 @@ title: "if `--status` goes with `*.list` like this. We should should only those
 ones with the wanted status. It is very straightforward to me. No?" The card had
 asked for `--status` to be *refused* on a list, which is the opposite. TKT-748.
 
+**Implemented (5.43).** `comment.add` refuses an empty or whitespace-only
+`--text` — *A comment needs some text*. It was alone in accepting one among its
+siblings: `evidence.add` requires a summary, `warning.add` a message,
+`question.answer` some text, and `checklist.add`/`required-action.add` an item.
+
+The test is `/\S/` rather than a length check for two reasons. A space is not a
+smaller comment than none, which this project settled on TKT-585 for
+`--command`/`--proof`, where whitespace was cheaper than doing the work. And it
+is the **same test** `discard-unexplained` applies to a comment body when
+deciding whether a discarded card was explained — so the command and the rule
+are pinned to one definition of saying something. A rule that ignores a string
+the command happily stores is how an agent satisfies a gate about accountability
+by adding nothing.
+
+It lives in the engine, so the browser dashboard's comment provider is guarded
+by the same rule rather than by a second copy of it, and it is raised before the
+project lock, since nothing in the check needs the record.
+
+The card behind it (TKT-753) was filed claiming an empty comment *satisfied*
+`discard-unexplained`. Measured before the work began, it does not: TKT-638,
+TKT-777 and TKT-778 rebuilt that branch afterwards and closed the hole on the way
+past. The card was re-scoped to the defect that remained, and `t/525` asserts the
+rule's current behaviour as a control. TKT-753.
+
 Checklist entries are retained, not deleted; there is no remove command. Word
 an entry as though it will outlive the work, and change its item or status only
 with `tira.checklist.update`.

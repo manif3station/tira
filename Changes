@@ -2,6 +2,29 @@ Revision history for Tira
 
 5.43  2026-09-04
 
+    - TKT-753. `comment.add` accepted an empty `--text`, stored a comment whose
+      body was the empty string, exited 0 and printed the comment back. It was
+      alone in that among its siblings: evidence.add requires a summary,
+      warning.add a message, question.answer some text, and
+      checklist.add/required-action.add an item.
+
+      An empty or whitespace-only body is refused now - "A comment needs some
+      text". The test is /\S/ rather than a length check for two reasons: a
+      space is not a smaller comment than none, which TKT-585 settled for
+      --command/--proof; and it is the SAME test discard-unexplained applies to
+      a body when deciding whether a card was explained, so the command and the
+      rule cannot drift apart about what counts as saying something.
+
+      In the engine rather than the option parser, so the browser dashboard's
+      comment provider is guarded by the same rule rather than by a second copy.
+
+      The card was filed claiming an empty comment SATISFIED discard-unexplained.
+      Measured before the work started, it does not: TKT-638, TKT-777 and TKT-778
+      rebuilt that branch after the card was filed and closed the hole on the way
+      past. The card was re-scoped and re-titled to the defect that remains, and
+      t/525 asserts the rule's current behaviour as a control - so the two halves
+      are now pinned to the same test.
+
     - TKT-751. The standing rule that any Perl file over 500 lines is decomposed
       had nothing enforcing it, and had been losing ground quietly. The card was
       filed naming fourteen files; there were eighteen when it was picked up,

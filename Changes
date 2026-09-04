@@ -1,5 +1,25 @@
 Revision history for Tira
 
+5.60  2026-09-05
+
+    - TKT-934. `docs/JOBS.md`'s in-place-jobs-editor paragraph named its own
+      arrival as "since 5.53's successor" - written at 22:47, before the
+      version it was describing had been cut, and never gone back to name it.
+      The same paragraph, four lines later, already said 5.57 correctly.
+
+      Corrected to "since 5.57". A wrong version number gets caught by any
+      reader who knows the right one; an unresolved placeholder reads as
+      grammatical prose and passed a full documentation pass, a gate run and a
+      push - the doc-accuracy hunt found it an hour after it shipped.
+
+      Every other `since 5.5x` claim across README.md, SKILLS.md,
+      docs/JOBS.md and docs/commands.md was checked against this file in the
+      same pass: 30 citations, all naming versions already listed here, none
+      with the "successor of"/"the next version"/"TBD" shape. No guard was
+      added - the card's own scope rules one out, since every shape a
+      placeholder could take is also legitimate prose somewhere in these
+      documents.
+
 5.59  2026-09-04
 
     - TKT-926. A figure written into `docs/POLICIES.md` and `t/531`'s header

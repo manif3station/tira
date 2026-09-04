@@ -425,7 +425,7 @@ the first. A monitor whose liveness cannot be determined - the process table
 could not be read - keeps the button it already had rather than guessing, which
 is the same distinction the running indicator beside it makes.
 
-**The form opens on the job's own card, since 5.53's successor.** Editing marks
+**The form opens on the job's own card, since 5.57.** Editing marks
 the card, hides its contents and puts the form inside it - the way a task card
 becomes its own editor - so what you clicked and what you are typing into are one
 object. Closing puts the card back. It was a separate panel beside the card until

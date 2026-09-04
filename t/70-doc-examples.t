@@ -176,11 +176,55 @@ for my $example (@examples) {
     # what you just supplied is the most confusing failure a tool can produce,
     # so a contradiction between what the example passes and what the error
     # asks for is treated as a broken example.
+    #
+    # AN EXPLICIT "does not act on --FLAG" IS THE OPPOSITE OF THAT and is not a
+    # contradiction: it is the option guard saying, in the clearest words the
+    # tool has, that this command does not read the flag. Several documented
+    # examples exist precisely to show that refusal, and they are checked by
+    # t/239 rather than here.
+    #
+    # It has to be excluded because the heuristic below cannot tell a word from
+    # a command name. `required-action.list` contains "require", so any refusal
+    # whose "use this instead" text points at that command reads as a demand
+    # for the flag it just refused. That is how --status arrived: a correct
+    # message, naming the four lists that can filter, failing this test for
+    # naming one of them. TKT-748.
+    next if $error =~ /does not act on --[a-z][a-z0-9-]*/;
+
     next if $error !~ /need|require|missing/i;
     for my $flag ( $text =~ /--([a-z][a-z0-9-]*)\s+(?:"[^"]*"|[^\s-][^\s]*)/g ) {
         push @rejected, "$example->{file}: passes --$flag yet is told it is missing -> $error"
           if $error =~ /\b\Q$flag\E\b/i;
     }
+}
+
+# THE NARROWING ABOVE MUST NOT HAVE DISABLED THE CHECK, and nothing else in
+# this file would notice if it had - a guard that silently stops guarding is
+# the failure this whole file exists to catch, one level up. So the heuristic
+# is run against a contradiction built here, where the answer is known.
+{
+    my @caught;
+    for my $case (
+        [ 'tira.thing.do --widget red',
+            'Widget is required', 1, 'a demand for the flag that was supplied' ],
+        [ 'tira.thing.do --widget red',
+            'thing.do does not act on --widget. Use required-action.list.',
+            0, 'an explicit refusal by name, even one naming required-action.list' ],
+        [ 'tira.thing.do --widget red',
+            'A card reference is required', 0, 'a demand for something else' ],
+      )
+    {
+        my ( $text, $error, $want, $why ) = @{$case};
+        my $flagged = 0;
+        if ( $error !~ /does not act on --[a-z][a-z0-9-]*/ && $error =~ /need|require|missing/i ) {
+            for my $flag ( $text =~ /--([a-z][a-z0-9-]*)\s+(?:"[^"]*"|[^\s-][^\s]*)/g ) {
+                $flagged = 1 if $error =~ /\b\Q$flag\E\b/i;
+            }
+        }
+        push @caught, [ $flagged, $want, $why ];
+    }
+    is( $caught[$_][0], $caught[$_][1], "the contradiction check still reads $caught[$_][2]" )
+      for 0 .. $#caught;
 }
 is_deeply( \@rejected, [],
     'and no example uses an option the command it names would refuse' );

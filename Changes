@@ -1,5 +1,45 @@
 Revision history for Tira
 
+5.43  2026-09-04
+
+    - TKT-748. `--status` is parsed in the global option table, so every
+      command in Tira accepts it and only the ones that read it honour it.
+      `checklist.list` was the one list on the board with a status field that
+      did not: `--status done` returned EVERY item, in a shape
+      indistinguishable from a filtered answer, and exited 0.
+
+      It now filters, taking the same three values `checklist.add` accepts -
+      `pending`, `done` and `To Do`, compared case-insensitively - and refusing
+      anything else by name rather than matching nothing, since an empty list
+      reads as "no items are done". `To Do` is in the set because it is the
+      spelling this board itself writes on move-in, so a filter that knew only
+      the other two would have made every unmarked item unfindable.
+
+      Michael's answer to Q-113 is what settled the shape, against the card's
+      own title: "if --status goes with *.list like this. We should should only
+      those ones with the wanted status. It is very straightforward to me. No?"
+      The card had asked for --status to be REFUSED on a list.
+
+    - TKT-748. Every command that cannot act on `--status` now refuses it by
+      name, with a pointer to the four lists that can.
+
+      A sweep of all twenty *.list entrypoints, against a board carrying two
+      items of differing status in every list that has one, found fifteen
+      taking the option with no status field at all - including `record.list`,
+      which `ticket.list`, `epic.list` and `sow.list` all reach. The refusal
+      comes from `%OPTION_READ_BY`, so all fifteen are covered without one of
+      them being edited.
+
+      It also covers `question.ask` and `question.update`, which nobody had
+      reported. Tira::CLI::Records passes --status into every question action
+      and neither question_add nor question_update reads it, so both took the
+      option and dropped it. They were found by walking the readers rather than
+      by anyone being bitten.
+
+      The filter went in the engine and the refusal in the option parser: the
+      browser dashboard reads the checklist through a provider on a timer, so a
+      filter in the parser would have left the browser answering the old way.
+
 5.42  2026-09-03
 
     - TKT-888. `tasklist.list --sort` accepted a direction it could not honour

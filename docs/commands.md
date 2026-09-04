@@ -1708,6 +1708,48 @@ The commands that genuinely read `--text` are untouched: `tira.comment.add` and
 `tira.ticket.list`, `epic.list` and `sow.list`, where `--text` is a working
 filter over card content.
 
+`--status` is the widest of them, and it is the one where the refusal is only
+half the answer.
+
+```
+d2 tira.comment.list --ref TKT-001 --status done   # refused
+  comment.list does not act on --status. Use a list that has a status to
+  filter on - checklist.list, question.list, required-action.list or
+  tasklist.list - since the others have no status field to match against.
+```
+
+`--status` is parsed in the global option table, so **every** command in the
+tool accepts it and nine of them read it. A sweep of all twenty `*.list`
+entrypoints, run against a board carrying two items of differing status in
+every list that has one, found fifteen that took the option with no status
+field to act on — `assign.list`, `attachment.list`, `column.list`,
+`comment.list`, `conversation.list`, `evidence.list`, `gate.list`,
+`history.list`, `job.list`, `link.list`, `policy.list`,
+`project.link-types.list`, `project.people.list`, `record.list` (what
+`ticket.list`, `epic.list` and `sow.list` all reach) and `warning.list`. Those
+are refused now.
+
+**Where a list does have a status, the answer was to make it filter, not to
+refuse it.** Michael's answer to Q-113 on TKT-748: "if `--status` goes with
+`*.list` like this. We should should only those ones with the wanted status. It
+is very straightforward to me. No?" The same sweep found exactly one list that
+had a status field and ignored the option — `checklist.list` — and it filters
+since 5.42. `question.list`, `required-action.list` and `tasklist.list` already
+did.
+
+It is the worst of these entries to have left open, and worse in kind than the
+ones above rather than merely wider. They drop a value; this one answered a
+question nobody asked. `--status done` on a list that ignored it returned every
+item, in a shape indistinguishable from a filtered answer, and exited 0 — so a
+caller reading 47 required actions back from `--status pending` concludes there
+are 47 outstanding on a card that has none.
+
+The refusal also covers `question.ask` and `question.update`, which are not
+lists and which no card had reported. `Tira::CLI::Records` passes `--status`
+into every question action, and neither `question_add` nor `question_update`
+reads it, so both took the option and dropped it. They were found by walking the
+readers rather than by anyone being bitten (TKT-748, 5.42).
+
 `attachment.discard` genuinely reads `--comment`, but as an identifier - which
 comment to detach the attachment from (`--comment CMT-001`) - not a reason, so
 a value that cannot be a comment id is refused the same way the options above
@@ -3062,7 +3104,28 @@ opens it on that board, and `tira.dashboard` opens it on the default one.
 ### Checklists
 
 - `tira.checklist.add --ref REF --item TEXT --status TEXT [-o FORMAT]`
-- `tira.checklist.list --ref REF [-o FORMAT]`
+- `tira.checklist.list --ref REF [--status STATUS] [-o FORMAT]`
+  - `--status STATUS` (TKT-748) narrows to items in that status, taking the
+    same three values `checklist.add` accepts — `pending`, `done` and `To Do`,
+    compared case-insensitively. `To Do` is included because it is the spelling
+    this board itself writes on move-in, and a filter that understood only the
+    other two would make every unmarked item unfindable.
+  - A value outside those three is **refused**, naming what was given, rather
+    than matching nothing — for the reason `required-action.list --status`
+    already refuses one: an empty list reads as "no items are done".
+  - Until 5.42 the option was accepted and ignored. `--status` is parsed in the
+    global option table, so every command in the tool accepts it and only the
+    ones that read it honour it; this was the only list on the board with a
+    status field that did not. `--status done` returned **every** item, in a
+    shape indistinguishable from a filtered answer, and exited 0. Michael's
+    answer to Q-113 settled what should happen instead: "if `--status` goes
+    with `*.list` like this. We should should only those ones with the wanted
+    status."
+  - The filter is in the engine rather than the option parser, so the browser
+    dashboard — which reads the checklist through a provider on a timer — gets
+    the same answer as the CLI. A filter written in the parser would have left
+    the two disagreeing, which is what happened to attachment content types on
+    TKT-713.
 - `tira.checklist.update --ref REF --id CHK-NNN [--item TEXT] [--status TEXT] [--command TEXT ... [--proof TEXT ...]] [-o FORMAT]` - marking `--status done` (case-insensitively) refuses without at least one `--command`/`--proof` pair, repeatable for an item that took several commands to satisfy, and refuses when either half of a pair is empty or whitespace-only - naming the half, rather than repeating the message for a missing pair, since a caller who supplied one and is told to supply one has been sent back to what they already did. `--proof` is the literal output of the paired `--command`, trusted as given: emptiness is checked, quality is not. Every other status change is unaffected. Caught on ZSD-246: a checklist backfilled after the fact, marked Done the instant it was typed - proof is what a done claim now costs. TKT-453. An unknown `--id` refuses naming the card's real ids (or the `CHK-NNN` shape, on a card with none yet) rather than only "not found" - an ordinal like `--id 1` used to fail exactly that way with no hint that ids are not positions, and a caller looping ordinals over a checklist found every call silently failing. TKT-280.
 
 

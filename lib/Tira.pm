@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.42';
+our $VERSION = '5.43';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -14249,11 +14249,27 @@ the reversible form.
 
 =head2 checklist_list
 
-Returns a record's checklist entries.
+Returns a record's checklist entries. C<status> narrows them to one status,
+compared case-insensitively against the three values C<checklist_add> accepts -
+C<pending>, C<done> and C<To Do>. Anything outside that set is refused, naming
+what was given, rather than matching nothing: an empty list reads as "no items
+are done", which is a wrong answer where a refusal would have been an honest
+one.
+
+C<To Do> is in the set because it is the spelling this board itself writes on
+move-in, and a filter that understood only the other two would make every
+unmarked item unfindable - the same silent wrong answer this filter exists to
+end, one layer along.
+
+The filter lives here rather than in the option parser so the browser dashboard,
+which reads the checklist through a provider on a timer, gets the same answer as
+the CLI. TKT-748.
 
 =head2 required_item_list
 
-Returns a record's required-action entries.
+Returns a record's required-action entries. C<status> narrows them the same way
+C<checklist_list> does, against the narrower set C<pending> and C<done> - a
+required item is never written as C<To Do>. TKT-804.
 
 =head2 evidence_add
 

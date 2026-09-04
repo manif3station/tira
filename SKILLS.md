@@ -217,6 +217,34 @@ checks pending/done - rather than either accepting free text. Nothing
 normalises what is already stored, so a status written before that
 validation shipped still reads and renders verbatim. The checklist
 renderer prints whatever value it holds. TKT-601, TKT-668.
+**Implemented (5.42).** `checklist.list --status STATUS` returns only the items
+in that status, taking the same three values `checklist.add` accepts — `pending`,
+`done` and `To Do`, compared case-insensitively — and refusing anything else by
+name rather than matching nothing. `To Do` is in the set because it is the
+spelling this board itself writes on move-in, so a filter that knew only the
+other two would make every unmarked item unfindable.
+
+Until then the option was accepted and ignored. `--status` is parsed in the
+global option table, so every command in the tool accepts it and only the nine
+that read it honour it; a sweep of all twenty `*.list` entrypoints found
+`checklist.list` was the one list with a status field that did not — `--status
+done` returned every item, in a shape indistinguishable from a filtered answer,
+and exited 0. The same sweep found fifteen lists taking `--status` with no
+status field at all, and those are refused now, `question.ask` and
+`question.update` with them.
+
+The filter went in the engine and the refusal in the option parser, and the
+split is deliberate: the browser dashboard reads the checklist through a
+provider on a timer, so a filter written in the parser would have left the
+browser answering the old way — which is how the engine and the browser came to
+disagree about attachment content types on TKT-713. The refusal is about an
+option rather than about data, and belongs where the options are.
+
+Michael's answer to Q-113 is what settled the shape, against the card's own
+title: "if `--status` goes with `*.list` like this. We should should only those
+ones with the wanted status. It is very straightforward to me. No?" The card had
+asked for `--status` to be *refused* on a list, which is the opposite. TKT-748.
+
 Checklist entries are retained, not deleted; there is no remove command. Word
 an entry as though it will outlive the work, and change its item or status only
 with `tira.checklist.update`.
@@ -1155,7 +1183,7 @@ references.
 All are **Implemented.**
 
 ```text
-tira.checklist.list --ref REF [-o FORMAT]
+tira.checklist.list --ref REF [--status STATUS] [-o FORMAT]
 tira.checklist.add --ref REF --item TEXT --status TEXT [-o FORMAT]
 tira.checklist.update --ref REF --id CHK-NNN [--item TEXT] [--status TEXT] [--command TEXT ... [--proof TEXT ...]] [-o FORMAT]
 tira.required-action.list --ref REF [--status STATUS] [--blocking] [-o FORMAT]

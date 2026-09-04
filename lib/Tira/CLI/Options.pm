@@ -369,6 +369,16 @@ whose whole job is letting an agent in another project report a fault in Tira.
 Engine readers catch what the CLI hides; CLI readers catch what the engine
 never sees. TKT-849.
 
+=item * B<A refusal is not always the right fix.> C<--status> arrived here as a
+report that it should be refused on C<required-action.list>, and Michael's
+answer to Q-113 overruled that: "if C<--status> goes with C<*.list> like this.
+We should should only those ones with the wanted status." An option a command
+B<could> act on belongs in the command, not in this table - C<checklist_list>
+was made to filter. What is declared here is the case that cannot be honoured
+at any price: a list with no status field, of which a sweep of all twenty
+C<*.list> entrypoints found fifteen. Ask which of the two a new entry is before
+adding it. TKT-748.
+
 =back
 
 =head1 WHAT MUST NOT REGRESS
@@ -376,5 +386,12 @@ never sees. TKT-849.
 The refusal must name the option and where it belongs. A bare "unknown option"
 sends the caller looking for a typo when the flag was real and simply had no
 reader here.
+
+An entry's own C<instead> text is not a substitute for its C<commands> regex,
+and a test that greps this file for a command name cannot tell the two apart.
+The first version of F<t/523> did exactly that and five of its nine reader
+checks passed against unfixed code, because the C<status> entry's C<instead>
+sentence names four lists in prose. Ask C<_refuse_unread_options> whether a
+command is refused; do not ask the source whether a word appears in it.
 
 =cut

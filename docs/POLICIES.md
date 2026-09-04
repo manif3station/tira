@@ -609,7 +609,19 @@ shorter than the gate reports a push that is already running.
 
 A note for anyone declaring `checklist-unmoved` or `checklist-idle`: the
 engine's checklist counts are case-insensitive, and since 4.66 so is every
-comparison the push gate makes against them. An item ticked as `Done` counts as finished to police, to the
+comparison the push gate makes against them.
+
+Since 5.42 you can ask a card what a rule is looking at, rather than counting
+by eye. `tira.checklist.list --ref REF --status pending` answers what
+`checklist-idle` and `checklist-unmoved` are complaining about, and
+`--status done` answers what `card-stalled` reads as a finished checklist. All
+three rules compare case-insensitively and so does the filter, so the answer
+you get is the one the rule saw. Before that the option was accepted and
+ignored, and every item came back whatever was asked for — which is worse than
+having no filter, because checking a rule's complaint against an unfiltered
+list makes the rule look wrong. `required-action.list --status` has answered
+the equivalent question since 4.85, for the rules that read required actions
+instead. TKT-748. An item ticked as `Done` counts as finished to police, to the
 card and to the push gate alike. It did not always: until 4.66 the gate kept
 its own case-sensitive comparison and refused a release over items the card
 counted complete, so a rule that looked wrong could be right and the reader

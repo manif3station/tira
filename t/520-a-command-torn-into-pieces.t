@@ -167,6 +167,19 @@ use Tira::CLI::Police;
           . 'it, which is what the callers check for when they refuse a job with '
           . 'nothing to run' );
 
+    # THE CASE THAT DECIDED THE IMPLEMENTATION, and it is asserted here rather
+    # than left to be rediscovered. The obvious tool is Text::ParseWords, and it
+    # is wrong for this board: shellwords treats a backslash as an ESCAPE, so a
+    # Windows path comes back with every separator eaten. t/493 caught it by
+    # accident, asserting that a full path and a .exe on either side still name
+    # the same program. This says it on purpose.
+    is_deeply(
+        [ Tira::Job::job_command_words('C:\\strawberry\\perl\\bin\\perl.exe -e sleep') ],
+        [ 'C:\\strawberry\\perl\\bin\\perl.exe', '-e', 'sleep' ],
+        'A WINDOWS PATH KEEPS ITS BACKSLASHES. Quotes group; everything else is '
+          . 'literal, backslashes included - a splitter that escaped them would '
+          . 'silently rename every program on a Windows board' );
+
     # An unbalanced quote is a mistake somebody will make. It must not take the
     # module down: the honest failure is the command not running, which the
     # executor already reports.

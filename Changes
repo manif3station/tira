@@ -13,12 +13,12 @@ Revision history for Tira
       failure into "there are no jobs" is silence standing in for an answer,
       which is the failure this epic exists to end, rebuilt inside a rule.
 
-      This was the fourth reader and the only unguarded one. It is written in
-      their shape rather than a better one: four rules reading one record should
-      read alike, and a fourth guard with its own wording would be a second thing
-      to keep in agreement. The test asserts that too - it counts the guards and
-      refuses a bare read anywhere in the engine, so a fifth reader cannot
-      quietly go unguarded.
+      This was the fourth reader and the only unguarded one. All four now go
+      through one shared helper rather than four copies of the same eight lines,
+      each keeping its own sentence for what could not be checked - that is the
+      part that should differ. The test asserts the shape as well: four callers,
+      one helper, the guarded read in exactly one place, and no bare read
+      anywhere, so a fifth reader cannot quietly go unguarded.
 
 
     - TKT-898. A job command was split on spaces alone, so any argument

@@ -10348,11 +10348,11 @@ BEHIND
 
 # Every rule that reads the jobs record guards the read and REPORTS a failure.
 # There are four of them - job-due, monitor-dead, monitor-output and
-# monitor-silent - and they are written alike on purpose: swallowing a read
-# failure into "there are no jobs" makes a locked or corrupt file look identical
-# to a board with nothing to say, and a fourth guard with its own wording would
-# be a second thing to keep in agreement. t/521 counts them and refuses a bare
-# read anywhere in this file, so a fifth reader cannot quietly go unguarded.
+# monitor-silent - and they all go through _jobs_or_report below rather than
+# carrying a copy each: swallowing a read failure into "there are no jobs" makes
+# a locked or corrupt file look identical to a board with nothing to say. t/521
+# asserts four callers, one helper, and no bare read anywhere in this file, so a
+# fifth reader cannot quietly go unguarded.
 # TKT-899.
 # The jobs record, or a reported failure - for the four police rules that read it.
 #

@@ -2691,12 +2691,17 @@ argument written beside `monitor-dead`: swallowing a read failure into "there ar
 no jobs" is *silence standing in for an answer*, which is the failure EPC-014
 exists to end, rebuilt inside a rule.
 
-**Written in their shape rather than a better one.** Four rules read one record,
-and a fourth guard with its own wording would be a second thing to keep in
-agreement — the way two validators for one format came to disagree on TKT-713.
-The test asserts the sameness as well as the behaviour: it counts the guards in
-the engine and refuses a bare read anywhere in the file, so a fifth reader added
-later fails the suite rather than waiting to be noticed.
+**All four now go through one helper**, `_jobs_or_report`. The first attempt
+wrote a fourth copy in the same shape as the other three and defended it as
+sameness — and the card's own checklist asked for the lift, which is the stronger
+form of that same argument: four copies kept identical by intention are four
+things to keep in agreement. The message CLAUSE stays per-rule, because it is the
+part that should differ; what could not be checked is a different sentence for a
+due job, a dead monitor, a silent one, and one whose output is being carried.
+
+The test asserts the shape as well as the behaviour: four callers, one helper,
+the guarded read existing in exactly one place, and no bare read anywhere — so a
+fifth reader added later fails the suite rather than waiting to be noticed.
 
 Found by an improvement hunt looking at the *shape* of the code — three rules
 carrying an identical eight-line guard and a fourth without one — rather than by

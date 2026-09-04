@@ -620,7 +620,7 @@ you get is the one the rule saw. Before that the option was accepted and
 ignored, and every item came back whatever was asked for — which is worse than
 having no filter, because checking a rule's complaint against an unfiltered
 list makes the rule look wrong. `required-action.list --status` has answered
-the equivalent question since 4.85, for the rules that read required actions
+the equivalent question since 5.11, for the rules that read required actions
 instead. TKT-748. An item ticked as `Done` counts as finished to police, to the
 card and to the push gate alike. It did not always: until 4.66 the gate kept
 its own case-sensitive comparison and refused a release over items the card

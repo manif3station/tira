@@ -40,6 +40,18 @@ Revision history for Tira
       browser dashboard reads the checklist through a provider on a timer, so a
       filter in the parser would have left the browser answering the old way.
 
+      BEHAVIOUR CHANGE BEYOND THE LISTS: `tira.<type>.move --status` used to
+      succeed and ignore the option; it is refused now. record.move never read
+      --status, and a move that already refuses --sdlc-gate and 24 card fields
+      for the same reason should refuse this one too. The refusal is a refusal -
+      the card does not move and its linked task is left alone.
+
+      TKT-632's guard against that option splatting into the tasklist lookup is
+      unchanged and still needed: --sort, --all-sessions and --unlinked are
+      still unguarded on every command (TKT-581), so t/446 probes the splat with
+      --sort now, which tasklist_list also refuses (TKT-888) and which is the
+      same shape --status was.
+
 5.42  2026-09-03
 
     - TKT-888. `tasklist.list --sort` accepted a direction it could not honour

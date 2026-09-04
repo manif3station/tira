@@ -1748,7 +1748,7 @@ The refusal also covers `question.ask` and `question.update`, which are not
 lists and which no card had reported. `Tira::CLI::Records` passes `--status`
 into every question action, and neither `question_add` nor `question_update`
 reads it, so both took the option and dropped it. They were found by walking the
-readers rather than by anyone being bitten (TKT-748, 5.42).
+readers rather than by anyone being bitten (TKT-748, 5.43).
 
 `attachment.discard` genuinely reads `--comment`, but as an identifier - which
 comment to detach the attachment from (`--comment CMT-001`) - not a reason, so
@@ -3113,7 +3113,7 @@ opens it on that board, and `tira.dashboard` opens it on the default one.
   - A value outside those three is **refused**, naming what was given, rather
     than matching nothing — for the reason `required-action.list --status`
     already refuses one: an empty list reads as "no items are done".
-  - Until 5.42 the option was accepted and ignored. `--status` is parsed in the
+  - Until 5.43 the option was accepted and ignored. `--status` is parsed in the
     global option table, so every command in the tool accepts it and only the
     ones that read it honour it; this was the only list on the board with a
     status field that did not. `--status done` returned **every** item, in a

@@ -1,5 +1,39 @@
 Revision history for Tira
 
+5.56  2026-09-04
+
+    - TKT-916. The police bridge is readable from the dashboard. His report
+      6799: *"Where is the terminal log windows to display and tail last 100
+      lines of the violation logs?"*
+
+      **He was asking where it is, and the answer was that it existed for a
+      different log.** `logs-panel.js` and `/logs` are TKT-852's panel, built
+      when the dashboard would not load for him and nothing could say whether
+      requests were arriving; they show what reached the server. So the place
+      and the shape were settled and the source was missing - which made this a
+      feature request rather than a defect, and establishing that was the
+      card's own first criterion.
+
+      A Bridge section now sits in the page, served by `/bridge`, showing the
+      newest hundred things police said - his number, and a panel rather than a
+      whole file. It polls every five seconds, so it follows new lines instead
+      of needing a reload, and it says what an empty panel means: a board that
+      has found nothing and a board whose police has never run look identical
+      otherwise.
+
+      **It answers through `Tira::enforcement_log`**, the same sub
+      `tira.policy.bridge.logs` calls, rather than reading `bridge.log` itself.
+      Two readers of one stream drift - the fault that made the engine and the
+      browser disagree about attachment content types (TKT-713).
+
+      **Not behind `--show-logs`**, unlike the request panel above it. Request
+      logs are a debugging aid somebody opts into; the bridge is what the board
+      says about itself, and it is what he asked to see without opening a
+      terminal.
+
+      The route is named in `%POLLED`, because a timer-driven read must not
+      push a session's expiry out - `t/479` refused the release until it was.
+
 5.55  2026-09-04
 
     - TKT-930. A monitor that prints a block of lines gets all of them onto the

@@ -1632,6 +1632,15 @@ This was called `tira.police.log` until 1.41 and that name still answers, so
 nothing breaks on upgrade. It was renamed because the old one said the wrong
 thing: see **Whose command is it** below.
 
+**Since 5.56 the live dashboard shows the same thing** (TKT-916, his report
+6799). A Bridge section renders the newest hundred entries and polls every five
+seconds, so what police says can be read without leaving the page. It answers
+through the same `enforcement_log` this command calls rather than reading the
+file itself — two readers of one stream drift, which is how the engine and the
+browser once came to disagree about attachment content types. Unlike the
+Requests panel it is not behind `--show-logs`: request logs are a debugging aid
+somebody opts into, and this is the board's own voice.
+
 ### On the card dialog
 
 Opening a card on the live board shows a **What police has said** section: the

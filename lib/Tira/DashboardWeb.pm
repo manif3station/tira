@@ -55,7 +55,7 @@ my %PUBLIC = map { $_ => 1 } qw(/login /logout);
 # refuses any setInterval-driven GET whose route this does not name, so this
 # line is checked rather than remembered. EPC-014, TKT-839.
 my %POLLED = ( '/data' => 1, '/tasklist' => 1, '/tasklist/sessions' => 1, '/jobs' => 1,
-    '/logs' => 1 );
+    '/logs' => 1, '/bridge' => 1 );
 
 sub _cookie_token {
     my $header = request->header('Cookie') // '';
@@ -547,6 +547,44 @@ get '/logs' => sub {
             { error => 'This board was not started with --show-logs' } ) );
     }
     return _response_bytes( Tira::json_object()->encode( _request_log() ) );
+};
+
+# WHAT THE BOARD HAS FOUND, for the panel his report 6799 asks for.
+#
+# A SECOND SOURCE RATHER THAN A SECOND READER. tira.policy.bridge.logs answers
+# through Tira::enforcement_log and so does this - one sub, so the page and the
+# terminal cannot disagree about what police said. Reading bridge.log here
+# would be the fault that made the engine and the browser disagree about
+# attachment content types (TKT-713).
+#
+# A HUNDRED IS HIS NUMBER, and the newest hundred rather than the oldest: a
+# panel is for what is true now, which is the same reasoning monitor-output
+# uses for carrying the newest lines first.
+#
+# NOT BEHIND --show-logs. Request logs are a debugging aid somebody opts into;
+# this is the board's own voice, and it is what he asked to see without opening
+# a terminal. TKT-916.
+our $BRIDGE_LINES = 100;
+
+get '/bridge' => sub {
+    content_type 'application/json; charset=UTF-8';
+
+    my $entries = eval {
+        require Tira::CLI::Police;
+        my $tira  = Tira->new;
+        my $root  = $tira->discover_project();
+        my $store = Tira::CLI::Police::_police_store($root);
+        $tira->enforcement_log( project => $root, store => $store );
+    } // [];
+
+    # A COSMETIC PANEL MUST NOT TAKE DOWN THE PAGE, the rule the jobs provider
+    # already follows for its liveness field: this is polled, and one transient
+    # failure reading the store would otherwise turn the panel into an error
+    # where an empty list says the honest thing.
+    my @recent = @{$entries};
+    @recent = @recent[ -$BRIDGE_LINES .. -1 ] if @recent > $BRIDGE_LINES;
+
+    return _response_bytes( Tira::json_object()->encode( \@recent ) );
 };
 
 sub build_psgi_app {

@@ -191,6 +191,21 @@ sub _dashboard_table {
       . '<p class="logs-note"></p><ol class="logs-lines"></ol></section>'
       if $args{live} && $Tira::DashboardWeb::SHOW_LOGS;
 
+    # THE BOARD'S OWN VOICE, in the page. His report 6799: "Where is the
+    # terminal log windows to display and tail last 100 lines of the violation
+    # logs?" - and the answer was that the panel existed for the REQUEST log
+    # and not for this one, so a reader had to open a terminal to hear what
+    # police had found. That is the one place they are not already looking.
+    #
+    # NOT BEHIND --show-logs, unlike the requests section above it. Request
+    # logs are a debugging aid somebody opts into; the bridge is what the board
+    # says about itself, and it is the thing he asked to see without leaving
+    # the page. TKT-916.
+    $boards .= '<section class="board board--bridge" data-type="bridge">'
+      . '<header class="board__header"><span class="board__kicker">Tira board</span><h2>Bridge</h2></header>'
+      . '<p class="bridge-note"></p><ol class="bridge-lines"></ol></section>'
+      if $args{live};
+
     my $project_heading = 'Tira Kanban';
     if ( defined $args{project} ) {
         my $project_name = eval { $self->project_show( project => $args{project} )->{name} };
@@ -205,6 +220,7 @@ sub _dashboard_table {
         my $jobs_editor = $args{live} ? Tira::_view_asset('jobs-editor.js') : '';
         my $logs_panel = ( $args{live} && $Tira::DashboardWeb::SHOW_LOGS )
           ? Tira::_view_asset('logs-panel.js') : '';
+        my $bridge_panel = $args{live} ? Tira::_view_asset('bridge-panel.js') : '';
 my $live_helpers = $args{live} ? Tira::_view_asset('live-helpers.js')
       : '';
     my $card_binding = $args{live}
@@ -219,7 +235,7 @@ my $live_helpers = $args{live} ? Tira::_view_asset('live-helpers.js')
     my $drag_script = $args{live}
       ? Tira::_view_asset('selection.js')
       : '';
-    my $script = Tira::_view_asset('base-script.js') . $live_helpers . $column_editor . $policy_editor . $tasklist_editor . $jobs_editor . $logs_panel
+    my $script = Tira::_view_asset('base-script.js') . $live_helpers . $column_editor . $policy_editor . $tasklist_editor . $jobs_editor . $logs_panel . $bridge_panel
       . 'const bindBoards=()=>{document.querySelectorAll(".card").forEach(card=>{'
       . $card_binding . Tira::_view_asset('board-bindings.js') . $refresh_action
       . ';const scheduleRefresh=()=>setTimeout(()=>{Promise.resolve(refreshDashboard()).finally(scheduleRefresh)},refreshSeconds*1000);'

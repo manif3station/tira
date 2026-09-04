@@ -322,6 +322,15 @@ had to scroll before the sticky header pinned itself. That is cut to 1rem, and t
 card row per screen. The header keeps its own padding: what was removed is
 clearance above a sticky element, not breathing room around content.
 
+**The police bridge is in the page since 5.56.** A Bridge section shows the
+newest hundred things police said about the board - findings and settlements -
+polling every five seconds so it follows new lines rather than needing a reload.
+It reads what `tira.policy.bridge.logs` reads, through the same engine call, so
+the page and the terminal cannot disagree. Unlike the Requests panel it is not
+behind `--show-logs`: request logs are a debugging aid you opt into, while the
+bridge is the board's own voice. An empty panel says so in words, because a board
+that has found nothing and a board whose police has never run look identical.
+
 **The header's counts say what is wrong, not what exists (5.54).** It shows how
 many cards carry a question awaiting an answer, how many tasklist items are
 outstanding, how many monitors have stopped and how many jobs are disabled — and

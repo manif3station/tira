@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.46';
+our $VERSION = '5.47';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -9419,14 +9419,41 @@ sub _police_environment_violations {
     # TKT-499.
     my %already_said;
 
+    # THE SAME PARAMETERS AS policy_evaluate's $report, AND THAT IS THE POINT.
+    #
+    # This one took three - ( $policy, $ref, $detail ) - while the other takes
+    # five, and both are called $report in the same file. A rule written by
+    # copying a neighbour from the other sub therefore lost its last two
+    # arguments in silence, which is exactly what monitor-output did with its
+    # sub_key from the day it was written: it passed one, this closure never
+    # declared it, and Perl discarded it without a word.
+    #
+    # WHAT THAT COST. The ledger keys an entry by rule|policy|ref|sub_key.
+    # monitor-output reports with no ref, so with the sub_key gone EVERY finding
+    # it ever made on a board - every monitor, every pass, every different set
+    # of words - was one ledger entry. The quiet ladder then marked each telling
+    # after the first as a repeat and the bridge skipped it, correctly, on the
+    # information it had. One monitor-output line reached this board's bridge in
+    # three weeks: the first one. TKT-925.
+    #
+    # Nine other callers in this sub pass three arguments and are unaffected -
+    # the two new parameters are simply undef for them. Matching the other
+    # closure rather than adding a fourth parameter of my own is deliberate: the
+    # fault is two same-named closures with different shapes, and a third shape
+    # would deepen it.
+    #
+    # $ref here is a bare ref rather than a record, which is the one difference
+    # that remains and is why it is named differently.
     my $report = sub {
-        my ( $policy, $ref, $detail ) = @_;
+        my ( $policy, $ref, $detail, $for, $sub_key ) = @_;
         return if $self->_rule_suspended( $quieted, $policy->{rule}, $ref // '' );
         return if $card_declined{"$policy->{rule}\x00" . ( $ref // '' )};
         return if $already_said{"$policy->{rule}\x00" . ( $ref // '' ) . "\x00$detail"}++;
         push @violations, {
             rule => $policy->{rule}, policy => $policy->{id}, ref => $ref // '',
             detail => $detail, action => $policy->{action},
+            ( defined $sub_key ? ( sub_key => $sub_key ) : () ),
+            ( defined $for     ? ( assignee => $for )    : () ),
 
             # Through the same substitution the board rules use, rather than
             # passing the wording along untouched. These six shipped their
@@ -13322,7 +13349,23 @@ reports each with the card's own ref - C<question-unanswered>,
 C<answer-waiting>, C<answer-unjudged>, C<answer-ok-not-folded>,
 C<answer-not-ok-no-followup> - passes the looped-over thing's own id as a
 C<sub_key>, so two findings about one card get distinct ledger entries
-instead of colliding into one. C<checklist-unmoved> is addressed to a card's reporter,
+instead of colliding into one.
+
+B<That mechanism has a twin, and until 5.47 the twin could not receive it.>
+The environment rules - the ones about the machine rather than about a card -
+are evaluated by C<_police_environment_violations>, which has a reporter closure
+of its own, also called C<$report>. It declared three parameters where this one
+declares five. C<monitor-output> lives inside it and calls it with five, passing
+C<< <job id>:<what was said> >> as a C<sub_key> so that two passes carrying
+different words are not read as one rule repeating itself. Perl discarded the
+argument in silence. The ledger keys an entry by C<rule|policy|ref|sub_key>, and
+that rule reports with no ref, so every finding it ever made on a board was a
+single entry; the quiet ladder marked each telling after the first as a repeat,
+correctly, and the bridge skipped it. One C<monitor-output> line reached the
+board this was found on in three weeks. Both closures now take the same
+parameters and mean the same thing by the last two, which is what stops the next
+rule written by copying a neighbour from losing its arguments the same way.
+TKT-925. C<checklist-unmoved> is addressed to a card's reporter,
 not its assignee, since the assignee is often the reviewer for a card in
 review and cannot tick an item only the card's own author left unticked.
 C<card-still>'s finding names the limit that was actually crossed and

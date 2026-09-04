@@ -490,8 +490,38 @@ sub advance_monitor_output {
     return if ref $result ne 'HASH';
     my $seen = $result->{monitor_output} || [];
     require Tira::Job;
+
+    # WHICH MONITORS THE PASS ACTUALLY REPORTED, rather than which ones the rule
+    # meant to report. TKT-925: `spoke` is set from the same condition that
+    # CALLS the reporter, and the reporter can return without reporting - a
+    # suspended rule, a card whose finding has been declined. Draining on the
+    # intention took the monitor's words off the record with nothing anywhere
+    # having said them, which is the one loss this whole rule exists to prevent.
+    #
+    # RECORDED, NOT ANNOUNCED, and the difference is worth stating because the
+    # first version of this got it wrong in two ways at once and the suite said
+    # so. It required the policy's action to be bridge-reminder, which breaks a
+    # log-only monitor - log-only is a rule being tuned, its findings still
+    # reach the ledger and tira.police.outstanding, and its output must still
+    # drain. And it refused to drain a QUIET finding, which is backwards: quiet
+    # means these exact words were already announced, and a poller doing the
+    # same work every minute prints the same line constantly. t/502 asserts both
+    # directly.
+    #
+    # So the question is only whether the pass produced a finding for this
+    # monitor at all. Matched on the sub_key rather than by parsing the detail,
+    # because the rule already builds it as "JOB-ID:what was said" - an exact
+    # key rather than a guess at the shape of a sentence.
+    my %reported;
+    for my $violation ( @{ $result->{violations} || [] } ) {
+        next if ( $violation->{rule} // '' ) ne 'monitor-output';
+        my ($id) = split /:/, ( $violation->{sub_key} // '' ), 2;
+        $reported{$id} = 1 if defined $id && $id ne '';
+    }
+
     for my $mark ( @{$seen} ) {
         next if !$mark->{spoke};
+        next if !$reported{ $mark->{id} };
 
         # A failure to record is REPORTED, not swallowed. Silently failing here
         # means the same lines arrive again next pass, and a bridge repeating
@@ -1133,6 +1163,30 @@ and two cards were raised by somebody who could not find it out. TKT-745.
 They lived in C<Tira::CLI> until 4.74. C<Tira::CLI> now loads this module with
 C<require> at each point one of those verbs is entered, so a CLI call that never
 polices anything never compiles the world scan.
+
+=head2 advance_monitor_output
+
+What takes a monitor's words off its job record after a pass has reported them.
+The engine deliberately writes nothing during a pass - F<t/86> requires a pass to
+change not one byte of the board - so the pass hands out marks saying what it
+announced and this clears them afterwards, under the CLI where writing is
+allowed.
+
+B<It asks what the pass REPORTED, not what the rule meant to report.> Until 5.47
+its only guard was the mark's C<spoke> flag, which is set from the same condition
+that calls the reporter - so it was true when the reporter returned without
+reporting, which happens for a suspended rule or a declined finding. The words
+came off the record with nothing anywhere having said them, which is the one loss
+the C<monitor-output> rule exists to prevent. TKT-925.
+
+B<Recorded, not announced, and the distinction is load-bearing.> The first
+version of that guard also required the policy's action to be C<bridge-reminder>
+and the finding not to be quiet, and both are wrong. A C<log-only> rule is one
+being tuned: its findings still reach the ledger and C<tira.police.outstanding>,
+and its output must still drain. And quiet means these exact words were already
+announced - a poller doing the same work every minute prints the same line
+constantly, and F<t/502> exists to assert that the repetition is drained rather
+than said again.
 
 =head2 Why each entry says require
 

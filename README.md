@@ -336,6 +336,15 @@ beside the first. Deleting a running monitor is refused, and the page shows the
 engine's own words, which name `tira.job.stop`: the useful thing to know is not
 that the delete failed but what to do first.
 
+**And what a monitor says reaches the bridge, since 5.47.** Before that it did
+not: the rule that carries a monitor's output tags each finding with the job and
+the words, so two passes carrying different output are not read as one rule
+repeating itself, and the tag was dropped before it reached the ledger. Every
+such finding a board ever made was filed as the same one and all but the first
+were suppressed as repeats — while the words were still removed from the record,
+so nothing was left to announce later. A monitor could speak all day and not one
+word appear.
+
 **Stopping stops all of it, since 5.45.** A monitor is not one process — a shell
 owns the pipe, the command runs on one side of it and the feeder reads the
 other, and a looping monitor adds a fourth. Until 5.45 the stop signalled only

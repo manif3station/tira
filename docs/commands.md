@@ -3923,6 +3923,17 @@ reader never has to infer it from whichever field is populated.
     section under the Task List, one row per job. EPC-014, TKT-836 for the
     record, TKT-837 for these verbs.
 
+    **A monitor's output did not reach the bridge until 5.47**, which matters
+    here because this reference has described that channel as working since
+    5.41. The `monitor-output` rule tags each finding with the job id and what
+    was said - so two passes carrying different words are not read as one rule
+    repeating itself - and passed that tag to a closure that did not declare it.
+    Two closures in `lib/Tira.pm` share the name `$report` and one takes three
+    parameters where the other takes five. The ledger therefore filed every
+    finding the rule ever made as a single entry, and everything after the first
+    was suppressed as a repeat, while the words were removed from the record
+    regardless. TKT-925.
+
     That section is not read-only. Each row has a play button that runs the job
     at once whatever its schedule says (`tira.job.run`, TKT-843) and a control
     that opens an editor for its schedule, where a bad crontab is highlighted

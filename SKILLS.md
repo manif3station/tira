@@ -2610,6 +2610,18 @@ pairing outright (TKT-842). The page declines to offer what the save would
 refuse, which is the same reason the schedule field is disabled rather than
 hidden: the form keeps its shape as you click through it.
 
+**A monitor's words reached the bridge for the first time in 5.47**, which is
+worth stating plainly because this document has described the channel as working
+since 5.41. It was not. `monitor-output` reports with a `sub_key` of
+`<job id>:<what was said>` so that two passes carrying different words are not
+read as one rule repeating itself — and it passed that sub_key to a closure that
+declared three parameters where its twin declares five. Both are called
+`$report` and both live in `lib/Tira.pm`. Perl discarded the argument silently,
+the ledger keyed every finding the rule ever made as one entry, and the quiet
+ladder suppressed all but the first. The drain fired regardless, because it
+turned on "the rule meant to speak" rather than "the bridge said it" — so a
+monitor's output was taken off the record unannounced on every pass. TKT-925.
+
 **Since 5.46 the Command/Message pair is hidden entirely under Monitor**, rather
 than shown with its one remaining option selected. His words: *"you don't need to
 show the Command radio button since there is only 1 option to select"*. A group

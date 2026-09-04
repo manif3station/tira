@@ -1,5 +1,50 @@
 Revision history for Tira
 
+5.47  2026-09-04
+
+    - TKT-925. A monitor's words reach the bridge. They had not, since the
+      feature landed: this board's bridge holds exactly ONE `monitor-output`
+      entry across three weeks, and it is the first one it ever made.
+
+      `lib/Tira.pm` declares two closures called `$report`, and they did not
+      agree. `policy_evaluate`'s takes `( $policy, $record, $detail, $for,
+      $sub_key )`; `_police_environment_violations`'s took `( $policy, $ref,
+      $detail )`. `monitor-output` lives inside the second and calls it with
+      five arguments, passing `"$job-id:$what-it-said"` as the sub_key. Perl
+      discarded the last two without a word.
+
+      The ledger keys an entry by `rule|policy|ref|sub_key`. `monitor-output`
+      reports with no ref, so with the sub_key gone **every finding it ever
+      made on a board collapsed into one entry** - every monitor, every pass,
+      every different set of words. The quiet ladder then marked each telling
+      after the first as a repeat and the bridge skipped it, which is correct
+      behaviour on the information it had. The comment above the call already
+      said what was needed: *"the quiet ladder keys on it, so two passes
+      carrying different words must not look like one rule repeating itself."*
+      Right in every word, handed to a function that could not receive it.
+
+      The environment closure now takes the same five parameters and records
+      both. Nine other callers in that sub pass three and are unaffected.
+
+    - TKT-925. And the drain follows what was announced, not what was intended.
+      `advance_monitor_output` removed a monitor's lines whenever the mark said
+      `spoke` - and `spoke` is set from the same condition that CALLS the
+      reporter, so it was true when the reporter returned early (a suspended
+      rule, a declined card) and true when `bridge_write` skipped the violation
+      as quiet. That is what turned a silenced announcement into **destroyed
+      output**: the words came off the record and nobody had seen them.
+
+      The drain now also asks which monitors were actually announced, matched on
+      the sub_key the rule already builds. `spoke` stays, because it answers a
+      different question - did this monitor have anything to say at all - and
+      removing it would drain a monitor that produced nothing.
+
+      Found while answering his question of 2026-09-04: *"i am worry that why
+      the tg message didn't pick up even the police announce there are new
+      message on the tira policy bridge"*. His Telegram messages had been
+      reaching the job record all day and being taken off it, unannounced, by
+      every pass.
+
 5.46  2026-09-04
 
     - TKT-912. The dashboard's Save button was dead for every monitor. Not a

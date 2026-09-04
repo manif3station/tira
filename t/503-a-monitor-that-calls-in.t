@@ -402,10 +402,26 @@ ok( Tira::Job->can('job_feed'),
         open my $capture, '>', \$complaint or die $!;
         my $old = select $capture;
         local *STDERR = $capture;
+        # THE VIOLATION HAS TO BE HERE, and it was not until TKT-925. The drain
+        # used to fire on the mark alone, so a monitor's words came off the
+        # record even when the pass had reported nothing about it - a suspended
+        # rule, a declined finding - and nobody had seen them. It now asks
+        # whether the pass actually produced a finding for this monitor, so a
+        # fixture that hands it a mark and no violation is a fixture describing
+        # a state the code no longer reaches.
+        #
+        # The sub_key is how the two are matched, and the rule builds it as
+        # "JOB-ID:what was said" - so it is written that way here rather than
+        # invented.
         Tira::CLI::Police::advance_monitor_output(
             $tira, { project => $root },
             { monitor_output =>
-                  [ { id => $noisy->{id}, count => 3, dropped => 0, spoke => 1 } ] } );
+                  [ { id => $noisy->{id}, count => 3, dropped => 0, spoke => 1 } ],
+              violations => [
+                  { rule => 'monitor-output', policy => 'POL-001',
+                    ref => '', action => 'bridge-reminder',
+                    sub_key => "$noisy->{id}:it said something",
+                    detail => "$noisy->{id} said: it said something" } ] } );
         select $old;
         close $capture;
     }

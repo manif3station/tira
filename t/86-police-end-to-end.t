@@ -410,7 +410,15 @@ is_deeply( fingerprint(), $before,
 
 # --- the bridge delivered all of it ---------------------------------------
 
-$tira->bridge_write( store => $store, violations => $pass->{violations} );
+# ASKED OF THIS WRITE, not of the whole store. The bridge was already written
+# to once above - the bridge-unread fixture at the top of this file - so the
+# backlog carries those lines too, and counting all of them against THIS pass's
+# violations was arithmetic that happened to balance rather than a measurement.
+# It stopped balancing the moment TKT-925 gave monitor-output its sub_key back:
+# a finding that had been filed as a repeat of an earlier one is a distinct
+# finding now, so the store gained a line this pass did not produce. The old
+# count was right for the wrong reason.
+my $written = $tira->bridge_write( store => $store, violations => $pass->{violations} );
 my $delivered = $tira->bridge_backlog( store => $store, lines => 1_000 );
 
 # The first line introduces the replay and is not a violation, so it is taken
@@ -424,7 +432,27 @@ like( shift @{$delivered}, qr/replaying/,
 # is there because a settlement arriving last reads as an ending - TKT-277.
 my @reported = grep { !/STILL OPEN/ } @{$delivered};
 
-is( scalar @reported, scalar @{ $pass->{violations} },
+# What bridge_write is supposed to write: the findings the policy asked to be
+# put on the bridge, minus the ones the quiet ladder is holding back, plus the
+# one line that says what is still open. Stated here rather than counted from
+# the store, so this asserts the promise instead of describing the outcome.
+my @should = grep { ( $_->{action} // '' ) eq 'bridge-reminder' && !$_->{quiet} }
+  @{ $pass->{violations} };
+
+cmp_ok( scalar @should, '>', 0,
+    'the pass produced findings the bridge is meant to carry - without this the '
+      . 'assertion below would be satisfied by writing nothing at all' );
+
+# ASKED AS A SET, not as a count. bridge_write appends a STILL OPEN tail per
+# audience, so "one line each plus one" is not a number the test can know - and
+# the version of this assertion that counted the whole store against this pass's
+# violations was arithmetic that happened to balance. What the promise actually
+# says is that no finding meant for the bridge is missing from it, so that is
+# what is asked.
+my $all = join "\n", @{$delivered};
+my @missing = grep { index( $all, $_->{message} // $_->{detail} // '' ) < 0 } @should;
+
+is_deeply( [ map { $_->{rule} } @missing ], [],
     'every violation reached the bridge, not merely most of them' );
 is( scalar( grep { /fix:/ } @{$delivered} ), scalar @{$delivered},
     'and every line carries the command that answers it, the tail included' );

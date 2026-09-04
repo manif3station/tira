@@ -258,6 +258,19 @@ d2 tira.job.stop --id JOB-005
 d2 tira.job.update --id JOB-005 --command "d2 tira.police.outstanding"
 ```
 
+**A monitor's output reaches the bridge, and until 5.47 it did not.** The feeder
+puts a monitor's words on its job record; the `monitor-output` police rule reads
+them, announces them, and they are then removed so the bridge does not repeat
+itself. Every part of that worked except the announcement: the rule tags its
+finding with the job id and the words, so two passes carrying different output
+are not mistaken for one rule repeating itself, and that tag was being dropped
+before it reached the ledger. Every `monitor-output` finding a board ever made
+was therefore filed as the same one, and everything after the first was
+suppressed as a repeat. The removal happened anyway. So a monitor could speak all
+day, its `last spoke` time move on every batch, and not one word appear anywhere
+— which is exactly what happened to `JOB-006` while it tailed a Telegram log.
+TKT-925.
+
 **Stopping stops all of it.** A monitor is not one process: a shell owns the
 pipe, the command runs on one side of it and the feeder reads the other, and
 `--restart-every` adds a loop. Until 5.45 the stop signalled only the pid the

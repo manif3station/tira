@@ -1099,6 +1099,26 @@ and C<police_goodbye> are the lock that stops two police passes running against
 one board at once, and the farewell the second one prints. They move together
 because they are one mechanism.
 
+B<Who wins.> The owner's ruling on TKT-486 is that the last run wins: a new
+claimant kills whatever held the claim and says so. That is unchanged, and it is
+still what happens between two ordinary daemons.
+
+B<The dashboard is the one exception>, his answer to Q-117 on TKT-897: I<"The
+dashboard is a special case - while it holds police, a later tira.police says so
+and exits 0. TKT-486 still applies everywhere else.">  So a claim may name a
+holder as well as a pid - C<< holder => 'dashboard' >> - and an ordinary
+claimant meeting a live dashboard stands down instead of killing it.
+
+Three things about that are deliberate rather than incidental. B<The ordinary
+claim is still written as a bare pid>, because nothing about the ordinary case
+changed and rewriting its record would break readers that are right to expect
+one. B<A yielding claimant does not write the file at all>: stamping its own pid
+on the way out would leave the record naming a process about to exit while the
+dashboard ran on unrecorded. And B<a claim left behind by a dashboard that has
+died is not a reason to stand down> - the alive-check decides that, exactly as
+it always has, or one unclean exit would block police until somebody deleted a
+file by hand.
+
 =head2 How this module is loaded
 
 C<Tira::CLI> pulls this in with C<require> at the point one of its verbs runs,

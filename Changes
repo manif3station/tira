@@ -2,6 +2,33 @@ Revision history for Tira
 
 5.42  2026-09-03
 
+    - TKT-897. `tira.dashboard -o browser --with-police` runs the board and the
+      police bridge in one terminal, which is what he asked for: "So the user
+      doesn't need to run 2 terminals. All in 1 go." The pass is forked beside
+      the server and reaped when it stops, so nothing is left holding the
+      singleton claim after the board has gone. The flag is refused in any other
+      output format - a JSON dump exits immediately, so there is no terminal to
+      share and the flag would parse, do nothing, and read as confirmation.
+
+      His second sentence asked for the opposite of his own earlier ruling, and
+      the card described that ruling backwards - it said a second police is
+      refused today, when in fact the newest claimant kills the previous one and
+      wins, which is TKT-486 and is quoted in the code that implements it. So it
+      was asked rather than inferred, and his answer scoped the change: the
+      dashboard is a special case, and TKT-486 still applies everywhere else.
+
+      The singleton claim can therefore name a HOLDER as well as a pid, and an
+      ordinary police meeting a live dashboard says which process holds the
+      watch and exits 0 rather than killing it. Standing aside is the correct
+      outcome, not a failure, so the status says so. Three details are
+      deliberate: the ordinary claim is still written as a bare pid, because
+      nothing about that case changed; a yielding claimant does not write the
+      file, since stamping its own pid would leave the record naming a process
+      about to exit; and a claim left by a dashboard that has DIED is still
+      taken, or one unclean exit would block police until somebody deleted a
+      file by hand.
+
+
     - TKT-892. The job card and its editor, rebuilt once. His three complaints:
       "In the UI there is no way i can delete any existing job card / I cannot
       edit and card / I cannot pick between command or message." Grouped from

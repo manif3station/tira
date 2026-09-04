@@ -1,5 +1,27 @@
 Revision history for Tira
 
+5.59  2026-09-04
+
+    - TKT-926. A figure written into `docs/POLICIES.md` and `t/531`'s header
+      earlier the same day counted rendered display lines and called them
+      ledger entries, inflating the denominator about fourfold - and it was a
+      growing total written as a fixed one: 49,156 when it was written, 49,376
+      an hour later.
+
+      **Removed rather than corrected.** The sentence exists to show how rare a
+      `monitor-output` finding was - one in three weeks - and the denominator
+      was there to make *one* sound as small as it is. A number that has to be
+      re-measured to stay true does not belong in a comment, so what remains is
+      the count of the thing being counted, dated as a measurement.
+
+      The old figure is quoted in both places with what was wrong with it,
+      because a number removed without explanation invites its own return.
+
+      **No guard was added**, which the card asked for in its own fourth
+      criterion: a number about a live board cannot be asserted by a test in
+      this repository, and a guard that cannot fail reports success for
+      nothing.
+
 5.58  2026-09-04
 
     - TKT-932. Police stops printing a Perl warning over its own findings. His

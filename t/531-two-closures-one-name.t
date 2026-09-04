@@ -22,8 +22,16 @@
 # bridge_write skips quiet violations.
 #
 # So the first monitor-output finding a board ever makes reaches the bridge and
-# nothing does afterwards. Measured here: one entry in three weeks and 49,156
-# lines, and it is JOB-005's Perl warning from the day the feature landed.
+# nothing does afterwards. Measured on this board on 2026-09-04: ONE
+# monitor-output finding in three weeks, and it is JOB-005's Perl warning from
+# the day the feature landed.
+#
+# The sentence used to give a denominator - "and 49,156 lines" - and TKT-926
+# removed it rather than correcting it. It counted rendered DISPLAY lines and
+# called them entries, inflating the figure about fourfold, and it was a total
+# that grows: 49,156 when it was written and 49,376 an hour later. A number
+# that has to be re-measured to stay true does not belong in a comment; what
+# the sentence was for is the ONE, and one is still one.
 #
 # AND THE WORDS ARE DESTROYED AFTER BEING SILENCED, which is the half that makes
 # this worse than a missing line. advance_monitor_output drains on spoke, and

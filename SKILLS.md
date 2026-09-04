@@ -1980,6 +1980,34 @@ tira.job.help
 tira.dashboard -o browser [--show-logs]
 ```
 
+**The 500-line rule is enforced (TKT-751, 5.43).** Michael's instruction,
+Telegram 6104: *"Any Perl file more that 500 lines will be decomposed."* Until
+now nothing checked it, and the ground was lost quietly — the card was filed
+naming fourteen files and there were **eighteen** by the time it was picked up,
+two of them test files written after it was filed.
+
+`t/524-a-rule-with-nothing-watching-it.t` walks every Perl file that ships —
+`lib/` and `t/` by extension, `cli/` and `tools/` by **shebang** — and fails for
+any over 500 lines that is not exempted. Shebang rather than directory because
+the rule says *Perl*: `tools/prove-the-gate` and `tools/browser-tests` are bash
+and `tools/card-holes` is python, and the card wrongly listed all three as
+offenders. The test asserts the exclusion in both directions, and that
+`tools/coverage-holes` **is** found, because it is Perl.
+
+**An exemption costs a reason and a card reference.** A bare path refuses rather
+than exempts — the same shape `tools/gate-run` already uses for coverage, which
+refuses a module *"listed as exempt with no reason beside it"*. Every reason
+names the card that owns splitting that file, and an exemption for a file since
+split, deleted or renamed **fails**, so the list can only shrink. The test
+reports how many remain, measured live rather than written down: a count beside
+a growing file is a count that goes stale.
+
+Eighteen entries today. `lib/Tira.pm` names TKT-746, which already owns it; the
+rest name TKT-751. `lib/Tira/CLI/Browser.pm` is the entry that makes the
+argument — TKT-607's decomposition **created** it at 805 lines, already over,
+and it grew a further 400 before anything noticed. A split that produces a file
+breaking the same rule is why a guard is needed and a convention is not.
+
 **Making room was the work, not raising the cap (TKT-837, 5.30).** These four
 verbs took `lib/Tira/CLI.pm` past `t/430`'s 3,000-line limit, and the card sat
 blocked overnight on what had been framed as a decision for the owner: raise

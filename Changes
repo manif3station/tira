@@ -2,6 +2,28 @@ Revision history for Tira
 
 5.43  2026-09-04
 
+    - TKT-751. The standing rule that any Perl file over 500 lines is decomposed
+      had nothing enforcing it, and had been losing ground quietly. The card was
+      filed naming fourteen files; there were eighteen when it was picked up,
+      two of them test files written after it was filed.
+
+      t/524 walks every Perl file that ships - lib/ and t/ by extension, cli/
+      and tools/ by SHEBANG - and fails for any over 500 lines that is not
+      exempted. Shebang rather than directory because the rule says PERL:
+      prove-the-gate and browser-tests are bash and card-holes is python, and
+      the card wrongly listed all three as offenders. A guard built from that
+      list would have been wrong on its first run.
+
+      An exemption costs a reason and a card reference; a bare path refuses,
+      which is the shape tools/gate-run already uses for coverage. An exemption
+      for a file since split, deleted or renamed fails, so the list can only
+      shrink, and the count is reported live rather than written down.
+
+      Eighteen entries today, none split. The card's own criterion is "either
+      split or in the list with a reason and a card reference" - the deliverable
+      is the guard and an honest backlog, not eighteen decompositions behind one
+      commit.
+
     - TKT-748. `--status` is parsed in the global option table, so every
       command in Tira accepts it and only the ones that read it honour it.
       `checklist.list` was the one list on the board with a status field that

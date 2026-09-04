@@ -1,5 +1,39 @@
 Revision history for Tira
 
+5.49  2026-09-04
+
+    - TKT-915. A looping monitor says so on the board. `restart_every` appeared
+      three times in the jobs view and all three were the editor or the save, so
+      a monitor that restarts itself and one that runs once both read **Runs
+      continuously** on their cards. His report: *"If I job original added as a
+      loop and sleep for 5 seconds... didn't show on the card that is a loop."*
+
+      The fix is in the engine, not the view. The card renders `schedule_words`
+      and says so in its own comment; `Tira::Job::job_schedule_words` builds that
+      phrase and took only a schedule string. It now takes the interval as well:
+
+          Runs continuously, restarting 5 seconds after it ends
+          Runs continuously, restarting 1 second after it ends
+          Runs continuously
+
+      Added to the phrase rather than replacing it, because both things are true
+      and the first matters more. The second argument is **optional** and must
+      stay so: `Tira::CLI::Browser` called this with a schedule alone and `t/517`
+      asserts a dozen cron phrasings through the one-argument form, so a required
+      parameter would have taken the whole schedule column with it. `t/533`
+      asserts the one-argument call explicitly.
+
+      **The other half of his report does not reproduce**, and the card records
+      that rather than closing it quietly. For a monitor stored with an interval,
+      the editor ticks the loop box, fills the seconds field, and `applyKind`
+      runs on render to show the row and enable it; the engine preserves the
+      field on update with `exists` rather than `defined`. Every step reads
+      correct and three of them are now asserted. So *"when I edit it that
+      setting is gone"* is what a person concludes when the card never showed it
+      in the first place - one screen described twice. If it survives this
+      release, the load path is eliminated and the browser is the next place to
+      look.
+
 5.48  2026-09-04
 
     - TKT-922. A monitor's card shows what the monitor is saying. It never had:

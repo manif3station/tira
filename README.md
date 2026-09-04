@@ -384,6 +384,11 @@ matches for a cron job and never matches for a monitor, where the value sent is
 the literal `monitor`. So Save was disabled on the first keystroke of any
 monitor and never came back, whatever else was filled in.
 
+A looping monitor says so in those words too, since 5.49 — *Runs continuously,
+restarting 5 seconds after it ends*. Before that the interval appeared nowhere on
+a card, so a monitor that restarts itself and one that runs once read
+identically.
+
 The schedule shows as words — *Every 30 minutes*, *Every day at 09:00*, *Runs
 continuously* — with the cron string kept as the tooltip. The words are produced
 by the engine rather than the browser, and anything it cannot describe with

@@ -800,9 +800,28 @@ sub job_command_words {
 }
 
 sub job_schedule_words {
-    my ($schedule) = @_;
+    my ( $schedule, $restart_every ) = @_;
     return '' if !defined $schedule;
-    return 'Runs continuously' if $schedule eq 'monitor';
+
+    # A LOOPING MONITOR SAYS SO. His report, 2026-09-04: "If I job original added
+    # as a loop and sleep for 5 seconds... didn't show on the card that is a
+    # loop." restart_every appears three times in the jobs view and all three are
+    # the editor or the save, so the board showed a looping monitor and a
+    # one-shot one identically. TKT-915.
+    #
+    # ADDED TO THE PHRASE RATHER THAN REPLACING IT, because both things are true
+    # and the first is the more important: it does run continuously, and the
+    # interval is how it comes back when the command inside it ends.
+    #
+    # THE SECOND ARGUMENT IS OPTIONAL AND MUST STAY SO. Tira::CLI::Browser calls
+    # this with a schedule alone, and t/517 asserts a dozen cron phrasings
+    # through the one-argument form - a required parameter here would take the
+    # whole schedule column with it.
+    if ( $schedule eq 'monitor' ) {
+        return 'Runs continuously' if !$restart_every;
+        my $unit = $restart_every == 1 ? 'second' : 'seconds';
+        return "Runs continuously, restarting $restart_every $unit after it ends";
+    }
 
     my @field = split /\s+/, $schedule;
     return $schedule if @field != 5;
@@ -1225,6 +1244,19 @@ liveness comparator treats unreadable as unmatched, because it is asked whether 
 process is the one we started and a typo is not a reason to stop answering.
 
 =head1 A SCHEDULE THAT READS AS WORDS
+
+C<job_schedule_words> takes a schedule and, optionally, a monitor's restart
+interval. B<The second argument is optional and must stay so>: L<Tira::CLI::Browser>
+called it with a schedule alone for three releases and F<t/517> asserts a dozen
+cron phrasings through that form, so a required parameter would take the whole
+schedule column with it.
+
+A looping monitor reads as I<Runs continuously, restarting 5 seconds after it
+ends> since 5.49. Before that the interval appeared on no card: C<restart_every>
+occurred three times in the jobs view and all three were the editor or the save,
+so a monitor that restarts itself and one that runs once were indistinguishable
+on the board. It is added to the phrase rather than replacing it, because both
+are true and the first matters more. TKT-915.
 
 C<job_schedule_words> turns a stored schedule into a phrase - "Every 30 minutes",
 "Every day at 09:00", "Runs continuously" for a monitor. TKT-884: the dashboard

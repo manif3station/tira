@@ -458,10 +458,19 @@ the tooltip. It is still *stored* as cron; the words are produced by the engine,
 not by the browser, for the same reason the schedule check is - two readings of
 one format drift apart, and only one of them can be the one that decides.
 Anything the engine cannot describe with certainty is shown unchanged, because a
-nearly-right description would be believed and the cron never read again:
+nearly-right description would be believed and the cron never read again.
+
+**A looping monitor says so, since 5.49.** `--restart-every` appeared nowhere on
+a card before that: the interval was in the editor and in the save and in no
+third place, so a monitor that restarts itself and one that runs once read
+identically on the board. It is added to the phrase rather than replacing it,
+because both are true and the first matters more - it does run continuously, and
+the interval is how it comes back when the command inside it ends. TKT-915.
 
 ```
-monitor            ->  Runs continuously
+monitor                       ->  Runs continuously
+monitor, restart every 5s     ->  Runs continuously, restarting 5 seconds after it ends
+monitor, restart every 1s     ->  Runs continuously, restarting 1 second after it ends
 */30 * * * *       ->  Every 30 minutes
 0 * * * *          ->  Every hour, on the hour
 0 9 * * *          ->  Every day at 09:00

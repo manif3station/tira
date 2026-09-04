@@ -3998,7 +3998,10 @@ reader never has to infer it from whichever field is populated.
     box actually removes the interval.
 
     The schedule shows as words on the card face — `Every 30 minutes`, `Every
-    day at 09:00`, `Runs continuously` — with the cron string kept as the
+    day at 09:00`, `Runs continuously`, and since 5.49 `Runs continuously,
+    restarting 5 seconds after it ends` for a monitor with `--restart-every`
+    (TKT-915; before that the interval appeared on no card at all) — with the
+    cron string kept as the
     tooltip. `Tira::Job::job_schedule_words` produces them, in the engine rather
     than the browser for the same reason the crontab check is asked of the
     engine, and anything it cannot describe with certainty is shown unchanged.

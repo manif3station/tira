@@ -2676,6 +2676,16 @@ attachment content types (TKT-713) — and it refuses to guess: anything it cann
 describe with certainty is returned unchanged, because a nearly-right
 description would be believed and the cron never read again.
 
+**And a looping monitor says so, since 5.49.** `job_schedule_words` takes the
+restart interval as an optional second argument and answers *Runs continuously,
+restarting 5 seconds after it ends*. Before that the interval appeared nowhere on
+a card — `restart_every` occurred three times in the jobs view and all three were
+the editor or the save — so a monitor that restarts itself and one that runs once
+were indistinguishable on the board. The argument is optional because
+`Tira::CLI::Browser` calls the sub with a schedule alone and `t/517` asserts a
+dozen cron phrasings through that one-argument form; a required parameter would
+have taken the whole schedule column with it. TKT-915.
+
 **Run now writes into a tail at the foot of the card**: a hundred lines, newest visible,
 under a minute old in yellow. The care is in it surviving the section's own
 30-second refresh — a log owned by the card element would be wiped twice a

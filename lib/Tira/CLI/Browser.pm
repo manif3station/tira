@@ -450,7 +450,8 @@ sub providers {
                 # opens. TKT-884, inside TKT-892.
                 require Tira::Job;
                 $row{schedule_words} =
-                  Tira::Job::job_schedule_words( $job->{schedule} );
+                  Tira::Job::job_schedule_words( $job->{schedule},
+                      $job->{restart_every} );
 
                 if ( ( $job->{schedule_kind} // '' ) eq 'monitor' && $job->{enabled} ) {
                     require Tira::CLI::Job;

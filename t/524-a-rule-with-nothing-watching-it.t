@@ -94,13 +94,71 @@ sub line_count {
 my $LIMIT = 500;
 
 # THE EXEMPTION LIST. A path to a REASON, never a bare path - his rule with an
-# escape hatch that costs nothing is his rule deleted. Each reason says why the
-# file is not split yet and names the card that owns splitting it, so the list
-# reads as a decomposition backlog rather than as permission.
+# escape hatch that costs nothing is his rule deleted. Each reason says what the
+# file is and names the card that owns splitting it, so the list reads as a
+# decomposition backlog rather than as permission.
 #
-# Empty here on purpose. This file is written red, and the eighteen failures it
-# produces are the measurement the card asked for.
-my %EXEMPT = ();
+# NO LINE COUNTS IN THE REASONS, deliberately. A number written beside a file
+# that is still growing is a number that goes stale, and this project has three
+# instances of exactly that on the books this week. The note() at the foot of
+# this file prints the live sizes, measured at the moment it runs.
+#
+# EVERY ENTRY IS A DEBT. TKT-751 is what identified them; TKT-746 already owns
+# splitting lib/Tira.pm. The rest have no dedicated card yet, which is the next
+# thing this list is for - it is now visible, and the guard below stops it
+# growing while somebody works through it.
+my %EXEMPT = (
+
+    # The engine. Every record verb, every rule, the whole policy pass and the
+    # question and tasklist machinery in one file - splitting it is its own
+    # project, and it already has a card.
+    'lib/Tira.pm' => 'the engine, and splitting it is its own project - TKT-746 owns it',
+
+    # The command surface. TKT-607 took it from 6,048 lines by lifting the
+    # record verbs out; what remains is the dispatch table and the option guard,
+    # and the next lift needs a concern to lift rather than a line target.
+    'lib/Tira/CLI.pm' => 'the dispatch index; TKT-607 halved it and the next cut '
+      . 'needs a concern, not a line target - TKT-751 identified it',
+
+    # These four grew past the limit after the decompositions that created them,
+    # which is the argument this whole card makes. Browser.pm is the sharpest:
+    # TKT-607 CREATED it at 805 lines, already over.
+    'lib/Tira/CLI/Browser.pm' => 'created over the limit by TKT-607 and grown since '
+      . '- the case that proves a split needs a guard - TKT-751 identified it',
+    'lib/Tira/CLI/Police.pm' => 'the police pass and its bridge, grown with every '
+      . 'rule added - TKT-751 identified it',
+    'lib/Tira/CLI/Serve.pm' => 'the dashboard server and its police-beside-the-board '
+      . 'supervision - TKT-751 identified it',
+    'lib/Tira/Job.pm' => 'repeated jobs: schedules, command parsing and the words '
+      . 'that describe them - TKT-751 identified it',
+
+    'lib/Tira/Tasklist.pm'     => 'the whole tasklist, one concern already - TKT-751 identified it',
+    'lib/Tira/DashboardWeb.pm' => 'the HTML dashboard view - TKT-751 identified it',
+    'lib/Tira/Attachment.pm'   => 'content-addressed attachment storage - TKT-751 identified it',
+
+    # The test files. A .t file is one story and splitting it usually means
+    # telling half of it somewhere else, so these are the entries most likely to
+    # be argued with - which is why each says what the file covers rather than
+    # only that it is long.
+    't/517-a-job-you-can-only-fix-from-a-terminal.t' =>
+      'the job-management surface end to end - TKT-751 identified it',
+    't/418-a-command-announced-and-thrown-away.t' =>
+      'announcing a command before its proof, every path - TKT-751 identified it',
+    't/493-a-monitor-that-died.t' =>
+      'monitor liveness across platforms, Windows included - TKT-751 identified it',
+    't/19-dashboard-dialog.t' =>
+      'the dashboard dialog surface - TKT-751 identified it',
+    't/419-a-queue-that-disagrees-with-the-board.t' =>
+      'the tasklist and the board agreeing, every path - TKT-751 identified it',
+    't/390-a-list-that-does-not-need-a-ticket.t' =>
+      'tasklist reads without a card - TKT-751 identified it',
+    't/519-two-terminals-to-watch-one-board.t' =>
+      'police singleton and the dashboard holding it - TKT-751 identified it',
+    't/86-police-end-to-end.t' =>
+      'a full police pass, the oldest end-to-end test here - TKT-751 identified it',
+    't/317-a-done-that-proved-nothing.t' =>
+      'proof required to mark an item done - TKT-751 identified it',
+);
 
 my @files = perl_files();
 

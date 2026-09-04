@@ -2713,6 +2713,13 @@ rather than the reasoning being wrong.
 0 0 1 * 1          ->  At 00:00 on the 1st of each month, and also every Monday
 ```
 
+Every minute of a restricted hour reads as a span: `* 9 * * *` is *Every minute
+from 09:00 to 09:59*, and `* 9-17 * * *` runs to 17:59. A single hour shares that
+branch rather than being listed, because *Every minute of 09:00* reads as one
+firing at nine o'clock — the opposite of what it means. That case returned raw
+cron until the coverage gate asked why the line was never reached; it is his
+Q-119 rule broken in a corner neither the card nor the test had looked at.
+
 The mark is for **inexactness, not complexity** — `*/60` fires at minute 0 alone,
 so that phrase is exact and is said plainly — and it **carries its reason**,
 because *About every 7 minutes* alone is a hedge while the bracket makes it an

@@ -189,6 +189,33 @@ unlike( words('0 0 1 * 1'), qr/\AAbout/,
     'and it is NOT marked approximate, because it is not - a hedge here would '
       . 'describe the wrong difficulty' );
 
+# --- what the coverage gate found ---------------------------------------------
+#
+# gate-run refused at 99.3% on Tira::Job and named three lines. Two of them were
+# working code nothing asked about; the third was a schedule still coming back as
+# raw cron, which is the rule his Q-119 answer set, broken in a corner I had not
+# looked at. An untested line and an unreachable-by-design line look identical
+# until something asks why the coverage is short.
+
+is( words('0 9 * 3 *'), 'Every day in March at 09:00',
+    'a MONTH with the day of the month left open - "every day in March", which '
+      . 'worked and had no test' );
+
+is( words('0 0 1 jan *'), 'At 00:00 on 1 January',
+    'and a month written by NAME, which cron accepts and a person writing a '
+      . 'schedule by hand usually types' );
+
+is( words('* 9 * * *'), 'Every minute from 09:00 to 09:59',
+    'EVERY MINUTE OF ONE HOUR. This came back as raw cron: valid, common, and '
+      . 'exactly describable, so it is the Q-119 rule broken in a corner. Found '
+      . 'by the coverage gate rather than by me' );
+
+is( words('* 9-17 * * *'), 'Every minute from 09:00 to 17:59',
+    'and every minute across a RANGE of hours, which is the same hole' );
+
+is( words('* 9,17 * * *'), 'Every minute of 09:00 and 17:00',
+    'and across a list of them' );
+
 done_testing();
 
 __END__

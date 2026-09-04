@@ -995,7 +995,34 @@ sub job_schedule_words {
 
     if ($every_minute) {
         return "Every minute$on_day" if $every_hour;
-        return $schedule;
+
+        # EVERY MINUTE OF A RESTRICTED HOUR. '* 9 * * *' is every minute between
+        # 09:00 and 09:59 - valid, common, and exactly describable - and it came
+        # back as raw cron until the coverage gate asked why this line was never
+        # reached. That is his Q-119 rule broken in a corner nobody had looked
+        # at. TKT-917.
+        #
+        # ":59" rather than ":00", because the hour is not an instant here: the
+        # schedule runs THROUGH it, and "from 09:00 to 09:00" would read as one
+        # firing.
+        my $span = sub { return sprintf '%02d:%02d', $_[0], $_[1] };
+        # A single hour is a span too - 09:00 to 09:59 - not a list of one. It
+        # shares the branch rather than getting its own, because "Every minute
+        # of 09:00" reads as one firing at nine o'clock, which is the opposite
+        # of what it means.
+        if ( $hours->[-1] - $hours->[0] == $#{$hours} ) {
+            return 'Every minute from '
+              . $span->( $hours->[0], 0 ) . ' to ' . $span->( $hours->[-1], 59 )
+              . $on_day;
+        }
+        return 'Every minute of '
+          . _and_list( map { $span->( $_, 0 ) } @{$hours} ) . $on_day
+          if @{$hours} <= 6;
+        return _about(
+            'every minute from '
+              . $span->( $hours->[0], 0 ) . ' to ' . $span->( $hours->[-1], 59 )
+              . $on_day,
+            'not every hour between them' );
     }
 
     # A minute STEP, which is only every-N when N divides the hour. Cron restarts
@@ -1452,6 +1479,12 @@ rule this function had followed since it was written. The old rule protected a
 reader from a B<confident> sentence that is false; a sentence opening with
 I<About> and naming what makes it inexact is not confident, so its premise is
 gone rather than its reasoning being wrong.
+
+B<Every minute of a restricted hour is a span, not a list.> C<* 9 * * *> reads
+I<Every minute from 09:00 to 09:59>, and a single hour shares that branch rather
+than being listed - I<Every minute of 09:00> reads as one firing at nine o'clock,
+which is the opposite of what it means. The C<:59> is deliberate too: the
+schedule runs B<through> the hour rather than at it.
 
 B<The mark is for inexactness, not for complexity.> C<*/60> fires at minute 0
 alone, so I<Every hour, on the hour> is exactly true and is said plainly - a

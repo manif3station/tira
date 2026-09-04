@@ -509,6 +509,10 @@ monitor, restart every 1s     ->  Runs continuously, restarting 1 second after i
 30 9 1 * *         ->  At 09:30 on the 1st of each month
 0 0 1 1 *          ->  At 00:00 on 1 January
 0 */5 * * *        ->  At 00:00, 05:00, 10:00, 15:00 and 20:00
+* 9 * * *          ->  Every minute from 09:00 to 09:59
+* 9-17 * * *       ->  Every minute from 09:00 to 17:59
+0 9 * 3 *          ->  Every day in March at 09:00
+0 0 1 jan *        ->  At 00:00 on 1 January
 17 3 5,20 */2 1-5  ->  17 3 5,20 */2 1-5
 0 0 1 * 1          ->  0 0 1 * 1
 23 0-20/2 * * *    ->  23 0-20/2 * * *

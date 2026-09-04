@@ -217,11 +217,31 @@ SKIP: {
 
 my $police = Suite::cli_source();
 
-my ($drain) = $police =~ /(sub \s advance_monitor_output .*? \n \} )/xs;
+# EVERY DEFINITION OF THAT NAME, AND THE LONGEST OF THEM, WHICH IS NOT
+# PEDANTRY. A lift in this repository leaves a FORWARDER at the old name, so
+# after one there are two subs called advance_monitor_output in the layer and
+# the first is a one-line delegation. Taking the first match then extracts a
+# forwarder and runs on into whatever follows it, and every assertion below
+# fails claiming the drain lost its guards.
+#
+# Found by doing it: TKT-921's checklist asks for the conversion to be proved
+# by lifting a sub in a scratch tree, and this sub was the one lifted. Walking
+# the layer instead of naming Police.pm was necessary and not sufficient - the
+# extraction had to stop assuming there is exactly one definition. TKT-921.
+# A ONE-LINE DEFINITION IS A FORWARDER, and is skipped by that shape rather
+# than by length. Length looked like the obvious tie-break and is wrong: a
+# forwarder's brace closes on its own line, so the pattern runs past it to the
+# next line-initial brace and the match it produces is LONGER than the real
+# body. Measured, not reasoned - it passed the "was extracted" assertion and
+# failed the three that read the body.
+my @definitions = grep { ( split /\n/, $_ )[0] !~ /\}/ }
+  $police =~ /(sub \s advance_monitor_output .*? \n \} )/xsg;
+my ($drain) = @definitions;
 
 ok( defined $drain && length $drain,
     'advance_monitor_output was extracted - the sub that takes a monitor\'s '
-      . 'lines off the record' );
+      . 'lines off the record. ' . scalar(@definitions) . ' definition(s) of '
+      . 'the name in the command surface; the one with a body is the subject' );
 
 like( $drain // '', qr/spoke|announced|recorded/,
     'and it is the right region: it decides whether to drain from what the '

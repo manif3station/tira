@@ -2,6 +2,28 @@ Revision history for Tira
 
 5.44  2026-09-04
 
+    - TKT-762. link.add accepted --from and --to naming the same card, and with a
+      directional type it recorded the OPPOSITE of what was asked for. A link
+      writes the forward type on --from and the reciprocal on --to; when both are
+      one card, both writes land on it and the second overwrites the first, so
+      `A blocks A` came back as `A is blocked by A`. Silently.
+
+      It is refused now, naming the record, for every declared type - the rule
+      keys on the two ends being one card rather than on which relation was
+      asked for. In link_add rather than the CLI, so the browser dashboard's
+      /link/add route and a direct engine call get the same answer.
+
+      Refusing removes the only path to the overwrite rather than correcting it:
+      there is no other way for both writes to land on one record, so the state
+      that produced the wrong answer can no longer be created.
+
+      Self-links already stored are LEFT ALONE - the refusal is at the point of
+      writing only. They remain removable, though only by the type they were
+      ADDED with, which is a separate defect: link.remove reports success and
+      removes nothing when given the type the card visibly holds. Found while
+      answering this card's own criterion 4 and filed as TKT-910 rather than
+      widened into this one.
+
     - TKT-894. The Telegram poller is the last repeated process still living
       inside a session rather than on the board, and two things had to change in
       it before it could move - both the kind that only appear when a private

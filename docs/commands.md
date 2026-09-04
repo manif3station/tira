@@ -3259,9 +3259,32 @@ and a card with none shows no section, unchanged from before. TKT-495.
 - `tira.link.add --from REF --type NAME --to REF [-o FORMAT]` - a missing
   `--from`, `--type` or `--to` is refused by name, checked in that order;
   the refusal never names `--ref`, which this command does not take. TKT-396.
+  Since 5.44 **`--from` and `--to` naming the same record is refused**, and the
+  message names that record, because a caller who reaches it has pasted one ref
+  twice. It applies to every declared type — a relation needs two records, and
+  the rule keys on the two ends being one card rather than on which relation was
+  asked for.
+
+  Until then it was stored, and with a directional type it recorded the
+  **opposite** of what was asked: a link writes the forward type on `--from` and
+  the reciprocal on `--to`, so when both are one card both writes land on it and
+  the second overwrites the first. `A blocks A` came back as `A is blocked by A`,
+  silently. Refusing removes the only path to that state rather than correcting
+  it.
+
+  The check is in `link_add` rather than the CLI, so the browser dashboard's
+  `/link/add` route and a direct engine call are guarded by the same rule.
+  Self-links **already stored** are left alone — the refusal is at the point of
+  writing only. They remain removable, though only by the type they were *added*
+  with; see `tira.link.remove` below. TKT-762.
 - `tira.link.list --ref REF [--type NAME] [-o FORMAT]`
 - `tira.link.remove --from REF --type NAME --to REF [-o FORMAT]` - same
-  refusal shape as `tira.link.add`.
+  refusal shape as `tira.link.add`. **Known defect (TKT-910):** removal matches
+  on the type as *given*, so asking for the type a card visibly holds — the
+  reciprocal — reports success and removes nothing, while asking for the type the
+  link was *added* with removes it. Measured on a self-link, where both ends sit
+  on one card and the asymmetry is visible; whether two-card links behave the
+  same is the first thing that card measures.
 
 
 ### Notifications

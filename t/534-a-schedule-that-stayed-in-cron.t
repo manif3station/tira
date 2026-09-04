@@ -216,6 +216,13 @@ is( words('* 9-17 * * *'), 'Every minute from 09:00 to 17:59',
 is( words('* 9,17 * * *'), 'Every minute of 09:00 and 17:00',
     'and across a list of them' );
 
+is( words('* 0-20/2 * * *'),
+    'About every minute from 00:00 to 20:59 (not every hour between them)',
+    'AND A SET TOO LONG OR TOO UNEVEN TO LIST IS MARKED. Eleven hours, every '
+      . 'other one - "from 00:00 to 20:59" is right about the span and wrong '
+      . 'about the middle, so the bracket says which. Left unasserted this '
+      . 'branch was the last line the coverage gate refused' );
+
 done_testing();
 
 __END__

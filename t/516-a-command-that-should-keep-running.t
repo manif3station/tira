@@ -186,10 +186,20 @@ like( $loop // '', qr/\S/, 'the feeder\'s run loop was found to read' );
 
 like(
     $loop // '',
-    qr/\bsleep \$every\b/,
+    qr/\$wait->\(\s*\$every\s*\)/,
     'THE BOARD RESTARTS THE COMMAND, so nobody has to type a while loop into a '
       . 'command field. It waits the job\'s own interval between runs - which '
-      . 'is what JOB-006 was reaching for with a shell loop that never ran'
+      . 'is what JOB-006 was reaching for with a shell loop that never ran. '
+      . 'Through a wait the caller can supply, because a monitor that restarts '
+      . 'itself has no end and the branch would otherwise be untestable - the '
+      . 'same reason t/529 injects the killer'
+);
+
+like(
+    $starter,
+    qr/sub _wait \{.*?sleep \$seconds/s,
+    'and the wait it uses by default really does sleep, so the injectable one '
+      . 'is a stop rather than a different behaviour'
 );
 
 like(

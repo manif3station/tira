@@ -733,11 +733,19 @@ sub job_command_words {
         $started = 1;
     }
 
-    # AN UNBALANCED QUOTE FALLS BACK rather than guessing where it ended. It is a
-    # mistake somebody will make, and the honest failure is the command not
-    # running - which the runnable check and the executor already report - rather
-    # than a job quietly running something the author did not write.
-    return split ' ', $command if $quote;
+    # AN UNBALANCED QUOTE IS REFUSED, and this is the card's own instruction
+    # rather than my first instinct - which was to fall back to the old split.
+    # That fallback was wrong twice over: it runs something the author did not
+    # write, and it does so silently, which is the exact shape this epic exists
+    # to remove.
+    #
+    # Refused HERE rather than by returning an empty list, because empty already
+    # means something else at both call sites - "the job has no command to run" -
+    # and a job whose command is a typo is not a job with no command. The
+    # difference is what somebody reads when they go looking.
+    die "Job command has an unbalanced $quote quote, so it cannot be read as "
+      . "arguments: $command\n"
+      if $quote;
 
     push @words, $current if $started || length $current;
     return @words;
@@ -908,7 +916,12 @@ sub job_monitor_alive {
 # consulted on Windows, where the process table has nothing else to offer.
 sub _same_program {
     my ( $wanted, $seen ) = @_;
-    my ($program) = job_command_words($wanted);
+
+    # A LIVENESS CHECK MUST NOT DIE over a malformed command. This one is asked
+    # about a job that already exists, on a path where the answer is "is this
+    # process the one we started" - and a typo in a stored command is not a
+    # reason to take the whole police pass down. Unreadable means unmatched.
+    my ($program) = eval { job_command_words($wanted) };
     return 0 if !defined $program || $program eq '' || $seen eq '';
 
     for my $name ( \$program, \$seen ) {

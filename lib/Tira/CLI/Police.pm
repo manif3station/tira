@@ -532,7 +532,17 @@ sub run_due_job {
     # moment a test reached run_due_job directly. require is idempotent, so
     # naming it at the call site costs nothing and removes the ordering.
     require Tira::Job;
-    my @command = Tira::Job::job_command_words( $job->{command} );
+
+    # A command that cannot be READ is reported as a failed run rather than
+    # allowed to take the pass down: the bridge is the single reporting path, so
+    # one malformed job command must not silence every other finding. The
+    # engine's own words are carried through - they name the quote and the
+    # command - instead of a generic message.
+    my @command = eval { Tira::Job::job_command_words( $job->{command} ) };
+    if ( my $why = $@ ) {
+        $why =~ s/\s+\z//;
+        return { ran => 0, status => -1, output => $why };
+    }
     return { ran => 0, status => -1, output => 'the job has no command to run' }
       if !@command;
 

@@ -180,13 +180,24 @@ use Tira::CLI::Police;
           . 'literal, backslashes included - a splitter that escaped them would '
           . 'silently rename every program on a Windows board' );
 
-    # An unbalanced quote is a mistake somebody will make. It must not take the
-    # module down: the honest failure is the command not running, which the
-    # executor already reports.
-    my @broken = Tira::Job::job_command_words(q{echo "unbalanced});
-    ok( scalar @broken,
-        'an unbalanced quote falls back to the old split rather than dying '
-          . 'inside a module nobody was looking at' );
+    # AN UNBALANCED QUOTE IS REFUSED, which is the card's own checklist item and
+    # not what I built first. My first version fell back to the old split - which
+    # runs something the author did not write, silently, and that is the shape
+    # this epic exists to remove.
+    #
+    # any failure is what this means: the only intended way out is the refusal
+    # being asserted, and a failure for another reason is equally a command that
+    # was not read.
+    my $ok = eval { Tira::Job::job_command_words(q{echo "unbalanced}); 1 };
+    my $why = $@ // '';
+    ok( !$ok, 'an unbalanced quote is refused rather than guessed at' );
+    like( $why, qr/unbalanced/i,
+        'and the refusal says WHAT is wrong - not "no command to run", which is '
+          . 'what an empty list would have meant at both call sites and is a '
+          . 'different fault entirely' );
+    like( $why, qr/\Qecho "unbalanced\E/,
+        'and quotes the command back, so somebody can see the typo rather than '
+          . 'go looking for it' );
 }
 
 {
@@ -199,6 +210,28 @@ use Tira::CLI::Police;
     ok( !Tira::CLI::Job::_command_is_runnable('/opt/no such dir/thing'),
         'and still refuses one that is not there, given the whole path rather '
           . 'than the prefix before the first space' );
+}
+
+# --- and a malformed command does not silence the bridge --------------------
+#
+# The bridge is the single reporting path for every job and every finding. One
+# job command with a typo in it must not take a police pass down and with it
+# every other thing that pass would have said.
+
+{
+    my $result = Tira::CLI::Police::run_due_job(
+        job => { mode => 'command', command => q{echo "unbalanced}, run_timeout => 10 } );
+
+    ok( ref $result eq 'HASH',
+        'a command that cannot be READ is reported as a failed run rather than '
+          . 'thrown - the pass finishes and says what happened' );
+
+    isnt( ( $result || {} )->{status}, 0,
+        'it is not a success' );
+
+    like( ( $result || {} )->{output} // '', qr/unbalanced/i,
+        'and the engine\'s own words reach the bridge, naming the quote, rather '
+          . 'than a generic failure somebody would have to reproduce to explain' );
 }
 
 done_testing();

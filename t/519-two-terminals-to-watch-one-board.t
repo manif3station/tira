@@ -272,6 +272,188 @@ use Tira::CLI::Police;
           . 'running" is the kind of message that sends somebody hunting' );
 }
 
+# --- the pass is started beside the board, and dies with it -----------------
+#
+# The card's second acceptance criterion, and it was implemented with nothing
+# exercising it - found by asking what was still missing rather than by the
+# suite, which was green. A police child outliving the server would hold the
+# singleton claim while nothing served the board, so the next tira.police would
+# stand down in favour of a dashboard that is gone.
+#
+# Driven through the real dispatcher with the seams injected, the way t/101 and
+# t/124 already drive the serving path. The seams exist because starting police
+# FORKS and the watch loop never returns - a test without them would leave a
+# police daemon running inside the harness.
+
+{
+    my $tmp  = tempdir( CLEANUP => 1 );
+    my $root = File::Spec->catdir( $tmp, 'board' );
+    my $tira = Tira->new;
+    $tira->project_new(
+        name => 'Beside', dir => $root, members => ['claude'],
+        columns    => ['backlog, done'],
+        sow_prefix => 'BSS', epic_prefix => 'BSE', ticket_prefix => 'BST',
+    );
+
+    my ( @started, @stopped, $served );
+    my $run = sub {
+        my (@extra) = @_;
+        @started = @stopped = ();
+        $served  = 0;
+        my ( $out, $err ) = ( '', '' );
+        open my $so, '>', \$out or die $!;
+        open my $se, '>', \$err or die $!;
+        {
+            local *STDOUT = $so;
+            local *STDERR = $se;
+            local $ENV{TIRA_HOME} = $root;
+            Tira::CLI->run(
+                command        => 'dashboard.ticket',
+                tira           => $tira,
+                argv           => [ '-o', 'browser', @extra ],
+                browser_server => sub { $served = 1; return 1 },
+                police_starter => sub { push @started, {@_}; return 4242 },
+                police_stopper => sub { push @stopped, $_[0]; return 1 },
+            );
+        }
+        return $err;
+    };
+
+    # WITH the flag.
+    $run->('--with-police');
+
+    is( scalar @started, 1,
+        'ONE COMMAND STARTS BOTH - the police pass is started beside the served '
+          . 'board, which is the whole of his first sentence' );
+
+    ok( $served, 'and the board is still served - police is beside it, not instead of it' );
+
+    is_deeply( \@stopped, [4242],
+        'AND STOPPING THE COMMAND STOPS BOTH. The pass it started is the pass it '
+          . 'stops, by the pid the starter returned - a child left running would '
+          . 'hold the singleton claim while nothing served the board, so the next '
+          . 'tira.police would stand down for a dashboard that is gone' );
+
+    is( ( $started[0] || {} )->{project}, $root,
+        'the pass is pointed at the board being served rather than at whatever a '
+          . 'child with no context would resolve for itself' );
+
+    # WITHOUT the flag: nothing is started and nothing is stopped.
+    $run->();
+
+    is_deeply( \@started, [],
+        'and without --with-police nothing is started - the flag is the whole of '
+          . 'the difference, so somebody who did not ask for police does not get '
+          . 'a second process' );
+
+    is_deeply( \@stopped, [], 'nor stopped, since there was nothing to stop' );
+}
+
+# --- a fork that fails is said, not swallowed -------------------------------
+#
+# The board is still served. Losing the bridge is worse with no explanation than
+# with one, and it is not a reason to refuse somebody the board they asked for.
+
+{
+    my $tmp  = tempdir( CLEANUP => 1 );
+    my $root = File::Spec->catdir( $tmp, 'board' );
+    my $tira = Tira->new;
+    $tira->project_new(
+        name => 'Failed', dir => $root, members => ['claude'],
+        columns    => ['backlog, done'],
+        sow_prefix => 'FLS', epic_prefix => 'FLE', ticket_prefix => 'FLT',
+    );
+
+    my ( $served, @stopped );
+    my ( $said, $out ) = ( '', '' );
+    {
+        open my $so, '>', \$out  or die $!;
+        open my $se, '>', \$said or die $!;
+        local *STDOUT = $so;
+        local *STDERR = $se;
+        local $ENV{TIRA_HOME} = $root;
+        Tira::CLI->run(
+            command        => 'dashboard.ticket',
+            tira           => $tira,
+            argv           => [ '-o', 'browser', '--with-police' ],
+            browser_server => sub { $served = 1; return 1 },
+            police_starter => sub { return undef },
+            police_stopper => sub { push @stopped, $_[0]; return 1 },
+        );
+    }
+
+    ok( $served,
+        'a police pass that could not be started does not cost somebody their '
+          . 'board - the flag asked for both, and one of them is still possible' );
+
+    like( $said, qr/police/i,
+        'and it SAYS the bridge is missing rather than serving a board that '
+          . 'quietly is not watched, which reads exactly like one that is' );
+
+    is_deeply( \@stopped, [],
+        'nothing is stopped, because nothing was started - a stopper called with '
+          . 'an undefined pid is how a signal ends up somewhere nobody meant' );
+}
+
+# --- and the real starter and stopper, not only the seams -------------------
+#
+# The seams above let the dispatcher be tested without forking. That is exactly
+# how a default implementation ends up with no test at all - the thing every
+# caller uses becomes the thing nothing exercises. Found by asking which lines
+# could possibly be covered, which is the same check that caught two providers
+# on TKT-892 that were counted and never called.
+#
+# So these call the real ones, with a real child.
+
+{
+    my $tmp   = tempdir( CLEANUP => 1 );
+    my $root  = File::Spec->catdir( $tmp, 'board' );
+    my $store = File::Spec->catdir( $tmp, 'police' );
+
+    my $tira = Tira->new;
+    $tira->project_new(
+        name => 'Real', dir => $root, members => ['claude'],
+        columns    => ['backlog, done'],
+        sow_prefix => 'RLS', epic_prefix => 'RLE', ticket_prefix => 'RLT',
+    );
+
+    require Tira::CLI::Serve;
+
+    my $child = Tira::CLI::Serve::_start_police_beside_board(
+        tira => $tira, project => $root, store => $store );
+
+    ok( $child && $child > 0,
+        'THE REAL STARTER FORKS AND ANSWERS WITH THE CHILD - the parent gets a '
+          . 'pid back rather than falling into the watch loop itself' );
+
+    ok( kill( 0, $child ), 'and the process it names is really there' );
+
+    my $stopped = Tira::CLI::Serve::_stop_police_beside_board($child);
+    ok( $stopped, 'the real stopper reports it stopped something' );
+
+    ok( !kill( 0, $child ),
+        'AND THE CHILD IS ACTUALLY GONE, reaped rather than left for whenever '
+          . 'the system happens to collect it - the claim has to be released '
+          . 'before the serving command returns, not eventually' );
+}
+
+# A FORK THAT FAILS ANSWERS undef, which is what the dispatcher reads to decide
+# whether to say the bridge is missing. Reached by handing it a fork that fails,
+# because there is no other honest way to reach it.
+{
+    require Tira::CLI::Serve;
+
+    my $none = Tira::CLI::Serve::_start_police_beside_board(
+        tira => undef, project => undef, store => undef, forker => sub { return undef } );
+
+    ok( !defined $none,
+        'a fork that fails answers undef rather than a pid nobody can signal' );
+
+    is( Tira::CLI::Serve::_stop_police_beside_board(undef), 0,
+        'and stopping nothing does nothing - a stopper handed an undefined pid '
+          . 'is how a signal ends up somewhere nobody meant' );
+}
+
 done_testing();
 
 __END__

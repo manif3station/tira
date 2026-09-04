@@ -69,6 +69,13 @@ sub run {
     # TKT-607.
     my $browser_server         = $args{browser_server};
     my $onboard_browser_server = $args{onboard_browser_server};
+
+    # The same kind of seam as browser_server above, and for the same reason.
+    # Starting police beside the board FORKS, and a forked child that runs the
+    # watch loop does not return - so a test exercising this path without a seam
+    # would leave a police daemon running inside the harness. TKT-897.
+    my $police_starter = $args{police_starter};
+    my $police_stopper = $args{police_stopper};
     my $restarter              = $args{restarter};
     my $guided_input = $args{input};
     my %option = ( output => 'toon' );
@@ -626,21 +633,15 @@ sub run {
         # than kill it - his answer to Q-117.
         my $police_child;
         if ( $option{with_police} ) {
-            $police_child = fork();
-            if ( !defined $police_child ) {
-                # Said rather than swallowed, and the board still served: losing
-                # the bridge is worse with no explanation than with one, and it
-                # is not a reason to refuse somebody their board.
-                print {*STDERR} "tira: could not start police beside the board ($!) - "
-                  . "serving without it; run d2 tira.police in another terminal\n";
-            }
-            elsif ( $police_child == 0 ) {
-                require Tira::CLI::Police;
-                Tira::CLI::Police::police_follow(
-                    $tira, { project => $serving }, $option{store},
-                    { singleton => { holder => 'dashboard' } } );
-                exit 0;
-            }
+            $police_child = ( $police_starter || \&Tira::CLI::Serve::_start_police_beside_board )->(
+                tira => $tira, project => $serving, store => $option{store} );
+
+            # Said rather than swallowed, and the board still served: losing the
+            # bridge is worse with no explanation than with one, and it is not a
+            # reason to refuse somebody the board they asked for.
+            print {*STDERR} "tira: could not start police beside the board - serving "
+              . "without it; run d2 tira.police in another terminal\n"
+              if !$police_child;
         }
 
         my $served = eval {
@@ -671,10 +672,8 @@ sub run {
         # the board - so the next tira.police would stand down in favour of a
         # dashboard that is gone. Reaped as well as signalled, so the claim is
         # released before this process returns.
-        if ($police_child) {
-            kill 'TERM', $police_child;
-            waitpid $police_child, 0;
-        }
+        ( $police_stopper || \&Tira::CLI::Serve::_stop_police_beside_board )->($police_child)
+          if $police_child;
 
         return _error( $tira, 'toon', $@ || 'Unable to serve dashboard' ) if !$served;
         return 0;

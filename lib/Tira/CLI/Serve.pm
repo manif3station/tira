@@ -652,6 +652,53 @@ sub _serve_browser {
     require Tira::DashboardWeb;
     return Tira::DashboardWeb->serve(@_);
 }
+
+# Police beside the served board, for tira.dashboard -o browser --with-police.
+# His words on TKT-897: "So the user doesn't need to run 2 terminals. All in 1
+# go."
+#
+# HERE RATHER THAN IN Tira::DashboardWeb, which is engine source: t/106 holds
+# the engine to inviting no processes at all, and forking one is exactly that.
+# This module is the CLI layer, which is where the board is served from and
+# where a process may be started.
+#
+# THE CHILD CLAIMS, NOT THE PARENT, because the claim names a pid and the pid
+# that matters is the one actually watching. It claims as the DASHBOARD, which
+# is what makes a later tira.police stand down rather than kill it - his answer
+# to Q-117. The watch loop never returns, so the child never falls out of this
+# sub; the exit is unreachable in practice and is there so a loop that somehow
+# did return could not run on as a second copy of the serving process.
+sub _start_police_beside_board {
+    my (%args) = @_;
+
+    # Injectable for the same reason police_follow's own leave and restarter
+    # are: a fork that FAILS is a branch somebody has to be able to reach, and
+    # the only honest way to reach it is to hand the sub a fork that fails.
+    my $forker = $args{forker} || sub { return fork() };
+
+    my $child = $forker->();
+    return undef if !defined $child;
+    return $child if $child;
+
+    require Tira::CLI::Police;
+    Tira::CLI::Police::police_follow(
+        $args{tira}, { project => $args{project} }, $args{store},
+        { singleton => { holder => 'dashboard' } } );
+    exit 0;
+}
+
+# THE PASS DIES WITH THE BOARD. A police child outliving the server it was
+# started beside would hold the singleton claim while nothing served the board,
+# so the next tira.police would stand down in favour of a dashboard that is
+# gone. Reaped as well as signalled, so the claim is released before the serving
+# command returns rather than whenever the child happens to be collected.
+sub _stop_police_beside_board {
+    my ($child) = @_;
+    return 0 if !$child;
+    kill 'TERM', $child;
+    waitpid $child, 0;
+    return 1;
+}
 sub _serve_onboard_browser {
     require Tira::OnboardWeb;
     return Tira::OnboardWeb->serve(@_);

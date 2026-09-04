@@ -1142,6 +1142,17 @@ died is not a reason to stand down> - the alive-check decides that, exactly as
 it always has, or one unclean exit would block police until somebody deleted a
 file by hand.
 
+B<What the exception costs, said rather than discovered.> An ordinary police can
+see the dashboard alive, stand down, and exit - and the dashboard can die a
+moment later. Nothing then watches the board until something starts again, and
+the claim file names a dashboard that is gone. The next claimant takes it
+normally, because the alive-check handles exactly that, so the state repairs
+itself the moment anybody tries. But between those two points there is a window
+where somebody believes police is running inside a dashboard that has stopped.
+Closing it properly means holding a lock across a fork, which is a larger change
+than the rule it would protect; it is written down here instead, because a gap
+somebody can read about is one they can plan around.
+
 =head2 How this module is loaded
 
 C<Tira::CLI> pulls this in with C<require> at the point one of its verbs runs,

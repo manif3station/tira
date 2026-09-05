@@ -1337,6 +1337,24 @@ It still writes a pass record keyed to the commit's tree. Nothing reads those
 records automatically any more: the hook stopped consulting them along with the
 suite they existed to skip. TKT-680.
 
+**It takes a host-wide lock around the suite run, since 5.69.** Two writers of
+one `Devel::Cover` database produce a wrong number rather than a failed run -
+measured on 2026-08-29, when a concurrent run reported `lib/Tira/CLI.pm` at
+70.3% when it was actually 100%. `developer-dashboard`'s own
+`script/coverage-gate` and `.claude/tools/run-suite` already share an
+exclusion for this: a `flock` at `$DD_SUITE_LOCK`, default
+`/tmp/dd-gate-host.lock`. `tools/gate-run` now joins that same lock rather
+than inventing a second one, held only around the `docker compose run`
+invocation - not across the git-worktree setup or the coverage-threshold
+loop, so a healthy suite never waits on unrelated bookkeeping.
+
+It **blocks** rather than refuses, the opposite of DD's own tools. Those
+refuse (`flock -n`) because an interactive user is there to notice the
+refusal and re-measure host readiness before retrying. This project's suite
+runs are driven by an unattended agent with nothing watching for a refusal to
+retry it, so a second `gate-run` - or a manual suite run sharing the lock -
+queues instead of being told no. TKT-857.
+
 Which modules it holds to 100% is decided by looking at `lib/`, not by a list in
 the script. Until 4.73 it named three paths in two places - once as `cover`'s
 `--select` arguments and once in the loop that read the result - and

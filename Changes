@@ -1,5 +1,28 @@
 Revision history for Tira
 
+5.69  2026-09-05
+
+    - TKT-857. tools/gate-run ran the instrumented suite with no host-wide
+      exclusion, so two writers of the same Devel::Cover database - a second
+      gate-run started early, or a manual verify-step suite run against the
+      shared skill directory - clobbered it rather than either run failing
+      loudly. Measured on 2026-08-29: a concurrent run reported
+      lib/Tira/CLI.pm at 70.3% when it was actually 100%.
+
+      developer-dashboard's own script/coverage-gate and
+      .claude/tools/run-suite already agree on an exclusion for this: a flock
+      at $DD_SUITE_LOCK, default /tmp/dd-gate-host.lock. gate-run now joins
+      that same lock, held only around the docker compose invocation that
+      writes cover_db, not across the git-worktree setup or the
+      coverage-threshold loop.
+
+      It blocks rather than refuses - the opposite of DD's own tools, which
+      refuse (flock -n) on the reasoning that an interactive user should
+      re-measure host readiness before retrying rather than have a stale
+      waiter start the instant the lock frees. This project's suite runs are
+      driven by an unattended agent with nothing watching for a refusal to
+      retry, so a concurrent run queues instead.
+
 5.68  2026-09-05
 
     - TKT-811. TKT-809 corrected README.md's dashboard-prefixed command

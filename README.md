@@ -842,6 +842,14 @@ failing for everybody else. It requires a clean tree and refuses rather than
 guessing, because it records its result against HEAD's tree and an uncommitted
 change is not part of that. Run it after committing and before `git push`.
 
+Since 5.69 it also holds a host-wide `flock` at `$DD_SUITE_LOCK` (default
+`/tmp/dd-gate-host.lock`) around the suite run - the same lock
+developer-dashboard's own `script/coverage-gate` and `.claude/tools/run-suite`
+already use - so a concurrent suite run on this host queues behind it instead
+of sharing a `Devel::Cover` database and producing a wrong coverage number.
+Unlike DD's own tools it blocks rather than refuses: nothing here is an
+interactive session watching for a refusal to retry.
+
 It still records a pass keyed to that commit's tree; `tools/gate-cache-read`
 is how you ask whether the tree `HEAD` currently points at was already proved
 (it takes no argument and answers for that tree alone). Nothing reads those

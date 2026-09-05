@@ -60,6 +60,30 @@ trap cleanup EXIT
 git worktree add --detach --quiet "$tree" HEAD \
   || { echo "gate-run: could not check out HEAD" >&2; exit 1; }
 
+# TKT-857. The instrumented suite writes a coverage database, and two writers
+# sharing one produce a wrong number rather than a failed run - measured on
+# 2026-08-29, when a concurrent run reported lib/Tira/CLI.pm at 70.3% when it
+# was actually 100%. developer-dashboard's own script/coverage-gate and
+# .claude/tools/run-suite already share an exclusion for exactly this: a flock
+# at $DD_SUITE_LOCK, default /tmp/dd-gate-host.lock. Joined here rather than
+# reinvented, so a DD-run suite and a gate-run suite refuse to trample each
+# other too.
+#
+# Scoped to the docker invocation alone, matching run-suite's own reasoning:
+# held across the whole gate chain, one session waited forty minutes for
+# another's twelve-minute suite.
+#
+# BLOCKS rather than refuses, the opposite of DD's own tools. Those refuse
+# (flock -n) because a waiter would start the instant the lock freed with no
+# fresh look at the host, and an interactive user is there to notice a refusal
+# and re-measure readiness before retrying. This project's suite runs are
+# driven by an unattended agent with nothing watching for a refusal to retry -
+# so a queue is what makes concurrent runs safe rather than merely audible.
+lockf="${DD_SUITE_LOCK:-/tmp/dd-gate-host.lock}"
+exec 8>>"$lockf"
+flock 8
+printf '%s\n' "$$" > "$lockf"
+
 SUITE_TIMEOUT=3600
 docker compose -f "$compose" run --rm -v "$tree:/workspace/skills/tira" perl-test bash -lc '
   cd /workspace/skills/tira &&
@@ -98,6 +122,12 @@ docker compose -f "$compose" run --rm -v "$tree:/workspace/skills/tira" perl-tes
 
   rm -rf cover_db
 ' >"$output" 2>&1 || { echo "gate-run: the suite did not run:" >&2; tail -3 "$output" >&2; exit 1; }
+
+# Released as soon as the suite that needed it is done - everything from here
+# only reads $output and writes the cache record, neither of which touches the
+# shared database the lock protects.
+flock -u 8
+exec 8>&-
 
 cat "$output"
 

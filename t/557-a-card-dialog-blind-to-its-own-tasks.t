@@ -95,11 +95,7 @@ my $decode = Tira::json_object();
 
 # --- CLIENT: the dialog actually asks, and renders read-only rows -----------
 
-my $js = do {
-    local $/;
-    open my $fh, '<:raw', 'lib/Tira/views/live-helpers.js' or die "live-helpers.js: $!";
-    <$fh>;
-};
+my $js = Suite::view_source('live-helpers.js');
 
 like( $js, qr{/tasklist\?ref=}, 'the dialog fetches the tasklist scoped to the card it is showing' );
 like( $js, qr{all_sessions=1}, 'and asks for every session, not just its own' );

@@ -91,6 +91,9 @@ use Tira::CLI::Police;
     # there - the same false match qr/select/i made against "querySelector" on
     # TKT-600, and my own comment made against last_output_at on TKT-942.
     my $seed_code = ( $seed // '' ) =~ s{^\s*//.*$}{}mgr;
+    # non-empty is the whole claim: a denial against an empty string passes for
+    # the wrong reason, which is exactly what t/147 exists to refuse.
+    like( $seed_code, qr/\S/, 'the seed branch has code left after its comments are stripped' );
     unlike( $seed_code, qr/monitor/i,
         'the tail is seeded from job.recent for ANY job, not only a monitor - '
           . 'which is what makes a cron run visible on its own card' );

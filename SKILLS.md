@@ -3829,6 +3829,8 @@ The pass now hands back the command-mode jobs that came due and `run_due_command
 
 Whether a cron run's output should also reach the **bridge** is asked on the card as Q-127 rather than decided unilaterally - the rule that carries job output is named `monitor-output` and gated to monitors, so widening it changes what a declared rule means.
 
+**And the run is visible on its own card** (TKT-943). Feeding the output through `job_feed` puts it on the job's `recent` tail, and the jobs editor already seeded its log panel from `job.recent` for *any* job rather than for monitors alone - so the only thing ever missing was a cron run putting anything into it. `t/565` holds both halves, and is a regression guard written green on purpose: the view half is the one that would break quietly, since that panel and every comment around it is written about monitors, so narrowing it would read as a tidy-up while removing the answer.
+
 ### UC-145: See that a repeated job is actually firing
 
 **Implemented** (TKT-942). Michael asked three times in one afternoon whether his hourly hunts were broken, and each time the answer was "go read the bridge log". He was right to read the board as saying nothing: `last_run` was a field **nothing wrote** - one assignment, `last_run => undef` at job creation, and no other anywhere in `lib/` or `cli/` - so every job on every board carried `null` for ever, including the two monitors that were demonstrably alive and talking. The "Last spoke X ago" indicator visible on those two reads a different field entirely, `last_output_at`, which the feeder stamps for monitor-schedule jobs alone (TKT-851). A cron job never calls in, so no cron job of either mode had ever had anything to show.

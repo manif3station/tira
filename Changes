@@ -38,6 +38,24 @@ Revision history for Tira
       carries job output is named monitor-output and gated to monitors,
       so widening it changes what a declared rule means.
 
+    - TKT-943. His screenshot: "No Tail log windows in the card". Closed
+      by TKT-944 above rather than by new wiring, and recorded that way
+      rather than quietly ticked. Feeding a cron run's output through
+      job_feed puts it on the job's own `recent` tail, and the jobs
+      editor already seeded its log panel from `recent` for ANY job
+      rather than for monitors alone - so the only thing ever missing
+      was a cron run putting anything into it. What this card ships is
+      t/565, a regression guard written green on purpose and saying so
+      in its own header: it holds both halves, since the view half is
+      the one that would break silently - that panel and every comment
+      around it is written about monitors, so narrowing it would read as
+      a tidy-up while taking the answer away.
+
+      I had discarded this card earlier the same day claiming
+      command-mode jobs already had an output panel. They did not; the
+      ones that did were monitors. His next screenshot proved it and the
+      card came back out of discard.
+
 5.80  2026-09-05
 
     - TKT-942. Michael asked three times in one afternoon why his jobs

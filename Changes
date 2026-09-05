@@ -1,5 +1,18 @@
 Revision history for Tira
 
+5.66  2026-09-05
+
+    - TKT-799. docs/commands.md said, since 4.99, that a conditional
+      required action on the verify column prompted `tools/browser-tests`
+      for a card whose changes touched a browser-relevant file - stated as
+      an accomplished fact. It was never actually added: a fresh project's
+      verify column carries no browser-relevant required action at all.
+
+      Corrected to say so honestly. TKT-936 tracks building the real gate;
+      a conditional per-file required action does not exist in the
+      column-template model yet, which is a real feature rather than a
+      one-line fix.
+
 5.65  2026-09-05
 
     - TKT-767. `column_apply` replaced a board's whole layout as several

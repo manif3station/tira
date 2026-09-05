@@ -25,6 +25,9 @@ use lib 't/lib';
 use Suite;
 
 my $js = Suite::view_source('jobs-editor.js');
+
+# non-empty is the whole claim: the assertions below read this file, and an
+# unreadable one would fail them for the wrong reason.
 like( $js, qr/\S/, 'the jobs editor is there to be read' );
 
 # --- the label says what the field is for -----------------------------------

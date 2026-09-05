@@ -146,6 +146,54 @@ sub run_pass {
         'and the moment it spoke is stamped, the same registration a monitor gets' );
 }
 
+# --- a command that FAILS is reported, not swallowed -----------------------
+#
+# TKT-841's acceptance criterion said "including on failure", and a run that
+# fails silently is the same silence this epic exists to end - worse, because
+# the card would show a fired job and no sign anything went wrong.
+
+{
+    my ( $tira, $root, $store, $clock ) = board();
+    $tira->job_add( project => $root, schedule => '* * * * *',
+        command => '/bin/sh -c "echo it-went-wrong >&2; exit 3"' );
+
+    ${$clock} = '2026-09-05T09:30:00Z';
+    my $result = run_pass( $tira, $root, $store );
+    my $ran = Tira::CLI::Police::run_due_commands( $tira, { project => $root }, $result );
+
+    is( $ran->[0]{status}, 3, "the command's own exit status is carried back, not flattened to a boolean" );
+
+    my ($job) = grep { $_->{id} eq 'JOB-001' } @{ $tira->job_list( project => $root ) };
+    my $recent = join "\n", @{ $job->{recent} || [] };
+    like( $recent, qr/exit status 3/,
+        'and the failure is written where the card can show it - a job that ran and failed must say so' );
+}
+
+# --- an executor that dies does not take the pass down ---------------------
+#
+# One job's collapse must not stop the others, the stance every other job read
+# in this file already takes. Forced by localising the executor, the same way
+# t/237 and t/252 prove their own refusals by overriding the thing under them.
+
+{
+    my ( $tira, $root, $store, $clock ) = board();
+    $tira->job_add( project => $root, schedule => '* * * * *', command => '/bin/true' );
+
+    ${$clock} = '2026-09-05T09:30:00Z';
+    my $result = run_pass( $tira, $root, $store );
+
+    my $ran = do {
+        no warnings 'redefine';
+        local *Tira::CLI::Police::run_due_job = sub { die "the executor fell over\n" };
+        Tira::CLI::Police::run_due_commands( $tira, { project => $root }, $result );
+    };
+
+    is( scalar @{$ran}, 1, 'the loop still returns a result for the job it could not run' );
+    is( $ran->[0]{ran}, 0, 'and says plainly that it did not run' );
+    like( $ran->[0]{output}, qr/the executor fell over/,
+        "carrying the executor's own words rather than a generic failure - the reader needs the reason, not the fact" );
+}
+
 # --- the engine still runs nothing -----------------------------------------
 #
 # t/489 and t/492 assert this across the whole engine; asserted here too,

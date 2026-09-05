@@ -1,5 +1,25 @@
 Revision history for Tira
 
+5.64  2026-09-05
+
+    - TKT-929. Comparing `Tira::Job::_job_fields`'s five refusals against
+      what the jobs editor already declines by construction (TKT-911,
+      TKT-912) found two the page still let through.
+
+      **A restart interval the engine would reject.** The seconds field's
+      `min="2"` is a measured floor about the feeder's quiet window, not the
+      engine's actual rule - a whole number of seconds greater than zero -
+      so a pasted `2.5` or a scripted `0` used to reach the save and come
+      back as an error over a form that looked complete. The pre-save check
+      now quotes the engine's exact words, verified against the engine's
+      real source in the test so the two cannot quietly drift apart.
+
+      **A monitor with no command was already refused** by `job_add` calling
+      `_job_fields` - only `judge()`'s disabled Save button was new-since
+      TKT-858, and the save path itself is reachable by anything that can
+      POST. Proved directly against the `job_save` provider rather than only
+      through the form.
+
 5.63  2026-09-05
 
     - TKT-918. The jobs form's "Expect a line every (minutes, blank for no

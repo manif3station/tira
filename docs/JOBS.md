@@ -311,7 +311,12 @@ d2 tira.job.update --id JOB-001 --restart-every 30
 Whole seconds, greater than zero. Leaving it out means no restarting, which is
 not the same as zero. It belongs to a monitor running a command: a cron job
 fires on a tick rather than staying up, and a message job announces text and
-runs nothing, so both are refused:
+runs nothing, so both are refused. **Since 5.64 the jobs form checks this
+before saving too**, against the same pattern the engine enforces - the
+seconds field's `min="2"` is a measured floor about the feeder's quiet window
+and was never the actual rule, so a pasted `2.5` or a scripted `0` used to
+reach the save and come back as an error over a form that looked complete.
+TKT-929.
 
 ```
 d2 tira.job.add --schedule "0 * * * *" --command "d2 tira.stale" --restart-every 5

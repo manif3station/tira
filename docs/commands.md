@@ -4021,7 +4021,12 @@ reader never has to infer it from whichever field is populated.
     because `_job_fields` refuses that pairing outright. Looping — the
     `restart_every` field — is a checkbox with an interval, off unless asked
     for; keep it above about two seconds, or the feeder's quiet window never
-    elapses and a healthy monitor reports no output at all. **Since 5.52 that
+    elapses and a healthy monitor reports no output at all - that floor is
+    measured, not the engine's actual rule, which is only a whole number of
+    seconds greater than zero; **since 5.64 the page checks that rule too,
+    before saving, quoting `_job_fields`' own words** (TKT-929), so a pasted
+    `2.5` or a scripted `0` no longer reaches the save and comes back as an
+    error over a form that looked complete. **Since 5.52 that
     row is shown only for a monitor** (TKT-911): it had been shown for anything
     in command mode, so a cron job offered a checkbox and a seconds field whose
     use the save refused — `_job_fields` declines an interval on a cron job in

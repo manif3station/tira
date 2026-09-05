@@ -1576,7 +1576,7 @@ dialog fully usable at phone width.
 The visible last-updated time advances only after fresh data is applied. Stop
 the foreground server with Ctrl-C.
 
-## 143 use cases
+## 144 use cases
 
 Every case below is implemented and executable.
 

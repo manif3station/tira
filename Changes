@@ -1,5 +1,30 @@
 Revision history for Tira
 
+5.61  2026-09-05
+
+    - TKT-933. `card-stalled` accepted an `--age`, stored it, showed it back -
+      and nothing in its body ever read it. His screenshot: the policy declare
+      form let him set a stall threshold; it did nothing.
+
+      **Refused rather than honoured**, his answer to Q-120/Q-122: "Refuse an
+      age on card-stalled, and name card-duration in the refusal." Somebody
+      typing 30m into this rule's form wanted a duration threshold, and
+      `card-duration` is the rule that reads one - the refusal now says so
+      by name instead of storing a number that does nothing.
+
+      **The sweep the card's third criterion asked for** found eighteen more
+      rules with the identical gap: an option accepted by `policy_add` because
+      neither `needs` nor `forbids` named it, and read nowhere in the rule's
+      own block - `card-full-details`, `card-metrics`, `checklist-unmoved`,
+      `orphan-card`, `rules-undeclared`, `card-changed-by-owner`,
+      `card-unassigned`, `card-agentless`, `job-due`, `task-changed`,
+      `column-skipped`, `wip-limit`, `gate-missing`, `discard-unexplained`,
+      `card-unlinked`, `parent-ahead-of-children`, `commit-without-card` and
+      `card-sandbox-missing`. Each now declares `forbids => ['age']`, the same
+      guard `conversation-not-folded` and `monitor-dead` already carried, and
+      each refusal has its own test per t/79's own check that a declared
+      refusal is actually exercised somewhere.
+
 5.60  2026-09-05
 
     - TKT-934. `docs/JOBS.md`'s in-place-jobs-editor paragraph named its own

@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.64';
+our $VERSION = '5.65';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1448,10 +1448,23 @@ sub column_list {
 }
 
 # An editor knows the layout it wants, not the steps that reach it.
-# Removals move cards between folders and each takes the project lock, which is
-# not reentrant, so they run first and one at a time; everything else is a
-# single write. The result says what was done, because a run that fails partway
-# through several removals will already have made some of them.
+#
+# ONE LOCK, ALL-OR-NOTHING. Until TKT-767 each removal took the project lock
+# on its own (column_remove is not reentrant) and the rest of the layout -
+# labels, order, notify_after, watched, new columns - was a separate, later
+# transaction. A removal that died partway through several - a second column
+# already gone from under it, a permission fault - left some columns removed
+# (their cards already discarded, journalled, irreversible by rename) and the
+# rest of the intended layout never attempted: neither the old layout nor the
+# new one, and no way to tell which from the exception alone.
+#
+# So every removal this call makes, and the config write that follows, run
+# under the SAME lock - inlined here rather than calling column_remove, whose
+# own lock this call must not re-enter. A failure at any point rolls back
+# every card this call has moved so far, the same promise column_remove's own
+# single-column path already makes for its later config-write failure: the
+# DECISION is undone, not a half-done filesystem state, because record_move
+# writes and journals immediately and there is nothing else to undo.
 sub column_apply {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
@@ -1487,14 +1500,60 @@ sub column_apply {
     # always real, even when the caller supplied nothing more specific.
     my $fallback_author = $args{author}
       // ( $self->person_list( project => $root )->[0] // {} )->{id};
-    $self->column_remove(
-        project => $root, type => $args{type}, name => $_,
-        author => $fallback_author, reason => 'removed by a column layout replacement',
-    ) for @removed;
 
     my @added = grep { !$present{$_} } map { $_->{name} } @plan;
     return $self->_with_project_lock( $root, sub {
         my ( $path, $config ) = $self->_board_data( project => $root, type => $args{type} );
+
+        # UNDONE ON ANY FAILURE FROM HERE ON: every ref this call has moved to
+        # discard, in the reverse order it moved them, back to the column it
+        # was actually resting in - a plain string capture rather than a
+        # reference into $config, which the removal loop below is about to
+        # mutate.
+        my @moved;
+        my $rollback = sub {
+            $self->record_move(
+                project => $root, ref => $_->{ref}, column => $_->{from}, author => $fallback_author )
+              for reverse @moved;
+        };
+
+        for my $name (@removed) {
+            my $ok = eval {
+                my ($column) = grep { $_->{name} eq $name } @{ $config->{columns} };
+                die "Column '$name' not found\n" if !$column;
+                die "Column '$name' is protected\n" if $column->{protected};
+                my $board = dirname($path);
+                my $source = File::Spec->catdir( $board, $name );
+                opendir my $dh, $source or die "Cannot read column '$name': $!\n";
+                my @refs = map { /\A([A-Z][A-Z0-9-]{0,31}-\d{1,12})\.json\z/ ? $1 : () }
+                  grep { -f File::Spec->catfile( $source, $_ ) } readdir $dh;
+                closedir $dh;
+
+                # Moved through the ordinary discard path rather than by
+                # rename, so each one is journalled with an author like every
+                # other move and explained with a comment - the same shape
+                # column_remove's own single-column path uses.
+                for my $ref (@refs) {
+                    $self->record_move( project => $root, ref => $ref, column => 'discard', author => $fallback_author );
+                    push @moved, { ref => $ref, from => $name };
+                    $self->comment_add( project => $root, ref => $ref, author => $fallback_author,
+                        text => 'removed by a column layout replacement' );
+                }
+
+                $config->{columns} = [ grep { $_->{name} ne $name } @{ $config->{columns} } ];
+                for my $other ( @{ $config->{columns} } ) {
+                    next if ref $other->{next} ne 'ARRAY';
+                    $other->{next} = [ grep { $_ ne $name } @{ $other->{next} } ];
+                }
+                1;
+            };
+            if ( !$ok ) {
+                my $error = $@ || 'Unknown column removal failure';
+                $rollback->();
+                die $error;
+            }
+        }
+
         my %existing = map { $_->{name} => $_ } @{ $config->{columns} };
         my @columns;
         for my $column (@plan) {
@@ -1548,8 +1607,17 @@ sub column_apply {
         eval { $self->_write_yaml( $path, $config ); 1 } or do {
             my $error = $@ || 'Unknown column layout failure';
             rmdir $_ for @created;
+            $rollback->();
             die $error;
         };
+
+        # Only removed once the write that actually drops it from the config
+        # has succeeded - the same order column_remove's own single-column
+        # path already uses.
+        for my $name (@removed) {
+            my $source = File::Spec->catdir( dirname($path), $name );
+            rmdir $source or die "Cannot remove column '$name': $!\n";
+        }
         return {
             added => \@added, removed => \@removed,
             reordered => $reordered ? Cpanel::JSON::XS::true : Cpanel::JSON::XS::false,

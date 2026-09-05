@@ -114,6 +114,39 @@ $tira->login_register( project => $root, id => 'claude', password => 'a-long-eno
         'a session that names no board is accepted anywhere, so an upgrade does not sign everybody out' );
 }
 
+# --- the board names itself from the port it is serving on ----------------
+#
+# The identity the binding is made of. Exercised directly because the only
+# other route to it is a live served board, and a branch reached solely by
+# starting a server is a branch nobody has actually watched work.
+
+{
+    {
+        local $Tira::DashboardWeb::PORT = 7899;
+        is( Tira::DashboardWeb::_board_id(), 'port-7899',
+            'a board serving on a port names itself by it, which is what a token is bound to' );
+        like( Tira::DashboardWeb::_session_cookie('T4'), qr/tira_session_7899=/,
+            'and the cookie it sets takes that port from the same place, rather than being told twice' );
+    }
+
+    {
+        local $Tira::DashboardWeb::PORT = undef;
+        is( Tira::DashboardWeb::_board_id(), undef,
+            'a board with no port names nobody, so it binds nothing and stays usable anywhere' );
+    }
+
+    {
+        # Not a number is not a port. Guarded because $PORT arrives from the
+        # command line, and a board that named itself "port-" would bind every
+        # session to one meaningless identity shared with every other such board.
+        local $Tira::DashboardWeb::PORT = 'not-a-port';
+        is( Tira::DashboardWeb::_board_id(), undef,
+            'and neither does a board whose port is not a number' );
+        like( Tira::DashboardWeb::_session_cookie('T5'), qr/\Atira_session=/,
+            'whose cookie also falls back to the bare name rather than an absurd one' );
+    }
+}
+
 # --- the reason cookies cannot do this is written down --------------------
 #
 # Without this the next reader sees a port in a cookie name, thinks it untidy,

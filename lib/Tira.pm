@@ -13767,6 +13767,11 @@ the column editor dialog sends. The editor sends an emptied list as an explicit
 empty rather than omitting the key, which is what lets a list be cleared
 entirely rather than read as "nothing changed".
 
+Since 5.65 (TKT-767) every removal and the final config write run under one
+lock, all-or-nothing: a failure at any point rolls back every card already
+moved to discard, rather than leaving the layout half the old shape and half
+nothing.
+
 =head2 column_update
 
 Updates one column's notify_after, watched flag, terminal role, chain, or

@@ -152,6 +152,16 @@ Column sync compares YAML order with real directories. Attachments are keyed by
 SHA-256 bytes, so identical content deduplicates while refs retain original
 filenames.
 
+`tira.column.apply`'s whole-layout replace is one transaction, since 5.65: every
+column removal and the final config write run under a single lock, and a
+failure at any point rolls back every card the call has already moved to
+discard - the decision undone, not a half-done filesystem state, since
+`record_move` writes and journals immediately. Until then each removal took the
+project lock on its own (`column_remove` is not reentrant) and the rest of the
+layout was a separate, later transaction, so a removal that failed partway
+through several left some columns gone and the rest of the intended layout -
+labels, order, `notify_after`, watched, new columns - never attempted. TKT-767.
+
 The enforcement ledger (the violation store a `d2 tira.police` pass reads and
 writes) takes its own exclusive lock, scoped to the store directory rather than
 the project root, across the whole read-modify-write of one pass - not just the
@@ -954,9 +964,11 @@ labels, per-column thresholds and watched flags — and works out the
 difference itself, adding what is missing and removing what is gone.
 Cards in a removed column land in Discard exactly as removing one at a
 time puts them there. A protected column left out is refused and
-nothing changes. The call reports what it added, removed and
-reordered, because removals happen one at a time and a run that fails
-partway will already have made some of them.
+nothing changes. **Since 5.65 the whole call is one transaction**: every
+removal and the final layout write run under a single lock, and a
+failure partway through rolls back every card already moved rather than
+leaving the board neither the old layout nor the new one (TKT-767). The
+call still reports what it added, removed and reordered.
 
 The police policy dialog is **Implemented.** each board control
 also has a Policies button, separate from Columns, opening a modal for

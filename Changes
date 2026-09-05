@@ -1,5 +1,38 @@
 Revision history for Tira
 
+5.82  2026-09-05
+
+    - TKT-610. One decision implemented in two places and fixed in one of
+      them is the most expensive recurring fault on this board - five
+      instances on 2026-08-27 alone - and nothing detected any of them,
+      while the suite already policed narrower patterns with meta-tests
+      (t/147, t/121, t/344, t/220). t/566 adds the missing one: a
+      REGISTRY of decisions that must keep one home, each entry naming
+      the decision, why it has one home, where to look, what a bypass
+      looks like, and which sites may bypass it and for what stated
+      reason. Adding the next pair costs a line rather than a file,
+      which is the whole point - the registry is the deliverable, not
+      any single rule.
+
+      Seeded with three: column_list is always asked for a specific type
+      (TKT-597); a status compared to 'done' is lowercased first
+      (TKT-601); the coverage gate derives its module list from lib/
+      rather than naming modules (TKT-594).
+
+      The card asked for the first to route through a function called
+      _columns_for. No such function exists - TKT-597 fixed that fault
+      differently in 4.54, by recovering the type from the record the
+      caller already holds - and inventing one is outside this card's
+      scope. The invariant that fault actually violated is registered
+      instead, and the substitution is recorded on the card rather than
+      made silently.
+
+      It is a ratchet, not a search, and says so in its own header:
+      it cannot find an unknown pair, only stop a known one drifting.
+      Proven to bite by reintroducing a real typeless column_list into
+      the engine - the suite failed and named the offending line - then
+      restoring the file.
+
 5.81  2026-09-05
 
     - TKT-944. A due command-mode job was announced on the bridge and

@@ -2176,6 +2176,28 @@ records four more from TKT-607's split. Seven such tests now ask
 new instances. Three of the seven read police content, so this was owed
 before TKT-746's last lift rather than after it.
 
+**And since 5.82 the family has one for the fault that costs most** (TKT-610).
+One decision implemented in two places and fixed in one of them is the most
+expensive recurring fault on this board — five instances on 2026-08-27 alone —
+and nothing detected any of them, while the suite already policed narrower
+patterns this way. `t/566` holds a **registry** of decisions that must keep one
+home: each entry names the decision, why it has one home, where to look, what a
+bypass looks like, and which sites may bypass it *and for what stated reason* —
+an exemption without a reason is refused, since that is how such a list quietly
+becomes everything. Adding the next pair costs a line rather than a file, which
+is the point: the registry is the deliverable, not any single rule. Seeded with
+three — `column_list` is always asked for a specific type (TKT-597), a status
+compared to `done` is lowercased first (TKT-601), and the coverage gate derives
+its module list from `lib/` rather than naming modules (TKT-594).
+
+It is a **ratchet, not a search**, and its own header says so: it cannot find an
+unknown pair, only stop a known one drifting, and it reads source text so it
+sees the shape of a call rather than its meaning. A guard that oversold itself
+here would be worse than none, because a passing run would read as proof no
+other pairs exist. Proven to bite by reintroducing a real typeless `column_list`
+into the engine — the suite failed and named the offending line — then restoring
+the file.
+
 **Widened to every source file under `lib/` in 5.52 (TKT-921), and the narrow
 version was right when it was written.** Until then the rule refused reading
 `lib/Tira.pm` alone, because that is the file TKT-746 is decomposing and

@@ -1988,6 +1988,8 @@ be populated. The schedule is a crontab expression or the literal `monitor`,
 for a long-running poller rather than a tick, and `schedule_kind` says which so
 nothing has to re-parse to find out.
 
+**A command that never started says so, since 5.83** (TKT-950). A command job can fail two ways, and the board used to treat them very differently. One that RAN and exited non-zero had its output and `exit status N` fed onto the job, where the card shows them. One that NEVER STARTED - which is what a command that cannot be execed does - had its reason pushed into `run_due_commands`' return value, and the loop then moved on without calling `job_feed` at all. Nothing displays that return value, so the card showed a job that had fired with no sign anything had gone wrong: the exact silence the branch below it carries a comment against. It now records `could not start: <command>` and the executor's own reason on the job, through the same feed call and the same guard the success path uses, so one job's failure still cannot take a pass down. The command is named because that is what makes it diagnosable - `d2` resolves from `PATH`, and a daemon's `PATH` is not an interactive shell's. Reported by the owner as a bare `d2` job command that could not exec; the report could not have been diagnosed from the board before this, which is the part that was fixed.
+
 **A job can be run without waiting for it (TKT-843, 5.33).** `tira.job.run
 --id JOB-001` runs one job now whatever its schedule says, and it is what the
 dashboard's play button calls. It reuses the due-job executor rather than

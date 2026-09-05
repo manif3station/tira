@@ -2,6 +2,38 @@ Revision history for Tira
 
 5.83  2026-09-05
 
+    - TKT-950, his report: "A job command using bare 'd2' cannot exec -
+      tira.job.help's own documented example fails." He answered Q-130
+      naming the executor: a job falling due, which is police's path.
+
+      What was actually wrong is not the exec but the silence after it.
+      A command job could fail two ways and the board treated them very
+      differently. One that RAN and exited non-zero had its output and
+      "exit status N" fed onto the job, where the card shows them. One
+      that NEVER STARTED - which is what a command that cannot be
+      execed does - had its reason pushed into run_due_commands' return
+      value, and the loop then called next, skipping job_feed entirely.
+      Nothing displays that return value, so the card showed a job that
+      had fired with no sign anything had gone wrong.
+
+      The branch immediately above the comment saying that dropping
+      output "would rebuild the silence this whole epic exists to end"
+      was doing exactly that, in the case where the reader has least to
+      go on: a command that exits 3 at least ran.
+
+      It now feeds "could not start: <command>" and the executor's own
+      reason onto the job before moving on, through the same job_feed
+      call and the same eval guard the success path uses, so one job's
+      failure still cannot take the pass down. The command is named
+      because that is what makes it diagnosable - `d2` resolves from
+      PATH, and a daemon's PATH is not an interactive shell's.
+
+      t/564 already covered this branch, but only its return value.
+      t/570 covers what reaches the job, and checks the other three
+      directions: a non-zero exit still carries its status, a clean run
+      gains no false failure line, and one job that cannot start does
+      not silence the next.
+
     - TKT-948, and it is a note rather than a change. The upgrade gate
       raised its own card when 5.83 installed on a board still running
       5.77, and doing so exposed what it costs: the card arrives with a

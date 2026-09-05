@@ -547,6 +547,29 @@ sub run_due_commands {
         if ( !$outcome ) {
             my $why = $@ || 'unknown failure';
             $why =~ s/\s+\z//;
+
+            # FED ONTO THE JOB, not only returned. A command has two ways to
+            # fail and they used to be treated very differently: one that RAN
+            # and exited non-zero had its output and "exit status N" written
+            # where the card shows them, by the branch just below; one that
+            # NEVER STARTED had its reason pushed into this return value and
+            # nothing else. Nothing displays that return value, so the card
+            # showed a job that fired with no sign anything had gone wrong -
+            # which is the silence the comment below says must not be rebuilt,
+            # in the case where the reader has least to go on. Reported by the
+            # owner as "a job command using bare d2 cannot exec", and he could
+            # not have seen why from the board even once it did fail. TKT-950.
+            #
+            # The command is named because that is what makes it diagnosable:
+            # `d2` resolves from PATH, and a daemon's PATH is not an
+            # interactive shell's, so "could not start: d2 ..." reads as the
+            # PATH problem it usually is.
+            my $said = "could not start: $job->{command}";
+            eval {
+                $tira->job_feed( %{ $args || {} }, id => $job->{id},
+                    lines => [ $said, $why ] );
+                1;
+            };
             push @ran, { id => $job->{id}, ran => 0, status => -1, output => $why };
             next;
         }

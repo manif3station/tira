@@ -1046,6 +1046,8 @@ real violation. `d2 tira.project.update --upgrade-gate-type sow|epic|ticket`
 sets which type fits a project; unset, a board still gets `ticket`, unchanged
 from before this card.
 
+**A command that could not start is recorded on the job** (TKT-950). A non-zero exit has always had its output and `exit status N` fed onto the job. A command that never started - an exec that fails - did not: the reason went into a return value nothing displays, and the card showed a job that fired with no sign of trouble. Since 5.83 the job records `could not start: <command>` and the executor's own reason, through the same feed call and guard the success path uses. The command is named deliberately, because `d2` resolves from `PATH` and a daemon's `PATH` is not an interactive shell's.
+
 **The raised card is incomplete by construction** (observed on TKT-948). The
 gate writes a title, a description sliced from the Changes file, and a
 checklist - and no problem statement, scope, acceptance criteria or parent. On

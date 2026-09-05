@@ -75,8 +75,8 @@ local *Tira::police_pass = sub {
 sub run_once_capturing_stderr {
     my $err = '';
     open my $se, '>', \$err or die $!;
-    my $warnings = '';
-    local $SIG{__WARN__} = sub { $warnings .= $_[0] };
+    my @warnings;
+    local $SIG{__WARN__} = sub { push @warnings, $_[0] };
     my $was = getcwd();
     chdir $root or die "cannot enter $root: $!";
     {
@@ -85,7 +85,7 @@ sub run_once_capturing_stderr {
             argv => [ '--once', '--store', $store ] );
     }
     chdir $was or die "cannot return to $was: $!";
-    return ( $err, $warnings );
+    return ( $err, \@warnings );
 }
 
 my ( $stderr, $warnings ) = run_once_capturing_stderr();
@@ -94,10 +94,11 @@ my ( $stderr, $warnings ) = run_once_capturing_stderr();
 # STDOUT/STDERR for the checks below to mean anything.
 like( $stderr, qr/\S/, 'the once-mode police run printed something to STDERR' );
 
-unlike( $warnings, qr/Wide character in print/,
+is_deeply( $warnings, [],
     'printing a violation terminal line that carries non-ASCII text does not '
       . 'warn - the whole of TKT-939, since a warning here is the bug reaching '
-      . "the owner's own terminal every time the standing monitor polls" );
+      . "the owner's own terminal every time the standing monitor polls" )
+  or diag( 'warned: ' . join ' ', @{$warnings} );
 
 # The bytes themselves have to be valid UTF-8, not just warning-free - a wide
 # string silently truncated to its low byte per character would pass the

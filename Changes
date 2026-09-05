@@ -2,6 +2,37 @@ Revision history for Tira
 
 5.83  2026-09-05
 
+    - TKT-627. The unjudged-answer move gate has been card-wide since it
+      was written, and four places said it was scoped to the column the
+      answer was given in. It was not a near-miss reading: the filter
+      greps the whole card's questions with no column in it, and an
+      answer record is { text, author, answered_at, read_at, mark },
+      carrying no column at all - so the documented behaviour was not
+      merely unimplemented, it was unrepresentable without a new field.
+
+      The four are corrected rather than the code changed. Card-wide is
+      the defensible gate, and stamping a column onto every answer would
+      have left every answer written before that change unscoped for
+      ever. docs/POLICIES.md, SKILLS.md and the 4.52 entry below now say
+      card-wide; so does the comment above the gate itself, which is
+      where the other three were written from and which the first sweep
+      missed by looking only at the files the card named.
+
+      The refusal is reworded for the same reason. It read "Cannot move
+      X out of <column> - an answer has not been judged", naming the
+      column being left and the unjudged answer in one breath, and a
+      real run shows how that misleads: an answer given in IMPLEMENT
+      produced "Cannot move CWT-001 out of verify - an answer has not
+      been judged", naming a column the answer had nothing to do with.
+      It now reads "... - this card carries an answer nobody has
+      judged". The move being refused is still named; where the answer
+      lives is not misstated.
+
+      t/569 holds both ends - no document and no source comment may
+      re-acquire the claim - and t/407 gained the scenario that proves
+      it behaviourally: answer in one column, refused leaving a later
+      one, which a column-scoped gate would have allowed.
+
     - TKT-946. His report, and he had diagnosed it himself: "more than
       1 Tira dashboard running and each of them sitting on different port
       number... when I login on :7899 and switch back to :7800 that would
@@ -5292,8 +5323,8 @@ subroutine, measured serially.
       nothing asked for until answer-unjudged fired hours later, by
       which time the card was finished. So the ordinary outcome was
       an answer read, understood, acted on, and never marked.
-      A card now cannot move FORWARD out of the column an answer was
-      given in while that answer carries no mark, and the refusal
+      A card now cannot move FORWARD while any answer on it carries no
+      mark, and the refusal
       names the question and the command that settles it.
       The gate reads the question's own mark rather than raising a
       required-action item to stand in for it. That is the card's

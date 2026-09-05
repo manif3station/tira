@@ -2191,7 +2191,7 @@ Three checks run on a forward move through the CLI or agent path, in this order,
 
 1. **The column chain** - the destination must be a declared next step. Refuses naming the column you should go to first.
 2. **The current column's required actions** - any still unmarked refuses, naming them.
-3. **Unjudged answers** - a question answered but never marked refuses, naming the question and the `tira.question.mark` command that settles it. Reading an answer is automatic and does not count; the gate reads the question's own `mark`, so there is nothing to satisfy but the judgement itself. An unanswered question, a discarded one, and an answer marked `not-ok` all pass freely - the gate wants an assessment, not agreement. TKT-584.
+3. **Unjudged answers** - a question answered but never marked refuses, naming the question and the `tira.question.mark` command that settles it. The gate is **card-wide**: any unjudged answer on the card holds it, from whichever column that answer was given in - a card answered in `implement` is refused leaving `verify` just the same. It could not be otherwise, since an answer record carries no column to scope it by. Four places described it as column-scoped until 5.83 and none was ever true (TKT-627). Reading an answer is automatic and does not count; the gate reads the question's own `mark`, so there is nothing to satisfy but the judgement itself. An unanswered question, a discarded one, and an answer marked `not-ok` all pass freely - the gate wants an assessment, not agreement. TKT-584.
 
 A **backward** move is unconditional against all three, because the thing left unmet may be exactly what the card is retreating to fix.
 

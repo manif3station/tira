@@ -1485,8 +1485,12 @@ sub _remind_one_at_a_time {
 # finished and the agent has moved on. Observed twice in one session on this
 # board, hours apart, by the agent that had just filed the card about it.
 #
-# So the prompt is moved to the moment it belongs to: a card does not leave the
-# column an answer was given in while that answer carries no mark.
+# So the prompt is moved to the moment it belongs to: a card does not move
+# forward while ANY answer on it carries no mark, from whichever column that
+# answer was given in. This comment said "does not leave the column an answer
+# was given in" until 5.83, which was never what the code did - three
+# documents were written from that reading and stayed wrong for a year
+# (TKT-627).
 #
 # This reads the question's own mark rather than raising a required-action item
 # to stand in for it, and that is the point rather than a shortcut. A required
@@ -1535,9 +1539,17 @@ sub _unjudged_answer_violation {
     } @{ $current->{questions} // [] };
     return undef if !@unjudged;
 
-    return "Cannot move $args{ref} out of $from - "
-      . ( @unjudged == 1 ? 'an answer has' : scalar(@unjudged) . ' answers have' )
-      . " not been judged:\n"
+    # The answer is located on the CARD, not in the column being left. The
+    # older wording - "out of $from - an answer has not been judged" - put the
+    # column and the answer in one breath, and read as though the answer
+    # belonged to $from. It was not only the reader who took it that way:
+    # three documents wrote that reading down as the rule, and stayed wrong
+    # for a year (TKT-627). The move being refused is still named, because
+    # that is what the reader is holding; what changes is where the answer is
+    # said to live, which is anywhere on the card.
+    return "Cannot move $args{ref} out of $from - this card carries "
+      . ( @unjudged == 1 ? 'an answer' : scalar(@unjudged) . ' answers' )
+      . " nobody has judged:\n"
       . join( '', map { "  $_->{id}  " . _first_line( $_->{text} ) . "\n" } @unjudged )
       . "  Judge it, then move again:\n"
       . "    d2 tira.question.mark --ref $args{ref} --id $unjudged[0]{id} --mark ok|not-ok\n";
@@ -2751,6 +2763,12 @@ Refuses to move a card forward while a question on it has an answer nobody has
 judged. An answer that has been given and not read is not the same as a question
 resolved, and this is the gate that says so. Forward moves only, for the reason
 above: the person who would judge it may be why the card is going back.
+
+The gate is CARD-WIDE: any unjudged answer anywhere on the card holds it,
+whichever column that answer was given in. It cannot be otherwise - an answer
+record carries no column, so there is nothing to scope it by. Four places
+described it as scoped to the column the answer was given in until 5.83, the
+comment above this sub among them, and none of them was ever true (TKT-627).
 
 =head2 _column_entry_required_action_violation
 

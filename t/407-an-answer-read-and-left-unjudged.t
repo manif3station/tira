@@ -19,7 +19,9 @@
 # acceptance criterion: an item an agent can tick without judging is an
 # acknowledgement clicked through, which is the thing being prevented. There is
 # no proxy to satisfy - either the answer carries a judgement or the card does
-# not leave the column it was answered in.
+# not move forward while it carries one, from whichever column it was given
+# in - the gate greps the whole card. TKT-627 corrected three documents that
+# had written the column-scoped reading down as the rule.
 #
 # answer-unjudged stays exactly as it is. This is the prompt at the moment it
 # belongs to; that rule is the backstop for whatever escapes it.
@@ -129,7 +131,7 @@ $tira->question_answer(
 
 my ( $after_answer, $refusal ) = move_out();
 is( $after_answer, 'implement',
-    'a card carrying an answer nobody has judged does not leave the column it was answered in' );
+    'a card carrying an answer nobody has judged does not move forward' );
 like( $refusal, qr/\Q$question->{id}\E/,
     'and the refusal names the question, so the agent knows which answer it means' );
 like( $refusal, qr/question\.mark/,
@@ -270,6 +272,76 @@ my $discard_out = '';
 my $third_card = $tira->record_show( project => $root, type => 'ticket', ref => $third->{ref} );
 is( $third_card->{column}, 'done',
     'a discarded question does not gate the card - a withdrawn question has no answer anybody owes a judgement on' );
+
+# --- proved by behaviour, not only by reading the source -------------------
+#
+# TKT-627 CHK-004. The assertion that survives the filter being rewritten: answer in ONE column, move on, and try to leave a LATER one. A
+# column-scoped gate would let that through. A card-wide gate refuses it.
+
+{
+    my $tmp  = tempdir( CLEANUP => 1 );
+    my $tira = Tira->new( clock => sub {'2026-09-05T09:00:00Z'} );
+    my $root = File::Spec->catdir( $tmp, 'proj' );
+    $tira->project_new(
+        name => 'Card Wide', dir => $root, members => ['ada'],
+        columns => ['backlog, implement, verify, done'],
+        sow_prefix => 'CWS', epic_prefix => 'CWE', ticket_prefix => 'CWT',
+        author => 'ada',
+    );
+    my $card = $tira->create_record( project => $root, type => 'ticket',
+        title => 'answered early, moved on' );
+
+    # Answered while the card sits in BACKLOG.
+    $tira->record_move( project => $root, type => 'ticket', ref => $card->{ref},
+        column => 'implement', author => 'ada' );
+    my $question = $tira->question_add( project => $root, ref => $card->{ref},
+        author => 'ada', text => 'Which way?', reason => 'two designs fit',
+        options => [ 'first', 'second' ] );
+    $tira->question_answer( project => $root, ref => $card->{ref},
+        id => $question->{id}, author => 'ada', text => 'The second.' );
+
+    # Carried forward a column WITHOUT judging it. The move into verify is not
+    # what is being tested - it is the setup for the one that follows.
+    $tira->record_move( project => $root, type => 'ticket', ref => $card->{ref},
+        column => 'verify', author => 'ada' );
+    is( $tira->record_show( project => $root, type => 'ticket', ref => $card->{ref} )->{column},
+        'verify', 'the card reached a later column with the answer still unjudged' );
+
+    # Now leave a column the answer was NOT given in.
+    my $said = '';
+    {
+        local $ENV{TIRA_HOME} = $root;
+        open my $eh, '>', \$said or die $!;
+        open my $oh, '>', \my $out or die $!;
+        local *STDERR = $eh;
+        my $old = select $oh;
+        eval {
+            Tira::CLI->run( command => 'record.move', tira => $tira,
+                argv => [ '--type', 'ticket', '--ref', $card->{ref},
+                          '--column', 'done', '--author', 'ada', '-o', 'toon' ] );
+            1;
+        };
+        select $old;
+    }
+
+    my $now = $tira->record_show( project => $root, type => 'ticket', ref => $card->{ref} );
+    is( $now->{column}, 'verify',
+        'the move out of VERIFY is refused for an answer given back in IMPLEMENT - '
+          . 'which is card-wide behaviour, and is what the documents denied' );
+    like( $said, qr/\Q$question->{id}\E/,
+        'and the refusal still names the question, from whichever column it came' );
+
+    # CHK-003. The refusal's own wording is where the false reading started:
+    # "out of $from - an answer has not been judged" put the column and the
+    # answer in one breath. Three documents then wrote that reading down as
+    # the rule. Correcting the documents without correcting the sentence they
+    # were read from would leave the next reader to make the same mistake.
+    like( $said, qr/this card carries/,
+        'the refusal locates the answer on the card, not in the column being left' );
+    unlike( $said, qr/out of \w+ - an answer has not been judged/,
+        'and no longer names the column and the answer in one breath, which is '
+          . 'the sentence the three false documents were read out of' );
+}
 
 done_testing();
 

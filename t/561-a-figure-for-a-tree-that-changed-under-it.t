@@ -88,8 +88,9 @@ like( $interfered_out, qr/Foo\.pm/, 'and the refusal names the file that changed
 
 # --- the command's own failure is not hidden behind a false "lib/ changed" --
 
-my ( $failed_out, $failed_status ) = run_guard( 'perl', '-e', 'exit 7' );
+my ( $failed_out, $failed_status ) = run_guard( 'perl', '-e', 'print "job failed on its own\n"; exit 7' );
 is( $failed_status, 7, "the wrapped command's own exit code survives when lib/ did not change" );
+like( $failed_out, qr/job failed on its own/, 'the wrapped command is there to be read' );
 unlike( $failed_out, qr/coverage-guard: lib\/ changed/,
     'and that failure is not misreported as tree interference' );
 

@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.61';
+our $VERSION = '5.62';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4111,7 +4111,7 @@ sub evidence_add {
     return $self->_with_project_lock( $root, sub {
         $self->_require_person( %args, person => $args{author} );
         my $record = $self->record_show(%args);
-        die "Evidence summary is required\n" if !defined $args{summary} || $args{summary} eq '';
+        die "Evidence summary is required\n" if !defined $args{summary} || $args{summary} !~ /\S/;
         my $attachment = defined $args{file} ? $self->attachment_add(%args) : undef;
         $record = $self->record_show(%args) if $attachment;
         my $stored_attachment = $attachment
@@ -4299,7 +4299,7 @@ sub checklist_add {
     local $self->{_journal_author} = $self->_require_author(%args);
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
-        die "Checklist item is required\n" if !defined $args{item} || $args{item} eq '';
+        die "Checklist item is required\n" if !defined $args{item} || $args{item} !~ /\S/;
         die "Checklist status is required\n" if !defined $args{status} || $args{status} eq '';
 
         # Q-099 on TKT-668, Michael's own answer: checklists get the SAME
@@ -4459,7 +4459,7 @@ sub required_item_add {
     local $self->{_journal_author} = $self->_require_author(%args);
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
-        die "Required item is required\n" if !defined $args{item} || $args{item} eq '';
+        die "Required item is required\n" if !defined $args{item} || $args{item} !~ /\S/;
         die "Required item status is required\n" if !defined $args{status} || $args{status} eq '';
         my $record = $self->record_show(%args);
 

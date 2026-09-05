@@ -1,5 +1,19 @@
 Revision history for Tira
 
+5.72  2026-09-05
+
+    - TKT-894. The Telegram poller was the last repeated process here still
+      running outside the board: a systemd unit with a tail job following
+      its log. Cut over the night Michael approved it - the systemd unit
+      stopped and disabled, bot.py registered and started as a board-owned
+      monitor job (JOB-007), the tail job (JOB-006) deleted. Confirmed live:
+      the startup lines reached the police bridge with the reply-hint line
+      correctly absent (Q-116's ruling, already implemented in an earlier
+      cycle), monitor-dead tracked its liveness correctly through startup,
+      and a real message from Michael sent after the switch was delivered
+      and answered. SKILLS.md corrected from describing the cutover as
+      pending to recording it as done.
+
 5.71  2026-09-05
 
     - TKT-592. tira.column.update --terminal decides, board-wide, which

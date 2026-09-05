@@ -3297,9 +3297,12 @@ used to be an arrangement inside one agent's session, and an arrangement nobody
 can see is one nobody can check. A reader can now compare this table against
 `d2 tira.job.list` rather than taking a number on trust.
 
-**The last in-session monitor, and what it takes to move it (TKT-894, 5.44).**
-The Telegram poller is the one repeated process still living inside a session
-rather than on the board. Everything it needs now exists — `--schedule monitor`
+**The last in-session monitor, moved (TKT-894, 5.72).** The Telegram poller ran
+as a systemd unit with a tail job following its log, not a board-owned monitor -
+the last repeated process here that was not on the board. Cut over the night
+Michael approved it: the systemd unit stopped and disabled, `bot.py` registered
+as a monitor job and started, and `JOB-006` (the tail) deleted. Everything it
+needed already existed — `--schedule monitor`
 for a long-running process, `--expect-every MINUTES` so a poller that is *up but
 wedged* is distinguishable from a quiet channel, and `--restart-every SECONDS`.
 `monitor-silent` is the rule that reads the first of those, and a board about to
@@ -3324,10 +3327,11 @@ And its log **was** stdout, by shell redirection. Once the process writes the lo
 itself, that redirect has to go or every line lands twice — a detail worth
 stating because it is invisible until the day it doubles a bridge.
 
-**The cutover is not a code step.** Telegram allows one `getUpdates` consumer per
-token, so the running poller must stop as the monitor starts, and a message sent
-in that window can land in either. It is timed by the person whose messages they
-are, not by the agent doing the migration.
+**The cutover was not a code step.** Telegram allows one `getUpdates` consumer
+per token, so the running poller had to stop before the monitor started, and a
+message sent in that window could have landed in either. It was timed by the
+person whose messages they are, not decided by the agent doing the migration -
+he authorized it directly and confirmed delivery himself once it was live.
 
 One route, two verbs. `job_save` used to die without an id and only ever call
 `job_update`; it now dispatches on whether the payload names a job - no id

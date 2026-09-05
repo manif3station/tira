@@ -320,6 +320,43 @@ def stalled(record):
 # remembered.
 
 
+def not_yet_approved(record, wanted):
+    """A card the push carries a commit for, sitting before the push column.
+
+    pending-push exists because Michael, and only he, decides what ships.
+    Every other check here asks whether a card is COMPLETE - unproven() among
+    them, which demands a fix_version only at or past the push column, so a
+    well-formed card one column short of it draws nothing. TKT-854 had 44
+    gate entries and one evidence item and shipped in 5.41 thirteen minutes
+    before its own card reached pending-push. Nothing anywhere had asked the
+    one question the column exists to answer.
+
+    SCOPED TO `wanted` ALONE (TKT-887, KD4). With no remote ref the hook
+    sweeps the whole board and `wanted` is empty - applying this there would
+    refuse every push on any board with a card in backlog, which is every
+    board. A ref `wanted` names that matches no row here - scraped from a
+    commit subject for a card that does not exist, or no longer does - never
+    reaches this function at all, because the caller only calls it for rows
+    the board actually returned; it is neither refused nor silently passed,
+    it is simply not a card this check has an opinion about.
+    """
+    # Only on a board that HAS a push column, distinct from where work ends.
+    # Without one, SHIPPED_FROM falls back to the ending column itself (a
+    # board that ships whatever reaches done), and this would then refuse
+    # any card still in implement or verify - the exact fault unproven() and
+    # premature() already exist to report, not a missing-approval gate.
+    if 'push' not in FLOW:
+        return None
+    if not wanted or record.get('ref') not in wanted:
+        return None
+    column = record.get('column')
+    if column not in FLOW or FLOW.index(column) >= SHIPPED_FROM:
+        return None
+    return (f"is in {column}, which has not reached the push column - "
+            'pending-push is the queue Michael reviews before anything ships, '
+            'and this commit ships it anyway')
+
+
 def unproven(record, ended):
     """A card claiming to be verified with nothing anybody could check."""
     column = record.get('column')
@@ -527,6 +564,10 @@ def main():
             if thin:
                 failures += 1
                 print(f"{row['ref']} {thin}")
+            unapproved = not_yet_approved(record, wanted)
+            if unapproved:
+                failures += 1
+                print(f"{row['ref']} {unapproved}")
 
     for ahead in parents_ahead(wanted):
         failures += 1

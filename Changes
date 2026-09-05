@@ -1,5 +1,29 @@
 Revision history for Tira
 
+5.70  2026-09-05
+
+    - TKT-887. The pre-push hook asked tools/card-holes whether the cards
+      named by the commits being pushed were COMPLETE, never whether they
+      had reached the push column - so a card sitting in pending-push, the
+      queue that exists precisely because Michael, and only Michael,
+      decides what ships, had its commit pushed anyway. Measured, not
+      hypothetical: 51a22aa (TKT-854) committed 09:33:35 and was on origin
+      by 09:48:54 in the 5.41 batch, thirteen minutes before its own card
+      reached pending-push. It had 44 gate entries and one evidence item,
+      so unproven() - which only demands a fix_version at or past the push
+      column - had nothing to say.
+
+      tools/card-holes now refuses a push whose named refs include a card
+      below the push column, scoped to those refs alone: it never touches
+      the whole-board fallback that runs with no argument, since applying
+      it there would refuse every push on any board with a card in
+      backlog - which is every board. It also only fires on a board with a
+      real push column distinct from where work ends; without one,
+      "approved" and "done" are the same claim the existing checks already
+      make, and a regression along exactly this line surfaced live against
+      t/235's own smaller fixture board during implementation and was
+      fixed before shipping.
+
 5.69  2026-09-05
 
     - TKT-857. tools/gate-run ran the instrumented suite with no host-wide

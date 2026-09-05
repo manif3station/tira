@@ -1510,6 +1510,15 @@ reintroduced. It would have been redundant as well as unwanted: `tools/card-hole
 which stays, already refuses a card carrying no recorded gate, no evidence or no
 fix version. TKT-680.
 
+**Since 5.70, `tools/card-holes` also refuses a card the push names that has
+not reached `push` itself** - the completeness checks above ask nothing about
+approval, and a card sitting in `pending-push` shipped anyway once: `TKT-854`
+was on `origin` thirteen minutes before its own card reached that queue,
+despite 44 gate entries and one evidence item. Scoped to the refs the commits
+being pushed actually name, never the whole-board fallback - and only on a
+board with a real `push` column, since without one "approved" and "done" are
+the same claim the checks above already make. TKT-887.
+
 Since 4.61 the card dialog's three text editors share their behaviour rather
 than reimplementing it. All three grow through one handler and all three build
 their formatting bar from one builder - the comment composer's own bar, which is

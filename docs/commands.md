@@ -1255,6 +1255,24 @@ a push nine ways and runs no test suite, no browser:
 | 5 | `tools/docs-match-code` | the documentation and the code disagree |
 | 6 | `tools/docs-examples-run` | a documented example is not what the command accepts |
 
+**`tools/card-holes` also refuses a card that has not reached `push`, since
+5.70.** Every other check in the table asks whether a card is COMPLETE; none
+of them ask whether it has been APPROVED to ship, which is a different
+question with a different answer. `pending-push` exists because Michael, and
+only Michael, decides what ships - and a well-formed card sitting there
+shipped anyway: `TKT-854` committed at 09:33:35 and was on `origin` by
+09:48:54 in the 5.41 batch, thirteen minutes before its own card reached
+`pending-push`. Every existing check passed it - it had 44 gate entries and
+one evidence item, so nothing was unproven.
+
+The new check is scoped to the refs the pushed commits actually name, never
+to the whole-board fallback that runs with no argument: applying it there
+would refuse every push on any board with a card in `backlog`, which is
+every board. It only fires on a board that has a dedicated `push` column
+distinct from where work ends - without one, "not yet approved" and "not yet
+done" are the same claim, and `unproven()`/`premature()` already make it.
+TKT-887.
+
 Since 4.99 (TKT-796) the browser suite (`tools/browser-tests`, 21 Playwright
 checks) no longer runs here - a single flaky test used to block an entire
 batch of otherwise-good, individually-verified cards. **The intended

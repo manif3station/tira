@@ -37,6 +37,11 @@ open my $fh, '<', 't/03-metadata.t' or die "t/03-metadata.t: $!";
 my $source = do { local $/; <$fh> };
 close $fh;
 
+# non-empty is the whole claim: the subject is established first, so a file
+# that failed to read cannot pass the denials below on emptiness alone -
+# the exact fault this project's own t/147 exists to catch.
+like( $source, qr/\S/, 't/03-metadata.t is there to be read' );
+
 unlike( $source, qr/qr\{?\/?\^?VERSION=\d+\\?\.\d+\$?\/?\}?m/,
     'T/03-METADATA.T NO LONGER MATCHES A SPECIFIC VERSION NUMBER against '
       . ".env's own text - every release used to require a hand-edit here or "

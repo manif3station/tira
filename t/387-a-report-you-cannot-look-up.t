@@ -29,7 +29,7 @@ unlike( $usage, qr/\[options\]\s*\[-o/,
 like( $usage, qr/--from/,  'and names --from' );
 like( $usage, qr/--title/, 'and names --title' );
 like( $usage, qr/--text/,  'and names --text' );
-like( $usage, qr/^Usage: dashboard tira\.dev\.found\.bug_or_improvement\b/,
+like( $usage, qr/^Usage: d2 tira\.dev\.found\.bug_or_improvement\b/,
     'still names the command that was actually asked about' );
 
 done_testing;

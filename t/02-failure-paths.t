@@ -110,7 +110,7 @@ my $help = '';
         'CLI help returns success',
     );
 }
-like( $help, qr/dashboard tira\.ticket\.create/, 'record help names the dotted DD command' );
+like( $help, qr/d2 tira\.ticket\.create/, 'record help names the dotted DD command' );
 unlike( $help, qr/--project|TIRA_HOME/, 'record help keeps project selection private' );
 
 my $project_help = '';
@@ -119,7 +119,7 @@ my $project_help = '';
     local *STDOUT = $capture;
     Tira::CLI->run( command => 'project.create', argv => ['--help'] );
 }
-like( $project_help, qr/dashboard tira\.project\.create/, 'project help names the dotted DD command' );
+like( $project_help, qr/d2 tira\.project\.create/, 'project help names the dotted DD command' );
 
 my $generic_help = '';
 {
@@ -127,7 +127,7 @@ my $generic_help = '';
     local *STDOUT = $capture;
     Tira::CLI->run( command => 'column.list', argv => ['--help'] );
 }
-like( $generic_help, qr/dashboard tira\.column\.list/, 'generic help names the exact dotted command' );
+like( $generic_help, qr/d2 tira\.column\.list/, 'generic help names the exact dotted command' );
 
 my $direct_root = File::Spec->catdir( $tmp, 'direct-cli' );
 my ( $direct_out, $direct_err ) = ( '', '' );

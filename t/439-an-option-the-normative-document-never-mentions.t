@@ -34,7 +34,7 @@ my $skills = do {
 
 # The entry is one long prose paragraph rather than a usage block, so it is
 # found by the sentence that opens it and taken to the end of that line.
-my ($entry) = $skills =~ /^(`dashboard tira\.police\.outstanding`[^\n]*)$/m;
+my ($entry) = $skills =~ /^(`d2 tira\.police\.outstanding`[^\n]*)$/m;
 
 # Guarded before anything is asserted about its contents. Without this, every
 # "the entry mentions X" assertion below would fail for the wrong reason if the

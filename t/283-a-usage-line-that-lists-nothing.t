@@ -44,7 +44,7 @@ for my $command ( sort keys %expect ) {
     for my $pattern ( @{ $expect{$command} } ) {
         like( $usage, $pattern, "and names $pattern" );
     }
-    like( $usage, qr/^Usage: dashboard tira\.\Q$command\E\b/,
+    like( $usage, qr/^Usage: d2 tira\.\Q$command\E\b/,
         'still names the command that was actually asked about' );
 }
 

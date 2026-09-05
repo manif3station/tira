@@ -22,7 +22,7 @@ for my $file (qw(.env Changes LICENSE README.md SKILLS.md docs/foundation.md doc
 open my $env, '<', '.env' or die "Cannot read .env: $!";
 my $env_text = do { local $/; <$env> };
 close $env;
-like( $env_text, qr/^VERSION=5\.66$/m, '.env stores the version being released' );
+like( $env_text, qr/^VERSION=\d+\.\d+$/m, '.env stores a version in the right shape' );
 
 # Read out of .env rather than matched against it, so the module can be
 # compared with what .env actually holds rather than with a literal that
@@ -66,14 +66,19 @@ unlike( $skills_text, qr/--project|TIRA_HOME|\.tira\/|project selector/i, 'SKILL
 
 use lib 'lib';
 use Tira;
-# Two assertions, because they promise two different things and used to be one.
-#
-# This one said "module version matches .env" and never read .env: it compared
+# This said "module version matches .env" and never read .env: it compared
 # the module against a literal, while another assertion compared .env against
 # the same literal, so they agreed only through a third party. Changing one
 # literal and not the other was caught by luck rather than by this.
+#
+# A second assertion here used to also hardcode the release number directly
+# ("and the release being made is the one intended") - the same drift TKT-413
+# already fixed once for the UC-count heading, caught live during TKT-790's
+# verify pass when the literal was forgotten on a version bump. Removed
+# rather than corrected: it added no coverage beyond what this line and the
+# changelog check below already prove between them, transitively, with
+# nothing anywhere written by hand. TKT-801.
 is( $Tira::VERSION, $env_version, 'module version matches .env, which is now read' );
-is( $Tira::VERSION, '5.66', 'and the release being made is the one intended' );
 
 # And the changelog, which nothing checked. .env, the module and this file
 # agreed with each other for two releases while Changes named a version one

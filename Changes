@@ -1,5 +1,23 @@
 Revision history for Tira
 
+5.67  2026-09-05
+
+    - TKT-801. t/03-metadata.t hardcoded the release version as a literal in
+      two places - a regex matching .env's exact text, and a direct
+      comparison against `$Tira::VERSION` - so bumping the version for a
+      release required a matching hand-edit to the test suite itself or the
+      suite failed. Caught live during two separate verify passes (TKT-790,
+      then again on TKT-793 at the cost of a ~23-minute wasted run) - the
+      same shape of drift this file had already fixed once for the UC-count
+      heading (TKT-413: "a literal number... drifted for 336 commits...
+      because nothing ever read its number back").
+
+      The regex now checks .env's shape rather than its exact value, and the
+      second hardcoded comparison is removed entirely - it added no coverage
+      beyond what the module-vs-.env check and the changelog-top check
+      already prove between them, transitively, with nothing written by
+      hand anywhere.
+
 5.66  2026-09-05
 
     - TKT-799. docs/commands.md said, since 4.99, that a conditional

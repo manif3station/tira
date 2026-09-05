@@ -819,8 +819,12 @@ assume it has never happened.
 Bumping the release version means `.env`'s `VERSION=` line and
 `lib/Tira.pm`'s `our $VERSION` always agreeing - `tools/bump-version NEW`
 writes both together and refuses rather than guessing if they already
-disagree. `Changes` (the dated entry with real release notes) and
-`t/03-metadata.t`'s own two version literals stay hand-written on purpose.
+disagree. `Changes` (the dated entry with real release notes) stays
+hand-written; `t/03-metadata.t` no longer carries a version literal of its
+own to keep in step - since 5.67 (TKT-801) it checks `.env`'s shape and
+compares the module, `.env`, and `Changes`' own top entry against each
+other, so a release needs no matching hand-edit to the test suite itself.
+Caught live twice before the fix, once at the cost of a wasted verify run.
 
 Since 4.62 the push hook does not run the suite. The `verify` column does,
 once, and records the result on the card as evidence - which is what puts

@@ -1,5 +1,31 @@
 Revision history for Tira
 
+5.71  2026-09-05
+
+    - TKT-592. tira.column.update --terminal decides, board-wide, which
+      columns count as work having ended - and it was documented as though
+      it belonged to one police rule. docs/POLICIES.md mentioned it only
+      inside card-unassigned's own row; docs/commands.md never explained it
+      at all (its three matches for "terminal" were the shell word); SKILLS.md
+      showed it only in the bare usage line and inside the same
+      card-unassigned prose. Incident behind it: zen-framework's TKT-588
+      reported agent-still asserting a stall while 54 cards sat in an
+      unmarked custom ending column, deployed-on-demo - withdrawn once traced
+      to their own wording, but the underlying confusion was real.
+
+      A new "Where work ends" section in docs/POLICIES.md derives the actual
+      reader list from the code rather than repeating what the filing card
+      assumed: conversation-not-folded, column-unwatched,
+      card-changed-by-owner, agent-still and discard-with-open-questions
+      read _ending_columns/_ending_columns_everywhere directly;
+      card-unassigned and board-still read the same concept through the
+      sibling _resting_columns, which the code's own comment says shares
+      "the same assumption... for the same reason" - a different function
+      than the one the card named. tools/card-holes, the push gate, is a
+      third implementation outside the engine entirely. docs/commands.md and
+      SKILLS.md now explain the flag and its consequence rather than only
+      listing it.
+
 5.70  2026-09-05
 
     - TKT-887. The pre-push hook asked tools/card-holes whether the cards

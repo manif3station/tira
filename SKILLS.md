@@ -1277,6 +1277,14 @@ tira.dashboard.epic [--include-discard] [--title] [-o DASHBOARD_FORMAT]
 tira.dashboard.ticket [--include-discard] [--title] [-o DASHBOARD_FORMAT]
 ```
 
+`--terminal`/`--no-terminal` above marks a column as somewhere work has
+ended, board-wide - not one rule's private setting. `agent-still`,
+`card-unassigned`, `board-still`, `card-changed-by-owner`,
+`conversation-not-folded`, `column-unwatched`, `discard-with-open-questions`,
+and the pre-push hook itself all ask this per column; a board that marks
+nothing keeps `done` as its one ending. See docs/POLICIES.md's "Where work
+ends" section. TKT-592.
+
 Checklist commands apply symmetrically to SOWs, epics, and tickets. Add
 requires both non-empty values. Update requires at least one of `--item` or
 `--status`; omitted values remain unchanged. Entries retain order and IDs.

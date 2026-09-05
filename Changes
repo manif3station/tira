@@ -1,5 +1,17 @@
 Revision history for Tira
 
+5.68  2026-09-05
+
+    - TKT-811. TKT-809 corrected README.md's dashboard-prefixed command
+      examples to the real `d2` prefix, scoped to README.md only. Live
+      `--help`/usage output - the strings a user actually runs, with more
+      real-world impact than any doc page - still said `dashboard tira.xxx`,
+      as did SKILLS.md's and docs/commands.md's own remaining examples.
+
+      `cli/usage`, `cli/skills`, `cli/changes`, `lib/Tira/CLI/Usage.pm`,
+      `lib/Tira/OnboardWeb.pm`'s onboarding HTML, SKILLS.md, and
+      docs/commands.md all now say `d2`.
+
 5.67  2026-09-05
 
     - TKT-801. t/03-metadata.t hardcoded the release version as a literal in

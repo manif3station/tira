@@ -2,11 +2,13 @@
 # --help/usage output, and the two remaining docs, still say "dashboard
 # tira.xxx" - a prefix that predates the d2 rename.
 #
-# TKT-811. TKT-809 fixed README.md's examples to the real d2 prefix, scoped
-# to README only. This is everywhere else a user actually encounters the
-# wrong prefix: live --help/usage strings first, since those have more
-# real-world impact than any doc page, plus SKILLS.md's and
-# docs/commands.md's own remaining examples.
+# TKT-811. TKT-809 fixed README.md's examples to the real d2 prefix - or
+# was believed to. This card's own scope.out named README.md as already
+# done; checking it while picking this card up found three occurrences
+# TKT-809 missed (README.md:525-537, the onboard/project.new examples), so
+# it is included here too rather than left to a future hunt to re-find.
+# Live --help/usage strings are the rest: more real-world impact than any
+# doc page, plus SKILLS.md's and docs/commands.md's own remaining examples.
 #
 # WRITTEN RED.
 
@@ -44,7 +46,7 @@ for my $file (@SOURCE_FILES) {
 
 # --- and the two remaining docs ----------------------------------------------
 
-for my $doc (qw(SKILLS.md docs/commands.md)) {
+for my $doc (qw(SKILLS.md docs/commands.md README.md)) {
     open my $fh, '<', $doc or die "$doc: $!";
     my $text = do { local $/; <$fh> };
     close $fh;

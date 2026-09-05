@@ -522,8 +522,8 @@ server produces no entries, and the panel says so on screen rather than looking
 broken. Without the flag there is no panel and `/logs` answers 404 with a
 reason, because an empty list would claim the board had answered nothing.
 
-`dashboard tira.onboard` asks for everything a new project needs and creates
-it from the answers. `dashboard tira.onboard -o browser` does the same thing
+`d2 tira.onboard` asks for everything a new project needs and creates
+it from the answers. `d2 tira.onboard -o browser` does the same thing
 over one HTML form instead of a terminal prompt: a disposable, no-login
 server on `127.0.0.1` (a free port picked automatically, or
 `-o browser=127.0.0.1:PORT` for a specific one) that creates the project on
@@ -534,7 +534,7 @@ field the wizard's guided flow does - stuck-card minutes, agent/session/
 collector, and the project-mode question. Naming an agent is worth doing
 rather than skipping: it is what lets police tell a stopped agent from one
 correctly waiting, since `agent-still` stops counting a working-column
-card against the agent once it is assigned to somebody else. The same thing non-interactively, for scripts: `dashboard tira.project.new
+card against the agent once it is assigned to somebody else. The same thing non-interactively, for scripts: `d2 tira.project.new
 --name "MT5" --members "K-Bot, Michael" --columns "Backlog, Planning, In
 Progress, Done / Release" --sow-prefix M5S --epic-prefix M5E --ticket-prefix
 M5T` creates the project, its people, each board's reference prefix, and the

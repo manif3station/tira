@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.82';
+our $VERSION = '5.83';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -5948,9 +5948,20 @@ sub login_start {
     # random source alone - never from the person or the clock, either of which
     # an outsider could work out.
     my $token = _random_hex(24);
+
+    # WHICH BOARD ISSUED THIS, so another cannot spend it. TKT-946, and his
+    # own choice on Q-128: "Bind the token server-side to the board that
+    # issued it and refuse it elsewhere - stronger, covers a copied token."
+    # Recorded only when the caller says; a board that does not identify
+    # itself writes no binding and the session stays usable anywhere, which
+    # is what keeps every session created before this from being invalidated
+    # the moment it ships.
     $self->_session_write(
         $self->_session_path( $root, $token ),
-        { person => $args{id}, started_at => $now, last_seen_at => $now },
+        {   person => $args{id}, started_at => $now, last_seen_at => $now,
+            ( defined $args{board} && $args{board} ne ''
+                ? ( board => $args{board} ) : () ),
+        },
     );
     return $token;
 }
@@ -5964,6 +5975,21 @@ sub _session_load {
         unlink $path;
         return ();
     }
+
+    # A TOKEN IS SPENT ONLY WHERE IT WAS ISSUED. TKT-946, his answer to Q-128.
+    # Refused rather than expired: the session belongs to the other board and
+    # is still perfectly good there, so deleting it here would sign that board
+    # out as a side effect of this one being asked.
+    #
+    # An UNBOUND session is accepted anywhere, deliberately. Records written
+    # before this existed carry no board, and treating a missing binding as a
+    # mismatch would sign every user out on upgrade - a worse fault than the
+    # one being fixed, and self-inflicted.
+    return ()
+      if defined $session->{board}
+      && defined $args{board}
+      && $session->{board} ne $args{board};
+
     return ( $root, $path, $session );
 }
 

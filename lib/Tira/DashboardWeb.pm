@@ -37,6 +37,11 @@ our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $SEARCH, $COMMENT_ADD, $
 
 our $COOKIE = 'tira_session';
 
+# Which port this board is answering on, so its cookie can be told apart from
+# another board's on the same host. Set by the server at startup; undef in a
+# plain library context, where the bare cookie name is used. TKT-946.
+our $PORT;
+
 # The board fetches its own routes from its own scripts. A stranger there must
 # get a refusal they can react to, not a login page rendered into a card - so
 # only the front door serves the page, and everything else answers 401 JSON.
@@ -57,17 +62,63 @@ my %PUBLIC = map { $_ => 1 } qw(/login /logout);
 my %POLLED = ( '/data' => 1, '/tasklist' => 1, '/tasklist/sessions' => 1, '/jobs' => 1,
     '/logs' => 1, '/bridge' => 1 );
 
+# Reads the slot this board OWNS, via the same _cookie_name the setter uses.
+# Reading $COOKIE directly here would have been the classic one-decision-two-
+# places fault: the board would set tira_session_7899 and then look for
+# tira_session, and nobody would ever be signed in. TKT-946.
 sub _cookie_token {
     my $header = request->header('Cookie') // '';
-    my ($token) = $header =~ /(?:\A|;)\s*\Q$COOKIE\E=([^;]*)/;
+    my $name   = _cookie_name();
+    my ($token) = $header =~ /(?:\A|;)\s*\Q$name\E=([^;]*)/;
     return $token;
 }
 
+# THE PORT GOES IN THE COOKIE'S NAME, and it has to, because there is nowhere
+# else to put it. TKT-946.
+#
+# A browser's cookie jar is keyed by HOST alone. RFC 6265 section 8.5 says so
+# outright - "cookies do not provide isolation by port" - and there is no
+# attribute that changes it: Domain cannot carry a port, and omitting Domain
+# (which we do) gives a host-only cookie that is still port-blind. So two Tira
+# boards on one machine were reading and writing ONE slot named tira_session,
+# and overwriting each other's tokens.
+#
+# His report, and he had diagnosed it correctly himself: "more than 1 Tira
+# dashboard running and each of them sitting on different port number... when I
+# login on :7899 and switch back to :7800 that would be logout and both of them
+# can't be login at the same time. I suspect is the cookie session."
+#
+# DO NOT "TIDY" THE PORT BACK OUT OF THIS NAME. A fixed constant reads neater
+# and reintroduces his bug exactly. The name is the only part of a cookie's
+# identity this code controls, so it is the only place two boards on one host
+# can be told apart.
+#
+# A board that cannot say which port it is on keeps the bare name, so an
+# ordinary single-board install is completely unchanged.
 sub _session_cookie {
     my ( $value, %args ) = @_;
-    my @parts = ( "$COOKIE=$value", 'Path=/', 'HttpOnly', 'SameSite=Lax' );
+    my $name = _cookie_name( $args{port} );
+    my @parts = ( "$name=$value", 'Path=/', 'HttpOnly', 'SameSite=Lax' );
     push @parts, 'Max-Age=0', 'Expires=Thu, 01 Jan 1970 00:00:00 GMT' if $args{clear};
     return join '; ', @parts;
+}
+
+# WHO THIS BOARD IS, for binding a token to it. The port alone, because that is
+# what distinguishes two boards on one machine - which is the case reported.
+# Undef where no port is known, and an unbound session is accepted anywhere, so
+# a library-context board behaves exactly as it did before. TKT-946.
+sub _board_id {
+    return defined $PORT && $PORT =~ /\A[0-9]+\z/ ? "port-$PORT" : undef;
+}
+
+# Kept apart from the cookie builder because the request side needs the same
+# answer to READ the cookie it set - one function, so the two can never
+# disagree about which slot this board owns.
+sub _cookie_name {
+    my ($port) = @_;
+    $port = $PORT if !defined $port;
+    return $COOKIE if !defined $port || $port !~ /\A[0-9]+\z/;
+    return "${COOKIE}_$port";
 }
 
 sub _refuse {
@@ -88,7 +139,8 @@ hook before => sub {
     # whether somebody is signed in is the session layer rather than this hook.
     # An absent or empty token resolves to nobody there, which is what the
     # stranger checks in the gate test prove.
-    my $session = Tira::json_decode( $reader->( { token => $token // '' } ) );
+    my $session = Tira::json_decode(
+        $reader->( { token => $token // '', board => _board_id() } ) );
     if ( ref $session eq 'HASH' && defined $session->{person} ) {
         var signed_in => $session->{person};
         return;
@@ -116,6 +168,9 @@ post '/login' => sub {
     # Trust on first use, which is what he asked for: a person who has never
     # signed in claims a password by typing one, and is signed in with it
     # rather than being made to type it twice.
+    # Which board is issuing this, so the token cannot be spent on another.
+    # TKT-946, his answer to Q-128.
+    local $payload->{board} = _board_id();
     my $answer = Tira::json_decode( $LOGIN_START->($payload) );
     if ( !$answer->{ok} ) {
         my $claimed = Tira::json_decode( $LOGIN_REGISTER->($payload) );
@@ -700,6 +755,12 @@ sub serve {
     my @options = ( '--server', 'Starman', '--workers', 5 );
     push @options, '--enable-ssl', '--ssl-cert', $args{ssl_cert}, '--ssl-key', $args{ssl_key}
       if $args{ssl_cert};
+
+    # The board learns which port it is answering on, so its session cookie can
+    # be told apart from another board's on the same host and its tokens can be
+    # bound to it. TKT-946 - see _session_cookie for why the name is the only
+    # place this can live.
+    $PORT = $args{port};
 
     $runner->parse_options(
         @options, '--host', $args{host}, '--port', $args{port}, '--env', 'deployment',

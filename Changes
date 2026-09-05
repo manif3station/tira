@@ -1,5 +1,38 @@
 Revision history for Tira
 
+5.83  2026-09-05
+
+    - TKT-946. His report, and he had diagnosed it himself: "more than
+      1 Tira dashboard running and each of them sitting on different port
+      number... when I login on :7899 and switch back to :7800 that would
+      be logout and both of them can't be login at the same time. I
+      suspect is the cookie session."
+
+      He was right. A browser's cookie jar is keyed by HOST alone - RFC
+      6265 section 8.5 says outright that cookies do not provide
+      isolation by port, and no attribute changes it - so two boards
+      shared one slot named tira_session and overwrote each other's
+      tokens. What he asked for, tying the cookie to domain+port, has no
+      cookie-level expression at all.
+
+      Two things now do it. The cookie's NAME carries the board's port,
+      so the browser keeps two slots; and the session token is bound to
+      the board that issued it and refused anywhere else. The second was
+      his choice on Q-128. The first was added on top because his own
+      symptom survives the second alone: with one slot the later sign-in
+      still overwrites the earlier token, and the first board then
+      refuses what it is shown - logged out just the same, by a
+      different route. He was told that, with the trace, rather than
+      being handed a fix that left his bug in place.
+
+      A session recorded before this carries no board and is accepted
+      anywhere, so upgrading signs nobody out; a board that does not know
+      its port keeps the bare cookie name and behaves exactly as before.
+      The reader of the cookie goes through the same _cookie_name as the
+      setter, since a board that set one name and looked for another
+      would sign nobody in - the one-decision-two-places fault t/566
+      polices, and an easy one to commit here.
+
 5.82  2026-09-05
 
     - TKT-610. One decision implemented in two places and fixed in one of

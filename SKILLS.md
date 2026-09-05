@@ -1600,7 +1600,7 @@ dialog fully usable at phone width.
 The visible last-updated time advances only after fresh data is applied. Stop
 the foreground server with Ctrl-C.
 
-## 146 use cases
+## 147 use cases
 
 Every case below is implemented and executable.
 
@@ -3840,6 +3840,16 @@ A stopped monitor is counted as `running === false` - the jobs provider's own ve
 
 ### UC-141: Manage a column's administrative-action exemptions without the CLI
 **Implemented.** The browser dashboard's Columns dialog now has a fourth list, alongside Next/Entry/Exit: Administrative actions - `--administrative-action`'s own capability (TKT-678: required-action items, by exact text, that a backward move never resets), previously reachable only through the CLI. Add, remove, or reorder items the same way the other three lists already work, and Save round-trips them through `/columns/apply` exactly like `required_actions`/`entry_required_actions`. TKT-793.
+
+### UC-147: Run two boards on one machine and stay signed in to both
+
+**Implemented** (TKT-946). His report, with his own diagnosis attached: *"more than 1 Tira dashboard running and each of them sitting on different port number... when I login on :7899 and switch back to :7800 that would be logout and both of them can't be login at the same time. I suspect is the cookie session."* He was right.
+
+A browser's cookie jar is keyed by **host alone**. RFC 6265 §8.5 states outright that cookies do not provide isolation by port, and there is no attribute that changes it — `Domain` cannot carry a port, and omitting it (which Tira does) gives a host-only cookie that is still port-blind. So two boards shared one slot named `tira_session` and overwrote each other's tokens. What he asked for — tying the cookie to domain *and* port — has no cookie-level expression at all, and saying so was part of the answer rather than a refusal of it.
+
+Two things achieve it. The cookie's **name** carries the board's port, so the browser keeps two slots; and the session token is **bound to the board that issued it** and refused anywhere else. The binding was his choice on Q-128; the name was added on top because his own symptom survives the binding alone — with one slot the later sign-in still overwrites the earlier token, and the first board then refuses what it is shown, logging the tab out just the same by a different route. He was shown that trace rather than handed a fix that left his bug in place.
+
+Two deliberate safeguards. A session recorded **before** this carries no board and is accepted anywhere, so upgrading signs nobody out — treating a missing binding as a mismatch would have been a worse, self-inflicted fault than the one being fixed. And a board that does not know its port keeps the bare cookie name, so an ordinary single-board install is untouched. The cookie's reader goes through the same `_cookie_name` as its setter, because a board that set one name and looked for another would sign nobody in at all — precisely the one-decision-two-places fault `t/566` polices, and an easy one to have committed here.
 
 ### UC-146: A scheduled command actually runs
 

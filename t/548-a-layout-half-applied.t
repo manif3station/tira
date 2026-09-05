@@ -74,6 +74,8 @@ my $refused = !eval {
 };
 ok( $refused, 'a layout that would fail partway through is refused rather than half-applied' )
   or diag('column_apply silently succeeded despite the forced failure');
+like( $@, qr/Cannot read column 'mid2'/,
+    'and the refusal is the forced fault itself, not some other failure' );
 
 # --- and nothing was left half-done -------------------------------------------
 

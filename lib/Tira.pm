@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.72';
+our $VERSION = '5.73';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -8265,8 +8265,18 @@ sub policy_evaluate {
                 'the repeated jobs could not be read, so no due job could be '
                   . 'announced this pass' );
             next if !defined $jobs;
+
+            # TKT-935. $since is this job's own last-checked instant, kept in
+            # the same store-backed ledger agent-still's own notified-stamp
+            # already uses - not on the job record itself, for the same
+            # reason no other stateful rule here writes the record it is
+            # judging. Read once per pass rather than per job, since every
+            # job in this loop shares one ledger file.
+            my $checked = $args{store} ? $self->_violation_ledger( $args{store} )->{job_checked} // {} : {};
+
             for my $job ( @{$jobs} ) {
-                next if !$self->job_is_due( $job, $when );
+                my $since = $checked->{ $job->{id} };
+                next if !$self->job_is_due( $job, $when, $since );
                 my ($window) = $when =~ /\A(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2})/;
 
                 # A command-mode job announces the command it is about to
@@ -8277,6 +8287,23 @@ sub policy_evaluate {
                   : $job->{message};
                 $report->( $policy, $job->{id}, $said, undef,
                     ( $window // $when ) );
+            }
+
+            # Advanced for EVERY job, checked or not due, so the next pass -
+            # whenever it happens to run - resumes from here rather than
+            # rescanning a window this pass already covered. Deliberately
+            # its own write, not folded into the loop above: a job's
+            # last-checked instant is true regardless of whether it turned
+            # out to be due this time.
+            if ( $args{store} && @{$jobs} ) {
+                $self->_with_enforcement_lock( $args{store}, sub {
+                    my $ledger = $self->_violation_ledger( $args{store} );
+                    $ledger->{job_checked} //= {};
+                    $ledger->{job_checked}{ $_->{id} } = $when for @{$jobs};
+                    $self->_atomic_write( $self->_violation_ledger_path( $args{store} ),
+                        json_object()->canonical->utf8->encode($ledger) );
+                    return 1;
+                } );
             }
         }
         elsif ( $rule eq 'task-card-mismatch' ) {

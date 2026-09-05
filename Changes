@@ -1,5 +1,27 @@
 Revision history for Tira
 
+5.73  2026-09-05
+
+    - TKT-935. job_is_due() compared only the current minute against a job's
+      cron expression, with no memory of minutes it did not get to check.
+      Nothing on this machine ticked police on an independent per-minute
+      schedule - only an agent's own commands, or the real d2 tira.police
+      watch daemon when one happened to be running - so an irregularly
+      invoked caller missed almost every due window: JOB-001 through
+      JOB-004 all measured last_run: null after two to three days on the
+      board, firing only in the rare minute an unrelated command happened
+      to land on the exact due minute.
+
+      Michael's decision (Q-124): change job_is_due to tolerate a gap
+      between checks, rather than run a standing supervised monitor.
+      job_is_due now takes an optional last-checked instant and treats the
+      whole span since then as due if any minute in it matches, capped at
+      one week past which a job is treated as a fresh, exact-minute-only
+      check rather than flooding the bridge with everything a
+      long-neglected job silently missed. The job-due police rule tracks
+      each job's last-checked instant in the same store-backed ledger
+      agent-still's own notified-stamp already uses.
+
 5.72  2026-09-05
 
     - TKT-894. The Telegram poller was the last repeated process here still

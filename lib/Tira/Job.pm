@@ -1235,12 +1235,37 @@ sub job_delete {
     } );
 }
 
-# Is this job due at this instant? The instant is ALWAYS an argument - never
-# the wall clock - so an assertion is about the schedule rather than about
-# when the suite happened to run, which is the same reason every other dated
-# behaviour in this engine takes an injected clock.
+# A minute-by-minute scan of a gap this large would cost real time on every
+# pass for a job an agent simply has not touched in a while, and an
+# unattended caller has no one watching to notice a slow pass. Past this many
+# minutes, $since is treated as absent - exact-minute matching only - the
+# same as a job's first-ever check. TKT-935.
+use constant _JOB_DUE_GAP_CAP_MINUTES => 10080;    # one week
+
+# Is this job due at this instant, or (TKT-935) at any minute since $since?
+# The instant is ALWAYS an argument - never the wall clock - so an assertion
+# is about the schedule rather than about when the suite happened to run,
+# the same reason every other dated behaviour in this engine takes an
+# injected clock.
+#
+# $since IS OPTIONAL, and its absence means exactly what it always meant:
+# only $when's own minute counts. Michael's decision (Q-124, TKT-935) was
+# that job_is_due should tolerate a gap between checks - the only caller
+# this board ever had running was irregular (an agent's own commands, not an
+# independent per-minute tick), so an exact-minute match missed almost every
+# due window. Given $since, every minute from one past it through $when is
+# checked, and the first match found makes the job due - it does not matter
+# which one, only that at least one did, because the rule that calls this
+# reports the CURRENT instant as the window regardless (unchanged from
+# before this card).
+#
+# NOT APPLIED BACKWARDS, the same reasoning unproven() already gives for
+# cards that shipped before it existed: a job with no $since (its first-ever
+# check, including every job that already existed before this shipped) is
+# exact-minute only, so upgrading does not flood the bridge with every hour
+# a stale job silently missed.
 sub job_is_due {
-    my ( $self, $job, $when ) = @_;
+    my ( $self, $job, $when, $since ) = @_;
     return 0 if !$job;
     return 0 if exists $job->{enabled} && !$job->{enabled};
 
@@ -1252,18 +1277,55 @@ sub job_is_due {
 
     my $sets = eval { _cron_parse($schedule) } or return 0;
 
+    my $when_epoch = _epoch_of_minute($when);
+
+    my $since_epoch;
+    if ( defined $since && $since ne '' ) {
+        $since_epoch = _epoch_of_minute($since);
+        undef $since_epoch
+          if $when_epoch - $since_epoch > _JOB_DUE_GAP_CAP_MINUTES * 60;
+    }
+
+    # $since at or past $when means nothing has actually elapsed since the
+    # last check - two passes run back to back with the clock unmoved, which
+    # a fixture that checks every rule fires does deliberately. There is no
+    # gap to fill, so this collapses to the plain exact-minute check rather
+    # than an empty range that would report a schedule as not due at the
+    # exact instant it is.
+    my $start_epoch = defined $since_epoch && $since_epoch < $when_epoch
+      ? $since_epoch + 60
+      : $when_epoch;
+    for ( my $epoch = $start_epoch; $epoch <= $when_epoch; $epoch += 60 ) {
+        return 1 if _cron_minute_matches( $sets, $epoch );
+    }
+    return 0;
+}
+
+# A timestamp truncated to the minute, as seconds since the epoch - the unit
+# every comparison and every step of the gap scan above works in, so DST and
+# month-length are POSIX::mktime's problem rather than this file's.
+sub _epoch_of_minute {
+    my ($when) = @_;
     my ( $year, $month, $day, $hour, $minute ) =
       $when =~ /\A(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/
       or die "Cannot read the time '$when'\n";
+    return POSIX::mktime( 0, $minute, $hour, $day, $month - 1, $year - 1900 );
+}
 
-    my $weekday = ( POSIX::mktime( 0, 0, 12, $day, $month - 1, $year - 1900 ) )
-      ? ( localtime POSIX::mktime( 0, 0, 12, $day, $month - 1, $year - 1900 ) )[6]
-      : 0;
+# Whether one specific minute (as an epoch) matches a job's parsed cron sets.
+# Split out of job_is_due so the gap scan and the exact-minute case (the
+# scan's own one-iteration special case, given no $since) share one reading
+# of what "matches" means - two copies of a five-field comparison is exactly
+# how two of them would eventually disagree.
+sub _cron_minute_matches {
+    my ( $sets, $epoch ) = @_;
+    my ( $minute, $hour, $day, $month, $weekday ) = ( localtime $epoch )[ 1, 2, 3, 4, 6 ];
+    $month += 1;
 
-    return 0 if !$sets->[0]{ $minute + 0 };
-    return 0 if !$sets->[1]{ $hour + 0 };
-    return 0 if !$sets->[2]{ $day + 0 };
-    return 0 if !$sets->[3]{ $month + 0 };
+    return 0 if !$sets->[0]{$minute};
+    return 0 if !$sets->[1]{$hour};
+    return 0 if !$sets->[2]{$day};
+    return 0 if !$sets->[3]{$month};
 
     # Sunday is both 0 and 7 in cron, and a schedule naming either means the
     # same day.
@@ -1554,6 +1616,31 @@ looked at again - which is the same failure the raw-cron card had, one layer alo
 
 The words are an addition, never a substitution. A job is still stored as cron,
 and the editor puts the real string back into the field when it opens.
+
+=head1 DUE TOLERATES A GAP BETWEEN CHECKS
+
+C<job_is_due> compared only the current minute against a job's schedule until
+5.73, so a caller invoked irregularly - an agent's own commands, the only
+thing that ever called it on this board - missed almost every due window.
+Measured live: JOB-001 through JOB-004 all carried C<last_run: null> after
+two to three days on the board, firing only in the rare minute an unrelated
+command happened to land on the job's exact due minute.
+
+Michael's decision (Q-124, TKT-935): change C<job_is_due> to tolerate the
+gap, rather than run a standing supervised C<d2 tira.police> monitor. It now
+takes an optional third argument, the instant it was last checked, and
+treats every minute since as due if any of them match - so an irregular
+caller catches a missed window on its next check rather than stepping over
+it. Capped at one week, past which a job is treated as a fresh,
+exact-minute-only check: the same "not applied backwards" reasoning
+C<unproven()> already gives cards that shipped before it existed, so a
+long-neglected job does not flood the bridge with everything it silently
+missed the moment it is first read under the new code.
+
+The C<job-due> police rule (C<lib/Tira.pm>) keeps each job's last-checked
+instant in the same store-backed ledger C<agent-still>'s own notified-stamp
+already uses - not on the job record itself, for the same reason no other
+stateful rule here writes the record it is judging.
 
 =head1 A MONITOR CALLS IN - ITS LEAVINGS ARE NOT READ
 

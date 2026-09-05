@@ -1,5 +1,20 @@
 Revision history for Tira
 
+5.78  2026-09-05
+
+    - TKT-605. Hit live: a coverage run measured lib/Tira/CLI.pm while
+      another card's own work edited it concurrently, and reported "1203
+      UNCOVERED" - every one of those statements was actually covered,
+      and the only reason the figure was not simply believed is that
+      1203 was too absurd a number to trust. tools/coverage-guard
+      fingerprints lib/'s actual bytes on disk before and after the
+      command it wraps, and refuses - naming which file changed - rather
+      than let a wrong number be reported as though it were real.
+      tools/gate-run's own coverage step is wrapped in it too. The
+      browser suite was considered and left out: it reports pass/fail,
+      not a percentage, so there is no number a concurrent edit could
+      make subtly wrong.
+
 5.77  2026-09-05
 
     - TKT-604, TSK-181. His own request: "I want the police to raise a

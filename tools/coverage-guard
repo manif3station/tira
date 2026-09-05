@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+#
+# Run a command against lib/, and refuse to say anything happened if lib/
+# changed while it ran.
+#
+# TKT-605. Hit live: a coverage run measuring lib/Tira/CLI.pm while another
+# card's work edited it concurrently reported "1203 UNCOVERED" - every one of
+# those statements was actually covered, and the only reason the figure was
+# not simply believed and acted on is that 1203 was too absurd a number to
+# trust. A quieter interference producing "3 uncovered" would have sent
+# somebody hunting a phantom line, which is exactly the hunt a coverage
+# figure exists to save.
+#
+# tools/gate-cache-read already carries the standard this reuses: "not a
+# claim, a record that could only have been produced by actually having that
+# tree." That tool keys on `git rev-parse HEAD^{tree}`, which answers for the
+# committed tree - useless here, since the whole failure mode is an
+# UNCOMMITTED edit landing mid-run, which never touches HEAD's tree hash at
+# all. So the fingerprint here is of lib/'s actual bytes on disk, not git's
+# record of them: a run against a working tree has no commit to point at.
+#
+# Usage: tools/coverage-guard -- COMMAND [ARGS...]
+#   Runs COMMAND, then refuses (exit 1, nothing of COMMAND's output trusted)
+#   if any file under lib/ changed between start and finish. Exits with
+#   COMMAND's own status when lib/ did not change and COMMAND succeeded.
+
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+
+if [ "${1:-}" != "--" ]; then
+    echo "coverage-guard: usage: tools/coverage-guard -- COMMAND [ARGS...]" >&2
+    exit 2
+fi
+shift
+
+fingerprint() {
+    find lib -type f -name '*.pm' -exec sha256sum {} + 2>/dev/null | sort
+}
+
+before="$(fingerprint)"
+
+set +e
+"$@"
+status=$?
+set -e
+
+after="$(fingerprint)"
+
+if [ "$before" != "$after" ]; then
+    # diff exits 1 when its inputs differ - which they always do here, by
+    # construction - and that is not a failure to react to under set -e.
+    changed="$(diff <(printf '%s\n' "$before") <(printf '%s\n' "$after") \
+        | grep -E '^[<>]' | awk '{print $NF}' | sort -u | paste -sd ' ' - || true)"
+    echo "coverage-guard: lib/ changed while the command ran - refusing to trust anything it reported. Changed: ${changed:-unknown}" >&2
+    exit 1
+fi
+
+exit "$status"

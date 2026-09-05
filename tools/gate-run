@@ -99,8 +99,19 @@ docker compose -f "$compose" run --rm -v "$tree:/workspace/skills/tira" perl-tes
     echo "gate-run: no modules found under lib/ - refusing to report coverage over nothing" >&2
     exit 1
   fi &&
-  cover -ignore_covered_err -report text "${select_args[@]}" \
-    -coverage statement -coverage subroutine 2>/dev/null | grep -E "^lib|^Total"
+  cat >/tmp/.gate-run-cover <<"COVERSCRIPT" &&
+#!/usr/bin/env bash
+cover -ignore_covered_err -report text "$@" -coverage statement -coverage subroutine 2>/dev/null
+COVERSCRIPT
+  chmod +x /tmp/.gate-run-cover &&
+  ./tools/coverage-guard -- /tmp/.gate-run-cover "${select_args[@]}" >/tmp/.gate-run-cover-out 2>&1
+  coverage_status=$?
+  grep -E "^lib|^Total|^coverage-guard" /tmp/.gate-run-cover-out
+  if [ "$coverage_status" -ne 0 ]; then
+    echo "gate-run: refusing - coverage-guard did not trust this run" >&2
+    exit "$coverage_status"
+  fi
+  true &&
 
   # The percentage says a module is short; this says which line. It runs HERE,
   # inside the container, because the next line removes the database and the

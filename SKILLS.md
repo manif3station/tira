@@ -1518,6 +1518,30 @@ reintroduced. It would have been redundant as well as unwanted: `tools/card-hole
 which stays, already refuses a card carrying no recorded gate, no evidence or no
 fix version. TKT-680.
 
+**A coverage figure is only valid for the tree it measured, and since 5.78
+that is enforced rather than assumed** (TKT-605). Hit live: a coverage run
+measured `lib/Tira/CLI.pm` while another card's own work edited it
+concurrently, and reported "1203 UNCOVERED" - every one of those statements
+was actually covered, and the only reason the figure was not simply believed
+is that 1203 was too absurd to trust; a quieter interference producing "3
+uncovered" would have sent somebody hunting a phantom line. `tools/gate-cache-read`
+already carries the standard this reuses - "not a claim, a record that could
+only have been produced by actually having that tree" - but that tool keys on
+`git rev-parse HEAD^{tree}`, which cannot see this failure at all: the bug is
+an UNCOMMITTED edit landing mid-run, and HEAD's tree hash never moves for
+one of those. `tools/coverage-guard` fingerprints `lib/`'s actual bytes on
+disk instead, before and after the command it wraps, and refuses - naming
+which file changed - rather than let a wrong number be reported as though it
+were real. `tools/gate-run`'s own coverage step is wrapped in it too, for the
+same reason its own worktree is still "a working tree" for the twenty minutes
+the suite runs against it, even though nothing else is expected to touch it.
+The browser suite (`tools/browser-tests`) was considered for the same guard
+and left out: it does not report a per-file coverage percentage the way
+`cover` does, so there is no number here that a concurrent edit could make
+subtly wrong the way CLI.pm's was - a browser test either passes against
+whatever code ran or it does not, and a page mid-edit produces a visible
+Playwright failure rather than a quiet miscount.
+
 **Since 5.70, `tools/card-holes` also refuses a card the push names that has
 not reached `push` itself** - the completeness checks above ask nothing about
 approval, and a card sitting in `pending-push` shipped anyway once: `TKT-854`

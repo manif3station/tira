@@ -53,12 +53,16 @@ Revision history for Tira
       rather than naming modules (TKT-594).
 
       The card asked for the first to route through a function called
-      _columns_for. No such function exists - TKT-597 fixed that fault
-      differently in 4.54, by recovering the type from the record the
-      caller already holds - and inventing one is outside this card's
-      scope. The invariant that fault actually violated is registered
-      instead, and the substitution is recorded on the card rather than
-      made silently.
+      _columns_for. I recorded that no such function existed and
+      registered a different invariant instead - and that reason was
+      FALSE: _columns_for is at lib/Tira/CLI.pm:1068 with five guard
+      callers, and I had searched lib/Tira.pm alone. The substituted
+      invariant is real and holds, so the registry is sound, but the
+      reason given for substituting was not. Adding the intended entry
+      turns out to need six CLI-layer call sites classified first -
+      exactly the "inherent-type sites whitelisted and each carrying its
+      reason" the card anticipated - so it is TKT-947 rather than a line,
+      and the correction is on the card rather than left standing.
 
       It is a ratchet, not a search, and says so in its own header:
       it cannot find an unknown pair, only stop a known one drifting.

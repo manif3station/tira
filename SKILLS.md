@@ -2188,7 +2188,7 @@ becomes everything. Adding the next pair costs a line rather than a file, which
 is the point: the registry is the deliverable, not any single rule. Seeded with
 three — `column_list` is always asked for a specific type (TKT-597), a status
 compared to `done` is lowercased first (TKT-601), and the coverage gate derives
-its module list from `lib/` rather than naming modules (TKT-594).
+its module list from `lib/` rather than naming modules (TKT-594). A fourth — `column_list` in a guard routing through `_columns_for`, which the card named first — is owed and is TKT-947: it needs six CLI-layer call sites classified before its whitelist can carry real reasons, and a whitelist without them is what this test refuses.
 
 It is a **ratchet, not a search**, and its own header says so: it cannot find an
 unknown pair, only stop a known one drifting, and it reads source text so it

@@ -71,8 +71,13 @@ like( $gate_run, qr/flock[^\n]*\n(?:[^\n]*\n){0,6}?[^\n]*docker compose/,
 # compose run --rm -v", which is not evidence of anything.
 
 my ($lock_line) = $gate_run =~ /^([^\n]*\bflock\b[^\n]*)$/m;
-ok( defined $lock_line && length $lock_line, 'a line taking the flock was found' )
+ok( defined $lock_line, 'a line taking the flock was found' )
   or BAIL_OUT('no flock line in tools/gate-run - update the pattern above');
+
+# non-empty is the whole claim: the denial below would pass on an undetected,
+# empty $lock_line otherwise - the same fault t/147 exists to catch. Also what
+# establishes $lock_line for t/147's own reading of this file.
+like( $lock_line, qr/\S/, 'the flock line is not blank' );
 
 unlike( $lock_line, qr/-n\b|--nonblock\b/,
     'that line does not pass -n/--nonblock - this project wants concurrent '

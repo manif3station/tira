@@ -3462,7 +3462,14 @@ has to run a migration by hand.
     live needing exactly this filter, and independently by the owner, who had
     closed a required action on a real card citing `--ref CARD` as proof -
     right only by coincidence (one card had tasks at the time), and wrong the
-    moment a second one did.
+    moment a second one did. **Since 5.74 the browser dashboard reaches this
+    filter too** (TKT-595): the card dialog's Linkage section fetches `GET
+    /tasklist?ref=REF&all_sessions=1` and lists what comes back - the same
+    reverse lookup the CLI has had since this option shipped, reached from the
+    one place a person actually looks. `Tira::CLI::Browser`'s `tasklist`
+    provider now passes `ref` and `all_sessions` through from the query
+    string; before this it forwarded only `session`, so the filter existed
+    and the page could not ask for it.
   - `--unlinked` (TKT-552) returns only items with an empty `refs` array.
     `task-unlinked` (TKT-547) already watches for these, but only reports one
     once it has aged past its grace — so finding them *before* the police

@@ -1,5 +1,23 @@
 Revision history for Tira
 
+5.74  2026-09-05
+
+    - TKT-595. The card dialog's Linkage section showed Epic Ref, Parent
+      Ticket Ref, Sub Ticket Refs and typed links, but not the tasklist
+      items that reference the card - the owner's own words, with a
+      screenshot: "also show linked tasks". The CLI half of this reverse
+      lookup already shipped independently as TKT-802
+      (tasklist.list --ref REF --all-sessions); the gap was the browser's
+      own GET /tasklist provider, which forwarded only --session, and the
+      dialog itself, which never asked.
+
+      Tira::CLI::Browser's tasklist provider now passes ref and
+      all_sessions through when the query carries them. The card dialog
+      fetches /tasklist?ref=REF&all_sessions=1 alongside the rest of the
+      Linkage section it builds, rendering each task's id, text, status and
+      owning session, read-only; a card nothing points at renders no empty
+      heading.
+
 5.73  2026-09-05
 
     - TKT-935. job_is_due() compared only the current minute against a job's

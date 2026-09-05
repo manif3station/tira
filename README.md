@@ -46,6 +46,8 @@ remaining retained-not-deleted.
 Linkage is editable from the dialog too: set or unlink hierarchy and
 sub-item parents, link and unlink children, and add or remove typed links
 with reciprocals through the same transactional engine commands as the CLI.
+Linkage also lists the tasklist items that name the card, read-only, across
+every session - the reverse of what a task already shows about its own card.
 Long-text sections carry their edit pencil in the section heading, and the
 whole dashboard is responsive down to phone width with a near-fullscreen
 dialog and a stacked details grid. Card drag-and-drop runs on pointer

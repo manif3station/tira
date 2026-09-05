@@ -1563,9 +1563,16 @@ commands transactionally: parent rows link and unlink, children rows unlink
 per entry and link new refs, and typed links offer the project's configured
 outward and inward names with reciprocals kept consistent on both records.
 Engine validation errors (wrong type pairing, unknown ref or link type)
-render inside the dialog. Long-text sections carry their edit pencil in the
-section heading, and a small-screen layout keeps the board and dialog fully
-usable at phone width.
+render inside the dialog. **Since 5.74 the Linkage section also lists the
+tasklist items that name the card** (TKT-595) - the reverse of what a task
+already shows about its own card. Read-only, across every session (a signed-in
+human view, not one agent's own queue), each row naming the task's id, text,
+status and owning session; a card nothing points at renders no empty heading.
+The browser reaches this through the same `tasklist_list --ref REF
+--all-sessions` filter the CLI has had since TKT-802 - one answer, not two
+implementations of the same reverse lookup. Long-text sections carry their edit
+pencil in the section heading, and a small-screen layout keeps the board and
+dialog fully usable at phone width.
 The visible last-updated time advances only after fresh data is applied. Stop
 the foreground server with Ctrl-C.
 

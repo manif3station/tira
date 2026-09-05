@@ -394,8 +394,17 @@ sub providers {
         # thin dashboard control is all it needs.
         tasklist => sub {
             my ($query) = @_;
-            return $json->encode(
-                $tira->tasklist_list( project => $project, session => $query->{session} // '' ) );
+
+            # --ref/--all-sessions (TKT-802) so the card dialog's own
+            # reverse lookup (TKT-595, "which tasks point at this card")
+            # reaches the same answer the CLI already gives, rather than a
+            # second implementation of the same filter.
+            my %args = ( project => $project, session => $query->{session} // '' );
+            $args{ref} = $query->{ref} if defined $query->{ref} && $query->{ref} ne '';
+            $args{all_sessions} = 1
+              if defined $query->{all_sessions} && $query->{all_sessions} ne ''
+                    && $query->{all_sessions} ne '0';
+            return $json->encode( $tira->tasklist_list(%args) );
         },
 
         # Repeated jobs, read-only here. Every job the board holds, so the

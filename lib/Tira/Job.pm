@@ -279,7 +279,18 @@ sub job_add {
         my $now  = $self->{clock}->();
         my $job  = {
             id => _job_next_id( $root, $jobs ), %fields,
-            enabled => 1, last_run => undef,
+            # last_run is NOT written here any more. TKT-942: it was assigned
+            # undef at creation and never again, by anything, anywhere - a
+            # field that looked like an answer and was only ever null, on
+            # every job on every board. It is what the owner read as proof
+            # his jobs were broken, three times in one afternoon, while they
+            # were firing on schedule the whole time. Retired rather than
+            # populated: what he wanted is last_due_at, joined on at read
+            # from the ledger by job_list above, and a second field meaning
+            # nearly the same thing is the drift this file keeps warning
+            # about. Records written before this keep a stale last_run key;
+            # nothing reads it, and no view ever rendered it.
+            enabled => 1,
             created_at => $now, last_updated => $now,
         };
         push @{$jobs}, $job;
@@ -302,10 +313,29 @@ our $MONITOR_OUTPUT_LINES = 20;
 # possible typo, and which would be one the day this is renamed.
 sub monitor_output_per_pass { return $MONITOR_OUTPUT_LINES }
 
+# TKT-942. C<last_due_at> is joined on HERE rather than stored, and only when
+# the caller says which store to read. The instant lives in the police
+# ledger because the rule that knows it must not write the record it judges -
+# the constraint stated under "DUE TOLERATES A GAP BETWEEN CHECKS" below -
+# and a field copied onto the record would be a second copy to keep in
+# agreement with the first, which is how two validators for one format came
+# to disagree on TKT-713.
+#
+# Every job gets the key, including one that has never been due, which then
+# carries undef. That is deliberate: "never fired" and "fired, but nobody
+# recorded it" were indistinguishable before this card - both simply absent -
+# and telling them apart is the whole of what the owner was asking for.
+# Monitor jobs are left alone; they are never "due" and already report
+# themselves through last_output_at.
 sub job_list {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
-    return _job_read( $self, $root );
+    my $jobs = _job_read( $self, $root );
+    return $jobs if !defined $args{store} || $args{store} eq '';
+
+    my $due = eval { $self->_violation_ledger( $args{store} )->{job_due_at} } || {};
+    $_->{last_due_at} = $due->{ $_->{id} } for @{$jobs};
+    return $jobs;
 }
 
 sub _job_find {
@@ -1641,6 +1671,46 @@ The C<job-due> police rule (C<lib/Tira.pm>) keeps each job's last-checked
 instant in the same store-backed ledger C<agent-still>'s own notified-stamp
 already uses - not on the job record itself, for the same reason no other
 stateful rule here writes the record it is judging.
+
+=head1 A CRON JOB SAYS WHEN IT LAST FIRED
+
+TKT-942. C<last_run> was a field nothing wrote. One line assigned it -
+C<< last_run => undef >> as a job was created - and no code anywhere in
+C<lib/> or C<cli/> ever wrote it again, so every job on every board read
+C<null> for good. The owner asked three times in one afternoon whether his
+jobs were broken; they had been firing on schedule the whole time, and
+nothing on the board said so.
+
+The heartbeat he could see on two of his jobs belongs to C<last_output_at>,
+which the feeder stamps when a MONITOR calls in - described in the section
+below. A cron job never calls in, so it never had one, and neither mode of
+cron job had anything else to show either.
+
+What it has now is C<last_due_at>. The C<job-due> rule records each
+genuinely-due window in the same store-backed ledger it already keeps
+C<job_checked> in, and C<job_list> joins it onto each job at read time when
+the caller passes a C<store>. The two ledger entries answer different
+questions and are deliberately kept apart: C<job_checked> advances for every
+job a pass looked at, due or not, so that C<job_is_due> knows where to
+resume; C<job_due_at> moves only when the job was actually due.
+
+B<Computed, never persisted.> The instant does not go onto the job record,
+for the reason the section above already gives - no stateful rule here writes
+the record it is judging - and C<t/563> holds that line by comparing the jobs
+file byte for byte across a pass that announced a due job. A job asked for
+without a store is not given a stale answer; the field is simply absent.
+
+Every job read with a store carries the key, including one that has never
+been due, which carries C<undef>. That is the point rather than an oversight:
+"never fired" and "fired, but nobody recorded it" were indistinguishable
+before this, both simply absent, and telling them apart is what was actually
+being asked for. The dashboard renders the difference as "Never fired"
+against "Last fired 20 minutes ago".
+
+C<last_run> is retired rather than made true. Populating it would leave two
+fields meaning nearly the same thing, which is the drift this file keeps
+warning about; records written before 5.80 keep a stale key that nothing
+reads and no view ever rendered.
 
 =head1 A MONITOR CALLS IN - ITS LEAVINGS ARE NOT READ
 

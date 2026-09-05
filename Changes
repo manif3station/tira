@@ -1,5 +1,38 @@
 Revision history for Tira
 
+5.80  2026-09-05
+
+    - TKT-942. Michael asked three times in one afternoon why his jobs
+      showed no run history, and each time the answer was "go read the
+      bridge log". He was right to read it as broken. last_run was a
+      field nothing wrote: one assignment, `last_run => undef` at job
+      creation, and no other anywhere in lib/ or cli/ - so every job on
+      every board carried null for ever, including monitors that were
+      demonstrably alive. The "Last spoke X ago" indicator he could see
+      on two of his jobs reads a different field entirely,
+      last_output_at, which the feeder stamps for monitor-schedule jobs
+      alone (TKT-851). No cron job of either mode had ever had anything
+      to show.
+
+      The job-due rule now records each genuinely-due window in the same
+      store-backed ledger it already keeps job_checked in, and job_list
+      joins it onto each job at read time as last_due_at when given a
+      store - computed, never persisted, because the rule that knows the
+      instant must not write the record it judges (the constraint
+      lib/Tira/Job.pm's own POD states, and which t/563 now asserts by
+      comparing the jobs file byte for byte across a pass). d2
+      tira.job.list and the browser jobs editor both resolve the store,
+      so a cron row reads "Last fired 20 minutes ago" - or "Never fired"
+      where the window genuinely has not come round, kept as its own
+      state rather than painted as a fault. Both message-mode and
+      command-mode cron jobs are covered; monitors are untouched.
+
+      last_run is retired rather than populated. Making it true would
+      have meant a second field meaning nearly the same thing as
+      last_due_at, which is the drift this codebase keeps finding. It is
+      no longer written at creation; records made before this keep a
+      stale key that nothing reads and no view ever rendered.
+
 5.79  2026-09-05
 
     - TKT-941. Reported from another project through

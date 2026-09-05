@@ -118,7 +118,19 @@ sub run_now {
 sub dispatch {
     my ( $tira, $args, $option, $command ) = @_;
 
-    return $tira->job_list( %{$args} ) if $command eq 'job.list';
+    # TKT-942. The store is resolved and handed over so job_list can join
+    # each job's last-fired instant on at read time. Without it the command
+    # answers exactly as it did before - the field simply absent - which is
+    # what a caller pointing at a board with no police state should get.
+    if ( $command eq 'job.list' ) {
+        require Tira::CLI::Police;
+        my %list = %{$args};
+        $list{store} //= eval {
+            Tira::CLI::Police::_police_store(
+                $tira->discover_project( %{$args} ) );
+        };
+        return $tira->job_list(%list);
+    }
 
     # A monitor telling the board what it just said. TKT-851.
     #

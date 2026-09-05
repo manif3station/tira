@@ -3790,8 +3790,37 @@ reader never has to infer it from whichever field is populated.
     What the dashboard does with it, for an enabled monitor: **lit** when it
     spoke within its declared expectation or declares none, **red** when it has
     been silent longer than what it declared, and **dim** when it has never
-    spoken at all. A cron job and a disabled monitor show no heartbeat at all -
-    the same two silences `monitor-dead` keeps, and for the same reason.
+    spoken at all. A disabled monitor shows no heartbeat at all - the same
+    silence `monitor-dead` keeps, and for the same reason.
+
+    **A cron job shows a different line, and since 5.80 it shows one at all**
+    (TKT-942). It has no heartbeat to miss - it is not supposed to be up
+    between runs - but it does have a last-fired instant, and until this
+    release nothing displayed it: the owner asked three times in one
+    afternoon why his hourly hunts showed no run history, while they had been
+    firing on schedule the whole time. A cron row now reads **"Last fired 20
+    minutes ago"**, or **"Never fired"** where its window genuinely has not
+    come round yet - kept as its own state rather than painted as a fault, the
+    same care the monitor's "Never spoken" already takes. Both message-mode
+    and command-mode cron jobs get it.
+
+    `tira.job.list` reports the same instant as `last_due_at` when it can
+    resolve a police store, which it does for itself. **It is computed at
+    read, never stored on the job**: the instant lives in the police ledger
+    beside `job_checked`, because the `job-due` rule that knows it must not
+    write the record it is judging - the constraint `lib/Tira/Job.pm`'s POD
+    states, and which `t/563` holds by comparing the jobs file byte for byte
+    across a pass. Asked without a store, `job_list` simply does not claim -
+    the field is absent rather than stale.
+
+    **`last_run` was retired in the same release, not populated.** It had been
+    assigned `undef` at job creation and written by nothing, anywhere, ever -
+    so every job on every board read `null` for good, which is precisely what
+    was being read as proof the jobs were broken. Making it true would have
+    meant a second field meaning nearly what `last_due_at` means, and two
+    fields for one fact is the drift this project keeps finding. Records
+    written before 5.80 keep a stale `last_run` key; nothing reads it and no
+    view ever rendered it.
 
     The owner chose this shape over a board-wide constant and over deriving one
     from the job (Q-115 on TKT-863). There is nothing to derive from - a

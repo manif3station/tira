@@ -1600,7 +1600,7 @@ dialog fully usable at phone width.
 The visible last-updated time advances only after fresh data is applied. Stop
 the foreground server with Ctrl-C.
 
-## 144 use cases
+## 145 use cases
 
 Every case below is implemented and executable.
 
@@ -3818,6 +3818,14 @@ A stopped monitor is counted as `running === false` - the jobs provider's own ve
 
 ### UC-141: Manage a column's administrative-action exemptions without the CLI
 **Implemented.** The browser dashboard's Columns dialog now has a fourth list, alongside Next/Entry/Exit: Administrative actions - `--administrative-action`'s own capability (TKT-678: required-action items, by exact text, that a backward move never resets), previously reachable only through the CLI. Add, remove, or reorder items the same way the other three lists already work, and Save round-trips them through `/columns/apply` exactly like `required_actions`/`entry_required_actions`. TKT-793.
+
+### UC-145: See that a repeated job is actually firing
+
+**Implemented** (TKT-942). Michael asked three times in one afternoon whether his hourly hunts were broken, and each time the answer was "go read the bridge log". He was right to read the board as saying nothing: `last_run` was a field **nothing wrote** - one assignment, `last_run => undef` at job creation, and no other anywhere in `lib/` or `cli/` - so every job on every board carried `null` for ever, including the two monitors that were demonstrably alive and talking. The "Last spoke X ago" indicator visible on those two reads a different field entirely, `last_output_at`, which the feeder stamps for monitor-schedule jobs alone (TKT-851). A cron job never calls in, so no cron job of either mode had ever had anything to show.
+
+The `job-due` rule now records each genuinely-due window in the same store-backed ledger it already keeps `job_checked` in, and `job_list` joins it on at read time as `last_due_at` when given a store. The two are kept apart on purpose: `job_checked` advances for every job a pass looked at, due or not, so `job_is_due` knows where to resume; `job_due_at` moves only when the job was really due. `d2 tira.job.list` and the browser jobs editor both resolve the store for themselves, so a cron row reads **"Last fired 20 minutes ago"** - or **"Never fired"** where its window has genuinely not come round, kept as its own state rather than painted as a fault, the same care the monitor heartbeat's "Never spoken" already takes. Message-mode and command-mode cron jobs both get it; monitors are untouched.
+
+**Computed at read, never stored.** The instant stays in the ledger because the rule that knows it must not write the record it is judging - the constraint `lib/Tira/Job.pm`'s own POD states - and `t/563` holds that by comparing the jobs file byte for byte across a pass that announced a due job. Asked without a store, nothing is claimed and the field is simply absent rather than stale. `last_run` was **retired** in the same release rather than populated: making it true would leave two fields meaning nearly the same thing, which is the drift this project keeps finding; records written before 5.80 keep a stale key that nothing reads and no view ever rendered.
 
 ### UC-144: Gate an upgrade with a ticket instead of trusting a bridge line
 

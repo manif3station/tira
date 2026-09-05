@@ -434,7 +434,17 @@ sub providers {
         # that cries wolf is one he stops reading, which is the failure this is
         # meant to end.
         jobs => sub {
-            my $jobs = $tira->job_list( project => $project );
+            # TKT-942: with the store, each job carries last_due_at - when
+            # it was genuinely last due - so a cron job of either mode can
+            # say it is alive instead of showing the blank the owner kept
+            # reading as broken.
+            my $jobs = $tira->job_list(
+                project => $project,
+                store   => scalar eval {
+                    Tira::CLI::Police::_police_store(
+                        $tira->discover_project( project => $project ) );
+                },
+            );
             my $processes;
             my @rows;
             for my $job ( @{$jobs} ) {

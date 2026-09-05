@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.79';
+our $VERSION = '5.80';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -8385,10 +8385,24 @@ sub policy_evaluate {
             # job in this loop shares one ledger file.
             my $checked = $args{store} ? $self->_violation_ledger( $args{store} )->{job_checked} // {} : {};
 
+            # TKT-942. Which jobs turned out to be genuinely due this pass,
+            # as against $checked above, which advances for every job whether
+            # due or not. Michael asked three times in one afternoon why a
+            # job showed no run history, and he was right to: last_run was a
+            # field nothing wrote, and the "Last spoke" indicator he could
+            # see on his monitors reads last_output_at, which the feeder
+            # stamps for monitors alone. So a cron job of either mode had
+            # never had anything to show. Collected here and written with
+            # $checked below in one ledger write, then joined onto the job at
+            # READ time by job_list as last_due_at - the record itself stays
+            # untouched, for the reason stated three paragraphs up.
+            my %fired;
+
             for my $job ( @{$jobs} ) {
                 my $since = $checked->{ $job->{id} };
                 next if !$self->job_is_due( $job, $when, $since );
                 my ($window) = $when =~ /\A(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2})/;
+                $fired{ $job->{id} } = $when;
 
                 # A command-mode job announces the command it is about to
                 # run, so the bridge says what is happening before it says
@@ -8411,6 +8425,14 @@ sub policy_evaluate {
                     my $ledger = $self->_violation_ledger( $args{store} );
                     $ledger->{job_checked} //= {};
                     $ledger->{job_checked}{ $_->{id} } = $when for @{$jobs};
+
+                    # Only the jobs that were actually due, and only ever
+                    # added to: a job that fired an hour ago and is not due
+                    # now still last fired an hour ago. TKT-942.
+                    if (%fired) {
+                        $ledger->{job_due_at} //= {};
+                        $ledger->{job_due_at}{$_} = $fired{$_} for keys %fired;
+                    }
                     $self->_atomic_write( $self->_violation_ledger_path( $args{store} ),
                         json_object()->canonical->utf8->encode($ledger) );
                     return 1;

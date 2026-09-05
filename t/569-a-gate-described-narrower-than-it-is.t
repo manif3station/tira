@@ -74,6 +74,9 @@ sub doc {
     # has nothing to do with which column an answer came from.
     my ($filter) = $gate =~ /(my\s+\@unjudged\s*=\s*grep\s*\{.*?\}\s*\@\{[^;]*;)/s;
     ok( defined $filter, 'the unjudged filter itself was found' );
+    # non-empty is the whole claim: a denial against an empty capture passes
+    # for the wrong reason, which is what t/147 exists to catch.
+    like( $filter, qr/\S/, 'the filter has text in it to deny things about' );
     unlike( $filter, qr/column/i,
         'and it filters on answered, not-discarded and unmarked - with no column '
           . 'anywhere in it, which is what card-wide means' );
@@ -96,6 +99,8 @@ sub doc {
     my ($written) = $engine =~
       /(\$entry->\{answer\}\s*=\s*\{.*?\n\s*\};)/s;
     ok( defined $written, 'the answer record as it is written was found' );
+    # non-empty is the whole claim, for the same reason as the filter above.
+    like( $written, qr/\S/, 'the record has fields in it to deny a column among' );
     unlike( $written, qr/column/,
         'an answer carries no column, so a column-scoped gate is not merely '
           . 'unimplemented but unrepresentable without a new field' );

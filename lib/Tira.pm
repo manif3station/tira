@@ -13969,7 +13969,9 @@ Creates a new record copying a source record's fields, linked back to it as a cl
 Adds a checklist entry to a record. TKT-668: C<--status> is validated
 against the declared set C<{pending, done, To Do}>, case-insensitive - a
 misspelling refuses rather than storing an item no gate can recognize as
-done.
+done. Since 5.62 (TKT-909) C<--item> refuses a whitespace-only value the
+same way the literal empty string always did - a space is not a smaller
+piece of content than none.
 
 =head2 checklist_update
 
@@ -14061,6 +14063,9 @@ announcing a command wrote a false done-claim into the record the board keeps
 of what was proved. TKT-585, TKT-628.
 
 =head2 required_item_add
+
+Since 5.62 (TKT-909) C<--item> refuses a whitespace-only value, the same
+fix C<checklist_add> and C<evidence_add> got.
 
 Adds a required-action entry to a record. An item a column's exit or
 entry template itself populates (C<source =E<gt> 'required-action'>)
@@ -14457,7 +14462,11 @@ required item is never written as C<To Do>. TKT-804.
 =head2 evidence_add
 
 Appends an evidence entry to a record, naming its author and taking a summary
-with an optional URI or stored file.
+with an optional URI or stored file. Since 5.62 (TKT-909) C<--summary>
+refuses a whitespace-only value: an evidence entry is what a release gate
+reads back as the record of what was proved, and a summary of pure spaces
+satisfied every check that asks whether evidence exists while telling the
+next reader nothing.
 
 =head2 evidence_list
 

@@ -251,10 +251,16 @@ asked for `--status` to be *refused* on a list, which is the opposite. TKT-748.
 `--text` — *A comment needs some text*. It was alone in accepting an **empty**
 body: every sibling refuses one — `evidence.add` a summary, `warning.add` a
 message, `question.answer` some text, `checklist.add`/`required-action.add` an
-item. On **whitespace** the siblings disagree, and comment.add joins the stricter
-pair: `warning.add` and `question.answer` test `/\S/`, while `evidence.add`,
-`checklist.add` and `required-action.add` test `eq ''` and still accept a value
-made of spaces.
+item. On **whitespace** the siblings used to disagree - `warning.add` and
+`question.answer` tested `/\S/`, while `evidence.add`, `checklist.add` and
+`required-action.add` tested `eq ''` and still accepted a value made of
+spaces. **Since 5.62 (TKT-909) all five test `/\S/`.** Worst on
+`evidence.add`: an evidence entry is what a release gate reads back as the
+record of what was proved, and a summary of pure spaces satisfied every
+check that asks whether evidence exists while telling the next reader
+nothing. `checklist.update`/`required-action.update` are deliberately
+unchanged - blanking an existing item is a different question from creating
+a blank one, the same distinction TKT-753 drew for `comment.update`.
 
 The test is `/\S/` rather than a length check for two reasons. A space is not a
 smaller comment than none, which this project settled on TKT-585 for

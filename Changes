@@ -1,5 +1,25 @@
 Revision history for Tira
 
+5.62  2026-09-05
+
+    - TKT-909. `evidence_add`, `checklist_add` and `required_item_add`
+      refused only the literal empty string; `warning_add` and
+      `question_answer` already refuse whitespace-only content, settled on
+      TKT-585 for `--command`/`--proof`: "Whitespace counts as empty: a
+      space is not a smaller piece of evidence than none." That reasoning
+      was never carried to the other three.
+
+      **Worst on `evidence_add`**: an evidence entry is what a release gate
+      reads back as the record of what was proved, and a summary of three
+      spaces satisfied every check that asks whether evidence exists while
+      telling the next reader nothing - the same shape as the empty comment
+      TKT-753 closed, on a record that matters more.
+
+      **`checklist_update` and `required_item_update` are deliberately
+      unchanged**, matching TKT-753's precedent for `comment_update`:
+      whether blanking an existing item is a legitimate edit is a different
+      question from whether creating a blank one is.
+
 5.61  2026-09-05
 
     - TKT-933. `card-stalled` accepted an `--age`, stored it, showed it back -

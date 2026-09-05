@@ -3118,7 +3118,7 @@ opens it on that board, and `tira.dashboard` opens it on the default one.
 
 ### Checklists
 
-- `tira.checklist.add --ref REF --item TEXT --status TEXT [-o FORMAT]`
+- `tira.checklist.add --ref REF --item TEXT --status TEXT [-o FORMAT]` - since 5.62 `--item` refuses a whitespace-only value, naming what is missing, the same as the literal empty string always did - the same fix `evidence.add` and `required-action.add` got, and the same reasoning TKT-585 already settled for `--command`/`--proof`: whitespace counts as empty. `checklist.update` is deliberately unchanged - blanking an existing item is a different question from creating a blank one, matching TKT-753's precedent for `comment.update`. TKT-909.
 - `tira.checklist.list --ref REF [--status STATUS] [-o FORMAT]`
   - `--status STATUS` (TKT-748) narrows to items in that status, taking the
     same three values `checklist.add` accepts — `pending`, `done` and `To Do`,
@@ -3164,7 +3164,7 @@ of this same backward-reset design (TKT-455), which is why it can look
 like every required item on the card was silently wiped; the comment
 exists so a reader never has to guess.
 
-- `tira.required-action.add --ref REF --item TEXT --status TEXT [--column SLUG] [-o FORMAT]` - adds an item tagged with the card's current column; unlike checklist.add, this item gates the card's next move out of that column. `--column` overrides the tag to name a different column, which is how a required item is backfilled onto a card without physically moving it back through that column first.
+- `tira.required-action.add --ref REF --item TEXT --status TEXT [--column SLUG] [-o FORMAT]` - adds an item tagged with the card's current column; unlike checklist.add, this item gates the card's next move out of that column. `--column` overrides the tag to name a different column, which is how a required item is backfilled onto a card without physically moving it back through that column first. Since 5.62 `--item` refuses a whitespace-only value the same way `checklist.add` and `evidence.add` do. TKT-909.
 - `tira.required-action.list --ref REF [--status STATUS] [--blocking] [-o FORMAT]`
   - `--status STATUS` (TKT-804) narrows to items in that status (`pending` or
     `done`, case-insensitively), the same vocabulary `required-action.update`
@@ -3233,7 +3233,7 @@ so the second of two concurrent calls sees the first's addition and skips it. A 
 
 ### Evidence
 
-- `tira.evidence.add --ref REF --summary TEXT [--uri URI] [--file PATH] [--author ID] [-o FORMAT]`
+- `tira.evidence.add --ref REF --summary TEXT [--uri URI] [--file PATH] [--author ID] [-o FORMAT]` - since 5.62 `--summary` refuses a whitespace-only value: an evidence entry is what a release gate reads back as the record of what was proved, and a summary of pure spaces used to satisfy every check that asks whether evidence exists while telling the next reader nothing. TKT-909.
 - `tira.evidence.annotate --ref REF --id EVD-NNN --note TEXT [--author ID] [-o FORMAT]` - an unknown `--id` refuses naming the card's real evidence ids, or the `EVD-NNN` shape on a card with none yet, the same fix `checklist.update` (TKT-280) and `required-action.update` (TKT-488) already got. TKT-490.
 - `tira.evidence.list --ref REF [--last N|--first N] [--id EVD-NNN] [--meta-only] [--where CLAUSE ...] [--count] [-o FORMAT]` - `--id` refuses the same way. TKT-490.
 

@@ -1024,6 +1024,13 @@ guard is shared, so a restarting police or a second watcher at the same
 version never files a second one, and a board's first-ever pass - which has
 no prior version to have missed anything in - raises nothing.
 
+**The gating card's own record type is configurable** (TKT-941), reported
+from a project that repurposes `ticket` for something with a mandatory
+invariant of its own - the auto-raised card carried none of it and read as a
+real violation. `d2 tira.project.update --upgrade-gate-type sow|epic|ticket`
+sets which type fits a project; unset, a board still gets `ticket`, unchanged
+from before this card.
+
 ### `tira.worklog.show`
 
 What has actually happened to a card: raised, moved, edited, commented, asked,

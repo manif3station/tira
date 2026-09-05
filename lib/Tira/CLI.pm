@@ -139,6 +139,7 @@ sub run {
         'sandbox=s' => \$option{sandbox},
         'repo=s' => \$option{repo}, 'repair!' => \$option{repair},
         'collector=s' => \$option{collector}, 'agent=s' => \$option{agent},
+        'upgrade-gate-type=s' => \$option{upgrade_gate_type},
         'session=s' => \$option{session}, 'heartbeat=s' => \$option{heartbeat},
         'all-sessions' => \$option{all_sessions},
         'unlinked' => \$option{unlinked},

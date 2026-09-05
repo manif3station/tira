@@ -1,5 +1,20 @@
 Revision history for Tira
 
+5.79  2026-09-05
+
+    - TKT-941. Reported from another project through
+      tira.dev.found.bug_or_improvement: "the ticket board is used
+      exclusively for bank-account transactions - every live card is
+      required to carry an amount: key detail... The auto-raised card
+      carries no amount:, so it immediately shows up as a real problem."
+      TKT-604's own upgrade-gating card always used create_record(type =>
+      'ticket'), hardcoded, which fits this board and breaks a project
+      that has repurposed its ticket type for something with a mandatory
+      invariant of its own. project_update now accepts
+      --upgrade-gate-type (sow/epic/ticket), read by _raise_upgrade_gate
+      before it creates the card; an unconfigured project still gets
+      'ticket', unchanged from before this card.
+
 5.78  2026-09-05
 
     - TKT-605. Hit live: a coverage run measured lib/Tira/CLI.pm while

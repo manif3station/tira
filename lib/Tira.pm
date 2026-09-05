@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.78';
+our $VERSION = '5.79';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -798,6 +798,16 @@ sub project_update {
                 $data->{agent} = $args{agent};
             }
         }
+        if ( defined $args{upgrade_gate_type} ) {
+            if ( $args{upgrade_gate_type} eq '' ) {
+                delete $data->{upgrade_gate_type};
+            }
+            else {
+                die "Upgrade-gate type must be sow, epic, or ticket\n"
+                  if $args{upgrade_gate_type} !~ /\A(?:sow|epic|ticket)\z/;
+                $data->{upgrade_gate_type} = $args{upgrade_gate_type};
+            }
+        }
         if ( defined $args{dashboard_host} ) {
             my $host = $args{dashboard_host} eq 'any' ? '0.0.0.0' : $args{dashboard_host};
             die "Dashboard host must be localhost, 0.0.0.0, 127.0.0.1, or any\n"
@@ -1034,9 +1044,17 @@ sub _raise_upgrade_gate {
         my $description = $changes ne ''
           ? $changes
           : "Tira upgraded from $from to $to. No Changes entries were found for this range.";
+
+        # TKT-941, reported from a project that repurposes 'ticket' for
+        # something with a mandatory invariant of its own (bank-account
+        # transactions, every card required to carry an amount:) - the
+        # auto-raised card carried none and read as a real violation. A
+        # project configures which type fits it; unconfigured boards keep
+        # exactly what shipped before this card.
+        my $type = $self->project_show( project => $root )->{upgrade_gate_type} // 'ticket';
         my $record = $self->create_record(
             project     => $root,
-            type        => 'ticket',
+            type        => $type,
             title       => "Tira upgraded $from -> $to - review what changed and what to declare",
             description => $description,
             priority    => 5,

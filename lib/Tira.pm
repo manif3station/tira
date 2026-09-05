@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.76';
+our $VERSION = '5.77';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -957,6 +957,99 @@ sub _collector_script {
     $here =~ /\A([^\x00-\x1f\x7f]+)\z/ or die "Unsafe module path\n";
     my $skill = File::Spec->rel2abs( File::Spec->catdir( dirname($1), File::Spec->updir ) );
     return File::Spec->catfile( $skill, 'collector', 'tira-remind' );
+}
+
+# Read this engine's own Changes file, the same way _collector_script finds
+# its own sibling. Not the board's Changes - Tira has no changelog of its
+# own on a board, this file lives beside the module. Silent about a missing
+# file rather than dying: an installed copy that was trimmed of its own
+# Changes must still raise the ticket TKT-604 asks for, with a plain
+# statement that no changelog was found rather than a police pass failing.
+sub _engine_changes_text {
+    my $here = __FILE__;
+    $here =~ /\A([^\x00-\x1f\x7f]+)\z/ or die "Unsafe module path\n";
+    my $skill = File::Spec->rel2abs( File::Spec->catdir( dirname($1), File::Spec->updir ) );
+    my $path = File::Spec->catfile( $skill, 'Changes' );
+    return undef if !-f $path;
+    open my $fh, '<:raw', $path or return undef;
+    my $text = do { local $/; <$fh> };
+    close $fh;
+    return $text;
+}
+
+# True if version $a is newer than $b, comparing the dotted-numeric parts
+# this project's own versions are always shaped as (N.NN) rather than as
+# strings - '5.9' must not read as newer than '5.10'. Undef means "nothing
+# heard yet", which is older than anything.
+sub _version_after {
+    my ( $a, $b ) = @_;
+    return 1 if !defined $b || $b eq '';
+    return 0 if !defined $a || $a eq '';
+    my @a = split /\./, $a;
+    my @b = split /\./, $b;
+    my $cmp = ( $a[0] // 0 ) <=> ( $b[0] // 0 );
+    $cmp = ( $a[1] // 0 ) <=> ( $b[1] // 0 ) if $cmp == 0;
+    return $cmp > 0 ? 1 : 0;
+}
+
+# The Changes entries strictly after $from and up to and including $to - what
+# an agent picking up the gating ticket needs to read, rather than the whole
+# changelog back to the first release. Blocks are split on the version-header
+# line this project's own Changes file always starts one with (see Changes
+# itself: "5.76  2026-09-05").
+sub _changes_between {
+    my ( $content, $from, $to ) = @_;
+    return '' if !defined $content || $content eq '';
+    my @blocks = split /\n(?=\d+\.\d+\s)/, $content;
+    my @wanted;
+    for my $block (@blocks) {
+        next if $block !~ /\A(\d+\.\d+)\s/;
+        my $version = $1;
+        next if !_version_after( $version, $from );
+        next if _version_after( $version, $to );
+        push @wanted, $block;
+    }
+    return join "\n", @wanted;
+}
+
+# TKT-604, TSK-181. His own request: "I want the police to raise a ticket to
+# gate the upgrade... What have changes will be in the ticket? What new
+# commands and what new policies options between old and new version? Set a
+# checklist on the ticket the agent to pick up and do."
+#
+# Called only from inside police_pass's own announced_changes guard, which
+# already means this runs once per genuine version change - a restarting
+# police or a second watcher at the same version never reaches here twice.
+# Failure to raise the ticket must not fail the pass that found a real
+# upgrade to announce, so this is wrapped in an eval by its caller in
+# spirit: every write here is best-effort, and the bridge line still went
+# out regardless.
+sub _raise_upgrade_gate {
+    my ( $self, $root, $upgraded ) = @_;
+    my $from = $upgraded->{from};
+    my $to   = $upgraded->{to};
+    return if !defined $from;
+    eval {
+        my $changes = _changes_between( _engine_changes_text(), $from, $to );
+        my $description = $changes ne ''
+          ? $changes
+          : "Tira upgraded from $from to $to. No Changes entries were found for this range.";
+        my $record = $self->create_record(
+            project     => $root,
+            type        => 'ticket',
+            title       => "Tira upgraded $from -> $to - review what changed and what to declare",
+            description => $description,
+            priority    => 5,
+        );
+        $self->checklist_add( project => $root, ref => $record->{ref}, author => 'tira',
+            item => 'Read the new commands (d2 tira.usage)', status => 'pending' );
+        for my $rule ( @{ $self->policy_undeclared( project => $root ) } ) {
+            $self->checklist_add( project => $root, ref => $record->{ref}, author => 'tira',
+                item => "Declare or decline the rule: $rule", status => 'pending' );
+        }
+        1;
+    };
+    return;
 }
 
 sub collector_entry {
@@ -10808,6 +10901,19 @@ sub police_pass {
             push @{$said}, $change;
             $quieted->{announced_version} = $VERSION;
             $self->_enforcement_write( $store, $quieted );
+
+            # A bridge line trusted the agent to act on it - easy to scroll
+            # past among everything else a pass says, with nothing tracking
+            # whether it ever was. TKT-604, TSK-181: raise a standing ticket
+            # instead, which does not go away until somebody closes it. The
+            # same announced_changes guard above already means this runs
+            # once per genuine change, so a restarting police or a second
+            # watcher never files a second one. Nothing to gate on a board's
+            # first-ever pass - there is no "from" to have missed anything
+            # in - so only a real upgrade, not the initial "Tira is now X",
+            # raises one.
+            $self->_raise_upgrade_gate( $self->discover_project(%args), $upgraded )
+              if defined $told;
         }
         elsif ( ( $told // '' ) ne $VERSION ) {
 

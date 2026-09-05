@@ -1014,6 +1014,16 @@ elsewhere in this file (the bridge log and the per-card history journal); the
 Both now pass their text through the same `_utf8_bytes` encode every other
 output path already uses.
 
+**A genuine upgrade also raises a gating ticket, not just a bridge line**
+(TKT-604). The same `announced_changes`-guarded branch that writes "Tira is
+now X - this board last heard Y" now also creates a ticket in the backlog, at
+priority 5, naming the version pair, carrying the Changes entries between
+them as its description, and a checklist with one item to read the new
+commands and one item per rule `tira.policy.undeclared` still lists. The
+guard is shared, so a restarting police or a second watcher at the same
+version never files a second one, and a board's first-ever pass - which has
+no prior version to have missed anything in - raises nothing.
+
 ### `tira.worklog.show`
 
 What has actually happened to a card: raised, moved, edited, commented, asked,

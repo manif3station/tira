@@ -1,5 +1,26 @@
 Revision history for Tira
 
+5.77  2026-09-05
+
+    - TKT-604, TSK-181. His own request: "I want the police to raise a
+      ticket to gate the upgrade... Set a checklist on the ticket the agent
+      to pick up and do." police_pass already announced a genuine version
+      change once, on the bridge - a line among many others, easy to scroll
+      past, with nothing tracking whether it was ever acted on. It now also
+      raises a ticket, in the same announced_changes-guarded branch that
+      writes the bridge line, so it inherits that guard for free: a
+      restarting police or a second watcher at the same version never
+      files a second one, and a board's first-ever pass - which has no
+      prior version to have missed anything in - raises nothing. The
+      ticket lands in the backlog at priority 5, names the version pair in
+      its title, carries the Changes entries between the two versions as
+      its description, and carries a checklist with one item to read the
+      new commands and one item per rule tira.policy.undeclared still
+      lists. Which commands and policy options are genuinely new between
+      two versions is not separately tracked - there is no per-version
+      manifest to diff against - so the description leans on the Changes
+      text rather than a diff it cannot honestly produce.
+
 5.76  2026-09-05
 
     - TKT-939. Michael, via Telegram (msg 7012), a screenshot of his

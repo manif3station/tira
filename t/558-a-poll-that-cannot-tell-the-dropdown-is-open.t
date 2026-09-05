@@ -27,6 +27,8 @@ use lib 't/lib';
 use Suite ();
 
 my $js = Suite::view_source('tasklist-editor.js');
+# non-empty is the whole claim: every denial below would pass on an
+# unreadable file's emptiness alone otherwise - the fault t/147 exists for.
 like( $js, qr/\S/, 'tasklist-editor.js is there to be read' );
 
 # --- established: tlRowBusy exists and already protects two other cases ----

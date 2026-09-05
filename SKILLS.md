@@ -2497,6 +2497,15 @@ neighbour. The browser test proving it passed on its first
 run against unfixed code, because it reused a row that still had a file
 chosen and that clause kept the row alive regardless; rewritten against an
 untouched row, it fails on the old code and passes on the new.
+**A third case joined the growing conjunction rather than another neighbour
+being missed (TKT-600, 5.75):** the status `<select>` itself. Its own
+Telegram report - "the drop down will disappear because the card rebuild or
+refresh itself" - was exactly this: opening the native dropdown focuses the
+select without touching anything `tlRowBusy` inspected, so the next poll (up
+to a second later) rebuilt the row and the open dropdown vanished with the
+element it belonged to. `tlRowBusy` now also treats the select as busy while
+it holds focus - the same check the ref box already had, extended to the one
+control that had not been asked yet.
 
 TKT-548: a new `task-changed` police rule reports a tasklist item whose
 text, attachments, or linked refs changed since the last police pass

@@ -3709,7 +3709,13 @@ the text editor, which never closed because focus was still inside the row
 being rebuilt. The whole test is extracted into one predicate,
 `tlRowBusy(row, id)`, called once from `reconcileTasklist` - the inline
 conjunction is what made it easy to fix one clause and leave its neighbour
-open.
+open. **TKT-600 (5.75) is exactly that neighbour, for the status `<select>`
+this time**: opening its native dropdown focuses the element without setting
+anything `tlRowBusy` checked, so the next poll rebuilt the row and the open
+dropdown disappeared with it - his own report, "the drop down will disappear
+because the card rebuild or refresh itself." `tlRowBusy` now also treats the
+select as busy while it holds focus, the same check already used for the ref
+box.
 
 TKT-536: the Policies dialog's Decline button opens an inline reason
 capture (`.policy-inline-capture`, an input plus a Go button) instead of

@@ -1,5 +1,20 @@
 Revision history for Tira
 
+5.75  2026-09-05
+
+    - TKT-600. The task list's 1-second poll closed an open status dropdown
+      on a task card. His own report: "when i select the status of a task
+      card, the drop down will disappear because the card rebuild or
+      refresh itself." tlRowBusy(row, id) already kept a row's DOM node
+      across a poll rebuild for an open text editor, a CARD-REF being
+      typed, and a file mid-attach (TKT-554, TKT-590) - it never learned
+      about the status <select>. Opening its native dropdown focuses the
+      element without touching anything tlRowBusy inspected, so the next
+      poll rebuilt the row and the open dropdown vanished with it.
+      tlRowBusy now also treats the select as busy while it holds focus,
+      the same check already used for the ref box; the CARD-REF and
+      file-input cases are unchanged.
+
 5.74  2026-09-05
 
     - TKT-595. The card dialog's Linkage section showed Epic Ref, Parent

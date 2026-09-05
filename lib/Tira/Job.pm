@@ -1672,6 +1672,18 @@ instant in the same store-backed ledger C<agent-still>'s own notified-stamp
 already uses - not on the job record itself, for the same reason no other
 stateful rule here writes the record it is judging.
 
+=head1 A DUE COMMAND IS ACTUALLY RUN
+
+TKT-944. C<job-due> announces; it does not execute, and two tests hold the
+engine to that. What was missing was anything on the other side of the line:
+C<Tira::CLI::Police::run_due_job> existed and its only caller was the manual
+C<d2 tira.job.run>, so a command-mode job was announced as C<runs: ...> every
+time its window came round and never ran. The pass now hands back the due
+command-mode jobs and C<Tira::CLI::Police::run_due_commands> executes them in
+the CLI layer, feeding what they printed back through C<job_feed> - so a cron
+run leaves the same trace a monitor's output does, and C<last_output_at> is
+stamped for it too.
+
 =head1 A CRON JOB SAYS WHEN IT LAST FIRED
 
 TKT-942. C<last_run> was a field nothing wrote. One line assigned it -

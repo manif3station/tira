@@ -136,6 +136,11 @@ sub police_follow {
             # owner's own screen once per interval, forever, until the process
             # was killed. TKT-939.
             advance_monitor_output( $tira, $args, $result );
+
+            # And the due command-mode jobs actually run. TKT-944: without
+            # this the watch loop announces "runs: ..." on every window for
+            # ever and nothing happens - which is what it did.
+            run_due_commands( $tira, $args, $result );
             print {*STDERR} Tira::CLI::_utf8_bytes( join '', map { "$_\n" } @{ $result->{terminal} } );
         }
         # Into the code that is installed, between rounds.
@@ -493,6 +498,75 @@ sub report_to_tira {
 # ORDER MATTERS. The bridge write comes first: if this ran before it and the
 # write then failed, the offset would have moved past output nobody ever saw,
 # which is the exact loss this rule exists to prevent.
+# TKT-944. THE STEP THAT WAS NEVER WIRED. TKT-841 built run_due_job below and
+# its own card said what it was for: "an execution step reached from the
+# job-due evaluation: when a due job is command-mode, run its command". The
+# executor shipped and the step did not. Its only caller anywhere in lib/ or
+# cli/ was Tira::CLI::Job::run_now - the manual Run now button - so a
+# command-mode job was announced on the bridge as "runs: ..." every time its
+# window came round and was never once executed by a pass.
+#
+# Measured before this existed, on a scratch board: a job due every minute
+# whose command was `/bin/touch <witness>`, one pass past the window. The
+# bridge printed the announcement; the witness file was never created. On the
+# real board that is JOB-004 - `d2 tira.police.outstanding`, every thirty
+# minutes - announcing itself and doing nothing, for as long as it has
+# existed.
+#
+# HERE RATHER THAN IN THE ENGINE, and that is not a preference. t/489 asserts
+# the job-due rule body runs nothing and t/492 asserts the whole engine does;
+# Suite::engine_source() excludes lib/Tira/CLI precisely so execution has a
+# sanctioned home. The engine names the due jobs in the pass result and this
+# runs them - the same division advance_monitor_output already uses for a
+# monitor's leavings, and for the same reason.
+#
+# WHAT IT PRINTED IS KEPT. job_feed is the pipe a monitor's output already
+# travels, so a cron run's output lands on the job's own `recent` tail and
+# stamps last_output_at - the run becomes something a reader can see rather
+# than something they are asked to believe. Carrying it onward to the BRIDGE
+# is a separate question: the monitor-output rule is gated to
+# schedule_kind 'monitor', and widening a rule that carries that name is a
+# decision about what the rule means, which is asked on the card rather than
+# taken here.
+#
+# ONE JOB'S FAILURE MUST NOT TAKE THE PASS DOWN, the same stance every other
+# job read in this file takes: a command that dies, or output that cannot be
+# recorded, is reported through the return value and the loop continues to the
+# next job.
+sub run_due_commands {
+    my ( $tira, $args, $result ) = @_;
+    return [] if ref $result ne 'HASH';
+    my $due = $result->{due_commands} || [];
+    return [] if !@{$due};
+
+    require Tira::Job;
+    my @ran;
+    for my $job ( @{$due} ) {
+        next if ( $job->{mode} // '' ) ne 'command';
+        my $outcome = eval { run_due_job( job => $job ) };
+        if ( !$outcome ) {
+            my $why = $@ || 'unknown failure';
+            $why =~ s/\s+\z//;
+            push @ran, { id => $job->{id}, ran => 0, status => -1, output => $why };
+            next;
+        }
+
+        # Recorded even when the command failed - a non-zero exit with its
+        # message is exactly the run somebody needs to see, and dropping it
+        # would rebuild the silence this whole epic exists to end.
+        my @lines = grep { defined && /\S/ } split /\n/, ( $outcome->{output} // '' );
+        push @lines, "exit status $outcome->{status}"
+          if ( $outcome->{status} // 0 ) != 0;
+        eval {
+            $tira->job_feed( %{ $args || {} }, id => $job->{id}, lines => \@lines )
+              if @lines;
+            1;
+        };
+        push @ran, { id => $job->{id}, %{$outcome} };
+    }
+    return \@ran;
+}
+
 sub advance_monitor_output {
     my ( $tira, $args, $result ) = @_;
     return if ref $result ne 'HASH';
@@ -1049,6 +1123,15 @@ sub police_run {
         violations => $result->{violations}, settled => $result->{settled},
         upgraded => $result->{upgraded} );
     advance_monitor_output( $tira, \%args, $result );
+
+    # TKT-944, and DELIBERATELY NOT ON EVERY PASS. The two paths wired are the
+    # ones that are actually the scheduler: this one and the watch loop above.
+    # police_outstanding --fresh runs a pass too, and is left alone on purpose
+    # - it is a question about the board, and a status query that executes
+    # commands as a side effect of being asked is a surprise nobody consented
+    # to. Its own documentation already calls --fresh opt-in because a pass is
+    # a write; running arbitrary commands is a great deal more than a write.
+    run_due_commands( $tira, \%args, $result );
     print {*STDERR} Tira::CLI::_utf8_bytes( join '', map { "$_\n" } @{ $result->{terminal} } );
     return $result if $option->{once};
     require Tira::CLI::Police;

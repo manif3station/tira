@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.80';
+our $VERSION = '5.81';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -8412,6 +8412,21 @@ sub policy_evaluate {
                   : $job->{message};
                 $report->( $policy, $job->{id}, $said, undef,
                     ( $window // $when ) );
+
+                # TKT-944. NAMED HERE, RUN IN THE CLI LAYER. TKT-841 built
+                # the executor and described exactly this division - the
+                # engine announces, Tira::CLI::Police::run_due_job runs -
+                # but nothing was ever wired to reach it, so its only caller
+                # was the manual Run now button and every command-mode job on
+                # every board was announced and never executed. Proven with a
+                # witness file the job's own command creates, which never
+                # appeared. Collected through a caller-supplied arrayref, the
+                # same way `unreadable` is handed back, rather than executed
+                # here: t/489 holds this rule body to running nothing and
+                # t/492 holds the whole engine to it.
+                push @{ $args{due_commands} }, $job
+                  if $args{due_commands}
+                  && ( $job->{mode} // '' ) eq 'command';
             }
 
             # Advanced for EVERY job, checked or not due, so the next pass -
@@ -10821,13 +10836,19 @@ sub police_pass {
     # write back after the bridge. The pass itself must not - t/86 fingerprints
     # the board across a pass and requires not one byte to differ. TKT-851.
     my $output_seen = [];
+
+    # The command-mode jobs this pass found due. Filled by the job-due rule,
+    # handed back for the CLI layer to actually run - see TKT-944 beside the
+    # rule itself for why execution cannot live in here.
+    my $due_commands = [];
     my $ok = eval {
         my $records = $self->record_list( %args, include_discard => 1 );
         my ( $environment, $seen ) = $self->_police_environment_violations(
             %args, policies => $policies, records => $records );
         $output_seen = $seen;
         $found = [
-            @{ $self->policy_evaluate( %args, unreadable => \@unreadable ) },
+            @{ $self->policy_evaluate( %args, unreadable => \@unreadable,
+                    due_commands => $due_commands ) },
             @{$environment},
         ];
         1;
@@ -11006,6 +11027,11 @@ sub police_pass {
         # For the caller to write back after the bridge, not for the pass to
         # apply. See the accumulator above and t/86's fingerprint. TKT-851.
         monitor_output => $output_seen,
+
+        # Which command-mode jobs came due, for the CLI layer to run. Data,
+        # not an action: the engine is forbidden every shell-invoking
+        # construct and two tests hold it there. TKT-944.
+        due_commands => $due_commands,
 
         # What stopped being true on this pass. Handed back rather than left in
         # the ledger for somebody to notice, because the reader who was told

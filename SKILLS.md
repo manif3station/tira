@@ -1600,7 +1600,7 @@ dialog fully usable at phone width.
 The visible last-updated time advances only after fresh data is applied. Stop
 the foreground server with Ctrl-C.
 
-## 145 use cases
+## 146 use cases
 
 Every case below is implemented and executable.
 
@@ -3818,6 +3818,16 @@ A stopped monitor is counted as `running === false` - the jobs provider's own ve
 
 ### UC-141: Manage a column's administrative-action exemptions without the CLI
 **Implemented.** The browser dashboard's Columns dialog now has a fourth list, alongside Next/Entry/Exit: Administrative actions - `--administrative-action`'s own capability (TKT-678: required-action items, by exact text, that a backward move never resets), previously reachable only through the CLI. Add, remove, or reorder items the same way the other three lists already work, and Save round-trips them through `/columns/apply` exactly like `required_actions`/`entry_required_actions`. TKT-793.
+
+### UC-146: A scheduled command actually runs
+
+**Implemented** (TKT-944). His standing instruction was *"find out and fix why the scheduled repeated jobs why not working"*. TKT-935 fixed one half - `job_is_due` compared only the current minute, so an irregular caller missed nearly every window. This is the other half, and it had never been connected at all: a due **command-mode** job was announced on the bridge as `runs: ...` and then nothing ran it.
+
+TKT-841 built the executor, `Tira::CLI::Police::run_due_job`, and its own card specified "an execution step reached from the job-due evaluation". The executor shipped; the step did not. Its only caller anywhere in `lib/` or `cli/` was `Tira::CLI::Job::run_now`, reached only by `d2 tira.job.run` - the manual Run now button. Proven before anything was changed, on a scratch board: a job due every minute whose command was `/bin/touch <witness>`, one pass past the window; the bridge printed the announcement and the witness file was never created. On the real board that was `JOB-004` - `d2 tira.police.outstanding`, every thirty minutes - announcing itself and doing nothing for as long as it had existed.
+
+The pass now hands back the command-mode jobs that came due and `run_due_commands` runs them, **in the CLI layer**: `t/489` holds the `job-due` rule body to executing nothing and `t/492` holds the whole engine to it, which is the division TKT-841 designed and `Suite::engine_source()`'s exclusion of `lib/Tira/CLI` exists for. What the command printed is fed onto the job through `job_feed` - the same pipe a monitor's output travels - so the run shows in the card's own tail and stamps `last_output_at`, and a non-zero exit is recorded rather than dropped. Wired into the watch loop and `police_run`, and **deliberately not** into `police.outstanding --fresh`: that command is a question about the board, and a status query that executes commands as a side effect of being asked is a surprise nobody consented to.
+
+Whether a cron run's output should also reach the **bridge** is asked on the card as Q-127 rather than decided unilaterally - the rule that carries job output is named `monitor-output` and gated to monitors, so widening it changes what a declared rule means.
 
 ### UC-145: See that a repeated job is actually firing
 

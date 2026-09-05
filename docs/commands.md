@@ -1014,6 +1014,21 @@ elsewhere in this file (the bridge log and the per-card history journal); the
 Both now pass their text through the same `_utf8_bytes` encode every other
 output path already uses.
 
+**A pass runs the command-mode jobs that came due** (TKT-944, since 5.81).
+Until then it did not: the executor existed but nothing reached it except the
+manual `d2 tira.job.run`, so a command-mode job was announced as `runs: ...`
+on every window and never executed - proven with a witness file the job's own
+command creates, which never appeared. The engine names the due jobs and the
+CLI layer runs them, because the engine is forbidden every shell-invoking
+construct (`t/489`, `t/492`). What the command printed is kept on the job the
+same way a monitor's output is, so the run is visible rather than merely
+believed, and a non-zero exit is recorded rather than dropped.
+
+`tira.police` and its watch loop both do this. **`tira.police.outstanding
+--fresh` deliberately does not**, even though it runs a pass: it is a question
+about the board, and a status query that executes commands as a side effect of
+being asked is a surprise nobody consented to.
+
 **A genuine upgrade also raises a gating ticket, not just a bridge line**
 (TKT-604). The same `announced_changes`-guarded branch that writes "Tira is
 now X - this board last heard Y" now also creates a ticket in the backlog, at

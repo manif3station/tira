@@ -51,6 +51,8 @@ for my $doc (qw(SKILLS.md docs/commands.md README.md)) {
     my $text = do { local $/; <$fh> };
     close $fh;
 
+    # non-empty is the whole claim: the denial below would pass on an
+    # unreadable file's emptiness alone otherwise.
     like( $text, qr/\S/, "$doc is there to be read" );
 
     unlike( $text, qr/dashboard tira\./,

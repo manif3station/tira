@@ -2,6 +2,27 @@ Revision history for Tira
 
 5.83  2026-09-05
 
+    - TKT-948, and it is a note rather than a change. The upgrade gate
+      raised its own card when 5.83 installed on a board still running
+      5.77, and doing so exposed what it costs: the card arrives with a
+      title, a description and a checklist, and with no problem
+      statement, scope, acceptance criteria or parent. Eleven empty
+      fields, and an orphan-card violation from police within the
+      minute.
+
+      That matters because tools/card-holes refuses a push while any
+      live card is incomplete. So every upgrade hands the board one
+      release-gate violation to clear by hand - and on the evening this
+      was found the push was already blocked by 29 incomplete cards,
+      which the gate's own card would have joined.
+
+      Recorded in SKILLS.md and docs/commands.md as a known cost rather
+      than left to be rediscovered. The gate knows the version range and
+      holds the changelog entries between them, so the fields it leaves
+      empty are derivable; whether to fill them, exempt a gate-raised
+      card from card-holes, or announce instead of creating one is
+      TKT-956.
+
     - TKT-627. The unjudged-answer move gate has been card-wide since it
       was written, and four places said it was scoped to the column the
       answer was given in. It was not a near-miss reading: the filter

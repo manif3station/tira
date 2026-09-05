@@ -1046,6 +1046,17 @@ real violation. `d2 tira.project.update --upgrade-gate-type sow|epic|ticket`
 sets which type fits a project; unset, a board still gets `ticket`, unchanged
 from before this card.
 
+**The raised card is incomplete by construction** (observed on TKT-948). The
+gate writes a title, a description sliced from the Changes file, and a
+checklist - and no problem statement, scope, acceptance criteria or parent. On
+the 5.77 to 5.83 upgrade, `d2 tira.ticket.missing` reported eleven empty fields
+on the card the moment it appeared, and police reported it as an orphan within
+the minute. `tools/card-holes` refuses a push while any live card is
+incomplete, so an upgrade costs one release-gate violation that has to be
+cleared by hand. The gate holds the version range and the changelog entries
+between them, so the fields it leaves empty are derivable; whether to fill
+them, exempt the card, or announce instead of creating is TKT-956.
+
 ### `tira.worklog.show`
 
 What has actually happened to a card: raised, moved, edited, commented, asked,

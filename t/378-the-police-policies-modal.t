@@ -40,7 +40,7 @@ is_deeply(
     'a rule with needs and no forbids is described exactly as policy_add validates it',
 );
 is_deeply(
-    $specs->{'card-unassigned'}, { needs => [], forbids => [ 'column', 'enter' ] },
+    $specs->{'card-unassigned'}, { needs => [], forbids => [ 'column', 'enter', 'age' ] },
     'a rule with forbids is described exactly as policy_add validates it',
 );
 

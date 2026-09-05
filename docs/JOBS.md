@@ -367,6 +367,15 @@ A **cron job** shows no heartbeat and a **disabled monitor** shows none either -
 the same two silences `monitor-dead` already keeps, for the same reason. Neither
 is supposed to be up, so neither has a heartbeat to miss.
 
+**A lit heartbeat shows its own declared expectation too, since 5.63** -
+"Last spoke 2 minutes ago, expects every 5 min" - rather than only once a
+monitor has gone red. Until then the number he had set was invisible on a
+healthy monitor's own card, the one place he would go to check what he had
+declared. TKT-918: he asked what the field on the jobs form even did, eight
+hours after asking for it himself (Q-115, TKT-863) - the label named only
+minutes and blank-behaviour, never that it exists to tell a wedged monitor
+(process up, polling stopped) from one that is simply quiet.
+
 That is also why the expectation belongs to a monitor. A cron job is refused
 one, rather than storing a number nothing would ever read:
 

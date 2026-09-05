@@ -1,5 +1,23 @@
 Revision history for Tira
 
+5.63  2026-09-05
+
+    - TKT-918. The jobs form's "Expect a line every (minutes, blank for no
+      expectation)" label named units and blank-behaviour and never what
+      the field is for - his own words, Telegram, asking what a field he
+      himself had requested (Q-115, TKT-863) even did, eight hours after
+      asking for it.
+
+      The label now says it tells a wedged monitor (process up, polling
+      stopped) from one that is simply quiet, which is what `monitor-silent`
+      reads it for. It still says blank means no expectation.
+
+      **A declared expectation is now visible while a monitor is healthy
+      too**: the heartbeat used to mention `expect_every` only once a
+      monitor had gone stale - "Silent for X, expects every Y min" - so a
+      healthy monitor gave no sign it had declared anything. It now reads
+      "Last spoke X ago, expects every Y min" while beating normally.
+
 5.62  2026-09-05
 
     - TKT-909. `evidence_add`, `checklist_add` and `required_item_add`

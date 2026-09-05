@@ -1730,6 +1730,13 @@ This was called `tira.police.log` until 1.41 and that name still answers, so
 nothing breaks on upgrade. It was renamed because the old one said the wrong
 thing: see **Whose command is it** below.
 
+**Until 5.83 that panel read the wrong board** (TKT-949). `GET /bridge` resolved its police store with
+`discover_project()`, which searches upward from the server's working directory, while a dashboard runs above
+the board it serves - so it read some other project's store, or none, and showed an empty bridge. It now reads
+the served board, taken from `TIRA_DASHBOARD_ROOT` where the workers already have it, and reports a read it
+could not make as a failure with a reason instead of as an empty bridge. A quiet board still says it is quiet,
+and a failing read still cannot take the page down.
+
 **Since 5.56 the live dashboard shows the same thing** (TKT-916, his report
 6799). A Bridge section renders the newest hundred entries and polls every five
 seconds, so what police says can be read without leaving the page. It answers

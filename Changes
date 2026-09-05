@@ -2,6 +2,35 @@ Revision history for Tira
 
 5.83  2026-09-05
 
+    - TKT-949, his report twice over: "I also asked this bridge section
+      never work." The Bridge panel said "Nothing on the bridge yet.
+      Police announces here when it runs" while police announced
+      continuously and the board's own store held 13,037 entries.
+
+      Two faults, and the second is why the first survived.
+
+      GET /bridge derived its police store from discover_project(),
+      which searches UPWARD from the server process's working
+      directory. The dashboard runs from a directory ABOVE the board it
+      serves, so searching up walks away from the board rather than
+      towards it: it resolved some other project, or none, and read
+      that store. The board root was already being carried into the
+      process - TIRA_DASHBOARD_ROOT is set before the runner starts and
+      is what dashboard.psgi resolves the board from, so it survives
+      the fork - and the bridge simply was not reading it.
+
+      And the whole read sat in eval {...} // [], so a board it could
+      not resolve, a store it could not read, and a genuinely quiet
+      bridge all rendered as one sentence. The panel had no state in
+      which it could say "I could not read this", which is why the
+      first fault went unnoticed from the day it shipped.
+
+      The read is now _bridge_payload, answering ok with entries or
+      ok => 0 with a reason, keyed to the served board. The panel
+      paints three states instead of two, and still accepts a bare list
+      so a page served by an older board is not blanked. The eval
+      stays: a cosmetic panel still must not take the page down.
+
     - TKT-950, his report: "A job command using bare 'd2' cannot exec -
       tira.job.help's own documented example fails." He answered Q-130
       naming the executor: a job falling due, which is police's path.

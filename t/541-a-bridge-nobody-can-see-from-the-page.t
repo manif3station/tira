@@ -103,15 +103,22 @@ like( $render, qr/board--bridge/,
       . 'page can see, so it is read in a terminal or not at all - and the '
       . 'terminal is the one place he is not already looking' );
 
-# SCOPED TO THE ROUTE, because enforcement_log is DEFINED in the engine source
-# and a whole-file match would pass against a route that never calls it - an
-# assertion that cannot fail is worth less than none.
-my ($route) = Suite::engine_source() =~ /(get \s* '\/bridge' \s* => .*?\n \};)/xs;
+# SCOPED TO THE ROUTE AND ITS SEAM, because enforcement_log is DEFINED in the
+# engine source and a whole-file match would pass against a route that never
+# calls it - an assertion that cannot fail is worth less than none.
+#
+# The scope grew by one sub on TKT-949, which moved the read out of the route
+# into _bridge_payload so that a failed read could be told apart from an empty
+# bridge. The claim below is unchanged and still true; what changed is where
+# the call sits, so the pattern follows it rather than being relaxed.
+my $engine_src = Suite::engine_source();
+my ($route)   = $engine_src =~ /(get \s* '\/bridge' \s* => .*?\n \};)/xs;
+my ($seam)    = $engine_src =~ /(sub \s+ _bridge_payload \b .*?\n \})/xs;
 
 ok( defined $route && length $route,
     'a route of its own serves it, beside the one the request panel uses' );
 
-like( $route // '', qr/enforcement_log/,
+like( ( $route // '' ) . ( $seam // '' ), qr/enforcement_log/,
     'AND IT READS THE ENGINE\'S OWN STREAM rather than opening bridge.log for '
       . 'itself' );
 

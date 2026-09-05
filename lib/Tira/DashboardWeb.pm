@@ -42,6 +42,33 @@ our $COOKIE = 'tira_session';
 # plain library context, where the bare cookie name is used. TKT-946.
 our $PORT;
 
+# WHICH BOARD THIS PROCESS IS SERVING, held for the same reason as $PORT above:
+# something that answers a request has to know which board it belongs to, and
+# asking the environment produces a different answer than the one the server
+# was started for.
+#
+# The bridge is where that difference showed. It derived its police store from
+# discover_project(), which SEARCHES UPWARD from the process's working
+# directory - and the dashboard runs from a directory that is an ANCESTOR of
+# the board root, so searching up walks away from the board rather than towards
+# it. It found some other project, or none, read that store, and rendered the
+# result as "Nothing on the bridge yet" while the board's own store held
+# thirteen thousand entries. Reported twice by the owner before it was
+# understood, because the panel had no way to say it had failed. TKT-949.
+#
+# DO NOT REPLACE THIS WITH discover_project() AGAIN. It is not indirection for
+# its own sake: it is the difference between the board being served and
+# whichever board happens to lie above the server's working directory.
+#
+# The real answer was already being carried and simply not read here:
+# TIRA_DASHBOARD_ROOT is set before the runner starts and is what dashboard.psgi
+# itself resolves the board from, so it survives the fork and every worker has
+# it. This variable exists so the read can be pointed somewhere in a test
+# without setting process environment, the way t/568 localises $PORT; unset, the
+# environment answers, and only then does the search run - which is the
+# fallback a library-context board still needs.
+our $BOARD_ROOT;
+
 # The board fetches its own routes from its own scripts. A stranger there must
 # get a refusal they can react to, not a login page rendered into a card - so
 # only the front door serves the page, and everything else answers 401 JSON.
@@ -621,25 +648,48 @@ get '/logs' => sub {
 # a terminal. TKT-916.
 our $BRIDGE_LINES = 100;
 
-get '/bridge' => sub {
-    content_type 'application/json; charset=UTF-8';
-
+# THE READ, kept apart from the route so the failure case has one home and can
+# be exercised without starting a server.
+#
+# A COSMETIC PANEL MUST NOT TAKE DOWN THE PAGE - the rule the jobs provider
+# already follows for its liveness field, and it stands. What changed is that
+# an eval falling through to an empty list made three different states
+# identical on screen: a board it could not resolve, a store it could not read,
+# and a bridge with genuinely nothing on it. The owner reported the panel as
+# never working, and the panel could not tell him which of the three it was.
+#
+# So it answers with a verdict instead of a list. ok => 1 with entries, or
+# ok => 0 with a reason the page can show. The page still renders either way.
+sub _bridge_payload {
+    my (%args) = @_;
     my $entries = eval {
         require Tira::CLI::Police;
-        my $tira  = Tira->new;
-        my $root  = $tira->discover_project();
-        my $store = Tira::CLI::Police::_police_store($root);
-        $tira->enforcement_log( project => $root, store => $store );
-    } // [];
+        my $tira = $args{tira} || Tira->new;
 
-    # A COSMETIC PANEL MUST NOT TAKE DOWN THE PAGE, the rule the jobs provider
-    # already follows for its liveness field: this is polled, and one transient
-    # failure reading the store would otherwise turn the panel into an error
-    # where an empty list says the honest thing.
+        # The served board when this process knows which one it is, and only
+        # then the search. See $BOARD_ROOT above for why the order matters.
+        my $root = $args{root} // $BOARD_ROOT // $ENV{TIRA_DASHBOARD_ROOT}
+          // $tira->discover_project();
+        die "no board to read the bridge for\n" if !defined $root || $root !~ /\S/;
+
+        my $store = $args{store} // Tira::CLI::Police::_police_store($root);
+        $tira->enforcement_log( project => $root, store => $store );
+    };
+    if ( !defined $entries || ref $entries ne 'ARRAY' ) {
+        my $why = $@ || 'the bridge could not be read for this board';
+        $why =~ s/\s+\z//;
+        return { ok => 0, error => $why, entries => [] };
+    }
+
     my @recent = @{$entries};
     @recent = @recent[ -$BRIDGE_LINES .. -1 ] if @recent > $BRIDGE_LINES;
+    return { ok => 1, entries => \@recent };
+}
 
-    return _response_bytes( Tira::json_object()->encode( \@recent ) );
+get '/bridge' => sub {
+    content_type 'application/json; charset=UTF-8';
+    my $payload = _bridge_payload();
+    return _response_bytes( Tira::json_object()->encode($payload) );
 };
 
 sub build_psgi_app {

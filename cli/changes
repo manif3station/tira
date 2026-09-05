@@ -33,7 +33,7 @@ die "The Tira changelog $history is empty - nothing to print. "
 # flag was silently accepted and did nothing, exit 0. TKT-404.
 my %option;
 GetOptionsFromArray( \@ARGV, \%option, 'since=s' )
-  or die "Usage: dashboard tira.changes [--since VERSION]\n";
+  or die "Usage: d2 tira.changes [--since VERSION]\n";
 
 if ( defined $option{since} ) {
     die "Version must be MAJOR.MINOR, like 3.60\n"
@@ -65,8 +65,8 @@ tira.changes - Print the Tira changelog
 
 =head1 SYNOPSIS
 
-  dashboard tira.changes
-  dashboard tira.changes --since VERSION
+  d2 tira.changes
+  d2 tira.changes --since VERSION
 
 =head1 DESCRIPTION
 

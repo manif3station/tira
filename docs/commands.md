@@ -2,7 +2,7 @@
 
 This is the reference: every command and argument, what it is for and when to
 use it. For the use cases — the workflows these commands serve, and which one
-to reach for — run `dashboard tira.skills`.
+to reach for — run `d2 tira.skills`.
 
 Every workflow in `SKILLS.md` is implemented through the entrypoints this
 document names, and a command that ships without being named here fails the
@@ -2244,7 +2244,7 @@ removes record references, so re-adding bytes reports the still-retained name.
 
 Managed project location is intentionally omitted. Agents use Tira commands for
 all reads and mutations and must not attempt direct filesystem access. Run
-`dashboard tira.skills` for the full argument matrix and UC-001 through UC-100.
+`d2 tira.skills` for the full argument matrix and UC-001 through UC-100.
 
 ## Migration-scale commands
 

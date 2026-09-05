@@ -17,6 +17,6 @@ tira.skills - Print the raw Tira agent manual
 
 =head1 SYNOPSIS
 
-  dashboard tira.skills
+  d2 tira.skills
 
 =cut

@@ -28,7 +28,7 @@ use Tira;
 # answer about a different one.
 #
 # Every record command shared one line and the line named create, so
-# tira.ticket.move --help said 'Usage: dashboard tira.ticket.create --title
+# tira.ticket.move --help said 'Usage: d2 tira.ticket.create --title
 # TITLE'. 21 of the 24 record verbs answered about a command that was not the
 # one asked about; the three that were right were the three creates. It adapted
 # the board - tira.sow.list answered with tira.sow.create - which is why it read
@@ -115,13 +115,13 @@ my %SUPPLIED_BY = (
 
 sub _usage {
     my ( $command, $type ) = @_;
-    return "Usage: dashboard tira.project.create --name NAME [--dir DIR] [-o toon|json|human]\n"
+    return "Usage: d2 tira.project.create --name NAME [--dir DIR] [-o toon|json|human]\n"
       if $command eq 'project.create';
 
     if ( $NEEDS_TYPE{ $command // '' } ) {
         my $known = _skills_usage_line($command);
-        return "Usage: dashboard tira.$command $known\n" if defined $known;
-        return "Usage: dashboard tira.$command --type ticket|epic|sow [options] [-o toon|json|human]\n";
+        return "Usage: d2 tira.$command $known\n" if defined $known;
+        return "Usage: d2 tira.$command --type ticket|epic|sow [options] [-o toon|json|human]\n";
     }
 
     if ( defined $type ) {
@@ -134,21 +134,21 @@ sub _usage {
         # one. Tried in that order, so a concrete line wins over the generic
         # placeholder if a command ever carries both. TKT-418.
         my $known = _skills_usage_line("$type.$verb") // _skills_usage_line("<type>.$verb");
-        return "Usage: dashboard tira.$type.$verb $known\n" if defined $known;
+        return "Usage: d2 tira.$type.$verb $known\n" if defined $known;
 
         my $takes = $RECORD_USAGE{ $verb // '' };
-        return "Usage: dashboard tira.$type.$verb $takes [-o toon|json|human]\n"
+        return "Usage: d2 tira.$type.$verb $takes [-o toon|json|human]\n"
           if defined $takes;
 
         # A record verb this does not know is named rather than described,
         # which is still an answer about the command that was asked.
-        return "Usage: dashboard tira.$type." . ( $verb // 'command' )
+        return "Usage: d2 tira.$type." . ( $verb // 'command' )
           . " [options] [-o toon|json|human]\n";
     }
 
     my $known = _skills_usage_line($command);
-    return "Usage: dashboard tira.$command $known\n" if defined $known;
-    return "Usage: dashboard tira.$command [options] [-o toon|json|human]\n";
+    return "Usage: d2 tira.$command $known\n" if defined $known;
+    return "Usage: d2 tira.$command [options] [-o toon|json|human]\n";
 }
 # The skill's own root, found by climbing out of lib/ rather than by counting
 # directories. Both readers below used to say ".." twice, which was right while

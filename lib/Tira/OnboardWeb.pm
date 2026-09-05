@@ -95,7 +95,7 @@ sub _render_thanks {
 <h1>Thank you for using Tira</h1>
 <p>The project "$name" is set up.</p>
 <p>Your role from here is to view and manage cards - run
-<code>dashboard tira.dashboard -o browser</code> to open the board in a
+<code>d2 tira.dashboard -o browser</code> to open the board in a
 browser. Every <code>tira.&lt;command&gt;</code> is written for an agent to
 run, but you are welcome to run them yourself too.</p>
 <p>This onboarding session has finished and will not answer any further

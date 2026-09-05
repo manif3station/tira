@@ -7,7 +7,7 @@ server or hidden database. Never edit Tira-managed YAML or JSON directly.
 
 This manual is the use cases: what to do, and which command does it. For the
 command reference — every command, every argument, what it is for and when to
-use it — run `dashboard tira.usage`.
+use it — run `d2 tira.usage`.
 
 ## Before anything else: install Developer Dashboard
 
@@ -53,17 +53,17 @@ dashboard skills install tira
 - **Implemented (0.30):** shipped, executable, and covered by tests.
 - **Implemented (0.31):** shipped, executable, and covered by tests.
 - **Implemented (1.04):** shipped, executable, and covered by tests.
-- `dashboard tira.skills` is implemented and prints this file as raw Markdown.
-- `dashboard tira.changes` is implemented and prints the changelog as raw text.
+- `d2 tira.skills` is implemented and prints this file as raw Markdown.
+- `d2 tira.changes` is implemented and prints the changelog as raw text.
 
 All commands and use cases in this manual ship in release 1.04.
 
 ## Global invocation grammar
 
 ```text
-dashboard tira.<resource>.<action> [arguments] [-o FORMAT]
-dashboard tira.skills
-dashboard tira.changes
+d2 tira.<resource>.<action> [arguments] [-o FORMAT]
+d2 tira.skills
+d2 tira.changes
 
 FORMAT := toon | json | human
 DASHBOARD_FORMAT := toon | json | human | table
@@ -1557,33 +1557,33 @@ the foreground server with Ctrl-C.
 Every case below is implemented and executable.
 
 ### UC-001: Create a project, or a whole board setup, in one call
-**Implemented.** `dashboard tira.project.create --name "MT5"` creates an empty project in the current directory. `dashboard tira.project.new --name "MT5" --members "K-Bot, Michael" --columns "Backlog, Planning, In Progress, Done / Release" --sow-prefix M5S --epic-prefix M5E --ticket-prefix M5T` does the whole onboarding at once — people, per-board reference prefixes, and the same columns on all three boards, named as they read. `dashboard tira.onboard` asks the same questions one at a time and creates it from the answers.
+**Implemented.** `d2 tira.project.create --name "MT5"` creates an empty project in the current directory. `d2 tira.project.new --name "MT5" --members "K-Bot, Michael" --columns "Backlog, Planning, In Progress, Done / Release" --sow-prefix M5S --epic-prefix M5E --ticket-prefix M5T` does the whole onboarding at once — people, per-board reference prefixes, and the same columns on all three boards, named as they read. `d2 tira.onboard` asks the same questions one at a time and creates it from the answers.
 
 ### UC-002: Create elsewhere
-**Implemented.** `dashboard tira.project.create --name "API" --dir ~/work/api`.
+**Implemented.** `d2 tira.project.create --name "API" --dir ~/work/api`.
 
 ### UC-003: Create with JSON
-**Implemented.** `dashboard tira.project.create --name "Data" --dir ./data -o json`.
+**Implemented.** `d2 tira.project.create --name "Data" --dir ./data -o json`.
 
 ### UC-004: Prevent overwrite
 **Implemented.** Repeating create at one root exits `2` unchanged.
 
 ### UC-005: Print the manual
-**Implemented.** `dashboard tira.skills` emits raw Markdown.
+**Implemented.** `d2 tira.skills` emits raw Markdown.
 
 ### UC-006: Create a SOW
-**Implemented.** `dashboard tira.sow.create --title "Ship v1"`.
+**Implemented.** `d2 tira.sow.create --title "Ship v1"`.
 
 ### UC-007: Create an epic
-**Implemented.** `dashboard tira.epic.create --title "Identity"`.
+**Implemented.** `d2 tira.epic.create --title "Identity"`.
 
 ### UC-008: Create a ticket
-**Implemented.** `dashboard tira.ticket.create --title "Login"`. The live board offers the same thing without the CLI: an add-card control on every column opens the dialog with an empty form, assigns the reference on save, and requires only a title.
+**Implemented.** `d2 tira.ticket.create --title "Login"`. The live board offers the same thing without the CLI: an add-card control on every column opens the dialog with an empty form, assigns the reference on save, and requires only a title.
 
 A board can declare which column is the valid starting point for new cards - `d2 tira.column.roles --type ticket --role entry=planning` - reusing the existing column-roles vocabulary rather than a new setting. Once declared, `--column` other than the entry column refuses (naming the entry column and a command to run instead), and omitting `--column` lands the card there instead of the fixed `backlog` default. A board that has named no entry role is unaffected. This closes the bypass TKT-426's chain check leaves open: a card created directly into `implement` or `done` never needs the move the chain check would otherwise refuse. Checked only on the CLI/agent command path - the browser dashboard's own create flow, and any direct engine call, is unrestricted. TKT-428. `--role entry=X` may be repeated to declare more than one entry column - a board can start new cards in more than one place; each repetition accumulates rather than the last one silently winning. With more than one declared, omitting `--column` lands the card in the first one declared, and `--column` naming any of the declared entries succeeds. Every other role stays single-valued, and a board with zero or one entry column is completely unaffected. TKT-496. Because the create path reads `entry`, it also has to cope with being asked about a board that is not there: a create run outside any project refuses with the `No Tira project found from '<directory>'` that `discover_project` raises and the other board-seeking commands surface - `record.show` and `comment.add` were both measured giving it in the identical condition - naming the directory it searched. Until 4.80 the create path answered that with a Perl error instead - `Can't use an undefined value as a HASH reference at lib/Tira/CLI/Records.pm line 36` - because the guard that lets a board with no entry role still create cards was applied to the lookup's result rather than to the lookup itself, so the one failure it existed to absorb was the one that escaped it. TKT-747.
 
 ### UC-009: Add a description
-**Implemented.** `dashboard tira.ticket.create --title "Docs" --description "## Goal"`.
+**Implemented.** `d2 tira.ticket.create --title "Docs" --description "## Goal"`.
 
 ### UC-010: Allocate the next immutable ticket reference
 **Implemented.** Repeated ticket creation advances the configured sequence.
@@ -1596,116 +1596,116 @@ A board can declare which column is the valid starting point for new cards - `d2
 without revealing or creating a storage location.
 
 ### UC-013: Choose the output weight
-**Implemented.** `dashboard tira.project.show -o human` reads as Markdown; `-o json` is compact machine JSON (stable key order, raw UTF-8); `-o json-pretty` restores the indented shape when a person is reading.
+**Implemented.** `d2 tira.project.show -o human` reads as Markdown; `-o json` is compact machine JSON (stable key order, raw UTF-8); `-o json-pretty` restores the indented shape when a person is reading.
 
 ### UC-014: Explicit TOON
-**Implemented.** `dashboard tira.epic.create --title "Cache" -o toon`.
+**Implemented.** `d2 tira.epic.create --title "Cache" -o toon`.
 
 ### UC-015: Reject missing title
-**Implemented.** `dashboard tira.ticket.create -o json` exits `2` without a ref.
+**Implemented.** `d2 tira.ticket.create -o json` exits `2` without a ref.
 
 ### UC-016: Show project
-**Implemented.** `dashboard tira.project.show -o human`.
+**Implemented.** `d2 tira.project.show -o human`.
 
 ### UC-017: Rename project
-**Implemented.** `dashboard tira.project.update --name "Platform 2"`.
+**Implemented.** `d2 tira.project.update --name "Platform 2"`.
 
 ### UC-018: Add person
-**Implemented.** `dashboard tira.project.people.add --id ada --name "Ada Lovelace" --email ada@example.test`.
+**Implemented.** `d2 tira.project.people.add --id ada --name "Ada Lovelace" --email ada@example.test`.
 
 ### UC-019: List people
-**Implemented.** `dashboard tira.project.people.list -o json`.
+**Implemented.** `d2 tira.project.people.list -o json`.
 
 ### UC-020: Update email
-**Implemented.** `dashboard tira.project.people.update --id ada --email new@example.test`.
+**Implemented.** `d2 tira.project.people.update --id ada --email new@example.test`.
 
 ### UC-021: Clear email
-**Implemented.** `dashboard tira.project.people.update --id ada --email ""`.
+**Implemented.** `d2 tira.project.people.update --id ada --email ""`.
 
 ### UC-022: Remove person
-**Implemented.** `dashboard tira.project.people.remove --id former` fails if assigned.
+**Implemented.** `d2 tira.project.people.remove --id former` fails if assigned.
 
 ### UC-023: List link types
-**Implemented.** `dashboard tira.project.link-types.list`.
+**Implemented.** `d2 tira.project.link-types.list`.
 
 ### UC-024: Add link type
-**Implemented.** `dashboard tira.project.link-types.add --outward implements --inward is-implemented-by`.
+**Implemented.** `d2 tira.project.link-types.add --outward implements --inward is-implemented-by`.
 
 ### UC-025: Remove link type
-**Implemented.** `dashboard tira.project.link-types.remove --outward implements`.
+**Implemented.** `d2 tira.project.link-types.remove --outward implements`.
 
 ### UC-026: Validate project
-**Implemented.** `dashboard tira.project.validate -o json`.
+**Implemented.** `d2 tira.project.validate -o json`.
 
 ### UC-027: Repair columns
-**Implemented.** `dashboard tira.project.validate --repair-columns`.
+**Implemented.** `d2 tira.project.validate --repair-columns`.
 
 ### UC-028: Show board
-**Implemented.** `dashboard tira.board.show --type ticket -o human`.
+**Implemented.** `d2 tira.board.show --type ticket -o human`.
 
 ### UC-029: List columns
-**Implemented.** `dashboard tira.column.list --type epic`.
+**Implemented.** `d2 tira.column.list --type epic`.
 
 ### UC-030: Add after Backlog
-**Implemented.** `dashboard tira.column.add --type ticket --name in-progress --label "In Progress" --after backlog`.
+**Implemented.** `d2 tira.column.add --type ticket --name in-progress --label "In Progress" --after backlog`.
 
 ### UC-031: Add before Discard
-**Implemented.** `dashboard tira.column.add --type ticket --name review --before discard`.
+**Implemented.** `d2 tira.column.add --type ticket --name review --before discard`.
 
 ### UC-032: Rename column
-**Implemented.** `dashboard tira.column.rename --type epic --name doing --new-name in-progress`.
+**Implemented.** `d2 tira.column.rename --type epic --name doing --new-name in-progress`.
 Also rewrites the `column` tag stored on every record's `required_items` entries that still named the old column name, across the whole board - not just cards currently sitting in the renamed column - so the push/departure gate (which matches items by a card's current column) does not go blind to a pending item left tagged with a name that no longer exists. TKT-613.
 
 ### UC-033: Reorder after
-**Implemented.** `dashboard tira.column.reorder --type ticket --name review --after in-progress`.
+**Implemented.** `d2 tira.column.reorder --type ticket --name review --after in-progress`.
 
 ### UC-034: Reorder before
-**Implemented.** `dashboard tira.column.reorder --type sow --name approval --before discard`.
+**Implemented.** `d2 tira.column.reorder --type sow --name approval --before discard`.
 
 ### UC-035: Remove column
-**Implemented.** `dashboard tira.column.remove --type ticket --name obsolete --reason "consolidating columns"` moves records to Discard. `--reason` is required (TKT-701), mirroring `column.roles --remove-role`'s own precedent - a column leaving the board discards every card resting in it, and a change nobody can account for is worse than the mistake it corrects. Each discarded card is moved through the ordinary discard path rather than by a filesystem rename, so it is journalled with an author and given a comment carrying the reason - `discard-unexplained` no longer fires forever on a card nobody chose to abandon. Deliberately does not retag or scrub `required_items` entries elsewhere that still name the removed column - unlike a rename (UC-032), a removed column's name can never again equal a card's current column, so a stale entry is harmless history. TKT-613.
+**Implemented.** `d2 tira.column.remove --type ticket --name obsolete --reason "consolidating columns"` moves records to Discard. `--reason` is required (TKT-701), mirroring `column.roles --remove-role`'s own precedent - a column leaving the board discards every card resting in it, and a change nobody can account for is worse than the mistake it corrects. Each discarded card is moved through the ordinary discard path rather than by a filesystem rename, so it is journalled with an author and given a comment carrying the reason - `discard-unexplained` no longer fires forever on a card nobody chose to abandon. Deliberately does not retag or scrub `required_items` entries elsewhere that still name the removed column - unlike a rename (UC-032), a removed column's name can never again equal a card's current column, so a stale entry is harmless history. TKT-613.
 
 ### UC-036: Protect Backlog
 **Implemented.** Removing Backlog exits `2` unchanged.
 
 ### UC-037: Preview drift
-**Implemented.** `dashboard tira.column.sync --type epic`.
+**Implemented.** `d2 tira.column.sync --type epic`.
 
 ### UC-038: Apply drift
-**Implemented.** `dashboard tira.column.sync --type epic --apply`.
+**Implemented.** `d2 tira.column.sync --type epic --apply`.
 
 ### UC-039: Change future refs
-**Implemented.** `dashboard tira.board.refs --type ticket --prefix DEV --digits 5`.
+**Implemented.** `d2 tira.board.refs --type ticket --prefix DEV --digits 5`.
 
 ### UC-040: Show a SOW, briefly when that is enough
-**Implemented.** `dashboard tira.sow.show --ref SOW-001 -o json` (long text arrives truncated with visible markers; `--full` restores it); `dashboard tira.sow.show --ref SOW-001 --brief -o human` is the one-line look.
+**Implemented.** `d2 tira.sow.show --ref SOW-001 -o json` (long text arrives truncated with visible markers; `--full` restores it); `d2 tira.sow.show --ref SOW-001 --brief -o human` is the one-line look.
 
 ### UC-041: Show one record or a named set
-**Implemented.** `dashboard tira.epic.show --ref EPC-001 -o human`; `dashboard tira.ticket.show --refs TKT-001,TKT-002,TKT-003 --fields column -o json` answers the columns of a named set in one call, keyed by ref with explicit not-found markers.
+**Implemented.** `d2 tira.epic.show --ref EPC-001 -o human`; `d2 tira.ticket.show --refs TKT-001,TKT-002,TKT-003 --fields column -o json` answers the columns of a named set in one call, keyed by ref with explicit not-found markers.
 
 ### UC-042: Show a ticket, whole or projected
-**Implemented.** `dashboard tira.ticket.show --ref TKT-001` returns the record's populated keys (empty values are omitted by default; `--include-empty` restores them); `dashboard tira.ticket.show --ref TKT-001 --fields column -o json` returns only `ref` and `column` — the cheapest way to answer the board's commonest question.
+**Implemented.** `d2 tira.ticket.show --ref TKT-001` returns the record's populated keys (empty values are omitted by default; `--include-empty` restores them); `d2 tira.ticket.show --ref TKT-001 --fields column -o json` returns only `ref` and `column` — the cheapest way to answer the board's commonest question.
 
 ### UC-043: Read boards in one call, at chosen weight
-**Implemented.** `dashboard tira.export -o json` returns every SOW, epic, and ticket in one `{records, count}` object; `dashboard tira.export --fields ref,column -o json` returns the same board as two-key records, and `--exclude-fields description,comments` keeps structure while dropping the prose. Count is unaffected by projection. `dashboard tira.export --since 2026-08-07T02:30:00Z --fields ref,column -o json` returns only records changed at or after that instant plus `now` for the next poll; `dashboard tira.export --fields ref,content_hash -o json` adds a `board_hash`, and `dashboard tira.export --if-changed BOARD_HASH` collapses a quiet board to `{"unchanged": true}` with exit 1 — the cheapest possible sweep. Repeated sweeps within one task can add `--cache-ttl 60`: identical calls serve locally, any write reads fresh, and a hit always announces itself on stderr.
+**Implemented.** `d2 tira.export -o json` returns every SOW, epic, and ticket in one `{records, count}` object; `d2 tira.export --fields ref,column -o json` returns the same board as two-key records, and `--exclude-fields description,comments` keeps structure while dropping the prose. Count is unaffected by projection. `d2 tira.export --since 2026-08-07T02:30:00Z --fields ref,column -o json` returns only records changed at or after that instant plus `now` for the next poll; `d2 tira.export --fields ref,content_hash -o json` adds a `board_hash`, and `d2 tira.export --if-changed BOARD_HASH` collapses a quiet board to `{"unchanged": true}` with exit 1 — the cheapest possible sweep. Repeated sweeps within one task can add `--cache-ttl 60`: identical calls serve locally, any write reads fresh, and a hit always announces itself on stderr.
 
 ### UC-044: Filter by column, or just count it
-**Implemented.** `dashboard tira.ticket.list --column backlog` lists the column; `dashboard tira.ticket.list --column backlog --count -o json` answers `{"count":47}` for a few bytes, and `--refs-only` returns just the refs — the input to a batch read.
+**Implemented.** `d2 tira.ticket.list --column backlog` lists the column; `d2 tira.ticket.list --column backlog --count -o json` answers `{"count":47}` for a few bytes, and `--refs-only` returns just the refs — the input to a batch read.
 
 ### UC-045: Filter server-side on any field
-**Implemented.** `dashboard tira.ticket.list --assignee ada` remains; `dashboard tira.ticket.list --where column=backlog --where sdlc_gate= -o json` returns parked tickets with no gate in one cheap call, and `--where labels~Zenandi-Developer` checks label coverage without an export.
+**Implemented.** `d2 tira.ticket.list --assignee ada` remains; `d2 tira.ticket.list --where column=backlog --where sdlc_gate= -o json` returns parked tickets with no gate in one cheap call, and `--where labels~Zenandi-Developer` checks label coverage without an export.
 
 ### UC-046: Watch the board with a first-class diff
-**Implemented.** `dashboard tira.ticket.list --parent EPC-001` still filters by parent; `dashboard tira.diff --since 2026-08-07T10:30:00Z -o json` replaces a hand-written watcher — kinds, current column and gate, and new-comment ids in one small call, with `now` to chain the next poll.
+**Implemented.** `d2 tira.ticket.list --parent EPC-001` still filters by parent; `d2 tira.diff --since 2026-08-07T10:30:00Z -o json` replaces a hand-written watcher — kinds, current column and gate, and new-comment ids in one small call, with `now` to chain the next poll.
 
 ### UC-047: Combine filters
-**Implemented.** `dashboard tira.ticket.list --column review --assignee ada --text security` uses AND.
+**Implemented.** `d2 tira.ticket.list --column review --assignee ada --text security` uses AND.
 
 ### UC-048: Update title
-**Implemented.** `dashboard tira.ticket.update --ref TKT-001 --title "New title"`.
+**Implemented.** `d2 tira.ticket.update --ref TKT-001 --title "New title"`.
 
 ### UC-049: Clear description
-**Implemented.** `dashboard tira.epic.update --ref EPC-001 --description ""`.
+**Implemented.** `d2 tira.epic.update --ref EPC-001 --description ""`.
 
 ### UC-050: Append criteria
 **Implemented.** Repeat `--acceptance` on `tira.ticket.update`.
@@ -1714,13 +1714,13 @@ Also rewrites the `column` tag stored on every record's `required_items` entries
 **Implemented.** Use `--bdd "Given..." --atdd "When..."`.
 
 ### UC-052: Replace array from file
-**Implemented.** `dashboard tira.ticket.update --ref TKT-001 --set-acceptance criteria.json`.
+**Implemented.** `d2 tira.ticket.update --ref TKT-001 --set-acceptance criteria.json`.
 
 ### UC-053: Replace array from stdin
 **Implemented.** Pipe JSON to `--set-key-details -`.
 
 ### UC-054: Move ticket
-**Implemented.** `dashboard tira.ticket.move --ref TKT-001 --column in-progress`. Every move, like every field edit, is journaled: `dashboard tira.history.list --ref TKT-001 --field column -o json` returns that card's column timeline, and `--field title` or any other field returns its own, with the value before and after each change.
+**Implemented.** `d2 tira.ticket.move --ref TKT-001 --column in-progress`. Every move, like every field edit, is journaled: `d2 tira.history.list --ref TKT-001 --field column -o json` returns that card's column timeline, and `--field title` or any other field returns its own, with the value before and after each change.
 
 Creation seeds the same column timeline, not just a card's fields: a card created directly into a column - the board's default entry point, or an explicit `--column` - gets one history entry the moment it exists, tagged `op: create` rather than `op: move` (`before: null`, `after:` the starting column), so it stays distinguishable from a real move made afterward. Without this, a card created straight into a non-default column had no history entry recording it ever arrived there, and any rule reading history to see which columns a card had visited (`column-skipped`) read it as having arrived from nowhere - flagging a card that never actually skipped anything. TKT-433.
 
@@ -2235,19 +2235,19 @@ The attachment preview overlay has left/right arrow buttons that step to the pre
 **Implemented.** Moving an epic does not move its tickets.
 
 ### UC-056: Discard SOW
-**Implemented.** `dashboard tira.sow.discard --ref SOW-001` keeps links.
+**Implemented.** `d2 tira.sow.discard --ref SOW-001` keeps links.
 
 ### UC-057: Restore to Backlog
-**Implemented.** `dashboard tira.ticket.restore --ref TKT-001`.
+**Implemented.** `d2 tira.ticket.restore --ref TKT-001`.
 
 ### UC-058: Restore to a column
-**Implemented.** `dashboard tira.epic.restore --ref EPC-001 --column in-progress`.
+**Implemented.** `d2 tira.epic.restore --ref EPC-001 --column in-progress`.
 
 ### UC-059: Move out of Discard
-**Implemented.** `dashboard tira.sow.move --ref SOW-001 --column approval`.
+**Implemented.** `d2 tira.sow.move --ref SOW-001 --column approval`.
 
 ### UC-060: Clone ticket
-**Implemented.** `dashboard tira.ticket.clone --ref TKT-001 --title "Follow-up"`.
+**Implemented.** `d2 tira.ticket.clone --ref TKT-001 --title "Follow-up"`.
 Content fields and attachments carry over to the new card; hierarchy and typed
 links, comments, and - since 4.84 - `gate_passing_log` and `evidence` do not. A
 clone with nothing done on it must not arrive claiming a gate the original
@@ -2255,10 +2255,10 @@ passed or evidence the original produced; the only link it gets is the fresh
 `clones`/`is-cloned-by` pair back to the record it came from. TKT-609.
 
 ### UC-061: Link SOW and epic
-**Implemented.** `dashboard tira.hierarchy.link --parent SOW-001 --child EPC-001`.
+**Implemented.** `d2 tira.hierarchy.link --parent SOW-001 --child EPC-001`.
 
 ### UC-062: Link epic and ticket
-**Implemented.** `dashboard tira.hierarchy.link --parent EPC-001 --child TKT-001`.
+**Implemented.** `d2 tira.hierarchy.link --parent EPC-001 --child TKT-001`.
 `--priority`/`--assignee` optionally set the child in the same write as the
 link - an untriaged card reaching the board (from a bug hunt or the external
 bridge) usually needs a home, a priority, and an assignee in the same
@@ -2268,13 +2268,13 @@ invalid priority or unknown assignee refuses the whole call, the link
 included, rather than linking and silently dropping the bad value. TKT-432.
 
 ### UC-137: Create a record already parented
-**Implemented.** `dashboard tira.ticket.create --title "Login" --parent EPC-001` creates the ticket and links it under EPC-001 in one command, applying the same hierarchy validation `hierarchy.link` applies - the record was created parentless and given a parent by a second command before this, which meant it was an orphan in between and this project's own board had 1361 findings to show for it. An invalid hierarchy (a ticket parented straight to a SOW, or a parent that does not exist) fails the whole creation: nothing is left behind for `--parent` to have half-worked on. `--parent` is still refused on `tira.<type>.update` with the same message as before - naming `hierarchy.link` and the ref to run it with - because accepting it there and silently doing nothing is a worse failure than a refusal. TKT-362.
+**Implemented.** `d2 tira.ticket.create --title "Login" --parent EPC-001` creates the ticket and links it under EPC-001 in one command, applying the same hierarchy validation `hierarchy.link` applies - the record was created parentless and given a parent by a second command before this, which meant it was an orphan in between and this project's own board had 1361 findings to show for it. An invalid hierarchy (a ticket parented straight to a SOW, or a parent that does not exist) fails the whole creation: nothing is left behind for `--parent` to have half-worked on. `--parent` is still refused on `tira.<type>.update` with the same message as before - naming `hierarchy.link` and the ref to run it with - because accepting it there and silently doing nothing is a worse failure than a refusal. TKT-362.
 
 ### UC-138: Record a passed gate in one command
-**Implemented.** `dashboard tira.release.record --ref TKT-001 --gate "Release gate" --result pass --details "Suite green, 100% coverage" --evidence "Full suite run, 6540 tests" --fix-version 2.88` writes a gate entry, an evidence entry and the fix version together - the three separate calls (`gate.add`, `evidence.add`, `<type>.update --fix-version`) this project's own releases ran on every one of them, and forgot part of three times, each caught only by a later refusal. Anything it is not told is refused rather than defaulted: omit `--fix-version` and nothing is written, not even the gate the same call also carried. Column moves are deliberately untouched - walking the gates a card passes through stays manual, because that is the discipline the push gate enforces rather than paperwork a verb should shortcut. `gate.add`, `evidence.add` and `<type>.update --fix-version` keep working exactly as they always have. TKT-345.
+**Implemented.** `d2 tira.release.record --ref TKT-001 --gate "Release gate" --result pass --details "Suite green, 100% coverage" --evidence "Full suite run, 6540 tests" --fix-version 2.88` writes a gate entry, an evidence entry and the fix version together - the three separate calls (`gate.add`, `evidence.add`, `<type>.update --fix-version`) this project's own releases ran on every one of them, and forgot part of three times, each caught only by a later refusal. Anything it is not told is refused rather than defaulted: omit `--fix-version` and nothing is written, not even the gate the same call also carried. Column moves are deliberately untouched - walking the gates a card passes through stays manual, because that is the discipline the push gate enforces rather than paperwork a verb should shortcut. `gate.add`, `evidence.add` and `<type>.update --fix-version` keep working exactly as they always have. TKT-345.
 
 ### UC-139: Keep a running list of steps, without opening a ticket for each one
-**Implemented.** `dashboard tira.tasklist.add --text "read the README"` adds a free-text item to a small, separate list - three fixed states (pending, working, done), no gates, no checklist, none of the ticket system's release discipline. `dashboard tira.tasklist.list` shows what is there; `dashboard tira.tasklist.update --id TSK-001 --status working` moves one along. Every call is scoped by `--session`: two different session ids never see each other's items, so a subagent that declares its own gets a private list, and an orchestrating agent can still read one by naming that session; call with no `--session` at all and everything shares the one list, which is what a single agent working alone wants. `--ref` optionally ties an item to an existing ticket, epic, or sow. Michael, live: "since TaskList not working, Create this simple task list feature to Tira, d2 tira.tasklist.add." TKT-504. `tasklist.add`/`tasklist.list` fall back to the `TIRA_AGENT_SESSION` environment variable when `--session` is not given explicitly, so multi-agent mode does not have to type it on every call; an explicit `--session` still overrides it. TKT-505. Ids are `TSK-NNN`, matching the short prefix every other record type uses. TKT-506. Adding an item with `--ref` naming a card that already has a pending or working item in the same session gets a `possible_duplicate` field back (that item's id and text) - a soft signal, not a refusal: the new item is still created, since a caller may genuinely want two distinct tasks on one card. TKT-806.
+**Implemented.** `d2 tira.tasklist.add --text "read the README"` adds a free-text item to a small, separate list - three fixed states (pending, working, done), no gates, no checklist, none of the ticket system's release discipline. `d2 tira.tasklist.list` shows what is there; `d2 tira.tasklist.update --id TSK-001 --status working` moves one along. Every call is scoped by `--session`: two different session ids never see each other's items, so a subagent that declares its own gets a private list, and an orchestrating agent can still read one by naming that session; call with no `--session` at all and everything shares the one list, which is what a single agent working alone wants. `--ref` optionally ties an item to an existing ticket, epic, or sow. Michael, live: "since TaskList not working, Create this simple task list feature to Tira, d2 tira.tasklist.add." TKT-504. `tasklist.add`/`tasklist.list` fall back to the `TIRA_AGENT_SESSION` environment variable when `--session` is not given explicitly, so multi-agent mode does not have to type it on every call; an explicit `--session` still overrides it. TKT-505. Ids are `TSK-NNN`, matching the short prefix every other record type uses. TKT-506. Adding an item with `--ref` naming a card that already has a pending or working item in the same session gets a `possible_duplicate` field back (that item's id and text) - a soft signal, not a refusal: the new item is still created, since a caller may genuinely want two distinct tasks on one card. TKT-806.
 
 A task sits below the SOW → epic → ticket hierarchy, for anything smaller than a ticket - a chore, a sub-step, a note-to-self mid-task. Sticky-note style: `--ref` can name one thing, several (repeat the flag), or nothing at all, and nothing checks that a named ref actually exists - a task can point at a real ticket, a URL, a filename, or free text equally. Use it when the ticket system's own weight (gates, required-actions, 100% coverage) would be overkill for the step itself.
 
@@ -3484,100 +3484,100 @@ The 5 `confirm()` calls TKT-530 judged and kept native are unaffected.
 **Implemented.** Linking to SOW-002 removes the reciprocal SOW-001 link atomically.
 
 ### UC-064: Unlink hierarchy
-**Implemented.** `dashboard tira.hierarchy.unlink --parent SOW-002 --child EPC-001`.
+**Implemented.** `d2 tira.hierarchy.unlink --parent SOW-002 --child EPC-001`.
 
 ### UC-065: Reject SOW-to-ticket
 **Implemented.** Direct SOW→ticket hierarchy exits `2` unchanged.
 
 ### UC-066: Show hierarchy
-**Implemented.** `dashboard tira.hierarchy.show --ref EPC-001` returns the complete epic plus immediate child refs; `-o human` prints its metadata and Children section.
+**Implemented.** `d2 tira.hierarchy.show --ref EPC-001` returns the complete epic plus immediate child refs; `-o human` prints its metadata and Children section.
 
 ### UC-067: Recurse hierarchy
-**Implemented.** `dashboard tira.hierarchy.show --ref SOW-001 --recursive -o json`.
+**Implemented.** `d2 tira.hierarchy.show --ref SOW-001 --recursive -o json`.
 
 ### UC-068: Link sub-ticket
-**Implemented.** `dashboard tira.subitem.link --parent TKT-001 --child TKT-002`.
+**Implemented.** `d2 tira.subitem.link --parent TKT-001 --child TKT-002`.
 
 ### UC-069: Link sub-epic
-**Implemented.** `dashboard tira.subitem.link --parent EPC-001 --child EPC-002`.
+**Implemented.** `d2 tira.subitem.link --parent EPC-001 --child EPC-002`.
 
 ### UC-070: Link sub-SOW
-**Implemented.** `dashboard tira.subitem.link --parent SOW-001 --child SOW-002`.
+**Implemented.** `d2 tira.subitem.link --parent SOW-001 --child SOW-002`.
 
 ### UC-071: Reject sub-item cycle
 **Implemented.** Making a parent its descendant exits `2` unchanged.
 
 ### UC-072: Unlink sub-item
-**Implemented.** `dashboard tira.subitem.unlink --parent TKT-001 --child TKT-002`.
+**Implemented.** `d2 tira.subitem.unlink --parent TKT-001 --child TKT-002`.
 
 ### UC-073: Add blocks link
-**Implemented.** `dashboard tira.link.add --from TKT-001 --type blocks --to TKT-002`.
+**Implemented.** `d2 tira.link.add --from TKT-001 --type blocks --to TKT-002`.
 
 ### UC-074: Cross-type block
-**Implemented.** `dashboard tira.link.add --from EPC-001 --type blocks --to TKT-009`.
+**Implemented.** `d2 tira.link.add --from EPC-001 --type blocks --to TKT-009`.
 
 ### UC-075: Relate SOW to ticket
-**Implemented.** `dashboard tira.link.add --from SOW-001 --type relates-to --to TKT-001`.
+**Implemented.** `d2 tira.link.add --from SOW-001 --type relates-to --to TKT-001`.
 
 ### UC-076: Mark duplicate
-**Implemented.** `dashboard tira.link.add --from EPC-002 --type duplicates --to EPC-001`.
+**Implemented.** `d2 tira.link.add --from EPC-002 --type duplicates --to EPC-001`.
 
 ### UC-077: List links
-**Implemented.** `dashboard tira.link.list --ref TKT-001`.
+**Implemented.** `d2 tira.link.list --ref TKT-001`.
 
 ### UC-078: Filter links
-**Implemented.** `dashboard tira.link.list --ref TKT-001 --type is-blocked-by`.
+**Implemented.** `d2 tira.link.list --ref TKT-001 --type is-blocked-by`.
 
 ### UC-079: Remove link
-**Implemented.** `dashboard tira.link.remove --from TKT-001 --type blocks --to TKT-002` updates both sides.
+**Implemented.** `d2 tira.link.remove --from TKT-001 --type blocks --to TKT-002` updates both sides.
 
 ### UC-080: Assign person
-**Implemented.** `dashboard tira.assign.add --ref TKT-001 --person ada`.
+**Implemented.** `d2 tira.assign.add --ref TKT-001 --person ada`.
 
 ### UC-081: Replace the singular assignee
-**Implemented.** `dashboard tira.assign.set --ref TKT-001 --person grace` replaces any prior assignee.
+**Implemented.** `d2 tira.assign.set --ref TKT-001 --person grace` replaces any prior assignee.
 
 ### UC-082: Clear the assignee
-**Implemented.** `dashboard tira.assign.set --ref TKT-001`.
+**Implemented.** `d2 tira.assign.set --ref TKT-001`.
 
 ### UC-083: Deactivate and reactivate a person
-**Implemented.** `dashboard tira.project.people.deactivate --id grace` blocks new ownership; `dashboard tira.project.people.activate --id grace` restores eligibility.
+**Implemented.** `d2 tira.project.people.deactivate --id grace` blocks new ownership; `d2 tira.project.people.activate --id grace` restores eligibility.
 
 ### UC-084: List or remove the assignee
-**Implemented.** `dashboard tira.assign.list --ref TKT-001 -o json`; `dashboard tira.assign.remove --ref TKT-001 --person grace` clears a match.
+**Implemented.** `d2 tira.assign.list --ref TKT-001 -o json`; `d2 tira.assign.remove --ref TKT-001 --person grace` clears a match.
 
 ### UC-085: Add Markdown comment
-**Implemented.** `dashboard tira.comment.add --ref TKT-001 --author ada --text "## Review"`.
+**Implemented.** `d2 tira.comment.add --ref TKT-001 --author ada --text "## Review"`.
 
 ### UC-086: Add text comment from file
-**Implemented.** `dashboard tira.comment.add --ref EPC-001 --author ada --file note.txt --format text`.
+**Implemented.** `d2 tira.comment.add --ref EPC-001 --author ada --file note.txt --format text`.
 
 ### UC-087: Read comment from stdin
 **Implemented.** Use `--file -` with `tira.comment.add`.
 
 ### UC-088: Update comment
-**Implemented.** `dashboard tira.comment.update --ref TKT-001 --comment CMT-001 --text "Corrected"`.
+**Implemented.** `d2 tira.comment.update --ref TKT-001 --comment CMT-001 --text "Corrected"`.
 
 ### UC-089: Attach to comment
-**Implemented.** `dashboard tira.comment.attach --ref TKT-001 --comment CMT-001 --file screenshot.png`.
+**Implemented.** `d2 tira.comment.attach --ref TKT-001 --comment CMT-001 --file screenshot.png`.
 
 ### UC-090: Read comments at chosen weight
-**Implemented.** `dashboard tira.comment.list --ref TKT-001 -o json` lists everything; `--last 1` is the newest comment alone, `--meta-only` returns ids, authors, stamps, body lengths, and attachment counts without a single body — exactly what a watcher needs before deciding to read. Each comment carries `body` alongside `text` since 3.81 — `comment.add` writes `--text`, and until then that was the one write/read field pair of four (gate, evidence, checklist, comment) where the names disagreed, so a caller reading a comment back with the name it was written under got a silent `None`. TKT-353.
+**Implemented.** `d2 tira.comment.list --ref TKT-001 -o json` lists everything; `--last 1` is the newest comment alone, `--meta-only` returns ids, authors, stamps, body lengths, and attachment counts without a single body — exactly what a watcher needs before deciding to read. Each comment carries `body` alongside `text` since 3.81 — `comment.add` writes `--text`, and until then that was the one write/read field pair of four (gate, evidence, checklist, comment) where the names disagreed, so a caller reading a comment back with the name it was written under got a silent `None`. TKT-353.
 
 ### UC-091: Add attachment
-**Implemented.** `dashboard tira.attachment.add --ref TKT-001 --file ./build.zip`.
+**Implemented.** `d2 tira.attachment.add --ref TKT-001 --file ./build.zip`.
 
 ### UC-092: Deduplicate content
 **Implemented.** Adding identical bytes to another record reuses the SHA object.
 
 ### UC-093: Stream attachment
-**Implemented.** `dashboard tira.attachment.get --sha <64-hex> --extension zip > copy.zip`.
+**Implemented.** `d2 tira.attachment.get --sha <64-hex> --extension zip > copy.zip`.
 
 ### UC-094: Retrieve by an unambiguous SHA
-**Implemented.** `dashboard tira.attachment.get --sha <64-hex> > recovered.bin` works without an extension when the SHA resolves uniquely.
+**Implemented.** `d2 tira.attachment.get --sha <64-hex> > recovered.bin` works without an extension when the SHA resolves uniquely.
 
 ### UC-095: Remove content
-**Implemented.** `dashboard tira.attachment.remove --sha <64-hex> --extension zip` logs deletion.
+**Implemented.** `d2 tira.attachment.remove --sha <64-hex> --extension zip` logs deletion.
 
 ### UC-096: Restore content
 **Implemented.** Re-adding identical bytes restores the shared SHA object after
@@ -3586,36 +3586,36 @@ card-scoped and beats deduplication: re-adding content discarded on that card is
 refused and says so, because an add that cannot take must not report success.
 
 ### UC-097: Add evidence
-**Implemented.** `dashboard tira.evidence.add --ref TKT-001 --summary "CI" --uri https://ci.example.test/1 --file result.xml --author ada`.
+**Implemented.** `d2 tira.evidence.add --ref TKT-001 --summary "CI" --uri https://ci.example.test/1 --file result.xml --author ada`.
 
 ### UC-098: Record, annotate, and cheaply re-read gates, evidence, and checklists
-**Implemented.** Add a gate, then append a correction with `dashboard tira.gate.annotate --ref TKT-001 --id GATE-001 --note "Use local docs" --author ada`; evidence uses `tira.evidence.annotate` with `EVD-NNN`. Manage retained checklists with add, list, and update; there is no remove command. `dashboard tira.gate.list --ref TKT-001 --last 1 -o json` reads the newest gate entry at constant cost, and `--where result=fail --meta-only` lists every failure without the details text.
+**Implemented.** Add a gate, then append a correction with `d2 tira.gate.annotate --ref TKT-001 --id GATE-001 --note "Use local docs" --author ada`; evidence uses `tira.evidence.annotate` with `EVD-NNN`. Manage retained checklists with add, list, and update; there is no remove command. `d2 tira.gate.list --ref TKT-001 --last 1 -o json` reads the newest gate entry at constant cost, and `--where result=fail --meta-only` lists every failure without the details text.
 
 ### UC-099: Search and correct migrations in bulk
-**Implemented.** Repeat fields in one reviewable pass: `dashboard tira.search --text Jira --field description --field atdd -o json` and `dashboard tira.replace --pattern Jira --with Local --field description --field atdd --dry-run -o json`. Import preview `dashboard tira.import --file changes.json --dry-run -o json` returns `changes[]` entries containing `ref`, `field`, `before`, and `after`; omit dry-run only after reviewing every diff. An import change is keyed by its own record reference (`{"TKT-001": {...}}`), not a `--ref` flag - an empty or malformed key is refused naming the import's own key structure rather than the generic `--ref`-flag wording every other command shares, since `tira.import` has no such flag to point at. TKT-346. `--field comments` and `--field checklist` only ever touch the comment body and a checklist item's text - never the id, status, timestamps, or a checklist item's recorded proof (TKT-690); a pattern that would have matched one of those is named in `protected_hits` rather than silently rewritten or silently ignored.
+**Implemented.** Repeat fields in one reviewable pass: `d2 tira.search --text Jira --field description --field atdd -o json` and `d2 tira.replace --pattern Jira --with Local --field description --field atdd --dry-run -o json`. Import preview `d2 tira.import --file changes.json --dry-run -o json` returns `changes[]` entries containing `ref`, `field`, `before`, and `after`; omit dry-run only after reviewing every diff. An import change is keyed by its own record reference (`{"TKT-001": {...}}`), not a `--ref` flag - an empty or malformed key is refused naming the import's own key structure rather than the generic `--ref`-flag wording every other command shares, since `tira.import` has no such flag to point at. TKT-346. `--field comments` and `--field checklist` only ever touch the comment body and a checklist item's text - never the id, status, timestamps, or a checklist item's recorded proof (TKT-690); a pattern that would have matched one of those is named in `protected_hits` rather than silently rewritten or silently ignored.
 
 ### UC-100: Render dashboard
 **Since 4.70 the dashboard renders through a View.** Dancer2 has a Template Toolkit engine configured and the page, the sign-in page and the card and column dialogs are templates under `lib/Tira/views`, alongside the stylesheet and seven scripts; `lib/Tira.pm` carries no page markup and no line in it exceeds 2,000 characters. The assets are read from disk and inlined at render, never linked, so the board still loads nothing from another host - the live page talks only to itself (polling its own data, fetching a record on demand, posting a move on a drag) and a table-mode board saved to a file makes no request at all. The distinction that matters is between where the bytes live and how they reach the browser. `INCLUDE_PATH` and the asset directory both resolve from the module's own location rather than the working directory, so an installed skill finds its templates wherever it is run from. The move was made in five slices, each proved byte-identical against the previous render.
 
-**Implemented.** `dashboard tira.dashboard --type all` is the ref-only fast path; add `--title` for titles, `--include-discard` for archived cards, `-o json` for complete records, `-o table` for self-contained interactive HTML, or `-o browser` for the live Dancer2 view. Type-specific table/browser commands are `tira.dashboard.sow`, `.epic`, and `.ticket`.
+**Implemented.** `d2 tira.dashboard --type all` is the ref-only fast path; add `--title` for titles, `--include-discard` for archived cards, `-o json` for complete records, `-o table` for self-contained interactive HTML, or `-o browser` for the live Dancer2 view. Type-specific table/browser commands are `tira.dashboard.sow`, `.epic`, and `.ticket`.
 
 ### UC-101: Ask about a card without moving it
-**Implemented.** An agent that cannot move a card can still ask about it: `dashboard tira.question.ask --ref TKT-001 --text "Which credentials should this use?"`. The reference alone names the board, so no board argument is needed. The question is answered by whoever owns the decision, and until it is, the card is waiting on them rather than on you. Replaces keeping open decisions in a file of your own.
+**Implemented.** An agent that cannot move a card can still ask about it: `d2 tira.question.ask --ref TKT-001 --text "Which credentials should this use?"`. The reference alone names the board, so no board argument is needed. The question is answered by whoever owns the decision, and until it is, the card is waiting on them rather than on you. Replaces keeping open decisions in a file of your own.
 
 ### UC-106: Ask a question the owner can answer quickly
-**Implemented.** Give the reason and the options with the question, not just the question: `dashboard tira.question.ask --ref TKT-001 --text "Which store should the importer write to?" --reason "Both are configured and the runbook names neither." --option "The staging bucket" --option "The live bucket" --option "Neither, block until told"`. Both are optional and a bare question still works, but an owner answering without them is composing an answer from nothing; with them he can reply "the staging one" in seconds. They render under the question in the human view and in the card's Questions section on the dashboard, where he can answer and mark without leaving the board.
+**Implemented.** Give the reason and the options with the question, not just the question: `d2 tira.question.ask --ref TKT-001 --text "Which store should the importer write to?" --reason "Both are configured and the runbook names neither." --option "The staging bucket" --option "The live bucket" --option "Neither, block until told"`. Both are optional and a bare question still works, but an owner answering without them is composing an answer from nothing; with them he can reply "the staging one" in seconds. They render under the question in the human view and in the card's Questions section on the dashboard, where he can answer and mark without leaving the board.
 
 ### UC-130: Back the board up
-**Implemented.** `dashboard tira.backup` **is the backup** - the one to run often, and the one `board-unbacked` is about. `dashboard tira.backup.export` and `dashboard tira.backup.import` are not: they move a board to another machine and receive it there, and day-to-day operation uses neither. Another project read export as the way to back a board up, which is the reading that loses work, because an export is a file somebody has to remember to make and a board with exports and no backups has nothing to restore from. `dashboard tira.backup` makes a commit in a git repository Tira manages inside the board's own storage, beside the project file. The board lives outside git by design, which is why one was destroyed on 11 August with nothing to restore from — every board has that hole until it is backed up. The repository is made the first time you back up, so nobody has to set anything up to obey a rule, and a board that never backs up has none: reading never makes one. It has no remote, because a board that lives on a filesystem should not need somebody else's machine to be backed up. Attachments are in it — a backup is everything or it is not a backup — and two things are left out: the lock file, because a restored lock is somebody else's half-finished write, and the sessions, because a session is the server side of somebody's sign-in and a restored one hands over an identity. Leaving the sessions out is also what makes `changed: 0` mean something: a session is rewritten whenever anybody uses the board, so while they were kept there was always something pending and two backups seconds apart both reported a change. What a board committed before 1.97 stays in its history — rewriting the history of a backup is a worse thing to own than the tidiness it would buy. Backing up an unchanged board is not an error: it says nothing had changed and names the backup that still stands, since a command that failed on a quiet afternoon would teach whoever reads the bridge to ignore it. The commit carries an identity given on the command rather than written into the repository, so it neither depends on your git being configured nor changes what it would do. Git is run from the command layer; the engine still invokes no shell or external process.
+**Implemented.** `d2 tira.backup` **is the backup** - the one to run often, and the one `board-unbacked` is about. `d2 tira.backup.export` and `d2 tira.backup.import` are not: they move a board to another machine and receive it there, and day-to-day operation uses neither. Another project read export as the way to back a board up, which is the reading that loses work, because an export is a file somebody has to remember to make and a board with exports and no backups has nothing to restore from. `d2 tira.backup` makes a commit in a git repository Tira manages inside the board's own storage, beside the project file. The board lives outside git by design, which is why one was destroyed on 11 August with nothing to restore from — every board has that hole until it is backed up. The repository is made the first time you back up, so nobody has to set anything up to obey a rule, and a board that never backs up has none: reading never makes one. It has no remote, because a board that lives on a filesystem should not need somebody else's machine to be backed up. Attachments are in it — a backup is everything or it is not a backup — and two things are left out: the lock file, because a restored lock is somebody else's half-finished write, and the sessions, because a session is the server side of somebody's sign-in and a restored one hands over an identity. Leaving the sessions out is also what makes `changed: 0` mean something: a session is rewritten whenever anybody uses the board, so while they were kept there was always something pending and two backups seconds apart both reported a change. What a board committed before 1.97 stays in its history — rewriting the history of a backup is a worse thing to own than the tidiness it would buy. Backing up an unchanged board is not an error: it says nothing had changed and names the backup that still stands, since a command that failed on a quiet afternoon would teach whoever reads the bridge to ignore it. The commit carries an identity given on the command rather than written into the repository, so it neither depends on your git being configured nor changes what it would do. Git is run from the command layer; the engine still invokes no shell or external process.
 
 ### UC-131: Get a board back after losing it
-**Implemented.** `dashboard tira.backup.restore --yes` puts the board back to its last backup: the cards, the attachments and the reference counters as they were, with anything done since removed rather than merged. It is the only command in Tira that can lose work, so without `--yes` it does nothing but print what would be discarded, by name — counting them would tell nobody whether it matters. A board that has never been backed up is refused rather than reported as restored, and a restored board is still a working board: it can be added to and backed up again. This exists because a backup nobody has restored from is a directory, and the board destroyed on 11 August was in exactly that position the day before.
+**Implemented.** `d2 tira.backup.restore --yes` puts the board back to its last backup: the cards, the attachments and the reference counters as they were, with anything done since removed rather than merged. It is the only command in Tira that can lose work, so without `--yes` it does nothing but print what would be discarded, by name — counting them would tell nobody whether it matters. A board that has never been backed up is refused rather than reported as restored, and a restored board is still a working board: it can be added to and backed up again. This exists because a backup nobody has restored from is a directory, and the board destroyed on 11 August was in exactly that position the day before.
 
 ### UC-132: Keep a backup somewhere the board is not
-**Implemented.** `dashboard tira.backup.export --file board.bundle` writes the board's whole history and every attachment into one file, and `dashboard tira.backup.import --file board.bundle` lays it out again where you tell it to. The repository a backup lives in sits inside the board's own storage, so it survives a bad edit and not a lost disk; a bundle is what leaves the machine. Import is how a board arrives somewhere, so it takes the folder you name rather than looking for one, and an imported board is a working board — it issues its own references and can be backed up again where it landed. Importing over a board that already exists replaces it, so without `--yes` it says what is there and does nothing. A bundle from a newer Tira is refused rather than half-restored, and nothing is written when it is: Tira has no migrations, an older board reads correctly because defaults are applied on read, and a newer one holds shapes these readers have never seen.
+**Implemented.** `d2 tira.backup.export --file board.bundle` writes the board's whole history and every attachment into one file, and `d2 tira.backup.import --file board.bundle` lays it out again where you tell it to. The repository a backup lives in sits inside the board's own storage, so it survives a bad edit and not a lost disk; a bundle is what leaves the machine. Import is how a board arrives somewhere, so it takes the folder you name rather than looking for one, and an imported board is a working board — it issues its own references and can be backed up again where it landed. Importing over a board that already exists replaces it, so without `--yes` it says what is there and does nothing. A bundle from a newer Tira is refused rather than half-restored, and nothing is written when it is: Tira has no migrations, an older board reads correctly because defaults are applied on read, and a newer one holds shapes these readers have never seen.
 
 ### UC-133: Report a fault in Tira from whatever you are working on
-**Implemented.** `dashboard tira.dev.found.bug_or_improvement --from <your project> --title "<what you found>" --text "<what happened>"` raises the report where Tira is maintained. You do not say where that is and you are not told: the command carries it, so an agent that hits a fault while working on something else reports it in one command and gets back to work. Your own board is untouched. `--from` is required and becomes a label on the card, because a report nobody can go back to is one nobody can answer — and a question asked on that card reaches you through it. The card is raised in the backlog under the maintainer's name, since an agent in another project is not a member of that board, and where it goes from there is that board's decision. It arrives as an incomplete card on purpose: that board refuses a release while any live card is incomplete, so a report has to be triaged before the next one ships and cannot sit unread.
+**Implemented.** `d2 tira.dev.found.bug_or_improvement --from <your project> --title "<what you found>" --text "<what happened>"` raises the report where Tira is maintained. You do not say where that is and you are not told: the command carries it, so an agent that hits a fault while working on something else reports it in one command and gets back to work. Your own board is untouched. `--from` is required and becomes a label on the card, because a report nobody can go back to is one nobody can answer — and a question asked on that card reaches you through it. The card is raised in the backlog under the maintainer's name, since an agent in another project is not a member of that board, and where it goes from there is that board's decision. It arrives as an incomplete card on purpose: that board refuses a release while any live card is incomplete, so a report has to be triaged before the next one ships and cannot sit unread.
 
 ```text
 tira.dev.found.bug_or_improvement --from PROJECT --title TEXT [--text TEXT] [-o toon|json|human]
@@ -3632,39 +3632,39 @@ Since 4.83 the work log also draws a bare divider line before each entry where t
 **Implemented.** Every column can be ordered three ways, and the third is priority: highest first, because the question a column answers is what to pick up next. A card nobody has prioritised goes last and says so rather than pretending to a number — an unprioritised card is unassessed, not lowest. The priority travels in the refresh payload as well as the first render, so the ordering still holds after the board rebuilds itself a minute later. Each board has its own sorter and sorts itself; the mode is shared, so the next refresh brings the others into line.
 
 ### UC-136: Quiet one rule without going deaf
-**Implemented.** `dashboard tira.rule.suspend --rule card-full-details --seconds 300 --reason "rewriting this card"` puts one rule down for a period; adding `--ref TKT-001` puts it down for that card alone. Every other rule keeps watching, and the same rule keeps watching every other card — which is the grain that matters, because a card being worked hard collects comments faster than anybody can fold them and silencing the whole bridge to get through that afternoon would make the escape hatch worse than the noise. A reason is required and a length is required: it comes back by itself, so there is nothing to remember to switch on again, and every putting-down is in the enforcement log with its rule, its card, its length and its reason - as structured fields since 3.46, not only inside the prose sentence, so suspensions can be counted and grouped by rule without a regex; an entry written before 3.46 carries no fields key and still reads back. TKT-348. A silence nobody can account for is worse than the noise it replaces. Adding `--pid 12345` ties the suspension to a running process instead of only the clock: it lifts the moment that process is gone, before `--seconds` would have said so, with a higher 1800s ceiling as a backstop rather than the clock-only form's 600s — long enough to cover this repo's own gates (coverage 846s, and the push gate at 15m+ before 4.62 took the suite out of it), which the clock-only ceiling was not. TKT-361.
+**Implemented.** `d2 tira.rule.suspend --rule card-full-details --seconds 300 --reason "rewriting this card"` puts one rule down for a period; adding `--ref TKT-001` puts it down for that card alone. Every other rule keeps watching, and the same rule keeps watching every other card — which is the grain that matters, because a card being worked hard collects comments faster than anybody can fold them and silencing the whole bridge to get through that afternoon would make the escape hatch worse than the noise. A reason is required and a length is required: it comes back by itself, so there is nothing to remember to switch on again, and every putting-down is in the enforcement log with its rule, its card, its length and its reason - as structured fields since 3.46, not only inside the prose sentence, so suspensions can be counted and grouped by rule without a regex; an entry written before 3.46 carries no fields key and still reads back. TKT-348. A silence nobody can account for is worse than the noise it replaces. Adding `--pid 12345` ties the suspension to a running process instead of only the clock: it lifts the moment that process is gone, before `--seconds` would have said so, with a higher 1800s ceiling as a backstop rather than the clock-only form's 600s — long enough to cover this repo's own gates (coverage 846s, and the push gate at 15m+ before 4.62 took the suite out of it), which the clock-only ceiling was not. TKT-361.
 
 ### UC-129: Serve the board over HTTPS
-**Implemented.** `dashboard tira.dashboard -o browser --ssl` serves the board over HTTPS with its own certificate, made the first time and reused afterwards. Over plain HTTP a password typed into the login page and the session cookie that follows it both travel in clear — and if sessions never expire, that cookie is a credential with no end date. The certificate is made by a library rather than by running `openssl`, because Tira invokes no shell or external process; it lives beside the project rather than inside a board, and its key is readable by nobody else. It is self-signed, so a browser warns the first time and you accept it once: that stops somebody reading your password off the wire, and does not stop somebody who can already stand between you and the machine. The board says both of those on the terminal it starts from.
+**Implemented.** `d2 tira.dashboard -o browser --ssl` serves the board over HTTPS with its own certificate, made the first time and reused afterwards. Over plain HTTP a password typed into the login page and the session cookie that follows it both travel in clear — and if sessions never expire, that cookie is a credential with no end date. The certificate is made by a library rather than by running `openssl`, because Tira invokes no shell or external process; it lives beside the project rather than inside a board, and its key is readable by nobody else. It is self-signed, so a browser warns the first time and you accept it once: that stops somebody reading your password off the wire, and does not stop somebody who can already stand between you and the machine. The board says both of those on the terminal it starts from.
 
 ### UC-128: Take an attachment off a card without losing it
-**Implemented.** `dashboard tira.attachment.discard --ref TKT-001 --sha SHA256` sets an attachment aside rather than deleting it. The reference stays on the card stamped with when and by whom, the browser draws it struck through and greyed like every other discarded thing, and the work log carries the event — read off the card by the engine, so it cannot be forgotten and cannot be written by hand. The stored file is untouched even when that was the last reference to it: the bytes are shared by content hash and are not one card's to destroy. Discarding one twice is refused rather than restamped, because the first stamp is the record somebody is relying on. `tira.attachment.remove` still deletes, for when the file itself has to go.
+**Implemented.** `d2 tira.attachment.discard --ref TKT-001 --sha SHA256` sets an attachment aside rather than deleting it. The reference stays on the card stamped with when and by whom, the browser draws it struck through and greyed like every other discarded thing, and the work log carries the event — read off the card by the engine, so it cannot be forgotten and cannot be written by hand. The stored file is untouched even when that was the last reference to it: the bytes are shared by content hash and are not one card's to destroy. Discarding one twice is refused rather than restamped, because the first stamp is the record somebody is relying on. `tira.attachment.remove` still deletes, for when the file itself has to go.
 
 ### UC-127: Leave the board open all day without signing in again
-**Implemented.** `dashboard tira.dashboard -o browser --no-session-expire` serves a board whose sign-in lasts until somebody signs out. By default a session ends after ten minutes of inactivity, and the board's own refresh does not count as activity — it reads a session without extending it — so a board you are watching expires exactly as fast as one nobody is looking at, and every refresh after that is refused. That default is right on a shared machine and wrong for a board you read from a phone instead of asking for progress, so it is a choice you make rather than a behaviour that changes. The board tells you on the terminal it starts from that sessions never expire, and what that costs: over plain HTTP the cookie is a credential with no end date.
+**Implemented.** `d2 tira.dashboard -o browser --no-session-expire` serves a board whose sign-in lasts until somebody signs out. By default a session ends after ten minutes of inactivity, and the board's own refresh does not count as activity — it reads a session without extending it — so a board you are watching expires exactly as fast as one nobody is looking at, and every refresh after that is refused. That default is right on a shared machine and wrong for a board you read from a phone instead of asking for progress, so it is a choice you make rather than a behaviour that changes. The board tells you on the terminal it starts from that sessions never expire, and what that costs: over plain HTTP the cookie is a credential with no end date.
 
 ### UC-126: Make search faster without letting it lie
-**Implemented.** `dashboard tira.search.index` builds a search index for the project, and searching gets faster because a card whose text cannot match is skipped without being parsed — parsing is what reading a board actually costs. The index is keyed by the content of the file it describes, so a row can only ever describe the exact bytes on disk: edit a card behind Tira's back and search follows the file, not the index. Corrupt it, delete it, or restore an old copy over it and search reads the files, which is what it did before any index existed. Ordinary work keeps it current — a card you create or edit updates its own row — and rebuilding it is throwing it away and running the command again, because nothing is in it that did not come from the files. A project that never runs the command has no index, and pays nothing for it.
+**Implemented.** `d2 tira.search.index` builds a search index for the project, and searching gets faster because a card whose text cannot match is skipped without being parsed — parsing is what reading a board actually costs. The index is keyed by the content of the file it describes, so a row can only ever describe the exact bytes on disk: edit a card behind Tira's back and search follows the file, not the index. Corrupt it, delete it, or restore an old copy over it and search reads the files, which is what it did before any index existed. Ordinary work keeps it current — a card you create or edit updates its own row — and rebuilding it is throwing it away and running the command again, because nothing is in it that did not come from the files. A project that never runs the command has no index, and pays nothing for it.
 
 ### UC-125: Say which column is which, so a rule survives a rename
-**Implemented.** `dashboard tira.column.roles --type ticket --role in-progress=implement --role done=archived` says what each column means, and `dashboard tira.column.roles` on its own reads back what every board says, because the question has an answer for each of them and there is no reason to make you name one to ask it. A policy written against a role follows the meaning rather than the name, so renaming the column does not quietly stop the rule protecting anything. The vocabulary is yours — Tira matches a role without needing to understand it — and every role is optional, because most projects have a column for very few of them. A role naming a column that does not exist is refused, since a role pointing at nothing makes every rule written against it match nothing at all, silently. A role declared by mistake can be taken back with `--remove-role`, which needs a reason and writes down who removed it and why — unless a policy names the role, in which case the refusal says which policy, because the same silence would follow from the other direction.
+**Implemented.** `d2 tira.column.roles --type ticket --role in-progress=implement --role done=archived` says what each column means, and `d2 tira.column.roles` on its own reads back what every board says, because the question has an answer for each of them and there is no reason to make you name one to ask it. A policy written against a role follows the meaning rather than the name, so renaming the column does not quietly stop the rule protecting anything. The vocabulary is yours — Tira matches a role without needing to understand it — and every role is optional, because most projects have a column for very few of them. A role naming a column that does not exist is refused, since a role pointing at nothing makes every rule written against it match nothing at all, silently. A role declared by mistake can be taken back with `--remove-role`, which needs a reason and writes down who removed it and why — unless a policy names the role, in which case the refusal says which policy, because the same silence would follow from the other direction.
 
 ### UC-124: Let the agent be told when it stops keeping the board honest
-**Implemented.** The agent runs `dashboard tira.policy.bridge` and leaves it running. Police writes one line per violation, carrying the issue number, how loudly it is being said, the card, what is wrong, and the command that fixes it. When it starts, one line introduces whatever is outstanding — how many there are and the span they were raised over — so a pile of old lines about cards that have moved on cannot be read as a storm of new ones; the lines themselves are unchanged, because an agent parses them. When a violation stops being true, one more line says so — marked `SETTLED`, carrying the same issue number, addressed to the same reader, and said once — so a reader replaying a backlog after a restart sees the demand and its end together rather than being sent after work that is already done. The line that raised it stays where it is: the log is a record, and rewriting it would be worse than leaving it. Nothing else arrives when nothing is wrong — silence is the signal, because a channel that announces all-clear every thirty seconds is one you stop reading. A policy set without the bridge running is worse than none at all, because it looks like cover.
+**Implemented.** The agent runs `d2 tira.policy.bridge` and leaves it running. Police writes one line per violation, carrying the issue number, how loudly it is being said, the card, what is wrong, and the command that fixes it. When it starts, one line introduces whatever is outstanding — how many there are and the span they were raised over — so a pile of old lines about cards that have moved on cannot be read as a storm of new ones; the lines themselves are unchanged, because an agent parses them. When a violation stops being true, one more line says so — marked `SETTLED`, carrying the same issue number, addressed to the same reader, and said once — so a reader replaying a backlog after a restart sees the demand and its end together rather than being sent after work that is already done. The line that raised it stays where it is: the log is a record, and rewriting it would be worse than leaving it. Nothing else arrives when nothing is wrong — silence is the signal, because a channel that announces all-clear every thirty seconds is one you stop reading. A policy set without the bridge running is worse than none at all, because it looks like cover.
 
 ### UC-123: Watch a project without ever touching it
-**Implemented.** The owner runs `dashboard tira.police` in a terminal he leaves open. It reads the board and reports; it never writes to it. With no policies set it exits and prints what to paste to the agent rather than running and guarding nothing. Every violation keeps one issue number and climbs four tones as it persists, so one lasting problem reads as one problem getting louder rather than as noise repeating; past five tellings it appears in his own terminal, naming who to hand it to - the agent holding that card, or the core agent when nobody holds it - and the command to hand them. A problem is said once when it is found and then not again until there has been time to act on it - five minutes, then fifteen, then thirty, then an hour - so the channel stays worth reading; a fixed cause silences it on the very next pass, with nothing to acknowledge and nothing to clear by hand.
+**Implemented.** The owner runs `d2 tira.police` in a terminal he leaves open. It reads the board and reports; it never writes to it. With no policies set it exits and prints what to paste to the agent rather than running and guarding nothing. Every violation keeps one issue number and climbs four tones as it persists, so one lasting problem reads as one problem getting louder rather than as noise repeating; past five tellings it appears in his own terminal, naming who to hand it to - the agent holding that card, or the core agent when nobody holds it - and the command to hand them. A problem is said once when it is found and then not again until there has been time to act on it - five minutes, then fifteen, then thirty, then an hour - so the channel stays worth reading; a fixed cause silences it on the very next pass, with nothing to acknowledge and nothing to clear by hand.
 
-`dashboard tira.police.outstanding` answers what is still true as of the last pass - one line per finding, not the comma-joined single row a plain array of prose used to render as until 3.79. `--by-rule` groups the same findings by rule instead of by chased/log-only, each card listed once per rule even when two policies for the same rule both matched it, with the rules worth acting on sorting before the ones the board only logs. `-o json` stays the bare list the clear-violations loop pipes either way. TKT-291. `--fresh` runs a police pass inline first, so the answer describes the board now rather than whatever the last pass left behind. It is opt-in because running a pass is a write, and this command is polled in a loop by other projects that must not each start one; without it, and without a watcher running, a clean answer can be arbitrarily old - which is the state that produced eleven hours of "No violations outstanding" from a pass that had stopped at 03:38. Two commands run a pass: `d2 tira.police`, which runs one and then keeps running them on a loop unless `--once` stops it, and `d2 tira.police.outstanding --fresh`. `d2 tira.policy.bridge` never does - it streams what a pass has already recorded, so the loop that looks most like it is watching the board is the one that never judges it - and neither does this command without the flag. TKT-745. Since 4.78 it also judges the age of the pass it is reporting on, and says so BEFORE the reassurance when that pass has gone stale - a reader who has got as far as "No violations outstanding" has stopped reading, and on a real board that sentence was printed on every thirty-minute run for eleven hours while nothing ran a pass. `dashboard tira.police.freshness` answers the same question directly: when the last pass ran, how long ago, and whether that is recent enough to trust, as `{ taken_at, age_seconds, stale }` under `-o json`. A board nobody has policed is reported stale with a null pass time, because "nothing has been checked" and "nothing is wrong" must not be the same answer. The payload of `tira.police.outstanding` is deliberately unchanged: two other projects pipe and index it, so the freshness question got its own command rather than a richer list. TKT-684.
+`d2 tira.police.outstanding` answers what is still true as of the last pass - one line per finding, not the comma-joined single row a plain array of prose used to render as until 3.79. `--by-rule` groups the same findings by rule instead of by chased/log-only, each card listed once per rule even when two policies for the same rule both matched it, with the rules worth acting on sorting before the ones the board only logs. `-o json` stays the bare list the clear-violations loop pipes either way. TKT-291. `--fresh` runs a police pass inline first, so the answer describes the board now rather than whatever the last pass left behind. It is opt-in because running a pass is a write, and this command is polled in a loop by other projects that must not each start one; without it, and without a watcher running, a clean answer can be arbitrarily old - which is the state that produced eleven hours of "No violations outstanding" from a pass that had stopped at 03:38. Two commands run a pass: `d2 tira.police`, which runs one and then keeps running them on a loop unless `--once` stops it, and `d2 tira.police.outstanding --fresh`. `d2 tira.policy.bridge` never does - it streams what a pass has already recorded, so the loop that looks most like it is watching the board is the one that never judges it - and neither does this command without the flag. TKT-745. Since 4.78 it also judges the age of the pass it is reporting on, and says so BEFORE the reassurance when that pass has gone stale - a reader who has got as far as "No violations outstanding" has stopped reading, and on a real board that sentence was printed on every thirty-minute run for eleven hours while nothing ran a pass. `d2 tira.police.freshness` answers the same question directly: when the last pass ran, how long ago, and whether that is recent enough to trust, as `{ taken_at, age_seconds, stale }` under `-o json`. A board nobody has policed is reported stale with a null pass time, because "nothing has been checked" and "nothing is wrong" must not be the same answer. The payload of `tira.police.outstanding` is deliberately unchanged: two other projects pipe and index it, so the freshness question got its own command rather than a richer list. TKT-684.
 
 ```text
 tira.police.freshness [--store PATH] [-o FORMAT]
 ```
 
 ### UC-122: Declare what this project actually cares about
-**Implemented.** `dashboard tira.policy.add --rule card-full-details --enter implement --action bridge-reminder` tells police what to watch for. 44 rules cover a card that left the backlog as a title, a card being worked with no agent_session recorded - a different question from an unassigned card: assignee says who owns the work, agent_session says whether the worker can be reached again, and an agent whose spawn handle was never written down is silently re-forked on resume rather than continued, discarding everything it had already learned - TKT-332, an agent that has stopped while the board stays busy with other projects' reports, a card the owner changed in the browser while the agent worked from the command line, a card nothing has happened to for too long wherever it is sitting - each column setting its own limit with `tira.column.update --notify-after`, or none at all, with the finding naming which of the two set the limit that fired ("this column allows 2h (unit-test notify_after)" versus "the policy allows 6h (no column limit set)"), since elapsed time alone read as though it were the threshold too - TKT-290, a rule this board has neither declared nor declined after an upgrade, a column work happens in that no column-scoped policy mentions at all - which is what adding a column does to policies that were complete when they were written, a bridge police has been writing to that nobody has read, a whole board where nothing has moved for as long as the agent said, a card set aside while it still carries a question nobody answered, a card worked while a higher-priority card of the same kind waits untouched, a card that arrived somewhere without passing through the steps the board defines, a checklist finished while the column says otherwise, a card talked about since it was last written down, too many things being worked at once - counted per record kind (sow/epic/ticket) since 3.42, so an epic sitting In Progress as the permission state for its children does not consume a ticket's budget by existing, and the finding names which kind is over - TKT-333, work in progress with nobody on it - a board with more than one finished column marks each of them with `--terminal` and the rule asks, because protected says Tira owns a column rather than that work stops there, an answer the agent waiting on it has not read yet, a question answered and never acted on, a parent in done above a child that is not, a commit naming no card, a card moved on with nothing ticked since its last move, a task whose status contradicts the column its linked card sits in - three directions from one comparison, plus a card carrying the same note twice, with the columns that mean work declared by `--column` - a name or a comma-separated list, and several policies compose into one set - rather than inferred, because the hand-run check this replaced counted the queue column as work and seven of its eight findings were false for that one line - TKT-639, and a test container nobody stopped. Six of them read the machine rather than the board - leftover processes and containers, commits, unpushed work, a tree changing with nothing on the board, and how long since the last backup. Tira still invokes no shell: the police command gathers those facts and hands them over, every pass, and a program that is not installed simply contributes nothing. Anything a rule cannot work without is refused when the policy is set, rather than discovered later - naming every missing option in one refusal, not the first alone, and pointing at `tira.policies` for the complete catalogue: declaring `card-metrics` (needs `--enter` and `--require`) with neither used to cost three attempts to discover fully, one option named per refusal. TKT-289. Declaring it on a card beats declaring it on the column, which beats the board, which beats the project — per rule, so one exception cannot switch the rest off. `dashboard tira.policies` prints the whole guide with a hundred worked examples. `dashboard tira.policy.review` prints the whole set in one place - every rule either declared with the columns it covers, declined with the reason, or unanswered, plus `declined_per_card` for a rule answered on one specific card rather than board-wide - for the review somebody does behind the agent, where the question is what the set adds up to rather than what one policy says. `dashboard tira.policy.undeclared` answers the narrower question of which rules this project has neither declared nor declined — the agent is the only party that can declare one, and police prints that list for the owner rather than for it, once, when it starts. A rule that was declined is answered and does not appear; a project that has decided all of them gets an empty list.
+**Implemented.** `d2 tira.policy.add --rule card-full-details --enter implement --action bridge-reminder` tells police what to watch for. 44 rules cover a card that left the backlog as a title, a card being worked with no agent_session recorded - a different question from an unassigned card: assignee says who owns the work, agent_session says whether the worker can be reached again, and an agent whose spawn handle was never written down is silently re-forked on resume rather than continued, discarding everything it had already learned - TKT-332, an agent that has stopped while the board stays busy with other projects' reports, a card the owner changed in the browser while the agent worked from the command line, a card nothing has happened to for too long wherever it is sitting - each column setting its own limit with `tira.column.update --notify-after`, or none at all, with the finding naming which of the two set the limit that fired ("this column allows 2h (unit-test notify_after)" versus "the policy allows 6h (no column limit set)"), since elapsed time alone read as though it were the threshold too - TKT-290, a rule this board has neither declared nor declined after an upgrade, a column work happens in that no column-scoped policy mentions at all - which is what adding a column does to policies that were complete when they were written, a bridge police has been writing to that nobody has read, a whole board where nothing has moved for as long as the agent said, a card set aside while it still carries a question nobody answered, a card worked while a higher-priority card of the same kind waits untouched, a card that arrived somewhere without passing through the steps the board defines, a checklist finished while the column says otherwise, a card talked about since it was last written down, too many things being worked at once - counted per record kind (sow/epic/ticket) since 3.42, so an epic sitting In Progress as the permission state for its children does not consume a ticket's budget by existing, and the finding names which kind is over - TKT-333, work in progress with nobody on it - a board with more than one finished column marks each of them with `--terminal` and the rule asks, because protected says Tira owns a column rather than that work stops there, an answer the agent waiting on it has not read yet, a question answered and never acted on, a parent in done above a child that is not, a commit naming no card, a card moved on with nothing ticked since its last move, a task whose status contradicts the column its linked card sits in - three directions from one comparison, plus a card carrying the same note twice, with the columns that mean work declared by `--column` - a name or a comma-separated list, and several policies compose into one set - rather than inferred, because the hand-run check this replaced counted the queue column as work and seven of its eight findings were false for that one line - TKT-639, and a test container nobody stopped. Six of them read the machine rather than the board - leftover processes and containers, commits, unpushed work, a tree changing with nothing on the board, and how long since the last backup. Tira still invokes no shell: the police command gathers those facts and hands them over, every pass, and a program that is not installed simply contributes nothing. Anything a rule cannot work without is refused when the policy is set, rather than discovered later - naming every missing option in one refusal, not the first alone, and pointing at `tira.policies` for the complete catalogue: declaring `card-metrics` (needs `--enter` and `--require`) with neither used to cost three attempts to discover fully, one option named per refusal. TKT-289. Declaring it on a card beats declaring it on the column, which beats the board, which beats the project — per rule, so one exception cannot switch the rest off. `d2 tira.policies` prints the whole guide with a hundred worked examples. `d2 tira.policy.review` prints the whole set in one place - every rule either declared with the columns it covers, declined with the reason, or unanswered, plus `declined_per_card` for a rule answered on one specific card rather than board-wide - for the review somebody does behind the agent, where the question is what the set adds up to rather than what one policy says. `d2 tira.policy.undeclared` answers the narrower question of which rules this project has neither declared nor declined — the agent is the only party that can declare one, and police prints that list for the owner rather than for it, once, when it starts. A rule that was declined is answered and does not appear; a project that has decided all of them gets an empty list.
 
-`dashboard tira.card.holes` asks a related but different question: not what police is watching for, but which live cards on the board right now are missing required fields — a title moving between columns with nothing behind it. `tools/card-holes` already answered this from the pre-push hook, but only against the cards a push happened to be about, so a card left untouched in the backlog stayed unblocked indefinitely; measured live, 26 of 300 cards were missing both `problem_or_feature` and `solution_needed`, 24 of them still open with no push ever having named them. `tira.card.holes` reads the exact same definition `card_missing`/the push gate uses, so the two can never disagree, excludes discarded cards, and exempts an untriaged `tira.dev.found.bug_or_improvement` report still sitting in the entry column — filing a quick report stays as easy as it always was. It reports and refuses nothing. TKT-374.
+`d2 tira.card.holes` asks a related but different question: not what police is watching for, but which live cards on the board right now are missing required fields — a title moving between columns with nothing behind it. `tools/card-holes` already answered this from the pre-push hook, but only against the cards a push happened to be about, so a card left untouched in the backlog stayed unblocked indefinitely; measured live, 26 of 300 cards were missing both `problem_or_feature` and `solution_needed`, 24 of them still open with no push ever having named them. `tira.card.holes` reads the exact same definition `card_missing`/the push gate uses, so the two can never disagree, excludes discarded cards, and exempts an untriaged `tira.dev.found.bug_or_improvement` report still sitting in the entry column — filing a quick report stays as easy as it always was. It reports and refuses nothing. TKT-374.
 
 ### UC-121: Know who is looking at the board
 **Implemented.** The browser dashboard is behind a login. A person claims a password the first time they use it — whatever they type becomes theirs — and must match it afterwards. Only a salted, iterated digest is stored, never the password. Anybody whose name or id contains "bot" cannot sign in at all, because machines drive the board through the command line. Every route is behind the gate: an unknown visitor gets the login page and nothing else. Every field of the stored record is validated at sign-in, including the work factor (TKT-686): `iterations` must be a positive integer at or above `$Tira::PASSWORD_ITERATIONS_FLOOR`, checked before hashing — a record whose iterations was missing, `0`, or `1` used to verify against a single HMAC round instead of the real cost, silently.
@@ -3679,19 +3679,19 @@ tira.police.freshness [--store PATH] [-o FORMAT]
 **Implemented.** A board somebody is looking at — `-o table` or `-o browser` — shows the Discard column alongside the live ones, faded and marked as set aside so it reads as an archive rather than as more work outstanding. Discarding a card no longer makes it vanish from the only view most people use. The ref-only listing an agent queries still leaves it out, because that path exists to be cheap; `--include-discard` forces it either way, and machine formats are unchanged unless asked.
 
 ### UC-117: Show your working when you ask, and when you answer
-**Implemented.** Hang evidence on a question with `dashboard tira.question.attach --id Q-007 --file /tmp/screen.png`, and answer with evidence in one action using `dashboard tira.question.answer --id Q-007 --text "That one." --file /tmp/proof.pdf`. Both belong to the question: `dashboard tira.attachment.list --ref TKT-001 --question Q-007 -o json` returns what you asked with and what came back together, because somebody reading a question wants everything bearing on it. Naming no question lists every file on the card, each saying where it hangs. Fetching needs only the reference — no card, no question, nothing to choose.
+**Implemented.** Hang evidence on a question with `d2 tira.question.attach --id Q-007 --file /tmp/screen.png`, and answer with evidence in one action using `d2 tira.question.answer --id Q-007 --text "That one." --file /tmp/proof.pdf`. Both belong to the question: `d2 tira.attachment.list --ref TKT-001 --question Q-007 -o json` returns what you asked with and what came back together, because somebody reading a question wants everything bearing on it. Naming no question lists every file on the card, each saying where it hangs. Fetching needs only the reference — no card, no question, nothing to choose.
 
 ### UC-116: Read a card's questions in the order they need you
 **Implemented.** The Questions panel puts what still needs doing first: unanswered, then answered but not yet judged, then judged, then set aside. A question you have already marked collapses to its question, its answer and a tick or a cross — everything else is only in the way once it is settled — so a card with a long history stays readable.
 
 ### UC-115: Find every file on a card, wherever it is attached
-**Implemented.** `dashboard tira.attachment.list --ref TKT-001 -o json` counts and lists every file belonging to the card: attached to the card itself, to one of its comments, to one of its questions - whether a voice note or an ordinary attachment - or to a question's answer. Each entry says which in `attached_to`. A zero means there is genuinely nothing there — it used to mean nothing on the card itself, which read as failure when the files were one level down.
+**Implemented.** `d2 tira.attachment.list --ref TKT-001 -o json` counts and lists every file belonging to the card: attached to the card itself, to one of its comments, to one of its questions - whether a voice note or an ordinary attachment - or to a question's answer. Each entry says which in `attached_to`. A zero means there is genuinely nothing there — it used to mean nothing on the card itself, which read as failure when the files were one level down.
 
 ### UC-114: Be told what a new ticket still owes
 **Implemented.** Creating a record hands back a `reminder` in the same terse line: `missing: description,reporter,gate,questions(if unclear) | fix: tira.ticket.update --ref TKT-001 --description TEXT --reporter NAME; …`. A title alone is not a ticket. The reporter is whoever asked for it — name the owner if he did, name yourself if you found the bug or the enhancement. A gate records how the work will be judged. And a question is offered because guessing at something unclear is the expensive mistake, not because every ticket needs one. Fields that share a command share one, the fix names the board the record lives on, and a record that owes nothing says nothing.
 
 ### UC-112: Let the owner hear the question instead of reading it
-**Implemented.** Record the question, its reason and its choices, and attach the audio: `dashboard tira.question.ask --ref TKT-001 --text "..." --reason "..." --option A --option B --voice /tmp/question.ogg`, or `dashboard tira.question.voice --id Q-007 --file /tmp/question.ogg` afterwards. `--remove` takes a wrong recording off. **Tira does not make the recording** — it runs no external process, so you record it and Tira keeps it, in the ordinary attachment store where the same recording on ten questions is one file. The board shows a play control on the question.
+**Implemented.** Record the question, its reason and its choices, and attach the audio: `d2 tira.question.ask --ref TKT-001 --text "..." --reason "..." --option A --option B --voice /tmp/question.ogg`, or `d2 tira.question.voice --id Q-007 --file /tmp/question.ogg` afterwards. `--remove` takes a wrong recording off. **Tira does not make the recording** — it runs no external process, so you record it and Tira keeps it, in the ordinary attachment store where the same recording on ten questions is one file. The board shows a play control on the question.
 
 ### UC-113: Be told what a question still owes
 **Implemented.** You will not be left to remember any of this. A question missing its reason, its choices or its recording carries a `reminder` in the response to whatever you just did — one terse line naming every gap at once and the commands that close them, references filled in: `missing: reason,options,voice | fix: tira.question.update --id Q-007 --reason TEXT --option TEXT --option TEXT --voice FILE`. It is written for you to act on, not for a person to read, so it is short, and the fix is always **one** command — `question.update` takes the recording too, so settling three gaps never costs three commands. Change the wording, the reason or the choices and it reports `voice(stale)` until you re-record. A question that owes nothing says nothing: a reminder that is always there is furniture.
@@ -3706,15 +3706,15 @@ tira.police.freshness [--store PATH] [-o FORMAT]
 **Implemented.** On the live dashboard, the **Answers to review** toggle in a board control narrows it to exactly the **greyed-out** cards: every question answered, at least one answer not yet ticked or crossed. It starts off, so the board shows all the work until you narrow it, and switching it off restores everything. Yellow cards are left out on purpose — those are questions the owner has not answered, so they are his move, not yours. Marking an answer either way clears the card, because a cross is a judgement too.
 
 ### UC-108: Take an old crammed question apart
-**Implemented.** A question asked before reason and choices existed has all three squeezed into its text, and those are exactly the ones that most need splitting. Revisit it and decompose it: `dashboard tira.question.update --id Q-007 --text "Which store should this write to?" --reason "Both are configured and the runbook names neither." --option Staging --option Live` does it in one command, or set one piece at a time as you work it out — **only what you name changes**, so a reason on its own leaves the question and the choices untouched. An explicitly empty value clears that piece if you decide it was wrong. The question keeps its reference and its original time, so anybody who quoted it is not stranded.
+**Implemented.** A question asked before reason and choices existed has all three squeezed into its text, and those are exactly the ones that most need splitting. Revisit it and decompose it: `d2 tira.question.update --id Q-007 --text "Which store should this write to?" --reason "Both are configured and the runbook names neither." --option Staging --option Live` does it in one command, or set one piece at a time as you work it out — **only what you name changes**, so a reason on its own leaves the question and the choices untouched. An explicitly empty value clears that piece if you decide it was wrong. The question keeps its reference and its original time, so anybody who quoted it is not stranded.
 
 ### UC-107: Answer a question from the board in one click
 **Implemented.** Open the card on the live dashboard and its **Questions** section shows each question, its choices, why it was asked, its status (`new`, `answered` or `discarded`) and its answer. Click a choice and that is the answer — no typing. Use **Other…** to write something else, or edit an answer already given and save it. Mark it as settling the matter or not from the same place. A discarded question stays visible, struck through, because it still happened. Every action there runs the same engine subroutine as the matching command, so answering from the board has exactly the consequences answering from a terminal does: the card stops waiting, the reminder clock restarts from your answer, and the agent is told the card is back with it.
 
 ### UC-102: Read the answers, and say whether they settle it
-**Implemented.** `dashboard tira.question.list --ref TKT-001 -o json` returns every question with its answer underneath, and reading them is what marks them read — you do nothing extra. Each list carries an `instruction` naming your next step. If an answer settles the matter, `dashboard tira.question.mark --id Q-007 --mark ok`. If it does not, mark it `not-ok` **and** ask a new one: a cross on its own settles nothing, and there are no follow-up threads. A card's own `tira.<type>.show` embeds the same questions, and since 3.41 each carries the same `status` (`new`, `answered` or `discarded`) this command reports — until then the embedded shape had no `status` key at all, so a discarded question and a live one were distinguishable only by `discarded_at`. TKT-322.
+**Implemented.** `d2 tira.question.list --ref TKT-001 -o json` returns every question with its answer underneath, and reading them is what marks them read — you do nothing extra. Each list carries an `instruction` naming your next step. If an answer settles the matter, `d2 tira.question.mark --id Q-007 --mark ok`. If it does not, mark it `not-ok` **and** ask a new one: a cross on its own settles nothing, and there are no follow-up threads. A card's own `tira.<type>.show` embeds the same questions, and since 3.41 each carries the same `status` (`new`, `answered` or `discarded`) this command reports — until then the embedded shape had no `status` key at all, so a discarded question and a live one were distinguishable only by `discarded_at`. TKT-322.
 
-Reading is what marks an answer read, which used to make checking whether an answer had been read the same act as reading it — a manager routing work down a chain who opened a question to route it consumed the one detector whose entire job was to send that particular agent there, and could never fire for that question again. `--peek` (3.43) inspects without reading: `dashboard tira.question.list --ref TKT-001 --peek -o json` returns metadata only — `id`, `status`, `answered_at`, `read_at`, `mark` — never the answer text, reason, or options, and does not itself mark anything read. Refused on every other `question.*` command. TKT-336.
+Reading is what marks an answer read, which used to make checking whether an answer had been read the same act as reading it — a manager routing work down a chain who opened a question to route it consumed the one detector whose entire job was to send that particular agent there, and could never fire for that question again. `--peek` (3.43) inspects without reading: `d2 tira.question.list --ref TKT-001 --peek -o json` returns metadata only — `id`, `status`, `answered_at`, `read_at`, `mark` — never the answer text, reason, or options, and does not itself mark anything read. Refused on every other `question.*` command. TKT-336.
 
 ### UC-105: See at a glance whose move a card is waiting on
 **Implemented.** On the HTML and live dashboards a card's appearance says **whose turn it is**, not merely that somebody is waiting. **Yellow** means a question nobody has answered: the owner owes the next move, and it is the only thing on the board competing for his attention. **Greyed out** means every question has been answered and at least one has not been ticked or crossed: it is off his plate and with the agent. A card is never both, so the board never says two people owe the same thing at once, and it returns to its ordinary appearance when every question is settled — discarded, or answered and marked. Knowing this means reading the card, so the colour appears wherever a person is looking at a board (`-o table`, `-o browser`, `-o json`, or with `--title`); the ref-only fast path still opens no files and stays as cheap as it was.
@@ -3734,13 +3734,13 @@ unaffected - the existing "Question X is on Y, not on Z" message already
 told the two apart. TKT-412.
 
 ### UC-104: Find the card a question was asked on
-**Implemented.** A question reference belongs to the project, not to a board, so quoting it is enough: `dashboard tira.search --text Q-007 -o json` returns the card it lives on whichever board that is. `--text` searches the whole card, not the front of it: the title and description, the problem statement, what a solution needs, the key details, deliverables, acceptance criteria, test steps, behaviour and scope, the labels, the checklist, the required items and the column each is tagged with, the comments, the gate records, the evidence, the conversation and the names of attached files. The gates and the evidence matter most on a finished card - they are append-only observations, so they carry what was measured rather than what was believed at planning, which is exactly when somebody comes looking. A project once published that a figure appeared nowhere on a card when it had been in that card's gate records the whole time; an absence proven by an instrument that cannot see most of the record is not an absence. Search also matches the words in a question and the words in its answer, so `--text credentials` finds the card somebody asked about credentials on. A discarded question is still found, because it still happened. On the dashboard the keyword box does the same thing across all three boards at once — typing a question reference on one board empties it and shows the card on the board that owns it.
+**Implemented.** A question reference belongs to the project, not to a board, so quoting it is enough: `d2 tira.search --text Q-007 -o json` returns the card it lives on whichever board that is. `--text` searches the whole card, not the front of it: the title and description, the problem statement, what a solution needs, the key details, deliverables, acceptance criteria, test steps, behaviour and scope, the labels, the checklist, the required items and the column each is tagged with, the comments, the gate records, the evidence, the conversation and the names of attached files. The gates and the evidence matter most on a finished card - they are append-only observations, so they carry what was measured rather than what was believed at planning, which is exactly when somebody comes looking. A project once published that a figure appeared nowhere on a card when it had been in that card's gate records the whole time; an absence proven by an instrument that cannot see most of the record is not an absence. Search also matches the words in a question and the words in its answer, so `--text credentials` finds the card somebody asked about credentials on. A discarded question is still found, because it still happened. On the dashboard the keyword box does the same thing across all three boards at once — typing a question reference on one board empties it and shows the card on the board that owns it.
 
 ### UC-103: Catch up on what changed without re-reading everything
-**Implemented.** Set a question aside with `dashboard tira.question.discard --id Q-007` when it stops mattering — nothing is deleted, it keeps its answer and shows struck through. `dashboard tira.question.list --ref TKT-001 --status new -o json` shows only what is still unanswered; `--status answered` only what has been answered, and `--status discarded` what was set aside. `--since 2026-08-09T09:00:00Z` reads the answer's stamp when there is an answer and the question's when there is not, so a newly answered question shows up as newly changed. A question reference is project-wide, so `--id Q-007` reaches it from anywhere without naming the card.
+**Implemented.** Set a question aside with `d2 tira.question.discard --id Q-007` when it stops mattering — nothing is deleted, it keeps its answer and shows struck through. `d2 tira.question.list --ref TKT-001 --status new -o json` shows only what is still unanswered; `--status answered` only what has been answered, and `--status discarded` what was set aside. `--since 2026-08-09T09:00:00Z` reads the answer's stamp when there is an answer and the question's when there is not, so a newly answered question shows up as newly changed. A question reference is project-wide, so `--id Q-007` reaches it from anywhere without naming the card.
 
 ### UC-143: See how much is outstanding from the CLI alone
-**Implemented.** `dashboard tira.outstanding` answers `{questions, tasks}` - the same project-wide totals TKT-797 already put in the browser dashboard's sticky header, for a caller working through the CLI alone: how many cards carry a genuinely unanswered question, and how many tasklist items are still owed (`pending`/`working`, not `done`). Before this, an agent working purely through the CLI - the common case for this whole project - had strictly less visibility into this than a human glancing at the browser, a gap widened the moment TKT-797 gave the browser its own answer. Deliberately does not match `hero-counts.js`'s own current task count, which counts every item regardless of status (a separate, tracked defect, TKT-817). TKT-808.
+**Implemented.** `d2 tira.outstanding` answers `{questions, tasks}` - the same project-wide totals TKT-797 already put in the browser dashboard's sticky header, for a caller working through the CLI alone: how many cards carry a genuinely unanswered question, and how many tasklist items are still owed (`pending`/`working`, not `done`). Before this, an agent working purely through the CLI - the common case for this whole project - had strictly less visibility into this than a human glancing at the browser, a gap widened the moment TKT-797 gave the browser its own answer. Deliberately does not match `hero-counts.js`'s own current task count, which counts every item regardless of status (a separate, tracked defect, TKT-817). TKT-808.
 
 ### UC-142: See how much is outstanding without scrolling to find it
 **Implemented.** The dashboard's sticky page header shrinks once you actually scroll (title/padding compact on a class toggle, restoring at the top) and shows live counts alongside it: how many cards have a question awaiting an answer (read from the same marker the Questions-to-answer toggle already uses) and how many tasklist items are outstanding - both stay visible no matter how far down the board you have scrolled.

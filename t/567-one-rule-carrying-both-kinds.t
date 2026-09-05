@@ -146,6 +146,8 @@ sub carried {
     open my $fh, '<:raw', 'docs/POLICIES.md' or die $!;
     my $policies = do { local $/; <$fh> };
     close $fh;
+    # non-empty is the whole claim: the TKT-945 check below would pass on an
+    # unreadable file's emptiness alone otherwise.
     like( $policies, qr/\S/, 'POLICIES.md is there to be read' );
     like( $policies, qr/TKT-945/,
         "and the rule's own row records the widening where somebody declaring it will read it" );

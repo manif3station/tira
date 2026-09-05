@@ -1002,6 +1002,18 @@ every thirty seconds for ever. A violation waiting out its quiet is still
 reported by the pass, a fixed one goes silent immediately, and a new one is
 said at once whatever else is waiting.
 
+**Every terminal line is UTF-8-encoded before it is printed.** Michael reported
+(TKT-939) a terminal flooded with repeated "Wide character in print" warnings
+from a standing `tira.policy.bridge` watch - a violation whose text carried
+non-ASCII content (a card title or comment in Cantonese, since this board is
+worked in English and Cantonese) still held Perl's internal UTF8 flag when the
+watch loop's own terminal print reached it, and Tira's STDOUT/STDERR are
+deliberately `:raw`. The same class of bug had already been fixed twice
+elsewhere in this file (the bridge log and the per-card history journal); the
+`--once` and continuous-watch terminal prints were the two spots still missed.
+Both now pass their text through the same `_utf8_bytes` encode every other
+output path already uses.
+
 ### `tira.worklog.show`
 
 What has actually happened to a card: raised, moved, edited, commented, asked,

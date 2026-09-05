@@ -1,5 +1,26 @@
 Revision history for Tira
 
+5.76  2026-09-05
+
+    - TKT-939. Michael, via Telegram (msg 7012), a screenshot of his
+      terminal flooded with repeated "Wide character in print at
+      .../lib/Tira.pm line 13171" warnings, captioned "still happening".
+      The reliably reproducible source: police_run's once-mode and
+      watch-loop terminal prints (lib/Tira/CLI/Police.pm lines 131 and
+      1044) wrote each line of a police pass's terminal notices straight
+      to STDERR, which Tira::CLI::run sets :raw on purpose - unlike every
+      other output path in this file, which passes its text through
+      Tira::CLI::_utf8_bytes first. A violation whose terminal line
+      carried non-ASCII text (a card title or comment in Cantonese, since
+      this board is worked in English and Cantonese) still held Perl's
+      internal UTF8 flag when it reached that print, and warned on every
+      poll of the standing d2 tira.policy.bridge monitor (JOB-004) -
+      forever, since the watch loop never stops. This exact class of bug
+      was already found and fixed twice in this file's own history
+      (_bridge_write and _journal_flush both carry a comment describing a
+      real incident); the two terminal prints were missed both times.
+      Both are now wrapped in _utf8_bytes.
+
 5.75  2026-09-05
 
     - TKT-600. The task list's 1-second poll closed an open status dropdown

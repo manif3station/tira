@@ -127,8 +127,16 @@ sub police_follow {
             # The watch loop matters most of the three: it is the one that runs
             # continuously, so a monitor's output left unrecorded here would be
             # re-announced every round forever.
+            #
+            # Through _utf8_bytes like every other output path in this file, and
+            # for the same reason: STDERR is :raw on purpose (Tira::CLI::run),
+            # and this is the print that runs on every poll of the standing
+            # watch loop - a violation carrying non-ASCII text (a card title or
+            # comment in Cantonese) warned "Wide character in print" on the
+            # owner's own screen once per interval, forever, until the process
+            # was killed. TKT-939.
             advance_monitor_output( $tira, $args, $result );
-            print {*STDERR} map { "$_\n" } @{ $result->{terminal} };
+            print {*STDERR} Tira::CLI::_utf8_bytes( join '', map { "$_\n" } @{ $result->{terminal} } );
         }
         # Into the code that is installed, between rounds.
         #
@@ -1041,7 +1049,7 @@ sub police_run {
         violations => $result->{violations}, settled => $result->{settled},
         upgraded => $result->{upgraded} );
     advance_monitor_output( $tira, \%args, $result );
-    print {*STDERR} map { "$_\n" } @{ $result->{terminal} };
+    print {*STDERR} Tira::CLI::_utf8_bytes( join '', map { "$_\n" } @{ $result->{terminal} } );
     return $result if $option->{once};
     require Tira::CLI::Police;
     return police_follow( $tira, \%args, $store, $option );

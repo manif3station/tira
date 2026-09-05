@@ -9964,8 +9964,32 @@ sub _police_environment_violations {
                   . 'could be carried this pass' );
             next if !defined $jobs;
 
+            # THE NAME IS NARROWER THAN WHAT THIS CARRIES, and that is a
+            # deliberate trade rather than an oversight. Since 5.82 this rule
+            # carries a CRON command job's output as well as a monitor's.
+            #
+            # His decision, Q-127 on TKT-944, in his own words: "Widen
+            # monitor-output to carry cron command output too (one mechanism,
+            # but the rule's name stops matching what it does)." He was
+            # offered a second rule instead, and chose one mechanism with the
+            # cost written into the option he picked.
+            #
+            # It is NOT renamed. A board that has declared monitor-output
+            # would silently stop enforcing anything the moment the name
+            # moved - the rule would be undeclared rather than renamed, which
+            # is the loudest possible version of this same fault. So the name
+            # stays and the mismatch is said out loud, here and in
+            # docs/POLICIES.md's own row for the rule, where somebody
+            # declaring it actually reads. TKT-945.
+            #
+            # WIDENED BY DELETING A CONDITION rather than adding one. The
+            # monitor-only skip is simply gone and the guards below do the
+            # rest: a message-mode job carries no command, so the
+            # defined-command check keeps it out without a second condition
+            # being invented that means nearly what an existing one already
+            # means - which is exactly the drift t/566's registry was written
+            # to catch, and a poor thing to commit in the same release.
             for my $job ( @{$jobs} ) {
-                next if ( $job->{schedule_kind} // '' ) ne 'monitor';
                 next if !$job->{enabled};
                 next if !defined $job->{command} || $job->{command} eq '';
 

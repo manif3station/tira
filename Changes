@@ -33,6 +33,33 @@ Revision history for Tira
       the engine - the suite failed and named the offending line - then
       restoring the file.
 
+    - TKT-945, from his answer to Q-127 on TKT-944: "Widen monitor-output
+      to carry cron command output too (one mechanism, but the rule's
+      name stops matching what it does)." He was offered a second rule
+      instead, and chose one mechanism with the cost written into the
+      option he picked.
+
+      TKT-944 had begun feeding a cron command job's output onto the job
+      record through job_feed, but the monitor-output rule skipped every
+      job whose schedule was not 'monitor', so that output was drained
+      by nothing and announced to nobody. The producing half existed and
+      the carrying half refused to look.
+
+      Widened by DELETING the monitor-only skip rather than adding a
+      condition: a message-mode job carries no command, so the rule's
+      existing defined-command guard keeps it out without a second
+      condition being invented that means nearly what an existing one
+      already means - which is exactly the drift t/566 shipped this same
+      release to catch. monitor-dead and monitor-silent keep their own
+      monitor-only gates; they are genuinely about monitors.
+
+      The rule is NOT renamed. A board that has already declared
+      monitor-output would silently stop enforcing anything the moment
+      the name moved - undeclared rather than renamed, the loudest
+      version of this very fault. So the name stays and the mismatch is
+      said out loud in the rule body and in docs/POLICIES.md's own row,
+      where somebody declaring it reads.
+
 5.81  2026-09-05
 
     - TKT-944. A due command-mode job was announced on the bridge and

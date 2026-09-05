@@ -1257,11 +1257,16 @@ a push nine ways and runs no test suite, no browser:
 
 Since 4.99 (TKT-796) the browser suite (`tools/browser-tests`, 21 Playwright
 checks) no longer runs here - a single flaky test used to block an entire
-batch of otherwise-good, individually-verified cards. It runs earlier instead,
-per card, as a conditional required action on the `verify` column (project
-board configuration, not a step in this repo's own release tooling): only a
-card whose changes touch `lib/Tira/views/*`, `DashboardWeb.pm`, or
-`OnboardWeb.pm` needs it.
+batch of otherwise-good, individually-verified cards. **The intended
+replacement - a conditional required action on the `verify` column, firing
+only for a card whose changes touch `lib/Tira/views/*`, `DashboardWeb.pm`, or
+`OnboardWeb.pm` - was never actually added to this board's project
+configuration.** `d2 tira.column.list --type ticket` shows `verify`'s
+required actions today carry no browser-relevant item at all, so a
+browser-relevant card reaching `verify` gets no prompt to run
+`tools/browser-tests` from either place. TKT-799 tracks adding the real gate;
+until it lands, running the browser suite for a browser-relevant change is on
+whoever is working the card to remember.
 
 **One predicate decides whether a required ACTION is finished, since 4.68.**
 The command layer asks `_item_is_done`, which lowercases before comparing, so

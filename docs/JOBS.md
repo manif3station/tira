@@ -413,6 +413,21 @@ The Repeated Jobs section now offers, on each card:
 | Control | What it does | The verb underneath |
 | --- | --- | --- |
 | **Edit** | opens one form, pre-filled from the job | `tira.job.update` |
+
+**One field, both kinds, and since 5.85 it is a textarea that grows.** The form
+has a single Command control: a command job's command line and a message job's
+message go into the same box, filled from whichever the job actually is. It was
+an `<input type="text">`, which suits a command and not prose — and every
+message job carries multi-sentence instructions, so the control was wrong for
+every job it applied to. It now grows to its content up to a cap, using the
+shared helper rather than a second implementation of the same idea, and starts
+one row tall so a one-line command is displayed exactly as before.
+
+A caution worth knowing now that multi-line messages are easy to type: a
+message containing newlines is stored and read back exactly as written, but the
+police bridge renders one violation per line and does not yet flatten a
+multi-line message into one. Until that is fixed, a message with newlines will
+reach the bridge as several physical lines.
 | **Run now** / **Start** | runs a cron job now, or starts a monitor | `tira.job.start` |
 | **Stop**, **Restart** | only on a monitor the board can see running | `tira.job.stop` |
 | **Enable** / **Disable** | stops a job being due, without removing it | `tira.job.update` |

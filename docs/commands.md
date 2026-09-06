@@ -3741,6 +3741,18 @@ scrolling past a scrollbar. The list held 142 items when the card was filed, in
 a grid about ten columns wide - fifteen rows between the ticket board and the
 Repeated Jobs section under it.
 
+**The editor's Command field is one control for both kinds, and since 5.85 it
+grows.** A command job's command line and a message job's message go into the
+same box, filled from whichever the job carries. It was a single-line input,
+which suits a command and not the multi-sentence instructions message jobs
+carry, so it is now a textarea that grows to its content up to a cap and starts
+one row tall - a one-line command looks exactly as it did.
+
+If you write a message with newlines, know that they survive the record and not
+the bridge: `tira.job.add` and `tira.job.list` round-trip them exactly, but the
+bridge renders one violation per line and does not yet flatten a multi-line
+message, so it arrives there as several physical lines.
+
 Three behaviours the cap deliberately does not disturb. The **search box**
 (TKT-529, above) still narrows first, so a filtered list shows five of the
 *matches* rather than five of everything and then filtered - otherwise a search

@@ -619,6 +619,22 @@ Policies live in the project config, so they travel with the project and
 anybody can read them. Police keeps its own state — the violation ledger, the
 bridge log — outside the project entirely.
 
+## A finding is one line, and a job message can break that
+
+Every reader of the bridge is a line reader: the terminal tails it, the page
+splits it, and an agent parses one violation per line. `job-due` puts a job's
+own message on the bridge, which is the point of the rule - the agent is told
+the thing it needs to do, in the words somebody chose.
+
+**A message containing newlines therefore arrives as several physical lines**,
+and a blank line in it as an empty entry. The message itself is stored and read
+back exactly as written; only the rendering is wrong. This is reachable from
+`tira.job.add` today and became easier to reach in 5.85, when the dashboard's
+job editor gained a textarea. It is filed as TKT-981 against the bridge line
+itself, so the flattening will cover every source rather than one caller. Until
+then, keep a job message on one line if you want its bridge line to be one
+line.
+
 ## Reading the bridge from the page
 
 `d2 tira.policy.bridge` is the terminal reader, and since 5.56 the live

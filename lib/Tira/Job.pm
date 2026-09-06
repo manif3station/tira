@@ -1438,6 +1438,28 @@ it announces directly. Never both - a record carrying both cannot say which
 the bridge should get - and never neither. C<mode> records which, so a reader
 never has to infer it from which field happens to be populated.
 
+=head1 ONE EDITOR FIELD SERVES BOTH MODES, AND IT IS PROSE AS OFTEN AS NOT
+
+The dashboard's job editor has a single Command control filled from whichever
+of C<command> or C<message> the job actually carries. That matters to this
+module because the two fields are not alike in shape: a command is one line by
+design, while a message is the instruction an agent acts on and legitimately
+runs to paragraphs. Since 5.85 the control is a textarea that grows to its
+content rather than a single-line input, because every message job on this
+board carries multi-sentence text and the old control showed the first few
+words of it. TKT-951.
+
+B<A message keeps its newlines and the bridge does not.> C<job_add> and
+C<job_list> round-trip a multi-line message byte-identically - proven, not
+assumed - but C<Tira::_bridge_line> renders a violation as one line and
+interpolates the detail verbatim, so a message containing newlines reaches the
+bridge as several physical lines and a blank line arrives as an empty entry.
+That is older than the editor change and reachable from C<tira.job.add> today;
+it is filed as TKT-981 against the bridge rather than against this module,
+because the record is right and only the rendering is wrong. If you are adding
+something that puts job text on the bridge, know that the flattening is not
+there yet.
+
 =head1 A MONITOR IS KNOWN TO BE ALIVE BY A PID AND WHEN IT STARTED
 
 C<job_started> records the pid a monitor was started as, and

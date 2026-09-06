@@ -83,7 +83,7 @@
 .jobs-editor{display:grid;gap:.6rem;margin:0 .45rem 1rem;padding:1rem;background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:1rem}
 .jobs-editor__heading{margin:0;font-size:.94rem;letter-spacing:-.02em}
 .jobs-editor__label{display:grid;gap:.3rem;color:var(--muted);font-size:.74rem;font-weight:700}
-.jobs-editor__schedule,.jobs-editor__command{padding:.5rem .7rem;border:1px solid var(--line);border-radius:.6rem;background:rgba(2,6,23,.5);color:var(--ink);font:inherit}
+.jobs-editor__schedule,.jobs-editor__command{display:block;width:100%;box-sizing:border-box;resize:none;padding:.5rem .7rem;border:1px solid var(--line);border-radius:.6rem;background:rgba(2,6,23,.5);color:var(--ink);font:inherit;line-height:1.45}
 /* The refusal the engine gave, shown where the typing is. */
 .jobs-editor__schedule.is-invalid{border-color:#fca5a5;box-shadow:0 0 0 1px rgba(252,165,165,.4)}
 .jobs-editor__why{margin:0;color:#fca5a5;font-size:.78rem}.jobs-editor__why[hidden]{display:none}

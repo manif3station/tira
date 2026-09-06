@@ -584,6 +584,14 @@ already running is refused rather than leaving a second process behind. It is
 the SCHEDULE that is bypassed and nothing else: a disabled job is still
 refused, and must be enabled before it will run.
 
+**The editor's Command field is a growing textarea since 5.85.** It is one
+control serving both job kinds, and it used to be a single-line input — so a
+message job, whose text is prose and runs to paragraphs, showed its first few
+words and scrolled the rest out of sight. It now grows to its content, capped,
+through the same helper the card dialog's long-text boxes use. It starts one
+row tall, so a command job, which is one line by design, looks exactly as it
+did.
+
 The job editor on the board page validates a schedule by **asking the engine**
 and showing its answer: a malformed one is highlighted and the save stays
 blocked until it is fixed. The browser does not judge the format itself, so it

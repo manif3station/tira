@@ -81,10 +81,13 @@ Revision history for Tira
       requiring the same mock t/365 and t/294 already use in the suite.
 
       WHAT IS STILL THERE, filed as its own card rather than absorbed:
-      five other rules - agent-still, priority-skipped,
-      discard-unexplained, and two more - each independently walk a
-      card's whole journal for their own separate question, 416 calls
-      on the same pass. Larger than what this card removes.
+      other rules independently walk a card's whole journal for their
+      own separate question, 416 calls on the same pass - larger than
+      what this card removes. agent-still is NOT one of them; measuring
+      rather than assuming found it already carries this exact skip and
+      makes a single call on a quiet pass. The two largest measured
+      callers are _policy_last_detail_change (115 calls) and
+      _police_history (77); TKT-987 has the corrected breakdown.
 
     - TKT-976: the Bridge panel is a terminal, and the newest line is
       the first one you see.

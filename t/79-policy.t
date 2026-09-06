@@ -136,6 +136,7 @@ is( $after_removal->{id}, 'POL-004', 'a new policy takes the next number, never 
 # documented but cannot be declared is a promise the tool does not keep.
 my %needs = (
     'card-full-details'         => { enter => 'implement' },
+    'upgrade-unreviewed'        => { age => '1h' },
     'card-metrics'              => { enter => 'implement', require => 'start_date,due_date' },
     'card-duration'             => { column => 'implement', age => '10m' },
     'card-stalled'              => { before => 'verify' },

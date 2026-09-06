@@ -113,11 +113,26 @@ embedded in the page — the board loads nothing from another host, so a CDN
 highlighter was never an option. A genuinely binary file still refuses rather
 than rendering as mojibake, and an unknown extension is decided by reading its
 first bytes rather than by its name.
-The board-wide police policy engine — the 44 rules police itself watches,
+The board-wide police policy engine — the 45 rules police itself watches,
 separate from a column's own required-action template — is editable from
 the browser too: a Policies button opens a modal listing every declared,
 declined, and undeclared rule, with a rule-specific parameter picker that
 matches the `tira.policy.add` command exactly.
+A genuine version change raises a card rather than a line on the bridge, and
+since 5.84 something chases that card. Police already said "Tira is now X —
+this board last heard Y", which is one line in a channel an agent is meant to
+keep scrolling through; the gate turns it into a real ticket, at priority 5,
+carrying the changelog entries between the two versions and a checklist with
+one item per rule the board has not yet declared or declined. That card lands
+in `backlog`, and nothing looked there: the column-scoped rules are declared on
+the working columns, and `card-still` skips a protected column by design,
+because a card waiting its turn is not a stalled card. So the card raised to
+make somebody read an upgrade was the one card on the board nothing reminded
+anybody about. `upgrade-unreviewed` watches the card instead of the column —
+it takes an `--age`, refuses `--column` and `--enter`, and finds its subject by
+the label the gate writes rather than by a generated title — and one ticked
+checklist item settles it, because the question is whether anybody read what
+changed, not whether they finished acting on it.
 A refused move tells you what to do about it. The refusal names each
 blocking required action with the id you need to mark it done and ends with
 a command carrying a real one, rather than a placeholder you have to look
@@ -741,8 +756,8 @@ entries themselves, and how many rules police the board, checked against
 sentence — every markdown file in the repository bar the build and dependency
 directories (`cover_db`, `node_modules`, `.git`), and any claim that puts a
 number ahead of the word `rules` with at most two words between them. That
-covers `44 rules cover`, `44 rules police`, `44 police
-rules` and `44 policy rules`, and it is the whole of its reach, worth stating
+covers `45 rules cover`, `45 rules police`, `45 police
+rules` and `45 policy rules`, and it is the whole of its reach, worth stating
 plainly because a guard described more broadly than it works is the failure it
 exists to prevent: a claim worded outside that shape is not held, and neither is
 one made anywhere but a markdown file. The same count stated in a source comment is TKT-736, still open.

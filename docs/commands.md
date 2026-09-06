@@ -1059,6 +1059,25 @@ cleared by hand. The gate holds the version range and the changelog entries
 between them, so the fields it leaves empty are derivable; whether to fill
 them, exempt the card, or announce instead of creating is TKT-956.
 
+**And nothing chased it where it landed** (TKT-957, since 5.84). The card
+goes to `backlog`, and no column-scoped policy on this board names that
+column; `card-still` is board-wide but skips it too, because
+`_resting_columns` excludes a protected column and `backlog` is one of Tira's
+own. The card that exists to make somebody read an upgrade was the one card
+nothing reminded anybody about. `upgrade-unreviewed` watches the card rather
+than the column - `backlog` rests by design, and a rule scoped to it would
+speak about every card waiting there - so it takes `--age`, refuses
+`--column` and `--enter`, and finds its subject by the `upgrade-gate` label
+the gate now writes rather than by a generated title somebody will reword:
+
+```bash
+d2 tira.policy.add --rule upgrade-unreviewed --action bridge-reminder --age 24h
+```
+
+One ticked checklist item settles it - the question is whether anybody read
+what changed, not whether they finished acting on it - and a card moved to
+`discard` is left alone.
+
 ### `tira.worklog.show`
 
 What has actually happened to a card: raised, moved, edited, commented, asked,

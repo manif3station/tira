@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.83';
+our $VERSION = '5.84';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1058,6 +1058,14 @@ sub _raise_upgrade_gate {
             title       => "Tira upgraded $from -> $to - review what changed and what to declare",
             description => $description,
             priority    => 5,
+
+            # WHAT MAKES THIS CARD FINDABLE BY A RULE. Until TKT-957 the gate
+            # marked its card with nothing at all, so upgrade-unreviewed would
+            # have had to match the generated title above - coupling a rule to
+            # wording somebody will reasonably reword, and breaking silently
+            # when they do. A label says what the card IS and survives any
+            # rewrite of what it says.
+            labels      => ['upgrade-gate'],
         );
         $self->checklist_add( project => $root, ref => $record->{ref}, author => 'tira',
             item => 'Read the new commands (d2 tira.usage)', status => 'pending' );
@@ -6154,6 +6162,22 @@ my %POLICY_RULES = (
     'card-unassigned'           => { needs => [], forbids => [ 'column', 'enter', 'age' ] },
     'card-agentless'            => { needs => [ 'enter' ], forbids => ['age'] },
 
+    # TKT-957, his report: the card the upgrade gate raises lands in backlog,
+    # and NOTHING chases it there. Three watchers were checked, not one:
+    # card-duration and checklist-idle are column-scoped and no policy names
+    # backlog; card-still is board-wide but _resting_columns excludes a
+    # protected column, and backlog is protected as one of Tira's own. So the
+    # card that exists to make somebody read an upgrade is the one card on the
+    # board nothing reminds anybody about.
+    #
+    # NO COLUMN, deliberately, and it is the whole design. Declaring the
+    # column-scoped rules on backlog would fight a correct decision - a card
+    # waiting in a queue is not a stalled card - and would speak about every
+    # card resting there, which on the board this was found on is over a
+    # hundred. A rule people scroll past protects nothing. So this watches the
+    # CARD, wherever it rests.
+    'upgrade-unreviewed'        => { needs => ['age'], forbids => [ 'column', 'enter' ] },
+
     # TKT-547: the tasklist is deliberately lighter than a ticket - free
     # text, no gates - but a pending/working item can still represent real
     # work nobody ever tied back to a governed card. --age is the same
@@ -7645,6 +7669,43 @@ sub policy_evaluate {
                 next if defined $record->{assignee} && $record->{assignee} ne '';
                 $report->( $policy, $record,
                     "in $column with nobody on it - work in progress needs an assignee" );
+            }
+        }
+        elsif ( $rule eq 'upgrade-unreviewed' ) {
+
+            # THE MARKER IS A LABEL, not the title. The gate generates its
+            # title from the version pair, and a rule matching that text would
+            # break silently the first time somebody reworded it - the failure
+            # mode this project keeps finding. A label is durable and is the
+            # field that exists for saying what a card IS.
+            #
+            # REVIEWED MEANS SOMEBODY STARTED, not that they finished. One
+            # ticked item is a person having read the thing, which is all the
+            # gate ever asked for; requiring completion would keep nagging
+            # through work that is visibly under way.
+            #
+            # The age is honoured because the gate raises its card the instant
+            # an upgrade lands, and reporting it in the same breath is the
+            # board nagging about something it has just done itself.
+            for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
+                next if !grep { lc($_) eq 'upgrade-gate' }
+                  @{ $record->{labels} // [] };
+
+                # Set aside counts as dealt with. Nothing else does: a card
+                # sitting in done with nothing ticked is the lie told the
+                # other way round, and this rule should still say so.
+                next if ( $record->{column} // '' ) eq 'discard';
+
+                next if grep { lc( $_->{status} // '' ) eq 'done' }
+                  @{ $record->{checklist} // [] };
+
+                my $touched = $self->_card_last_activity( $root, $record );
+                next if !$self->_policy_older_than( $touched, $policy->{age} );
+
+                $report->( $policy, $record,
+                    'the upgrade this card was raised for has not been reviewed - nothing '
+                      . 'is ticked on it, and it rests where no column-scoped rule looks' );
             }
         }
         elsif ( $rule eq 'card-agentless' ) {
@@ -13717,7 +13778,17 @@ agent and that card is not assigned to somebody else, since an agent
 cannot be stalling on work it has no power to move. An unassigned card
 still counts - nobody has claimed it, so the agent is the only party who
 could be moving it - and a board that declares no agent is measured
-exactly as it always was.
+exactly as it always was. C<upgrade-unreviewed> is the one rule here that
+names no column at all, and that is deliberate rather than an omission: the
+card the upgrade gate raises lands in C<backlog>, where the column-scoped
+rules are not declared and where C<card-still> does not look either, because
+C<_resting_columns> excludes a protected column. Backlog resting is correct - a
+card waiting in a queue is not a stalled card - so scoping a rule to it would
+speak about every card waiting there. This one matches the C<upgrade-gate>
+label the gate writes, rather than the title it generates from the version
+pair, and stops as soon as one checklist item is ticked, since the question is
+whether anybody read what changed and not whether they finished acting on it.
+TKT-957.
 
 =head2 project_new
 

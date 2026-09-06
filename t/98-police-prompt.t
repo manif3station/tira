@@ -75,6 +75,7 @@ like( $behind, qr/one ticket|a single ticket|single backlog/i,
 {
     my %needs = (
         'card-metrics'              => { enter => 'implement', require => 'due_date' },
+        'upgrade-unreviewed'        => { age => '1h' },
         'card-duration'             => { column => 'implement', age => '10m' },
         'card-stalled'              => { before => 'implement' },
         'checklist-idle'            => { column => 'implement', age => '30m' },

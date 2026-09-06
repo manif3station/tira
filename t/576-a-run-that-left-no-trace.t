@@ -43,6 +43,7 @@ use lib 'lib';
 use lib 't/lib';
 use Suite ();
 use Tira;
+use Tira::CLI;
 use Tira::CLI::Job;
 use Tira::CLI::Police;
 
@@ -302,6 +303,36 @@ sub job_named {
     like( $view, qr/Never fired/,
         'while a job that has neither run nor come due still says so - never fired is a '
           . 'state, not a failure, and a job added minutes ago is in it' );
+}
+
+# --- and the field reaches the page ----------------------------------------
+#
+# THE GAP THIS SECTION EXISTS TO CLOSE, found by probing the provider rather
+# than by reading it. Everything above proves the field is STORED and that the
+# view READS it - and neither says it arrives. The jobs provider copies every
+# stored key (%row = %{$job}), so it does today; a whitelist added there later
+# would break the card face silently while every assertion above stayed green.
+#
+# Probed before asserting, on a board with one job run by hand:
+#
+#   {"id":"JOB-001",...,"last_due_at":null,"last_run_at":"2026-09-06T09:00:00Z",...}
+#
+# which is exactly his case: no window ever came round, and the job ran.
+
+{
+    my ( $tira, $root ) = board();
+    $tira->job_add( project => $root, schedule => '0 3 * * *', command => '/bin/true' );
+    Tira::CLI::Job::run_now( $tira, { project => $root, id => 'JOB-001' } );
+
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    my $payload = $providers{jobs}->();
+
+    like( $payload, qr/"last_run_at"\s*:\s*"2026-09-06T09:00:00Z"/,
+        'the jobs provider carries last_run_at to the page, so the card face can read it - '
+          . 'stored and rendered are two different claims and this is the one between them' );
+    like( $payload, qr/"last_due_at"\s*:\s*null/,
+        'while last_due_at is still null, which is his case exactly: the window never came '
+          . 'round and the job ran anyway' );
 }
 
 done_testing();

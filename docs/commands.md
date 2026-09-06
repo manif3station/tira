@@ -962,6 +962,22 @@ existed or that they are message-only.
 With no policies set it exits and prints what to paste to the agent, rather
 than running and guarding nothing.
 
+**What a pass costs, so `--interval` can be chosen rather than guessed.**
+Measured across three real boards on 2026-09-06: 0.6s on a 227-card board, 5.5s
+on a 429-card one, 10.1s on a 349-card one. The order is not a mistake - the
+cost follows how much HISTORY the cards carry, not how many there are. The
+slowest of the three has the fewest cards and the deepest journals (185 events
+per card against 107), because a card is replayed from its journal rather than
+read from a file. Nearly all of a pass is that reading and parsing; rule
+evaluation is under 1% of it, so adding policies is cheap and letting a board
+accumulate history is not.
+
+A default `--interval` of thirty seconds against a ten-second pass keeps a core
+a third busy, and several watched boards multiply that. If police is costing
+more than expected, the number to look at is the board's journal size.
+Since 5.85 a pass resolves each card's location once instead of re-walking the
+board for every question about it, and remembers nothing between passes.
+
 **The persistent daemon (no `--once`) is a singleton per board.** Starting one
 claims a pid file in its own store, killing whatever daemon was already
 running there - "whoever the last run it is the winner and the loser process

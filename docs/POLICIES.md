@@ -619,6 +619,44 @@ Policies live in the project config, so they travel with the project and
 anybody can read them. Police keeps its own state — the violation ledger, the
 bridge log — outside the project entirely.
 
+## What a pass costs, and what it is spent on
+
+A watcher runs a pass every thirty seconds, so a pass that takes fifteen
+seconds keeps a core busy half the time — and several watched boards multiply
+that. Measured on 2026-09-06 across three real boards:
+
+| board | cards | policies | journal events | pass |
+|---|---|---|---|---|
+| budget | 227 | 42 | 16,438 | 0.6s |
+| developer-dashboard | 429 | 62 | 45,803 | 5.5s |
+| zenandi | 349 | 95 | 62,797 | 10.1s |
+
+**The cost follows journal depth, not card count.** zenandi has eighty fewer
+cards than developer-dashboard and costs twice as much, because its cards carry
+185 history events each against the other board's 107. A card is not a file
+that gets read; it is a journal that gets replayed.
+
+**It is not the rules.** A sampling profile of one pass put `policy_evaluate`
+at 0.5%. Nearly all of a pass is reading and parsing files, so adding a policy
+costs far less than most people expect, and a board that has grown a long
+history costs more than one that has grown more cards.
+
+**Finding a card used to be the single most expensive thing police did.**
+`_record_data` turns a ref into a path by walking all three board trees, and
+history reads go through it, so one pass on zenandi made about 1,384 walks at
+0.0095s each — while reading the card a walk finds costs 0.0002s. Since 5.85 a
+pass resolves each ref once and remembers the path for the length of that pass
+only. The card itself is still read from disk every time: a path cannot go
+stale mid-pass because writing a card does not move its file, but a record
+can, and police raises the upgrade-gate card while the pass is running.
+
+**Nothing is remembered between passes**, deliberately. A board is a live
+thing, and the next pass has to see what changed.
+
+If a board feels slow, the number to look at is its journal size rather than
+its card count, and `tira.dwell.report` will not answer this one — it measures
+how long cards sit, not how long a pass takes.
+
 ## `unpushed-work` and how long a push takes
 
 `unpushed-work` measures the age of commits sitting unpushed. Choosing its

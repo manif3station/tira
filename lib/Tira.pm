@@ -10984,9 +10984,41 @@ sub _jobs_or_report {
     return undef;
 }
 
+# ONE PASS ASKS WHERE THE SAME CARD LIVES OVER AND OVER, and finding out is
+# the most expensive thing police does. _record_data walks all three board
+# trees to turn a ref into a path, and history_list calls it before opening
+# every journal. Measured on his zenandi copy, 2026-09-06: 765 record lookups
+# and 765 history reads over 349 cards, about 1,384 walks at 0.0095s each -
+# 10.6s of a 14.11s pass, against 0.0002s to read the card a walk finds.
+#
+# THE PATH IS CACHED AND THE RECORD IS NOT, which is a correctness distinction
+# rather than a frugal one. police_pass raises the upgrade-gate card while it
+# is running, so a parsed record held across the pass could be stale by the
+# time a later rule reads it - but a path cannot, because writing a card does
+# not move its file. A resolution that FAILED is not remembered either, for the
+# same reason: the card that did not exist a moment ago is the one the gate is
+# about to create. TKT-978.
+#
+# The cache is scoped here, in the sub that owns the pass, so nothing else has
+# to remember to clear it and a pass cannot leak paths into the next one.
 sub police_pass {
     my ( $self, %args ) = @_;
     my $store = $args{store} or die "A violation store is required\n";
+    return $self->_police_path_cache( sub { $self->_police_pass_body(%args) } );
+}
+
+# A fresh cache for the length of one call, restored on the way out however the
+# call ends - `local` unwinds through a die, which matters because a pass that
+# dies half way must not leave a stale map behind for the next one.
+sub _police_path_cache {
+    my ( $self, $code ) = @_;
+    local $self->{_path_cache} = {};
+    return $code->();
+}
+
+sub _police_pass_body {
+    my ( $self, %args ) = @_;
+    my $store = $args{store};
     my $policies = eval { $self->policy_list(%args) } || [];
 
     # Move notifications first, and before the policies check: he asked for a
@@ -12921,17 +12953,37 @@ sub _record_data {
     die "Record reference is required\n" if $ref eq '';
     die "Invalid record reference '$ref'\n" if $ref !~ /\A[A-Z][A-Z0-9-]{0,31}-\d{1,12}\z/;
     my $root = $self->discover_project(%args);
-    my @found;
-    for my $type (qw(sow epic ticket)) {
-        my $board = File::Spec->catdir( $root, '.tira', $type );
-        find( { no_chdir => 1, wanted => sub {
-            push @found, $self->_canonical_path( $File::Find::name, "record '$ref'" )
-              if -f $File::Find::name && basename( $File::Find::name ) eq "$ref.json";
-        } }, $board );
+
+    # Where a card lives is settled by its ref, so within one police pass it is
+    # asked once and remembered. Outside a pass _path_cache is undef and every
+    # lookup walks, which is what every other command wants: a board is a live
+    # thing and nothing here should hold a map of it. TKT-978.
+    my $cache = $self->{_path_cache};
+    my $key   = join "\x00", $root, $ref;
+    my $path  = $cache ? $cache->{$key} : undef;
+
+    if ( !defined $path ) {
+        my @found;
+        for my $type (qw(sow epic ticket)) {
+            my $board = File::Spec->catdir( $root, '.tira', $type );
+            find( { no_chdir => 1, wanted => sub {
+                push @found, $self->_canonical_path( $File::Find::name, "record '$ref'" )
+                  if -f $File::Find::name && basename( $File::Find::name ) eq "$ref.json";
+            } }, $board );
+        }
+
+        # Both refusals happen before anything is remembered, so a miss is
+        # never cached: the upgrade gate creates a card mid-pass, and a
+        # remembered "not found" would hide it from every rule after it.
+        die "Record '$ref' not found\n" if !@found;
+        die "Duplicate record '$ref' found\n" if @found > 1;
+
+        $path = $found[0];
+        $cache->{$key} = $path if $cache;
     }
-    die "Record '$ref' not found\n" if !@found;
-    die "Duplicate record '$ref' found\n" if @found > 1;
-    my $path = $found[0];
+
+    # The card itself is read every time. Only the search for it is skipped -
+    # the walk is 75% of a lookup and this read is 1% of it.
     return ( $path, $self->_read_json($path), basename( dirname($path) ) );
 }
 
@@ -14710,6 +14762,19 @@ The report closure accepts either a record or a bare id and these rules pass an
 id, so a reference that is not a card was being treated as one. Prefix matching
 is safe for exactly those two because the engine numbers jobs and tasklist items
 itself, unlike a card's prefix, which is per-project.
+
+A pass resolves each card's location at most once, and remembers it only for the
+length of that pass. Locating a card means walking all three board trees to match
+a filename, and history reads go through the same lookup - about 1,384 walks in
+one pass on a 349-card board, at 0.0095s each, while reading the card a walk
+finds costs 0.0002s. The path is cached and the record is not, which is a
+correctness distinction rather than a frugal one: this method raises the
+upgrade-gate card while it is running, so a record held across the pass could be
+stale by the time a later rule reads it, but a path cannot, because writing a
+card does not move its file. A resolution that FAILED is not remembered either,
+since the card that was missing a moment ago is the one the gate is about to
+create. Nothing is kept between passes - a board is a live thing and the next
+pass has to see what changed. TKT-978.
 
 =head2 police_farewell
 

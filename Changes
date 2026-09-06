@@ -2,6 +2,47 @@ Revision history for Tira
 
 5.85  2026-09-06
 
+    - TKT-978: a police pass now works out where each card lives once,
+      instead of re-walking the whole board every time it is asked.
+
+      He copied three of his boards to /tmp/testing and asked what makes
+      police so expensive. It is not the rules - a sampling profile of
+      one pass put policy_evaluate at 0.5%. _record_data turns a ref
+      into a path by running File::Find over all three board trees, and
+      history_list calls it before opening every journal. On his zenandi
+      copy that is 765 record lookups and 765 history reads over 349
+      cards, 3,403 file reads in one pass, at 0.0095s a walk.
+
+      THE PATH IS CACHED AND THE RECORD IS NOT. Reading and parsing the
+      card a walk finds costs 0.0002s - 1% of a lookup against the
+      walk's 75% - so caching the path captures the whole saving while
+      every read still goes to disk. That is also the only version that
+      stays correct: police_pass raises the upgrade-gate card while it
+      is running, so a record held across the pass could be stale, but a
+      path cannot, because writing a card does not move its file. A
+      resolution that FAILED is not remembered either, since the card
+      that was missing a moment ago is the one the gate is about to
+      create. The cache is scoped to police_pass itself and unwinds
+      through a die.
+
+      MEASURED, AND SMALLER THAN FIRST CLAIMED. Old and new code run
+      alternately in one container, three passes each, medians: budget
+      0.72s -> 0.62s, developer-dashboard 7.13s -> 5.49s, zenandi
+      11.62s -> 10.07s, with identical findings on all three. But a
+      control re-run of the OLD code gave 0.63s, 4.30s and 10.21s - on
+      developer-dashboard the control beat the new code, which is
+      page-cache warming rather than the change. An earlier in-process
+      probe suggested 48%; it also cached parsed records and ran last,
+      and that figure is corrected on the card rather than repeated
+      here. What is provably gone is the duplicate work: the test
+      counts lookups and walks separately, and 33 walks over 7 lookups
+      become 30.
+
+      Re-profiling afterwards found the real remaining cost, which is
+      its own card: _announce_moves is on the stack for 61.9% of a
+      pass, because _last_move opens every card's full journal every
+      time to find one column change.
+
     - TKT-947, correcting TKT-610: the registry's intended first entry
       was missing, and the reason recorded for its absence was wrong.
 

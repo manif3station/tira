@@ -360,6 +360,23 @@ the tasklist. Neither takes the reference, because there is no command to show
 one job or one task on its own, so the line shows you the thing named rather
 than failing at it - which is the whole promise of a line meant to be pasted.
 
+**A police pass got cheaper in 5.85, and what makes one expensive is now
+written down.** It was never the rules - a sampling profile put rule evaluation
+at 0.5% of a pass and file reading at nearly all of the rest. Police located
+each card by walking all three board trees and matching the filename, every
+single time it was asked, and history reads go through the same lookup: about
+1,384 walks in one pass on a 349-card board, at 0.0095s each, against 0.0002s
+to read the card a walk finds. A pass now works out where each card lives once
+and forgets it again at the end. Measured against three real boards, the pass
+times went 0.72s to 0.62s, 7.13s to 5.49s and 11.62s to 10.07s with identical
+findings - though a control re-run of the old code beat the new one on a board,
+so the wall-clock part of that is modest and partly page-cache warming.
+
+The number worth knowing if a board feels slow is how much HISTORY it carries,
+not how many cards. Of the three measured, the slowest had the fewest cards and
+the deepest journals - 185 events per card against 107 - because a card is
+replayed from its journal rather than read from a file.
+
 **The header's counts say what is wrong, not what exists (5.54).** It shows how
 many cards carry a question awaiting an answer, how many tasklist items are
 outstanding, how many monitors have stopped and how many jobs are disabled — and

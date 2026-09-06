@@ -1070,7 +1070,7 @@ speak about every card waiting there - so it takes `--age`, refuses
 `--column` and `--enter`, and finds its subject by the `upgrade-gate` label
 the gate now writes rather than by a generated title somebody will reword:
 
-```bash
+```
 d2 tira.policy.add --rule upgrade-unreviewed --action bridge-reminder --age 24h
 ```
 

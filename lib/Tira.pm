@@ -7708,9 +7708,20 @@ sub policy_evaluate {
                 my $touched = $self->_card_last_activity( $root, $record );
                 next if !$self->_policy_older_than( $touched, $policy->{age} );
 
+                # THE COLUMN IS NAMED RATHER THAN DESCRIBED, and the first
+                # draft described it: "it rests where no column-scoped rule
+                # looks". True of the card where the gate leaves it, and a
+                # claim about this board's policies rather than about the
+                # card - so the moment somebody moved a gate card into a
+                # working column without ticking anything, the finding would
+                # have asserted something false about the board while
+                # checklist-idle reported the same card correctly. A rule
+                # that watches the card must say what it knows about the
+                # card.
                 $report->( $policy, $record,
                     'the upgrade this card was raised for has not been reviewed - nothing '
-                      . 'is ticked on it, and it rests where no column-scoped rule looks' );
+                      . "on its checklist has been ticked, and it has been sitting in "
+                      . ( $record->{column} // 'no column' ) );
             }
         }
         elsif ( $rule eq 'card-agentless' ) {

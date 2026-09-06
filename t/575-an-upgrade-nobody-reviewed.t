@@ -94,6 +94,9 @@ sub found {
         1;
     };
     ok( $ageless, 'it cannot be declared without an age, because "unreviewed" has a length' );
+    like( $@ // '', qr/needs --age/,
+        'and the refusal names the option that supplies it, rather than leaving the caller '
+          . 'to guess which of the two this rule wanted' );
 
     my $scoped = !eval {
         $tira->policy_add( project => $root, rule => 'upgrade-unreviewed',
@@ -101,6 +104,9 @@ sub found {
         1;
     };
     ok( $scoped, 'and it refuses a column, rather than accepting one it will not read' );
+    like( $@ // '', qr/takes no --column/,
+        'saying so about the column itself - the refusal has to name the option, or a caller '
+          . 'reads it as the age being wrong' );
 
     my $entered = !eval {
         $tira->policy_add( project => $root, rule => 'upgrade-unreviewed',
@@ -108,6 +114,7 @@ sub found {
         1;
     };
     ok( $entered, 'and refuses an entry column for the same reason' );
+    like( $@ // '', qr/takes no --enter/, 'naming that option too' );
 }
 
 # --- a gate card nobody has touched is reported ----------------------------
@@ -130,6 +137,15 @@ sub found {
           . 'card-duration, checklist-idle and card-still all decline to look' );
     like( $hits->[0]{ref} // '', qr/\Q$card->{ref}\E/,
         'and the finding names the card, so it can be acted on without hunting for it' );
+
+    # WHAT THE FINDING MAY CLAIM. A rule that watches the card must speak
+    # about the card: the column it is in is a fact about this card, while
+    # "no column-scoped rule looks here" is a claim about the board's
+    # policies, and it stops being true the moment somebody moves a gate card
+    # into a working column without ticking anything.
+    like( $hits->[0]{detail} // '', qr/backlog/,
+        'and it names the column the card is actually in, rather than making a claim about '
+          . "the board's policies that a moved card would falsify" );
 }
 
 # --- a card somebody has started is not reported ---------------------------

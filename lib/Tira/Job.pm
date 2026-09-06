@@ -535,7 +535,7 @@ sub job_ran {
         my $jobs = _job_read( $self, $root );
         my $job  = _job_find( $jobs, $args{id} );
 
-        $job->{last_run_at}  = $args{at} // $self->{clock}->();
+        $job->{last_run_at}  = $self->{clock}->();
         $job->{last_updated} = $self->{clock}->();
         $self->_write_json( _job_path( $self, $root ), $jobs );
         return $job;

@@ -13964,6 +13964,18 @@ separate logs, and his answer to Q-112 that each output be registered to
 whoever talked to the police. The buffer is bounded and counts what it could
 not keep. EPC-014, TKT-851.
 
+=head2 job_ran
+
+Records that a job's command was run, stamping C<last_run_at>. The third of
+three facts a job can report and the last to exist: C<last_due_at> says the
+window came round, C<last_output_at> says the job spoke, and neither answers
+"did it run". His report is why - C<tira.job.run> answered C<ran=1 status=0>
+and left the record untouched, so a job just run by hand went on reading
+"Never fired", which is painted from C<last_due_at> and a manual run never
+comes due. Stamped where the command is run rather than where its output
+arrives, so a command exiting 0 in silence still records its run, and stamped
+through one recorder shared by the button and the schedule. TKT-963.
+
 =head2 job_output_drain
 
 Takes what a monitor has said so it can be carried to the bridge, and clears

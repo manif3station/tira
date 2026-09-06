@@ -3166,6 +3166,16 @@ them; the manual carries the worked use cases behind them.
   real mistake and stops it - but the files attached before it are named in the
   error rather than lost with it, since the reporter's second ask was exactly a
   readable record of how far a killed batch got.
+
+  **The 16 MB cap counts bytes, since 5.84** (TKT-829). It counted characters:
+  the content-taking path checked the cap twelve lines before encoding the
+  string to the UTF-8 bytes it would hash and write, and `length()` on a
+  character string counts characters - so a proof made of four-byte UTF-8
+  passed a 16 MB cap while writing up to 64 MB. The refusal now names the size
+  it measured as well as the limit, which matters more after this change than
+  before it: what is measured is the encoded length, four times what a caller
+  counting emoji would see. The file-taking path was already correct, because
+  it reads with `<:raw` and was therefore already counting bytes.
 - `tira.attachment.discard --ref REF --sha SHA256 [--extension EXT] [--comment ID] [--author NAME] [-o FORMAT]`
 - `tira.attachment.detach --ref REF --sha SHA256 [--extension EXT] [--comment ID] [-o FORMAT]`
 - `tira.attachment.remove --sha SHA256 [--extension EXT] [-o FORMAT]`

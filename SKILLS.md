@@ -1448,6 +1448,10 @@ any route resets the preview layer. While the dialog is open it refreshes
 on the board's cycle so edits from other terminals appear — but never
 while a field editor, comment editor, or the composer is active, so
 in-progress typing is never destroyed.
+**The 16 MB cap counts bytes, since 5.84** (TKT-829, found by the two-hourly improvement hunt reading TKT-687's own shipped code rather than by any failure). It counted CHARACTERS: the cap was checked twelve lines before `encode_utf8` turned the content into the bytes that would be hashed and written, and `length()` on a Perl character string counts characters. So a proof made of four-byte UTF-8 — emoji, CJK, an accented name — passed a 16 MB cap while writing up to 64 MB to disk. TKT-687 is what made that reachable rather than theoretical: before it, long non-ASCII content died inside `Digest::SHA` with "Wide character in subroutine entry", and accepting such content is exactly what lets a character count reach the cap. The fix composes with that card rather than undoing it — the same single `encode_utf8` simply runs first now, and there is still only one of them in the sub.
+
+The refusal also names the size it measured, not just the limit, and that matters more after this change than before it: what is measured is the ENCODED length, so for a proof full of emoji it is four times the length the caller can count. The sibling cap in `_store_attachment_file` was checked and left alone, because it reads its content with `<:raw` and is therefore already counting bytes — one instance of this fault rather than two, and `t/579` asserts that read stays raw so a later change cannot quietly make it two. The card's own citation had drifted further than a line number, incidentally: it named `lib/Tira.pm:4356`, and the sub had been lifted to `lib/Tira/Attachment.pm`, leaving a one-line forwarder that a name-anchored source match hits first.
+
 Files upload from the dialog with a 16 MB cap through the same hash-dedup
 store as the CLI, and each comment carries and manages its own attachment
 chips. Attachment references record their added time and render as a vertical

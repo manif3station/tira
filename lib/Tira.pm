@@ -14389,6 +14389,8 @@ Attaches a file, given by path, to a record or comment.
 
 Content-based twin of C<attachment_add> for browser uploads: same sha dedup, no temporary file, with a 16 MB cap. Character content is encoded to UTF-8 bytes before hashing and writing, so content containing non-ASCII characters stores instead of dying inside C<sha256_hex>.
 
+B<The cap is measured on those bytes, since 5.84> (TKT-829). It was checked twelve lines earlier, on the string as the caller handed it over, and C<length()> on a character string counts CHARACTERS - so a proof made of four-byte UTF-8 passed a 16 MB cap while writing up to 64 MB. The encode above is what made that reachable rather than theoretical, by accepting such content at all, and the fix is that it now runs first. The refusal names the size it measured as well as the limit, because that size is the encoded one and not the length the caller can count.
+
 =head2 attachment_detach
 
 Detaches an attachment reference from a record or comment without deleting its stored content.

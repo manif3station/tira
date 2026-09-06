@@ -2,6 +2,40 @@ Revision history for Tira
 
 5.84  2026-09-06
 
+    - TKT-829: the 16 MB attachment cap was measured in characters, so a
+      non-ASCII proof could store up to four times it.
+
+      attachment_add_content checked the cap twelve lines before
+      encode_utf8 turned the content into the bytes that would be
+      hashed and written, and length() on a Perl character string
+      counts characters. A proof made of four-byte UTF-8 - emoji, CJK,
+      an accented name - therefore passed a 16 MB cap while writing up
+      to 64 MB to disk.
+
+      TKT-687 is what made that reachable rather than theoretical.
+      Before it, long non-ASCII content died inside Digest::SHA with
+      "Wide character in subroutine entry"; accepting such content is
+      exactly what lets a character count reach the cap. The fix
+      composes with that card rather than undoing it - the same single
+      encode_utf8 runs first now, and there is still only one of them
+      in the sub.
+
+      The refusal also names the size it measured, not only the limit.
+      That matters more after this change than before: what is
+      measured is the ENCODED length, four times what a caller
+      counting emoji would see, so leaving them to work out how far
+      over they are would be asking them to guess at the arithmetic
+      this card just changed.
+
+      One instance, not two. The sibling cap in _store_attachment_file
+      caps the same way and is correct where it stands, because it
+      reads its content with '<:raw' and is already counting bytes -
+      and t/579 asserts that read stays raw, so a later change cannot
+      quietly make this fault two instances.
+
+      Found by the two-hourly improvement hunt on 2026-09-01, reading
+      the code TKT-687 had just shipped rather than by any failure.
+
     - TKT-827: tira.outstanding counted questions on cards somebody had
       set aside, unlike the dashboard header it is documented as
       matching.

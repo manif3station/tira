@@ -109,8 +109,6 @@ sub attachment_add_content {
         my $content = $args{content};
         die "Attachment upload requires filename and content\n"
           if !defined $args{filename} || $args{filename} eq '' || !defined $content;
-        die "Attachment upload is too large (16 MB maximum)\n" if length($content) > 16 * 1024 * 1024;
-
         # A long proof quoting the dashboard's own emoji, an em dash, or an
         # accented name arrives as a character string, and Digest::SHA dies
         # on one containing code points above 255 - "Wide character in
@@ -122,6 +120,31 @@ sub attachment_add_content {
         # unchanged, so an existing attachment keeps the hash it always had.
         # TKT-687.
         $content = encode_utf8($content) if utf8::is_utf8($content);
+
+        # AND THE CAP IS MEASURED AFTERWARDS, which is the whole of TKT-829.
+        # It used to be checked twelve lines above this, on the string as the
+        # caller handed it over: for a character string length() counts
+        # CHARACTERS, so a proof made of four-byte UTF-8 passed a 16 MB cap
+        # while writing up to 64 MB. TKT-687 is what made that reachable -
+        # before it, such content died in Digest::SHA rather than being
+        # accepted at all - so the fix composes with that card rather than
+        # undoing it: the same encode line simply runs first now.
+        #
+        # The sibling cap in _store_attachment_file is correct where it
+        # stands, and stays: it reads its content with '<:raw', so length()
+        # there is already counting the bytes it will write. One instance of
+        # this fault, not two, and t/579 asserts that read stays raw so a
+        # later change cannot quietly make it two.
+        # AND IT SAYS HOW FAR OVER. A refusal naming only the limit leaves the
+        # caller to work out whether they are a byte over or four times it,
+        # and after this card the answer is no longer the one they can count
+        # themselves: what is measured is the ENCODED size, which for a proof
+        # full of emoji is four times the length they see. So the size is
+        # named in the same units as the limit. TKT-829.
+        if ( length($content) > 16 * 1024 * 1024 ) {
+            die sprintf "Attachment upload is too large (16 MB maximum, this is %.1f MB)\n",
+              length($content) / ( 1024 * 1024 );
+        }
         my $sha = sha256_hex($content);
         $sha =~ /\A([0-9a-f]{64})\z/ or die "Cannot validate attachment SHA\n";
         $sha = $1;

@@ -35,7 +35,10 @@ in-place field editing and full comment management, including permanent
 comment deletion through the `tira.comment.remove` command.
 Attachments are first-class in the dialog: chips open images, PDFs, and text
 inline in an overlay viewer with no download step (HTML is forced to plain
-text so nothing executes), files upload from the dialog with a 16 MB cap,
+text so nothing executes), files upload from the dialog with a 16 MB cap
+measured in bytes — it counted characters until 5.84, so a proof written mostly
+in emoji or CJK could store up to four times the limit, and the refusal now
+names the size it measured as well as the limit —
 deletion is reference-safe under content-hash dedup via the new
 `tira.attachment.detach` command, and every comment shows and manages its
 own attachments separately from the record strip.

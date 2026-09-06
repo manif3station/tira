@@ -104,6 +104,8 @@ sub run_cli {
     my ( $tira, $root ) = board();
     my ( $out, $said ) = run_cli( $tira, $root, 'warning.list' );
 
+    # non-empty is the whole claim: the check below would pass on an
+    # unreadable stream's emptiness alone, exactly as in the section above.
     like( $out . $said, qr/\S/, 'the command answered with something' );
     like( $out . $said, qr/Guessed Board/,
         'an empty warnings answer names its board too, because warning_list resolves the '
@@ -182,16 +184,26 @@ sub run_cli {
 
 {
     my $engine = Suite::engine_source();
+    # non-empty is the whole claim: every check below would pass on an
+    # unreadable engine's emptiness alone, which is the whole reason the two
+    # denials in this section establish their own subjects as well.
     like( $engine, qr/\S/, 'the engine source is there to be read' );
 
+    # THE SUBJECT OF EACH DENIAL IS ESTABLISHED BY ITS CONTENT, not merely by
+    # being defined. An empty capture would satisfy every unlike below for the
+    # wrong reason - the fault t/147 exists for - so each is first shown to be
+    # the sub it claims to be.
     my ($collector) = $engine =~ /(sub \s+ _collector_config \b .*?\n\})/xs;
-    ok( defined $collector, 'the collector config read was found' );
+    like( $collector // '', qr/_collector_config_path|\$path/,
+        'the collector config read was found, and is the one that reads a path handed to it' );
     unlike( $collector // '', qr/working directory resolved/,
         'the collector config read says nothing about a board - its path is machine-global '
           . 'and has no board in it to be wrong about' );
 
     my ($bridge) = $engine =~ /(sub \s+ bridge_backlog \b .*?\n\})/xs;
-    ok( defined $bridge, 'the bridge backlog read was found' );
+    like( $bridge // '', qr/bridge_log_path/,
+        'the bridge backlog read was found, and is the one that asks bridge_log_path for '
+          . 'its file - which is what dies when no store was named' );
     unlike( $bridge // '', qr/working directory resolved/,
         'and neither does the bridge backlog, which refuses to guess a store rather than '
           . 'guessing one - the wrong board reached that panel from its CALLER' );

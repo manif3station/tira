@@ -111,8 +111,16 @@ sub run_now {
     die "Job $job->{id} is disabled - enable it before running it\n"
       if !$job->{enabled};
 
+    # AND RECORDED, through the same recorder the schedule uses. TKT-963, his
+    # report: this answered ran=1 status=0 and left the job record untouched,
+    # so a job somebody had just run went on reading "Never fired" - that line
+    # is painted from last_due_at, which a manual run never moves.
+    #
+    # The return value is deliberately unchanged: the Run now button displays
+    # it, and record_run hands back what it was given.
     require Tira::CLI::Police;
-    return Tira::CLI::Police::run_due_job( job => $job );
+    return Tira::CLI::Police::record_run( $tira, $args, $job,
+        Tira::CLI::Police::run_due_job( job => $job ) );
 }
 
 sub dispatch {

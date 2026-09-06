@@ -503,6 +503,45 @@ sub job_feed {
     } );
 }
 
+# THE THIRD FACT A JOB CAN REPORT, and until TKT-963 the board could tell only
+# two of them apart:
+#
+#   last_due_at     the window came round. Computed from the police ledger and
+#                   never stored here, because the rule that knows the instant
+#                   must not write the record it judges.
+#   last_output_at  the job said something, stamped by job_feed above.
+#   last_run_at     the command was run. This.
+#
+# HIS REPORT IS WHY IT EXISTS: tira.job.run answered ran=1 status=0 and left
+# the record untouched, so the card went on reading "Never fired" - that line
+# is painted from last_due_at, and a manual run never comes due. Writing
+# last_due_at for it would claim the schedule fired when it did not.
+#
+# AND last_output_at CANNOT STAND IN, measured rather than argued: a job
+# running /bin/true came back ran=1 status=0 and stamped nothing, because it
+# said nothing. So a silent success and a window that merely came round were
+# the same reading, on the scheduled path as well as the manual one.
+#
+# The retirement of last_run in this file's own POD does not forbid this. It
+# was written when nothing ran commands, so due and ran were one event; since
+# TKT-944 they are two, and TKT-950's could-not-start job is a third - due, and
+# nothing executed.
+sub job_ran {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    die "A job id is required\n" if !defined $args{id} || $args{id} eq '';
+
+    return $self->_with_project_lock( $root, sub {
+        my $jobs = _job_read( $self, $root );
+        my $job  = _job_find( $jobs, $args{id} );
+
+        $job->{last_run_at}  = $args{at} // $self->{clock}->();
+        $job->{last_updated} = $self->{clock}->();
+        $self->_write_json( _job_path( $self, $root ), $jobs );
+        return $job;
+    } );
+}
+
 # What police takes on its pass, and it TAKES rather than reads - the lines are
 # removed, so nothing is announced twice and there is no offset to keep. That is
 # the simplification the feeder buys: with a spool, "how far have I read" had to
@@ -1723,6 +1762,34 @@ C<last_run> is retired rather than made true. Populating it would leave two
 fields meaning nearly the same thing, which is the drift this file keeps
 warning about; records written before 5.80 keep a stale key that nothing
 reads and no view ever rendered.
+
+B<That reasoning expired in 5.84, and the field it argued against is back
+under a name that says what it means.> TKT-963, his report: C<tira.job.run>
+answered C<ran=1 status=0> and left the record untouched, so a job he had just
+run by hand went on reading "Never fired" - the beat line is painted from
+C<last_due_at>, and a manual run never comes due. The paragraph above was
+written when B<nothing ran commands>, so "was due" and "ran" were one event
+and two fields for them would indeed have meant nearly the same thing. Since
+TKT-944 they are two events, and TKT-950's could-not-start job is a third:
+due, and nothing executed.
+
+So a job now reports three facts rather than two. C<last_due_at>, the window
+came round - computed, never persisted, for the reason above. C<last_run_at>,
+the command was run - stamped by C<job_ran>. C<last_output_at>, it said
+something - stamped by C<job_feed>. They come apart in exactly the cases that
+were previously unreadable: a manual run has the second and not the first; a
+command exiting 0 in silence has the second and not the third, which is what
+made a silent success and a mere due-window the same reading on both paths.
+
+C<last_run_at> follows this codebase's own meaning of "ran" rather than
+inventing a second one. C<run_due_job> answers C<< ran => 1 >> for a program
+that is not there - "a program that is not there is a RESULT, not a crash" -
+and C<< ran => 0 >> for a job that runs no command at all, so a missing
+program records a run with the failure in its output lines, and a
+message-mode job records none however often it comes due. Both callers stamp
+through one recorder, C<Tira::CLI::Police::record_run>: the schedule and the
+button must not keep separate answers to the same question, which is the
+fault this project has already paid for twice.
 
 =head1 A MONITOR CALLS IN - ITS LEAVINGS ARE NOT READ
 

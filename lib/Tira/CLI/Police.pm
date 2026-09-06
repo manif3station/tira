@@ -534,6 +534,45 @@ sub report_to_tira {
 # job read in this file takes: a command that dies, or output that cannot be
 # recorded, is reported through the return value and the loop continues to the
 # next job.
+# WHAT A RUN LEAVES BEHIND, in one place because two callers need it.
+#
+# TKT-963, his report: tira.job.run answered ran=1 status=0 and left the job
+# record untouched, so a job that had just run went on reading "Never fired".
+# The scheduled path recorded output and the manual one recorded nothing, and
+# the fix is not to teach run_now the same steps - it is to have one recorder
+# both of them go through. Two functions doing the same job separately is the
+# fault this module has already paid for twice: TKT-932 and TKT-953 on
+# decoding a child's output, TKT-949 and TKT-962 on absent versus empty.
+#
+# THE STAMP FOLLOWS THIS FILE'S OWN MEANING OF "ran" rather than inventing a
+# second one. run_due_job answers ran => 1 for a program that is not there -
+# "a program that is not there is a RESULT, not a crash" - and ran => 0 for a
+# job that runs no command at all. So a missing program records a run, with
+# what went wrong in the output lines where TKT-950 put it, and a message-mode
+# job records none.
+#
+# The output is fed only when there IS output, unchanged from before. The
+# stamp is not: a command that exits 0 silently still ran, and recording
+# nothing for it was what made "ran" and "was due" the same reading.
+sub record_run {
+    my ( $tira, $args, $job, $outcome ) = @_;
+    return $outcome if ref $outcome ne 'HASH';
+
+    if ( $outcome->{ran} ) {
+        eval { $tira->job_ran( %{ $args || {} }, id => $job->{id} ); 1; };
+    }
+
+    my @lines = grep { defined && /\S/ } split /\n/, ( $outcome->{output} // '' );
+    push @lines, "exit status $outcome->{status}"
+      if ( $outcome->{status} // 0 ) != 0;
+    eval {
+        $tira->job_feed( %{ $args || {} }, id => $job->{id}, lines => \@lines )
+          if @lines;
+        1;
+    };
+    return $outcome;
+}
+
 sub run_due_commands {
     my ( $tira, $args, $result ) = @_;
     return [] if ref $result ne 'HASH';
@@ -577,15 +616,11 @@ sub run_due_commands {
 
         # Recorded even when the command failed - a non-zero exit with its
         # message is exactly the run somebody needs to see, and dropping it
-        # would rebuild the silence this whole epic exists to end.
-        my @lines = grep { defined && /\S/ } split /\n/, ( $outcome->{output} // '' );
-        push @lines, "exit status $outcome->{status}"
-          if ( $outcome->{status} // 0 ) != 0;
-        eval {
-            $tira->job_feed( %{ $args || {} }, id => $job->{id}, lines => \@lines )
-              if @lines;
-            1;
-        };
+        # would rebuild the silence this whole epic exists to end. Through the
+        # shared recorder since TKT-963, so the button records what the
+        # schedule records rather than the two paths keeping their own answers
+        # to the same question.
+        record_run( $tira, $args, $job, $outcome );
         push @ran, { id => $job->{id}, %{$outcome} };
     }
     return \@ran;

@@ -516,7 +516,15 @@ polling stopped.
 `tira.job.run` runs a job now without waiting for its schedule, and it is what
 the dashboard's play button calls. It reuses the executor a due job uses rather
 than being a second way to run a command, so a job that fails reports its exit
-status instead of going quiet. On a `monitor` row it starts the monitor
+status instead of going quiet. Since 5.84 it also leaves the same trace a
+scheduled run leaves: the run's time and its output land on the job, and the
+row stops saying "Never fired" about a job somebody has just run. That line
+used to read only the police ledger's record of a window coming round, which a
+manual run never moves - so a job could be run by hand all day and still read
+as one that had never run. A job now says which of three things happened: its
+window came round, its command was run, or it said something. A command that
+exits cleanly with nothing to print still records that it ran, since otherwise
+"it ran" and "it was due" are the same reading. On a `monitor` row it starts the monitor
 instead, since a monitor has no schedule to bypass — and starting one that is
 already running is refused rather than leaving a second process behind. It is
 the SCHEDULE that is bypassed and nothing else: a disabled job is still

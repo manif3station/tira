@@ -4060,7 +4060,30 @@ reader never has to infer it from whichever field is populated.
 
     It is the same executor a due job uses, with the due-check simply not
     asked, so a failing job reports its exit status here exactly as it would on
-    the bridge. A `monitor` job is STARTED rather than fired, because a monitor
+    the bridge.
+
+    **And it leaves the same trace, since 5.84** (TKT-963). It used to leave
+    none: it answered `ran=1 status=0` and touched the job record not at all,
+    so a job somebody had just run by hand went on reading "Never fired" on its
+    card - that line is painted from `last_due_at`, the police ledger's record
+    of a window coming round, and a manual run never comes due. A job now
+    reports three facts rather than two:
+
+    | Field | What it means | Written by |
+    | --- | --- | --- |
+    | `last_due_at` | the window came round | the `job-due` rule, into its ledger - never onto the job |
+    | `last_run_at` | the command was run | `job_ran`, from the shared recorder |
+    | `last_output_at` | the job said something | `job_feed` |
+
+    They come apart in the cases that were unreadable before. A manual run has
+    the second and not the first. A command that exits 0 in **silence** has the
+    second and not the third - and before this it had neither, so a silent
+    success and a window that merely came round were the same reading, on the
+    scheduled path as well as the manual one. A command whose program is
+    missing records a run, because the board did run it, with what went wrong
+    in its output lines; a `message`-mode job records none, because nothing was
+    ever executed for it. The button and the schedule both record through one
+    helper, so they cannot answer "did it run" differently. A `monitor` job is STARTED rather than fired, because a monitor
     has no schedule to bypass — it is either up or it is not — and starting one
     that is already running is refused rather than spawning a second process.
 

@@ -2,6 +2,55 @@ Revision history for Tira
 
 5.84  2026-09-06
 
+    - TKT-963, his report: tira.job.run reports ran=1 status=0 but
+      leaves the job record untouched, so a job that HAS run still
+      looks like one that never has.
+
+      run_now found the job, ran it through the same executor a due
+      job uses, and returned the outcome - writing nothing. Pressing
+      Run now is how somebody tests a job, which made it the moment
+      the board recorded least. The card went on reading "Never
+      fired" because that line is painted from last_due_at, the
+      police ledger's record of a window coming round, and a manual
+      run never comes due.
+
+      A job now reports three facts rather than two: last_due_at, the
+      window came round; last_run_at, the command was run;
+      last_output_at, it said something. They come apart in the cases
+      that were unreadable before. A manual run has the second and
+      not the first. A command exiting 0 in SILENCE has the second
+      and not the third - and before this it had neither, so a silent
+      success and a mere due-window were the same reading, on the
+      scheduled path as well as the manual one. Measured in a
+      container: /bin/true came back ran=1 status=0 and stamped
+      nothing, while last_due_at moved for it exactly as it did for a
+      talkative job.
+
+      last_run's retirement in 5.80 was right for its time and its
+      premise expired. It was decided when nothing ran commands, so
+      "was due" and "ran" were one event; TKT-944 made commands run,
+      and TKT-950's could-not-start job is a third case again - due,
+      and nothing executed. Job.pm's POD now records that rather than
+      being quietly contradicted.
+
+      The stamp follows this codebase's own meaning of "ran" instead
+      of inventing a second one. run_due_job answers ran => 1 for a
+      program that is not there, deliberately, and ran => 0 for a job
+      that runs no command - so a missing program records a run with
+      the failure in its output lines, and a message-mode job records
+      none however often it comes due.
+
+      Both callers record through one helper, record_run: the button
+      and the schedule must not keep separate answers to the same
+      question. That is the fault this project has already paid for
+      twice - TKT-932 and TKT-953 on decoding a child's output,
+      TKT-949 and TKT-962 on absent versus empty.
+
+      The jobs view prefers the new field and says "Last ran" once
+      something has actually executed. A job that has neither run nor
+      come due still says "Never fired", which is its own state
+      rather than a fault.
+
     - TKT-957, his report: the card the upgrade gate raises lands in
       backlog, where every column-scoped rule ignores it - so the gate
       that tracks the upgrade can never nag.

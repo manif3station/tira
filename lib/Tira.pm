@@ -1390,6 +1390,7 @@ sub job_started { my $self = shift; require Tira::Job; return Tira::Job::job_sta
 # same reason every other job verb is: Tira is the index, and a caller should
 # not have to know which module a job behaviour lives in.
 sub job_feed { my $self = shift; require Tira::Job; return Tira::Job::job_feed( $self, @_ ) }
+sub job_ran { my $self = shift; require Tira::Job; return Tira::Job::job_ran( $self, @_ ) }
 sub job_output_drain { my $self = shift; require Tira::Job; return Tira::Job::job_output_drain( $self, @_ ) }
 
 sub warning_clear {

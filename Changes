@@ -2,6 +2,55 @@ Revision history for Tira
 
 5.84  2026-09-06
 
+    - TKT-964, split out of TKT-962: five reads treat an absent file as
+      an empty result, and deciding once how such a read names its
+      board rather than fixing each as it is met.
+
+      THE SHAPE HAS TWO HALVES and misleads only with both: a read
+      whose board comes from discover_project when the caller names
+      none, which searches upward from the working directory, and a
+      read that treats an absent file as empty. Together they answer a
+      caller standing somewhere unexpected confidently, for a board
+      they did not mean, with no error to stop them - he was given an
+      empty jobs list for a board with three and declined four safety
+      rules against it.
+
+      THREE OF THE FIVE CARRY BOTH HALVES, not five, and measuring
+      that was most of the work. job_list, tasklist_list and
+      warning_list each open by resolving the board. The other two
+      cannot mislead: _collector_config reads a machine-global path
+      with no board in it at all, and bridge_backlog dies without a
+      store rather than guessing one. The line numbers TKT-962 recorded
+      had already drifted and were re-measured rather than quoted.
+
+      AND THE GUESS CAN LIVE IN THE CALLER, which is what stops the
+      rule being "a read must name its board": TKT-949's wrong board
+      reached the Bridge panel while bridge_backlog was already
+      refusing to guess - DashboardWeb resolved the store from the
+      server process's own location.
+
+      So the sentence belongs where a person is being answered. One
+      helper, Tira::CLI::Board::_empty_answer_names_board, is called by
+      all three verbs; job.list's inline copy from 5.83 became its
+      first caller rather than staying a second implementation. The
+      payload is untouched - -o json still emits a list - and a board
+      that genuinely has none is still a real answer rather than an
+      error.
+
+      THE PLACEMENT IS HALF THE DECISION. The note is at the CLI
+      dispatch and not in the engine read, because _tasklist_read alone
+      has eight call sites inside its own module and a read that
+      narrated would flood a single command. It first went into
+      Tira::CLI beside the dispatch and t/430 refused the tree at 3,009
+      lines against its 3,000-line index limit; that guard's own advice
+      is to lift a concern out rather than raise the number, and
+      Tira::CLI::Board is the module whose subject is the board itself.
+
+      t/566 carries the decision as a registry entry, with its limit
+      stated in the entry: it catches a dispatch branch returning one
+      of the three lists directly, and not a list returned through a
+      variable, which is what job.list looked like before this card.
+
     - TKT-963, his report: tira.job.run reports ran=1 status=0 but
       leaves the job record untouched, so a job that HAS run still
       looks like one that never has.

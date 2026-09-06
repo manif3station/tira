@@ -139,36 +139,14 @@ sub dispatch {
         };
         my $jobs = $tira->job_list(%list);
 
-        # AN EMPTY ANSWER SAYS WHOSE IT IS. TKT-962.
-        #
-        # job_list resolves its board with discover_project when the caller
-        # names none, which searches UPWARD from the working directory - and
-        # _job_read returns an empty list when that board has no jobs file. So
-        # a caller standing somewhere unexpected is answered for whichever
-        # board lies above them, and an empty list is a perfectly ordinary
-        # answer. The owner was given one for a board with three jobs and
-        # declined four safety rules against it: an error would have stopped
-        # the work, and a plausible wrong answer did not.
-        #
-        # The ANSWER is deliberately unchanged - -o json emits this payload and
-        # callers depend on the list being a list. What changes is the silence.
-        # The note goes to STDERR so it reaches a person without entering the
-        # data, and only when the list is empty, because a note that follows
-        # every ordinary listing is one nobody reads.
-        #
-        # Same pattern as TKT-949's bridge panel six hours earlier: a board
-        # resolved from the process's own location, and an absent thing
-        # reported as an empty one.
-        if ( !@{ $jobs || [] } ) {
-            my $name = eval { $tira->project_show( %{$args} )->{name} };
-            print {*STDERR} Tira::CLI::_utf8_bytes(
-                sprintf "no jobs on board '%s' - if that is not the board you meant, "
-                  . "this answer is about the one the working directory resolved to\n",
-                ( defined $name && $name =~ /\S/ ) ? $name : 'unnamed'
-            );
-        }
-
-        return $jobs;
+        # AN EMPTY ANSWER SAYS WHOSE IT IS. TKT-962 found it here - he was
+        # given an empty jobs list for a board with three and declined four
+        # safety rules against it - and TKT-964 found two more reads with the
+        # same pair of halves, so the sentence and the reasoning behind it now
+        # live in one place. This was written inline first; leaving it that way
+        # would have had the next verb copy it rather than call it.
+        require Tira::CLI::Board;
+        return Tira::CLI::Board::_empty_answer_names_board( $tira, $args, $jobs, 'jobs' );
     }
 
     # A monitor telling the board what it just said. TKT-851.

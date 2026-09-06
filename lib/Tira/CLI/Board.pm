@@ -3,7 +3,9 @@ package Tira::CLI::Board;
 # Seven command bodies about the board itself rather than about a card on it:
 # who may work a column, which card comes next, who is logged in, what the
 # policies are, what moved between columns, a rule suspended, and the
-# file-taking form of attachment.add.
+# file-taking form of attachment.add - plus one helper, _empty_answer_names_
+# board, which is not a command body but is the same subject: which board an
+# answer was about. TKT-964.
 #
 # None is large alone - the biggest is column_roles at 38 lines - and together
 # they are 165 lines that were in the middle of the dispatcher, which no other
@@ -204,6 +206,51 @@ sub attachment_add_files {
     return \@added;
 }
 
+# WHY THIS LIVES HERE rather than in Tira::CLI beside the dispatch that calls
+# it: t/430 holds that file to 3,000 lines as an index, and it refused the
+# tree at 3,009 when this was written there. The guard was right and the file's
+# own header says what to do about it - lift a concern out rather than raise
+# the number. This module's subject is "the board itself rather than a card on
+# it", and a helper whose whole job is saying WHICH BOARD an answer was about
+# is exactly that.
+# AN EMPTY ANSWER SAYS WHOSE IT IS. TKT-964, split out of TKT-962 because that
+# card broke the silence around ONE empty answer and left the shape intact.
+#
+# THE SHAPE HAS TWO HALVES and misleads only with both: a read whose board
+# comes from discover_project when the caller names none - which searches
+# UPWARD from the working directory - and which treats an absent file as an
+# empty result. Together they answer a caller standing somewhere unexpected
+# confidently, for a board they did not mean, with no error to stop them. He
+# was given an empty jobs list for a board with three and declined four safety
+# rules against it.
+#
+# THREE READS CARRY BOTH HALVES, measured rather than assumed: job_list,
+# tasklist_list and warning_list all open by resolving the board. Two others
+# treat absent as empty and cannot mislead - _collector_config reads a
+# machine-global path with no board in it, and bridge_backlog dies without a
+# store rather than guessing one.
+#
+# HERE RATHER THAN IN THE READ, and that placement is half the decision. The
+# engine returns data; this is where a person is being answered. _tasklist_read
+# alone has eight call sites inside its own module, so a read that narrated
+# would flood a single command with notes - the card's own refusal, written as
+# an acceptance criterion before the code.
+#
+# The payload is untouched: -o json still emits the list and callers depend on
+# it being a list. Only the silence changes.
+sub _empty_answer_names_board {
+    my ( $tira, $args, $rows, $noun ) = @_;
+    return $rows if @{ $rows || [] };
+
+    my $name = eval { $tira->project_show( %{ $args || {} } )->{name} };
+    print {*STDERR} Tira::CLI::_utf8_bytes(
+        sprintf "no %s on board '%s' - if that is not the board you meant, "
+          . "this answer is about the one the working directory resolved to\n",
+        $noun, ( defined $name && $name =~ /\S/ ) ? $name : 'unnamed'
+    );
+    return $rows;
+}
+
 1;
 
 __END__
@@ -220,6 +267,16 @@ C<login.status> and C<login.logout>. C<policy_verbs> covers C<policy.add>,
 C<policy.list> and C<policy.remove>. C<notify_moves> answers what moved between
 columns, C<rule_suspend> suspends a rule, and C<attachment_add_files> is the
 file-taking form of C<attachment.add>.
+
+C<_empty_answer_names_board> is the one member here that is not a command body.
+It says which board an empty list was empty for, and it is shared by
+C<job.list>, C<tasklist.list> and C<warning.list> - the three reads that resolve
+their board from the working directory when the caller names none and treat an
+absent file as an empty result. It lives here rather than beside the dispatch
+that calls it because C<t/430> holds C<Tira::CLI> to 3,000 lines as an index and
+refused the tree at 3,009; that guard's advice is to lift a concern out rather
+than raise the number, and "which board an answer was about" is this module's
+own subject. TKT-964.
 
 Seven bodies, all of them blocks inside C<Tira::CLI::_invoke> until 4.74. None
 is large alone; together they were about 150 lines that every other command had

@@ -547,6 +547,20 @@ server produces no entries, and the panel says so on screen rather than looking
 broken. Without the flag there is no panel and `/logs` answers 404 with a
 reason, because an empty list would claim the board had answered nothing.
 
+An empty list says which board it was empty for. Three read commands work out
+which board they are about by searching upward from wherever you are standing,
+and each treats a missing file as nothing to report — so a caller in an
+unexpected directory used to get a confident answer about a board they did not
+mean, with no error to stop them. `tira.job.list`, `tira.tasklist.list` and
+`tira.warning.list` now write one line naming the board when the answer is
+empty, and say that if that is not the board you meant, this answer is about
+whichever one the working directory resolved to. The answer itself is
+unchanged: `-o json` still emits a list, and a board that genuinely has none is
+still a real answer rather than an error. Two other reads that treat a missing
+file as nothing are deliberately silent, because neither can be about the wrong
+board — one reads a machine-wide config with no board in it, and the other
+refuses to run without being told which store to read.
+
 `d2 tira.onboard` asks for everything a new project needs and creates
 it from the answers. `d2 tira.onboard -o browser` does the same thing
 over one HTML form instead of a terminal prompt: a disposable, no-login

@@ -47,6 +47,31 @@ sub tool_source {
 
 my @DECISIONS = (
     {
+        name => 'a list read whose board was guessed answers through the namer',
+        why  => 'TKT-962, then TKT-964. Three reads resolve their board with '
+          . 'discover_project when the caller names none - job_list, '
+          . 'tasklist_list and warning_list - and each treats an absent file '
+          . 'as an empty result. Together those two halves answer a caller '
+          . 'standing somewhere unexpected confidently, for a board they did '
+          . 'not mean: he was given an empty jobs list for a board with '
+          . 'three and declined four safety rules against it. The sentence '
+          . 'that names the board has one home, Tira::CLI::Board::'
+          . '_empty_answer_names_board, because the first copy was written '
+          . 'inline in job.list and the next two verbs would have copied it. '
+          . 'A dispatch branch that RETURNS one of those lists straight to '
+          . 'the caller has bypassed it. LIMIT, stated rather than left to '
+          . 'be discovered: this catches the direct-return shape and not a '
+          . 'list returned through a variable, which is what job.list '
+          . 'itself looked like before TKT-964 (my $jobs = ...; return '
+          . '$jobs). Verified both directions by hand - it catches the two '
+          . 'pre-fix dispatch lines and leaves every legitimate job_list '
+          . 'call alone - so it is a ratchet against the obvious relapse, '
+          . 'not a proof.',
+        source  => sub { Suite::cli_source() },
+        bypass  => qr/return \s+ \$tira->(?:job_list|tasklist_list|warning_list) \s* \(/x,
+        allowed => [],
+    },
+    {
         name => 'column_list is always asked for a specific type',
         why  => 'TKT-597, and TKT-532 before it on the browser path. A '
           . 'typeless call falls back to a default board, so a guard '

@@ -2033,7 +2033,10 @@ sub _invoke {
     return $tira->doctor( %args, ( $option->{repair} ? ( repair => 1 ) : () ) )
       if $command eq 'doctor';
 
-    return $tira->warning_list(%args) if $command eq 'warning.list';
+    require Tira::CLI::Board;
+    return Tira::CLI::Board::_empty_answer_names_board(
+        $tira, \%args, $tira->warning_list(%args), 'warnings' )
+      if $command eq 'warning.list';
     return $tira->warning_add(%args) if $command eq 'warning.add';
     return $tira->warning_clear( %args, all => $option->{all} ) if $command eq 'warning.clear';
     return $tira->notification_message( project => $args{project} ) if $command eq 'notify.compose';
@@ -2327,7 +2330,10 @@ sub _invoke {
 
     # A parallel system to ticket/epic/sow, deliberately lighter - no gates,
     # checklists, or required-actions. TKT-504.
-    return $tira->tasklist_list(%args) if $command eq 'tasklist.list';
+    require Tira::CLI::Board;
+    return Tira::CLI::Board::_empty_answer_names_board(
+        $tira, \%args, $tira->tasklist_list(%args), 'tasks' )
+      if $command eq 'tasklist.list';
     return $tira->tasklist_sessions(%args) if $command eq 'tasklist.sessions';
     return $tira->tasklist_add( %args, refs => $option->{ref_list} // [] )
       if $command eq 'tasklist.add';

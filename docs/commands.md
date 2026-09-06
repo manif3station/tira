@@ -3858,6 +3858,26 @@ reader never has to infer it from whichever field is populated.
     same care the monitor's "Never spoken" already takes. Both message-mode
     and command-mode cron jobs get it.
 
+    **An empty list says which board it was empty for** (TKT-962, generalised
+    by TKT-964 in 5.84). Three read commands resolve their board with
+    `discover_project` when the caller names none - `tira.job.list`,
+    `tira.tasklist.list` and `tira.warning.list` - and each treats an absent
+    file as an empty result. Neither half is wrong alone; together they answer
+    a caller standing somewhere unexpected confidently, for a board they did
+    not mean, and an empty list is an ordinary answer so nothing stops the
+    work. Each of the three now writes one line to STDERR when its answer is
+    empty, naming the board and saying that if that is not the board you
+    meant, the answer is about whichever one the working directory resolved
+    to. **The payload is untouched** - `-o json` still emits a list and
+    callers depend on that - and a board that genuinely has none is still a
+    real answer rather than an error. The sentence has one home,
+    `Tira::CLI::Board::_empty_answer_names_board`, and `t/566` holds it there.
+
+    Two other reads treat an absent file as empty and are deliberately
+    silent, because neither can answer for the wrong board: the collector
+    config is a machine-global path with no board in it, and the bridge
+    backlog refuses to run without a store rather than guessing one.
+
     `tira.job.list` reports the same instant as `last_due_at` when it can
     resolve a police store, which it does for itself. **It is computed at
     read, never stored on the job**: the instant lives in the police ledger

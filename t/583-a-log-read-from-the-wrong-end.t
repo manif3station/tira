@@ -76,6 +76,8 @@ like( $render // '', qr/\S/, 'the engine source is there to be read' );
 
 {
     my $css = eval { Suite::view_source('dashboard.css') };
+    # non-empty is the whole claim: the two checks below would pass on an
+    # unreadable file's emptiness alone.
     like( $css // '', qr/\S/, 'the stylesheet is there to be read' );
     like( $css // '', qr/\.bridge-lines\b/,
         'the container has styling of its own, so it renders as a terminal block rather '
@@ -119,8 +121,19 @@ like( $render // '', qr/\S/, 'the engine source is there to be read' );
 # board says everywhere, to fix how one panel looks.
 
 {
-    my ($route) = ( $render // '' ) =~ /(sub \s+ enforcement_log \s* \{\n .*? \n\})/xs;
+    my ($route) = ( $render // '' ) =~ /(sub\s+enforcement_log\s*\{\n.*?\n\})/s;
     $route //= '';
+
+    # ESTABLISHED BY CONTENT BEFORE IT IS DENIED. An extraction that caught
+    # nothing leaves '', and '' contains no "reverse" - so the denial below
+    # would pass hardest exactly when this test had stopped reading the sub it
+    # is about. t/147 refused this file for that, and it was right: the same
+    # fault had already bitten this very file once, when a /x pattern ignored
+    # the literal spaces in its paintBridge anchor and matched nothing.
+    like( $route, qr/A police store is required/,
+        'enforcement_log was found, and is the one that refuses without a store - so the '
+          . 'denial below is about the real sub rather than about an empty string' );
+
     unlike( $route, qr/\breverse\b/,
         'the engine log reader does not reverse - the terminal and the page read the '
           . 'same call, and t/541 exists because two readers of one log drift' );

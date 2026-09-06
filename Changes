@@ -2,6 +2,43 @@ Revision history for Tira
 
 5.85  2026-09-06
 
+    - TKT-976: the Bridge panel is a terminal, and the newest line is
+      the first one you see.
+
+      His message 7283, with a screenshot: "Can you make the log inside
+      a terminal like div? and only show last 100 and latest line show
+      at first line, so they are reverse order ... From new to old and
+      auto refresh each 10 seconds". What he was looking at was an
+      ordered list, numbered 1 to 100, oldest first - so on a panel that
+      redraws while he watches, the line he was waiting for sat at the
+      bottom behind ninety-nine he had already read.
+
+      Four things asked for and only two were changes. The container is
+      now a monospaced, dark, internally-scrolling div instead of an
+      <ol>, and the panel paints entries.slice().reverse() so the newest
+      is at the top. The hundred-line limit was ALREADY what the route
+      gives and is untouched.
+
+      THE FOURTH HE WITHDREW HIMSELF. The panel already polled every
+      five seconds, so his ten would have made it slower rather than
+      adding polling. Asked as Q-132 with a voice note rather than
+      guessed at, and answered: "Leave it at five seconds - keep it as
+      live as it is now". The interval is unchanged, and the test now
+      asserts 5000 exactly rather than accepting any number, because
+      five is now a decision rather than an accident.
+
+      THE REVERSAL IS IN THE PAGE, NOT THE ROUTE. /bridge is shared: the
+      terminal and tira.policy.bridge.logs read the same engine call,
+      and t/541 exists because two readers of one log drift. A route
+      answering newest-first would have changed what the board says
+      everywhere in order to fix how one panel looks, so the test reads
+      enforcement_log and requires it NOT to reverse.
+
+      The repaint also keeps the reader's scroll position, which matters
+      more now than it did: the container scrolls internally where the
+      old list grew down the page, so without it a redraw every five
+      seconds pulls you back to the top mid-line.
+
     - TKT-978: a police pass now works out where each card lives once,
       instead of re-walking the whole board every time it is asked.
 

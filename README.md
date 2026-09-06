@@ -351,6 +351,21 @@ behind `--show-logs`: request logs are a debugging aid you opt into, while the
 bridge is the board's own voice. An empty panel says so in words, because a board
 that has found nothing and a board whose police has never run look identical.
 
+**Since 5.85 it reads like a terminal, newest line first.** It was an ordered
+list, numbered 1 to 100 with the oldest at the top, so on a panel that redraws
+while you watch, the line you are waiting for sat at the bottom behind
+ninety-nine you had already read. It is now a dark, monospaced, internally
+scrolling block with the newest line first, and a redraw keeps the scroll
+position you were at rather than pulling you back to the top mid-line. The
+hundred-line limit is unchanged and is still the route's to decide, and the
+five-second poll is unchanged too - it was nearly slowed to ten on request
+until it turned out ten was slower than what was already there.
+
+The reversal happens in the page, not in the route. `/bridge` is read by the
+terminal and by `tira.policy.bridge.logs` through the same engine call, so
+answering newest-first at the source would have changed what the board says
+everywhere in order to fix how one panel looks.
+
 Every line police writes ends with a command you can paste, and since 5.85 that
 command names something that exists whatever the line is about. A finding about
 a card opens the card, which always worked; a finding about a repeated job or a

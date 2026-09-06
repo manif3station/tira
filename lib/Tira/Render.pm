@@ -203,7 +203,7 @@ sub _dashboard_table {
     # the page. TKT-916.
     $boards .= '<section class="board board--bridge" data-type="bridge">'
       . '<header class="board__header"><span class="board__kicker">Tira board</span><h2>Bridge</h2></header>'
-      . '<p class="bridge-note"></p><ol class="bridge-lines"></ol></section>'
+      . '<p class="bridge-note"></p><div class="bridge-lines" role="log"></div></section>'
       if $args{live};
 
     my $project_heading = 'Tira Kanban';
@@ -467,5 +467,28 @@ still refused by C<format_output> itself.
 Those last two groups passed B<before> the lift as well as after, which is
 what makes them a no-behaviour-change baseline rather than a description of
 the end state.
+
+=head1 THE BRIDGE SECTION IS A TERMINAL, AND ITS ORDER IS THE PAGE'S
+
+The live board emits an empty C<< <div class="bridge-lines" role="log"> >> for
+C<bridge-panel.js> to fill. It was an C<< <ol> >> until 5.85, which rendered
+the board's running log as a numbered list, oldest first - so the newest line,
+the one somebody watching a live board is waiting for, sat at the bottom behind
+ninety-nine already-read ones. TKT-976, from his own screenshot.
+
+If you change this markup, know what the class carries: C<.bridge-lines> is
+what makes the block monospaced, dark and internally scrolling in
+F<dashboard.css>, and the panel appends C<.bridge-line> rows into it. An
+element without that class renders as ordinary prose and nothing in the suite
+notices except F<t/583>, which asserts the stylesheet rule exists and is
+monospaced for exactly that reason.
+
+B<The newest-first order is applied in the page and must not be moved here or
+into the route.> C</bridge> is read by the browser panel, by the bridge
+terminal and by C<tira.policy.bridge.logs>, all through C<enforcement_log>.
+Reversing at the source would change what every one of those readers sees in
+order to fix how one panel looks - the same drift F<t/541> was written about.
+F<t/583> holds the boundary by reading C<enforcement_log> and requiring that it
+does B<not> reverse.
 
 =cut

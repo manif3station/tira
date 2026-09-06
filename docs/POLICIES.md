@@ -619,6 +619,23 @@ Policies live in the project config, so they travel with the project and
 anybody can read them. Police keeps its own state — the violation ledger, the
 bridge log — outside the project entirely.
 
+## Reading the bridge from the page
+
+`d2 tira.policy.bridge` is the terminal reader, and since 5.56 the live
+dashboard carries the same stream in a Bridge section. Both go through
+`enforcement_log`, so they cannot disagree about what the board said.
+
+Since 5.85 the panel reads like a terminal: a monospaced, internally scrolling
+block with **the newest line first**, because a running log whose newest line is
+a hundred rows down is one you have to scroll to use. A redraw keeps your scroll
+position rather than pulling you back to the top every five seconds.
+
+**That reversal is done in the page, not in the log.** The stream itself is
+still oldest-first everywhere - in this command, in the terminal, and in the
+payload the panel is handed. If you are writing something that reads the bridge,
+read it in the order `enforcement_log` gives it; the page turning it round for a
+human reader is a display choice and not a change to what the board says.
+
 ## What a pass costs, and what it is spent on
 
 A watcher runs a pass every thirty seconds, so a pass that takes fifteen

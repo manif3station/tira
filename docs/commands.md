@@ -1794,6 +1794,20 @@ browser once came to disagree about attachment content types. Unlike the
 Requests panel it is not behind `--show-logs`: request logs are a debugging aid
 somebody opts into, and this is the board's own voice.
 
+**Since 5.85 that panel is a terminal and reads newest-first** (TKT-976). It was
+an ordered list numbered 1 to 100 with the oldest at the top, so the newest line
+sat at the bottom behind ninety-nine already-read ones. It is now a monospaced,
+internally scrolling block, the newest line is first, and a redraw restores the
+reader's scroll position instead of pulling them back to the top every five
+seconds.
+
+**This command's own order is unchanged, and that is the point.** The page
+reverses what it was given at paint time; `enforcement_log` still answers
+oldest-first, so this command, the bridge terminal and the panel all describe
+the same stream. Reversing at the source would have changed what every reader
+sees in order to fix how one panel looks — which is the drift the paragraph
+above already warns about, arriving from the other direction.
+
 ### On the card dialog
 
 Opening a card on the live board shows a **What police has said** section: the

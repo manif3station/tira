@@ -2,6 +2,40 @@ Revision history for Tira
 
 5.83  2026-09-05
 
+    - TKT-954. The release gate measured one unchanged tree twice and
+      reported lib/Tira.pm at 99.8/100.0/99.8 and then 100.0/100.0/100.0,
+      naming eight uncovered lines the card being gated had never
+      touched. Three further runs on that same tree agreed exactly, at
+      100.0 across all 21 modules.
+
+      So the figure does not drift - it was LOST once, about one run in
+      six. That distinction decides the fix. A number wrong every run is
+      caught by looking at the number; one wrong in a sixth of runs is
+      not, because five times in six it is right, and the sixth either
+      refuses a good release or certifies a tree with a real hole.
+      Since 4.62 the push hook runs no suite, so nothing downstream
+      re-checks it.
+
+      The suite runs under prove -j, so every test process writes into
+      one shared cover_db, and a fragment that does not survive turns
+      every statement only that process executed into an uncovered one.
+      Devel::Cover records one entry per process in cover_db/runs -
+      measured, not assumed: prove -j4 over four test files left exactly
+      four.
+
+      tools/coverage-complete makes that comparison and refuses a short
+      collection, naming both counts and calling the fault what it is:
+      not a coverage failure, but a figure never computed from all the
+      data. gate-run calls it after the suite and before it reports any
+      percentage. More runs than files is accepted - the first full run
+      reported 570 for 560 test files, because tests that fork record
+      their own, and an equality check would have refused every gate
+      from the day it shipped.
+
+      What is NOT claimed: the collection is not deterministic. A
+      fragment can still be lost. It can no longer be lost silently.
+      The 100% requirement is untouched.
+
     - TKT-949, his report twice over: "I also asked this bridge section
       never work." The Bridge panel said "Nothing on the bridge yet.
       Police announces here when it runs" while police announced

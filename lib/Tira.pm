@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.84';
+our $VERSION = '5.85';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -9562,6 +9562,32 @@ sub _violation_fix {
     return $named if defined $named;
 
     my $ref = $violation->{ref} // '';
+
+    # NOT EVERY SUBJECT IS A CARD. TKT-866, found by the hourly hunt from a
+    # line the job-due rule had just printed, and still printing it four days
+    # later on this project's own board:
+    #
+    #     VIO-2562 | JOB-001 | job-due | fix: d2 tira.ticket.show --ref JOB-001
+    #
+    # Run verbatim that answers "Record 'JOB-001' not found" and exits 2. The
+    # report closure takes either a record or a bare id - job-due and the
+    # tasklist rules pass an id - and the distinction is made there and then
+    # thrown away, because only the ref is kept. So a fix line whose whole
+    # purpose is to be pasted handed the reader a command that fails.
+    #
+    # MATCHED BY PREFIX, which is safe for exactly these two and for nothing
+    # else: the engine numbers jobs and tasklist items itself, sprintf
+    # 'JOB-%03d' and 'TSK-%03d', while a card's prefix is per-project. That is
+    # also why no third card prefix is added to the test below - a board using
+    # M5S/M5E gets tira.ticket.show for its epics, which is untidy but WORKS,
+    # since record lookup resolves a card by ref across boards.
+    #
+    # Neither verb takes the ref, because neither job.show nor tasklist.show
+    # exists. The reader is handed a command that runs and shows the thing
+    # named, which is the whole of what a fix line promises.
+    return 'd2 tira.job.list'      if $ref =~ /\AJOB-/;
+    return 'd2 tira.tasklist.list' if $ref =~ /\ATSK-/;
+
     return 'd2 tira.' . ( $1 eq 'SOW' ? 'sow' : 'epic' ) . ".show --ref $ref"
       if $ref =~ /\A(SOW|EPC)-/;
     return "d2 tira.ticket.show --ref $ref" if $ref ne '';
@@ -14668,6 +14694,22 @@ Builds the police status text shown to the agent, with the version-upgrade notic
 =head2 police_pass
 
 Runs one police pass: move announcements, then policy evaluation, recording violations to the store.
+
+Every violation carries a C<fix:> line whose purpose is to be pasted, and it
+names a command for the KIND of thing the finding is about. A rule with its own
+remedy wins first - C<card-damaged> answers C<d2 tira.doctor --repair> and
+C<board-unbacked> answers C<d2 tira.backup> - because pointing at a card is a
+good default and a bad answer where there is a command to run. Otherwise the
+reference decides: a C<JOB-> or C<TSK-> reference names the job or tasklist
+command, a card reference opens the card, and a finding with no reference at all
+points at the policy list.
+
+The job and tasklist cases were added by TKT-866, which found them offering the
+card command for a job - a command that answers "Record not found" and exits 2.
+The report closure accepts either a record or a bare id and these rules pass an
+id, so a reference that is not a card was being treated as one. Prefix matching
+is safe for exactly those two because the engine numbers jobs and tasklist items
+itself, unlike a card's prefix, which is per-project.
 
 =head2 police_farewell
 

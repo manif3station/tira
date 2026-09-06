@@ -351,6 +351,15 @@ behind `--show-logs`: request logs are a debugging aid you opt into, while the
 bridge is the board's own voice. An empty panel says so in words, because a board
 that has found nothing and a board whose police has never run look identical.
 
+Every line police writes ends with a command you can paste, and since 5.85 that
+command names something that exists whatever the line is about. A finding about
+a card opens the card, which always worked; a finding about a repeated job or a
+tasklist item used to offer the same card command, and a job is not a card - run
+verbatim it answered "not found" and failed. Those now offer the job list and
+the tasklist. Neither takes the reference, because there is no command to show
+one job or one task on its own, so the line shows you the thing named rather
+than failing at it - which is the whole promise of a line meant to be pasted.
+
 **The header's counts say what is wrong, not what exists (5.54).** It shows how
 many cards carry a question awaiting an answer, how many tasklist items are
 outstanding, how many monitors have stopped and how many jobs are disabled — and

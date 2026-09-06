@@ -1029,6 +1029,19 @@ believed, and a non-zero exit is recorded rather than dropped.
 about the board, and a status query that executes commands as a side effect of
 being asked is a surprise nobody consented to.
 
+**Every finding's `fix:` line names a command for the thing it is about**,
+and since 5.85 that holds for every kind of subject (TKT-866). It did not:
+findings about a repeated job or a tasklist item offered the card command,
+`ticket.show`, with a job reference - which answers "Record 'JOB-001' not
+found" and exits 2, because the report closure accepts either a record or a
+bare id and the job rules pass an id. A `JOB-` reference now answers `d2
+tira.job.list` and a `TSK-` one `d2 tira.tasklist.list`; neither takes the
+reference, because neither `job.show` nor `tasklist.show` exists, so the line
+runs and shows the thing named. Findings about a question were never
+affected - those are reported against the card carrying the question. A rule
+that knows its own remedy still wins over all of it: `card-damaged` answers
+`d2 tira.doctor --repair` and `board-unbacked` answers `d2 tira.backup`.
+
 **A genuine upgrade also raises a gating ticket, not just a bridge line**
 (TKT-604). The same `announced_changes`-guarded branch that writes "Tira is
 now X - this board last heard Y" now also creates a ticket in the backlog, at

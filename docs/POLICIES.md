@@ -557,6 +557,23 @@ unmentioned until the first is dealt with (TKT-698). The card named in the
 finding is unaffected - the fix command still opens the card, not a
 question - only the ledger's own bookkeeping tells the two apart.
 
+**The `fix:` line names a command for the thing the finding is about**, and
+since 5.85 that holds for every kind of subject rather than most of them.
+Findings about a card point at the card, which always worked. Findings about a
+repeated job or a tasklist item used to point at `tira.ticket.show` as well,
+and a job is not a card: run verbatim, that answers "Record 'JOB-001' not
+found" and exits 2. They now point at `tira.job.list` and
+`tira.tasklist.list`. Neither takes the reference, because neither
+`job.show` nor `tasklist.show` exists - the line runs and shows the thing
+named, which is what a line you are meant to paste has to do. A finding about
+a question was never affected: those are reported against the card carrying
+the question, so their fix line opens that card.
+
+A rule that knows its own remedy still beats all of this. `card-damaged`
+answers `d2 tira.doctor --repair` and `board-unbacked` answers `d2
+tira.backup`, because pointing at a card is a good default and a bad answer
+when there is a command to run.
+
 Fixing the cause silences it on the next pass. There is nothing to acknowledge
 and nothing to clear by hand.
 

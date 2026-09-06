@@ -2,6 +2,44 @@ Revision history for Tira
 
 5.84  2026-09-06
 
+    - TKT-827: tira.outstanding counted questions on cards somebody had
+      set aside, unlike the dashboard header it is documented as
+      matching.
+
+      record_list never mentions discard - not once in its body - so it
+      walks every column directory under .tira/<type>/, always. This
+      command called it with no filter, while dashboard() eight lines
+      below excludes the discard column explicitly. So a discarded card
+      still carrying an unanswered question was counted by the terminal
+      total and not by the header, which is the one thing the command
+      promises about itself. The difference only shows when a discarded
+      card happens to hold an unanswered question, which is why it went
+      unnoticed. Measured on the board it was found on: 964 tickets,
+      165 of them discarded, all 964 walked.
+
+      THE FILTER IS AT THE COUNTING, not in record_list, and that is
+      the decision rather than an implementation detail. Five call
+      sites already hand record_list an include_discard it does not
+      read, so teaching it to filter would silently change what every
+      other caller gets - including person_remove and link_type_remove,
+      which walk everything on purpose because a person named by a
+      set-aside card still has a historical reference. A read that
+      returns everything is not the fault; a total that claims to match
+      a view excluding set-aside work, and does not, is. record_list's
+      inert flag is TKT-970.
+
+      --include-discard now means something here. It was accepted
+      before and silently ignored: the option parser is shared, so the
+      flag parsed, reached the arguments and was never read. Making the
+      default match the header without making the flag work would have
+      left an option that looks accepted and changes nothing, which
+      this codebase refuses in stronger terms elsewhere.
+
+      The sweep for other summaries with the same gap found none.
+      card_holes, work_order and policy_evaluate each exclude discard
+      already, and the two remaining unfiltered walks are not summaries
+      and must stay unfiltered.
+
     - TKT-964, split out of TKT-962: five reads treat an absent file as
       an empty result, and deciding once how such a read names its
       board rather than fixing each as it is met.

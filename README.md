@@ -356,6 +356,16 @@ in that corner rather than a row of noughts. A stopped monitor is counted from
 the same liveness verdict the jobs rows and the police rule use, and a *disabled*
 monitor is counted once as disabled rather than twice: it is off on purpose.
 
+The terminal has the same counts — `tira.outstanding` answers them for somebody
+working without a browser — and since 5.84 the two genuinely agree. They did not
+before: the terminal walked every column of the board including the one work is
+set aside in, while the header counts only what the board actually shows. So a
+card somebody had discarded, still carrying a question nobody answered, was
+counted in one place and not the other, and the difference only ever appeared
+when a set-aside card happened to hold an unanswered question. Asking for the
+whole board including set-aside work is still possible, with the same flag the
+board view takes.
+
 Below that sits a Repeated Jobs section, one row per scheduled job the board
 carries: its id, whether it is enabled, its schedule, what it says or runs,
 and its mode and schedule kind. It refreshes every thirty seconds, so what a

@@ -2444,6 +2444,24 @@ sub _invoke {
     # another package, discard, and return` - every browser and table board
     # came back with no column order at all. It is back where it belongs, and
     # tools/lift-block now refuses a block whose last statement is not a return.
+    # THE SAME FLAG, ON THE COMMAND THAT CLAIMS TO MATCH THAT VIEW. TKT-827.
+    #
+    # tira.outstanding is documented as answering the same totals as the
+    # dashboard's header, so it now excludes set-aside work the way the
+    # dashboard does - and a caller who genuinely wants the whole board asks
+    # for it the same way too. Before this, --include-discard was ACCEPTED here
+    # and did nothing: the parser is shared, so the flag parsed, reached %args,
+    # and was never read. An option that looks accepted and changes nothing is
+    # the fault the option guard below exists to prevent, arriving through the
+    # one path that does not check.
+    #
+    # No default is invented for it. The dashboard block turns it on for the
+    # human-facing outputs because a person looking at a board should see where
+    # discarded work went; a TOTAL is not a board, and the number that matches
+    # the header is the one this command promises.
+    $args{include_discard} = $option->{include_discard} ? 1 : 0
+      if $command eq 'outstanding';
+
     if ( $command =~ /\Adashboard(?:\.(sow|epic|ticket))?\z/ ) {
         $args{type} = $1 if defined $1;
         # Every board is created with Backlog and Discard, and the

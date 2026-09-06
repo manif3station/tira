@@ -2852,6 +2852,25 @@ items are still owed (`tasks`, counting `pending` and `working` only). An
 agent working purely through the CLI had no way to answer either half of
 this without iterating every card by hand or opening a browser - a real,
 newly-widened gap the moment TKT-797 gave the browser its own answer.
+**It counts only live work, since 5.84** (TKT-827). That "same totals as the
+browser header" was not true: `record_list` never mentions discard, so this
+command walked every column including `discard`, while the dashboard the
+header counts excludes that column explicitly. A card somebody had SET ASIDE,
+still carrying a question nobody answered, was counted here and not there -
+two numbers under one name, differing only when a discarded card happens to
+hold an unanswered question, which is why it went unnoticed. Measured on the
+board it was found on: 964 tickets, 165 of them discarded, all 964 walked.
+`--include-discard` counts the whole board again, and it now means something:
+before this card the flag was accepted here and silently ignored, because the
+option parser is shared and nothing read it.
+
+The filter is applied where the counting happens rather than inside
+`record_list`, deliberately. Five call sites already hand `record_list` an
+`include_discard` it does not read, and teaching it to filter would silently
+change what every other caller gets - including `person_remove`, which must
+see discarded cards, since a person named by a set-aside card still has a
+historical reference. That larger question is TKT-970.
+
 Deliberately does NOT match `hero-counts.js`'s own current task count,
 which counts every tasklist item regardless of status (a separate, tracked
 defect, TKT-817) - "outstanding" means still owed, and a `done` item is not.

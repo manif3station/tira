@@ -5633,10 +5633,33 @@ sub _card_waiting { return _card_blocked(@_) }
 sub outstanding_summary {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
+    # SET-ASIDE WORK IS NOT OUTSTANDING WORK. TKT-827, found by the hunt and
+    # requeued by him after he had read the measurement.
+    #
+    # This command is documented as answering the same project-wide totals as
+    # the browser dashboard's sticky header, and it did not. record_list never
+    # mentions discard - it walks every column directory under .tira/<type>/,
+    # always - while dashboard() below excludes that column explicitly. So a
+    # card somebody SET ASIDE, still carrying a question nobody answered, was
+    # counted here and not there: two numbers under one name, differing only
+    # when a discarded card happens to hold an unanswered question, which is
+    # why it went unnoticed. Measured on the board it was found on: 964
+    # tickets, 165 of them discarded, all 964 walked.
+    #
+    # THE FILTER IS HERE RATHER THAN IN record_list, and that is deliberate.
+    # Five call sites already pass include_discard => 1 to record_list and
+    # nothing reads it; teaching record_list to filter would silently change
+    # what every OTHER caller gets - including policy_evaluate, which walks
+    # everything on purpose and drops discarded cards itself. A read that
+    # returns everything is not the fault. A total that claims to match a
+    # view which excludes set-aside work, and does not, is.
     my $questions = 0;
     for my $type (qw(sow epic ticket)) {
         my $records = eval { $self->record_list( project => $root, type => $type ) } || [];
-        $questions += grep { grep { !$_->{answer} } _policy_questions($_) } @{$records};
+        $questions += grep {
+            ( $args{include_discard} || ( $_->{column} // '' ) ne 'discard' )
+              && grep { !$_->{answer} } _policy_questions($_)
+        } @{$records};
     }
     my $tasks = grep { my $status = $_->{status} // 0; $status == 0 || $status == 1 }
       @{ $self->tasklist_list( project => $root, all_sessions => 1 ) };
@@ -14952,6 +14975,21 @@ DBD::SQLite and says so plainly when it is missing.
 The project-wide count of cards with a genuinely unanswered question and of
 tasklist items still pending or working - the same aggregate the browser
 dashboard's sticky header shows, for a caller working through the CLI alone.
+
+B<Cards in C<discard> are not counted, since 5.84> (TKT-827). They were: this
+counts by walking C<record_list>, which never filters columns and returns
+every one including C<discard>, while the dashboard behind that header
+excludes it explicitly - so a card somebody had set aside, still carrying an
+unanswered question, was counted here and not there. C<include_discard>
+counts the whole board again, and it now does something: the option parser is
+shared, so before this card the flag was accepted here and never read.
+
+The filter lives in this method rather than in C<record_list>, because five
+other callers pass C<record_list> that same flag without it being read, and
+teaching the read to filter would change what all of them get - including
+C<person_remove>, which must see discarded cards, since a person named by a
+set-aside card still has a historical reference. TKT-970 carries that
+question.
 
 =head2 dashboard
 

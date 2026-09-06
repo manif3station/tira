@@ -190,6 +190,32 @@ sub found {
           . 'upgrade it has only just finished' );
 }
 
+# --- a gate card set aside is not reported ---------------------------------
+#
+# Real behaviour, and NOT this branch's doing - which is exactly why it is
+# worth a test rather than a guard. policy_evaluate filters discarded cards out
+# of the list every rule but discard-unexplained reads, so the silence comes
+# from above. A first draft of the rule carried its own discard guard; it could
+# never fire, and a guard that cannot fire reads as a decision this rule makes.
+# The behaviour is pinned here instead, where a change to that filtering would
+# show up as this rule starting to nag about work somebody deliberately stopped.
+
+{
+    my ( $tira, $root, $store, $clock ) = board();
+    my $card = $tira->create_record( project => $root, type => 'ticket',
+        title => 'Tira upgraded 5.00 -> 5.84 - review what changed and what to declare',
+        labels => ['upgrade-gate'], priority => 5 );
+    $tira->checklist_add( project => $root, ref => $card->{ref}, author => 'tira',
+        item => 'Read the new commands (d2 tira.usage)', status => 'pending' );
+    $tira->record_move( project => $root, ref => $card->{ref}, author => 'claude',
+        column => 'discard' );
+
+    ${$clock} = '2026-09-06T11:00:00Z';
+    is( scalar @{ found( $tira, $root, $store ) }, 0,
+        'a gate card somebody set aside is not reported, however long it rests - set aside is '
+          . 'a decision, and chasing it would be the board arguing with one' );
+}
+
 # --- the gate marks the card it raises -------------------------------------
 #
 # Without this the rule has nothing durable to match on. A title string would

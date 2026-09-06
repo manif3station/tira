@@ -7692,10 +7692,15 @@ sub policy_evaluate {
                 next if !grep { lc($_) eq 'upgrade-gate' }
                   @{ $record->{labels} // [] };
 
-                # Set aside counts as dealt with. Nothing else does: a card
-                # sitting in done with nothing ticked is the lie told the
-                # other way round, and this rule should still say so.
-                next if ( $record->{column} // '' ) eq 'discard';
+                # NO DISCARD GUARD HERE, and the first draft had one. It
+                # could never be true: policy_evaluate filters discarded
+                # cards out of $records before any rule sees them, and only
+                # discard-unexplained - which iterates $all instead - can
+                # reach one. A guard that cannot fire reads as a decision
+                # this branch makes, so the next person changing the rule
+                # would think set-aside was handled here rather than above.
+                # Setting a gate card aside still silences this rule; it is
+                # just not this code that does it.
 
                 next if grep { lc( $_->{status} // '' ) eq 'done' }
                   @{ $record->{checklist} // [] };

@@ -69,6 +69,7 @@ my %declare = (
     'checklist-unmoved'         => {},
     'orphan-card'               => {},
     'rules-undeclared'               => {},
+    'upgrade-unreviewed'        => { age => '1h' },
     'card-still'               => { age => '8h' },
     'question-unanswered'       => { age => '1h' },
     'conversation-not-folded'   => {},
@@ -317,6 +318,17 @@ my $premature = $tira->create_record( project => $root, type => 'epic', title =>
 my $underneath = $tira->create_record( project => $root, type => 'ticket', title => 'Still open underneath it' );
 $tira->hierarchy_link( project => $root, parent => $premature->{ref}, child => $underneath->{ref} );
 $tira->record_move(author => 'claude',  project => $root, ref => $premature->{ref}, column => 'done' );
+
+# The card the upgrade gate raises, left exactly as it lands: in backlog, with
+# its checklist untouched. That column is the whole of upgrade-unreviewed -
+# nothing else here looks at it, since the column-scoped rules name implement
+# and verify and card-still skips a protected column. The label is what the
+# rule matches, and the gate writes it for this reason. TKT-957.
+my $unreviewed = $tira->create_record( project => $root, type => 'ticket',
+    title => 'Tira upgraded 5.00 -> 5.84 - review what changed and what to declare',
+    labels => ['upgrade-gate'], priority => 5 );
+$tira->checklist_add( author => 'claude', project => $root, ref => $unreviewed->{ref},
+    item => 'Read the new commands (d2 tira.usage)', status => 'pending' );
 
 # Everything above happened at nine; now it is late enough for every age to
 # have passed.

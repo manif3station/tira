@@ -953,6 +953,19 @@ leaves it open, which is the point — four agents asked by hand all answered
 partially.
 
 ```
+d2 tira.policy.add --rule upgrade-unreviewed --action bridge-reminder --age 24h
+```
+
+And declare that one so the card the upgrade raises is itself chased. It lands
+in `backlog`, where the column-scoped rules are not declared and where
+`card-still` does not look either — `_resting_columns` skips a protected
+column, correctly, because a card waiting its turn is not a stalled card. So
+this rule watches the card instead: it refuses `--column` and `--enter`, finds
+its subject by the `upgrade-gate` label the gate writes rather than by a
+generated title, and stops as soon as one checklist item is ticked, since the
+question is whether anybody read what changed. TKT-957.
+
+```
 d2 tira.policy.add --rule orphan-card --action bridge-reminder
 ```
 

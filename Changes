@@ -2,6 +2,35 @@ Revision history for Tira
 
 5.83  2026-09-05
 
+    - TKT-962, his report: tira.job.list silently returned an empty
+      list for a board with 3 jobs, and four safety rules were declined
+      on that empty read.
+
+      Two decisions combine, and neither is wrong alone. job_list
+      resolves its board with discover_project when the caller names
+      none, which searches UPWARD from the working directory; and
+      _job_read returns an empty list when the jobs file is absent. So
+      a caller standing somewhere unexpected is answered for whichever
+      board lies above them, with no error to stop them.
+
+      The damage is not the empty list, it is that an empty list is an
+      ORDINARY answer. An error would have halted the work; a plausible
+      wrong one did not.
+
+      The answer's shape is deliberately unchanged - -o json emits that
+      payload and callers depend on the list being a list. What changed
+      is the silence: an empty answer now names the board it was empty
+      for, on STDERR, and says that if that is not the board you meant,
+      this is about whichever one the working directory resolved to.
+
+      Same shape as TKT-949 six hours earlier, where the Bridge panel
+      read whatever board the server process resolved and showed
+      "Nothing on the bridge yet" against a store holding 13,037
+      entries. Two instances make it a pattern, so it was swept: five
+      reads in lib/ treat an absent file as empty, and deciding once
+      how such a read names its board is TKT-964 rather than five
+      separate judgements.
+
     - TKT-953, his report, captioned 亂碼？- a job's output panel showing
       a shrug emoji as a run of accented Latin-1 characters.
 

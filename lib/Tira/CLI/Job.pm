@@ -129,7 +129,38 @@ sub dispatch {
             Tira::CLI::Police::_police_store(
                 $tira->discover_project( %{$args} ) );
         };
-        return $tira->job_list(%list);
+        my $jobs = $tira->job_list(%list);
+
+        # AN EMPTY ANSWER SAYS WHOSE IT IS. TKT-962.
+        #
+        # job_list resolves its board with discover_project when the caller
+        # names none, which searches UPWARD from the working directory - and
+        # _job_read returns an empty list when that board has no jobs file. So
+        # a caller standing somewhere unexpected is answered for whichever
+        # board lies above them, and an empty list is a perfectly ordinary
+        # answer. The owner was given one for a board with three jobs and
+        # declined four safety rules against it: an error would have stopped
+        # the work, and a plausible wrong answer did not.
+        #
+        # The ANSWER is deliberately unchanged - -o json emits this payload and
+        # callers depend on the list being a list. What changes is the silence.
+        # The note goes to STDERR so it reaches a person without entering the
+        # data, and only when the list is empty, because a note that follows
+        # every ordinary listing is one nobody reads.
+        #
+        # Same pattern as TKT-949's bridge panel six hours earlier: a board
+        # resolved from the process's own location, and an absent thing
+        # reported as an empty one.
+        if ( !@{ $jobs || [] } ) {
+            my $name = eval { $tira->project_show( %{$args} )->{name} };
+            print {*STDERR} Tira::CLI::_utf8_bytes(
+                sprintf "no jobs on board '%s' - if that is not the board you meant, "
+                  . "this answer is about the one the working directory resolved to\n",
+                ( defined $name && $name =~ /\S/ ) ? $name : 'unnamed'
+            );
+        }
+
+        return $jobs;
     }
 
     # A monitor telling the board what it just said. TKT-851.

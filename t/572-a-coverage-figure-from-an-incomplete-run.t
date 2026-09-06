@@ -105,6 +105,8 @@ ok( -x $TOOL, 'and is executable, so the gate can call it' );
     my $dir = tempdir( CLEANUP => 1 );
     my ( $status, $out ) = run_tool( '--db', File::Spec->catdir( $dir, 'nothing-here' ), '--expected', 5 );
     isnt( $status, 0, 'a missing database is refused' );
+    # non-empty is the whole claim: a refusal that printed nothing would leave
+    # the reader with an exit status and no idea which database was missing.
     like( $out, qr/\S/, 'with something to read' );
 }
 
@@ -117,6 +119,8 @@ ok( -x $TOOL, 'and is executable, so the gate can call it' );
     my $db = fake_db(7);
     my ( $status, $out ) = run_tool( '--db', $db, '--expected', 5 );
     is( $status, 0, 'more recorded runs than test files is accepted - a forked child records its own run' );
+    # non-empty is the whole claim: an accepted collection still has to say the
+    # counts, or a passing gate carries no record of what was measured.
     like( $out, qr/\S/, 'and it still reports what it found' );
 }
 

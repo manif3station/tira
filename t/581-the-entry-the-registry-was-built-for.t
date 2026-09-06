@@ -80,7 +80,10 @@ like( $registry, qr/\S/, 'the registry is there to be read' );
 {
     my ($cli_entry) = $registry =~ /(\{[^{}]*name\s*=>\s*'[^']*column_list[^']*command surface[^']*'.*?\n    \},)/gs;
     $cli_entry //= '';
-    like( $cli_entry, qr/\S/, 'the command-surface entry was found, to read its whitelist' );
+    like( $cli_entry, qr/cli_source/,
+        'the command-surface entry was found, and is the one reading the command surface - '
+          . 'asserted by its content rather than by being non-empty, so an extraction that '
+          . 'caught the wrong entry could not satisfy the count below' );
 
     my $count = () = $cli_entry =~ /because\s*=>/g;
     cmp_ok( $count, '>=', 4,

@@ -2,6 +2,37 @@ Revision history for Tira
 
 5.83  2026-09-05
 
+    - TKT-953, his report, captioned 亂碼？- a job's output panel showing
+      a shrug emoji as a run of accented Latin-1 characters.
+
+      Two functions in this codebase read a child process's output and
+      they disagreed. feed_from_handle decodes every line and has since
+      TKT-932 in 5.58. run_due_job read raw bytes with sysread and
+      decoded nothing - and its output reaches job_feed through
+      run_due_commands, which shipped in 5.81 earlier the same day.
+
+      The engine does not round-trip byte strings: the record writer is
+      in utf8 mode, so a byte held as a character is encoded a second
+      time and comes back as the separate Latin-1 pieces of its own
+      UTF-8 encoding. Proven in a container rather than argued - write
+      a byte string into a field and it reads back as U+00E2 U+0086
+      U+00B3. So any command job whose output was not pure ASCII stored
+      mangled text.
+
+      run_due_job now decodes where it reads, with the same call and
+      the same FB_QUIET fallback the feeder uses on the same kind of
+      stream. Not in run_due_commands and not in the panel: a
+      compensating decode downstream would have fixed one caller and
+      left the next to rediscover it, which is how the two readers came
+      to disagree in the first place.
+
+      Three of my own conclusions on this card were wrong before the
+      right one, and each correction is on the card rather than
+      substituted for the last: the feeder was blamed first and is
+      clean, the fault was described as a missing decode when it is an
+      undecoded read feeding a writer that expects characters, and a
+      production observation was overturned by a controlled test.
+
     - TKT-954. The release gate measured one unchanged tree twice and
       reported lib/Tira.pm at 99.8/100.0/99.8 and then 100.0/100.0/100.0,
       naming eight uncovered lines the card being gated had never

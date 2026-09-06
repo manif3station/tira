@@ -26,6 +26,7 @@ package Tira::CLI::Police;
 
 use strict;
 use warnings;
+use Encode ();
 
 use Cwd ();
 use File::Spec ();
@@ -776,7 +777,29 @@ sub run_due_job {
     # bridge could not tell it from a command that failed on its own terms. So
     # the status is named and the output says so, because a pass that finishes
     # and reports nothing about this job is a hang traded for a lie.
-    my $output = $text{"$out"} . $text{"$error"};
+    # OCTETS BECOME TEXT HERE, the same decision feed_from_handle makes about
+    # the same kind of stream and for the same reason.
+    #
+    # sysread above hands back bytes. Everything downstream treats a job's
+    # output as text: run_due_commands splits it into lines and gives them to
+    # job_feed, and the record writer is in utf8 mode - so a byte held as a
+    # character is encoded a SECOND time on the way to disk and comes back as
+    # the separate Latin-1 pieces of its own UTF-8 encoding. The owner reported
+    # exactly that, a shrug emoji rendered as a run of accented characters, and
+    # it applies to any command output that is not pure ASCII. TKT-953.
+    #
+    # FB_QUIET rather than a die, matching the feeder line for line: one
+    # corrupt byte in a command's output must not cost the rest of it, and a
+    # command that emits something undecodable has still run and still needs
+    # reporting.
+    #
+    # DECODED WHERE IT IS READ, not further down. A compensating decode in
+    # run_due_commands or in the panel would fix the symptom for one caller and
+    # leave the next one to rediscover it - and this fault exists precisely
+    # because two readers of a child's output disagreed about whose job this
+    # was.
+    my $output = Encode::decode( 'UTF-8', $text{"$out"} . $text{"$error"},
+        Encode::FB_QUIET() );
     if ($timed_out) {
         $status = -1;
         $output .= "\n" if length $output && $output !~ /\n\z/;

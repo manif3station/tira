@@ -92,6 +92,23 @@ docker compose -f "$compose" run --rm -v "$tree:/workspace/skills/tira" perl-tes
   CORES=$(nproc) &&
   JOBS=$(( CORES > 1 ? CORES - 1 : 1 )) &&
   timeout --signal=KILL '"$SUITE_TIMEOUT"' env HARNESS_PERL_SWITCHES=-MDevel::Cover prove -j"$JOBS" -lr t 2>&1 | tail -4 &&
+
+  # WAS THE COVERAGE ACTUALLY COLLECTED, before any percentage is believed.
+  #
+  # The suite runs under prove -j, so every test process writes into one shared
+  # cover_db. When a process fragment does not survive, every statement only
+  # that process executed reads as uncovered - a wrong figure that does not
+  # look wrong. Measured on 2026-09-05: this tree reported lib/Tira.pm at 99.8
+  # and then 100.0 with nothing changed between the runs, and three further
+  # runs agreed at 100.0. So it is lost about one run in six, which is exactly
+  # the rate at which looking at the number cannot catch it.
+  #
+  # The expected count is the test files themselves rather than anything parsed
+  # out of prove: -lr t runs every .t under t/, and Devel::Cover records one run
+  # per process. TKT-954.
+  expected_runs=$(find t -name "*.t" | wc -l) &&
+  ./tools/coverage-complete --db cover_db --expected "$expected_runs" &&
+
   select_args=() &&
   while IFS= read -r m; do select_args+=(-select "$m"); done \
     < <(find lib -name "*.pm" | sort) &&

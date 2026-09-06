@@ -1,0 +1,125 @@
+#!/usr/bin/env perl
+# Whether a coverage collection is COMPLETE, which is a different question from
+# what the percentage says.
+#
+# THE FAULT THIS EXISTS FOR. On 2026-09-05 tools/gate-run measured one
+# unchanged tree twice and reported lib/Tira.pm at 99.8/100.0/99.8 and then
+# 100.0/100.0/100.0, naming eight uncovered lines the card being gated had
+# never touched. Three further runs on that same tree agreed exactly at 100.0.
+# So the figure does not drift run to run - it was LOST once, in roughly one
+# run of six.
+#
+# That distinction is the whole design. A number that varies every time gets
+# caught by looking at the number. One that is wrong once in six runs does not,
+# because five times out of six it is right - and the run where it is wrong
+# either refuses a good release, or, in the direction that actually matters,
+# certifies a tree that genuinely has a hole. Since 4.62 the push hook runs no
+# suite, so nothing downstream re-checks it.
+#
+# HOW COMPLETENESS IS KNOWN, measured rather than assumed: the suite runs under
+# HARNESS_PERL_SWITCHES=-MDevel::Cover with prove -j, and Devel::Cover writes
+# one entry per test process into cover_db/runs. A run of prove -j4 over four
+# test files left exactly four entries. So the collection is complete when that
+# count is at least the number of test files the harness ran, and short when a
+# process's fragment did not survive - which is precisely the failure that
+# reports executed statements as uncovered.
+#
+# AT LEAST, not exactly: a test that forks, or a helper process that loads the
+# module, records its own run. More runs than files is normal and must not be
+# reported as a fault, or the check becomes noise and gets removed.
+#
+# The directory is counted rather than Devel::Cover::DB->runs, which returns 0
+# without a read - and counting a directory is also something the gate can do
+# without loading the module.
+use strict;
+use warnings;
+
+use Getopt::Long;
+use File::Spec;
+
+my ( $db_path, $expected, $help );
+GetOptions(
+    'db=s'       => \$db_path,
+    'expected=i' => \$expected,
+    'help'       => \$help,
+) or die "coverage-complete: bad options\n";
+
+if ($help) {
+    print "usage: tools/coverage-complete --db cover_db --expected N\n";
+    exit 0;
+}
+
+$db_path = 'cover_db' if !defined $db_path || $db_path eq '';
+
+if ( !defined $expected ) {
+    print "coverage-complete: --expected is required - the number of test files the harness ran\n";
+    exit 2;
+}
+
+# A DATABASE THAT IS NOT THERE IS NOT AN EMPTY ONE. The same distinction the
+# bridge had to learn on TKT-949: absent and empty are different claims, and
+# reading a missing database as zero runs would refuse for the wrong reason and
+# send the reader looking for lost fragments that were never written.
+if ( !-d $db_path ) {
+    print "coverage-complete: no coverage database at '$db_path' - nothing was measured\n";
+    exit 2;
+}
+
+my $runs_dir = File::Spec->catdir( $db_path, 'runs' );
+if ( !-d $runs_dir ) {
+    print "coverage-complete: '$db_path' has no runs directory - "
+      . "this is not a Devel::Cover database, or nothing was recorded into it\n";
+    exit 2;
+}
+
+opendir my $dh, $runs_dir or do {
+    print "coverage-complete: cannot read '$runs_dir': $!\n";
+    exit 2;
+};
+my @runs = grep { $_ ne '.' && $_ ne '..' } readdir $dh;
+closedir $dh;
+
+my $found = scalar @runs;
+
+if ( $found < $expected ) {
+    my $short = $expected - $found;
+    print "coverage-complete: the coverage collection is INCOMPLETE - "
+      . "$found runs recorded in $runs_dir for $expected test files, "
+      . "so $short did not survive.\n";
+    print "  Any statement only those processes executed is now reported as uncovered, "
+      . "so the percentage below would be measured from partial data.\n";
+    print "  This is not a coverage failure: the figure was never computed from all of it.\n";
+    exit 1;
+}
+
+print "coverage-complete: $found runs recorded for $expected test files - collection complete\n";
+exit 0;
+
+__END__
+
+=head1 NAME
+
+coverage-complete - refuse a coverage figure computed from partial data
+
+=head1 SYNOPSIS
+
+    tools/coverage-complete --db cover_db --expected 559
+
+=head1 DESCRIPTION
+
+Counts the per-process entries C<Devel::Cover> writes into C<cover_db/runs> and
+compares them against the number of test files the harness ran. Exits 0 when
+the collection is complete, 1 when runs are missing, and 2 when there is no
+database to read.
+
+The suite runs under C<prove -j>, so every test process writes into one shared
+C<cover_db>. When a process's fragment does not survive, every statement only
+that process executed is reported as uncovered - a coverage figure that is
+wrong without being obviously wrong. That happened once in six observed runs on
+2026-09-05, which is why the check is on completeness rather than on the number:
+five times in six the number is right, and the sixth is the one that matters.
+
+More runs than test files is not a fault. A test that forks, or a helper
+process that loads the module, records its own run.
+
+=cut

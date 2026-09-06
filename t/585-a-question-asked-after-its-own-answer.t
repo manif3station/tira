@@ -224,6 +224,8 @@ sub run_pass {
 
 {
     my $engine = Suite::engine_source();
+    # non-empty is the whole claim: every check below would pass on an
+    # unreadable file's emptiness alone.
     like( $engine, qr/\S/, 'the engine source is there to be read' );
 
     my ($sub) = $engine =~ /(sub\s+_announce_moves\s*\{\n.*?\n\})/s;

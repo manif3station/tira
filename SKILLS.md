@@ -2196,7 +2196,11 @@ becomes everything. Adding the next pair costs a line rather than a file, which
 is the point: the registry is the deliverable, not any single rule. Seeded with
 three — `column_list` is always asked for a specific type (TKT-597), a status
 compared to `done` is lowercased first (TKT-601), and the coverage gate derives
-its module list from `lib/` rather than naming modules (TKT-594). A fourth — `column_list` in a guard routing through `_columns_for`, which the card named first — is owed and is TKT-947: it needs six CLI-layer call sites classified before its whitelist can carry real reasons, and a whitelist without them is what this test refuses.
+its module list from `lib/` rather than naming modules (TKT-594). **That fourth entry is now in, and it was a correction rather than an addition** (TKT-947, 5.85). The `column_list` entry above is sourced from `engine_source()`, which deliberately excludes `lib/Tira/CLI` — and **every** `column_list` call site in this codebase is in that layer. So the decision the registry was built for was guarded where it is not called and unguarded where it is, and the reason TKT-610 recorded for leaving the CLI half out was wrong. There are now two entries: one for the engine, one for the command surface.
+
+The classification the card asked for came first, and it changed the shape of the answer. The card said six call sites; there are **eight** — it was written a day earlier and the layer had grown, which is why a whitelist built from the card's list would have exempted by position rather than by reading. Of the eight, exactly one is a guard: `_columns_for`'s own call, which *is* the recovery `TKT-597` built. The other seven all know their type, and four of them say so somewhere other than inside the call's own parentheses — an argument hash, a loop variable, a line above — which is what the bypass pattern reads, so each is whitelisted with the reason it is allowed. **No production code changed**: reading first is what stopped this card "fixing" a site that was already correct.
+
+Proven to bite on a genuine guard rather than argued: dropping `type => $type` from `Police.pm`'s working-column count turned the new entry red and named the exact line, then the file was restored byte-identical. A registry entry that matches nothing passes exactly like one that guards something.
 
 It is a **ratchet, not a search**, and its own header says so: it cannot find an
 unknown pair, only stop a known one drifting, and it reads source text so it

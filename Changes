@@ -2,6 +2,39 @@ Revision history for Tira
 
 5.85  2026-09-06
 
+    - TKT-947, correcting TKT-610: the registry's intended first entry
+      was missing, and the reason recorded for its absence was wrong.
+
+      t/566 already carried a column_list entry, sourced from
+      engine_source() - which deliberately excludes lib/Tira/CLI. Every
+      column_list call site in this codebase is in that layer, so the
+      decision the registry was built for was guarded where it is not
+      called and unguarded where it is. There are now two entries, one
+      per layer.
+
+      THE CLASSIFICATION CAME FIRST and changed the answer. The card
+      said six call sites; there are eight - it was written a day
+      earlier and the layer had grown, so a whitelist built from its
+      list would have exempted by position rather than by reading.
+
+      Of the eight, exactly one is a guard: _columns_for's own call,
+      which IS the recovery TKT-597 built, and the entry names it as
+      such so a reader can tell the decision from an exception to it.
+      The other seven know their type; four say so somewhere other than
+      inside the call's own parentheses - an argument hash, a loop
+      variable, the line above - which is what the bypass pattern
+      reads, so each is whitelisted with its own reason rather than one
+      shared excuse.
+
+      NO PRODUCTION CODE CHANGED. Reading the sites first is what
+      stopped this card "fixing" one that was already correct.
+
+      Proven to bite on a genuine guard rather than argued: dropping
+      the type from Police.pm's working-column count turned the new
+      entry red and named the exact line, and the file was then
+      restored byte-identical. A registry entry that matches nothing
+      passes exactly like one that guards something.
+
     - TKT-866: police printed a fix line that cannot run for any
       record that is not a card.
 

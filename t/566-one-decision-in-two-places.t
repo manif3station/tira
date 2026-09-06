@@ -84,6 +84,50 @@ my @DECISIONS = (
         allowed => [],
     },
     {
+        name => 'column_list is always asked for a specific type - command surface',
+        why  => 'TKT-947, correcting TKT-610. The entry above is sourced from '
+          . 'engine_source, which deliberately excludes lib/Tira/CLI - and '
+          . 'EVERY column_list call site in this codebase is in that layer. '
+          . 'So the decision the registry was built for was guarded where it '
+          . 'is not called and unguarded where it is. Eight sites today, one '
+          . 'of which is the recovery itself; the rest all know their type, '
+          . 'and the ones listed below say so somewhere other than inside the '
+          . "call's own parentheses, which is what the pattern reads.",
+        source  => sub { Suite::cli_source() },
+        bypass  => qr/column_list\s*\(\s*(?![^()]*\btype\s*=>)[^()]*\)/,
+        allowed => [
+            {   where   => qr/return eval \{ \$tira->column_list\( %\{\$args\} \) \}/,
+                because => 'this is _columns_for itself - the recovery TKT-597 '
+                  . 'built, which sets $args->{type} from the record on the '
+                  . 'line above and then makes the call. It is the decision, '
+                  . 'not a bypass of it, and naming it here is how a reader '
+                  . 'tells the two apart.',
+            },
+            {   where   => qr/column_list\(%args\) if \$command eq 'column\.list'/,
+                because => 'the column.list dispatch. That command requires '
+                  . '--type (TKT-409), so the caller has already said which '
+                  . 'board they mean and %args carries it.',
+            },
+            {   where   => qr/my \$columns = eval \{ \$tira->column_list\(%args\) \};/,
+                because => 'the two calls in record_create, which is reached '
+                  . 'only from the record.create dispatch - and the create '
+                  . 'verbs are ticket.create, epic.create and sow.create, each '
+                  . 'setting the type from the verb itself. The type is in '
+                  . '%args; it simply arrives through the hash rather than at '
+                  . 'the call, which is the one place a future reader could be '
+                  . 'misled, so it is written down here.',
+            },
+            {   where   => qr/eval \{ \$tira->column_list\(%column_args\) \}/,
+                because => 'the browser move provider. %column_args is built '
+                  . 'on the line above as ( %move_args, type => '
+                  . '$record->{type} ) - recovered from the record record_move '
+                  . 'already loaded, under TKT-532\'s own principle that a '
+                  . 'caller is never required to say what the engine can '
+                  . 'already tell for itself.',
+            },
+        ],
+    },
+    {
         name => "a status compared to 'done' is lowercased first",
         why  => 'TKT-601. The dashboard read required-action status '
           . 'case-sensitively while the engine did not, so an item stored '

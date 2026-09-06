@@ -375,6 +375,16 @@ the tasklist. Neither takes the reference, because there is no command to show
 one job or one task on its own, so the line shows you the thing named rather
 than failing at it - which is the whole promise of a line meant to be pasted.
 
+**And since 5.85 a quiet card is not re-read every pass either.** Finding
+whether a card moved used to mean opening its entire journal, for every card,
+every pass - including discards, deliberately. It is now skipped when the
+card's own last_updated shows nothing has changed since the last time that
+question was answered, using the fact that a card's newest history entry can
+never be later than its own last_updated. Measured by call count on a real
+board (timing was too noisy to trust under load): 38.7% fewer of these specific
+reads. Five other rules do the same full-journal walk independently and are not
+yet fixed - a larger remaining cost than this change removed.
+
 **A police pass got cheaper in 5.85, and what makes one expensive is now
 written down.** It was never the rules - a sampling profile put rule evaluation
 at 0.5% of a pass and file reading at nearly all of the rest. Police located

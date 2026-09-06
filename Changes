@@ -45,6 +45,47 @@ Revision history for Tira
       to _bridge_line rather than to this editor, so it is not fixed
       here. What this card changes is how easily it can be reached.
 
+    - TKT-979: police stops opening a quiet card's whole journal to
+      answer a question it already answered last pass.
+
+      Re-profiling after TKT-978's fix found the dominant remaining
+      cost: _announce_moves calls _last_move for every record - 349 of
+      them on his zenandi copy, including discards - and _last_move
+      opens the card's entire journal to find its newest column-move
+      entry. Only afterwards was _notified_move_at consulted to ask
+      whether that move was already told. On the stack for 61.9% of a
+      pass.
+
+      THE ANSWER WAS ALREADY THERE, ASKED IN THE WRONG ORDER. A card's
+      newest history entry cannot be later than its own last_updated -
+      the fact the agent-still rule already uses in this file. So a
+      record not newer than the stamp already recorded for it cannot
+      have moved since, and its journal never has to be opened. Skipped
+      only when last_updated is known: an absent date is never treated
+      as evidence of quiet, the same reasoning priority-skipped gives
+      for an age that cannot be read. A discarded card is skipped too,
+      deliberately - _announce_moves reads discards on purpose, and a
+      discard is exactly the old, long, permanently-quiet case.
+
+      MEASURED, AND SMALLER THAN THE PROFILE SUGGESTED - because 61.9%
+      was a stack-presence share, not a call-count share. By
+      deterministic call count (wall-clock was unusable under this
+      machine's current load): _last_move calls fell 349 -> 214 on one
+      quiet zenandi pass, 135 removed, 38.7%. Total history_list calls
+      765 -> 630, 17.6%. Two measurement bugs were found and fixed
+      before trusting any number: the first A/B probe used a fresh
+      violation store per run, so the notified-move ledger was always
+      empty and the skip could never fire; and tira:latest carries no
+      live Telegram credentials, so _send_notification fails silently
+      and the ledger never populates even with a persistent store,
+      requiring the same mock t/365 and t/294 already use in the suite.
+
+      WHAT IS STILL THERE, filed as its own card rather than absorbed:
+      five other rules - agent-still, priority-skipped,
+      discard-unexplained, and two more - each independently walk a
+      card's whole journal for their own separate question, 416 calls
+      on the same pass. Larger than what this card removes.
+
     - TKT-976: the Bridge panel is a terminal, and the newest line is
       the first one you see.
 

@@ -690,6 +690,24 @@ If a board feels slow, the number to look at is its journal size rather than
 its card count, and `tira.dwell.report` will not answer this one — it measures
 how long cards sit, not how long a pass takes.
 
+**Since 5.85 a quiet card's journal is not reopened every pass, either.**
+`_announce_moves` used to open every card's whole journal to ask whether it had
+moved - including discards, on purpose, since a discard is exactly the
+old-and-quiet case - and only afterwards check whether that move was already
+told. The check is now made first: a card whose `last_updated` is no newer
+than the stamp already recorded for it cannot have moved since, so its journal
+is never opened. Measured by call count on his zenandi copy (wall-clock was too
+noisy to trust under load): 38.7% fewer of this rule's own journal reads, 17.6%
+fewer overall.
+
+That gap between 38.7% and the rest is the next thing to fix: several other
+rules - `agent-still`, `priority-skipped`, `discard-unexplained` among them -
+each independently open a card's whole journal for their own question, and on
+that board they account for more reads than `_announce_moves` ever did. One
+board can carry the same fact in several places that each pay to learn it
+separately; that is what `_announce_moves` used to be a case of, and it is what
+those five still are.
+
 ## `unpushed-work` and how long a push takes
 
 `unpushed-work` measures the age of commits sitting unpushed. Choosing its

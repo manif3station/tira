@@ -9346,10 +9346,27 @@ sub _announce_moves {
         my $changed = 0;
 
         for my $record ( @{$records} ) {
+            my $already = $self->_notified_move_at( $store, $record->{ref} );
+
+            # THE ANSWER IS ALREADY HERE, ASKED IN THE RIGHT ORDER NOW. A
+            # card's newest history entry cannot be later than its own
+            # last_updated - the fact the agent-still rule already uses in
+            # this file - so a record not newer than the stamp already
+            # recorded for it cannot have moved since, and its journal never
+            # has to be opened. Measured on his zenandi copy: _announce_moves
+            # was 61.9% of a pass, almost entirely this read, on a board
+            # where nearly every card is quiet. Skipped only when
+            # last_updated is KNOWN: an absent date is not evidence, the same
+            # "unknown is not evidence" reasoning priority-skipped gives for
+            # an age that cannot be read. TKT-979.
+            next
+              if defined $already
+              && defined $record->{last_updated}
+              && $record->{last_updated} le $already;
+
             my $move = $self->_last_move( $root, $record );
             next if !$move || !defined $move->{at};
 
-            my $already = $self->_notified_move_at( $store, $record->{ref} );
             next if defined $already && $already ge $move->{at};
 
             # A column switched off is silent, and still remembered - otherwise
@@ -14775,6 +14792,22 @@ card does not move its file. A resolution that FAILED is not remembered either,
 since the card that was missing a moment ago is the one the gate is about to
 create. Nothing is kept between passes - a board is a live thing and the next
 pass has to see what changed. TKT-978.
+
+Move announcements do the equivalent for a card's JOURNAL rather than its path.
+_announce_moves used to open every record's entire journal to ask whether it had
+moved - including discards, deliberately - and only afterwards check whether
+that move was already told. Since TKT-979 the check runs first: a record whose
+last_updated is no newer than the stamp already recorded for it cannot have
+moved since, using the same fact agent-still already relies on - a card's
+newest history entry cannot be later than its own last_updated. A record with
+no last_updated is never assumed quiet, the same "unknown is not evidence"
+reasoning priority-skipped gives for an age it cannot read. Measured by call
+count on his zenandi copy, because wall-clock timing was too noisy under load to
+trust: _last_move calls fell 349 to 214 on one quiet pass, 38.7%, smaller than a
+profile's 61.9% stack-share because that figure counts samples where the
+function is anywhere in the chain rather than a fraction of calls. Five other
+rules independently walk a card's whole journal for their own question and are
+not yet fixed - TKT-987, a larger remaining cost than this removed.
 
 =head2 police_farewell
 

@@ -976,7 +976,14 @@ A default `--interval` of thirty seconds against a ten-second pass keeps a core
 a third busy, and several watched boards multiply that. If police is costing
 more than expected, the number to look at is the board's journal size.
 Since 5.85 a pass resolves each card's location once instead of re-walking the
-board for every question about it, and remembers nothing between passes.
+board for every question about it, and remembers nothing between passes. A
+quiet card's journal stops being reopened every pass too, by the same reasoning
+applied to a different question - a card whose last_updated has not moved past
+the stamp already recorded for it cannot have moved since, so _announce_moves
+skips it rather than re-opening the whole history. Measured by call count
+rather than wall-clock, because timing was too noisy under load to trust: 38.7%
+fewer of that rule's own reads. Several other rules do the same full-journal
+walk independently and are not yet fixed.
 
 **The persistent daemon (no `--once`) is a singleton per board.** Starting one
 claims a pid file in its own store, killing whatever daemon was already

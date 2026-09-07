@@ -1,6 +1,10 @@
 Revision history for Tira
 
 5.86  2026-09-07
+    - TKT-994: a project name containing newlines no longer breaks the
+      bridge's one-violation-per-line contract - the same fix TKT-981
+      gave the detail field, applied to the board name too. The stored
+      project name is unchanged.
     - TKT-630: the 49 commands that still printed a bare [options] for
       --help (the half TKT-575 deliberately left as a ledger) now have
       real usage lines, each read out of the command's own dispatch

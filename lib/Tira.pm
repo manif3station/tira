@@ -11588,7 +11588,20 @@ sub _bridge_line {
     # Last, because mt5-ai and developer-dashboard have both written tooling
     # against this line: a reader splitting the first N fields sees exactly
     # what it saw before.
-    my $board = ( $violation->{board} // '' ) ne '' ? " | board: $violation->{board}" : '';
+    # TKT-994: the same collapse $detail gets above, extended to the board's
+    # own name - a project name (project_new --name, unvalidated against
+    # newlines) composed here verbatim broke the one-violation-per-line
+    # contract exactly like TKT-981's job message did, in a field nobody had
+    # considered until the hunt found it. Collapsed here, not at the source,
+    # for the same reason: this is the one place that knows the composed
+    # thing has to be a line, and the stored project name keeps its own
+    # bytes exactly as written.
+    my $board_name = $violation->{board} // '';
+    if ( $board_name ne '' ) {
+        $board_name =~ s/\s+/ /g;
+        $board_name =~ s/\A\s+|\s+\z//g;
+    }
+    my $board = $board_name ne '' ? " | board: $board_name" : '';
     return join( ' | ', @parts ) . " | fix: $fix$board";
 }
 

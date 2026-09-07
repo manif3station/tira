@@ -639,6 +639,8 @@ truncated to its first physical line. **The stored record is untouched** - a
 job message is a hunt instruction the agent acts on and stays exactly as
 written; only the bridge's own rendering changed.
 
+**"Every source is covered" was itself wrong by one field, since 5.86** (TKT-994, found by the hourly hunt immediately after TKT-981 shipped). The `board: $name` segment `_bridge_line` appends at the end of a composed line interpolates a project's own name verbatim - a field TKT-981's own fix never reached, since it collapsed only the detail. A project name containing newlines (`project_new --name`, unvalidated against them) broke the one-violation-per-line contract identically. Fixed the same way: the board name is collapsed before composing, and the stored project name keeps its own bytes exactly as written.
+
 ## Reading the bridge from the page
 
 `d2 tira.policy.bridge` is the terminal reader, and since 5.56 the live

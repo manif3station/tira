@@ -6305,7 +6305,15 @@ my %POLICY_RULES = (
     'wip-limit'                 => { needs => ['column'], forbids => ['age'] },
     'commit-without-card'       => { needs => [], forbids => ['age'] },
     'work-without-card'         => { needs => ['age'] },
-    'unpushed-work'             => { needs => ['age'] },
+    # TKT-980: his own question - "what does --pattern match against, and
+    # would it catch a sandbox clone?" - the honest answer is nothing: this
+    # rule's own body never reads $policy->{pattern} at all. Only
+    # leftover-process and leftover-container do, and both declare it in
+    # `needs` below. A pattern declared here (POL-130: rule unpushed-work,
+    # pattern CODE, age 4h) was accepted, stored, and read back correctly -
+    # which is exactly what made it credible - and did nothing, the same
+    # shape TKT-933 fixed for card-stalled's ignored --age.
+    'unpushed-work'             => { needs => ['age'], forbids => ['pattern'] },
     'board-unbacked'            => { needs => ['age'] },
     'gate-missing'              => { needs => ['column'], forbids => ['age'] },
     'discard-unexplained'       => { needs => [], forbids => ['age'] },
@@ -14854,6 +14862,12 @@ C<--column-role> the board has assigned, several policies, or any mixture), and
 its pass reports from the first of them. Read the ordinary way, a board
 declaring its four working columns as four policies would have each policy
 calling the other three's honest tasks mismatches.
+
+TKT-980: C<unpushed-work> now refuses C<--pattern>, since its own rule body
+never read it - only C<leftover-process> and C<leftover-container> do. A
+declared pattern used to be accepted, stored, and read back correctly while
+doing nothing, the same shape TKT-933 fixed for C<card-stalled>'s ignored
+C<--age>.
 
 =head2 policy_list
 

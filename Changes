@@ -15,6 +15,14 @@ Revision history for Tira
       says the suite passed and shows what came after; a genuine
       suite failure is unchanged. Same shape as TKT-961's own
       gate-summarize fix, one level further out.
+    - TKT-980: unpushed-work now refuses --pattern rather than
+      silently accepting and ignoring it - only leftover-process and
+      leftover-container ever read that option. His own question
+      ("what does it match against?") answered by reading the code:
+      nothing, since this rule's body never consulted it. Same shape
+      as TKT-933's card-stalled age refusal. The deeper gap he found -
+      several working clones of one remote cannot all be watched
+      today - is filed separately as TKT-998.
     - TKT-959: tira.job.help's worked examples are now proven through
       the real job-due executor (run_due_commands/run_due_job), not
       only the test harness's own PATH. A fake local::lib-shaped bin

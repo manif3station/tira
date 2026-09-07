@@ -78,3 +78,28 @@ $tira->_police_path_cache( sub {
 }
 
 done_testing();
+
+__END__
+
+=head1 NAME
+
+601-a-card-that-moved-mid-walk.t - card-unreadable and a stale per-pass path cache
+
+=head1 DESCRIPTION
+
+TKT-992, his report on developer-dashboard. C<_record_data>'s per-pass path
+cache (TKT-978) resolves a ref's path once and remembers it for the rest of
+the pass - correct for a card being edited, since writing does not move its
+file, but not for one being MOVED: an agent moving a card between columns
+while the police loop runs is ordinary, and a path cached before the move
+points at a file that has since relocated to a different column's directory,
+reading as ENOENT for a card that was never actually unreadable.
+
+Fixed by re-walking once on ENOENT for a path drawn from the cache, before
+reporting C<card-unreadable>; only a re-walk that also finds nothing is
+genuinely unreadable, and that case still preserves the original OS-level
+reason rather than the walk's own generic "not found" (TKT-988's own
+redaction promise), since a card genuinely deleted mid-pass is a real fault
+this cannot paper over.
+
+=cut

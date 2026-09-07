@@ -126,3 +126,27 @@ sub fired {
 }
 
 done_testing();
+
+__END__
+
+=head1 NAME
+
+600-a-follow-up-asked-before-it-had-to-be.t - answer-not-ok-no-followup and the
+diligent ask-then-mark ordering
+
+=head1 DESCRIPTION
+
+TKT-989, his report on DD-810. C<answer-not-ok-no-followup>'s cross-branch
+required a follow-up question's own C<asked_at> to be strictly later than the
+not-ok mark - so asking the replacement first and crossing the old question
+second, the ordering that never leaves a card with an unpaired cross even for
+a moment, fired this rule forever even once that follow-up was answered and
+judged.
+
+A follow-up now counts if it was either asked after the mark (unchanged) or
+its own answer was resolved (C<marked_at>/C<answered_at>) after the mark,
+whichever order it was asked in - resolved-after, not a time window or a
+reference match. An old, already-settled, unrelated question does not
+retroactively count just by existing on the same card.
+
+=cut

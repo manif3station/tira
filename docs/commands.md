@@ -742,7 +742,7 @@ Nothing is written to disk — the entries are held in memory and served to the
 page that shows them, and the board says as much on the terminal it starts
 from.
 
-**An unmatched route now answers with a plain 404 and one STDERR line, unconditionally, since 5.85** (TKT-966, his TG 7230). This app has never had a view for error pages, so a request matching no route used to fall through to Dancer2's own default error rendering, which tried to load a `404.tt` this app never shipped and logged the raw exception object instead — `bless( ['file','404.tt: not found',undef], 'Template::Exception' )`, naming neither the endpoint asked for nor who was asking. A catch-all route, declared textually last so it cannot swallow a real route, now logs the method, the full path including its query string, the referer when one was sent, and the client address. This is separate from `--show-logs`'s own 200-entry ring, which already records a matched 404's path and status; the new line exists because the ring has nothing to record for a route that was never matched at all, and it is written unconditionally rather than gated behind the flag, since it is the only trace such a request leaves. The two deliberate 404s (`/logs` without `--show-logs`, an unknown attachment) answer exactly as before.
+**An unmatched route now answers with a plain 404 and one STDERR line, unconditionally, since 5.86** (TKT-966, his TG 7230). This app has never had a view for error pages, so a request matching no route used to fall through to Dancer2's own default error rendering, which tried to load a `404.tt` this app never shipped and logged the raw exception object instead — `bless( ['file','404.tt: not found',undef], 'Template::Exception' )`, naming neither the endpoint asked for nor who was asking. A catch-all route, declared textually last so it cannot swallow a real route, now logs the method, the full path including its query string, the referer when one was sent, and the client address. This is separate from `--show-logs`'s own 200-entry ring, which already records a matched 404's path and status; the new line exists because the ring has nothing to record for a route that was never matched at all, and it is written unconditionally rather than gated behind the flag, since it is the only trace such a request leaves. The two deliberate 404s (`/logs` without `--show-logs`, an unknown attachment) answer exactly as before.
 
 `--no-session-expire` turns off the idle timeout for the board it serves. A
 session normally ends after ten minutes of inactivity, and the board's own
@@ -1535,7 +1535,7 @@ a refusal that finds no lines says so rather than printing the percentage alone.
 Above twenty holes it caps and says how many it held back; `--all` prints every
 one. Ask it yourself with `tools/coverage-holes --db cover_db`. TKT-593.
 
-**A suite refusal names the file, since 5.85.** `gate-run` used to pipe the
+**A suite refusal names the file, since 5.86.** `gate-run` used to pipe the
 whole run through `prove -j"$JOBS" -lr t 2>&1 | tail -4` - right for a clean
 run, wrong for a failing one, because `prove`'s own Test Summary Report
 (naming every failing file and its failing subtests) prints ABOVE those four
@@ -3804,7 +3804,7 @@ scrolling past a scrollbar. The list held 142 items when the card was filed, in
 a grid about ten columns wide - fifteen rows between the ticket board and the
 Repeated Jobs section under it.
 
-**The editor's Command field is one control for both kinds, and since 5.85 it
+**The editor's Command field is one control for both kinds, and since 5.86 it
 grows.** A command job's command line and a message job's message go into the
 same box, filled from whichever the job carries. It was a single-line input,
 which suits a command and not the multi-sentence instructions message jobs
@@ -4020,7 +4020,7 @@ reader never has to infer it from whichever field is populated.
     real answer rather than an error. The sentence has one home,
     `Tira::CLI::Board::_empty_answer_names_board`, and `t/566` holds it there.
 
-    **`--id` narrows to one job, since 5.85** (TKT-984). It reached the CLI's
+    **`--id` narrows to one job, since 5.86** (TKT-984). It reached the CLI's
     own argument hash long before this fix but `job_list` never read it,
     parsing cleanly and returning every job regardless. Given, it now returns
     exactly that one job, refusing by name - `job_update`'s own `_job_find`

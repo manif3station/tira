@@ -992,6 +992,15 @@ sub providers {
                 ( defined $payload->{status} ? ( status => $payload->{status} ) : () ),
                 ( defined $payload->{command} ? ( command => $payload->{command} ) : () ),
                 ( defined $payload->{proof} ? ( proof => $payload->{proof} ) : () ),
+
+                # TKT-583's two-step lives here too, since when it is offered
+                # by the CLI and not the browser was the whole of TKT-629: a
+                # reused-proof refusal named --repeated-reason, a flag the
+                # dashboard has no way to type.
+                ( defined $payload->{repeated_reason}
+                    ? ( repeated_reason => $payload->{repeated_reason} ) : () ),
+                ( defined $payload->{repeated_confirm}
+                    ? ( repeated_confirm => $payload->{repeated_confirm} ) : () ),
             );
             return $json->encode( { ok => Cpanel::JSON::XS::true, entry => $entry } );
         },

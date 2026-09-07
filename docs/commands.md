@@ -3441,6 +3441,8 @@ exists so a reader never has to guess.
 
   Moving a card into a column that carries required actions prints a reminder naming how many arrived, to work them one at a time with their own command and proof. That is the preventive half: the reuse happens at the end of a column's work, holding a list nobody read item by item, so the reminder lands at the moment the list arrives. It goes to STDERR, staying out of `-o json` output, and only when the column actually brought outstanding items - a reminder on every move is one nobody reads. TSK-168.
 
+  **The two-step above now works from the browser dashboard too, since 5.86** (TKT-629, self-filed from the 2-hourly improvement hunt). `--repeated-reason` and `--repeated-confirm` lived only on the command line - the browser's own `required_action_update` provider forwarded `item`, `status`, `command` and `proof`, and nothing else - so somebody reusing evidence from the HTML dashboard hit the refusal above and was told to run again with a flag their interface has no way to type. The dashboard already rendered the far end of this feature (the reused-proof highlight, the proof modal opening with the reason above the evidence), so it could show a reason it could not create. The provider now forwards both fields through to the same engine call the CLI already uses; the two-step, the code binding, and the stash-clear-on-success all work identically from either interface.
+
 Move-in template population is idempotent against two near-simultaneous moves of the
 same card, not only a sequential re-entry. Two browser moves fired close together used
 to both read the card's `required_items` before either had written its own addition and

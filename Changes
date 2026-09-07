@@ -1,5 +1,11 @@
 Revision history for Tira
 
+    - TKT-966: an unmatched dashboard route no longer logs a raw
+      Template::Exception dump. A new catch-all route, declared last,
+      answers with a plain 404 and one STDERR line naming the method,
+      full path (including query), referer when sent, and client
+      address. The two pre-existing deliberate 404s (/logs without
+      --show-logs, an unknown attachment) are unchanged.
     - TKT-867: a new checklist-item-terminal rule reports an epic or
       sow checklist item once every card it names in free text has
       reached a terminal column, while the item itself stays open.

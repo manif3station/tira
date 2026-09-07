@@ -692,6 +692,38 @@ get '/bridge' => sub {
     return _response_bytes( Tira::json_object()->encode($payload) );
 };
 
+# TKT-966, his TG 7230. This app has never had a view for error pages - every
+# page here comes from Perl string concatenation, not a template engine - so
+# an unmatched request fell through to Dancer2's OWN default error rendering,
+# which tries to render a 404.tt this app never shipped and logs a raw
+# Template::Exception dump instead. Four identical lines in 48 seconds
+# pointed at something polling a path this board never served, and the trace
+# named neither the endpoint nor the caller - "which endpoint" and "what was
+# calling it", in his own words.
+#
+# DECLARED LAST, DELIBERATELY: Dancer2 tries routes in declaration order, so
+# a catch-all declared any earlier would swallow every real route beneath it
+# rather than only the ones nothing else answered.
+#
+# ONE LINE, ON STDERR - not through the request-log ring /logs serves. He was
+# reading the terminal, and this is the trace an unmatched request leaves;
+# the ring already records path and status for every response, matched
+# 404s included, via the `after` hook above.
+any qr{.*} => sub {
+    my $req = request;
+    my $referer = $req->referer;
+    warn sprintf(
+        "unmatched route: %s %s%s from %s%s\n",
+        $req->method, $req->uri,
+        ( defined $referer && $referer ne '' ? " referer=$referer" : '' ),
+        $req->address // 'unknown',
+        ( defined var('signed_in') ? ' as ' . var('signed_in') : '' ),
+    );
+    status 404;
+    content_type 'text/plain; charset=UTF-8';
+    return 'Not found';
+};
+
 sub build_psgi_app {
     my ( $class, %args ) = @_;
     for my $provider (@PROVIDERS) {

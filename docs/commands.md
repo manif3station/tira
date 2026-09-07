@@ -742,6 +742,8 @@ Nothing is written to disk — the entries are held in memory and served to the
 page that shows them, and the board says as much on the terminal it starts
 from.
 
+**An unmatched route now answers with a plain 404 and one STDERR line, unconditionally, since 5.85** (TKT-966, his TG 7230). This app has never had a view for error pages, so a request matching no route used to fall through to Dancer2's own default error rendering, which tried to load a `404.tt` this app never shipped and logged the raw exception object instead — `bless( ['file','404.tt: not found',undef], 'Template::Exception' )`, naming neither the endpoint asked for nor who was asking. A catch-all route, declared textually last so it cannot swallow a real route, now logs the method, the full path including its query string, the referer when one was sent, and the client address. This is separate from `--show-logs`'s own 200-entry ring, which already records a matched 404's path and status; the new line exists because the ring has nothing to record for a route that was never matched at all, and it is written unconditionally rather than gated behind the flag, since it is the only trace such a request leaves. The two deliberate 404s (`/logs` without `--show-logs`, an unknown attachment) answer exactly as before.
+
 `--no-session-expire` turns off the idle timeout for the board it serves. A
 session normally ends after ten minutes of inactivity, and the board's own
 refresh does not count as activity — it reads a session without extending it,

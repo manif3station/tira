@@ -14839,6 +14839,13 @@ already resolved earlier in the SAME pass and its file vanishes before a later
 read of it; a card never found at all resolves through the safer "Record 'X'
 not found" instead.
 
+The upgrade-gate card this method raises on a version change still arrives
+with no parent and most fields empty (TKT-956, unlanded) - confirmed a third
+time on 2026-09-06/07 by TKT-974 and TKT-983, both requiring the same manual
+repair. Working one of those cards means running tira.policy.undeclared,
+which is what its own checklist asks for, and declaring or declining whatever
+it lists.
+
 =head2 police_farewell
 
 Returns the fixed message shown when police is stopped.

@@ -2632,6 +2632,13 @@ not tell a rule nobody had looked at from one somebody had looked at and
 refused, so on a board that had made those decisions it asked an answered
 question indefinitely.
 
+**This is the command an upgrade-gate card's own review runs.** The checklist
+`upgrade-unreviewed` puts on that card includes one item per rule this answers
+with, so working the card means running this and declaring or declining each
+name it gives back. An empty answer means the board has already decided about
+every rule the new version offers - which is not the same as nothing having
+changed, only that nothing changed requires a new decision here.
+
 **The reason is required.** Without it this would be a way of silencing the
 prompt rather than a decision, and a decision with no reason recorded is
 indistinguishable from having skipped the question.

@@ -1,5 +1,11 @@
 Revision history for Tira
 
+    - TKT-974: reviewed the 5.83 -> 5.84 upgrade. tira.policy.undeclared
+      answered empty - every rule this board could adopt was already
+      declared - and each of 5.84's fixes was checked and confirmed as
+      an internal correction rather than a new policy surface. Nothing
+      for this board to declare.
+
 5.85  2026-09-06
 
     - TKT-951: the job editor's shared field is a textarea that grows,

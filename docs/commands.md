@@ -3912,16 +3912,23 @@ node is never repositioned (and blurred) by an unrelated card being
 rebuilt earlier in the same list.
 
 TKT-549: Prune is back in the Task List header, next to Add - the one
-button TKT-535 removed that Michael later asked to have restored, with
-new behavior beyond what it had before: a manual click asks for
-confirmation (`confirm("Prune every done task?")`) before posting to
-`/tasklist/prune`, and a standing 5-minute interval (a recursive
-`setTimeout`, independent of the dashboard's own `?refresh=N` cadence)
-posts to the same route automatically, with no confirmation, so done
-items do not pile up even when nobody is watching. The other six
-TKT-535 removals (Unshift, Insert at position, Next, Shift, Pop, Import
-from card) stay removed - full CLI parity for every one of them is
-unaffected either way.
+button TKT-535 removed that Michael later asked to have restored. A
+manual click asks for confirmation (`confirm("Prune every done task?")`)
+before posting to `/tasklist/prune`. The other six TKT-535 removals
+(Unshift, Insert at position, Next, Shift, Pop, Import from card) stay
+removed - full CLI parity for every one of them is unaffected either way.
+
+**The standing 5-minute auto-prune this same card originally added is
+gone, since 5.87 (TKT-831).** It ran the identical `/tasklist/prune`
+call on its own recursive `setTimeout`, skipping the `confirm()` guard
+above entirely - any browser tab left open silently deleted every done
+tasklist item board-wide every five minutes, unattended, with no way to
+opt out. Measured: three separate instances of tasks disappearing, one
+only 13 seconds after being marked done, including another session's
+own gate evidence carried as a task attachment. An unattended timer
+cannot meaningfully show a human a confirmation dialog, so the fix is
+removing the timer rather than adding one to it: pruning now only ever
+happens through the button above.
 
 TKT-557: the Task List section's header also offers a known-sessions
 dropdown next to the free-text session box - a new `GET /tasklist/sessions`

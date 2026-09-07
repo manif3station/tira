@@ -40,8 +40,8 @@ sub idle_findings {
 # --- a complete checklist is told to move, not that nothing has moved ------
 my $done_card = $tira->create_record( project => $root, type => 'ticket', title => 'All eleven ticked' );
 $tira->record_move( author => 'claude', project => $root, ref => $done_card->{ref}, column => 'implement' );
-$tira->checklist_add( author => 'claude', project => $root, ref => $done_card->{ref}, item => 'first', status => 'done' );
-$tira->checklist_add( author => 'claude', project => $root, ref => $done_card->{ref}, item => 'second', status => 'Done' );
+$tira->checklist_add( author => 'claude', project => $root, ref => $done_card->{ref}, item => 'first', status => 'done', command => ['did it'], proof => ['done'] );
+$tira->checklist_add( author => 'claude', project => $root, ref => $done_card->{ref}, item => 'second', status => 'Done', command => ['did it'], proof => ['done'] );
 
 $now = '2026-08-24T10:20:00Z';
 my @found = @{ idle_findings() };
@@ -53,7 +53,7 @@ unlike( $found[0]{detail}, qr/no checklist movement/, 'not that the checklist ha
 $now = '2026-08-24T10:00:00Z';
 my $open_card = $tira->create_record( project => $root, type => 'ticket', title => 'One still open' );
 $tira->record_move( author => 'claude', project => $root, ref => $open_card->{ref}, column => 'implement' );
-$tira->checklist_add( author => 'claude', project => $root, ref => $open_card->{ref}, item => 'finished', status => 'done' );
+$tira->checklist_add( author => 'claude', project => $root, ref => $open_card->{ref}, item => 'finished', status => 'done', command => ['did it'], proof => ['done'] );
 $tira->checklist_add( author => 'claude', project => $root, ref => $open_card->{ref}, item => 'not yet', status => 'pending' );
 
 $now = '2026-08-24T10:20:00Z';

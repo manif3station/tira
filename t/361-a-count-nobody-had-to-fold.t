@@ -31,10 +31,12 @@ my $card = $tira->create_record( project => $root, type => 'ticket', title => 'M
 # card-stalled already apply.
 for my $i ( 1 .. 3 ) {
     $tira->checklist_add( project => $root, author => 'claude', ref => $card->{ref},
-        item => "done item $i", status => 'done' );
+        item => "done item $i", status => 'done',
+        command => ['did it'], proof => ['done'] );
 }
 $tira->checklist_add( project => $root, author => 'claude', ref => $card->{ref},
-    item => 'done item 4, uppercase', status => 'DONE' );
+    item => 'done item 4, uppercase', status => 'DONE',
+    command => ['did it'], proof => ['done'] );
 for my $i ( 1 .. 6 ) {
     $tira->checklist_add( project => $root, author => 'claude', ref => $card->{ref},
         item => "todo item $i", status => 'To Do' );

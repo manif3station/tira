@@ -256,7 +256,7 @@ isnt( $status, 0, 'tasklist.update refuses with neither --status nor --text' );
     );
     $tira->checklist_add(
         project => $root, ref => $source_card->{ref}, item => 'Already done, skip me', status => 'done',
-        author => 'claude',
+        author => 'claude', command => ['did it'], proof => ['done'],
     );
 
     my $imported = $tira->tasklist_import( project => $root, ref => $source_card->{ref}, session => 'imp' );

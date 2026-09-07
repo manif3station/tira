@@ -150,6 +150,32 @@ my @DECISIONS = (
         bypass => qr/^\s*modules=\(\s*["']?lib\//m,
         allowed => [],
     },
+    {
+        name => 'a checklist item is created or moved to done through _proof_entries_for',
+        why  => 'TKT-958. checklist_update refuses a done status with no '
+          . '--command/--proof pair, routed through _proof_entries_for '
+          . '(TKT-628) - checklist_add wrote a checklist entry\'s status '
+          . 'directly and never called it, so an item could be CREATED '
+          . 'already done with no evidence at all, bypassing the exact rule '
+          . 'its own sibling verb enforces on every later write to the same '
+          . 'field. Any sub that writes a checklist entry\'s status without '
+          . 'going through the shared helper reopens that gap.',
+        source  => sub { Suite::engine_source() },
+        bypass  => qr/(?:CHK-%03d.*status\s*=>\s*\$args\{status\}|\{status\}\s*=\s*\$args\{status\})/,
+        allowed => [
+            {   where   => qr/id => sprintf\( 'CHK-%03d', \$number \), item => \$args\{item\}, status => \$args\{status\}/,
+                because => 'checklist_add itself - it now calls '
+                  . '_proof_entries_for before this line is ever reached, '
+                  . 'refusing a done status with no pair first.',
+            },
+            {   where   => qr/\$entry->\{status\} = \$args\{status\} if defined \$args\{status\};/,
+                because => 'both checklist_update and required_item_update '
+                  . 'share this exact line shape - both call '
+                  . '_proof_entries_for earlier in the same sub, before this '
+                  . 'assignment is reached.',
+            },
+        ],
+    },
 );
 
 # --- the engine that reads the registry ------------------------------------

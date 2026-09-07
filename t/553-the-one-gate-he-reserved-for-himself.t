@@ -70,7 +70,8 @@ sub complete_card {
     );
     $tira->hierarchy_link( project => $root, parent => $parent->{ref}, child => $card->{ref} );
     $tira->checklist_add( author => 'claude', project => $root, ref => $card->{ref},
-        item => 'The work itself', status => 'Done' );
+        item => 'The work itself', status => 'Done',
+        command => ['did it'], proof => ['done'] );
     $tira->release_record(
         author => 'claude', project => $root, ref => $card->{ref},
         gate => 'suite', result => 'pass', details => 'all green',

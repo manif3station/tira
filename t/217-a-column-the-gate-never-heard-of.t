@@ -57,7 +57,8 @@ my $card = $tira->create_record(
     scope_out           => ['Out.'],
 );
 $tira->checklist_add( author => 'claude', project => $root, ref => $card->{ref},
-    item => 'The one thing to do', status => 'done' );
+    item => 'The one thing to do', status => 'done',
+    command => ['did the work'], proof => ['it is done'] );
 
 # Run from outside any project, which is the only place the board can be
 # chosen. The dashboard sets TIRA_HOME itself from the working directory when

@@ -123,7 +123,8 @@ sub reported {
     my $card = $tira->create_record(
         project => $root, type => 'ticket', title => 'A card', reporter => 'claude' );
     $tira->checklist_add( author => 'claude',
-        project => $root, ref => $card->{ref}, item => 'do the work', status => 'done' );
+        project => $root, ref => $card->{ref}, item => 'do the work', status => 'done',
+        command => ['did the work'], proof => ['it is done'] );
     $tira->record_move( project => $root, ref => $card->{ref},
         column => 'tests-red', author => 'claude' );
     $tira->record_move( project => $root, ref => $card->{ref},

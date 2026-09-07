@@ -4528,10 +4528,20 @@ sub checklist_list {
 sub checklist_add {
     my ( $self, %args ) = @_;
     local $self->{_journal_author} = $self->_require_author(%args);
+    die "Checklist item is required\n" if !defined $args{item} || $args{item} !~ /\S/;
+    die "Checklist status is required\n" if !defined $args{status} || $args{status} eq '';
+
+    # TKT-958: checklist_update refuses a done status with no --command/
+    # --proof pair, routed through _proof_entries_for - checklist_add never
+    # called it, so an item could be CREATED already done with no evidence
+    # at all, bypassing the exact requirement the sibling verb enforces on
+    # every later write. Called here, before the lock, the same way
+    # checklist_update calls it before its own record_show - a caller who
+    # skipped the pair is told so before anything is read or written.
+    my $proof_entries = $self->_proof_entries_for(%args);
+
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
-        die "Checklist item is required\n" if !defined $args{item} || $args{item} !~ /\S/;
-        die "Checklist status is required\n" if !defined $args{status} || $args{status} eq '';
 
         # Q-099 on TKT-668, Michael's own answer: checklists get the SAME
         # tight vocabulary as required actions, not free text - a
@@ -4551,6 +4561,7 @@ sub checklist_add {
             id => sprintf( 'CHK-%03d', $number ), item => $args{item}, status => $args{status},
             created_at => $now, last_updated => $now,
         };
+        $entry->{proof} = $proof_entries if $proof_entries;
         push @{ $record->{checklist} }, $entry;
 
         # A column's move-in population writes exactly the same call a
@@ -14646,6 +14657,12 @@ misspelling refuses rather than storing an item no gate can recognize as
 done. Since 5.62 (TKT-909) C<--item> refuses a whitespace-only value the
 same way the literal empty string always did - a space is not a smaller
 piece of content than none.
+
+Since 5.85 (TKT-958) a C<--status done> call also routes through the same
+C<_proof_entries_for> helper C<checklist_update> uses, refusing with no
+C<--command>/C<--proof> pair - previously an item could be created already
+done with no evidence at all, bypassing the pairing C<checklist_update>
+enforces on every later write to the same field.
 
 =head2 checklist_update
 

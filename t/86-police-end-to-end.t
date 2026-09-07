@@ -143,7 +143,7 @@ $tira->checklist_add( author => 'michael', project => $root, ref => $crowding->{
 
 my $finished = $tira->create_record( project => $root, type => 'ticket', title => 'Work all done' );
 $tira->record_move(author => 'claude',  project => $root, ref => $finished->{ref}, column => 'implement' );
-$tira->checklist_add( author => 'michael', project => $root, ref => $finished->{ref}, item => 'the work', status => 'done' );
+$tira->checklist_add( author => 'michael', project => $root, ref => $finished->{ref}, item => 'the work', status => 'done', command => ['did it'], proof => ['done'] );
 
 # agent-still: since TKT-570 the rule counts only working-column cards the
 # agent could actually move, so a board meant to break every rule needs one

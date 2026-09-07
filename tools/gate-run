@@ -160,7 +160,7 @@ COVERSCRIPT
   ./tools/coverage-holes --db cover_db 2>&1 | sed "s/^/uncovered: /" || true
 
   rm -rf cover_db
-' >"$output" 2>&1 || { echo "gate-run: the suite did not run:" >&2; tail -3 "$output" >&2; exit 1; }
+' >"$output" 2>&1 || { ./tools/gate-outer-refusal "$output" >&2; exit 1; }
 
 # Released as soon as the suite that needed it is done - everything from here
 # only reads $output and writes the cache record, neither of which touches the

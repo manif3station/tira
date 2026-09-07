@@ -97,7 +97,7 @@ my $complete = card(
 # stands alone - the push gate's requirements, which police did not share until
 # the two definitions became one. TKT-241.
 $tira->checklist_add( author => 'michael', project => $root, ref => $complete->{ref},
-    item => 'the thing to do', status => 'done' );
+    item => 'the thing to do', status => 'done', command => ['did it'], proof => ['done'] );
 $tira->record_move(author => 'claude',  project => $root, ref => $complete->{ref}, column => 'implement' );
 is( scalar( grep { $_->{ref} eq $complete->{ref} } fired('card-full-details') ), 0,
     'a card that has its detail is not reported' );
@@ -109,7 +109,7 @@ is( scalar( grep { $_->{ref} eq $drafting->{ref} } fired('card-full-details') ),
 
 # --- card-stalled ---------------------------------------------------------
 
-$tira->checklist_add( author => 'michael', project => $root, ref => $complete->{ref}, item => 'the work', status => 'done' );
+$tira->checklist_add( author => 'michael', project => $root, ref => $complete->{ref}, item => 'the work', status => 'done', command => ['did it'], proof => ['done'] );
 my @stalled = fired('card-stalled');
 is( scalar @stalled, 1, 'a finished checklist in a working column is reported' );
 is( $stalled[0]{ref}, $complete->{ref}, 'naming the card that should have moved' );

@@ -56,7 +56,8 @@ is_deeply( $found->{missing}, $tira->card_missing( project => $root, ref => $zom
         bdd => ['x'], atdd => ['x'], reporter => 'claude', priority => 3,
         scope_in => ['x'], scope_out => ['x'], labels => ['standalone'] );
     $tira->checklist_add( project => $root, ref => $whole->{ref}, author => 'claude',
-        item => 'done already', status => 'done' );
+        item => 'done already', status => 'done',
+        command => ['did it'], proof => ['done'] );
 
     my $report = $tira->card_holes( project => $root );
     ok( !( grep { $_->{ref} eq $whole->{ref} } @{$report} ), 'a complete card is not reported' );

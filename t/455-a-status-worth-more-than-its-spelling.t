@@ -133,7 +133,8 @@ for my $spelling (qw(pending done Done DONE), 'To Do', 'to do', 'TO DO') {
     my $is_done = lc($spelling) eq 'done';
     my $card = $tira->create_record( project => $root, type => 'ticket', title => "checklist $spelling" );
     my $item = $tira->checklist_add( project => $root, ref => $card->{ref}, item => 'x',
-        status => $spelling, author => 'claude' );
+        status => $spelling, author => 'claude',
+        ( $is_done ? ( command => ['ran it'], proof => ['looked right'] ) : () ) );
     is( $item->{status}, $spelling, "checklist_add accepts '$spelling'" );
     $tira->checklist_update( project => $root, ref => $card->{ref}, id => $item->{id},
         status => $spelling, author => 'claude',

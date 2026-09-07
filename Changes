@@ -1,5 +1,20 @@
 Revision history for Tira
 
+    - TKT-958: checklist_add now refuses a done status with no
+      --command/--proof pair, routed through the same
+      _proof_entries_for helper checklist_update already uses -
+      previously a checklist item could be created already done with
+      no evidence at all, bypassing the pairing checklist_update
+      enforces on every later write. t/566's own decision registry
+      holds the pairing so a future verb cannot reopen the gap
+      unnoticed.
+    - TKT-997: gate-run's outer failure handler no longer hides a
+      passing suite behind a bare tail -3 of the whole captured
+      output. When a later step (coverage-complete, coverage-guard)
+      is what actually failed, the new tools/gate-outer-refusal now
+      says the suite passed and shows what came after; a genuine
+      suite failure is unchanged. Same shape as TKT-961's own
+      gate-summarize fix, one level further out.
     - TKT-959: tira.job.help's worked examples are now proven through
       the real job-due executor (run_due_commands/run_due_job), not
       only the test harness's own PATH. A fake local::lib-shaped bin

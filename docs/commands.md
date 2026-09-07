@@ -1544,6 +1544,16 @@ rather than a line inside `gate-run` for the same reason `coverage-complete`
 is: `gate-run` has no test harness of its own, so a check that needs to be
 driven and watched failing has to live somewhere that can be. TKT-961.
 
+**The OUTER refusal had the same fault one level up** (TKT-997). When a
+LATER step (`coverage-complete`, `coverage-guard`) is what actually makes the
+whole docker invocation exit non-zero, the handler around it used to pipe
+the entire captured output through a bare `tail -3`, with no way to tell
+whether the suite itself had passed, failed, or never started.
+`tools/gate-outer-refusal LOGFILE` checks for prove's own `Result: PASS`
+line first: present, it says the suite passed and shows what came after;
+absent, it falls back to the same tail, unchanged for a genuine suite
+failure.
+
 Without `--pid`, the 600-second ceiling was shorter than either gate this
 repo ran at the time - coverage at 846s, pre-push at 15m and counting - so
 the commonest legitimate reason for a suspension (waiting on a gate) always
@@ -3353,7 +3363,7 @@ opens it on that board, and `tira.dashboard` opens it on the default one.
 
 ### Checklists
 
-- `tira.checklist.add --ref REF --item TEXT --status TEXT [-o FORMAT]` - since 5.62 `--item` refuses a whitespace-only value, naming what is missing, the same as the literal empty string always did - the same fix `evidence.add` and `required-action.add` got, and the same reasoning TKT-585 already settled for `--command`/`--proof`: whitespace counts as empty. `checklist.update` is deliberately unchanged - blanking an existing item is a different question from creating a blank one, matching TKT-753's precedent for `comment.update`. TKT-909.
+- `tira.checklist.add --ref REF --item TEXT --status TEXT [--command TEXT ...] [--proof TEXT ...] [-o FORMAT]` - since 5.62 `--item` refuses a whitespace-only value, naming what is missing, the same as the literal empty string always did - the same fix `evidence.add` and `required-action.add` got, and the same reasoning TKT-585 already settled for `--command`/`--proof`: whitespace counts as empty. `checklist.update` is deliberately unchanged - blanking an existing item is a different question from creating a blank one, matching TKT-753's precedent for `comment.update`. TKT-909. **Since 5.85, `--status done` also needs a `--command`/`--proof` pair** (TKT-958) - the same requirement `checklist.update` already enforced on every later write, which creating an item already done used to bypass entirely.
 - `tira.checklist.list --ref REF [--status STATUS] [-o FORMAT]`
   - `--status STATUS` (TKT-748) narrows to items in that status, taking the
     same three values `checklist.add` accepts — `pending`, `done` and `To Do`,

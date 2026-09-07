@@ -619,21 +619,24 @@ Policies live in the project config, so they travel with the project and
 anybody can read them. Police keeps its own state — the violation ledger, the
 bridge log — outside the project entirely.
 
-## A finding is one line, and a job message can break that
+## A finding is one line, since 5.85
 
 Every reader of the bridge is a line reader: the terminal tails it, the page
 splits it, and an agent parses one violation per line. `job-due` puts a job's
 own message on the bridge, which is the point of the rule - the agent is told
 the thing it needs to do, in the words somebody chose.
 
-**A message containing newlines therefore arrives as several physical lines**,
-and a blank line in it as an empty entry. The message itself is stored and read
-back exactly as written; only the rendering is wrong. This is reachable from
-`tira.job.add` today and became easier to reach in 5.85, when the dashboard's
-job editor gained a textarea. It is filed as TKT-981 against the bridge line
-itself, so the flattening will cover every source rather than one caller. Until
-then, keep a job message on one line if you want its bridge line to be one
-line.
+**A message containing newlines used to arrive as several physical lines**,
+and a blank line in it as an empty entry - reachable from `tira.job.add`
+directly, and easier to reach in 5.85 once the dashboard's job editor gained a
+textarea (TKT-951). Fixed at `_bridge_line` itself (TKT-981) rather than at
+any one caller, so every source is covered - including a rule whose text comes
+from somewhere nobody has considered: whitespace in the detail is collapsed to
+single spaces as the line is composed, so a message with newlines and blank
+lines still renders as exactly one line, with its content intact rather than
+truncated to its first physical line. **The stored record is untouched** - a
+job message is a hunt instruction the agent acts on and stays exactly as
+written; only the bridge's own rendering changed.
 
 ## Reading the bridge from the page
 

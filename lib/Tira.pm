@@ -11410,6 +11410,22 @@ sub _bridge_settled_line {
 
 sub _bridge_line {
     my ( $self, $violation ) = @_;
+
+    # TKT-981: every reader of the bridge is a line reader - the policy
+    # bridge tails it, the dashboard Bridge panel splits it, an agent parses
+    # one violation per line. A detail carrying newlines (a job message is
+    # the reproduced case, but nothing here is specific to jobs - any
+    # rule's text could arrive this way) used to interpolate verbatim, so
+    # each continuation line reached every reader as a malformed entry
+    # belonging to no violation, and a blank line as an empty one. Collapsed
+    # here rather than at the source: this is the one place that knows the
+    # composed thing has to be a line, and the stored record - a job
+    # message, in particular - keeps its newlines exactly as written.
+    my $detail = $violation->{message} // $violation->{detail} // $violation->{rule} // 'unspecified';
+    $detail =~ s/\s+/ /g;
+    $detail =~ s/\A\s+|\s+\z//g;
+    $detail = 'unspecified' if $detail eq '';
+
     my @parts = (
         $self->{clock}->(),
         uc( $violation->{tone} // 'note' ),
@@ -11428,7 +11444,7 @@ sub _bridge_line {
         $violation->{id} // 'VIO-0000',
         ( $violation->{ref} // '' ) ne '' ? $violation->{ref} : 'board',
         'seen ' . ( $violation->{seen} // 1 ),
-        $violation->{message} // $violation->{detail} // $violation->{rule} // 'unspecified',
+        $detail,
     );
     my $ref = $violation->{ref} // '';
     my $fix = _violation_fix($violation);
@@ -14951,6 +14967,11 @@ Returns the bridge log's file path for a police store, creating the store direct
 =head2 bridge_write
 
 Appends a line to the bridge log.
+
+Since TKT-981, C<_bridge_line> collapses whitespace in a violation's detail
+before composing the line - a detail carrying newlines (a job's own message,
+in particular) used to interpolate verbatim and break every reader's
+one-violation-per-line contract. The stored record itself is untouched.
 
 =head2 bridge_backlog
 

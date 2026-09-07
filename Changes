@@ -1,5 +1,20 @@
 Revision history for Tira
 
+    - TKT-981: a job message containing newlines no longer breaks
+      the bridge's one-violation-per-line contract. Found while
+      implementing TKT-951, running its own checklist item about
+      newline round-tripping. _bridge_line used to interpolate a
+      violation's detail verbatim; every reader of the bridge (the
+      policy bridge, the dashboard Bridge panel, an agent parsing
+      one violation per line) splits on newlines, so a message with
+      newlines and a blank line reached each of them as several
+      malformed entries belonging to no violation, one of them
+      empty. Fixed at _bridge_line itself, covering every source
+      rather than one caller: whitespace is collapsed to single
+      spaces as the line is composed. The stored record - a job
+      message, in particular - keeps every newline exactly as
+      written.
+
     - TKT-961: a gate refusal names the failing test file.
       tools/gate-run piped the suite through `prove ... | tail -4`,
       which keeps exactly the right lines on a clean run and exactly

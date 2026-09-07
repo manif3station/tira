@@ -1,6 +1,15 @@
 Revision history for Tira
 
 5.87  2026-09-07
+    - TKT-653: a new meta-test (t/653-a-class-with-nothing-behind-it.t,
+      in the family of t/121 and t/410) checks that every BEM-shaped
+      class string in the dashboard's view JS matches a rule in
+      dashboard.css, or is named in a reasoned exemption ledger. Scans
+      the whole file rather than only className="..." literals, so a
+      class passed as a variable is still caught - the exact case that
+      slipped through a manual probe on 2026-08-28. Found 15 real,
+      currently-unstyled classes; filed as TKT-1006 rather than fixed
+      blind with no way to see the rendered result from here.
     - TKT-641: tools/card-holes's unproven() refusal now parses - "no
       fix version" no longer joins onto two full clauses as a bare
       noun phrase with nothing to continue - and ends by naming the

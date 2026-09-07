@@ -6185,6 +6185,14 @@ my %POLICY_RULES = (
     # duration: the moment it has happened, waiting longer tells nobody
     # anything they did not already know.
     'checklist-unmoved'         => { needs => [], forbids => ['age'] },
+
+    # An epic or sow checklist item names the child cards it is tracking in
+    # its own text (there is no structured refs field, unlike a tasklist
+    # item), and nothing marked it when every one of them finished - so
+    # checklist-idle correctly kept firing on epics whose work was actually
+    # done, TKT-867. No age: an item naming only terminal cards is genuinely
+    # stale the moment the last one lands, not after waiting some more.
+    'checklist-item-terminal'   => { needs => [], forbids => ['age'] },
     'orphan-card'               => { needs => [], forbids => ['age'] },
 
     # An upgrade traced to its end rather than announced and forgotten.
@@ -7600,6 +7608,43 @@ sub policy_evaluate {
                     "moved into $moved_into with nothing ticked since"
                       . ( $window >= 0 ? " it entered $journal->[$window]{after}" : ' it was raised' ),
                     $record->{reporter} );
+            }
+        }
+        elsif ( $rule eq 'checklist-item-terminal' ) {
+
+            # An epic or sow checklist item names its child cards in its own
+            # text - there is no structured refs field the way a tasklist
+            # item has - so this reads them out the same way commit-without-
+            # card already finds a ref in free text, TKT-867.
+            my %by_ref = map { ( $_->{ref}, $_ ) } @{$records};
+            my %ends;
+            for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
+                next if ( $record->{type} // '' ) !~ /\A(?:epic|sow)\z/;
+                for my $item ( @{ $record->{checklist} // [] } ) {
+                    next if lc( $item->{status} // '' ) eq 'done';
+                    my @refs = ( $item->{item} // '' ) =~ /\b([A-Z]{2,}-\d{3,})\b/g;
+                    next if !@refs;
+
+                    # Every named card, not just the first - a partly-done
+                    # item is genuinely still open, and a ref this pass could
+                    # not resolve (a typo, a discarded card) is treated the
+                    # same conservative way: not proven terminal.
+                    my ( @named, $all_terminal );
+                    $all_terminal = 1;
+                    for my $ref (@refs) {
+                        my $child = $by_ref{$ref};
+                        if ( !$child ) { $all_terminal = 0; last; }
+                        my $type = $child->{type} // 'ticket';
+                        $ends{$type} //= $self->_ending_columns( $root, $type );
+                        if ( !$ends{$type}{ $child->{column} // '' } ) { $all_terminal = 0; last; }
+                        push @named, "$ref:$child->{column}";
+                    }
+                    next if !$all_terminal;
+                    $report->( $policy, $record,
+                        "$item->{id} names " . join( ', ', @named )
+                          . ' - all terminal, item still open' );
+                }
             }
         }
         elsif ( $rule eq 'card-unlinked' ) {
@@ -14912,6 +14957,14 @@ never read it - only C<leftover-process> and C<leftover-container> do. A
 declared pattern used to be accepted, stored, and read back correctly while
 doing nothing, the same shape TKT-933 fixed for C<card-stalled>'s ignored
 C<--age>.
+
+TKT-867: C<checklist-item-terminal> reports an epic or sow checklist item once
+every card it names in free text has reached a terminal column, while the item
+itself is still open - the refs are read out of the item's own text the same
+way C<commit-without-card> already finds one in a commit subject, since a
+checklist item carries no structured C<refs> field the way a tasklist item
+does. It marks nothing itself, fires only when every named card is terminal,
+and never fires on an item naming none.
 
 =head2 policy_list
 

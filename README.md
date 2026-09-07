@@ -122,7 +122,7 @@ embedded in the page — the board loads nothing from another host, so a CDN
 highlighter was never an option. A genuinely binary file still refuses rather
 than rendering as mojibake, and an unknown extension is decided by reading its
 first bytes rather than by its name.
-The board-wide police policy engine — the 45 rules police itself watches,
+The board-wide police policy engine — the 46 rules police itself watches,
 separate from a column's own required-action template — is editable from
 the browser too: a Policies button opens a modal listing every declared,
 declined, and undeclared rule, with a rule-specific parameter picker that
@@ -856,8 +856,8 @@ entries themselves, and how many rules police the board, checked against
 sentence — every markdown file in the repository bar the build and dependency
 directories (`cover_db`, `node_modules`, `.git`), and any claim that puts a
 number ahead of the word `rules` with at most two words between them. That
-covers `45 rules cover`, `45 rules police`, `45 police
-rules` and `45 policy rules`, and it is the whole of its reach, worth stating
+covers `46 rules cover`, `46 rules police`, `46 police
+rules` and `46 policy rules`, and it is the whole of its reach, worth stating
 plainly because a guard described more broadly than it works is the failure it
 exists to prevent: a claim worded outside that shape is not held, and neither is
 one made anywhere but a markdown file. The same count stated in a source comment is TKT-736, still open.

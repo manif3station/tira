@@ -1,5 +1,12 @@
 Revision history for Tira
 
+    - TKT-867: a new checklist-item-terminal rule reports an epic or
+      sow checklist item once every card it names in free text has
+      reached a terminal column, while the item itself stays open.
+      Found while clearing checklist-idle's backlog by hand: EPC-014
+      had 8 items, all open, while 7 of its 8 named cards were already
+      done. Reads refs out of the item text the same way
+      commit-without-card already does; reports only, marks nothing.
     - TKT-984: tira.job.list --id silently parsed and did nothing,
       always returning every job. Fixed at Tira::Job::job_list (not
       only the CLI, since Browser.pm and Board.pm call it directly):

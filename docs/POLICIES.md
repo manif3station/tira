@@ -378,7 +378,7 @@ absent from this page, so a rule shipped without being documented is caught by
 name. Since 4.76 the other half is checked too: a statement of how many rules
 there are is compared against the engine, in any markdown file including this
 one, bar the build and dependency directories. A claim is a number ahead of the
-word `rules` with at most two words between them, which covers `45 rules cover`, `45 rules police`, `45 police rules` and `45 policy
+word `rules` with at most two words between them, which covers `46 rules cover`, `46 rules police`, `46 police rules` and `46 policy
 rules` alike. That shape is the reach of it — a count worded outside it, or
 stated somewhere that is not a markdown file, is not held,
 and saying so matters more than sounding thorough. Both guards exist because
@@ -397,6 +397,7 @@ when it was written down.
 | `card-stalled` | `--before-column` | a finished checklist on a card that has not moved. "Finished" is read case-insensitively, so a checklist item marked `Done` counts as done here exactly as `done` does. TKT-434. Note that this is the CHECKLIST, not required actions, and the browser renders the two differently on purpose: the checklist row prints its status verbatim and compares nothing, so it never disagreed with this rule. Required actions did - until 4.63 the dashboard compared them against the literal `done` - which is TKT-601 and is a different list on the same card. **No `--age`, and refused rather than ignored since 5.61**: this rule watches a checklist finishing without the card moving, which is an EVENT rather than a duration, and nothing in its body has ever read one. His screenshot found the declare form accepting a stall threshold anyway - stored, shown back, and silently doing nothing. The refusal names `card-duration`, which is the rule that actually reads a duration, per his own answer to Q-120/Q-122: "Refuse an age on card-stalled, and name card-duration in the refusal." TKT-933. |
 | `checklist-idle` | `--column --age` | a card being worked with no checklist movement. **The message names what actually helps**: a checklist that is 100% complete (case-insensitively `done`) says to move the card, since there is nothing left to tick - "no checklist movement" was true and useless there, naming the one action that cannot be taken. A checklist with anything still unticked keeps that wording unchanged. The rule's own behaviour - when it fires, and that moving the card settles it - is unaffected either way. TKT-357. |
 | `checklist-unmoved` | — | a card moved on with nothing ticked since its last move. **No age**: a move has either happened or it has not. Addressed to the card's reporter, not its assignee - since 3.47, TKT-286: the assignee is often the reviewer for a card sitting in review, who cannot tick a checklist item only the card's own author left unticked, while the reporter is who raised the card and is who a checklist item usually belongs to. A separate, synchronous check exists alongside this one for a column carrying a required-action template (`tira.column.update --required-action`): a move made through the CLI/agent command path refuses outright while any of that column's required items are still unmarked, rather than reporting it after the fact - see UC-054. TKT-427. Since 5.61 this rule refuses `--age` rather than silently storing one nothing reads (TKT-933). |
+| `checklist-item-terminal` | — | an epic or sow checklist item naming child cards that have all reached a terminal column while the item itself is still open. An item names its cards in free text - there is no structured refs field the way a tasklist item has - read out the same way `commit-without-card` already finds a ref in a commit subject. Fires only once EVERY card an item names is terminal; an item naming several cards with even one still open stays quiet, and an item naming none is never reported. This is why `checklist-idle` kept firing on epics whose children had all finished (TKT-867, measured on this board: EPC-014 had 8 items, all open, while 7 of its 8 named cards had already reached done) - nothing marked the item the moment the last card landed. Reports only, like every rule here: marking the item is still a deliberate act with its own command and proof. **No `--age`**: an item naming only terminal cards is stale the moment the last one lands, not after waiting some more. |
 | `orphan-card` | — | a card with no parent Since 5.61 this rule refuses `--age` rather than silently storing one nothing reads (TKT-933). |
 | `rules-undeclared` | — | a rule this board has neither declared nor declined, which is what an upgrade leaves behind. **No age**: a gap is a gap the moment it opens. Settles only when every rule has an answer — declining one counts, because the point is that nothing is left unconsidered. Since 5.61 this rule refuses `--age` rather than silently storing one nothing reads (TKT-933). |
 | `upgrade-unreviewed` | `--age` | the card the upgrade gate raised, still with nothing ticked on it after that long. **Watches the card, not a column**, and so refuses `--column` and `--enter`: the gate lands its card in `backlog`, where no column-scoped rule looks and `card-still` does not either, because `_resting_columns` skips a protected column. That resting is correct — a card waiting its turn is not a stalled card — so the exception is made for the one card in backlog that is not waiting its turn. It is found by the `upgrade-gate` label the gate now writes, not by its title, which somebody will reasonably reword. One ticked checklist item settles it: the question is whether anybody read what changed, not whether they finished acting on it. TKT-957. | TKT-974 and TKT-983 (5.83->5.84 and 5.84->5.85, raised in the same session) both arrived with no parent and most fields empty, needing manual repair, three times over before **TKT-956, since 5.85**, made the gate derive its nine text/array fields from the version range itself and exempt `upgrade-gate` from needing a parent (joining `standalone` in the same `CARD_EXEMPT` list a SOW already uses) - `d2 tira.ticket.missing` and `tools/card-holes` both now report the raised card complete.
@@ -855,7 +856,7 @@ passing every test they had — the tests handed the engine a world of their own
 A rule that is silent because nothing was looked at is indistinguishable from a
 rule being obeyed. If you write a rule that reads the machine, prove it fires
 by making the condition real, not by describing it to the engine.
-## 107 use cases
+## 108 use cases
 
 Each is an invented situation and the command that answers it. Find the
 situation that looks like your project; ignore the rest. And read the
@@ -2832,4 +2833,25 @@ somebody who is not the agent working it — so it settles the moment the agent
 touches the card, and there is no stored timestamp to go stale. No `--age`: a
 change is not more or less true an hour later, and waiting would only decide
 how long the agent works from a card somebody has already rewritten.
+
+**108.** An epic's checklist item names the cards it tracks, and every one of
+them has finished, but nothing marked the item.
+
+```
+d2 tira.policy.add --rule checklist-item-terminal --action bridge-reminder
+```
+
+An epic or sow checklist item has no structured field for the cards it names -
+unlike a tasklist item's own `refs` array, it is free text, read out the same
+way `commit-without-card` already finds a ref in a commit subject. Measured on
+this board: EPC-014 had 8 checklist items, all open, while 7 of its 8 named
+cards had already reached done - `checklist-idle` correctly kept reporting the
+epic as though its work were outstanding, because nothing else was watching
+whether the items themselves still matched reality. This fires only once EVERY
+card an item names is terminal; an item naming several cards with even one
+still open stays quiet, since a partly-done item is genuinely still open, and
+an item naming no card at all is never reported. It marks nothing itself - the
+same reporting-only discipline every rule here keeps. No `--age`: an item
+naming only terminal cards is stale the moment the last one lands, not after
+waiting some more.
 

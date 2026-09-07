@@ -1,5 +1,18 @@
 Revision history for Tira
 
+    - TKT-956: the upgrade gate's own card arrives complete. It used to
+      write only a title, a description and a checklist, leaving 9-12
+      other required fields empty and no parent - a card-holes and
+      orphan-card violation on every single upgrade, confirmed three
+      times in one session by TKT-948, TKT-974 and TKT-983.
+      _raise_upgrade_gate now derives problem_or_feature,
+      solution_needed, key_details, deliverables, acceptance_criteria,
+      test_steps, bdd, atdd, scope_in and scope_out from the version
+      range itself, and upgrade-gate joins standalone in CARD_EXEMPT's
+      parent-exemption labels - the engine raised this card itself and
+      cannot say which feature epic it belongs under, the same reason
+      a SOW has none.
+
     - TKT-987: a police pass parses each card's whole journal once, not
       once per rule that asks about it. Four independent readers -
       _policy_last_detail_change, _police_history (three call sites),

@@ -1052,19 +1052,62 @@ sub _raise_upgrade_gate {
         # project configures which type fits it; unconfigured boards keep
         # exactly what shipped before this card.
         my $type = $self->project_show( project => $root )->{upgrade_gate_type} // 'ticket';
+
+        # Every field below is true of ANY upgrade, not guessed at for this
+        # one - the same shape TKT-974/979/983/987 each filled in by hand this
+        # session, generalised. It does not know which of the Changes entries
+        # above matter to THIS board; that is the review the card exists to
+        # hold, not something the gate can answer for it. TKT-956: this card
+        # used to arrive with 9-12 empty fields and no parent, both of them
+        # card-holes/orphan-card violations on every single upgrade.
         my $record = $self->create_record(
-            project     => $root,
-            type        => $type,
-            title       => "Tira upgraded $from -> $to - review what changed and what to declare",
-            description => $description,
-            priority    => 5,
+            project             => $root,
+            type                => $type,
+            title               => "Tira upgraded $from -> $to - review what changed and what to declare",
+            description         => $description,
+            priority            => 5,
+            problem_or_feature  => "Tira upgraded from $from to $to. Whether this board needs to "
+              . 'declare a new rule, decline one, or update an existing declaration has not been '
+              . 'reviewed.',
+            solution_needed     => 'Run d2 tira.policy.undeclared and read every fix/feature the '
+              . "$from -> $to Changes text above describes, checking each against what this board "
+              . 'has already declared or declined.',
+            key_details         => [
+                "Raised automatically by the upgrade gate on the $from -> $to version bump. See "
+                  . 'the description above for what changed.',
+            ],
+            deliverables        => [
+                'A recorded answer for every rule tira.policy.undeclared names, and this card\'s '
+                  . "own conclusion about whether anything between $from and $to needs a policy "
+                  . 'change on this board.',
+            ],
+            acceptance         => [
+                'tira.policy.undeclared has been run and its answer recorded on this card',
+                "every entry in the $from -> $to Changes text above has a recorded conclusion",
+            ],
+            test_steps          => [
+                'Run d2 tira.policy.undeclared and record the answer',
+                "Read the $from -> $to Changes text on this card and check each entry",
+            ],
+            bdd                 => [
+                "Given Tira has been upgraded from $from to $to, when this card is reviewed, then "
+                  . 'tira.policy.undeclared has been run and every changed behaviour has been '
+                  . 'checked against this board\'s declared policies',
+            ],
+            atdd                => [
+                'd2 tira.policy.undeclared\'s answer is recorded on this card, and each Changes '
+                  . "entry between $from and $to has a recorded conclusion",
+            ],
+            scope_in            => ["This one upgrade's review ($from -> $to)"],
+            scope_out           => ['Any other card\'s own fix'],
 
             # WHAT MAKES THIS CARD FINDABLE BY A RULE. Until TKT-957 the gate
             # marked its card with nothing at all, so upgrade-unreviewed would
             # have had to match the generated title above - coupling a rule to
             # wording somebody will reasonably reword, and breaking silently
             # when they do. A label says what the card IS and survives any
-            # rewrite of what it says.
+            # rewrite of what it says. Since TKT-956 it also exempts the card
+            # from needing a parent - see CARD_EXEMPT above.
             labels      => ['upgrade-gate'],
         );
         $self->checklist_add( project => $root, ref => $record->{ref}, author => 'tira',
@@ -6920,7 +6963,11 @@ my @CARD_REQUIRED = ( @POLICY_DETAIL_FIELDS, qw(scope_in scope_out checklist par
 # list itself now, so a caller reading only this command - the one the
 # manual already points at - gets the same answer the push gate gets,
 # by construction rather than by having read the same paragraph. TKT-285.
-my %CARD_EXEMPT = ( parent => { types => ['sow'], labels => ['standalone'] } );
+#
+# upgrade-gate is the third: raised by the engine itself on a version bump,
+# not by anybody who could say which feature epic it belongs under - TKT-956.
+# Exempting the label is the same shape as standalone, not a new mechanism.
+my %CARD_EXEMPT = ( parent => { types => ['sow'], labels => [ 'standalone', 'upgrade-gate' ] } );
 
 sub card_required { return { fields => [@CARD_REQUIRED], exempt => \%CARD_EXEMPT } }
 
@@ -14498,6 +14545,10 @@ C<card_missing> calls per card - so the two can never disagree about what
 complete means. Discarded cards are excluded; an untriaged
 C<tira.dev.found> report still sitting in the board's own entry column is
 exempt, exactly as the push gate exempts it. TKT-374.
+
+A card labelled C<upgrade-gate> is exempt from needing a parent, the same
+way a C<standalone>-labelled card or a SOW is - see C<%CARD_EXEMPT> and
+C<_raise_upgrade_gate>, TKT-956.
 
 =head2 comment_add
 

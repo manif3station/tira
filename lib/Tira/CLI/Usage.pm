@@ -474,6 +474,12 @@ ledger so a new one cannot join it silently, and reads C<_usage> itself rather
 than the SKILLS.md lookup, since what matters is what C<--help> prints.
 TKT-575.
 
+Since 5.86 all forty-nine have real lines, each read out of the command's own
+dispatch branch in C<run()> rather than guessed - the same parser property
+this whole section is about, since one global C<@spec> cannot say which
+options a given command implements. t/410's ledger is empty; a command that
+falls back to C<[options]> now fails the guard directly. TKT-630.
+
 =head1 SEE ALSO
 
 L<Tira::CLI>

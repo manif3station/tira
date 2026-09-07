@@ -2301,6 +2301,61 @@ One thing it does not yet do: the items are separate lines in the message and no
 
 A command's usage line names the arguments it refuses without. `_usage()` answers from this manual's own usage catalogue and falls back to a bare `[options]` for any command with no line here, so `tira.required-action.add`, `.list` and `.update` and `tira.question.ask`, `.answer` and `.mark` - the ones an agent touches at every gate - described themselves as taking nothing in particular. `tira.checklist.update` was the worse shape: it had a line, and that line listed three optional flags while omitting the two mandatory ones, so it read as exhaustive. Another board reported the cost independently - four `checklist.update` calls composed from `--help`, their output suppressed, and the author walked away believing four entries were ticked while the checklist still read 0/9. The enforcement is unchanged and was never the problem; `--help` now says what it demands, with `[--command TEXT ... [--proof TEXT ...]]`, the proofs nested inside the commands rather than paired off one bracket at a time. Until 4.64 it read `[--command TEXT --proof TEXT ...]` as a single unit, because the pair was required together and repeatable; TKT-628 made a `--command` usable alone to record what is being run before it can be proved, so the pair is now required together only for a `done` claim. The nesting is a summary rather than a grammar - the parser takes both as independent repeatable options and the engine pairs them by count afterwards - but it is the summary that misleads least: a proof cannot arrive without a command, and once any proof is given the counts must match. Forty-nine commands still print a bare `[options]` - `tira.police`, `tira.next`, the `policy.*`, `backup.*` and `project.*` families among them - and that set is written down as a ledger a test holds: a new command cannot join it silently, and one that gains a usage line cannot be left in it. `--help` naming nothing at least admits it is withholding something; a list that omits the required half does not. TKT-575.
 
+**The 49 are written, since 5.86** (TKT-630, the half TKT-575 deliberately left as a ledger rather than hiding). Each line below is read out of that command's own branch in `run()` - the option parser is one global `@spec` shared by every command and cannot answer which options a given command implements, so a line copied from a neighbor or from memory would carry exactly the "looks exhaustive and is not" fault this whole thread is about. The two hand-maintained descriptions - the catalogue prose above and the usage line below it - stay two rather than becoming one: unifying them would mean teaching `_skills_usage_line()` to parse prose written for a reader rather than for a regex, and the risk of a parser silently misreading a sentence is worse than the cost of keeping both in sync by hand, which t/410's own ledger already catches when they drift. `t/410`'s ledger empties to match; a command that gains a line here and is not also removed from the test's own `%known_bare` fails the guard, by design.
+
+```text
+tira.agent.sessions --ref REF [-o FORMAT]
+tira.backup [-o FORMAT]
+tira.backup.export --file FILE [-o FORMAT]
+tira.backup.import --file FILE [--dir DIR] [--yes] [-o FORMAT]
+tira.backup.restore [--yes] [-o FORMAT]
+tira.card.holes [--type ticket|epic|sow] [-o FORMAT]
+tira.card.required [-o FORMAT]
+tira.check.owner --ref REF [-o FORMAT]
+tira.column.roles --type TYPE --name SLUG [--roles LIST] [--remove-role LIST --reason TEXT] [--author NAME] [-o FORMAT]
+tira.conversation.add --ref REF --author NAME --text TEXT [-o FORMAT]
+tira.conversation.list --ref REF [-o FORMAT]
+tira.doctor [--repair] [-o FORMAT]
+tira.dwell.report [--type ticket|epic|sow] [-o FORMAT]
+tira.gates.install [-o FORMAT]
+tira.next [--type ticket|epic|sow] [--brief] [--truncate N] [-o FORMAT]
+tira.notify.moves [--column SLUG] [--chat ID] [--watch|--no-watch] [-o FORMAT]
+tira.onboard [--name NAME] [--dir DIR] [--mode single|chain] [--columns LIST] [--sow-prefix TEXT] [--epic-prefix TEXT] [--ticket-prefix TEXT] [--digits N] [--members LIST] [--author NAME] [-o FORMAT]
+tira.outstanding [--fresh] [--include-discard] [-o FORMAT]
+tira.police [--author NAME] [--rounds N] [--interval SECONDS] [--once] [--store PATH] [-o FORMAT]
+tira.police.log [--store PATH] [-o FORMAT]
+tira.police.outstanding [--fresh] [--by-rule] [--store PATH] [-o FORMAT]
+tira.police.suspend --rule RULE --seconds N --reason TEXT [--pid PID] [--ref REF] [--store PATH] [-o FORMAT]
+tira.policies [-o FORMAT]
+tira.policy.bridge [--author NAME] [--rounds N] [--interval SECONDS] [--once] [--store PATH] [-o FORMAT]
+tira.policy.bridge.logs [--store PATH] [-o FORMAT]
+tira.policy.decline --rule RULE --reason TEXT [--ref REF] [-o FORMAT]
+tira.policy.declined [--ref REF] [-o FORMAT]
+tira.policy.review [-o FORMAT]
+tira.policy.undeclared [-o FORMAT]
+tira.project.gates [--gate-names LIST] [-o FORMAT]
+tira.project.limit [--max N] [-o FORMAT]
+tira.project.link-types.add --outward TEXT --inward TEXT [-o FORMAT]
+tira.project.link-types.list [-o FORMAT]
+tira.project.link-types.remove --outward TEXT [-o FORMAT]
+tira.project.mode [--mode single|chain] [-o FORMAT]
+tira.project.new --name NAME [--dir DIR] [--columns LIST] [--sow-prefix TEXT] [--epic-prefix TEXT] [--ticket-prefix TEXT] [--digits N] [--members LIST] [--author NAME] [-o FORMAT]
+tira.project.people.add --id ID --name NAME [--email EMAIL] [-o FORMAT]
+tira.project.people.list [-o FORMAT]
+tira.project.people.remove --id ID [-o FORMAT]
+tira.project.people.update --id ID [--name NAME] [--email EMAIL] [-o FORMAT]
+tira.project.show [-o FORMAT]
+tira.project.validate [--repair] [-o FORMAT]
+tira.question.attach --id ID --file FILE [--to REF] [--filename NAME] [--remove] [-o FORMAT]
+tira.question.voice --id ID [--file FILE] [--remove] [-o FORMAT]
+tira.record.clone --ref REF --title TEXT [-o FORMAT]
+tira.record.create --title TEXT [record field arguments] [-o FORMAT]
+tira.record.update --ref REF [record field arguments] [-o FORMAT]
+tira.rule.suspend --rule RULE --seconds N --reason TEXT --store PATH [--pid PID] [-o FORMAT]
+tira.tasklist.sessions [-o FORMAT]
+tira.worklog.show --ref REF [-o FORMAT]
+```
+
 A backward move to `backlog` also resets the tasklist items that say somebody is working the card. The board already understood that retreating undoes claims of progress; tasks were never part of it, so a card could sit in the queue while its task list went on reading `working` until an agent ran a second command nobody prompted for. Anchored to `backlog` because it is the default builtin column - a fix point every board has, needing no per-board configuration. A task already `done` is left alone, because it records work that happened and a card retreating does not unmake it. The reset crosses the session boundary deliberately: tasklist items are session-scoped (TKT-537), and on a multi-agent board the tasks most needing reset belong to somebody else's session, so a boundary-respecting reset would do nothing in exactly the case it exists for. A task naming more than one card is **not** reset and **is** named in the output - there is no status true about two cards at once, and a silent skip is indistinguishable from the feature being broken, so the person moving the card is told which task to judge by hand. TKT-596. The reset itself asks the tasklist for only project and `all_sessions` - a move carrying an unrelated option (parsed only because Getopt shares one option spec across every command) no longer reaches the tasklist lookup and silently cancels the reset; a genuine lookup failure is reported to the caller rather than swallowed. TKT-632. Since 5.43 `--status` cannot arrive on a move at all: `record.move` does not read it, so it is **refused by name** rather than accepted and dropped (TKT-748), and the refusal is a refusal - the card does not move and its task is left alone. The splat guard itself is unchanged and still needed, since `--sort`, `--all-sessions` and `--unlinked` remain unguarded on every command (TKT-581), and `--sort` is what t/446 probes it with now.
 
 The "skipping any it already carries" dedup above is now atomic against two near-simultaneous moves of the same card, not only a sequential re-entry. Two browser moves fired close together - a double-click on the status dropdown, or any other double-fire of the same request - used to both read the card's `required_items` before either had written its own addition, both decide the template item was missing, and both add it, leaving two identical `REQ-NNN` entries for the same text and column. `required_item_add`'s auto-populate path now makes that check-and-add one atomic step inside the lock it already holds, so the second of two concurrent calls sees the first's addition and skips it. A manual `tira.required-action.add` is unaffected - only the template-population source is deduplicated, so asking for the same text twice on purpose still adds it twice. Reported live: "When card being move along on the html dashboard. The population of the required action items will be duplicated." TKT-497.

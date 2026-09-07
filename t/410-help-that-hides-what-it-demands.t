@@ -84,19 +84,10 @@ $command{$1} = 1 while $table =~ /'([a-z][a-z0-9.\-]*)'\s*=>/g;
 cmp_ok( scalar keys %command, '>', 100,
     'both dispatch routes were read, not just the method table' );
 
-my %known_bare = map { $_ => 1 } qw(
-  agent.sessions backup backup.export backup.import backup.restore
-  card.holes card.required check.owner column.roles conversation.add
-  conversation.list doctor dwell.report gates.install next notify.moves
-  onboard outstanding police police.log police.outstanding police.suspend
-  policies policy.bridge policy.bridge.logs policy.decline policy.declined
-  policy.review policy.undeclared project.gates project.limit
-  project.link-types.add project.link-types.list project.link-types.remove
-  project.mode project.new project.people.add project.people.list
-  project.people.remove project.people.update project.show project.validate
-  question.attach question.voice record.clone record.create record.update
-  rule.suspend tasklist.sessions worklog.show
-);
+# All 49 are written, TKT-630 - the ledger is empty on purpose, and stays
+# that way: a command that falls back to a bare [options] now fails the
+# first assertion below rather than joining a list here.
+my %known_bare = map { $_ => 1 } qw();
 
 my @bare = sort grep { Tira::CLI::Usage::_usage($_) =~ /\Q [options] \E/ } keys %command;
 my @new_bare = grep { !$known_bare{$_} } @bare;

@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.86';
+our $VERSION = '5.87';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -76,6 +76,17 @@ my @CARD_FIELDS = ( @PLAIN_FIELDS, qw(sdlc_gate assignee reporter priority due_d
 my @CARD_FIELD_REPLACEMENTS = qw(labels_replace affects_versions_replace
   key_details_replace deliverables_replace acceptance_replace test_steps_replace
   bdd_replace atdd_replace scope_in_replace scope_out_replace);
+
+# TKT-635. Every key create_record/record_update actually recognise, call
+# mechanics included - not just @CARD_FIELDS, which is the card's own data.
+# This is the "known" set a near-miss is measured against: a key close to
+# one of these is almost certainly a misspelling of it, and a key nowhere
+# near any of them is something the method legitimately ignores (see
+# _refuse_misspelled_args below for why that distinction is the whole
+# design).
+my @CREATE_RECORD_FIELDS = ( @CARD_FIELDS, qw(type project start column parent exempt_reason) );
+my @RECORD_UPDATE_FIELDS = ( @CARD_FIELDS, @CARD_FIELD_REPLACEMENTS,
+  qw(ref project start author expect exempt_reason attachments evidence gate_passing_log scope) );
 
 sub card_fields             { return [@CARD_FIELDS] }
 sub card_field_replacements { return [@CARD_FIELD_REPLACEMENTS] }
@@ -448,6 +459,7 @@ sub discover_project {
 
 sub create_record {
     my ( $self, %args ) = @_;
+    $self->_refuse_misspelled_args( \@CREATE_RECORD_FIELDS, %args );
     my $type = $self->_valid_type( $args{type} );
     my $title = $args{title};
     die "Record title is required\n" if !defined $title || $title eq '';
@@ -2809,6 +2821,7 @@ sub _matches_base {
 
 sub record_update {
     my ( $self, %args ) = @_;
+    $self->_refuse_misspelled_args( \@RECORD_UPDATE_FIELDS, %args );
     $self->_require_author(%args);
     my $root = $self->discover_project(%args);
     local $self->{_journal_author} = $self->_journal_attribution( %args, project => $root );
@@ -13026,6 +13039,96 @@ sub _require_author {
     return $args{author};
 }
 
+# TKT-635. record_update and create_record take %args wholesale and read
+# only the keys they know - everything else is silently ignored, which is
+# how a misspelled --exempt-required (called directly against the engine as
+# exempt_required) cost an hour of looking at the wrong code entirely.
+#
+# ONLY A NEAR MISS IS REFUSED, deliberately narrower than the CLI's own
+# TKT-298 "unknown option" refusal, which rejects anything undeclared. Both
+# engine methods are called internally with %option - Tira::CLI.pm's one
+# shared Getopt::Long spec, whose hash-slot targets (\$option{foo}) exist
+# for every declared flag the moment the spec is built, defined only for
+# whichever flags this invocation actually typed. So a real record.update or
+# record.create call already carries dozens of keys neither method uses -
+# `refs`, `columns`, `dashboard_host`, and so on - present but undef unless
+# the caller happened to type that flag too. Refusing every unknown key
+# would refuse those calls outright; refusing only a key that closely
+# resembles a real field catches the actual failure (a typo) without
+# touching a legitimate foreign key, which cannot be close to a field it
+# has nothing to do with by construction of the two vocabularies.
+#
+# DEFINED VALUES ONLY. An autovivified-but-untyped slot is not something the
+# caller asked for, and holding its bare existence against a call would
+# refuse the ordinary shape every real invocation already has.
+sub _refuse_misspelled_args {
+    my ( $self, $known, %args ) = @_;
+    my %recognised = map { $_ => 1 } @{$known};
+    my @suspect = grep { defined $args{$_} && !$recognised{$_} } sort keys %args;
+    return if !@suspect;
+
+    # SUGGESTIONS ARE MEASURED AGAINST CARD FIELDS ONLY, not every recognised
+    # key. The short call-mechanics names (ref, column, start...) collide at
+    # this distance with entirely unrelated, legitimate flags from OTHER
+    # commands sharing the same %option hash - 'refs' is one edit from
+    # 'ref', 'columns' is one edit from 'column' - so measuring against them
+    # would refuse exactly the wholesale-%args calls this design exists to
+    # leave alone. A card field name is typically long and specific enough
+    # (required_exempt, solution_needed) that this collision does not arise
+    # in practice, which is the property this whole check depends on.
+    my @suggestable = ( @CARD_FIELDS, @CARD_FIELD_REPLACEMENTS );
+
+    my @lines;
+    for my $bad (@suspect) {
+
+        # WORDS TRANSPOSED IS A NEAR MISS TOO, and Levenshtein alone misses
+        # it: 'exempt_required' for 'required_exempt' is the exact failure
+        # this card was filed about, and swapping two whole words scores as
+        # far apart in plain edit distance as two unrelated strings of the
+        # same length. Caught first, as an exact match on the same
+        # underscore-separated words in a different order - far cheaper and
+        # far more precise than lowering the distance threshold to reach it,
+        # which would let through everything else that threshold widens.
+        my $bad_words = join '_', sort split /_/, $bad;
+        my ($transposed) = grep { ( join '_', sort split /_/, $_ ) eq $bad_words } @suggestable;
+        if ( defined $transposed ) {
+            push @lines, "Unknown argument '$bad' - did you mean '$transposed'?";
+            next;
+        }
+
+        my %distance = map { $_ => _edit_distance( $bad, $_ ) } @suggestable;
+        my @near = sort { $distance{$a} <=> $distance{$b} || $a cmp $b }
+          grep { $distance{$_} <= 2 } keys %distance;
+        next if !@near;
+        push @lines, "Unknown argument '$bad' - did you mean '$near[0]'?";
+    }
+    die join( "\n", @lines ) . "\n" if @lines;
+    return;
+}
+
+# Levenshtein distance, the standard three-operation edit count. Iterative
+# rather than recursive: the field lists this measures against are a low
+# hundred at most, so clarity wins over avoiding the O(n*m) table.
+sub _edit_distance {
+    my ( $left, $right ) = @_;
+    my @prev = ( 0 .. length $right );
+    for my $i ( 1 .. length $left ) {
+        my @row = ($i);
+        for my $j ( 1 .. length $right ) {
+            if ( substr( $left, $i - 1, 1 ) eq substr( $right, $j - 1, 1 ) ) {
+                $row[$j] = $prev[ $j - 1 ];
+                next;
+            }
+            my $least = $prev[$j];
+            $least = $row[ $j - 1 ]  if $row[ $j - 1 ] < $least;
+            $least = $prev[ $j - 1 ] if $prev[ $j - 1 ] < $least;
+            $row[$j] = 1 + $least;
+        }
+        @prev = @row;
+    }
+    return $prev[-1];
+}
+
 # Builds required_exempt entries from --exempt-required/--exempt-reason
 # pairs, shared by create_record and record_update so a card cannot be
 # born with an unreasoned exemption any more than it can gain one later.
@@ -14061,6 +14164,13 @@ C<fix_version> must be a released version number, C<none>, or an
 C<n/a - ...> explanation for work outside a release - anything else is
 refused, since 3.45.
 
+B<A misspelled argument is refused, since 5.87> (TKT-635): a key that closely
+resembles a real field - small edit distance, or the same words transposed
+(C<exempt_required> for C<required_exempt>) - is named with a suggestion,
+rather than silently doing nothing. A key that resembles no real field is
+left alone, because this method is called internally with C<%args> hashes
+that legitimately carry other keys too.
+
 =head2 format_output
 
 Encodes data as TOON by default, pretty JSON, Markdown, or an HTML board.
@@ -14081,6 +14191,11 @@ affects_versions, scope_in, scope_out) append; the C<*_replace> forms
 (C<labels_replace>, C<scope_in_replace>, C<scope_out_replace>, and so on)
 replace the whole array wholesale, including with an empty array to clear
 it - the only way to correct a wrong entry rather than append past it.
+
+B<A misspelled argument is refused, since 5.87> (TKT-635, see C<create_record>
+above for the full reasoning and the design constraint that shapes it): the
+same near-miss check, run against the same field list plus this method's own
+call-mechanics keys (C<ref>, C<author>, C<expect>, and so on).
 
 =head2 column_update
 

@@ -1,5 +1,24 @@
 Revision history for Tira
 
+5.87  2026-09-07
+    - TKT-635: record_update and create_record now refuse a misspelled
+      composed-field key instead of silently ignoring it - a near miss
+      of a real field name (small edit distance, or the same words in
+      the wrong order, like exempt_required for required_exempt) is
+      named with a suggestion. A key that resembles nothing real, such
+      as one of the many unrelated flags the CLI's shared %option hash
+      always carries, is left alone exactly as before.
+    - TKT-1002: docs/JOBS.md now explains that a command-mode job's
+      --command string is exec'd a second time, by the job daemon
+      itself with no shell and no interactive PATH - the documented
+      bare "d2 tira.police.outstanding" example runs fine typed by a
+      person but fails when the daemon runs the identical string.
+      Guidance added: resolve the absolute path once with `which d2`
+      and use that in --command. The worked examples themselves are
+      unchanged (t/509 still proves each one runs from an interactive
+      PATH). run_due_job in lib/Tira/CLI/Police.pm now carries a
+      comment cross-referencing the new section.
+
 5.86  2026-09-07
     - TKT-994: a project name containing newlines no longer breaks the
       bridge's one-violation-per-line contract - the same fix TKT-981

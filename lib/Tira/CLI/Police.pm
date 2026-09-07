@@ -687,6 +687,11 @@ sub advance_monitor_output {
 # that genuinely needs longer says so with its own run_timeout. TKT-864.
 our $RUN_TIMEOUT = 300;
 
+# THE COMMAND BELOW IS EXEC'D WITH NO SHELL AND NO INTERACTIVE PATH. A bare
+# program name that resolves fine typed into a terminal can fail here with
+# "No such file or directory" - see docs/JOBS.md's "The command is executed a
+# second time" section for why and the fix (an absolute path in --command).
+# TKT-1002.
 sub run_due_job {
     my (%args) = @_;
     my $job = $args{job};
@@ -1443,6 +1448,13 @@ from one that never ran - the ambiguity EPC-014 exists to remove. A program
 that is not installed is a B<result>, not a crash: what could not be run is
 named in C<output> with a status of -1, the same judgement
 C<Tira::CLI::Serve::_reading> already makes about a missing C<docker>.
+
+B<The command runs with no shell and no interactive C<PATH>> (TKT-1002): a
+bare program name that resolves fine typed into a terminal can fail here with
+"No such file or directory", because C<IPC::Open3> execs the words directly
+rather than through a login shell. See F<docs/JOBS.md>'s "The command is
+executed a second time" section for why, and for the fix - an absolute path
+in C<--command>.
 
 =head1 SEE ALSO
 

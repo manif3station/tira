@@ -95,6 +95,23 @@ only "Invalid command-line options" with nothing suggested. Nothing is
 guessed when no declared name is close, and nothing is written before the
 refusal either way. TKT-298.
 
+**The engine itself carries a narrower version of the same idea, since 5.87**
+(TKT-635). `record_update` and `create_record` take `%args` wholesale and used
+to read only the keys they know, silently ignoring the rest - a caller who
+misspelled a composed field (`exempt_required` for `required_exempt`, the
+exact case that was measured) got no error and no effect. Both methods now
+refuse a key that closely resembles a real field - small edit distance, or the
+same words in the wrong order - naming it and suggesting the field it was
+probably meant to be. Unlike the CLI's own TKT-298 refusal above, an unrelated
+key is left alone rather than refused outright: the engine is called
+internally with the CLI's own shared `%option` hash, which always carries
+dozens of keys neither method uses, and refusing every one of those would
+break the calls that already work today. Only card fields (`title`,
+`required_exempt`, and so on) are ever suggested - the short call-mechanics
+names (`ref`, `column`, `start`) are excluded from that comparison, because a
+legitimate, unrelated flag like `refs` or `columns` sits only one edit away
+from one of them.
+
 All command-line text, text files, YAML, JSON, and structured output use UTF-8.
 Invalid UTF-8 input is rejected. Non-ASCII text, including `£`, is preserved in
 titles, fields, comments, evidence, and gate details. Attachment content remains
@@ -2005,6 +2022,8 @@ nothing has to re-parse to find out.
 **A command that never started says so, since 5.83** (TKT-950). A command job can fail two ways, and the board used to treat them very differently. One that RAN and exited non-zero had its output and `exit status N` fed onto the job, where the card shows them. One that NEVER STARTED - which is what a command that cannot be execed does - had its reason pushed into `run_due_commands`' return value, and the loop then moved on without calling `job_feed` at all. Nothing displays that return value, so the card showed a job that had fired with no sign anything had gone wrong: the exact silence the branch below it carries a comment against. It now records `could not start: <command>` and the executor's own reason on the job, through the same feed call and the same guard the success path uses, so one job's failure still cannot take a pass down. The command is named because that is what makes it diagnosable - `d2` resolves from `PATH`, and a daemon's `PATH` is not an interactive shell's. Reported by the owner as a bare `d2` job command that could not exec; the report could not have been diagnosed from the board before this, which is the part that was fixed.
 
 **Proven through the real executor, not only the harness** (TKT-959, split from TKT-950 CHK-006 - that card's own fourth acceptance criterion named "the executor that was failing", and none could be shown to). `tira.job.help`'s 68 worked examples were already run by `t/509`, but from the test harness's own `PATH` - an interactive shell's - never from `run_due_commands`/`run_due_job`, the police daemon's own job-due exec path. A fake `local::lib`-shaped bin directory stands in for `~/perl5/bin`: with it absent from `PATH`, the documented bare `d2` example fails to start exactly as TKT-950 already made that failure legible; with it present, the same example runs cleanly through the real executor. Stated explicitly rather than left to be assumed: this covers the job-due exec path alone, not a Starman web worker or any other process that might one day run a job - the same overclaim TKT-950 itself was about.
+
+**And the gap itself is now documented, not only proven** (TKT-1002). `docs/JOBS.md` carries a "The command is executed a second time" section explaining, in the words a reader searches for, that a command-mode job's `--command` string is exec'd by the daemon with no shell and no interactive `PATH` - the exact fact TKT-959's fake-bin-directory test measures - and telling the reader what to do about it: resolve the absolute path once with `which d2` and use that in `--command`, rather than the bare form the worked examples still show (unchanged, since they are correct for a person typing them and `t/509` still proves every one runs). `run_due_job` in `lib/Tira/CLI/Police.pm` carries a comment pointing back at that section.
 
 **A job can be run without waiting for it (TKT-843, 5.33).** `tira.job.run
 --id JOB-001` runs one job now whatever its schedule says, and it is what the

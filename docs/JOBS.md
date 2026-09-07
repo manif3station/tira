@@ -135,6 +135,36 @@ did on your behalf.
 the quote and shows the command back. A job whose command is a typo is not a job
 with no command, and it does not run half of itself.
 
+### The command is executed a second time - by the daemon, not by you
+
+**The string inside `--command` is run again later, by the job daemon, not by
+the shell that typed `d2 tira.job.add`.** That is a different process with a
+different exec environment, and the difference that bites is `PATH`: the
+daemon runs your command with no shell at all (`IPC::Open3::open3`, see
+`run_due_job` in `lib/Tira/CLI/Police.pm`), so it never gets the `PATH` an
+interactive login shell builds for you - the entries a tool like `local::lib`
+adds to your shell's startup file are not there. A bare program name that
+resolves fine when you type it can fail to start when the daemon runs the
+exact same words. TKT-1002: `--command "d2 tira.police.outstanding"`, typed
+straight from this document, failed every scheduled run with `exec of d2
+tira.police.outstanding failed: No such file or directory` - the identical
+command worked perfectly typed into a terminal.
+
+**The fix is an absolute path in `--command`, not a bare program name.**
+Resolve it once from the same shell you use to type `d2` commands:
+
+```
+which d2
+```
+
+and use whatever that prints in place of the bare `d2` in the command you
+schedule - `--command "/home/you/perl5/bin/d2 tira.police.outstanding"` rather
+than `--command "d2 tira.police.outstanding"`. The worked examples in this
+document keep the bare form deliberately: they are typed by a person or an
+agent with an ordinary `PATH`, and every one of them is proven to run that way
+by `t/509` - it is only the *string handed to `--command`*, which the daemon
+resolves on its own later, that needs the absolute form.
+
 ---
 
 ## Worked examples

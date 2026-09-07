@@ -304,6 +304,11 @@ d2 tira.job.list
 d2 tira.tasklist.list
 ```
 
+A command-mode job's `--command` string is run again later by the job daemon
+itself, with no shell and no interactive `PATH` - `d2 tira.job.help` (or
+`docs/JOBS.md`) explains why a bare `d2 ...` there can fail even though the
+identical line works typed by hand, and how to give it an absolute path.
+
 ![The ticket board rendered by `-o browser`, columns and cards](docs/images/dashboard-board.png)
 *The ticket board rendered by `-o browser`: columns and cards.*
 

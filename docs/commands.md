@@ -23,6 +23,16 @@ rejected. Instead the refusal says the value looks like an option and names the
 `--option=VALUE` form, which joins the value to its flag rather than leaving it
 as a separate argument. TKT-742.
 
+**`record_update` and `create_record` carry a narrower version of the same
+check, since 5.87** (TKT-635). They take `%args` wholesale and used to read
+only the keys they know, silently ignoring the rest - a caller who misspelled
+a composed field directly against the engine (`exempt_required` for
+`required_exempt`) got no error and no effect. A key that closely resembles a
+real field - small edit distance, or the same words transposed - is now
+refused with a suggestion; a key that resembles nothing real is left alone,
+because both methods are called internally with the CLI's own shared
+`%option` hash, which always carries many keys neither method uses.
+
 That parser is one array declared once, shared by every command - an option
 declared twice in it, `'attach=s@'` for years until 4.90 (TKT-775), is silent
 noise rather than a per-command bug: parsing still worked (both entries pointed
@@ -1099,6 +1109,8 @@ from before this card.
 **A command that could not start is recorded on the job** (TKT-950). A non-zero exit has always had its output and `exit status N` fed onto the job. A command that never started - an exec that fails - did not: the reason went into a return value nothing displays, and the card showed a job that fired with no sign of trouble. Since 5.83 the job records `could not start: <command>` and the executor's own reason, through the same feed call and guard the success path uses. The command is named deliberately, because `d2` resolves from `PATH` and a daemon's `PATH` is not an interactive shell's.
 
 **And proven through that real executor** (TKT-959, split from TKT-950). `t/509` runs `tira.job.help`'s 68 examples from the test harness's own `PATH`, not from `run_due_commands`/`run_due_job` - the job-due exec path a daemon actually uses. A fake `local::lib`-shaped bin directory stands in for `~/perl5/bin`: absent from `PATH`, the documented bare `d2` example fails to start; present, it runs cleanly through that real executor. States explicitly that this covers the job-due path alone, not a Starman worker or any other future executor.
+
+**And documented, not only proven** (TKT-1002). `docs/JOBS.md` now explains this in the reader's own words - the daemon runs `--command` with no shell and no interactive `PATH` - and gives the fix: resolve an absolute path once with `which d2` rather than relying on the bare form the worked examples still show unchanged.
 
 **The raised card is incomplete by construction** (observed on TKT-948). The
 gate writes a title, a description sliced from the Changes file, and a

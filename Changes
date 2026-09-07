@@ -1,5 +1,10 @@
 Revision history for Tira
 
+    - TKT-862: a board column's own pagination (base-script.js's
+      pageSize, since TKT-703) now starts at fifty cards rather than
+      ten, so a large column needs fewer "Show more" clicks. A column
+      with fewer than fifty cards shows no Show-more control at all,
+      unchanged.
     - TKT-966: an unmatched dashboard route no longer logs a raw
       Template::Exception dump. A new catch-all route, declared last,
       answers with a plain 404 and one STDERR line naming the method,

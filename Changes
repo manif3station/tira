@@ -1,5 +1,10 @@
 Revision history for Tira
 
+    - TKT-1000: checklist-item-terminal (TKT-867) was missing from
+      three test files' own "every rule the tool offers" fixture
+      lists, so its forbids=>['age'] refusal had never been exercised.
+      Added to all three, plus a real trigger fixture and an --age
+      refusal test. No lib/ behavior changed - test coverage only.
     - TKT-989: answer-not-ok-no-followup's cross-branch now counts a
       follow-up that was asked BEFORE the not-ok mark and answered/
       judged after it, not only one asked strictly after the mark.

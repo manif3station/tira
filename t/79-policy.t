@@ -142,6 +142,7 @@ my %needs = (
     'card-stalled'              => { before => 'verify' },
     'checklist-idle'            => { column => 'implement', age => '30m' },
     'checklist-unmoved'         => {},
+    'checklist-item-terminal'   => {},
     'orphan-card'               => {},
     'monitor-dead'              => {},
     'monitor-output'            => {},

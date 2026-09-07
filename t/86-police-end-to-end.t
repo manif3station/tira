@@ -67,6 +67,7 @@ my %declare = (
     'card-stalled'              => { before => 'verify' },
     'checklist-idle'            => { column => 'implement', age => '30m' },
     'checklist-unmoved'         => {},
+    'checklist-item-terminal'   => {},
     'orphan-card'               => {},
     'rules-undeclared'               => {},
     'upgrade-unreviewed'        => { age => '1h' },
@@ -163,6 +164,16 @@ my $dragged = $tira->create_record( project => $root, type => 'ticket', title =>
 $tira->checklist_add( author => 'michael', project => $root, ref => $dragged->{ref}, item => 'never started', status => 'pending' );
 $tira->record_move(author => 'claude',  project => $root, ref => $dragged->{ref}, column => 'implement' );
 $tira->record_move(author => 'claude',  project => $root, ref => $dragged->{ref}, column => 'verify' );
+
+# checklist-item-terminal: an epic checklist item naming a card that has
+# already reached a terminal column, while the item itself is still open.
+my $epic_with_terminal_child = $tira->create_record( project => $root, type => 'epic', title => 'Names a finished card' );
+my $terminal_child = $tira->create_record( project => $root, type => 'ticket', title => 'Already done' );
+$tira->record_move( author => 'claude', project => $root, ref => $terminal_child->{ref}, column => 'implement' );
+$tira->record_move( author => 'claude', project => $root, ref => $terminal_child->{ref}, column => 'verify' );
+$tira->record_move( author => 'claude', project => $root, ref => $terminal_child->{ref}, column => 'done' );
+$tira->checklist_add( author => 'michael', project => $root, ref => $epic_with_terminal_child->{ref},
+    item => "Finish $terminal_child->{ref}", status => 'pending' );
 
 my $waiting = $tira->create_record( project => $root, type => 'ticket', title => 'Has a question' );
 my $asked = $tira->question_add( project => $root, ref => $waiting->{ref},

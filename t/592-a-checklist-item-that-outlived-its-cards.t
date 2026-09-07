@@ -84,6 +84,17 @@ my $epic_now = $tira->record_show( project => $root, ref => $epic->{ref} );
 ok( ( grep { lc( $_->{status} ) ne 'done' } @{ $epic_now->{checklist} } ),
     'the rule reports only - the items it named are still open after the pass' );
 
+# --- the rule declares no age, and refuses one rather than storing it --------
+# TKT-1000: this refusal existed since TKT-867 but nothing exercised it.
+
+my $refused = eval {
+    $tira->policy_add( project => $root, rule => 'checklist-item-terminal',
+        age => '1h', action => 'bridge-reminder' );
+    1;
+};
+ok( !$refused, 'checklist-item-terminal refuses an --age rather than silently storing it' );
+like( $@, qr/takes no --age/, 'and says so' );
+
 done_testing;
 
 __END__

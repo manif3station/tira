@@ -58,10 +58,19 @@ unlike( $html, qr/\.column__head\.column__head--compact|\.column__head\{[^}]*top
     'this fix does not touch .column__head at all - TKT-788 already broke real '
       . 'pointer interactions twice trying that' );
 
-like( $html, qr/heroEl\.classList\.toggle\("hero--compact"/,
-    'a scroll listener toggles the compact class on .hero itself' );
+# TKT-955: a single threshold toggling the class fed back into itself -
+# compacting shortens the page, which can put scrollY back on the other
+# side of the same threshold, in the same scroll gesture. Hysteresis
+# replaced the single toggle() call, so this checks for the two-threshold
+# shape rather than the literal call the fix necessarily removed - the
+# claim this card makes (a scroll listener drives the compact class) still
+# holds, just not through toggle() any more.
+like( $html, qr/heroEl\.classList\.add\("hero--compact"\)/,
+    'the scroll listener compacts .hero above a high threshold' );
+like( $html, qr/heroEl\.classList\.remove\("hero--compact"\)/,
+    'and expands it below a separate, lower threshold - hysteresis, not a single toggle' );
 like( $html, qr/window\.addEventListener\("scroll"/,
-    'the toggle is driven by a real scroll listener' );
+    'the class change is driven by a real scroll listener' );
 
 # --- a live count of outstanding questions and tasks -------------------------
 

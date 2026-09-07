@@ -1096,6 +1096,8 @@ from before this card.
 
 **A command that could not start is recorded on the job** (TKT-950). A non-zero exit has always had its output and `exit status N` fed onto the job. A command that never started - an exec that fails - did not: the reason went into a return value nothing displays, and the card showed a job that fired with no sign of trouble. Since 5.83 the job records `could not start: <command>` and the executor's own reason, through the same feed call and guard the success path uses. The command is named deliberately, because `d2` resolves from `PATH` and a daemon's `PATH` is not an interactive shell's.
 
+**And proven through that real executor** (TKT-959, split from TKT-950). `t/509` runs `tira.job.help`'s 68 examples from the test harness's own `PATH`, not from `run_due_commands`/`run_due_job` - the job-due exec path a daemon actually uses. A fake `local::lib`-shaped bin directory stands in for `~/perl5/bin`: absent from `PATH`, the documented bare `d2` example fails to start; present, it runs cleanly through that real executor. States explicitly that this covers the job-due path alone, not a Starman worker or any other future executor.
+
 **The raised card is incomplete by construction** (observed on TKT-948). The
 gate writes a title, a description sliced from the Changes file, and a
 checklist - and no problem statement, scope, acceptance criteria or parent. On

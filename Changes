@@ -1,5 +1,13 @@
 Revision history for Tira
 
+    - TKT-959: tira.job.help's worked examples are now proven through
+      the real job-due executor (run_due_commands/run_due_job), not
+      only the test harness's own PATH. A fake local::lib-shaped bin
+      directory stands in for ~/perl5/bin; the documented bare d2
+      example fails to start without it on PATH and runs cleanly with
+      it, through the actual daemon exec path. States explicitly which
+      executor is covered (job-due) and which are not (a Starman
+      worker or any other future one). Split from TKT-950 CHK-006.
     - TKT-844: a damaged tasklist.json now refuses naming itself,
       instead of leaking the JSON decoder's own words and a
       lib/Tira/Tasklist.pm line number to whichever caller happened

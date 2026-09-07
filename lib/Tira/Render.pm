@@ -345,6 +345,12 @@ sub _markdown {
         }
         return $markdown;
     }
+
+    # An error used to fall into the JSON-dump fallback below. TKT-658.
+    if ( ref($data) eq 'HASH' && exists $data->{error} && ref( $data->{error} ) ne 'HASH' ) {
+        return ( ref( $data->{error} ) ? join( "\n", @{ $data->{error} } ) : $data->{error} ) . "\n";
+    }
+
     return "# Tira Result\n\n```json\n" . Tira::json_object()->canonical->allow_nonref->pretty->encode($data) . "```\n";
 }
 

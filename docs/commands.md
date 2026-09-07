@@ -1725,6 +1725,13 @@ card-unassigned (1):
 
 TKT-291.
 
+**Every multi-line CLI refusal carried the same fault, since 5.87** (TKT-658):
+a required-action gate naming several unmet items reached the reader as one
+string with every newline escaped, whatever `-o` format was asked for.
+`-o toon` and `-o human` now carry it as one line per item; `-o json` is
+untouched, because a JSON string cannot legally hold a literal newline in
+the first place.
+
 Both of those were asked for. The list reads the violation ledger, and **only a
 police pass writes it** — so the answer is as of the last pass, and saying so
 matters because the instruction for clearing violations ends "then run

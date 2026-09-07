@@ -2602,7 +2602,12 @@ sub _error {
     $message =~ s/\s+\z//;
     require Tira::CLI::Usage;
     $message = Tira::CLI::Usage::_names_the_option($message);
-    my $formatted = eval { $tira->format_output( { error => $message }, output => $output ) };
+    # A multi-line refusal reached the reader as one escaped string. TOON
+    # and human are read as text, so they get one line per item; JSON keeps
+    # its string. TKT-658.
+    my $carried = ( $output ne 'json' && $output ne 'json-pretty' && $message =~ /\n/ )
+      ? [ split /\n/, $message ] : $message;
+    my $formatted = eval { $tira->format_output( { error => $carried }, output => $output ) };
     $formatted = Tira::json_object()->canonical->pretty->encode( { error => $message } ) if !defined $formatted;
     print STDERR _utf8_bytes($formatted);
     return 2;
@@ -2779,7 +2784,8 @@ naming a later one.
 
 Refuses to let a card LEAVE a column while that column's required actions are
 unfinished, naming each unmet item with its id so the refusal can be acted on
-rather than only understood. Forward moves only.
+rather than only understood. Forward moves only. Reaches the caller through
+C<_error>, lines-not-escaped-string since 5.87 (TKT-658).
 
 =head2 _unjudged_answer_violation
 

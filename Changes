@@ -1,6 +1,15 @@
 Revision history for Tira
 
 5.87  2026-09-07
+    - TKT-658: a multi-line CLI refusal (a required-action gate naming
+      several unmet items, say) reached the reader as one string with
+      every newline escaped, in every output format. -o toon and -o
+      human now carry it as one line per item, matching how the police
+      bridge already avoids the same problem; -o json is unchanged - a
+      JSON string cannot legally hold a literal newline, so escaping it
+      there was already correct. -o human also stops falling into the
+      generic JSON-dump renderer for an error, which wrapped it as a
+      JSON blob inside a markdown fence on top of the escaping.
     - TKT-653: a new meta-test (t/653-a-class-with-nothing-behind-it.t,
       in the family of t/121 and t/410) checks that every BEM-shaped
       class string in the dashboard's view JS matches a rule in

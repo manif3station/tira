@@ -29,6 +29,14 @@ Revision history for Tira
       as TKT-933's card-stalled age refusal. The deeper gap he found -
       several working clones of one remote cannot all be watched
       today - is filed separately as TKT-998.
+    - TKT-995: a due job could be announced more than once per due
+      window when two police daemons race the same read - a normal,
+      supported way to run this project. job-due's due-check read used
+      to happen outside any lock, while only the ledger write was
+      locked; the same shape t/364 already fixed for violation_record,
+      left unfixed here. Fixed by moving the read inside the same
+      _with_enforcement_lock as the write, so the whole decide-
+      announce-record sequence is atomic per pass.
     - TKT-959: tira.job.help's worked examples are now proven through
       the real job-due executor (run_due_commands/run_due_job), not
       only the test harness's own PATH. A fake local::lib-shaped bin

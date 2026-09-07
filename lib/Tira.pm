@@ -8593,75 +8593,103 @@ sub policy_evaluate {
             # reason no other stateful rule here writes the record it is
             # judging. Read once per pass rather than per job, since every
             # job in this loop shares one ledger file.
-            my $checked = $args{store} ? $self->_violation_ledger( $args{store} )->{job_checked} // {} : {};
+            #
+            # TKT-995: this read used to happen HERE, outside any lock, while
+            # only the write below was ever wrapped in
+            # _with_enforcement_lock - the exact shape t/364 already fixed for
+            # violation_record's own read-modify-write, left unfixed in this
+            # one remaining ledger read. Two police daemons racing this gap -
+            # a normal way to run this project, not a misconfiguration; this
+            # session's own board had five running against it at once - both
+            # read the same stale job_checked, both decide the job is due,
+            # and both announce it. Reported live: the same message logged
+            # three times, 33 seconds apart, on a job scheduled every three
+            # hours. Fixed by moving the read inside the same lock as the
+            # write, so the whole decide-announce-record sequence is atomic
+            # per pass: a second daemon cannot start reading until the first
+            # has both decided and recorded.
+            my $decide_and_announce = sub {
+                my $checked = $args{store}
+                  ? $self->_violation_ledger( $args{store} )->{job_checked} // {}
+                  : {};
 
-            # TKT-942. Which jobs turned out to be genuinely due this pass,
-            # as against $checked above, which advances for every job whether
-            # due or not. Michael asked three times in one afternoon why a
-            # job showed no run history, and he was right to: last_run was a
-            # field nothing wrote, and the "Last spoke" indicator he could
-            # see on his monitors reads last_output_at, which the feeder
-            # stamps for monitors alone. So a cron job of either mode had
-            # never had anything to show. Collected here and written with
-            # $checked below in one ledger write, then joined onto the job at
-            # READ time by job_list as last_due_at - the record itself stays
-            # untouched, for the reason stated three paragraphs up.
-            my %fired;
+                # TKT-942. Which jobs turned out to be genuinely due this
+                # pass, as against $checked above, which advances for every
+                # job whether due or not. Michael asked three times in one
+                # afternoon why a job showed no run history, and he was
+                # right to: last_run was a field nothing wrote, and the
+                # "Last spoke" indicator he could see on his monitors reads
+                # last_output_at, which the feeder stamps for monitors
+                # alone. So a cron job of either mode had never had
+                # anything to show. Collected here and written with
+                # $checked below in one ledger write, then joined onto the
+                # job at READ time by job_list as last_due_at - the record
+                # itself stays untouched, for the reason stated three
+                # paragraphs up.
+                my %fired;
 
-            for my $job ( @{$jobs} ) {
-                my $since = $checked->{ $job->{id} };
-                next if !$self->job_is_due( $job, $when, $since );
-                my ($window) = $when =~ /\A(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2})/;
-                $fired{ $job->{id} } = $when;
+                for my $job ( @{$jobs} ) {
+                    my $since = $checked->{ $job->{id} };
+                    next if !$self->job_is_due( $job, $when, $since );
+                    my ($window) = $when =~ /\A(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2})/;
+                    $fired{ $job->{id} } = $when;
 
-                # A command-mode job announces the command it is about to
-                # run, so the bridge says what is happening before it says
-                # what happened.
-                my $said = ( $job->{mode} // '' ) eq 'command'
-                  ? "runs: $job->{command}"
-                  : $job->{message};
-                $report->( $policy, $job->{id}, $said, undef,
-                    ( $window // $when ) );
+                    # A command-mode job announces the command it is about to
+                    # run, so the bridge says what is happening before it says
+                    # what happened.
+                    my $said = ( $job->{mode} // '' ) eq 'command'
+                      ? "runs: $job->{command}"
+                      : $job->{message};
+                    $report->( $policy, $job->{id}, $said, undef,
+                        ( $window // $when ) );
 
-                # TKT-944. NAMED HERE, RUN IN THE CLI LAYER. TKT-841 built
-                # the executor and described exactly this division - the
-                # engine announces, Tira::CLI::Police::run_due_job runs -
-                # but nothing was ever wired to reach it, so its only caller
-                # was the manual Run now button and every command-mode job on
-                # every board was announced and never executed. Proven with a
-                # witness file the job's own command creates, which never
-                # appeared. Collected through a caller-supplied arrayref, the
-                # same way `unreadable` is handed back, rather than executed
-                # here: t/489 holds this rule body to running nothing and
-                # t/492 holds the whole engine to it.
-                push @{ $args{due_commands} }, $job
-                  if $args{due_commands}
-                  && ( $job->{mode} // '' ) eq 'command';
-            }
+                    # TKT-944. NAMED HERE, RUN IN THE CLI LAYER. TKT-841 built
+                    # the executor and described exactly this division - the
+                    # engine announces, Tira::CLI::Police::run_due_job runs -
+                    # but nothing was ever wired to reach it, so its only caller
+                    # was the manual Run now button and every command-mode job on
+                    # every board was announced and never executed. Proven with a
+                    # witness file the job's own command creates, which never
+                    # appeared. Collected through a caller-supplied arrayref, the
+                    # same way `unreadable` is handed back, rather than executed
+                    # here: t/489 holds this rule body to running nothing and
+                    # t/492 holds the whole engine to it.
+                    push @{ $args{due_commands} }, $job
+                      if $args{due_commands}
+                      && ( $job->{mode} // '' ) eq 'command';
+                }
 
-            # Advanced for EVERY job, checked or not due, so the next pass -
-            # whenever it happens to run - resumes from here rather than
-            # rescanning a window this pass already covered. Deliberately
-            # its own write, not folded into the loop above: a job's
-            # last-checked instant is true regardless of whether it turned
-            # out to be due this time.
-            if ( $args{store} && @{$jobs} ) {
-                $self->_with_enforcement_lock( $args{store}, sub {
-                    my $ledger = $self->_violation_ledger( $args{store} );
-                    $ledger->{job_checked} //= {};
-                    $ledger->{job_checked}{ $_->{id} } = $when for @{$jobs};
+                # Advanced for EVERY job, checked or not due, so the next pass -
+                # whenever it happens to run - resumes from here rather than
+                # rescanning a window this pass already covered. Deliberately
+                # its own write, not folded into the loop above: a job's
+                # last-checked instant is true regardless of whether it turned
+                # out to be due this time. Nothing to persist without a store -
+                # the caller asked to see what is due, not to record it.
+                return 1 if !$args{store};
+                my $ledger = $self->_violation_ledger( $args{store} );
+                $ledger->{job_checked} //= {};
+                $ledger->{job_checked}{ $_->{id} } = $when for @{$jobs};
 
-                    # Only the jobs that were actually due, and only ever
-                    # added to: a job that fired an hour ago and is not due
-                    # now still last fired an hour ago. TKT-942.
-                    if (%fired) {
-                        $ledger->{job_due_at} //= {};
-                        $ledger->{job_due_at}{$_} = $fired{$_} for keys %fired;
-                    }
-                    $self->_atomic_write( $self->_violation_ledger_path( $args{store} ),
-                        json_object()->canonical->utf8->encode($ledger) );
-                    return 1;
-                } );
+                # Only the jobs that were actually due, and only ever
+                # added to: a job that fired an hour ago and is not due
+                # now still last fired an hour ago. TKT-942.
+                if (%fired) {
+                    $ledger->{job_due_at} //= {};
+                    $ledger->{job_due_at}{$_} = $fired{$_} for keys %fired;
+                }
+                $self->_atomic_write( $self->_violation_ledger_path( $args{store} ),
+                    json_object()->canonical->utf8->encode($ledger) );
+                return 1;
+            };
+
+            if ( @{$jobs} ) {
+                if ( $args{store} ) {
+                    $self->_with_enforcement_lock( $args{store}, $decide_and_announce );
+                }
+                else {
+                    $decide_and_announce->();
+                }
             }
         }
         elsif ( $rule eq 'task-card-mismatch' ) {
@@ -14064,6 +14092,18 @@ label the gate writes, rather than the title it generates from the version
 pair, and stops as soon as one checklist item is ticked, since the question is
 whether anybody read what changed and not whether they finished acting on it.
 TKT-957.
+
+C<job-due>'s due-check read (C<job_checked>, in the same store-backed ledger
+C<agent-still>'s notified-stamp already uses) used to run outside any lock,
+while only the write that records a job as checked/fired was wrapped in
+C<_with_enforcement_lock> - the same read-modify-write shape C<t/364> already
+fixed for C<violation_record>, left unfixed here. Two police daemons racing
+that gap - a normal, supported way to run this project - both read the same
+stale C<job_checked>, both decide the job is due, and both announce it.
+TKT-995, Michael's own report: the same violation logged three times, 33
+seconds apart, on a job scheduled every three hours. Fixed by moving the read
+inside the same lock as the write, so the whole decide-announce-record
+sequence is atomic per pass.
 
 =head2 project_new
 

@@ -60,8 +60,10 @@ for my $field (qw(problem_or_feature solution_needed key_details deliverables
 is( ref $answer->{exempt}, 'HASH', 'and the exceptions to that definition' );
 is_deeply( $answer->{exempt}{parent}{types}, ['sow'],
     'a SOW is exempt from needing a parent - it sits at the top of the tree' );
-is_deeply( $answer->{exempt}{parent}{labels}, ['standalone'],
-    'and a card labelled standalone is exempt too - it says somebody meant it' );
+is_deeply( $answer->{exempt}{parent}{labels}, [ 'standalone', 'upgrade-gate' ],
+    'and a card labelled standalone is exempt too - it says somebody meant it - and since '
+      . 'TKT-956 so is upgrade-gate, because the engine raised that card itself and cannot '
+      . 'say which feature epic it belongs under' );
 
 # --- and both readers use it ------------------------------------------------
 #

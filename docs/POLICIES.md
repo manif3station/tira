@@ -1939,6 +1939,8 @@ Repairing a file is a separate command somebody runs deliberately.
 different routes, so a board declaring both opens the same damaged file twice in
 a pass. The damage is one fact about one card and is reported as one.
 
+**A card moved between columns mid-pass no longer reports card-unreadable, since 5.85** (TKT-992, his report on developer-dashboard). Every rule resolves a ref's path once per pass and reuses it (TKT-978's own per-pass cache) - correct for a card being edited, since writing does not move its file, but not for one being MOVED: an agent moving a card while the police loop runs is ordinary, and a path cached before the move points at a file that has since relocated to a different column's directory, reading as `Cannot read JSON '...': No such file or directory` for a card that was never actually unreadable - settling on the very next pass once the stale cache expired with it. Fixed by re-walking once on ENOENT for a path that came from the cache; only a re-walk that also finds nothing is genuinely `card-unreadable`, and that case still names the original OS-level reason rather than the walk's own generic "not found," since a card genuinely deleted mid-pass is a real fault this cannot paper over.
+
 ## Two rules a board answers but does not declare
 
 `card-damaged` and `card-unreadable` are not policies. A policy says what a

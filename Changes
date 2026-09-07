@@ -1,5 +1,12 @@
 Revision history for Tira
 
+    - TKT-992: card-unreadable no longer fires for a card moved between
+      columns while a police pass is running. _record_data's own
+      per-pass path cache (TKT-978) can go stale mid-pass when a card
+      moves - fixed by re-walking once on ENOENT for a cached path,
+      only reporting unreadable when the re-walk also finds nothing.
+      A genuinely-deleted card still refuses with its original OS-
+      level reason preserved.
     - TKT-1000: checklist-item-terminal (TKT-867) was missing from
       three test files' own "every rule the tool offers" fixture
       lists, so its forbids=>['age'] refusal had never been exercised.

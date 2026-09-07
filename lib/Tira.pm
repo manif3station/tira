@@ -13181,7 +13181,7 @@ sub _record_data {
     my $key   = join "\x00", $root, $ref;
     my $path  = $cache ? $cache->{$key} : undef;
 
-    if ( !defined $path ) {
+    my $walk = sub {
         my @found;
         for my $type (qw(sow epic ticket)) {
             my $board = File::Spec->catdir( $root, '.tira', $type );
@@ -13196,14 +13196,38 @@ sub _record_data {
         # remembered "not found" would hide it from every rule after it.
         die "Record '$ref' not found\n" if !@found;
         die "Duplicate record '$ref' found\n" if @found > 1;
+        return $found[0];
+    };
 
-        $path = $found[0];
-        $cache->{$key} = $path if $cache;
-    }
+    $path = $walk->() if !defined $path;
+    $cache->{$key} = $path if $cache;
 
     # The card itself is read every time. Only the search for it is skipped -
     # the walk is 75% of a lookup and this read is 1% of it.
-    return ( $path, $self->_read_json($path), basename( dirname($path) ) );
+    #
+    # A CACHED path can go stale WHILE the pass that cached it is still
+    # running: a move racing the police loop is ordinary on a board with
+    # agents writing while it watches (TKT-992, his report on
+    # developer-dashboard) - the ref's path cannot change WITHIN one read,
+    # but the read of a stale cache entry from earlier in the same pass can
+    # find the file already gone from where it was. On ENOENT for a path
+    # that came from the cache, re-walk once for a fresh answer before
+    # reporting card-unreadable; a card genuinely missing everywhere still
+    # refuses exactly as before.
+    my $record = eval { $self->_read_json($path) };
+    if ( !defined $record ) {
+        my $first_error = $@;
+        die $first_error if !$cache || $first_error !~ /No such file or directory/;
+
+        # A card genuinely gone leaves nothing for the walk to find either -
+        # that read the walk already ran, and its OS-level reason is more
+        # actionable than the walk's own generic "not found" (TKT-988: the
+        # reason is what stays after the path itself is redacted out).
+        my $resolved = eval { $path = $walk->(); $cache->{$key} = $path; 1 };
+        die $first_error if !$resolved;
+        $record = $self->_read_json($path);
+    }
+    return ( $path, $record, basename( dirname($path) ) );
 }
 
 # The measurement behind the rule: decoding a mature board of 138 records
@@ -15218,6 +15242,11 @@ The raw journal parse this reads from is cached for the length of one police
 pass, keyed by ref - see C<_journal_entries>, TKT-987 - because four
 independent rule readers otherwise open and JSON-decode the same card's whole
 journal once each within a single pass.
+
+Resolves the record's own path through C<_record_data>, which since TKT-992
+re-walks once on ENOENT for a path drawn from its own per-pass cache (TKT-978)
+before refusing - a card moved to a different column mid-pass is not the same
+fault as one genuinely missing everywhere.
 
 =head2 assignment_set
 

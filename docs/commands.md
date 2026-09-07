@@ -1397,8 +1397,8 @@ distinct from where work ends - without one, "not yet approved" and "not yet
 done" are the same claim, and `unproven()`/`premature()` already make it.
 TKT-887.
 
-Since 4.99 (TKT-796) the browser suite (`tools/browser-tests`, 22 Playwright
-checks since TKT-952) no longer runs here - a single flaky test used to block an entire
+Since 4.99 (TKT-796) the browser suite (`tools/browser-tests`, 23 Playwright
+checks since TKT-955) no longer runs here - a single flaky test used to block an entire
 batch of otherwise-good, individually-verified cards. **The intended
 replacement - a conditional required action on the `verify` column, firing
 only for a card whose changes touch `lib/Tira/views/*`, `DashboardWeb.pm`, or

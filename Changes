@@ -1,5 +1,18 @@
 Revision history for Tira
 
+    - TKT-955: the sticky header stops shaking near its scroll
+      threshold. His report, a screen recording: scroll to the top
+      then down a little, right where the header tries to compact,
+      and it shakes. One threshold (scrollY > 24) toggling a class
+      that changes the header's own height is a feedback loop by
+      construction - compacting shortens the page, which can put
+      scrollY back under 24, expanding it again, in the same scroll
+      gesture. Fixed with hysteresis: two thresholds 56px apart
+      (compact above 64px, expand below 8px), wider than the height
+      the switch can move the page. Reproduced directly: scripted
+      scrolling toggled the class 4-5 times against pre-fix code, 0
+      times against the fix.
+
     - TKT-952: the job card's right-hand column no longer reserves
       space for a status phrase. His report, two screenshots: a tall
       empty strip roughly a third of the card's width, in both

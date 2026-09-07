@@ -1,5 +1,15 @@
 Revision history for Tira
 
+    - TKT-952: the job card's right-hand column no longer reserves
+      space for a status phrase. His report, two screenshots: a tall
+      empty strip roughly a third of the card's width, in both
+      readonly mode and the edit dialog. Live measurement (source
+      reading alone found two wrong candidates) found the real cause:
+      .jobs-card__beat's status text ("Never spoken", etc.) was the
+      widest thing ever placed in the grid's auto column, squeezing
+      the message text column to half the card. Moved to column 1;
+      text column measured 146px -> 179px of a 289px card.
+
     - TKT-956: the upgrade gate's own card arrives complete. It used to
       write only a title, a description and a checklist, leaving 9-12
       other required fields empty and no parent - a card-holes and

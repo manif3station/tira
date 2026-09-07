@@ -140,6 +140,15 @@ make_card() {
         python3 -c 'import json,sys; print(json.load(sys.stdin)["ref"])'
 }
 
+# A job that has never fired, the exact shape his report was about (JOB-003):
+# a schedule and a command, no output panel to render because nothing has run
+# yet. TKT-952.
+make_job() {
+    local TIRA_BOARD="$1"; export TIRA_BOARD
+    tira job.add --schedule '0 6 * * *' --command 'd2 tira.backup' -o json |
+        python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])'
+}
+
 # A card at a particular column, walked there one step at a time. TKT-426
 # refuses a move that skips ahead of the board's declared order - this
 # fixture wants a card AT a column, not a simulation of an agent skipping a
@@ -215,6 +224,7 @@ build_browser_board() {
     second="$(make_card "$where" "Second card")"
     sleep 1
     third="$(make_card "$where" "Third card")"
+    make_job "$where" >/dev/null
     tira login.register --id michael --password hunter2 -o json >/dev/null
 
 }
@@ -511,6 +521,10 @@ for test in "$tests"/*.js; do
         # that has a command and no proof. Needs the LIVE page for the same
         # reason its neighbours do - the dialog is filled from /record. TKT-628.
         announced-command.js) run_one "$name" "$browsing_html" "$live_data" ;;
+        # jobs-editor.js, which builds .jobs-card, is only embedded on a
+        # live=>1 render - a static export ships an empty .jobs-cards list
+        # and none of the script that would fill it. TKT-952.
+        job-card-empty-column.js) run_one "$name" "$browsing_html" "$live_data" ;;
         column-editor.js)     run_one "$name" "$live_html" ;;
         policy-editor.js)     run_one "$name" "$live_html" ;;
         tasklist-section.js)  run_one "$name" "$live_html" ;;

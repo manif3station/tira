@@ -3164,6 +3164,8 @@ not that: it records `ok` or `not-ok`, a judgement, and leaves `read_at` alone.
 For "I have acted on this", use `tira.comment.add` or a card field, which is
 what `answer-ok-not-folded` asks for. Neither overwrites the answer.
 
+**`answer-not-ok-no-followup`'s own cross-branch punished the diligent ordering, since 5.85** (TKT-989, his report on DD-810). Asking a replacement question and only then marking the old one not-ok never leaves the card with an unpaired cross, even for a moment - but the rule required the follow-up's own `asked_at` to be strictly LATER than the not-ok mark, so a follow-up asked forty seconds before the mark fired this rule forever, even after that follow-up was answered and judged. Fixed to count a follow-up as settling the cross once it was either asked after the mark (unchanged) or its own answer was resolved after the mark, whichever order it was asked in - "resolved-after" rather than a magic time window or parsing a question's text for a reference to the one it crosses.
+
 **The fourth reader of the jobs record (TKT-899, 5.42).** `job-due` read that
 record without guarding the read, so a locked or corrupt jobs file made every due
 job silently invisible and the pass said nothing at all — a board with a broken

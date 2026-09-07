@@ -1,5 +1,10 @@
 Revision history for Tira
 
+    - TKT-989: answer-not-ok-no-followup's cross-branch now counts a
+      follow-up that was asked BEFORE the not-ok mark and answered/
+      judged after it, not only one asked strictly after the mark.
+      The diligent ask-then-mark ordering used to fire this rule
+      forever even once the follow-up was fully resolved.
     - TKT-862: a board column's own pagination (base-script.js's
       pageSize, since TKT-703) now starts at fifty cards rather than
       ten, so a large column needs fewer "Show more" clicks. A column

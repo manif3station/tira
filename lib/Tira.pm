@@ -8022,8 +8022,40 @@ sub policy_evaluate {
                             $asker, $question->{id} );
                     }
                     else {
-                        # A cross on its own settles nothing.
-                        next if grep { ( $_->{asked_at} // '' ) gt $marked } @questions;
+                        # A cross on its own settles nothing. A follow-up
+                        # counts once it has been ANSWERED at or after the
+                        # mark, regardless of when it was originally asked -
+                        # not once it was merely asked after the mark.
+                        #
+                        # Asking the replacement first and crossing the old
+                        # one second is the diligent ordering: it never
+                        # leaves the card with an unpaired cross, even for a
+                        # moment. TKT-989, his report on DD-810: Q-149 (the
+                        # follow-up) was asked 40 seconds BEFORE Q-144 was
+                        # marked not-ok, then answered and judged after -
+                        # existing, answered, folded - and the old
+                        # asked-strictly-after check still fired forever,
+                        # because it punished exactly the behavior that
+                        # avoids the fault this rule exists to catch.
+                        #
+                        # Resolved-after, not a time window or a reference
+                        # match: an old, already-settled, unrelated question
+                        # asked and answered well before this cross must not
+                        # retroactively count just because it exists on the
+                        # same card.
+                        next if grep {
+                            my $other = $_;
+                            $other->{id} ne $question->{id}
+                              && (
+                                ( $other->{asked_at} // '' ) gt $marked
+                                || ( $other->{answer}
+                                     && do {
+                                         my $settled = $other->{answer}{marked_at}
+                                           // $other->{answer}{answered_at};
+                                         defined $settled && $settled gt $marked;
+                                     } )
+                              );
+                        } @questions;
                         $report->( $policy, $record,
                             "$question->{id} was marked not-ok and nothing further was asked",
                             $asker, $question->{id} );

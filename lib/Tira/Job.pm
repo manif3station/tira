@@ -331,10 +331,22 @@ sub job_list {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
     my $jobs = _job_read( $self, $root );
-    return $jobs if !defined $args{store} || $args{store} eq '';
 
-    my $due = eval { $self->_violation_ledger( $args{store} )->{job_due_at} } || {};
-    $_->{last_due_at} = $due->{ $_->{id} } for @{$jobs};
+    if ( defined $args{store} && $args{store} ne '' ) {
+        my $due = eval { $self->_violation_ledger( $args{store} )->{job_due_at} } || {};
+        $_->{last_due_at} = $due->{ $_->{id} } for @{$jobs};
+    }
+
+    # TKT-984: --id was already reaching here - job.list's own CLI dispatch
+    # builds %list = %{$args} before calling this - but nothing read it, so
+    # the flag parsed cleanly and silently returned every job. Filtered here
+    # rather than at the CLI, since Browser.pm and Board.pm call job_list
+    # directly. _job_find is the same refusal job_update already uses for an
+    # unknown id, so an id that names nothing is told so rather than answered
+    # with an empty or a full list standing in for "not found".
+    return [ _job_find( $jobs, $args{id} ) ]
+      if defined $args{id} && $args{id} ne '';
+
     return $jobs;
 }
 

@@ -14173,7 +14173,11 @@ Implemented in L<Tira::Job>, required at the call site. EPC-014, TKT-836.
 
 =head2 job_list
 
-Returns every repeated job on the board.
+Returns every repeated job on the board. TKT-984: given C<id>, returns a
+single-element list holding just that job - refusing by name (the same shape
+C<job_update>'s own C<_job_find> uses) rather than answering with an empty or
+the full list when the id names nothing. C<id> used to reach the CLI dispatch
+hash and stop there, silently unused by this method.
 
 =head2 job_update
 

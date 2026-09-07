@@ -1,5 +1,11 @@
 Revision history for Tira
 
+    - TKT-984: tira.job.list --id silently parsed and did nothing,
+      always returning every job. Fixed at Tira::Job::job_list (not
+      only the CLI, since Browser.pm and Board.pm call it directly):
+      given --id, returns exactly that job, refusing by name on an
+      unknown id the same way job_update's own _job_find already
+      does. Omitting --id is unchanged.
     - TKT-958: checklist_add now refuses a done status with no
       --command/--proof pair, routed through the same
       _proof_entries_for helper checklist_update already uses -

@@ -3958,7 +3958,7 @@ both cannot say which the bridge should get. `mode` records which it is, so a
 reader never has to infer it from whichever field is populated.
 
 - `tira.job.add --schedule CRON|monitor (--command TEXT | --message TEXT) [--expect-every MINUTES] [--restart-every SECONDS] [-o FORMAT]`
-- `tira.job.list [-o FORMAT]`
+- `tira.job.list [--id ID] [-o FORMAT]`
 - `tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TEXT] [--expect-every MINUTES] [--restart-every SECONDS] [--enabled 1|yes|true|on|0|no|false|off] [-o FORMAT]`
 - `tira.job.delete --id ID [-o FORMAT]`
 - `tira.job.start --id ID [-o FORMAT]`
@@ -4012,6 +4012,13 @@ reader never has to infer it from whichever field is populated.
     callers depend on that - and a board that genuinely has none is still a
     real answer rather than an error. The sentence has one home,
     `Tira::CLI::Board::_empty_answer_names_board`, and `t/566` holds it there.
+
+    **`--id` narrows to one job, since 5.85** (TKT-984). It reached the CLI's
+    own argument hash long before this fix but `job_list` never read it,
+    parsing cleanly and returning every job regardless. Given, it now returns
+    exactly that one job, refusing by name - `job_update`'s own `_job_find`
+    shape - rather than an empty or full list standing in for "not found".
+    Omitted, the answer is unchanged.
 
     Two other reads treat an absent file as empty and are deliberately
     silent, because neither can answer for the wrong board: the collector

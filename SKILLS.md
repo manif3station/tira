@@ -1582,6 +1582,14 @@ being pushed actually name, never the whole-board fallback - and only on a
 board with a real `push` column, since without one "approved" and "done" are
 the same claim the checks above already make. TKT-887.
 
+**Since 5.87, that refusal parses and names its remedy** (TKT-641). Its
+three complaints - no gate, no evidence, no fix version - used to join into
+one sentence where the last had no verb, so it read as broken past that
+point; none of the three named `tira.release.record`, the one command that
+clears all of them at once. Six cards moved to push in one batch were all
+refused this same malformed, remedy-less way. Each clause now stands alone
+and the refusal ends with the exact command to run, ref already filled in.
+
 Since 4.61 the card dialog's three text editors share their behaviour rather
 than reimplementing it. All three grow through one handler and all three build
 their formatting bar from one builder - the comment composer's own bar, which is

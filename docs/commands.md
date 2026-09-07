@@ -1413,6 +1413,17 @@ distinct from where work ends - without one, "not yet approved" and "not yet
 done" are the same claim, and `unproven()`/`premature()` already make it.
 TKT-887.
 
+**`unproven()`'s own refusal now parses and names its remedy, since 5.87**
+(TKT-641). Its three complaints used to join as `no gate has been recorded
+and no evidence is attached and no fix version - a claim about...` - the
+third item is a bare noun phrase where the first two are full clauses, so
+joined with `and` it does not continue the sentence. Six cards moved to
+push in one batch all refused with this same malformed sentence, and none
+of it named `tira.release.record`, the one command that clears every
+complaint at once. Each clause now reads on its own (`no gate recorded`,
+`no evidence attached`, `no fix version set`), and the refusal ends with
+the exact command to run, the card's own ref already filled in.
+
 Since 4.99 (TKT-796) the browser suite (`tools/browser-tests`, 23 Playwright
 checks since TKT-955) no longer runs here - a single flaky test used to block an entire
 batch of otherwise-good, individually-verified cards. **The intended

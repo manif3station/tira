@@ -1,6 +1,13 @@
 Revision history for Tira
 
 5.87  2026-09-07
+    - TKT-641: tools/card-holes's unproven() refusal now parses - "no
+      fix version" no longer joins onto two full clauses as a bare
+      noun phrase with nothing to continue - and ends by naming the
+      one command, tira.release.record, that clears every complaint
+      (gate, evidence, fix version) at once, with the card's own ref
+      already filled in. Six cards moved to push in one batch had all
+      refused with the same malformed, remedy-less sentence.
     - TKT-831: the tasklist dashboard no longer prunes done items on an
       unattended 5-minute timer - any tab left open silently deleted
       every done tasklist item board-wide, bypassing the confirm()

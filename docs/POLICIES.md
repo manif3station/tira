@@ -825,7 +825,11 @@ column roles, and could not read a board that marks its ending instead of
 naming it - so it refused to run on one and judged finished cards as live
 work on another." A card whose real ending column is unmarked does not get a
 bridge reminder here - it gets a refused push, which is the sharper
-consequence this section exists partly to surface.
+consequence this section exists partly to surface. **And a refusal that did
+not parse, until 5.87** (TKT-641): `unproven()`'s three complaints joined as
+one sentence where the last had no verb, and none of them named
+`tira.release.record` - the remedy for all three at once. Six cards moved
+to push in one batch were refused the same malformed, remedy-less way.
 
 ## Where the facts come from
 

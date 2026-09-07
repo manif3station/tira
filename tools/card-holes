@@ -372,15 +372,24 @@ def unproven(record, ended):
 
     said = []
     if not record.get('gate_passing_log'):
-        said.append('no gate has been recorded')
+        said.append('no gate recorded')
     if not record.get('evidence'):
-        said.append('no evidence is attached')
+        said.append('no evidence attached')
     if FLOW.index(column) >= SHIPPED_FROM and not record.get('fix_version'):
-        said.append('no fix version')
+        said.append('no fix version set')
     if not said:
         return None
+
+    # NAMED, NOT LEFT FOR THE READER TO FIND. tira.release.record writes a
+    # gate entry, an evidence entry and the fix version together - the one
+    # command that answers everything this check can complain about - and
+    # the refusal used to say what was wrong without ever saying what fixes
+    # it. Six cards moved to push all refused with this same sentence and
+    # nothing in the output named the remedy. TKT-641.
     return (f"is in {column} with " + ' and '.join(said)
-            + ' - a claim about work that happened, with nothing anybody could check')
+            + ' - a claim about work that happened, with nothing anybody could check. '
+            'Fix it with: d2 tira.release.record --ref ' + record.get('ref', '<REF>')
+            + ' --gate TEXT --result pass --details TEXT --evidence TEXT --fix-version VERSION')
 
 
 # A report somebody else filed, which nobody here has picked up yet.

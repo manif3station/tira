@@ -1,5 +1,17 @@
 Revision history for Tira
 
+    - TKT-960: the stopped-monitor indicator survives every monitor
+      actually stopping. Found by the sweep TKT-949 required rather
+      than by a report. The jobs provider's liveness guard was
+      `if @{$processes}` - truthy on the process-list count - so an
+      empty list (the read failed, OR every monitor is genuinely
+      down) always read as "not known," hiding the indicator at
+      exactly the moment every monitor being dead is what needs
+      reporting. Fixed the same way TKT-949 fixed the bridge: a
+      $processes_attempted flag makes the read happen once per pass,
+      and the guard now checks definedness rather than truthiness -
+      $processes stays undef only on a genuine failure.
+
     - TKT-955: the sticky header stops shaking near its scroll
       threshold. His report, a screen recording: scroll to the top
       then down a little, right where the header tries to compact,

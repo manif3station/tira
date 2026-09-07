@@ -446,6 +446,7 @@ sub providers {
                 },
             );
             my $processes;
+            my $processes_attempted;
             my @rows;
             for my $job ( @{$jobs} ) {
                 my %row = %{$job};
@@ -485,13 +486,27 @@ sub providers {
                     # shows the row with no indicator, which is what it already
                     # does for a cron job and reads as "not known" rather than
                     # as "not running".
-                    $processes //= eval { Tira::CLI::Job::_running_processes_for_jobs() } // [];
+                    #
+                    # TKT-960: the old `// []` erased the one distinction that
+                    # matters here, the same erasure TKT-949 fixed on the
+                    # bridge. An empty list has two causes that mean opposite
+                    # things - the read failed, or every monitor is genuinely
+                    # down - and both used to read as "not known". $processes
+                    # now stays undef on a failed read (still "not known",
+                    # still no indicator) and becomes a real, possibly-empty
+                    # arrayref on a successful one - which is a known answer
+                    # even when it is empty, so the guard below checks
+                    # definedness rather than truthiness.
+                    if ( !$processes_attempted ) {
+                        $processes_attempted = 1;
+                        $processes = eval { Tira::CLI::Job::_running_processes_for_jobs() };
+                    }
 
                     $row{running} =
                       Tira::Job::job_monitor_alive( $job, $processes )
                       ? Cpanel::JSON::XS::true
                       : Cpanel::JSON::XS::false
-                      if @{$processes};
+                      if defined $processes;
                 }
                 push @rows, \%row;
             }
@@ -1177,6 +1192,13 @@ police bridge answer one question two ways, which is the fault TKT-860 had to
 unpick. The process table is read once per request and only when there is an
 enabled monitor to judge; a cron job and a disabled monitor get no field at all,
 matching the rule's own silences.
+
+The read's own failure and an empty-but-successful read are told apart, since
+TKT-960: a C<$processes_attempted> flag makes the attempt happen exactly once
+per request regardless of outcome, and C<running> is set for an enabled
+monitor whenever the read C<defined> an arrayref - including an empty one,
+which is the case every monitor being genuinely down produces. Only a read
+that died leaves C<$processes> undef and the field absent, same as before.
 
 C<job_save> does not validate. C<job_add> and C<job_update> both reach
 C<_job_fields>, which owns the schedule requirement and the refusal of a

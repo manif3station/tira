@@ -249,6 +249,30 @@ ok( !$later{ $live->{id} }{running},
         'with liveness simply absent, which reads as not known rather than not running' );
 }
 
+# --- and an empty process table is not the same as a failed read ------------
+#
+# TKT-960: the guard used to be `if @{$processes}`, so a read that SUCCEEDED
+# and answered "nothing is running" was indistinguishable from one that
+# failed - both left every monitor row with no liveness field at all, at
+# exactly the moment every monitor being down is the one thing worth saying.
+
+{
+    no warnings 'redefine';
+    local *Tira::CLI::Job::_running_processes_for_jobs = sub { [] };
+
+    my $rows = $decode->decode( $provider{jobs}->() );
+    my %served = map { $_->{id} => $_ } @{$rows};
+
+    ok( exists $served{ $live->{id} }{running},
+        'a monitor row carries a liveness field when the read succeeded, even though it found nothing' );
+    is( $served{ $live->{id} }{running} ? 1 : 0, 0,
+        'and it reads not running, because the board now knows every monitor is down' );
+    ok( !exists $served{ $cron->{id} }{running},
+        'a cron job still carries no liveness field - this is about monitors, not every job' );
+    ok( !exists $served{ $off->{id} }{running},
+        'and a disabled monitor still carries none either' );
+}
+
 # --- and the page renders it -------------------------------------------------
 #
 # The payload is half the card. These read the two view assets, the same way

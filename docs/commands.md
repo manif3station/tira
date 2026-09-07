@@ -617,6 +617,18 @@ precedence over an alias of the same spelling. Alias lookup uses Developer
 Dashboard's registry and layered config directly; it does not spawn a command,
 parse human output, or disclose the resolved target in Tira output and errors.
 
+**Since 5.85 that promise also holds when a read fails** (TKT-988). A file read
+failure's raw error message used to reach a police violation carrying the
+board's absolute filesystem path - his own live example: `Cannot read JSON
+'/home/.../ticket/documenting/ZSD-334.json': No such file or directory`. A
+shared redaction now strips a quoted absolute path and Perl's own
+file-and-line trailer from every violation that can carry one - `card-unreadable`,
+the jobs-reading rules, and a whole-pass read failure - keeping the OS-level
+reason so the finding stays actionable. It reproduces only when a card's path
+was already resolved earlier in a pass and its file vanishes before a later
+read of the same ref; a card that was never found at all already answered
+safely with "Record 'X' not found".
+
 ### `tira.dashboard`
 
 Render the board. `tira.dashboard.sow`, `.epic` and `.ticket` render one board

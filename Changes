@@ -45,7 +45,42 @@ Revision history for Tira
       to _bridge_line rather than to this editor, so it is not fixed
       here. What this card changes is how easily it can be reached.
 
-    - TKT-979: police stops opening a quiet card's whole journal to
+    - TKT-988: the board's own filesystem path no longer leaks into a
+      bridge violation when a file read fails.
+
+      His live finding, from his own zenandi board: "never expose
+      where the ticket json file. check all the violation message. I
+      found it shouldn't do that: VIO-1171 its history could not be
+      read: Cannot read JSON
+      '.../ticket/documenting/ZSD-334.json':
+      No such file or directory."
+
+      The cause: _slurp dies with the board's absolute path embedded
+      in single quotes, and that message reached a bridge violation
+      unscrubbed - only Perl's trailing "at FILE line N" noise was
+      ever stripped, never the path sitting in the middle of the
+      message. Checked every violation message rather than only the
+      one reported, per his instruction, and found two more of the
+      same shape: _jobs_or_report (job-due/monitor-dead/monitor-output
+      reading a corrupt jobs.json) and police_pass's own board-read
+      failure, which reaches both the bridge line and the pass
+      result's error field from one capture.
+
+      REPRODUCING IT TOOK MORE THAN DELETING A FILE. A fresh board
+      walk on a genuinely-missing record resolves through the safe
+      "Record 'X' not found" - the leak only appears when TKT-978's
+      per-pass path cache has already resolved a ref's path earlier in
+      the pass and the file vanishes before a later read of that same
+      ref. Reproduced by priming that cache directly, matching his
+      exact wording.
+
+      One shared helper, _redact_path, strips the Perl trailer and any
+      quoted absolute path while leaving the OS-level reason - "No
+      such file or directory" - so the finding stays actionable. The
+      corruption-detail path (card-damaged, a byte count and an
+      offset) never carried a path and is untouched.
+
+
       answer a question it already answered last pass.
 
       Re-profiling after TKT-978's fix found the dominant remaining

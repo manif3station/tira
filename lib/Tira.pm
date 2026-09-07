@@ -7132,6 +7132,30 @@ sub _policy_message {
 # own; this is the same decision written where the other two can share it
 # instead of drifting from it again.
 #
+# His finding, live on his own board: a read failure's raw Perl die message
+# reached a bridge violation carrying the board's absolute filesystem path -
+# "Cannot read JSON '.../ticket/documenting/ZSD-334.json': No such file or
+# directory". _slurp and its callers embed the
+# path in single quotes with no idea this project promises never to disclose
+# where a board lives (README.md: aliases resolve "without printing the
+# private target directory"). TKT-988.
+#
+# Two things a die message can carry that a bridge reader should not see, and
+# neither is the part that is actually useful: a quoted absolute path (the
+# board's own files, or this engine's installed location), and Perl's own
+# "at FILE line N[, <FH> line M]" trailer naming where the interpreter died
+# rather than what is wrong. What survives - the OS-level reason, or a parser's
+# own complaint - is the part a reader can act on.
+sub _redact_path {
+    my ( $self, $message ) = @_;
+    return $message if !defined $message;
+    $message =~ s/\s+at\s+\S+\s+line\s+\d+(?:,\s*<[^>]*>\s*line\s*\d+)?\.?\s*\z//;
+    $message =~ s{\s*'/[^']*'}{}g;
+    $message =~ s/\s+\z//;
+    $message =~ s/\.\z//;
+    return $message;
+}
+
 # Undef means "could not read", which is not the same as "nothing recorded" -
 # every caller has to tell those apart, because a rule that treats an
 # unreadable card as an empty one reports a violation it cannot support.
@@ -7191,14 +7215,7 @@ sub _police_history {
         return $entries;
     }
 
-    my $why = $@ || 'unknown failure';
-
-    # Perl's own "at Tira.pm line 6813, <$fh> line 3" is where the decoder
-    # stood, not what is wrong with his card. The owner reads this in his
-    # terminal, so what survives is the part he can act on.
-    $why =~ s/\s+at\s+\S+\s+line\s+\d+(?:,\s*<[^>]*>\s*line\s*\d+)?\.?\s*\z//;
-    $why =~ s/\s+\z//;
-    $why =~ s/\.\z//;
+    my $why = $self->_redact_path( $@ || 'unknown failure' );
     push @{$unreadable}, { ref => $ref, reason => $why }
       if $unreadable && !grep { ( $_->{ref} // '' ) eq $ref } @{$unreadable};
     return undef;
@@ -10995,8 +11012,7 @@ sub _jobs_or_report {
     my $jobs = eval { $self->job_list( %{ $args || {} } ) };
     return $jobs if defined $jobs;
 
-    my $why = $@ || 'the jobs record could not be read';
-    $why =~ s/\s+\z//;
+    my $why = $self->_redact_path( $@ || 'the jobs record could not be read' );
     $report->( $policy, undef, "$clause: $why" );
     return undef;
 }
@@ -11083,8 +11099,7 @@ sub _police_pass_body {
         # A board mid-write or a lock held for a moment is not a reason to die,
         # and it is not a reason to invent an answer either. Police guessing is
         # worse than police silent.
-        $error = $@ || 'Unknown failure reading the board';
-        $error =~ s/\s+\z//;
+        $error = $self->_redact_path( $@ || 'Unknown failure reading the board' );
         $found = [];
     }
 
@@ -14808,6 +14823,21 @@ profile's 61.9% stack-share because that figure counts samples where the
 function is anywhere in the chain rather than a fraction of calls. Five other
 rules independently walk a card's whole journal for their own question and are
 not yet fixed - TKT-987, a larger remaining cost than this removed.
+
+A read failure's reason never carries the board's own filesystem path, since
+TKT-988 - his live finding, quoting his own zenandi board: a card-unreadable
+detail once read "Cannot read JSON '.../ticket/documenting/ZSD-334.json': No
+such file or directory". _slurp embeds the
+absolute path in its own die message with no idea this project promises never
+to disclose where a board lives. _redact_path strips that path and Perl's own
+"at FILE line N" trailer from the three places a read failure can reach a
+violation - card-unreadable/card-damaged, the jobs-reading rules, and this
+method's own board-read failure - keeping the OS-level reason so the finding
+stays actionable. The corruption-detail path (a byte count and an offset) never
+carried a path and is untouched. It reproduces only when a ref's path was
+already resolved earlier in the SAME pass and its file vanishes before a later
+read of it; a card never found at all resolves through the safer "Record 'X'
+not found" instead.
 
 =head2 police_farewell
 

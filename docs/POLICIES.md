@@ -1875,6 +1875,23 @@ Nothing repairs the bytes. The board is the reporter's and the damage is
 already written; what changed is that Tira works around it and says so, so the
 next board with a stray byte is told rather than silenced.
 
+**And since 5.85 the reason it gives never names where the board lives.** His
+live finding, on his own zenandi board: a read failure's reason carried the
+board's absolute filesystem path -
+
+    VIO-1171 its history could not be read: Cannot read JSON
+    '.../ticket/documenting/ZSD-334.json':
+    No such file or directory.
+
+Tira promises never to disclose where a board's files live; a raw Perl die
+message assembled by ordinary file-reading code has no way to know that
+promise exists. The reason above is now `Cannot read JSON: No such file or
+directory` - the same fact, without the path. Two more capture points carried
+the identical leak and are fixed the same way: `job-due`/`monitor-dead`/
+`monitor-output` reading a corrupt jobs record, and the "police could not
+finish this pass" line above. The corruption case a few paragraphs up - a
+byte offset, never a path - is untouched, since it never carried one.
+
 ## A card damaged by one byte
 
 The section above describes a card police could not read at all. Most of the

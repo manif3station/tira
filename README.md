@@ -30,6 +30,12 @@ left-to-right columns, stacked type boards, embedded styling, card selection,
 and local last-modified/reference sorting. It makes no network requests.
 Project selection also accepts aliases registered with `d2 path`; Tira resolves
 them through Developer Dashboard without printing the private target directory.
+**Since 5.85 that promise also holds when a file read fails.** A read failure's
+raw error message used to reach a police violation with the board's absolute
+filesystem path embedded - "Cannot read JSON '/home/.../ticket/.../X.json':
+No such file or directory". A shared redaction now strips both a quoted
+absolute path and Perl's own file-and-line trailer from every violation that
+can carry one, keeping the OS-level reason so the finding stays actionable.
 The live browser board opens every card in a Jira-style sectioned dialog with
 in-place field editing and full comment management, including permanent
 comment deletion through the `tira.comment.remove` command.

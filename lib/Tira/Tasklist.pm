@@ -67,7 +67,19 @@ sub _tasklist_read {
     open my $fh, '<:raw', $path or die "Cannot read tasklist '$path': $!\n";
     my $content = do { local $/; <$fh> };
     close $fh or die "Cannot close tasklist '$path': $!\n";
-    my $items = Tira::json_object()->utf8->decode($content);
+
+    # TKT-844: every tasklist reader used to die with the decoder's own raw
+    # words and a lib/ line number - "malformed JSON string ... at
+    # lib/Tira/Tasklist.pm line 70" - naming neither the file nor what was
+    # wrong with it. A damaged card is read anyway (t/173), a damaged
+    # snapshot refuses saying so (police_pass's own snapshot read); a
+    # damaged tasklist got neither deliberate answer, only whichever the
+    # decoder happened to throw. Refused here, naming the path, in the same
+    # shape - not repaired, because a tasklist is a to-do queue rather than
+    # a journal with one truncatable tail line, and json_decode_repaired
+    # exists for that different shape of damage.
+    my $items = eval { Tira::json_object()->utf8->decode($content) };
+    die "Tasklist '$path' is damaged (not valid JSON)\n" if !defined $items;
 
     # TKT-508: status became a stored int (his design: "tasklist status is
     # enum, 0: pending 1: working 2: done"). A file written before this

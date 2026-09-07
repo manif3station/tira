@@ -3691,6 +3691,13 @@ has to run a migration by hand.
     checking on several subagents without already knowing each one's
     session id. Ignored/unaffected when not given; `--session` still wins
     when both would otherwise apply.
+- A damaged `tasklist.json` (TKT-844) refuses naming the path and saying it
+  is damaged, instead of leaking the JSON decoder's own words and a
+  `lib/Tira/Tasklist.pm` line number - the shape a half-written file has,
+  reproduced by truncating the file mid-write. `tasklist.list` and
+  `search --tasklist` share the one read and both refuse this way;
+  `police_pass` still completes against a corrupt tasklist, since
+  `task-unlinked` and `task-card-mismatch` both walk the list too.
 - `tira.tasklist.sessions [-o FORMAT]` (TKT-541) - read-only, no
   session-scoping args of its own (seeing every session is the whole
   point). Returns one row per distinct session - `session`, `count`,

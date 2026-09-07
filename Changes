@@ -1,5 +1,13 @@
 Revision history for Tira
 
+    - TKT-844: a damaged tasklist.json now refuses naming itself,
+      instead of leaking the JSON decoder's own words and a
+      lib/Tira/Tasklist.pm line number to whichever caller happened
+      to read it first. Found by the hourly hunt truncating the file
+      mid-write. Fixed at _tasklist_read, shared by tasklist.list and
+      search --tasklist alike; police_pass keeps completing against
+      a corrupt tasklist, since task-unlinked and task-card-mismatch
+      both walk the list too.
     - TKT-981: a job message containing newlines no longer breaks
       the bridge's one-violation-per-line contract. Found while
       implementing TKT-951, running its own checklist item about

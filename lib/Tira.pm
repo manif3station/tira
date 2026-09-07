@@ -14250,6 +14250,13 @@ than matching nothing. TKT-552: C<unlinked> narrows to items with an empty
 C<refs> array, filtering linkage only and composing with C<status> rather
 than replacing it. Both filter before sorting.
 
+TKT-844: a damaged C<tasklist.json> refuses naming the path and saying it is
+damaged, rather than leaking the JSON decoder's own words and a
+C<lib/Tira/Tasklist.pm> line number - the shape a half-written file has.
+C<search>'s C<tasklist> mode shares the same read and refuses the same way;
+C<police_pass> still completes against a corrupt tasklist, since
+C<task-unlinked> and C<task-card-mismatch> both walk the list too.
+
 =head2 tasklist_sessions
 
 TKT-541: returns one row per distinct session present in the task list -

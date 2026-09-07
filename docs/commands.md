@@ -3498,9 +3498,10 @@ whole log at once. A card with ten or fewer entries never shows the button,
 and a card with none shows no section, unchanged from before. TKT-495.
 
 A board column's own pagination is separate from the Gate Passing Log's - it
-has existed since TKT-703 (`pageSize` in `base-script.js`, a "Show N more of
-M" button per column) and now starts at fifty cards rather than ten (TKT-862),
-so a column with fewer than fifty shows no Show-more control at all, unchanged.
+has existed since TKT-703 (a "Show N more of M" button per column in
+`base-script.js`) and shows 3 cards initially, 10 more per click
+(`pageInitial`/`pageStep`, TKT-1003), so a column with fewer than 3 shows no
+Show-more control at all, unchanged.
 
 
 ### Hierarchy

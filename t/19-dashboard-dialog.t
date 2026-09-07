@@ -63,10 +63,11 @@ unlike( $live_html, qr{fetch\("/search\?type="},
     'and asks about the whole project rather than one board, because a question reference can name a card on any of them' );
 like( $live_html, qr/document\.querySelectorAll\("\[data-filter\]"\)\.forEach/,
     'every board box shows the same text, since there is only one filter' );
-like( $live_html, qr/const pageSize=50;/,
-    'columns start with fifty cards - TKT-862, his own generous-default answer, raised from ten' );
-like( $live_html, qr/Show "\+Math\.min\(remaining,pageSize\)\+" more of "\+remaining/,
-    'and offer to reveal the next fifty, saying how many remain' );
+like( $live_html, qr/const pageInitial=3;/,
+    'columns start with three cards - his own explicit spec, TKT-1003, reverting TKT-862\'s wrong 50/50' );
+like( $live_html, qr/const pageStep=10;/, 'and reveal ten more per click' );
+like( $live_html, qr/Show "\+Math\.min\(remaining,pageStep\)\+" more of "\+remaining/,
+    'and offer to reveal the next ten, saying how many remain' );
 like( $live_html, qr/data-add-card=/, 'each column offers an add-card control' );
 like( $live_html, qr/const openNewCard=/, 'the dialog has a new-card mode' );
 like( $live_html, qr/reference assigned on save/, 'new cards show no ref until they are saved' );

@@ -13270,21 +13270,7 @@ sub history_list {
     }
     my ( undef, $record ) = $self->_record_data( %args, project => $root );
     my $path = $self->_journal_path( $root, $record->{ref} );
-    my @entries;
-    if ( -f $path ) {
-        open my $fh, '<:raw', $path or die "Cannot read history: $!\n";
-        while ( my $line = <$fh> ) {
-            next if $line !~ /\S/;
-
-            # Read past a byte somebody else's tool wrote wrongly, rather than
-            # losing the card. Counted, so police can say the file is damaged
-            # without anybody having to notice a replacement character.
-            my ( $entry, $repaired ) = json_decode_repaired($line);
-            $self->{_history_repaired}{ $record->{ref} }++ if $repaired;
-            push @entries, $entry;
-        }
-        close $fh or die "Cannot close history: $!\n";
-    }
+    my @entries = @{ $self->_journal_entries( $root, $record->{ref}, $path ) };
     @entries = grep { ( $_->{field} // '' ) eq $field } @entries if defined $field;
     if ( defined $since ) {
         my $threshold = _epoch_of_datetime( $since, 'Since' );
@@ -13315,6 +13301,63 @@ sub history_list {
 sub _journal_path {
     my ( $self, $root, $ref ) = @_;
     return File::Spec->catfile( $root, '.tira', 'history', "$ref.jsonl" );
+}
+
+# The raw, unfiltered journal for one card, read once per pass rather than
+# once per RULE that asks about it. Five independent readers - the
+# discard-unexplained loop, _policy_last_detail_change, _police_history and
+# _card_last_author, each called from more than one rule block - opened and
+# JSON-decoded the same file again for a card already read earlier in the
+# same pass: 416 of 765 history_list calls measured on one real board,
+# TKT-987. The parse is the expensive part; filtering by field/since/first/
+# last afterward is cheap, so only the parse is cached.
+#
+# Cached only inside a pass ($path_cache set by _police_path_cache, TKT-978)
+# and only on success, for the reason _record_data's path cache gives:
+# police_pass never appends to a journal itself, so nothing invalidates a
+# card's history mid-pass. Every entry returned is a fresh shallow clone -
+# history_list's own --truncate mutates hashrefs in place, and a mutated
+# cache entry would corrupt every later reader of the same card this pass.
+#
+# The repaired-byte count is part of what a real read produces, and is
+# replayed into _history_repaired on a cache hit too. Without that replay,
+# whichever caller's read happens to be the FIRST to touch a damaged card's
+# journal would see the corruption and the rest would see a cache hit with
+# nothing to report - and _police_history's own before/after delete of
+# _history_repaired{$ref} means a caller that runs before it would silently
+# swallow the count on the very next _police_history call for that ref.
+sub _journal_entries {
+    my ( $self, $root, $ref, $path ) = @_;
+    my $cache = $self->{_path_cache};
+    my $key = $cache ? join( "\x00", 'journal', $root, $ref ) : undef;
+    if ( $cache && $cache->{$key} ) {
+        my $cached = $cache->{$key};
+        $self->{_history_repaired}{$ref} += $cached->{repaired} if $cached->{repaired};
+        return [ map { {%$_} } @{ $cached->{entries} } ];
+    }
+
+    my @entries;
+    my $repaired = 0;
+    if ( -f $path ) {
+        open my $fh, '<:raw', $path or die "Cannot read history: $!\n";
+        while ( my $line = <$fh> ) {
+            next if $line !~ /\S/;
+
+            # Read past a byte somebody else's tool wrote wrongly, rather than
+            # losing the card. Counted, so police can say the file is damaged
+            # without anybody having to notice a replacement character.
+            my ( $entry, $line_repaired ) = json_decode_repaired($line);
+            if ($line_repaired) {
+                $self->{_history_repaired}{$ref}++;
+                $repaired++;
+            }
+            push @entries, $entry;
+        }
+        close $fh or die "Cannot close history: $!\n";
+    }
+
+    $cache->{$key} = { entries => [ map { {%$_} } @entries ], repaired => $repaired } if $cache;
+    return \@entries;
 }
 
 sub _journal_changes {
@@ -14931,6 +14974,11 @@ Scans the project's stored JSON/YAML for corruption, repairing what it can.
 =head2 history_list
 
 Returns a record's field-write history, with first/last windowing and field/since filtering.
+
+The raw journal parse this reads from is cached for the length of one police
+pass, keyed by ref - see C<_journal_entries>, TKT-987 - because four
+independent rule readers otherwise open and JSON-decode the same card's whole
+journal once each within a single pass.
 
 =head2 assignment_set
 

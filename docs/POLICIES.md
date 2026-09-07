@@ -700,13 +700,23 @@ is never opened. Measured by call count on his zenandi copy (wall-clock was too
 noisy to trust under load): 38.7% fewer of this rule's own journal reads, 17.6%
 fewer overall.
 
-That gap between 38.7% and the rest is the next thing to fix: several other
-rules - `agent-still`, `priority-skipped`, `discard-unexplained` among them -
-each independently open a card's whole journal for their own question, and on
-that board they account for more reads than `_announce_moves` ever did. One
-board can carry the same fact in several places that each pay to learn it
-separately; that is what `_announce_moves` used to be a case of, and it is what
-those five still are.
+**And since 5.85 that gap is closed too.** Four independent readers each
+opened and JSON-decoded a card's whole journal for their own question, with
+no memory of what was already read in the same pass: `_policy_last_detail_change`
+(the answer-marked-and-nothing-folded rules), `_police_history` (called from
+three separate rule blocks, `column-skipped` among them), `_card_last_author`,
+and `discard-unexplained`'s own loop, which reads every discarded card's
+column-field history directly rather than through any of the above. On his
+zenandi board that was 416 of 765 `history_list` calls (54%), every one of
+them for a ref some earlier rule had already read in the same pass - measured
+by wrapping the call itself rather than sampling, since the earlier profile
+was too coarse to attribute the reads by caller. The fix caches the raw parsed
+journal at the shared point all four go through, for the length of one pass,
+the same scope the path cache above already uses and for the same reason it
+is safe: nothing appends to a journal mid-pass. A cache hit still tells
+`_police_history` about a corrupted byte if one is there - the count is
+replayed rather than only ever produced by whichever caller's read happens to
+touch the disk first.
 
 ## `unpushed-work` and how long a push takes
 

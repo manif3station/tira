@@ -1,5 +1,18 @@
 Revision history for Tira
 
+    - TKT-987: a police pass parses each card's whole journal once, not
+      once per rule that asks about it. Four independent readers -
+      _policy_last_detail_change, _police_history (three call sites),
+      _card_last_author, and policy_evaluate's own discard-unexplained
+      loop - each re-read the same journal within one pass: 416 of 765
+      history_list calls on his zenandi board (54%) were for a ref
+      already read earlier in the same pass. _journal_entries now
+      caches the raw parsed entries for one pass, keyed by ref, in the
+      same scope TKT-978's path cache uses; a cache hit still replays
+      the repaired-byte count into _history_repaired, so
+      _police_history's corruption reporting works no matter which
+      caller reads a ref first.
+
     - TKT-974: reviewed the 5.83 -> 5.84 upgrade. tira.policy.undeclared
       answered empty - every rule this board could adopt was already
       declared - and each of 5.84's fixes was checked and confirmed as

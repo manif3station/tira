@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+#
+# Print what a gate run's suite log is worth reading, given whether it
+# passed.
+#
+# TKT-961. gate-run used to pipe the suite straight through `tail -4`: right
+# on a clean run - "All tests successful", the Files/Tests line, and
+# "Result: PASS" or "FAIL" are exactly what is wanted - and wrong on a
+# failing one, because prove prints its Test Summary Report (which names
+# every failing file and its failing subtests) ABOVE those four lines, so
+# keeping only the tail kept the timing and threw away the diagnosis.
+#
+# Extracted into its own tool rather than left as a line inside gate-run,
+# the same reason tools/coverage-complete exists rather than a check inline
+# there (TKT-716, TKT-954): gate-run has no test harness of its own, so
+# logic that needs to be driven and watched failing has to live somewhere
+# that can be.
+#
+# Usage: tools/gate-summarize STATUS LOGFILE
+#   STATUS   the suite run's own exit status (0 = passed)
+#   LOGFILE  the full captured stdout+stderr of the prove run
+
+set -euo pipefail
+
+status="${1:-}"
+log="${2:-}"
+
+if [ -z "$status" ] || [ -z "$log" ]; then
+    echo "gate-summarize: usage: tools/gate-summarize STATUS LOGFILE" >&2
+    exit 2
+fi
+[ -f "$log" ] || { echo "gate-summarize: $log does not exist" >&2; exit 2; }
+
+tail -4 "$log"
+
+if [ "$status" -ne 0 ]; then
+    awk '/^Test Summary Report/,0' "$log"
+fi

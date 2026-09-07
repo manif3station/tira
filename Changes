@@ -1,5 +1,17 @@
 Revision history for Tira
 
+    - TKT-961: a gate refusal names the failing test file.
+      tools/gate-run piped the suite through `prove ... | tail -4`,
+      which keeps exactly the right lines on a clean run and exactly
+      the wrong ones on a refusal - prove's own Test Summary Report
+      prints ABOVE those four lines and the tail discarded it, so a
+      refusal said only "Result: FAIL" with no file to act on.
+      Measured five times in one session, each costing a full re-run
+      of a 10-16 minute suite. Extracted into tools/gate-summarize
+      (gate-run has no test harness of its own, TKT-716) rather than
+      left inline; proven directly against a deliberately broken test
+      in a scratch copy, not by inspection.
+
     - TKT-960: the stopped-monitor indicator survives every monitor
       actually stopping. Found by the sweep TKT-949 required rather
       than by a report. The jobs provider's liveness guard was

@@ -91,7 +91,18 @@ docker compose -f "$compose" run --rm -v "$tree:/workspace/skills/tira" perl-tes
   cpanm --quiet --notest --installdeps . >/dev/null 2>&1 &&
   CORES=$(nproc) &&
   JOBS=$(( CORES > 1 ? CORES - 1 : 1 )) &&
-  timeout --signal=KILL '"$SUITE_TIMEOUT"' env HARNESS_PERL_SWITCHES=-MDevel::Cover prove -j"$JOBS" -lr t 2>&1 | tail -4 &&
+  timeout --signal=KILL '"$SUITE_TIMEOUT"' env HARNESS_PERL_SWITCHES=-MDevel::Cover prove -j"$JOBS" -lr t >/tmp/gate-run-suite.log 2>&1;
+  suite_status=$?;
+
+  # TKT-961: a clean run needs nothing past the last four lines - they already
+  # say everything the common case has to say. A refusal is a different case:
+  # prove already printed a Test Summary Report, naming every failing file
+  # and its failing subtests, immediately ABOVE those four lines - tools/
+  # gate-summarize prints both, so a refusal is actionable from the gate log
+  # alone rather than needing a ten-to-sixteen-minute re-run to learn what
+  # prove already knew.
+  ./tools/gate-summarize "$suite_status" /tmp/gate-run-suite.log;
+  [ "$suite_status" -eq 0 ] &&
 
   # WAS THE COVERAGE ACTUALLY COLLECTED, before any percentage is believed.
   #

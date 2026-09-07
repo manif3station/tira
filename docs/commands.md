@@ -1531,6 +1531,17 @@ a refusal that finds no lines says so rather than printing the percentage alone.
 Above twenty holes it caps and says how many it held back; `--all` prints every
 one. Ask it yourself with `tools/coverage-holes --db cover_db`. TKT-593.
 
+**A suite refusal names the file, since 5.85.** `gate-run` used to pipe the
+whole run through `prove -j"$JOBS" -lr t 2>&1 | tail -4` - right for a clean
+run, wrong for a failing one, because `prove`'s own Test Summary Report
+(naming every failing file and its failing subtests) prints ABOVE those four
+lines and the tail discarded it. `tools/gate-summarize STATUS LOGFILE` now
+prints the same four lines either way, plus that report whenever `STATUS` is
+non-zero - nothing computed, only not thrown away. Extracted as its own tool
+rather than a line inside `gate-run` for the same reason `coverage-complete`
+is: `gate-run` has no test harness of its own, so a check that needs to be
+driven and watched failing has to live somewhere that can be. TKT-961.
+
 Without `--pid`, the 600-second ceiling was shorter than either gate this
 repo ran at the time - coverage at 846s, pre-push at 15m and counting - so
 the commonest legitimate reason for a suspension (waiting on a gate) always

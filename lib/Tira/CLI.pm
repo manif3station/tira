@@ -804,14 +804,6 @@ sub _dd_path_resolver {
     };
 }
 
-
-
-
-
-
-
-
-
 # The viewer decides whether an attachment can be shown as text from its
 # content_type and from nothing else - it keeps no extension list of its own,
 # which is the point of TKT-645. record_show does not carry that field, and
@@ -1763,10 +1755,19 @@ sub _invoke {
     # which is most of what a work log is for. The browser has always known,
     # because there is a login in front of it. Absent both, the entry says
     # nobody rather than guessing at a name.
-    if ( !defined $option->{author} && defined $ENV{TIRA_AUTHOR} && $ENV{TIRA_AUTHOR} ne '' ) {
-        $option->{author} = utf8::is_utf8( $ENV{TIRA_AUTHOR} )
-          ? $ENV{TIRA_AUTHOR} : decode( 'UTF-8', $ENV{TIRA_AUTHOR}, FB_CROAK );
+    my $tira_author = $ENV{TIRA_AUTHOR};
+    $tira_author = decode( 'UTF-8', $tira_author, FB_CROAK )
+      if defined $tira_author && $tira_author ne '' && !utf8::is_utf8($tira_author);
+    if ( !defined $option->{author} && defined $tira_author && $tira_author ne '' ) {
+        $option->{author} = $tira_author;
     }
+
+    # conversation.add's --author names the SPEAKER ("who said it"), the one
+    # command where that differs from whoever is running it - so it cannot
+    # reuse --author for the journal the way every other command does.
+    # TKT-677.
+    $option->{acting_author} = $tira_author
+      if $command eq 'conversation.add' && defined $tira_author && $tira_author ne '';
 
     # Before anything is dispatched, because a record command returns long
     # before the misleading-option table is reached and the whole point is that

@@ -3980,7 +3980,15 @@ sub conversation_add {
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         $self->_require_person( %args, person => $args{author} );
-        local $self->{_journal_author} = $args{author};
+
+        # --author here names the SPEAKER ("who said it"), not whoever is
+        # running this command - the one command where the two can differ.
+        # Journalling under the speaker made card-changed-by-owner see the
+        # agent's own write as the owner's, one line after the agent wrote
+        # it. acting_author, threaded through by the CLI from TIRA_AUTHOR,
+        # is who is actually making this change; a direct engine call with
+        # none falls back to the speaker, unchanged from before. TKT-677.
+        local $self->{_journal_author} = $args{acting_author} // $args{author};
         my $record = $self->record_show(%args);
         my $number = 1;
         for my $existing ( @{ $record->{conversation} // [] } ) {

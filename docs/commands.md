@@ -2806,6 +2806,8 @@ In a chain the user talks only to the core agent, which decides which direct
 report hears what — so without this a manager knows what it said downward and
 nothing of what came back.
 
+**`--author` names the speaker, and since 5.88 that is genuinely all it does** (TKT-677). Recording the owner's own words used to journal the change under the owner too - `--author` was reused as both "who said it" and "who is making this change to the card", the one place those differ, since for every other command they are the same person. The result: an agent recording something the owner said made `card-changed-by-owner` report that the owner had just edited the card, one line after the agent wrote it. The CLI now threads its own `TIRA_AUTHOR` through as the actual acting author for the journal, while `--author` keeps meaning exactly what this table says and `conversation.list` still shows that person as the speaker. A direct engine call with no acting author falls back to the speaker, unchanged from before. `card-changed-by-owner` itself needed no change - it was already reading the journal correctly; the journal was naming the wrong person.
+
 ### `tira.agent.sessions`
 
 Lists every child of a card and what it would take to wake each one.

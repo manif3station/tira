@@ -1,6 +1,14 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-677: tira.conversation.add no longer journals under the
+      speaker (--author, "who said it") - recording the owner's own
+      words made card-changed-by-owner report the owner had just
+      edited the card, one line after the agent wrote it. The CLI now
+      threads TIRA_AUTHOR through as the actual acting author for the
+      journal; --author still names the speaker, and
+      conversation.list still shows that person. A direct engine call
+      with no acting author falls back to the speaker, unchanged.
     - TKT-676: SKILLS.md now documents tira.conversation.add/.list
       beside comments, naming --heard and what a conversation record
       is for - previously documented only in docs/commands.md, the

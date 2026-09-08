@@ -1,6 +1,15 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-696: tira.card.required now carries a past_column standard
+      alongside its field list - what a card owes once past a
+      milestone (a gate entry and evidence past verify, a fix_version
+      past shipping), previously known only to tools/card-holes' own
+      hardcoded unproven() check. tira.ticket.missing and the engine's
+      card_holes sweep both answer from it now, so a card the push
+      gate is about to refuse no longer reads as complete to
+      ticket.missing - measured live on five cards that had passed
+      every required action with none carrying an evidence field.
     - TKT-695: a task whose ref names no card on the board is now
       reported by task-card-mismatch, naming the ref - task-unlinked
       only checks whether refs is empty, and task-card-mismatch used to

@@ -1649,6 +1649,24 @@ this project's own board at the time, every one of them standalone. Read
 `exempt.parent.types` and `exempt.parent.labels` alongside `fields` now,
 rather than assuming the field list applies unconditionally. TKT-285.
 
+**A second standard joined the answer as `past_column`, since TKT-696.**
+`tools/card-holes`' own push-gate check (`unproven()`) separately demanded a
+`gate_passing_log`, an `evidence` entry, and - once past the shipping column
+- a `fix_version`, of any card past verify. None of the three was in
+`fields`, so `tira.ticket.missing` answered nothing was missing on a card
+the push gate was about to refuse - measured live on five cards that had
+passed every required action with real evidence recorded, none of them
+carrying an `evidence` field. `past_column` names each field and the
+milestone role/column past which it is owed (`{"role": "testing", "fallback":
+"verify"}` for the first two, `{"role": "push", "fallback": "push"}` for
+`fix_version`, which additionally falls back to whichever of the board's own
+ending columns sorts first when it has no push column at all - the same
+fallback `tools/card-holes`' `SHIPPED_FROM` always had). `tira.ticket.missing`
+and the engine's own board-wide `card_holes` sweep both answer from it now,
+exempting a card already in an ended column the same way `unproven()`
+always did - work finished before this check existed is not refused for
+artefacts nobody kept.
+
 ### `tira.column.endings`
 
 Which columns this board says work ends in.

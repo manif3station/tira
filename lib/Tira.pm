@@ -2405,8 +2405,10 @@ sub record_show {
 # shows immediately which parts are missing." TKT-498.
 sub record_missing {
     my ( $self, %args ) = @_;
-    my $record = $self->record_show(%args);
-    return { ref => $record->{ref}, missing => $self->_card_missing_from($record) };
+    my $root = $self->discover_project(%args);
+    my $record = $self->record_show( %args, project => $root );
+    my @missing = ( @{ $self->_card_missing_from($record) }, @{ $self->_card_owed_missing( $root, $record ) } );
+    return { ref => $record->{ref}, missing => \@missing };
 }
 
 # Attachments stored before release 0.22 predate the added_at stamp. The
@@ -7069,7 +7071,86 @@ my @CARD_REQUIRED = ( @POLICY_DETAIL_FIELDS, qw(scope_in scope_out checklist par
 # Exempting the label is the same shape as standalone, not a new mechanism.
 my %CARD_EXEMPT = ( parent => { types => ['sow'], labels => [ 'standalone', 'upgrade-gate' ] } );
 
-sub card_required { return { fields => [@CARD_REQUIRED], exempt => \%CARD_EXEMPT } }
+# The second standard, TKT-696. tools/card-holes' unproven() applied these
+# three past a milestone column and kept the list nowhere anybody could
+# query - ticket.missing answered empty on a card the push gate was about
+# to refuse. Read the same way _milestone_index below reads it: by the
+# board's declared role, falling back to the literal column name a board
+# that has declared no roles still has.
+my %CARD_PAST_COLUMN = (
+    gate_passing_log => { role => 'testing', fallback => 'verify' },
+    evidence          => { role => 'testing', fallback => 'verify' },
+    fix_version       => { role => 'push',    fallback => 'push' },
+);
+
+sub card_required {
+    return { fields => [@CARD_REQUIRED], exempt => \%CARD_EXEMPT, past_column => \%CARD_PAST_COLUMN };
+}
+
+# Where a milestone sits in a board's own declared column order - the same
+# question tools/card-holes' milestone() asks, asked here so the two cannot
+# answer it differently. Undef if the board has neither the role nor the
+# fallback column: there is then no point past which a card is claiming to
+# be proven, and a caller finding none owes nothing rather than guessing.
+sub _milestone_index {
+    my ( $self, $root, $type, $role, $fallback ) = @_;
+    my $columns = eval { $self->column_list( project => $root, type => $type ) } // [];
+    my @names = map { $_->{name} } @{$columns};
+    my $roles = eval { $self->column_roles( project => $root, type => $type ) } // {};
+    for my $candidate ( $roles->{$role}, $fallback ) {
+        next if !defined $candidate;
+        for my $i ( 0 .. $#names ) {
+            return $i if $names[$i] eq $candidate;
+        }
+    }
+    return undef;
+}
+
+# Where "shipped" sits, for fix_version alone - tools/card-holes' own
+# SHIPPED_FROM has a second fallback _milestone_index does not: a board with
+# no push column and no push role is not asked to declare one just to have
+# a shipped point, because the column work ends in is shipped by anybody's
+# definition. Tried in that order: the push role/column first, then the
+# lowest-indexed column this board's own endings() calls terminal.
+sub _shipped_from_index {
+    my ( $self, $root, $type ) = @_;
+    my $direct = $self->_milestone_index( $root, $type, 'push', 'push' );
+    return $direct if defined $direct;
+    my $columns = eval { $self->column_list( project => $root, type => $type ) } // [];
+    my @names = map { $_->{name} } @{$columns};
+    my %index = map { $names[$_] => $_ } 0 .. $#names;
+    my @candidates = grep { defined }
+      map { $index{$_} } keys %{ $self->_ending_columns( $root, $type ) };
+    return @candidates ? ( sort { $a <=> $b } @candidates )[0] : undef;
+}
+
+# What THIS card, past whichever milestone applies to it, still owes - the
+# standard tools/card-holes' unproven() used to keep as its own hardcoded
+# list. A card in an ended column is exempt, the same exemption unproven()
+# already made: work finished before this check existed should not be
+# refused for artefacts nobody kept. TKT-696.
+sub _card_owed_missing {
+    my ( $self, $root, $record ) = @_;
+    my $type = $record->{type} // 'ticket';
+    my $column = $record->{column} // '';
+    my $columns = eval { $self->column_list( project => $root, type => $type ) } // [];
+    my @names = map { $_->{name} } @{$columns};
+    my %index = map { $names[$_] => $_ } 0 .. $#names;
+    return [] if !exists $index{$column};
+    return [] if $self->_ending_columns( $root, $type )->{$column};
+
+    my @missing;
+    for my $field ( sort keys %CARD_PAST_COLUMN ) {
+        my $spec = $CARD_PAST_COLUMN{$field};
+        my $threshold = $field eq 'fix_version'
+          ? $self->_shipped_from_index( $root, $type )
+          : $self->_milestone_index( $root, $type, $spec->{role}, $spec->{fallback} );
+        next if !defined $threshold || $index{$column} < $threshold;
+        my $value = $record->{$field};
+        push @missing, $field if ref $value eq 'ARRAY' ? !@{$value} : !defined $value || $value eq '';
+    }
+    return \@missing;
+}
 
 # A parent is not asked of a SOW, which is the top of the hierarchy, nor of a
 # card that says it stands alone - the gate already made both of those
@@ -7112,9 +7193,9 @@ sub card_holes {
             next if defined $starts_in && $column eq $starts_in
               && index( $record->{source} // '', 'tira.dev.found' ) >= 0;
 
-            my $missing = $self->_card_missing_from($record);
-            next if !@{$missing};
-            push @report, { ref => $record->{ref}, type => $type, column => $column, missing => $missing };
+            my @missing = ( @{ $self->_card_missing_from($record) }, @{ $self->_card_owed_missing( $root, $record ) } );
+            next if !@missing;
+            push @report, { ref => $record->{ref}, type => $type, column => $column, missing => \@missing };
         }
     }
     return \@report;
@@ -14837,7 +14918,7 @@ Returns one record, with field projection, since/if_changed short-circuiting, an
 
 =head2 record_missing
 
-Returns which of a complete card's fields are still empty, the same list card-full-details computes internally to fire a violation.
+Returns which of a complete card's fields are still empty, the same list card-full-details computes internally to fire a violation. Since TKT-696 also includes C<_card_owed_missing>'s answer - what the card owes past a milestone column (gate/evidence past verify, fix_version past shipping) - so a card the push gate is about to refuse no longer reads as complete here.
 
 =head2 diff_records
 
@@ -14974,7 +15055,11 @@ Board-wide sweep of C<_card_missing_from> - the same private helper
 C<card_missing> calls per card - so the two can never disagree about what
 complete means. Discarded cards are excluded; an untriaged
 C<tira.dev.found> report still sitting in the board's own entry column is
-exempt, exactly as the push gate exempts it. TKT-374.
+exempt, exactly as the push gate exempts it. TKT-374. Also merges in
+C<_card_owed_missing> since TKT-696, the second standard C<card_required>
+carries as C<past_column> - what a card owes once past a milestone
+column, which C<tools/card-holes>' own push-gate check used to keep as a
+hardcoded list nowhere else could read.
 
 A card labelled C<upgrade-gate> is exempt from needing a parent, the same
 way a C<standalone>-labelled card or a SOW is - see C<%CARD_EXEMPT> and

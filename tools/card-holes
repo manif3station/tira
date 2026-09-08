@@ -81,6 +81,7 @@ def milestone(role, fallback):
 # arrangement where the two cannot drift apart again. TKT-241.
 REQUIRED = None
 EXEMPT = None
+PAST_COLUMN = None
 
 
 def from_tree(what, skill, verb, *args):
@@ -115,11 +116,12 @@ def _card_required():
     fourth place the two could have drifted apart from. Read from the same
     structure the engine returns instead.
     """
-    global REQUIRED, EXEMPT
+    global REQUIRED, EXEMPT, PAST_COLUMN
     if REQUIRED is None:
         answer = from_tree('what a complete card is', 'card', 'required')
         REQUIRED = answer['fields']
         EXEMPT = answer.get('exempt') or {}
+        PAST_COLUMN = answer.get('past_column') or {}
     return REQUIRED
 
 
@@ -133,6 +135,15 @@ def exempt():
     """The exceptions to that definition, read once alongside it."""
     _card_required()
     return EXEMPT
+
+
+def past_column():
+    """The second standard, TKT-696: what a card owes once past a milestone,
+    read alongside the first rather than kept as this file's own list -
+    which is what unproven() carried independently until now, in no
+    definition ticket.missing could answer from."""
+    _card_required()
+    return PAST_COLUMN
 
 
 ATTEMPTS = 3
@@ -370,13 +381,24 @@ def unproven(record, ended):
     if column in ended:
         return None
 
+    # TKT-696: read from the engine's own definition, the same way REQUIRED
+    # and EXEMPT already are, rather than a copy that could say something
+    # different - which is exactly what happened before this: ticket.missing
+    # answered nothing was missing on five cards this refused the same day.
+    # fix_version's threshold is SHIPPED_FROM, computed above with a second
+    # fallback (the board's own ending columns) that a bare role/column
+    # lookup does not have - a board with no push column is not asked to
+    # declare one just to have a shipped point.
+    named = {'gate_passing_log': 'no gate recorded', 'evidence': 'no evidence attached',
+             'fix_version': 'no fix version set'}
+    owed = past_column()
     said = []
-    if not record.get('gate_passing_log'):
-        said.append('no gate recorded')
-    if not record.get('evidence'):
-        said.append('no evidence attached')
-    if FLOW.index(column) >= SHIPPED_FROM and not record.get('fix_version'):
-        said.append('no fix version set')
+    for field in ('gate_passing_log', 'evidence'):
+        spec = owed.get(field)
+        if spec and FLOW.index(column) >= milestone(spec['role'], spec['fallback']) and not record.get(field):
+            said.append(named[field])
+    if 'fix_version' in owed and FLOW.index(column) >= SHIPPED_FROM and not record.get('fix_version'):
+        said.append(named['fix_version'])
     if not said:
         return None
 

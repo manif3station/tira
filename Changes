@@ -1,6 +1,14 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-1017: tools/hooks/commit-msg's column check read every card as
+      being in column "" and refused every code commit unconditionally,
+      because .show has answered {count, order, records: {REF: {...}}}
+      since TKT-659 and the hook's one-liner read .column off the top
+      level. Found live: TKT-1014's own commit, made from 'verify', was
+      refused with "TKT-1014 is in '', which claims the code is settled".
+      The extraction now unwraps the envelope the same way every other
+      caller of .show already does.
     - TKT-699: column.update's --required-action and --entry-required-action
       now refuse an empty, whitespace-only, or duplicated entry, naming
       which template and, for a duplicate, the repeated text - previously

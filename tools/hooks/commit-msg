@@ -91,7 +91,17 @@ for ref in $refs; do
   [ -n "$card" ] || fail "$ref is not on the board"
   grep -q '"error"' <<<"$card" && fail "$ref is not on the board"
 
-  column="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("column",""))' <<<"$card")"
+  # Since TKT-659, .show answers {count, order, records: {REF: {...}}}
+  # rather than the record flat at the top level - unwrapped here, or every
+  # card reads back with column "", which matches neither $idle nor $writing
+  # and refuses every code commit unconditionally regardless of the real
+  # column. Found the hard way: TKT-1014's own commit, made from 'verify',
+  # was refused with exactly that message.
+  column="$(python3 -c 'import json,sys
+d=json.load(sys.stdin)
+records=d.get("records",d)
+rec=list(records.values())[0] if records else {}
+print(rec.get("column",""))' <<<"$card")"
   if grep -qE "^($idle)$" <<<"$column"; then
     fail "$ref is in '$column'.
 Move it to the gate the work is actually at before committing against it:

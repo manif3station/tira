@@ -86,21 +86,21 @@ sub run_cli {
 my ( $status, $out, $err ) = run_cli(
     'record.show', 'ticket', '--ref', $ref, '-o', 'json',
 );
-my $payload = decode_json($out);
+my $payload = decode_json($out)->{records}{$ref};
 is( length $payload->{description}, 2001, 'the CLI truncates long text at 2000 by default' );
 ok( $payload->{description_truncated}, 'the CLI default truncation is marked' );
 
 ( $status, $out, $err ) = run_cli(
     'record.show', 'ticket', '--ref', $ref, '--full', '-o', 'json',
 );
-$payload = decode_json($out);
+$payload = decode_json($out)->{records}{$ref};
 is( length $payload->{description}, 2500, '--full restores the complete value' );
 ok( !exists $payload->{description_truncated}, '--full carries no markers' );
 
 ( $status, $out, $err ) = run_cli(
     'record.show', 'ticket', '--ref', $ref, '--truncate', '100', '-o', 'json',
 );
-is( length decode_json($out)->{description}, 101, 'a caller-chosen limit applies' );
+is( length decode_json($out)->{records}{$ref}{description}, 101, 'a caller-chosen limit applies' );
 
 ( $status, $out, $err ) = run_cli(
     'record.show', 'ticket', '--ref', $ref,
@@ -117,7 +117,7 @@ is( $status, 2, 'a negative limit exits 2' );
 ( $status, $out, $err ) = run_cli(
     'record.show', 'ticket', '--ref', $ref, '--brief', '-o', 'json',
 );
-$payload = decode_json($out);
+$payload = decode_json($out)->{records}{$ref};
 is_deeply( [ sort keys %{$payload} ], [qw(assignee column ref sdlc_gate title)],
     'CLI brief returns the documented preset' );
 

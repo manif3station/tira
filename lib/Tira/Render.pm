@@ -34,17 +34,14 @@ package Tira::Render;
 #   methods, so they are called here fully qualified as Tira::_render_view()
 #   and so on. Left unqualified they would resolve against Tira::Render,
 #   compile cleanly under perl -c, and die at runtime the first time a board
-#   was rendered - which is the fault TKT-607 produced seven times and
-#   TKT-832 produced at 36 call sites. Found by grepping the moved region
-#   for its own dependencies BEFORE moving it, rather than by the suite
-#   afterwards.
+#   was rendered - the fault TKT-607 produced seven times and TKT-832 at 36
+#   call sites. Found by grepping the moved region for its own dependencies
+#   BEFORE moving it, rather than by the suite afterwards.
 
 use strict;
 use warnings;
 
-# The narrowed answer: what is here, named, and nothing invented about what is
-# not. Records keep their reference as a heading because that is how a reader
-# tells one from the next; everything else is a line.
+# The narrowed answer: what is here, named, nothing invented. Records keep their reference as a heading to tell one from the next.
 sub _markdown_fields {
     my ( $self, $data, %args ) = @_;
     my @records = ref $data eq 'ARRAY' ? @{$data} : ($data);
@@ -297,6 +294,8 @@ sub _markdown {
         return $heading . $body . "---\n\n$data->{instruction}\n";
     }
 
+    # TKT-659: a single-ref show is the {count,order,records} envelope too now.
+    $data = $data->{records}{ $data->{order}[0] } if ref($data) eq 'HASH' && ( $data->{count} // 0 ) == 1 && ref( $data->{records} ) eq 'HASH';
     if ( ref($data) eq 'HASH' && exists $data->{ref} ) {
 
         # An absent description is normal, not a reason to warn on every read.

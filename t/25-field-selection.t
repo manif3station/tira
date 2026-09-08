@@ -92,7 +92,7 @@ my ( $status, $out, $err ) = run_cli(
     '--ref', $ticket->{ref}, '--fields', 'column', '-o', 'json',
 );
 is( $status, 0, 'CLI field selection succeeds' );
-my $payload = decode_json($out);
+my $payload = decode_json($out)->{records}{ $ticket->{ref} };
 is_deeply( [ sort keys %{$payload} ], [qw(column ref)], 'CLI show returns only ref and the field' );
 
 ( $status, $out, $err ) = run_cli(
@@ -101,7 +101,7 @@ is_deeply( [ sort keys %{$payload} ], [qw(column ref)], 'CLI show returns only r
     '--fields', 'column,sdlc_gate', '--fields', 'assignee', '-o', 'json',
 );
 is( $status, 0, 'repeated --fields flags succeed' );
-is_deeply( [ sort keys %{ decode_json($out) } ], [qw(assignee column ref sdlc_gate)],
+is_deeply( [ sort keys %{ decode_json($out)->{records}{ $ticket->{ref} } } ], [qw(assignee column ref sdlc_gate)],
     'repeated CLI flags accumulate with comma lists' );
 
 ( $status, $out, $err ) = run_cli(

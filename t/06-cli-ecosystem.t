@@ -82,7 +82,7 @@ is( $status, 0, 'long UTF-8 comment command succeeds' );
 is( $err, '', 'long UTF-8 comment emits no wide-character warning' );
 is( decode_json($out)->{body}, $currency_comment, 'long UTF-8 comment JSON output round-trips' );
 ( $status, $out, $err ) = command( \%env, @perl, 'skills/ticket/cli/show', '--ref', 'TKT-001', '-o', 'json' );
-is( decode_json($out)->{comments}[1]{body}, $currency_comment, 'persisted UTF-8 comment remains readable' );
+is( decode_json($out)->{records}{'TKT-001'}{comments}[1]{body}, $currency_comment, 'persisted UTF-8 comment remains readable' );
 ( $status, $out, $err ) = command( \%env, @perl, 'skills/ticket/cli/move', '--ref', 'TKT-001', '--column', 'doing', '--author', 'ada', '-o', 'json' );
 is( decode_json($out)->{column}, 'doing', 'record movement command dispatches' );
 ( $status, $out, $err ) = command( \%env, @perl, 'cli/search', '--text', 'Ticket', '--type', 'ticket', '-o', 'json' );

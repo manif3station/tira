@@ -111,7 +111,7 @@ ok( decode_json($out)->{unchanged}, 'the unchanged marker is printed for parsers
     '--if-changed', $baseline, '-o', 'json',
 );
 is( $status, 0, 'a changed conditional read exits 0' );
-is( decode_json($out)->{ref}, $ref, 'the changed record is returned in full' );
+is( decode_json($out)->{records}{$ref}{ref}, $ref, 'the changed record is returned in full' );
 
 ( $status, $out, $err ) = run_cli(
     'record.show', 'ticket', '--ref', $ref,

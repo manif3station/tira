@@ -58,7 +58,7 @@ my ( $status, $out, $err ) = run_cli(
 );
 is( $status, 0, 'CLI compact json succeeds' );
 unlike( $out, qr/\n./s, 'the CLI default json is compact' );
-is( decode_json($out)->{ref}, $ticket->{ref}, 'the compact payload parses' );
+is( decode_json($out)->{records}{ $ticket->{ref} }{ref}, $ticket->{ref}, 'the compact payload parses' );
 
 ( $status, $out, $err ) = run_cli(
     'record.show', 'ticket', '--ref', $ticket->{ref}, '-o', 'json-pretty',

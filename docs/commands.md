@@ -3401,6 +3401,8 @@ among them. TKT-233.
 The live board offers the same three, one per board: `tira.dashboard.TYPE`
 opens it on that board, and `tira.dashboard` opens it on the default one.
 
+**`tira.TYPE.show`'s reply is `{count, order, records}` whatever the ref count, since 5.88** (TKT-659). A single `--ref` used to answer with the flat record itself while two or more answered `{count, order, records}` - the same asymmetry TKT-354 already fixed once for `tira.next`, which answered with a bare array while a busy board answered `{next, then}`. A caller written against one shape read `undef` from the other the day a second ref was added. Every field the flat shape carried is still there, just reached as `records[REF].FIELD` instead of `.FIELD` directly - `order` names the ref(s) in the order given, and `count` is `1` for a single ref. The `-o human`/`-o table` view is unaffected: it unwraps a single-record envelope before rendering, so a card still reads exactly as it did. The engine's own `record_show`, reused throughout `lib/Tira.pm` as a fetch-then-mutate primitive, is unchanged - only the CLI dispatch layer wraps its answer.
+
 
 ### Boards
 

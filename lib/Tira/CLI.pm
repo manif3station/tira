@@ -2188,9 +2188,17 @@ sub _invoke {
         }
         if ( $action eq 'show' ) {
             my $record = $tira->record_show(%args);
+            return $record if $record->{unchanged};    # --if-changed's own sentinel, not a record
             $record->{questions} = [ map { Tira::_question_view($_) } @{ $record->{questions} } ]
               if ref $record->{questions} eq 'ARRAY';
-            return $record;
+
+            # One envelope shape whatever the ref count, following TKT-354's
+            # own resolution for tira.next (one shape for every state) -
+            # a single ref used to answer with the flat record while two or
+            # more answered {count, order, records}, so a caller written
+            # against one shape got undef from the other the day the ref
+            # count changed. TKT-659.
+            return { count => 1, order => [ $record->{ref} ], records => { $record->{ref} => $record } };
         }
         return $tira->record_list(%args) if $action eq 'list';
         return $tira->record_update(%args) if $action eq 'update';

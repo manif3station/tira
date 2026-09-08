@@ -93,7 +93,8 @@ ok( decode_json($out)->{records}{'TKT-999'}{not_found}, 'CLI missing refs carry 
 ( $status, $out, $err ) = run_cli(
     'record.show', 'ticket', '--ref', $one->{ref}, '-o', 'json',
 );
-is( decode_json($out)->{ref}, $one->{ref}, 'a single ref still returns the plain record' );
+is( decode_json($out)->{records}{ $one->{ref} }{ref}, $one->{ref},
+    'a single ref answers with the same {count,order,records} envelope, TKT-659' );
 
 ( $status, $out, $err ) = run_cli(
     'record.show', 'ticket', '--ref', $one->{ref}, '--refs', "$two->{ref},$epic->{ref}", '-o', 'json',

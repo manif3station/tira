@@ -66,7 +66,7 @@ my ( $status, $out, $err ) = run_cli(
     'record.show', 'ticket', '--ref', $ticket->{ref}, '-o', 'json',
 );
 is( $status, 0, 'CLI show succeeds' );
-my $payload = decode_json($out);
+my $payload = decode_json($out)->{records}{ $ticket->{ref} };
 ok( !exists $payload->{description} && !exists $payload->{labels},
     'the CLI omits empty fields by default' );
 is( $payload->{priority}, 3, 'zero-adjacent set values are returned' );
@@ -76,7 +76,7 @@ is( $payload->{priority}, 3, 'zero-adjacent set values are returned' );
     '--include-empty', '-o', 'json',
 );
 is( $status, 0, 'CLI include-empty succeeds' );
-$payload = decode_json($out);
+$payload = decode_json($out)->{records}{ $ticket->{ref} };
 ok( exists $payload->{description} && exists $payload->{labels} && exists $payload->{scope},
     '--include-empty restores the previous shape exactly' );
 

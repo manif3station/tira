@@ -92,7 +92,7 @@ cli( 'record.create', 'epic', '--title', 'Epic', '--description', 'Full epic des
 cli( 'record.create', 'ticket', '--title', 'Ticket', @at );
 
 ( $status, $out ) = cli( 'record.show', 'ticket', '--ref', 'TKT-001', @at );
-is( decode_json($out)->{title}, 'Ticket', 'record show dispatch' );
+is( decode_json($out)->{records}{'TKT-001'}{title}, 'Ticket', 'record show dispatch' );
 ( $status, $out ) = cli( 'record.update', 'ticket', '--ref', 'TKT-001', '--set-acceptance', $json_file, @at );
 is( scalar @{ decode_json($out)->{acceptance_criteria} }, 2, 'JSON-array replacement dispatch' );
 ( $status, $out ) = cli(

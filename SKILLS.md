@@ -855,6 +855,9 @@ there is no reason to work. Until 3.48 the empty case answered with a bare
 `[]`, a different type than the busy-board hash, so a caller doing
 `result.next` crashed the moment the board went quiet - exactly when an
 unattended scheduled caller runs with nobody watching. TKT-354.
+
+**The same fix reached `tira.TYPE.show`, since 5.88** (TKT-659): one `--ref` used to answer with the flat record while two or more answered `{count, order, records}`, the identical shape-depends-on-state fault TKT-354 already fixed here. Every call now answers `{count, order, records}`, a single ref being a collection of one - see docs/commands.md for the field-by-field detail.
+
 A card carrying an unanswered question is never offered — a question is a hold
 the board reads, naming the condition, released when the answer arrives. A
 card whose `start_date` is in the future is never offered either, the other
@@ -1797,7 +1800,7 @@ Also rewrites the `column` tag stored on every record's `required_items` entries
 **Implemented.** `d2 tira.epic.show --ref EPC-001 -o human`; `d2 tira.ticket.show --refs TKT-001,TKT-002,TKT-003 --fields column -o json` answers the columns of a named set in one call, keyed by ref with explicit not-found markers.
 
 ### UC-042: Show a ticket, whole or projected
-**Implemented.** `d2 tira.ticket.show --ref TKT-001` returns the record's populated keys (empty values are omitted by default; `--include-empty` restores them); `d2 tira.ticket.show --ref TKT-001 --fields column -o json` returns only `ref` and `column` — the cheapest way to answer the board's commonest question.
+**Implemented.** `d2 tira.ticket.show --ref TKT-001` returns `{count, order, records}` with the record's populated keys under `records.TKT-001` (empty values are omitted by default; `--include-empty` restores them; see TKT-659 above for why every call answers this shape); `d2 tira.ticket.show --ref TKT-001 --fields column -o json` returns only `ref` and `column`, nested the same way — the cheapest way to answer the board's commonest question.
 
 ### UC-043: Read boards in one call, at chosen weight
 **Implemented.** `d2 tira.export -o json` returns every SOW, epic, and ticket in one `{records, count}` object; `d2 tira.export --fields ref,column -o json` returns the same board as two-key records, and `--exclude-fields description,comments` keeps structure while dropping the prose. Count is unaffected by projection. `d2 tira.export --since 2026-08-07T02:30:00Z --fields ref,column -o json` returns only records changed at or after that instant plus `now` for the next poll; `d2 tira.export --fields ref,content_hash -o json` adds a `board_hash`, and `d2 tira.export --if-changed BOARD_HASH` collapses a quiet board to `{"unchanged": true}` with exit 1 — the cheapest possible sweep. Repeated sweeps within one task can add `--cache-ttl 60`: identical calls serve locally, any write reads fresh, and a hit always announces itself on stderr.

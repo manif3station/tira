@@ -61,7 +61,7 @@ $tira->question_discard( project => $root, ref => $card->{ref}, id => $discarded
     is( $status, 0, 'record.show dispatches cleanly' );
 
     require Cpanel::JSON::XS;
-    my $shown = Cpanel::JSON::XS::decode_json($out);
+    my $shown = Cpanel::JSON::XS::decode_json($out)->{records}{ $card->{ref} };
     my %by_id = map { $_->{id} => $_ } @{ $shown->{questions} };
 
     is( $by_id{ $live->{id} }{status}, 'new', 'dispatched record.show: live question carries status new' );

@@ -1,6 +1,14 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-679: discard-with-open-questions no longer fires on a
+      question asked to explain the discard itself - the honest way
+      to satisfy discard-unexplained's demand for a reason on a card
+      the owner discarded. Compares the question's asked_at against
+      the timestamp the card actually entered its ending column (the
+      same history lookup discard-unexplained already reads); asked
+      at or before that move is still leftover work and fires
+      unchanged, asked after does not.
     - TKT-677: tira.conversation.add no longer journals under the
       speaker (--author, "who said it") - recording the owner's own
       words made card-changed-by-owner report the owner had just

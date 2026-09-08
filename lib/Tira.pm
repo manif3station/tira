@@ -9202,6 +9202,32 @@ sub policy_evaluate {
                 my @open = grep { !$_->{answer} } _policy_questions($record);
                 next if !@open;
 
+                # A question asked STRICTLY AFTER the card entered this column
+                # cannot be leftover work - the work had already stopped when
+                # it was asked. The common case is the card's own
+                # discard-unexplained remedy: asking the owner why, on the
+                # card, per this workspace's standing rule that decision
+                # questions belong on the card rather than a popup - which
+                # used to make this rule fire too, leaving no compliant move.
+                # Asked at the same instant as the move (a fixed test clock,
+                # or a question filed in the same act as the discard) is
+                # still leftover, not an explanation of something that hasn't
+                # happened yet. TKT-679.
+                my $moved_at;
+                for my $entry ( @{ $self->history_list(
+                    project => $root, ref => $record->{ref}, type => $rtype, field => 'column',
+                ) } ) {
+                    $moved_at = $entry->{at} if ( $entry->{after} // '' ) eq $column;
+                }
+                my $moved_epoch = defined $moved_at ? eval { _epoch_of_datetime( $moved_at, 'Discard' ) } : undef;
+                if ( defined $moved_epoch ) {
+                    @open = grep {
+                        my $asked_epoch = eval { _epoch_of_datetime( $_->{asked_at}, 'Question' ) };
+                        !defined $asked_epoch || $asked_epoch <= $moved_epoch;
+                    } @open;
+                }
+                next if !@open;
+
                 # Named, so the reader does not have to open the card to find
                 # out which decision was dropped.
                 my $which = join ', ', map { $_->{id} } @open;

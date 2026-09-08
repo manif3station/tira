@@ -2124,6 +2124,21 @@ aside is settled. A question withdrawn with `tira.question.discard` is the agent
 having already done what this asks. And an unanswered question on a *live* card
 is `question-unanswered`'s business, not this one's.
 
+**A fourth, since TKT-679: a question asked to explain the discard itself is not
+leftover work.** `discard-unexplained` requires a reason, and the only honest way
+to get one for a card the owner discarded is to ask him — on the card, via
+`tira.question.ask`, per this workspace's own standing rule that a decision
+question belongs there rather than in a popup. That question used to trip
+`discard-with-open-questions` too, leaving no compliant move: asking for the
+reason `discard-unexplained` demands became a new violation of a different rule.
+The fix compares the question's `asked_at` against the timestamp the card
+actually entered its ending column (the same history lookup
+`discard-unexplained` already reads). A question asked **at or before** that
+moment is leftover work and still fires, unchanged. One asked **after** is about
+the ending itself and does not count — including one asked in the same instant
+as the move, which still counts as leftover rather than an explanation of
+something that has not happened yet.
+
 ### Onboarding it
 
 Declare it alongside the other question rules, which together cover every place

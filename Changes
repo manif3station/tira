@@ -1,6 +1,12 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-676: SKILLS.md now documents tira.conversation.add/.list
+      beside comments, naming --heard and what a conversation record
+      is for - previously documented only in docs/commands.md, the
+      argument reference. Also disambiguates conversation-not-folded,
+      the police rule of a similar name, which reads comments rather
+      than conversation records despite the shared word.
     - TKT-659: tira.TYPE.show answers with {count, order, records}
       whatever the ref count, following TKT-354's own precedent for
       tira.next - one shape for every ref count rather than the flat

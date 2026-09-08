@@ -1232,6 +1232,8 @@ the singular assignee; set accepts at most one person and clears with no
 `--person`. Remove clears only a matching assignee. Comment `--text`/`--file`
 conflict; `--file -` reads stdin.
 
+**Conversation records are not comments, since 5.88** (TKT-676). `tira.conversation.add --ref REF --author WHO --said TEXT [--heard WHO] [-o FORMAT]` and `tira.conversation.list --ref REF [-o FORMAT]` record what passed between the owner and whoever was working a card - a Telegram message, a scope change spoken rather than written, a correction that overturned a diagnosis. A comment is somebody writing ON the card; a conversation record is what was said elsewhere, with who heard it. In a chain the user talks only to the core agent, which decides which direct report hears what - without this a manager knows what it said downward and nothing of what came back. This is a different thing from `conversation-not-folded`, the police rule of a similar name: that rule reads COMMENTS, not conversation records, and settles the moment any card field changes - naming the two apart matters because the shared word implies a link that does not exist.
+
 `--command`/`--proof` pairs (required-action.update, checklist.update,
 release.record) accept `--proof-file PATH` in place of a literal `--proof`,
 pairing positionally with `--command` the same way a literal `--proof`

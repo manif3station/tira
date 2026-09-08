@@ -1,6 +1,13 @@
 Revision history for Tira
 
 5.87  2026-09-07
+    - TKT-672: an "Unknown option" refusal now names a stale install as
+      the likely cause when one exists - the engine's own changelog
+      compared against the code actually running. A session that ran
+      an older install against a newer changelog for its whole length
+      read refusals for flags its own changelog already documented,
+      with nothing saying why; the refusal now names both versions
+      and the install command (cd ~; d2 skills install tira).
     - TKT-669: required-action.list now accepts --brief, trimming each
       item to its id, column, status and text - dropping proof, which
       made a card with several multi-paragraph gate proofs unreadable

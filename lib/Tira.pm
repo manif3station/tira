@@ -1014,6 +1014,24 @@ sub _version_after {
     return $cmp > 0 ? 1 : 0;
 }
 
+# What TKT-672 asks for: a caller refused for a flag their own changelog
+# documents should be told WHY, not left reading "Unknown option" as though
+# the flag never existed. Compares the changelog beside this running module
+# against the version this module itself declares - an install that copied
+# a new Changes without the lib/ that goes with it (or the reverse) fails
+# this before it ever produces a confusing "Unknown option". Returns undef
+# when the two agree, or when the changelog cannot be read at all - silence
+# there, not a fault, is _engine_changes_text's own convention already.
+sub _version_mismatch {
+    my $text = _engine_changes_text();
+    return undef if !defined $text;
+    my ($changelog_version) = $text =~ /^(\d+\.\d+)\s/m;
+    return undef if !defined $changelog_version;
+    return undef if !_version_after( $changelog_version, $VERSION );
+    return "the installed changelog names $changelog_version but the code "
+      . "running is $VERSION - re-run the install: cd ~; d2 skills install tira";
+}
+
 # The Changes entries strictly after $from and up to and including $to - what
 # an agent picking up the gating ticket needs to read, rather than the whole
 # changelog back to the first release. Blocks are split on the version-header

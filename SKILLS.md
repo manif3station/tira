@@ -112,6 +112,13 @@ names (`ref`, `column`, `start`) are excluded from that comparison, because a
 legitimate, unrelated flag like `refs` or `columns` sits only one edit away
 from one of them.
 
+**An "Unknown option" can also mean a stale install, since 5.87** (TKT-672).
+The refusal now compares the engine's own changelog against the code
+actually running, and when the changelog names something newer, names that
+alongside the flag - a session that runs an older install against a newer
+changelog reads refusals for flags its own changelog already documents, and
+the true fault is `cd ~; d2 skills install tira`, not the flag.
+
 All command-line text, text files, YAML, JSON, and structured output use UTF-8.
 Invalid UTF-8 input is rejected. Non-ASCII text, including `£`, is preserved in
 titles, fields, comments, evidence, and gate details. Attachment content remains

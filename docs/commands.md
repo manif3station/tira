@@ -33,6 +33,14 @@ refused with a suggestion; a key that resembles nothing real is left alone,
 because both methods are called internally with the CLI's own shared
 `%option` hash, which always carries many keys neither method uses.
 
+**An "Unknown option" refusal now also checks for a stale install, since
+5.87** (TKT-672): the engine's own changelog is compared against the code
+actually running, and a changelog naming something newer is reported
+alongside the flag - a session running an older install against a newer
+changelog otherwise reads refusals for flags its own changelog already
+documents, with nothing saying the true fault is the install rather than
+the flag.
+
 That parser is one array declared once, shared by every command - an option
 declared twice in it, `'attach=s@'` for years until 4.90 (TKT-775), is silent
 noise rather than a per-command bug: parsing still worked (both entries pointed

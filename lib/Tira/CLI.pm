@@ -2592,16 +2592,16 @@ sub _json_array_input {
     return $data;
 }
 
-
-
-
-
-
 sub _error {
     my ( $tira, $output, $message ) = @_;
     $message =~ s/\s+\z//;
     require Tira::CLI::Usage;
     $message = Tira::CLI::Usage::_names_the_option($message);
+    # A stale install disagreeing with its own changelog makes an "Unknown
+    # option" confusing - named here instead. TKT-672.
+    if ( $message =~ /\AUnknown option/ && defined( my $drift = Tira::_version_mismatch() ) ) {
+        $message .= " ($drift)";
+    }
     # A multi-line refusal reached the reader as one escaped string. TOON
     # and human are read as text, so they get one line per item; JSON keeps
     # its string. TKT-658.

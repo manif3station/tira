@@ -350,44 +350,23 @@ sub run {
           && $command !~ /\A(?:attachment\.add|tasklist\.task\.attach\.(?:add|discard))\z/;
         $option{file} = $option{files}[0];
     }
-    # --command-file gives --command the identical file/stdin path TKT-674
-    # gave --proof, for the identical reason: an agent's real captured
-    # command line is often long or full of quoting hazards, and the only
-    # way in otherwise is pasting a summary - the behaviour the evidence
-    # rule exists to prevent. Resolved before --proof below, which counts
-    # against the now-resolved $option{command} to catch a single pair
-    # ambiguously supplied both ways. TKT-711.
-    if ( $option{command_specs} ) {
-        my @specs = @{ $option{command_specs} };
+    # --command-file/--proof-file: the file/stdin path TKT-674 gave --proof,
+    # now shared with --command too (TKT-711). command resolves first, so
+    # proof's own cross-check counts against the now-resolved list.
+    for my $pair ( ['command_specs', 'proof_specs', 'command'], ['proof_specs', 'command', 'proof'] ) {
+        my ( $key, $other, $name ) = @{$pair};
+        next if !$option{$key};
+        my @specs = @{ $option{$key} };
         my $files = grep { $_->{file} } @specs;
-        return _error( $tira, $option{output}, "Use only one of --command or --command-file for a pair\n" )
-          if $files && $files != @specs && @specs != @{ $option{proof_specs} // [] };
+        return _error( $tira, $option{output}, "Use only one of --$name or --$name-file for a pair\n" )
+          if $files && $files != @specs && @specs != @{ ( ref $option{$other} eq 'ARRAY' ? $option{$other} : [] ) };
         my @resolved;
         my $read = eval {
             @resolved = map { $_->{file} ? _text_input( $_->{value}, utf8 => 1 ) : $_->{value} } @specs;
             1;
         };
         return _error( $tira, $option{output}, $@ || 'Unknown Tira failure' ) if !$read;
-        $option{command} = \@resolved;
-    }
-    # --proof-file pairs positionally with --command exactly as a literal
-    # --proof does, because a proof is very often a path or contains one and
-    # any rule that inspects the proof text to guess whether it names a file
-    # would eventually misread a real proof. TKT-674. --proof and --proof-file
-    # push onto one list, in the order Getopt::Long calls their subs - which is
-    # command-line order, unlike two separate array destinations.
-    if ( $option{proof_specs} ) {
-        my @specs = @{ $option{proof_specs} };
-        my $files = grep { $_->{file} } @specs;
-        return _error( $tira, $option{output}, "Use only one of --proof or --proof-file for a pair\n" )
-          if $files && $files != @specs && @specs != @{ $option{command} // [] };
-        my @resolved;
-        my $read = eval {
-            @resolved = map { $_->{file} ? _text_input( $_->{value}, utf8 => 1 ) : $_->{value} } @specs;
-            1;
-        };
-        return _error( $tira, $option{output}, $@ || 'Unknown Tira failure' ) if !$read;
-        $option{proof} = \@resolved;
+        $option{$name} = \@resolved;
     }
     $option{ref} = $option{ref_list}[-1] if $option{ref_list};
     $option{$_} = _expand_home( $option{$_} ) for grep { defined $option{$_} } qw(dir project);

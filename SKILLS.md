@@ -2879,6 +2879,18 @@ recorded pid a group leader, and `_signal_monitor` signals the group — answeri
 one that worked. That word is why this took a release to notice: reporting
 success either way made a leaked stop indistinguishable from a clean one.
 
+**Signalling the group used to leave a zombie behind, since TKT-1014.** The
+group signal reaches the feeder and its command at the same instant, not one
+after the other, and the feeder installed no `TERM` handler - so the group's
+own signal killed it outright, mid-read, before it ever reached its own
+`waitpid` on the command it was running. The command died as an unreaped
+sibling rather than a child its parent collected, and became a zombie
+nothing else was positioned to reap. Reproduced live in a container: both the
+feeder and its command showed `<defunct>` immediately after a stop, and both
+were still zombies seconds later. `Tira::CLI::Job::Feeder::run_feeder` now
+traps `TERM`, reaps whichever command it is currently running, and exits -
+`signalled: group` now means the tree is actually gone, not merely signalled.
+
 The two subs live in one file for the same reason. They must agree about what
 the recorded pid *is*, they sat in different subs of a 583-line `Tira::CLI::Job`,
 and for a release they disagreed — so the monitor lifecycle was lifted to

@@ -188,6 +188,20 @@ sub run_feeder {
     # alone, which is what _signal_monitor's answer says out loud.
     eval { setpgrp 0, 0 };
 
+    # job.stop signals the WHOLE PROCESS GROUP (TKT-920), which reaches this
+    # process and its child at once, not the child first and this process
+    # second. Left uncaught, the default TERM disposition kills this process
+    # outright, mid-read, before it ever reaches the 'waitpid' below - so the
+    # child dies as an unreaped sibling instead of being collected by its
+    # parent, and becomes a zombie nothing else is positioned to reap.
+    # Reproduced live in a container: both this process and its child showed
+    # as <defunct> immediately after a stop. TKT-1014.
+    my $current_pid;
+    local $SIG{TERM} = sub {
+        waitpid $current_pid, 0 if defined $current_pid;
+        exit 0;
+    };
+
     my $every = $args->{interval} // $job->{restart_every} // 0;
 
     # THE WAIT IS INJECTABLE, and for the reason t/529 made _signal_monitor's
@@ -200,11 +214,12 @@ sub run_feeder {
 
     require IPC::Open3;
     while (1) {
-        my $pid = IPC::Open3::open3( my $in, my $out, undef, @command );
+        $current_pid = IPC::Open3::open3( my $in, my $out, undef, @command );
         close $in;
         feed_from_handle( $tira, $args, $id, $out, $quiet, $batch_size );
         close $out;
-        waitpid $pid, 0;
+        waitpid $current_pid, 0;
+        $current_pid = undef;
 
         last if !$every;
         last if !$wait->($every);
@@ -255,5 +270,12 @@ it ends.
 
 It does no C<fork> of its own: C<IPC::Open3> does that, which keeps a branch
 that C<exec>s - and therefore can never report coverage - out of this file.
+
+Traps C<TERM> since TKT-1014: C<job.stop> signals this process's whole
+group at once, reaching the command it is running at the same instant
+rather than afterward, and the default C<TERM> disposition used to kill
+this process before it ever reached its own C<waitpid> - leaving the
+command an unreaped zombie. The handler reaps whichever command is
+currently running, then exits.
 
 =cut

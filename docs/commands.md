@@ -4203,6 +4203,18 @@ reader never has to infer it from whichever field is populated.
     three quarters of one, which is why the leak went a release without being
     seen.
 
+    **`signalled: group` used to leave a zombie behind, since TKT-1014.**
+    Signalling the whole group reaches the feeder and its command at the same
+    moment, not one after the other - and the feeder installed no `TERM`
+    handler, so the group's own signal killed it outright, mid-read, before
+    it ever reached its own `waitpid` on the command it was running. The
+    command died as an unreaped sibling instead of a child its parent
+    collected, and became a zombie nothing else was positioned to reap.
+    Reproduced live in a container: both the feeder and its command showed as
+    `<defunct>` immediately after a stop. The feeder now traps `TERM`, reaps
+    whichever command it is currently running, and exits - `signalled: group`
+    means the tree is actually gone, not merely signalled.
+
     **Three verbs now refuse while a monitor is running**, and each names this
     one: changing its `--command` (the pid would still be running the old one),
     `--enabled 0` (`monitor-dead` is deliberately silent about a disabled

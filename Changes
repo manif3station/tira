@@ -1,6 +1,13 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-1014: job.stop's group signal (TKT-920) reached the feeder and
+      its command at the same moment, and the feeder had no TERM
+      handler - so the group's own signal killed it before it reached
+      its own waitpid, leaving its command an unreaped zombie.
+      Reproduced live in a container: both the feeder and its command
+      showed <defunct> immediately after a stop. The feeder now traps
+      TERM, reaps whichever command it is running, and exits.
     - TKT-696: tira.card.required now carries a past_column standard
       alongside its field list - what a card owes once past a
       milestone (a gate entry and evidence past verify, a fix_version

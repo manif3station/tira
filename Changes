@@ -1,6 +1,13 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-688: the onboarding form's question rows now escape a
+      question's options and id, not only its text - lib/Tira/OnboardWeb.pm's
+      _render_form joined options raw into the label and interpolated id
+      unescaped into a double-quoted attribute. Latent (onboarding_questions
+      is hardcoded today), but build_psgi_app already accepts questions as
+      a parameter. _escape also now converts the single quote, which it
+      previously passed through unchanged.
     - TKT-679: discard-with-open-questions no longer fires on a
       question asked to explain the discard itself - the honest way
       to satisfy discard-unexplained's demand for a reason on a card

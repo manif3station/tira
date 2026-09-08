@@ -32,6 +32,7 @@ sub _escape {
     $value =~ s/</&lt;/g;
     $value =~ s/>/&gt;/g;
     $value =~ s/"/&quot;/g;
+    $value =~ s/'/&#39;/g;
     return $value;
 }
 
@@ -66,9 +67,11 @@ sub _render_form {
     } @FIELDS;
     my $question_rows = join "\n", map {
         my $question = $_;
-        my $label    = _escape( $question->{text} ) . ' (' . join( ' or ', @{ $question->{options} } ) . ')';
+        my $options  = join( ' or ', map { _escape($_) } @{ $question->{options} } );
+        my $label    = _escape( $question->{text} ) . " ($options)";
+        my $id       = _escape( $question->{id} );
         my $value    = _escape( $fields->{ $question->{id} } // '' );
-        qq{<label>$label <input name="$question->{id}" value="$value"></label>};
+        qq{<label>$label <input name="$id" value="$value"></label>};
     } @{$QUESTIONS};
     $rows = join "\n", grep { length } ( $rows, $question_rows );
     return <<"HTML";
@@ -275,6 +278,14 @@ hashref shaped like C<Tira::CLI::_wizard_defaults>' own return value), and
 an optional C<questions> arrayref (shaped like
 C<Tira-E<gt>onboarding_questions()>'s own return value, one form field
 rendered per entry) - and returns the Dancer2 PSGI application.
+
+Every value C<_render_form> puts into the page - C<@FIELDS> row values and
+every part of a C<questions> entry (C<text>, each C<option>, and C<id>) -
+goes through C<_escape> before it is interpolated, and C<_escape> converts
+all five HTML-significant characters (C<& < > "> and the single quote).
+Until TKT-688 a question's C<options> and C<id> were interpolated raw,
+which mattered only once C<questions> stopped being the module's own
+hardcoded default and started coming from a caller.
 
 =head2 serve
 

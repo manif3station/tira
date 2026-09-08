@@ -3611,6 +3611,15 @@ refusal names the option and both values, and reads them from
 `onboarding_questions()` rather than a hard-coded pair, so a third mode
 added there cannot be silently refused here.
 
+That mode field's options render as a hint, and since TKT-688 every part
+of a question - its `options`, its `id`, and its `text` - is escaped
+before it reaches the page; before that fix only `text` was. Latent
+today, since `onboarding_questions()` is hardcoded, but `build_psgi_app`
+already accepts `questions` as a parameter, so the day something other
+than the hardcoded mode question is passed in, an unescaped `id` or
+`options` entry would have been a hole. `_escape` itself also gained the
+single quote, which it previously left unconverted.
+
 TKT-571: an UNASSIGNED card counts against the agent again. TKT-570's
 filter (below) kept a card only when its assignee equalled the declared
 agent, which dropped cards nobody had claimed alongside cards belonging

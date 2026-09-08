@@ -3038,6 +3038,15 @@ own report until the card moves again, and a column nothing has completed
 a pass through yet is simply absent from the report rather than shown
 with zeroed statistics. TKT-366.
 
+**A reading was not enough for a container column, since 5.87** (TKT-666).
+A sow/epic legitimately sits in a working column for as long as its
+children take, so any threshold reports it forever - re-thresholding from
+this command's own p90 (TKT-573) only delayed when the noise started,
+measured at 250+ CRITICAL firings each on this board's own EPC-007/SOW-004.
+`card-duration` now measures a sow/epic's dwell from the later of its own
+arrival or its most recent child's own last move, so an active parent is
+not reported while a genuinely abandoned one still is.
+
 Read it per type before setting a threshold on a column that holds
 containers. A SOW or an epic sits in a working column for as long as its
 children take, so a threshold set for tickets fires on it forever and no

@@ -907,6 +907,17 @@ still caught. When diagnosing one of these, note the distinction from
 `card-still`: `card-duration` measures time in a column, so folding a child's
 work back into its parent — a comment, key details, a scope change — never
 settles it, and only moving the card does. TKT-573.
+
+**Re-thresholding was not the fix, since 5.87** (TKT-666): EPC-007 and
+SOW-004 went on firing CRITICAL after TKT-573 — over 250 times each across
+twelve days — because a container's own dwell is the duration of the work
+beneath it, not a signal about the container, and no threshold can reach
+that. `card-duration` now measures a sow/epic's dwell from the LATER of its
+own arrival or its most recent child's own last move — the same
+"children moving means the parent is not stalled" reasoning `wip-limit`
+already applies (TKT-333) — so a parent with active children is not
+reported, and one whose children have genuinely gone quiet still is. A
+ticket's own dwell, having no children, is unaffected.
 Wrapping wide boards is **Implemented.** each column now owns
 its own heading rather than sitting in a table row, so **Fit all wraps
 the columns onto as many rows as it takes** at a readable width instead

@@ -7497,6 +7497,21 @@ sub policy_evaluate {
                 next if ( $record->{column} // '' ) ne ( $watched // '' );
                 my ($since) = $self->_dwell_start( $root, $record->{ref} );
                 next if !defined $since;
+
+                # A sow/epic's own arrival says nothing about whether it is
+                # stalled - it lives in its resting column for its whole
+                # life by design, the same reasoning wip-limit already
+                # applies (TKT-333). Measured instead from whichever is
+                # LATER: its own arrival, or its most recent child's own
+                # last move - a parent whose children are moving is not
+                # stale, and one whose children have gone quiet still is.
+                # TKT-666.
+                if ( ( $record->{type} // '' ) ne 'ticket' ) {
+                    for my $child ( grep { ( $_->{parent} // '' ) eq $record->{ref} } @{$records} ) {
+                        my ($child_since) = $self->_dwell_start( $root, $child->{ref} );
+                        $since = $child_since if defined $child_since && $child_since gt $since;
+                    }
+                }
                 next if !$self->_policy_older_than( $since, $policy->{age} );
                 $report->( $policy, $record, "in $watched since $since" );
             }

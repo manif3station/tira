@@ -1,6 +1,16 @@
 Revision history for Tira
 
 5.87  2026-09-07
+    - TKT-666: card-duration now measures a sow/epic's dwell from the
+      later of its own arrival or its most recent child's own last
+      move, not only its own arrival - a parent lives in its working
+      column for its entire life by design, the same reasoning
+      wip-limit already applies (TKT-333), so nothing short of
+      finishing every child could ever settle the old measurement.
+      Live on this board: EPC-007 and SOW-004 fired CRITICAL over 250
+      times each, every one correctly answered by doing nothing. A
+      parent whose children have genuinely gone quiet is still caught;
+      a ticket's own dwell is unaffected.
     - TKT-658: a multi-line CLI refusal (a required-action gate naming
       several unmet items, say) reached the reader as one string with
       every newline escaped, in every output format. -o toon and -o

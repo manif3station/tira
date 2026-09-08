@@ -102,7 +102,7 @@ my %SUPPLIED_BY = (
     'An answer needs some text'            => [ 'text',     'supply it with' ],
     'How many seconds?'                    => [ 'seconds',  'supply it with' ],
     'A move needs to say who is making it' => [ 'author',   'supply it with' ],
-
+    'A change needs to say who is making it' => [ 'author', 'supply it with' ],
     # Given rather than missing: the option carried a value the command will
     # not take, so it is named rather than asked for.
     'Invalid column name'                  => [ 'name',         'the option is' ],

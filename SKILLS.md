@@ -1222,7 +1222,7 @@ tira.assign.remove --ref REF --person ID [-o FORMAT]
 tira.assign.set --ref REF [--person ID] [-o FORMAT]
 tira.comment.list --ref REF [--last N|--first N] [--meta-only] [--fields LIST] [--since TIMESTAMP] [--count] [-o FORMAT]
 tira.comment.add --ref REF --author ID (--text TEXT|--file FILE) [--format markdown|text] [--attach PATH ...] [-o FORMAT]
-tira.comment.update --ref REF --comment ID (--text TEXT|--file FILE) [--format markdown|text] [-o FORMAT]
+tira.comment.update --ref REF --comment ID (--text TEXT|--file FILE) [--format markdown|text] [--author NAME] [-o FORMAT]
 tira.comment.remove --ref REF --comment ID [-o FORMAT]
 tira.comment.attach --ref REF --comment ID --file PATH [-o FORMAT]
 ```
@@ -1284,10 +1284,10 @@ All are **Implemented.**
 
 ```text
 tira.checklist.list --ref REF [--status STATUS] [-o FORMAT]
-tira.checklist.add --ref REF --item TEXT --status TEXT [-o FORMAT]
-tira.checklist.update --ref REF --id CHK-NNN [--item TEXT] [--status TEXT] [--command TEXT ... [--proof TEXT ... | --proof-file PATH ...]] [-o FORMAT]
+tira.checklist.add --ref REF --item TEXT --status TEXT [--author NAME] [-o FORMAT]
+tira.checklist.update --ref REF --id CHK-NNN [--item TEXT] [--status TEXT] [--command TEXT ... [--proof TEXT ... | --proof-file PATH ...]] [--author NAME] [-o FORMAT]
 tira.required-action.list --ref REF [--status STATUS] [--blocking] [--brief] [-o FORMAT]
-tira.required-action.add --ref REF --item TEXT --status TEXT [--column SLUG] [-o FORMAT]
+tira.required-action.add --ref REF --item TEXT --status TEXT [--column SLUG] [--author NAME] [-o FORMAT]
 tira.required-action.update --ref REF --id REQ-NNN [--item TEXT] [--status TEXT] [--command TEXT ... [--proof TEXT ... | --proof-file PATH ...]] [--repeated-reason TEXT] [--repeated-confirm CODE] [-o FORMAT]
 tira.question.ask --ref REF --text TEXT [--reason TEXT] [--option TEXT ...] [--voice FILE] [--author ID] [-o FORMAT]
 tira.question.answer --ref REF --id Q-NNN --text TEXT [--file FILE] [--author ID] [-o FORMAT]

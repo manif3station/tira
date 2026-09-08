@@ -1,6 +1,20 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-712: checklist.add, checklist.update, required-action.add,
+      comment.update and tira.TYPE.update's usage lines named every
+      argument except --author, which the engine has always required (or
+      TIRA_AUTHOR) - so a call composed from the usage line alone was
+      refused with no hint which argument was missing. Fixed in
+      SKILLS.md and docs/commands.md, matching the [--author NAME]
+      convention TYPE.move/gate.add/evidence.add already use. Also: the
+      refusal itself ("A change needs to say who is making it") was not
+      in the CLI's message-to-flag table, so even a caller who read the
+      error was not told which option to add - now translated the same
+      way the identical move-side message already is. Scoped to the
+      confirmed callers of Tira::_require_author; the reporter's own
+      wider audit (29 write-command usage lines checked for the same
+      gap, and a systematic drift guard) remains open follow-on work.
     - TKT-711: checklist.update and required-action.update gain
       --command-file, giving --command the file/stdin path --proof-file
       already had since TKT-674 - an agent's real captured command line

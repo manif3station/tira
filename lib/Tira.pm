@@ -3091,6 +3091,12 @@ sub card_path {
 
 sub hierarchy_link {
     my ( $self, %args ) = @_;
+    # hierarchy.link takes no --ref at all - naming it, or the generic
+    # "Record reference is required" _record_data would raise on an undef
+    # ref, sent the reader back to redo the very thing that had just
+    # failed. Named directly instead. TKT-689, per Q-143.
+    die "A parent is required\n" if !defined $args{parent} || $args{parent} eq '';
+    die "A child is required\n"  if !defined $args{child}  || $args{child}  eq '';
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         my ( $parent_path, $parent ) = $self->_record_data( project => $root, ref => $args{parent} );

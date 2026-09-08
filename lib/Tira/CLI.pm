@@ -526,7 +526,7 @@ sub run {
         $result = _invoke( $tira, $command, $type, \%option );
         1;
     };
-    return _error( $tira, $option{output}, $@ || 'Unknown Tira failure' ) if !$ok;
+    return _error( $tira, $option{output}, $@ || 'Unknown Tira failure', $command ) if !$ok;
 
     if ( $command eq 'attachment.get' ) {
         print $result->{content};
@@ -2586,10 +2586,10 @@ sub _json_array_input {
 }
 
 sub _error {
-    my ( $tira, $output, $message ) = @_;
+    my ( $tira, $output, $message, $command ) = @_;
     $message =~ s/\s+\z//;
     require Tira::CLI::Usage;
-    $message = Tira::CLI::Usage::_names_the_option($message);
+    $message = Tira::CLI::Usage::_names_the_option( $message, $command );
     # A stale install disagreeing with its own changelog makes an "Unknown
     # option" confusing - named here instead. TKT-672.
     if ( $message =~ /\AUnknown option/ && defined( my $drift = Tira::_version_mismatch() ) ) {

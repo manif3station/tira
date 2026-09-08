@@ -1,6 +1,15 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-689: a refusal now names the flag the raising command actually
+      takes, not just the message's default answer. ticket.move's
+      "Invalid column name" wanted --column, not the --name that
+      answers for column.add/rename/move - fixed with a small
+      per-command override in Tira::CLI::Usage's _names_the_option.
+      hierarchy.link took neither --ref nor any single flag, so
+      instead of translating the generic "Record reference is
+      required" it now raises its own "A parent is required"/"A
+      child is required", each with a real single-flag answer.
     - TKT-688: the onboarding form's question rows now escape a
       question's options and id, not only its text - lib/Tira/OnboardWeb.pm's
       _render_form joined options raw into the label and interpolated id

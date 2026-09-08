@@ -18,11 +18,11 @@ use File::Spec ();
 use Tira;
 
 # The four file-scoped lexicals these read came with them - %RECORD_USAGE,
-# %NEEDS_TYPE, $SKILLS_TEXT and %SUPPLIED_BY. A `my` at file
-# scope cannot be reached from another package at all, so this is not a
-# preference - the module does not compile without them, which is how the
-# extractor's blind spot was found: it detects the case and refuses when the
-# variable is read on both sides, but had no branch for bringing one along.
+# %NEEDS_TYPE, $SKILLS_TEXT and %SUPPLIED_BY. A `my` at file scope cannot
+# be reached from another package at all, so this is not a preference -
+# the module does not compile without them, which is how the extractor's
+# blind spot was found: it detects the case and refuses when the variable
+# is read on both sides, but had no branch for bringing one along.
 
 # What each record verb takes, so asking a command how to use it does not
 # answer about a different one.
@@ -111,7 +111,11 @@ my %SUPPLIED_BY = (
     'Unknown policy rule'                  => [ 'rule',         'the option is' ],
     "Policy '' not found"                  => [ 'id',           'the option is' ],
     'A column layout must be JSON'         => [ 'columns-json', 'the option is' ],
+    'A parent is required'                 => [ 'parent', 'supply it with' ],  # hierarchy.link takes no --ref. TKT-689.
+    'A child is required'                  => [ 'child',  'supply it with' ],
 );
+
+my %COMMAND_OVERRIDE = ( 'record.move' => { 'Invalid column name' => ' - the option is --column' } ); # TKT-689
 
 sub _usage {
     my ( $command, $type ) = @_;
@@ -303,7 +307,12 @@ sub _unknown_option_message {
     return join( "\n", @lines );
 }
 sub _names_the_option {
-    my ($message) = @_;
+    my ( $message, $command ) = @_;
+    for my $said ( sort keys %{ ( defined $command ? $COMMAND_OVERRIDE{$command} : undef ) // {} } ) {
+        next if index( $message, $said ) < 0;
+        my $suffix = $COMMAND_OVERRIDE{$command}{$said};
+        return index( $message, $suffix ) >= 0 ? $message : "$message$suffix";
+    }
     for my $said ( sort keys %SUPPLIED_BY ) {
         next if index( $message, $said ) < 0;
         my ( $flag, $phrase ) = @{ $SUPPLIED_BY{$said} };
@@ -367,6 +376,10 @@ one text rather than two that drift.
 C<_unknown_option_message>, C<_names_the_option>, C<_declared_option_names> and
 C<_edit_distance> are the refusal an unknown option gets, and the suggestion
 that comes with it.
+
+=head2 The same message, two commands, two flags
+
+C<%COMMAND_OVERRIDE>, keyed by the raising command, is checked before C<%SUPPLIED_BY>'s single answer, via C<_names_the_option>'s optional second argument. TKT-689.
 
 =head2 A typo and a quoted value are not the same "unknown option"
 

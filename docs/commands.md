@@ -2073,6 +2073,35 @@ Three refusals name no option, and none of them is about an argument: a
 collector that is not installed, a project with no heartbeat, and a directory
 that is not a git repository.
 
+**The flag it names is the raising command's own, since TKT-689.** The
+default answer above is right for most callers, but `ticket.move`/`sow.move`/
+`epic.move` raise the identical "Invalid column name" that `column.add`/
+`rename`/`move` do and take `--column`, not their `--name`:
+
+```
+d2 tira.ticket.move --ref TKT-001 --column NOT-A-SLUG
+  Invalid column name - the option is --column
+```
+
+The command that raised the message is checked against a small override
+table before the single-answer default; every message with one true answer
+is untouched.
+
+**A command with no matching flag at all names what it does take, not what
+it doesn't.** `hierarchy.link` takes neither `--ref` nor any single flag -
+it wants `--parent` and `--child` together - so the generic "Record
+reference is required" naming `--ref` sent the reader back to redo the very
+thing that had already failed. It now raises its own two messages instead
+of borrowing the generic one:
+
+```
+d2 tira.hierarchy.link --ref TKT-001
+  A parent is required - supply it with --parent
+
+d2 tira.hierarchy.link --parent EPC-001
+  A child is required - supply it with --child
+```
+
 This is narrow on purpose: there is no per-command list of the options each one
 uses, and inventing one would refuse things that work today. What is declared is
 the set where a wrong name looks accepted rather than unknown — which is the set

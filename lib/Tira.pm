@@ -1612,6 +1612,31 @@ sub _column_defaults {
     } } @{$columns} ];
 }
 
+# A required-action template - column_update's --required-action and
+# --entry-required-action, and column_apply's whole-layout equivalents -
+# used to store an empty string, a whitespace-only string, or the same text
+# twice exactly as given. Nothing refused it, and nothing said anything: the
+# failure arrived later, at every move into that column, in a refusal that
+# names the column rather than the command that broke it. TKT-699.
+#
+# Refused here rather than dropped or deduped silently - the same choice
+# question_add and _split_list already made for an empty value, extended to
+# a duplicate for the same reason: a template holding two identical entries
+# while required_item_add stores one (it already dedupes on the card) is a
+# count two readers of the same column would disagree about.
+sub _valid_action_template {
+    my ( $list, $label ) = @_;
+    return $list if !defined $list;
+    my %seen;
+    for my $item ( @{$list} ) {
+        die "$label cannot be empty or whitespace-only\n" if !defined $item || $item !~ /\S/;
+        die "$label repeats \"$item\" - a duplicate would be silently deduped on the "
+          . "card and the counts would not agree\n"
+          if $seen{$item}++;
+    }
+    return $list;
+}
+
 sub _valid_minutes {
     my ( $value, $label ) = @_;
     die "$label must be a positive number of minutes\n"
@@ -1669,6 +1694,10 @@ sub column_apply {
     for my $column ( @{$wanted} ) {
         my $name = $self->_valid_slug( $column->{name} );
         die "Column '$name' is named twice in the same layout\n" if $seen{$name}++;
+        _valid_action_template( $column->{required_actions}, "Column '${name}'s exit required action" )
+          if defined $column->{required_actions};
+        _valid_action_template( $column->{entry_required_actions}, "Column '${name}'s entry required action" )
+          if defined $column->{entry_required_actions};
         push @plan, {
             %{$column}, name => $name,
             ( defined $column->{notify_after}
@@ -1854,7 +1883,8 @@ sub column_update {
         # once here, read on every move. Replaces the whole list on each call,
         # matching key_details, deliverables and the other multi-value fields
         # the record side already replaces wholesale. TKT-427.
-        $column->{required_actions} = $args{required_action} if defined $args{required_action};
+        $column->{required_actions} = _valid_action_template( $args{required_action}, 'An exit required action' )
+          if defined $args{required_action};
 
         # And what a card must ALREADY have done before it may be worked here
         # at all. A second list rather than a flag on the first: the two ask
@@ -1866,7 +1896,7 @@ sub column_update {
         # card" - work that belongs to neither column's own business and has
         # to be done from outside the one that demands it. Replaces the whole
         # list per call, exactly as the exit list does. TKT-591.
-        $column->{entry_required_actions} = $args{entry_required_action}
+        $column->{entry_required_actions} = _valid_action_template( $args{entry_required_action}, 'An entry required action' )
           if defined $args{entry_required_action};
 
         # A per-item exemption from the backward-move reset (TKT-678,
@@ -14408,6 +14438,10 @@ multi-value fields: an empty array clears the list, which is the only way to
 correct one rather than append past it. TKT-427 for the exit list, TKT-591 for
 the entry list.
 
+Each list is refused, whole, if any entry is empty or whitespace-only, or if
+the same text appears twice - naming which list and, for a duplicate, the
+repeated text. TKT-699.
+
 The gating itself lives in the CLI dispatch layer, not here - see
 C<Tira::CLI>'s C<_column_entry_required_action_violation>. Storing what a
 column asks for and refusing a move are deliberately separate: the browser
@@ -14854,6 +14888,10 @@ Since 5.65 (TKT-767) every removal and the final config write run under one
 lock, all-or-nothing: a failure at any point rolls back every card already
 moved to discard, rather than leaving the layout half the old shape and half
 nothing.
+
+Each column's own required-action templates are refused the same way
+C<column_update> refuses them - empty, whitespace-only, or duplicated - for
+every column in the layout, before anything is written. TKT-699.
 
 =head2 column_update
 

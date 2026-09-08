@@ -88,6 +88,25 @@ sub items_on {
     return $record->{required_items} // [];
 }
 
+# Reaches a broken template - empty or duplicated - the way a board that
+# predates TKT-699 already holds one on disk, writing the config directly
+# rather than through column_update, which now refuses to create one. What
+# this file tests past this point is the DOWNSTREAM behaviour for a template
+# that is already broken, not whether column_update lets one through.
+sub break_template {
+    my (%opt) = @_;
+    require YAML::XS;
+    my $path = File::Spec->catfile( $root, '.tira', 'ticket', 'config.yml' );
+    my $config = YAML::XS::LoadFile($path);
+    for my $column ( @{ $config->{columns} } ) {
+        next if $column->{name} ne $opt{name};
+        $column->{entry_required_actions} = $opt{entry_required_action} if exists $opt{entry_required_action};
+        $column->{required_actions}       = $opt{required_action}       if exists $opt{required_action};
+    }
+    YAML::XS::DumpFile( $path, $config );
+    return;
+}
+
 sub named {
     my ( $ref, $wanted ) = @_;
     return grep { ( $_->{item} // '' ) eq $wanted } @{ items_on($ref) };
@@ -213,8 +232,8 @@ like( $both->{err}, qr/owed now: REQ-\d+ Say the same thing/,
 # its card - so the control failed, correctly, against a fixture that had
 # quietly given it something to find.
 $tira->column_add( project => $root, type => 'ticket', name => 'gated', after => 'implement' );
-$tira->column_update(
-    project => $root, type => 'ticket', name => 'gated',
+break_template(
+    name => 'gated',
     entry_required_action => [ 'Twice in one list', 'Twice in one list' ],
     required_action       => [ 'Also twice',        'Also twice' ],
 );
@@ -248,8 +267,8 @@ is( $repeats, 1, 'and names it once, rather than printing one id twice as though
 # path's own refusal already has wording for it, "(an empty entry action)".
 
 $tira->column_add( project => $root, type => 'ticket', name => 'unplaceable', after => 'gated' );
-$tira->column_update(
-    project => $root, type => 'ticket', name => 'unplaceable',
+break_template(
+    name => 'unplaceable',
     entry_required_action => [''],
     required_action       => ['A real exit thing'],
 );

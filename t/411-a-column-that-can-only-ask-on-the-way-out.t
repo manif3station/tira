@@ -79,6 +79,25 @@ sub move {
     return ( $tira->record_show( project => $root, type => 'ticket', ref => $opt{ref} ), $said // '' );
 }
 
+# Reaches a broken template - empty or duplicated - the way a board that
+# predates TKT-699 already holds one on disk, writing the config directly
+# rather than through column_update, which now refuses to create one. What
+# this file tests past this point is the DOWNSTREAM behaviour for a template
+# that is already broken, not whether column_update lets one through.
+sub break_template {
+    my (%opt) = @_;
+    require YAML::XS;
+    my $path = File::Spec->catfile( $root, '.tira', 'ticket', 'config.yml' );
+    my $config = YAML::XS::LoadFile($path);
+    for my $column ( @{ $config->{columns} } ) {
+        next if $column->{name} ne $opt{name};
+        $column->{entry_required_actions} = $opt{entry_required_action} if exists $opt{entry_required_action};
+        $column->{required_actions}       = $opt{required_action}       if exists $opt{required_action};
+    }
+    YAML::XS::DumpFile( $path, $config );
+    return;
+}
+
 # --- a column can be told what a card must have done before it may arrive ----
 
 # Deliberately NOT "column_update did not die". An unknown argument is silently
@@ -252,10 +271,7 @@ is_deeply( [ map { $_->{item} } @after_noop ], [],
 # earlier the same day. Reproducing it in new code while that card was open is
 # the reason this assertion exists rather than a comment promising care.
 
-$tira->column_update(
-    project => $root, type => 'ticket', name => 'done', author => 'ada',
-    entry_required_action => [''],
-);
+break_template( name => 'done', entry_required_action => [''] );
 my $blank_card = $tira->create_record(
     project => $root, type => 'ticket', title => 'A card met by an empty demand', author => 'ada',
 );
@@ -337,10 +353,7 @@ is( $let_through->{column}, 'done',
 # discarded the return value and answered ok - the same swallow as the CLI side,
 # one layer out.
 
-$tira->column_update(
-    project => $root, type => 'ticket', name => 'done', author => 'ada',
-    entry_required_action => [''],
-);
+break_template( name => 'done', entry_required_action => [''] );
 my $dragged_blank = $tira->create_record(
     project => $root, type => 'ticket', title => 'A card dragged past an empty demand', author => 'ada',
 );

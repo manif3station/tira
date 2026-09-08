@@ -1,6 +1,18 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-699: column.update's --required-action and --entry-required-action
+      now refuse an empty, whitespace-only, or duplicated entry, naming
+      which template and, for a duplicate, the repeated text - previously
+      accepted verbatim, with the only consequence arriving later as every
+      move into that column refusing, permanently, in a message naming the
+      column rather than the command that broke it. column.apply's
+      whole-layout replace refuses the same faults on every column before
+      writing any of them; the browser column editor already trims blank
+      entries client-side, so the fix on column.apply alone covers it. A
+      column whose template was already broken - written directly, or
+      shipped before this fix - still gets today's move refusal unchanged,
+      since the fix is at the point of typing rather than the point of use.
     - TKT-1014: job.stop's group signal (TKT-920) reached the feeder and
       its command at the same moment, and the feeder had no TERM
       handler - so the group's own signal killed it before it reached

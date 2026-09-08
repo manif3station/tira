@@ -1,5 +1,24 @@
 Revision history for Tira
 
+5.88  2026-09-08
+    - TKT-674: --command/--proof pairs (required-action.update,
+      checklist.update, release.record) accept --proof-file PATH in
+      place of a literal --proof, pairing positionally with --command
+      exactly as a literal proof does; --proof-file - reads stdin,
+      reusing the same _text_input comment.add --file already has.
+      Real captured output - quotes, backslashes, newlines - now
+      reaches a card without surviving shell quoting first. Supplying
+      both --proof and --proof-file for one pair is refused, naming
+      both flags.
+    - TKT-998: unpushed-work now also watches every immediate
+      subdirectory of ~/Sandbox/<basename of the declared repo>/, his
+      own per-ticket clone convention - a clone with unpushed commits
+      is caught the same way the declared repo itself is, whichever
+      clone happens to have the work. unpushed_since is the oldest
+      unpushed commit across every clone combined. Something under
+      the Sandbox directory that is not a repository is skipped, not
+      fatal.
+
 5.87  2026-09-07
     - TKT-672: an "Unknown option" refusal now names a stale install as
       the likely cause when one exists - the engine's own changelog

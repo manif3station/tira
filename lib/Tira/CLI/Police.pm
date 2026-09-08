@@ -226,14 +226,23 @@ sub police_world {
       : ( defined $root && -d $root ) ? $root
       :                                 undef;
 
+    # His own working pattern (Q-140/Q-141, TKT-998): CODE stays a pristine
+    # reference at $where, and actual work happens in per-ticket clones under
+    # ~/Sandbox/<basename of $where>/. Watched the same way $where itself is -
+    # every immediate subdirectory there, each asked for its own unpushed
+    # commits and merged in, so a clone with work in progress is seen
+    # regardless of which path happens to be the one declared repository.
+    my @commits = @{ _unpushed_commits($where) };
+    push @commits, @{ _unpushed_commits($_) } for _sandbox_clone_dirs($where);
+
     my $world = {
         branches   => _git_branches($where),
         worktrees  => _git_worktrees($where),
         processes  => _running_processes(),
         containers => _running_containers(),
-        commits    => _unpushed_commits($where),
+        commits    => \@commits,
     };
-    $world->{unpushed_since} = @{ $world->{commits} } ? $world->{commits}[-1]{at} : undef;
+    $world->{unpushed_since} = @commits ? ( sort map { $_->{at} } @commits )[0] : undef;
     $world->{working_since} = _tree_changing_since($where);
     # The board's own repository first, because that is what tira.backup writes
     # and what any board can have. The old answer was a directory of stamps
@@ -883,6 +892,29 @@ sub _git_worktrees {
 # Commits this branch has and the branch it is pushed to does not. Nowhere to
 # have been pushed means nothing is sitting unpushed - a branch nobody has ever
 # pushed is not the same as work left waiting.
+# Every immediate subdirectory of ~/Sandbox/<basename of $where>/, his own
+# per-ticket clone convention (Q-140/Q-141, TKT-998). Something under there
+# that is not a repository is simply skipped by _unpushed_commits's own
+# guard, not treated as a fault - a stray file or an in-progress checkout is
+# not this rule's business.
+sub _sandbox_clone_dirs {
+    my ($where) = @_;
+    return () if !defined $where || $where eq '';
+    ( my $trimmed = $where ) =~ s{/+\z}{};
+    my $basename = ( File::Spec->splitdir($trimmed) )[-1];
+    return () if !defined $basename || $basename eq '';
+    my ($home) = ( $ENV{HOME} // '' ) =~ /\A([^\x00-\x1f\x7f]*)\z/;
+    return () if !defined $home || $home eq '';
+    my $sandbox = File::Spec->catdir( $home, 'Sandbox', $basename );
+    return () if !-d $sandbox;
+    opendir my $dh, $sandbox or return ();
+    my @clones = grep { -d $_ }
+      map { File::Spec->catdir( $sandbox, $_ ) }
+      grep { !/\A\.\.?\z/ } readdir $dh;
+    closedir $dh;
+    return @clones;
+}
+
 sub _unpushed_commits {
     require Tira::CLI::Serve;
     my ($where) = @_;

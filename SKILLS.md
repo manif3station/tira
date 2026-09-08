@@ -1228,6 +1228,14 @@ People must exist and be active for new assignments. Assignment add replaces
 the singular assignee; set accepts at most one person and clears with no
 `--person`. Remove clears only a matching assignee. Comment `--text`/`--file`
 conflict; `--file -` reads stdin.
+
+`--command`/`--proof` pairs (required-action.update, checklist.update,
+release.record) accept `--proof-file PATH` in place of a literal `--proof`,
+pairing positionally with `--command` the same way a literal `--proof`
+does; `--proof-file -` reads stdin. This lets real captured output - which
+may contain quotes, backslashes and newlines - reach a card without
+surviving shell quoting first. Supplying both `--proof` and `--proof-file`
+for what would be the same pair is refused, naming both flags. TKT-674.
 Markdown is default. Updates preserve creation time. Repeated `--attach`
 imports files before writing the comment. `tira.comment.remove` permanently
 deletes one comment by id and reports the removed comment; an unknown id
@@ -1272,10 +1280,10 @@ All are **Implemented.**
 ```text
 tira.checklist.list --ref REF [--status STATUS] [-o FORMAT]
 tira.checklist.add --ref REF --item TEXT --status TEXT [-o FORMAT]
-tira.checklist.update --ref REF --id CHK-NNN [--item TEXT] [--status TEXT] [--command TEXT ... [--proof TEXT ...]] [-o FORMAT]
+tira.checklist.update --ref REF --id CHK-NNN [--item TEXT] [--status TEXT] [--command TEXT ... [--proof TEXT ... | --proof-file PATH ...]] [-o FORMAT]
 tira.required-action.list --ref REF [--status STATUS] [--blocking] [--brief] [-o FORMAT]
 tira.required-action.add --ref REF --item TEXT --status TEXT [--column SLUG] [-o FORMAT]
-tira.required-action.update --ref REF --id REQ-NNN [--item TEXT] [--status TEXT] [--command TEXT ... [--proof TEXT ...]] [--repeated-reason TEXT] [--repeated-confirm CODE] [-o FORMAT]
+tira.required-action.update --ref REF --id REQ-NNN [--item TEXT] [--status TEXT] [--command TEXT ... [--proof TEXT ... | --proof-file PATH ...]] [--repeated-reason TEXT] [--repeated-confirm CODE] [-o FORMAT]
 tira.question.ask --ref REF --text TEXT [--reason TEXT] [--option TEXT ...] [--voice FILE] [--author ID] [-o FORMAT]
 tira.question.answer --ref REF --id Q-NNN --text TEXT [--file FILE] [--author ID] [-o FORMAT]
 tira.question.mark --ref REF --id Q-NNN --mark ok|not-ok [-o FORMAT]

@@ -165,7 +165,9 @@ sub run {
         'details=s' => \$option{details}, 'evidence=s' => \$option{evidence},
         'item=s' => \$option{item}, 'status=s' => \$option{status},
         'peek' => \$option{peek},
-        'command=s@' => \$option{command}, 'proof=s@' => \$option{proof},
+        'command=s@' => \$option{command},
+        'proof=s@' => sub { push @{ $option{proof_specs} }, { file => 0, value => $_[1] } },
+        'proof-file=s@' => sub { push @{ $option{proof_specs} }, { file => 1, value => $_[1] } },
         'field=s@' => \$option{fields}, 'pattern=s' => \$option{pattern},
         'fields=s@' => \$option{field_selection},
         'exclude-fields=s@' => \$option{exclude_fields},
@@ -346,6 +348,25 @@ sub run {
           if @{ $option{files} } > 1
           && $command !~ /\A(?:attachment\.add|tasklist\.task\.attach\.(?:add|discard))\z/;
         $option{file} = $option{files}[0];
+    }
+    # --proof-file pairs positionally with --command exactly as a literal
+    # --proof does, because a proof is very often a path or contains one and
+    # any rule that inspects the proof text to guess whether it names a file
+    # would eventually misread a real proof. TKT-674. --proof and --proof-file
+    # push onto one list, in the order Getopt::Long calls their subs - which is
+    # command-line order, unlike two separate array destinations.
+    if ( $option{proof_specs} ) {
+        my @specs = @{ $option{proof_specs} };
+        my $files = grep { $_->{file} } @specs;
+        return _error( $tira, $option{output}, "Use only one of --proof or --proof-file for a pair\n" )
+          if $files && $files != @specs && @specs != @{ $option{command} // [] };
+        my @resolved;
+        my $read = eval {
+            @resolved = map { $_->{file} ? _text_input( $_->{value}, utf8 => 1 ) : $_->{value} } @specs;
+            1;
+        };
+        return _error( $tira, $option{output}, $@ || 'Unknown Tira failure' ) if !$read;
+        $option{proof} = \@resolved;
     }
     $option{ref} = $option{ref_list}[-1] if $option{ref_list};
     $option{$_} = _expand_home( $option{$_} ) for grep { defined $option{$_} } qw(dir project);
@@ -2533,43 +2554,6 @@ sub _invoke {
 # nothing: an older board already works, because this codebase applies defaults
 # on read instead of migrating.
 our $SCHEMA_VERSION = 2;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 sub _text_input {
     my ( $file, %args ) = @_;

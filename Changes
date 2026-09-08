@@ -1,6 +1,14 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-711: checklist.update and required-action.update gain
+      --command-file, giving --command the file/stdin path --proof-file
+      already had since TKT-674 - an agent's real captured command line
+      is often long or full of quoting hazards, and the only way in
+      otherwise was a pasted summary. A single dash reads stdin.
+      Supplying both a literal --command and a --command-file for one
+      pair is refused, the same as mixing --proof/--proof-file already
+      is.
     - TKT-1017: tools/hooks/commit-msg's column check read every card as
       being in column "" and refused every code commit unconditionally,
       because .show has answered {count, order, records: {REF: {...}}}

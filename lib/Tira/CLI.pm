@@ -165,7 +165,8 @@ sub run {
         'details=s' => \$option{details}, 'evidence=s' => \$option{evidence},
         'item=s' => \$option{item}, 'status=s' => \$option{status},
         'peek' => \$option{peek},
-        'command=s@' => \$option{command},
+        'command=s@' => sub { push @{ $option{command_specs} }, { file => 0, value => $_[1] } },
+        'command-file=s@' => sub { push @{ $option{command_specs} }, { file => 1, value => $_[1] } },
         'proof=s@' => sub { push @{ $option{proof_specs} }, { file => 0, value => $_[1] } },
         'proof-file=s@' => sub { push @{ $option{proof_specs} }, { file => 1, value => $_[1] } },
         'field=s@' => \$option{fields}, 'pattern=s' => \$option{pattern},
@@ -348,6 +349,26 @@ sub run {
           if @{ $option{files} } > 1
           && $command !~ /\A(?:attachment\.add|tasklist\.task\.attach\.(?:add|discard))\z/;
         $option{file} = $option{files}[0];
+    }
+    # --command-file gives --command the identical file/stdin path TKT-674
+    # gave --proof, for the identical reason: an agent's real captured
+    # command line is often long or full of quoting hazards, and the only
+    # way in otherwise is pasting a summary - the behaviour the evidence
+    # rule exists to prevent. Resolved before --proof below, which counts
+    # against the now-resolved $option{command} to catch a single pair
+    # ambiguously supplied both ways. TKT-711.
+    if ( $option{command_specs} ) {
+        my @specs = @{ $option{command_specs} };
+        my $files = grep { $_->{file} } @specs;
+        return _error( $tira, $option{output}, "Use only one of --command or --command-file for a pair\n" )
+          if $files && $files != @specs && @specs != @{ $option{proof_specs} // [] };
+        my @resolved;
+        my $read = eval {
+            @resolved = map { $_->{file} ? _text_input( $_->{value}, utf8 => 1 ) : $_->{value} } @specs;
+            1;
+        };
+        return _error( $tira, $option{output}, $@ || 'Unknown Tira failure' ) if !$read;
+        $option{command} = \@resolved;
     }
     # --proof-file pairs positionally with --command exactly as a literal
     # --proof does, because a proof is very often a path or contains one and

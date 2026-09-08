@@ -1,6 +1,16 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-1018: a job card's log panel read oldest-first and force-scrolled
+      to the bottom on every repaint, unlike the bridge panel (TKT-976).
+      The newest line was always there, just past the fold, with the
+      panel pulling itself back down to it every few seconds - which
+      read as a dead job showing only old, unrelated-looking history.
+      paintLog now renders newest-first and preserves scroll position,
+      the same construction the bridge panel already uses. No cross-job
+      content leak was found; runLogs is correctly keyed by job id. A
+      clear button for every log window (his fourth ask) is split into
+      TKT-1020.
     - TKT-712: checklist.add, checklist.update, required-action.add,
       comment.update and tira.TYPE.update's usage lines named every
       argument except --author, which the engine has always required (or

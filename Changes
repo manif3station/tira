@@ -1,6 +1,12 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-695: a task whose ref names no card on the board is now
+      reported by task-card-mismatch, naming the ref - task-unlinked
+      only checks whether refs is empty, and task-card-mismatch used to
+      silently skip an unresolvable ref believing task-unlinked covered
+      it. It does not take --age, the same as the rule's other two
+      checks: a dangling ref is wrong the moment it is typed.
     - TKT-692: required_item_update, comment_update, checklist_update and
       gate/evidence.annotate no longer interpolate an undef id into their
       "not found" refusal when the caller omitted --id/--comment

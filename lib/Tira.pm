@@ -8862,8 +8862,10 @@ sub policy_evaluate {
             # TKT-639, and the owner's own words for what he asked for: a
             # check that each task's status still matches the card it names,
             # "reported on the policy bridge so the agent deals with it rather
-            # than somebody remembering to look". task-unlinked already
-            # catches a task with no card; this is the other half.
+            # than somebody remembering to look". task-unlinked catches a
+            # task with an EMPTY refs list; this is the other half - a task
+            # whose ref names nothing is this rule's own business, since
+            # TKT-695.
             #
             # Measured by hand before it existed, across 51 tasks and 47
             # cards: seven mismatches, five of them tasks left saying working
@@ -9019,11 +9021,23 @@ sub policy_evaluate {
                 my $status = $item->{status} // 0;
                 for my $ref ( @{ $refs_of{ $item->{id} // '' } } ) {
 
-                    # A ref naming no card is task-unlinked's business at
-                    # most, and silence here rather than a second complaint
-                    # about the same item.
+                    # Dangling is this rule's business, not task-unlinked's -
+                    # decided on TKT-695, correcting the comment this used to
+                    # carry. task-unlinked's --age grace exists for a task
+                    # that has not been linked YET; a ref naming no card is
+                    # wrong the moment it is typed, and this rule already
+                    # resolves every ref against the board to do its other
+                    # two checks, so it already holds the answer rather than
+                    # needing to ask for it. A discarded card still resolves
+                    # (column "discard"), so it is unaffected.
                     my $column = $column_of{$ref};
-                    next if !defined $column;
+                    if ( !defined $column ) {
+                        next if $said{ $item->{id} // '' };
+                        $said{ $item->{id} // '' } = 1;
+                        $report->( $policy, $item->{id},
+                            "\"$item->{text}\" names $ref, which is not a card on this board" );
+                        next;
+                    }
                     next if $said{ $item->{id} // '' };
 
                     my $type  = $type_of{$ref} // '';

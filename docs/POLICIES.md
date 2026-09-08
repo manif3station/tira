@@ -2495,12 +2495,21 @@ does is worse than one that says where it stops.
 
 ### A task and its card telling two different stories
 
-`task-unlinked` catches a task with no card. Nothing caught a task whose status
-contradicts the card it *does* name, so the queue and the board could disagree
-and only somebody reading both would notice. Counted by hand across 51 tasks
-and 47 cards the day this was raised: seven mismatches - five tasks still
-saying working after their cards had moved to push, one saying pending while
+`task-unlinked` catches a task with an empty `refs` list - not linked at
+all. Nothing caught a task whose status contradicts the card it *does*
+name, so the queue and the board could disagree and only somebody
+reading both would notice. Counted by hand across 51 tasks and 47 cards
+the day this was raised: seven mismatches - five tasks still saying
+working after their cards had moved to push, one saying pending while
 its card was in implement, and one card carrying the same note twice.
+
+A ref that is *present* but names no card on the board - a mistyped
+reference, not an absent one - is `task-card-mismatch`'s business, not
+`task-unlinked`'s: since TKT-695, it reports the task by name rather
+than the two rules silently deferring to each other. It carries no
+`--age` grace, the same as the rule's other two checks, because a
+dangling ref is wrong the moment it is written rather than after time to
+link it.
 
     d2 tira.policy.add --rule task-card-mismatch \
       --column "tests-red, implement, document, verify" \

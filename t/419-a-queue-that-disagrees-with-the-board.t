@@ -498,10 +498,13 @@ my @self_dup = grep { ( $_->{ref} // '' ) eq $twice_linked->{id} } @{ findings()
 is( scalar @self_dup, 0,
     'a task that names the same card twice is not reported as a duplicate of itself' );
 
-# TWO: the duplicate walk did not keep the silence the status walk keeps. A
-# ref naming no card is task-unlinked's business at most, and two tasks
-# sharing an opening clause about a card that does not exist were reported as
-# duplicates - a complaint about bookkeeping on a card nobody can open.
+# TWO: the duplicate walk keeps its own silence on a ref naming no card -
+# that finding belongs to the status walk alone (task-card-mismatch's
+# dangling-ref report, TKT-695), not to a second complaint about
+# near-identical text on a card nobody can open. Before TKT-695 the status
+# walk was silent here too, and this asserted zero findings of any kind;
+# since TKT-695 it reports the dangling ref once per task, so the
+# assertion is narrowed to the duplicate-shape finding specifically.
 # Sixty characters, checked rather than assumed. The first version of this
 # fixture used two texts of 59 and 68 characters that diverged at the comma -
 # so their first-sixty keys differed, they were never a duplicate pair, and the
@@ -514,9 +517,12 @@ for my $text ( 'Write up in full what the missing card was supposed to have cove
     my $t = $tira->tasklist_add( project => $root, text => $text, refs => ['QTK-404'] );
     $tira->tasklist_update( project => $root, id => $t->{id}, status => 'working' );
 }
-my @phantom = grep { ( $_->{detail} // $_->{message} // '' ) =~ /QTK-404/ } @{ findings() };
-is( scalar @phantom, 0,
-    'and two near-identical tasks about a ref that names no card are not reported - that silence is kept in both walks, not one' );
+my @about_404 = grep { ( $_->{detail} // $_->{message} // '' ) =~ /QTK-404/ } @{ findings() };
+my @duplicate_shape = grep { ( $_->{detail} // $_->{message} // '' ) =~ /same note|near-identical|duplicat/i } @about_404;
+is( scalar @duplicate_shape, 0,
+    'two near-identical tasks about a ref that names no card are not reported as duplicates of each other' );
+is( scalar @about_404, 2,
+    'and each is instead reported once, individually, as a dangling ref - task-card-mismatch since TKT-695' );
 
 # THREE: the column-order build dereferenced column_list without a guard, so a
 # board that cannot answer for one record type lost EVERY finding in that pass.

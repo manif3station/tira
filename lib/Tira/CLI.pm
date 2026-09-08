@@ -1754,7 +1754,6 @@ sub _invoke {
 
     my %args = %{$option};
     delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions set_scope_in set_scope_out field_selection exclude_fields include_empty older_than stale with_level all columns_json nested mark members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};
-
     # Set here so every command carries it, rather than in each method that
     # writes - which is how only four of them ever did.
     local $tira->{_journal_author} = _journal_identity( $tira, \%args );
@@ -1764,9 +1763,10 @@ sub _invoke {
         my $comment_scope = ( defined $option->{field_selection} || defined $option->{since} )
           && !defined $option->{exclude_fields} && !$option->{include_empty}
           && !$option->{brief} && !defined $option->{truncate};
-        die "Read options are available on show, list, and export commands\n"
+        die "Read options are available on show, list, and export commands (and --brief alone on required-action.list)\n"
           if $command !~ /\A(?:record\.(?:show|list)|export|next)\z/
-          && !( $comment_scope && $command =~ /\A(?:comment\.list|attachment\.list|diff)\z/ );
+          && !( $comment_scope && $command =~ /\A(?:comment\.list|attachment\.list|diff)\z/ )
+          && !( $option->{brief} && $command eq 'required-action.list' );    # TKT-669
         $args{fields} = $option->{field_selection} if defined $option->{field_selection};
         $args{exclude_fields} = $option->{exclude_fields} if defined $option->{exclude_fields};
     }

@@ -1,6 +1,13 @@
 Revision history for Tira
 
 5.87  2026-09-07
+    - TKT-669: required-action.list now accepts --brief, trimming each
+      item to its id, column, status and text - dropping proof, which
+      made a card with several multi-paragraph gate proofs unreadable
+      when the question was only which ids remained pending. --brief
+      was previously refused with "Read options are available on show,
+      list, and export commands", which read as though this command,
+      with "list" in its own name, should already work.
     - TKT-666: card-duration now measures a sow/epic's dwell from the
       later of its own arrival or its most recent child's own last
       move, not only its own arrival - a parent lives in its working

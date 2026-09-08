@@ -1266,7 +1266,7 @@ All are **Implemented.**
 tira.checklist.list --ref REF [--status STATUS] [-o FORMAT]
 tira.checklist.add --ref REF --item TEXT --status TEXT [-o FORMAT]
 tira.checklist.update --ref REF --id CHK-NNN [--item TEXT] [--status TEXT] [--command TEXT ... [--proof TEXT ...]] [-o FORMAT]
-tira.required-action.list --ref REF [--status STATUS] [--blocking] [-o FORMAT]
+tira.required-action.list --ref REF [--status STATUS] [--blocking] [--brief] [-o FORMAT]
 tira.required-action.add --ref REF --item TEXT --status TEXT [--column SLUG] [-o FORMAT]
 tira.required-action.update --ref REF --id REQ-NNN [--item TEXT] [--status TEXT] [--command TEXT ... [--proof TEXT ...]] [--repeated-reason TEXT] [--repeated-confirm CODE] [-o FORMAT]
 tira.question.ask --ref REF --text TEXT [--reason TEXT] [--option TEXT ...] [--voice FILE] [--author ID] [-o FORMAT]
@@ -2318,6 +2318,13 @@ None of the four move guards - chain order, exit required actions, unjudged answ
 A refusal names the items blocking a card WITH THE IDS it tells you to use. It states how many there are, prints one per line with its `REQ-NNN` id beside its own text, and ends with a `tira.required-action.update` carrying a real id from that list rather than a placeholder. Before 4.57 it joined the item texts with semicolons onto one line and suggested the literal `REQ-NNN`, so acting on it meant running `tira.required-action.list`, matching each item by text and reading off the id - on a card with 75 items across a dozen columns, by eye. That cross-reference had already put proofs against the wrong ids twice. Only the wording changed; the same moves are refused. TKT-598.
 
 `tira.required-action.list --blocking` answers the same question without attempting a move: what does the column this card is in still owe. Without it the command returns every item on the card across every column, which is why being refused was the only way to find out. The flag sits on the existing command rather than a new verb because `tira.card.required` already answers a different question - which FIELDS a complete card needs - and a third similarly-named command would mislead. Giving `--blocking` to any other command is refused by name. The refusal and this answer share one selection, so a card cannot be told one thing and refused for another; an item this card is exempt from (`--exempt-required`) drops out of both.
+
+**`--brief`, since 5.87** (TKT-669), trims each item to its id, column,
+status and text - dropping proof, which is what made a card with several
+multi-paragraph gate proofs unreadable when the question was only which
+ids remained pending. It was refused before this with "Read options are
+available on show, list, and export commands", which read as though this
+command should already answer to it - the message now names it directly.
 
 
 **Since 4.75 the browser answers it too.** The card dialog groups required

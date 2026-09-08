@@ -4685,6 +4685,11 @@ sub checklist_update {
 # non-gating extra. TKT-445.
 sub required_item_list {
     my ( $self, %args ) = @_;
+
+    # --brief means something else on record_show - project down to
+    # @BRIEF_FIELDS, which required_items is not one of - so it is kept
+    # here, for the trim below, and never forwarded. TKT-669.
+    my $brief = delete $args{brief};
     my $items = $self->record_show(%args)->{required_items};
 
     # The same silent-ignore gap TKT-802/803 found on tasklist.list's --ref,
@@ -4706,6 +4711,12 @@ sub required_item_list {
           if $wanted ne 'pending' && $wanted ne 'done';
         $items = [ grep { lc( $_->{status} // 'pending' ) eq $wanted } @{$items} ];
     }
+
+    # Every proof, in full, was the only shape this command answered with -
+    # a ten-item card with one long paragraph of proof each meant reading
+    # past all of it to see which were still pending. TKT-669.
+    $items = [ map { { id => $_->{id}, column => $_->{column}, status => $_->{status}, item => $_->{item} } } @{$items} ]
+      if $brief;
     return $items;
 }
 
@@ -15541,6 +15552,11 @@ the CLI. TKT-748.
 Returns a record's required-action entries. C<status> narrows them the same way
 C<checklist_list> does, against the narrower set C<pending> and C<done> - a
 required item is never written as C<To Do>. TKT-804.
+
+C<brief>, since 5.87 (TKT-669), trims each item to C<id>/C<column>/C<status>/
+C<item>, dropping C<proof> - deliberately deleted before C<record_show> is
+called, since that method's own C<brief> means something else entirely
+(project down to C<@BRIEF_FIELDS>, which C<required_items> is not one of).
 
 =head2 evidence_add
 

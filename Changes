@@ -9,6 +9,22 @@ Revision history for Tira
       refused with "TKT-1014 is in '', which claims the code is settled".
       The extraction now unwraps the envelope the same way every other
       caller of .show already does.
+    - TKT-700: required-action.update's --column is now a guard rather than
+      a silently-accepted-and-ignored flag - the id already finds the item
+      uniquely, so a --column that agrees is unaffected, one that disagrees
+      is refused naming both, and omitting --column behaves exactly as
+      before. Measured live on TKT-657: six calls named the right column
+      and the wrong id, on a card numbered differently from the common
+      template - every proof was genuine, filed against the wrong item,
+      and nothing noticed until a later gate refused a move for items it
+      believed already done. checklist.update gets the identical guard,
+      checked against the card's own current column since a checklist
+      entry carries none of its own. The one internal caller that spreads
+      its own --column into required_item_update wholesale - the backward
+      move's own required-item reset, which addresses items by column
+      range rather than by name - now deletes column before that spread,
+      since the move's own destination disagrees with most items reset by
+      design.
     - TKT-699: column.update's --required-action and --entry-required-action
       now refuse an empty, whitespace-only, or duplicated entry, naming
       which template and, for a duplicate, the repeated text - previously

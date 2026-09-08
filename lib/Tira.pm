@@ -4695,6 +4695,13 @@ sub checklist_update {
               . join( ', ', @ids ) . "\n";
         }
 
+        # Same second-opinion guard required_item_update gets, TKT-700 -
+        # but a checklist entry carries no column of its own, so a --column
+        # the caller gives is checked against the CARD's own current
+        # column instead.
+        die "Checklist entry '$args{id}' is on a card in column '$record->{column}', not '$args{column}'\n"
+          if defined $args{column} && defined $record->{column} && $args{column} ne $record->{column};
+
         # Checked only once the entry is confirmed to exist - t/366 expects
         # an unknown id to be told so, even when the status it was also
         # given is bogus; naming the wrong problem first would tell a
@@ -5095,6 +5102,20 @@ sub required_item_update {
             die "Required item '$args{id}' not found - entries are addressed by id, not position: "
               . join( ', ', @ids ) . "\n";
         }
+
+        # --column is a second opinion about which item this is, not a
+        # selector - the id alone already finds it. Checked only when the
+        # caller actually gave one, and only when the item itself carries a
+        # column to compare against (an item added before entry/exit
+        # templates existed carries none, and nothing here is worth
+        # refusing on). Measured live on TKT-657: a caller naming
+        # --column next-to-work-on, believing that is where its id lived,
+        # actually addressed a backlog item two ids off - six such proofs
+        # landed before the gate refusing a later move ever noticed, none
+        # of the six confirmations having anything wrong with them on their
+        # own. TKT-700.
+        die "Required item '$args{id}' is in column '$entry->{column}', not '$args{column}'\n"
+          if defined $args{column} && defined $entry->{column} && $args{column} ne $entry->{column};
 
         # Checked only once the item is confirmed to exist - t/367 expects
         # an unknown id to be told so, even when the status it was also

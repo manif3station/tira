@@ -1713,7 +1713,12 @@ sub _apply_column_required_actions {
             # an item marked --status Done is genuinely done, and must reset
             # on the way back through exactly as --status done would. TKT-434.
             next if !_item_is_done($item);
-            $tira->required_item_update( %{$args}, id => $item->{id}, status => 'pending', source => 'required-action' );
+            # column deleted, not spread: $args carries the MOVE's own
+            # destination, which disagrees with most items reset here by
+            # range rather than by name - TKT-700's new guard would refuse.
+            my %reset_args = %{$args};
+            delete $reset_args{column};
+            $tira->required_item_update( %reset_args, id => $item->{id}, status => 'pending', source => 'required-action' );
             push @reset, $item->{item};
         }
 

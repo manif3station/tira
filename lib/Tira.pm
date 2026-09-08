@@ -4116,9 +4116,14 @@ sub comment_update {
     my ( $self, %args ) = @_;
     local $self->{_journal_author} = $self->_require_author(%args);
     my $root = $self->discover_project(%args);
+    # Missing is not unknown: an absent --comment used to fall through to
+    # the not-found lookup below with an undef id, leaking a warning and
+    # telling the caller their (nonexistent) id was not found rather than
+    # that one was never given. TKT-692.
+    die "Comment id is required - supply it with --comment\n" if !defined $args{comment};
     return $self->_with_project_lock( $root, sub {
         my $record = $self->record_show(%args);
-        my ($comment) = grep { $_->{id} eq ( $args{comment} // '' ) } @{ $record->{comments} };
+        my ($comment) = grep { $_->{id} eq $args{comment} } @{ $record->{comments} };
         if ( !$comment ) {
             my @ids = map { $_->{id} } @{ $record->{comments} };
 
@@ -4633,9 +4638,15 @@ sub checklist_update {
     my $proof_entries = $self->_proof_entries_for(%args);
 
     my $root = $self->discover_project(%args);
+    # Missing is not unknown - --item/--status being present does not mean
+    # --id was. Closed at the same time as the other three sites of this
+    # construction (comment/required-item/log-entry), TKT-692, even though
+    # the item-or-status guard above happens to catch the common case.
+    die "Checklist entry id is required - supply it with --id (--item renames an existing entry, it does not address one)\n"
+      if !defined $args{id};
     return $self->_with_project_lock( $root, sub {
         my $record = $self->record_show(%args);
-        my ($entry) = grep { $_->{id} eq ( $args{id} // '' ) } @{ $record->{checklist} };
+        my ($entry) = grep { $_->{id} eq $args{id} } @{ $record->{checklist} };
         if ( !$entry ) {
             my @ids = map { $_->{id} } @{ $record->{checklist} };
 
@@ -5031,12 +5042,16 @@ sub required_item_update {
     my $proof_entries = $self->_proof_entries_for(%args);
 
     my $root = $self->discover_project(%args);
+    # Missing is not unknown - --item/--status being present does not mean
+    # --id was. TKT-692.
+    die "Required item id is required - supply it with --id (--item renames an existing entry, it does not address one)\n"
+      if !defined $args{id};
     return $self->_with_project_lock( $root, sub {
         my $record = $self->record_show(%args);
 
         # Same pre-3.03 legacy-record case required_item_add guards against.
         $record->{required_items} //= [];
-        my ($entry) = grep { $_->{id} eq ( $args{id} // '' ) } @{ $record->{required_items} };
+        my ($entry) = grep { $_->{id} eq $args{id} } @{ $record->{required_items} };
         if ( !$entry ) {
             my @ids = map { $_->{id} } @{ $record->{required_items} };
 
@@ -5472,10 +5487,12 @@ sub search_index {
 sub _annotate_log {
     my ( $self, %args ) = @_;
     die "$args{label} annotation note is required\n" if !defined $args{note} || $args{note} eq '';
+    # Missing is not unknown. TKT-692.
+    die lc( $args{label} ) . " id is required - supply it with --id\n" if !defined $args{id};
     $self->_require_person( %args, person => $args{author} ) if defined $args{author};
     my $record = $self->record_show(%args);
     my $entries = $record->{ $args{field} };
-    my ($entry) = grep { $_->{id} eq ( $args{id} // '' ) } @{$entries};
+    my ($entry) = grep { $_->{id} eq $args{id} } @{$entries};
     die _unknown_log_entry_message( lc $args{label}, $args{id}, $LOG_SPEC{ $args{field} }{prefix}, $entries )
       if !$entry;
     my $annotation = { note => $args{note}, author => $args{author}, created_at => $self->{clock}->() };
@@ -14974,7 +14991,9 @@ was never going to write. TKT-753.
 
 =head2 comment_update
 
-Updates a comment's body or format.
+Updates a comment's body or format. C<--comment> is required - since
+TKT-692, omitting it refuses directly rather than falling into the
+not-found lookup with an undef id.
 
 =head2 comment_remove
 
@@ -15031,7 +15050,10 @@ enforces on every later write to the same field.
 
 =head2 checklist_update
 
-Updates a checklist entry's item text or status. TKT-668: C<--status> is
+Updates a checklist entry's item text or status. C<--id> is required even
+when C<--item>/C<--status> are given - since TKT-692, an absent one
+refuses directly, naming that C<--item> renames an existing entry rather
+than addressing one. TKT-668: C<--status> is
 validated against the same declared set C<checklist_add> enforces at
 creation - a status already stranger than the set (written before this
 fix shipped) can still be read and moved, it just cannot be written back
@@ -15138,7 +15160,10 @@ exit one (TKT-445). TKT-652.
 
 =head2 required_item_update
 
-Updates a required-action entry's item text or status. TKT-668: C<--status>
+Updates a required-action entry's item text or status. C<--id> is
+required even when C<--item>/C<--status> are given - since TKT-692, an
+absent one refuses directly, naming that C<--item> renames an existing
+entry rather than addressing one. TKT-668: C<--status>
 is validated against the declared set C<{pending, done}>, case-insensitive -
 a misspelling refuses rather than storing an item C<_item_is_done> would
 never recognize.
@@ -15631,7 +15656,9 @@ Returns a record's evidence entries.
 
 =head2 evidence_annotate
 
-Adds a note to an existing evidence entry, leaving the entry itself intact.
+Adds a note to an existing evidence entry, leaving the entry itself
+intact. C<--id> is required - since TKT-692, an absent one refuses
+directly rather than reaching the not-found lookup with an undef id.
 
 =head2 gate_add
 
@@ -15645,6 +15672,8 @@ Returns a record's gate results.
 =head2 gate_annotate
 
 Adds a note to an existing gate entry, leaving the result itself intact.
+Same C<--id>-required fix as C<evidence_annotate> (TKT-692), shared
+through the C<_annotate_log> helper both call.
 
 =head2 release_record
 

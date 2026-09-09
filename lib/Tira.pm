@@ -15034,7 +15034,9 @@ Compares a board's configured columns against its actual on-disk directories, an
 
 =head2 link_add
 
-Links two records, writing the reciprocal link on the other side too.
+Links two records, writing the reciprocal link on the other side too. An
+unknown C<type> is refused naming every configured link type, not just the
+bad value. TKT-728.
 
 =head2 link_remove
 
@@ -15210,6 +15212,10 @@ C<_proof_entries_for> helper C<checklist_update> uses, refusing with no
 C<--command>/C<--proof> pair - previously an item could be created already
 done with no evidence at all, bypassing the pairing C<checklist_update>
 enforces on every later write to the same field.
+
+A missing C<--status> names the declared set too, not just that one is
+required (TKT-728) - the same message the unknown-value refusal above it
+already gave.
 
 =head2 checklist_update
 

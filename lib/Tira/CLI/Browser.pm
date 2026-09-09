@@ -1004,6 +1004,76 @@ sub providers {
             );
             return $json->encode( { ok => Cpanel::JSON::XS::true, entry => $entry } );
         },
+
+        # TKT-781: the CLI side (tira.gate.add/list/annotate,
+        # tira.evidence.add/list/annotate, tira.release.record) was fully
+        # built and load-bearing at this project's own pending-push/push
+        # gate, with no browser equivalent at all - not even read-only
+        # visibility. No separate *_list route is added: gate_passing_log
+        # and evidence already arrive on every detail/record_show fetch the
+        # dialog already makes, the same reason checklist_list has none
+        # either.
+        gate_add => sub {
+            my ($payload) = @_;
+            die "Gate payload must be an object\n" if ref($payload) ne 'HASH';
+            die "Gate add requires ref, gate, result and details\n"
+              if grep { !defined $payload->{$_} || ref $payload->{$_} } qw(ref gate result details);
+            my $entry = $tira->gate_add(
+                project => $project, ref => $payload->{ref},
+                author => $payload->{author} // $payload->{_signed_in},
+                gate => $payload->{gate}, result => $payload->{result}, details => $payload->{details},
+            );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, entry => $entry } );
+        },
+        gate_annotate => sub {
+            my ($payload) = @_;
+            die "Gate annotate payload must be an object\n" if ref($payload) ne 'HASH';
+            die "Gate annotate requires ref, id and note\n"
+              if grep { !defined $payload->{$_} || ref $payload->{$_} } qw(ref id note);
+            my $annotation = $tira->gate_annotate(
+                project => $project, ref => $payload->{ref}, id => $payload->{id},
+                author => $payload->{author} // $payload->{_signed_in}, note => $payload->{note},
+            );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, annotation => $annotation } );
+        },
+        evidence_add => sub {
+            my ($payload) = @_;
+            die "Evidence payload must be an object\n" if ref($payload) ne 'HASH';
+            die "Evidence add requires ref and summary\n"
+              if grep { !defined $payload->{$_} || ref $payload->{$_} } qw(ref summary);
+            my $entry = $tira->evidence_add(
+                project => $project, ref => $payload->{ref},
+                author => $payload->{author} // $payload->{_signed_in},
+                summary => $payload->{summary},
+                ( defined $payload->{uri} ? ( uri => $payload->{uri} ) : () ),
+            );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, entry => $entry } );
+        },
+        evidence_annotate => sub {
+            my ($payload) = @_;
+            die "Evidence annotate payload must be an object\n" if ref($payload) ne 'HASH';
+            die "Evidence annotate requires ref, id and note\n"
+              if grep { !defined $payload->{$_} || ref $payload->{$_} } qw(ref id note);
+            my $annotation = $tira->evidence_annotate(
+                project => $project, ref => $payload->{ref}, id => $payload->{id},
+                author => $payload->{author} // $payload->{_signed_in}, note => $payload->{note},
+            );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, annotation => $annotation } );
+        },
+        release_record => sub {
+            my ($payload) = @_;
+            die "Release payload must be an object\n" if ref($payload) ne 'HASH';
+            die "Release record requires ref, gate, result, details, evidence and fix_version\n"
+              if grep { !defined $payload->{$_} || ref $payload->{$_} }
+              qw(ref gate result details evidence fix_version);
+            my $result = $tira->release_record(
+                project => $project, ref => $payload->{ref},
+                author => $payload->{author} // $payload->{_signed_in},
+                gate => $payload->{gate}, result => $payload->{result}, details => $payload->{details},
+                evidence => $payload->{evidence}, fix_version => $payload->{fix_version},
+            );
+            return $json->encode( { ok => Cpanel::JSON::XS::true, entry => $result } );
+        },
         comment_add => sub {
             my ($payload) = @_;
             die "Comment payload must be an object\n" if ref($payload) ne 'HASH';
@@ -1218,6 +1288,16 @@ answer to Q-109 on TKT-858, chosen over creating it stopped, so a monitor made
 on the page is not immediately reported dead by C<monitor-dead>. A second
 spawn written here would not carry C<run_now>'s already-running refusal or its
 spawn/record atomicity fix.
+
+TKT-781 added C<gate_add>, C<gate_annotate>, C<evidence_add>, and
+C<evidence_annotate>, plus C<release_record> - the CLI side
+(C<tira.gate.add>, C<tira.evidence.add>, C<tira.release.record>) was fully
+built and load-bearing at this project's own pending-push/push gate, with
+no browser equivalent at all. No C<gate_list>/C<evidence_list> provider was
+added: C<gate_passing_log> and C<evidence> already arrive on every card's
+C<detail> fetch, the same reason C<checklist_list> has no provider of its
+own either - a separate read route would duplicate rather than add a
+capability.
 
 =head2 What is owed in the card's own column
 

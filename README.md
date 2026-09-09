@@ -22,6 +22,9 @@ Since 5.88, `gate.add --details` refuses a whitespace-only value the same
 way it refuses an empty one — the last of this "required explanation"
 field family (evidence, checklist, required-action) still testing for
 exact emptiness rather than real content.
+Since 5.88, the browser dashboard can also record a gate result and
+evidence, not only display them — a release can be completed entirely
+from the card dialog, without dropping to the CLI.
 Hierarchy views retain the complete direct-read record at every node and add
 children, so human and recursive JSON views cannot silently lose metadata.
 Dashboard reads scan each selected board once and group records by configured

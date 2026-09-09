@@ -3675,6 +3675,22 @@ the rest and disappears once every entry is shown - it does not load a card's
 whole log at once. A card with ten or fewer entries never shows the button,
 and a card with none shows no section, unchanged from before. TKT-495.
 
+**Since 5.88, the dashboard can write these too, not only read them**
+(TKT-781): `POST /gate/add`, `/gate/annotate`, `/evidence/add`,
+`/evidence/annotate`, and `/release/record` reach `gate_add`,
+`gate_annotate`, `evidence_add`, `evidence_annotate`, and `release_record`
+the same way `/checklist/update` already reaches `checklist_update` -
+`_signed_in` supplies the author when the payload omits one, and a
+malformed payload is refused the same way a malformed `/checklist/update`
+already was. `fix_version` was already editable from the card dialog
+(the same pencil-and-inline-edit control every other scalar field uses);
+new "Record a gate result" and "Record evidence" forms in the dialog give
+the other two a write path, matching `checklist`'s own add-a-row form.
+There is no separate `GET` route for gate/evidence, since both already
+arrive on every card's detail fetch - the same reason `gate.list`/
+`evidence.list` above have no browser-route equivalent either; the CLI
+commands remain the only way to page or filter a long log.
+
 A board column's own pagination is separate from the Gate Passing Log's - it
 has existed since TKT-703 (a "Show N more of M" button per column in
 `base-script.js`) and shows 3 cards initially, 10 more per click

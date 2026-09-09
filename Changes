@@ -1,6 +1,21 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-781: the browser dashboard had no way to record a gate result,
+      evidence, or a release at all - the CLI side (tira.gate.add,
+      tira.evidence.add, tira.release.record) was fully built and
+      load-bearing at the project's own pending-push/push gate, with no
+      browser equivalent. New POST routes (/gate/add, /gate/annotate,
+      /evidence/add, /evidence/annotate, /release/record) reach the same
+      engine methods the CLI calls, following the exact provider pattern
+      checklist_add/update already use - no separate list route, since
+      gate_passing_log and evidence already arrive on every card detail
+      fetch, the same reason checklist_list has none either. The card
+      dialog already displayed fix_version/gate_passing_log/evidence
+      read-only and fix_version was already editable (both contradicting
+      the ticket's own "zero display" claim); new "Record a gate result"
+      and "Record evidence" forms now let the other two be written from
+      the browser too.
     - TKT-769: required-action.update marked one id per call, even when
       the same --command/--proof genuinely covers several sibling
       entries - a case this project's own design already sanctions

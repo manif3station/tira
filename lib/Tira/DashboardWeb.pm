@@ -24,7 +24,7 @@ set template => 'template_toolkit';
 our ( $JOB_RUN, $JOB_CHECK, $JOB_SAVE, $JOB_DELETE, $JOB_STOP, $JOB_START );
 our ( $RENDER, $DATA, $MOVE, $DETAIL, $CREATE, $UPDATE, $SEARCH, $COMMENT_ADD, $COMMENT_UPDATE, $COMMENT_REMOVE, $PEOPLE,
       $ATTACHMENT_FETCH, $ATTACHMENT_ADD, $ATTACHMENT_REMOVE, $ATTACHMENT_DISCARD, $CHECKLIST_ADD, $CHECKLIST_UPDATE,
-      $REQUIRED_ACTION_UPDATE,
+      $REQUIRED_ACTION_UPDATE, $GATE_ADD, $GATE_ANNOTATE, $EVIDENCE_ADD, $EVIDENCE_ANNOTATE, $RELEASE_RECORD,
       $LINK_TYPES, $HIERARCHY_LINK, $HIERARCHY_UNLINK, $SUBITEM_LINK, $SUBITEM_UNLINK, $LINK_ADD, $LINK_REMOVE,
       $COLUMNS, $COLUMN_APPLY, $QUESTION_ANSWER, $QUESTION_MARK, $QUESTION_ATTACH,
       $LOGIN_START, $LOGIN_REGISTER, $SESSION_RESUME, $SESSION_PEEK, $SESSION_END, $LOGIN_PAGE,
@@ -306,6 +306,11 @@ post '/attachment/discard' => sub { return _mutation( \$ATTACHMENT_DISCARD ) };
 post '/checklist/add' => sub { return _mutation( \$CHECKLIST_ADD ) };
 post '/checklist/update' => sub { return _mutation( \$CHECKLIST_UPDATE ) };
 post '/required-action/update' => sub { return _mutation( \$REQUIRED_ACTION_UPDATE ) };
+post '/gate/add' => sub { return _mutation( \$GATE_ADD ) };
+post '/gate/annotate' => sub { return _mutation( \$GATE_ANNOTATE ) };
+post '/evidence/add' => sub { return _mutation( \$EVIDENCE_ADD ) };
+post '/evidence/annotate' => sub { return _mutation( \$EVIDENCE_ANNOTATE ) };
+post '/release/record' => sub { return _mutation( \$RELEASE_RECORD ) };
 post '/hierarchy/link' => sub { return _mutation( \$HIERARCHY_LINK ) };
 post '/hierarchy/unlink' => sub { return _mutation( \$HIERARCHY_UNLINK ) };
 post '/subitem/link' => sub { return _mutation( \$SUBITEM_LINK ) };
@@ -504,6 +509,11 @@ my @PROVIDERS = (
     [ checklist_add => \$CHECKLIST_ADD, 'checklist add provider' ],
     [ checklist_update => \$CHECKLIST_UPDATE, 'checklist update provider' ],
     [ required_action_update => \$REQUIRED_ACTION_UPDATE, 'required action update provider' ],
+    [ gate_add => \$GATE_ADD, 'gate add provider' ],
+    [ gate_annotate => \$GATE_ANNOTATE, 'gate annotate provider' ],
+    [ evidence_add => \$EVIDENCE_ADD, 'evidence add provider' ],
+    [ evidence_annotate => \$EVIDENCE_ANNOTATE, 'evidence annotate provider' ],
+    [ release_record => \$RELEASE_RECORD, 'release record provider' ],
     [ link_types => \$LINK_TYPES, 'link types provider' ],
     [ hierarchy_link => \$HIERARCHY_LINK, 'hierarchy link provider' ],
     [ hierarchy_unlink => \$HIERARCHY_UNLINK, 'hierarchy unlink provider' ],
@@ -904,6 +914,8 @@ these existed):
 =item * Attachments: attachment_fetch, attachment_add, attachment_remove, attachment_discard
 
 =item * Checklists and required actions: checklist_add, checklist_update, required_action_update
+
+=item * Gates, evidence and releases: gate_add, gate_annotate, evidence_add, evidence_annotate, release_record
 
 =item * Hierarchy and links: link_types, hierarchy_link, hierarchy_unlink, subitem_link, subitem_unlink, link_add, link_remove
 

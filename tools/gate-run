@@ -87,56 +87,151 @@ printf '%s\n' "$$" > "$lockf"
 SUITE_TIMEOUT=3600
 docker compose -f "$compose" run --rm -v "$tree:/workspace/skills/tira" perl-test bash -lc '
   cd /workspace/skills/tira &&
-  rm -rf cover_db .test-tmp &&
   cpanm --quiet --notest --installdeps . >/dev/null 2>&1 &&
   CORES=$(nproc) &&
   JOBS=$(( CORES > 1 ? CORES - 1 : 1 )) &&
-  timeout --signal=KILL '"$SUITE_TIMEOUT"' env HARNESS_PERL_SWITCHES=-MDevel::Cover prove -j"$JOBS" -lr t >/tmp/gate-run-suite.log 2>&1;
-  suite_status=$?;
 
-  # TKT-961: a clean run needs nothing past the last four lines - they already
-  # say everything the common case has to say. A refusal is a different case:
-  # prove already printed a Test Summary Report, naming every failing file
-  # and its failing subtests, immediately ABOVE those four lines - tools/
-  # gate-summarize prints both, so a refusal is actionable from the gate log
-  # alone rather than needing a ten-to-sixteen-minute re-run to learn what
-  # prove already knew.
-  ./tools/gate-summarize "$suite_status" /tmp/gate-run-suite.log;
-  [ "$suite_status" -eq 0 ] &&
+  # THE WHOLE COLLECTION PIPELINE IS RETRIED ONCE, NOT ONLY THE RUN COUNT.
+  # TKT-825, investigating TKT-954s own fix further: that fix (coverage-
+  # complete) checks the per-process run COUNT, and a real gate-run still
+  # measured lib/Tira.pm at 99.7% with that check PASSING - so a retry
+  # gated on coverage-complete alone (an earlier draft of this fix, caught
+  # by Codex review) would never have fired for the failure actually
+  # reported. The root fault, found reading Devel::Cover 1.52s own source:
+  # each per-process run directory is named `time . "." . $$ . "."
+  # . sprintf "%05d", rand 2**16` (lib/Devel/Cover.pm:788) - one-second
+  # resolution, no collision check. Under prove -jN spawning hundreds of
+  # short-lived worker processes, a PID reused within the same second can
+  # collide, and one processs run directory silently clobbers anothers -
+  # present (satisfying the count check) but WRONG, which only the actual
+  # coverage PERCENTAGE, not the run count, can catch. Upstream Devel::
+  # Cover gap, no fix reachable at this projects own layer - so the whole
+  # collection, count check through percentage, is retried together, the
+  # same way a flaky network read gets a second attempt rather than
+  # trusting the first one unconditionally.
+  attempt=1;
+  suite_status=1;
+  coverage_status=1;
+  report_status=1;
+  refusal_reason="the suite did not pass";
+  while [ "$attempt" -le 2 ]; do
+    rm -rf cover_db .test-tmp;
+    timeout --signal=KILL '"$SUITE_TIMEOUT"' env HARNESS_PERL_SWITCHES=-MDevel::Cover prove -j"$JOBS" -lr t >/tmp/gate-run-suite.log 2>&1;
+    suite_status=$?;
 
-  # WAS THE COVERAGE ACTUALLY COLLECTED, before any percentage is believed.
-  #
-  # The suite runs under prove -j, so every test process writes into one shared
-  # cover_db. When a process fragment does not survive, every statement only
-  # that process executed reads as uncovered - a wrong figure that does not
-  # look wrong. Measured on 2026-09-05: this tree reported lib/Tira.pm at 99.8
-  # and then 100.0 with nothing changed between the runs, and three further
-  # runs agreed at 100.0. So it is lost about one run in six, which is exactly
-  # the rate at which looking at the number cannot catch it.
-  #
-  # The expected count is the test files themselves rather than anything parsed
-  # out of prove: -lr t runs every .t under t/, and Devel::Cover records one run
-  # per process. TKT-954.
-  expected_runs=$(find t -name "*.t" | wc -l) &&
-  ./tools/coverage-complete --db cover_db --expected "$expected_runs" &&
+    # TKT-961: a clean run needs nothing past the last four lines - they already
+    # say everything the common case has to say. A refusal is a different case:
+    # prove already printed a Test Summary Report, naming every failing file
+    # and its failing subtests, immediately ABOVE those four lines - tools/
+    # gate-summarize prints both, so a refusal is actionable from the gate log
+    # alone rather than needing a ten-to-sixteen-minute re-run to learn what
+    # prove already knew.
+    ./tools/gate-summarize "$suite_status" /tmp/gate-run-suite.log;
+    if [ "$suite_status" -ne 0 ]; then
+      # A genuine test failure is not the race this retry exists for - do not
+      # spend a second suite run on a tree that is actually broken.
+      refusal_reason="the suite did not pass";
+      break;
+    fi
 
-  select_args=() &&
-  while IFS= read -r m; do select_args+=(-select "$m"); done \
-    < <(find lib -name "*.pm" | sort) &&
-  if [ ${#select_args[@]} -eq 0 ]; then
-    echo "gate-run: no modules found under lib/ - refusing to report coverage over nothing" >&2
-    exit 1
-  fi &&
-  cat >/tmp/.gate-run-cover <<"COVERSCRIPT" &&
+    # WAS THE COVERAGE ACTUALLY COLLECTED, before any percentage is believed.
+    #
+    # The suite runs under prove -j, so every test process writes into one shared
+    # cover_db. When a process fragment does not survive, every statement only
+    # that process executed reads as uncovered - a wrong figure that does not
+    # look wrong. Measured on 2026-09-05: this tree reported lib/Tira.pm at 99.8
+    # and then 100.0 with nothing changed between the runs, and three further
+    # runs agreed at 100.0. So it is lost about one run in six, which is exactly
+    # the rate at which looking at the number cannot catch it.
+    #
+    # The expected count is the test files themselves rather than anything parsed
+    # out of prove: -lr t runs every .t under t/, and Devel::Cover records one run
+    # per process. TKT-954.
+    expected_runs=$(find t -name "*.t" | wc -l);
+    ./tools/coverage-complete --db cover_db --expected "$expected_runs";
+    coverage_status=$?;
+    if [ "$coverage_status" -ne 0 ]; then
+      refusal_reason="the coverage collection was incomplete";
+      if [ "$attempt" -lt 2 ]; then
+        echo "gate-run: coverage collection was incomplete on attempt $attempt - retrying the suite once more before refusing" >&2;
+      fi
+      attempt=$(( attempt + 1 ));
+      continue;
+    fi
+
+    select_args=();
+    module_count=0;
+    while IFS= read -r m; do
+      select_args+=(-select "$m");
+      module_count=$(( module_count + 1 ));
+    done < <(find lib -name "*.pm" | sort);
+    if [ "$module_count" -eq 0 ]; then
+      echo "gate-run: no modules found under lib/ - refusing to report coverage over nothing" >&2;
+      exit 1;
+    fi;
+    cat >/tmp/.gate-run-cover <<"COVERSCRIPT"
 #!/usr/bin/env bash
 cover -ignore_covered_err -report text "$@" -coverage statement -coverage subroutine 2>/dev/null
 COVERSCRIPT
-  chmod +x /tmp/.gate-run-cover &&
-  ./tools/coverage-guard -- /tmp/.gate-run-cover "${select_args[@]}" >/tmp/.gate-run-cover-out 2>&1
-  coverage_status=$?
+    chmod +x /tmp/.gate-run-cover;
+    ./tools/coverage-guard -- /tmp/.gate-run-cover "${select_args[@]}" >/tmp/.gate-run-cover-out 2>&1;
+    coverage_status=$?;
+
+    # A RUN DIRECTORY CAN BE PRESENT AND STILL WRONG - the whole reason this
+    # retry exists. coverage-complete only counts entries in cover_db/runs;
+    # it cannot see a run that a colliding process clobbered, which shows up
+    # here, in the actual reported PERCENTAGE, not there. Every ^lib line is
+    # checked for 100.0/100.0/100.0 without the hosts own EXEMPT_COVERAGE
+    # list (the container does not know it) - a false retry on a genuinely
+    # exempt module costs one extra suite run, not a wrong result, since the
+    # host below still applies EXEMPT_COVERAGE for the real pass/fail call.
+    # A REPORT WITH NO ^lib LINES AT ALL IS NOT A COMPLETE ONE. Codex review:
+    # report_status started at 0 and was only ever SET to 1 by a short
+    # module line - a coverage-guard that exited 0 but printed a PARTIAL
+    # report (fewer ^lib lines than modules selected - a database cover
+    # could not fully read, say) would leave report_status at 0 for every
+    # module it DID print, missing modules it never printed at all.
+    # Codex review, twice: first found the empty-report case, then found
+    # this partial one when the first fix only checked "at least one
+    # line seen". Counted against the modules actually selected above.
+    report_status=0;
+    seen_modules=0;
+    if [ "$coverage_status" -eq 0 ]; then
+      while IFS= read -r line; do
+        case "$line" in
+          lib/*)
+            seen_modules=$(( seen_modules + 1 ));
+            case "$line" in
+              *"100.0"*"100.0"*"100.0"*) ;;
+              *) report_status=1 ;;
+            esac
+            ;;
+        esac
+      done < <(grep -E "^lib" /tmp/.gate-run-cover-out);
+      if [ "$seen_modules" -ne "$module_count" ]; then
+        report_status=1;
+      fi;
+    else
+      report_status=1;
+    fi;
+
+    if [ "$coverage_status" -eq 0 ] && [ "$report_status" -eq 0 ]; then
+      break;
+    fi;
+    if [ "$coverage_status" -ne 0 ]; then
+      refusal_reason="coverage-guard did not trust this run";
+    else
+      refusal_reason="the coverage report was short";
+    fi;
+    if [ "$attempt" -lt 2 ]; then
+      echo "gate-run: coverage was short on attempt $attempt - retrying the suite once more before refusing" >&2;
+    fi;
+    attempt=$(( attempt + 1 ));
+  done;
+  [ "$suite_status" -eq 0 ] && [ "$coverage_status" -eq 0 ] &&
   grep -E "^lib|^Total|^coverage-guard" /tmp/.gate-run-cover-out
   if [ "$coverage_status" -ne 0 ]; then
-    echo "gate-run: refusing - coverage-guard did not trust this run" >&2
+    echo "gate-run: refusing - $refusal_reason" >&2
     exit "$coverage_status"
   fi
   true &&

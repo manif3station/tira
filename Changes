@@ -1,6 +1,22 @@
 Revision history for Tira
 
 5.89  2026-09-09
+    - TKT-825: a real gate-run still measured lib/Tira.pm at 99.7% despite
+      TKT-954's own coverage-complete run-count check passing. Root cause:
+      Devel::Cover 1.52 names each per-process run directory with
+      one-second-resolution time + pid + a 16-bit random number, no
+      collision check - a pid reused within the same second under
+      prove -jN can silently clobber another process's run data, leaving
+      the slot present but wrong, which the count check cannot see. An
+      upstream gap with no fix at this project's own layer. A live
+      reproduction also found roughly half of cover_db/runs missing on
+      one full-suite pass at -j8, coincident with heavy swap use - a
+      credible, uncontrolled contributing factor, not confirmed as the
+      sole cause. tools/gate-run now retries the whole instrumented suite
+      once - either on an incomplete run count, or when the actual
+      reported coverage percentage itself is short (the case a
+      clobbered-but-present run directory produces, undetected by the
+      count check alone) - before refusing.
     - TKT-828: outstanding_summary's own comment claimed it reused
       _card_blocked's logic; the code reimplemented the same unanswered-
       question check inline instead of calling it - currently-harmless

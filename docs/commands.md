@@ -1623,6 +1623,22 @@ line first: present, it says the suite passed and shows what came after;
 absent, it falls back to the same tail, unchanged for a genuine suite
 failure.
 
+**A short coverage collection is now retried once before the gate refuses,
+since 5.89** (TKT-825). `coverage-complete`'s own count check (TKT-954)
+could still pass while the coverage figure was wrong: Devel::Cover 1.52
+names each per-process run directory from a one-second-resolution
+timestamp, the pid, and a 16-bit random number, with no collision guard -
+a pid reused within the same second under `prove -jN` can silently
+clobber another worker's run data, leaving the slot present but wrong.
+An upstream gap with no fix reachable inside this project. `gate-run` now
+reruns the whole instrumented suite once - either when `coverage-complete`
+reports an incomplete run count, or when the actual reported coverage
+percentage itself is short (the case a clobbered-but-present run directory
+produces, which the count check alone cannot see) - before refusing,
+capped at two attempts. A genuine test
+failure still breaks out immediately rather than spending a second
+ten-plus-minute run on a tree that is actually broken.
+
 Without `--pid`, the 600-second ceiling was shorter than either gate this
 repo ran at the time - coverage at 846s, pre-push at 15m and counting - so
 the commonest legitimate reason for a suspension (waiting on a gate) always

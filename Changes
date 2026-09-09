@@ -1,6 +1,14 @@
 Revision history for Tira
 
 5.91  2026-09-09
+    - TKT-1032: Michael reported a job's stop button leaving its process
+      tree as a zombie (a tg.poller example, TG 2026-09-08). Investigated
+      by running t/1014's own live reproduction (a real monitor with a
+      feeder and a child process, stopped for real): the exact pattern he
+      described was already fixed by TKT-1014, which shipped in 5.89
+      TODAY - after his report. 9/9 pass, no defunct process left behind.
+      No new code needed; recorded as confirmed-already-fixed rather than
+      assumed from reading the changelog alone.
     - TKT-895: a question asked by mistake had exactly two honest exits -
       get a real answer nobody owed, or self-answer it with the reason and
       mark it not-ok, which writes a false "answered" record on a question

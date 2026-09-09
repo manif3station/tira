@@ -115,7 +115,7 @@ ok( !waiting_for( $set_aside->{ref} ), 'a discarded question leaves the card set
 {
     my $style = $tira->format_output(
         $tira->dashboard( project => $root ), output => 'table', project => $root );
-    my ($sow) = $style =~ /\.board--sow\{--accent:(#[0-9a-f]{6})\}/;
+    my ($sow) = $style =~ /\.board--sow\s*\{\s*--accent:\s*(#[0-9a-f]{6})/;
     like( $sow, qr/\A#[0-9a-f]{6}\z/i,
         'the sow board has a colour at all, so the denial below is about one' );
     unlike( $sow, qr/\A#f/i, 'the sow board is not amber, which read as the waiting yellow' );
@@ -126,14 +126,14 @@ my $html = $tira->format_output(
     $tira->dashboard( project => $root, type => 'ticket' ),
     output => 'table', project => $root, with_title => 1 );
 like( $html, qr/class="card card--waiting"/, 'a card waiting on the owner is drawn differently' );
-like( $html, qr/\.card--to-review\{opacity:\.55/,
+like( $html, qr/\.card--to-review\s*\{\s*opacity:\s*0?\.55/,
     'and a card handed to the agent is greyed out, not a second bright colour' );
-like( $html, qr/\.card--to-review\{[^}]*saturate/,
+like( $html, qr/\.card--to-review\s*\{[^}]*saturate/,
     'faded rather than merely dimmed, so it reads as off the owner\'s plate' );
-unlike( $html, qr/\.card--to-review\{[^}]*rgba\(251,146,60/,
+unlike( $html, qr/\.card--to-review\s*\{[^}]*rgba\(251,\s*146,\s*60/,
     'nothing left of the orange that competed with the yellow for attention' );
 like( $html, qr/class="card"/, 'and an ordinary card exactly as before' );
-like( $html, qr/\.card--waiting\{/, 'the stylesheet says what that looks like' );
+like( $html, qr/\.card--waiting\s*\{/, 'the stylesheet says what that looks like' );
 
 # The ref-only fast path must stay cheap: it opens no card at all.
 {

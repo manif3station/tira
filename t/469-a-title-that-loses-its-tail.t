@@ -19,10 +19,10 @@ use lib 't/lib';
 use Suite ();
 my $text = Suite::view_source('dashboard.css');
 
-my ($hero_h1) = $text =~ /\.hero h1\{([^}]*)\}/;
+my ($hero_h1) = $text =~ /\.hero h1\s*\{([^}]*)\}/;
 ok( defined $hero_h1, 'the .hero h1 rule exists at all' );
 
-my ($line_height) = $hero_h1 =~ /line-height:([0-9.]+)/;
+my ($line_height) = $hero_h1 =~ /line-height:\s*([0-9.]+)/;
 ok( defined $line_height, '.hero h1 declares a line-height' );
 
 cmp_ok( $line_height, '>=', 1.1,

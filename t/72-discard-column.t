@@ -47,7 +47,7 @@ like( $html, qr/\Q$live->{ref}\E/, 'without losing the live work' );
 # Drawn as set aside rather than as live work, or the board would suggest there
 # is more to do than there is.
 like( $html, qr/class="column column--discard"/, 'the discard column is marked as such' );
-like( $html, qr/\.column--discard\{opacity:\.6\}/, 'and drawn faded' );
+like( $html, qr/\.column--discard\s*\{\s*opacity:\s*0?\.6/, 'and drawn faded' );
 
 # The path an agent queries is untouched: it costs nothing and returns only
 # what was asked for.

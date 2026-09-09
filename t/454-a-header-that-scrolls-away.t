@@ -36,10 +36,10 @@ sub cli {
 
 my ( $status, $html ) = cli( 'dashboard', '-o', 'table' );
 is( $status, 0, 'table dashboard succeeds' );
-like( $html, qr/\.hero\{[^}]*position:sticky/,
+like( $html, qr/\.hero\s*\{[^}]*position:\s*sticky/,
     'the header (.hero) is sticky, so scrolling the board keeps it in view - '
       . 'if this is missing, the header still scrolls away with the rest of the page' );
-like( $html, qr/\.hero\{[^}]*top:0/,
+like( $html, qr/\.hero\s*\{[^}]*top:\s*0/,
     'the sticky header pins to the top of the viewport, not some other offset' );
 
 done_testing;

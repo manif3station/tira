@@ -129,15 +129,15 @@ like( $helpers // '', qr/\S/, 'the shared view helpers are there to be read' );
     # unreadable file's emptiness alone.
     like( $css // '', qr/\S/, 'the stylesheet is there to be read' );
 
-    my ($rule) = ( $css // '' ) =~ /(\.jobs-editor__command\{[^}]*\})/;
+    my ($rule) = ( $css // '' ) =~ /(\.jobs-editor__command\s*\{[^}]*\})/;
     $rule //= '';
-    like( $rule, qr/font:inherit/,
+    like( $rule, qr/font:\s*inherit/,
         'the command field rule was found, and is the one it already had - asserted by '
           . 'content so an empty match could not satisfy the checks below' );
-    like( $rule, qr/width:100%/,
+    like( $rule, qr/width:\s*100%/,
         'the field still fills its label, rather than falling back to a textarea\'s own '
           . 'default width of about twenty characters' );
-    like( $rule, qr/resize:none/,
+    like( $rule, qr/resize:\s*none/,
         'and it carries no drag-to-resize grip, because its height is the growth helper\'s '
           . 'to decide and a hand-dragged height would fight the next keystroke' );
 }

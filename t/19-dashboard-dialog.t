@@ -222,7 +222,7 @@ unlike( $live_html, qr/sectionsHost\.appendChild\(section\("Questions"/,
 # The box waits behind Other, and a display rule would otherwise beat the
 # hidden attribute and leave it on screen - which is exactly what it did until
 # somebody looked at the panel rather than at the tests.
-like( $live_html, qr/\.card-question__typed\[hidden\][^}]*\{display:none\}/,
+like( $live_html, qr/\.card-question__typed\[hidden\][^{]*\{\s*display:\s*none/,
     'hiding the answer box actually hides it' );
 
 # Evidence where the question is, and a place to drop more.
@@ -265,7 +265,7 @@ like( $live_html, qr/question\.answer\.mark==="ok"\?"\\u2705":"\\u274c"/,
     'a tick or a cross, written as escapes so they cannot arrive double-encoded' );
 like( $live_html, qr/if\(settled\)\{block\.appendChild\(el\("blockquote","card-question__answer",question\.answer\.text\)\);host\.appendChild\(block\);return\}/,
     'and a settled question stops there: question, answer, verdict, nothing else' );
-like( $live_html, qr/\.card-question\[data-settled="1"\]\{padding:\.5rem/,
+like( $live_html, qr/\.card-question\[data-settled="1"\]\s*\{\s*padding:\s*0?\.5rem/,
     'drawn tighter than one still needing attention' );
 
 # Answering wiped the whole questions panel. The reload rebuilds the
@@ -346,7 +346,7 @@ like( $live_html, qr{mutate\("/question/mark"}, 'and the owner can say whether i
 # A discarded question is shown struck through rather than hidden.
 like( $live_html, qr/const all=\[\.\.\.\(record\.questions\|\|\[\]\)\]/,
     'every question is rendered, discarded ones included' );
-like( $live_html, qr/card-question\[data-status="discarded"\] \.card-question__text\{text-decoration:line-through\}/,
+like( $live_html, qr/card-question\[data-status="discarded"\] \.card-question__text\s*\{\s*text-decoration:\s*line-through/,
     'and a discarded one is struck through' );
 
 my $board_question = $tira->question_add(

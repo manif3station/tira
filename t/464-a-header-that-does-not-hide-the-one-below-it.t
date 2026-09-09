@@ -51,20 +51,20 @@ sub cli {
 my ( $status, $html ) = cli( 'dashboard', '-o', 'table' );
 is( $status, 0, 'table dashboard succeeds' );
 
-like( $html, qr/\.hero\{[^}]*position:sticky/, '.hero is still sticky, unchanged by this fix' );
-like( $html, qr/\.hero\{[^}]*top:0/, '.hero still pins to top:0, unchanged by this fix' );
-like( $html, qr/\.column__head\{[^}]*position:sticky/, '.column__head is still sticky, unchanged by this fix' );
-like( $html, qr/\.column__head\{[^}]*top:0/,
+like( $html, qr/\.hero\s*\{[^}]*position:\s*sticky/, '.hero is still sticky, unchanged by this fix' );
+like( $html, qr/\.hero\s*\{[^}]*top:\s*0/, '.hero still pins to top:0, unchanged by this fix' );
+like( $html, qr/\.column__head\s*\{[^}]*position:\s*sticky/, '.column__head is still sticky, unchanged by this fix' );
+like( $html, qr/\.column__head\s*\{[^}]*top:\s*0/,
     ".column__head still pins to top:0 - the earlier top-offset fix broke real pointer "
       . 'interactions twice, so this fix does not touch it' );
 
-my ($hero_block)   = $html =~ /(\.hero\{[^}]*\})/;
-my ($column_block) = $html =~ /(\.column__head\{position:sticky[^}]*\})/;
+my ($hero_block)   = $html =~ /(\.hero\s*\{[^}]*\})/;
+my ($column_block) = $html =~ /(\.column__head\s*\{\s*position:\s*sticky[^}]*\})/;
 ok( $hero_block,   'found the sticky .hero rule to read its z-index' );
 ok( $column_block, 'found the sticky .column__head rule to read its z-index' );
 
-my ($hero_z)   = $hero_block   =~ /z-index:(\d+)/;
-my ($column_z) = $column_block =~ /z-index:(\d+)/;
+my ($hero_z)   = $hero_block   =~ /z-index:\s*(\d+)/;
+my ($column_z) = $column_block =~ /z-index:\s*(\d+)/;
 ok( defined $hero_z,   '.hero declares a z-index' );
 ok( defined $column_z, '.column__head declares a z-index' );
 cmp_ok( $column_z, '>', $hero_z,

@@ -246,7 +246,7 @@ like(
       . 'take the guard out with it'
 );
 
-my ($cards_rule) = $css =~ /\.tasklist-cards\{([^}]*)\}/;
+my ($cards_rule) = $css =~ /\.tasklist-cards\s*\{([^}]*)\}/;
 $cards_rule //= '';
 
 # non-empty is the whole claim: the two assertions below search this rule for

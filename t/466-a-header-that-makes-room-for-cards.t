@@ -48,11 +48,11 @@ is( $status, 0, 'table dashboard succeeds' );
 
 # --- the header shrinks on scroll, without touching the column header -------
 
-like( $html, qr/\.hero\{[^}]*transition:padding/,
+like( $html, qr/\.hero\s*\{[^}]*transition:\s*padding/,
     'the header itself transitions smoothly rather than jumping' );
-like( $html, qr/\.hero\.hero--compact\{[^}]*padding:/,
+like( $html, qr/\.hero\.hero--compact\s*\{[^}]*padding:/,
     'a compact state exists that shrinks the header\'s own padding' );
-like( $html, qr/\.hero\.hero--compact h1\{[^}]*font-size:/,
+like( $html, qr/\.hero\.hero--compact h1\s*\{[^}]*font-size:/,
     "and shrinks the header's title text too" );
 unlike( $html, qr/\.column__head\.column__head--compact|\.column__head\{[^}]*top:var\(--hero-h\)/,
     'this fix does not touch .column__head at all - TKT-788 already broke real '

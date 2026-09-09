@@ -58,7 +58,7 @@ like( $live_html, qr{mutate\("/link/add"}, 'typed link creation posts to its rou
 like( $live_html, qr{mutate\("/link/remove"}, 'typed link removal posts to its route' );
 like( $live_html, qr/card-linkage/, 'the linkage section renders interactive rows' );
 like( $live_html, qr/sectionWithEdit/, 'long-text sections place their pencil in the heading' );
-like( $live_html, qr/\@media\(max-width:520px\)/, 'a small-screen media query exists' );
+like( $live_html, qr/\@media\s*\(\s*max-width:\s*520px\s*\)/, 'a small-screen media query exists' );
 
 my $types = decode_json( $calls->[0]{link_types}->() );
 ok( scalar @{$types} >= 1, 'link types are served' );

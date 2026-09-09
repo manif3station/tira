@@ -124,9 +124,9 @@ like( $js, qr/monitor/i,
 # every row grows two lines taller. Rows are named on both sides, which is the
 # only thing that pins them.
 
-like( $css, qr/\.jobs-card__play\{[^}]*grid-row:/,
+like( $css, qr/\.jobs-card__play\s*\{[^}]*grid-row:/,
     'the play button is given an explicit row, not just a column' );
-like( $css, qr/\.jobs-card__edit\{[^}]*grid-row:/,
+like( $css, qr/\.jobs-card__edit\s*\{[^}]*grid-row:/,
     'and so is the edit control, or auto-placement puts them under the text' );
 
 # --- a record that should not exist is not dressed up as a healthy one -------

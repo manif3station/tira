@@ -56,7 +56,7 @@ like( $css, qr/\S/, 'the stylesheet is there to be read' );
 
 sub rule {
     my ($selector) = @_;
-    my ($body) = $css =~ /\Q$selector\E\{([^}]*)\}/;
+    my ($body) = $css =~ /\Q$selector\E\s*\{([^}]*)\}/;
     return $body // '';
 }
 
@@ -102,7 +102,7 @@ cmp_ok( $hero_bottom, '<', 2.5,
 
 isnt( value( '.hero', 'padding' ), '',
     'the header keeps its own padding - the space removed is the clearance, not the content' );
-like( rule('.hero--compact'), qr/padding:\s*\.4rem/,
+like( rule('.hero--compact'), qr/padding:\s*0?\.4rem/,
     'and the compact state is untouched, since it is what the page collapses to on scroll' );
 
 # The header's internal layout belongs to TKT-854, and when this file was

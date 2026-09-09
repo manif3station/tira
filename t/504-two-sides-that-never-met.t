@@ -64,7 +64,7 @@ like( $css, qr/\S/, 'the stylesheet is there to be read' );
 
 sub rule {
     my ($selector) = @_;
-    my ($body) = $css =~ /\Q$selector\E\{([^}]*)\}/;
+    my ($body) = $css =~ /\Q$selector\E\s*\{([^}]*)\}/;
     return $body // '';
 }
 
@@ -136,15 +136,15 @@ is( value( '.hero', 'position' ), 'sticky',
 # a different layout entirely: align-items does nothing to a block box. Asserted
 # because a careless fix would "simplify" the override away and break the phone.
 
-like( $css, qr/\@media\(max-width:720px\)/,
+like( $css, qr/\@media\s*\(\s*max-width:\s*720px\s*\)/,
     'the narrow-viewport block is still there' );
 
-my ($narrow) = $css =~ /\@media\(max-width:720px\)\{(.*)$/s;
+my ($narrow) = $css =~ /\@media\s*\(\s*max-width:\s*720px\s*\)\s*\{(.*)$/s;
 $narrow //= '';
-like( $narrow, qr/\.hero\{display:block\}/,
+like( $narrow, qr/\.hero\s*\{\s*display:\s*block/,
     'and still stacks the header on a phone, where stretching two columns to '
       . 'one height would mean nothing' );
-like( $narrow, qr/\.hero__aside\{justify-items:start/,
+like( $narrow, qr/\.hero__aside\s*\{\s*justify-items:\s*start/,
     'and still left-aligns the aside there, since there is no right-hand '
       . 'column to line up with once they are stacked' );
 

@@ -85,7 +85,7 @@ like( $css, qr/\S/, 'the stylesheet is there to be read' );
 
 like(
     $js,
-    qr/const\s+reconcileTasklist\s*=\s*items\s*=>/,
+    qr/const\s+reconcileTasklist\s*=\s*\(?items\)?\s*=>/,
     'reconcileTasklist is still the function that decides what is rendered'
 );
 
@@ -170,7 +170,7 @@ is( $step,    10, 'and ten more per press, which is the other one' );
 # reading - which would look like a bug rather than a feature, and would pass a
 # test that only counted the initial render.
 
-my ($load_body) = $js =~ /const\s+loadTasklist\s*=\s*\(\)\s*=>(.*?)(?=;const\s|;tasklistSection)/s;
+my ($load_body) = $js =~ /const\s+loadTasklist\s*=\s*\(\)\s*=>(.*?)(?=;\s*const\s|;\s*tasklistSection)/s;
 $load_body //= '';
 
 # non-empty is the whole claim: the assertion below searches this body for an
@@ -196,7 +196,7 @@ like(
 # results however many matched, and searching for a task in position 90 would
 # find nothing at all - the filter would look broken rather than capped.
 
-my ($reconcile) = $js =~ /const\s+reconcileTasklist\s*=\s*items\s*=>\s*\{(.*?)\};const\s/s;
+my ($reconcile) = $js =~ /const\s+reconcileTasklist\s*=\s*\(?items\)?\s*=>\s*\{(.*?)\};\s*const\s/s;
 $reconcile //= '';
 
 # non-empty is the whole claim: three assertions below read the order of

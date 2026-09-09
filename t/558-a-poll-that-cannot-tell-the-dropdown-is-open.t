@@ -33,7 +33,7 @@ like( $js, qr/\S/, 'tasklist-editor.js is there to be read' );
 
 # --- established: tlRowBusy exists and already protects two other cases ----
 
-my ($busy) = $js =~ /(const\s+tlRowBusy\s*=.*?;)(?=const\s+reconcileTasklist)/s;
+my ($busy) = $js =~ /(const\s+tlRowBusy\s*=.*?;)(?=\s*const\s+reconcileTasklist)/s;
 ok( defined $busy && length $busy, 'tlRowBusy is there to read' )
   or BAIL_OUT('tlRowBusy not found by this pattern - update it above');
 
@@ -49,7 +49,7 @@ like( $busy, qr/querySelector\((['"])select\1\)/,
     'tlRowBusy also treats the status dropdown as busy - the one input the '
       . 'poll never learned about, which is the whole of this card' );
 
-my ($select_check) = $busy =~ /(querySelector\((['"])select\2\).*)/;
+my ($select_check) = $busy =~ /(querySelector\((['"])select\2\).*)/s;
 ok( defined $select_check, 'a select lookup was found to check what it does with it' );
 like( $select_check, qr/activeElement/,
     'checked the same way the CARD-REF input already is - focus, since a '

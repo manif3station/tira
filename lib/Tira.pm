@@ -15831,6 +15831,9 @@ Returns a record's evidence entries.
 Adds a note to an existing evidence entry, leaving the entry itself
 intact. C<--id> is required - since TKT-692, an absent one refuses
 directly rather than reaching the not-found lookup with an undef id.
+Since 5.88 (TKT-731) the read-modify-write is inside C<_with_project_lock>,
+the same as every other writer on this path - it was the only one of
+twenty-three C<_replace_record> callers that was not.
 
 =head2 gate_add
 
@@ -15844,8 +15847,9 @@ Returns a record's gate results.
 =head2 gate_annotate
 
 Adds a note to an existing gate entry, leaving the result itself intact.
-Same C<--id>-required fix as C<evidence_annotate> (TKT-692), shared
-through the C<_annotate_log> helper both call.
+Same C<--id>-required fix as C<evidence_annotate> (TKT-692), and the same
+project-lock fix (TKT-731), shared through the C<_annotate_log> helper
+both call.
 
 =head2 release_record
 

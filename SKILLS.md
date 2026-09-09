@@ -2077,6 +2077,8 @@ attach-content dedup path on TKT-832 - because 100% over a 15,000-line file
 and 100% over a 700-line one are not the same claim, and shrinking the
 denominator stops the rounding hiding what was never tested.
 
+**And a lift exposed a THIRD gap, since 5.89 (TKT-833): the POD gate never checked `lib/` at all.** `t/03-metadata.t`'s own podchecker walk named exactly two files - `lib/Tira.pm`, `lib/Tira/CLI.pm` - rather than walking `lib/` the way it already walks `cli/` and `t/`, so `Tira::Toon` (TKT-830) and `Tira::Tasklist` (TKT-832) shipped with POD nothing ever validated, and the other seventeen modules under `lib/` were in the same position regardless of any lift. Found reading the guard itself while lifting `Tira::Tasklist` out. All nineteen previously-ungated modules were checked directly and found clean - this closes a latent gate hole, not a live documentation defect. `lib/` is now walked and filtered for `.pm`, with a count guard comparing the walk's own find against an independent count, so an empty or mis-rooted walk cannot pass silently - the exact fault `t/429`'s own first version had, and the reason this one is a count comparison rather than a bare non-zero check.
+
 **And new engine code now starts in its own module (TKT-836, 5.27).** The
 first feature written since the decomposition began - repeated jobs, EPC-014 -
 went straight into `lib/Tira/Job.pm` rather than into `lib/Tira.pm`. Adding a

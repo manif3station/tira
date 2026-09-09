@@ -131,13 +131,36 @@ close $policies_doc;
 my @rules_undocumented = grep { $policies_text !~ /\Q$_\E/ } @{$rules};
 is_deeply( \@rules_undocumented, [], 'every rule is named in the policies guide' );
 
-my @perl_files = ( 'lib/Tira.pm', 'lib/Tira/CLI.pm' );
+# TKT-833: lib/ used to be named as two files (lib/Tira.pm, lib/Tira/CLI.pm)
+# rather than walked, the same fault t/429 and t/431 both record fixing for
+# their own subjects - a list is maintained by somebody remembering, and the
+# module TKT-830/832 lifted out of Tira.pm since was never checked by
+# anything. lib/ is now walked like cli/ and t/ already are, filtered to
+# .pm rather than cli/'s bare-file or t/'s .t pattern.
+my @perl_files = ();
 find( { no_chdir => 1, wanted => sub {
     return if !-f $File::Find::name;
-    return if $File::Find::name !~ m{(?:\A|/)cli/[^/]+\z} && $File::Find::name !~ m{\At/.*\.t\z};
+    return if $File::Find::name !~ m{(?:\A|/)cli/[^/]+\z}
+      && $File::Find::name !~ m{\At/.*\.t\z}
+      && $File::Find::name !~ m{\Alib/.*\.pm\z};
     $File::Find::name =~ /\A([^\x00-\x1f\x7f]+)\z/ or die 'Unsafe Perl file path';
     push @perl_files, $1;
-} }, qw(cli skills t) );
+} }, qw(cli lib skills t) );
+
+# An empty or mis-rooted walk must not pass silently - the fault t/429's
+# first version had. Counted independently, via a plain find rather than
+# the wanted() above, so a bug in that filter cannot also hide from its
+# own check.
+my $lib_pm_count = do {
+    my @found;
+    find( { no_chdir => 1, wanted => sub {
+        push @found, $File::Find::name if -f && /\.pm\z/;
+    } }, 'lib' );
+    scalar @found;
+};
+my @found_lib_pm = grep { m{\Alib/.*\.pm\z} } @perl_files;
+is( scalar @found_lib_pm, $lib_pm_count,
+    "the lib/ walk found every .pm module ($lib_pm_count of them) - not an empty or mis-rooted walk passing silently" );
 for my $file (@perl_files) {
     is( podchecker($file), 0, "$file has valid POD" );
     open my $fh, '<:raw', $file or die "Cannot read '$file': $!";

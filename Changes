@@ -1,6 +1,18 @@
 Revision history for Tira
 
 5.89  2026-09-09
+    - TKT-833: t/03-metadata.t's podchecker walk named only two files -
+      lib/Tira.pm and lib/Tira/CLI.pm - rather than walking lib/ the way
+      it already walks cli/ and t/, so every other module under lib/
+      (including Tira::Toon and Tira::Tasklist, both lifted out since)
+      had POD nothing ever validated. All 19 previously-ungated modules
+      checked directly and found clean - a latent gate hole, not a live
+      defect. lib/ is now walked and filtered for .pm, with a count
+      guard against an independently-computed count so an empty or
+      mis-rooted walk cannot pass silently (t/429's own precedent
+      fault). Also surfaced, filed separately (TKT-1027): tira.attachment.where
+      is documented, in the engine, and in the CLI dispatch table, but
+      the command line still refuses to recognize it.
     - TKT-825: a real gate-run still measured lib/Tira.pm at 99.7% despite
       TKT-954's own coverage-complete run-count check passing. Root cause:
       Devel::Cover 1.52 names each per-process run directory with

@@ -33,8 +33,8 @@ ok( $questions, 'the reference has a questions section to check' );
 # Every question command that actually ships, taken from the entrypoints.
 my @commands = sort map { ( File::Spec->splitdir($_) )[-1] }
   grep { -f } glob 'skills/question/cli/*';
-is_deeply( \@commands, [qw(answer ask attach discard list mark update voice)],
-    'the question commands are the eight that ship' );
+is_deeply( \@commands, [qw(answer ask attach discard list mark update voice withdraw)],
+    'the question commands are the nine that ship' );
 
 for my $command (@commands) {
     like( $questions, qr/\Qtira.question.$command\E/,

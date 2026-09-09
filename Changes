@@ -16,7 +16,10 @@ Revision history for Tira
       lib/Tira/CLI.pm needed the new verb name to work at all (the --reason
       option-scoping die, and a second question.* dispatch regex) - the
       same two-copies-must-agree shape TKT-877 just fixed for the commit
-      gate, found only by running the new test.
+      gate, found only by running the new test. Caught a third by the
+      pre-push gate itself: withdraw had no skills/question/cli/withdraw
+      entrypoint file, unlike every other question verb - tools/docs-match-code
+      correctly refused the push, reporting it documented and not existing.
     - TKT-877: the commit gate's logic lives twice - tools/hooks/commit-msg
       (this repo's own hand-maintained hook) and lib/Tira.pm's installable
       $COMMIT_GATE heredoc (shipped to every other project via

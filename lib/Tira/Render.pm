@@ -146,10 +146,7 @@ sub _dashboard_table {
           . $cells . '</div></div></section>';
     }
 
-    # TKT-516: a lightweight sticky-note section below the ticket board -
-    # his words, "not a messy piece of shit" - full CLI parity for the
-    # tasklist feature. Live-only, the same way the Policies dialog is,
-    # since it needs the server to actually do anything.
+    # TKT-516: a lightweight sticky-note section below the ticket board - his words, "not a messy piece of shit" - full CLI parity for the tasklist feature. Live-only, like the Policies dialog, since it needs the server to do anything.
     $boards .= '<section class="board board--tasklist" data-type="tasklist">'
       . '<header class="board__header"><span class="board__kicker">Tira board</span><h2>Task List</h2>'
       . '<input class="tasklist-session" type="text" placeholder="Session (blank = shared)" aria-label="Session">'
@@ -158,14 +155,14 @@ sub _dashboard_table {
       . '<input class="tasklist-text" type="text" placeholder="New task text" aria-label="New task text">'
       . '<button type="button" class="tasklist-add">Add</button>'
       . '<button type="button" class="tasklist-prune">Prune</button>'
+
+      # TKT-764: numeric option values so tlMatches compares item.status directly, keeping STATUS_NAME the one place the words live.
+      . '<select class="tasklist-status-filter" aria-label="Filter by status"><option value="">All statuses</option>'
+      . '<option value="0">Pending</option><option value="1">Working</option><option value="2">Done</option></select>'
+      . '<label class="tasklist-unlinked-label"><input type="checkbox" class="tasklist-unlinked"> Unlinked only</label>'
       . '</div><p class="tasklist-error" hidden></p><ol class="tasklist-cards"></ol>'
 
-      # TKT-881, his words: "Huge Task List section bury the Jobs" / "initially
-      # only show 5 and every next show 10". The queue is a working list rather
-      # than something to read whole - 142 items when he complained - so the
-      # section's height is bounded by what has been asked for. Emitted here
-      # rather than created in script so it is in the page source, the same way
-      # every other control in this section is.
+      # TKT-881, his words: "Huge Task List section bury the Jobs" / "initially only show 5 and every next show 10" - the queue is a working list, not something to read whole (142 items when he complained), so its height is bounded by what has been asked for. Emitted here, not in script, so it is in the page source like every other control in this section.
       . '<button type="button" class="tasklist-more" hidden>Show more</button></section>'
       if $args{live};
 
@@ -382,6 +379,8 @@ is - and because a button that exists only after the first successful fetch is
 a button that is missing exactly when the fetch fails. Nothing about the cap
 itself lives in this module: the section renders the same empty list it always
 did, and how much of it gets built is the view asset's decision.
+
+Two more empty controls sit beside the text filter, since 5.88 (TKT-764): a status C<< <select> >> (numeric option values) and an unlinked C<< <input type="checkbox"> >>, giving the panel the C<--status>/C<--unlinked> questions C<tasklist.list> already answers, without duplicating C<STATUS_NAME>'s own wording.
 
 The page's own frame is a contract too, and a quieter one. F<dashboard.tt> emits
 C<< <main class="shell"> >> wrapping C<< <header class="hero"> >>, and the hero

@@ -3872,6 +3872,16 @@ has to run a migration by hand.
     checking on several subagents without already knowing each one's
     session id. Ignored/unaffected when not given; `--session` still wins
     when both would otherwise apply.
+  - **Since 5.88 the browser dashboard's Task List panel reaches `--status`
+    and `--unlinked` too** (TKT-764), the same parity `--ref` got in 5.74:
+    a status `<select>` and an unlinked checkbox sit beside the existing
+    text filter, filtering the already-fetched list client-side rather than
+    adding query parameters to `GET /tasklist` - the poll already pulls the
+    whole session's list every second, so nothing is fetched twice. The
+    status options are the numeric codes the panel's own `STATUS_NAME`
+    already maps to `pending`/`working`/`done` for display, so the CLI's
+    vocabulary and the browser's are the same mapping read twice rather
+    than two independent spellings that could drift.
 - A damaged `tasklist.json` (TKT-844) refuses naming the path and saying it
   is damaged, instead of leaking the JSON decoder's own words and a
   `lib/Tira/Tasklist.pm` line number - the shape a half-written file has,

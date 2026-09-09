@@ -337,6 +337,13 @@ working=purple-blue, done=green), with list-level controls (add, session,
 next/shift/pop/unshift/slice/prune) and per-card controls (status, remove,
 attach, ref) - full parity with the CLI commands below.
 
+Since 5.88 that section also has a status filter (All/Pending/Working/Done)
+and an unlinked-only checkbox beside its text filter, reaching `--status`
+and `--unlinked` (`tira.tasklist.list`) the same way the section already
+mirrors the rest of the CLI - both compose with the text filter and with
+each other client-side, so the person watching the board day to day can
+click rather than read every row by eye.
+
 Since 5.42 that section shows **five cards, then ten more per press** of the
 button below it, which also says how many are left. Before that it rendered the
 whole list, and the list is a working queue rather than something to read whole -

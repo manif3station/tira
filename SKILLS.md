@@ -3274,6 +3274,20 @@ scope, the other forces `loadTasklist` never to assign it — neither is
 sufficient alone, since before the fix the second passed only because the
 variable did not exist.
 
+**A panel that could not ask what the CLI already answers (TKT-764, 5.88).**
+`tasklist.list` gained `--status` (TKT-545) and `--unlinked` (TKT-552) so a
+scripted caller would not have to fetch every item and filter by hand; the
+panel's own `tlMatches` stayed free-text-only, so the person actually watching
+the board still counted rows by eye. A status `<select>` (numeric option
+values, matched against `item.status` directly) and an unlinked checkbox now
+sit beside the text filter, both read by `tlMatches` as `let` state at the
+same module scope `tlFilterText` already lives at — so neither control is
+reset by `reconcileTasklist` or the 1-second `loadTasklist` poll, the same
+survival property the text filter already had. The status control's values
+are the numeric codes `STATUS_NAME` already maps to words for display, kept
+to one spelling of pending/working/done rather than a second one in the
+filter markup.
+
 **Both sides of the header, not one (TKT-854, 5.41).** His words:
 "Page header project title on the left not align to the right side", with a
 screenshot carrying **two** red lines — one along the top edges, one along the

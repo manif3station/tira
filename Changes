@@ -1,6 +1,13 @@
 Revision history for Tira
 
 5.89  2026-09-09
+    - TKT-828: outstanding_summary's own comment claimed it reused
+      _card_blocked's logic; the code reimplemented the same unanswered-
+      question check inline instead of calling it - currently-harmless
+      drift, found reading code just shipped for TKT-808, of exactly the
+      shape TKT-713 was bitten by (two validators for one format). Now
+      calls _card_blocked($_) directly. Pure refactor, no behavior change -
+      t/475 passes unchanged.
     - TKT-820: record_update accepted a --column argument with no error and
       no effect - self-found, and hit personally writing a test fixture
       earlier this session. 'column' is deliberately not one of the fields

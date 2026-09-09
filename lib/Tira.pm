@@ -5885,7 +5885,13 @@ sub _card_waiting { return _card_blocked(@_) }
 # every card by hand or opening a browser. Answers the same question
 # directly. `questions` reuses the identical _policy_questions/_card_blocked
 # logic the dashboard and work_order already use, so the two cannot
-# disagree. `tasks` counts pending and working items only - deliberately
+# disagree - true since 5.89 (TKT-828) rather than by construction: this
+# paragraph made the claim from the day it was written, but the code below
+# reimplemented the same unanswered-question check inline instead of
+# actually calling _card_blocked, currently-harmless drift of exactly the
+# shape TKT-713 was bitten by (two validators for one format). Found by
+# the hunt reading its own just-shipped TKT-808 code. `tasks` counts
+# pending and working items only - deliberately
 # NOT what hero-counts.js's own browser count currently does (every item
 # regardless of status, a separate tracked bug, TKT-817) - "outstanding"
 # means still owed, and a done item is not. TKT-808.
@@ -5917,7 +5923,7 @@ sub outstanding_summary {
         my $records = eval { $self->record_list( project => $root, type => $type ) } || [];
         $questions += grep {
             ( $args{include_discard} || ( $_->{column} // '' ) ne 'discard' )
-              && grep { !$_->{answer} } _policy_questions($_)
+              && _card_blocked($_)
         } @{$records};
     }
     my $tasks = grep { my $status = $_->{status} // 0; $status == 0 || $status == 1 }

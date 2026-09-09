@@ -14679,7 +14679,10 @@ Adds a warning, or returns the existing one if the same message is already stand
 
 =head2 warning_clear
 
-Clears one warning by id, or every one with C<--all>.
+Clears one warning by id, or every one with C<--all>. C<--all> against a
+board with nothing to clear returns an empty list rather than refusing -
+clearing everything from nothing is a completed request, not a failed
+lookup. C<--id> still refuses, by name, when the id names nothing. TKT-721.
 
 =head2 job_add
 

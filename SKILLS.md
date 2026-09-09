@@ -1291,7 +1291,17 @@ tira.attachment.get --sha SHA256 [--extension EXT]
 tira.attachment.remove --sha SHA256 [--extension EXT] [-o FORMAT]
 tira.attachment.discard --ref REF --sha SHA256 [--extension EXT] [--comment ID] [--author NAME] [-o FORMAT]
 tira.attachment.detach --ref REF --sha SHA256 [--extension EXT] [--comment ID] [-o FORMAT]
+tira.attachment.where --sha SHA256 [--extension EXT] [-o FORMAT]
 ```
+
+**Since 5.88** (TKT-766): `attachment.where` answers "which OTHER records
+reference this sha", which nothing before it could - `attachment.list` only
+ever resolves through one record via `--ref`. Attachments are content-
+addressed and deliberately deduplicated, so two cards sharing a file is
+ordinary, not exceptional; this walks every record on the board (discarded
+ones too) and lists every reference found, card-level or on a named
+comment/question/answer. A sha nothing references is an empty list, a
+useful answer rather than a refusal.
 
 Add hashes bytes, stores `sha256.extension`, and records the original filename.
 Many refs may share content. Remove deletes content, appends to

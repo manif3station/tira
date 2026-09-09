@@ -401,6 +401,30 @@ sub _record_attachments {
     return \@found;
 }
 
+# "Which OTHER records reference this attachment" - attachment_list above
+# only ever resolves through one record via --ref. Attachments are
+# content-addressed and deliberately deduplicated (attachment_add_content's
+# own comment), so two cards sharing a sha is ordinary rather than
+# exceptional, and nothing before this could answer the question at all.
+# Scoped to the sha alone by default, since two different extensions
+# sharing a sha is possible but not structurally prevented; --extension
+# narrows it the same way attachment.discard/attachment.remove already
+# accept it as optional. TKT-766.
+sub attachment_where {
+    my ( $self, %args ) = @_;
+    die "A sha is required - supply it with --sha\n" if !defined $args{sha} || $args{sha} eq '';
+    my $root = $self->discover_project(%args);
+    my @found;
+    for my $record ( @{ $self->record_list( project => $root, include_discard => 1 ) } ) {
+        for my $reference ( @{ _record_attachments($record) } ) {
+            next if ( $reference->{sha} // '' ) ne $args{sha};
+            next if defined $args{extension} && ( $reference->{extension} // '' ) ne $args{extension};
+            push @found, { ref => $record->{ref}, type => $record->{type}, attached_to => $reference->{attached_to} };
+        }
+    }
+    return \@found;
+}
+
 sub attachment_list {
     my ( $self, %args ) = @_;
     my $meta_only = delete $args{meta_only};
@@ -527,6 +551,13 @@ Tira::Attachment - storing files and hanging them off records
 
 The attachment concern, lifted out of L<Tira> by TKT-746: store a file, know
 what it is, attach it to a record, and list, fetch, detach or discard it.
+
+Since 5.88, C<attachment_where> (TKT-766) answers which OTHER records
+reference a given sha - C<attachment_list> only ever resolves through one
+record via C<--ref>, so nothing before it could ask that question at all.
+It walks C<record_list(include_discard =E<gt> 1)> and reuses
+C<_record_attachments> on each, the same helper C<attachment_list> already
+calls for its own one-record case.
 
 Every sub takes C<$self> - a blessed L<Tira> - and reaches the engine's shared
 helpers through it. L<Tira> keeps a forwarder for each public verb, requiring

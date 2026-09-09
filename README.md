@@ -47,7 +47,11 @@ in emoji or CJK could store up to four times the limit, and the refusal now
 names the size it measured as well as the limit —
 deletion is reference-safe under content-hash dedup via the new
 `tira.attachment.detach` command, and every comment shows and manages its
-own attachments separately from the record strip.
+own attachments separately from the record strip. Since 5.88,
+`tira.attachment.where --sha SHA` answers which other records reference a
+given attachment across the whole board, including discarded cards -
+before it, only "what does this one card's attachments look like" could be
+asked, not "what else depends on this file".
 Every list field is editable per item from the dialog — labels, affects
 versions, key details, deliverables, scope, acceptance criteria, test steps,
 BDD, and ATDD — and checklist entries can be added and edited in place while

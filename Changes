@@ -1,6 +1,17 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-766: attachment_list only ever answered "what does THIS card's
+      attachments look like" via --ref; nothing could answer "which OTHER
+      records reference this attachment", even though attachments are
+      deliberately content-addressed and deduplicated so two cards
+      sharing a file is ordinary. `tira.attachment.where --sha SHA
+      [--extension EXT]` walks every record (including discarded ones)
+      and lists everything referencing that sha - card-level, a named
+      comment, or a question/answer - so an agent can find out what
+      depends on an attachment before touching it. A sha nothing
+      references returns an empty list, a valid answer rather than a
+      refusal.
     - TKT-764: the CLI's tasklist.list gained --status (TKT-545) and
       --unlinked (TKT-552) so a caller could ask "what is still on my
       plate" or "what has no ref yet" in one flag; the browser Task List

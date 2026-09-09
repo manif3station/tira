@@ -3855,6 +3855,7 @@ sub attachment_discard     { my $self = shift; require Tira::Attachment; return 
 sub attachment_get         { my $self = shift; require Tira::Attachment; return Tira::Attachment::attachment_get( $self, @_ ) }
 sub attachment_list        { my $self = shift; require Tira::Attachment; return Tira::Attachment::attachment_list( $self, @_ ) }
 sub attachment_remove      { my $self = shift; require Tira::Attachment; return Tira::Attachment::attachment_remove( $self, @_ ) }
+sub attachment_where       { my $self = shift; require Tira::Attachment; return Tira::Attachment::attachment_where( $self, @_ ) }
 sub _store_attachment_file { my $self = shift; require Tira::Attachment; return Tira::Attachment::_store_attachment_file( $self, @_ ) }
 sub _attachment_content_type { require Tira::Attachment; return Tira::Attachment::_attachment_content_type( @_ ) }
 sub _attachment_path       { my $self = shift; require Tira::Attachment; return Tira::Attachment::_attachment_path( $self, @_ ) }
@@ -15818,6 +15819,14 @@ question with two answers. TKT-645.
 Deletes an attachment's stored file and its reference on the record. Unlike
 discarding, this does not keep the reference - see C<attachment_discard> for
 the reversible form.
+
+=head2 attachment_where
+
+Answers which OTHER records reference a given sha - C<attachment_list> only
+ever resolves through one record via C<--ref>. Walks every record on the
+board, including discarded ones, reusing C<_record_attachments>. C<--sha>
+is required; C<--extension> narrows the match. A sha nothing references
+returns an empty list. TKT-766.
 
 =head2 checklist_list
 

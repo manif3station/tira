@@ -2417,6 +2417,7 @@ sub _invoke {
         'attachment.get' => 'attachment_get', 'attachment.remove' => 'attachment_remove',
         'attachment.detach' => 'attachment_detach',
         'attachment.discard' => 'attachment_discard',
+        'attachment.where' => 'attachment_where',
         'evidence.list' => 'evidence_list', 'evidence.add' => 'evidence_add',
         'evidence.annotate' => 'evidence_annotate',
         'gate.list' => 'gate_list', 'gate.add' => 'gate_add',

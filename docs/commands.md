@@ -3428,6 +3428,21 @@ them; the manual carries the worked use cases behind them.
 - `tira.attachment.discard --ref REF --sha SHA256 [--extension EXT] [--comment ID] [--author NAME] [-o FORMAT]`
 - `tira.attachment.detach --ref REF --sha SHA256 [--extension EXT] [--comment ID] [-o FORMAT]`
 - `tira.attachment.remove --sha SHA256 [--extension EXT] [-o FORMAT]`
+- **`tira.attachment.where --sha SHA256 [--extension EXT] [-o FORMAT]`, since
+  5.88 (TKT-766).** `attachment_list` only ever answers "what does THIS
+  card's attachments look like" via `--ref`; attachments are deliberately
+  content-addressed and deduplicated, so two cards sharing a file is
+  ordinary, and nothing could answer "which OTHER records reference this
+  sha" without fetching every record and grepping its attachments array by
+  hand. This walks every record on the board, including discarded ones,
+  and returns `{ref, type, attached_to}` for each reference found -
+  `attached_to` is `card`, `comment CMT-ID`, `question Q-ID`, or `answer
+  Q-ID`, the same vocabulary `_record_attachments` already uses internally.
+  `--sha` is required; `--extension` narrows the match when a sha is
+  shared across different extensions (unlikely, since the extension comes
+  from the filename, but not structurally prevented) - omitted, the search
+  is by sha alone. A sha nothing references returns an empty list, a valid
+  answer to the question rather than a refusal.
 
 
 **What previews in the viewer, since 4.69.** Any attachment the board serves as

@@ -2584,7 +2584,7 @@ sub _json_array_input {
     my $data = eval { Tira::json_decode( _text_input($file) ) };
     my $usage = "Example: [\"first item\", \"second item\"]\nTo append one item at a time instead, use --$append_flag TEXT, repeated.\n";
     die "--$flag expects a JSON array, and '$file' is not JSON.\n$usage" if $@;
-    die "--$flag expects a JSON array, not " . ( ref($data) || 'a plain value' ) . ".\n$usage" if ref($data) ne 'ARRAY';
+    die "--$flag expects a JSON array, not " . ref($data) . ".\n$usage" if ref($data) ne 'ARRAY';
     return $data;
 }
 

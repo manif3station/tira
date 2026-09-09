@@ -85,6 +85,8 @@ close $fh;
 isnt( $status, 0, 'valid JSON of the wrong shape is refused too' );
 like( $err, qr/--set-scope-in/, 'naming the option' );
 like( $err, qr/JSON array/i, 'and what it must contain, not merely that it decoded fine' );
+like( $err, qr/not HASH/, 'and names the shape found instead, not a fallback label a bare-scalar case never reaches - '
+      . 'the decoder refuses any bare scalar before this check runs' );
 
 # --- the working case is unchanged --------------------------------------------
 

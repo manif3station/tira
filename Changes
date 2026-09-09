@@ -1,6 +1,20 @@
 Revision history for Tira
 
-5.90  2026-09-09
+5.91  2026-09-09
+    - TKT-876: lib/Tira.pm's line count was stated in three places
+      (README.md twice, SKILLS.md, and TKT-746's own title), all
+      disagreed with each other and with the real, current count, and
+      nothing checked any of them. Modeled on t/433's own
+      police-rule-count guard: a new t/876 measures the file directly
+      and holds every present-tense "is N lines" claim to it, joining a
+      paragraph before matching so a claim wrapped across two lines by
+      an ordinary markdown reflow is not missed - Codex review found
+      exactly that shape stale in README.md, on top of the SKILLS.md
+      claim already caught by hand. README.md's own PAST-tense claim
+      (narrating the 5.23 split's starting point) and TKT-746's own
+      title (a done ticket, a historical record) are deliberately
+      excluded rather than silently left inconsistent; both live claims
+      (README.md and SKILLS.md) are corrected to the real 16,230.
     - TKT-865: thirteen files under t/ police the suite itself (an
       assertion shape, a doc-vs-code count, a module's own POD, a
       structural limit) rather than a feature, and nothing named them as
@@ -9,7 +23,12 @@ Revision history for Tira
       section naming all thirteen with their own marker phrases; a new
       t/865 checks the list and the guards against each other, so an
       entry cannot be silently gutted, renamed, or documented and then
-      forgotten.
+      forgotten. (Codex review across two rounds found six more missing
+      from the first draft - t/220, t/345, t/356, t/531, t/566, t/717 -
+      bringing the real total to nineteen; see the SKILLS.md section
+      itself for the corrected count.)
+
+5.90  2026-09-09
     - TKT-853: tasklist.list returned status as its raw stored code (0/1/2)
       in both human and JSON output, though tasklist.update has always
       accepted the word - the reverse map already existed

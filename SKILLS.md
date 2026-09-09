@@ -2014,13 +2014,16 @@ branches, so a caller asking for `json` or `toon` compiles none of it
 outside the concern: `_html_escape`, which the login page HTML also uses, and
 the plain functions `_render_view`, `_view_asset` and `json_object`.
 
-`lib/Tira.pm` is 14,164 lines after four lifts and the work since, down from
-15,264 — measured at the fourth lift rather than carried forward, which is the
-only reason it is right. The figure it replaced said 14,256, README said 14,177,
-`lib/Tira/Job.pm` said 14,177 and TKT-746's own title said 14,621: four claims,
-four numbers, none of them the file. That is TKT-876, and it is the argument for
-measuring at the moment of writing rather than copying the last sentence that
-looked authoritative.
+`lib/Tira.pm` is 16,230 lines as of TKT-876 (5.91), grown rather than shrunk
+since the fourth lift's own 14,164 - the file gains from most releases that
+touch it, and a hand-corrected number drifts again by design. The figure the
+fourth lift replaced said 14,256, README said 14,177, `lib/Tira/Job.pm` said
+14,177 and TKT-746's own title said 14,621: four claims, four numbers, none
+of them the file. That is what TKT-876 measured, and now `t/876-a-count-
+that-outgrew-its-own-claim.t` holds this sentence to the real count every
+run, the same shape `t/433` already uses for the police rule count - so the
+next lift, or the next thousand lines nobody lifted anywhere, updates this
+number by failing the suite rather than by somebody remembering to.
 
 The one candidate named on TKT-746 still unmoved is the police engine — its own
 future lift, not assumed to be as self-contained as these four turned out to

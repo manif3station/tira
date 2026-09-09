@@ -766,7 +766,9 @@ overrides, 5.23), `lib/Tira/Tasklist.pm` (the shared to-do queue, 5.24) and
 `lib/Tira/Render.pm` (the human and table renderers, 5.25) and
 `lib/Tira/Attachment.pm` (storing files and hanging them off records, 5.42),
 each loaded with `require` at the point it is actually needed. `lib/Tira.pm` is
-14,164 lines so far, measured at the fourth lift. Entry points keep their names throughout - the split is where the
+16,230 lines now (TKT-876) - grown rather than shrunk since the fourth lift,
+since most releases that touch it add more than any one concern removes.
+Entry points keep their names throughout - the split is where the
 code lives, not what anything is called. They are inlined at render rather than linked, so the board still
 loads nothing from another host — every request the live page makes is to
 itself (it polls its own card data, fetches a record when you open a card, and

@@ -2013,33 +2013,18 @@ sub _invoke {
     die "Refs-only is available on list and search commands\n"
       if $option->{refs_only} && $command !~ /\A(?:record\.list|search)\z/;
     $args{type} = $record_type if defined $record_type;
-    my %sets = (
-        set_key_details => 'key_details_replace', set_deliverables => 'deliverables_replace',
-        set_acceptance => 'acceptance_replace', set_test_steps => 'test_steps_replace',
-        set_bdd => 'bdd_replace', set_atdd => 'atdd_replace',
-        set_labels => 'labels_replace', set_affects_versions => 'affects_versions_replace',
-        set_scope_in => 'scope_in_replace', set_scope_out => 'scope_out_replace',
-    );
-    # The single-item append flag for each --set-* option, named so the
-    # refusal below can point at it as the alternative - the form a caller
-    # reaching for --set-* usually wanted anyway. TKT-741.
-    my %append_flag = (
-        set_key_details => 'key-detail', set_deliverables => 'deliverable',
-        set_acceptance => 'acceptance', set_test_steps => 'test-step',
-        set_bdd => 'bdd', set_atdd => 'atdd',
-        set_labels => 'label', set_affects_versions => 'affects-version',
-        set_scope_in => 'scope-in', set_scope_out => 'scope-out',
+    my %sets = (    # [ replace-field, append-field, append CLI flag ] - flag named in a bad-file refusal, TKT-741
+        set_key_details => [qw(key_details_replace key_details key-detail)], set_deliverables => [qw(deliverables_replace deliverables deliverable)],
+        set_acceptance => [qw(acceptance_replace acceptance acceptance)], set_test_steps => [qw(test_steps_replace test_steps test-step)],
+        set_bdd => [qw(bdd_replace bdd bdd)], set_atdd => [qw(atdd_replace atdd atdd)],
+        set_labels => [qw(labels_replace labels label)], set_affects_versions => [qw(affects_versions_replace affects_versions affects-version)],
+        set_scope_in => [qw(scope_in_replace scope_in scope-in)], set_scope_out => [qw(scope_out_replace scope_out scope-out)],
     );
     for my $set ( keys %sets ) {
         next if !defined $option->{$set};
-        my $append = $set eq 'set_labels' ? 'labels'
-          : $set eq 'set_affects_versions' ? 'affects_versions'
-          : $set eq 'set_scope_in' ? 'scope_in'
-          : $set eq 'set_scope_out' ? 'scope_out'
-          : $sets{$set} =~ s/_replace\z//r;
+        my ( $replace, $append, $append_flag ) = @{ $sets{$set} };
         die "Cannot combine append and replacement for '$append'\n" if defined $args{$append};
-        $args{ $sets{$set} } = _json_array_input(
-            $option->{$set}, $set =~ tr/_/-/r, $append_flag{$set} );
+        $args{$replace} = _json_array_input( $option->{$set}, $set =~ tr/_/-/r, $append_flag );
     }
     $args{label} = $option->{labels}[0] if $command =~ /\Acolumn\.(?:add|rename)\z/ && $option->{labels};
 
@@ -2596,14 +2581,10 @@ sub _text_input {
 
 sub _json_array_input {
     my ( $file, $flag, $append_flag ) = @_;
-    my $text = _text_input($file);
-    my $data = eval { Tira::json_decode($text) };
-    my $usage = "Example: [\"first item\", \"second item\"]\n"
-      . "To append one item at a time instead, use --$append_flag TEXT, repeated.\n";
+    my $data = eval { Tira::json_decode( _text_input($file) ) };
+    my $usage = "Example: [\"first item\", \"second item\"]\nTo append one item at a time instead, use --$append_flag TEXT, repeated.\n";
     die "--$flag expects a JSON array, and '$file' is not JSON.\n$usage" if $@;
-    die "--$flag expects a JSON array, not "
-      . ( ref($data) ? ref($data) : 'a plain value' ) . ".\n$usage"
-      if ref($data) ne 'ARRAY';
+    die "--$flag expects a JSON array, not " . ( ref($data) || 'a plain value' ) . ".\n$usage" if ref($data) ne 'ARRAY';
     return $data;
 }
 
@@ -2726,13 +2707,7 @@ One array for every command means a stray duplicate is noise on all of them.
 
 =head2 _json_array_input
 
-The shared decode boundary for every C<--set-*> array option (C<--set-labels>,
-C<--set-scope-in>, and eight others). Since 5.88 (TKT-741) a decode failure
-or a wrong-shaped result is refused naming the option (C<$flag>), what the
-file must contain, an example, and the repeated single-item append form
-(C<$append_flag>) as the alternative - rather than letting the JSON
-decoder's own internal expectation and an internal file/line number reach
-the caller, which named no option and meant nothing to act on.
+Shared decode boundary for C<--set-*> options; names the option and append alternative, not the decoder's state. TKT-741.
 
 =head2 _unmet_in_column
 

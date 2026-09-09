@@ -1,6 +1,24 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-715: the seven view assets under lib/Tira/views kept the single
+      minified line each had as a Perl string before TKT-703 moved them
+      out - a change to any one of them still had to be a scripted
+      replace against an exact substring, which TKT-703's move was meant
+      to retire. Every asset (column-editor.js, dialogs.tt,
+      policy-editor.js, selection.js, tasklist-editor.js, dashboard.css,
+      live-helpers.js) is now reformatted with prettier, one file at a
+      time with its own dedicated full-suite verification pass - a first
+      attempt reformatting all six JS/CSS files together was reverted
+      after uncovering dozens of tests coupled to the old exact-text
+      formatting with an unmeasured blast radius. Roughly 30 test files'
+      source-region and page-script regexes were loosened to tolerate
+      real whitespace (spaces around operators, after commas and colons,
+      parens split across lines) the same way t/424 already did for this
+      exact file - none loosened what they actually check. A new red
+      test, t/715, extends t/426's 2,000-character line-length threshold
+      from lib/Tira.pm over lib/Tira/views so this cannot quietly
+      regress.
     - TKT-1020: every log-rendering panel gets a clear control - job
       cards, the request log, and the bridge - the fourth part of his
       TKT-1018 report. A job card's clear button removes only that

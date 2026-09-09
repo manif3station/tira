@@ -1,6 +1,19 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-717: a Playwright fixture mocking the card dialog's /record
+      payload can now be checked against the real thing it mocks. Three
+      such fixtures drifted from their producer in one session and every
+      one was found by accident. t/717 asks the real detail provider for
+      a record with one attachment and compares the attachment's KEY SET
+      against the two fixtures that mock the same shape
+      (dashboard-browser.js, source-attachment-preview.js) - values are
+      never compared, only which fields exist. It found a genuine, live
+      drift: source-attachment-preview.js's ATTACHMENTS carried a `size`
+      key the real payload does not send, silently tolerated because
+      nothing read it. Removed. Scoped to the /record dialog fixture for
+      this pass; the coverage-report fixture (t/279) is a distinct
+      producer and is left as a documented follow-up.
     - TKT-715: the seven view assets under lib/Tira/views kept the single
       minified line each had as a Perl string before TKT-703 moved them
       out - a change to any one of them still had to be a scripted

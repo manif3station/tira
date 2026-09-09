@@ -60,6 +60,14 @@ like( $@, qr/pending/i,
     'and the permitted statuses are named too - the unknown-status refusal already does this, '
       . 'the missing-status one does not' );
 
+# --- checklist.update given only --id, with --status set to the empty string -
+
+my $entry = $tira->checklist_add(
+    project => $root, author => 'claude', ref => $a->{ref}, item => 'Do the thing', status => 'pending' );
+eval { $tira->checklist_update( project => $root, author => 'claude', ref => $a->{ref}, id => $entry->{id}, status => '' ) };
+like( $@, qr/status/i, 'checklist_update names the missing field too' );
+like( $@, qr/pending/i, 'and the permitted statuses too - the same fix, the sibling verb' );
+
 # --- the four policy-rule refusals are unchanged ----------------------------
 
 eval { $tira->policy_add( project => $root, rule => 'nonsense', enter => 'backlog', action => 'log-only' ) };

@@ -1198,15 +1198,12 @@ sub _populate_entry_required_actions {
     my @template = @{ ( $to_col ? $to_col->{entry_required_actions} : undef ) // [] };
     return [] if !@template;
 
-    my @existing = @{ ( ref $record eq 'HASH' ? $record->{required_items} : undef ) // [] };
     my @failed;
     for my $text (@template) {
 
-        # Matched by text and column alone - a fast-path skip only, mirroring
-        # required_item_add's own authoritative check inside the lock, which
-        # deliberately does not require the template marker either (TKT-652:
-        # narrowing this broke t/422/TKT-445's "do the work early" case).
-        next if grep { ( $_->{item} // '' ) eq $text && ( $_->{column} // '' ) eq $to } @existing;
+        # Always call required_item_add, even on a match - its idempotent
+        # dedup (TKT-497) also stamps entry=>1 onto a pre-existing item
+        # (TKT-652), which a fast-path skip here used to bypass. TKT-783.
         my $added = eval {
             $tira->required_item_add( %{$args}, item => $text, status => 'pending',
                 column => $to, source => 'required-action', entry => 1 );
@@ -2897,6 +2894,12 @@ provider cannot - it has already moved the card and answers a dashboard that
 has no way to show a refusal - so it writes what it could not place to STDERR,
 where whoever runs the dashboard will find it in the server log. Neither
 swallows it, which is the only property that matters here. TKT-591.
+
+Always calls C<required_item_add>, even on a text+column match - its own
+idempotent dedup (TKT-497) is also the only place that stamps
+C<entry =E<gt> 1> onto a matching existing item (TKT-652). A fast-path skip
+here once bypassed that call on a match, so an item added early ("do the
+work early", TKT-445) never picked up the marker via a real move-in. TKT-783.
 
 =head2 _columns_for
 

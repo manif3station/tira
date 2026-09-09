@@ -1,6 +1,15 @@
 Revision history for Tira
 
 5.89  2026-09-09
+    - TKT-783: a required item added early - "do the work early", TKT-445's
+      own precedent - never picked up the entry marker through a real
+      move-in, when its wording already matched a column's entry template.
+      _populate_entry_required_actions's fast-path skipped required_item_add
+      entirely on a match, but required_item_add's own dedup (TKT-497) is
+      the only place that stamps entry=>1 onto a pre-existing item
+      (TKT-652). Fixed by always calling required_item_add - its dedup is
+      idempotent, so a match costs nothing beyond the call, and it is now
+      the single place "is it already there" is decided.
     - TKT-758: task-changed reported a tasklist item arriving or vanishing
       (TKT-606, 4.79) even though its own name and job are about editing
       items it already knows. A new task-created rule now covers both

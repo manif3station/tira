@@ -25,6 +25,14 @@ exact emptiness rather than real content.
 Since 5.89, the browser dashboard can also record a gate result and
 evidence, not only display them — a release can be completed entirely
 from the card dialog, without dropping to the CLI.
+Since 5.89, a tasklist item arriving or vanishing is reported by its own
+`task-created` police rule rather than by `task-changed` — the transition
+is per board, so a board that has not declared `task-created` keeps
+getting arrivals and removals from `task-changed` exactly as before.
+Since 5.89, a required item completed early — before a column's entry
+template ever names it — now picks up the entry marker on a real move-in,
+not only when a fresh item is created; the marker is what protects it
+from a later rename of that template's wording.
 Hierarchy views retain the complete direct-read record at every node and add
 children, so human and recursive JSON views cannot silently lose metadata.
 Dashboard reads scan each selected board once and group records by configured

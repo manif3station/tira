@@ -5878,6 +5878,21 @@ sub _card_to_review {
 # into disagreeing about whose move it is.
 sub _card_waiting { return _card_blocked(@_) }
 
+# TKT-848, his own answer to Q-106, verbatim: "Use yellow box highlight if
+# question more than zero. Like the card(s) which got question on." Broader
+# than _card_blocked (owner's move, unanswered only) and _card_to_review
+# (agent's move, answered-but-unjudged): a question fully answered AND judged
+# marks the card too, because his answer counts questions, not moves. Only a
+# discarded question - the same exclusion _card_blocked and _card_to_review
+# already use - or no question at all leaves a card unmarked.
+sub _card_has_question {
+    my ($record) = @_;
+    for my $question ( @{ $record->{questions} // [] } ) {
+        return 1 if !$question->{discarded_at};
+    }
+    return 0;
+}
+
 # TKT-797 gave the browser dashboard's sticky header a live count of how
 # many cards have an unanswered question and how many tasklist items are
 # outstanding, project-wide - a human glancing at the board could see it,
@@ -5962,12 +5977,14 @@ sub dashboard {
                         $card->{title} = $record->{title} if $args{with_title};
                         $card->{waiting} = _card_waiting($record);
                         $card->{to_review} = _card_to_review($record);
+                        $card->{has_question} = _card_has_question($record);
                     }
                 }
                 else {
                     my $record = $self->_read_json($path);
                     $card = { %{$record}, column => $column->{name},
-                        waiting => _card_waiting($record), to_review => _card_to_review($record) };
+                        waiting => _card_waiting($record), to_review => _card_to_review($record),
+                        has_question => _card_has_question($record) };
                 }
                 $card->{_mtime} = $stat[9];
                 push @cards, $card;

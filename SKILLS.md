@@ -4122,6 +4122,16 @@ Reading is what marks an answer read, which used to make checking whether an ans
 ### UC-105: See at a glance whose move a card is waiting on
 **Implemented.** On the HTML and live dashboards a card's appearance says **whose turn it is**, not merely that somebody is waiting. **Yellow** means a question nobody has answered: the owner owes the next move, and it is the only thing on the board competing for his attention. **Greyed out** means every question has been answered and at least one has not been ticked or crossed: it is off his plate and with the agent. A card is never both, so the board never says two people owe the same thing at once, and it returns to its ordinary appearance when every question is settled — discarded, or answered and marked. Knowing this means reading the card, so the colour appears wherever a person is looking at a board (`-o table`, `-o browser`, `-o json`, or with `--title`); the ref-only fast path still opens no files and stays as cheap as it was.
 
+**A third mark, for a question with nowhere left to go, since 5.90 (TKT-848).**
+His own answer to Q-106, verbatim: *"Use yellow box highlight if question
+more than zero. Like the card(s) which got question on."* Neither of the two
+colours above fires once a question is both answered AND judged - it has
+settled, and the card returns to its ordinary appearance. His answer counts
+questions, not turns: a card that ever carried one keeps the same yellow
+highlight (`has_question`, driving CSS class `.card--has-question`) for as
+long as any question on it is not discarded, whatever state it is in. Only a
+discarded question, or none at all, leaves a card unmarked.
+
 `tira.question.mark/answer/update/discard` take the question's own id via
 `--id` - never `--ref`, which is optional and only narrows which card the id
 is expected to belong to. Omitting `--id` refuses with "A question id is

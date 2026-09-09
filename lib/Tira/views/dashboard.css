@@ -365,6 +365,22 @@ html[data-width="fit"] .card__ref {
 .card--waiting .card__ref {
   color: #fde68a;
 }
+/* TKT-848, his own answer to Q-106: "Use yellow box highlight if question
+   more than zero." Same highlight as .card--waiting, driven by a broader
+   condition (has_question) - a question fully answered and judged still
+   gets it, where .card--waiting alone would not. */
+.card--has-question {
+  border-color: rgba(250, 204, 21, 0.75);
+  background: linear-gradient(
+    145deg,
+    rgba(250, 204, 21, 0.22),
+    rgba(250, 204, 21, 0.08)
+  );
+  box-shadow: 0 10px 25px rgba(161, 98, 7, 0.28);
+}
+.card--has-question .card__ref {
+  color: #fde68a;
+}
 .card:hover {
   transform: translateY(-3px);
   border-color: var(--accent);
@@ -1167,6 +1183,26 @@ html[data-width="fit"] .card__ref {
 }
 .card--to-review:hover {
   opacity: 0.85;
+}
+/* TKT-848, Codex review: .card--to-review comes after .card--has-question
+   above with equal specificity, so its grey/desaturated style silently won
+   the cascade on an answered-but-unjudged card - the ordinary transitional
+   state a question passes through - even though it still has one, which is
+   exactly what his answer to Q-106 says must stay yellow. Higher specificity
+   here restores that without touching either class on its own. */
+.card--to-review.card--has-question {
+  opacity: 1;
+  filter: none;
+  border-color: rgba(250, 204, 21, 0.75);
+  background: linear-gradient(
+    145deg,
+    rgba(250, 204, 21, 0.22),
+    rgba(250, 204, 21, 0.08)
+  );
+  box-shadow: 0 10px 25px rgba(161, 98, 7, 0.28);
+}
+.card--to-review.card--has-question .card__ref {
+  color: #fde68a;
 }
 .board-columns {
   margin-left: 0.3rem;

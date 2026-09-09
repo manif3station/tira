@@ -1,6 +1,14 @@
 Revision history for Tira
 
 5.90  2026-09-09
+    - TKT-848: a card carrying a question was highlighted only while it was
+      unanswered (waiting) or answered-but-unjudged (to_review) - his own
+      answer to Q-106 counts questions, not turns: "Use yellow box
+      highlight if question more than zero. Like the card(s) which got
+      question on." A question fully answered and judged used to return
+      the card to its ordinary appearance; a new has_question flag now
+      keeps the same yellow highlight for as long as any non-discarded
+      question sits on the card, in dashboard() and the browser board.
     - TKT-847: unpushed-work reported every unpushed commit regardless of
       why it was unpushed - and since 2026-09-01 a card sitting unreviewed
       in pending-push is the NORMAL state ("Card reach to pending push

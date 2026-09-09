@@ -46,6 +46,10 @@ Since 5.90, `tira.dashboard -o browser --with-policy-bridge` starts
 same way `--with-police` already starts `tira.police` — combine both
 flags and one command carries the board, the police, and the bridge
 together.
+Since 5.90, a card carrying a question — answered and judged or not — is
+picked out with a yellow highlight on the browser board without opening
+it, his own literal answer to Q-106: "yellow box highlight if question
+more than zero."
 Hierarchy views retain the complete direct-read record at every node and add
 children, so human and recursive JSON views cannot silently lose metadata.
 Dashboard reads scan each selected board once and group records by configured

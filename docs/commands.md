@@ -784,6 +784,16 @@ templates under `lib/Tira/views`, beside the stylesheet and seven scripts. The
 module holds no markup at all and no line in it exceeds 2,000 characters; before
 this, eight lines held 113,884 bytes between them and the longest was 54,419.
 
+**Since 5.88 the same threshold holds for the assets themselves.** The move
+above proved every asset byte-identical to what it replaced in `lib/Tira.pm`,
+which meant each kept the single line it had held as a Perl string - a change
+to `dashboard.css` on TKT-651 rendered as one modified line of nearly 12KB,
+unreviewable in exactly the way the original `.pm` line was, and the only way
+to edit one was a scripted replace against an exact substring. All seven
+assets are now reformatted with `prettier`, and `t/715` extends the
+2,000-character threshold above from `lib/Tira.pm` over `lib/Tira/views` so
+this cannot quietly regress. TKT-715.
+
 Two properties of that arrangement are load-bearing rather than incidental.
 The assets are read and **inlined at render, never linked** - a `<link>` or a
 `<script src>` pointing at them would reach outside the page, and nothing the

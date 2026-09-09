@@ -681,7 +681,9 @@ filesystem.
 Since 4.70 the page comes from a View rather than from Perl string
 concatenation: the markup lives in Template Toolkit templates under
 `lib/Tira/views`, beside the stylesheet and the scripts, and the module keeps
-none of it. Since 4.74 the CLI is split the same way for the same
+none of it. Since 5.88 those assets are formatted rather than left as the
+single minified line each kept from the move - a change to any one of them
+now reads as an ordinary diff. Since 4.74 the CLI is split the same way for the same
 reason: `lib/Tira/CLI.pm` was 6,048 lines with every command body in it, and is
 2,939 now, with the bodies in `lib/Tira/CLI/` - `Browser`, `Police`, `Serve`,
 `Records`, `Board`, `Wizard`, `Usage`, `Backup`. Each is loaded only when one of

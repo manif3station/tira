@@ -4276,3 +4276,48 @@ green. A number in a fenced or indented example is exempt: it records what was
 true when it was taken. That exemption is why the suite also requires this
 document's fences to close - an unclosed one inverts every block after it, and a
 claim that lands inside an example block nobody wrote is a claim nothing checks.
+
+## The meta-guards
+
+TKT-865. Nineteen files in `t/` do not test a feature - they test the SUITE
+itself, and a test author writing test number twenty used to meet each one
+individually, on whichever run happened to hit it first. Read from `t/`
+directly rather than from memory - across three passes, Codex review
+catching five the first missed by grepping only header phrasing rather than
+the words this suite's own guards use to name each other, then a sixth
+(`t/717`) and a weak count check on a second pass - and checked as a set by
+`t/865-guards-that-name-themselves.t`: each guard below still exists and
+still carries its own marker phrase, and this table names exactly this set,
+compared sorted rather than only counted (a same-count substitution would
+still be caught).
+
+| Guard | What it checks |
+| --- | --- |
+| `t/03-metadata.t` | Version consistency across `.env`/`$Tira::VERSION`/`Changes`; POD validity across every module under `lib/`; every command a document names actually resolves. |
+| `t/121-no-dead-controls.t` | A rendered control (a button, a link) has the script binding that makes it do something, not only the markup. |
+| `t/147-a-denial-that-a-broken-page-passes.t` | `unlike()` on an empty or broken string passes - so a denial has to prove the thing was there and silent, not merely absent. |
+| `t/149-a-refusal-that-never-said-why.t` | A refusal test (`!eval { ... }`) proves its OWN refusal reason, not merely that something, anything, died. |
+| `t/176-an-assertion-that-cannot-fail.t` | `qr/\S/` ("answered at all") is used only where that is genuinely the whole claim, marked with the literal phrase `non-empty is the whole claim` - everywhere else an assertion pins what its name promises. |
+| `t/220-one-way-to-say-which-board.t` | No command reintroduces a second, competing way to say which board a call is about, once his own ruling settled it to one. |
+| `t/344-methods-pod-matches-what-cli-calls.t` | `lib/Tira.pm`'s own POD `METHODS` section names exactly the engine methods that exist, not a list frozen from an early version. |
+| `t/345-tests-cannot-phone-home.t` | A test exercising `agent-still`/`police_pass` cannot send a real Telegram message to the owner's real phone. |
+| `t/356-a-command-that-derives-itself.t` | Every one of the 119 command dispatchers derives its own command name the same way; none hardcode it and quietly disagree. |
+| `t/429-a-gate-that-checks-what-it-knows.t` | `tools/gate-run`'s coverage module list is read from `lib/`'s real files, not typed twice as two copies that can drift. |
+| `t/430-an-index-that-is-the-whole-book.t` | `lib/Tira/CLI.pm` stays under its own line-count limit - the dispatcher stays an index, not the whole book, per TSK-183. |
+| `t/431-a-module-that-can-stand-on-its-own.t` | Every module under `lib/` can be `require`d on its own, not only reachable through `Tira::CLI`'s own load order. |
+| `t/433-a-count-stated-three-times-and-checked-once.t` | A count stated in prose in more than one place (the police-rule count) is checked against the real, computed one everywhere it is stated. |
+| `t/486-a-test-that-says-where-code-lives.t` | A test that opens a source file by name is also pinning where that code lives - marked with `t/486 marker: about this file, not its code` where that pin is deliberate, or flagged where it is accidental. |
+| `t/524-a-rule-with-nothing-watching-it.t` | A standing instruction that used to live only in a Telegram message (files over 500 lines get decomposed) has a real check now, not only his memory of asking. |
+| `t/531-two-closures-one-name.t` | Every `$report` closure in the engine declares the identical parameter list, so a caller cannot silently drop an argument the ledger fingerprint depends on. |
+| `t/566-one-decision-in-two-places.t` | The decision registry itself - a known pair (a rule stated in two places) costs a line here instead of a new file, so it cannot drift back apart unnoticed. |
+| `t/653-a-class-with-nothing-behind-it.t` | Every hyphenated, BEM-shaped class the dashboard's view JS assigns matches a rule in the stylesheet it ships, or is named on the file's own exemption ledger with a reason. |
+| `t/717-a-fixture-that-stopped-listening.t` | A Playwright fixture mocking a real `/record` payload shape keeps listening to what that shape actually carries, so the two cannot drift apart unnoticed. |
+
+What this is not: a claim that these nineteen are the only meta-guards that
+will ever exist, or that a twentieth is caught automatically. Adding one
+means adding it here and to the canonical list in `t/865` itself, the same
+honest limit `t/433`'s own doc-vs-code count already has - a check can compare
+two named things against each other, it cannot notice a third thing nobody
+named yet. `t/582`, `t/179`, `t/597`, `t/552`, `t/155` and `t/172` were read
+and excluded: they measure or test the release tooling's own behaviour as a
+feature, not a convention for how a test itself is written.

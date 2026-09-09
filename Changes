@@ -1,6 +1,15 @@
 Revision history for Tira
 
 5.90  2026-09-09
+    - TKT-865: thirteen files under t/ police the suite itself (an
+      assertion shape, a doc-vs-code count, a module's own POD, a
+      structural limit) rather than a feature, and nothing named them as
+      a set - a test author met each one individually, on whichever run
+      happened to hit it first. SKILLS.md gains a "The meta-guards"
+      section naming all thirteen with their own marker phrases; a new
+      t/865 checks the list and the guards against each other, so an
+      entry cannot be silently gutted, renamed, or documented and then
+      forgotten.
     - TKT-853: tasklist.list returned status as its raw stored code (0/1/2)
       in both human and JSON output, though tasklist.update has always
       accepted the word - the reverse map already existed

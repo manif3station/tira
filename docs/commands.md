@@ -46,7 +46,7 @@ refused with a suggestion; a key that resembles nothing real is left alone,
 because both methods are called internally with the CLI's own shared
 `%option` hash, which always carries many keys neither method uses.
 
-**One of those left-alone keys was a real, undetected bug, since 5.89**
+**One of those left-alone keys was a real, undetected bug, since 5.90**
 (TKT-820, self-found - hit personally writing a test fixture earlier this
 same session). `column` sits only one edit away from `columns`/`refs`-shaped
 call-mechanics names and is legitimate elsewhere (`create_record` takes
@@ -1633,7 +1633,7 @@ absent, it falls back to the same tail, unchanged for a genuine suite
 failure.
 
 **A short coverage collection is now retried once before the gate refuses,
-since 5.89** (TKT-825). `coverage-complete`'s own count check (TKT-954)
+since 5.90** (TKT-825). `coverage-complete`'s own count check (TKT-954)
 could still pass while the coverage figure was wrong: Devel::Cover 1.52
 names each per-process run directory from a one-second-resolution
 timestamp, the pid, and a 16-bit random number, with no collision guard -
@@ -2298,7 +2298,7 @@ a card started directly where the chain check would otherwise refuse it to
 move. CLI/agent path only; the browser dashboard's create flow is unaffected.
 A board that names no `entry` role is unaffected too. TKT-428. **The
 browser's own create reply now always names the landed column, since
-5.89** (TKT-818): it called `record_move` to reach a non-`backlog` column,
+5.90** (TKT-818): it called `record_move` to reach a non-`backlog` column,
 and only that call's own reply carries `column` - so a plain create,
 landing in `backlog`, answered with no `column` at all, and the
 dashboard's status dropdown, which trusts the create reply directly,
@@ -3147,7 +3147,7 @@ change what every other caller gets - including `person_remove`, which must
 see discarded cards, since a person named by a set-aside card still has a
 historical reference. That larger question is TKT-970.
 
-**Since 5.89 the two agree** (TKT-817): `hero-counts.js`'s own task count
+**Since 5.90 the two agree** (TKT-817): `hero-counts.js`'s own task count
 used to count every tasklist item regardless of status, and now filters to
 `pending`/`working` only, the same definition this command already used -
 "outstanding" means still owed, and a `done` item is not.
@@ -4509,7 +4509,7 @@ reader never has to infer it from whichever field is populated.
     the bridge.
 
     **And a message-mode job announces its message to the bridge immediately,
-    since 5.89 (TKT-1023).** The executor's own no-op for a message-mode job -
+    since 5.90 (TKT-1023).** The executor's own no-op for a message-mode job -
     it runs nothing, because there is no command to run - is right for the
     scheduled due pass, which announces the message through the `job-due` rule
     *before* ever reaching the executor; `tira.job.run` has no such rule behind
@@ -4533,7 +4533,7 @@ reader never has to infer it from whichever field is populated.
     | Field | What it means | Written by |
     | --- | --- | --- |
     | `last_due_at` | the window came round | the `job-due` rule, into its ledger - never onto the job |
-    | `last_run_at` | a command was run, or (since 5.89) a message-mode job was manually announced | `job_ran`, from the shared recorder |
+    | `last_run_at` | a command was run, or (since 5.90) a message-mode job was manually announced | `job_ran`, from the shared recorder |
     | `last_output_at` | the job said something | `job_feed` |
 
     They come apart in the cases that were unreadable before. A manual run has
@@ -4545,12 +4545,12 @@ reader never has to infer it from whichever field is populated.
     in its output lines. The button and the schedule both record through one
     helper, so they cannot answer "did it run" differently.
 
-    **A `message`-mode job records `last_run_at` too, since 5.89, but only from
+    **A `message`-mode job records `last_run_at` too, since 5.90, but only from
     the button (TKT-1023).** The due pass still records none for one - nothing
     is ever executed for it there, and its window landing is `last_due_at`'s
     own fact, not `last_run_at`'s. A manual click is different: it is the one
     place `run_now` genuinely does something for a message-mode job, since
-    5.89, by writing its message straight to the bridge (below) - and that
+    5.90, by writing its message straight to the bridge (below) - and that
     counts as a run for the same reason a manual click on a command-mode job
     always has, so the card's "Last ran" line moves when he actually presses
     the button rather than staying pinned to whatever the schedule last did.

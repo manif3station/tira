@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.89';
+our $VERSION = '5.90';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -10846,6 +10846,37 @@ sub _police_environment_violations {
         elsif ( $rule eq 'unpushed-work' ) {
             next if !$world->{unpushed_since};
             next if !$self->_policy_older_than( $world->{unpushed_since}, $policy->{age} );
+
+            # TKT-847: his own gate, 2026-09-01 - "Card reach to pending push
+            # then wait for my review... I will be the only one authorized to
+            # move any card from pending push to push." A card sitting there
+            # is not neglect, it is the gate working, and the only action that
+            # would silence this rule is pushing - the one thing his own gate
+            # forbids. So a commit is held rather than reported when EVERY
+            # unpushed commit names a card, by the same ref pattern
+            # commit-without-card already reads a subject with, that is
+            # sitting AT pending-push right now. A commit naming no card, or
+            # naming one that has already moved past the gate (push, install,
+            # done - not the normal-and-waiting case his gate describes),
+            # still reports exactly as before: the forgotten-commit case this
+            # rule exists to catch must not be lost to the hold that protects
+            # the gate.
+            # Codex review: a subject can name more than one card
+            # ("TKT-101 pending work; TKT-102 shipped"), and only the FIRST
+            # ref was checked - so a commit naming a held card first and a
+            # shipped one second was wrongly silenced. Every ref in the
+            # subject has to be at pending-push, not merely the first found.
+            my %column_of = map { ( $_->{ref}, $_->{column} ) } @{ $records // [] };
+            my $all_held = @{ $world->{commits} // [] } ? 1 : 0;
+            for my $commit ( @{ $world->{commits} // [] } ) {
+                my @refs = ( $commit->{subject} // '' ) =~ /\b([A-Z]{2,}-\d{3,})\b/g;
+                if ( !@refs || grep { ( $column_of{$_} // '' ) ne 'pending-push' } @refs ) {
+                    $all_held = 0;
+                    last;
+                }
+            }
+            next if $all_held;
+
             $report->( $policy, undef,
                 "commits unpushed since $world->{unpushed_since}, and push is part of done" );
         }

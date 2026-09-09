@@ -37,11 +37,11 @@ Since 5.89, `notify.record`, `tasklist.task.ref.link`, and
 `tasklist.task.ref.unlink` actually accept the repeatable `--ref` they
 document, rather than being refused by a generic guard meant for other
 commands.
-Since 5.89, the browser dashboard's own create reply always names the
+Since 5.90, the browser dashboard's own create reply always names the
 column a new card landed in, including the ordinary case of a plain
 create into backlog — the status dropdown that trusts this reply no
 longer shows the wrong column right after creation.
-Since 5.89, `tira.dashboard -o browser --with-policy-bridge` starts
+Since 5.90, `tira.dashboard -o browser --with-policy-bridge` starts
 `tira.policy.bridge` beside the served board in the same terminal, the
 same way `--with-police` already starts `tira.police` — combine both
 flags and one command carries the board, the police, and the bridge
@@ -485,7 +485,7 @@ card somebody had discarded, still carrying a question nobody answered, was
 counted in one place and not the other, and the difference only ever appeared
 when a set-aside card happened to hold an unanswered question. Asking for the
 whole board including set-aside work is still possible, with the same flag the
-board view takes. A second gap closed since 5.89: the header's own task count
+board view takes. A second gap closed since 5.90: the header's own task count
 used to count every tasklist item regardless of status, so a done item left
 unpruned inflated it - now, like `tira.outstanding`, it counts only pending
 and working items.
@@ -658,7 +658,7 @@ manual run never moves - so a job could be run by hand all day and still read
 as one that had never run. A job now says which of three things happened: its
 window came round, its command was run, or it said something. A command that
 exits cleanly with nothing to print still records that it ran, since otherwise
-"it ran" and "it was due" are the same reading. **Since 5.89 a message-mode
+"it ran" and "it was due" are the same reading. **Since 5.90 a message-mode
 job's Run now genuinely does something too** (TKT-1023, his own report: "Run
 now does nothing") - it announces the message to the bridge immediately,
 matching his own decision on how it should behave, rather than reaching the

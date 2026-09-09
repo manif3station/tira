@@ -154,7 +154,7 @@ released rather than left naming a process that has gone.
 
 **And the bridge too, in the same terminal.** `--with-policy-bridge` starts
 `tira.policy.bridge` beside the served board the same way, one entrypoint over
-(TKT-1026, 5.89). Combine both flags and one command carries the board, the
+(TKT-1026, 5.90). Combine both flags and one command carries the board, the
 police, and the bridge together - his own words on Q-151: *"So there will be
 the bridge and the police and the dashboard run them all in 1 go."* The bridge
 is a reader, not a singleton claimant, so none of the yielding rule above
@@ -793,6 +793,30 @@ An `--age` of `15m` on `unpushed-work` was chosen when the gate took fifteen
 minutes and up. It is now generous rather than tight, which is the safe
 direction: the rule still catches work genuinely left unpushed and no longer has
 any chance of describing a push in progress.
+
+**And it holds while his own gate is the reason, since 5.90 (TKT-847).** On
+2026-09-01 he made a card sitting unreviewed in `pending-push` the NORMAL
+state - *"Card reach to pending push then wait for my review... I will be the
+only one authorized to move any card from pending push to push."* `unpushed-work`
+did not know this, so the only action that would silence it was pushing, the
+one thing that gate forbids. It now stays silent when EVERY unpushed commit
+names a card (the same ref pattern `commit-without-card` already reads a
+subject with) that is sitting at `pending-push` right now. A commit naming no
+card at all, or one whose card has already moved past the gate - `push`,
+`install`, `done` - still reports exactly as before: the forgotten-commit case
+this rule exists to catch is not lost to the hold that protects the gate. A
+worked example:
+
+```console
+$ d2 tira.policy.add --rule unpushed-work --age 15m --action bridge-reminder
+$ git log --oneline -1
+a1b2c3d TKT-900 the change itself
+$ d2 tira.ticket.show --ref TKT-900 -o json | grep column
+column: "pending-push"
+$ d2 tira.police
+# silent on unpushed-work - the only unpushed commit belongs to a card
+# already sitting where his gate parks it
+```
 
 ## Where work ends
 

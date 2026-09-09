@@ -1474,7 +1474,7 @@ sub warning_clear {
     return $self->_with_project_lock( $root, sub {
         my $warnings = $self->_warning_read($root);
         my @removed = $args{all} ? @{$warnings} : grep { $_->{id} eq $args{id} } @{$warnings};
-        die "Warning '$args{id}' not found\n" if !@removed;
+        die "Warning '$args{id}' not found\n" if !$args{all} && !@removed;
         my %gone = map { $_->{id} => 1 } @removed;
         $self->_write_json( $self->_warning_path($root), [ grep { !$gone{ $_->{id} } } @{$warnings} ] );
         return \@removed;

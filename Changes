@@ -1,6 +1,18 @@
 Revision history for Tira
 
-5.88  2026-09-08
+5.89  2026-09-09
+    - TKT-758: task-changed reported a tasklist item arriving or vanishing
+      (TKT-606, 4.79) even though its own name and job are about editing
+      items it already knows. A new task-created rule now covers both
+      halves - arrival and removal, since naming a rule for creation and
+      dropping removals would repeat the exact mistake this split exists
+      to fix - reading the identical task_seen baseline ledger task-changed
+      already built, so "a first pass adopts silently" is unchanged. The
+      transition is per board (Michael's own answer, live, Q-145/Q-146): a
+      board that has not declared task-created keeps getting arrivals and
+      removals from task-changed exactly as before, so no board goes quiet
+      the day this ships; a board that declares task-created gets them from
+      there instead, not from both.
     - TKT-781: the browser dashboard had no way to record a gate result,
       evidence, or a release at all - the CLI side (tira.gate.add,
       tira.evidence.add, tira.release.record) was fully built and

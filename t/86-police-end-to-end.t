@@ -102,6 +102,7 @@ my %declare = (
     'column-skipped'            => { enter => 'done', require => 'implement' },
     'task-unlinked'             => { age => '30m' },
     'task-changed'              => {},
+    'task-created'              => {},
 
     # A repeated job needs no age and no scope - its schedule already says
     # when it is due, and a job is not about a card. EPC-014, TKT-838.
@@ -263,6 +264,11 @@ $tira->job_feed( project => $root, id => $quiet_monitor->{id},
 # text edit right after it is what the second, comprehensive pass finds.
 my $edited_task = $tira->tasklist_add( project => $root, text => 'Original wording' );
 
+# task-created's removal half: present before the baseline pass, removed
+# before the second, so the same baseline that lets task-changed find an
+# edit lets task-created find a disappearance.
+my $vanishing_task = $tira->tasklist_add( project => $root, text => 'Here for the baseline, gone after' );
+
 # The card exists before the second in which its answer is marked.
 #
 # Everything else on this board is built at one frozen instant, which is fine
@@ -388,6 +394,11 @@ $now = '2026-08-11T23:00:00Z';
 }
 
 $tira->tasklist_update( project => $root, id => $edited_task->{id}, text => 'Revised wording' );
+$tira->tasklist_remove( project => $root, id => $vanishing_task->{id} );
+
+# task-created's arrival half: added after the baseline pass, so the second,
+# comprehensive pass finds it as genuinely new.
+$tira->tasklist_add( project => $root, text => 'Arrived after the baseline' );
 
 # The monitor speaks again between the passes, for the same reason the task is
 # edited here: the first pass is bridge-unread's setup and it CARRIES what the

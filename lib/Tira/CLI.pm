@@ -2700,7 +2700,7 @@ but Getopt::Long's own duplicate-specification warning bypasses the
 C<$SIG{__WARN__}> capture below and printed to STDERR on every invocation.
 One array for every command means a stray duplicate is noise on all of them.
 
-B<A leftover positional argument is named too, since 5.88> (TKT-759): unlike an unrecognised option, it raises no C<Getopt::Long> warning, so the refusal used to fall through nameless; it now names the first leftover word, counts the rest, and names quoting as the likely cause.
+B<A leftover positional argument is named too, since 5.89> (TKT-759): unlike an unrecognised option, it raises no C<Getopt::Long> warning, so the refusal used to fall through nameless; it now names the first leftover word, counts the rest, and names quoting as the likely cause.
 
 =head2 _json_array_input
 

@@ -380,7 +380,7 @@ a button that is missing exactly when the fetch fails. Nothing about the cap
 itself lives in this module: the section renders the same empty list it always
 did, and how much of it gets built is the view asset's decision.
 
-Two more empty controls sit beside the text filter, since 5.88 (TKT-764): a status C<< <select> >> (numeric option values) and an unlinked C<< <input type="checkbox"> >>, giving the panel the C<--status>/C<--unlinked> questions C<tasklist.list> already answers, without duplicating C<STATUS_NAME>'s own wording.
+Two more empty controls sit beside the text filter, since 5.89 (TKT-764): a status C<< <select> >> (numeric option values) and an unlinked C<< <input type="checkbox"> >>, giving the panel the C<--status>/C<--unlinked> questions C<tasklist.list> already answers, without duplicating C<STATUS_NAME>'s own wording.
 
 The page's own frame is a contract too, and a quieter one. F<dashboard.tt> emits
 C<< <main class="shell"> >> wrapping C<< <header class="hero"> >>, and the hero
@@ -493,6 +493,6 @@ terminal and by C<tira.policy.bridge.logs>, all through C<enforcement_log>.
 Reversing at the source would change what every one of those readers sees in
 order to fix how one panel looks - the same drift F<t/541> was written about.
 F<t/583> holds the boundary by reading C<enforcement_log> and requiring that it
-does B<not> reverse. Since 5.88 (TKT-1020) the header also carries C<.bridge-clear>, matching C<.logs-clear> and C<.jobs-card__log-clear> - each empties its own current rendering only, since these panels keep polling regardless.
+does B<not> reverse. Since 5.89 (TKT-1020) the header also carries C<.bridge-clear>, matching C<.logs-clear> and C<.jobs-card__log-clear> - each empties its own current rendering only, since these panels keep polling regardless.
 
 =cut

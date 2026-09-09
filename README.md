@@ -18,11 +18,11 @@ Attachment-add responses distinguish the supplied filename from the filename
 actually retained when identical content is deduplicated.
 Migration-scale tools provide one-call export, field-aware search, previewed
 bulk import/replacement, and append-only gate/evidence corrections.
-Since 5.88, `gate.add --details` refuses a whitespace-only value the same
+Since 5.89, `gate.add --details` refuses a whitespace-only value the same
 way it refuses an empty one — the last of this "required explanation"
 field family (evidence, checklist, required-action) still testing for
 exact emptiness rather than real content.
-Since 5.88, the browser dashboard can also record a gate result and
+Since 5.89, the browser dashboard can also record a gate result and
 evidence, not only display them — a release can be completed entirely
 from the card dialog, without dropping to the CLI.
 Hierarchy views retain the complete direct-read record at every node and add
@@ -54,7 +54,7 @@ in emoji or CJK could store up to four times the limit, and the refusal now
 names the size it measured as well as the limit —
 deletion is reference-safe under content-hash dedup via the new
 `tira.attachment.detach` command, and every comment shows and manages its
-own attachments separately from the record strip. Since 5.88,
+own attachments separately from the record strip. Since 5.89,
 `tira.attachment.where --sha SHA` answers which other records reference a
 given attachment across the whole board, including discarded cards -
 before it, only "what does this one card's attachments look like" could be
@@ -86,7 +86,7 @@ A required action marked done on evidence another item in the same column
 already used is highlighted rather than merely ticked, and its proof modal
 opens with the reason for the reuse above the evidence itself — the point of
 making somebody write a reason is that somebody else reads it.
-Since 5.88, `required-action.update --ids ID1,ID2,...` marks several ids
+Since 5.89, `required-action.update --ids ID1,ID2,...` marks several ids
 at once with one `--command`/`--proof` pair - additive alongside the
 existing single `--id`, all-or-nothing (a bad id anywhere refuses the
 whole call), and refused when combined with `--item`.
@@ -137,12 +137,12 @@ embedded in the page — the board loads nothing from another host, so a CDN
 highlighter was never an option. A genuinely binary file still refuses rather
 than rendering as mojibake, and an unknown extension is decided by reading its
 first bytes rather than by its name.
-The board-wide police policy engine — the 46 rules police itself watches,
+The board-wide police policy engine — the 47 rules police itself watches,
 separate from a column's own required-action template — is editable from
 the browser too: a Policies button opens a modal listing every declared,
 declined, and undeclared rule, with a rule-specific parameter picker that
 matches the `tira.policy.add` command exactly.
-Since 5.88, `card-duration --type TYPE` scopes a threshold to one record
+Since 5.89, `card-duration --type TYPE` scopes a threshold to one record
 kind, so a column holding both epics and SOWs can judge each against its
 own dwell distribution instead of one number serving both, and the finding
 names which type's threshold fired.
@@ -221,7 +221,7 @@ came out. It now refuses, naming `--problem`, before any card is written. The
 name is the plausible one — `--text` is how `tira.comment.add` and
 `tira.question.ask` carry their content — which is exactly why the silent drop
 cost what it did.
-Since 5.88, `--title` is trimmed before that same "is required" check runs, at
+Since 5.89, `--title` is trimmed before that same "is required" check runs, at
 both create and update, so a title of nothing but spaces is refused exactly
 like an empty one instead of producing a card no listing can show a name for.
 The same release also named a leftover positional argument in a refusal
@@ -352,7 +352,7 @@ working=purple-blue, done=green), with list-level controls (add, session,
 next/shift/pop/unshift/slice/prune) and per-card controls (status, remove,
 attach, ref) - full parity with the CLI commands below.
 
-Since 5.88 that section also has a status filter (All/Pending/Working/Done)
+Since 5.89 that section also has a status filter (All/Pending/Working/Done)
 and an unlinked-only checkbox beside its text filter, reaching `--status`
 and `--unlinked` (`tira.tasklist.list`) the same way the section already
 mirrors the rest of the CLI - both compose with the text filter and with
@@ -716,7 +716,7 @@ filesystem.
 Since 4.70 the page comes from a View rather than from Perl string
 concatenation: the markup lives in Template Toolkit templates under
 `lib/Tira/views`, beside the stylesheet and the scripts, and the module keeps
-none of it. Since 5.88 those assets are formatted rather than left as the
+none of it. Since 5.89 those assets are formatted rather than left as the
 single minified line each kept from the move - a change to any one of them
 now reads as an ordinary diff. Since 4.74 the CLI is split the same way for the same
 reason: `lib/Tira/CLI.pm` was 6,048 lines with every command body in it, and is
@@ -898,8 +898,8 @@ entries themselves, and how many rules police the board, checked against
 sentence — every markdown file in the repository bar the build and dependency
 directories (`cover_db`, `node_modules`, `.git`), and any claim that puts a
 number ahead of the word `rules` with at most two words between them. That
-covers `46 rules cover`, `46 rules police`, `46 police
-rules` and `46 policy rules`, and it is the whole of its reach, worth stating
+covers `47 rules cover`, `47 rules police`, `47 police
+rules` and `47 policy rules`, and it is the whole of its reach, worth stating
 plainly because a guard described more broadly than it works is the failure it
 exists to prevent: a claim worded outside that shape is not held, and neither is
 one made anywhere but a markdown file. The same count stated in a source comment is TKT-736, still open.

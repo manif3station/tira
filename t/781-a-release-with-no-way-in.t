@@ -100,7 +100,7 @@ test_psgi $app, sub {
     my $release_response = $http->( POST '/release/record', Cookie => $cookie,
         Content => Cpanel::JSON::XS->new->encode(
             { type => 'ticket', ref => $card->{ref}, gate => 'verify', result => 'pass',
-              details => 'suite green', evidence => 'prove -lr t clean', fix_version => '5.88' } ) );
+              details => 'suite green', evidence => 'prove -lr t clean', fix_version => '5.89' } ) );
     is( $release_response->code, 200, 'the real release/record route succeeds' ) or diag( $release_response->content );
     my $release_decoded = Cpanel::JSON::XS->new->decode( $release_response->content );
     ok( $release_decoded->{ok}, 'and reports ok' );
@@ -110,7 +110,7 @@ test_psgi $app, sub {
     my $shown = $tira->record_show( project => $root, ref => $card->{ref} );
     is( scalar @{ $shown->{gate_passing_log} }, 2, 'two gate entries are recorded (gate/add and release/record)' );
     is( scalar @{ $shown->{evidence} }, 2, 'two evidence entries are recorded (evidence/add and release/record)' );
-    is( $shown->{fix_version}, '5.88', 'and the fix version was set' );
+    is( $shown->{fix_version}, '5.89', 'and the fix version was set' );
 
     # --- a release from the CLI produces the same shape --------------------
 
@@ -118,7 +118,7 @@ test_psgi $app, sub {
     $tira->release_record(
         project => $root, ref => $cli_card->{ref}, author => 'claude',
         gate => 'verify', result => 'pass', details => 'suite green',
-        evidence => 'prove -lr t clean', fix_version => '5.88',
+        evidence => 'prove -lr t clean', fix_version => '5.89',
     );
     my $cli_shown = $tira->record_show( project => $root, ref => $cli_card->{ref} );
     is( $cli_shown->{fix_version}, $shown->{fix_version}, 'a CLI-recorded release matches the browser-recorded shape (fix_version)' );

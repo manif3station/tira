@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.88';
+our $VERSION = '5.89';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6490,6 +6490,13 @@ my %POLICY_RULES = (
     # conversation-not-folded already gives.
     'task-changed'              => { needs => [], forbids => ['age'] },
 
+    # TKT-758, split out of task-changed: a task arriving or vanishing,
+    # named for the lifecycle rather than only "created" - a rule named for
+    # creation that dropped the removal half would repeat the mistake this
+    # card exists to fix. No age, same reasoning as task-changed: an
+    # arrival or a removal is not neglect that ripens.
+    'task-created'              => { needs => [], forbids => ['age'] },
+
     # Arriving somewhere without having done the steps before it. Declared
     # rather than inferred from the column order: a documentation-only card has
     # no red test to write, and a rule that assumed the whole sequence would
@@ -6631,6 +6638,7 @@ my %WHOLE_BOARD_RULE = (
     # scope could never narrow which tasklist items count.
     'task-unlinked' => 'the whole board',
     'task-changed'  => 'the whole board',
+    'task-created'  => 'the whole board',
 
     # A job is not about a card, so there is nothing for a --ref to narrow.
     'job-due'       => 'the whole board',
@@ -7693,6 +7701,18 @@ sub policy_evaluate {
         my $winner = $for_record{ $record->{ref} }{ $policy->{rule} };
         return defined $winner && ( $winner->{id} // '' ) eq ( $policy->{id} // '' ) ? $winner : undef;
     };
+
+    # TKT-758: task-changed and task-created both read the SAME task_seen
+    # baseline ledger, and both may be declared on one board during a
+    # per-board handover. Walking the tasklist and writing the ledger once
+    # here - before either rule's own block runs - means neither rule's
+    # order in @{$policies} can make the other see a ledger it already
+    # mutated this pass, which a naive "walk inside each elsif" would risk.
+    my $task_created_declared = !!grep { $_->{rule} eq 'task-created' } @{$policies};
+    my $task_walk;
+    if ( $task_created_declared || grep { $_->{rule} eq 'task-changed' } @{$policies} ) {
+        $task_walk = $self->_task_seen_walk( $root, $args{store} );
+    }
 
     for my $policy ( @{$policies} ) {
         my $rule = $policy->{rule};
@@ -9350,69 +9370,42 @@ sub policy_evaluate {
             # owner-only filter: Michael's own answer, live, to whether this
             # should fire for any actor or the owner only - "Announce every
             # change regardless of actor."
-            # A BASELINE THAT EXISTS AND ONE THAT DOES NOT ARE DIFFERENT THINGS,
-            # and until TKT-606 this line flattened them with // {}. The
-            # difference is what makes an arrival reportable at all: on a store
-            # nothing has written, every item is a first sighting, and a rule
-            # that announced a hundred of them at once would be declined and
-            # never re-enabled - worse than the silence it replaced. On a store
-            # a pass HAS written, an id that is not in it is genuinely new.
-            #
-            # _violation_ledger returns { counter => 0, open => {} } for a store
-            # with no file, so the key is absent exactly when no pass has
-            # recorded a tasklist; _task_changed_mark_seen is the only thing
-            # that sets it. An empty hash under a PRESENT key means a board that
-            # was policed while its tasklist was empty, which is a baseline.
-            my $ledger = $args{store} ? $self->_violation_ledger( $args{store} ) : {};
-            my $baseline = exists $ledger->{task_seen};
-            my $seen = $ledger->{task_seen} // {};
-
-            my %still_here;
-            my %next_seen;
-            for my $item ( @{ $self->_tasklist_read($root) } ) {
-                $still_here{ $item->{id} } = 1;
-                my $now_state = {
-                    text        => $item->{text} // '',
-                    attachments => scalar @{ $item->{attachments} // [] },
-                    refs        => join( ',', sort @{ $item->{refs} // [] } ),
-                };
-                my $was = $seen->{ $item->{id} };
-                if ($was) {
-                    my @changed;
-                    push @changed, 'text'        if ( $was->{text}        // '' ) ne $now_state->{text};
-                    push @changed, 'attachments' if ( $was->{attachments} // 0 ) != $now_state->{attachments};
-                    push @changed, 'refs'        if ( $was->{refs}        // '' ) ne $now_state->{refs};
-                    $report->( $policy, $item->{id},
-                        join( '/', @changed ) . ' changed on "' . $item->{text} . '"' )
-                      if @changed;
-                }
-
-                # The branch that did not exist. He asked twice why a new task
-                # was never announced - the answer was that the line below wrote
-                # it into the baseline whatever happened here, so the first pass
-                # adopted it in silence and every later pass found nothing
-                # changed. Not late: unannounceable. TKT-606.
-                elsif ($baseline) {
-                    $report->( $policy, $item->{id},
-                        'new task "' . $item->{text} . '"' );
-                }
-
-                $next_seen{ $item->{id} } = $now_state;
+            for my $c ( @{ $task_walk->{changed} } ) {
+                $report->( $policy, $c->{id}, $c->{detail} );
             }
 
-            # And the other half, which was written and abandoned: %still_here
-            # was populated three lines up and read nowhere, so a task
-            # DISAPPEARING was unannounced by the same silence that swallowed a
-            # new one. A list that is one shorter says nothing on its own.
-            if ($baseline) {
-                for my $id ( sort keys %{$seen} ) {
-                    next if $still_here{$id};
-                    $report->( $policy, $id,
-                        'task removed: "' . ( $seen->{$id}{text} // $id ) . '"' );
+            # TKT-758: arrivals and removals moved to their own task-created
+            # rule (see below), a rule named for editing items it already
+            # knows should not also be the one claiming a task arrived or
+            # vanished. The compatibility branch Michael chose live
+            # (Q-145/Q-146): a board that has NOT declared task-created still
+            # gets them from here, exactly as TKT-606 shipped them, so no
+            # board goes quiet the day this ships. A board that HAS declared
+            # task-created gets them from there instead, not from both.
+            if ( !$task_created_declared ) {
+                for my $a ( @{ $task_walk->{arrived} } ) {
+                    $report->( $policy, $a->{id}, $a->{detail} );
+                }
+                for my $r ( @{ $task_walk->{removed} } ) {
+                    $report->( $policy, $r->{id}, $r->{detail} );
                 }
             }
+        }
+        elsif ( $rule eq 'task-created' ) {
 
-            $self->_task_changed_mark_seen( $args{store}, \%next_seen ) if $args{store};
+            # TKT-758, the "later" half of Q-097's answer (TKT-606 shipped
+            # the "now" half in 4.79). Named for the lifecycle rather than
+            # only "created", because a rule named for creation that dropped
+            # a removal would repeat exactly the mistake this card exists to
+            # fix. Reads the same $task_walk every task-changed reads, so the
+            # "no baseline, adopt silently" property TKT-606 built is not
+            # re-derived per rule - it lives in _task_seen_walk, once.
+            for my $a ( @{ $task_walk->{arrived} } ) {
+                $report->( $policy, $a->{id}, $a->{detail} );
+            }
+            for my $r ( @{ $task_walk->{removed} } ) {
+                $report->( $policy, $r->{id}, $r->{detail} );
+            }
         }
         elsif ( $rule eq 'discard-with-open-questions' ) {
 
@@ -10006,6 +9999,58 @@ sub _task_changed_mark_seen {
         return 1;
     } );
     return 1;
+}
+
+# TKT-758: the tasklist walk task-changed always did, factored out so
+# task-created can read the SAME pass's changed/arrived/removed lists
+# without re-walking the tasklist or re-reading the ledger under a
+# different rule's feet. Called at most once per policy_evaluate pass
+# (only when either rule is declared), so whichever of the two rules
+# happens to sort first in @{$policies} sees the identical baseline the
+# other one does - the walk and the ledger write both happen here, before
+# either rule's own block runs.
+sub _task_seen_walk {
+    my ( $self, $root, $store ) = @_;
+    my $ledger   = $store ? $self->_violation_ledger($store) : {};
+    my $baseline = exists $ledger->{task_seen};
+    my $seen     = $ledger->{task_seen} // {};
+
+    my ( %still_here, %next_seen );
+    my ( @changed, @arrived );
+    for my $item ( @{ $self->_tasklist_read($root) } ) {
+        $still_here{ $item->{id} } = 1;
+        my $now_state = {
+            text        => $item->{text} // '',
+            attachments => scalar @{ $item->{attachments} // [] },
+            refs        => join( ',', sort @{ $item->{refs} // [] } ),
+        };
+        my $was = $seen->{ $item->{id} };
+        if ($was) {
+            my @what;
+            push @what, 'text'        if ( $was->{text}        // '' ) ne $now_state->{text};
+            push @what, 'attachments' if ( $was->{attachments} // 0 ) != $now_state->{attachments};
+            push @what, 'refs'        if ( $was->{refs}        // '' ) ne $now_state->{refs};
+            push @changed, { id => $item->{id},
+                detail => join( '/', @what ) . ' changed on "' . $item->{text} . '"' }
+              if @what;
+        }
+        elsif ($baseline) {
+            push @arrived, { id => $item->{id}, detail => 'new task "' . $item->{text} . '"' };
+        }
+
+        $next_seen{ $item->{id} } = $now_state;
+    }
+
+    my @removed;
+    if ($baseline) {
+        for my $id ( sort keys %{$seen} ) {
+            next if $still_here{$id};
+            push @removed, { id => $id, detail => 'task removed: "' . ( $seen->{$id}{text} // $id ) . '"' };
+        }
+    }
+
+    $self->_task_changed_mark_seen( $store, \%next_seen ) if $store;
+    return { changed => \@changed, arrived => \@arrived, removed => \@removed };
 }
 
 # The seam. Nothing is sent unless both variables are set - his instruction,
@@ -14505,7 +14550,7 @@ rather than silently doing nothing. A key that resembles no real field is
 left alone, because this method is called internally with C<%args> hashes
 that legitimately carry other keys too.
 
-B<A whitespace-only title is refused like an empty one, since 5.88> (TKT-754):
+B<A whitespace-only title is refused like an empty one, since 5.89> (TKT-754):
 C<title> is trimmed before the "Record title is required" check, via
 C<_valid_title>, shared with C<record_update> so the same card cannot be
 blanked to whitespace after creation either. The stored value is never
@@ -14537,7 +14582,7 @@ above for the full reasoning and the design constraint that shapes it): the
 same near-miss check, run against the same field list plus this method's own
 call-mechanics keys (C<ref>, C<author>, C<expect>, and so on).
 
-B<A whitespace-only title is refused, since 5.88> (TKT-754): C<title> shares
+B<A whitespace-only title is refused, since 5.89> (TKT-754): C<title> shares
 C<create_record>'s C<_valid_title> check, so a card cannot be blanked to
 whitespace by update even if it started with a real one.
 
@@ -14648,7 +14693,7 @@ time alone read as though it were the threshold too. C<wip-limit> counts
 each record kind (sow/epic/ticket) in a watched column separately, rather
 than one merged pool, so a manager layer of epics cannot exhaust a
 ticket's budget by existing. C<card-duration>'s finding names which
-C<--type>-scoped threshold fired, since 5.88 (TKT-756) - C<--type> is the
+C<--type>-scoped threshold fired, since 5.89 (TKT-756) - C<--type> is the
 same generic policy scope every rule already reads, so two type-scoped
 declarations on the same column (an epic threshold and a SOW threshold,
 say) were already judged independently before this, but read as
@@ -15454,7 +15499,7 @@ one, while re-asking unchanged returns the same code rather than rotating it
 once the item is genuinely a duplicate, so a card never records an accusation
 of borrowing evidence that was not borrowed.
 
-C<ids> (an arrayref), since 5.88 (TKT-769), marks several ids with the one
+C<ids> (an arrayref), since 5.89 (TKT-769), marks several ids with the one
 C<command>/C<proof> pair in a single call - additive alongside the single
 C<id> above, which is unaffected. Every id is validated before any is
 marked; a bad one anywhere refuses the whole call before anything is
@@ -15946,7 +15991,7 @@ Returns a record's evidence entries.
 Adds a note to an existing evidence entry, leaving the entry itself
 intact. C<--id> is required - since TKT-692, an absent one refuses
 directly rather than reaching the not-found lookup with an undef id.
-Since 5.88 (TKT-731) the read-modify-write is inside C<_with_project_lock>,
+Since 5.89 (TKT-731) the read-modify-write is inside C<_with_project_lock>,
 the same as every other writer on this path - it was the only one of
 twenty-three C<_replace_record> callers that was not.
 
@@ -15954,7 +15999,7 @@ twenty-three C<_replace_record> callers that was not.
 
 Records a gate result - pass, fail or blocked - against a record, with the
 details that justify it. C<--details> refuses a whitespace-only value the
-same way it refuses an empty one, since 5.88 (TKT-768) - the last of this
+same way it refuses an empty one, since 5.89 (TKT-768) - the last of this
 field family (evidence, checklist, required-action) to get the C<!~ /\S/>
 test TKT-585/TKT-909 already established for the others.
 

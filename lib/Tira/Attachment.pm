@@ -552,7 +552,7 @@ Tira::Attachment - storing files and hanging them off records
 The attachment concern, lifted out of L<Tira> by TKT-746: store a file, know
 what it is, attach it to a record, and list, fetch, detach or discard it.
 
-Since 5.88, C<attachment_where> (TKT-766) answers which OTHER records
+Since 5.89, C<attachment_where> (TKT-766) answers which OTHER records
 reference a given sha - C<attachment_list> only ever resolves through one
 record via C<--ref>, so nothing before it could ask that question at all.
 It walks C<record_list(include_discard =E<gt> 1)> and reuses

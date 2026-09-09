@@ -114,6 +114,8 @@ refuses_age( 'job-due', project => $root,
     rule => 'job-due', age => '10m', action => 'bridge-reminder' );
 refuses_age( 'task-changed', project => $root,
     rule => 'task-changed', age => '10m', action => 'bridge-reminder' );
+refuses_age( 'task-created', project => $root,
+    rule => 'task-created', age => '10m', action => 'bridge-reminder' );
 refuses_age( 'column-skipped', project => $root,
     rule => 'column-skipped', enter => 'done', require => 'implement', age => '10m', action => 'bridge-reminder' );
 refuses_age( 'wip-limit', project => $root,

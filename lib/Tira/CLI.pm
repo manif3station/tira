@@ -2020,6 +2020,16 @@ sub _invoke {
         set_labels => 'labels_replace', set_affects_versions => 'affects_versions_replace',
         set_scope_in => 'scope_in_replace', set_scope_out => 'scope_out_replace',
     );
+    # The single-item append flag for each --set-* option, named so the
+    # refusal below can point at it as the alternative - the form a caller
+    # reaching for --set-* usually wanted anyway. TKT-741.
+    my %append_flag = (
+        set_key_details => 'key-detail', set_deliverables => 'deliverable',
+        set_acceptance => 'acceptance', set_test_steps => 'test-step',
+        set_bdd => 'bdd', set_atdd => 'atdd',
+        set_labels => 'label', set_affects_versions => 'affects-version',
+        set_scope_in => 'scope-in', set_scope_out => 'scope-out',
+    );
     for my $set ( keys %sets ) {
         next if !defined $option->{$set};
         my $append = $set eq 'set_labels' ? 'labels'
@@ -2028,7 +2038,8 @@ sub _invoke {
           : $set eq 'set_scope_out' ? 'scope_out'
           : $sets{$set} =~ s/_replace\z//r;
         die "Cannot combine append and replacement for '$append'\n" if defined $args{$append};
-        $args{ $sets{$set} } = _json_array_input( $option->{$set} );
+        $args{ $sets{$set} } = _json_array_input(
+            $option->{$set}, $set =~ tr/_/-/r, $append_flag{$set} );
     }
     $args{label} = $option->{labels}[0] if $command =~ /\Acolumn\.(?:add|rename)\z/ && $option->{labels};
 
@@ -2584,9 +2595,15 @@ sub _text_input {
 }
 
 sub _json_array_input {
-    my ($file) = @_;
-    my $data = Tira::json_decode( _text_input($file) );
-    die "Replacement input must be a JSON array\n" if ref($data) ne 'ARRAY';
+    my ( $file, $flag, $append_flag ) = @_;
+    my $text = _text_input($file);
+    my $data = eval { Tira::json_decode($text) };
+    my $usage = "Example: [\"first item\", \"second item\"]\n"
+      . "To append one item at a time instead, use --$append_flag TEXT, repeated.\n";
+    die "--$flag expects a JSON array, and '$file' is not JSON.\n$usage" if $@;
+    die "--$flag expects a JSON array, not "
+      . ( ref($data) ? ref($data) : 'a plain value' ) . ".\n$usage"
+      if ref($data) ne 'ARRAY';
     return $data;
 }
 

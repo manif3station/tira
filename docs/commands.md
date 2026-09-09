@@ -46,6 +46,19 @@ refused with a suggestion; a key that resembles nothing real is left alone,
 because both methods are called internally with the CLI's own shared
 `%option` hash, which always carries many keys neither method uses.
 
+**One of those left-alone keys was a real, undetected bug, since 5.89**
+(TKT-820, self-found - hit personally writing a test fixture earlier this
+same session). `column` sits only one edit away from `columns`/`refs`-shaped
+call-mechanics names and is legitimate elsewhere (`create_record` takes
+one), so the near-miss check above deliberately leaves it alone - but
+`record_update` was never given `column` as a real field either (`record_move`
+is the only path allowed to change it), so `d2 tira.ticket.update --ref REF
+--column X` silently did nothing at all: no error, no move, and a clean exit
+that read as confirmation the card had moved. `record_update` now refuses
+outright when `column` is supplied with a value, before anything else runs, naming
+`record_move` (or the type-specific `*.move` verb, e.g. `tira.ticket.move`)
+as the real command.
+
 **An "Unknown option" refusal now also checks for a stale install, since
 5.87** (TKT-672): the engine's own changelog is compared against the code
 actually running, and a changelog naming something newer is reported

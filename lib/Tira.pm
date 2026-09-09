@@ -2870,6 +2870,19 @@ sub _matches_base {
 
 sub record_update {
     my ( $self, %args ) = @_;
+
+    # 'column' is deliberately absent from @RECORD_UPDATE_FIELDS - record_move
+    # is the only path allowed to change it - but that absence alone is not a
+    # refusal: 'column' is legitimate call-mechanics elsewhere (create_record
+    # takes one), so _refuse_misspelled_args's own near-miss check treats it
+    # as a name it must leave alone (see its comment), and the argument was
+    # simply dropped in silence. A clean exit and an unchanged card read as
+    # confirmation the move happened, which is worse than an error. TKT-820.
+    die "record_update does not accept 'column' - it is not a plain field this "
+      . "call writes. Use record_move (or the type-specific *.move verb) to "
+      . "change a card's column.\n"
+      if defined $args{column};
+
     $self->_refuse_misspelled_args( \@RECORD_UPDATE_FIELDS, %args );
     $self->_require_author(%args);
     my $root = $self->discover_project(%args);
@@ -14585,6 +14598,17 @@ call-mechanics keys (C<ref>, C<author>, C<expect>, and so on).
 B<A whitespace-only title is refused, since 5.89> (TKT-754): C<title> shares
 C<create_record>'s C<_valid_title> check, so a card cannot be blanked to
 whitespace by update even if it started with a real one.
+
+B<A C<column> argument is refused outright, since 5.89> (TKT-820,
+self-found): C<column> is not one of this method's fields - C<record_move>
+is the only path allowed to change it - but it is a legitimate name
+elsewhere (C<create_record> takes one), so the near-miss check above
+deliberately leaves it alone rather than flagging it as a typo. Nothing
+else caught it either, so C<record_update( ..., column => 'done' )> used to
+succeed with no error and no effect: a clean exit and an unchanged card
+read as confirmation the move had happened. Checked first, before the
+near-miss check and before the project lock, naming C<record_move> (or the
+type-specific C<*.move> verb) as the real command.
 
 =head2 column_update
 

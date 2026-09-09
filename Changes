@@ -1,6 +1,15 @@
 Revision history for Tira
 
 5.89  2026-09-09
+    - TKT-820: record_update accepted a --column argument with no error and
+      no effect - self-found, and hit personally writing a test fixture
+      earlier this session. 'column' is deliberately not one of the fields
+      record_update writes (record_move is the only path allowed to change
+      it), but it is a legitimate name elsewhere (create_record takes one),
+      so the near-miss typo check leaves it alone by design - and nothing
+      else caught it. A clean exit and an unchanged card read as
+      confirmation the move happened. record_update now refuses outright
+      when column is present, naming record_move as the real command.
     - TKT-1023: Run now on a message-mode job reached the same silent no-op
       run_due_job gives every message-mode job on the scheduled due pass -
       but that no-op is only correct there, because the due pass already

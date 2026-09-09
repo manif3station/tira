@@ -125,6 +125,8 @@ names (`ref`, `column`, `start`) are excluded from that comparison, because a
 legitimate, unrelated flag like `refs` or `columns` sits only one edit away
 from one of them.
 
+**That exclusion left one specific name silently swallowed, since 5.89** (TKT-820, self-found - the exact call-mechanics name this same paragraph names as deliberately excluded from the near-miss check). `column` is legitimate elsewhere (`create_record` takes one), so `--column` on `record_update`/`tira.ticket.update` was never flagged as a typo - it was simply dropped, with no error, because `column` is not one of `@RECORD_UPDATE_FIELDS` at all (`record_move` is the only path allowed to change it). A clean exit and an unchanged card read as confirmation the move had happened, which is worse than an error - hit personally writing a test fixture earlier this same session. `record_update` now refuses outright when `column` is supplied with a value, before anything else runs, naming `record_move` (or the type-specific `*.move` verb) as the real command. This is not the near-miss suggestion mechanism above - it is a dedicated check for the one name that mechanism deliberately leaves alone.
+
 **An "Unknown option" can also mean a stale install, since 5.87** (TKT-672).
 The refusal now compares the engine's own changelog against the code
 actually running, and when the changelog names something newer, names that

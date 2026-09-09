@@ -95,6 +95,19 @@ only "Invalid command-line options" with nothing suggested. Nothing is
 guessed when no declared name is close, and nothing is written before the
 refusal either way. TKT-298.
 
+**A leftover positional argument is named too, since 5.88** (TKT-759): a
+word that is neither a known option nor a value any option takes left no
+`Getopt::Long` warning at all - it parsed successfully, leaving the word
+sitting unread in the argument list - so it fell through to the same bare
+"Invalid command-line options" the paragraph above already fixed for a
+mistyped flag. Hit live in this session: a shell quoting slip turned one
+`--bdd` value into about a dozen bare words, and a several-hundred-line
+`ticket.create` was discarded with four words of explanation. The refusal
+now reads `Unexpected argument: "WORD" (and N more)`, naming the first
+leftover word verbatim, counting the rest, and naming quoting as the
+likely cause - every long-form value on this board is prose. The
+unknown-option message above still wins when both faults are present.
+
 **The engine itself carries a narrower version of the same idea, since 5.87**
 (TKT-635). `record_update` and `create_record` take `%args` wholesale and used
 to read only the keys they know, silently ignoring the rest - a caller who

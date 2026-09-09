@@ -215,7 +215,7 @@ like( $direct_err, qr/Unsupported Tira command/, 'unknown CLI command emits stru
     local *STDERR = $stderr;
     is( Tira::CLI->run( command => 'record.create', type => 'ticket', argv => ['extra'] ), 2, 'extra arguments fail parsing' );
 }
-like( $direct_err, qr/Invalid command-line options/, 'argument parse failure is structured' );
+like( $direct_err, qr/Unexpected argument: \\?"extra\\?"/, 'argument parse failure is structured' );
 
 ( $direct_out, $direct_err ) = ( '', '' );
 {

@@ -209,6 +209,12 @@ cost what it did.
 Since 5.88, `--title` is trimmed before that same "is required" check runs, at
 both create and update, so a title of nothing but spaces is refused exactly
 like an empty one instead of producing a card no listing can show a name for.
+The same release also named a leftover positional argument in a refusal
+instead of a bare "Invalid command-line options": a word that is neither a
+known option nor a value now names itself, counts how many followed, and
+points at quoting as the likely cause - a shell quoting slip splitting one
+prose value into a dozen bare words used to discard the whole command with
+nothing to act on.
 `--help` names the arguments a command refuses without, including the
 `--command`/`--proof` pair that marking a required action or a checklist item
 done costs. Forty-nine commands are not there yet and still answer with a bare

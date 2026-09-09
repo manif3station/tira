@@ -1,6 +1,18 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-759: a command line carrying leftover positional arguments (words
+      that are not options and not option values) was refused with the
+      bare "Invalid command-line options" - naming neither which word, how
+      many, nor that the fault was a leftover argument at all, even though
+      the branch that raises it already holds those words in @{$argv}.
+      Hit live in this session: a shell quoting slip turned one --bdd
+      value into about a dozen bare words, and a several-hundred-line
+      ticket.create was discarded with four words of explanation. The
+      refusal now names the first leftover word verbatim, says how many
+      followed, and names quoting as the likely cause - TKT-298's
+      unknown-option message still wins when both faults are present on
+      the same command line.
     - TKT-756: card-duration's finding named only the column and timestamp,
       never which record type a --type-scoped policy watches or the
       threshold that fired - so two card-duration policies for the same

@@ -23,6 +23,19 @@ rejected. Instead the refusal says the value looks like an option and names the
 `--option=VALUE` form, which joins the value to its flag rather than leaving it
 as a separate argument. TKT-742.
 
+**A leftover positional argument is named too, since 5.88** (TKT-759): a word
+that is neither a known option nor a value any option takes used to fall
+through to the same bare "Invalid command-line options", because
+`Getopt::Long` raises no warning for it - it parses successfully and simply
+leaves the word sitting in the argument list, so the naming this section
+describes above never saw it. The refusal now reads
+`Unexpected argument: "WORD" (and N more)`, naming the first leftover word
+verbatim, counting the rest so a value split by a quoting mistake reads
+differently from one stray word, and naming quoting as the likely cause -
+every long-form value on this board is prose, and a mis-escaped quote is the
+ordinary way to produce this. TKT-298's unknown-option message still wins
+when both faults are present on one command line.
+
 **`record_update` and `create_record` carry a narrower version of the same
 check, since 5.87** (TKT-635). They take `%args` wholesale and used to read
 only the keys they know, silently ignoring the rest - a caller who misspelled

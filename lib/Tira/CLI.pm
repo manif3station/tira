@@ -300,15 +300,7 @@ sub run {
             $$target = $value;
         };
     }
-    # An unknown COMMAND already gets "Did you mean" - the dispatcher this
-    # project sits inside supplies that. An unknown OPTION got only "Unknown
-    # option: X" straight from Getopt::Long, discarded into a generic
-    # "Invalid command-line options" with nothing suggested - the same help a
-    # command typo gets, missing for the far more common typo of a flag.
-    # TKT-298: one bad option name discarded a whole update carrying twenty
-    # composed fields, and finding which flag was wrong cost writing a probe
-    # value into a live card. Getopt::Long only warns to STDERR, so its own
-    # unknown-option text is captured here rather than re-derived.
+    # An unknown COMMAND already gets "Did you mean" from the dispatcher; an unknown OPTION got only Getopt::Long's raw "Unknown option: X", discarded into a generic "Invalid command-line options" - TKT-298: one bad option name discarded a whole update carrying twenty composed fields. Getopt::Long only warns to STDERR, so its text is captured here rather than re-derived.
     my $unknown_option_warning = '';
     my $parsed = do {
         local $SIG{__WARN__} = sub { $unknown_option_warning .= $_[0] };
@@ -324,12 +316,14 @@ sub run {
         return _error( $tira, $option{output}, Tira::CLI::Usage::_unknown_option_message( \@unknown, \@spec ) )
           if @unknown;
 
-        # Any other Getopt::Long complaint - a value missing, one of the
-        # wrong type - used to reach STDERR unfiltered, since nothing
-        # installed a $SIG{__WARN__} before this. Capturing the unknown-
-        # option case above must not silence these too; printed here so the
-        # diagnostic Getopt::Long already wrote is not simply discarded.
+        # Any other Getopt::Long complaint (a value missing, wrong type) must still reach STDERR, not be silently discarded by capturing the unknown-option case above.
         print {*STDERR} _utf8_bytes($unknown_option_warning) if $unknown_option_warning ne '';
+
+        # A leftover ARGUMENT raises no Getopt::Long warning and used to fall through nameless - almost always a quoting mistake, since every long field here is prose. TKT-759.
+        return _error( $tira, $option{output},
+            qq{Unexpected argument: "$argv->[0]"} . ( @{$argv} > 1 ? ' (and ' . ( @{$argv} - 1 ) . ' more)' : '' )
+              . qq{\nNothing takes it as a value, and it is not an option.\nA value containing spaces needs quoting: --bdd "Given ... Then ..."\n} )
+          if @{$argv};
         return _error( $tira, $option{output}, 'Invalid command-line options' );
     }
 
@@ -2704,6 +2698,8 @@ command. Until 4.90 it declared C<'attach=s@'> twice (TKT-775) - harmless,
 but Getopt::Long's own duplicate-specification warning bypasses the
 C<$SIG{__WARN__}> capture below and printed to STDERR on every invocation.
 One array for every command means a stray duplicate is noise on all of them.
+
+B<A leftover positional argument is named too, since 5.88> (TKT-759): unlike an unrecognised option, it raises no C<Getopt::Long> warning, so the refusal used to fall through nameless; it now names the first leftover word, counts the rest, and names quoting as the likely cause.
 
 =head2 _json_array_input
 

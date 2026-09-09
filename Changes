@@ -1,6 +1,19 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-731: evidence.annotate and gate.annotate read a card, mutated
+      an annotation into it, and wrote the whole card back with no
+      project lock - the only 2 of 23 _replace_record call sites that
+      did not hold one. Because the write replaces the WHOLE record, an
+      annotate racing any other card write (a comment, a checklist tick,
+      a required-action proof) silently discarded that write, and both
+      commands reported success. Found by auditing which writers take
+      the lock, not by a failure - the suite runs single-threaded per
+      board, so nothing exercised the race. Fixed by wrapping
+      _annotate_log in _with_project_lock, the same pattern evidence_add
+      already uses twenty lines above it. Audited _atomic_write's other
+      callers too, per the card's own acceptance criterion: all already
+      appropriately protected, nothing further to fix.
     - TKT-728: two refusals named the bad value and nothing about what
       would be right - "Unknown link type" and "Checklist status is
       required" - unlike the four policy-rule refusals already built to

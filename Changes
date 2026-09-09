@@ -1,6 +1,17 @@
 Revision history for Tira
 
 5.89  2026-09-09
+    - TKT-1026: added --with-policy-bridge to tira.dashboard, mirroring
+      --with-police (TKT-897) one entrypoint over. His own answer to
+      Q-151: "if --with-policy-bridge then d2 tira.policy.bridge will be
+      run. Just like the --with-police to run d2 tira.police to run at
+      the back. So there will be the bridge and the police and the
+      dashboard run them all in 1 go." Refused outside -o browser for
+      the same reason --with-police already is; spawned via
+      IPC::Open3::open3 rather than a hand-rolled fork, output shared
+      with the parent terminal's own handles, reaped on shutdown. Does
+      not touch TIRA_POLICE_HOLDER - the bridge is a reader, not a
+      singleton claimant.
     - TKT-833: t/03-metadata.t's podchecker walk named only two files -
       lib/Tira.pm and lib/Tira/CLI.pm - rather than walking lib/ the way
       it already walks cli/ and t/, so every other module under lib/

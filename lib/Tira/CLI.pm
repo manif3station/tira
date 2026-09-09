@@ -76,6 +76,10 @@ sub run {
     # would leave a police daemon running inside the harness. TKT-897.
     my $police_starter = $args{police_starter};
     my $police_stopper = $args{police_stopper};
+
+    # Same seam, one entrypoint over (TKT-1026).
+    my $policy_bridge_starter = $args{policy_bridge_starter};
+    my $policy_bridge_stopper = $args{policy_bridge_stopper};
     my $restarter              = $args{restarter};
     my $guided_input = $args{input};
     my %option = ( output => 'toon' );
@@ -135,6 +139,7 @@ sub run {
         'no-session-expire' => \$option{no_session_expire},
         'show-logs' => \$option{show_logs},
         'with-police' => \$option{with_police},
+        'with-policy-bridge' => \$option{with_policy_bridge},
         'ssl' => \$option{ssl},
         'sandbox=s' => \$option{sandbox},
         'repo=s' => \$option{repo}, 'repair!' => \$option{repair},
@@ -407,17 +412,11 @@ sub run {
       . "page the board serves, and there is no page in '$option{output}'\n"
       if $option{show_logs} && $option{output} !~ /\Abrowser(?:=|\z)/;
 
-    # --with-police is refused outside a served board for the same reason, and
-    # the reason is worth repeating rather than pointing at: the flag's whole
-    # purpose is that ONE TERMINAL carries the board and the bridge. A JSON dump
-    # exits immediately, so there is no terminal to share and nothing for police
-    # to run alongside - the flag would parse, do nothing, and read as
-    # confirmation that it had worked. His words are about terminals: "So the
-    # user doesn't need to run 2 terminals. All in 1 go." EPC-014, TKT-897.
-    die "--with-police needs -o browser: it runs police alongside the served "
-      . "board so one terminal carries both, and '$option{output}' does not "
-      . "serve anything to run alongside\n"
-      if $option{with_police} && $option{output} !~ /\Abrowser(?:=|\z)/;
+    # --with-police (TKT-897) and --with-policy-bridge (TKT-1026): full
+    # reasoning is with the shared refusal itself, kept in Tira::CLI::Serve
+    # rather than inline here twice - see its own comment.
+    require Tira::CLI::Serve;
+    Tira::CLI::Serve::_refuse_beside_board_flags(%option);
 
     my ( $browser_host, $browser_port );
     if ( $option{output} =~ /\Abrowser(?:=(.*))?\z/ ) {
@@ -634,31 +633,26 @@ sub run {
             store => $option{store} );
         require Tira::CLI::Serve;
 
-        # POLICE BESIDE THE BOARD, in one terminal. His first sentence on
-        # TKT-897: "So the user doesn't need to run 2 terminals. All in 1 go."
-        #
-        # Forked HERE rather than inside the serving code, for two reasons. The
-        # serving side is engine source and t/106 holds the engine to inviting
-        # no processes at all; and this is the only place that already holds the
-        # Tira object and the store the pass needs, so nothing has to be
-        # reconstructed in a child that starts with less context than its parent.
-        #
-        # The CHILD claims, not the parent, because the claim names a pid and
-        # the pid that matters is the one actually watching. Marked as the
-        # dashboard's, which is what makes a later tira.police stand down rather
-        # than kill it - his answer to Q-117.
-        my $police_child;
-        if ( $option{with_police} ) {
-            $police_child = ( $police_starter || \&Tira::CLI::Serve::_start_police_beside_board )->(
-                tira => $tira, project => $serving, store => $option{store} );
+        # BESIDE THE BOARD, in one terminal. His first sentence on TKT-897:
+        # "So the user doesn't need to run 2 terminals. All in 1 go." Started
+        # HERE rather than inside the serving code (engine source - t/106
+        # holds it to inviting no processes at all), where the Tira object
+        # and store are already at hand. The CHILD claims, not the parent,
+        # because the pid that matters is the one actually watching, marked
+        # as the dashboard's so a later tira.police stands down rather than
+        # killing it (Q-117). Full reasoning for each spawner is with its own
+        # sub in Tira::CLI::Serve.
+        my $police_child = Tira::CLI::Serve::_spawn_beside_board_if_requested(
+            enabled => $option{with_police}, starter => $police_starter,
+            default => \&Tira::CLI::Serve::_start_police_beside_board,
+            tira    => $tira, project => $serving, store => $option{store},
+            name    => 'police', run => 'd2 tira.police' );
 
-            # Said rather than swallowed, and the board still served: losing the
-            # bridge is worse with no explanation than with one, and it is not a
-            # reason to refuse somebody the board they asked for.
-            print {*STDERR} "tira: could not start police beside the board - serving "
-              . "without it; run d2 tira.police in another terminal\n"
-              if !$police_child;
-        }
+        my $policy_bridge_child = Tira::CLI::Serve::_spawn_beside_board_if_requested(
+            enabled => $option{with_policy_bridge}, starter => $policy_bridge_starter,
+            default => \&Tira::CLI::Serve::_start_policy_bridge_beside_board,
+            tira    => $tira, project => $serving, store => $option{store},
+            name    => 'the policy bridge', run => 'd2 tira.policy.bridge' );
 
         my $served = eval {
             ( $browser_server || \&Tira::CLI::Serve::_serve_browser )->(
@@ -678,6 +672,7 @@ sub run {
                 # server that failed to bind, and the claim it holds would point
                 # at a pid nobody could find.
                 with_police => $option{with_police} ? 1 : 0,
+                with_policy_bridge => $option{with_policy_bridge} ? 1 : 0,
                 %tls, %providers,
             );
             1;
@@ -690,6 +685,8 @@ sub run {
         # released before this process returns.
         ( $police_stopper || \&Tira::CLI::Serve::_stop_police_beside_board )->($police_child)
           if $police_child;
+        ( $policy_bridge_stopper || \&Tira::CLI::Serve::_stop_policy_bridge_beside_board )->($policy_bridge_child)
+          if $policy_bridge_child;
 
         return _error( $tira, 'toon', $@ || 'Unable to serve dashboard' ) if !$served;
         return 0;

@@ -744,6 +744,92 @@ sub _stop_police_beside_board {
     waitpid $child, 0;
     return 1;
 }
+
+# TKT-1026, his own answer to Q-151: "if --with-policy-bridge then d2 tira.
+# policy.bridge will be run. Just like the --with-police to run d2 tira.
+# police to run at the back. So there will be the bridge and the police and
+# the dashboard run them all in 1 go." Same shape as the police spawner
+# above, one entrypoint over - open3 rather than fork/exec for the same
+# Devel::Cover reason (_spawn_police_beside_board's own comment covers it),
+# output shared with the parent terminal rather than piped for the same
+# 64KB-deadlock reason, reaped on shutdown for the same claim/singleton
+# reason a long-running child always needs.
+#
+# Same two-function split as police, for the same reason: this wrapper is the
+# injectable default (_start_police_beside_board's own comment covers it),
+# and _spawn_policy_bridge_beside_board below is the real open3 logic a test
+# can still reach directly.
+sub _start_policy_bridge_beside_board {
+    my (%args) = @_;
+    my $spawn = $args{spawn} || \&_spawn_policy_bridge_beside_board;
+    return $spawn->(%args);
+}
+
+sub _spawn_policy_bridge_beside_board {
+    my (%args) = @_;
+
+    my $script = _entrypoint_for('policy.bridge');
+    return undef if !defined $script;
+
+    require IPC::Open3;
+
+    local $ENV{TIRA_HOME} = defined $args{project} ? $args{project} : ( $ENV{TIRA_HOME} // '' );
+
+    my @argv = ( $^X, $script );
+    push @argv, '--store', $args{store}
+      if defined $args{store} && $args{store} =~ /\S/;
+
+    my $pid = eval {
+        IPC::Open3::open3( my $to_child, '>&STDOUT', '>&STDERR', @argv );
+    };
+    return undef if !$pid;
+    return $pid;
+}
+
+sub _stop_policy_bridge_beside_board {
+    my ($child) = @_;
+    return 0 if !$child;
+    kill 'TERM', $child;
+    waitpid $child, 0;
+    return 1;
+}
+
+# --with-police (TKT-897) and --with-policy-bridge (TKT-1026) are refused
+# outside a served board for the identical reason: the flag's whole point is
+# one terminal sharing the board and a companion pass, and a JSON dump exits
+# immediately with no terminal to share - the flag would parse, do nothing,
+# and read as confirmation that it had worked. Kept here, called once from
+# Tira::CLI.pm's own run(), rather than inline twice - lib/Tira/CLI.pm is the
+# index TKT-607/TSK-183 asked it to stay, and a second inline refusal block
+# is exactly the kind of growth that index is measured against (t/430).
+sub _refuse_beside_board_flags {
+    my (%option) = @_;
+    die "--with-police needs -o browser: it runs police alongside the served "
+      . "board so one terminal carries both, and '$option{output}' does not "
+      . "serve anything to run alongside\n"
+      if $option{with_police} && $option{output} !~ /\Abrowser(?:=|\z)/;
+    die "--with-policy-bridge needs -o browser: it runs the policy bridge "
+      . "alongside the served board so one terminal carries both, and "
+      . "'$option{output}' does not serve anything to run alongside\n"
+      if $option{with_policy_bridge} && $option{output} !~ /\Abrowser(?:=|\z)/;
+    return;
+}
+
+# Started only when asked, failure said rather than swallowed - the board is
+# still served either way. Shared by the police spawn (TKT-897) and the
+# policy-bridge spawn (TKT-1026), for the same reason _refuse_beside_board_flags
+# above is shared.
+sub _spawn_beside_board_if_requested {
+    my (%args) = @_;
+    return undef if !$args{enabled};
+    my $child = ( $args{starter} || $args{default} )->(
+        tira => $args{tira}, project => $args{project}, store => $args{store} );
+    print {*STDERR} "tira: could not start $args{name} beside the board - serving "
+      . "without it; run $args{run} in another terminal\n"
+      if !$child;
+    return $child;
+}
+
 sub _serve_onboard_browser {
     require Tira::OnboardWeb;
     return Tira::OnboardWeb->serve(@_);

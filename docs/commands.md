@@ -687,6 +687,7 @@ rather than all three.
 | `--no-session-expire` | no | With `-o browser`: a sign-in lasts until somebody signs out. |
 | `--show-logs` | no | With `-o browser`: keep the last 200 requests the board answered, and serve them at `/logs` for the page to show. |
 | `--with-police` | no | With `-o browser`: run the police bridge beside the served board, so one terminal carries both. Refused in any other output format — there is nothing to run alongside. While the dashboard holds the watch, a later `tira.police` says so and exits 0 rather than taking it over. |
+| `--with-policy-bridge` | no | With `-o browser`: run `tira.policy.bridge` beside the served board, same shape as `--with-police` one entrypoint over. Refused in any other output format for the same reason. Combine with `--with-police` to start the bridge, the police, and the dashboard all in one go. |
 
 Until 4.93, `--title` with `-o browser` had no effect - the live dashboard
 never showed titles regardless, because the serve path read a key
@@ -748,6 +749,14 @@ which is the point of the flag, and also keeps its findings out of a pipe nobody
 is reading. A `--store` given to the dashboard is handed to the pass as well, so
 both are claiming in the same place; without that they would derive stores
 separately and the standing-down rule would never fire.
+
+`--with-policy-bridge` starts `tira.policy.bridge` beside the served board,
+same reasoning one entrypoint over (TKT-1026): open3 rather than a hand-rolled
+fork, output shared with the parent's own handles rather than piped, and the
+child reaped on shutdown so nothing outlives the board it was started beside.
+Combine it with `--with-police` and one command starts the bridge, the police,
+and the dashboard together — his own words on Q-151: *"So there will be the
+bridge and the police and the dashboard run them all in 1 go."*
 
 **While the dashboard holds police, a later `tira.police` stands down.** It says
 which process holds the watch and exits 0, because standing aside is the correct

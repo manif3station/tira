@@ -3195,6 +3195,21 @@ about to exit while the dashboard ran on unrecorded. And a claim left by a
 dashboard that has *died* is not a reason to stand down, or one unclean exit
 would block police until somebody deleted a file by hand.
 
+**And the policy bridge beside it too, since 5.89 (TKT-1026).** His answer to
+Q-151, asked because `--with-police` set a precedent rather than settling
+this: *"if --with-policy-bridge then d2 tira.policy.bridge will be run. Just
+like the --with-police to run d2 tira.police to run at the back. So there
+will be the bridge and the police and the dashboard run them all in 1 go."*
+`--with-policy-bridge` starts `tira.policy.bridge` beside the served board -
+same shape as `--with-police`, same reasons repeated rather than pointed at:
+open3, not a hand-rolled fork, because the fork's exec would run only in a
+child Devel::Cover cannot follow; output shared with the parent's own
+handles, not piped, for the same 64KB-deadlock reason; reaped on shutdown so
+nothing is left running past the board it was started beside. It does not
+touch `TIRA_POLICE_HOLDER` - that variable is what makes a later
+`tira.police` stand down for the dashboard, and the bridge is a reader, not a
+singleton claimant, so it has nothing to yield.
+
 **A band of nothing above a sticky header (TKT-855, 5.40).** `.shell` put 3.5rem
 of padding above `.hero`, which is `position: sticky; top: 0`. That space earns almost nothing, and the sticky
 rule is why. It is empty background on first paint, and once the header pins

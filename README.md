@@ -41,6 +41,11 @@ Since 5.89, the browser dashboard's own create reply always names the
 column a new card landed in, including the ordinary case of a plain
 create into backlog — the status dropdown that trusts this reply no
 longer shows the wrong column right after creation.
+Since 5.89, `tira.dashboard -o browser --with-policy-bridge` starts
+`tira.policy.bridge` beside the served board in the same terminal, the
+same way `--with-police` already starts `tira.police` — combine both
+flags and one command carries the board, the police, and the bridge
+together.
 Hierarchy views retain the complete direct-read record at every node and add
 children, so human and recursive JSON views cannot silently lose metadata.
 Dashboard reads scan each selected board once and group records by configured

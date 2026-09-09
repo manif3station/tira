@@ -152,9 +152,22 @@ does not take two terminals (TKT-897, 5.42). The pass is a child of the serving
 command: interrupting the command stops both, and the singleton claim is
 released rather than left naming a process that has gone.
 
-**While the dashboard holds police, a separate `d2 tira.policy.bridge` or
-`d2 tira.police` stands down.** It says which process holds the watch and exits
-0 - standing aside is the correct outcome, not a failure. This is the one
+**And the bridge too, in the same terminal.** `--with-policy-bridge` starts
+`tira.policy.bridge` beside the served board the same way, one entrypoint over
+(TKT-1026, 5.89). Combine both flags and one command carries the board, the
+police, and the bridge together - his own words on Q-151: *"So there will be
+the bridge and the police and the dashboard run them all in 1 go."* The bridge
+is a reader, not a singleton claimant, so none of the yielding rule above
+applies to it.
+
+**While the dashboard holds police, a separate `d2 tira.police` stands down.**
+It says which process holds the watch and exits 0 - standing aside is the
+correct outcome, not a failure. (`d2 tira.policy.bridge` is unaffected: it is
+a reader with no singleton claim of its own, found stated wrongly here while
+writing TKT-1026's own paragraph above - `bridge_follow` tails
+`bridge_log_path` and never touches `police_claim_singleton` at all, so it
+never yields and was never really the second thing this sentence claimed it
+was.) This is the one
 exception to the ordinary rule, which is otherwise unchanged: between two
 ordinary police daemons the newest wins and the previous one is killed. The
 owner's words, answering Q-117: *"The dashboard is a special case - while it

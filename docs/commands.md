@@ -2258,7 +2258,16 @@ and omitting `--column` lands the card in the entry column rather than the
 fixed `backlog` default - closing the bypass TKT-426's chain check leaves open,
 a card started directly where the chain check would otherwise refuse it to
 move. CLI/agent path only; the browser dashboard's create flow is unaffected.
-A board that names no `entry` role is unaffected too. TKT-428. Every other
+A board that names no `entry` role is unaffected too. TKT-428. **The
+browser's own create reply now always names the landed column, since
+5.89** (TKT-818): it called `record_move` to reach a non-`backlog` column,
+and only that call's own reply carries `column` - so a plain create,
+landing in `backlog`, answered with no `column` at all, and the
+dashboard's status dropdown, which trusts the create reply directly,
+showed the wrong thing right after creation. Fixed by reading the board
+back the same way `tira.<type>.create`'s own CLI dispatch already does
+for every create - `create_record`'s own engine-level reply is unchanged,
+and deliberately still carries no `column`. Every other
 role, including `in-progress`, is matched rather than understood: a policy can
 name one with `--enter-role`, `--before-role` or `--column-role`, and Tira
 never reads it on its own account. `entry` alone may be declared more than

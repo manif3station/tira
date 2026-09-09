@@ -1,6 +1,17 @@
 Revision history for Tira
 
 5.89  2026-09-09
+    - TKT-818: the browser dashboard's own create route named the column a
+      new card landed in only when that column was not backlog - it called
+      record_move to reach a named column, and only record_move's own
+      reply carries column, so a plain create (the ordinary case, landing
+      in backlog) got a reply with no column in it at all. The status
+      dropdown, which trusts the create reply directly, showed the wrong
+      thing right after creation. Fixed by reading the board back the same
+      way the CLI's own record_create already does for every create,
+      rather than changing create_record's own return - t/143 already
+      establishes, deliberately, that the engine's own reply never carries
+      column.
     - TKT-817: the header's task count (hero-counts.js) counted every
       item /tasklist returned, including one already marked done and left
       unpruned - inflating a count meant to say how much work is

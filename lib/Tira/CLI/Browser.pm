@@ -872,6 +872,12 @@ sub providers {
                 project => $project, ref => $record->{ref}, column => $payload->{column},
                 ( defined $payload->{_signed_in} ? ( author => $payload->{_signed_in} ) : () ),
             ) if $payload->{column} ne 'backlog';
+
+            # create_record's own return never carries column - t/143's own
+            # control - so a backlog-landed card (the case above that never
+            # calls record_move) reached here with no column at all. TKT-818.
+            $record = $tira->record_show( project => $project, ref => $record->{ref} )
+              if !exists $record->{column};
             return $json->encode( { ok => Cpanel::JSON::XS::true, record => $record } );
         },
         update => sub {

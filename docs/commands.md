@@ -3747,7 +3747,7 @@ Show-more control at all, unchanged.
 
 - `tira.notify.compose [-o FORMAT]`
 - `tira.notify.list [--ref REF ...] [-o FORMAT]`
-- `tira.notify.record --ref REF [--ref REF ...] --column SLUG [-o FORMAT]`
+- `tira.notify.record --ref REF [--ref REF ...] --column SLUG [-o FORMAT]` — **the repeated `--ref` actually works, since 5.89** (TKT-791): a generic batch-ref guard elsewhere in the CLI refused any command outside `record.show`/`tasklist.next`/`release.record` the moment a second `--ref` arrived, so this documented usage line was refused before this command's own dispatch (which already read every `--ref` given, unaffected by the guard) was ever reached. `tasklist.task.ref.link`/`.unlink` had the identical gap and the identical fix - see their own entries below.
 - `tira.notify.moves [--column SLUG] [--watch|--no-watch] [-o FORMAT]` — with no column it switches the whole board on; with one it switches that column, which is how `discard` is silenced. The flags were prose here and in no argument table, and that is exactly how `--watch` shipped refused by a guard naming only `column.update`: nothing an agent could read said which command took it. A bare call with none of `--chat`, `--column`, or `--watch`/`--no-watch` is a read: it reports the current setting (or the untouched default, `enabled: false`) without writing anything to the board - until 3.11 it persisted a default on every call, so the first diagnostic question ("has anybody turned this on?") destroyed the evidence by being asked. TKT-398.
 
   Since 2.65 the destination is set on the board with `--chat ID`, once, by the
@@ -3968,7 +3968,7 @@ Four sub-verbs operate on one existing item, by id, rather than creating one:
 
 - `tira.tasklist.task.attach.add --id ID --file FILE [--file FILE ...] [--session ID] [-o FORMAT]`
 - `tira.tasklist.task.attach.discard --id ID --file FILE [--file FILE ...] [--session ID] [-o FORMAT]`
-- `tira.tasklist.task.ref.link --id ID --ref REF [--ref REF ...] [--session ID] [-o FORMAT]`
+- `tira.tasklist.task.ref.link --id ID --ref REF [--ref REF ...] [--session ID] [-o FORMAT]` — **the `[--ref REF ...]` shown here actually works, since 5.89** (TKT-791): a generic batch-ref guard refused any command outside `record.show`/`tasklist.next`/`release.record` the moment a second `--ref` was given, so two calls documented here were refused before this command's own dispatch - which already read every `--ref` correctly - was ever reached. `notify.record` had the identical gap and the identical fix.
 - `tira.tasklist.task.ref.unlink --id ID --ref REF [--ref REF ...] [--session ID] [-o FORMAT]`
 
 TKT-538: `tasklist.update`, `tasklist.remove`, and the 4 `tasklist.task.*`

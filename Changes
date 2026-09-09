@@ -1,6 +1,14 @@
 Revision history for Tira
 
 5.89  2026-09-09
+    - TKT-791: notify.record, tasklist.task.ref.link and .unlink all
+      document a repeatable --ref and already read it correctly in their
+      own dispatch - but a generic batch-ref guard elsewhere in the CLI
+      refused any command outside record.show/tasklist.next/release.record
+      the moment a second --ref arrived, before dispatch was ever reached.
+      Fixed by widening the guard's whitelist to the three commands whose
+      dispatch already handles multiple refs. A command outside the set
+      still refuses with the unchanged message.
     - TKT-783: a required item added early - "do the work early", TKT-445's
       own precedent - never picked up the entry marker through a real
       move-in, when its wording already matched a column's entry template.

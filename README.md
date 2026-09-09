@@ -33,6 +33,10 @@ Since 5.89, a required item completed early — before a column's entry
 template ever names it — now picks up the entry marker on a real move-in,
 not only when a fresh item is created; the marker is what protects it
 from a later rename of that template's wording.
+Since 5.89, `notify.record`, `tasklist.task.ref.link`, and
+`tasklist.task.ref.unlink` actually accept the repeatable `--ref` they
+document, rather than being refused by a generic guard meant for other
+commands.
 Hierarchy views retain the complete direct-read record at every node and add
 children, so human and recursive JSON views cannot silently lose metadata.
 Dashboard reads scan each selected board once and group records by configured

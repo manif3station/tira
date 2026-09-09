@@ -1201,9 +1201,7 @@ sub _populate_entry_required_actions {
     my @failed;
     for my $text (@template) {
 
-        # Always call required_item_add, even on a match - its idempotent
-        # dedup (TKT-497) also stamps entry=>1 onto a pre-existing item
-        # (TKT-652), which a fast-path skip here used to bypass. TKT-783.
+        # Always call required_item_add - its dedup (TKT-497) is what stamps entry=>1 onto a pre-existing item (TKT-652). TKT-783.
         my $added = eval {
             $tira->required_item_add( %{$args}, item => $text, status => 'pending',
                 column => $to, source => 'required-action', entry => 1 );
@@ -1989,8 +1987,9 @@ sub _invoke {
         defined $option->{refs} ? ( split /,/, $option->{refs} ) : (),
     );
     if (@batch_refs) {
+        # notify.record/tasklist.task.ref.link/unlink already read ref_list directly, so this used to block what their own dispatch would have handled. TKT-791.
         die "Multiple refs are only available on show\n"
-          if $command !~ /\A(?:record\.show|tasklist\.next|release\.record)\z/;
+          if $command !~ /\A(?:record\.show|tasklist\.next|release\.record|notify\.record|tasklist\.task\.ref\.(?:un)?link)\z/;
         die "Conditional reads do not batch; poll with export --fields ref,content_hash instead\n"
           if defined $option->{if_changed};
         @batch_refs = ( @{ $option->{ref_list} // [] }, @batch_refs )

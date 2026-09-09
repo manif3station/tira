@@ -3763,6 +3763,8 @@ multiple card." Omitted, behavior is unchanged. The pre-existing
 `tasklist.next` alongside `record.show` as the two commands allowed
 more than one `--ref`.
 
+**Since 5.89 the same guard also names `notify.record`, `tasklist.task.ref.link`, and `tasklist.task.ref.unlink`** (TKT-791): all three already documented a repeatable `--ref` and already read every one given in their own dispatch (`$option->{ref_list}`, not the `$args{refs}` the guard itself builds) - but the guard's die fired on a second `--ref` regardless, before dispatch was ever reached, so a call matching the documented usage line was refused anyway. A command still outside the whitelist is unaffected: the refusal, its message, and its reach are unchanged.
+
 TKT-544: `lib/Tira.pm`'s own POD for `tasklist_list`, `tasklist_update`,
 `tasklist_remove`, and the four `tasklist_task_*` sub-verbs now describes
 their actual session behavior - TKT-538's session enforcement and TKT-539's

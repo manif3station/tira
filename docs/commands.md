@@ -3100,9 +3100,10 @@ change what every other caller gets - including `person_remove`, which must
 see discarded cards, since a person named by a set-aside card still has a
 historical reference. That larger question is TKT-970.
 
-Deliberately does NOT match `hero-counts.js`'s own current task count,
-which counts every tasklist item regardless of status (a separate, tracked
-defect, TKT-817) - "outstanding" means still owed, and a `done` item is not.
+**Since 5.89 the two agree** (TKT-817): `hero-counts.js`'s own task count
+used to count every tasklist item regardless of status, and now filters to
+`pending`/`working` only, the same definition this command already used -
+"outstanding" means still owed, and a `done` item is not.
 
 `done` is where work ends unless the board says otherwise. Marking another
 column terminal is a statement about that column, not a withdrawal of the

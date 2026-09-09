@@ -10,10 +10,9 @@
 # common case for this whole project) had strictly less visibility into
 # this than a human looking at the browser.
 #
-# Deliberately does NOT match hero-counts.js's current task-count behavior:
-# that browser display counts every tasklist item regardless of status
-# (TKT-817, a separate, tracked bug), while this command counts only
-# pending and working items - what "outstanding" actually means.
+# Since 5.89 (TKT-817) hero-counts.js's own task count agrees: it used to
+# count every tasklist item regardless of status, and now counts only
+# pending and working items too - what "outstanding" actually means.
 
 use strict;
 use warnings;
@@ -53,7 +52,7 @@ my $done = $tira->tasklist_add( project => $root, text => 'done task' );
 $tira->tasklist_update( project => $root, id => $done->{id}, status => 'done' );
 
 my $after_tasks = $tira->outstanding_summary( project => $root );
-is( $after_tasks->{tasks}, 2, 'only pending and working items count as outstanding - a done item does not, unlike hero-counts.js\'s current (buggy, TKT-817) count' );
+is( $after_tasks->{tasks}, 2, 'only pending and working items count as outstanding - a done item does not, matching hero-counts.js\'s own count since TKT-817' );
 is( $after_tasks->{questions}, 1, 'the question count is unaffected by tasklist activity' );
 
 # --- an unexpected status value is never counted as outstanding, only ------
@@ -96,8 +95,7 @@ C<outstanding_summary> answers it directly: C<questions> counts cards
 with at least one genuinely unanswered question (matching the same
 C<_card_blocked>/C<_policy_questions> logic the dashboard itself uses),
 and C<tasks> counts tasklist items in status pending or working -
-deliberately NOT matching hero-counts.js's own current task count,
-which is a separate, tracked bug (TKT-817) counting every item
-regardless of status. TKT-808.
+matching hero-counts.js's own task count since 5.89 (TKT-817), which
+used to count every item regardless of status. TKT-808.
 
 =cut

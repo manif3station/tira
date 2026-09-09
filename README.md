@@ -476,7 +476,10 @@ card somebody had discarded, still carrying a question nobody answered, was
 counted in one place and not the other, and the difference only ever appeared
 when a set-aside card happened to hold an unanswered question. Asking for the
 whole board including set-aside work is still possible, with the same flag the
-board view takes.
+board view takes. A second gap closed since 5.89: the header's own task count
+used to count every tasklist item regardless of status, so a done item left
+unpruned inflated it - now, like `tira.outstanding`, it counts only pending
+and working items.
 
 Below that sits a Repeated Jobs section, one row per scheduled job the board
 carries: its id, whether it is enabled, its schedule, what it says or runs,

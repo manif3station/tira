@@ -1,6 +1,11 @@
 Revision history for Tira
 
 5.89  2026-09-09
+    - TKT-798: a placeholder release note ('Suite "TBD".') once shipped in
+      this very file, filled in by hand after the fact once found (standing
+      hunt TKT-522). A new test now reads the shipped Changes file and
+      fails on any unquoted "TBD" it finds, so a release note is complete
+      before it ships rather than fixed up after.
     - TKT-791: notify.record, tasklist.task.ref.link and .unlink all
       document a repeatable --ref and already read it correctly in their
       own dispatch - but a generic batch-ref guard elsewhere in the CLI

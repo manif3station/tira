@@ -5543,15 +5543,18 @@ sub _annotate_log {
     # Missing is not unknown. TKT-692.
     die lc( $args{label} ) . " id is required - supply it with --id\n" if !defined $args{id};
     $self->_require_person( %args, person => $args{author} ) if defined $args{author};
-    my $record = $self->record_show(%args);
-    my $entries = $record->{ $args{field} };
-    my ($entry) = grep { $_->{id} eq $args{id} } @{$entries};
-    die _unknown_log_entry_message( lc $args{label}, $args{id}, $LOG_SPEC{ $args{field} }{prefix}, $entries )
-      if !$entry;
-    my $annotation = { note => $args{note}, author => $args{author}, created_at => $self->{clock}->() };
-    push @{ $entry->{annotations} }, $annotation;
-    $self->_replace_record( %args, record => $record );
-    return $annotation;
+    my $root = $self->discover_project(%args);
+    return $self->_with_project_lock( $root, sub {
+        my $record = $self->record_show(%args);
+        my $entries = $record->{ $args{field} };
+        my ($entry) = grep { $_->{id} eq $args{id} } @{$entries};
+        die _unknown_log_entry_message( lc $args{label}, $args{id}, $LOG_SPEC{ $args{field} }{prefix}, $entries )
+          if !$entry;
+        my $annotation = { note => $args{note}, author => $args{author}, created_at => $self->{clock}->() };
+        push @{ $entry->{annotations} }, $annotation;
+        $self->_replace_record( %args, record => $record );
+        return $annotation;
+    } );
 }
 
 sub _field_hits {

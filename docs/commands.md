@@ -3150,6 +3150,17 @@ with nothing to do about them, and re-thresholding from the p90 to 58h
 settled both on the first pass. Re-threshold rather than exempt, so a
 genuinely stuck container is still caught. TKT-573.
 
+**One column, more than one threshold, since 5.88** (TKT-756): `card-duration
+--type TYPE` scopes a threshold to one record kind, so `in-progress` can
+watch epics against their own p90 and SOWs against theirs instead of one
+number serving both - `--type` is the same generic policy scope every rule
+already reads, not new plumbing. The finding names which type-scoped
+threshold fired (`... (epic threshold 58h)`), so two type-scoped
+declarations on the same column no longer read as identical findings. A
+container genuinely stalled well past its own type's threshold is not
+fixed by scoping alone - re-threshold or scope for a mismatch, not for a
+signal that is correctly firing.
+
 `tira.diff` is the watcher: `--since T` lists added/changed records with
 their current column, gate, title, and new-comment ids plus `now` for the
 next poll; `--snapshot FILE` (a saved `tira.export --include-empty -o json`)

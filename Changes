@@ -1,6 +1,17 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-756: card-duration's finding named only the column and timestamp,
+      never which record type a --type-scoped policy watches or the
+      threshold that fired - so two card-duration policies for the same
+      column and different types (an epic-scoped 58h and a SOW-scoped
+      threshold, say) produced indistinguishable findings. --type was
+      already a generic policy scope every rule shares (TKT-756's own
+      investigation found the ticket's "cannot be scoped per record type"
+      premise stale - two type-scoped policies already coexisted
+      correctly); the finding now names the type and its threshold when
+      one was declared, e.g. "in in-progress since ... (epic threshold
+      58h)". docs/POLICIES.md's card-duration entry now documents --type.
     - TKT-754: create_record refused an empty title but accepted one made
       only of spaces, storing a card no listing, board, or `tira.next`
       answer could show a name for - the guard tested for emptiness and

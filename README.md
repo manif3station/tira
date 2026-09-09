@@ -127,6 +127,10 @@ separate from a column's own required-action template — is editable from
 the browser too: a Policies button opens a modal listing every declared,
 declined, and undeclared rule, with a rule-specific parameter picker that
 matches the `tira.policy.add` command exactly.
+Since 5.88, `card-duration --type TYPE` scopes a threshold to one record
+kind, so a column holding both epics and SOWs can judge each against its
+own dwell distribution instead of one number serving both, and the finding
+names which type's threshold fired.
 A genuine version change raises a card rather than a line on the bridge, and
 since 5.84 something chases that card. Police already said "Tira is now X —
 this board last heard Y", which is one line in a channel an agent is meant to

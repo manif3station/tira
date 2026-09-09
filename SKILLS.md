@@ -937,6 +937,17 @@ own arrival or its most recent child's own last move — the same
 already applies (TKT-333) — so a parent with active children is not
 reported, and one whose children have genuinely gone quiet still is. A
 ticket's own dwell, having no children, is unaffected.
+
+**A column can watch more than one distribution, since 5.88** (TKT-756):
+`--type`, the same generic policy scope every rule already shares, lets
+`card-duration` carry a separate threshold per record kind on one column —
+an epic-scoped 58h and a SOW-scoped threshold on `in-progress` now judge
+only their own kind, rather than one number serving distributions that can
+differ by more than 2x. The finding names which threshold fired
+(`... (epic threshold 58h)`), so two type-scoped declarations on the same
+column read as distinguishable findings. This does not settle a container
+that is genuinely stalled rather than merely mismatched to the wrong
+threshold — no threshold, shared or scoped, reaches that case.
 Wrapping wide boards is **Implemented.** each column now owns
 its own heading rather than sitting in a table row, so **Fit all wraps
 the columns onto as many rows as it takes** at a readable width instead

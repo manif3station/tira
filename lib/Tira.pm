@@ -7708,7 +7708,14 @@ sub policy_evaluate {
                     }
                 }
                 next if !$self->_policy_older_than( $since, $policy->{age} );
-                $report->( $policy, $record, "in $watched since $since" );
+
+                # A --type-scoped policy is one of possibly several sharing
+                # this column, each judging a different distribution - so
+                # the detail must say which one fired, or two findings on
+                # the same column read identically. TKT-756.
+                my $scoped = defined $policy->{type} && $policy->{type} ne ''
+                  ? " ($policy->{type} threshold $policy->{age})" : '';
+                $report->( $policy, $record, "in $watched since $since$scoped" );
             }
         }
         elsif ( $rule eq 'card-stalled' ) {
@@ -14577,7 +14584,13 @@ or the policy's own C<--age> when the column has none - since elapsed
 time alone read as though it were the threshold too. C<wip-limit> counts
 each record kind (sow/epic/ticket) in a watched column separately, rather
 than one merged pool, so a manager layer of epics cannot exhaust a
-ticket's budget by existing. C<agent-still>'s direct-to-Telegram message
+ticket's budget by existing. C<card-duration>'s finding names which
+C<--type>-scoped threshold fired, since 5.88 (TKT-756) - C<--type> is the
+same generic policy scope every rule already reads, so two type-scoped
+declarations on the same column (an epic threshold and a SOW threshold,
+say) were already judged independently before this, but read as
+identical findings until the detail also named the type and its
+threshold. C<agent-still>'s direct-to-Telegram message
 opens by naming the board it is about - the C<TIRA_HOME> alias if one was
 set, and always the real project path - since that one message goes to the
 owner rather than to the agent-readable bridge, and an unnamed alert on a

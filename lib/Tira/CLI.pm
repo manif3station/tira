@@ -1873,15 +1873,18 @@ sub _invoke {
       if $option->{nested} && $command !~ /\A(?:project\.(?:new|create)|onboard)\z/;
     die "A mark belongs to the question.mark command\n"
       if defined $option->{mark} && $command ne 'question.mark';
+    # Shared by both checks below - these four also take a reason.
+    my $shared_reason_ok = $command =~ /\A(?:police\.suspend|rule\.suspend|policy\.decline|column\.roles)\z/;
     die "A reason and options belong to the question.ask and question.update commands, "
       . "to police.suspend, to rule.suspend, to policy.decline, and to column.roles "
       . "when it takes a role back\n"
-      if ( defined $option->{reason} || $option->{options} )
-      && $command !~ /\Aquestion\.(?:ask|update)\z/
-      && $command ne 'police.suspend'
-      && $command ne 'rule.suspend'
-      && $command ne 'policy.decline'
-      && $command ne 'column.roles';
+      if $option->{options} && $command !~ /\Aquestion\.(?:ask|update)\z/ && !$shared_reason_ok;
+    # withdraw takes a reason but not options - it ends a question, it does
+    # not offer new ones to answer with.
+    die "A reason belongs to the question.ask, question.update and question.withdraw "
+      . "commands, to police.suspend, to rule.suspend, to policy.decline, and to "
+      . "column.roles when it takes a role back\n"
+      if defined $option->{reason} && $command !~ /\Aquestion\.(?:ask|update|withdraw)\z/ && !$shared_reason_ok;
     die "A voice note belongs to the question.ask, question.update and question.voice commands\n"
       if defined $option->{voice} && $command !~ /\Aquestion\.(?:ask|update|voice)\z/;
     die "Remove belongs to the question.voice and question.attach commands\n"
@@ -2033,7 +2036,7 @@ sub _invoke {
             project => $args{project}, id => $option->{id},
             file => $path, remove => $option->{remove} );
     }
-    if ( $command =~ /\Aquestion\.(ask|list|answer|update|mark|discard)\z/ ) {
+    if ( $command =~ /\Aquestion\.(ask|list|answer|update|mark|discard|withdraw)\z/ ) {
         require Tira::CLI::Records;
         return Tira::CLI::Records::question_verbs( $tira, \%args, $option, $command );
     }

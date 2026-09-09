@@ -1,6 +1,22 @@
 Revision history for Tira
 
 5.91  2026-09-09
+    - TKT-895: a question asked by mistake had exactly two honest exits -
+      get a real answer nobody owed, or self-answer it with the reason and
+      mark it not-ok, which writes a false "answered" record on a question
+      the owner never actually answered. CHK-001 checked the card's own age
+      against the current code first: the misleading refusal TKT-895 was
+      originally filed about (asking the agent to "judge" an unanswered
+      question) was already fixed by TKT-627/TKT-584/TKT-455, so the only
+      real gap left, confirmed by his own answer to Q-153, was that
+      question.discard never required a reason. tira.question.withdraw is
+      discard with a reason required, the same way police.suspend and
+      rule.suspend already require one - keeps the question's text, records
+      why separately, and never writes an answer. Two independent places in
+      lib/Tira/CLI.pm needed the new verb name to work at all (the --reason
+      option-scoping die, and a second question.* dispatch regex) - the
+      same two-copies-must-agree shape TKT-877 just fixed for the commit
+      gate, found only by running the new test.
     - TKT-877: the commit gate's logic lives twice - tools/hooks/commit-msg
       (this repo's own hand-maintained hook) and lib/Tira.pm's installable
       $COMMIT_GATE heredoc (shipped to every other project via

@@ -229,7 +229,7 @@ sub question_verbs {
     # $1 below is this match's, not the dispatcher's. The block read the
     # capture left by the if() it used to sit inside; as a sub it sets its
     # own, so a stale match elsewhere cannot choose the branch.
-    $command =~ /\Aquestion\.(ask|list|answer|update|mark|discard)\z/ or return;
+    $command =~ /\Aquestion\.(ask|list|answer|update|mark|discard|withdraw)\z/ or return;
     my $action = $1;
 
     # By card reference alone: the reference already names the board, so
@@ -261,6 +261,7 @@ sub question_verbs {
     return $tira->question_answer(%question) if $action eq 'answer';
     return $tira->question_update(%question) if $action eq 'update';
     return $tira->question_discard(%question) if $action eq 'discard';
+    return $tira->question_withdraw(%question) if $action eq 'withdraw';
     return $tira->question_mark(%question);
 }
 
@@ -279,7 +280,8 @@ C<tira.ticket.create> - 187 lines, because creating a card is where every field
 is validated, defaulted and cross-checked.
 
 C<question_verbs> answers C<question.ask>, C<question.list>, C<question.answer>,
-C<question.update>, C<question.mark> and C<question.discard>.
+C<question.update>, C<question.mark>, C<question.discard> and
+C<question.withdraw>.
 
 =head2 The capture that had to be re-taken
 

@@ -295,6 +295,41 @@ through. It offers no place to attach anything, since nothing more will happen
 to it; files already on it still show, because they still happened. Discarding twice is refused, and a discarded question cannot be
 answered.
 
+### `tira.question.withdraw`
+
+End a question asked by mistake, honestly - without recording a judgement
+that never happened.
+
+| Argument | Required | What it is for |
+| --- | --- | --- |
+| `--id Q-NNN` | yes | The question. |
+| `--reason TEXT` | yes | Why it is being withdrawn. |
+| `-o FORMAT` | no | As above. |
+
+`withdraw` is `discard` with the one thing discard never asked for: a reason,
+required the same way `police.suspend` and `rule.suspend` already require
+one. TKT-895. Before this existed, a question asked by mistake had exactly
+two exits - get a real answer nobody owed, or self-answer it with the reason
+and mark it `not-ok`, which writes a false "answered" record on a question
+the owner never actually answered. `withdraw` sets the question's status to
+`discarded` (the same struck-through state `discard` already gives) and
+records the reason separately, without ever writing an `answer` - a later
+reader can tell a withdrawn question apart from one that was genuinely
+judged. Withdrawing twice is refused, the same as discarding twice.
+
+**An unanswered question was never blocked by the answer-unjudged gate in
+the first place** - that gate only reads questions that already carry an
+`answer` (TKT-627, TKT-584, TKT-455), so `withdraw` is not what unblocks a
+card carrying one; it exists so the reason a mistaken question stopped
+mattering is on the record rather than nowhere.
+
+**An already-answered question can still be withdrawn.** `withdraw` inherits
+`discard`'s own long-standing rule that a discarded question may already
+carry an answer - the answer and its mark, if any, are left exactly as they
+were. Withdrawing does not erase or judge a real answer; it only applies
+when the question itself, not the answer, is what should never have been
+asked.
+
 ### Reminders you will be given
 
 A question that still owes something carries a `reminder` in the response to

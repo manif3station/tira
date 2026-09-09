@@ -1343,6 +1343,8 @@ tira.required-action.update --ref REF (--id REQ-NNN | --ids REQ-NNN,... [--ids .
 tira.question.ask --ref REF --text TEXT [--reason TEXT] [--option TEXT ...] [--voice FILE] [--author ID] [-o FORMAT]
 tira.question.answer --ref REF --id Q-NNN --text TEXT [--file FILE] [--author ID] [-o FORMAT]
 tira.question.mark --ref REF --id Q-NNN --mark ok|not-ok [-o FORMAT]
+tira.question.discard --id Q-NNN [-o FORMAT]
+tira.question.withdraw --id Q-NNN --reason TEXT [-o FORMAT]
 tira.evidence.list --ref REF [--last N|--first N] [--id EVD-NNN] [--meta-only] [--where CLAUSE ...] [--count] [-o FORMAT]
 tira.evidence.add --ref REF --summary TEXT [--uri URI] [--file PATH] [--author ID] [-o FORMAT]
 tira.evidence.annotate --ref REF --id EVD-NNN --note TEXT [--author ID] [-o FORMAT]
@@ -1723,7 +1725,7 @@ dialog fully usable at phone width.
 The visible last-updated time advances only after fresh data is applied. Stop
 the foreground server with Ctrl-C.
 
-## 147 use cases
+## 148 use cases
 
 Every case below is implemented and executable.
 
@@ -2014,7 +2016,7 @@ branches, so a caller asking for `json` or `toon` compiles none of it
 outside the concern: `_html_escape`, which the login page HTML also uses, and
 the plain functions `_render_view`, `_view_asset` and `json_object`.
 
-`lib/Tira.pm` is 16,230 lines as of TKT-876 (5.91), grown rather than shrunk
+`lib/Tira.pm` is 16,264 lines as of TKT-895 (5.91), grown rather than shrunk
 since the fourth lift's own 14,164 - the file gains from most releases that
 touch it, and a hand-corrected number drifts again by design. The figure the
 fourth lift replaced said 14,256, README said 14,177, `lib/Tira/Job.pm` said
@@ -4154,6 +4156,9 @@ told the two apart. TKT-412.
 
 ### UC-103: Catch up on what changed without re-reading everything
 **Implemented.** Set a question aside with `d2 tira.question.discard --id Q-007` when it stops mattering — nothing is deleted, it keeps its answer and shows struck through. `d2 tira.question.list --ref TKT-001 --status new -o json` shows only what is still unanswered; `--status answered` only what has been answered, and `--status discarded` what was set aside. `--since 2026-08-09T09:00:00Z` reads the answer's stamp when there is an answer and the question's when there is not, so a newly answered question shows up as newly changed. A question reference is project-wide, so `--id Q-007` reaches it from anywhere without naming the card.
+
+### UC-148: End a question asked by mistake, honestly
+**Implemented, TKT-895.** `d2 tira.question.withdraw --id Q-007 --reason TEXT` is `question.discard` with the one thing discard never asked for: a reason, required the same way `police.suspend` and `rule.suspend` already require one. Before this, a mistaken question (a duplicate, one asked of the wrong card) had exactly two exits: get a real answer nobody owed, or self-answer it with the reason and mark it `not-ok` - which writes a false "answered" record on a question the owner never actually answered. Withdrawing sets the same struck-through `discarded` status `discard` already gives, keeps the question's text, and records the reason separately, without ever writing an `answer` field - a later reader can tell a withdrawn question apart from a genuinely judged one. **An unanswered question was never blocked by the answer-unjudged gate in the first place** - that gate only reads questions carrying an `answer` (TKT-627, TKT-584, TKT-455) - so withdraw is not what frees a card; it exists so the reason a mistaken question stopped mattering is on the record.
 
 ### UC-143: See how much is outstanding from the CLI alone
 **Implemented.** `d2 tira.outstanding` answers `{questions, tasks}` - the same project-wide totals TKT-797 already put in the browser dashboard's sticky header, for a caller working through the CLI alone: how many cards carry a genuinely unanswered question, and how many tasklist items are still owed (`pending`/`working`, not `done`). Before this, an agent working purely through the CLI - the common case for this whole project - had strictly less visibility into this than a human glancing at the browser, a gap widened the moment TKT-797 gave the browser its own answer. **Since 5.90 the two agree** (TKT-817): `hero-counts.js`'s own task count used to count every item regardless of status - inflated by a done item left unpruned - and now filters to `pending`/`working` only, the same definition `d2 tira.outstanding` already used. TKT-808.

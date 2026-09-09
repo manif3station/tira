@@ -3765,6 +3765,33 @@ sub question_discard {
     } );
 }
 
+# TKT-895. A question asked by mistake used to have exactly two honest exits:
+# get a real answer nobody owes, or fake one to satisfy the gate. Discard
+# already keeps the question's text and already exempts it from the
+# answer-unjudged gate (see Tira::CLI's _unjudged_answer_violation), but it
+# never asked WHY, so a withdrawn question and a genuinely forgotten one
+# looked the same on the card. withdraw is discard with a reason required,
+# the same way a suspension needs one - a hole in the record where a decision
+# used to be is exactly what this ticket exists to close.
+sub question_withdraw {
+    my ( $self, %args ) = @_;
+    die "A withdrawn question needs a reason\n"
+      if !defined $args{reason} || $args{reason} !~ /\S/;
+    my $root = $self->discover_project(%args);
+    my ( $found_type, $found_ref ) = $self->_question_owner( $root, %args );
+    @args{qw(type ref)} = ( $found_type, $found_ref );
+    my $type = $args{type};
+    return $self->_with_project_lock( $root, sub {
+        my $record = $self->record_show( project => $root, type => $type, ref => $args{ref} );
+        my $entry = _question_entry( $record, $args{id} );
+        die "Question '$args{id}' is already discarded\n" if $entry->{discarded_at};
+        $entry->{discarded_at}     = $self->{clock}->();
+        $entry->{withdrawn_reason} = $args{reason};
+        $self->_replace_record( project => $root, type => $type, ref => $args{ref}, record => $record );
+        return _question_view($entry);
+    } );
+}
+
 sub question_answer {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
@@ -15285,6 +15312,13 @@ Updates a question's text, reason, options, or voice note.
 =head2 question_discard
 
 Marks a question discarded.
+
+=head2 question_withdraw
+
+Marks a question discarded with a required reason. TKT-895: the same state
+C<question_discard> already gives, plus a C<withdrawn_reason> on the record
+and a refusal if no reason is given - so ending a question asked by mistake
+never has to fake an answer to leave a true account of why.
 
 =head2 question_answer
 

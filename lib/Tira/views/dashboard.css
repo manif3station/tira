@@ -1783,6 +1783,12 @@ html[data-width="fit"] .card__ref {
   color: var(--muted);
   font-size: 0.85rem;
 }
+.card-question__withdrawn-reason {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
 .card-question__answer {
   margin: 0.4rem 0;
   padding: 0.5rem 0.7rem;

@@ -4470,6 +4470,21 @@ reader never has to infer it from whichever field is populated.
     asked, so a failing job reports its exit status here exactly as it would on
     the bridge.
 
+    **And a message-mode job announces its message to the bridge immediately,
+    since 5.89 (TKT-1023).** The executor's own no-op for a message-mode job -
+    it runs nothing, because there is no command to run - is right for the
+    scheduled due pass, which announces the message through the `job-due` rule
+    *before* ever reaching the executor; `tira.job.run` has no such rule behind
+    it, so a manual click used to reach that same no-op and produce no visible
+    feedback at all - his own report, live: "Run now does nothing." Put to him
+    as a decision rather than assumed (announce immediately, or a toast naming
+    why nothing ran): he chose to announce immediately. The write goes straight
+    to `bridge_write`, deliberately bypassing the police violation ledger's own
+    quiet ladder - that ladder exists to stop a *standing* problem repeating on
+    every pass, and would have silently swallowed a second identical manual
+    click, which is the opposite of what "immediately" asked for. Command-mode
+    `tira.job.run` is unaffected.
+
     **And it leaves the same trace, since 5.84** (TKT-963). It used to leave
     none: it answered `ran=1 status=0` and touched the job record not at all,
     so a job somebody had just run by hand went on reading "Never fired" on its
@@ -4480,7 +4495,7 @@ reader never has to infer it from whichever field is populated.
     | Field | What it means | Written by |
     | --- | --- | --- |
     | `last_due_at` | the window came round | the `job-due` rule, into its ledger - never onto the job |
-    | `last_run_at` | the command was run | `job_ran`, from the shared recorder |
+    | `last_run_at` | a command was run, or (since 5.89) a message-mode job was manually announced | `job_ran`, from the shared recorder |
     | `last_output_at` | the job said something | `job_feed` |
 
     They come apart in the cases that were unreadable before. A manual run has
@@ -4489,9 +4504,20 @@ reader never has to infer it from whichever field is populated.
     success and a window that merely came round were the same reading, on the
     scheduled path as well as the manual one. A command whose program is
     missing records a run, because the board did run it, with what went wrong
-    in its output lines; a `message`-mode job records none, because nothing was
-    ever executed for it. The button and the schedule both record through one
-    helper, so they cannot answer "did it run" differently. A `monitor` job is STARTED rather than fired, because a monitor
+    in its output lines. The button and the schedule both record through one
+    helper, so they cannot answer "did it run" differently.
+
+    **A `message`-mode job records `last_run_at` too, since 5.89, but only from
+    the button (TKT-1023).** The due pass still records none for one - nothing
+    is ever executed for it there, and its window landing is `last_due_at`'s
+    own fact, not `last_run_at`'s. A manual click is different: it is the one
+    place `run_now` genuinely does something for a message-mode job, since
+    5.89, by writing its message straight to the bridge (below) - and that
+    counts as a run for the same reason a manual click on a command-mode job
+    always has, so the card's "Last ran" line moves when he actually presses
+    the button rather than staying pinned to whatever the schedule last did.
+
+    A `monitor` job is STARTED rather than fired, because a monitor
     has no schedule to bypass — it is either up or it is not — and starting one
     that is already running is refused rather than spawning a second process.
 

@@ -653,7 +653,12 @@ manual run never moves - so a job could be run by hand all day and still read
 as one that had never run. A job now says which of three things happened: its
 window came round, its command was run, or it said something. A command that
 exits cleanly with nothing to print still records that it ran, since otherwise
-"it ran" and "it was due" are the same reading. On a `monitor` row it starts the monitor
+"it ran" and "it was due" are the same reading. **Since 5.89 a message-mode
+job's Run now genuinely does something too** (TKT-1023, his own report: "Run
+now does nothing") - it announces the message to the bridge immediately,
+matching his own decision on how it should behave, rather than reaching the
+same silent no-op the scheduled path's own announcement rule already covers.
+On a `monitor` row it starts the monitor
 instead, since a monitor has no schedule to bypass — and starting one that is
 already running is refused rather than leaving a second process behind. It is
 the SCHEDULE that is bypassed and nothing else: a disabled job is still

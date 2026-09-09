@@ -1,6 +1,17 @@
 Revision history for Tira
 
 5.89  2026-09-09
+    - TKT-1023: Run now on a message-mode job reached the same silent no-op
+      run_due_job gives every message-mode job on the scheduled due pass -
+      but that no-op is only correct there, because the due pass already
+      announces the message through the job-due rule before run_due_job is
+      ever reached; a manual click has no such rule behind it, so "Run now
+      does nothing" was his own accurate reading of it. His decision
+      (Q-148): announce immediately. run_now now writes the message to the
+      bridge directly, deliberately not through violation_record - its
+      quiet ladder is for a standing problem repeating every pass and would
+      have swallowed a second identical click. Command-mode Run now is
+      unaffected.
     - TKT-1024: the bridge panel and the job card's own log panel rendered
       every line the same way, with no visual rhythm to scan a dense dump
       against - his own words, "a flip flop colour strip to determine line

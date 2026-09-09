@@ -111,6 +111,43 @@ sub run_now {
     die "Job $job->{id} is disabled - enable it before running it\n"
       if !$job->{enabled};
 
+    require Tira::CLI::Police;
+
+    # A message-mode job runs nothing - run_due_job's own no-op for it is
+    # right for the DUE PASS, which already announces the message through
+    # the job-due rule before ever reaching here. Run now has no such rule
+    # behind it: clicking it on a message-mode job used to reach this same
+    # no-op and look identical to clicking it on a broken one - "does
+    # nothing" was his own reading of it. Michael's decision, live, Q-148:
+    # announce the message to the bridge immediately. TKT-1023.
+    #
+    # WRITTEN DIRECT, NOT THROUGH violation_record. That ledger exists to
+    # stop a STANDING problem repeating on the bridge every pass - its own
+    # quiet ladder holds an unchanged finding back until the ladder says it
+    # may speak again. A manual click is the opposite: an announcement asked
+    # for once, right now, and a person clicking Run now twice must see it
+    # announced twice, not have the second click silently swallowed by
+    # machinery built for a different problem. Found live: the ladder ate
+    # every announcement after the first identical one in this file's own
+    # WRITTEN RED pass.
+    if ( ( $job->{mode} // '' ) ne 'command' ) {
+        my $outcome = { ran => 1, status => 0, output => '' };
+        eval {
+            my $project = $tira->discover_project( %{$args} );
+            my $store = $args->{store} // Tira::CLI::Police::_police_store($project);
+            $tira->bridge_write( store => $store, project => $project, violations => [ {
+                ref => $job->{id}, detail => $job->{message}, message => $job->{message},
+                action => 'bridge-reminder', tone => 'note',
+            } ] );
+            1;
+        } or do {
+            my $why = $@ || 'it could not be announced';
+            $why =~ s/\s+\z//;
+            $outcome = { ran => 0, status => -1, output => "could not announce the message: $why" };
+        };
+        return Tira::CLI::Police::record_run( $tira, $args, $job, $outcome );
+    }
+
     # AND RECORDED, through the same recorder the schedule uses. TKT-963, his
     # report: this answered ran=1 status=0 and left the job record untouched,
     # so a job somebody had just run went on reading "Never fired" - that line
@@ -118,7 +155,6 @@ sub run_now {
     #
     # The return value is deliberately unchanged: the Run now button displays
     # it, and record_run hands back what it was given.
-    require Tira::CLI::Police;
     return Tira::CLI::Police::record_run( $tira, $args, $job,
         Tira::CLI::Police::run_due_job( job => $job ) );
 }
@@ -416,5 +452,28 @@ batched before they are written, because taking the project lock once per line
 would have a chatty poller hammering the board, and whatever is left goes in
 when the input goes quiet so a rare speaker is not held hostage to a batch that
 never fills.
+
+=head1 RUN NOW ON A MESSAGE-MODE JOB
+
+C<run_now> used to hand a message-mode job straight to C<run_due_job>, whose
+own no-op for one - "a message-mode job is announced by the engine and runs
+nothing" - is correct for the scheduled due pass, which announces the message
+through the C<job-due> rule before C<run_due_job> is ever reached. C<run_now>
+has no such rule behind it, so a manual click reached that same silent no-op
+and produced no visible feedback at all. His own report, live: "Run now does
+nothing." TKT-1023.
+
+Put to him as a decision (Q-148) rather than assumed - announce the message
+immediately, or a toast explicit about why nothing ran - he chose to announce
+immediately. C<run_now> now writes the message straight to C<bridge_write>
+for a message-mode job, B<not> through C<violation_record>: that ledger's own
+quiet ladder exists to stop a I<standing> problem repeating on every pass, and
+would have silently swallowed a second identical manual click - the opposite
+of what "immediately" asked for, and found live in this fix's own WRITTEN RED
+test before the design changed. C<record_run> is still the recorder, so a
+message-mode job now also gains C<last_run_at> from a manual click, matching
+what a command-mode click has always done through the same helper - the due
+pass alone still leaves it unset for a message-mode job, since nothing ever
+executes for it there. Command-mode C<run_now> is unaffected.
 
 =cut

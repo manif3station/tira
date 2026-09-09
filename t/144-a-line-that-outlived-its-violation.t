@@ -202,10 +202,32 @@ is( scalar( grep { $_->{ref} eq $card->{ref} } @{ $returned->{violations} } ), 1
     # is the second one - that every writer carries what has been settled. All
     # three do, and did before this change; the guard simply could not see one
     # of them saying so.
+    #
+    # A FOURTH WRITER, SINCE 5.89 (TKT-1023) - and it is deliberately not one
+    # of the three above, not an oversight this count should paper over.
+    # Tira::CLI::Job::run_now writes a message-mode job's announcement to the
+    # bridge on a manual Run now click, entirely outside any police pass -
+    # there is no violations/settled diff to carry, because nothing was ever
+    # opened in the enforcement ledger for it to close. The invariant this
+    # test protects - every writer FROM A PASS says what it settled - still
+    # holds for all three pass writers; a fourth, non-pass writer with
+    # nothing to settle is not a silent gap in that invariant.
     my @writes = map { /bridge_write\(([^;]*?)\);/gs } @sources;
-    is( scalar @writes, 3, 'the bridge is written from a pass in three places' );
-    is( scalar( grep { /settled\s*=>/ } @writes ), 3,
-        'and every one of them carries what has been settled, not just the one under test' );
+    is( scalar @writes, 4, 'the bridge is written from a pass in three places, plus one manual writer' );
+
+    my @without_settled = grep { !/settled\s*=>/ } @writes;
+    is( scalar @without_settled, 1,
+        'and every PASS writer carries what has been settled, not just the one under test - '
+          . 'exactly one writer legitimately does not' );
+
+    # NOT JUST A COUNT: the one writer missing settled has to be the KNOWN
+    # manual one, by its own distinguishing shape - a future pass writer
+    # that dropped settled, while the manual writer somehow gained it,
+    # would still pass a bare count comparison. ref => $job->{id} appears
+    # nowhere else: every pass writer's own $ref is a card or board, never
+    # a job.
+    like( $without_settled[0] // '', qr/ref\s*=>\s*\$job->\{id\}/,
+        'and it is recognisably Job.pm\'s own manual writer, not some other writer that silently dropped settled' );
 }
 
 done_testing;

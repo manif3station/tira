@@ -83,6 +83,10 @@ A required action marked done on evidence another item in the same column
 already used is highlighted rather than merely ticked, and its proof modal
 opens with the reason for the reuse above the evidence itself — the point of
 making somebody write a reason is that somebody else reads it.
+Since 5.88, `required-action.update --ids ID1,ID2,...` marks several ids
+at once with one `--command`/`--proof` pair - additive alongside the
+existing single `--id`, all-or-nothing (a bad id anywhere refuses the
+whole call), and refused when combined with `--item`.
 A required action can say what it is running before it can prove it. Give
 `--command` on its own and the item keeps its status while recording what is
 being run, and the card dialog marks it with a clock — distinct from an

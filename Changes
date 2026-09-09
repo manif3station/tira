@@ -1,6 +1,21 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-769: required-action.update marked one id per call, even when
+      the same --command/--proof genuinely covers several sibling
+      entries - a case this project's own design already sanctions
+      (TKT-585's --repeated-reason), it just cost one full invocation
+      per id. A new, additive --ids ID1,ID2,... flag (repeatable, or
+      comma-separated, or both) marks every named id with the one pair
+      in a single call. Validates every id up front and refuses the
+      whole call if one does not exist, rather than marking some and
+      skipping others - the same all-or-nothing principle TKT-485
+      established elsewhere. Ids named together in one --ids call share
+      the given proof without needing --repeated-reason among
+      themselves; --repeated-reason is still required, with its usual
+      two-step confirmation code, when the reuse is against an item
+      outside the batch. --ids combined with --item (which renames) is
+      refused. The existing single --id form is completely unaffected.
     - TKT-768: gate_add's "Gate details are required" check tested only
       for the exact empty string, so --details of nothing but spaces
       satisfied "required" and stored a gate result with nothing readable

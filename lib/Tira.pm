@@ -5076,6 +5076,68 @@ sub _refuse_reused_proof {
 sub required_item_update {
     my ( $self, %args ) = @_;
     local $self->{_journal_author} = $self->_require_author(%args);
+
+    # An additive batch form: several sibling entries whose honest evidence
+    # is the same command/proof, marked in one call instead of one per id -
+    # TKT-585 already sanctions the reuse (via --repeated-reason), this only
+    # removes the cost of exercising it once per id. --id itself stays a
+    # single, shared scalar read by other commands too, so this is a new
+    # flag rather than a change to --id's cardinality. All-or-nothing, like
+    # TKT-485: a bad id anywhere refuses the whole call before anything is
+    # written, never marking some and skipping others. TKT-769.
+    if ( defined $args{ids} ) {
+        die "--ids cannot be combined with --item, which renames one entry - address entries with --ids instead\n"
+          if defined $args{item};
+        die "Required item status is required\n" if !defined $args{status} || $args{status} eq '';
+        if ( lc( $args{status} ) ne 'pending' && lc( $args{status} ) ne 'done' ) {
+            die "Unknown required-action status '$args{status}' - the values that work are pending and done\n";
+        }
+        my @ids = map { split /,/, $_, -1 } @{ $args{ids} };
+        die "Required item ids are required - supply them with --ids ID1,ID2,...\n" if !@ids;
+        my $proof_entries = $self->_proof_entries_for(%args);
+        my $root = $self->discover_project(%args);
+        return $self->_with_project_lock( $root, sub {
+            my $record = $self->record_show(%args);
+            $record->{required_items} //= [];
+            my @entries;
+            for my $id (@ids) {
+                my ($entry) = grep { $_->{id} eq $id } @{ $record->{required_items} };
+                die "Required item '$id' not found - entries are addressed by id, not position\n" if !$entry;
+                push @entries, $entry;
+            }
+
+            # Siblings OUTSIDE this batch, captured before any mutation - the
+            # ids named together in one --ids call are declared as sharing
+            # one proof on purpose, so they must not trip the reuse check
+            # against each other; only a pre-existing item outside the batch
+            # still needs --repeated-reason.
+            my %batch_id = map { $_ => 1 } @ids;
+            my @outside_siblings = grep { !$batch_id{ $_->{id} } } @{ $record->{required_items} };
+
+            for my $entry (@entries) {
+                my $repeated_reason = $self->_refuse_reused_proof(
+                    items => \@outside_siblings, entry => $entry,
+                    proof => $proof_entries, reason => $args{repeated_reason},
+                    confirm => $args{repeated_confirm} );
+                if ( ref $repeated_reason eq 'HASH' ) {
+                    $entry->{repeated_confirm} = $repeated_reason->{confirm_needed};
+                    $self->_replace_record( %args, record => $record );
+                    die $repeated_reason->{message};
+                }
+                if ($repeated_reason) {
+                    $entry->{repeated_reason} = $repeated_reason;
+                    delete $entry->{repeated_confirm};
+                }
+                $entry->{status} = $args{status} if defined $args{status};
+                $entry->{proof} = $proof_entries if $proof_entries;
+                $entry->{last_updated} = $self->{clock}->();
+                $self->_log_proof_gate( $record, 'required-action', $entry, $proof_entries )
+                  if $proof_entries && lc( $args{status} ) eq 'done';
+            }
+            $self->_replace_record( %args, record => $record );
+            return \@entries;
+        } );
+    }
     die "Required item or status is required\n" if !defined $args{item} && !defined $args{status};
     die "Required item is required\n" if defined $args{item} && $args{item} eq '';
     die "Required item status is required\n" if defined $args{status} && $args{status} eq '';
@@ -15391,6 +15453,15 @@ one, while re-asking unchanged returns the same code rather than rotating it
 - a typo is a retry, not a lockout. The reason is stored on the item only
 once the item is genuinely a duplicate, so a card never records an accusation
 of borrowing evidence that was not borrowed.
+
+C<ids> (an arrayref), since 5.88 (TKT-769), marks several ids with the one
+C<command>/C<proof> pair in a single call - additive alongside the single
+C<id> above, which is unaffected. Every id is validated before any is
+marked; a bad one anywhere refuses the whole call before anything is
+written. Ids named together in one call share the given proof without
+tripping the reused-proof check against each other - only reuse against an
+item outside the batch still needs C<repeated_reason>. Refused when given
+alongside C<item>.
 
 =head2 search
 

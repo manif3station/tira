@@ -104,7 +104,7 @@ sub run {
         'name=s' => \$option{name}, 'dir=s' => \$option{dir}, 'title:s' => \$option{title},
         'description=s' => \$option{description},
         'output|o=s' => \$option{output}, 'help' => \$option{help},
-        'id=s' => \$option{id}, 'email=s' => \$option{email},
+        'id=s' => \$option{id}, 'ids=s@' => \$option{ids}, 'email=s' => \$option{email},
         'message=s' => \$option{message}, 'all' => \$option{all},
         # Repeated jobs (EPC-014, TKT-837). 'schedule' and 'enabled' are new
         # names. 'command' is NOT declared here: it already exists above as

@@ -461,8 +461,7 @@ sub create_record {
     my ( $self, %args ) = @_;
     $self->_refuse_misspelled_args( \@CREATE_RECORD_FIELDS, %args );
     my $type = $self->_valid_type( $args{type} );
-    my $title = $args{title};
-    die "Record title is required\n" if !defined $title || $title eq '';
+    my $title = $self->_valid_title( $args{title} );
     my $root = $self->discover_project(
         defined $args{project} ? ( project => $args{project} ) : ( start => $args{start} // '.' ),
     );
@@ -2903,6 +2902,7 @@ sub record_update {
               . "re-read with --full before writing it back, or this destroys everything past character 2000\n";
         }
         _valid_fix_version( $args{fix_version} ) if defined $args{fix_version} && $args{fix_version} ne '';
+        $args{title} = $self->_valid_title( $args{title} ) if defined $args{title};
         for my $field (@PLAIN_FIELDS) {
             $record->{$field} = $args{$field} if defined $args{$field};
         }
@@ -13429,6 +13429,18 @@ sub _unique_casefold {
     return \@unique;
 }
 
+# A guard that tests presence, not content: '' was refused but '   ' was
+# not, storing a card no listing or board could show a name for. Trimming
+# before the emptiness test is the whole fix - the stored value itself is
+# untouched, so a title with real content and incidental padding still
+# keeps exactly what was typed. Shared by create_record and record_update
+# so the same card cannot be blanked after creation either. TKT-754.
+sub _valid_title {
+    my ( $self, $title ) = @_;
+    die "Record title is required\n" if !defined $title || $title =~ /\A\s*\z/;
+    return $title;
+}
+
 sub _valid_priority {
     my ( $self, $priority ) = @_;
     return undef if !defined $priority || $priority eq '';
@@ -14423,6 +14435,12 @@ rather than silently doing nothing. A key that resembles no real field is
 left alone, because this method is called internally with C<%args> hashes
 that legitimately carry other keys too.
 
+B<A whitespace-only title is refused like an empty one, since 5.88> (TKT-754):
+C<title> is trimmed before the "Record title is required" check, via
+C<_valid_title>, shared with C<record_update> so the same card cannot be
+blanked to whitespace after creation either. The stored value is never
+rewritten - only the emptiness test runs against the trimmed value.
+
 =head2 format_output
 
 Encodes data as TOON by default, pretty JSON, Markdown, or an HTML board.
@@ -14448,6 +14466,10 @@ B<A misspelled argument is refused, since 5.87> (TKT-635, see C<create_record>
 above for the full reasoning and the design constraint that shapes it): the
 same near-miss check, run against the same field list plus this method's own
 call-mechanics keys (C<ref>, C<author>, C<expect>, and so on).
+
+B<A whitespace-only title is refused, since 5.88> (TKT-754): C<title> shares
+C<create_record>'s C<_valid_title> check, so a card cannot be blanked to
+whitespace by update even if it started with a real one.
 
 =head2 column_update
 

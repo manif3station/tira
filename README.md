@@ -202,6 +202,9 @@ came out. It now refuses, naming `--problem`, before any card is written. The
 name is the plausible one — `--text` is how `tira.comment.add` and
 `tira.question.ask` carry their content — which is exactly why the silent drop
 cost what it did.
+Since 5.88, `--title` is trimmed before that same "is required" check runs, at
+both create and update, so a title of nothing but spaces is refused exactly
+like an empty one instead of producing a card no listing can show a name for.
 `--help` names the arguments a command refuses without, including the
 `--command`/`--proof` pair that marking a required action or a checklist item
 done costs. Forty-nine commands are not there yet and still answer with a bare

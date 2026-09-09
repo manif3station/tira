@@ -2348,6 +2348,20 @@ now names the option, states that a JSON array is required with an example,
 and points at the repeated single-item form (`--scope-in TEXT`, and so on)
 as the append alternative a caller reaching for `--set-*` usually wanted.
 
+## A whitespace-only title is refused like an empty one
+
+`--title` is trimmed before the "Record title is required" check runs, not
+merely tested against the empty string, at both `create` and `update` -
+matching content, not presence. Before TKT-754, `create` refused `--title ''`
+but accepted `--title '   '`, storing a card no listing, board, or
+`tira.next` answer could show a name for, and `update` had no emptiness
+check on `--title` at all, so the same card could be blanked to whitespace
+after creation regardless. A title with real content and incidental padding
+(`--title '  real  '`) is still accepted and stored exactly as typed - the
+check only refuses what is left after trimming, it never rewrites the
+stored value - and a card already carrying a whitespace title continues to
+load and render unchanged, since the fix guards the write path only.
+
 ## A truncated read cannot be written back
 
 `description`, `problem_or_feature`, and `solution_needed` truncate at 2000

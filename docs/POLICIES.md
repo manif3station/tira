@@ -880,6 +880,15 @@ matters — it catches the card nobody filled in — but a card reaching impleme
 as a title is now a person's omission rather than possibly a swallowed
 argument.
 
+A second, quieter cause of the same symptom lasted until TKT-754: a title of
+nothing but spaces satisfied every "is it set" check this rule runs, so a
+card named only whitespace could reach any column undetected — `card-full-
+details` watches for a card reaching a column without the detail that makes
+it real work, not for a title that fails to say anything. `--title` is now
+refused the same way an empty one is when nothing but whitespace is given,
+at both create and update, so that particular way of reaching this rule
+sideways no longer exists.
+
 **1.** A card left the backlog as a title and a shrug, and nobody could say what it was for.
 
 ```

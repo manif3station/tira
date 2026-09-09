@@ -461,6 +461,14 @@ with `--set-<field> FILE`; `-` reads a UTF-8 JSON array from stdin.
 `--problem-or-feature` aliases `--problem`; `--acceptance-criteria` aliases
 `--acceptance`; and `--set-acceptance-criteria` aliases `--set-acceptance`.
 
+`--title` is trimmed before the "is required" check, not merely tested for
+exact emptiness, so a title of nothing but spaces is refused the same way an
+empty one is - at both create and update, meaning a card cannot be blanked to
+whitespace after creation either. The stored value itself is never rewritten:
+`--title '  real  '` keeps its padding exactly as typed, and any card already
+carrying a whitespace title still loads and renders, since the check only
+guards the write, not the read. TKT-754.
+
 ## Command catalogue
 
 ### Manual and project

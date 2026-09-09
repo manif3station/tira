@@ -1,6 +1,18 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-754: create_record refused an empty title but accepted one made
+      only of spaces, storing a card no listing, board, or `tira.next`
+      answer could show a name for - the guard tested for emptiness and
+      nothing else. A whitespace-only title is now refused with the same
+      "Record title is required" message an empty one gets, via one
+      shared predicate (_valid_title) used by both create_record and
+      record_update, so the same card cannot be blanked to whitespace
+      after creation either. The stored value itself is never rewritten -
+      a title with real content and incidental padding is kept exactly as
+      typed, and any card already carrying a whitespace title still loads
+      and renders unchanged, since the fix only tightens the write-time
+      guard, not the read path.
     - TKT-741: a plain-text file handed to any --set-* array option (10
       of them, sharing one decode boundary) surfaced the JSON decoder's
       own internal expectation ("'true' expected, at character offset

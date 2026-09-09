@@ -5886,9 +5886,25 @@ sub _card_unblocked_at {
 }
 
 # Two colours, two directions, and never both at once. Yellow is the owner's:
-# a question nobody has answered. Orange is the agent's: everything answered and
-# something still unjudged. A card that is one is never the other, so the board
-# says whose move it is rather than only that somebody is waiting.
+# a question nobody has answered. Grey is the agent's: everything answered and
+# something still owed before it is truly settled. A card that is one is never
+# the other, so the board says whose move it is rather than only that somebody
+# is waiting.
+#
+# TKT-1035, his reversal of TKT-848 (Q-106): "Use yellow box highlight if
+# question more than zero" shipped a card fully answered AND judged still
+# highlighted yellow forever, via a separate has_question flag/class. Seeing
+# that live, his own words: "Only highlight the card that got questions not
+# answered" / "When answered but not being read or mark will be dim down" /
+# "When all marked the card back to normal but not highlighted" / "Go
+# restore that". Three states, not two: unanswered stays yellow (_card_waiting,
+# unchanged); answered but not yet marked dims grey, whether or not it has
+# been read first - marking is what actually settles a question, and t/65's
+# own long-standing contract is that marking alone clears this state, read_at
+# or not; everything answered AND marked goes back to normal, no class at
+# all. has_question/.card--has-question is retired: nothing left for it to
+# mean that _card_waiting and _card_to_review do not already cover between
+# them.
 sub _card_to_review {
     my ($record) = @_;
     my $unjudged = 0;
@@ -5904,21 +5920,6 @@ sub _card_to_review {
 # collector asks it to decide whether to chase. One rule, so they cannot drift
 # into disagreeing about whose move it is.
 sub _card_waiting { return _card_blocked(@_) }
-
-# TKT-848, his own answer to Q-106, verbatim: "Use yellow box highlight if
-# question more than zero. Like the card(s) which got question on." Broader
-# than _card_blocked (owner's move, unanswered only) and _card_to_review
-# (agent's move, answered-but-unjudged): a question fully answered AND judged
-# marks the card too, because his answer counts questions, not moves. Only a
-# discarded question - the same exclusion _card_blocked and _card_to_review
-# already use - or no question at all leaves a card unmarked.
-sub _card_has_question {
-    my ($record) = @_;
-    for my $question ( @{ $record->{questions} // [] } ) {
-        return 1 if !$question->{discarded_at};
-    }
-    return 0;
-}
 
 # TKT-797 gave the browser dashboard's sticky header a live count of how
 # many cards have an unanswered question and how many tasklist items are
@@ -6004,14 +6005,12 @@ sub dashboard {
                         $card->{title} = $record->{title} if $args{with_title};
                         $card->{waiting} = _card_waiting($record);
                         $card->{to_review} = _card_to_review($record);
-                        $card->{has_question} = _card_has_question($record);
                     }
                 }
                 else {
                     my $record = $self->_read_json($path);
                     $card = { %{$record}, column => $column->{name},
-                        waiting => _card_waiting($record), to_review => _card_to_review($record),
-                        has_question => _card_has_question($record) };
+                        waiting => _card_waiting($record), to_review => _card_to_review($record) };
                 }
                 $card->{_mtime} = $stat[9];
                 push @cards, $card;

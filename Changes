@@ -1,6 +1,22 @@
 Revision history for Tira
 
 5.91  2026-09-09
+    - TKT-1035: his own reversal of TKT-848. "Use yellow box highlight if
+      question more than zero" (Q-106) shipped a card that stayed
+      highlighted forever, even once every question on it was answered
+      AND judged - seen live on his own board copy and reported as "is
+      that a new bug?" His follow-up: "Only highlight the card that got
+      questions not answered" / "When answered but not being read or
+      mark will be dim down" / "When all marked the card back to normal
+      but not highlighted" / "Go restore that". _card_to_review already
+      covered exactly "answered but not marked" - the fix was retiring
+      the separate has_question flag/class TKT-848 added everywhere
+      (engine, browser markup, stylesheet), not changing what the grey
+      state itself means; a widened read_at check was tried first and
+      reverted, since it broke t/65's own long-standing "once marked it
+      leaves the review list" contract. Confirmed on his own board copy
+      in a container, read-only: fully-settled cards now show no
+      highlight at all, genuinely-unsettled ones still dim correctly.
     - TKT-1032: Michael reported a job's stop button leaving its process
       tree as a zombie (a tg.poller example, TG 2026-09-08). Investigated
       by running t/1014's own live reproduction (a real monitor with a

@@ -1,6 +1,17 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-728: two refusals named the bad value and nothing about what
+      would be right - "Unknown link type" and "Checklist status is
+      required" - unlike the four policy-rule refusals already built to
+      join their permitted values in. Both are extended the same way:
+      link.add's unknown-type refusal now lists every configured link
+      type, and checklist.add/update's missing-status refusal now names
+      the three that work (pending, done, To Do). Checked against the
+      card's own claims before widening scope: the UNKNOWN-status
+      checklist refusal already named its values, and
+      tira.project.link-types.list already exists and is documented, so
+      neither needed touching.
     - TKT-721: tira.warning.clear --all on a board with no warnings to
       clear failed three ways at once - a Perl uninitialized-value
       warning on STDERR, a refusal naming an id nobody supplied

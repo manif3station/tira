@@ -38,9 +38,9 @@ const BINARY = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00, 0x00, 0x01, 0x02, 0x00
 
 const ATTACHMENTS = [
   { sha: 'aaa1', extension: 'pl', original_filename: 'check.pl',
-    content_type: 'text/plain; charset=UTF-8', added_at: '2026-08-01T09:00:00+0100', size: PERL_SOURCE.length },
+    content_type: 'text/plain; charset=UTF-8', added_at: '2026-08-01T09:00:00+0100' },
   { sha: 'bbb2', extension: 'bin', original_filename: 'blob.bin',
-    content_type: 'application/octet-stream', added_at: '2026-08-01T09:00:00+0100', size: BINARY.length },
+    content_type: 'application/octet-stream', added_at: '2026-08-01T09:00:00+0100' },
 ];
 
 const RECORD = {

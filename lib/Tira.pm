@@ -4459,7 +4459,7 @@ sub gate_add {
     return $self->_with_project_lock( $root, sub {
         die "Gate name is required\n" if !defined $args{gate} || $args{gate} eq '';
         die "Invalid gate result\n" if ( $args{result} // '' ) !~ /\A(?:pass|fail|blocked)\z/;
-        die "Gate details are required\n" if !defined $args{details} || $args{details} eq '';
+        die "Gate details are required\n" if !defined $args{details} || $args{details} !~ /\S/;
         $self->_require_gate_name( root => $root, name => $args{gate} );
         $self->_require_person( %args, person => $args{author} );
         my $record = $self->record_show(%args);
@@ -15882,7 +15882,10 @@ twenty-three C<_replace_record> callers that was not.
 =head2 gate_add
 
 Records a gate result - pass, fail or blocked - against a record, with the
-details that justify it.
+details that justify it. C<--details> refuses a whitespace-only value the
+same way it refuses an empty one, since 5.88 (TKT-768) - the last of this
+field family (evidence, checklist, required-action) to get the C<!~ /\S/>
+test TKT-585/TKT-909 already established for the others.
 
 =head2 gate_list
 

@@ -313,6 +313,12 @@ nothing. `checklist.update`/`required-action.update` are deliberately
 unchanged - blanking an existing item is a different question from creating
 a blank one, the same distinction TKT-753 drew for `comment.update`.
 
+**`gate.add`'s `--details` was left out of the 5.62 sweep and still tested
+`eq ''` until 5.88** (TKT-768): a gate result marked `pass` with three
+spaces as its whole explanation was reachable the same way a whitespace
+evidence summary was before TKT-909. Fixed the same way; `evidence.add`,
+found live while confirming this, already had the correct check.
+
 The test is `/\S/` rather than a length check for two reasons. A space is not a
 smaller comment than none, which this project settled on TKT-585 for
 `--command`/`--proof`, where whitespace was cheaper than doing the work. And it

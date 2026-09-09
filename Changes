@@ -1,6 +1,14 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-768: gate_add's "Gate details are required" check tested only
+      for the exact empty string, so --details of nothing but spaces
+      satisfied "required" and stored a gate result with nothing readable
+      explaining it - required_action_update already drew the line at
+      whitespace-not-content for the same purpose (TKT-585). Changed to
+      the same test. evidence_add, which this ticket's own investigation
+      originally believed shared the identical gap, was confirmed live to
+      already use the stronger check - no change was needed there.
     - TKT-766: attachment_list only ever answered "what does THIS card's
       attachments look like" via --ref; nothing could answer "which OTHER
       records reference this attachment", even though attachments are

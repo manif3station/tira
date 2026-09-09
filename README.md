@@ -18,6 +18,10 @@ Attachment-add responses distinguish the supplied filename from the filename
 actually retained when identical content is deduplicated.
 Migration-scale tools provide one-call export, field-aware search, previewed
 bulk import/replacement, and append-only gate/evidence corrections.
+Since 5.88, `gate.add --details` refuses a whitespace-only value the same
+way it refuses an empty one — the last of this "required explanation"
+field family (evidence, checklist, required-action) still testing for
+exact emptiness rather than real content.
 Hierarchy views retain the complete direct-read record at every node and add
 children, so human and recursive JSON views cannot silently lose metadata.
 Dashboard reads scan each selected board once and group records by configured

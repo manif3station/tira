@@ -2,13 +2,14 @@
 # The guards that read the tests are undocumented as a set, so a test author
 # meets them one full suite run at a time.
 #
-# TKT-865. Nineteen files in t/ do not test a feature - they test the SUITE
+# TKT-865 (extended by TKT-877). Twenty files in t/ do not test a feature - they test the SUITE
 # itself: an assertion shape, a doc-vs-code count, a module's own POD, a
 # structural limit, a decision that must not drift into two places, a
-# fixture that must not drift from what it mocks. A test author writing
-# test number twenty learns each one only when it fails on a change that
-# broke nothing, which is what every one of these files' own opening
-# comment describes happening to it before it existed.
+# fixture that must not drift from what it mocks, and two gate copies that
+# must not drift from each other. A test author writing test number
+# twenty-one learns each one only when it fails on a change that broke
+# nothing, which is what every one of these files' own opening comment
+# describes happening to it before it existed.
 #
 # Read from t/ directly (CHK-001), not from memory, and found in THREE
 # passes - Codex review caught five the first pass missed by grepping only
@@ -19,7 +20,9 @@
 # caught a sixth (t/717) plus a weak count check. t/582, t/179, t/597,
 # t/552, t/155 and t/172 were considered and excluded - they measure or
 # test the release tooling's own behaviour as a FEATURE, not a convention
-# for how a test itself is written.
+# for how a test itself is written. TKT-877 added a twentieth: the commit
+# gate's two independent copies, checked to keep agreeing rather than only
+# checked once.
 #
 # WHAT THIS FILE MUST NOT DO is re-implement any guard's own check - that is
 # what would go stale exactly like the documentation this card exists to fix.
@@ -99,6 +102,9 @@ my @GUARDS = (
     { file => 't/717-a-fixture-that-stopped-listening.t',
       what => 'a Playwright fixture mocking a real payload shape keeps listening to what that shape actually carries',
       marker => 'Three fixtures drifted from the thing they mock in one session' },
+    { file => 't/877-two-gates-one-decision.t',
+      what => 'the two independent copies of the commit gate (this repo\'s own hook and the engine\'s installable one) agree on the same idle/writing rules',
+      marker => 'The commit gate exists twice with nothing checking the two copies agree' },
 );
 
 for my $guard (@GUARDS) {
@@ -124,7 +130,7 @@ close $skills;
 for my $guard (@GUARDS) {
     like( $doc, qr/\Q$guard->{file}\E/,
         "SKILLS.md names $guard->{file} - a test author can find it before writing test "
-          . 'number nineteen, not only after it fails on one' );
+          . 'number twenty-one, not only after it fails on one' );
 }
 
 # Compared as a SET, not only counted - Codex review's second pass: a count
@@ -157,20 +163,20 @@ __END__
 
 =head1 WHY
 
-TKT-865: nineteen files in t/ police the suite itself rather than a feature,
-and nothing named them together - a test author met each one individually,
-one failed run at a time.
+TKT-865: twenty files in t/ police the suite itself rather than a feature
+(TKT-877 added the twentieth), and nothing named them together - a test
+author met each one individually, one failed run at a time.
 
 =head1 WHAT IS ASSERTED
 
-Each of the nineteen guards still exists and still carries its own marker
+Each of the twenty guards still exists and still carries its own marker
 phrase - proof it has not been silently gutted or renamed. SKILLS.md's own
 section names exactly this set, compared as a sorted list rather than only
 counted, so a substituted row with the same count still fails.
 
 =head1 WHAT IS NOT ASSERTED
 
-That these are the ONLY nineteen that will ever exist, or that a twentieth
+That these are the ONLY twenty that will ever exist, or that a twenty-first
 guard added later is automatically caught - that would require this file to
 know what a "meta-guard" is well enough to recognise one on sight, which is
 exactly the judgement call CHK-001 made by reading t/ by hand, across three

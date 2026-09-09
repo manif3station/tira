@@ -1393,6 +1393,17 @@ rewritten after the verify walkthrough found a defect. A verify that finds a
 code defect is not a check that failed; it is the card returning to `implement`,
 and this is what says so at the moment it matters.
 
+This repository's own `commit-msg` (installed into its `.git/hooks` by
+`tools/install-hooks`) carries the same idle/writing column rules by hand, in
+a different shell idiom, so that Tira is developed under the same gate it
+ships - the two hooks are not identical overall (the local one reads only the
+subject and only this repo's prefixes; the installable one scans the full
+message and resolves whichever prefixes a project defines), but the column
+sets that decide idle-vs-writing must agree. `t/877` compares those two sets
+as sets rather than as text, so a column added to one and not the other fails
+the suite instead of drifting silently - the exact mistake this project made
+twice while writing TKT-875.
+
 Both fail closed: if `d2` is not on the path, or police cannot read the board,
 the gate refuses rather than skipping. A gate that disappears when something is
 missing is not a gate.

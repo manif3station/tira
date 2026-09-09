@@ -1,6 +1,17 @@
 Revision history for Tira
 
 5.91  2026-09-09
+    - TKT-877: the commit gate's logic lives twice - tools/hooks/commit-msg
+      (this repo's own hand-maintained hook) and lib/Tira.pm's installable
+      $COMMIT_GATE heredoc (shipped to every other project via
+      tira.gates.install) - and nothing compared them, the exact mistake
+      made twice while writing TKT-875. A new t/877 extracts each copy's
+      idle/writing column rules (trying both the named-variable syntax the
+      local hook uses and the inline case-statement syntax the engine's
+      copy uses) and compares them as sets, not as text, since the two are
+      deliberately written in different shell idioms. Joins the meta-guard
+      family documented by t/865 as its twentieth member - both copies
+      agree today, and this is the check that keeps them agreeing.
     - TKT-876: lib/Tira.pm's line count was stated in three places
       (README.md twice, SKILLS.md, and TKT-746's own title), all
       disagreed with each other and with the real, current count, and

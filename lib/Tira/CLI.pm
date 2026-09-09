@@ -2724,6 +2724,16 @@ but Getopt::Long's own duplicate-specification warning bypasses the
 C<$SIG{__WARN__}> capture below and printed to STDERR on every invocation.
 One array for every command means a stray duplicate is noise on all of them.
 
+=head2 _json_array_input
+
+The shared decode boundary for every C<--set-*> array option (C<--set-labels>,
+C<--set-scope-in>, and eight others). Since 5.88 (TKT-741) a decode failure
+or a wrong-shaped result is refused naming the option (C<$flag>), what the
+file must contain, an example, and the repeated single-item append form
+(C<$append_flag>) as the alternative - rather than letting the JSON
+decoder's own internal expectation and an internal file/line number reach
+the caller, which named no option and meant nothing to act on.
+
 =head2 _unmet_in_column
 
 The one selection of what a card still owes a column: items tagged with that

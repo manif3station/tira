@@ -1091,6 +1091,13 @@ html[data-width="fit"] .card__ref {
 .jobs-card__log-line.is-fresh {
   color: #fde68a;
 }
+.jobs-card__log-line--odd,
+.jobs-card__log-line--even {
+  display: block;
+}
+.jobs-card__log-line--odd {
+  background: rgba(255, 255, 255, 0.03);
+}
 .jobs-card__stop,
 .jobs-card__restart,
 .jobs-card__delete,
@@ -3027,6 +3034,9 @@ textarea.card-edit-input {
 }
 .bridge-line + .bridge-line {
   border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+.bridge-line--odd {
+  background: rgba(255, 255, 255, 0.03);
 }
 .bridge-when {
   flex: none;

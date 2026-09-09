@@ -1,6 +1,22 @@
 Revision history for Tira
 
 5.89  2026-09-09
+    - TKT-1024: the bridge panel and the job card's own log panel rendered
+      every line the same way, with no visual rhythm to scan a dense dump
+      against - his own words, "a flip flop colour strip to determine line
+      by line at first glance". Both panels now stamp an odd/even class
+      per line, with dashboard.css painting a subtly different background
+      for the odd lines against the default even-line background; his
+      own live follow-up comment on the card ("Also apply to the bridge
+      log section on the dashboard. not only on the job card") is what
+      settled that both panels, not just one, needed the change. The job
+      log renders inline <span> elements inside a <pre>, unlike the
+      bridge panel's block-level <div> lines - caught by Codex review, so
+      the job-log line classes are forced display:block so the stripe
+      spans the full line width rather than sitting only behind the text
+      glyphs, and the span's own trailing "\n" (redundant once the span
+      is block-level, and preserved as a spurious blank line under
+      white-space:pre-wrap) was removed.
     - TKT-818: the browser dashboard's own create route named the column a
       new card landed in only when that column was not backlog - it called
       record_move to reach a named column, and only record_move's own

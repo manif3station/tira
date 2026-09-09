@@ -1,6 +1,16 @@
 Revision history for Tira
 
 5.90  2026-09-09
+    - TKT-853: tasklist.list returned status as its raw stored code (0/1/2)
+      in both human and JSON output, though tasklist.update has always
+      accepted the word - the reverse map already existed
+      (@TASKLIST_STATUS_NAME) but was used only for the per-session
+      summary. Self-found checking whether a linked task was still
+      working: 1 answers nothing without opening lib/Tira/Tasklist.pm.
+      tasklist.list now also returns status_name (pending/working/done)
+      alongside the unchanged status code - a second field, not the same
+      one carrying two vocabularies; tasklist.add/update's own returned
+      status stays the code, unaffected (t/390).
     - TKT-848: a card carrying a question was highlighted only while it was
       unanswered (waiting) or answered-but-unjudged (to_review) - his own
       answer to Q-106 counts questions, not turns: "Use yellow box

@@ -44,6 +44,12 @@ sub _tasklist_path {
 
 my %TASKLIST_STATUS_CODE = ( pending => 0, working => 1, done => 2 );
 
+# The reverse of the map above. TKT-853: moved up here, before
+# tasklist_list, which is its second reader now - it used to sit only where
+# tasklist_sessions needed it, declared after every sub that would otherwise
+# have wanted it too.
+my @TASKLIST_STATUS_NAME = ( 'pending', 'working', 'done' );
+
 # Accepts either the word or the code, his screenshot showed both ("0:
 # pending" etc) - normalizes to the canonical int, or dies naming the three
 # words, the same refusal shape the old string-only version used.
@@ -219,6 +225,17 @@ sub tasklist_list {
         @mine = grep { grep { $_ eq $wanted_ref } @{ $_->{refs} // [] } } @mine;
     }
 
+    # TKT-853: the stored code is what tasklist_add/tasklist_update return
+    # (t/390) and stays exactly that here too - a machine reader keeps its
+    # stable key. But nothing rendered the word @TASKLIST_STATUS_NAME already
+    # holds for the one place a human actually reads several items at once,
+    # so 1 read back as itself rather than as "working". A second field
+    # rather than replacing status, which would be the same field carrying
+    # two vocabularies depending on who asked.
+    @mine = map {
+        { %{$_}, status_name => $TASKLIST_STATUS_NAME[ $_->{status} // 0 ] // 'pending' }
+    } @mine;
+
     # Filter before sort, so an explicit --sort orders what survived rather
     # than being applied to a set the caller never asked for.
     return _tasklist_sort_items( \@mine, $args{sort} // 'last_updated:desc,status:asc' );
@@ -228,7 +245,6 @@ sub tasklist_list {
 # to hand-dedupe the session field out of a flat dump to find out which
 # sessions even exist. No session-scoping args of its own: seeing every
 # session is the whole point, the same way --all-sessions already treats it.
-my @TASKLIST_STATUS_NAME = ( 'pending', 'working', 'done' );
 
 sub tasklist_sessions {
     my ( $self, %args ) = @_;

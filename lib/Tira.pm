@@ -4611,7 +4611,7 @@ sub checklist_add {
     my ( $self, %args ) = @_;
     local $self->{_journal_author} = $self->_require_author(%args);
     die "Checklist item is required\n" if !defined $args{item} || $args{item} !~ /\S/;
-    die "Checklist status is required\n" if !defined $args{status} || $args{status} eq '';
+    die "Checklist status is required - the values that work are pending, done, and To Do\n" if !defined $args{status} || $args{status} eq '';
 
     # TKT-958: checklist_update refuses a done status with no --command/
     # --proof pair, routed through _proof_entries_for - checklist_add never
@@ -4666,7 +4666,7 @@ sub checklist_update {
     local $self->{_journal_author} = $self->_require_author(%args);
     die "Checklist item or status is required\n" if !defined $args{item} && !defined $args{status};
     die "Checklist item is required\n" if defined $args{item} && $args{item} eq '';
-    die "Checklist status is required\n" if defined $args{status} && $args{status} eq '';
+    die "Checklist status is required - the values that work are pending, done, and To Do\n" if defined $args{status} && $args{status} eq '';
     my $proof_entries = $self->_proof_entries_for(%args);
 
     my $root = $self->discover_project(%args);
@@ -13501,11 +13501,13 @@ sub _valid_datetime {
 
 sub _reciprocal_type {
     my ( $self, $root, $type ) = @_;
-    for my $pair ( @{ $self->link_type_list( project => $root ) } ) {
+    my $pairs = $self->link_type_list( project => $root );
+    for my $pair ( @{$pairs} ) {
         return $pair->{inward} if $pair->{outward} eq ( $type // '' );
         return $pair->{outward} if $pair->{inward} eq ( $type // '' );
     }
-    die "Unknown link type '$type'\n";
+    my @names = sort map { ( $_->{outward}, $_->{inward} ) } @{$pairs};
+    die "Unknown link type '$type'. Types: " . join( ', ', @names ) . "\n";
 }
 
 sub _is_subitem_descendant {

@@ -184,7 +184,7 @@ sub _dashboard_table {
     # distinction /logs makes by answering 404 rather than an empty list.
     # EPC-007, TKT-852.
     $boards .= '<section class="board board--logs" data-type="logs">'
-      . '<header class="board__header"><span class="board__kicker">Tira board</span><h2>Requests</h2></header>'
+      . '<header class="board__header"><span class="board__kicker">Tira board</span><h2>Requests</h2><button type="button" class="logs-clear">Clear</button></header>'
       . '<p class="logs-note"></p><ol class="logs-lines"></ol></section>'
       if $args{live} && $Tira::DashboardWeb::SHOW_LOGS;
 
@@ -199,7 +199,7 @@ sub _dashboard_table {
     # says about itself, and it is the thing he asked to see without leaving
     # the page. TKT-916.
     $boards .= '<section class="board board--bridge" data-type="bridge">'
-      . '<header class="board__header"><span class="board__kicker">Tira board</span><h2>Bridge</h2></header>'
+      . '<header class="board__header"><span class="board__kicker">Tira board</span><h2>Bridge</h2><button type="button" class="bridge-clear">Clear</button></header>'
       . '<p class="bridge-note"></p><div class="bridge-lines" role="log"></div></section>'
       if $args{live};
 
@@ -494,6 +494,6 @@ terminal and by C<tira.policy.bridge.logs>, all through C<enforcement_log>.
 Reversing at the source would change what every one of those readers sees in
 order to fix how one panel looks - the same drift F<t/541> was written about.
 F<t/583> holds the boundary by reading C<enforcement_log> and requiring that it
-does B<not> reverse.
+does B<not> reverse. Since 5.88 (TKT-1020) the header also carries C<.bridge-clear>, matching C<.logs-clear> and C<.jobs-card__log-clear> - each empties its own current rendering only, since these panels keep polling regardless.
 
 =cut

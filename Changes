@@ -1,6 +1,14 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-1020: every log-rendering panel gets a clear control - job
+      cards, the request log, and the bridge - the fourth part of his
+      TKT-1018 report. A job card's clear button removes only that
+      job's own entry from the client's runLogs buffer, leaving every
+      other card untouched. The request log and bridge panels both
+      still poll every five seconds, so their clear empties the current
+      rendering rather than changing what is retained - a "read it
+      clean right now" control, matching how he framed the ask.
     - TKT-1018: a job card's log panel read oldest-first and force-scrolled
       to the bottom on every repaint, unlike the bridge panel (TKT-976).
       The newest line was always there, just past the fold, with the

@@ -1,6 +1,17 @@
 Revision history for Tira
 
 5.88  2026-09-08
+    - TKT-741: a plain-text file handed to any --set-* array option (10
+      of them, sharing one decode boundary) surfaced the JSON decoder's
+      own internal expectation ("'true' expected, at character offset
+      0...") and an internal file and line number, naming no option and
+      telling the caller nothing to act on. The refusal now names the
+      option, states that a JSON array is required with an example, and
+      points at the repeated single-item append form (--scope-in TEXT,
+      --label TEXT, and so on) as the alternative a caller reaching for
+      --set-* usually wanted. Valid JSON of the wrong shape is refused
+      just as clearly. SKILLS.md and docs/commands.md now say JSON-FILE,
+      not FILE, for every --set-* option.
     - TKT-731: evidence.annotate and gate.annotate read a card, mutated
       an annotation into it, and wrote the whole card back with no
       project lock - the only 2 of 23 _replace_record call sites that

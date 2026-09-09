@@ -2339,6 +2339,15 @@ JSON-array options are the explicit wholesale-replacement controls for all
 eight content arrays, including `--set-scope-in` and `--set-scope-out` -
 an empty array clears the field rather than leaving it unchanged. TKT-293.
 
+**A file that is not a JSON array is refused by name, not by decoder error
+(TKT-741).** Every `--set-*` option shares one decode boundary; handing it
+plain text used to surface the JSON parser's own internal expectation
+(`'true' expected, at character offset 0...`) and an internal file and line
+number - correct about what failed, useless about what to do. The refusal
+now names the option, states that a JSON array is required with an example,
+and points at the repeated single-item form (`--scope-in TEXT`, and so on)
+as the append alternative a caller reaching for `--set-*` usually wanted.
+
 ## A truncated read cannot be written back
 
 `description`, `problem_or_feature`, and `solution_needed` truncate at 2000

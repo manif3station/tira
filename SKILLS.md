@@ -379,20 +379,21 @@ Implemented create/update arguments are:
 
 ```text
 --assignee ID|"" --reporter ID|""
---label TEXT ... --set-labels FILE
+--label TEXT ... --set-labels JSON-FILE
 --due-date DATETIME|"" --start-date DATETIME|""
 --sdlc-gate TEXT|"" --lifecycle TEXT|"" --priority 1..5|""
 --fix-version TEXT|""
---affects-version TEXT ... --set-affects-versions FILE
---scope-in TEXT ... --set-scope-in FILE
---scope-out TEXT ... --set-scope-out FILE
+--affects-version TEXT ... --set-affects-versions JSON-FILE
+--scope-in TEXT ... --set-scope-in JSON-FILE
+--scope-out TEXT ... --set-scope-out JSON-FILE
 ```
 
 Repeated `--label` and `--affects-version` values append on update. Their
-`--set-*` forms replace the complete array from a UTF-8 JSON-array file; `-`
-reads stdin. Append and replacement forms for the same field conflict. Empty
-strings clear nullable scalar fields. Parent changes only through hierarchy or
-sub-item link commands.
+`--set-*` forms replace the complete array from a UTF-8 JSON-array file (a
+plain-text file, or JSON of any other shape, is refused by name rather than
+decoded and misread - TKT-741); `-` reads stdin. Append and replacement
+forms for the same field conflict. Empty strings clear nullable scalar
+fields. Parent changes only through hierarchy or sub-item link commands.
 
 The same append rule applies to repeated `--key-detail`, `--deliverable`,
 `--acceptance`, `--test-step`, `--bdd`, `--atdd`, `--scope-in`, and

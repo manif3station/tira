@@ -149,7 +149,7 @@ my $live_html = $calls->[0]{render}->();
 like( $live_html, qr/card-composer-toggle/, 'the composer collapses behind a toggle' );
 like( $live_html, qr/renderMarkdown/, 'comment bodies render through the markdown renderer' );
 like( $live_html, qr/data-md/, 'the formatting bar tags its controls' );
-like( $live_html, qr/\["bold","B"/, 'the formatting bar offers bold' );
+like( $live_html, qr/\["bold",\s*"B"/, 'the formatting bar offers bold' );
 like( $live_html, qr/\["list",/, 'the formatting bar offers bullet lists' );
 like( $live_html, qr/added_at/, 'attachment chips consult the added time' );
 unlike( $live_html, qr/innerHTML/, 'the renderer never assigns raw HTML' );

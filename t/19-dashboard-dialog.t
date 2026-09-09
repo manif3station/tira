@@ -69,13 +69,13 @@ like( $live_html, qr/const pageStep=10;/, 'and reveal ten more per click' );
 like( $live_html, qr/Show "\+Math\.min\(remaining,pageStep\)\+" more of "\+remaining/,
     'and offer to reveal the next ten, saying how many remain' );
 like( $live_html, qr/data-add-card=/, 'each column offers an add-card control' );
-like( $live_html, qr/const openNewCard=/, 'the dialog has a new-card mode' );
+like( $live_html, qr/const openNewCard\s*=/, 'the dialog has a new-card mode' );
 like( $live_html, qr/reference assigned on save/, 'new cards show no ref until they are saved' );
 like( $live_html, qr/fetch\("\/create"/, 'creating posts to the create route' );
 like( $live_html, qr/A title is required/, 'only the title is mandatory, and it is enforced' );
 like( $live_html, qr/dialog\.querySelector\("\.card-new"\)/,
     'a half-filled new card counts as active editing, so refresh never wipes it' );
-like( $live_html, qr/if\(!dialog\.dataset\.ref\)return/,
+like( $live_html, qr/if\s*\(!dialog\.dataset\.ref\)\s*return/,
     'the refresh cycle skips a dialog that has no record yet' );
 like( $live_html, qr/card-linkage-table/, 'linkage renders as a table-style list (CA21)' );
 like( $live_html, qr/card-linkage__title/, 'linkage rows carry the linked title' );
@@ -83,16 +83,16 @@ like( $live_html, qr/card-linkage__status/, 'linkage rows carry the linked statu
 like( $live_html, qr/priorityRank/, 'linkage rows sort by priority' );
 like( $live_html, qr/data-linkage-row/, 'linkage rows are addressable for tooling' );
 like( $live_html, qr/lastDialogRecordJson/, 'the dialog keeps a rendered-content snapshot' );
-like( $live_html, qr/JSON\.stringify\(record\)===lastDialogRecordJson/,
+like( $live_html, qr/JSON\.stringify\(record\)\s*===\s*lastDialogRecordJson/,
     'an identical refresh repaints nothing' );
-like( $live_html, qr/\|\|dialogEditingActive\(\)\)return/,
+like( $live_html, qr/\|\|\s*dialogEditingActive\(\)\)\s*return/,
     'the editing guard re-checks after the refresh fetch returns' );
 for my $section (qw(Details Description Checklist Comments)) {
     like( $live_html, qr/\Q$section\E/, "the dialog knows the $section section" );
 }
 like( $live_html, qr{fetch\("/people"}, 'the dialog loads the author choices from /people' );
 like( $live_html, qr{mutate\("/update"}, 'field edits post to the update route' );
-like( $live_html, qr/base:base/, 'field saves carry the base value they loaded' );
+like( $live_html, qr/base:\s*base/, 'field saves carry the base value they loaded' );
 like( $live_html, qr/result\.conflict/, 'the dialog distinguishes conflict responses' );
 like( $live_html, qr/changed while you were editing/, 'conflict messaging explains the retry' );
 like( $live_html, qr{mutate\("/comment/add"}, 'comment creation posts to its route' );
@@ -210,11 +210,11 @@ for my $payload ( undef, [], { type => 'ticket' }, { type => 'ticket', columns =
 
 # Questions sat under the comments, so on a card with twenty of them
 # the one section needing an answer was the furthest to scroll to.
-like( $live_html, qr/box\.dataset\.section=title\.toLowerCase\(\)/,
+like( $live_html, qr/box\.dataset\.section\s*=\s*title\.toLowerCase\(\)/,
     'each section is named, so one can be found without matching its heading text' );
-like( $live_html, qr/sectionsHost\.insertBefore\(section\("Questions",host\)/,
+like( $live_html, qr/sectionsHost\.insertBefore\(\s*section\("Questions",\s*host\)/,
     'and the questions are placed rather than appended at the end' );
-like( $live_html, qr/\(details&&details\.nextSibling\)\|\|comments\|\|null/,
+like( $live_html, qr/\(details\s*&&\s*details\.nextSibling\)\s*\|\|\s*comments\s*\|\|\s*null/,
     'right after what the card is, because a dozen sections sit between the top and the comments' );
 unlike( $live_html, qr/sectionsHost\.appendChild\(section\("Questions"/,
     'with nothing left that would put them back at the bottom' );
@@ -226,44 +226,48 @@ like( $live_html, qr/\.card-question__typed\[hidden\][^{]*\{\s*display:\s*none/,
     'hiding the answer box actually hides it' );
 
 # Evidence where the question is, and a place to drop more.
-like( $live_html, qr/fileList\(question\.attachments,"Asked with:"\)/,
+like( $live_html, qr/fileList\(question\.attachments,\s*"Asked with:"\)/,
     'what the question was asked with is shown on it' );
-like( $live_html, qr/fileList\(question\.answer&&question\.answer\.attachments,"Answered with:"\)/,
+like( $live_html, qr/fileList\(question\.answer\s*&&\s*question\.answer\.attachments,\s*"Answered with:"\)/,
     'and what came back with the answer, under the same question' );
 like( $live_html, qr/card-question__drop/, 'with somewhere to drop another file' );
 like( $live_html, qr{mutate\("/question/attach"}, 'which uploads it against that question' );
-like( $live_html, qr/to:question\.answer\?"answer":"question"/,
+like( $live_html, qr/to:\s*question\.answer\s*\?\s*"answer"\s*:\s*"question"/,
     'onto the answer once there is one, since that is who is attaching by then' );
-like( $live_html, qr/box\.style\.height=Math\.min\(box\.scrollHeight,420\)\+"px"/,
+like( $live_html, qr/box\.style\.height\s*=\s*Math\.min\(box\.scrollHeight,\s*420\)\s*\+\s*"px"/,
     'and the answer box grows with what is typed rather than hiding the start of it' );
 
 # a question that has been set aside cannot be added to, so offering a
 # place to drop a file on one offers something that does nothing. Its existing
 # files still show, because they still happened.
-like( $live_html, qr/if\(!question\.discarded_at\)\{const drop=el\("div","card-question__drop"/,
+like( $live_html,
+    qr/if\s*\(!question\.discarded_at\)\s*\{\s*const drop\s*=\s*el\(\s*"div",\s*"card-question__drop"/,
     'the drop zone is only offered on a question that can still be added to' );
-like( $live_html, qr/fileList\(question\.attachments,"Asked with:"\)/,
+like( $live_html, qr/fileList\(question\.attachments,\s*"Asked with:"\)/,
     'while the files already on it are listed whatever its state' );
-like( $live_html, qr/if\(!files\|\|!files\.length\)return/,
+like( $live_html, qr/if\s*\(!files\s*\|\|\s*!files\.length\)\s*return/,
     'and a question with no files shows no file area at all' );
 
 # What still needs doing comes first, what is finished sinks.
-like( $live_html, qr/const questionRank=question=>question\.discarded_at\?3:!question\.answer\?0:!question\.answer\.mark\?1:2/,
+like( $live_html,
+    qr/const questionRank\s*=\s*\(question\)\s*=>\s*question\.discarded_at\s*\?\s*3\s*:\s*!question\.answer\s*\?\s*0\s*:\s*!question\.answer\.mark\s*\?\s*1\s*:\s*2/s,
     'unanswered ranks first, then answered but unjudged, then judged, then set aside' );
-like( $live_html, qr/all\.sort\(\(a,b\)=>questionRank\(a\)-questionRank\(b\)\)/,
+like( $live_html, qr/all\.sort\(\(a,\s*b\)\s*=>\s*questionRank\(a\)\s*-\s*questionRank\(b\)\)/,
     'and the panel is ordered by it' );
-like( $live_html, qr/const all=\[\.\.\.\(record\.questions\|\|\[\]\)\]/,
+like( $live_html, qr/const all\s*=\s*\[\.\.\.\(record\.questions\s*\|\|\s*\[\]\)\]/,
     'on a copy, so sorting for display never reorders the card itself' );
 
 # a judged question is finished business. It keeps the question, the
 # answer and the verdict as an icon, and drops the apparatus for acting on it,
 # which is only in the way once there is nothing left to do.
-like( $live_html, qr/const settled=!!\(question\.answer&&question\.answer\.mark\)/,
+like( $live_html, qr/const settled\s*=\s*!!\(question\.answer\s*&&\s*question\.answer\.mark\)/,
     'a question counts as settled once its answer carries a mark' );
 like( $live_html, qr/card-question__verdict/, 'which is shown as a verdict rather than a word' );
-like( $live_html, qr/question\.answer\.mark==="ok"\?"\\u2705":"\\u274c"/,
+like( $live_html,
+    qr/question\.answer\.mark\s*===\s*"ok"\s*\?\s*"\\u2705"\s*:\s*"\\u274c"/,
     'a tick or a cross, written as escapes so they cannot arrive double-encoded' );
-like( $live_html, qr/if\(settled\)\{block\.appendChild\(el\("blockquote","card-question__answer",question\.answer\.text\)\);host\.appendChild\(block\);return\}/,
+like( $live_html,
+    qr/if\s*\(settled\)\s*\{\s*block\.appendChild\(\s*el\("blockquote",\s*"card-question__answer",\s*question\.answer\.text\),?\s*\);\s*host\.appendChild\(block\);\s*return;?\s*\}/s,
     'and a settled question stops there: question, answer, verdict, nothing else' );
 like( $live_html, qr/\.card-question\[data-settled="1"\]\s*\{\s*padding:\s*0?\.5rem/,
     'drawn tighter than one still needing attention' );
@@ -271,7 +275,8 @@ like( $live_html, qr/\.card-question\[data-settled="1"\]\s*\{\s*padding:\s*0?\.5
 # Answering wiped the whole questions panel. The reload rebuilds the
 # card's sections from scratch, so anything only the first render added is gone
 # the moment anybody changes something.
-like( $live_html, qr/renderCard\(record\);renderQuestions\(record\);renderPoliceLog\(record\);renderWorkLog\(record\);return record/,
+like( $live_html,
+    qr/renderCard\(record\);\s*renderQuestions\(record\);\s*renderPoliceLog\(record\);\s*renderWorkLog\(record\);\s*return record/s,
     'reloading the card rebuilds its questions and its work log too, so answering does not erase them' );
 # Three paths, not two. The background refresh rendered only the card, which
 # wipes the sections the other two draw into - so the questions and the work log
@@ -280,7 +285,8 @@ like( $live_html, qr/renderCard\(record\);renderQuestions\(record\);renderPolice
 # assertion here could.
 is( scalar( () = $live_html =~ /renderQuestions\(record\)/g ), 3,
     'and every path that renders a card renders them: the first open, every reload, and every refresh' );
-like( $live_html, qr/renderCard\(record\);renderQuestions\(record\);renderPoliceLog\(record\);renderWorkLog\(record\)\}\)\.catch/,
+like( $live_html,
+    qr/renderCard\(record\);\s*renderQuestions\(record\);\s*renderPoliceLog\(record\);\s*renderWorkLog\(record\);?\s*\}\)\s*\.catch/s,
     'including the background refresh, which used to redraw the card alone' );
 
 # --- the work log, collapsed and fetched only when asked for --------------
@@ -289,11 +295,11 @@ like( $live_html, qr/renderCard\(record\);renderQuestions\(record\);renderPolice
 # opened would bury everything else, so the section renders closed and the
 # request only goes out when somebody expands it - which is also the whole
 # difference between a card that opens instantly and one that does not.
-like( $live_html, qr/const renderWorkLog=/, 'the dialog builds a work log section' );
+like( $live_html, qr/const renderWorkLog\s*=/, 'the dialog builds a work log section' );
 like( $live_html, qr/card-worklog__toggle/, 'with something to click' );
-like( $live_html, qr/let worklogOpen=false/, 'starting closed' );
-like( $live_html, qr/body\.hidden=!worklogOpen/, 'and drawn closed unless somebody had it open' );
-like( $live_html, qr/if\(!open\|\|loaded\)return/,
+like( $live_html, qr/let worklogOpen\s*=\s*false/, 'starting closed' );
+like( $live_html, qr/body\.hidden\s*=\s*!worklogOpen/, 'and drawn closed unless somebody had it open' );
+like( $live_html, qr/if\s*\(!open\s*\|\|\s*loaded\)\s*return/,
     'and it fetches once, on expanding, rather than on every click' );
 
 {
@@ -301,13 +307,13 @@ like( $live_html, qr/if\(!open\|\|loaded\)return/,
     # runs while a card is merely being opened. If it were anywhere else the
     # section would look lazy while loading eagerly, which is the failure that
     # would never show up by reading the rendered page.
-    my ($handler) = $live_html =~ /head\.addEventListener\("click",\(\)=>\{(.*?)\}\);if\(worklogOpen\)/s;
+    my ($handler) = $live_html =~ /head\.addEventListener\("click",\s*\(\)\s*=>\s*\{(.*?)\}\);\s*if\s*\(worklogOpen\)/s;
     ok( $handler, 'the toggle has a click handler' );
     like( $handler // '', qr/readLog\(\)/,
         'which is what reads the log, so opening a card asks for nothing' );
 
     # One place fetches it, so there is one place to be wrong about when.
-    my $fetches = () = $live_html =~ m{fetch\("/worklog\?ref="}g;
+    my $fetches = () = $live_html =~ m{fetch\(\s*"/worklog\?ref="}g;
     is( $fetches, 1, 'and exactly one place in the page fetches a work log' );
 }
 
@@ -315,36 +321,36 @@ like( $live_html, qr/if\(!open\|\|loaded\)return/,
 # outside it, the section pinned itself to the bottom of the dialog and cut off
 # whatever was above - which every assertion in this file passed straight
 # through, and only looking at the screen caught.
-like( $live_html, qr/const host=sectionsHost/,
+like( $live_html, qr/const host\s*=\s*sectionsHost/,
     'the work log renders among the sections rather than beside them' );
 unlike( $live_html, qr/<div class="card-worklog"><\/div>/,
     'with no host of its own outside the scrolling area' );
 
 # The owner reads and answers questions where he reads the card
-like( $live_html, qr/const renderQuestions=/, 'the dialog builds a questions section' );
+like( $live_html, qr/const renderQuestions\s*=/, 'the dialog builds a questions section' );
 
 # The owner named five things this panel must carry.
 like( $live_html, qr/card-question__text/, 'one: the question itself' );
 like( $live_html, qr/card-question__choice/, 'two: its choices' );
 like( $live_html, qr/card-question__reason/, 'three: why it was asked' );
 like( $live_html, qr/card-question__status/, 'four: its status' );
-like( $live_html, qr/question\.discarded_at\?"discarded"/,
+like( $live_html, qr/question\.discarded_at\s*\?\s*"discarded"/,
     'including discarded, which is one of the three he named' );
 like( $live_html, qr{mutate\("/question/answer"}, 'five: an answer can be added' );
-like( $live_html, qr/question\.answer\?"Save answer":"Answer"/,
+like( $live_html, qr/question\.answer\s*\?\s*"Save answer"\s*:\s*"Answer"/,
     'and an existing one edited rather than only read' );
-like( $live_html, qr/box\.value=question\.answer\?question\.answer\.text:""/,
+like( $live_html, qr/box\.value\s*=\s*question\.answer\s*\?\s*question\.answer\.text\s*:\s*""/,
     'with the current answer loaded for editing' );
 
 # Picking a choice is the whole answer; typing is only for anything else.
-like( $live_html, qr/pick\.onclick=\(\)=>answerWith\(choice\)/,
+like( $live_html, qr/pick\.onclick\s*=\s*\(\)\s*=>\s*answerWith\(choice\)/,
     'clicking a choice answers with it in one click' );
 like( $live_html, qr/Other\\u2026/, 'with an Other button for a different answer' );
-like( $live_html, qr/typed\.hidden=/, 'and the box stays out of the way until it is wanted' );
+like( $live_html, qr/typed\.hidden\s*=/, 'and the box stays out of the way until it is wanted' );
 like( $live_html, qr{mutate\("/question/mark"}, 'and the owner can say whether it settles it' );
 
 # A discarded question is shown struck through rather than hidden.
-like( $live_html, qr/const all=\[\.\.\.\(record\.questions\|\|\[\]\)\]/,
+like( $live_html, qr/const all\s*=\s*\[\.\.\.\(record\.questions\s*\|\|\s*\[\]\)\]/,
     'every question is rendered, discarded ones included' );
 like( $live_html, qr/card-question\[data-status="discarded"\] \.card-question__text\s*\{\s*text-decoration:\s*line-through/,
     'and a discarded one is struck through' );

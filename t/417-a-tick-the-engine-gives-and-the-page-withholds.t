@@ -133,7 +133,7 @@ cmp_ok( $insensitive, '>=', 1,
 
 like( $source, qr/required_items\.filter\(/,
     'the done/total count is still computed' );
-like( $source, qr/\\u2705.{0,40}\\u2b1c|\\u2b1c.{0,40}\\u2705/,
+like( $source, qr/\\u2705.{0,100}\\u2b1c|\\u2b1c.{0,100}\\u2705/s,
     'the tick and the empty box are both still rendered' );
 like( $source, qr/dataset\.requiredActionDone/,
     'and an outstanding item is still offered its checkbox' );
@@ -155,7 +155,7 @@ like( $source, qr/\\u2796/,
 # corrected everything it found would fail here rather than quietly change a
 # renderer that was already right.
 
-like( $source, qr/\Q"["+(entry.status||"open")+"] "\E/,
+like( $source, qr/"\["\s*\+\s*\(entry\.status\s*\|\|\s*"open"\)\s*\+\s*"\] "/,
     'the checklist still prints the status it was given, and compares nothing' );
 
 done_testing();

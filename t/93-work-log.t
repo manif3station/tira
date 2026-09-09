@@ -280,13 +280,14 @@ ok( !Tira->can('work_log_remove'), 'nor to remove one' );
     }
     my $html = $calls[0]{render}->();
 
-    like( $html, qr/card-worklog__who",entry\.who\|\|dash/,
+    like( $html, qr/card-worklog__who",\s*entry\.who\s*\|\|\s*dash/,
         'an entry with nobody named still gets its name cell, so the row keeps its columns' );
-    like( $html, qr/worklogRefresh=\(\)=>\{if\(loaded&&!body\.hidden\)readLog\(\)\}/,
+    like( $html,
+        qr/worklogRefresh\s*=\s*\(\)\s*=>\s*\{\s*if\s*\(loaded\s*&&\s*!body\.hidden\)\s*readLog\(\)/,
         'an open work log is re-read rather than left as it was when it was opened' );
-    like( $html, qr/if\(worklogOpen\)\{/,
+    like( $html, qr/if\s*\(worklogOpen\)\s*\{/,
         'and it stays open when the card behind it is redrawn' );
-    like( $html, qr/if\(!open\|\|loaded\)return/,
+    like( $html, qr/if\s*\(!open\s*\|\|\s*loaded\)\s*return/,
         'while a log nobody has opened still fetches nothing' );
 }
 

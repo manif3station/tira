@@ -103,11 +103,11 @@ like( $js, qr{all_sessions=1}, 'and asks for every session, not just its own' );
 # The fetch has to land inside the SAME code path that builds the rest of
 # Linkage, close to where it is appended - not a second, independent section
 # elsewhere in the file that could silently drift from where Linkage itself
-# renders or fails to render (a card with no `record.linkage` at all). The
-# whole file is one minified line, so "close to" is asserted by proximity
-# within the source rather than by a line boundary neither original code nor
-# this fix has.
-like( $js, qr{/tasklist\?ref=.{0,1200}?sectionsHost\.appendChild\(section\("Linkage",box\)\)},
+# renders or fails to render (a card with no `record.linkage` at all). So
+# "close to" is asserted by proximity within the source (byte distance, /s so
+# a formatter's line breaks do not hide the gap) rather than by a line
+# boundary neither original code nor this fix has.
+like( $js, qr{/tasklist\?ref=.{0,1200}?sectionsHost\.appendChild\(section\("Linkage",\s*box\)\)}s,
     'the tasklist fetch sits just before the Linkage section is appended, '
       . 'inside the same code path rather than a second, independent one' );
 

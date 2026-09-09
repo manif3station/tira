@@ -133,10 +133,10 @@ ok( $script,
     'the dashboard scripts were read - '
       . scalar(@scripts) . ' files, ' . length($script) . ' bytes' );
 
-my ($labels) = $script =~ /const priorityLabels=\{([^}]*)\}/;
+my ($labels) = $script =~ /const priorityLabels\s*=\s*\{([^}]*)\}/;
 ok( $labels, 'the dashboard still labels the scale' );
 
-my %label = $labels =~ /(\d+):"([^"]+)"/g;
+my %label = $labels =~ /(\d+):\s*"([^"]+)"/g;
 is( scalar keys %label, 5, 'with a word for each of the five' );
 
 like( $label{5}, qr/high/i, 'and five is the high end' );

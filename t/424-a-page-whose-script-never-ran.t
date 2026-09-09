@@ -115,7 +115,7 @@ if ( $status != 0 ) {
 # is why the assertion now describes the shape rather than the mechanism - the
 # escaping layer is gone, and this is what proves it did not take the backslash
 # with it.
-like( $script, qr/rest\[j\]==="\\\\"/,
+like( $script, qr/rest\[j\]\s*===\s*"\\\\"/,
     'the string scanner tests for a literal backslash, not for an escaped '
       . 'quote - the shape that shipped a dead board, and the one an escaping '
       . 'layer between the source and the browser can silently halve' );

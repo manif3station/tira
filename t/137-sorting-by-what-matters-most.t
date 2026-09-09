@@ -78,7 +78,7 @@ like( $page, qr/\QNumber(b.dataset.priority||0)-Number(a.dataset.priority||0)\E/
 # that works on the path anybody checks and not on the one nobody does.
 
 like( $page, qr/priority/, 'the refresh payload is read for a priority' );
-like( $page, qr/\Qdataset.priority=\E/, 'and the rebuilt card is given one' );
+like( $page, qr/dataset\.priority\s*=/, 'and the rebuilt card is given one' );
 
 # --- the payload carries it ------------------------------------------------------
 

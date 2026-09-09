@@ -58,7 +58,7 @@ like( $live_html, qr/<h1>Browser project<\/h1>/, 'the hero shows the project nam
 like( $live_html, qr/Tira Kanban/, 'the product name remains visible' );
 like( $live_html, qr/fetch\("\/data".*updateBoards/s,
     'browser dashboard updates board positions from the JSON endpoint' );
-like( $live_html, qr/fetch\("\/record\?type=".*renderCard/s,
+like( $live_html, qr/fetch\(\s*"\/record\?type=".*renderCard/s,
     'browser dashboard lazy-loads full card details on click' );
 unlike( $live_html, qr/setTimeout\(\(\)=>location\.reload/,
     'browser dashboard does not reload the whole page' );
@@ -66,7 +66,7 @@ like( $live_html, qr/<dialog class="card-dialog".*card-dialog__sections/s,
     'browser dashboard includes a sectioned card dialog' );
 like( $live_html, qr/pointerdown.*pointerup.*\/move/s,
     'browser dashboard exposes pointer-based drag and drop move behavior' );
-like( $live_html, qr/touchmove.*preventDefault.*passive:false/s,
+like( $live_html, qr/touchmove.*preventDefault.*passive:\s*false/s,
     'an armed drag blocks native touch scrolling so iOS tracks the ghost' );
 unlike( $live_html, qr/dragstart|draggable="true"/,
     'the HTML5 drag path is fully replaced' );

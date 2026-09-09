@@ -591,7 +591,7 @@ like( $js, qr/const isAnnounced\s*=/,
 # over everything, done over announced, announced over untouched. Asserted as
 # the icon expression carrying four outcomes rather than by naming characters,
 # so a different clock does not fail this.
-my ($icon_line) = $js =~ /(const icon=[^;]{0,220};)/;
+my ($icon_line) = $js =~ /(const icon\s*=[^;]{0,220};)/;
 isnt( $icon_line, undef, 'the icon is still chosen in one place' );
 my $branches = () = ( $icon_line // '' ) =~ /\?/g;
 cmp_ok( $branches, '>=', 3,

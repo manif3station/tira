@@ -122,9 +122,10 @@ unlike( $page, qr/policelog[^"]*__edit|data-policelog-(?:add|save|remove)/,
 # because there is at most one line per thing police has said - unlike the work
 # log, which is why that one is lazy.
 
-like( $page, qr/\Qif(!entries||!entries.length){box.hidden=true\E/,
+like( $page,
+    qr/if\s*\(\s*!entries\s*\|\|\s*!entries\.length\s*\)\s*\{\s*box\.hidden\s*=\s*true/,
     'the section hides itself when the card has nothing recorded against it' );
-like( $page, qr/\Qbox.hidden=false\E/, 'and appears when it has' );
+like( $page, qr/box\.hidden\s*=\s*false/, 'and appears when it has' );
 like( $page, qr/What police has said \(/,
     'saying how many things police has recorded, which is what the log counts' );
 

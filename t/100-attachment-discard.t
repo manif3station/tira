@@ -122,9 +122,9 @@ like( $@, qr/already discarded/i, 'and says why' );
         'struck through, like every other discarded thing' );
     like( $html, qr/\.card-attachment--discarded\s*\{[^}]*opacity/,
         'and greyed out' );
-    like( $html, qr/reference\.discarded_at\?" card-attachment--discarded"/,
+    like( $html, qr/reference\.discarded_at\s*\?\s*" card-attachment--discarded"/,
         'and it decides from the attachment itself rather than being told' );
-    like( $html, qr/drop\.disabled=!!reference\.discarded_at/,
+    like( $html, qr/drop\.disabled\s*=\s*!!reference\.discarded_at/,
         'with no second chance to discard one already set aside' );
 }
 

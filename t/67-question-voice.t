@@ -133,9 +133,9 @@ my $html = $tira->format_output(
     $tira->dashboard( project => $root, type => 'ticket', summary => 1 ),
     output => 'table', project => $root, live => 1 );
 like( $html, qr/card-question__play/, 'the question block offers a play control' );
-like( $html, qr/attachmentUrl\(question\.voice\.sha,question\.voice\.extension\)/,
+like( $html, qr/attachmentUrl\(question\.voice\.sha,\s*question\.voice\.extension\)/,
     'served by the route that already serves attachments' );
-like( $html, qr/if\(question\.voice\)\{/, 'and a question without a recording shows no control' );
+like( $html, qr/if\s*\(question\.voice\)\s*\{/, 'and a question without a recording shows no control' );
 
 # An agent will not use a feature nobody tells it about. These lines
 # are read by an LLM and Tira exists to spend fewer tokens than Jira, so they

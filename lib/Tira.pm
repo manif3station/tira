@@ -1628,6 +1628,27 @@ sub _valid_action_template {
     return $list if !defined $list;
     my %seen;
     for my $item ( @{$list} ) {
+
+        # TKT-936/Q-154: a template entry may now be a conditional item -
+        # { text => ..., touches => [PATTERN, ...] } - placed on a card only
+        # when its own git history touches a matching path, rather than a
+        # plain string placed unconditionally. Validated the same way the
+        # plain form is (non-empty text, no duplicate), plus its own
+        # condition: a touches list that is missing, empty, or itself full of
+        # blanks cannot ever match anything, which is indistinguishable from
+        # an item nobody will ever be asked to do - refused here rather than
+        # discovered as a required action that silently never appears.
+        if ( ref $item eq 'HASH' ) {
+            die "$label cannot be empty or whitespace-only\n"
+              if !defined $item->{text} || $item->{text} !~ /\S/;
+            die "${label}'s touches condition must be a non-empty list of path patterns\n"
+              if ref $item->{touches} ne 'ARRAY' || !@{ $item->{touches} }
+              || grep { !defined $_ || $_ !~ /\S/ } @{ $item->{touches} };
+            die "$label repeats \"$item->{text}\" - a duplicate would be silently deduped on the "
+              . "card and the counts would not agree\n"
+              if $seen{ $item->{text} }++;
+            next;
+        }
         die "$label cannot be empty or whitespace-only\n" if !defined $item || $item !~ /\S/;
         die "$label repeats \"$item\" - a duplicate would be silently deduped on the "
           . "card and the counts would not agree\n"
@@ -14832,6 +14853,15 @@ the entry list.
 Each list is refused, whole, if any entry is empty or whitespace-only, or if
 the same text appears twice - naming which list and, for a duplicate, the
 repeated text. TKT-699.
+
+Since 5.92 (TKT-936/Q-154) an entry may be conditional:
+C<< { text => TEXT, touches => [PATTERN, ...] } >> instead of a plain string.
+The CLI's C<--required-action-if-touches>/C<--entry-required-action-if-touches>
+build these from C<"PATTERN[,PATTERN...]=TEXT">; this method only validates
+the shape (non-empty text, a non-empty touches list of non-empty patterns) -
+reading a card's git history to decide whether a conditional entry actually
+matches happens at move-time in the CLI layer, since this module is forbidden
+C<qx>/C<system>/C<exec>/piped C<open>.
 
 The gating itself lives in the CLI dispatch layer, not here - see
 C<Tira::CLI>'s C<_column_entry_required_action_violation>. Storing what a

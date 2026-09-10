@@ -82,8 +82,15 @@ sub record_create {
         my $columns = eval { $tira->column_list(%args) };
         if ( ref $columns eq 'ARRAY' ) {
             my ($about_to_land) = grep { $_->{name} eq $landing } @{$columns};
+
+            # TKT-936/Q-154: a conditional (touches) entry is filtered out
+            # before creation ever reaches required_item_add - see the
+            # exit_seeded grep below - so it cannot be what makes this
+            # author-less create fail later, and must not be what requires
+            # --author here either.
             die "A change needs to say who is making it\n"
-              if $about_to_land && @{ $about_to_land->{required_actions} // [] };
+              if $about_to_land
+              && grep { ref $_ ne 'HASH' } @{ $about_to_land->{required_actions} // [] };
         }
     }
 
@@ -130,8 +137,14 @@ sub record_create {
     my ( @entry_seeded, @exit_seeded );
     if ( ref $columns eq 'ARRAY' ) {
         my ($landed) = grep { $_->{name} eq $column } @{$columns};
-        @exit_seeded  = @{ $landed->{required_actions} // [] };
-        @entry_seeded = @{ $landed->{entry_required_actions} // [] };
+
+        # TKT-936/Q-154: a conditional (touches) item is read straight off
+        # the template here rather than through _populate_column_required_
+        # actions, so it is dropped rather than placed unconditionally - a
+        # card's own ref cannot appear in any commit before the card exists,
+        # so a conditional item can never legitimately match at create time.
+        @exit_seeded  = grep { ref $_ ne 'HASH' } @{ $landed->{required_actions} // [] };
+        @entry_seeded = grep { ref $_ ne 'HASH' } @{ $landed->{entry_required_actions} // [] };
 
         $tira->required_item_add( %args, ref => $created->{ref},
             item => $_, status => 'pending', column => $column, source => 'required-action' )
@@ -263,6 +276,37 @@ sub question_verbs {
     return $tira->question_discard(%question) if $action eq 'discard';
     return $tira->question_withdraw(%question) if $action eq 'withdraw';
     return $tira->question_mark(%question);
+}
+
+# The other half of TKT-427, applied after a move succeeds: the destination
+# column's required-action template is added to the card's required items,
+# skipping anything it already carries so re-entering a column never
+# duplicates. Called on both a forward move and a backward one landing back
+# on the same column (TKT-455/TKT-464) - see _apply_column_required_actions
+# in Tira::CLI for the reset half this seeds after.
+#
+# TKT-936/Q-154: a template entry may be a conditional
+# { text => ..., touches => [PATTERN, ...] } instead of a plain string -
+# skipped, not stored pending, until the card's own git history (checked via
+# Tira::CLI::Serve::_record_touches_any) shows a touched path matching one of
+# its patterns. Unaffected, not silently exempt.
+sub _populate_column_required_actions {
+    my ( $tira, $args, $to, $columns, $required_items ) = @_;
+    my ($to_col) = grep { $_->{name} eq $to } @{$columns};
+    require Tira::CLI::Serve;
+    for my $entry ( @{ $to_col->{required_actions} // [] } ) {
+        my ( $text, $touches ) = ref $entry eq 'HASH' ? ( $entry->{text}, $entry->{touches} ) : ( $entry, undef );
+        next if $touches && !Tira::CLI::Serve::_record_touches_any( $tira, $args, $touches );
+
+        # Matched by text and column alone, the same as it always has been -
+        # TKT-445/t/422 established that a manual required-action.add item
+        # satisfies this column's own template exactly like a
+        # template-derived one, and this dedup existing before that item is
+        # what makes "do the work early" not create a spurious duplicate.
+        next if grep { $_->{item} eq $text && $_->{column} eq $to } @{$required_items};
+        $tira->required_item_add( %{$args}, item => $text, status => 'pending', column => $to, source => 'required-action' );
+    }
+    return;
 }
 
 1;

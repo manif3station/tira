@@ -246,6 +246,9 @@ sub run {
         'watch!' => \$option{watched}, 'terminal!' => \$option{terminal}, 'stale' => \$option{stale},
         'queue!' => \$option{queue}, 'required-action=s@' => \$option{required_action}, 'blocking' => \$option{blocking},
         'entry-required-action=s@' => \$option{entry_required_action},
+        # TKT-936/Q-154: "PATTERN,...=TEXT", merged into a conditional entry below by Tira::CLI::Options::_merge_touch_conditions.
+        'required-action-if-touches=s@' => \$option{required_action_if_touches},
+        'entry-required-action-if-touches=s@' => \$option{entry_required_action_if_touches},
         'administrative-action=s@' => \$option{administrative_action}, 'next=s@' => \$option{next},
         'with-level' => \$option{with_level},
         'cache-ttl=i' => \$option{cache_ttl}, 'no-cache' => \$option{no_cache},
@@ -1196,7 +1199,10 @@ sub _populate_entry_required_actions {
     return [] if !@template;
 
     my @failed;
-    for my $text (@template) {
+    for my $entry (@template) {
+        # TKT-936/Q-154: same conditional shape as the exit template below.
+        my ( $text, $touches ) = ref $entry eq 'HASH' ? ( $entry->{text}, $entry->{touches} ) : ( $entry, undef );
+        next if $touches && !_record_touches_any( $tira, $args, $touches );
 
         # Always call required_item_add - its dedup (TKT-497) is what stamps entry=>1 onto a pre-existing item (TKT-652). TKT-783.
         my $added = eval {
@@ -1249,7 +1255,9 @@ sub _column_entry_required_action_violation {
     my $refreshed = eval { $tira->record_show(%args) } // $current;
     my %exempt = map { ( ref($_) eq 'HASH' ? $_->{item} : $_ ) => 1 }
       @{ $refreshed->{required_exempt} // [] };
-    my %wanted = map { $_ => 1 } @template;
+    # TKT-936/Q-154: an unmatched conditional was never placed above and must not count as wanted, or a pre-existing item sharing its text reads as satisfying it.
+    my %wanted = map { ( ref $_ eq 'HASH' ? $_->{text} : $_ ) => 1 }
+      grep { ref $_ ne 'HASH' || _record_touches_any( $tira, \%args, $_->{touches} ) } @template;
     my @unmet = grep {
 
         # Trusted on the marker OR a live text match against the CURRENT
@@ -1403,21 +1411,9 @@ sub _column_required_action_violation {
 # owner asked for it included (TG msg 4342). TKT-455. discard is excluded
 # on both sides: its position in the declared column order is not a
 # statement about how much work it undoes. Since TKT-678, an item declared --administrative-action on its column is exempt from this reset entirely - see the admin-exemption check in _apply_column_required_actions below.
-sub _populate_column_required_actions {
-    my ( $tira, $args, $to, $columns, $required_items ) = @_;
-    my ($to_col) = grep { $_->{name} eq $to } @{$columns};
-    for my $text ( @{ $to_col->{required_actions} // [] } ) {
-
-        # Matched by text and column alone, the same as it always has been -
-        # TKT-445/t/422 established that a manual required-action.add item
-        # satisfies this column's own template exactly like a
-        # template-derived one, and this dedup existing before that item is
-        # what makes "do the work early" not create a spurious duplicate.
-        next if grep { $_->{item} eq $text && $_->{column} eq $to } @{$required_items};
-        $tira->required_item_add( %{$args}, item => $text, status => 'pending', column => $to, source => 'required-action' );
-    }
-    return;
-}
+# TKT-936/Q-154: both lifted out (t/430's index cap).
+sub _populate_column_required_actions { require Tira::CLI::Records; return Tira::CLI::Records::_populate_column_required_actions(@_); }
+sub _record_touches_any { require Tira::CLI::Serve; return Tira::CLI::Serve::_record_touches_any(@_); }
 
 # The preventive half of TKT-583, and the owner placed it at the move on
 # purpose: "remind the agent when the move a card into a new column ... Go
@@ -1764,6 +1760,10 @@ sub _invoke {
     # before the misleading-option table is reached and the whole point is that
     # nothing acts on an option it will not use.
     _refuse_unread_options( $command, $option );
+
+    # TKT-936/Q-154: lifted to Tira::CLI::Options (t/430's index cap).
+    require Tira::CLI::Options;
+    Tira::CLI::Options::_merge_touch_conditions($option);
 
     my %args = %{$option};
     delete @args{qw(output help apply repair_columns recursive include_deleted include_discard full dry_run attach set_key_details set_deliverables set_acceptance set_test_steps set_bdd set_atdd set_labels set_affects_versions set_scope_in set_scope_out field_selection exclude_fields include_empty older_than stale with_level all columns_json nested mark members columns sow_prefix epic_prefix ticket_prefix sow_columns epic_columns ticket_columns)};

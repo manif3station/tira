@@ -1,6 +1,52 @@
 Revision history for Tira
 
 5.92  2026-09-10
+    - TKT-936/Q-154: docs/commands.md once claimed the verify column carried
+      a conditional required action (fires when a card's changes touch
+      lib/Tira/views/*, DashboardWeb.pm or OnboardWeb.pm, asking for
+      tools/browser-tests before the card can leave) that this board's
+      project configuration never actually declared - TKT-799 corrected the
+      claim; this builds the general mechanism such a claim would need -
+      verify's own project.yml still carries no such declaration. A column's
+      required_actions/entry_required_actions entry may now be a conditional
+      { text, touches } instead of a plain string, declared via
+      --required-action-if-touches/--entry-required-action-if-touches
+      "PATTERN[,PATTERN...]=TEXT". At move-time it is placed on a card only
+      if that card's own git history (every commit whose subject names its
+      ref) touched a path matching one of the patterns - a bare pattern
+      matches by basename anywhere in the tree, one with '/' matches by
+      prefix. No match, and the item is never placed: unaffected, not
+      silently exempt. Read-only git access, lifted to
+      Tira::CLI::Serve::_record_touches_any beside the existing
+      _is_repository/_reading card-sandbox-missing already uses - lib/Tira.pm
+      itself stays forbidden qx/system/exec. Also fixed a related gap found
+      while building this: record_create's own exit/entry template seeding
+      bypassed _populate_column_required_actions and would have stored a raw
+      hashref as a conditional item's text for a card created straight into
+      a gated column - filtered out at create time instead, since a card's
+      own ref cannot appear in any commit before the card exists. Three
+      further Codex-caught gaps, fixed: a malformed "a,,b=TEXT" pattern list
+      was silently dropped down to two patterns rather than refused; the
+      ref match was a substring (git --grep=REF matched TKT-90 for TKT-9,
+      and a passing mention in a commit's body, not only its subject) - now
+      an exact ref-shaped subject token match, read via commit hash/subject
+      first and the matching commits' paths second; and a required-action
+      violation's %wanted counted an unmatched conditional entry's text as a
+      live obligation, which a pre-existing item sharing that text could
+      then be mistaken for satisfying. New t/936 (23 assertions): touched-
+      path item placed on entering verify and blocks leaving until done, an
+      unrelated-touch card is unaffected and leaves freely, an exact-vs-
+      substring ref match, the bare-filename pattern form, a plain-string-
+      only column is unaffected, the CLI flag's own success path end to end
+      (--required-action-if-touches actually storing a conditional item),
+      a malformed pattern list refused (a doubled comma, no '=' at all, and
+      an entirely empty patterns half - three distinct refusals), an
+      author-less create into a conditional-only column succeeds, a
+      conditional ENTRY required action end to end (matching blocks the
+      move in, non-matching lets it through, and a manually-added item
+      sharing an UNMATCHED conditional's text does not block the move
+      either - the %wanted fix), and validation refuses a broken touches
+      condition.
     - TKT-910: link_remove reported success and removed nothing when asked
       for the reciprocal type from the wrong from/to order - it always
       returned { removed => true } regardless of whether either of its two

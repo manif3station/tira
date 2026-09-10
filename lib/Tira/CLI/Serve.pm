@@ -851,6 +851,72 @@ sub _is_repository {
     }
     return 0;
 }
+
+# TKT-936/Q-154: what a card's OWN git history says it touched, read the only
+# way this board can answer that question - there is no per-card branch to
+# diff (this project commits everything to one shared branch, the card's ref
+# named in the commit subject, the same convention the commit-msg gate and
+# every Changes entry already follow) - so every commit whose subject names
+# this ref, back to the start of history, is the record of what it touched.
+# Reading only, the same discipline _git_branches/_git_worktrees already
+# follow for card-sandbox-missing: list-form git, never a shell.
+sub _record_touched_paths {
+    my ( $tira, $args ) = @_;
+    my $root = eval { $tira->discover_project( %{$args} ) };
+    return [] if !$root;
+    return [] if !_is_repository($root);
+    my $ref = $args->{ref};
+    return [] if !defined $ref || $ref eq '';
+
+    # git --grep is a SUBSTRING match against the whole message, subject and
+    # body both - "--grep=TKT-9" also matches "TKT-90" and a passing mention
+    # three lines into an unrelated commit's body. Filtered by hand instead:
+    # read every commit's hash and SUBJECT LINE ONLY, keep the ones whose
+    # subject names this ref as a whole ref-shaped token (not a substring of
+    # a longer one), and only look at what THOSE touched.
+    my $subjects = _reading( 'git', '-C', $root, 'log', '--all', '--pretty=format:%H%x09%s' );
+    my @matching = map { ( split /\t/, $_, 2 )[0] }
+      grep {
+        my ( undef, $subject ) = split /\t/, $_, 2;
+        defined $subject && grep { $_ eq $ref } ( $subject // '' ) =~ /\b[A-Za-z]+-\d+\b/g;
+      } @{$subjects};
+    return [] if !@matching;
+
+    my $lines = _reading( 'git', '-C', $root, 'log', '--no-walk', '--name-only', '--pretty=format:', @matching );
+    my %seen;
+    $seen{$_} = 1 for grep { $_ ne '' } @{$lines};
+    return [ sort keys %seen ];
+}
+
+# A pattern with no '/' matches by basename anywhere in the tree
+# (DashboardWeb.pm matches lib/Tira/DashboardWeb.pm); a pattern with '/'
+# matches by prefix, so a trailing '*' reaches everything under a directory
+# (lib/Tira/views/*). Not a general glob - this board's own three named
+# patterns are the only shapes it has ever needed to say, and a real glob
+# library is more mechanism than a prefix-or-basename check earns.
+sub _touch_pattern_matches {
+    my ( $path, $pattern ) = @_;
+    return 0 if !defined $path || !defined $pattern || $pattern eq '';
+    if ( index( $pattern, '/' ) < 0 ) {
+        my ($base) = $path =~ m{([^/]+)\z};
+        return defined $base && $base eq $pattern ? 1 : 0;
+    }
+    my $regex = quotemeta($pattern);
+    $regex =~ s/\\\*/.*/g;
+    return $path =~ /\A$regex/ ? 1 : 0;
+}
+
+sub _record_touches_any {
+    my ( $tira, $args, $patterns ) = @_;
+    my $paths = _record_touched_paths( $tira, $args );
+    return 0 if !@{$paths};
+    for my $path ( @{$paths} ) {
+        for my $pattern ( @{$patterns} ) {
+            return 1 if _touch_pattern_matches( $path, $pattern );
+        }
+    }
+    return 0;
+}
 # Where this branch was last pushed to. Asking git for @{upstream} was the
 # obvious way and the wrong one: this very repository has origin/master and one
 # unpushed commit, and no upstream configured for the branch - so git answered

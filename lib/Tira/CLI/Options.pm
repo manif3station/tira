@@ -225,6 +225,43 @@ my %OPTION_READ_BY = (
     },
 );
 
+# TKT-936/Q-154: a conditional required action, given as
+# "PATTERN[,PATTERN...]=TEXT" - split on the FIRST '=' since a path pattern
+# never contains one and TEXT may. Converted into
+# { text => TEXT, touches => [PATTERN, ...] } and merged into the same
+# --required-action/--entry-required-action list column_update already
+# takes, rather than becoming a third list the engine has to know about.
+# Called from Tira::CLI::_invoke after _refuse_unread_options, which already
+# checked these two flags were given to a command that reads them, and
+# before that sub's own %args copy - so the merged value is what
+# column_update actually receives.
+sub _merge_touch_conditions {
+    my ($option) = @_;
+    for my $pair (
+        [ 'required_action_if_touches',       'required_action',       'Required-action-if-touches' ],
+        [ 'entry_required_action_if_touches', 'entry_required_action', 'Entry-required-action-if-touches' ],
+    ) {
+        my ( $flag_key, $merge_into, $label ) = @{$pair};
+        my $specs = delete $option->{$flag_key};
+        next if !defined $specs;
+        for my $spec ( @{$specs} ) {
+            my ( $patterns, $text ) = split /=/, $spec, 2;
+            die "$label needs \"PATTERN[,PATTERN...]=TEXT\" - '$spec' has no '='\n" if !defined $text;
+
+            # split /,/, $patterns, -1 keeps every field, including a blank
+            # one from a leading, trailing or doubled comma - dropped by the
+            # default limit-0 split, which silently accepted 'a,,b' as two
+            # patterns rather than naming the malformed third.
+            my @touches = split /,/, ( $patterns // '' ), -1;
+            die "$label needs at least one pattern before the '=' in '$spec'\n" if !@touches || !grep {length} @touches;
+            die "$label has a blank pattern in '$spec' - a stray, leading, trailing or doubled comma leaves nothing there\n"
+              if grep { !length } @touches;
+            push @{ $option->{$merge_into} //= [] }, { text => $text, touches => \@touches };
+        }
+    }
+    return;
+}
+
 sub _refuse_unread_options {
     my ( $command, $option ) = @_;
     for my $name ( sort keys %OPTION_READ_BY ) {

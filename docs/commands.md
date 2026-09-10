@@ -3834,16 +3834,20 @@ Show-more control at all, unchanged.
   The check is in `link_add` rather than the CLI, so the browser dashboard's
   `/link/add` route and a direct engine call are guarded by the same rule.
   Self-links **already stored** are left alone — the refusal is at the point of
-  writing only. They remain removable, though only by the type they were *added*
-  with; see `tira.link.remove` below. TKT-762.
+  writing only. They remain removable, by either of their two type spellings
+  since 5.92; see `tira.link.remove` below. TKT-762.
 - `tira.link.list --ref REF [--type NAME] [-o FORMAT]`
 - `tira.link.remove --from REF --type NAME --to REF [-o FORMAT]` - same
-  refusal shape as `tira.link.add`. **Known defect (TKT-910):** removal matches
-  on the type as *given*, so asking for the type a card visibly holds — the
-  reciprocal — reports success and removes nothing, while asking for the type the
-  link was *added* with removes it. Measured on a self-link, where both ends sit
-  on one card and the asymmetry is visible; whether two-card links behave the
-  same is the first thing that card measures.
+  refusal shape as `tira.link.add`. **Since 5.92 a removal that changes
+  nothing is refused rather than reported as a success (TKT-910):** `--type`
+  has to be the type `--from` actually holds towards `--to`, and asking for
+  the reciprocal — valid only from the other card's own end — used to match
+  neither of the two filters this runs and still return success. Refused
+  now, naming every real type the pair is linked by. Measured on both a
+  self-link (where both ends sit on one card, and only one of its two type
+  spellings could ever reach disk, because both writes land on the same
+  file and the second used to discard the first) and two different cards,
+  where the general shape - not a self-link quirk - turned out to live.
 
 
 ### Notifications

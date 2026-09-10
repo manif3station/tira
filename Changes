@@ -1,6 +1,25 @@
 Revision history for Tira
 
 5.92  2026-09-10
+    - TKT-910: link_remove reported success and removed nothing when asked
+      for the reciprocal type from the wrong from/to order - it always
+      returned { removed => true } regardless of whether either of its two
+      filter operations actually matched, so a caller reading a link type
+      straight off a card and asking to remove it was told it worked while
+      the link stayed. A self-link had a sharper version of the same shape:
+      its two writes land on one file, and whichever was written second
+      discarded the other, so only one of its two type spellings could ever
+      reach disk. Fixed by tracking whether either filter actually matched
+      and refusing - naming every real type the pair is linked by - when
+      neither did, and by sharing one in-memory record for both ends of a
+      self-link instead of writing the same path twice. TKT-762 refuses
+      creating a NEW self-link and explicitly left this - removing one
+      already on the board - open; this answers that. New t/910 (24
+      assertions, three Codex rounds): a wrong-direction removal is refused
+      naming the real type(s) including when a pair carries more than one,
+      the visible-type removal and a pre-existing self-link's either
+      spelling both work, and an ordinary link in either direction is
+      unaffected.
     - TKT-907: tasklist.list --sort accepted an empty spec, a trailing
       comma, a leading comma, and a bare ':desc' (nothing before the
       colon), each silently answering unsorted or with the malformed half

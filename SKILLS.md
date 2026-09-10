@@ -2036,7 +2036,7 @@ branches, so a caller asking for `json` or `toon` compiles none of it
 outside the concern: `_html_escape`, which the login page HTML also uses, and
 the plain functions `_render_view`, `_view_asset` and `json_object`.
 
-`lib/Tira.pm` is 16,341 lines as of TKT-902 (5.92), grown rather than shrunk
+`lib/Tira.pm` is 16,396 lines as of TKT-910 (5.92), grown rather than shrunk
 since the fourth lift's own 14,164 - the file gains from most releases that
 touch it, and a hand-corrected number drifts again by design. The figure the
 fourth lift replaced said 14,256, README said 14,177, `lib/Tira/Job.pm` said
@@ -3960,6 +3960,21 @@ The 5 `confirm()` calls TKT-530 judged and kept native are unaffected.
 
 ### UC-079: Remove link
 **Implemented.** `d2 tira.link.remove --from TKT-001 --type blocks --to TKT-002` updates both sides.
+
+**And a removal that changed nothing used to report success anyway, since
+5.92 (TKT-910).** `--type` has to be the type `--from` actually holds towards
+`--to` in that order - the reciprocal, valid only from the other card's own
+end, matched neither of the two filters this ran, and the sub still returned
+`{removed => true}` regardless. A caller reading `is-blocked-by` off a card
+and asking to remove exactly that was told it worked and found the link
+still there. Refused now instead, naming every real type the pair is
+actually linked by. A self-link had a sharper version of the same shape:
+its two writes land on one file, and whichever was written second used to
+discard the other, so only one of its two type spellings could ever reach
+disk - fixed by sharing one in-memory record for both ends rather than
+writing the same path twice. TKT-762 refuses creating a *new* self-link;
+this is the removal path for one already on the board, which that card
+explicitly left open. Found answering TKT-762's own criterion 4.
 
 ### UC-080: Assign person
 **Implemented.** `d2 tira.assign.add --ref TKT-001 --person ada`.

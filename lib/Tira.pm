@@ -3360,11 +3360,61 @@ sub link_remove {
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         my ( $from_path, $from ) = $self->_record_data( project => $root, ref => $args{from} );
-        my ( $to_path, $to ) = $self->_record_data( project => $root, ref => $args{to} );
+
+        # TKT-910: a self-link's two writes used to land on the SAME file as
+        # two independently-loaded copies of it, and whichever was written
+        # second discarded the other - only one of a self-link's two type
+        # spellings could ever actually reach disk, and which one depended on
+        # write order, not on which type was asked for. Sharing one in-memory
+        # record for both ends, and writing it once, removes the collision
+        # rather than picking a winner between two writes to the same path.
+        my $self_link = $args{from} eq $args{to};
+        my ( $to_path, $to ) = $self_link
+          ? ( $from_path, $from )
+          : $self->_record_data( project => $root, ref => $args{to} );
+
         my $reciprocal = $self->_reciprocal_type( $root, $args{type} );
+
+        my $from_before = scalar @{ $from->{linkage}{links} };
         $from->{linkage}{links} = [ grep { !( $_->{type} eq $args{type} && $_->{ref} eq $to->{ref} ) } @{ $from->{linkage}{links} } ];
+        my $removed_from = $from_before != scalar @{ $from->{linkage}{links} };
+
+        # Run for a self-link too, not skipped: $to IS $from there (same
+        # hashref), so this is the second of two filters checking the SAME
+        # shared array for its own condition - exactly what lets a self-link
+        # be removed by either of its two type spellings, whichever is
+        # actually the one stored.
+        my $to_before = scalar @{ $to->{linkage}{links} };
         $to->{linkage}{links} = [ grep { !( $_->{type} eq $reciprocal && $_->{ref} eq $from->{ref} ) } @{ $to->{linkage}{links} } ];
-        $self->_write_json_transaction( [ [ $from_path, $from ], [ $to_path, $to ] ] );
+        my $removed_to = $to_before != scalar @{ $to->{linkage}{links} };
+
+        # TKT-910: the sub used to return { removed => true } whether or not
+        # either grep above actually matched anything - a type that does not
+        # belong to the from/to order given (the reciprocal, asked for from
+        # the wrong end) matched neither filter, and the caller was told a
+        # change happened that never did. Refused rather than reported,
+        # naming what IS actually there so the caller can retype the call
+        # rather than trust the empty one that just "worked".
+        if ( !$removed_from && !$removed_to ) {
+            # $from is unmodified here - nothing matched, so nothing was
+            # filtered out of it - and it already carries whatever real
+            # link(s) to $args{to} exist to name. Two records can be linked
+            # by more than one type at once, so every one is named rather
+            # than only the first found - naming a singular "it is linked
+            # as" when a second type also exists would be as misleading as
+            # the bare success this replaces.
+            my %actual = map { $_->{type} => 1 }
+              grep { $_->{ref} eq $args{to} } @{ $from->{linkage}{links} };
+            die "There is no '$args{type}' link from '$args{from}' to '$args{to}' to remove"
+              . ( %actual
+                ? ' - it is linked as ' . join( ', ', map {"'$_'"} sort keys %actual )
+                : ' - these two records are not linked' )
+              . "\n";
+        }
+
+        my @writes = ( [ $from_path, $from ] );
+        push @writes, [ $to_path, $to ] if !$self_link;
+        $self->_write_json_transaction( \@writes );
         return { removed => Cpanel::JSON::XS::true };
     } );
 }
@@ -15364,7 +15414,12 @@ bad value. TKT-728.
 
 =head2 link_remove
 
-Removes a link and its reciprocal.
+Removes a link and its reciprocal. C<type> must be the type C<from> actually
+holds towards C<to> - since 5.92 (TKT-910) a removal that matches neither
+side is refused, naming every real type the pair is linked by, rather than
+reporting success for a change that never happened. A self-link's two writes
+share one in-memory record so both of its type spellings are removable,
+rather than one write silently discarding the other.
 
 =head2 comment_list
 

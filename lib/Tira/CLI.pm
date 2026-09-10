@@ -2193,7 +2193,7 @@ above: the person who would judge it may be why the card is going back.
 The gate is CARD-WIDE: any unjudged answer anywhere on the card holds it,
 whichever column that answer was given in. It cannot be otherwise - an answer
 record carries no column, so there is nothing to scope it by. Four places
-described it as scoped to the column the answer was given in until 5.93, the
+described it as scoped to the column the answer was given in until 5.83, the
 comment above this sub among them, and none of them was ever true (TKT-627).
 
 =head2 _column_entry_required_action_violation

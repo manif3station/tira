@@ -420,7 +420,7 @@ sub _remind_one_at_a_time {
 # So the prompt is moved to the moment it belongs to: a card does not move
 # forward while ANY answer on it carries no mark, from whichever column that
 # answer was given in. This comment said "does not leave the column an answer
-# was given in" until 5.93, which was never what the code did - three
+# was given in" until 5.83, which was never what the code did - three
 # documents were written from that reading and stayed wrong for a year
 # (TKT-627).
 #

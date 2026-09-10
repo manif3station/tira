@@ -1194,7 +1194,7 @@ real violation. `d2 tira.project.update --upgrade-gate-type sow|epic|ticket`
 sets which type fits a project; unset, a board still gets `ticket`, unchanged
 from before this card.
 
-**A command that could not start is recorded on the job** (TKT-950). A non-zero exit has always had its output and `exit status N` fed onto the job. A command that never started - an exec that fails - did not: the reason went into a return value nothing displays, and the card showed a job that fired with no sign of trouble. Since 5.93 the job records `could not start: <command>` and the executor's own reason, through the same feed call and guard the success path uses. The command is named deliberately, because `d2` resolves from `PATH` and a daemon's `PATH` is not an interactive shell's.
+**A command that could not start is recorded on the job** (TKT-950). A non-zero exit has always had its output and `exit status N` fed onto the job. A command that never started - an exec that fails - did not: the reason went into a return value nothing displays, and the card showed a job that fired with no sign of trouble. Since 5.83 the job records `could not start: <command>` and the executor's own reason, through the same feed call and guard the success path uses. The command is named deliberately, because `d2` resolves from `PATH` and a daemon's `PATH` is not an interactive shell's.
 
 **And proven through that real executor** (TKT-959, split from TKT-950). `t/509` runs `tira.job.help`'s 68 examples from the test harness's own `PATH`, not from `run_due_commands`/`run_due_job` - the job-due exec path a daemon actually uses. A fake `local::lib`-shaped bin directory stands in for `~/perl5/bin`: absent from `PATH`, the documented bare `d2` example fails to start; present, it runs cleanly through that real executor. States explicitly that this covers the job-due path alone, not a Starman worker or any other future executor.
 
@@ -1995,7 +1995,7 @@ This was called `tira.police.log` until 1.41 and that name still answers, so
 nothing breaks on upgrade. It was renamed because the old one said the wrong
 thing: see **Whose command is it** below.
 
-**Until 5.93 that panel read the wrong board** (TKT-949). `GET /bridge` resolved its police store with
+**Until 5.83 that panel read the wrong board** (TKT-949). `GET /bridge` resolved its police store with
 `discover_project()`, which searches upward from the server's working directory, while a dashboard runs above
 the board it serves - so it read some other project's store, or none, and showed an empty bridge. It now reads
 the served board, taken from `TIRA_DASHBOARD_ROOT` where the workers already have it, and reports a read it
@@ -2551,7 +2551,7 @@ Three checks run on a forward move through the CLI or agent path, in this order,
 
 1. **The column chain** - the destination must be a declared next step. Refuses naming the column you should go to first.
 2. **The current column's required actions** - any still unmarked refuses, naming them.
-3. **Unjudged answers** - a question answered but never marked refuses, naming the question and the `tira.question.mark` command that settles it. The gate is **card-wide**: any unjudged answer on the card holds it, from whichever column that answer was given in - a card answered in `implement` is refused leaving `verify` just the same. It could not be otherwise, since an answer record carries no column to scope it by. Four places described it as column-scoped until 5.93 and none was ever true (TKT-627). Reading an answer is automatic and does not count; the gate reads the question's own `mark`, so there is nothing to satisfy but the judgement itself. An unanswered question, a discarded one, and an answer marked `not-ok` all pass freely - the gate wants an assessment, not agreement. TKT-584.
+3. **Unjudged answers** - a question answered but never marked refuses, naming the question and the `tira.question.mark` command that settles it. The gate is **card-wide**: any unjudged answer on the card holds it, from whichever column that answer was given in - a card answered in `implement` is refused leaving `verify` just the same. It could not be otherwise, since an answer record carries no column to scope it by. Four places described it as column-scoped until 5.83 and none was ever true (TKT-627). Reading an answer is automatic and does not count; the gate reads the question's own `mark`, so there is nothing to satisfy but the judgement itself. An unanswered question, a discarded one, and an answer marked `not-ok` all pass freely - the gate wants an assessment, not agreement. TKT-584.
 
 A **backward** move is unconditional against all three, because the thing left unmet may be exactly what the card is retreating to fix.
 

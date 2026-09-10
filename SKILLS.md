@@ -3072,6 +3072,11 @@ per-job record of what has already been folded in (`seenRecent`) now lets
 each poll append only the tail past what was last seen, leaving the earlier
 lines' freshness alone - the update the original fix was trying to avoid
 paying for lands without the staleness it introduced instead. TKT-922.
+**Found via the largest shared overlap between the old and new tails, not a
+single last-line match** - Codex review caught a first draft that matched
+only the previous tail's own last line, which a repeated line anywhere in
+the new tail could satisfy early, silently dropping everything genuinely new
+that followed it.
 
 **A monitor's words reached the bridge for the first time in 5.47**, which is
 worth stating plainly because this document has described the channel as working

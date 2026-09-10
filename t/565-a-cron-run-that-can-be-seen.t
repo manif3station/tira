@@ -82,8 +82,18 @@ use Tira::CLI::Police;
     # unreadable file's emptiness alone otherwise.
     like( $js, qr/\S/, 'jobs-editor.js is there to be read' );
 
-    my ($seed) = $js =~ /(if\s*\(\s*!runLogs\.has\(job\.id\).*?rememberLines\(job\.id,\s*job\.recent\.join\("\\n"\)\);)/s;
-    ok( defined $seed, 'the tail-seeding branch was found to check what it is conditioned on' )
+    # TKT-1030 replaced the once-only seed with a re-sync that also runs on
+    # every later poll, so the branch this test reads is now the whole
+    # "is job.recent worth looking at" block rather than a single seed
+    # line - the same claim, on a wider piece of code. The block has a
+    # nested if/else inside it (the overlap-match branch), so a lazy match
+    # ending at the FIRST closing brace (Codex-caught) would stop at the
+    # inner one and miss everything after it - matched instead up to the
+    # closing brace at the SAME indentation as the "if" itself, which is
+    # the outer one.
+    my ($indent) = $js =~ /\n(\s*)if\s*\(\s*Array\.isArray\(job\.recent\)/;
+    my ($seed) = $js =~ /(if\s*\(\s*Array\.isArray\(job\.recent\).*?\n\Q$indent\E\})/s;
+    ok( defined $seed, 'the tail-seeding/re-sync branch was found to check what it is conditioned on' )
       or diag('the seed branch moved - update this pattern rather than deleting the assertion');
 
     # Comments stripped: the branch is explained entirely in terms of monitors,

@@ -1,6 +1,34 @@
 Revision history for Tira
 
 5.93  2026-09-10
+    - TKT-1030: a job card's log panel showed stale, unrelated entries
+      while the card's own header said it had just run - his report, with
+      a screenshot of JOB-004 repeating an old failure while "Last ran 5
+      minutes ago" was current. Root cause: the client seeds its own
+      runLogs buffer from the server's job.recent tail exactly once
+      (TKT-922's own fix for a monitor showing nothing at all), and a card
+      rebuilt on every 30-second poll never consulted job.recent again
+      after that first paint - so however far the server's own tail moved
+      on, the panel kept repainting whatever it first saw. Fixed with a
+      seenRecent Map recording what has already been folded in per job;
+      each poll appends only the genuinely new tail, found via the largest
+      shared overlap between the old and new tails (the largest k such
+      that the old tail's last k lines equal the new tail's first k
+      lines), rather than either ignoring a moved-on tail (the bug) or
+      reseeding the whole array every poll (duplicate lines, freshness
+      reset - the exact failure the original once-only guard existed to
+      prevent). A first draft matched only the previous tail's own last
+      line (lastIndexOf) - Codex-caught as broken for a repeated line
+      anywhere in the new tail, which could satisfy that single-line match
+      early and silently drop everything genuinely new after it; the
+      overlap match replaced it before this shipped. His second ask, a
+      clear [x] button, was already shipped by TKT-1020 earlier the same
+      day - confirmed present and untouched. New t/1030, source-read the
+      way every sibling test of this file is; t/565-a-cron-run-that-can-
+      be-seen.t's own regex (which extracted the old once-only guard by
+      pattern) updated to match the new, wider re-sync branch - the claim
+      it guards (seeding applies to any job, not only monitors) is
+      unchanged.
     - TKT-1038: TKT-766 (5.89) added attachment_where to lib/Tira.pm and
       dispatched it in lib/Tira/CLI.pm, and both manuals documented it as
       shipped, but the executable entrypoint under skills/attachment/cli/

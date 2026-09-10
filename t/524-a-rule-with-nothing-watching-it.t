@@ -14,9 +14,11 @@
 #   THAT ARE NOT PERL   tools/card-holes is python. His rule says PERL.
 #
 # lib/Tira/CLI/Browser.pm is the argument in one line: TKT-607's decomposition
-# CREATED it, at 805 lines, three days before the card was filed. It is 1228
-# now. The split that fixed one file produced another that breaks the rule, and
-# then that one grew 348 lines, because nothing was watching the number.
+# CREATED it, at 805 lines, three days before the card was filed. It grew to
+# 1365 before TKT-1042 lifted its job-provider block out, leaving 1049. The
+# split that fixed one file produced another that broke the rule, then that
+# one grew hundreds of lines before its own first concern was lifted back out
+# again, because nothing was watching the number.
 #
 # WHY THIS IS A TEST AND NOT A TOOL. tools/gate-run already refuses a release
 # when the suite fails, so a size guard written as a .t file is enforced by every
@@ -142,7 +144,10 @@ my %EXEMPT = (
     # which is the argument this whole card makes. Browser.pm is the sharpest:
     # TKT-607 CREATED it at 805 lines, already over.
     'lib/Tira/CLI/Browser.pm' => 'created over the limit by TKT-607 and grown since '
-      . '- TKT-1042 owns lifting its job-provider block out',
+      . '- TKT-1042 lifted its job-provider block into '
+      . 'Tira::CLI::Browser::Jobs (1365 -> 1049 lines), the sharpest single '
+      . 'concern in it; the rest (move, tasklist, links, comments, '
+      . 'attachments and more) is still one file, not yet owned by a card',
     'lib/Tira/CLI/Police.pm' => 'the police pass and its bridge, grown with every '
       . 'rule added - TKT-1043 owns lifting its due-job execution block out',
     'lib/Tira/CLI/Serve.pm' => 'TKT-906: process inspection, server lifecycle, '

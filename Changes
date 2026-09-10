@@ -1,5 +1,26 @@
 Revision history for Tira
 
+5.94  2026-09-11
+    - TKT-1042: TKT-906's own triage of t/524's 500-line exemption list found
+      a second concern in lib/Tira/CLI/Browser.pm (1,365 lines), the same day
+      TKT-1041 lifted Tira::CLI.pm's own move-path guards for the same
+      reason: the job-provider block (jobs, job_run, job_save, job_delete,
+      job_stop, job_start, job_check) is one cohesive concern, separable
+      from the rest of the browser CLI. Lifted into a new
+      Tira::CLI::Browser::Jobs, called (not forwarded, since nothing outside
+      Tira::CLI::Browser ever named these seven closures - they only ever
+      existed as anonymous values in one hash literal) from providers()
+      where the block used to sit inline. lib/Tira/CLI/Browser.pm:
+      1,365 -> 1,049 lines; the new module is 376. Two real gaps the
+      extraction itself caused were found and fixed before this shipped:
+      the jobs closure called Tira::CLI::Police::_police_store without its
+      own require - it had relied on Browser.pm's own top-level require,
+      caught by t/431's load-check - and t/565-a-cron-run-that-can-be-
+      seen.t's own regex read the jobs provider's body from Browser.pm by
+      name, now empty after the lift, and was pointed at the new module
+      instead. t/524's exemption entry for Browser.pm updated to record
+      what shipped rather than what was still owed.
+
 5.93  2026-09-10
     - TKT-1041: TKT-906's own triage of t/524's 500-line exemption list found
       a real second concern left in lib/Tira/CLI.pm (2,999 lines) after

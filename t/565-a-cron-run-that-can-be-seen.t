@@ -112,7 +112,9 @@ use Tira::CLI::Police;
 # --- the browser hands the row that field, for a cron job too --------------
 
 {
-    my $browser = Suite::cli_source('Browser.pm');
+    # TKT-1042 lifted the job-provider block (including this one) out of
+    # Tira::CLI::Browser into Tira::CLI::Browser::Jobs.
+    my $browser = Suite::cli_source('Jobs.pm');
     # non-empty is the whole claim: the denial below needs a real subject.
     like( $browser, qr/\S/, 'the browser provider is there to be read' );
 

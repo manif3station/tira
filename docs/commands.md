@@ -4000,8 +4000,10 @@ has to run a migration by hand.
     command exists to do, and one `next`/`shift`/`pop` already did
     internally for their own single-item use.
   - defaults to `last_updated:desc,status:asc` when `--sort` is omitted.
-    Sortable fields: `status`, `order` (numeric), and any other stored field
-    (string comparison) such as `text`, `created_at`, `last_updated`.
+    Sortable fields are the fixed list named above - `created_at`, `id`,
+    `last_updated`, `order`, `session`, `status` and `text` - not any stored
+    field: `status` and `order` compare numerically, the rest as strings, and
+    a returned-but-not-stored field such as `status_name` is not sortable.
   - `--all-sessions` (TKT-539) is a deliberate opt-in that returns every
     item across every session instead of just the caller's own, each item
     still carrying its own `session` field - for a supervising agent

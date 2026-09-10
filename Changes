@@ -1,6 +1,25 @@
 Revision history for Tira
 
 5.92  2026-09-10
+    - TKT-907: tasklist.list --sort accepted an empty spec, a trailing
+      comma, a leading comma, and a bare ':desc' (nothing before the
+      colon), each silently answering unsorted or with the malformed half
+      dropped - the exact fault TKT-888 shipped a refusal for, surviving in
+      the edges of the same input space. split /,/, '' yields an empty
+      list, so an empty spec produced zero comparisons; split also drops a
+      trailing empty field by default, hiding the identical malformation a
+      doubled comma in the middle was already refused for. A second, drier
+      fault rode along: an empty field was interpolated into the refusal
+      message BEFORE its own definedness was checked, so some malformed
+      specs both warned "Use of uninitialized value" and produced "There is
+      no '' to sort a tasklist by" - naming nothing the caller typed. Fixed
+      by splitting with a -1 limit (keeps a trailing empty field instead of
+      discarding it), refusing an empty spec upfront, and refusing an empty
+      or whitespace-only field before it is used anywhere, quoting the
+      whole original spec in the message rather than the empty piece.
+      Found by the hourly bug hunt the same night TKT-888 shipped. t/522
+      grew from 23 to 49 assertions, all of TKT-888's own cases confirmed
+      still working across three rounds of Codex review.
     - TKT-906: seventeen of the eighteen entries in t/524's 500-line-limit
       exemption list named TKT-751 - the card that had merely identified
       them - as their reason, satisfying t/524's own cardless_entries check

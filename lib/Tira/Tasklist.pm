@@ -131,8 +131,33 @@ my %TASKLIST_SORT_FIELD = map { $_ => 1 } @TASKLIST_SORT_FIELD;
 # what FIFO/LIFO operate on.
 sub _tasklist_sort_items {
     my ( $items, $sort_spec ) = @_;
+
+    # TKT-907. An empty spec is the same malformation TKT-888 exists to
+    # refuse everywhere else - "hands back real data in an order nobody
+    # asked for" - and split /,/, '' yields an empty list, so it slipped
+    # through as zero comparisons and an unsorted answer nobody was told
+    # about.
+    die "A sort spec is required to sort a tasklist. The fields are: "
+      . join( ', ', @TASKLIST_SORT_FIELD ) . "\n"
+      if !defined $sort_spec || $sort_spec !~ /\S/;
+
+    # -1 keeps a TRAILING empty field ('status:asc,') instead of split's
+    # default of silently dropping it - the same malformation as a doubled
+    # comma in the middle, which was already refused; only the edges let it
+    # through before.
     my @specs = map {
         my ( $field, $dir ) = split /:/, $_, 2;
+
+        # Checked, and refused, BEFORE $field is used in any message - the
+        # fault this same file used to have one line down: interpolating an
+        # unchecked value into a die string both warns "uninitialized value"
+        # and produces a message naming nothing the caller typed.
+        die "A sort spec of '$sort_spec' has no field to sort by in one of "
+          . 'its parts - a stray, leading or trailing comma, or a bare '
+          . "':direction' with nothing before the colon, leaves nothing "
+          . 'there. The fields are: '
+          . join( ', ', @TASKLIST_SORT_FIELD ) . "\n"
+          if !defined $field || $field !~ /\S/;
 
         # DESC IS ACCEPTED, and the decision is recorded rather than left to be
         # inferred from the code. SQL writes DESC, every spreadsheet writes
@@ -153,10 +178,10 @@ sub _tasklist_sort_items {
 
         die "There is no '$field' to sort a tasklist by. The fields are: "
           . join( ', ', @TASKLIST_SORT_FIELD ) . "\n"
-          if !defined $field || !$TASKLIST_SORT_FIELD{$field};
+          if !$TASKLIST_SORT_FIELD{$field};
 
         [ $field, ( $dir eq 'desc' ? -1 : 1 ) ];
-    } split /,/, $sort_spec;
+    } split /,/, $sort_spec, -1;
     return [ sort {
         my $cmp = 0;
         for my $spec (@specs) {

@@ -156,6 +156,78 @@ sub texts {
           . 'the source' );
 }
 
+# --- an empty spec, or an empty element, is the same malformation ------------
+#
+# TKT-907. split /,/, '' yields an empty list, so an empty spec slipped past
+# the refusal above entirely - no field, no direction, no error, just the list
+# handed back in whatever order it already happened to be in. A trailing
+# comma is the identical hole one character along: split drops a trailing
+# empty field, so 'status:asc,' loses the malformed half and answers as
+# though it had been typed correctly. The SAME malformation was already
+# refused in the middle ('status,,id') - only the edges let it through.
+
+{
+    my ( $tira, $root ) = board();
+
+    for my $spec ( '', 'status:asc,', ',status', 'status,,id', ':desc',
+        'status:asc, ', 'status, ,id' ) {
+        my $ok = eval { texts( $tira, $root, $spec ); 1 };
+        ok( !$ok, "a sort spec of '$spec' is refused rather than answered "
+              . 'unsorted or with the malformed half silently dropped' );
+    }
+}
+
+# --- the refusal names what the caller typed, not the empty string it left --
+#
+# TKT-907. Line 136 interpolated $field into the refusal message BEFORE line
+# 138 checked whether it was even defined - so a spec like ',status' produced
+# "There is no '' to sort a tasklist by", which names nothing the caller
+# typed, and warned "Use of uninitialized value $field in concatenation" on
+# top of it. ':desc' took the same path silently, because split yields an
+# empty STRING there rather than undef - two spellings of the identical
+# mistake, behaving differently.
+
+{
+    my ( $tira, $root ) = board();
+
+    for my $spec ( ',status', ':desc', 'status,,id', 'status, ,id' ) {
+        my $warned = '';
+        local $SIG{__WARN__} = sub { $warned .= $_[0] };
+        my $ok = eval { texts( $tira, $root, $spec ); 1 };
+        my $why = $@ // '';
+
+        ok( !$ok, "'$spec' is refused" );
+        unlike( $why, qr/There is no '' to sort/,
+            "and the refusal for '$spec' does not name an empty field - "
+              . 'it names what was actually typed, or says the spec itself '
+              . 'is malformed' );
+        like( $why, qr/\Q$spec\E/,
+            "and the refusal for '$spec' quotes the whole spec the caller "
+              . 'actually typed, not just a malformed piece of it' );
+
+        # empty is what passes: $warned is a real accumulator ($SIG{__WARN__}
+        # appends to it, not read-then-discarded), so an empty value here
+        # means no warning fired - it is not a denial whose subject was
+        # never established, it is the fix's own claim being checked.
+        unlike( $warned, qr/uninitialized value/,
+            "and refusing '$spec' produces no uninitialized-value warning" );
+    }
+}
+
+# --- and everything TKT-888's own suite already proved keeps working --------
+
+{
+    my ( $tira, $root ) = board();
+
+    is( texts( $tira, $root, 'status:asc' ), 'A,B,C',
+        'status:asc still works after the empty-spec fix' );
+    is( texts( $tira, $root, 'status:desc' ), 'C,B,A',
+        'status:desc still works after the empty-spec fix' );
+
+    my $ok = eval { texts( $tira, $root, 'bogus:desc' ); 1 };
+    ok( !$ok, 'an unknown field is still refused after the empty-spec fix' );
+}
+
 # --- the refusal is the ENGINE's, so every caller is guarded -----------------
 #
 # The CLI is not the only way in. The browser dashboard reads the tasklist

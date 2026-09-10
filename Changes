@@ -1,6 +1,22 @@
 Revision history for Tira
 
 5.93  2026-09-10
+    - TKT-1012: his own report of a repeated job's due notice arriving as
+      several separate Telegram messages, seconds apart, for one due
+      window - investigated rather than assumed already fixed. Could NOT
+      reproduce: 8 real forked processes racing police_pass and
+      bridge_write against one store, four separate trials, each wrote
+      exactly one job-due bridge line. Both dedup layers traced end to
+      end and confirmed correct - the job-due rule's own $checked ledger
+      read, made atomic with its write by TKT-995 (5.86, 2026-09-07), and
+      violation_record's independently lock-protected speak/quiet gate,
+      which bridge_write already honours. His report is dated 2026-09-08,
+      one day after 5.86 shipped, and names TKT-995's own exact symptom
+      ("the same message logged three times, 33 seconds apart") - the
+      likely explanation is his board had not yet received that release,
+      the same install-lags-push gap measured before for agent-still
+      (2.59). New t/1012, a permanent regression guard against this
+      coming back rather than a fix for something already gone.
     - TKT-1011: hierarchy_unlink never received TKT-689's fix, so a caller
       who mistakenly ran hierarchy.unlink with --ref (what every other
       command takes) was told "Record reference is required - supply it

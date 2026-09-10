@@ -185,10 +185,11 @@ Revision history for Tira
       RELEASED by origin too (shipped 2026-09-06) - the identical fault
       one heading over, caught by this same card's own new check after
       its first commit. Corrected: the seven now live under 5.93, the
-      version actually being released, and the twelve "since/until 5.84"
+      version actually being released, and the twelve 5.84 version
       literals that first attempt wrote (six in SKILLS.md, three in
-      docs/commands.md, one in docs/POLICIES.md, two in lib/Tira/CLI.pm)
-      are corrected to 5.93 in turn.
+      docs/commands.md, one in docs/POLICIES.md, two in lib/Tira/CLI.pm -
+      eleven "since"/"until" and one "found in") are corrected to 5.93
+      in turn.
       New
       tools/changes-not-reopened compares the local Changes section for
       EVERY version origin's own file already names against origin's OWN

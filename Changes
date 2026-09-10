@@ -1,6 +1,25 @@
 Revision history for Tira
 
 5.92  2026-09-10
+    - TKT-903: t/239-every-declared-refusal-is-exercised.t's own parser for
+      %OPTION_READ_BY's 'commands' pattern silently mis-parsed two of its
+      seven entries to undef, warning "Use of uninitialized value $readers"
+      eight times a run since TKT-748 without ever failing. Two faults in
+      one regex: no /s, so a qr//x pattern written across several lines (the
+      shape both the text and status entries use) could not be read whole,
+      and the extraction pattern's literal "/," never matched those same two
+      entries' actual "/x," closing (the /x modifier suffix). An undef
+      $readers then fed "grep { $_ !~ /$readers/ }" - an EMPTY pattern in
+      Perl reuses the last successful match, so the command chosen to
+      exercise each of those two refusals was picked by whichever regex had
+      matched most recently, unconnected to the entry actually being
+      checked, and the guard could pass or fail for a reason that had
+      nothing to do with what it was meant to prove. Fixed by reading the
+      pattern with /s and tolerating a modifier suffix, and by making an
+      unparseable entry die naming itself rather than warn and continue - a
+      guard that degrades quietly is exactly the fault this file exists to
+      catch, one level up, on itself. Joins the meta-guard family (t/865)
+      as its twenty-first member.
     - TKT-902: the commit gate refused any staged lib/ file as a code change,
       unconditionally - but the document column's own required action asks
       an agent to add POD to Perl modules, which live in lib/, so the gate

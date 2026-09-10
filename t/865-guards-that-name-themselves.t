@@ -2,14 +2,16 @@
 # The guards that read the tests are undocumented as a set, so a test author
 # meets them one full suite run at a time.
 #
-# TKT-865 (extended by TKT-877). Twenty files in t/ do not test a feature - they test the SUITE
-# itself: an assertion shape, a doc-vs-code count, a module's own POD, a
-# structural limit, a decision that must not drift into two places, a
-# fixture that must not drift from what it mocks, and two gate copies that
-# must not drift from each other. A test author writing test number
-# twenty-one learns each one only when it fails on a change that broke
-# nothing, which is what every one of these files' own opening comment
-# describes happening to it before it existed.
+# TKT-865 (extended by TKT-877, then TKT-903). Twenty-one files in t/ do not
+# test a feature - they test the SUITE itself: an assertion shape, a
+# doc-vs-code count, a module's own POD, a structural limit, a decision
+# that must not drift into two places, a fixture that must not drift from
+# what it mocks, two gate copies that must not drift from each other, and a
+# declared-refusal registry whose own parser must fail loudly rather than
+# warn. A test author writing test number twenty-two learns each one only
+# when it fails on a change that broke nothing, which is what every one of
+# these files' own opening comment describes happening to it before it
+# existed.
 #
 # Read from t/ directly (CHK-001), not from memory, and found in THREE
 # passes - Codex review caught five the first pass missed by grepping only
@@ -22,7 +24,10 @@
 # test the release tooling's own behaviour as a FEATURE, not a convention
 # for how a test itself is written. TKT-877 added a twentieth: the commit
 # gate's two independent copies, checked to keep agreeing rather than only
-# checked once.
+# checked once. TKT-903 added a twenty-first: t/239, whose own parser had
+# quietly degraded to a warning instead of a failure - found while fixing
+# that very fault, and named here so the same guard cannot happen to itself
+# again unnoticed.
 #
 # WHAT THIS FILE MUST NOT DO is re-implement any guard's own check - that is
 # what would go stale exactly like the documentation this card exists to fix.
@@ -105,6 +110,9 @@ my @GUARDS = (
     { file => 't/877-two-gates-one-decision.t',
       what => 'the two independent copies of the commit gate (this repo\'s own hook and the engine\'s installable one) agree on the same idle/writing rules',
       marker => 'The commit gate exists twice with nothing checking the two copies agree' },
+    { file => 't/239-every-declared-refusal-is-exercised.t',
+      what => 'a refusal declared in %MISLEADING_OPTIONS or %OPTION_READ_BY is actually exercised, not merely declared - and the parser reading those tables cannot itself degrade to a silent warning',
+      marker => 'the fault it exists to catch' },
 );
 
 for my $guard (@GUARDS) {
@@ -130,7 +138,7 @@ close $skills;
 for my $guard (@GUARDS) {
     like( $doc, qr/\Q$guard->{file}\E/,
         "SKILLS.md names $guard->{file} - a test author can find it before writing test "
-          . 'number twenty-one, not only after it fails on one' );
+          . 'number twenty-two, not only after it fails on one' );
 }
 
 # Compared as a SET, not only counted - Codex review's second pass: a count
@@ -163,21 +171,24 @@ __END__
 
 =head1 WHY
 
-TKT-865: twenty files in t/ police the suite itself rather than a feature
-(TKT-877 added the twentieth), and nothing named them together - a test
-author met each one individually, one failed run at a time.
+TKT-865: twenty-one files in t/ police the suite itself rather than a
+feature (TKT-877 added the twentieth, TKT-903 the twenty-first), and
+nothing named them together - a test author met each one individually, one
+failed run at a time.
 
 =head1 WHAT IS ASSERTED
 
-Each of the twenty guards still exists and still carries its own marker
-phrase - proof it has not been silently gutted or renamed. SKILLS.md's own
-section names exactly this set, compared as a sorted list rather than only
-counted, so a substituted row with the same count still fails.
+Each of the twenty-one guards still exists and still carries its own
+marker phrase - proof it has not been silently gutted or renamed.
+SKILLS.md's own section names exactly this set, compared as a sorted list
+rather than only counted, so a substituted row with the same count still
+fails.
 
 =head1 WHAT IS NOT ASSERTED
 
-That these are the ONLY twenty that will ever exist, or that a twenty-first
-guard added later is automatically caught - that would require this file to
+That these are the ONLY twenty-one that will ever exist, or that a
+twenty-second guard added later is automatically caught - that would
+require this file to
 know what a "meta-guard" is well enough to recognise one on sight, which is
 exactly the judgement call CHK-001 made by reading t/ by hand, across three
 passes. Adding one means adding it here and to SKILLS.md, the same way

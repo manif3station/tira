@@ -114,14 +114,37 @@ sub declared_in {
     while ( $read_by =~ /(\w+)\s*=>\s*\{(.*?)\n    \},/gs ) {
         my $body = $2;
         my ($flag)     = $body =~ /flag\s*=>\s*'([^']+)'/;
-        my ($readers)  = $body =~ /commands\s*=>\s*qr\/(.*?)\/,/;
+        # TKT-903: two faults, both in this one line. Without /s, a commands
+        # regex written across several lines - the shape both 'text' and
+        # 'status' use - could not be read whole. And the qr//x form those two
+        # entries use closes as "/x," rather than the bare "/," every other
+        # entry closes with, which the pattern's literal "/," never matched
+        # even with /s added. Either fault alone left $readers undef, and an
+        # undef $readers went straight into "grep { $_ !~ /$readers/ }" below:
+        # Perl treats an EMPTY pattern as "reuse the last successful match",
+        # so the command chosen to exercise the refusal was picked by
+        # whatever regex had matched most recently - unconnected to this
+        # entry's own readers - and the test passed or failed for a reason
+        # that had nothing to do with the entry it was meant to be checking.
+        my ($readers)  = $body =~ /commands\s*=>\s*qr\/(.*?)\/[a-z]*,/s;
         my ($instead)  = $body =~ /instead\s*=>\s*'([^']+)'/;
         next if !defined $flag;
         $read_found++;
 
+        # A parser that cannot read an entry must say so loudly, not warn and
+        # guess - the exact failure mode this card exists to close.
+        die "declared_in: could not parse a 'commands' => qr/.../, pattern "
+          . "out of the '$flag' entry in \%OPTION_READ_BY - fix the entry or "
+          . "this parser, do not let it warn and continue\n"
+          if !defined $readers;
+
         # A command that is not one of its readers, so the refusal is the thing
         # being exercised rather than the reader being broken.
         my ($not_a_reader) = grep { $_ !~ /$readers/ } qw(record.update record.show);
+        die "declared_in: neither record.update nor record.show is usable to "
+          . "exercise the '$flag' entry - both match its own readers "
+          . "($readers), so no refusal can be proved against them\n"
+          if !defined $not_a_reader;
         my ($word) = ( $instead // '' ) =~ /(--[a-z-]+)/;
         push @refusals, { command => $not_a_reader, flag => $flag, names => $word // '--' };
     }
@@ -177,6 +200,31 @@ is_deeply( unexercised($refusals), [],
         'a declared refusal that nothing refuses is reported' );
     like( join( "\n", @{$missed} ), qr/record\.show/,
         'naming the entry that does not fire' );
+}
+
+# --- and an entry the parser cannot read FAILS, it does not warn ------------
+#
+# TKT-903. This file's own parse of %OPTION_READ_BY's 'commands' pattern used
+# to come back undef for an entry written across several lines (the shape
+# 'text' and 'status' both use) and carry on regardless, warning eight times a
+# run - the exact "degrades quietly" failure this whole file exists to catch,
+# now happening to itself one level up. Doctoring the source the same way the
+# vacuous-guard check above does, so this file cannot break the commands it
+# is checking: an entry's 'commands => qr/.../,' line is corrupted (the
+# trailing comma removed) so the parser's own pattern cannot match it, and
+# declared_in() must die naming the broken entry rather than returning a
+# result built on an undef $readers.
+
+{
+    ( my $doctored = $source ) =~
+      s/(commands\s*=>\s*qr\/\\Arecord\\\.\(\?:create\|update\)\\z\/),/$1/;
+    isnt( $doctored, $source,
+        'the doctor actually changed something, or this proves nothing' );
+
+    my $died = eval { declared_in($doctored); 1 } ? undef : $@;
+    ok( $died, 'a commands pattern the parser cannot read makes declared_in die rather than warn and continue' );
+    like( $died // '', qr/could not parse a 'commands'/,
+        'naming what went wrong, not a bare Perl error' );
 }
 
 done_testing;

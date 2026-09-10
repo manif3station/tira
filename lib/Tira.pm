@@ -8031,7 +8031,17 @@ sub policy_evaluate {
                     && ( $journal->[$_]{op} // '' ) eq 'move' }
                   0 .. $#{$journal};
                 next if !@where_moved;
-                my $window = @where_moved > 1 ? $where_moved[-2] : -1;
+
+                # TKT-991. A card with more than one move is bounded by the
+                # SECOND-to-last move's own index, so only checklist
+                # activity strictly after the last move counts. A card with
+                # exactly one move has no prior move to bound by - but -1
+                # is not "no bound", it is a bound every journal index is
+                # greater than, so ANY checklist activity anywhere,
+                # including a tick made before the card ever moved, read as
+                # "since". The move's OWN index is the correct bound: only
+                # an entry strictly after the move itself counts.
+                my $window = @where_moved > 1 ? $where_moved[-2] : $where_moved[-1];
                 next if grep {
                     ( $journal->[$_]{field} // '' ) eq 'checklist' && $_ > $window
                 } 0 .. $#{$journal};

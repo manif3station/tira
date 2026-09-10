@@ -41,6 +41,21 @@ Revision history for Tira
       with engine_source deliberately to search both layers as one text.
       All ten existing named call sites re-read individually and confirmed
       still asserting what they meant. New t/973 (18 assertions).
+    - TKT-991: checklist-unmoved's single-move window used -1 instead of
+      the move's own journal index - every index is greater than -1, so a
+      checklist tick made BEFORE a card's only move read as having
+      happened since it, silencing a genuinely stale card. Found during
+      the 2026-09-07 hourly bug hunt. Now uses the move's own index for a
+      single move, matching the same "strictly after" test the
+      multi-move case already applies by bounding on the second-to-last
+      move. Multi-move cases untouched; 16 existing checklist-unmoved
+      test files still green. New t/991 (4 assertions). A live comparison
+      across his other boards needed his own access - Q-155, his answer:
+      copies of zenandi, developer-dashboard and budget at /tmp/testing
+      for a tira:latest container. checklist-unmoved's findings are
+      byte-for-byte IDENTICAL pre-fix and post-fix on all three - 0 on
+      each, both before and after. No regression; none of the three
+      currently carries the pre-move-tick shape this fix targets.
     - TKT-969: a failing gate paid the full coverage run to learn what a
       plain run would have said - measured 2026-09-06, an identical suite
       costs 86s plain against 788-801s under Devel::Cover, and three of

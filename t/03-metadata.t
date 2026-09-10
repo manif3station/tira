@@ -103,7 +103,13 @@ is( $newest, $Tira::VERSION, 'the changelog names this release at the top' );
 my ($top) = $history =~ /^\Q$newest\E\s[^\n]*\n(.*?)(?=^\d+\.\d+\s|\z)/ms;
 like( $top, qr/\b(?:TKT|EPC|SOW)-\d+/,
     'and this release names the card its entries came from, so a reporter can find it' );
-unlike( $skills_text, qr/\bSpecified\b/i, 'every documented command and use case is implemented' );
+# A bare \bSpecified\b matched the ordinary English word too - his own
+# TKT-1003 history paragraph says "he had already specified exact numbers",
+# which has nothing to do with a command's own availability status. The
+# legend's real marker is bold and precedes a version, the same shape every
+# "**Implemented (N.NN):**" entry above it already uses - TKT-1040.
+unlike( $skills_text, qr/\*\*Specified\b/i,
+    'every documented command and use case is implemented' );
 
 # A count written in prose goes stale the moment a rule is added, and nothing
 # says so - SKILLS.md claimed twenty while twenty-two shipped.

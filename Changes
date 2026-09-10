@@ -1,6 +1,19 @@
 Revision history for Tira
 
 5.93  2026-09-10
+    - TKT-1040: t/03-metadata.t's own unlike($skills_text, qr/\bSpecified\b/i,
+      ...) - meant to catch a documented command left at an unimplemented
+      "Specified" availability status - false-positived on the ordinary
+      English word: SKILLS.md's own TKT-1003 history paragraph says "he had
+      already specified exact numbers", nothing to do with a command's own
+      status. No legend entry has ever actually used a bare "Specified"
+      marker in this repository's history; the real convention every
+      "Implemented" entry already follows is bold-and-versioned
+      ("**Implemented (N.NN):**"). Tightened to qr/\*\*Specified\b/i, the
+      same shape - a synthetic fixture confirms ordinary prose no longer
+      matches while a genuine "- **Specified (N.NN):**" legend entry still
+      would. The same vocabulary-collision shape TKT-900 fixed repeatedly in
+      t/70-doc-examples.t this session.
     - TKT-1039: t/176-an-assertion-that-cannot-fail.t's own meta-guard (every
       bare-qr/\S/ assertion must be marked "non-empty is the whole claim" or
       matched with something more specific) flagged two unmarked ones in

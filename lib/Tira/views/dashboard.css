@@ -785,6 +785,12 @@ html[data-width="fit"] .card__ref {
   filter: saturate(0.35);
   border-color: rgba(148, 163, 184, 0.35);
 }
+/* TKT-1006. Editing replaces every child but the editor panel with hidden
+   ones, so the card's own two-column grid (1fr auto) would otherwise leave
+   the panel in column 1 and an empty column 2 beside it. */
+.jobs-card.is-editing {
+  grid-template-columns: 1fr;
+}
 /* EXPLICIT ROWS, not just columns. Raised in review: with the DOM order
    id, schedule, what, mode, play, edit, naming only grid-column puts the two
    buttons in fresh implicit rows BELOW the text rather than beside it, so the
@@ -1088,6 +1094,28 @@ html[data-width="fit"] .card__ref {
   color: var(--ink);
   border-color: var(--accent);
 }
+/* TKT-1006. The logs panel (TKT-852) never got real rules for its own
+   lines. */
+.logs-line {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.76rem;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.logs-line__status {
+  flex-shrink: 0;
+  width: 2.4rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.logs-line__path {
+  color: var(--ink);
+  word-break: break-all;
+}
+.logs-line.is-error .logs-line__status {
+  color: #fca5a5;
+}
 .jobs-card__log-line.is-fresh {
   color: #fde68a;
 }
@@ -1303,12 +1331,19 @@ html[data-width="fit"] .card__ref {
   color: var(--muted);
   font-size: 0.78rem;
 }
-.column-row__actions-list {
+/* TKT-1006. The entry/administrative variants, added alongside TKT-591,
+   were never folded into these two rules the way every other variant
+   (input, add, remove) already was below. */
+.column-row__actions-list,
+.column-row__entry-actions-list,
+.column-row__administrative-actions-list {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
 }
-.column-row__action-row {
+.column-row__action-row,
+.column-row__entry-action-row,
+.column-row__administrative-action-row {
   display: flex;
   gap: 0.4rem;
   align-items: center;
@@ -1944,6 +1979,24 @@ html[data-width="fit"] .card__ref {
   font-size: 0.88rem;
   line-height: 1.5;
 }
+/* TKT-1006. A native, entirely unstyled button. */
+.card-list__more {
+  margin-top: 0.4rem;
+  padding: 0.2rem 0.55rem;
+  color: #67e8f9;
+  background: transparent;
+  border: 1px solid rgba(103, 232, 249, 0.25);
+  border-radius: 0.5rem;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.card-list__more:hover {
+  border-color: #67e8f9;
+}
+.card-list__more[hidden] {
+  display: none;
+}
 .card-value {
   display: inline-flex;
   align-items: center;
@@ -2309,6 +2362,12 @@ textarea.card-edit-input {
 .card-list__proof-command {
   font-weight: 600;
   flex-shrink: 0;
+}
+/* TKT-1006. The sibling .card-list__proof-command got weight and
+   flex-shrink; the value beside it got nothing. */
+.card-list__proof-detail {
+  flex: 1;
+  word-break: break-word;
 }
 .card-list__text {
   margin-right: auto;

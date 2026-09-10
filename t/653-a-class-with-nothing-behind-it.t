@@ -14,9 +14,9 @@
 # SOMEWHERE in the source; scanning every BEM-shaped string literal in the
 # file, not only ones sitting next to className=, is what catches it.
 #
-# THE LEDGER, NOT A BLOCKED RELEASE: this check found 15 more classes with
+# THE LEDGER, NOT A BLOCKED RELEASE: this check found 16 more classes with
 # no rule at all beyond the 5 already known, on a codebase that has grown
-# since 2026-08-28. Fixing 15 CSS rules blind, with no way to see the
+# since 2026-08-28. Fixing 16 CSS rules blind, with no way to see the
 # rendered page from here, risks shipping worse regressions than the ones
 # this test exists to catch. Each is named below with why it is exempt for
 # now - most "pending: needs a real stylesheet rule, filed as TKT-1006" -
@@ -40,34 +40,50 @@ use Suite ();
 # Not a class at all - excluded by name rather than treated as a style gap.
 # Both are hyphenated strings that happen to match the BEM-shaped pattern
 # this scan looks for, for reasons that have nothing to do with CSS.
+#
+# not-ok joins them from TKT-1006's own investigation: it is a DATA VALUE
+# (live-helpers.js's mark pair, passed to /question/mark) that happens to be
+# a BEM-shaped string literal near class-assignment-looking code - it is
+# never once assigned as a className anywhere. The button it labels carries
+# "card-question__mark" instead. A genuine false positive in this file's own
+# scan, not a styling gap.
 my %NOT_A_CLASS = (
     'no-store'          => 'a fetch() cache mode, not a class (live-helpers.js, column-editor.js and others)',
     'tira-column-width' => 'a localStorage key (base-script.js), not a class',
+    'not-ok'            => 'a data value (the mark pair in live-helpers.js), never assigned as a className - TKT-1006',
+);
+
+# Confirmed styling-free BY DESIGN, in a live browser (TKT-1006), each
+# checked against an established sibling precedent rather than guessed:
+my %INTENTIONALLY_BARE = (
+    'card-attach-input'  => 'already hidden via the descendant selector .card-attach-add input{display:none} '
+      . '- the native file input is deliberately invisible behind its label, TKT-1006',
+    'card-attachments'   => 'a semantic wrapper only - its children (.card-attachment-strip, the attach label) '
+      . 'carry their own real rules, TKT-1006',
+    'card-comments-box'  => 'a semantic wrapper only - its child .card-comments carries the real rule, TKT-1006',
+    'card-value__text'   => 'a plain-text carrier inside the already-styled .card-value/.card-text, used only to '
+      . 'branch from the markdown-rendered case - TKT-1006',
+    'jobs-editor__loop-on' => 'a native checkbox, styled the same way .column-row__entry and '
+      . '.column-row__next-checkbox already are elsewhere in this file: the class is a query hook, not a style '
+      . 'target, and the native control is the accepted look - TKT-1006',
 );
 
 # A real gap, measured now rather than assumed fixed. Each is unstyled
 # today; TKT-1006 is the follow-up that adds the missing rules, one card
 # rather than blind changes made here with no way to see the result.
+#
+# Ten of the sixteen originally listed here now carry real rules (TKT-1006,
+# verified in a live browser): card-list__more, card-list__proof-detail,
+# column-row__administrative-action-row, column-row__administrative-actions-list,
+# column-row__entry-action-row, column-row__entry-actions-list, is-editing,
+# is-error, logs-line__path, logs-line__status. Removed from this ledger
+# rather than left stale, per the guard below. Five more moved to
+# %INTENTIONALLY_BARE above and one to %NOT_A_CLASS - nothing remains
+# pending.
 my %PENDING_STYLE = map { $_ => 'pending: no stylesheet rule yet, tracked as TKT-1006' } qw(
-    card-attach-input
-    card-attachments
-    card-comments-box
-    card-list__more
-    card-list__proof-detail
-    card-value__text
-    column-row__administrative-action-row
-    column-row__administrative-actions-list
-    column-row__entry-action-row
-    column-row__entry-actions-list
-    is-editing
-    is-error
-    jobs-editor__loop-on
-    logs-line__path
-    logs-line__status
-    not-ok
 );
 
-my %EXEMPT = ( %NOT_A_CLASS, %PENDING_STYLE );
+my %EXEMPT = ( %NOT_A_CLASS, %INTENTIONALLY_BARE, %PENDING_STYLE );
 
 # --- read every view script and the stylesheet it ships ---------------------
 

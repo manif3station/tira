@@ -1,6 +1,33 @@
 Revision history for Tira
 
 5.93  2026-09-10
+    - TKT-1006: TKT-653's own detector found 16 dashboard classes with no
+      stylesheet rule at all, tracked in its %PENDING_STYLE exemption
+      ledger rather than fixed blind with no way to see the rendered page.
+      Investigated each in a real browser (a served board, docker
+      tira-browser-test:latest, Playwright), confirmed by screenshot and
+      computed style: 10 genuinely needed a rule and now have one -
+      card-list__more (a completely unstyled native button), the
+      required-action proof detail span, and the biggest find, the column
+      editor's entry/administrative action rows and lists, which had been
+      left out of a grouping convention every sibling variant (input,
+      add, remove) already followed since TKT-591 - the jobs card's own
+      is-editing state (whose editor panel, in a real edit, sat in one
+      column of the card's two-column grid with an empty column beside
+      it), and the logs panel's is-error/logs-line__path/logs-line__status
+      (the whole panel had never been styled at all). Five are genuinely
+      styling-free by design, each matched against an established sibling
+      precedent rather than guessed, and moved to a new %INTENTIONALLY_BARE
+      ledger with its own reason: card-attach-input (already hidden via a
+      descendant selector), card-attachments/card-comments-box (semantic
+      wrappers whose children carry the real rules), card-value__text (a
+      plain-text carrier), and jobs-editor__loop-on (a native checkbox,
+      the same convention .column-row__entry and .column-row__next-checkbox
+      already use). One, not-ok, was a genuine false positive in TKT-653's
+      own scan - a data value passed to /question/mark, never once
+      assigned as a className - moved to %NOT_A_CLASS. t/653 confirmed
+      genuinely red against the pre-fix stylesheet with the updated ledger
+      (git stash dashboard.css alone), then green after.
     - TKT-971: a backward column move already records exhaustive detail
       about WHAT was reset (every required item, in the journal) and
       nothing about WHY - the mirror of discard-unexplained one column

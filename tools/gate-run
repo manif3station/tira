@@ -118,6 +118,25 @@ docker compose -f "$compose" run --rm --name "$container_name" -v "$tree:/worksp
   CORES=$(nproc) &&
   JOBS=$(( CORES > 1 ? CORES - 1 : 1 )) &&
 
+  # TKT-969: plain first, and pay for coverage only once the suite itself is
+  # known to pass. Measured 2026-09-06: an identical suite costs 86s plain
+  # against 788-801s under Devel::Cover, and three of six gate attempts that
+  # day failed on a PLAIN suite failure - each paying the full instrumented
+  # run anyway to learn it. tools/gate-summarize is the same reader the
+  # coverage pass below already uses, so a plain refusal names the failing
+  # file rather than a bare test number. This is a FAIL-FAST FILTER, never a
+  # substitute for the coverage pass that follows it unchanged: a tree that
+  # passes here and fails under coverage still fails the gate, since only the
+  # instrumented run below writes the 100% figure anything else trusts.
+  rm -rf cover_db .test-tmp &&
+  timeout --signal=KILL '"$SUITE_TIMEOUT"' env -u HARNESS_PERL_SWITCHES prove -j"$JOBS" -lr t >/tmp/gate-run-plain.log 2>&1;
+  plain_status=$?;
+  ./tools/gate-summarize "$plain_status" /tmp/gate-run-plain.log;
+  if [ "$plain_status" -ne 0 ]; then
+    echo "gate-run: the plain suite did not pass - refusing before any coverage run starts" >&2;
+    exit 1;
+  fi;
+
   # THE WHOLE COLLECTION PIPELINE IS RETRIED ONCE, NOT ONLY THE RUN COUNT.
   # TKT-825, investigating TKT-954s own fix further: that fix (coverage-
   # complete) checks the per-process run COUNT, and a real gate-run still

@@ -1,6 +1,26 @@
 Revision history for Tira
 
 5.93  2026-09-10
+    - TKT-969: a failing gate paid the full coverage run to learn what a
+      plain run would have said - measured 2026-09-06, an identical suite
+      costs 86s plain against 788-801s under Devel::Cover, and three of
+      six gate attempts that day failed on a plain suite failure while
+      still paying the instrumented cost to find it. TKT-947's gate was
+      also killed six times under load the same evening; the plain suite
+      still finished where the instrumented run could not. tools/gate-run's
+      embedded container script now runs the suite plain first, with no
+      HARNESS_PERL_SWITCHES - a plain failure refuses immediately via the
+      same tools/gate-summarize a coverage failure already uses (naming
+      the failing file, not a bare test number), and never touches
+      Devel::Cover at all. A plain pass falls through into the existing
+      coverage pass and its retry-on-collision loop entirely unchanged, so
+      a tree that passes plain and fails under coverage still fails the
+      gate - the plain pass is a fail-fast filter, never a certifying
+      substitute. New t/969 (8 assertions), tested by extracting the
+      literal script text gate-run hands to bash -lc and running it
+      against a scratch checkout with stub prove/cpanm/nproc/cover -
+      distinguished by whether HARNESS_PERL_SWITCHES names Devel::Cover,
+      the exact fact the fix's whole claim rests on.
     - TKT-1050, Michael's live report: d2 tira.dashboard --help never listed
       --with-police (TKT-897) or --with-policy-bridge (TKT-1026), both real
       GetOptions flags, because --help reads a command's usage line

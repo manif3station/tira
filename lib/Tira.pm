@@ -3221,6 +3221,11 @@ sub hierarchy_link {
 
 sub hierarchy_unlink {
     my ( $self, %args ) = @_;
+    # hierarchy.unlink takes no --ref either, the same fault TKT-689 fixed
+    # on hierarchy.link - named directly rather than left to the generic
+    # "Record reference is required" _record_data would raise. TKT-1011.
+    die "A parent is required\n" if !defined $args{parent} || $args{parent} eq '';
+    die "A child is required\n"  if !defined $args{child}  || $args{child}  eq '';
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         my ( $parent_path, $parent ) = $self->_record_data( project => $root, ref => $args{parent} );

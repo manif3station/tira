@@ -1,6 +1,14 @@
 Revision history for Tira
 
 5.93  2026-09-10
+    - TKT-1011: hierarchy_unlink never received TKT-689's fix, so a caller
+      who mistakenly ran hierarchy.unlink with --ref (what every other
+      command takes) was told "Record reference is required - supply it
+      with --ref" - a flag hierarchy.unlink does not accept at all. Now
+      dies with "A parent is required"/"A child is required" before
+      touching _record_data, mirroring hierarchy_link exactly; both
+      messages already existed in %SUPPLIED_BY from TKT-689, so no
+      CLI-layer table change was needed. New t/1011 (6 assertions).
     - TKT-1006: TKT-653's own detector found 16 dashboard classes with no
       stylesheet rule at all, tracked in its %PENDING_STYLE exemption
       ledger rather than fixed blind with no way to see the rendered page.

@@ -122,10 +122,21 @@ my %EXEMPT = (
     # recorded "one concern, do not split" decision.
 
     # The command surface. TKT-607 took it from 6,048 lines by lifting the
-    # record verbs out; what remains includes a genuinely separable second
-    # concern - the move-path/required-action bookkeeping - TKT-1041 owns it.
-    'lib/Tira/CLI.pm' => 'the dispatch index; TKT-607 halved it once, and '
-      . 'TKT-1041 owns lifting its move-path/required-action bookkeeping out next',
+    # record verbs out; TKT-1041 then lifted the move-path/required-action
+    # bookkeeping into Tira::CLI::Move (2,401 lines left, from 6,048). This is
+    # the dispatch index t/430 deliberately keeps large (up to 3,000 lines) -
+    # run and _invoke ARE the index, and every command body already lives
+    # elsewhere - so this is a standing decision, not a card pointer.
+    'lib/Tira/CLI.pm' => 'the dispatch index t/430 keeps large by design, '
+      . 'confirmed still true after TKT-1041 - one concern, do not split further',
+
+    # TKT-1041's own extraction, the four move-path guards and the
+    # bookkeeping that follows a move (reset, reminder, entry/exit required
+    # actions) - one cohesive concern per the card that created it, the same
+    # grouping t/430's own line-budget already treated as one unit before
+    # this file existed.
+    'lib/Tira/CLI/Move.pm' => 'the move-path guards and their bookkeeping, '
+      . 'lifted together by TKT-1041 as one concern - one concern, do not split',
 
     # These four grew past the limit after the decompositions that created them,
     # which is the argument this whole card makes. Browser.pm is the sharpest:

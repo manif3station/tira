@@ -167,9 +167,13 @@ my $cli = Suite::cli_source();
 # and flagged the predicate's own line - lc( ... $item->{status} ... ) eq
 # 'done' - because the lc sits before the status reference rather than inside
 # the captured span. The predicate is the one place this comparison belongs, so
-# it is cut out and the rest is what must be clean.
+# it is cut out and the rest is what must be clean. TKT-1041 lifted the real
+# definition into Tira::CLI::Move and left a one-line forward of the same name
+# in Tira::CLI - a second "sub _item_is_done { ... }" shape in the same
+# concatenated source, so the cut is now /g rather than a single match, or the
+# forward is stripped and the real definition, now second, is left uncut.
 my $outside = $cli;
-$outside =~ s/sub _item_is_done \{.*?\n\}\n//s;
+$outside =~ s/sub _item_is_done \{.*?\n\}\n//gs;
 my @inline = $outside =~ /(\$\w+->\{status\}[^;]{0,60}?(?:ne|eq)\s*'done')/g;
 is_deeply( \@inline, [],
     'no comparison of an item status against \'done\' is written out by hand any more' );

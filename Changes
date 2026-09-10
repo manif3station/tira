@@ -1,6 +1,31 @@
 Revision history for Tira
 
 5.93  2026-09-10
+    - TKT-1041: TKT-906's own triage of t/524's 500-line exemption list found
+      a real second concern left in lib/Tira/CLI.pm (2,999 lines) after
+      TKT-607's own lift of the record verbs: the move-path guards and their
+      bookkeeping (chain order, exit/entry required actions, unjudged
+      answers, the reminder and reset that follow a move - 13 functions) are
+      distinct from the file's own stated concern of dispatch/indexing.
+      Lifted into a new Tira::CLI::Move, mirroring TKT-607's own shape
+      exactly: every function stays reachable by its original name through a
+      one-line require+forward in Tira::CLI.pm, so no caller anywhere -
+      internal to Tira::CLI, or external callers already reaching some of
+      these by fully-qualified name (Tira::CLI::Browser, Tira::CLI::Records,
+      several tests) - needed any change. Documentation stays in
+      Tira::CLI.pm deliberately: t/430 asserts its own "=head2 The four
+      guards on the move path" heading is still there, since a reader
+      following the move path opens the index first. lib/Tira/CLI.pm:
+      2,999 -> 2,401 lines. Four regressions the extraction itself caused
+      were found and fixed before this shipped: t/422's own single-match
+      strip of _item_is_done's body found two matches once a forwarding
+      stub of the same name existed (widened to /g); t/524's own 500-line
+      exemption list needed a new entry for the 720-line Tira::CLI::Move,
+      and its lib/Tira/CLI.pm entry corrected from "TKT-1041 owns it, next"
+      to a standing "the index, by design" decision now that it does; t/569
+      read the gate's own body from lib/Tira/CLI.pm by name, now empty
+      after the lift, and was pointed at the new module instead; and the
+      new module's own missing POD failed t/03-metadata's podchecker check.
     - TKT-1040: t/03-metadata.t's own unlike($skills_text, qr/\bSpecified\b/i,
       ...) - meant to catch a documented command left at an unimplemented
       "Specified" availability status - false-positived on the ordinary

@@ -2,8 +2,10 @@
 # TKT-627. Three documents say the unjudged-answer gate is scoped to the
 # column an answer was given in. The gate is card-wide, and always has been.
 #
-# WHAT THE CODE DOES. _unjudged_answer_violation (lib/Tira/CLI.pm) refuses a
-# forward move while ANY unjudged answer sits on the card:
+# WHAT THE CODE DOES. _unjudged_answer_violation (lib/Tira/CLI/Move.pm since
+# TKT-1041 lifted the move-path guards out of lib/Tira/CLI.pm, which now only
+# carries a one-line forward of the same name) refuses a forward move while
+# ANY unjudged answer sits on the card:
 #
 #     my @unjudged = grep {
 #         $_->{answer} && !$_->{discarded_at} && !( $_->{answer}{mark} // '' );
@@ -57,7 +59,9 @@ sub doc {
 # --- the code's own answer, read rather than assumed ------------------------
 
 {
-    my $cli = Suite::cli_source('CLI.pm');
+    # TKT-1041 lifted this gate's own body into Tira::CLI::Move; CLI.pm now
+    # carries only a one-line forward of the same name.
+    my $cli = Suite::cli_source('Move.pm');
     # non-empty is the whole claim: every check below would pass on an
     # unreadable file's emptiness alone otherwise.
     like( $cli, qr/\S/, 'the command surface is there to be read' );

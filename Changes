@@ -1,6 +1,19 @@
 Revision history for Tira
 
 5.93  2026-09-10
+    - TKT-1038: TKT-766 (5.89) added attachment_where to lib/Tira.pm and
+      dispatched it in lib/Tira/CLI.pm, and both manuals documented it as
+      shipped, but the executable entrypoint under skills/attachment/cli/
+      was never created - the same missing-file shape TKT-895 fixed for
+      question.withdraw. d2 tira.attachment.where answered "Command not
+      found" despite both the engine and the dispatch table having it.
+      skills/attachment/cli/where added, mirroring its siblings exactly;
+      t/03-metadata.t's own hardcoded entrypoint count bumped 191 -> 192
+      to match. New t/1038. While re-checking t/03-metadata.t, found a
+      second, unrelated, pre-existing doc-vs-ships failure - a hypothetical,
+      never-built "tira.policy.declare" named in prose describing a
+      declined design (TKT-936/Q-154) - filed separately as TKT-1060
+      rather than folded in here.
     - TKT-1015: tools/hooks/pre-push computed "the cards this push is
       about" from origin/$branch..HEAD, ignoring the real local ref/sha
       git passes a pre-push hook on stdin - so a partial push (holding

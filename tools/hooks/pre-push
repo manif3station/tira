@@ -52,6 +52,19 @@ An install compares versions, so this release would reach nobody. Bump VERSION
 in .env, and lib/Tira.pm and t/03-metadata.t with it."
 fi
 
+# TKT-965: seven cards' Changes entries once sat under a version already
+# pushed AND installed - committed, never pushed, and the check above did
+# not catch it, since VERSION eventually did change in a LATER commit,
+# leaving the earlier entries permanently misfiled under the old heading.
+# tools/changes-not-reopened compares every version origin has already
+# shipped against origin's own text under that same heading - not only the
+# newest local heading, since a fresh heading routinely sits above an
+# already-released one. Anything added past it is refused here, before it
+# can happen again.
+if ! tools/changes-not-reopened --base "$base"; then
+    fail "the changelog names a release nobody would actually receive - see above."
+fi
+
 # --- the board is backed up before anything else ------------------------
 #
 # The board is deliberately outside git, so a push is the natural moment to

@@ -1,6 +1,43 @@
 Revision history for Tira
 
-5.92  2026-09-10
+5.93  2026-09-10
+    - TKT-965: seven cards' Changes entries (TKT-627, 948, 949, 950, 953,
+      954, 962) sat under "5.83" in this repository's own file, a version
+      already pushed AND installed - committed, never pushed, and nothing
+      in the working tree caught it. t/03-metadata.t compares .env,
+      our $VERSION and the newest Changes heading only to EACH OTHER, never
+      to what origin last actually shipped, so all three agreed the entire
+      time the drift grew and the suite stayed green throughout. TKT-936's
+      own commit reproduced the identical shape live, in this same
+      session, before this fix existed. Fixed in two halves: the seven
+      entries moved to 5.84 (content unchanged; TKT-946 is the one entry
+      that genuinely shipped in 5.83 and stays there), and eleven "since
+      5.83"/"until 5.83" literals in lib/Tira/CLI.pm, docs/commands.md,
+      docs/POLICIES.md and SKILLS.md corrected to name the release those
+      seven cards actually shipped in (two unrelated "5.77 to 5.83"/
+      "5.83->5.84" upgrade-transition mentions left alone - they describe
+      a real historical event, not a shipped-in-5.83 claim). New
+      tools/changes-not-reopened compares the local Changes section for
+      EVERY version origin's own file already names against origin's OWN
+      text under that same heading - origin has shipped it, so origin's
+      own text is the ceiling, and any local difference under the same
+      heading (an addition, an edit, or a deletion) is refused. Wired
+      into tools/hooks/pre-push alongside the existing "shipped files
+      changed and VERSION did not" check, which this complements rather
+      than replaces: that one fires when VERSION never moves at all; this
+      one fires even when VERSION DOES eventually move in a later commit,
+      which is exactly how the original seven entries survived unnoticed.
+      Checking only the newest local heading was the first version's own
+      bug, Codex-caught: a fresh, legitimate heading (a later card
+      bumping VERSION for its own work, exactly as TKT-957 did) hid every
+      already-released heading beneath it from the check - the precise
+      shape of the bug this card is about. New t/965 (9 assertions) and a
+      new probe in tools/prove-the-gate, both proven against real git
+      fixtures: refuses a reopened already-released heading naming the
+      version and pointing at the fix, including one buried under a
+      genuinely new, unreleased heading; passes once moved to a fresh
+      unreleased heading; and an unreleased heading or no origin ref at
+      all are both the ordinary, unwatched case.
     - TKT-936/Q-154: docs/commands.md once claimed the verify column carried
       a conditional required action (fires when a card's changes touch
       lib/Tira/views/*, DashboardWeb.pm or OnboardWeb.pm, asking for
@@ -47,6 +84,8 @@ Revision history for Tira
       sharing an UNMATCHED conditional's text does not block the move
       either - the %wanted fix), and validation refuses a broken touches
       condition.
+
+5.92  2026-09-10
     - TKT-910: link_remove reported success and removed nothing when asked
       for the reciprocal type from the wrong from/to order - it always
       returned { removed => true } regardless of whether either of its two
@@ -1333,6 +1372,213 @@ Revision history for Tira
 
 5.84  2026-09-06
 
+    - TKT-962, his report: tira.job.list silently returned an empty
+      list for a board with 3 jobs, and four safety rules were declined
+      on that empty read.
+
+      Two decisions combine, and neither is wrong alone. job_list
+      resolves its board with discover_project when the caller names
+      none, which searches UPWARD from the working directory; and
+      _job_read returns an empty list when the jobs file is absent. So
+      a caller standing somewhere unexpected is answered for whichever
+      board lies above them, with no error to stop them.
+
+      The damage is not the empty list, it is that an empty list is an
+      ORDINARY answer. An error would have halted the work; a plausible
+      wrong one did not.
+
+      The answer's shape is deliberately unchanged - -o json emits that
+      payload and callers depend on the list being a list. What changed
+      is the silence: an empty answer now names the board it was empty
+      for, on STDERR, and says that if that is not the board you meant,
+      this is about whichever one the working directory resolved to.
+
+      Same shape as TKT-949 six hours earlier, where the Bridge panel
+      read whatever board the server process resolved and showed
+      "Nothing on the bridge yet" against a store holding 13,037
+      entries. Two instances make it a pattern, so it was swept: five
+      reads in lib/ treat an absent file as empty, and deciding once
+      how such a read names its board is TKT-964 rather than five
+      separate judgements.
+
+    - TKT-953, his report, captioned 亂碼？- a job's output panel showing
+      a shrug emoji as a run of accented Latin-1 characters.
+
+      Two functions in this codebase read a child process's output and
+      they disagreed. feed_from_handle decodes every line and has since
+      TKT-932 in 5.58. run_due_job read raw bytes with sysread and
+      decoded nothing - and its output reaches job_feed through
+      run_due_commands, which shipped in 5.81 earlier the same day.
+
+      The engine does not round-trip byte strings: the record writer is
+      in utf8 mode, so a byte held as a character is encoded a second
+      time and comes back as the separate Latin-1 pieces of its own
+      UTF-8 encoding. Proven in a container rather than argued - write
+      a byte string into a field and it reads back as U+00E2 U+0086
+      U+00B3. So any command job whose output was not pure ASCII stored
+      mangled text.
+
+      run_due_job now decodes where it reads, with the same call and
+      the same FB_QUIET fallback the feeder uses on the same kind of
+      stream. Not in run_due_commands and not in the panel: a
+      compensating decode downstream would have fixed one caller and
+      left the next to rediscover it, which is how the two readers came
+      to disagree in the first place.
+
+      Three of my own conclusions on this card were wrong before the
+      right one, and each correction is on the card rather than
+      substituted for the last: the feeder was blamed first and is
+      clean, the fault was described as a missing decode when it is an
+      undecoded read feeding a writer that expects characters, and a
+      production observation was overturned by a controlled test.
+
+    - TKT-954. The release gate measured one unchanged tree twice and
+      reported lib/Tira.pm at 99.8/100.0/99.8 and then 100.0/100.0/100.0,
+      naming eight uncovered lines the card being gated had never
+      touched. Three further runs on that same tree agreed exactly, at
+      100.0 across all 21 modules.
+
+      So the figure does not drift - it was LOST once, about one run in
+      six. That distinction decides the fix. A number wrong every run is
+      caught by looking at the number; one wrong in a sixth of runs is
+      not, because five times in six it is right, and the sixth either
+      refuses a good release or certifies a tree with a real hole.
+      Since 4.62 the push hook runs no suite, so nothing downstream
+      re-checks it.
+
+      The suite runs under prove -j, so every test process writes into
+      one shared cover_db, and a fragment that does not survive turns
+      every statement only that process executed into an uncovered one.
+      Devel::Cover records one entry per process in cover_db/runs -
+      measured, not assumed: prove -j4 over four test files left exactly
+      four.
+
+      tools/coverage-complete makes that comparison and refuses a short
+      collection, naming both counts and calling the fault what it is:
+      not a coverage failure, but a figure never computed from all the
+      data. gate-run calls it after the suite and before it reports any
+      percentage. More runs than files is accepted - the first full run
+      reported 570 for 560 test files, because tests that fork record
+      their own, and an equality check would have refused every gate
+      from the day it shipped.
+
+      What is NOT claimed: the collection is not deterministic. A
+      fragment can still be lost. It can no longer be lost silently.
+      The 100% requirement is untouched.
+
+    - TKT-949, his report twice over: "I also asked this bridge section
+      never work." The Bridge panel said "Nothing on the bridge yet.
+      Police announces here when it runs" while police announced
+      continuously and the board's own store held 13,037 entries.
+
+      Two faults, and the second is why the first survived.
+
+      GET /bridge derived its police store from discover_project(),
+      which searches UPWARD from the server process's working
+      directory. The dashboard runs from a directory ABOVE the board it
+      serves, so searching up walks away from the board rather than
+      towards it: it resolved some other project, or none, and read
+      that store. The board root was already being carried into the
+      process - TIRA_DASHBOARD_ROOT is set before the runner starts and
+      is what dashboard.psgi resolves the board from, so it survives
+      the fork - and the bridge simply was not reading it.
+
+      And the whole read sat in eval {...} // [], so a board it could
+      not resolve, a store it could not read, and a genuinely quiet
+      bridge all rendered as one sentence. The panel had no state in
+      which it could say "I could not read this", which is why the
+      first fault went unnoticed from the day it shipped.
+
+      The read is now _bridge_payload, answering ok with entries or
+      ok => 0 with a reason, keyed to the served board. The panel
+      paints three states instead of two, and still accepts a bare list
+      so a page served by an older board is not blanked. The eval
+      stays: a cosmetic panel still must not take the page down.
+
+    - TKT-950, his report: "A job command using bare 'd2' cannot exec -
+      tira.job.help's own documented example fails." He answered Q-130
+      naming the executor: a job falling due, which is police's path.
+
+      What was actually wrong is not the exec but the silence after it.
+      A command job could fail two ways and the board treated them very
+      differently. One that RAN and exited non-zero had its output and
+      "exit status N" fed onto the job, where the card shows them. One
+      that NEVER STARTED - which is what a command that cannot be
+      execed does - had its reason pushed into run_due_commands' return
+      value, and the loop then called next, skipping job_feed entirely.
+      Nothing displays that return value, so the card showed a job that
+      had fired with no sign anything had gone wrong.
+
+      The branch immediately above the comment saying that dropping
+      output "would rebuild the silence this whole epic exists to end"
+      was doing exactly that, in the case where the reader has least to
+      go on: a command that exits 3 at least ran.
+
+      It now feeds "could not start: <command>" and the executor's own
+      reason onto the job before moving on, through the same job_feed
+      call and the same eval guard the success path uses, so one job's
+      failure still cannot take the pass down. The command is named
+      because that is what makes it diagnosable - `d2` resolves from
+      PATH, and a daemon's PATH is not an interactive shell's.
+
+      t/564 already covered this branch, but only its return value.
+      t/570 covers what reaches the job, and checks the other three
+      directions: a non-zero exit still carries its status, a clean run
+      gains no false failure line, and one job that cannot start does
+      not silence the next.
+
+    - TKT-948, and it is a note rather than a change. The upgrade gate
+      raised its own card when 5.83 installed on a board still running
+      5.77, and doing so exposed what it costs: the card arrives with a
+      title, a description and a checklist, and with no problem
+      statement, scope, acceptance criteria or parent. Eleven empty
+      fields, and an orphan-card violation from police within the
+      minute.
+
+      That matters because tools/card-holes refuses a push while any
+      live card is incomplete. So every upgrade hands the board one
+      release-gate violation to clear by hand - and on the evening this
+      was found the push was already blocked by 29 incomplete cards,
+      which the gate's own card would have joined.
+
+      Recorded in SKILLS.md and docs/commands.md as a known cost rather
+      than left to be rediscovered. The gate knows the version range and
+      holds the changelog entries between them, so the fields it leaves
+      empty are derivable; whether to fill them, exempt a gate-raised
+      card from card-holes, or announce instead of creating one is
+      TKT-956.
+
+    - TKT-627. The unjudged-answer move gate has been card-wide since it
+      was written, and four places said it was scoped to the column the
+      answer was given in. It was not a near-miss reading: the filter
+      greps the whole card's questions with no column in it, and an
+      answer record is { text, author, answered_at, read_at, mark },
+      carrying no column at all - so the documented behaviour was not
+      merely unimplemented, it was unrepresentable without a new field.
+
+      The four are corrected rather than the code changed. Card-wide is
+      the defensible gate, and stamping a column onto every answer would
+      have left every answer written before that change unscoped for
+      ever. docs/POLICIES.md, SKILLS.md and the 4.52 entry below now say
+      card-wide; so does the comment above the gate itself, which is
+      where the other three were written from and which the first sweep
+      missed by looking only at the files the card named.
+
+      The refusal is reworded for the same reason. It read "Cannot move
+      X out of <column> - an answer has not been judged", naming the
+      column being left and the unjudged answer in one breath, and a
+      real run shows how that misleads: an answer given in IMPLEMENT
+      produced "Cannot move CWT-001 out of verify - an answer has not
+      been judged", naming a column the answer had nothing to do with.
+      It now reads "... - this card carries an answer nobody has
+      judged". The move being refused is still named; where the answer
+      lives is not misstated.
+
+      t/569 holds both ends - no document and no source comment may
+      re-acquire the claim - and t/407 gained the scenario that proves
+      it behaviourally: answer in one column, refused leaving a later
+      one, which a column-scoped gate would have allowed.
+
     - TKT-829: the 16 MB attachment cap was measured in characters, so a
       non-ASCII proof could store up to four times it.
 
@@ -1553,213 +1799,6 @@ Revision history for Tira
       together, or this one first.
 
 5.83  2026-09-05
-
-    - TKT-962, his report: tira.job.list silently returned an empty
-      list for a board with 3 jobs, and four safety rules were declined
-      on that empty read.
-
-      Two decisions combine, and neither is wrong alone. job_list
-      resolves its board with discover_project when the caller names
-      none, which searches UPWARD from the working directory; and
-      _job_read returns an empty list when the jobs file is absent. So
-      a caller standing somewhere unexpected is answered for whichever
-      board lies above them, with no error to stop them.
-
-      The damage is not the empty list, it is that an empty list is an
-      ORDINARY answer. An error would have halted the work; a plausible
-      wrong one did not.
-
-      The answer's shape is deliberately unchanged - -o json emits that
-      payload and callers depend on the list being a list. What changed
-      is the silence: an empty answer now names the board it was empty
-      for, on STDERR, and says that if that is not the board you meant,
-      this is about whichever one the working directory resolved to.
-
-      Same shape as TKT-949 six hours earlier, where the Bridge panel
-      read whatever board the server process resolved and showed
-      "Nothing on the bridge yet" against a store holding 13,037
-      entries. Two instances make it a pattern, so it was swept: five
-      reads in lib/ treat an absent file as empty, and deciding once
-      how such a read names its board is TKT-964 rather than five
-      separate judgements.
-
-    - TKT-953, his report, captioned 亂碼？- a job's output panel showing
-      a shrug emoji as a run of accented Latin-1 characters.
-
-      Two functions in this codebase read a child process's output and
-      they disagreed. feed_from_handle decodes every line and has since
-      TKT-932 in 5.58. run_due_job read raw bytes with sysread and
-      decoded nothing - and its output reaches job_feed through
-      run_due_commands, which shipped in 5.81 earlier the same day.
-
-      The engine does not round-trip byte strings: the record writer is
-      in utf8 mode, so a byte held as a character is encoded a second
-      time and comes back as the separate Latin-1 pieces of its own
-      UTF-8 encoding. Proven in a container rather than argued - write
-      a byte string into a field and it reads back as U+00E2 U+0086
-      U+00B3. So any command job whose output was not pure ASCII stored
-      mangled text.
-
-      run_due_job now decodes where it reads, with the same call and
-      the same FB_QUIET fallback the feeder uses on the same kind of
-      stream. Not in run_due_commands and not in the panel: a
-      compensating decode downstream would have fixed one caller and
-      left the next to rediscover it, which is how the two readers came
-      to disagree in the first place.
-
-      Three of my own conclusions on this card were wrong before the
-      right one, and each correction is on the card rather than
-      substituted for the last: the feeder was blamed first and is
-      clean, the fault was described as a missing decode when it is an
-      undecoded read feeding a writer that expects characters, and a
-      production observation was overturned by a controlled test.
-
-    - TKT-954. The release gate measured one unchanged tree twice and
-      reported lib/Tira.pm at 99.8/100.0/99.8 and then 100.0/100.0/100.0,
-      naming eight uncovered lines the card being gated had never
-      touched. Three further runs on that same tree agreed exactly, at
-      100.0 across all 21 modules.
-
-      So the figure does not drift - it was LOST once, about one run in
-      six. That distinction decides the fix. A number wrong every run is
-      caught by looking at the number; one wrong in a sixth of runs is
-      not, because five times in six it is right, and the sixth either
-      refuses a good release or certifies a tree with a real hole.
-      Since 4.62 the push hook runs no suite, so nothing downstream
-      re-checks it.
-
-      The suite runs under prove -j, so every test process writes into
-      one shared cover_db, and a fragment that does not survive turns
-      every statement only that process executed into an uncovered one.
-      Devel::Cover records one entry per process in cover_db/runs -
-      measured, not assumed: prove -j4 over four test files left exactly
-      four.
-
-      tools/coverage-complete makes that comparison and refuses a short
-      collection, naming both counts and calling the fault what it is:
-      not a coverage failure, but a figure never computed from all the
-      data. gate-run calls it after the suite and before it reports any
-      percentage. More runs than files is accepted - the first full run
-      reported 570 for 560 test files, because tests that fork record
-      their own, and an equality check would have refused every gate
-      from the day it shipped.
-
-      What is NOT claimed: the collection is not deterministic. A
-      fragment can still be lost. It can no longer be lost silently.
-      The 100% requirement is untouched.
-
-    - TKT-949, his report twice over: "I also asked this bridge section
-      never work." The Bridge panel said "Nothing on the bridge yet.
-      Police announces here when it runs" while police announced
-      continuously and the board's own store held 13,037 entries.
-
-      Two faults, and the second is why the first survived.
-
-      GET /bridge derived its police store from discover_project(),
-      which searches UPWARD from the server process's working
-      directory. The dashboard runs from a directory ABOVE the board it
-      serves, so searching up walks away from the board rather than
-      towards it: it resolved some other project, or none, and read
-      that store. The board root was already being carried into the
-      process - TIRA_DASHBOARD_ROOT is set before the runner starts and
-      is what dashboard.psgi resolves the board from, so it survives
-      the fork - and the bridge simply was not reading it.
-
-      And the whole read sat in eval {...} // [], so a board it could
-      not resolve, a store it could not read, and a genuinely quiet
-      bridge all rendered as one sentence. The panel had no state in
-      which it could say "I could not read this", which is why the
-      first fault went unnoticed from the day it shipped.
-
-      The read is now _bridge_payload, answering ok with entries or
-      ok => 0 with a reason, keyed to the served board. The panel
-      paints three states instead of two, and still accepts a bare list
-      so a page served by an older board is not blanked. The eval
-      stays: a cosmetic panel still must not take the page down.
-
-    - TKT-950, his report: "A job command using bare 'd2' cannot exec -
-      tira.job.help's own documented example fails." He answered Q-130
-      naming the executor: a job falling due, which is police's path.
-
-      What was actually wrong is not the exec but the silence after it.
-      A command job could fail two ways and the board treated them very
-      differently. One that RAN and exited non-zero had its output and
-      "exit status N" fed onto the job, where the card shows them. One
-      that NEVER STARTED - which is what a command that cannot be
-      execed does - had its reason pushed into run_due_commands' return
-      value, and the loop then called next, skipping job_feed entirely.
-      Nothing displays that return value, so the card showed a job that
-      had fired with no sign anything had gone wrong.
-
-      The branch immediately above the comment saying that dropping
-      output "would rebuild the silence this whole epic exists to end"
-      was doing exactly that, in the case where the reader has least to
-      go on: a command that exits 3 at least ran.
-
-      It now feeds "could not start: <command>" and the executor's own
-      reason onto the job before moving on, through the same job_feed
-      call and the same eval guard the success path uses, so one job's
-      failure still cannot take the pass down. The command is named
-      because that is what makes it diagnosable - `d2` resolves from
-      PATH, and a daemon's PATH is not an interactive shell's.
-
-      t/564 already covered this branch, but only its return value.
-      t/570 covers what reaches the job, and checks the other three
-      directions: a non-zero exit still carries its status, a clean run
-      gains no false failure line, and one job that cannot start does
-      not silence the next.
-
-    - TKT-948, and it is a note rather than a change. The upgrade gate
-      raised its own card when 5.83 installed on a board still running
-      5.77, and doing so exposed what it costs: the card arrives with a
-      title, a description and a checklist, and with no problem
-      statement, scope, acceptance criteria or parent. Eleven empty
-      fields, and an orphan-card violation from police within the
-      minute.
-
-      That matters because tools/card-holes refuses a push while any
-      live card is incomplete. So every upgrade hands the board one
-      release-gate violation to clear by hand - and on the evening this
-      was found the push was already blocked by 29 incomplete cards,
-      which the gate's own card would have joined.
-
-      Recorded in SKILLS.md and docs/commands.md as a known cost rather
-      than left to be rediscovered. The gate knows the version range and
-      holds the changelog entries between them, so the fields it leaves
-      empty are derivable; whether to fill them, exempt a gate-raised
-      card from card-holes, or announce instead of creating one is
-      TKT-956.
-
-    - TKT-627. The unjudged-answer move gate has been card-wide since it
-      was written, and four places said it was scoped to the column the
-      answer was given in. It was not a near-miss reading: the filter
-      greps the whole card's questions with no column in it, and an
-      answer record is { text, author, answered_at, read_at, mark },
-      carrying no column at all - so the documented behaviour was not
-      merely unimplemented, it was unrepresentable without a new field.
-
-      The four are corrected rather than the code changed. Card-wide is
-      the defensible gate, and stamping a column onto every answer would
-      have left every answer written before that change unscoped for
-      ever. docs/POLICIES.md, SKILLS.md and the 4.52 entry below now say
-      card-wide; so does the comment above the gate itself, which is
-      where the other three were written from and which the first sweep
-      missed by looking only at the files the card named.
-
-      The refusal is reworded for the same reason. It read "Cannot move
-      X out of <column> - an answer has not been judged", naming the
-      column being left and the unjudged answer in one breath, and a
-      real run shows how that misleads: an answer given in IMPLEMENT
-      produced "Cannot move CWT-001 out of verify - an answer has not
-      been judged", naming a column the answer had nothing to do with.
-      It now reads "... - this card carries an answer nobody has
-      judged". The move being refused is still named; where the answer
-      lives is not misstated.
-
-      t/569 holds both ends - no document and no source comment may
-      re-acquire the claim - and t/407 gained the scenario that proves
-      it behaviourally: answer in one column, refused leaving a later
-      one, which a column-scoped gate would have allowed.
 
     - TKT-946. His report, and he had diagnosed it himself: "more than
       1 Tira dashboard running and each of them sitting on different port

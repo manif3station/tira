@@ -114,6 +114,7 @@ fi
 # covers: the documentation and the code disagree | an entrypoint nobody documented
 # covers: tools/docs-examples-run is missing - refusing to push examples nobody ran | tools/docs-examples-run
 # covers: a documented example is not what the command accepts | a documented example the command refuses
+# covers: the changelog names a release nobody would actually receive - see above. | a heading reopened after its own release
 
 passed=0
 failed=0
@@ -416,6 +417,45 @@ version_probe() {
 
 version_probe 'a shipped change with no version bump' 'lib/Tira.pm' refused
 version_probe 'a change no install copies' 't/00-foundation.t' allowed
+
+# --- a changelog heading reopened after its own release ---------------------
+#
+# TKT-965: seven cards' Changes entries once sat under a version already
+# pushed AND installed. VERSION eventually did change, in a later commit -
+# so version_probe's own check above would not have caught this, and did
+# not, while it happened. The bug is specifically an already-released
+# heading growing new text under it, whether or not VERSION ever moves.
+changes_reopen_probe() {
+    local clone="$sandbox/clone-changes-reopen"
+    git clone --quiet --no-hardlinks "$root" "$clone" 2>/dev/null || {
+        printf 'NOT PROVED - could not clone the repository to stage a reopened heading\n'
+        failed=$(( failed + 1 ))
+        return
+    }
+    cp "$root/tools/hooks/pre-push" "$clone/tools/hooks/pre-push"
+    cp "$root/tools/changes-not-reopened" "$clone/tools/changes-not-reopened"
+    cp "$root/tools/docs-examples-run" "$clone/tools/docs-examples-run"
+
+    local newest
+    newest="$(cd "$clone" && grep -m1 -oE '^[0-9]+\.[0-9]+' Changes)"
+    ( cd "$clone" && sed -i "/^${newest}  /a\\    - TKT-0000: a probe entry added after the release." Changes &&
+      git commit --quiet --no-verify -m 'probe: reopen an already-released heading' -- Changes ) || return
+
+    out="$(cd "$clone" && ./tools/hooks/pre-push 2>&1)"
+    local status=$?
+    if [ "$status" -eq 0 ]; then
+        printf 'NOT PROVED - the gate allowed a reopened already-released heading\n'
+        failed=$(( failed + 1 ))
+    elif ! printf '%s' "$out" | grep -qiE 'reach anyone|reach nobody'; then
+        printf 'NOT PROVED - it refused the reopened heading without saying why: %s\n' "$(printf '%s' "$out" | tail -2)"
+        failed=$(( failed + 1 ))
+    else
+        printf 'proved - a heading reopened after its own release is refused\n'
+        passed=$(( passed + 1 ))
+    fi
+    rm -rf "$clone"
+}
+changes_reopen_probe
 
 # --- the commit gate reads the subject, not the whole message --------------
 #

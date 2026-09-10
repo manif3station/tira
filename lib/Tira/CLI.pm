@@ -1483,7 +1483,7 @@ sub _remind_one_at_a_time {
 # So the prompt is moved to the moment it belongs to: a card does not move
 # forward while ANY answer on it carries no mark, from whichever column that
 # answer was given in. This comment said "does not leave the column an answer
-# was given in" until 5.84, which was never what the code did - three
+# was given in" until 5.93, which was never what the code did - three
 # documents were written from that reading and stayed wrong for a year
 # (TKT-627).
 #
@@ -2791,7 +2791,7 @@ above: the person who would judge it may be why the card is going back.
 The gate is CARD-WIDE: any unjudged answer anywhere on the card holds it,
 whichever column that answer was given in. It cannot be otherwise - an answer
 record carries no column, so there is nothing to scope it by. Four places
-described it as scoped to the column the answer was given in until 5.84, the
+described it as scoped to the column the answer was given in until 5.93, the
 comment above this sub among them, and none of them was ever true (TKT-627).
 
 =head2 _column_entry_required_action_violation

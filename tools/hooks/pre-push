@@ -40,6 +40,32 @@ step 'checking the version against what is being shipped'
 # avoid. The remote ref is what git actually has; where there is none, every
 # file counts as changed and the check still runs.
 branch="$(git rev-parse --abbrev-ref HEAD)"
+
+# TKT-1015. Which sha is actually being pushed, not assumed to be HEAD. Git
+# gives a pre-push hook the real answer on stdin, one line per ref: <local
+# ref> <local sha1> <remote ref> <remote sha1>. Read once, here, before
+# anything below reads stdin for anything else. Only the first line is
+# read - a push of several refs at once is rare enough on this project's
+# own workflow (one branch, one remote) that reading the rest would add
+# complexity a real push here never exercises. With nothing on stdin at
+# all - this hook run by hand, or by tools/prove-the-gate - HEAD is kept,
+# which is the ordinary case and must stay exactly as it always was.
+pushed_sha="HEAD"
+deleting_ref=""
+if IFS=' ' read -r _local_ref _local_sha _remote_ref _remote_sha; then
+    zero='0000000000000000000000000000000000000000'
+    if [ -n "${_local_sha:-}" ] && [ "$_local_sha" != "$zero" ]; then
+        pushed_sha="$_local_sha"
+    elif [ "${_local_sha:-}" = "$zero" ]; then
+        # A branch DELETION, not a push of HEAD under another name - the
+        # all-zero local sha means no commit is being pushed at all, so
+        # there is no commit range to compute "about" from. Falling back
+        # to HEAD here would derive it from whatever local commits happen
+        # to be lying around, unrelated to what this push actually does.
+        deleting_ref=1
+    fi
+fi
+
 base="$(git rev-parse --verify --quiet "origin/$branch" || true)"
 [ -n "$base" ] || base="$(git hash-object -t tree /dev/null)"
 
@@ -93,13 +119,13 @@ step 'checking the board for incomplete or stalled cards'
 # checks more rather than less. The second is how this tool is run by hand and
 # by tools/prove-the-gate.
 about=""
-if [ -n "$(git rev-parse --verify --quiet "origin/$branch" || true)" ]; then
+if [ -z "$deleting_ref" ] && [ -n "$(git rev-parse --verify --quiet "origin/$branch" || true)" ]; then
     # The `|| true` is not decoration. Under `set -e` with pipefail, a grep
     # that matches nothing exits 1 and takes the whole hook with it - silently,
     # at the card check, with no output at all. That is exactly what happened
     # the first time this was run: eleven probes reported the gate broken, and
     # the only broken thing was a range with no commits in it.
-    about="$(git log --format=%s "origin/$branch..HEAD" |
+    about="$(git log --format=%s "origin/$branch..$pushed_sha" |
         grep -oE '[A-Z][A-Z0-9]*-[0-9]+' | sort -u | tr '\n' ' ' || true)"
 fi
 

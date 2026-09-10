@@ -1,6 +1,23 @@
 Revision history for Tira
 
 5.93  2026-09-10
+    - TKT-1015: tools/hooks/pre-push computed "the cards this push is
+      about" from origin/$branch..HEAD, ignoring the real local ref/sha
+      git passes a pre-push hook on stdin - so a partial push (holding
+      back a later, not-yet-reviewed commit still sitting at HEAD) still
+      named the held-back commit's own card, and refused for a reason
+      unrelated to what was actually being pushed. Reproduced live
+      2026-09-08 pushing an older sha to hold back a review. Now reads
+      its own stdin once (one line: <local ref> <local sha1> <remote
+      ref> <remote sha1>) and diffs against the pushed sha; with nothing
+      on stdin - a bare run, or tools/prove-the-gate - HEAD is kept
+      exactly as before. A branch DELETION (the all-zero local sha) is
+      its own case, not a push of HEAD under another name: the about=
+      computation is skipped entirely rather than falling back to HEAD,
+      which would otherwise derive it from whatever local commits happen
+      to be lying around, unrelated to a deletion - caught by Codex
+      review before this shipped. New t/1015, extracting the hook's own
+      stdin and about= blocks verbatim rather than retyping them.
     - TKT-1012: his own report of a repeated job's due notice arriving as
       several separate Telegram messages, seconds apart, for one due
       window - investigated rather than assumed already fixed. Could NOT

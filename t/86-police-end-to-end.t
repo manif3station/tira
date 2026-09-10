@@ -83,6 +83,7 @@ my %declare = (
     'wip-limit'                 => { column => 'implement', max => 1 },
     'gate-missing'              => { column => 'done' },
     'discard-unexplained'       => {},
+    'backward-move-unexplained' => {},
     'commit-without-card'       => {},
     'work-without-card'         => { age => '15m' },
     'unpushed-work'             => { age => '1h' },
@@ -317,6 +318,13 @@ $tira->record_move(author => 'claude',  project => $root, ref => $shipped->{ref}
 
 my $dropped = $tira->create_record( project => $root, type => 'ticket', title => 'Dropped in silence' );
 $tira->record_discard(author => 'claude',  project => $root, ref => $dropped->{ref} );
+
+# A card sent backward with nothing said about why - discard-unexplained's
+# own mirror. Walked to verify, then back to implement, with no comment
+# near the move to explain it.
+my $backtracked = $tira->create_record( project => $root, type => 'ticket', title => 'Sent back with no word' );
+$tira->record_move(author => 'claude',  project => $root, ref => $backtracked->{ref}, column => 'verify' );
+$tira->record_move(author => 'claude',  project => $root, ref => $backtracked->{ref}, column => 'implement' );
 
 # A card set aside while a question on it was still waiting - the questions go
 # with the card, and the decision they were waiting on is never made.

@@ -6657,6 +6657,16 @@ my %POLICY_RULES = (
     'board-unbacked'            => { needs => ['age'] },
     'gate-missing'              => { needs => ['column'], forbids => ['age'] },
     'discard-unexplained'       => { needs => [], forbids => ['age'] },
+
+    # TKT-971. A backward move records exhaustive detail about WHAT it
+    # reset (every required item, in the journal) and none at all about
+    # WHY - the same gap discard-unexplained already closes for a discard,
+    # one column short. His own report: a decoy ref found by a stray grep
+    # was moved backward by mistake, and whoever read the card next could
+    # not tell that reading from a genuine "this needs redoing" without
+    # asking. No age: the reset already happened the moment the move did,
+    # so a grace period would only delay saying so.
+    'backward-move-unexplained' => { needs => [], forbids => ['age'] },
     # No age, and it is refused rather than ignored. A monitor that has stopped
     # does not become more stopped, and the acceptance this rule was written
     # for asks for it "within one bridge pass, rather than after somebody
@@ -9668,6 +9678,80 @@ sub policy_evaluate {
                 next if $explained;
                 $report->( $policy, $record,
                     'discarded with no reason given - leave a comment saying why it was set aside' );
+            }
+        }
+        elsif ( $rule eq 'backward-move-unexplained' ) {
+            my %order_by_type;
+            for my $record ( @{$all} ) {
+                next if !$resolved_for->( $policy, $record );
+                my $rtype = $record->{type} // 'ticket';
+                next if ( $record->{column} // '' ) eq 'discard';
+
+                # Column ORDER, one lookup per type rather than per card -
+                # the reset itself (CLI.pm's _apply_column_required_actions)
+                # already knows forward from backward this same way, by
+                # array position rather than by name.
+                #
+                # KNOWN LIMITATION, shared with that same reset logic and not
+                # introduced here (Codex review): this reads the board's
+                # CURRENT column order, not the order that was in force at
+                # the moment of the historical move being judged. A column
+                # reorder after the fact can retroactively make an old
+                # forward move read as backward, or the reverse. Accepted
+                # rather than fixed for the same reason the reset mechanism
+                # already accepts it: fixing it here alone would leave this
+                # rule and the reset it reports on disagreeing about which
+                # moves were backward, which is worse than both sharing one
+                # blind spot - and this rule only ever reports, it never
+                # refuses, so the failure mode is a possible false or missed
+                # reminder, not a wrong reset.
+                my $order = $order_by_type{$rtype} //= do {
+                    my $columns = eval { $self->column_list( project => $root, type => $rtype ) };
+                    $columns = [] if ref $columns ne 'ARRAY';
+                    my %idx;
+                    my $i = 0;
+                    $idx{ $_->{name} } = $i++ for @{$columns};
+                    \%idx;
+                };
+
+                # The record's OWN LAST column change, not its first or any
+                # in between - a card moved back and then forward again is
+                # explaining the move that actually landed it here, and an
+                # older backward move already explained (or not) at the time
+                # is not this pass's business to re-litigate.
+                my ( $last_before, $last_after, $last_at );
+                for my $entry ( @{ $self->history_list(
+                    project => $root, ref => $record->{ref}, type => $rtype, field => 'column',
+                ) } ) {
+                    ( $last_before, $last_after, $last_at ) = ( $entry->{before}, $entry->{after}, $entry->{at} );
+                }
+                next if !defined $last_before || !defined $last_after;
+                next if $last_before eq 'discard' || $last_after eq 'discard';
+                next if !exists $order->{$last_before} || !exists $order->{$last_after};
+                next if $order->{$last_after} >= $order->{$last_before};
+
+                # Same test discard-unexplained applies to a comment: it can
+                # only be THIS move's explanation if it exists at or after
+                # the move that made it, with a body that says something -
+                # not any comment the card has ever carried. Same 5-second
+                # grace for the natural "decide, write, then move" authoring
+                # order (TKT-778/TKT-777's reasoning applies identically
+                # here - a card with no column-change history at all cannot
+                # reach this branch, since $last_before/$last_after already
+                # require one).
+                my $moved_epoch = eval { _epoch_of_datetime( $last_at, 'Move' ) };
+                my $GRACE_SECONDS = 5;
+                my $explained = defined $moved_epoch
+                  ? grep {
+                      ( $_->{body} // '' ) =~ /\S/
+                        && ( eval { _epoch_of_datetime( $_->{created_at}, 'Comment' ) } // 0 )
+                        >= $moved_epoch - $GRACE_SECONDS
+                    } @{ $record->{comments} // [] }
+                  : grep { ( $_->{body} // '' ) =~ /\S/ } @{ $record->{comments} // [] };
+                next if $explained;
+                $report->( $policy, $record,
+                    "moved backward from $last_before to $last_after with no reason given - "
+                      . 'leave a comment saying why' );
             }
         }
         elsif ( $rule eq 'priority-skipped' ) {

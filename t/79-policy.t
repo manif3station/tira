@@ -170,6 +170,7 @@ my %needs = (
     'board-unbacked'            => { age => '2h' },
     'gate-missing'              => { column => 'done' },
     'discard-unexplained'       => {},
+    'backward-move-unexplained' => {},
     'leftover-process'          => { pattern => 'tail -f', age => '30m' },
     'leftover-container'        => { pattern => 'perl-test', age => '30m' },
     'card-unlinked'             => { require_link => 'is-blocked-by' },

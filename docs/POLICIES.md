@@ -391,7 +391,7 @@ absent from this page, so a rule shipped without being documented is caught by
 name. Since 4.76 the other half is checked too: a statement of how many rules
 there are is compared against the engine, in any markdown file including this
 one, bar the build and dependency directories. A claim is a number ahead of the
-word `rules` with at most two words between them, which covers `47 rules cover`, `47 rules police`, `47 police rules` and `47 policy
+word `rules` with at most two words between them, which covers `48 rules cover`, `48 rules police`, `48 police rules` and `48 policy
 rules` alike. That shape is the reach of it — a count worded outside it, or
 stated somewhere that is not a markdown file, is not held,
 and saying so matters more than sounding thorough. Both guards exist because
@@ -435,6 +435,7 @@ when it was written down.
 | `wip-limit` | `--column` and a number, from the policy or the project | too many things being worked at once, counted separately per record kind (sow/epic/ticket) since 3.42 - an epic sitting In Progress as the permission state for its children does not consume a ticket's budget by existing, and the finding names which kind is over. Since 5.61 this rule refuses `--age` rather than silently storing one nothing reads (TKT-933). |
 | `gate-missing` | `--column` | work that reached the end with no gate recorded. Declared on a final-check column before push, this and `checklist-unmoved`/`card-stalled` (below) cover two of the four checks a reviewer needs - the evidence is there, and the todo list really is done - with no new code; `tira.check.owner --ref CARD` answers the third question, who should be looking. The fourth, whether the code change actually aligns with the card, stays a person or an LLM's own judgement - no rule can make it, and none here tries. TKT-372. A gate satisfies this rule by *existing*, not by naming anything real - a misspelt or invented gate name reported this as satisfied (or, worse, missing) with no way to tell. `tira.project.gates --gate-name` declares which names actually count; once declared, `tira.gate.add`'s `--gate` and every record's `--sdlc-gate` both refuse anything outside that list. TKT-292. Since 5.61 this rule refuses `--age` rather than silently storing one nothing reads (TKT-933). |
 | `discard-unexplained` | — | work set aside with no reason given. **A comment is what this wants**, unlike `answer-ok-not-folded` beside it: a discard reason is a note somebody leaves, not content anybody reads back. Until 4.87 any comment the card ever had satisfied this, including one written long before the discard about something else entirely - fixed to require a comment written at or after the move into discard, with a body that is not empty or whitespace. TKT-638. "At or after" has a 5-second grace window backward since 4.91: the natural "decide, write, then move" authoring order writes the explanation a second or two before the move, measured on real boards, and a strict `>=` rejected that second the same way it would reject silence. A card with no column-change history at all (migrated in already-discarded) has no move timestamp to compare against either - since 4.91 that falls back to requiring any non-empty comment, rather than being permanently unsatisfiable. TKT-778, TKT-777. Since 5.43 the comment that would not satisfy this rule can no longer be written in the first place: `comment.add` refuses an empty or whitespace-only `--text`, using the same `/\S/` test this rule applies to a body. The two are deliberately pinned together — a rule that ignores a string the command happily stores is how an agent satisfies a gate by adding nothing, and the earlier version of this entry describes exactly that failure. TKT-753. Since 5.61 this rule refuses `--age` rather than silently storing one nothing reads (TKT-933). |
+| `backward-move-unexplained` | — | a backward column move with no reason given, since 5.93 (TKT-971). The mirror of `discard-unexplained` one column short: a backward move already records exhaustive detail about WHAT was reset (every required item, in the journal) and nothing about WHY. His own report: a decoy ref found by a stray grep was moved backward by mistake, and the next reader could not tell that reading from a genuine "this needs redoing" without asking. Mirrors `discard-unexplained`'s own mechanism exactly, deliberately - the design decision this card's acceptance criteria required be made and recorded rather than left to fall out of the implementation: a comment satisfies it only if it exists at or after the record's OWN LAST backward move, with the identical 5-second grace. Unlike `discard-unexplained`, there is no fallback for a card with no comparable history - a card with no column-move history (or whose column-field history cannot resolve a "before") simply cannot be judged backward at all, so this rule has nothing to report rather than something to excuse. No `--reason` flag was added to the move itself - a comment written in the same breath already achieves that, exactly as it already does for a discard, rather than two mechanisms saying the same thing. A move into or out of `discard` is left entirely to `discard-unexplained`, not doubled up here. A forward move is never this rule's business and gains no prompt. **No age**, for the same reason `discard-unexplained` has none: the reset already happened the moment the move did, so a grace period would only delay saying so. |
 | `commit-without-card` | — | a commit that names no card Since 5.61 this rule refuses `--age` rather than silently storing one nothing reads (TKT-933). |
 | `work-without-card` | `--age` | a tree changing while nothing is at a working gate |
 | `unpushed-work` | `--age` | commits sitting unpushed since the given age, on the one repository the project declares (or the board's own directory, if none is declared) **and, since 5.87, every immediate subdirectory of `~/Sandbox/<basename of that repo>/` too** (TKT-998, his own answer to Q-140/Q-141) - push is part of done. His working pattern is several clones of one remote: the declared repo stays a pristine reference and actual work happens in per-ticket clones at `~/Sandbox/<repo>/<card-ref>/`, so a clone with unpushed commits is now caught the same way the declared repo itself is, whichever clone happens to have the work. `unpushed_since` is the oldest unpushed commit across every clone combined, not only the declared repo's own. Something under the Sandbox directory that is not a git repository is skipped, not fatal. **Since 5.85 this rule also refuses `--pattern`** (TKT-980, his own question: "what does it match against, and would it catch a sandbox clone?"). The honest answer was nothing - only `leftover-process` and `leftover-container` read `--pattern`, and this rule's own body never did, so a declared pattern (his own `POL-130: rule unpushed-work, pattern CODE, age 4h`) was accepted, stored, and read back correctly, which is what made it credible. |
@@ -900,7 +901,7 @@ passing every test they had — the tests handed the engine a world of their own
 A rule that is silent because nothing was looked at is indistinguishable from a
 rule being obeyed. If you write a rule that reads the machine, prove it fires
 by making the condition real, not by describing it to the engine.
-## 108 use cases
+## 109 use cases
 
 Each is an invented situation and the command that answers it. Find the
 situation that looks like your project; ignore the rest. And read the
@@ -1866,6 +1867,7 @@ next pass, escalated to a warning, then wrote the same words into a field with
 | --- | --- |
 | `answer-ok-not-folded` | a card field |
 | `discard-unexplained` | a comment |
+| `backward-move-unexplained` | a comment |
 
 The difference is deliberate. A discard reason is a note somebody leaves about
 work that has stopped; a folded answer is content the next agent reads off the
@@ -2951,4 +2953,22 @@ an item naming no card at all is never reported. It marks nothing itself - the
 same reporting-only discipline every rule here keeps. No `--age`: an item
 naming only terminal cards is stale the moment the last one lands, not after
 waiting some more.
+
+**109.** A card sent backward with nothing said about why - the mirror of
+use case 100, one column short.
+
+```
+d2 tira.policy.add --rule backward-move-unexplained --action bridge-reminder
+```
+
+A backward move already records exhaustive detail about WHAT it reset (every
+required item, in the journal) and nothing about WHY. His own report,
+TKT-971: a decoy ref found by a stray grep was moved backward by mistake,
+and the next reader could not tell that reading from a genuine "this needs
+redoing" without asking. Mirrors `discard-unexplained` exactly: a comment
+satisfies it only if it exists at or after the record's own last backward
+move, with the identical 5-second grace. A move into or out of `discard` is
+left entirely to `discard-unexplained`. A forward move gains no prompt at
+all, and a backward move is no harder to make - this rule reports, it never
+refuses.
 

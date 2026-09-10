@@ -124,6 +124,8 @@ refuses_age( 'gate-missing', project => $root,
     rule => 'gate-missing', column => 'implement', age => '10m', action => 'bridge-reminder' );
 refuses_age( 'discard-unexplained', project => $root,
     rule => 'discard-unexplained', age => '10m', action => 'bridge-reminder' );
+refuses_age( 'backward-move-unexplained', project => $root,
+    rule => 'backward-move-unexplained', age => '10m', action => 'bridge-reminder' );
 refuses_age( 'card-unlinked', project => $root,
     rule => 'card-unlinked', require_link => 'blocks', age => '10m', action => 'bridge-reminder' );
 refuses_age( 'parent-ahead-of-children', project => $root,

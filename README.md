@@ -165,7 +165,7 @@ embedded in the page — the board loads nothing from another host, so a CDN
 highlighter was never an option. A genuinely binary file still refuses rather
 than rendering as mojibake, and an unknown extension is decided by reading its
 first bytes rather than by its name.
-The board-wide police policy engine — the 47 rules police itself watches,
+The board-wide police policy engine — the 48 rules police itself watches,
 separate from a column's own required-action template — is editable from
 the browser too: a Policies button opens a modal listing every declared,
 declined, and undeclared rule, with a rule-specific parameter picker that
@@ -766,7 +766,7 @@ overrides, 5.23), `lib/Tira/Tasklist.pm` (the shared to-do queue, 5.24) and
 `lib/Tira/Render.pm` (the human and table renderers, 5.25) and
 `lib/Tira/Attachment.pm` (storing files and hanging them off records, 5.42),
 each loaded with `require` at the point it is actually needed. `lib/Tira.pm` is
-16,426 lines now (TKT-936) - grown rather than shrunk since the fourth lift,
+16,510 lines now (TKT-971) - grown rather than shrunk since the fourth lift,
 since most releases that touch it add more than any one concern removes.
 Entry points keep their names throughout - the split is where the
 code lives, not what anything is called. They are inlined at render rather than linked, so the board still
@@ -936,8 +936,8 @@ entries themselves, and how many rules police the board, checked against
 sentence — every markdown file in the repository bar the build and dependency
 directories (`cover_db`, `node_modules`, `.git`), and any claim that puts a
 number ahead of the word `rules` with at most two words between them. That
-covers `47 rules cover`, `47 rules police`, `47 police
-rules` and `47 policy rules`, and it is the whole of its reach, worth stating
+covers `48 rules cover`, `48 rules police`, `48 police
+rules` and `48 policy rules`, and it is the whole of its reach, worth stating
 plainly because a guard described more broadly than it works is the failure it
 exists to prevent: a claim worded outside that shape is not held, and neither is
 one made anywhere but a markdown file. The same count stated in a source comment is TKT-736, still open.

@@ -1,6 +1,29 @@
 Revision history for Tira
 
 5.93  2026-09-10
+    - TKT-971: a backward column move already records exhaustive detail
+      about WHAT was reset (every required item, in the journal) and
+      nothing about WHY - the mirror of discard-unexplained one column
+      short. His own report: a decoy ref found by a stray grep was moved
+      backward by mistake, and the next reader could not tell that
+      reading from a genuine "this needs redoing" without asking. New
+      policy rule backward-move-unexplained mirrors discard-unexplained's
+      own mechanism exactly, deliberately: a comment satisfies it only if
+      it exists at or after the record's own last backward move (5s
+      grace, identical to discard-unexplained), not any comment the card
+      has ever carried. No --reason flag was added to the move itself - a
+      comment written in the same breath already achieves that, exactly
+      as it already does for a discard. Moves into or out of discard stay
+      discard-unexplained's own business; a forward move gains no prompt
+      at all; the existing reset record is untouched; the rule reports,
+      it never refuses. Known, accepted limitation shared with the reset
+      mechanism itself (Codex-caught, not introduced here): backward/
+      forward is judged against the board's CURRENT column order, not the
+      order in force at the historical move's own time, so a column
+      reorder after the fact can retroactively change how an old move
+      reads - fixing only this reporting rule would leave it and the
+      reset mechanism disagreeing about the same move. New t/971 (7
+      assertions).
     - TKT-969: a failing gate paid the full coverage run to learn what a
       plain run would have said - measured 2026-09-06, an identical suite
       costs 86s plain against 788-801s under Devel::Cover, and three of

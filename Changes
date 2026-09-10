@@ -1,6 +1,25 @@
 Revision history for Tira
 
 5.92  2026-09-10
+    - TKT-901: a killed gate-run left its container running against a
+      worktree the same trap had already removed - measured on TKT-893,
+      2026-09-03: a container ran 21:57 to 22:47 after its host process had
+      been killed at 22:46, and the coverage step then failed with "no
+      modules found under lib/" because lib/ had been deleted mid-run, not
+      because coverage was actually short. The container now gets a
+      deterministic name (gate-run-$$) via --name, and the EXIT trap stops
+      it (docker rm -f) BEFORE removing the worktree - stopping it after
+      would reproduce the same race one step later. The docker compose
+      invocation itself is now backgrounded so its own pid can be killed
+      too, narrowing (Codex review, two further rounds) the remaining
+      window where a kill lands before the container has registered with
+      the daemon at all, in which case "docker rm -f" alone would find
+      nothing to stop. Proved with a new t/901 that kills a real gate-run
+      mid-run against a mocked docker and confirms both that the container
+      (and its own work, not just its shell) dies, and that the stop call
+      landed while the worktree still existed; t/279's existing end-to-end
+      mocked run confirms an ordinary, uninterrupted gate-run and its cache
+      write are unaffected.
     - TKT-900: t/70-doc-examples.t checked only SKILLS.md and docs/commands.md
       for runnable examples, hard-coded - docs/POLICIES.md (184 examples) and
       docs/JOBS.md (67) were never gated, and JOBS.md arrived that way despite

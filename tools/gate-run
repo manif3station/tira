@@ -51,8 +51,32 @@ echo "gate-run: testing a checkout of HEAD ($tree_hash), the commit about to be 
 
 tree="$(mktemp -d)"
 output="$(mktemp)"
+# TKT-901. A killed gate-run used to remove this worktree without ever telling
+# the container mounted on it to stop - the container kept running against a
+# directory that no longer existed, and the coverage step then failed with a
+# misleading "no modules found under lib/" because lib/ had been deleted mid-
+# run, not because coverage was actually short. The container needs a name of
+# its own so cleanup can target it, and it has to be stopped BEFORE the
+# worktree is removed, not merely stopped eventually - a race in the other
+# order reproduces the exact same bug one step later.
+# docker_pid is the compose CLI's own pid, set only once it is actually
+# launched below - a kill landing before then has nothing to stop but the
+# worktree, which is still safe since no container exists yet to orphan.
+# Killing that CLI process first, before "docker rm -f", closes the narrow
+# window where a kill lands between the container being NAMED here and
+# "docker compose run" actually registering it with the daemon: the CLI's own
+# in-flight create/start call is what "docker rm -f" alone cannot reach,
+# because there is nothing yet to remove. This does not make the two
+# operations atomic - a kill landing in the instant after the daemon creates
+# the container but before the CLI process reacts is still possible - but it
+# closes the case that matters in practice, and "docker rm -f" right after
+# still catches a container that did make it into existence.
+container_name="gate-run-$$"
+docker_pid=""
 cleanup() {
     rm -f "$output"
+    [ -n "$docker_pid" ] && kill "$docker_pid" >/dev/null 2>&1 || true
+    docker rm -f "$container_name" >/dev/null 2>&1 || true
     git worktree remove --force "$tree" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -85,7 +109,10 @@ flock 8
 printf '%s\n' "$$" > "$lockf"
 
 SUITE_TIMEOUT=3600
-docker compose -f "$compose" run --rm -v "$tree:/workspace/skills/tira" perl-test bash -lc '
+# Backgrounded, with its own pid captured into docker_pid, so cleanup() above
+# can kill the compose CLI itself rather than only the container it may not
+# have created yet - see the TKT-901 comment by container_name/cleanup().
+docker compose -f "$compose" run --rm --name "$container_name" -v "$tree:/workspace/skills/tira" perl-test bash -lc '
   cd /workspace/skills/tira &&
   cpanm --quiet --notest --installdeps . >/dev/null 2>&1 &&
   CORES=$(nproc) &&
@@ -255,7 +282,15 @@ COVERSCRIPT
   ./tools/coverage-holes --db cover_db 2>&1 | sed "s/^/uncovered: /" || true
 
   rm -rf cover_db
-' >"$output" 2>&1 || { ./tools/gate-outer-refusal "$output" >&2; exit 1; }
+' >"$output" 2>&1 &
+docker_pid=$!
+docker_status=0
+wait "$docker_pid" || docker_status=$?
+docker_pid=""
+if [ "$docker_status" -ne 0 ]; then
+    ./tools/gate-outer-refusal "$output" >&2
+    exit 1
+fi
 
 # Released as soon as the suite that needed it is done - everything from here
 # only reads $output and writes the cache record, neither of which touches the

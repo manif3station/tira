@@ -1635,6 +1635,26 @@ fix version. TKT-680.
 
 **And TKT-954's own fix still let a real run through wrong, since 5.90** (TKT-825, his own live observation during a verify gate: `lib/Tira.pm` measured 99.7% despite `tools/coverage-complete` passing). Investigated to the root rather than papered over: Devel::Cover 1.52 names each per-process run directory `time . "." . $$ . "." . sprintf "%05d", rand 2**16` (its own `lib/Devel/Cover.pm:788`) - one-second resolution, no collision check, no retry - so a PID reused within the same wall-clock second under `prove -jN`'s many short-lived workers can silently clobber another process's run directory, leaving the SLOT present (satisfying `coverage-complete`'s own count check) while its content is wrong. An upstream Devel::Cover gap, with no fix available at this project's own layer. **A live reproduction found something larger, too**: a full 641-file instrumented suite at `-j8` measured `cover_db/runs` at 327 entries against 644 expected - roughly half missing - coincident with 8.1GB of swap in active use and 1.3GB of free RAM on an 8-core, 15GB host, with the suite itself passing cleanly and nothing crashing. Not confirmed as the sole cause, but a credible signal that `gate-run`'s own `JOBS=CORES-1` heuristic does not account for Devel::Cover's real memory overhead per worker. With no fix reachable at either layer, `tools/gate-run` now retries the whole instrumented suite once - not only when `coverage-complete` reports an incomplete run count, but also when the actual reported coverage percentage itself is short, since a clobbered-but-present run directory is exactly the case the count check cannot see and only the percentage catches - before refusing. Bounded at two attempts, breaking immediately on a genuine test failure rather than spending a second ten-plus-minute run on a tree that is actually broken.
 
+**And a killed run orphaned its own container, since 5.92** (TKT-901, measured
+on TKT-893, 2026-09-03: a container ran 21:57 to 22:47 after its host process
+had already been killed at 22:46, and the coverage step then failed with "no
+modules found under lib/" - not because coverage was actually short, but
+because the EXIT trap had already removed the worktree the still-running
+container was mounted on). `docker compose run` containers do not die with
+the parent shell that started them, and bash still runs its EXIT trap on a
+terminable interruption (SIGTERM/SIGINT, not an uncatchable SIGKILL) even
+though the command it launched never finishes - so a kill removed the
+worktree while the container that needed it kept running against an empty
+mount, 50 minutes of correct suite work discarded because the host that would
+have read it was gone. `tools/gate-run` now names its
+container deterministically (`--name gate-run-$$`) and the trap stops it
+(`docker rm -f`) BEFORE removing the worktree - stopping it after would
+reproduce the identical race one step later. Proved by a new `t/901` that
+kills a real gate-run mid-run against a mocked docker and confirms both that
+the container dies and that the stop call landed while the worktree still
+existed; the existing `t/279` end-to-end mocked run confirms an ordinary,
+uninterrupted run and its cache write are unaffected by the added `--name`.
+
 **A coverage figure is only valid for the tree it measured, and since 5.78
 that is enforced rather than assumed** (TKT-605). Hit live: a coverage run
 measured `lib/Tira/CLI.pm` while another card's own work edited it

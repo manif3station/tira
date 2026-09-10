@@ -1,6 +1,22 @@
 Revision history for Tira
 
 5.92  2026-09-10
+    - TKT-906: seventeen of the eighteen entries in t/524's 500-line-limit
+      exemption list named TKT-751 - the card that had merely identified
+      them - as their reason, satisfying t/524's own cardless_entries check
+      (which only requires ANY card reference) while leaving nobody actually
+      owning any of the work. Triaged file by file: seven had a genuinely
+      separable second concern and got a real card each (TKT-1041 lib/Tira/
+      CLI.pm's move-path bookkeeping, TKT-1042 Browser.pm's job-provider
+      block, TKT-1043 Police.pm's due-job execution, TKT-1044 Job.pm's cron
+      schedule parsing, TKT-1045 t/19's work-log section, TKT-1046 t/390's
+      per-item attachment/ref block, TKT-1047 t/317's TKT-583 sequence);
+      ten were judged one coherent concern that is simply long, with the
+      reason now recording that decision instead. t/524's own guard and
+      assertions are unchanged - only the data they check was corrected,
+      and a stale prose claim in the same file's own comments ("names the
+      card that owns splitting the file", no longer true for the ten
+      no-split entries) was fixed alongside.
     - TKT-903: t/239-every-declared-refusal-is-exercised.t's own parser for
       %OPTION_READ_BY's 'commands' pattern silently mis-parsed two of its
       seven entries to undef, warning "Use of uninitialized value $readers"

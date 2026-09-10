@@ -2293,16 +2293,29 @@ offenders. The test asserts the exclusion in both directions, and that
 **An exemption costs a reason and a card reference.** A bare path refuses rather
 than exempts — the same shape `tools/gate-run` already uses for coverage, which
 refuses a module *"listed as exempt with no reason beside it"*. Every reason
-names the card that owns splitting that file, and an exemption for a file since
-split, deleted or renamed **fails**, so the list can only shrink. The test
-reports how many remain, measured live rather than written down: a count beside
-a growing file is a count that goes stale.
+names the owning split card, or the card that recorded a no-split decision,
+and an exemption for a file since split, deleted or renamed **fails**, so the
+list can only shrink. The test reports how many remain, measured live rather
+than written down: a count beside a growing file is a count that goes stale.
+
+**Seventeen of the eighteen pointed at the wrong card, since 5.92** (TKT-906).
+`cardless_entries` only checks that a reason names ANY `TKT`/`EPC`/`SOW-N`
+pattern, not which one — and TKT-751 (the card that had merely *identified*
+the eighteen) satisfied it for seventeen of them, leaving nobody actually
+owning any of that work. Triaged file by file rather than renamed in bulk:
+seven had a genuinely separable second concern and got a real card each
+(TKT-1041 through TKT-1047, naming the exact sub or section to lift); ten
+were judged one coherent concern that is simply long, with the reason now
+saying so and citing TKT-906 as the card that recorded that decision — not
+as an owner of future work, since none is owed. `t/524`'s own guard and
+assertions are unchanged; only the data it checks was corrected.
 
 Eighteen entries today. `lib/Tira.pm` names TKT-746, which already owns it; the
-rest name TKT-751. `lib/Tira/CLI/Browser.pm` is the entry that makes the
-argument — TKT-607's decomposition **created** it at 805 lines, already over,
-and it grew a further 400 before anything noticed. A split that produces a file
-breaking the same rule is why a guard is needed and a convention is not.
+other seventeen are TKT-906's own triage above. `lib/Tira/CLI/Browser.pm` is
+the entry that makes the argument — TKT-607's decomposition **created** it at
+805 lines, already over, and it grew a further 400 before anything noticed. A
+split that produces a file breaking the same rule is why a guard is needed and
+a convention is not.
 
 **Making room was the work, not raising the cap (TKT-837, 5.30).** These four
 verbs took `lib/Tira/CLI.pm` past `t/430`'s 3,000-line limit, and the card sat

@@ -95,8 +95,9 @@ my $LIMIT = 500;
 
 # THE EXEMPTION LIST. A path to a REASON, never a bare path - his rule with an
 # escape hatch that costs nothing is his rule deleted. Each reason says what the
-# file is and names the card that owns splitting it, so the list reads as a
-# decomposition backlog rather than as permission.
+# file is and names the owning split card, or the card that recorded a
+# no-split decision (TKT-906), so the list reads as a decomposition backlog
+# rather than as permission.
 #
 # NO LINE COUNTS IN THE REASONS, deliberately. A number written beside a file
 # that is still growing is a number that goes stale, and this project has three
@@ -114,50 +115,77 @@ my %EXEMPT = (
     # project, and it already has a card.
     'lib/Tira.pm' => 'the engine, and splitting it is its own project - TKT-746 owns it',
 
+    # TKT-906 triaged all seventeen entries below, since seventeen of the
+    # eighteen exemptions TKT-751 shipped pointed at TKT-751 itself - the
+    # card that merely identified them, not one splitting anything. Each is
+    # now either a real owning card naming the concern to lift, or a
+    # recorded "one concern, do not split" decision.
+
     # The command surface. TKT-607 took it from 6,048 lines by lifting the
-    # record verbs out; what remains is the dispatch table and the option guard,
-    # and the next lift needs a concern to lift rather than a line target.
-    'lib/Tira/CLI.pm' => 'the dispatch index; TKT-607 halved it and the next cut '
-      . 'needs a concern, not a line target - TKT-751 identified it',
+    # record verbs out; what remains includes a genuinely separable second
+    # concern - the move-path/required-action bookkeeping - TKT-1041 owns it.
+    'lib/Tira/CLI.pm' => 'the dispatch index; TKT-607 halved it once, and '
+      . 'TKT-1041 owns lifting its move-path/required-action bookkeeping out next',
 
     # These four grew past the limit after the decompositions that created them,
     # which is the argument this whole card makes. Browser.pm is the sharpest:
     # TKT-607 CREATED it at 805 lines, already over.
     'lib/Tira/CLI/Browser.pm' => 'created over the limit by TKT-607 and grown since '
-      . '- the case that proves a split needs a guard - TKT-751 identified it',
+      . '- TKT-1042 owns lifting its job-provider block out',
     'lib/Tira/CLI/Police.pm' => 'the police pass and its bridge, grown with every '
-      . 'rule added - TKT-751 identified it',
-    'lib/Tira/CLI/Serve.pm' => 'the dashboard server and its police-beside-the-board '
-      . 'supervision - TKT-751 identified it',
-    'lib/Tira/Job.pm' => 'repeated jobs: schedules, command parsing and the words '
-      . 'that describe them - TKT-751 identified it',
+      . 'rule added - TKT-1043 owns lifting its due-job execution block out',
+    'lib/Tira/CLI/Serve.pm' => 'TKT-906: process inspection, server lifecycle, '
+      . 'restart and beside-board supervision are all aspects of serving a '
+      . 'board on one machine - one concern, do not split',
+    'lib/Tira/Job.pm' => 'repeated jobs - TKT-1044 owns extracting its cron '
+      . 'schedule parsing/validation/wording into its own concern',
 
-    'lib/Tira/Tasklist.pm'     => 'the whole tasklist, one concern already - TKT-751 identified it',
-    'lib/Tira/DashboardWeb.pm' => 'the HTML dashboard view - TKT-751 identified it',
-    'lib/Tira/Attachment.pm'   => 'content-addressed attachment storage - TKT-751 identified it',
+    'lib/Tira/Tasklist.pm' => 'TKT-906: storage, session scoping, queue '
+      . 'operations, attachments and record links are the complete tasklist '
+      . 'item lifecycle - one concern, do not split',
+    'lib/Tira/DashboardWeb.pm' => 'TKT-906: authentication, provider routing, '
+      . 'request handling and PSGI serving form one dashboard-web boundary '
+      . '- one concern, do not split',
+    'lib/Tira/Attachment.pm' => 'TKT-906: already a coherent attachment-storage '
+      . 'subsystem (store, type, attach, fetch, list, detach, discard) '
+      . '- one concern, do not split',
 
     # The test files. A .t file is one story and splitting it usually means
     # telling half of it somewhere else, so these are the entries most likely to
     # be argued with - which is why each says what the file covers rather than
     # only that it is long.
     't/517-a-job-you-can-only-fix-from-a-terminal.t' =>
-      'the job-management surface end to end - TKT-751 identified it',
+      'TKT-906: the provider, route, editor payload, controls and styles all '
+      . 'prove one browser job-management surface - one concern, do not split',
     't/418-a-command-announced-and-thrown-away.t' =>
-      'announcing a command before its proof, every path - TKT-751 identified it',
+      'TKT-906: announcement persistence, later proof, overwrite protection, '
+      . 'status and dashboard display are one required-action command '
+      . 'lifecycle - one concern, do not split',
     't/493-a-monitor-that-died.t' =>
-      'monitor liveness across platforms, Windows included - TKT-751 identified it',
+      'TKT-906: PID identity, process matching, failure states and Windows '
+      . 'degradation are all necessary edges of monitor-liveness detection '
+      . '- one concern, do not split',
     't/19-dashboard-dialog.t' =>
-      'the dashboard dialog surface - TKT-751 identified it',
+      'TKT-1045 owns splitting the work-log section (collapsed and fetched '
+      . 'only when asked for) out of the card-dialog/provider/mutation-route contract',
     't/419-a-queue-that-disagrees-with-the-board.t' =>
-      'the tasklist and the board agreeing, every path - TKT-751 identified it',
+      'TKT-906: rule definition, directionality, dedupe, role declaration and '
+      . 'session scope are one tasklist-vs-board consistency policy - one '
+      . 'concern, do not split',
     't/390-a-list-that-does-not-need-a-ticket.t' =>
-      'tasklist reads without a card - TKT-751 identified it',
+      'TKT-1046 owns splitting the per-item attachment/ref subverb block out '
+      . 'of the tasklist-reads-without-a-card concern',
     't/519-two-terminals-to-watch-one-board.t' =>
-      'police singleton and the dashboard holding it - TKT-751 identified it',
+      'TKT-906: flag parsing, singleton precedence, spawn/reap failures, '
+      . 'environment ownership and store handling are one --with-police '
+      . 'lifecycle - one concern, do not split',
     't/86-police-end-to-end.t' =>
-      'a full police pass, the oldest end-to-end test here - TKT-751 identified it',
+      'TKT-906: the deliberately shared all-rules fixture, one police pass, '
+      . 'bridge output, settling and escalation are the point of this '
+      . 'end-to-end test - one concern, do not split',
     't/317-a-done-that-proved-nothing.t' =>
-      'proof required to mark an item done - TKT-751 identified it',
+      'TKT-1047 owns splitting the TKT-583 repeated-proof sequence out of '
+      . 'the proof-required-to-mark-done concern',
 );
 
 my @files = perl_files();
@@ -233,9 +261,9 @@ is_deeply( bare_entries( \%EXEMPT ), [],
       . 'beside it"' );
 
 is_deeply( cardless_entries( \%EXEMPT ), [],
-    'and every reason names the card that owns splitting the file, so the list '
-      . 'is a backlog somebody can work rather than a set of permanent '
-      . 'exceptions' );
+    'and every reason names the owning split card, or the card that recorded '
+      . 'a no-split decision, so the list is a backlog somebody can work '
+      . 'rather than a set of permanent exceptions' );
 
 # Criterion 3 asks for the count to be reported so the list emptying is visible.
 # A count nobody has to keep true is the thing this card is about, so entries are
@@ -321,9 +349,10 @@ and F<tools/card-holes>, which are bash and python and which the card wrongly
 counts as offenders.
 
 That every Perl file over 500 lines is either split or carries a written reason;
-that a bare path refuses rather than exempts; that every reason names the card
-which owns splitting that file; and that an exemption for a file which has since
-been split, deleted or renamed fails, so the list can only shrink.
+that a bare path refuses rather than exempts; that every reason names the
+owning split card, or the card that recorded a no-split decision; and that an
+exemption for a file which has since been split, deleted or renamed fails, so
+the list can only shrink.
 
 =head1 WHAT IS NOT ASSERTED
 

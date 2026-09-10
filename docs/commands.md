@@ -1415,12 +1415,21 @@ police about the board and refuses the push if it has anything to say.
 
 Since 5.41 the commit gate also refuses the opposite drift: a commit that
 changes **code** while its card sits in a column claiming the code is settled -
-anything other than `tests-red` or `implement`. The two refusals are the same
-rule read in both directions, because a card's column must match its real state
-whichever way they have come apart. It decides by what the commit actually
-touches (`git diff --cached --name-only`), so a documentation commit in a
-documentation column is not refused as code - a gate that blocked the stage
-after `implement` would stop the process it exists to protect.
+anything other than `tests-red`, `implement` or `verify` (this board's own
+release commit is made from `verify`, where the required actions check the
+commit message, so a stricter list would refuse the very next commit of the
+card that added this check). The two refusals are the same rule read in both
+directions, because a card's column must match its real state whichever way
+they have come apart. It decides by what the commit actually touches
+(`git diff --cached --name-only` for the file list), so a documentation
+commit in a documentation column is not refused as code - a gate that blocked
+the stage after `implement` would stop the process it exists to protect.
+Since 5.92 (TKT-902) a staged `lib/*.pm` file is looked at more closely still:
+it counts as code only if its non-POD content actually differs from HEAD, so
+a commit that only adds or edits POD - the exact edit the `document` column's
+own required action asks for - is not refused as code, while a commit that
+also touches a real line of Perl still is, whatever the commit message
+claims.
 
 That direction was added because the first one could not see it. A card sat in
 `verify` - not idle, so nothing objected - while its implementation was being

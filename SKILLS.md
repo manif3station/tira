@@ -2036,7 +2036,7 @@ branches, so a caller asking for `json` or `toon` compiles none of it
 outside the concern: `_html_escape`, which the login page HTML also uses, and
 the plain functions `_render_view`, `_view_asset` and `json_object`.
 
-`lib/Tira.pm` is 16,263 lines as of TKT-1035 (5.91), grown rather than shrunk
+`lib/Tira.pm` is 16,341 lines as of TKT-902 (5.92), grown rather than shrunk
 since the fourth lift's own 14,164 - the file gains from most releases that
 touch it, and a hand-corrected number drifts again by design. The figure the
 fourth lift replaced said 14,256, README said 14,177, `lib/Tira/Job.pm` said

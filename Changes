@@ -1,6 +1,36 @@
 Revision history for Tira
 
 5.92  2026-09-10
+    - TKT-902: the commit gate refused any staged lib/ file as a code change,
+      unconditionally - but the document column's own required action asks
+      an agent to add POD to Perl modules, which live in lib/, so the gate
+      refused the very edit that column instructs. Hit live on TKT-892,
+      2026-09-04. A lib/*.pm change now counts as code only if its whole
+      non-POD residual (every non-blank line outside a =pod/=headN...=cut
+      block or everything after __END__/__DATA__) actually differs between
+      HEAD and the staged version - a commit message that claims "POD only"
+      is not consulted, only the file is. A first draft compared only the
+      diff's changed lines against POD regions; Codex review broke it twice
+      more - inserting __END__ (or removing a =cut) touches no line of live
+      code yet can hide code that follows from Perl's parser, or swallow
+      code the diff never touched at all, so the fix compares the whole
+      residual instead, which catches both directions. Fixed in both copies
+      of the gate (this repo's own tools/hooks/commit-msg and lib/Tira.pm's
+      installable $COMMIT_GATE), proved by a new t/902 (9 assertions): a
+      POD-only lib/ addition is accepted from document, the same file with
+      one real line of Perl is still refused (with or without a lying
+      commit message) and so is a bare __END__ inserted ahead of a live
+      sub, and backlog/pending-push still refuse a POD-only commit outright
+      since those columns claim no work is happening at all. docs/commands.md
+      and lib/Tira.pm's own gates_install POD were also stale (said code was
+      legitimate only in tests-red/implement, missing verify, which this
+      board's own release commit already relies on) - corrected alongside.
+      A known, disclosed limitation remains: the POD scanner is line-based
+      like most POD tooling and has no lexical awareness of Perl's own
+      quoting, so a heredoc containing a line that merely looks like a POD
+      directive is misread as real POD - closing that needs a full Perl
+      tokenizer, which this process safety net for a single trusted agent's
+      own board is not sized to acquire.
     - TKT-901: a killed gate-run left its container running against a
       worktree the same trap had already removed - measured on TKT-893,
       2026-09-03: a container ran 21:57 to 22:47 after its host process had

@@ -75,8 +75,84 @@ writing='tests-red|implement|verify'
 # claim about. Documentation, tickets and the mistake log are written in
 # 'document' and after, so treating every file as code would refuse the very
 # stage that comes next - the gate would stop the process it exists to protect.
-code_changed="$(git diff --cached --name-only \
-  | grep -cE '^(lib|t|cli|skills|tools)/' || true)"
+#
+# TKT-902: the document column's own required action asks for POD to be added
+# to Perl modules, which live in lib/ - so a bare path check refused the very
+# edit that column instructs (hit live on TKT-892, 2026-09-04). A lib/*.pm
+# change counts as code only if the file's NON-POD content actually differs
+# between HEAD and the staged version - not merely "does a changed line fall
+# inside a POD region", which a second Codex round broke: inserting __END__
+# (or removing a =cut) does not itself touch a line of live code, yet it can
+# hide code that follows from Perl's parser (or, for a removed =cut, extend a
+# POD block to swallow code that was never touched by the diff at all) - a
+# real behavior change reachable through a "just adding a marker line"
+# commit. Comparing the whole non-POD residual, not just the touched lines,
+# catches both directions: any code this insertion/removal newly hides or
+# reveals is present in one residual and absent from the other. A commit
+# message that CLAIMS "POD only" is not consulted; only the file is.
+#
+# KNOWN LIMITATION, disclosed rather than chased: the scanner below is
+# line-based, like most POD tooling (Pod::Simple included) - it has no
+# lexical awareness of Perl's own quoting, so a heredoc or string containing
+# a line that merely LOOKS like a POD directive (=word at column zero) is
+# misread as real POD. Closing that needs a full Perl tokenizer, which this
+# gate - a process safety net for a single trusted agent's own board, not a
+# defense against an adversarial committer - is not sized to acquire.
+pod_only_change() {
+  local file="$1"
+  perl -e '
+    use strict; use warnings;
+    my $file = shift @ARGV;
+    sub pod_lines {
+      my @lines = @_;
+      my %in; my $in_pod = 0; my $in_end = 0;
+      for my $i (0 .. $#lines) {
+        my $ln = $i + 1;
+        my $line = $lines[$i];
+        if ($in_end) { $in{$ln} = 1; next }
+        if ($line =~ /^__(?:END|DATA)__\s*$/) { $in{$ln} = 1; $in_end = 1; next }
+        if (!$in_pod && $line =~ /^=\w/) { $in_pod = 1; $in{$ln} = 1; next }
+        if ($in_pod) { $in{$ln} = 1; $in_pod = 0 if $line =~ /^=cut\b/; next }
+      }
+      return \%in;
+    }
+    sub slurp_lines {
+      my (@cmd) = @_;
+      open my $fh, "-|", @cmd or return [];
+      my @lines = <$fh>;
+      close $fh;
+      return \@lines;
+    }
+    # Blank lines are dropped from the comparison on both sides - a POD
+    # block gaining a surrounding blank line (the one right before __END__,
+    # say) is not itself a code change, and counting it would refuse an
+    # addition that is, in substance, still POD-only.
+    sub non_pod_text {
+      my (@lines) = @_;
+      my $pod = pod_lines(@lines);
+      my @code;
+      for my $i (0 .. $#lines) {
+        my $ln = $i + 1;
+        next if $pod->{$ln};
+        next if $lines[$i] =~ /^\s*$/;
+        push @code, $lines[$i];
+      }
+      return join( q{}, @code );
+    }
+    my $old_code = non_pod_text( @{ slurp_lines( "git", "show", "HEAD:$file" ) } );
+    my $new_code = non_pod_text( @{ slurp_lines( "git", "show", ":$file" ) } );
+    exit( $old_code eq $new_code ? 0 : 1 );
+  ' "$file"
+}
+
+code_changed=0
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  if [[ "$f" == lib/*.pm ]] && pod_only_change "$f"; then
+    continue
+  fi
+  code_changed=$((code_changed + 1))
+done < <(git diff --cached --name-only | grep -E '^(lib|t|cli|skills|tools)/' || true)
 
 for ref in $refs; do
   case "$ref" in

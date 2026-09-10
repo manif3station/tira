@@ -13212,8 +13212,82 @@ command -v d2 >/dev/null || {
 # The paths are the conventional ones for a Perl project because that is what
 # this gate is installed into. A project laying its code out differently gets a
 # gate that asks less, which is the safe direction for a check that refuses.
-code_changed="$(git diff --cached --name-only \
-  | grep -cE '^(lib|t|cli|skills|tools|src|bin)/' || true)"
+#
+# TKT-902: a lib/*.pm change counts as code only if the file's NON-POD
+# content actually differs between HEAD and the staged version - not merely
+# "does a changed line fall inside a POD region", which a second Codex round
+# broke: inserting __END__ (or removing a =cut) does not itself touch a line
+# of live code, yet it can hide code that follows from Perl's parser (or,
+# for a removed =cut, extend a POD block to swallow code that was never
+# touched by the diff at all) - a real behavior change reachable through a
+# "just adding a marker line" commit. Comparing the whole non-POD residual,
+# not just the touched lines, catches both directions: any code this
+# insertion/removal newly hides or reveals is present in one residual and
+# absent from the other. A commit message that CLAIMS "POD only" is not
+# consulted; only the file is.
+#
+# KNOWN LIMITATION, disclosed rather than chased: the scanner below is
+# line-based, like most POD tooling (Pod::Simple included) - it has no
+# lexical awareness of Perl's own quoting, so a heredoc or string containing
+# a line that merely LOOKS like a POD directive (=word at column zero) is
+# misread as real POD. Closing that needs a full Perl tokenizer, which this
+# gate - a process safety net for a single trusted agent's own board, not a
+# defense against an adversarial committer - is not sized to acquire.
+pod_only_change() {
+  local file="$1"
+  perl -e '
+    use strict; use warnings;
+    my $file = shift @ARGV;
+    sub pod_lines {
+      my @lines = @_;
+      my %in; my $in_pod = 0; my $in_end = 0;
+      for my $i (0 .. $#lines) {
+        my $ln = $i + 1;
+        my $line = $lines[$i];
+        if ($in_end) { $in{$ln} = 1; next }
+        if ($line =~ /^__(?:END|DATA)__\s*$/) { $in{$ln} = 1; $in_end = 1; next }
+        if (!$in_pod && $line =~ /^=\w/) { $in_pod = 1; $in{$ln} = 1; next }
+        if ($in_pod) { $in{$ln} = 1; $in_pod = 0 if $line =~ /^=cut\b/; next }
+      }
+      return \%in;
+    }
+    sub slurp_lines {
+      my (@cmd) = @_;
+      open my $fh, "-|", @cmd or return [];
+      my @lines = <$fh>;
+      close $fh;
+      return \@lines;
+    }
+    # Blank lines are dropped from the comparison on both sides - a POD
+    # block gaining a surrounding blank line (the one right before __END__,
+    # say) is not itself a code change, and counting it would refuse an
+    # addition that is, in substance, still POD-only.
+    sub non_pod_text {
+      my (@lines) = @_;
+      my $pod = pod_lines(@lines);
+      my @code;
+      for my $i (0 .. $#lines) {
+        my $ln = $i + 1;
+        next if $pod->{$ln};
+        next if $lines[$i] =~ /^\s*$/;
+        push @code, $lines[$i];
+      }
+      return join( q{}, @code );
+    }
+    my $old_code = non_pod_text( @{ slurp_lines( "git", "show", "HEAD:$file" ) } );
+    my $new_code = non_pod_text( @{ slurp_lines( "git", "show", ":$file" ) } );
+    exit( $old_code eq $new_code ? 0 : 1 );
+  ' "$file"
+}
+
+code_changed=0
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  if [[ "$f" == lib/*.pm ]] && pod_only_change "$f"; then
+    continue
+  fi
+  code_changed=$((code_changed + 1))
+done < <(git diff --cached --name-only | grep -E '^(lib|t|cli|skills|tools|src|bin)/' || true)
 
 named=0
 for ref in $refs; do
@@ -15889,10 +15963,14 @@ Installs the commit-msg and pre-push git hooks into the project's repository.
 C<commit-msg> refuses a commit that names no card on this board, one whose card
 is in backlog, discard or done, and - since 5.41 - one that changes B<code>
 while its card sits in a column claiming the code is settled, meaning anything
-other than C<tests-red> or C<implement>. The last two are the same rule read in
-both directions: a card's column must match its real state whichever way they
-have come apart. It decides by what the commit actually touches, so a
-documentation commit in a documentation column is not refused as code.
+other than C<tests-red>, C<implement> or C<verify>. The last two are the same
+rule read in both directions: a card's column must match its real state
+whichever way they have come apart. It decides by what the commit actually
+touches, so a documentation commit in a documentation column is not refused as
+code. Since 5.92 a staged C<lib/*.pm> file counts as code only if its non-POD
+content actually differs from HEAD, so a commit that only adds or edits POD is
+not refused as code even from C<document>, while one that also touches a real
+line of Perl still is.
 
 C<pre-push> asks police about the board and refuses the push if it has anything
 to say. Both fail closed - a missing C<d2>, or a board that cannot be read, is a

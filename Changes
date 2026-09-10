@@ -24,6 +24,23 @@ Revision history for Tira
       reads - fixing only this reporting rule would leave it and the
       reset mechanism disagreeing about the same move. New t/971 (7
       assertions).
+    - TKT-973: t/lib/Suite.pm's cli_source(NAME) ignored its argument and
+      always returned the whole lib/Tira/CLI layer concatenated - ten call
+      sites across the suite named a single file and silently got a
+      superset instead, which cost a false green on TKT-829 (an assertion
+      meant to check lib/Tira/CLI/Serve.pm's own content passed because
+      lib/Tira/CLI.pm's broader text happened to satisfy it too).
+      cli_source(NAME) now mirrors view_source(NAME)'s own shape exactly:
+      it filters the walked modules by a path-suffix match (so a
+      one-directory-deep name like Job/Feeder.pm still resolves), dies if
+      no file or more than one matches, and returns that one file's own
+      content - the same die-rather-than-fall-back discipline view_source
+      already has, deliberately, since an empty or wrong-but-non-empty
+      return both pass an is-it-there check for the wrong reason. The
+      no-argument whole-layer form is unchanged, since t/566 composes it
+      with engine_source deliberately to search both layers as one text.
+      All ten existing named call sites re-read individually and confirmed
+      still asserting what they meant. New t/973 (18 assertions).
     - TKT-969: a failing gate paid the full coverage run to learn what a
       plain run would have said - measured 2026-09-06, an identical suite
       costs 86s plain against 788-801s under Devel::Cover, and three of

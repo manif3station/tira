@@ -98,6 +98,8 @@ sub engine_source {
 # fault TKT-835 removed from seven engine tests: a test that opens a file by
 # name is asserting where code lives while claiming to assert something else.
 sub cli_source {
+    my ($name) = @_;
+
     my @modules;
     File::Find::find(
         { no_chdir => 1, wanted => sub {
@@ -110,6 +112,21 @@ sub cli_source {
     Test::More::cmp_ok( scalar @modules, '>=', 2,
         'lib/Tira/CLI was walked for command-surface source - ' . scalar(@modules) . ' modules' );
 
+    # TKT-973. A caller naming one file wants that file, the same thing
+    # view_source(NAME) already gives its own callers - not the whole layer
+    # concatenated, which a name silently fell through to for every one of
+    # ten call sites and cost a false green on TKT-829. Matched on a
+    # path SUFFIX rather than a basename, since a name may be one directory
+    # deep ('Job/Feeder.pm') - and DIES on no match or more than one,
+    # exactly as view_source does, rather than falling back to the whole
+    # layer.
+    if ( defined $name ) {
+        my $named = _named_module( \@modules, $name );
+        open my $fh, '<:raw', $named or die "$named: $!";
+        local $/;
+        return scalar <$fh>;
+    }
+
     my $source = '';
     for my $module ( sort @modules ) {
         open my $fh, '<:raw', $module or die "$module: $!";
@@ -117,6 +134,18 @@ sub cli_source {
         $source .= <$fh>;
     }
     return $source;
+}
+
+# Split out of cli_source so the ambiguous-match branch is unit-testable
+# against a synthetic list - the real lib/Tira/CLI tree has no two files
+# sharing a path suffix today, so that branch could not otherwise be
+# exercised without fabricating files on disk.
+sub _named_module {
+    my ( $modules, $name ) = @_;
+    my @named = grep { m{(?:^|/)\Q$name\E\z} } @{$modules};
+    die "no CLI module named '$name' under lib/Tira/CLI\n" if !@named;
+    die "more than one CLI module named '$name' under lib/Tira/CLI: @named\n" if @named > 1;
+    return $named[0];
 }
 
 # A VIEW FILE, BY NAME RATHER THAN BY PATH. The third walker, and it does not

@@ -2408,6 +2408,19 @@ Seven of the thirty offenders had been written **that same day**, hours after
 the card describing the fault was filed. That is the argument for the guard
 being wide rather than for another sweep.
 
+**`cli_source` gained `view_source`'s own by-name shape too, since 5.93**
+(TKT-973). Ten call sites had already been passing it a file name -
+`cli_source('CLI.pm')`, `cli_source('Police.pm')`, `cli_source('Job/Feeder.pm')`
+- and it silently ignored every one of them, always returning the whole
+concatenated layer regardless. That cost a false green on TKT-829: an
+assertion meant to check `lib/Tira/CLI/Serve.pm`'s own content passed
+because `lib/Tira/CLI.pm`'s broader text happened to satisfy it too. Given a
+name, it now filters to the one matching file (a path-suffix match, so a
+one-directory-deep name like `Job/Feeder.pm` still resolves) and dies on no
+match or more than one, exactly as `view_source` already does; given none,
+it still returns the whole layer, since `t/566` composes it with
+`engine_source()` deliberately to search both layers as one text.
+
 The rule is narrower than "never name a module", and the narrowing was
 forced rather than chosen: only *reading* a source file to find code is
 refused, and only where the filename was incidental. A stable module is a

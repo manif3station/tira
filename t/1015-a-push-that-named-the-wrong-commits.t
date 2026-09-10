@@ -29,6 +29,21 @@ use Test::More;
 
 my $root = File::Spec->rel2abs( File::Spec->catdir( $FindBin::Bin, '..' ) );
 
+# A HOME OF ITS OWN, not the ambient one. Cloning and committing needs a
+# user identity and, since git 2.35.2, an explicit "safe.directory" for a
+# repository this process does not itself own - a plain container run (no
+# prior manual "git config --global") has neither, and this test failed
+# exactly that way the first time it ran inside the ordinary full-suite
+# invocation rather than a manually-configured shell. A scratch HOME with
+# its own .gitconfig is both the fix and the more hermetic choice: nothing
+# here touches whatever global git config the container or a real
+# developer's machine already carries.
+my $home = File::Temp->newdir;
+$ENV{HOME} = "$home";
+open my $gitconfig, '>', File::Spec->catfile( "$home", '.gitconfig' ) or die $!;
+print {$gitconfig} "[user]\n\tname = Test\n\temail = t\@t.test\n[safe]\n\tdirectory = *\n";
+close $gitconfig;
+
 sub run { my (@cmd) = @_; my $out = `@cmd 2>&1`; return ( $?, $out ); }
 
 sub slurp {

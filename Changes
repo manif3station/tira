@@ -1,6 +1,14 @@
 Revision history for Tira
 
 5.93  2026-09-10
+    - TKT-1050, Michael's live report: d2 tira.dashboard --help never listed
+      --with-police (TKT-897) or --with-policy-bridge (TKT-1026), both real
+      GetOptions flags, because --help reads a command's usage line
+      literally off SKILLS.md's own catalogue text and that line was never
+      updated when either flag was added. Fixed; new t/1050 checks every
+      --with-* flag dashboard actually declares is named in its own
+      SKILLS.md usage line, generally, so a third one added later fails
+      this test rather than needing its own card to be noticed.
     - TKT-965: seven cards' Changes entries (TKT-627, 948, 949, 950, 953,
       954, 962) sat under "5.83" in this repository's own file, a version
       already pushed AND installed - committed, never pushed, and nothing

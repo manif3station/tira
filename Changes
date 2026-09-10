@@ -1,5 +1,24 @@
 Revision history for Tira
 
+5.92  2026-09-10
+    - TKT-900: t/70-doc-examples.t checked only SKILLS.md and docs/commands.md
+      for runnable examples, hard-coded - docs/POLICIES.md (184 examples) and
+      docs/JOBS.md (67) were never gated, and JOBS.md arrived that way despite
+      being written by someone who knew the test existed. The file list is now
+      derived (SKILLS.md plus every docs/*.md), with a per-file count assertion
+      for the two previously-ungated files so deleting a file's own examples in
+      a scratch copy fails a specific test, not just a total. The widened
+      harvest itself found no broken examples in POLICIES.md or JOBS.md (matching
+      the card's own pre-measurement), but caught two real ones in SKILLS.md's
+      own usage-grammar lines: tira.column.roles documented --roles instead of
+      --role, and tira.project.gates documented --gate-names instead of
+      --gate-name - both fixed against the real Getopt spec and docs/commands.md's
+      own correct argument tables. Also made the test's own harness immune to a
+      documented example that legitimately reads stdin when piped (job.feed with
+      no --file): attempt() now redirects STDIN to /dev/null rather than leaving
+      it inherited, so the harness cannot hang waiting for input nobody sends -
+      narrower than TKT-896 (discarded), which was about production behavior.
+
 5.91  2026-09-09
     - TKT-1035: his own reversal of TKT-848. "Use yellow box highlight if
       question more than zero" (Q-106) shipped a card that stayed

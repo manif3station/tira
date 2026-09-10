@@ -1873,18 +1873,19 @@ sub _invoke {
       if $option->{nested} && $command !~ /\A(?:project\.(?:new|create)|onboard)\z/;
     die "A mark belongs to the question.mark command\n"
       if defined $option->{mark} && $command ne 'question.mark';
-    # Shared by both checks below - these four also take a reason.
+    # Shared by both checks below - these four also take a reason and options.
     my $shared_reason_ok = $command =~ /\A(?:police\.suspend|rule\.suspend|policy\.decline|column\.roles)\z/;
-    die "A reason and options belong to the question.ask and question.update commands, "
-      . "to police.suspend, to rule.suspend, to policy.decline, and to column.roles "
-      . "when it takes a role back\n"
+    die "A reason and options belong to question.ask, question.update, police.suspend, "
+      . "rule.suspend, policy.decline, and column.roles taking a role back\n"
       if $option->{options} && $command !~ /\Aquestion\.(?:ask|update)\z/ && !$shared_reason_ok;
-    # withdraw takes a reason but not options - it ends a question, it does
-    # not offer new ones to answer with.
-    die "A reason belongs to the question.ask, question.update and question.withdraw "
-      . "commands, to police.suspend, to rule.suspend, to policy.decline, and to "
-      . "column.roles when it takes a role back\n"
-      if defined $option->{reason} && $command !~ /\Aquestion\.(?:ask|update|withdraw)\z/ && !$shared_reason_ok;
+    # withdraw and column.remove take a reason but not options - TKT-900:
+    # column.remove was invisibly refused here (no test called it through
+    # the CLI). Kept OUT of $shared_reason_ok (Codex review): that would
+    # also pass column.remove --option, silently ignored, through above.
+    die "A reason belongs to question.ask, question.update, question.withdraw, column.remove, "
+      . "police.suspend, rule.suspend, policy.decline, and column.roles taking a role back\n"
+      if defined $option->{reason} && $command !~ /\Aquestion\.(?:ask|update|withdraw)\z/
+      && $command ne 'column.remove' && !$shared_reason_ok;
     die "A voice note belongs to the question.ask, question.update and question.voice commands\n"
       if defined $option->{voice} && $command !~ /\Aquestion\.(?:ask|update|voice)\z/;
     die "Remove belongs to the question.voice and question.attach commands\n"

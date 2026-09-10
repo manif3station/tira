@@ -59,16 +59,45 @@ $known{$_} = 1 for qw(o);
 # while gate.add did not yet check for it, and exposed the moment TKT-408
 # added the check. The catalogue line was correct the whole time; only the
 # extraction was truncating it. TKT-408.
+# TKT-900. Derived rather than typed, so a new documentation file is gated
+# by being created under docs/ rather than by somebody remembering to add
+# its name here - which is exactly how docs/JOBS.md arrived outside this
+# gate the first time, written by someone who knew this test existed.
+my @files = sort ( 'SKILLS.md', glob('docs/*.md') );
+cmp_ok( scalar @files, '>=', 4, 'at least the four known documentation files were found' );
+
 my @examples;
-for my $file (qw(SKILLS.md docs/commands.md)) {
+my %per_file;
+for my $file (@files) {
     my $body = slurp($file);
+
+    # TKT-900. A shell line continuation ("\" at the end of a line) is one
+    # logical command split across two - docs/POLICIES.md's own
+    # policy.decline example is exactly this shape, --reason on the second
+    # line. The old (SKILLS.md, docs/commands.md) pair never happened to
+    # carry one, so nothing joined them before. Joined here, before the
+    # harvest regex runs, rather than widening that regex to cross a
+    # newline itself - which would also swallow the fenced block's closing
+    # backtick line and everything after it on the next real command.
+    $body =~ s/\\\n[ \t]*/ /g;
+
     while ( $body =~ /((?:dashboard |d2 )?tira\.[a-z.]+(?:[^\n`]|(?<=\S)\|(?=\S))*)/g ) {
         my $line = $1;
         next if $line !~ /--/;
         push @examples, { file => $file, text => $line };
+        $per_file{$file}++;
     }
 }
-ok( scalar @examples > 15, 'both manuals carry runnable examples to check' );
+ok( scalar @examples > 15, 'the documentation set carries runnable examples to check' );
+
+# Per file, not only in total - a file whose own examples all vanished (the
+# fault this ticket's own test_step proves by deleting a file's examples in a
+# scratch copy) would still pass a bare total check as long as some OTHER
+# file still carried enough. Not every file need carry one - docs/foundation.md
+# does not - so this only holds the two files this ticket is actually about.
+for my $file (qw(docs/POLICIES.md docs/JOBS.md)) {
+    cmp_ok( $per_file{$file} // 0, '>', 0, "${file}'s own examples were harvested, not just the total" );
+}
 
 my @broken;
 for my $example (@examples) {
@@ -122,9 +151,18 @@ sub attempt {
     my ( $out, $err ) = ( '', '' );
     open my $stdout, '>', \$out or die $!;
     open my $stderr, '>', \$err or die $!;
+
+    # TKT-900 widened the harvest to docs/JOBS.md, which documents commands
+    # that legitimately read from stdin when piped (job.feed with no --file,
+    # for one) - a real usage this test cannot supply. TKT-896 (discarded)
+    # is about that being a production hang rather than a refusal; this is
+    # narrower and stays in scope: the HARNESS must not hang waiting for
+    # input nobody is going to send it, whatever the example is.
+    open my $stdin, '<', File::Spec->devnull or die $!;
     {
         local *STDOUT = $stdout;
         local *STDERR = $stderr;
+        local *STDIN  = $stdin;
         eval {
             do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
                 command => $command, type => $type,
@@ -149,6 +187,19 @@ for my $example (@examples) {
     next if $text !~ /\Atira\.([a-z.-]+)/;
     my $command = $1;
     $command =~ s/[.,)]\z//;
+
+    # TKT-900. job.add's own documented examples create a REAL monitor-kind
+    # job on the fixture board (docs/JOBS.md's widened harvest carries
+    # several) - the first one gets id JOB-001, exactly the id job.start's
+    # AND job.run's own documented examples name (docs/commands.md:4550
+    # and docs/JOBS.md:277 both read "d2 tira.job.run --id JOB-001"). A
+    # later example naming that id is then a job that genuinely exists,
+    # and both job.start and job.run (run_now, for a monitor-kind job)
+    # spawn a real process (open3, TKT-920) rather than refusing - out of
+    # scope for a test about flag ACCEPTANCE, and unsafe to do for real
+    # against documentation examples nobody wrote expecting execution.
+    # job.feeder is the same process, one call closer to the fork.
+    next if $command =~ /\A(?:job\.start|job\.feeder|job\.run)\z/;
 
     # Placeholders stand in for real values; this is about whether the command
     # accepts the shape of the example, not whether the values exist.
@@ -193,10 +244,47 @@ for my $example (@examples) {
     # naming one of them. TKT-748.
     next if $error =~ /does not act on --[a-z][a-z0-9-]*/;
 
+    # TKT-900. THE SAME FAULT, A THIRD SHAPE: an INVALID VALUE, not a missing
+    # flag. Tira::CLI::Usage's own table appends "- the option is --FLAG" to
+    # several "invalid value" refusals precisely so the flag is named rather
+    # than left for the reader to guess - `tira.policy.add --rule RULE`
+    # (SKILLS.md's own placeholder) refuses with "Unknown policy rule
+    # 'RULE'. Rules: ... gate-missing, ... - the option is --rule", and the
+    # word "missing" inside the RULE NAME "gate-missing" in that enumerated
+    # list, combined with the flag's own name legitimately appearing in
+    # "Unknown policy RULE", reads as a demand for the very flag that was
+    # supplied. It is the opposite: the option is named to say WHICH one
+    # got an invalid value, the same diagnostic intent "does not act on"
+    # already gets excluded for above.
+    next if $error =~ /the option is --[a-z][a-z0-9-]*/;
+
     next if $error !~ /need|require|missing/i;
-    for my $flag ( $text =~ /--([a-z][a-z0-9-]*)\s+(?:"[^"]*"|[^\s-][^\s]*)/g ) {
+
+    # TKT-900. A FOURTH SHAPE of the same fault: the flag's own VALUE, once
+    # rejected for a reason that has nothing to do with the flag, gets
+    # echoed back in the refusal - "Policy rule 'card-sandbox-missing'
+    # reads ... this project is not in one" - and that echoed value can
+    # itself contain "missing" (most police rule names do) or the bare
+    # word "rule" can appear as ordinary prose ("Policy rule '...'") wholly
+    # apart from the --rule flag. A value the error quotes back is proof
+    # the flag was received, not proof it was withheld - the opposite of
+    # what a real contradiction shows.
+    # A fifth shape, and the reason the fourth (checking THIS flag's own
+    # value) still was not enough: "card-sandbox-missing", the RULE NAME
+    # ITSELF - not this example's --sandbox value at all - is quoted back
+    # in the error, and "sandbox" is one of the hyphen-joined words inside
+    # it. Rule names are compounds of exactly the vocabulary these errors
+    # use (card, sandbox, missing, gate, ...), so any word quoted back as
+    # somebody ELSE's identifier reads as a demand for a flag sharing that
+    # word. A flag named only INSIDE a quoted identifier is not a bare
+    # demand for it - a real "X is required" names X outside quotes.
+    ( my $unquoted_error = $error ) =~ s/'[^']*'//g;
+
+    while ( $text =~ /--([a-z][a-z0-9-]*)\s+(?:"([^"]*)"|([^\s-][^\s]*))/g ) {
+        my ( $flag, $value ) = ( $1, $2 // $3 );
+        next if defined $value && $value ne '' && $error =~ /\b\Q$value\E\b/i;
         push @rejected, "$example->{file}: passes --$flag yet is told it is missing -> $error"
-          if $error =~ /\b\Q$flag\E\b/i;
+          if $unquoted_error =~ /\b\Q$flag\E\b/i;
     }
 }
 
@@ -214,13 +302,28 @@ for my $example (@examples) {
             0, 'an explicit refusal by name, even one naming required-action.list' ],
         [ 'tira.thing.do --widget red',
             'A card reference is required', 0, 'a demand for something else' ],
+        [ 'tira.policy.add --rule RULE',
+            "Unknown policy rule 'RULE'. Rules: gate-missing, wip-limit - the option is --rule",
+            0, 'an invalid-value refusal naming the option, even one a rule list makes look like a demand' ],
+        [ 'tira.policy.decline --rule card-sandbox-missing',
+            "Policy rule 'card-sandbox-missing' reads a git repository, and this project is not in one",
+            0, 'the value it was given echoed back, proving the flag was received rather than missing' ],
+        [ 'tira.policy.add --rule card-sandbox-missing --enter implement --sandbox ~/x --action bridge-reminder',
+            "Policy rule 'card-sandbox-missing' reads a git repository, and this project is not in one",
+            0, 'a DIFFERENT flag (--sandbox) only sharing a word with a quoted identifier (card-sandbox-missing) that names something else entirely' ],
       )
     {
         my ( $text, $error, $want, $why ) = @{$case};
         my $flagged = 0;
-        if ( $error !~ /does not act on --[a-z][a-z0-9-]*/ && $error =~ /need|require|missing/i ) {
-            for my $flag ( $text =~ /--([a-z][a-z0-9-]*)\s+(?:"[^"]*"|[^\s-][^\s]*)/g ) {
-                $flagged = 1 if $error =~ /\b\Q$flag\E\b/i;
+        if ( $error !~ /does not act on --[a-z][a-z0-9-]*/
+            && $error !~ /the option is --[a-z][a-z0-9-]*/
+            && $error =~ /need|require|missing/i )
+        {
+            ( my $unquoted_error = $error ) =~ s/'[^']*'//g;
+            while ( $text =~ /--([a-z][a-z0-9-]*)\s+(?:"([^"]*)"|([^\s-][^\s]*))/g ) {
+                my ( $flag, $value ) = ( $1, $2 // $3 );
+                next if defined $value && $value ne '' && $error =~ /\b\Q$value\E\b/i;
+                $flagged = 1 if $unquoted_error =~ /\b\Q$flag\E\b/i;
             }
         }
         push @caught, [ $flagged, $want, $why ];
@@ -245,8 +348,11 @@ An agent reported twenty-seven consecutive failures against a manual
 example that named a flag the command does not take. Checking that a
 flag is mentioned somewhere in a section does not catch that, because a
 wrong example mentions it too. This reads the option specification out
-of the parser and every example out of both manuals, and fails when an
-example uses a flag no command accepts, so the manuals cannot promise
-something the tool will refuse.
+of the parser and every example out of the documentation set - SKILLS.md
+and every file under docs/ - and fails when an example uses a flag no
+command accepts, so the documentation cannot promise something the tool
+will refuse. TKT-900 widened the set from a hardcoded (SKILLS.md,
+docs/commands.md) pair, since docs/JOBS.md arrived outside the gate
+entirely, written by someone who knew this test existed.
 
 =cut

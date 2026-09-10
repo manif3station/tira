@@ -31,6 +31,8 @@ use Tira::CLI;
 
 my $cli = Suite::cli_source();
 
+# non-empty is the whole claim: the assertion below needs a real subject to
+# check --with-policy-bridge against.
 like( $cli, qr/\S/, 'the command surface was walked to look for the flag' );
 
 like( $cli, qr/'with-policy-bridge'/,
@@ -62,6 +64,8 @@ like( $cli, qr/with_policy_bridge/,
     }
 
     for my $name ( sort keys %doc ) {
+        # non-empty is the whole claim: the assertion below needs a real
+        # subject to check --with-policy-bridge against.
         like( $doc{$name}, qr/\S/, "$name was read to look for the flag" );
     }
 

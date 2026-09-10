@@ -1,6 +1,15 @@
 Revision history for Tira
 
 5.93  2026-09-10
+    - TKT-1039: t/176-an-assertion-that-cannot-fail.t's own meta-guard (every
+      bare-qr/\S/ assertion must be marked "non-empty is the whole claim" or
+      matched with something more specific) flagged two unmarked ones in
+      t/1026-a-bridge-beside-the-board-too.t:34 and :67 - the ratchet fails
+      fast at the first hit, so the second only surfaced once the first was
+      marked. Both marked per the standard convention; t/176 no longer names
+      either. It still reports a different, pre-existing, separately-tracked
+      finding (t/590, TKT-1025) - closing every remaining one is that card's
+      own scope, one pass at a time, not this one's.
     - TKT-1030: a job card's log panel showed stale, unrelated entries
       while the card's own header said it had just run - his report, with
       a screenshot of JOB-004 repeating an old failure while "Last ran 5

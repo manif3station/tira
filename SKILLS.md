@@ -412,9 +412,15 @@ Implemented create/update arguments are:
 Repeated `--label` and `--affects-version` values append on update. Their
 `--set-*` forms replace the complete array from a UTF-8 JSON-array file (a
 plain-text file, or JSON of any other shape, is refused by name rather than
-decoded and misread - TKT-741); `-` reads stdin. Append and replacement
-forms for the same field conflict. Empty strings clear nullable scalar
-fields. Parent changes only through hierarchy or sub-item link commands.
+decoded and misread - TKT-741); `-` reads stdin. **Since 5.97, an unreadable
+path is refused with its own message** (TKT-578): a `--set-*` value that
+cannot be opened as a file used to fall through to TKT-741's "is not JSON"
+wording, which is the wrong claim - the path was never read far enough to
+have content to judge. It now says a JSON file or `-` for stdin is expected,
+distinct from a readable file whose content genuinely is not JSON. Append and
+replacement forms for the same field conflict. Empty strings clear nullable
+scalar fields. Parent changes only through hierarchy or sub-item link
+commands.
 
 The same append rule applies to repeated `--key-detail`, `--deliverable`,
 `--acceptance`, `--test-step`, `--bdd`, `--atdd`, `--scope-in`, and

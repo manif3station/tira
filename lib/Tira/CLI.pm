@@ -1976,8 +1976,17 @@ sub _text_input {
 
 sub _json_array_input {
     my ( $file, $flag, $append_flag ) = @_;
-    my $data = eval { Tira::json_decode( _text_input($file) ) };
     my $usage = "Example: [\"first item\", \"second item\"]\nTo append one item at a time instead, use --$append_flag TEXT, repeated.\n";
+
+    # TKT-578. Read and decode used to share one eval, so a path that could
+    # not be read at all answered "is not JSON" - the wrong claim, since the
+    # path was never read far enough to have content. Split so the two
+    # failures say what actually happened: the path itself was the problem,
+    # or its content was.
+    my $text = eval { _text_input($file) };
+    die "--$flag expects a JSON file or - for stdin; '$file' is not readable.\n$usage" if $@;
+
+    my $data = eval { Tira::json_decode($text) };
     die "--$flag expects a JSON array, and '$file' is not JSON.\n$usage" if $@;
     die "--$flag expects a JSON array, not " . ref($data) . ".\n$usage" if ref($data) ne 'ARRAY';
     return $data;

@@ -1,5 +1,27 @@
 Revision history for Tira
 
+5.97  2026-09-11
+    - TKT-578: found by the 2-hourly improvement hunt - the ten --set-*
+      replacement flags (--set-acceptance, --set-key-details,
+      --set-deliverables, --set-test-steps, --set-bdd, --set-atdd,
+      --set-labels, --set-affects-versions, --set-scope-in,
+      --set-scope-out) route through one shared function,
+      _json_array_input, which wrapped the file read and the JSON decode
+      in a single eval. An unreadable path (inline prose typed where a
+      filename was expected, the single most likely mistake with these
+      flags) landed on the identical "is not JSON" message a readable
+      file with malformed content gets - the wrong claim, since the path
+      was never read far enough to have content to judge. Verified the
+      card's own original premise before fixing anything: the raw
+      JSON::XS die with an absolute path and line number it also
+      described no longer reproduces, already fixed by TKT-741
+      (2026-09-09) before this card was filed - narrowed scope to the one
+      gap that genuinely remained. Split the shared eval into two: an
+      unreadable path (or stdin) now says a JSON file or - is expected;
+      a readable file with bad content still says its content is not
+      JSON, unchanged. New test: t/1069-a-json-file-that-was-never-
+      there.t.
+
 5.96  2026-09-11
     - TKT-577: found by the 3-hourly documentation hunt - docs/commands.md
       and SKILLS.md both named record.show as something a reader could run

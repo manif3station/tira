@@ -3033,6 +3033,31 @@ the recorded pid *is*, they sat in different subs of a 583-line `Tira::CLI::Job`
 and for a release they disagreed — so the monitor lifecycle was lifted to
 `Tira::CLI::Job::Monitor`, which his 500-line rule required anyway.
 
+**And the FEEDER itself stayed a zombie, since TKT-1053.** TKT-1014 fixed
+what the feeder's command left behind; nothing fixed what reaps the feeder
+once IT dies. `job.start`'s `open3` runs inside whichever Starman worker is
+answering the dashboard request that clicked Start, and that worker — not
+`init` — is the feeder's real parent for as long as it keeps running,
+unlike a one-shot `d2 tira.job.start` that exits within moments and lets
+`init` adopt whatever it spawned. A later `job.stop` from any of Starman's
+five workers signals the process; only the worker that is the actual
+parent can ever reap it, and nothing ever called `wait` on it. Reproduced
+live in a container: a process playing a worker's part (staying alive
+after spawning) showed the feeder as `STAT=Z` indefinitely after
+`job.stop`. Fixed with a `SIGCHLD` handler installed once at each worker's
+own startup (`dashboard.psgi`), reaping only the pids
+`Tira::CLI::Job::Monitor` itself spawned, from a registry it keeps for
+exactly that — not a blanket `waitpid(-1, ...)`, which Codex caught racing
+`Tira::CLI::Police::Jobs::run_due_job`'s own explicit reap of its own
+command-mode children in the same worker, turning every successful
+command's exit status into `ECHILD` before this shipped. A second review
+then caught the registration race itself: `open3` returning and the pid
+joining the registry are not the same instant, so a feeder that dies in
+that gap sends its `SIGCHLD` before anything knows to reap it, and no
+second signal follows once the pid IS added. `_spawn_monitor` now reaps
+again immediately after registering, which still catches a child already
+dead by then — a zombie waits, it does not expire.
+
 **The buttons follow the job's state.** A monitor the board can see running
 offers Stop and Restart and hides Start, because offering it invites a second
 process beside the first. `running` is treated as true only when it is exactly

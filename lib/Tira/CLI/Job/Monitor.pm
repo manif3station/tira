@@ -14,6 +14,18 @@ package Tira::CLI::Job::Monitor;
 use strict;
 use warnings;
 
+use POSIX ();
+
+# TKT-1053. Every pid this module has ever spawned and not yet reaped -
+# populated by _spawn_monitor, consulted (and pruned) by
+# _reap_known_monitors. NOT a general process registry: only
+# _spawn_monitor writes to it, so the worker-wide SIGCHLD handler
+# dashboard.psgi installs reaps exactly these pids and no others - never a
+# command-mode job's own child, which
+# Tira::CLI::Police::Jobs::run_due_job spawns and reaps itself with an
+# explicit, ordinary waitpid that this must not race.
+my %SPAWNED;
+
 # Start a monitor, and record what it started as.
 #
 # WHY open3 AND NOT fork/setsid/exec. A hand-rolled detach puts the child's
@@ -137,6 +149,7 @@ sub _start_monitor {
         $why =~ s/\s+\z//;
         kill 'TERM', $pid;
         waitpid $pid, 0;
+        delete $SPAWNED{$pid};
         die "Started $job->{id} as pid $pid but could not record it, so it "
           . "was stopped again rather than left running unrecorded: $why\n";
     }
@@ -241,9 +254,35 @@ sub _spawn_monitor {
     # NOTHING OF THE JOB'S IS ON THE COMMAND LINE except its id. The command
     # comes from the record and the board travels in TIRA_HOME, so ps shows what
     # the feeder chooses to show rather than the board's location.
-    return IPC::Open3::open3( my $in, my $out, my $err,
+    my $pid = IPC::Open3::open3( my $in, my $out, my $err,
         $perl, $feeder, '--id', $id,
         ( $every ? ( '--interval', $every ) : () ) );
+
+    # REGISTERED, THEN REAPED - in that order, and both here, because open3
+    # returning and this line running are not the same instant. A feeder
+    # that dies in that gap sends its SIGCHLD before $SPAWNED even knows
+    # its pid, so the handler's own reap pass finds nothing and does
+    # nothing - and no SECOND signal is coming to give it another chance,
+    # so the pid would sit a zombie forever once added. Reaping again
+    # immediately after registering closes exactly that window: a child
+    # already dead by the time it is added is still a zombie waiting to be
+    # collected (zombies do not expire), so the second call catches
+    # precisely what the first, earlier SIGCHLD could not. Caught by
+    # adversarial review before this shipped - the first version relied on
+    # a future signal that no longer had anything to notify.
+    $SPAWNED{$pid} = 1 if $pid;
+    _reap_known_monitors();
+    return $pid;
+}
+
+# Reaps whichever of THIS module's own spawned pids have already exited,
+# non-blocking - safe to call from a SIGCHLD handler on every signal,
+# however many children (of any kind) the worker actually has, because it
+# only ever waits on pids _spawn_monitor itself recorded.
+sub _reap_known_monitors {
+    for my $pid ( keys %SPAWNED ) {
+        delete $SPAWNED{$pid} if waitpid( $pid, POSIX::WNOHANG() ) > 0;
+    }
 }
 
 # STOPPING THE WHOLE MONITOR, and reporting how much of it there was.

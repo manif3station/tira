@@ -1,6 +1,45 @@
 Revision history for Tira
 
 5.94  2026-09-11
+    - TKT-1053: fixed a zombie process the owner reported (msg #7625,
+      2026-09-08): clicking Stop on a job card left the process a
+      <defunct> zombie even though the card showed it stopped.
+      TKT-920/927 already made job.stop signal a monitor's whole process
+      group, and TKT-1014 already made the feeder reap its own child
+      before exiting on that signal - both correct, but neither addressed
+      what reaps the FEEDER ITSELF once it dies. job.start's own open3
+      spawn happens inside a Starman worker answering a dashboard request,
+      and that worker - not init - is the monitor's real parent for as
+      long as it keeps running; a later job.stop from any of Starman's
+      five workers signals the process, but only the worker that is the
+      actual parent can ever reap it, and nothing ever called wait on it.
+      Reproduced live in a developer-dashboard:latest container: a process
+      playing a worker's part (staying alive after spawning, rather than
+      exiting immediately the way a one-shot `d2 tira.job.start` does)
+      showed the feeder as STAT=Z indefinitely after job.stop.
+      t/1014's own test comment named the false assumption directly - "in
+      production, job.start exits immediately... well before it ever
+      needs to be signalled" - true for the CLI path, false for the
+      dashboard's. Fixed with a SIGCHLD handler installed once at each
+      Starman worker's own startup (dashboard.psgi), reaping only the
+      pids Tira::CLI::Job::Monitor::_spawn_monitor itself recorded in a
+      new registry - a first version reaped ANY child (waitpid -1),
+      which Codex caught racing Tira::CLI::Police::Jobs::run_due_job's
+      own explicit waitpid on its own command-mode children in the same
+      worker, silently turning every successful command's exit status
+      into ECHILD (255); the registry-scoped reaper never touches a pid
+      it did not spawn itself. A second adversarial review then found a
+      registration race: open3 returning and the pid being added to the
+      registry are not the same instant, so a feeder that dies in that
+      gap sends its SIGCHLD before the registry knows about it, and no
+      second signal is coming once the pid IS added - _spawn_monitor now
+      reaps immediately after registering, which catches a child already
+      dead by then (a zombie does not expire) rather than waiting for a
+      signal nothing will send twice. New test: t/1053-a-reap-nobody-was-
+      positioned-for.t (10 assertions, including the run_due_job
+      non-interference check and a source check for the register-then-
+      reap ordering), confirmed genuinely red with the handler removed
+      before this shipped.
     - TKT-1048: found by the 3-hourly doc-accuracy hunt (JOB-003):
       d2 tira.tasklist.list --help and SKILLS.md's usage-grammar line
       both omitted --all-sessions (TKT-539), --status (TKT-545) and

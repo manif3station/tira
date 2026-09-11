@@ -14,6 +14,34 @@ use Tira;
 use Tira::CLI;
 use Tira::DashboardWeb;
 
+# TKT-1053. A worker that starts a monitor (job.start's own open3, reached
+# through this same request-handling process) is that monitor's real
+# parent, and stays alive to answer many more requests afterward - unlike
+# a one-shot `d2 tira.job.start`, which exits within moments and lets init
+# adopt and reap whatever it spawned. A later job.stop, from ANY worker
+# under Starman's five, signals the whole process group; but only the
+# worker that is the actual parent can ever reap it, and nothing here ever
+# called wait on it once the record was written. The child died and
+# stayed <defunct> until this worker happened to reap something else,
+# reproduced live in a container.
+#
+# NOT a blanket `waitpid(-1, ...)` here, on purpose - Codex caught this in
+# review before it shipped. This same worker also runs command-mode jobs
+# through Tira::CLI::Police::Jobs::run_due_job, which spawns its OWN child
+# via open3 and reaps it itself with an explicit `waitpid $pid, 0` to read
+# its real exit status. A SIGCHLD handler that reaps ANY child races that
+# read: the handler can win the reap first, and run_due_job's own waitpid
+# then gets ECHILD and $? for a process it never actually saw finish -
+# reported live as every successful command reading back as exit 255.
+# Reaping only pids Tira::CLI::Job::Monitor itself spawned, by name, leaves
+# every other caller's own explicit waitpid exactly as free to run as it
+# was before this shipped.
+require Tira::CLI::Job::Monitor;
+$SIG{CHLD} = sub {
+    local ( $!, $? );
+    Tira::CLI::Job::Monitor::_reap_known_monitors();
+};
+
 my $project = $ENV{TIRA_DASHBOARD_ROOT} // die "TIRA_DASHBOARD_ROOT is required\n";
 
 # Opened here, at load, or this worker does not start.

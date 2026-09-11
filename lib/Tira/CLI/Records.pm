@@ -351,8 +351,8 @@ failure the eval existed to absorb was the one that escaped it, and a create run
 outside a project answered with C<Can't use an undefined value as a HASH
 reference at lib/Tira/CLI/Records.pm line 36> where the other board-seeking
 commands surfaced C<discover_project>'s own C<No Tira project found from '...'>
-- C<record.show> and C<comment.add> were both measured giving it in the
-identical condition.
+- C<tira.E<lt>typeE<gt>.show> and C<comment.add> were both measured giving it
+in the identical condition.
 
 Assigning before dereferencing lets that die reach the caller, which is why the
 fix adds no message of its own. The C<// {}> matters as much as the split: a

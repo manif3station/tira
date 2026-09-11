@@ -131,9 +131,11 @@ Every question here carries `status` (`new`, `answered` or `discarded`).
 Until 3.41, `tira.<type>.show`'s embedded `questions` did not - the stored
 entry came back as-is, so a discarded question and a live one were
 distinguishable only by `discarded_at`, invisible to a caller filtering on
-`status` the way this command's own output invites. `record.show` and
-`record.show --refs` now compute `status` on their embedded questions the
-same way this command does, so the two agree. TKT-322.
+`status` the way this command's own output invites. `tira.<type>.show` and
+its `--refs` batch form (the internal `record.show`, shared by
+`ticket.show`/`epic.show`/`sow.show`) now compute `status` on their
+embedded questions the same way this command does, so the two agree.
+TKT-322.
 
 | Argument | Required | What it is for |
 | --- | --- | --- |
@@ -2376,7 +2378,7 @@ Because `entry` is read on the create path, that path also has to survive
 being asked about a board that is not there. **A create run outside any
 project now refuses the way the other board-seeking commands do** - `No Tira
 project found from '<the directory it searched>'`, the message
-`discover_project` raises and `record.show` and `comment.add` were both
+`discover_project` raises and `tira.<type>.show` and `comment.add` were both
 measured giving in the identical condition - naming where it looked, so a
 caller who is in the wrong directory can see that that is what happened.
 It said `Can't use an undefined value as a HASH reference at
@@ -3771,7 +3773,7 @@ so the second of two concurrent calls sees the first's addition and skips it. A 
 
 - `tira.gate.annotate --ref REF --id GATE-NNN --note TEXT [--author ID] [-o FORMAT]` - same id-shape refusal as `evidence.annotate`. TKT-490.
 - `tira.gate.list --ref REF [--last N|--first N] [--id GATE-NNN] [--meta-only] [--where CLAUSE ...] [--count] [-o FORMAT]` - same id-shape refusal as `evidence.list`. TKT-490.
-- `tira.release.record --ref REF ... --gate TEXT --result pass|fail|blocked --details TEXT --evidence TEXT --fix-version VERSION [-o FORMAT]` - one command for the gate entry, evidence entry and fix version a passed release needs; refuses rather than defaults on anything missing, and never moves a column. TKT-345. Repeat `--ref` to record the same release across a whole batch that shipped together (TKT-561): each card is recorded independently, so one that cannot be written does not take the rest down with it - the refs that failed come back named, with the reason, and a batch that records nothing at all still fails outright (TKT-569). A single `--ref` answers in exactly the shape it always did, error text included. It is the second command after `record.show` and `tasklist.next` that accepts more than one `--ref`.
+- `tira.release.record --ref REF ... --gate TEXT --result pass|fail|blocked --details TEXT --evidence TEXT --fix-version VERSION [-o FORMAT]` - one command for the gate entry, evidence entry and fix version a passed release needs; refuses rather than defaults on anything missing, and never moves a column. TKT-345. Repeat `--ref` to record the same release across a whole batch that shipped together (TKT-561): each card is recorded independently, so one that cannot be written does not take the rest down with it - the refs that failed come back named, with the reason, and a batch that records nothing at all still fails outright (TKT-569). A single `--ref` answers in exactly the shape it always did, error text included. It is one of the small set of commands allowed more than one `--ref` - alongside the three show verbs (`ticket.show`/`epic.show`/`sow.show`, which all resolve to the same internal `record.show`, never typed directly), `tasklist.next`, `notify.record`, and `tasklist.task.ref.link`/`.unlink` (the last two since 5.89, TKT-791) - rather than a fixed count, which has grown twice already and would go stale again.
 
 On the browser dashboard, the card dialog's Gate Passing Log section renders
 its first ten entries and, past that, a "Load more (N more)" button reveals
@@ -3855,7 +3857,7 @@ Show-more control at all, unchanged.
 
 - `tira.notify.compose [-o FORMAT]`
 - `tira.notify.list [--ref REF ...] [-o FORMAT]`
-- `tira.notify.record --ref REF [--ref REF ...] --column SLUG [-o FORMAT]` — **the repeated `--ref` actually works, since 5.89** (TKT-791): a generic batch-ref guard elsewhere in the CLI refused any command outside `record.show`/`tasklist.next`/`release.record` the moment a second `--ref` arrived, so this documented usage line was refused before this command's own dispatch (which already read every `--ref` given, unaffected by the guard) was ever reached. `tasklist.task.ref.link`/`.unlink` had the identical gap and the identical fix - see their own entries below.
+- `tira.notify.record --ref REF [--ref REF ...] --column SLUG [-o FORMAT]` — **the repeated `--ref` actually works, since 5.89** (TKT-791): a generic batch-ref guard elsewhere in the CLI refused any command outside the internal `record.show` dispatch value (reached by the three show verbs), `tasklist.next`, and `release.record` the moment a second `--ref` arrived, so this documented usage line was refused before this command's own dispatch (which already read every `--ref` given, unaffected by the guard) was ever reached. `tasklist.task.ref.link`/`.unlink` had the identical gap and the identical fix - see their own entries below.
 - `tira.notify.moves [--column SLUG] [--watch|--no-watch] [-o FORMAT]` — with no column it switches the whole board on; with one it switches that column, which is how `discard` is silenced. The flags were prose here and in no argument table, and that is exactly how `--watch` shipped refused by a guard naming only `column.update`: nothing an agent could read said which command took it. A bare call with none of `--chat`, `--column`, or `--watch`/`--no-watch` is a read: it reports the current setting (or the untouched default, `enabled: false`) without writing anything to the board - until 3.11 it persisted a default on every call, so the first diagnostic question ("has anybody turned this on?") destroyed the evidence by being asked. TKT-398.
 
   Since 2.65 the destination is set on the board with `--chat ID`, once, by the
@@ -4053,9 +4055,12 @@ applies, scoped the same way `--session`/env-var fallback already work:
   the queue is empty. TKT-563: given one or more `--ref`, narrows to the
   next pending item linked to any of them instead of the queue's own front
   - Michael's own words, "Get the next task specific from a single or
-  multiple card." `tasklist.next` is named alongside `record.show` as the
-  only two commands the pre-existing "Multiple refs are only available on
-  show" guard allows more than one `--ref` on.
+  multiple card." `tasklist.next` is one of the small set of commands the
+  pre-existing "Multiple refs are only available on show" guard allows more
+  than one `--ref` on - alongside `ticket.show`/`epic.show`/`sow.show`
+  (which resolve to the guard's own internal `record.show`, never typed
+  directly), `release.record`, `notify.record`, and
+  `tasklist.task.ref.link`/`.unlink` (the last two since 5.89, TKT-791).
 - `tira.tasklist.shift [--session ID] [-o FORMAT]` - FIFO pop: return and
   remove the front of the pending queue.
 - `tira.tasklist.pop [--session ID] [-o FORMAT]` - LIFO pop: return and
@@ -4078,7 +4083,7 @@ Four sub-verbs operate on one existing item, by id, rather than creating one:
 
 - `tira.tasklist.task.attach.add --id ID --file FILE [--file FILE ...] [--session ID] [-o FORMAT]`
 - `tira.tasklist.task.attach.discard --id ID --file FILE [--file FILE ...] [--session ID] [-o FORMAT]`
-- `tira.tasklist.task.ref.link --id ID --ref REF [--ref REF ...] [--session ID] [-o FORMAT]` — **the `[--ref REF ...]` shown here actually works, since 5.89** (TKT-791): a generic batch-ref guard refused any command outside `record.show`/`tasklist.next`/`release.record` the moment a second `--ref` was given, so two calls documented here were refused before this command's own dispatch - which already read every `--ref` correctly - was ever reached. `notify.record` had the identical gap and the identical fix.
+- `tira.tasklist.task.ref.link --id ID --ref REF [--ref REF ...] [--session ID] [-o FORMAT]` — **the `[--ref REF ...]` shown here actually works, since 5.89** (TKT-791): a generic batch-ref guard refused any command outside the internal `record.show` dispatch value (reached by the three show verbs), `tasklist.next`, and `release.record` the moment a second `--ref` was given, so two calls documented here were refused before this command's own dispatch - which already read every `--ref` correctly - was ever reached. `notify.record` had the identical gap and the identical fix.
 - `tira.tasklist.task.ref.unlink --id ID --ref REF [--ref REF ...] [--session ID] [-o FORMAT]`
 
 TKT-538: `tasklist.update`, `tasklist.remove`, and the 4 `tasklist.task.*`

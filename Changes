@@ -1,5 +1,27 @@
 Revision history for Tira
 
+5.96  2026-09-11
+    - TKT-577: found by the 3-hourly documentation hunt - docs/commands.md
+      and SKILLS.md both named record.show as something a reader could run
+      in the passages describing lib/Tira/CLI.pm's "Multiple refs are only
+      available on show" guard. record.show is a real internal $command
+      value - what ticket.show/epic.show/sow.show all resolve to - but
+      never a name typed directly; d2 tira.record.show answers "Command
+      'record.show' not found in skill 'tira'". docs/commands.md compounded
+      this with an arithmetic self-contradiction: it named record.show and
+      tasklist.next as two commands already allowed multiple refs, then
+      called release.record "the second command after" them, which would
+      make it the third. Both documents also claimed "only two commands"
+      were allowed, stale since 5.89 (TKT-791) added notify.record and
+      tasklist.task.ref.link/unlink to the same guard - correctly stated
+      elsewhere in the same files, so only the passages naming the total
+      set were wrong, not the guard itself. Fixed both passages to name the
+      real typeable verbs (ticket.show/epic.show/sow.show) and drop the
+      hardcoded ordinal/count, which has grown twice already and would go
+      stale again. New test: t/1068-a-name-nobody-could-type.t, deriving
+      the guard's real membership from lib/Tira/CLI.pm's own source rather
+      than a second hand-copied count.
+
 5.95  2026-09-11
     - TKT-574: ticket.create, epic.create and sow.create accepted every
       other list-valued field a card has - key-detail, deliverable,

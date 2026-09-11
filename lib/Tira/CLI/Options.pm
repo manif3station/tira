@@ -247,9 +247,26 @@ my %OPTION_READ_BY = (
     # applied, with nothing said. Verified against the engine directly, not
     # assumed - a first draft missing search's own reader was caught by
     # Codex review.
+    # A move is exempt from all three refusals below, on purpose - t/446/
+    # TKT-632 already solved the real fault (a move carrying an unrelated
+    # option reaching the internal tasklist_list reset call and dying,
+    # silently cancelling the reset) by narrowing what that internal call
+    # passes on, not by refusing the option at the CLI. --status is refused
+    # by name on a move (TKT-748), because record_move could plausibly be
+    # mistaken for something that sets status; --sort/--all-sessions/
+    # --unlinked never could, splatted noise a move's own caller has no
+    # reason to expect any effect from. Regression caught live: the first
+    # draft of this guard refused ticket.move --sort outright, breaking
+    # t/446/t/239's own pre-existing, tested tolerance.
+    # A move reaches this guard as either the type-specific spelling
+    # (ticket.move, from the real d2 entrypoint) or the already-normalised
+    # record.move (how the test harness and some internal callers name it,
+    # matching Tira::CLI::Move's own dispatch) - both forms need the same
+    # exemption, or which one a given caller happens to use decides whether
+    # the regression this comment describes is visible.
     sort => {
         flag     => 'sort',
-        commands => qr/\Atasklist\.list\z/,
+        commands => qr/\Atasklist\.list\z|\A(?:ticket|epic|sow|record)\.move\z/,
         instead  => 'tira.tasklist.list, the only command with a display'
           . ' ordering to apply --sort to',
     },
@@ -259,13 +276,13 @@ my %OPTION_READ_BY = (
         # TKT-537 put there deliberately (lib/Tira.pm's own search, the
         # $args{all_sessions} check beside the TKT-550 comment) - caught by
         # Codex review, which the first draft (tasklist.list only) missed.
-        commands => qr/\A(?:tasklist\.list|search)\z/,
+        commands => qr/\A(?:tasklist\.list|search)\z|\A(?:ticket|epic|sow|record)\.move\z/,
         instead  => 'tira.tasklist.list, or tira.search --tasklist, the only'
           . ' commands that scope by session and can be told to ignore it',
     },
     unlinked => {
         flag     => 'unlinked',
-        commands => qr/\Atasklist\.list\z/,
+        commands => qr/\Atasklist\.list\z|\A(?:ticket|epic|sow|record)\.move\z/,
         instead  => 'tira.tasklist.list, the only command with a linked/'
           . ' unlinked filter to apply it to',
     },

@@ -1,5 +1,46 @@
 Revision history for Tira
 
+5.104  2026-09-11
+    - TKT-582: found by the 2-hourly improvement hunt - the ISO 8601
+      grammar was written out twice, in _epoch_of_datetime (the
+      instant-based comparison CA04 uses, offset optional - a missing one
+      reads as UTC) and _valid_datetime (the stored due/start date
+      validator, offset required since TKT-572). The two copies had
+      already drifted once: TKT-572 fixed _valid_datetime's rejection of a
+      form _epoch_of_datetime already accepted, and nothing stopped the
+      same class of bug happening again for the next form either copy
+      might need to change. Extracted the shared grammar into one
+      _iso8601_pattern(offset_required => BOOL) builder both validators
+      now call - offset-required is the only documented difference between
+      them, expressed as a parameter rather than a second regex literal.
+      Both current behaviours are unchanged: a threshold may still omit
+      the offset and read as UTC, a stored due or start date must still
+      carry one, and all three offset spellings keep working in both. New
+      test t/1076-a-grammar-with-two-copies.t asserts the two entry points
+      agree on every form they both accept, with a structural check
+      (both subs call the shared builder, not their own regex) that
+      genuinely fails if the sharing is ever undone - a purely-behavioral
+      test would have passed throughout, the same way the original drift
+      went unnoticed.
+
+      Found and fixed during this ticket's re-verify: TKT-581 (already
+      shipped, unrelated) added three %OPTION_READ_BY entries in
+      lib/Tira/CLI/Options.pm (--sort, --all-sessions, --unlinked) that
+      broke record.move's pre-existing, deliberately-tested tolerance for
+      those splatted-but-inert options (TKT-632's own design, pinned by
+      t/446 and t/239) - a fresh full-suite run failed where an earlier
+      coverage run had not, purely because of when the guard entries were
+      added relative to when each run happened. Fixed by exempting
+      (?:ticket|epic|sow|record)\.move from all three guard regexes, since
+      a move reaches the guard as either spelling depending on the caller.
+      That fix exposed a second, narrower gap in
+      t/239-every-declared-refusal-is-exercised.t itself: its generic
+      exerciser always appended a bogus value when testing a declared
+      refusal, which is wrong for a boolean flag (all_sessions/unlinked
+      are the first boolean entries this table has ever had) - fixed by
+      computing a takes_value field per entry from the CLI's own
+      GetOptions spec.
+
 5.103  2026-09-11
     - TKT-1074: his own report through the developer-dashboard bridge -
       unpushed-work already scans every sandbox CLONE under

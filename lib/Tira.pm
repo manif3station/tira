@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.103';
+our $VERSION = '5.104';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2305,13 +2305,34 @@ sub _field_projection {
     return %plan ? \%plan : undef;
 }
 
+# TKT-582. The one ISO 8601 grammar both _epoch_of_datetime and
+# _valid_datetime need, so a change to it reaches both rather than only
+# whichever copy happened to be edited - the two had already drifted once
+# (TKT-572: _valid_datetime rejected a form _epoch_of_datetime already
+# accepted) before this existed. $offset_required is the one documented
+# difference between the two callers: _valid_datetime enforces TKT-572's
+# rule that a STORED due/start date must carry a timezone, while
+# _epoch_of_datetime's callers mostly read an already-stored, already-
+# validated stamp and treat a missing offset as UTC - widening that
+# tolerance is not this ticket's fix to make. The whole match is wrapped in
+# its own capture group so _valid_datetime can take the matched substring
+# as one piece while _epoch_of_datetime destructures the same match into
+# its individual components - one pattern, two different capture needs.
+sub _iso8601_pattern {
+    my (%args) = @_;
+    my $offset = qr/Z|[+-]\d{2}:?\d{2}/;
+    return $args{offset_required}
+      ? qr/\A((\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?($offset))\z/
+      : qr/\A((\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?($offset)?)\z/;
+}
+
 # CA04: instant-based comparison. Accepts Z, +-HH:MM, and the +-HHMM the
 # default clock writes; a missing offset reads as UTC. Dies on anything
 # else so a malformed threshold can never silently mean "everything".
 sub _epoch_of_datetime {
     my ( $value, $label ) = @_;
-    my ( $year, $month, $day, $hour, $minute, $second, $offset ) =
-      ( $value // '' ) =~ /\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})?\z/
+    my ( undef, $year, $month, $day, $hour, $minute, $second, $offset ) =
+      ( $value // '' ) =~ _iso8601_pattern()
       or die "$label must be an ISO 8601 date-time\n";
     my $epoch = timegm_modern( $second, $minute, $hour, $day, $month - 1, $year );
     if ( defined $offset && $offset ne 'Z' ) {
@@ -13973,7 +13994,7 @@ sub _valid_datetime {
     return undef if !defined $value || $value eq '';
     my $error = "$label must be an ISO 8601 date-time with a timezone, "
       . "for example 2026-08-19T09:00:00+0100, +01:00 or Z\n";
-    die $error if $value !~ /\A(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2}))\z/;
+    die $error if $value !~ _iso8601_pattern( offset_required => 1 );
 
     # The regex above only counts digits - month 13, day 45, hour 99 and an
     # offset of +9999 all matched it, so a card could be given a due_date

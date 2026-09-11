@@ -93,7 +93,12 @@ sub declared_in {
         my ( $command, $pairs ) = ( $1, $2 );
         $entries++;
         while ( $pairs =~ /\[\s*'(\w+)',\s*'(\w+)'\s*\]/g ) {
-            push @refusals, { command => $command, flag => $1, names => "--$2" };
+            # Every %MISLEADING_OPTIONS entry names an option another,
+            # different option already does the job of - none of them are
+            # boolean (checked live: assignee, comment, uri and the rest
+            # all take a value) - so a value is always appended, unlike the
+            # %OPTION_READ_BY loop below, which has to check per entry.
+            push @refusals, { command => $command, flag => $1, names => "--$2", takes_value => 1 };
         }
     }
 
@@ -146,7 +151,22 @@ sub declared_in {
           . "($readers), so no refusal can be proved against them\n"
           if !defined $not_a_reader;
         my ($word) = ( $instead // '' ) =~ /(--[a-z-]+)/;
-        push @refusals, { command => $not_a_reader, flag => $flag, names => $word // '--' };
+
+        # TKT-581 added the first two BOOLEAN entries this table has ever
+        # had (all_sessions, unlinked) - every prior entry takes a value
+        # ('=s' in its own GetOptions declaration), so a trailing bogus
+        # value below always landed as that value and reached this guard.
+        # A boolean flag given one instead gets an "Unexpected argument"
+        # refusal - real, but a different refusal than this test means to
+        # exercise, one that never reaches _refuse_unread_options at all.
+        # Checked against the CLI's own option spec, not assumed from the
+        # table entry, so a future value-taking flag mistakenly marked
+        # boolean here would fail loudly rather than being silently
+        # under-tested. $flag is already the dashed CLI spelling (its own
+        # 'flag' => '...' value above), matching how GetOptions declares it.
+        my $takes_value = $source =~ /'\Q$flag\E=/;
+        push @refusals, { command => $not_a_reader, flag => $flag, names => $word // '--',
+            takes_value => $takes_value };
     }
 
     return ( \@refusals, $entries, $declares, $read_declares, $read_found );
@@ -169,7 +189,7 @@ sub unexercised {
     for my $refusal ( @{$list} ) {
         my ( $status, $said ) =
           run( $refusal->{command}, '--ref', $card->{ref},
-            '--' . $refusal->{flag}, 'ada' );
+            '--' . $refusal->{flag}, ( $refusal->{takes_value} ? 'ada' : () ) );
         push @broken, "$refusal->{command} --$refusal->{flag} was not refused"
           if $status == 0;
         push @broken,

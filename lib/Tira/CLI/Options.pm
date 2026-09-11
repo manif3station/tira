@@ -237,6 +237,38 @@ my %OPTION_READ_BY = (
           . ' question.list, required-action.list or tasklist.list - since the'
           . ' others have no status field to match against',
     },
+
+    # TKT-581. --sort and --unlinked are read in exactly one place in the
+    # whole engine, Tira::Tasklist::tasklist_list; --all-sessions in two
+    # (tasklist_list, and search's own TKT-550 cross-session tasklist
+    # match) - so record.show accepted all three with exit 0 and no effect,
+    # the same shape as sdlc_gate and comment above: a caller who believes
+    # they asked for an ordering or a filter gets one that was never
+    # applied, with nothing said. Verified against the engine directly, not
+    # assumed - a first draft missing search's own reader was caught by
+    # Codex review.
+    sort => {
+        flag     => 'sort',
+        commands => qr/\Atasklist\.list\z/,
+        instead  => 'tira.tasklist.list, the only command with a display'
+          . ' ordering to apply --sort to',
+    },
+    all_sessions => {
+        flag     => 'all-sessions',
+        # search reads it too, when --tasklist crosses the session boundary
+        # TKT-537 put there deliberately (lib/Tira.pm's own search, the
+        # $args{all_sessions} check beside the TKT-550 comment) - caught by
+        # Codex review, which the first draft (tasklist.list only) missed.
+        commands => qr/\A(?:tasklist\.list|search)\z/,
+        instead  => 'tira.tasklist.list, or tira.search --tasklist, the only'
+          . ' commands that scope by session and can be told to ignore it',
+    },
+    unlinked => {
+        flag     => 'unlinked',
+        commands => qr/\Atasklist\.list\z/,
+        instead  => 'tira.tasklist.list, the only command with a linked/'
+          . ' unlinked filter to apply it to',
+    },
 );
 
 # TKT-936/Q-154: a conditional required action, given as

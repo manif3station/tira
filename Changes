@@ -1,5 +1,24 @@
 Revision history for Tira
 
+5.102  2026-09-11
+    - TKT-581: found by the hourly bug hunt - Tira guards command-specific
+      options (--session, --voice, --sdlc-gate and others), refusing a
+      command that will not act on them rather than silently discarding
+      them, but --sort (TKT-508), --all-sessions (TKT-539) and --unlinked
+      (TKT-552) had no guard at all. Verified against the engine directly:
+      --sort and --unlinked are read in exactly one place in the whole
+      engine, Tira::Tasklist::tasklist_list; --all-sessions in two, the
+      other being search's own TKT-550 cross-session tasklist match (a
+      first draft missing this second reader was caught by Codex review) -
+      so 'd2 tira.ticket.show --ref REF --sort text:asc' exited 0, printed
+      the card, and silently ignored the flag. A caller who believed they
+      had asked for an ordering or a filter got one that was never applied,
+      with nothing said. --sort and --unlinked are now refused on every
+      command but tasklist.list, and --all-sessions on every command but
+      tasklist.list and search --tasklist, naming the flag and pointing at
+      the command(s) that read it. New test:
+      t/1074-a-splat-that-never-checked-anything.t.
+
 5.101  2026-09-11
     - TKT-579: tools/gate-run tests HEAD on a clean tree for the push hook,
       but the commonest action - running the suite against the WORKING tree,

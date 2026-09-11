@@ -1,6 +1,24 @@
 Revision history for Tira
 
 5.94  2026-09-11
+    - TKT-1047: the same triage found a seventh concern the same week,
+      the third test-file split: t/317-a-done-that-proved-nothing.t (503
+      lines) proves the general proof-required-to-mark-done concern, and
+      the TKT-583 repeated-proof sequence (a command/proof pair cannot
+      answer two different required-action instructions in the same
+      column, the --force escape and its reason-bound code, and the
+      move-time reminder to work items one at a time) is separable from
+      it. Lifted verbatim into a new t/1047-a-pair-asked-to-answer-
+      twice.t, duplicating the shared preamble with a fresh $card rather
+      than the state t/317's earlier sections leave it in - those
+      sections add and mark required items of their own but never move
+      its column, and none of their proof pairs collide with the ones
+      this sequence adds and checks, so a fresh card is a valid isolated
+      fixture even though it is not byte-for-byte the same state.
+      t/317-a-done-that-proved-nothing.t: 503 -> 192 lines, now
+      well under the 500-line limit - its t/524 exemption entry removed
+      entirely rather than updated. The new file is 397 lines. No
+      regression.
     - TKT-1046: the same triage found a sixth concern the same week, again
       in a test file: t/390-a-list-that-does-not-need-a-ticket.t (566
       lines) proves the tasklist-reads-without-a-card contract, and the

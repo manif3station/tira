@@ -215,9 +215,6 @@ my %EXEMPT = (
       'TKT-906: the deliberately shared all-rules fixture, one police pass, '
       . 'bridge output, settling and escalation are the point of this '
       . 'end-to-end test - one concern, do not split',
-    't/317-a-done-that-proved-nothing.t' =>
-      'TKT-1047 owns splitting the TKT-583 repeated-proof sequence out of '
-      . 'the proof-required-to-mark-done concern',
 );
 
 my @files = perl_files();

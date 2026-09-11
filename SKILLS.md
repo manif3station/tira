@@ -3103,6 +3103,25 @@ only the previous tail's own last line, which a repeated line anywhere in
 the new tail could satisfy early, silently dropping everything genuinely new
 that followed it.
 
+**None of the three log panels' Clear buttons persist, by design since
+TKT-1020** ("this clears the current rendering only" on all three, though not
+in identical words). Found while reading TKT-1030's own new `seenRecent` code
+during the hourly bug hunt (TKT-1062): the job card's Clear button empties
+`runLogs` client-side, and a full page reload resets `seenRecent` too, so the
+next poll re-seeds the whole `job.recent` tail with no sign anything had been
+cleared - which first read as a job-card-specific regression. It is not, but
+the other two panels get there by a different route, not the same one: they
+have no `seenRecent`-equivalent record at all, so `logs-panel.js`'s and
+`bridge-panel.js`'s own Clear buttons revert on their very next five-second
+poll regardless of reload, restoring the complete server list even when
+nothing new arrived. The job card's own `seenRecent` (TKT-1030) is what makes
+ITS clear correctly survive ordinary polling and revert only on a full
+reload - a stronger guarantee than the other two carry day to day, that
+still happens to end at the same place once the page is reloaded. Not a fix,
+because the actual complaint - clearing does not last - was never
+job-card-specific to begin with; documented rather than "fixed" so a future
+reader does not rediscover the same false alarm.
+
 **A monitor's words reached the bridge for the first time in 5.47**, which is
 worth stating plainly because this document has described the channel as working
 since 5.41. It was not. `monitor-output` reports with a `sub_key` of

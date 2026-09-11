@@ -1,6 +1,20 @@
 Revision history for Tira
 
 5.94  2026-09-11
+    - TKT-1062: found by the hourly bug hunt (JOB-001) reading TKT-1030's
+      own new seenRecent code: clicking Clear on a job card's log panel
+      empties it client-side, but a full page reload resets seenRecent
+      too, so the next poll re-seeds the whole job.recent tail with no
+      sign anything had been cleared. Looked like a job-card-specific
+      regression until logs-panel.js and bridge-panel.js's own Clear
+      buttons were read alongside it: neither persists either, though by
+      a different route - they have no seenRecent-equivalent record at
+      all, so they revert on their very next five-second poll regardless
+      of reload, where the job card's own seenRecent correctly survives
+      ordinary polling and reverts only on a full reload. Not a fix,
+      because the actual complaint - clearing does not last - was never
+      job-card-specific; documented in SKILLS.md rather than "fixed", so
+      a future reader does not rediscover the same false alarm.
     - TKT-1053: fixed a zombie process the owner reported (msg #7625,
       2026-09-08): clicking Stop on a job card left the process a
       <defunct> zombie even though the card showed it stopped.

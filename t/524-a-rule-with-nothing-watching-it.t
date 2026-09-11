@@ -158,8 +158,11 @@ my %EXEMPT = (
     'lib/Tira/CLI/Serve.pm' => 'TKT-906: process inspection, server lifecycle, '
       . 'restart and beside-board supervision are all aspects of serving a '
       . 'board on one machine - one concern, do not split',
-    'lib/Tira/Job.pm' => 'repeated jobs - TKT-1044 owns extracting its cron '
-      . 'schedule parsing/validation/wording into its own concern',
+    'lib/Tira/Job.pm' => 'repeated jobs - TKT-1044 lifted its cron schedule '
+      . 'parsing/validation/wording into Tira::Job::Schedule '
+      . '(1906 -> 1426 lines), the sharpest single concern in it; the rest '
+      . '(storage, due-check, run recording) is still one file, not yet '
+      . 'owned by a card',
 
     'lib/Tira/Tasklist.pm' => 'TKT-906: storage, session scoping, queue '
       . 'operations, attachments and record links are the complete tasklist '

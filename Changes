@@ -1,6 +1,22 @@
 Revision history for Tira
 
 5.94  2026-09-11
+    - TKT-1044: the same triage found a fourth concern the same week, in
+      lib/Tira/Job.pm (1,906 lines): cron schedule parsing, validation and
+      wording (_cron_field_values, _cron_parse, schedule_refusal,
+      job_schedule_words and its own wording-helper cluster, and
+      _cron_minute_matches) is separable from the rest of the job record's
+      own concern (storage, due-check, run recording). Lifted into a new
+      Tira::Job::Schedule, reached through forwards of the same name from
+      Tira::Job (required at the point of use). lib/Tira/Job.pm:
+      1,906 -> 1,426 lines; the new module is 486. Unlike TKT-1041/1042/1043,
+      no test monkey-patches any of these subs by a fully-qualified name, so
+      no internal-call qualification was needed - the two callers left
+      behind in Tira::Job (_job_fields validating a write, job_is_due
+      checking a stored schedule) reach _cron_parse and
+      _cron_minute_matches through Tira::Job's own forwarding stub,
+      unqualified. t/524's exemption entry for Job.pm updated to record
+      what shipped.
     - TKT-1043: the same triage found a third concern the same week, in
       lib/Tira/CLI/Police.pm (1,495 lines): the due-job execution block
       (record_run, run_due_commands, advance_monitor_output, run_due_job)

@@ -1403,9 +1403,9 @@ tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--as
 tira.search.index [-o FORMAT]
 tira.replace --pattern REGEX --with TEXT [--field FIELD ...] [--type TYPE] [--dry-run] [-o FORMAT]
 tira.dashboard [--type TYPE|all] [--include-discard] [--title] [--with-questions] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [--show-logs] [--ssl] [-o DASHBOARD_FORMAT]
-tira.dashboard.sow [--include-discard] [--title] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [-o DASHBOARD_FORMAT]
-tira.dashboard.epic [--include-discard] [--title] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [-o DASHBOARD_FORMAT]
-tira.dashboard.ticket [--include-discard] [--title] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [-o DASHBOARD_FORMAT]
+tira.dashboard.sow [--include-discard] [--title] [--with-questions] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [--show-logs] [--ssl] [-o DASHBOARD_FORMAT]
+tira.dashboard.epic [--include-discard] [--title] [--with-questions] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [--show-logs] [--ssl] [-o DASHBOARD_FORMAT]
+tira.dashboard.ticket [--include-discard] [--title] [--with-questions] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [--show-logs] [--ssl] [-o DASHBOARD_FORMAT]
 ```
 
 `--terminal`/`--no-terminal` above marks a column as somewhere work has

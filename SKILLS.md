@@ -154,7 +154,7 @@ and `--set-*` for the same field are mutually exclusive.
 
 ## Output contract
 
-- Default and `-o toon`: `Data::TOON` output.
+- Default and `-o toon`: `Data::TOON` output - except a bare `d2 tira.dashboard` (and `.sow`/`.epic`/`.ticket`) with no `--output` at all, which since 5.98 defaults to `-o browser` instead (UC-149).
 - `-o json`: canonical compact JSON — stable key order, raw UTF-8, one
   line. **Implemented.**; identical information to every other
   format.
@@ -1402,10 +1402,10 @@ tira.changelog.check [--file FILE] [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [--count] [--refs-only] [-o FORMAT]
 tira.search.index [-o FORMAT]
 tira.replace --pattern REGEX --with TEXT [--field FIELD ...] [--type TYPE] [--dry-run] [-o FORMAT]
-tira.dashboard [--type TYPE|all] [--include-discard] [--title] [--with-questions] [--with-police] [--with-policy-bridge] [--no-session-expire] [--show-logs] [--ssl] [-o DASHBOARD_FORMAT]
-tira.dashboard.sow [--include-discard] [--title] [-o DASHBOARD_FORMAT]
-tira.dashboard.epic [--include-discard] [--title] [-o DASHBOARD_FORMAT]
-tira.dashboard.ticket [--include-discard] [--title] [-o DASHBOARD_FORMAT]
+tira.dashboard [--type TYPE|all] [--include-discard] [--title] [--with-questions] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [--show-logs] [--ssl] [-o DASHBOARD_FORMAT]
+tira.dashboard.sow [--include-discard] [--title] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [-o DASHBOARD_FORMAT]
+tira.dashboard.epic [--include-discard] [--title] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [-o DASHBOARD_FORMAT]
+tira.dashboard.ticket [--include-discard] [--title] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [-o DASHBOARD_FORMAT]
 ```
 
 `--terminal`/`--no-terminal` above marks a column as somewhere work has
@@ -1493,7 +1493,7 @@ has to separate are the two that look most alike.
 Dashboard scans each selected board once and groups records by configured
 column in memory. Column count therefore does not multiply JSON file reads;
 configured order and optional Discard inclusion remain unchanged.
-Default TOON and human dashboards contain only refs and use filename/stat data,
+`-o toon` and human dashboards contain only refs and use filename/stat data,
 without decoding records. `--title` decodes each card once to add its title.
 `-o json` returns complete records. All modes sort cards by filesystem
 modification time, newest first, then by ref when timestamps tie.
@@ -1775,7 +1775,7 @@ dialog fully usable at phone width.
 The visible last-updated time advances only after fresh data is applied. Stop
 the foreground server with Ctrl-C.
 
-## 148 use cases
+## 149 use cases
 
 Every case below is implemented and executable.
 
@@ -4166,7 +4166,7 @@ refused and says so, because an add that cannot take must not report success.
 
 **TKT-715: the assets themselves are now formatted, not just relocated.** The five-slice move above proved every byte-identical, which meant every asset kept the single line it had held as a Perl string - `git` rendered a one-line change to `dashboard.css` as a single modified line of nearly 12KB, unreviewable in exactly the way the original `lib/Tira.pm` line had been, and the only way to edit one was a scripted replace against an exact substring, the technique this whole move was meant to retire. All seven assets under `lib/Tira/views` are now reformatted with `prettier`, one file at a time with its own full-suite verification pass; the whitespace a browser was never going to see is the only thing that changed. `t/715` extends `t/426`'s own 2,000-character line-length threshold from `lib/Tira.pm` over `lib/Tira/views`, so no asset can quietly return to one long line.
 
-**Implemented.** `d2 tira.dashboard --type all` is the ref-only fast path; add `--title` for titles, `--include-discard` for archived cards, `-o json` for complete records, `-o table` for self-contained interactive HTML, or `-o browser` for the live Dancer2 view. Type-specific table/browser commands are `tira.dashboard.sow`, `.epic`, and `.ticket`.
+**Implemented.** `d2 tira.dashboard --type all -o toon` is the ref-only fast path; add `--title` for titles, `--include-discard` for archived cards, `-o json` for complete records, `-o table` for self-contained interactive HTML, or `-o browser` for the live Dancer2 view. **Since 5.98, `-o` is required for the fast path** - a bare `d2 tira.dashboard --type all` with no `--output` at all now serves in the browser by default (UC-149), the same as a bare `d2 tira.dashboard` on its own. Type-specific table/browser commands are `tira.dashboard.sow`, `.epic`, and `.ticket` - all three carry the same 5.98 default.
 
 ### UC-101: Ask about a card without moving it
 **Implemented.** An agent that cannot move a card can still ask about it: `d2 tira.question.ask --ref TKT-001 --text "Which credentials should this use?"`. The reference alone names the board, so no board argument is needed. The question is answered by whoever owns the decision, and until it is, the card is waiting on them rather than on you. Replaces keeping open decisions in a file of your own.
@@ -4212,7 +4212,10 @@ Since 4.83 the work log also draws a bare divider line before each entry where t
 **Implemented.** `d2 tira.attachment.discard --ref TKT-001 --sha SHA256` sets an attachment aside rather than deleting it. The reference stays on the card stamped with when and by whom, the browser draws it struck through and greyed like every other discarded thing, and the work log carries the event — read off the card by the engine, so it cannot be forgotten and cannot be written by hand. The stored file is untouched even when that was the last reference to it: the bytes are shared by content hash and are not one card's to destroy. Discarding one twice is refused rather than restamped, because the first stamp is the record somebody is relying on. `tira.attachment.remove` still deletes, for when the file itself has to go.
 
 ### UC-127: Leave the board open all day without signing in again
-**Implemented.** `d2 tira.dashboard -o browser --no-session-expire` serves a board whose sign-in lasts until somebody signs out. By default a session ends after ten minutes of inactivity, and the board's own refresh does not count as activity — it reads a session without extending it — so a board you are watching expires exactly as fast as one nobody is looking at, and every refresh after that is refused. That default is right on a shared machine and wrong for a board you read from a phone instead of asking for progress, so it is a choice you make rather than a behaviour that changes. The board tells you on the terminal it starts from that sessions never expire, and what that costs: over plain HTTP the cookie is a credential with no end date.
+**Implemented.** `d2 tira.dashboard -o browser --no-session-expire` serves a board whose sign-in lasts until somebody signs out. With an explicit `--output` a session ends after ten minutes of inactivity by default, and the board's own refresh does not count as activity — it reads a session without extending it — so a board you are watching expires exactly as fast as one nobody is looking at, and every refresh after that is refused. That default is right on a shared machine and wrong for a board you read from a phone instead of asking for progress, so it is a choice you make rather than a behaviour that changes. **Since 5.98 a bare `d2 tira.dashboard` (no `--output` at all) reverses this** - sessions never expire unless `--with-session-expire` opts back into the ten-minute default, since the whole point of the new no-flags default is a board left open and watched, not one that signs itself out (UC-149). The board tells you on the terminal it starts from that sessions never expire, and what that costs: over plain HTTP the cookie is a credential with no end date.
+
+### UC-149: Start the dashboard the way it is meant to be run
+**Implemented, since 5.98** (TKT-1068, his own words on TG msg #8172: "now is time. by default to run d2 tira.dashboard these options is opt-in by default -o browser --no-session-expire --with-police --with-policy-bridge"). A bare `d2 tira.dashboard`, with no `--output` given at all, now serves in the browser with police and the policy bridge already running beside it and sessions that never expire - the four flags UC-129/UC-127/the two `--with-police`/`--with-policy-bridge` entries above described as things you had to remember to type are now what happens if you type nothing. An explicit `--output` (`-o toon`, `-o json`, `-o human`, `-o table`) still overrides the whole bundle: asking for a one-shot read is a deliberate choice, not something the new default should silently promote into a served board. Each of the four keeps its own opt-out, so declining one does not cost the other three: `--no-police`, `--no-policy-bridge`, `--with-session-expire` (undoing the new no-expire default), and any other `-o VALUE` in place of the new `browser` default. **THIS IS THE COMMAND AN AGENT IS EXPECTED TO RUN, AND WATCH.** `d2 tira.dashboard` is a long-running process - the served board, police, and the policy bridge, all in one - and its point is the stream of violations and notifications it prints as they happen. Start it as a `Monitor`, not a one-shot command: read its output continuously, the same way `d2 tira.policy.bridge` on its own has always had to be watched rather than fired and forgotten. A dashboard started and then ignored answers no differently than one never started at all - the violations still fire, nobody reads them.
 
 ### UC-126: Make search faster without letting it lie
 **Implemented.** `d2 tira.search.index` builds a search index for the project, and searching gets faster because a card whose text cannot match is skipped without being parsed — parsing is what reading a board actually costs. The index is keyed by the content of the file it describes, so a row can only ever describe the exact bytes on disk: edit a card behind Tira's back and search follows the file, not the index. Corrupt it, delete it, or restore an old copy over it and search reads the files, which is what it did before any index existed. Ordinary work keeps it current — a card you create or edit updates its own row — and rebuilding it is throwing it away and running the command again, because nothing is in it that did not come from the files. A project that never runs the command has no index, and pays nothing for it.

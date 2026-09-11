@@ -345,7 +345,7 @@ d2 tira.checklist.add --ref TKT-001 --item "Run regression" --status "To Do"
 d2 tira.checklist.update --ref TKT-001 --id CHK-001 --status Done
 d2 tira.attachment.add --ref TKT-001 --file ./evidence.png -o json
 d2 tira.project.people.deactivate --id ada
-d2 tira.dashboard --type all
+d2 tira.dashboard --type all -o toon
 d2 tira.dashboard --type all --title -o human
 d2 tira.dashboard -o table > kanban.html
 d2 tira.dashboard.ticket --title -o table > tickets.html
@@ -841,7 +841,7 @@ ownership.
 
 ## Output
 
-TOON is the default and is also selected explicitly with `-o toon`.
+TOON is the default and is also selected explicitly with `-o toon` - except a bare `d2 tira.dashboard` (and its `.sow`/`.epic`/`.ticket` forms) with no `--output` at all, which since 5.98 defaults to `-o browser` instead (see SKILLS.md UC-149).
 `-o json` returns canonical pretty JSON. `-o human` returns Markdown:
 
 ```bash

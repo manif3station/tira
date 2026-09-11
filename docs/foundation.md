@@ -130,7 +130,9 @@ listener is `0.0.0.0:7899`.
 
 ## Output and errors
 
-Default and `-o toon` output is produced by `Data::TOON` 0.03. `-o json` uses
+Default and `-o toon` output is produced by `Data::TOON` 0.03 - except a bare
+`d2 tira.dashboard` (and `.sow`/`.epic`/`.ticket`) with no `--output` at all,
+which since 5.98 defaults to `-o browser` instead. `-o json` uses
 canonical pretty JSON. `-o human` emits Markdown. Errors use the selected
 structured format on stderr and exit with status 2. `tira.skills` prints raw
 Markdown because its content, rather than metadata about the content, is the

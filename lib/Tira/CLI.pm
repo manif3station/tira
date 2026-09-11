@@ -140,6 +140,14 @@ sub run {
         'show-logs' => \$option{show_logs},
         'with-police' => \$option{with_police},
         'with-policy-bridge' => \$option{with_policy_bridge},
+
+        # TKT-1068, his own words on TG msg #8172: a bare dashboard command
+        # now defaults to all three of these, and each gets its own opt-out
+        # rather than making the default itself conditional - see where the
+        # defaults are applied, just after parsing, for the full reasoning.
+        'no-police' => \$option{no_police},
+        'no-policy-bridge' => \$option{no_policy_bridge},
+        'with-session-expire' => \$option{with_session_expire},
         'ssl' => \$option{ssl},
         'sandbox=s' => \$option{sandbox},
         'repo=s' => \$option{repo}, 'repair!' => \$option{repair},
@@ -334,6 +342,25 @@ sub run {
               . qq{\nNothing takes it as a value, and it is not an option.\nA value containing spaces needs quoting: --bdd "Given ... Then ..."\n} )
           if @{$argv};
         return _error( $tira, $option{output}, 'Invalid command-line options' );
+    }
+
+    # TKT-1068, his own words on TG msg #8172: "by default to run d2
+    # tira.dashboard these options is opt-in by default -o browser
+    # --no-session-expire --with-police --with-policy-bridge". A bare
+    # dashboard command - no --output typed at all - now behaves as if all
+    # four were given. Gated on --output never having been given rather than
+    # on its value, since %option seeds output => 'toon' before parsing even
+    # starts (the same distinction $already_given exists to make, a few
+    # lines above) - an explicit `-o toon` is a deliberate one-shot read and
+    # must not be silently promoted into a served board. Each of the three
+    # extras keeps its own opt-out (--no-police, --no-policy-bridge,
+    # --with-session-expire) rather than the whole bundle being all-or-
+    # nothing, so opting out of one does not cost the other two.
+    if ( $command =~ /\Adashboard(?:\.(?:sow|epic|ticket))?\z/ && !$already_given{output} ) {
+        $option{output} = 'browser';
+        $option{with_police}        = 1 if !$option{no_police};
+        $option{with_policy_bridge} = 1 if !$option{no_policy_bridge};
+        $option{no_session_expire}  = 1 if !$option{with_session_expire};
     }
 
     # --file is a list only where a batch makes sense, and one file everywhere

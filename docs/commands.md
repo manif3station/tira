@@ -717,14 +717,16 @@ rather than all three.
 
 | Argument | Required | What it is for |
 | --- | --- | --- |
-| `-o FORMAT` | no | `toon` (default), `json`, `table` for a page, `browser` to serve it live. |
+| `-o FORMAT` | no | `browser` (default, since 5.98 - see below), `toon`, `json`, `table` for a page. Giving any `-o` at all opts out of the police+policy-bridge+no-session-expire bundle below - an explicit `-o toon`/`json`/`human`/`table` is a deliberate one-shot read, while an explicit `-o browser` still serves, just without the companions the bare-command default starts beside it. |
 | `--title` | no | Show card titles as well as references. |
 | `--include-discard` | no | Force the Discard column in or out; shown by default in the formats a person looks at. |
 | `--with-questions` | no | Mark cards that are waiting on somebody; on by default in the formats a person looks at. |
-| `--no-session-expire` | no | With `-o browser`: a sign-in lasts until somebody signs out. |
+| `--no-session-expire` | no | With `-o browser`: a sign-in lasts until somebody signs out. On by default since 5.98 when no `-o` is given; `--with-session-expire` opts back out. |
 | `--show-logs` | no | With `-o browser`: keep the last 200 requests the board answered, and serve them at `/logs` for the page to show. |
-| `--with-police` | no | With `-o browser`: run the police bridge beside the served board, so one terminal carries both. Refused in any other output format — there is nothing to run alongside. While the dashboard holds the watch, a later `tira.police` says so and exits 0 rather than taking it over. |
-| `--with-policy-bridge` | no | With `-o browser`: run `tira.policy.bridge` beside the served board, same shape as `--with-police` one entrypoint over. Refused in any other output format for the same reason. Combine with `--with-police` to start the bridge, the police, and the dashboard all in one go. |
+| `--with-police` | no | With `-o browser`: run the police bridge beside the served board, so one terminal carries both. Refused in any other output format — there is nothing to run alongside. While the dashboard holds the watch, a later `tira.police` says so and exits 0 rather than taking it over. On by default since 5.98 when no `-o` is given; `--no-police` opts back out. |
+| `--with-policy-bridge` | no | With `-o browser`: run `tira.policy.bridge` beside the served board, same shape as `--with-police` one entrypoint over. Refused in any other output format for the same reason. Combine with `--with-police` to start the bridge, the police, and the dashboard all in one go. On by default since 5.98 when no `-o` is given; `--no-policy-bridge` opts back out. |
+
+**Since 5.98, a bare `d2 tira.dashboard` - no `--output` typed at all - defaults to `-o browser --no-session-expire --with-police --with-policy-bridge`** (TKT-1068, his own words on TG msg #8172: "by default to run d2 tira.dashboard these options is opt-in by default"). The four flags above stop being something an operator has to remember and become what happens if nothing is typed. Each keeps its own opt-out (`--no-police`, `--no-policy-bridge`, `--with-session-expire`) rather than the bundle being all-or-nothing, and an explicit `--output` of any value overrides the whole bundle at once: asking for `toon`/`json`/`human`/`table` is a deliberate one-shot read, not something the new default should silently promote into a served board. `d2 tira.dashboard` is meant to be run as a long-running process and watched - start it as a Monitor and read its output stream continuously, the same discipline `d2 tira.policy.bridge` on its own has always required.
 
 Until 4.93, `--title` with `-o browser` had no effect - the live dashboard
 never showed titles regardless, because the serve path read a key

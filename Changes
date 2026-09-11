@@ -1,5 +1,24 @@
 Revision history for Tira
 
+5.98  2026-09-11
+    - TKT-1068: his own words on TG msg #8172, "now is time. by default to
+      run d2 tira.dashboard these options is opt-in by default -o browser
+      --no-session-expire --with-police --with-policy-bridge... They need
+      to know to run d2 tira.dashboard as a monitor and they will need to
+      watch the output stream for any notification too." Two connected
+      changes: a bare d2 tira.dashboard - no --output typed at all - now
+      defaults to the full bundle (-o browser --no-session-expire
+      --with-police --with-policy-bridge) rather than requiring an
+      operator to remember and type all four every time; and SKILLS.md/
+      docs/commands.md now say explicitly that the dashboard is meant to
+      be run as a watched Monitor with its output stream read
+      continuously, not started and left unobserved. Three new opt-out
+      flags let each of the three extras be declined without costing the
+      others: --no-police, --no-policy-bridge, --with-session-expire. An
+      explicit --output of any value overrides the whole bundle at once -
+      asking for toon/json/human/table is a deliberate one-shot read. New
+      test: t/1070-a-monitor-nobody-had-to-type.t.
+
 5.97  2026-09-11
     - TKT-578: found by the 2-hourly improvement hunt - the ten --set-*
       replacement flags (--set-acceptance, --set-key-details,

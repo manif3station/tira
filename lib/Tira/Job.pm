@@ -65,11 +65,14 @@ sub _job_read {
 # through a forward of the same name, required at the point of use: two
 # existing callers already reach schedule_refusal and job_schedule_words by
 # their fully-qualified Tira::Job:: name, and a forward preserves that.
-sub _cron_field_values {
-    require Tira::Job::Schedule;
-    return Tira::Job::Schedule::_cron_field_values(@_);
-}
-
+#
+# NO FORWARD FOR _cron_field_values, deliberately - unlike its three
+# siblings, nothing calls it: not from outside this module by its
+# fully-qualified name, and not from inside it either, since the only
+# caller that ever did (_cron_parse) moved to Tira::Job::Schedule too and
+# reaches its own copy directly. A stub with no caller is dead code the
+# coverage gate would refuse - found running TKT-1063's own coverage check
+# against a file this ticket did not otherwise touch.
 sub _cron_parse {
     require Tira::Job::Schedule;
     return Tira::Job::Schedule::_cron_parse(@_);
@@ -587,6 +590,40 @@ sub job_started {
         $job->{pid}          = $args{pid} + 0;
         $job->{started_at}   = $self->{clock}->();
         $job->{last_updated} = $job->{started_at};
+
+        # TKT-1063. A fresh start is a fresh chance, not a continuation of
+        # whatever crash streak stopped the last one - a cap that survived a
+        # deliberate restart would read as this run already having failed
+        # before it ran at all.
+        delete $job->{restart_cap_hit};
+        delete $job->{restart_cap_hit_at};
+
+        $self->_write_json( _job_path( $self, $root ), $jobs );
+        return $job;
+    } );
+}
+
+# TKT-1063. Written once, by the feeder itself, the moment restart_every's
+# own crash-loop cap is reached - not by job.stop, which clears the pid but
+# has no idea why the process it is signalling stopped restarting itself.
+# monitor-dead reads this to say something more useful than a cold start:
+# "not running" alone does not distinguish a monitor that never got going
+# from one that tried and gave up a dozen times running.
+sub job_restart_capped {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    die "A job id is required\n" if !defined $args{id} || $args{id} eq '';
+    die "A count is required - how many consecutive crashes hit the cap\n"
+      if !defined $args{count} || $args{count} !~ /\A[1-9][0-9]*\z/;
+
+    return $self->_with_project_lock( $root, sub {
+        my $jobs = _job_read( $self, $root );
+        my $job  = _job_find( $jobs, $args{id} );
+        die "Job $args{id} is not on this board\n" if !$job;
+
+        $job->{restart_cap_hit}    = $args{count} + 0;
+        $job->{restart_cap_hit_at} = $self->{clock}->();
+        $job->{last_updated}       = $job->{restart_cap_hit_at};
         $self->_write_json( _job_path( $self, $root ), $jobs );
         return $job;
     } );

@@ -1,6 +1,28 @@
 Revision history for Tira
 
 5.94  2026-09-11
+    - TKT-1063: restart_every (TKT-891) restarted a monitor's command
+      forever, however many times in a row it crashed, with no bound and
+      no escalation to a human - a genuinely crash-looping command (bad
+      config, a dependency missing after a deploy) restarted silently
+      forever, and monitor-dead never fired since the supervisor's own
+      pid stayed alive throughout. Raised while triaging a duplicate
+      request (TKT-1061); the owner confirmed via TG ("Yes please") that
+      this narrower gap should be fixed on its own. The feeder's loop now
+      counts consecutive runs shorter than 5 seconds (a crash rather than
+      legitimate work) and stops auto-restarting after 5 in a row -
+      writing a feed line explaining why, and recording the attempt count
+      on the job via a new Tira::Job::job_restart_capped. A run of at
+      least that many seconds resets the count, so a monitor that
+      crashes once a month is not judged by a streak from months ago.
+      monitor-dead's own alert now folds the attempt count into its message when
+      present, and job_started clears any previous cap marker, since a
+      deliberate fresh start is a fresh chance rather than a continuation
+      of whatever crash streak stopped the last run. New test:
+      t/1063-a-loop-nobody-called-off.t, confirmed genuinely red the
+      hardest possible way - without the cap the test's own injected
+      wait sub had nothing to stop it and the loop hung indefinitely
+      rather than merely failing an assertion.
     - TKT-1062: found by the hourly bug hunt (JOB-001) reading TKT-1030's
       own new seenRecent code: clicking Clear on a job card's log panel
       empties it client-side, but a full page reload resets seenRecent

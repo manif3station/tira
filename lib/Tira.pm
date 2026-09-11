@@ -1457,6 +1457,7 @@ sub job_delete { my $self = shift; require Tira::Job; return Tira::Job::job_dele
 sub job_stop { my $self = shift; require Tira::Job; return Tira::Job::job_stop( $self, @_ ) }
 sub job_is_due { my $self = shift; require Tira::Job; return Tira::Job::job_is_due( $self, @_ ) }
 sub job_started { my $self = shift; require Tira::Job; return Tira::Job::job_started( $self, @_ ) }
+sub job_restart_capped { my $self = shift; require Tira::Job; return Tira::Job::job_restart_capped( $self, @_ ) }
 
 # What a monitor said, and what police takes. TKT-851. Forwarded here for the
 # same reason every other job verb is: Tira is the index, and a caller should
@@ -10851,8 +10852,16 @@ sub _police_environment_violations {
                 next if Tira::Job::job_monitor_alive( $job, $world->{processes} );
 
                 my $what = $job->{command} // $job->{message} // '';
-                $report->( $policy, undef,
-                    "monitor $job->{id} is not running: $what" );
+
+                # TKT-1063. "Not running" alone reads as a cold start, which
+                # is not what happened here: the feeder itself gave up after
+                # a crash-loop cap, and that is a different fact from having
+                # never started at all.
+                my $capped = $job->{restart_cap_hit};
+                my $said   = "monitor $job->{id} is not running: $what";
+                $said .= " (stopped auto-restarting after $capped attempts)"
+                  if defined $capped && $capped =~ /\A[1-9][0-9]*\z/;
+                $report->( $policy, undef, $said );
             }
         }
         elsif ( $rule eq 'monitor-silent' ) {
@@ -15225,6 +15234,18 @@ cron job: that is not supposed to be up between runs, so a pid on one would
 be a fact about a process that has already exited, and C<job_monitor_alive>
 would then have to decide which pids it is allowed to believe. Refusing the
 write keeps that question from existing. EPC-014, TKT-842.
+
+=head2 job_restart_capped
+
+Records that a monitor's C<restart_every> loop stopped auto-restarting
+after C<count> consecutive crash-loop restarts, and when. Written by the
+feeder itself, the moment its own cap is reached - not by C<job_stop>,
+which has no idea why the process it is signalling stopped restarting
+itself. C<monitor-dead> reads this to say more than a cold start: a
+monitor that tried and gave up is a different fact from one that never
+got going. Cleared by C<job_started>, since a deliberate fresh start is a
+fresh chance rather than a continuation of whatever crash streak stopped
+the last run. TKT-1063.
 
 =head2 job_stop
 

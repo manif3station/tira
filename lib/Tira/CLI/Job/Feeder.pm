@@ -8,6 +8,17 @@ use Tira::Job ();
 
 our $VERSION = '5.52';
 
+# TKT-1063. restart_every restarted a command forever, however many times in
+# a row it crashed - a genuinely crash-looping command (bad config, a
+# dependency missing after a deploy) restarted silently forever with no
+# escalation to a human, because monitor-dead never fires while the
+# supervisor's own pid stays alive. A run shorter than this many seconds is
+# read as a crash rather than legitimate work; this many of them in a row,
+# with nothing lasting at least that long in between to reset the count,
+# stops auto-restart.
+use constant _CRASH_LOOP_SECONDS => 5;
+use constant _CRASH_LOOP_CAP     => 5;
+
 # THE PROCESS A MONITOR IS. One, since TKT-927.
 #
 # It was three, or four with a loop: a perl shim that set a process group and
@@ -212,8 +223,17 @@ sub run_feeder {
     # the default is _wait, which is what the verb actually does.
     my $wait = $args->{wait} || \&_wait;
 
+    # THE CLOCK IS ALSO INJECTABLE, for the identical reason: a crash-loop cap
+    # measured in real seconds cannot be exercised by actually crashing for
+    # 25 real seconds in a test. A caller that hands in one is asked for
+    # epoch seconds, not the ISO string $tira's own clock gives elsewhere -
+    # this measures a DURATION, not a timestamp on a record.
+    my $now = $args->{now} || sub { return time };
+
     require IPC::Open3;
+    my $consecutive_crashes = 0;
     while (1) {
+        my $began = $now->();
         $current_pid = IPC::Open3::open3( my $in, my $out, undef, @command );
         close $in;
         feed_from_handle( $tira, $args, $id, $out, $quiet, $batch_size );
@@ -222,6 +242,32 @@ sub run_feeder {
         $current_pid = undef;
 
         last if !$every;
+
+        # A run shorter than the crash-loop threshold counts toward the cap;
+        # one that runs at least that long means the command actually did
+        # something, so the count resets - a monitor that crashes once a
+        # month must not be judged by a streak from six months ago.
+        if ( $now->() - $began < _CRASH_LOOP_SECONDS ) {
+            $consecutive_crashes++;
+            if ( $consecutive_crashes >= _CRASH_LOOP_CAP ) {
+                eval {
+                    $tira->job_feed( %{$args}, id => $id, lines => [
+                        "stopped auto-restarting after $consecutive_crashes "
+                          . 'consecutive crashes (cap reached)' ] );
+                    1;
+                };
+                eval {
+                    $tira->job_restart_capped( %{$args}, id => $id,
+                        count => $consecutive_crashes );
+                    1;
+                };
+                last;
+            }
+        }
+        else {
+            $consecutive_crashes = 0;
+        }
+
         last if !$wait->($every);
     }
 

@@ -2042,7 +2042,7 @@ branches, so a caller asking for `json` or `toon` compiles none of it
 outside the concern: `_html_escape`, which the login page HTML also uses, and
 the plain functions `_render_view`, `_view_asset` and `json_object`.
 
-`lib/Tira.pm` is 16,525 lines as of TKT-1011 (5.93), grown rather than shrunk
+`lib/Tira.pm` is 16,546 lines as of TKT-1063 (5.94), grown rather than shrunk
 since the fourth lift's own 14,164 - the file gains from most releases that
 touch it, and a hand-corrected number drifts again by design. The figure the
 fourth lift replaced said 14,256, README said 14,177, `lib/Tira/Job.pm` said
@@ -3167,6 +3167,24 @@ one-way until the verify walkthrough caught it. The floor is measured, not chose
 feeder flushes after 25 lines or two seconds of quiet, so a command restarting
 every second never leaves a gap and a perfectly healthy monitor reports no
 output at all.
+
+**And a crash-looping command stops restarting itself, since TKT-1063.**
+Looping had no bound: a command that crashed on every run restarted forever,
+every `restart_every` seconds, with no escalation to a human -
+`monitor-dead` never fires while the supervisor's own pid stays alive
+throughout, so nothing on the board would ever say "this keeps crashing."
+Raised while triaging a duplicate report (TKT-1061); he confirmed via TG
+("Yes please") that this narrower gap should be fixed on its own. The
+feeder now counts consecutive runs shorter than five seconds as crashes -
+a run that lasts at least that long resets the count, so a monitor that crashes once a
+month is not judged by a streak from months ago - and five in a row stops
+auto-restart, writes a line to the job's own log explaining why, and
+records the attempt count via `Tira::Job::job_restart_capped`.
+`monitor-dead`'s own alert folds that count in when present ("stopped
+auto-restarting after 5 attempts"), so it reads as a monitor that tried
+and gave up rather than one that never started. A fresh manual start
+clears the marker - a deliberate restart is a fresh chance, not a
+continuation of whatever crash streak stopped the last run.
 
 **Since 5.52 that checkbox is offered only for a monitor.** It was shown for
 anything in command mode — the message rule applied and its neighbour forgotten,

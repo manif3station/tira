@@ -289,42 +289,9 @@ like( $live_html,
     qr/renderCard\(record\);\s*renderQuestions\(record\);\s*renderPoliceLog\(record\);\s*renderWorkLog\(record\);?\s*\}\)\s*\.catch/s,
     'including the background refresh, which used to redraw the card alone' );
 
-# --- the work log, collapsed and fetched only when asked for --------------
-
-# A card has a great deal happen to it. Loading all of it whenever a card is
-# opened would bury everything else, so the section renders closed and the
-# request only goes out when somebody expands it - which is also the whole
-# difference between a card that opens instantly and one that does not.
-like( $live_html, qr/const renderWorkLog\s*=/, 'the dialog builds a work log section' );
-like( $live_html, qr/card-worklog__toggle/, 'with something to click' );
-like( $live_html, qr/let worklogOpen\s*=\s*false/, 'starting closed' );
-like( $live_html, qr/body\.hidden\s*=\s*!worklogOpen/, 'and drawn closed unless somebody had it open' );
-like( $live_html, qr/if\s*\(!open\s*\|\|\s*loaded\)\s*return/,
-    'and it fetches once, on expanding, rather than on every click' );
-
-{
-    # The request must be reached from the click handler and from nowhere that
-    # runs while a card is merely being opened. If it were anywhere else the
-    # section would look lazy while loading eagerly, which is the failure that
-    # would never show up by reading the rendered page.
-    my ($handler) = $live_html =~ /head\.addEventListener\("click",\s*\(\)\s*=>\s*\{(.*?)\}\);\s*if\s*\(worklogOpen\)/s;
-    ok( $handler, 'the toggle has a click handler' );
-    like( $handler // '', qr/readLog\(\)/,
-        'which is what reads the log, so opening a card asks for nothing' );
-
-    # One place fetches it, so there is one place to be wrong about when.
-    my $fetches = () = $live_html =~ m{fetch\(\s*"/worklog\?ref="}g;
-    is( $fetches, 1, 'and exactly one place in the page fetches a work log' );
-}
-
-# It renders into the sections host, so it scrolls with everything else. Put
-# outside it, the section pinned itself to the bottom of the dialog and cut off
-# whatever was above - which every assertion in this file passed straight
-# through, and only looking at the screen caught.
-like( $live_html, qr/const host\s*=\s*sectionsHost/,
-    'the work log renders among the sections rather than beside them' );
-unlike( $live_html, qr/<div class="card-worklog"><\/div>/,
-    'with no host of its own outside the scrolling area' );
+# The work-log section (collapsed by default, fetched once on expand,
+# rendered into the shared sections host) is its own concern, split out into
+# t/1045-a-log-that-waits-to-be-asked.t - TKT-1045.
 
 # The owner reads and answers questions where he reads the card
 like( $live_html, qr/const renderQuestions\s*=/, 'the dialog builds a questions section' );

@@ -1,6 +1,19 @@
 Revision history for Tira
 
 5.94  2026-09-11
+    - TKT-1045: the same triage found a fifth concern the same week, this
+      time in a test file rather than a lib/ module: t/19-dashboard-
+      dialog.t (611 lines) proves the card-dialog/provider/mutation-route
+      contract, and the work-log section (collapsed by default, fetched
+      once on expand, rendered into the shared sections host) is a
+      self-contained concern within it. Lifted verbatim into a new
+      t/1045-a-log-that-waits-to-be-asked.t, duplicating the shared
+      preamble that builds the rendered dialog HTML - each .t file is its
+      own process, and there is no shared-setup helper for this fixture
+      yet. t/19-dashboard-dialog.t: 611 -> 578 lines; the new file is 121.
+      No regression, unlike the four lib/ module lifts the same week -
+      the split assertions ran unchanged before and after the move.
+      t/524's exemption entry for t/19 updated to record what shipped.
     - TKT-1044: the same triage found a fourth concern the same week, in
       lib/Tira/Job.pm (1,906 lines): cron schedule parsing, validation and
       wording (_cron_field_values, _cron_parse, schedule_refusal,

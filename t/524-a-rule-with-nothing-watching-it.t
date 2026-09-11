@@ -190,8 +190,11 @@ my %EXEMPT = (
       . 'degradation are all necessary edges of monitor-liveness detection '
       . '- one concern, do not split',
     't/19-dashboard-dialog.t' =>
-      'TKT-1045 owns splitting the work-log section (collapsed and fetched '
-      . 'only when asked for) out of the card-dialog/provider/mutation-route contract',
+      'TKT-906 found it over the limit - TKT-1045 lifted the work-log '
+      . 'section (collapsed and fetched only when asked for) into '
+      . 't/1045-a-log-that-waits-to-be-asked.t (611 -> 578 lines), the '
+      . 'sharpest single concern in it; the rest (card-dialog, provider, '
+      . 'mutation-route, questions) is still one file, not yet owned by a card',
     't/419-a-queue-that-disagrees-with-the-board.t' =>
       'TKT-906: rule definition, directionality, dedupe, role declaration and '
       . 'session scope are one tasklist-vs-board consistency policy - one '

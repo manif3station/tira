@@ -243,6 +243,28 @@ sub police_world {
     my @commits = @{ _unpushed_commits($where) };
     push @commits, @{ _unpushed_commits($_) } for _sandbox_clone_dirs($where);
 
+    # TKT-1074, his own report through the developer-dashboard bridge:
+    # git worktrees - sharing $where's own .git object store, not a separate
+    # clone under ~/Sandbox/ - were collected into $world->{worktrees} below
+    # for card-sandbox-missing's own use, but never asked for their unpushed
+    # commits the way a sandbox clone already is. A commit sitting only on a
+    # worktree branch was invisible to this rule. `git worktree list`
+    # includes $where's own entry alongside every other worktree of the same
+    # repository - Cwd::realpath compared so a symlinked or differently-
+    # spelled $where does not admit that entry as though it were a second,
+    # separate worktree, double-counting every one of $where's own unpushed
+    # commits (already gathered directly, above). $where need not be the
+    # entry git happens to list first - a project can declare a linked
+    # worktree rather than the main checkout - so every entry is checked
+    # against $where, not assumed to be at any particular position.
+    my $where_real = eval { Cwd::realpath($where) };
+    for my $worktree ( @{ _git_worktrees($where) } ) {
+        my $worktree_real = eval { Cwd::realpath($worktree) };
+        next if !defined $worktree_real;
+        next if defined $where_real && $worktree_real eq $where_real;
+        push @commits, @{ _unpushed_commits($worktree) };
+    }
+
     my $world = {
         branches   => _git_branches($where),
         worktrees  => _git_worktrees($where),

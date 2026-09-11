@@ -1,5 +1,22 @@
 Revision history for Tira
 
+5.103  2026-09-11
+    - TKT-1074: his own report through the developer-dashboard bridge -
+      unpushed-work already scans every sandbox CLONE under
+      ~/Sandbox/<repo>/ (TKT-998), but never a git WORKTREE (git worktree
+      add, sharing the main repository's own .git object store rather than
+      being a separate clone). police_world already collected worktree
+      paths for card-sandbox-missing's own use but never asked any of them
+      for their unpushed commits, so a commit sitting only on a worktree
+      branch was invisible to this rule. Confirmed live: four real
+      ticket-worktree sandboxes on his own board carried unpushed commits
+      that had never fired. Fixed by feeding every worktree path into the
+      same unpushed-commit scan sandbox clones already get, skipping
+      whichever `git worktree list` entry is the declared repo's own
+      (already scanned directly) so its commits are not counted twice,
+      wherever that entry falls in the list. New test:
+      t/1075-a-worktree-the-world-never-asked.t.
+
 5.102  2026-09-11
     - TKT-581: found by the hourly bug hunt - Tira guards command-specific
       options (--session, --voice, --sdlc-gate and others), refusing a

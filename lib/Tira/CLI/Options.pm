@@ -101,6 +101,20 @@ my %OPTION_READ_BY = (
           . ' --acceptance, --test-step and the rest the command reference lists',
     },
 
+    # TKT-574. Deliberately create-only, unlike the other list fields this
+    # table's second half already guards on record.update: an item at
+    # creation is no heavier than any other list field record.create
+    # already takes, but the same flag on record.update would ask which
+    # of a card's EXISTING items to touch, a question --checklist cannot
+    # answer - checklist.add/update are the commands for that, and always
+    # have been.
+    checklist => {
+        flag     => 'checklist',
+        commands => qr/\Arecord\.create\z/,
+        instead  => 'tira.checklist.add --ref REF --item TEXT, which is the '
+          . 'command that adds to an existing card',
+    },
+
     # A link an evidence entry carries. Read in exactly one place in the whole
     # engine, evidence_add - so release.record (TKT-345) accepted --uri,
     # dropped it, and exited 0 with an evidence entry that looked complete

@@ -262,6 +262,7 @@ sub run {
         'include-discard' => \$option{include_discard},
         'full' => \$option{full}, 'dry-run' => \$option{dry_run},
         'key-detail=s@' => \$option{key_details}, 'deliverable=s@' => \$option{deliverables},
+        'checklist=s@' => \$option{checklist},
         'scope-in=s@' => \$option{scope_in}, 'scope-out=s@' => \$option{scope_out},
         'exempt-required=s@' => \$option{required_exempt}, 'exempt-reason=s@' => \$option{exempt_reason},
         'acceptance|acceptance-criteria=s@' => \$option{acceptance}, 'test-step=s@' => \$option{test_steps},

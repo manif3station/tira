@@ -1,5 +1,33 @@
 Revision history for Tira
 
+5.95  2026-09-11
+    - TKT-574: ticket.create, epic.create and sow.create accepted every
+      other list-valued field a card has - key-detail, deliverable,
+      test-step, bdd, atdd, acceptance, and the rest - except its
+      checklist, which could only be added afterward, one checklist.add
+      call per item. Filing a card with the five items the delivery
+      process expects cost six invocations instead of one; measured
+      across TKT-571, TKT-572 and TKT-573, fifteen extra calls for
+      nothing but the absence of one flag. checklist.add then compounded
+      it by requiring --status with no default, so the first attempt at
+      each of those fifteen failed with "Checklist status is required"
+      before being retried with --status "To Do". Fixed both: a new
+      repeatable --checklist TEXT flag on all three create commands
+      files the card with those items already on it, in the order given,
+      each defaulting to To Do the same way checklist.add's own --status
+      now defaults when omitted or given empty - an explicit --status
+      still wins, unchanged. Both are additive: a card created without
+      --checklist is exactly as before (an empty list), and marking an
+      item Done still requires its --command/--proof pair regardless of
+      how the item was created (TKT-958 unweakened). --checklist is
+      refused on record.update/tira.TYPE.update, naming
+      tira.checklist.add instead, since which of a card's existing items
+      to touch is not a question --checklist can answer. A whitespace-only
+      or empty item is refused the same way checklist_add refuses one,
+      checked before anything is written so a bad item anywhere in the
+      list fails the whole creation - caught by Codex review before ship,
+      the first cut stored a whitespace-only item verbatim.
+
 5.94  2026-09-11
     - TKT-1063: restart_every (TKT-891) restarted a monitor's command
       forever, however many times in a row it crashed, with no bound and

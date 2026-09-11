@@ -704,8 +704,28 @@ unless `--column` names another one, which lets a card be claimed into the
 column the work is in rather than created and then moved. A column that does not
 exist is refused, and so is creating a card directly into Discard: that column
 is where work is set aside, and a card put there before it exists was never
-work. The answer names the column the card is in. These symmetric forms are
-**Implemented.** for each `TYPE`:
+work. The answer names the column the card is in.
+
+`--checklist TEXT` (repeatable, since 5.95) is one of the record field
+arguments each create command already takes — it files the card with those
+items already on it, in the order given, each defaulting to `To Do` the same
+way `checklist.add`'s own `--status` now defaults when omitted or given
+empty. It was the single list-valued field creation lacked while
+`--key-detail`, `--deliverable`, `--test-step` and the rest were already
+there: a card filed with the checklist items the delivery process expects
+cost six invocations instead of one, and `checklist.add` compounded it by
+requiring `--status` with no default. A card created with no `--checklist`
+is unchanged — an empty list, as before — and marking an item Done still
+requires its `--command`/`--proof` pair regardless of how the item was
+created (TKT-958 unweakened). A whitespace-only or empty item is refused
+the same way `checklist.add` refuses one, checked before anything is
+written so a bad item anywhere in the list fails the whole creation - a
+gap Codex review caught before ship, where the first cut stored a
+whitespace-only item verbatim. `--checklist` is refused on `tira.TYPE.update`,
+naming `tira.checklist.add` instead, since which of a card's existing items
+to touch is not a question this flag can answer. TKT-574.
+
+These symmetric forms are **Implemented.** for each `TYPE`:
 
 ```text
 tira.TYPE.show (--ref REF ...|--refs LIST) [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--brief] [--truncate N|--full] [-o FORMAT]
@@ -1335,7 +1355,7 @@ All are **Implemented.**
 
 ```text
 tira.checklist.list --ref REF [--status STATUS] [-o FORMAT]
-tira.checklist.add --ref REF --item TEXT --status TEXT [--author NAME] [-o FORMAT]
+tira.checklist.add --ref REF --item TEXT [--status TEXT] [--author NAME] [-o FORMAT]
 tira.checklist.update --ref REF --id CHK-NNN [--item TEXT] [--status TEXT] [--command TEXT ... [--proof TEXT ... | --proof-file PATH ...]] [--author NAME] [-o FORMAT]
 tira.required-action.list --ref REF [--status STATUS] [--blocking] [--brief] [-o FORMAT]
 tira.required-action.add --ref REF --item TEXT --status TEXT [--column SLUG] [--author NAME] [-o FORMAT]
@@ -2042,7 +2062,7 @@ branches, so a caller asking for `json` or `toon` compiles none of it
 outside the concern: `_html_escape`, which the login page HTML also uses, and
 the plain functions `_render_view`, `_view_asset` and `json_object`.
 
-`lib/Tira.pm` is 16,546 lines as of TKT-1063 (5.94), grown rather than shrunk
+`lib/Tira.pm` is 16,602 lines as of TKT-574 (5.95), grown rather than shrunk
 since the fourth lift's own 14,164 - the file gains from most releases that
 touch it, and a hand-corrected number drifts again by design. The figure the
 fourth lift replaced said 14,256, README said 14,177, `lib/Tira/Job.pm` said

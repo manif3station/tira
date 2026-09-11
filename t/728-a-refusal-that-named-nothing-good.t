@@ -53,12 +53,15 @@ like( $@, qr/relates-to/i,
     'and at least one real link type is named too, the way the policy-rule refusals already do' );
 
 # --- checklist.add with no --status -----------------------------------------
+#
+# Superseded by TKT-574: a missing --status no longer refuses at all - it
+# defaults to 'To Do', the only sensible status for a newly-added item. There
+# is no refusal left to name anything in, so the two assertions this block
+# used to make (that the refusal named the field, then the permitted values)
+# are gone; what is left to prove is that the default landed instead.
 
-eval { $tira->checklist_add( project => $root, author => 'claude', ref => $a->{ref}, item => 'Do the thing' ) };
-like( $@, qr/status/i, 'the missing field is still named' );
-like( $@, qr/pending/i,
-    'and the permitted statuses are named too - the unknown-status refusal already does this, '
-      . 'the missing-status one does not' );
+my $defaulted = $tira->checklist_add( project => $root, author => 'claude', ref => $a->{ref}, item => 'Do the thing' );
+is( $defaulted->{status}, 'To Do', 'a missing --status now defaults rather than refusing' );
 
 # --- checklist.update given only --id, with --status set to the empty string -
 
@@ -95,5 +98,11 @@ Scope was narrowed against the card's own claims after checking them: the
 unknown-status checklist refusal already named its values, and a
 C<tira.project.link-types.list> command already exists - only the missing-
 status refusal and the unknown-link-type refusal were genuinely bare.
+
+C<checklist_add>'s missing-status refusal itself was superseded by TKT-574
+(5.95): a missing C<--status> now defaults to C<To Do> instead of refusing,
+so there is no refusal left to check for naming the permitted values. The
+link-type refusal and C<checklist_update>'s own refusal on an explicit
+empty C<--status> are unaffected and unchanged.
 
 =cut

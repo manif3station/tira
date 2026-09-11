@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.94';
+our $VERSION = '5.95';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -84,7 +84,7 @@ my @CARD_FIELD_REPLACEMENTS = qw(labels_replace affects_versions_replace
 # near any of them is something the method legitimately ignores (see
 # _refuse_misspelled_args below for why that distinction is the whole
 # design).
-my @CREATE_RECORD_FIELDS = ( @CARD_FIELDS, qw(type project start column parent exempt_reason) );
+my @CREATE_RECORD_FIELDS = ( @CARD_FIELDS, qw(type project start column parent exempt_reason checklist) );
 my @RECORD_UPDATE_FIELDS = ( @CARD_FIELDS, @CARD_FIELD_REPLACEMENTS,
   qw(ref project start author expect exempt_reason attachments evidence gate_passing_log scope) );
 
@@ -462,6 +462,18 @@ sub create_record {
     $self->_refuse_misspelled_args( \@CREATE_RECORD_FIELDS, %args );
     my $type = $self->_valid_type( $args{type} );
     my $title = $self->_valid_title( $args{title} );
+
+    # TKT-574. checklist_add refuses a whitespace-only item, and a --checklist
+    # item at creation is no less a checklist item than one added afterward -
+    # accepting one here would create, in one call, exactly what checklist_add
+    # exists to refuse in two. Checked before anything is written, the same
+    # all-or-nothing principle TKT-485 already applies to a failed creation.
+    if ( $args{checklist} ) {
+        for my $item ( @{ $args{checklist} } ) {
+            die "Checklist item is required\n" if !defined $item || $item !~ /\S/;
+        }
+    }
+
     my $root = $self->discover_project(
         defined $args{project} ? ( project => $args{project} ) : ( start => $args{start} // '.' ),
     );
@@ -528,7 +540,26 @@ sub create_record {
                 gate_passing_log     => [],
                 evidence             => [],
                 attachments          => [],
-                checklist            => [],
+
+                # TKT-574. A checklist item at creation is no heavier than
+                # any other list field this same command already takes - a
+                # string plus a status, not a proof pair, so no evidence
+                # requirement applies here the way it does to marking one
+                # done. Each is 'To Do', the same status a column's own
+                # move-in population already writes for an item nobody has
+                # touched yet, so a freshly-filed card and one populated by
+                # a move both start their checklist in the same state.
+                checklist            => [
+                    map {
+                        my $n = $_;
+                        {
+                            id => sprintf( 'CHK-%03d', $n + 1 ),
+                            item => $args{checklist}[$n],
+                            status => 'To Do',
+                            created_at => $now, last_updated => $now,
+                        };
+                    } 0 .. $#{ $args{checklist} // [] }
+                ],
                 required_items       => [],
                 subtasks             => [],
                 linkage              => $self->_empty_linkage($type),
@@ -4729,7 +4760,14 @@ sub checklist_add {
     my ( $self, %args ) = @_;
     local $self->{_journal_author} = $self->_require_author(%args);
     die "Checklist item is required\n" if !defined $args{item} || $args{item} !~ /\S/;
-    die "Checklist status is required - the values that work are pending, done, and To Do\n" if !defined $args{status} || $args{status} eq '';
+
+    # TKT-574. Defaulted rather than required: a caller adding an item has
+    # no more use for typing 'To Do' every time than one of the fifteen
+    # follow-up calls this ticket was measured against would - it is the
+    # only sensible status for a newly-added item, since one created done
+    # has nothing left to prove and the checklist gates would have nothing
+    # to mark. An explicit --status still wins, unchanged.
+    $args{status} = 'To Do' if !defined $args{status} || $args{status} eq '';
 
     # TKT-958: checklist_update refuses a done status with no --command/
     # --proof pair, routed through _proof_entries_for - checklist_add never
@@ -14902,6 +14940,22 @@ C<_valid_title>, shared with C<record_update> so the same card cannot be
 blanked to whitespace after creation either. The stored value is never
 rewritten - only the emptiness test runs against the trimmed value.
 
+B<--checklist TEXT (repeatable), since 5.95> (TKT-574): files the card
+with checklist items already on it, in the order given, each getting a
+sequential C<CHK-NNN> id and defaulting to C<To Do> the same way
+C<checklist_add>'s own C<--status> now defaults. Each item is refused if
+whitespace-only or empty, the same check C<checklist_add> makes on its own
+C<--item> - checked before anything is written, so a bad item anywhere in
+the list fails the whole creation rather than leaving a partial checklist
+behind. A create with no C<checklist> argument is unchanged - an empty
+list, as before - and marking an item C<Done> still requires its
+C<--command>/C<--proof> pair
+regardless of how the item was created (TKT-958 unweakened). It is a
+create-only field: C<record_update> does not recognize it, since
+C<@CARD_FIELDS> (shared by both) never lists it, only
+C<@CREATE_RECORD_FIELDS> does - which of a card's existing items to touch
+is not a question this field can answer for an update.
+
 =head2 format_output
 
 Encodes data as TOON by default, pretty JSON, Markdown, or an HTML board.
@@ -15749,9 +15803,11 @@ C<--command>/C<--proof> pair - previously an item could be created already
 done with no evidence at all, bypassing the pairing C<checklist_update>
 enforces on every later write to the same field.
 
-A missing C<--status> names the declared set too, not just that one is
-required (TKT-728) - the same message the unknown-value refusal above it
-already gave.
+Since 5.95 (TKT-574) a missing or empty C<--status> defaults to C<To Do>
+rather than refusing - it is the only sensible status for a newly-added
+item, since one created done has nothing left to prove and the checklist
+gates would have nothing to mark. An explicit C<--status> still wins,
+unchanged, and still validates against the declared set above.
 
 =head2 checklist_update
 

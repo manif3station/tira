@@ -1,6 +1,18 @@
 Revision history for Tira
 
 5.94  2026-09-11
+    - TKT-1046: the same triage found a sixth concern the same week, again
+      in a test file: t/390-a-list-that-does-not-need-a-ticket.t (566
+      lines) proves the tasklist-reads-without-a-card contract, and the
+      per-item attachment/ref subverb block (--attach on tasklist.add,
+      tasklist.task.attach.add/discard, tasklist.task.ref.link/unlink and
+      their CLI dispatch) is a self-contained concern within it. Lifted
+      verbatim into a new t/1046-a-file-that-followed-an-item.t,
+      duplicating the shared preamble ($tira/$root and the cli() dispatch
+      helper). t/390: 566 -> 507 lines - still over the 500-line limit, so
+      its t/524 exemption entry stays, updated to record what shipped and
+      what remains. The new file is 135 lines. No regression, the same as
+      TKT-1045's test-file split.
     - TKT-1045: the same triage found a fifth concern the same week, this
       time in a test file rather than a lib/ module: t/19-dashboard-
       dialog.t (611 lines) proves the card-dialog/provider/mutation-route

@@ -200,8 +200,13 @@ my %EXEMPT = (
       . 'session scope are one tasklist-vs-board consistency policy - one '
       . 'concern, do not split',
     't/390-a-list-that-does-not-need-a-ticket.t' =>
-      'TKT-1046 owns splitting the per-item attachment/ref subverb block out '
-      . 'of the tasklist-reads-without-a-card concern',
+      'TKT-906 found it over the limit - TKT-1046 lifted the per-item '
+      . 'attachment/ref subverb block into '
+      . 't/1046-a-file-that-followed-an-item.t (566 -> 507 lines), the '
+      . 'sharpest single concern in it; the rest (session scoping, '
+      . 'array-list ops, id importing, status/sort/prune, entrypoint '
+      . 'routing, filtering, audit) is still one file, over the limit, '
+      . 'not yet owned by a card',
     't/519-two-terminals-to-watch-one-board.t' =>
       'TKT-906: flag parsing, singleton precedence, spawn/reap failures, '
       . 'environment ownership and store handling are one --with-police '

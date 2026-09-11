@@ -1,5 +1,27 @@
 Revision history for Tira
 
+5.101  2026-09-11
+    - TKT-579: tools/gate-run tests HEAD on a clean tree for the push hook,
+      but the commonest action - running the suite against the WORKING tree,
+      with uncommitted changes, to watch a red test turn green - had no
+      runner. Every time it was a hand-typed Docker incantation, and the
+      parts that are easy to drop (most of all --installdeps) failed
+      silently: measured on one session, the incantation was typed roughly
+      fifteen times and got it wrong twice, both times by omitting
+      --installdeps, producing output that read exactly like a broken test
+      or a catastrophic regression rather than a missing dependency. New
+      tools/dev-run copies the tree into a scratch directory (the same
+      frozen-copy pattern gate-run uses, since a live-mounted coverage pass
+      keys by file digest and can misread a file mid-edit), checks
+      --installdeps explicitly and names its failure as itself, and accepts
+      an optional file list and --coverage module selection. Found and fixed
+      two genuine bugs in the new tool itself while proving it live: a
+      cleanup-ordering race (removing the scratch tree before stopping the
+      container mounted on it) and root-owned cover_db files a plain host
+      rm -rf cannot remove. tools/gate-run and the push hook are untouched.
+      README.md and SKILLS.md both point at it. New test:
+      t/1073-an-incantation-retyped-by-hand.t.
+
 5.100  2026-09-11
     - TKT-1071: found by the hourly bug hunt, reproduced live against a real
       2-record project - dashboard.sow/.epic/.ticket dispatch to the same

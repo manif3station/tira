@@ -1644,7 +1644,19 @@ because documentation edited after a gate has shipped a broken build here twice.
 That ordering is what still defends the property the suite step was really for,
 which was never "the tests pass" but "nothing was edited between the proof and
 the push". `tools/gate-run` still proves a committed tree by
-hand; nothing reads its cache records automatically any more. Since 4.73 it
+hand; nothing reads its cache records automatically any more.
+
+**`tools/dev-run`, since 5.101** (TKT-579), is the other half of that pair:
+the working-tree case, uncommitted changes included, that `gate-run`
+deliberately does not cover. `tools/dev-run` (with no arguments) runs the
+whole suite; `tools/dev-run -- t/FILE.t` runs one file; `tools/dev-run
+--coverage lib/Module.pm` adds the coverage pass. It copies the tree into a
+scratch directory first (a live-mounted coverage pass keys by file digest and
+can misread a file mid-edit) and names a dependency-install failure as
+itself, rather than letting a missing module abort test files at compile time
+and read as a broken test - the two ways the hand-typed incantation this
+replaces was measured getting it wrong in one session.
+ Since 4.73 it
 derives the modules it holds to 100% from `lib/` rather than naming three by
 hand, reports which it checked, and takes an exemption only with a reason
 written beside it - `lib/Tira/OnboardWeb.pm` had been in neither of the two

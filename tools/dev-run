@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+#
+# Run the suite (or a coverage pass) against the WORKING tree, with
+# uncommitted changes, inside a scratch copy in the container - the thing
+# tools/gate-run deliberately does not do, because gate-run tests HEAD for
+# the push hook to trust. The commonest action in this project is watching a
+# red test turn green, which has no runner: every time it was a hand-typed
+# `docker compose -f ~/projects/skills/docker-compose.testing.yml run --rm
+# perl-test bash -lc "cd /workspace/skills/tira && cpanm --quiet --notest
+# --installdeps . && ..."`, and the parts that are easy to drop - most of all
+# --installdeps - fail silently rather than loudly.
+#
+# TKT-579. Measured on one session: the incantation was typed roughly
+# fifteen times and got it wrong twice, both times by omitting
+# --installdeps. The first produced `t/100-attachment-discard.t ...
+# Tests=0, FAIL`, which reads exactly like a broken test. The second
+# produced `Files=400, Tests=249, Result: FAIL` against a suite of 8145,
+# which reads exactly like a catastrophic regression. Both were missing
+# modules aborting files at compile time - a harness failure indistinguishable
+# from a code failure is the expensive kind, because the reader's first move
+# is to go looking at the code that did not fail.
+#
+# The frozen-copy pattern (copy the tree into the container's own /tmp
+# first, rather than mounting the live working directory) is not a nicety
+# either: a coverage reading taken while the tree was being edited named an
+# uncovered subroutine in an unrelated part of a file, because Devel::Cover
+# keys coverage by file digest. Copying first removes that whole class of
+# wrong answer.
+#
+# tools/gate-run and the push hook are untouched and remain what they are:
+# the committed-tree case, tied to a git hash. This is the other half of the
+# pair, not a replacement.
+#
+# Usage: tools/dev-run [--coverage MODULE ...] [-- TEST_FILE ...]
+#   --coverage MODULE   run under Devel::Cover, selecting MODULE (a lib/
+#                        path fragment passed to `cover -select`); repeatable
+#   TEST_FILE            one or more t/*.t paths to run instead of the whole
+#                        suite (t/70-doc-examples.t is excluded by default
+#                        when no files are named, matching every other suite
+#                        invocation in this project - it starts a real
+#                        long-lived dashboard server and is not meant for a
+#                        plain prove pass)
+#
+# Examples:
+#   tools/dev-run
+#   tools/dev-run -- t/1072-a-type-that-lost-the-argument.t
+#   tools/dev-run --coverage lib/Tira/CLI.pm
+
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+
+workspace="$(cd "$root/../.." && pwd)"
+compose="$workspace/docker-compose.testing.yml"
+[ -f "$compose" ] || { echo "dev-run: cannot find $compose" >&2; exit 1; }
+
+coverage_modules=()
+files=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --coverage)
+            [ $# -ge 2 ] || { echo "dev-run: --coverage needs a module argument" >&2; exit 2; }
+            coverage_modules+=("$2")
+            shift 2
+            ;;
+        --)
+            shift
+            files+=("$@")
+            break
+            ;;
+        *)
+            echo "dev-run: unknown argument '$1'" >&2
+            exit 2
+            ;;
+    esac
+done
+
+tree="$(mktemp -d)"
+container_name="dev-run-$$"
+docker_pid=""
+cleanup() {
+    # Stop the container BEFORE touching the tree it is mounted on - the same
+    # ordering tools/gate-run's own cleanup() documents, for the same reason:
+    # removing the tree out from under a still-running container races it.
+    [ -n "$docker_pid" ] && kill "$docker_pid" >/dev/null 2>&1 || true
+    docker rm -f "$container_name" >/dev/null 2>&1 || true
+    # cover_db (when --coverage was used) is written by root inside the
+    # container, so a plain host-side `rm -rf` on it fails with Permission
+    # denied and leaves the scratch tree behind - found live proving this
+    # tool. Removed with a disposable container first, the same pattern
+    # CLAUDE.md documents for root-owned lock files: never sudo on the host.
+    docker run --rm -v "$tree:/workspace" ubuntu rm -rf /workspace >/dev/null 2>&1 || true
+    rm -rf "$tree"
+}
+trap cleanup EXIT
+
+# Copy rather than mount, deliberately - see the header. This includes
+# uncommitted changes, which is the entire point of this tool existing
+# beside tools/gate-run rather than instead of it.
+cp -a "$root/." "$tree/"
+rm -rf "$tree/cover_db" "$tree/.test-tmp"
+
+# Files and coverage modules travel as real positional arguments to the
+# container's bash, never interpolated into the script text - a test path or
+# module name containing whitespace or a shell metacharacter would otherwise
+# be re-parsed as script source rather than treated as data. Codex review
+# caught the first draft doing exactly that.
+if [ ${#coverage_modules[@]} -eq 0 ]; then
+    script='
+      cd /workspace/skills/tira || exit 1
+      cpanm --quiet --notest --installdeps . >/tmp/dev-run-install.log 2>&1
+      install_status=$?
+      if [ "$install_status" -ne 0 ]; then
+        echo "dev-run: dependency installation failed - the suite was never run" >&2
+        cat /tmp/dev-run-install.log >&2
+        exit 1
+      fi
+      if [ "$#" -eq 0 ]; then
+        # t/70-doc-examples.t starts a real dashboard server and is excluded
+        # from every other suite invocation in this project for the same
+        # reason.
+        set -- $(ls t/*.t | grep -v "70-doc-examples")
+      fi
+      prove -lr "$@"
+    '
+    docker compose -f "$compose" run --rm --name "$container_name" -v "$tree:/workspace/skills/tira" perl-test \
+      bash -lc "$script" bash "${files[@]}" &
+else
+    script='
+      cd /workspace/skills/tira || exit 1
+      rm -rf cover_db .test-tmp
+      cpanm --quiet --notest --installdeps . >/tmp/dev-run-install.log 2>&1
+      install_status=$?
+      if [ "$install_status" -ne 0 ]; then
+        echo "dev-run: dependency installation failed - the suite was never run" >&2
+        cat /tmp/dev-run-install.log >&2
+        exit 1
+      fi
+      n_modules="$1"; shift
+      select_args=()
+      i=0
+      while [ "$i" -lt "$n_modules" ]; do
+        select_args+=("-select" "$1")
+        shift
+        i=$((i + 1))
+      done
+      if [ "$#" -eq 0 ]; then
+        set -- $(ls t/*.t | grep -v "70-doc-examples")
+      fi
+      HARNESS_PERL_SWITCHES=-MDevel::Cover prove -lr "$@"
+      suite_status=$?
+      cover -ignore_covered_err -report text "${select_args[@]}" -coverage statement -coverage subroutine
+      exit "$suite_status"
+    '
+    docker compose -f "$compose" run --rm --name "$container_name" -v "$tree:/workspace/skills/tira" perl-test \
+      bash -lc "$script" bash "${#coverage_modules[@]}" "${coverage_modules[@]}" "${files[@]}" &
+fi
+docker_pid=$!
+wait "$docker_pid"
+status=$?
+docker_pid=""
+exit "$status"

@@ -906,6 +906,17 @@ docker compose -f ~/projects/skills/docker-compose.testing.yml run --rm perl-tes
   bash -lc 'cd /workspace/skills/tira && cpanm --quiet --notest --installdeps . && prove -lr t'
 ```
 
+**`tools/dev-run`** runs that same incantation for you, against the WORKING
+tree - uncommitted changes included - copied on the host into a scratch
+directory first and mounted into the container from there, so a coverage
+pass never reads a file mid-edit. It
+checks `--installdeps` explicitly and names a dependency-install failure as
+itself, rather than letting a missing module abort test files at compile time
+and read as a broken test. `tools/dev-run -- t/FILE.t` runs one file the same
+way; `tools/dev-run --coverage lib/Module.pm` adds the coverage pass. This is
+the working-tree half of the pair; `tools/gate-run` below is the committed-tree
+half, tied to a git hash for the push hook.
+
 The release gate requires 100% statement and subroutine coverage plus the
 post-coverage `perlsec` and taint-mode audit recorded in `tickets/TESTING.md`.
 Since 4.73 that means every module under `lib/`, found by looking rather than

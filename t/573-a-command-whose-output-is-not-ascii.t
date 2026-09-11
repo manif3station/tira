@@ -119,7 +119,10 @@ sub recent_of {
 # or the next one written will pick whichever it happened to read first.
 
 {
-    my $police = Suite::cli_source('Police.pm');
+    # TKT-1043 lifted run_due_job's real body into Tira::CLI::Police::Jobs -
+    # 'Jobs.pm' alone is ambiguous with Tira::CLI::Browser::Jobs (TKT-1042),
+    # so the path is qualified.
+    my $police = Suite::cli_source('Police/Jobs.pm');
     my $feeder = Suite::cli_source('Job/Feeder.pm');
 
     # non-empty is the whole claim: the checks below would pass on unreadable

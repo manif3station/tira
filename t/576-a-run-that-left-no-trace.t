@@ -262,7 +262,12 @@ sub job_named {
 # next person changing one will not know to change the other.
 
 {
-    my $police = Suite::cli_source('Police.pm');
+    # TKT-1043 lifted record_run and run_due_commands together into
+    # Tira::CLI::Police::Jobs - both are read from there now, so the
+    # "same recorder" relationship between them is still visible in one
+    # file. 'Jobs.pm' alone is ambiguous with Tira::CLI::Browser::Jobs
+    # (TKT-1042), so the path is qualified.
+    my $police = Suite::cli_source('Police/Jobs.pm');
     my $jobcli = Suite::cli_source('Job.pm');
 
     # non-empty is the whole claim: the checks below would pass on unreadable

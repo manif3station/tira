@@ -236,14 +236,20 @@ my $police = Suite::cli_source();
 # by lifting a sub in a scratch tree, and this sub was the one lifted. Walking
 # the layer instead of naming Police.pm was necessary and not sufficient - the
 # extraction had to stop assuming there is exactly one definition. TKT-921.
-# A ONE-LINE DEFINITION IS A FORWARDER, and is skipped by that shape rather
-# than by length. Length looked like the obvious tie-break and is wrong: a
-# forwarder's brace closes on its own line, so the pattern runs past it to the
-# next line-initial brace and the match it produces is LONGER than the real
-# body. Measured, not reasoned - it passed the "was extracted" assertion and
-# failed the three that read the body.
-my @definitions = grep { ( split /\n/, $_ )[0] !~ /\}/ }
-  $police =~ /(sub \s advance_monitor_output .*? \n \} )/xsg;
+# A FORWARDER IS SKIPPED BY ITS BODY, not by a one-line shape - TKT-1043
+# reformatted every forwarder in this repository onto multiple lines (a
+# one-liner broke t/430's own body-length regex, which needs a bare `}`
+# preceded by `\n` to end a sub-body match), so "first line has no closing
+# brace" no longer tells a forwarder from a real body: both now open with
+# `sub name {` alone on line one. A forwarder's BODY is still unmistakable -
+# `require Module; return Module::name(@_);` and nothing else - so that is
+# what is matched instead.
+my @definitions = grep {
+    !/\A \s* sub \s advance_monitor_output \s* \{ \s*
+       require \s+ \S+; \s*
+       return \s+ \S+::\w+\(\@_\); \s*
+     \} \s* \z/xs
+} $police =~ /(sub \s advance_monitor_output .*? \n \} )/xsg;
 my ($drain) = @definitions;
 
 ok( defined $drain && length $drain,

@@ -141,7 +141,7 @@ with no command, and it does not run half of itself.
 the shell that typed `d2 tira.job.add`.** That is a different process with a
 different exec environment, and the difference that bites is `PATH`: the
 daemon runs your command with no shell at all (`IPC::Open3::open3`, see
-`run_due_job` in `lib/Tira/CLI/Police.pm`), so it never gets the `PATH` an
+`run_due_job` in `lib/Tira/CLI/Police/Jobs.pm`), so it never gets the `PATH` an
 interactive login shell builds for you - the entries a tool like `local::lib`
 adds to your shell's startup file are not there. A bare program name that
 resolves fine when you type it can fail to start when the daemon runs the

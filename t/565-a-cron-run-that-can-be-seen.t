@@ -113,8 +113,10 @@ use Tira::CLI::Police;
 
 {
     # TKT-1042 lifted the job-provider block (including this one) out of
-    # Tira::CLI::Browser into Tira::CLI::Browser::Jobs.
-    my $browser = Suite::cli_source('Jobs.pm');
+    # Tira::CLI::Browser into Tira::CLI::Browser::Jobs. 'Jobs.pm' alone is
+    # ambiguous now that TKT-1043 added Tira::CLI::Police::Jobs, so the path
+    # is qualified.
+    my $browser = Suite::cli_source('Browser/Jobs.pm');
     # non-empty is the whole claim: the denial below needs a real subject.
     like( $browser, qr/\S/, 'the browser provider is there to be read' );
 

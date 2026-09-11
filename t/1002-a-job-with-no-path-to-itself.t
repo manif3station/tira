@@ -98,11 +98,16 @@ like(
     'sanity: the module still has the sub this card is about'
 );
 
-my ($near_run_due_job) = $police =~ /(.{0,1200})sub run_due_job/s;
+# TKT-1043 lifted run_due_job's real body into Tira::CLI::Police::Jobs,
+# leaving a one-line forwarding stub of the same name in Tira::CLI::Police -
+# so the command surface now carries two "sub run_due_job" occurrences.
+# Check all of them for the doc reference rather than just the first, the
+# same reason t/431 names "the one with a body" instead of assuming there
+# is only one definition.
+my @near_run_due_job = $police =~ /(.{0,1200})sub run_due_job/gs;
 
-like(
-    $near_run_due_job,
-    qr/JOBS\.md/,
+ok(
+    ( grep { /JOBS\.md/ } @near_run_due_job ),
     'the comment immediately above run_due_job cross-references docs/JOBS.md, '
       . 'so a reader here is pointed at the PATH explanation rather than left '
       . 'to reconstruct it from an exec failure'
@@ -127,8 +132,9 @@ through C<IPC::Open3::open3> with no shell, in an exec environment that does
 not carry an interactive login shell's C<PATH>. C<docs/JOBS.md> now explains
 this beside its existing "what a command may contain" section, with the
 concrete fix (an absolute path, found once with C<which d2>), and
-C<run_due_job> in C<lib/Tira/CLI/Police.pm> carries a comment pointing back at
-it. The worked examples themselves are unchanged - rewriting them to a
+C<run_due_job> (in C<lib/Tira/CLI/Police/Jobs.pm> since TKT-1043 lifted it out
+of C<Tira::CLI::Police>) carries a comment pointing back at it. The worked
+examples themselves are unchanged - rewriting them to a
 hardcoded absolute path would only be true on the machine that measured it,
 and would silently break C<t/509>'s own claimed-example-count check.
 

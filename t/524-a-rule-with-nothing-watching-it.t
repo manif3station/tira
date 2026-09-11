@@ -149,7 +149,12 @@ my %EXEMPT = (
       . 'concern in it; the rest (move, tasklist, links, comments, '
       . 'attachments and more) is still one file, not yet owned by a card',
     'lib/Tira/CLI/Police.pm' => 'the police pass and its bridge, grown with every '
-      . 'rule added - TKT-1043 owns lifting its due-job execution block out',
+      . 'rule added - TKT-1043 lifted its due-job execution block '
+      . '(including advance_monitor_output, the piece that drains a '
+      . "monitor's own leavings) into Tira::CLI::Police::Jobs "
+      . '(1495 -> 1230 lines), the sharpest single concern in it; the '
+      . 'rest (rule evaluation and the bridge itself) is still one file, '
+      . 'not yet owned by a card',
     'lib/Tira/CLI/Serve.pm' => 'TKT-906: process inspection, server lifecycle, '
       . 'restart and beside-board supervision are all aspects of serving a '
       . 'board on one machine - one concern, do not split',

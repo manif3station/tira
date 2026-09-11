@@ -1,6 +1,41 @@
 Revision history for Tira
 
 5.94  2026-09-11
+    - TKT-1043: the same triage found a third concern the same week, in
+      lib/Tira/CLI/Police.pm (1,495 lines): the due-job execution block
+      (record_run, run_due_commands, advance_monitor_output, run_due_job)
+      is separable from rule evaluation and the bridge itself. Lifted into
+      a new Tira::CLI::Police::Jobs, reached through forwards of the same
+      name from Tira::CLI::Police (required at the point of use, exactly
+      Tira::CLI::Move's own shape). lib/Tira/CLI/Police.pm:
+      1,495 -> 1,230 lines; the new module is 373. Two real gaps the
+      extraction itself caused were found and fixed before this shipped:
+      run_due_commands's own internal calls to run_due_job and record_run
+      resolved to the new package's own copies at compile time, bypassing
+      t/564's and t/570's `local *Tira::CLI::Police::run_due_job = sub
+      {...}` monkey-patches - fixed by qualifying both calls by their old,
+      fully-qualified Tira::CLI::Police:: name so the stub (which the
+      monkey-patch actually overrides) is what gets called; and
+      $RUN_TIMEOUT, declared fresh in the new package, was a different
+      variable than the one t/512 localises as
+      $Tira::CLI::Police::RUN_TIMEOUT - fixed by leaving the declaration in
+      Tira::CLI::Police and having the moved run_due_job read it by its
+      full name. A full-suite re-run then found five more: two new
+      fully-qualified calls into Tira::CLI::Police (run_due_job's read of
+      $RUN_TIMEOUT, run_due_commands' calls to run_due_job/record_run)
+      needed their own `require Tira::CLI::Police;`, since nothing
+      guaranteed it was loaded first; t/531's forwarder-detection assumed a
+      forwarder is always one line, which TKT-1041 already made untrue for
+      every lift in this repository - fixed to detect a forwarder by its
+      body (`require Module; return Module::name(@_);`) instead of by
+      line shape; and t/1002, t/573, t/576 and t/565 all read a specific
+      function's body from the command surface by name or by naming
+      'Jobs.pm', which is now ambiguous with Tira::CLI::Browser::Jobs
+      (TKT-1042) or finds the new forwarding stub before the real body -
+      fixed to check every definition (t/1002) or name the qualified path
+      Police/Jobs.pm or Browser/Jobs.pm (t/573, t/576, t/565). t/524's
+      exemption entry for Police.pm updated to record what shipped rather
+      than what was still owed.
     - TKT-1042: TKT-906's own triage of t/524's 500-line exemption list found
       a second concern in lib/Tira/CLI/Browser.pm (1,365 lines), the same day
       TKT-1041 lifted Tira::CLI.pm's own move-path guards for the same

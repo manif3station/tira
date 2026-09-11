@@ -2645,7 +2645,7 @@ naming nothing the caller typed (`There is no '' to sort a tasklist by`). `taskl
 
 ```text
 tira.tasklist.add --text TEXT [--session ID] [--ref REF ...] [--attach FILE ...] [-o FORMAT]
-tira.tasklist.list [--session ID] [--ref REF] [--sort FIELD:DIR[,FIELD:DIR...]] [-o FORMAT]
+tira.tasklist.list [--session ID] [--ref REF] [--sort FIELD:DIR[,FIELD:DIR...]] [--all-sessions] [--status pending|working|done|0|1|2] [--unlinked] [-o FORMAT]
 tira.tasklist.update --id ID [--status pending|working|done|0|1|2] [--text TEXT] [-o FORMAT]
 tira.tasklist.next [--session ID] [-o FORMAT]
 tira.tasklist.shift [--session ID] [-o FORMAT]

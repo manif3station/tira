@@ -1,6 +1,15 @@
 Revision history for Tira
 
 5.94  2026-09-11
+    - TKT-1048: found by the 3-hourly doc-accuracy hunt (JOB-003):
+      d2 tira.tasklist.list --help and SKILLS.md's usage-grammar line
+      both omitted --all-sessions (TKT-539), --status (TKT-545) and
+      --unlinked (TKT-552), all three real, shipped, documented-in-prose
+      options for this command. --help's own usage string is scraped
+      from SKILLS.md's usage-grammar line at runtime
+      (Tira::CLI::Usage::_skills_usage_line), so fixing the one line
+      fixed both, confirmed live before and after - no code change.
+      docs/commands.md already listed all three correctly.
     - TKT-1047: the same triage found a seventh concern the same week,
       the third test-file split: t/317-a-done-that-proved-nothing.t (503
       lines) proves the general proof-required-to-mark-done concern, and

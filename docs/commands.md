@@ -713,7 +713,11 @@ safely with "Record 'X' not found".
 ### `tira.dashboard`
 
 Render the board. `tira.dashboard.sow`, `.epic` and `.ticket` render one board
-rather than all three.
+rather than all three - their type is fixed by the command name, so **since
+5.100, `--type` on any of the three is refused** naming that flag, rather than
+being silently overwritten by the command's own type (TKT-1071): before this,
+`d2 tira.dashboard.sow --type ticket` served the sow board, discarding
+`--type` with no warning.
 
 | Argument | Required | What it is for |
 | --- | --- | --- |

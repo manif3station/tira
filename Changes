@@ -1,5 +1,17 @@
 Revision history for Tira
 
+5.100  2026-09-11
+    - TKT-1071: found by the hourly bug hunt, reproduced live against a real
+      2-record project - dashboard.sow/.epic/.ticket dispatch to the same
+      shared method as bare dashboard, and the arg-preparation block that
+      follows unconditionally set $args{type} from the command name itself
+      for the type-specific forms ('$args{type} = $1 if defined $1'), which
+      is always defined for these three - so an explicit --type was silently
+      overwritten with no refusal: 'd2 tira.dashboard.sow --type ticket'
+      served the sow board, not the ticket board. Now refused, naming --type
+      as the redundant flag and pointing at bare tira.dashboard --type as the
+      alternative. New test: t/1072-a-type-that-lost-the-argument.t.
+
 5.99  2026-09-11
     - TKT-1070: found while fixing TKT-1068's own usage-line gap -
       dashboard.sow/.epic/.ticket alias into the same shared GetOptions spec

@@ -1916,6 +1916,16 @@ sub _invoke {
       if $command eq 'outstanding';
 
     if ( $command =~ /\Adashboard(?:\.(sow|epic|ticket))?\z/ ) {
+        # TKT-1071. For the type-specific forms $1 is always defined - the
+        # type is fixed by the command name itself - so an explicit --type
+        # used to be silently overwritten rather than refused: the one path
+        # the option guard above (Tira::CLI::Options) does not reach, because
+        # --type is a real, meaningful flag on bare `dashboard` and this
+        # command is not in %MISLEADING_OPTIONS. Reproduced live: dashboard.sow
+        # --type ticket served the sow board, not the ticket board.
+        die "$command does not act on --type - its type is fixed by the command name.\n"
+          . "Use tira.dashboard --type $1 instead.\n"
+          if defined $1 && defined $option->{type};
         $args{type} = $1 if defined $1;
         # Every board is created with Backlog and Discard, and the
         # owner saw one and never the other. A person looking at a board should

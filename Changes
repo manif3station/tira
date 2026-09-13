@@ -1,5 +1,28 @@
 Revision history for Tira
 
+5.105  2026-09-12
+    - TKT-1077: self-found correcting a stale EPC-007 lesson-note (CHK-062)
+      that wrongly claimed TKT-581 had already fixed this. Reproduced live:
+      'd2 tira.ticket.update --ref REF --author X --details TEXT' exited 0,
+      printed the card unchanged, and wrote nothing - a ticket/epic/sow has
+      no details field at all, the narrative one is key_details, but the
+      shared parser knows --details anyway since gate.add takes it.
+      %OPTION_READ_BY had no entry for it. Added one, exempting gate.add as
+      the genuine reader - and, verified live against evidence_add's own
+      source before trusting it, evidence.add turned out NOT to be a
+      reader despite this ticket's own first draft claiming otherwise: it
+      already carries its own, more specific %MISLEADING_OPTIONS refusal
+      for --details (t/153, pointing at --summary), so evidence.add is
+      exempted from this new guard too, purely to keep that existing,
+      more specific message from being shadowed by this one's generic
+      text. Caught by Codex review before this shipped: release.record is
+      also a genuine reader (it requires --details itself and forwards it
+      into its own internal gate_add call per ref), missed from the first
+      draft's exemption list - t/293-a-release-recorded-once.t's whole 32
+      assertions broke live the moment that draft landed, since
+      release.record's own command name never matched the guard's first,
+      narrower regex. New test t/1078-a-detail-that-went-nowhere.t.
+
 5.104  2026-09-11
     - TKT-582: found by the 2-hourly improvement hunt - the ISO 8601
       grammar was written out twice, in _epoch_of_datetime (the

@@ -126,6 +126,24 @@ my %OPTION_READ_BY = (
         instead  => 'tira.evidence.add --ref REF --summary TEXT --uri TEXT, which is the command that reads it',
     },
 
+    # A ticket/epic/sow has no 'details' field - the narrative one is
+    # key_details - but the shared parser knows --details since gate.add
+    # takes it (dies without one) and release.record forwards it into its
+    # own internal gate.add call per ref (missed in this entry's first
+    # draft, caught by Codex - broke t/293's 16 assertions until added).
+    # record.update used to accept, drop and print the card unchanged.
+    # evidence.add is exempted too, but not as a genuine reader - it has
+    # its own, more specific %MISLEADING_OPTIONS refusal above naming
+    # --summary (t/153); this guard runs first, so without the exemption
+    # it would shadow that message.
+    details => {
+        flag     => 'details',
+        commands => qr/\A(?:gate\.add|release\.record|evidence\.add)\z/,
+        instead  => 'tira.gate.add --details TEXT, the command that reads it,'
+          . ' or tira.<type>.update --key-detail TEXT if what you meant was the'
+          . ' ticket/epic/sow narrative field',
+    },
+
     # Whether this board is worked by one agent or a chain of them. Accepted,
     # dropped, exit 0, whole project printed - the same shape as sdlc_gate and
     # comment above, on the project rather than a card. Several rules mean
@@ -238,32 +256,17 @@ my %OPTION_READ_BY = (
           . ' others have no status field to match against',
     },
 
-    # TKT-581. --sort and --unlinked are read in exactly one place in the
-    # whole engine, Tira::Tasklist::tasklist_list; --all-sessions in two
-    # (tasklist_list, and search's own TKT-550 cross-session tasklist
-    # match) - so record.show accepted all three with exit 0 and no effect,
-    # the same shape as sdlc_gate and comment above: a caller who believes
-    # they asked for an ordering or a filter gets one that was never
-    # applied, with nothing said. Verified against the engine directly, not
-    # assumed - a first draft missing search's own reader was caught by
-    # Codex review.
-    # A move is exempt from all three refusals below, on purpose - t/446/
-    # TKT-632 already solved the real fault (a move carrying an unrelated
-    # option reaching the internal tasklist_list reset call and dying,
-    # silently cancelling the reset) by narrowing what that internal call
-    # passes on, not by refusing the option at the CLI. --status is refused
-    # by name on a move (TKT-748), because record_move could plausibly be
-    # mistaken for something that sets status; --sort/--all-sessions/
-    # --unlinked never could, splatted noise a move's own caller has no
-    # reason to expect any effect from. Regression caught live: the first
-    # draft of this guard refused ticket.move --sort outright, breaking
-    # t/446/t/239's own pre-existing, tested tolerance.
-    # A move reaches this guard as either the type-specific spelling
-    # (ticket.move, from the real d2 entrypoint) or the already-normalised
-    # record.move (how the test harness and some internal callers name it,
-    # matching Tira::CLI::Move's own dispatch) - both forms need the same
-    # exemption, or which one a given caller happens to use decides whether
-    # the regression this comment describes is visible.
+    # TKT-581. --sort/--unlinked (Tira::Tasklist::tasklist_list) and
+    # --all-sessions (tasklist_list plus search's TKT-550 cross-session
+    # match) were accepted everywhere with exit 0 and no effect - same
+    # shape as sdlc_gate/comment above. A move is exempt from all three on
+    # purpose: t/446/TKT-632 already fixed the real fault (an unrelated
+    # option reaching the internal tasklist_list reset call and cancelling
+    # it) by narrowing what that call passes on, not by refusing at the
+    # CLI - refusing here too broke t/446/t/239's pre-existing tolerance,
+    # caught live. A move reaches this guard as either 'ticket.move' (the
+    # real d2 entrypoint) or already-normalised 'record.move' (the test
+    # harness and some internal callers) - both forms need the exemption.
     sort => {
         flag     => 'sort',
         commands => qr/\Atasklist\.list\z|\A(?:ticket|epic|sow|record)\.move\z/,

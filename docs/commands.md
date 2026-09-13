@@ -46,6 +46,21 @@ refused with a suggestion; a key that resembles nothing real is left alone,
 because both methods are called internally with the CLI's own shared
 `%option` hash, which always carries many keys neither method uses.
 
+`--exempt-required TEXT` and `--exempt-reason TEXT` are the CLI spelling of
+that pair, on `tira.TYPE.create` and `tira.TYPE.update` - each repeatable,
+and given in matching order: the first `--exempt-required` pairs with the
+first `--exempt-reason`, and so on. Given together, every `--exempt-required`
+needs a matching `--exempt-reason` and vice versa - a mismatched count is
+refused rather than pairing them wrong. `--exempt-reason` given with no
+`--exempt-required` at all is accepted and does nothing, since the pairing
+check only runs once at least one exemption is being made.
+
+`--include-deleted` widens `tira.attachment.list` called with no `--ref` (the
+whole-project listing) to also report deleted attachments, rather than the
+surviving set alone. Called WITH `--ref`, `attachment.list` reads a card's own
+attachment list directly and never reaches this flag at all - deleted entries
+are never included there, `--include-deleted` or not.
+
 **One of those left-alone keys was a real, undetected bug, since 5.90**
 (TKT-820, self-found - hit personally writing a test fixture earlier this
 same session). `column` sits only one edit away from `columns`/`refs`-shaped
@@ -377,7 +392,11 @@ Fetching needs only the reference: `tira.attachment.get --sha SHA --extension
 EXT` takes no card and no question, because a reference already identifies the
 file. It writes the file's raw content to stdout - `--output`/`-o` is the
 same response-FORMAT flag every command shares (`toon`, `json` or `human`),
-never a destination, so save it with shell redirection:
+never a destination, so save it with shell redirection. **Deliberately
+undocumented under its own name: `-o` is `--output`'s single-letter alias
+(`GetOptions`' `'output|o=s'`), documented throughout this file as `-o
+FORMAT` rather than `--o FORMAT` - the two never diverge in behaviour, so
+there is nothing a second, separately-worded entry for `--o` would say.**
 `tira.attachment.get --sha SHA --extension EXT > FILE`. Passing a path to
 `--output` is refused with `Unsupported output format`, and the refusal now
 says both of these things - until 3.57 it only quoted the path back,
@@ -1003,6 +1022,7 @@ Declare a policy.
 | `--column COLUMN` | per rule | The column a rule watches. For `task-card-mismatch` it says which columns mean *work* rather than which column to act on, so it takes a name or a comma-separated list and several policies compose into one set. |
 | `--column-role ROLE` | per rule | The same, said as a role rather than a column name - the counterpart to `--enter-role` and `--before-role`, and accepted anywhere a rule needs a `--column`. |
 | `--age DURATION` | per rule | That rule's grace: `30s`, `10m`, `2h`, `7d`. |
+| `--read-age DURATION` | per rule | A shorter grace once something has been read (an answer-read-and-left-unjudged shape), for rules that carry both. Refused if longer than `--age` - a read-age that shortens nothing is not a read-age. |
 | `--max N` | per rule | A limit, for `wip-limit`. |
 | `--pattern TEXT` | per rule | What to match, for `leftover-process`. |
 | `--sandbox PATH` | per rule | Where worktrees live, for `card-sandbox-missing`. |
@@ -2088,6 +2108,22 @@ d2 tira.project.update --mode chain   # refused
   project.update does not act on --mode. Use tira.project.mode --mode VALUE,
   which is the command that sets it.
 
+d2 tira.ticket.update --ref TKT-001 --author claude --details "..."   # refused
+  record.update does not act on --details. Use tira.gate.add --details TEXT,
+  the command that reads it, or tira.<type>.update --key-detail TEXT if what
+  you meant was the ticket/epic/sow narrative field.
+```
+
+A ticket/epic/sow has no `details` field at all - the narrative one is
+`key_details` - but the shared parser knows `--details` anyway since
+`gate.add` takes it, and `release.record` forwards it into its own internal
+`gate.add` call, so `record.update` used to accept, drop and print the card
+back unchanged. `evidence.add` is not exempted as a genuine reader here - it
+already refuses `--details` on its own, more specifically, naming `--summary`
+instead (see below). TKT-1077.
+
+```
+
 d2 tira.ticket.create --title "A card" --text "the whole explanation"   # refused
   record.create does not act on --text. Use tira.<type>.create --problem TEXT,
   which is the option that carries a card body.
@@ -2456,12 +2492,17 @@ threads the signed-in person through automatically. TKT-457, TKT-466.
 
 ## Accumulating record fields
 
-On record update, repeated `--key-detail`, `--deliverable`, `--acceptance`,
-`--test-step`, `--bdd`, `--atdd`, `--scope-in`, and `--scope-out` values append
-in supplied order. Existing values are retained. The corresponding `--set-*`
-JSON-array options are the explicit wholesale-replacement controls for all
-eight content arrays, including `--set-scope-in` and `--set-scope-out` -
-an empty array clears the field rather than leaving it unchanged. TKT-293.
+On record update, repeated `--key-detail`, `--deliverable`, `--acceptance`
+(alias `--acceptance-criteria`), `--test-step`, `--bdd`, `--atdd`,
+`--scope-in`, and `--scope-out` values append in supplied order. Existing
+values are retained. `--set-key-details`, `--set-deliverables`,
+`--set-acceptance` (alias `--set-acceptance-criteria`), `--set-test-steps`,
+`--set-bdd`, `--set-atdd`, `--set-scope-in`, and `--set-scope-out` are the
+explicit wholesale-replacement controls for all eight content arrays - an
+empty array clears the field rather than leaving it unchanged. TKT-293.
+`--set-labels` and `--set-affects-versions` are the same wholesale-replacement
+shape for `--label` and `--affects-version`, the two accumulating fields
+outside this group of eight.
 
 **A file that is not a JSON array is refused by name, not by decoder error
 (TKT-741).** Every `--set-*` option shares one decode boundary; handing it
@@ -2727,12 +2768,24 @@ the prompt falls back to a plain read. A leading `~` expands to the user's home
 directory wherever a path is accepted, including at a prompt and inside a
 quoted `--dir`, where a shell would not have expanded it.
 
+`tira.project.update --repo PATH` declares the git repository this project's
+work lives in, validated as a real, existing directory inside a git repository
+before it is stored - `police_world`'s `unpushed-work` rule and
+`card-sandbox-missing` both read it back, falling to the board's own directory
+when none is declared. `--collector`, `--session`, and `--heartbeat` are the
+other automation settings `project.update` accepts the same way - a collector
+name, a session id, and the reminder heartbeat in minutes - each validated
+against its own shape before it is stored.
+
 A project remembers the address its live dashboard should listen on:
 `tira.project.update --dashboard-host localhost --dashboard-port 8080` stores it,
 `project.show` reports it, and `-o browser` uses it. Precedence is stated rather
 than incidental — an address on the command line beats the remembered one, which
 beats the `0.0.0.0:7899` default — and both values are validated where they are
-set, not where they are used.
+set, not where they are used. `--listen HOST[:PORT]` is the compact form of the
+same pair - `--listen any:8080` is `--dashboard-host any --dashboard-port 8080`
+in one flag - and is refused together with `--dashboard-host`/`--dashboard-port`
+on every command but `project.update`.
 
 `tira.onboard` is the guided form of the same thing: it asks for the name,
 directory, people, each board's reference prefix, whether the boards share one
@@ -2845,6 +2898,24 @@ automatically with the original kept as the label, columns that already exist ar
 skipped so re-running is safe, and everything is validated before the first write so
 a rejected call leaves nothing behind. Prefixes are applied before any record can be
 created, because board counters never rewind.
+
+`--columns` sets the one shared set all three boards start with; `--sow-columns`,
+`--epic-columns`, and `--ticket-columns` override it for just that one board, when
+one board genuinely needs a column the other two do not. The same pairing applies
+to prefixes: `--sow-prefix`, `--epic-prefix`, and `--ticket-prefix` each set one
+board's own reference prefix independently of the other two, and independently of
+`--prefix` (there is no shared `--prefix` for all three - each board's prefix is
+always given per board, or left at its default).
+
+`project.new`/`project.create`/`onboard` refuse to create a project inside the
+directory tree of one that already exists - creating one there would bury it,
+and later commands could address either. `--nested` is the deliberate
+override, for the rare case where that is genuinely intended - though it only
+reaches `project.new` and `onboard`; `project.create`'s own CLI dispatch never
+forwards it to the engine at all, so it is accepted and silently has no
+effect there. `--nested` is refused on every other command, naming
+`project.new`/`project.create`/`onboard` together as its readers (the guard
+itself does not distinguish the gap `project.create` has).
 
 `--agent` names a real person on the project, the same way `--assignee` and
 `--reporter` do — not an arbitrary string. `project.new`'s own `--members`
@@ -3241,6 +3312,15 @@ rather than with an invented one, so they never appear in an `--older-than`
 result. One pass over the boards costs a few milliseconds; asking per card
 through the API or the CLI costs a hundred to a thousand times more.
 
+`tira.stale --stale` narrows the report to cards already past a watched
+column's own `notify_after` limit (that column's own, or the project
+default when the column sets none) - the reminder-collector threshold,
+distinct from any declared `card-duration` policy. `--with-level` adds each
+reported card's current notification escalation level, the same count
+`notification_level` tracks for the collector's own repeat-reminder cadence -
+it works the same whether or not `--stale` narrowed the report first. Both
+are refused on every command but `tira.stale`.
+
 `tira.dwell.report` is `tira.stale`'s historical sibling: `tira.stale`
 answers how long a card has sat where it is *now*; this answers how long
 cards *usually* stay in each column - median, p90 and max seconds, per
@@ -3620,6 +3700,18 @@ names every command, on the stated grounds that they were documented once as a
 family — and nothing had checked that the family form was present. It was not.
 Nine of the twenty-four were named in no document at all, `tira.ticket.discard`
 among them. TKT-233.
+
+**`[record field arguments]` below is `--problem TEXT` (alias
+`--problem-or-feature`), `--solution-needed TEXT`, `--source TEXT`,
+`--lifecycle TEXT`, `--priority N`, `--reporter NAME`, `--assignee NAME`,
+`--due-date DATETIME`, `--start-date DATETIME`, `--sdlc-gate NAME`,
+`--fix-version VERSION`, `--affects-version VERSION` (repeatable), `--label
+TEXT` (repeatable), plus the eight accumulating content arrays and their
+`--set-*` wholesale-replacement counterparts named above under "Accumulating
+record fields" - one flag per stored field, taking exactly the value that
+field holds.** `--column` sets a card's column only at creation, where there
+is no history to break by skipping the move gates - `record.update --column`
+is refused by name, naming `record.move`/`tira.TYPE.move` instead.
 
 - `tira.TYPE.create --title TEXT [record field arguments] [-o FORMAT]` - **`--checklist TEXT` (repeatable), since 5.95 (TKT-574)**, files the card with checklist items already on it, in the order given, each defaulting to `To Do` the same way `checklist.add` now does - the one list-valued field creation lacked while `--key-detail`, `--deliverable`, `--test-step` and the rest were already there. A card created with no `--checklist` is unchanged: an empty list, as before. A whitespace-only or empty item is refused the same way `checklist.add` refuses one, checked before anything is written so a bad item anywhere in the list fails the whole creation. `--checklist` is refused on `tira.TYPE.update` (naming `tira.checklist.add` instead), since which of a card's existing items to touch is not a question this flag can answer.
 - `tira.TYPE.show --ref REF [-o FORMAT]`

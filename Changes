@@ -1,5 +1,28 @@
 Revision history for Tira
 
+5.106  2026-09-12
+    - TKT-587: found by the 3-hourly documentation hunt, filed 2026-08-27 -
+      docs/commands.md opens "This is the reference: every command and
+      argument, what it is for and when to use it", and t/162 already
+      proves the "every command" half, but nothing proved the "and
+      argument" half. Re-measured with a script against the shared
+      parser's own @spec array in lib/Tira/CLI.pm rather than trusting the
+      count at filing (187 options, 31 missing; today 211 options, 30
+      missing - the gap grows as fast as options are added, since nothing
+      was checking it): --acceptance-criteria and 8 --set-* wholesale-
+      replacement flags, --affects-version, --epic-columns/-prefix,
+      --sow-columns/-prefix, --ticket-columns/-prefix, --exempt-required/
+      -reason, --include-deleted, --lifecycle, --listen, --nested,
+      --problem-or-feature, --read-age, --solution-needed, --source,
+      --stale, --with-level. All 30 now documented with real content -
+      several exposed a "[record field arguments]" placeholder in
+      docs/commands.md that had never actually been expanded into a
+      concrete flag list. -o (the single-letter --output alias) is the one
+      deliberate exception, named and reasoned rather than silently
+      absent. New test t/1079-an-argument-the-reference-forgot.t extends
+      t/162's own command-level check to options, the same way, with the
+      same doctored-source vacuity proof.
+
 5.105  2026-09-12
     - TKT-1077: self-found correcting a stale EPC-007 lesson-note (CHK-062)
       that wrongly claimed TKT-581 had already fixed this. Reproduced live:

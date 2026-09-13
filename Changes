@@ -1,5 +1,32 @@
 Revision history for Tira
 
+5.107  2026-09-13
+    - TKT-1080: self-found while investigating why TKT-1077's own verify
+      run hung indefinitely - t/70-doc-examples.t runs every documented CLI
+      example for real through Tira::CLI->run, with no browser_server
+      injected, and its own argv tokenizer only ever recognises a '--long'
+      flag: it has no pattern for dashboard's single-dash -o, so every
+      documented dashboard example's output format was silently dropped
+      from @argv regardless of what the prose showed. Since 5.98 a
+      dashboard call with no --output at all defaults to -o browser plus
+      live police/policy-bridge collectors (TKT-1068), and the real
+      dispatch falls back to a genuine, permanently-running Starman server
+      whenever no browser_server is injected - confirmed live, binding
+      port 7899 and never returning. A second, independent hang of the
+      same shape: a documented tira.policy.bridge example carries no
+      --once, and bridge_follow loops forever, sleeping between rounds,
+      in-process, with no child to see. Both are now skipped by attempt(),
+      matching the file's own existing precedent for job.start/job.feeder/
+      job.run - real side effects this harness must not trigger for real.
+      The full suite, which had never completed since 5.98 shipped,
+      now runs end to end in about 6 minutes. Also fixed, found by the
+      full-suite run this ticket required: lib/Tira/CLI/Options.pm had
+      crept past this project's own enforced 500-line limit through this
+      session's own earlier edits - trimmed comments rather than adding
+      an exemption. No new test file: a red test reproducing this hang
+      would itself hang whatever ran it, so the fix is verified by the
+      full suite completing rather than by a synthetic reproduction.
+
 5.106  2026-09-12
     - TKT-587: found by the 3-hourly documentation hunt, filed 2026-08-27 -
       docs/commands.md opens "This is the reference: every command and

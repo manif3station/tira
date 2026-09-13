@@ -201,6 +201,36 @@ for my $example (@examples) {
     # job.feeder is the same process, one call closer to the fork.
     next if $command =~ /\A(?:job\.start|job\.feeder|job\.run)\z/;
 
+    # TKT-1080. This tokenizer only ever recognises a '--long' flag below -
+    # it has no pattern for '-o', dashboard's own short form for --output,
+    # so every documented dashboard example's -o is silently dropped from
+    # @argv regardless of what value the prose shows, whatever it is. Since
+    # 5.98 a dashboard call with no --output at all defaults to -o browser
+    # plus live police/policy-bridge collectors (TKT-1068), and dashboard's
+    # real dispatch (lib/Tira/CLI.pm) falls back to a genuine, permanently-
+    # running Starman server whenever no browser_server is injected - which
+    # attempt() never does. Confirmed live: a bare dashboard call left
+    # running here binds port 7899 and never returns, hanging this whole
+    # file, and every file after it, forever. Same shape as job.start/
+    # job.feeder/job.run above - a real side effect this harness must not
+    # trigger for real - so it is skipped the same way.
+    next if $command =~ /\Adashboard(?:\.(?:sow|epic|ticket))?\z/;
+
+    # policy.bridge is the same shape again: bridge_follow loops
+    # 'while (!defined $rounds || $done < $rounds)', sleeping between
+    # rounds, unless --once is given - and docs/POLICIES.md's own example
+    # ('d2 tira.policy.bridge --author ada') has no --once, so running it
+    # for real here sleeps forever, in-process, with nothing left to catch
+    # it. Confirmed live: this exact example hangs t/70 with near-zero CPU
+    # and no child process to see, unlike dashboard's Starman.
+    next if $command eq 'policy.bridge';
+
+    # The cost of both skips above, stated rather than left implicit: their
+    # documented flags no longer get the execution-based per-command
+    # refusal check below (this file's own contradiction check), only the
+    # static "is this flag known to the parser at all" check earlier -
+    # the same trade-off job.start/job.feeder/job.run above already accept.
+
     # Placeholders stand in for real values; this is about whether the command
     # accepts the shape of the example, not whether the values exist.
     my @argv = ($command);

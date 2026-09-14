@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.118';
+our $VERSION = '5.119';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1007,8 +1007,37 @@ sub _collector_config_path {
 sub _collector_script {
     my $here = __FILE__;
     $here =~ /\A([^\x00-\x1f\x7f]+)\z/ or die "Unsafe module path\n";
-    my $skill = File::Spec->rel2abs( File::Spec->catdir( dirname($1), File::Spec->updir ) );
-    return File::Spec->catfile( $skill, 'collector', 'tira-remind' );
+    return File::Spec->catfile( _skill_root($1), 'collector', 'tira-remind' );
+}
+
+# TKT-719. The one shared implementation of "find the skill's own install
+# root", used by every call site that used to compute it separately -
+# installed_version and _collector_script below (both counted a fixed
+# number of directories from __FILE__, correct only while neither file ever
+# moved), and Tira::CLI::Usage's and Tira::CLI::Serve's own _skill_root
+# (already climbing rather than counting, since each was fixed the same way
+# after breaking the same way - but as two separate, duplicated copies with
+# no guard for the case this adds).
+#
+# Climbs out of lib/ rather than counting, so a caller moved deeper under
+# lib/ - or resolved via a completely different file's __FILE__, since
+# every caller here lives under the SAME lib/ this module does - changes
+# nothing. Lives in Tira.pm specifically because it is the one file every
+# other module already requires and whose own position in the tree never
+# changes, so a caller with no reason to know its own depth (Usage.pm,
+# Serve.pm) can delegate here instead of keeping a copy that has to.
+#
+# Refuses rather than returning an empty string when there is no 'lib' in
+# the path at all - the gap the two duplicated copies both had. An empty
+# root turns every path built from it relative instead of saying why.
+sub _skill_root {
+    my ($from) = @_;
+    my $here = File::Spec->rel2abs( $from // __FILE__ );
+    my @parts = File::Spec->splitdir( ( File::Spec->splitpath($here) )[1] );
+    pop @parts while @parts && $parts[-1] ne 'lib';
+    die "Cannot find this skill's root - no 'lib' directory anywhere in '$here'\n" if !@parts;
+    pop @parts;
+    return File::Spec->catdir(@parts);
 }
 
 # Read this engine's own Changes file, the same way _collector_script finds
@@ -1020,8 +1049,10 @@ sub _collector_script {
 sub _engine_changes_text {
     my $here = __FILE__;
     $here =~ /\A([^\x00-\x1f\x7f]+)\z/ or die "Unsafe module path\n";
-    my $skill = File::Spec->rel2abs( File::Spec->catdir( dirname($1), File::Spec->updir ) );
-    my $path = File::Spec->catfile( $skill, 'Changes' );
+    # TKT-719. Found by the guard test that ticket added for the other four
+    # call sites - this counted the identical way and was not one of the
+    # ones named, but the fault is the same fault.
+    my $path = File::Spec->catfile( _skill_root($1), 'Changes' );
     return undef if !-f $path;
     open my $fh, '<:raw', $path or return undef;
     my $text = do { local $/; <$fh> };
@@ -14269,7 +14300,9 @@ my $JSON_BACKEND;
 sub installed_version {
     my $here = __FILE__;
     $here =~ /\A([^\x00-\x1f\x7f]+)\z/ or return undef;
-    my $env = File::Spec->catfile( dirname( dirname($1) ), '.env' );
+    my $root = eval { _skill_root($1) };
+    return undef if !defined $root;
+    my $env = File::Spec->catfile( $root, '.env' );
     open my $fh, '<:raw', $env or return undef;
     my $body = do { local $/; <$fh> };
     close $fh;
@@ -14921,7 +14954,14 @@ sub _search_index_refresh {
     my ( $self, $path, $json, $data, $ref ) = @_;
 
     # <root>/.tira/<type>/<column>/<REF>.json
-    my $root = dirname( dirname( dirname( dirname($path) ) ) );
+    # TKT-719. _bump_generation walks the identical shape from a record
+    # path and guards it with 'return if basename($tira) ne .tira' - this
+    # walked one directory further with no such guard, so a path that did
+    # not fit the assumed shape still computed a "root" and indexed against
+    # it, rather than declining the way a path that does not fit should.
+    my $tira = dirname( dirname( dirname($path) ) );
+    return if basename($tira) ne '.tira';
+    my $root = dirname($tira);
     my $dbh = $self->_search_index_dbh($root) or return;
     $self->_search_index_write( $dbh, $ref, $json, $data );
     return;

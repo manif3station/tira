@@ -769,8 +769,15 @@ sub _psgi_path {
     my ($class) = @_;
     my $here = __FILE__;
     $here =~ /\A([^\x00-\x1f\x7f]+)\z/ or die "Unsafe module path\n";
-    my $root = File::Spec->rel2abs(
-        File::Spec->catdir( File::Basename::dirname($1), File::Spec->updir, File::Spec->updir ) );
+    # TKT-719. Found by the same guard test that caught _engine_changes_text -
+    # counted the identical way (two fixed updir hops rather than one, since
+    # this file sits one directory deeper than Tira.pm), the identical fault.
+    # require'd explicitly rather than assumed preloaded - Codex review found
+    # this module reached this point before anything else in it had loaded
+    # Tira.pm, unlike its json_object()/json_decode() calls elsewhere which
+    # happen to run only after a caller already required it.
+    require Tira;
+    my $root = Tira::_skill_root($1);
     my $psgi = File::Spec->catfile( $root, 'dashboard.psgi' );
     die "The dashboard application is missing at $psgi\n" if !-f $psgi;
     return $psgi;

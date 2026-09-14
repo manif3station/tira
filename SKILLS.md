@@ -2110,7 +2110,7 @@ the plain functions `_render_view`, `_view_asset` and `json_object`.
 
 **`--help` on a command that does not exist is refused, not answered, since 5.112** (TKT-660). `Tira::CLI->run()` handled `--help` before dispatch, so a name with no entrypoint anywhere got the fallback usage line - grammatical, correctly formatted, naming the invented command back - and returned success. The dispatcher's own unknown-command "Did you mean" was never reached, because the help branch returns before dispatch runs at all. New module `lib/Tira/CLI/Command.pm` answers whether a bare command is real by reading `lib/Tira/CLI.pm`'s own dispatch surface: both the literal `$command eq '...'` shape t/410 already reads for its usage-line ledger, AND the regex-alternation shape (`$command =~ /\Alogin\.(register|check|status|logout)\z/` and two dozen more) t/410 does not need to check. An early version of this fix checked only the first shape and would have refused `--help` for `login.status`, `dashboard.sow` and every other regex-dispatched command as though it did not exist - caught by this ticket's own `t/1086` the first time it ran against a real implementation. The fix tests the dispatch regex objects directly against the given name rather than trying to re-derive every concrete string an alternation can produce, and was verified with a standalone sweep against all statically-extracted real commands (0 false negatives) before shipping. Typed record commands (`ticket.foo`, `epic.bar`) are unaffected - they always arrive with `$type` already set by their own entrypoint script, never as the bare dotted name. Split into its own module rather than growing `lib/Tira/CLI/Usage.pm` past its own 500-line limit, which t/524 caught live mid-implementation.
 
-`lib/Tira.pm` is 16,758 lines as of TKT-693 (5.118), grown rather than shrunk
+`lib/Tira.pm` is 16,798 lines as of TKT-719 (5.119), grown rather than shrunk
 since the fourth lift's own 14,164 - the file gains from most releases that
 touch it, and a hand-corrected number drifts again by design. The figure the
 fourth lift replaced said 14,256, README said 14,177, `lib/Tira/Job.pm` said
@@ -2426,6 +2426,23 @@ records four more from TKT-607's split. Seven such tests now ask
 `lib/` and asserts it found modules before reading any, and `t/486` refuses
 new instances. Three of the seven read police content, so this was owed
 before TKT-746's last lift rather than after it.
+
+**A lift can break a resolver the same way it breaks a test (TKT-719, 5.119).**
+`Tira::CLI::Usage`'s split (TKT-607) counted a fixed number of `..` hops from
+`__FILE__` to find `SKILLS.md`/`POLICIES.md` - one too many in one reader, one
+too few in the other, since each was one directory deeper than the copy it was
+adapted from. Both fell back silently rather than failing: every command's
+usage line quietly became a bare `[options]` and every policy help became the
+built-in short form, until five test files caught it. `installed_version` and
+`_collector_script` in `lib/Tira.pm` carried the identical fixed-count
+assumption and had simply not moved yet. One shared `Tira::_skill_root()` now
+climbs out of `lib/` rather than counting - true wherever under `lib/` a
+caller sits - refuses rather than returning an empty string when there is no
+`lib/` in its path at all, and every call site delegates to it instead of
+keeping its own copy. A new test walks `lib/` and refuses any *new* sub that
+resolves `__FILE__` by a fixed count of hops, which is how it caught two more
+live instances (`_engine_changes_text`, `Tira::DashboardWeb::_psgi_path`) the
+ticket had not gone looking for.
 
 **And since 5.82 the family has one for the fault that costs most** (TKT-610).
 One decision implemented in two places and fixed in one of them is the most

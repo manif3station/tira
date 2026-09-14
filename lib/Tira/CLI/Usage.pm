@@ -163,14 +163,12 @@ sub _usage {
 # every policy help became the built-in short form. Five test files caught it;
 # nothing in the code said a word.
 #
-# Counting is what broke, so this does not count. It climbs until it is out of
-# lib/, which is true wherever under lib/ this file is moved to next.
+# TKT-719. Lifted into Tira::_skill_root, the one shared implementation
+# every call site now delegates to - this file's own copy did not count
+# either, but was a second copy of the same climb with no guard for a path
+# with no lib/ in it at all, which the shared version added.
 sub _skill_root {
-    my $here = File::Spec->rel2abs(__FILE__);
-    my @parts = File::Spec->splitdir( ( File::Spec->splitpath($here) )[1] );
-    pop @parts while @parts && $parts[-1] ne 'lib';
-    pop @parts;
-    return File::Spec->catdir(@parts);
+    return Tira::_skill_root();
 }
 
 sub _skills_usage_line {

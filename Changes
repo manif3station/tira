@@ -1,5 +1,23 @@
 Revision history for Tira
 
+5.119  2026-09-14
+    - TKT-719: two of the four places Tira resolved its own installation
+      root counted a fixed number of directories up from __FILE__, correct
+      only while the file never moved - the exact assumption that already
+      broke once (Tira::CLI::Usage's SKILLS.md/POLICIES.md readers each
+      counted a different number of '..' and silently fell back). The
+      other two (Tira::CLI::Usage, Tira::CLI::Serve) already climbed out
+      of lib/ instead of counting, as two duplicated copies with no guard
+      for a path with no lib/ in it at all. New Tira::_skill_root() is the
+      one shared, guarded implementation every call site now delegates to.
+      _search_index_refresh also gained the missing-guard fix
+      _bump_generation already had, for the matching card-path asymmetry.
+      A new test guards the whole class: no sub other than _skill_root may
+      resolve its own __FILE__ location by counting - it caught 2 more
+      live instances beyond the ticket's own named four
+      (_engine_changes_text, Tira::DashboardWeb::_psgi_path), fixed
+      alongside. New test: t/1095-a-root-found-by-climbing-not-counting.t.
+
 5.118  2026-09-14
     - TKT-693: checklist.update and required-action.update only accepted an
       id (CHK-NNN/REQ-NNN) via --id, but the wording an agent actually has

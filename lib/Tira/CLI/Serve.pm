@@ -470,14 +470,12 @@ sub _parent_of_pid {
 # restarting into it, silently, which is the exact fault that sub was written
 # for. Four test files caught it.
 #
-# Tira::CLI::Usage carries the same climb for SKILLS.md and POLICIES.md, for the
-# same reason and found the same way.
+# TKT-719. Lifted into Tira::_skill_root, the one shared implementation
+# every call site now delegates to - this file's own copy did not count
+# either, but was a second copy of the same climb with no guard for a path
+# with no lib/ in it at all, which the shared version added.
 sub _skill_root {
-    my $here = File::Spec->rel2abs(__FILE__);
-    my @parts = File::Spec->splitdir( ( File::Spec->splitpath($here) )[1] );
-    pop @parts while @parts && $parts[-1] ne 'lib';
-    pop @parts;
-    return File::Spec->catdir(@parts);
+    return Tira::_skill_root();
 }
 
 sub _entrypoint_for {

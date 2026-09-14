@@ -63,7 +63,12 @@ sub _render_form {
           : $name eq 'ticket_prefix' ? 'TKT'
           :                            '';
         my $value = _escape( $fields->{$name} // $default );
-        qq{<label>$label <input name="$name" value="$value"></label>};
+        my $note = $name eq 'columns' && defined $fields->{columns_note}
+          ? "<p class=\"onboard-note\">This project's boards currently have different columns ("
+            . _escape( $fields->{columns_note} )
+            . '). Leaving this blank keeps them as they are; filling it in sets one shared layout for all three.</p>'
+          : '';
+        qq{<label>$label <input name="$name" value="$value"></label>$note};
     } @FIELDS;
     my $question_rows = join "\n", map {
         my $question = $_;
@@ -124,7 +129,33 @@ sub _fields_from_defaults {
     $fields{members} = $defaults->{members}[0] if $defaults->{members};
     $fields{"${_}_prefix"} = $defaults->{"${_}_prefix"}
       for grep { defined $defaults->{"${_}_prefix"} } qw(sow epic ticket);
-    $fields{columns} = $defaults->{columns}[0] if $defaults->{columns};
+    # TKT-667. _wizard_defaults sets the shared 'columns' key from whichever
+    # board types its own eval actually reached (skipping one it could not
+    # read at all) once THOSE agree - not from all three unconditionally.
+    # Trusting that key alone would still pre-fill the shared box from an
+    # incomplete or genuinely-agreeing-by-coincidence pair and leave a third,
+    # unread type silently at risk of being overwritten to match on submit
+    # (Codex review: a project missing one type's column data, however that
+    # came to be, is exactly the case _wizard_defaults' own 'agree' check
+    # cannot see). So this reads the three per-type keys directly and only
+    # ever pre-fills the shared box when all three are present and equal;
+    # anything else - divergent, or one type's data simply missing - gets
+    # the note instead of a silently-unsafe pre-fill.
+    my %seen;
+    my @per_type;
+    for my $type (qw(sow epic ticket)) {
+        my $type_columns = $defaults->{"${type}_columns"};
+        push @per_type, [ $type, $type_columns ? $type_columns->[0] : undef ];
+        $seen{ $type_columns ? $type_columns->[0] : "\0missing" }++;
+    }
+    if ( keys(%seen) == 1 && !exists $seen{"\0missing"} ) {
+        $fields{columns} = $per_type[0][1];
+    }
+    else {
+        my @parts = map { defined $_->[1] ? "$_->[0]: $_->[1]" : () } @per_type;
+        $fields{columns_note} = join( '; ', @parts ) if @parts;
+    }
+
     $fields{$_} = $defaults->{$_}
       for grep { defined $defaults->{$_} } ( qw(notify_after agent session collector), map { $_->{id} } @{$QUESTIONS} );
     return \%fields;

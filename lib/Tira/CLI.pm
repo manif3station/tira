@@ -518,7 +518,14 @@ sub run {
         };
         # Same pre-fill the CLI wizard gives itself (_wizard_defaults) - the
         # browser form gets the identical suggested directory and defaults
-        # lookup so editing an existing project is just as safe here.
+        # lookup so editing an existing project is just as safe here. One
+        # gap in that parity: _wizard_defaults' shared 'columns' key is only
+        # set when every board type has identical columns, and until 5.113
+        # a project whose boards had diverged got a form that showed
+        # nothing for the field at all rather than its real per-board
+        # values (TKT-667) - Tira::CLI::Wizard's own interactive prompts
+        # never hit this, since each board type is asked about separately
+        # there.
         my $suggested = $option{dir}
           // eval { $tira->discover_project( defined $option{project} ? ( project => $option{project} ) : () ) }
           // '.';

@@ -1,5 +1,17 @@
 Revision history for Tira
 
+5.114  2026-09-14
+    - TKT-667: the browser onboarding form's Columns box came back empty
+      for a project whose sow/epic/ticket boards have diverged, since
+      _wizard_defaults only sets a shared 'columns' default when all three
+      match, and _fields_from_defaults never read the per-type
+      sow_columns/epic_columns/ticket_columns keys it falls back to
+      otherwise. Now shows a note beside the (still blank) field naming
+      each board's real columns, rather than pre-filling one board's
+      columns into the shared input and risking a silent submit
+      overwriting all three to match it. New test:
+      t/1090-a-box-that-forgot-three-answers.t.
+
 5.113  2026-09-14
     - TKT-1087: declaring required-action-stranded (TKT-612/5.109) board-wide
       surfaced 53 findings on the first pass, most naming cards already in

@@ -636,6 +636,20 @@ guards the write, not the read. TKT-754.
   never updated when TKT-553 added these five fields to the form, so
   they silently stayed blank on re-open even though `_wizard_defaults`
   already had the data. Found during a standing 1-hourly bug hunt.
+
+  TKT-667, since 5.114: `_wizard_defaults` only sets a shared `columns`
+  key when every board type (sow/epic/ticket) has identical columns; a
+  project whose boards have diverged has none of that key, only the
+  per-type `sow_columns`/`epic_columns`/`ticket_columns` `_fields_from_defaults`
+  never read. The form's Columns box came back empty for exactly the
+  projects most likely to need it shown accurately - reading as though the
+  project had no columns at all. Now shown as a note beside the (still
+  blank) field rather than pre-filled into it: writing one board's columns
+  into the single shared input and letting it be submitted unchanged would
+  silently ask to make all three boards match it, the data-loss risk this
+  ticket checked for and ruled out for the unchanged case only. The note
+  states plainly what leaving the field blank versus filling it in does.
+  Found during a standing 1-hourly bug hunt.
 - `tira.project.show [-o FORMAT]` — **Implemented.**
 - `tira.doctor [--repair] [-o FORMAT]` — **Implemented.** Finds board files
   holding bytes that are not valid UTF-8, and says which file, which byte and at

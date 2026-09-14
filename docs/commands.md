@@ -49,11 +49,14 @@ because both methods are called internally with the CLI's own shared
 `--exempt-required TEXT` and `--exempt-reason TEXT` are the CLI spelling of
 that pair, on `tira.TYPE.create` and `tira.TYPE.update` - each repeatable,
 and given in matching order: the first `--exempt-required` pairs with the
-first `--exempt-reason`, and so on. Given together, every `--exempt-required`
-needs a matching `--exempt-reason` and vice versa - a mismatched count is
-refused rather than pairing them wrong. `--exempt-reason` given with no
-`--exempt-required` at all is accepted and does nothing, since the pairing
-check only runs once at least one exemption is being made.
+first `--exempt-reason`, and so on. Every `--exempt-required` needs a
+matching `--exempt-reason` and vice versa, in either direction and however
+few are given - a card cannot be born, or later made, exempt from a
+required item without a reason recorded for it, the same discipline
+`discard-unexplained` applies to a card set aside. **Since 5.108, this is
+enforced in both directions** (TKT-1078): `--exempt-reason` given with no
+`--exempt-required` at all used to be accepted and do nothing, the same
+silent-swallow shape TKT-281/302/431/581/1077 all fixed for other flags.
 
 `--include-deleted` widens `tira.attachment.list` called with no `--ref` (the
 whole-project listing) to also report deleted attachments, rather than the

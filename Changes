@@ -1,5 +1,17 @@
 Revision history for Tira
 
+5.108  2026-09-13
+    - TKT-1078: found by Codex while reviewing TKT-587's documentation of
+      --exempt-required/--exempt-reason - _exempt_entries only ran its
+      pairing check once --exempt-required was given, so --exempt-reason
+      given alone returned untouched and was accepted with no effect: the
+      same silent-swallow shape TKT-281/302/431/581/1077 all fixed for
+      other flags. The die message already claimed a bidirectional
+      requirement ("every --exempt-reason an --exempt-required") the code
+      never actually enforced in that direction. Fixed by moving the
+      pairing check ahead of the early return. New test:
+      t/1082-a-reason-with-nothing-to-carry.t.
+
 5.107  2026-09-13
     - TKT-1080: self-found while investigating why TKT-1077's own verify
       run hung indefinitely - t/70-doc-examples.t runs every documented CLI

@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.107';
+our $VERSION = '5.108';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -13907,7 +13907,19 @@ sub _edit_distance {
 # apart, matching every other accumulating field's own convention.
 sub _exempt_entries {
     my ( $self, %args ) = @_;
-    return $args{required_exempt} if !defined $args{required_exempt};
+    if ( !defined $args{required_exempt} ) {
+
+        # TKT-1078. The pairing check below only ran once --exempt-required
+        # was given, so --exempt-reason on its own - no --exempt-required at
+        # all - returned here untouched and was accepted with no effect:
+        # the exact silent-swallow shape TKT-281/302/431/581/1077 all fixed
+        # for other flags, found live by Codex reviewing this same pair's
+        # documentation.
+        die "Exempting a required item needs an item - pair each "
+          . "--exempt-reason with an --exempt-required\n"
+          if $args{exempt_reason} && @{ $args{exempt_reason} };
+        return $args{required_exempt};
+    }
     my @items = @{ $args{required_exempt} };
     return \@items if !@items;
 

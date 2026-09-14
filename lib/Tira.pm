@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.112';
+our $VERSION = '5.113';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -8180,7 +8180,7 @@ sub policy_evaluate {
             # unordered column (from a legacy/deleted one, or the item's own
             # column no longer existing on this board) cannot be judged
             # behind or ahead, so it is left alone here rather than guessed.
-            my %positions;
+            my ( %positions, %endings );
             for my $record ( @{$records} ) {
                 next if !$resolved_for->( $policy, $record );
                 my $current = $record->{column} // '';
@@ -8188,6 +8188,16 @@ sub policy_evaluate {
                 my $type = $record->{type} // 'ticket';
                 my $order = $positions{$type} //= $self->_column_positions( $root, $type );
                 next if !exists $order->{$current};
+
+                # TKT-1087. A card that has genuinely finished is settled,
+                # the same as a discarded one - this rule watches work
+                # still moving through the board, not history. Reusing
+                # column_endings rather than hard-coding 'done' honours a
+                # board that has named its own ending column(s)
+                # (tira.column.update --terminal), the same source
+                # checklist-item-terminal already reads.
+                my $ends = $endings{$type} //= $self->_ending_columns( $root, $type );
+                next if $ends->{$current};
                 my %exempt = map { ( ref($_) eq 'HASH' ? $_->{item} : $_ ) => 1 }
                   @{ $record->{required_exempt} // [] };
                 my @stranded = grep {

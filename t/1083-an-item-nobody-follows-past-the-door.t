@@ -93,6 +93,93 @@ sub reported {
         "an unmet item in the card's own current column is the departure gate's business, not this rule's" );
 }
 
+# --- a card that has genuinely finished is settled, like a discarded one ----
+#
+# TKT-1087. Declaring this rule board-wide surfaced 53 findings on the first
+# pass, most naming cards already in 'done' - the source only exempted
+# 'discard', not the board's own ending column(s), so a card whose real work
+# finished long before this rule existed kept reporting forever with no way
+# to settle it short of hand-marking every stale item. This board names no
+# column --terminal, so 'done' (its last column) is assumed to be the
+# ending, the same default column_endings uses everywhere else.
+
+{
+    my ( $tira, $root ) = board_at('finished');
+    my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Reached the end anyway' );
+    $tira->required_item_add( author => 'claude', project => $root, ref => $card->{ref},
+        column => 'backlog', item => 'Fill in the fields', status => 'pending' );
+    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement', author => 'claude' );
+    $tira->record_move( project => $root, ref => $card->{ref}, column => 'done', author => 'claude' );
+
+    is( scalar @{ reported( $tira, $root, 'finished' ) }, 0,
+        'a card that reached done is settled, even with an old item stranded in a column it left on the way' );
+}
+
+# --- an explicitly declared terminal column, not just the 'done' default ---
+#
+# Codex review: the test above only proves the IMPLICIT fallback (a board
+# that has named no ending gets 'done' assumed). It does not prove a board
+# that has actually declared its own ending column via
+# C<tira.column.update --terminal> is honoured too - the whole point of
+# reusing C<column_endings> rather than hard-coding the string 'done'.
+
+{
+    my ( $tira, $root ) = board_at('declared-terminal');
+    $tira->column_update( project => $root, type => 'ticket', name => 'implement', terminal => 1 );
+    my $card = $tira->create_record( project => $root, type => 'ticket', title => 'A board with its own ending' );
+    $tira->required_item_add( author => 'claude', project => $root, ref => $card->{ref},
+        column => 'backlog', item => 'Fill in the fields', status => 'pending' );
+    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement', author => 'claude' );
+
+    is( scalar @{ reported( $tira, $root, 'declared-terminal' ) }, 0,
+        "a board that declared 'implement' its own ending settles a card there too, not only in the default 'done'" );
+
+    # column_endings' own documented design (TKT-300): marking one column
+    # terminal does not switch OFF the 'done' default for every other -
+    # that was the all-or-nothing trap mt5-ai paid for once already. So a
+    # second card that goes all the way to 'done' on this same board is
+    # STILL settled, exactly as if 'implement' had never been declared -
+    # the two endings compose rather than replace each other.
+    my $second = $tira->create_record( project => $root, type => 'ticket', title => 'Reached done, which is still an ending too' );
+    $tira->required_item_add( author => 'claude', project => $root, ref => $second->{ref},
+        column => 'backlog', item => 'Fill in the fields', status => 'pending' );
+    $tira->record_move( project => $root, ref => $second->{ref}, column => 'implement', author => 'claude' );
+    $tira->record_move( project => $root, ref => $second->{ref}, column => 'done', author => 'claude' );
+
+    is( scalar @{ reported( $tira, $root, 'declared-terminal' ) }, 0,
+        "declaring 'implement' terminal does not undo the 'done' default - a card that reaches done is still settled too" );
+}
+
+# --- the per-type %endings cache does not leak across record kinds ---------
+#
+# Codex review: %endings is keyed by $type and filled once per type with
+# //=, the same shape %positions already used safely - but that shape was
+# never exercised with more than one type on the same pass before. A ticket
+# and a sow, each stranded, on the same board: if the cache mixed them up
+# (reused the first type's answer for the second, or the second call built
+# nothing because %endings already had a false-y entry from the first),
+# one of the two would go unreported.
+
+{
+    my ( $tira, $root ) = board_at('mixed-types');
+    my $ticket = $tira->create_record( project => $root, type => 'ticket', title => 'A stranded ticket' );
+    $tira->required_item_add( author => 'claude', project => $root, ref => $ticket->{ref},
+        column => 'backlog', item => 'Fill in the fields', status => 'pending' );
+    $tira->record_move( project => $root, ref => $ticket->{ref}, column => 'implement', author => 'claude' );
+
+    my $sow = $tira->create_record( project => $root, type => 'sow', title => 'A stranded sow' );
+    $tira->required_item_add( author => 'claude', project => $root, ref => $sow->{ref},
+        column => 'backlog', item => 'Fill in the fields', status => 'pending' );
+    $tira->record_move( project => $root, ref => $sow->{ref}, column => 'implement', author => 'claude' );
+
+    my $violations = reported( $tira, $root, 'mixed-types' );
+    is( scalar @{$violations}, 2,
+        'both a stranded ticket and a stranded sow on the same board are reported - the per-type endings cache does not lose either one' );
+    my %by_ref = map { $_->{ref} => 1 } @{$violations};
+    ok( $by_ref{ $ticket->{ref} }, 'the ticket is one of them' );
+    ok( $by_ref{ $sow->{ref} }, 'the sow is the other' );
+}
+
 # --- an exempted item is not reported ---------------------------------------
 {
     my ( $tira, $root ) = board_at('exempted');

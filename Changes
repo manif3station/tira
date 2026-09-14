@@ -1,5 +1,19 @@
 Revision history for Tira
 
+5.113  2026-09-14
+    - TKT-1087: declaring required-action-stranded (TKT-612/5.109) board-wide
+      surfaced 53 findings on the first pass, most naming cards already in
+      done - the rule exempted only 'discard', so a card whose real work
+      finished long before this rule existed kept reporting forever with no
+      way to settle it short of hand-marking every stale item. Now reads
+      column_endings the same way checklist-item-terminal already does, so
+      a board that has named its own ending column(s) is honoured and one
+      that has named none gets the "done assumed" default every other
+      terminal-aware check uses. New test in
+      t/1083-an-item-nobody-follows-past-the-door.t: a card that reaches
+      done with an old stranded item is settled, the same as a discarded
+      one.
+
 5.112  2026-09-14
     - TKT-660: asking Tira::CLI->run() for --help about a command that does
       not exist answered as though it does - it printed the fallback usage

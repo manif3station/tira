@@ -97,6 +97,8 @@ refuses_age( 'checklist-unmoved', project => $root,
     rule => 'checklist-unmoved', age => '10m', action => 'bridge-reminder' );
 refuses_age( 'orphan-card', project => $root,
     rule => 'orphan-card', age => '10m', action => 'bridge-reminder' );
+refuses_age( 'required-action-stranded', project => $root,
+    rule => 'required-action-stranded', age => '10m', action => 'bridge-reminder' );
 refuses_age( 'rules-undeclared', project => $root,
     rule => 'rules-undeclared', age => '10m', action => 'bridge-reminder' );
 

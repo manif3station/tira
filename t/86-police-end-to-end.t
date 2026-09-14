@@ -68,6 +68,7 @@ my %declare = (
     'checklist-idle'            => { column => 'implement', age => '30m' },
     'checklist-unmoved'         => {},
     'checklist-item-terminal'   => {},
+    'required-action-stranded'  => {},
     'orphan-card'               => {},
     'rules-undeclared'               => {},
     'upgrade-unreviewed'        => { age => '1h' },
@@ -166,6 +167,14 @@ my $dragged = $tira->create_record( project => $root, type => 'ticket', title =>
 $tira->checklist_add( author => 'michael', project => $root, ref => $dragged->{ref}, item => 'never started', status => 'pending' );
 $tira->record_move(author => 'claude',  project => $root, ref => $dragged->{ref}, column => 'implement' );
 $tira->record_move(author => 'claude',  project => $root, ref => $dragged->{ref}, column => 'verify' );
+
+# required-action-stranded: an item tagged with a column the card has
+# already left behind - the browser move that started TKT-612, ungated by
+# design (TKT-426/452), leaves it invisible to the departure gate forever.
+my $stranded = $tira->create_record( project => $root, type => 'ticket', title => 'Dragged past its own door' );
+$tira->required_item_add( author => 'claude', project => $root, ref => $stranded->{ref},
+    column => 'backlog', item => 'Fill in the fields', status => 'pending' );
+$tira->record_move( author => 'claude', project => $root, ref => $stranded->{ref}, column => 'implement' );
 
 # checklist-item-terminal: an epic checklist item naming a card that has
 # already reached a terminal column, while the item itself is still open.

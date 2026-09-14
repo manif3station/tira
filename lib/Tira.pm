@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.108';
+our $VERSION = '5.109';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6585,6 +6585,11 @@ my %POLICY_RULES = (
     'checklist-item-terminal'   => { needs => [], forbids => ['age'] },
     'orphan-card'               => { needs => [], forbids => ['age'] },
 
+    # A required item's own column field is what marks it stranded once
+    # the card has moved past it - already true or false the moment the
+    # card leaves, not something that becomes more so by waiting. TKT-612.
+    'required-action-stranded'  => { needs => [], forbids => ['age'] },
+
     # An upgrade traced to its end rather than announced and forgotten.
     #
     # The upgrade notice asks the agent to read what changed, learn what is new
@@ -8139,6 +8144,52 @@ sub policy_evaluate {
                     "moved into $moved_into with nothing ticked since"
                       . ( $window >= 0 ? " it entered $journal->[$window]{after}" : ' it was raised' ),
                     $record->{reporter} );
+            }
+        }
+        elsif ( $rule eq 'required-action-stranded' ) {
+
+            # TKT-612. The departure gate (_column_required_action_violation)
+            # only ever reads items tagged with the card's CURRENT column -
+            # a browser move is deliberately ungated (TKT-426/452), so an
+            # item tagged with a column the card has already left becomes
+            # invisible to it forever, and nothing else was watching
+            # required_items at all. This is the owner's own chosen fix,
+            # the cheapest of three candidates: report, change no move
+            # behaviour. Exemptions honoured the same way
+            # _unmet_in_column reads them (lib/Tira/CLI/Move.pm) - a bare
+            # string pre-TKT-473, a hashref since.
+            #
+            # "Already left" means BEHIND in the board's own column order,
+            # not merely different - Codex review caught a first draft that
+            # used `ne`, which would also report an item manually attached
+            # to a column the card has not reached YET (required-action.add
+            # can be given any --column), the opposite of stranded. An
+            # unordered column (from a legacy/deleted one, or the item's own
+            # column no longer existing on this board) cannot be judged
+            # behind or ahead, so it is left alone here rather than guessed.
+            my %positions;
+            for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
+                my $current = $record->{column} // '';
+                next if $current eq 'discard';
+                my $type = $record->{type} // 'ticket';
+                my $order = $positions{$type} //= $self->_column_positions( $root, $type );
+                next if !exists $order->{$current};
+                my %exempt = map { ( ref($_) eq 'HASH' ? $_->{item} : $_ ) => 1 }
+                  @{ $record->{required_exempt} // [] };
+                my @stranded = grep {
+                    my $column = $_->{column} // '';
+                    length($column) && $column ne $current
+                      && exists $order->{$column}
+                      && $order->{$column} < $order->{$current}
+                      && $column ne 'discard'
+                      && !$exempt{ $_->{item} }
+                      && lc( $_->{status} // '' ) ne 'done';
+                } @{ $record->{required_items} // [] };
+                next if !@stranded;
+                $report->( $policy, $record,
+                    scalar(@stranded) . ' required item(s) unmet in a column already left behind: '
+                      . join( ', ', map { "$_->{id} ($_->{column}): $_->{item}" } @stranded ) );
             }
         }
         elsif ( $rule eq 'checklist-item-terminal' ) {

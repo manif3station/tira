@@ -391,7 +391,7 @@ absent from this page, so a rule shipped without being documented is caught by
 name. Since 4.76 the other half is checked too: a statement of how many rules
 there are is compared against the engine, in any markdown file including this
 one, bar the build and dependency directories. A claim is a number ahead of the
-word `rules` with at most two words between them, which covers `48 rules cover`, `48 rules police`, `48 police rules` and `48 policy
+word `rules` with at most two words between them, which covers `49 rules cover`, `49 rules police`, `49 police rules` and `49 policy
 rules` alike. That shape is the reach of it — a count worded outside it, or
 stated somewhere that is not a markdown file, is not held,
 and saying so matters more than sounding thorough. Both guards exist because
@@ -411,6 +411,7 @@ when it was written down.
 | `checklist-idle` | `--column --age` | a card being worked with no checklist movement. **The message names what actually helps**: a checklist that is 100% complete (case-insensitively `done`) says to move the card, since there is nothing left to tick - "no checklist movement" was true and useless there, naming the one action that cannot be taken. A checklist with anything still unticked keeps that wording unchanged. The rule's own behaviour - when it fires, and that moving the card settles it - is unaffected either way. TKT-357. |
 | `checklist-unmoved` | — | a card moved on with nothing ticked since its last move. **No age**: a move has either happened or it has not. Addressed to the card's reporter, not its assignee - since 3.47, TKT-286: the assignee is often the reviewer for a card sitting in review, who cannot tick a checklist item only the card's own author left unticked, while the reporter is who raised the card and is who a checklist item usually belongs to. A separate, synchronous check exists alongside this one for a column carrying a required-action template (`tira.column.update --required-action`): a move made through the CLI/agent command path refuses outright while any of that column's required items are still unmarked, rather than reporting it after the fact - see UC-054. TKT-427. Since 5.61 this rule refuses `--age` rather than silently storing one nothing reads (TKT-933). **A card with exactly one recorded move was bounded by the wrong window until 5.93** (TKT-991): the multi-move case bounds "since" by the second-to-last move's own journal index, and the single-move case used -1 instead of "no prior move to bound by" - but every journal index is greater than -1, so a checklist tick made *before* the card's only move (while it still sat untouched in the entry column) read as having happened since it, silencing a genuinely stale card. The single-move window is now the move's own index, matching the same "strictly after" test the multi-move case already applies. |
 | `checklist-item-terminal` | — | an epic or sow checklist item naming child cards that have all reached a terminal column while the item itself is still open. An item names its cards in free text - there is no structured refs field the way a tasklist item has - read out the same way `commit-without-card` already finds a ref in a commit subject. Fires only once EVERY card an item names is terminal; an item naming several cards with even one still open stays quiet, and an item naming none is never reported. This is why `checklist-idle` kept firing on epics whose children had all finished (TKT-867, measured on this board: EPC-014 had 8 items, all open, while 7 of its 8 named cards had already reached done) - nothing marked the item the moment the last card landed. Reports only, like every rule here: marking the item is still a deliberate act with its own command and proof. **No `--age`**: an item naming only terminal cards is stale the moment the last one lands, not after waiting some more. Its own `forbids => ['age']` refusal, and this rule's own name, were missing from three test files' separate "every rule the tool offers" lists until TKT-1000 - a gap left by TKT-867 itself, found verifying an unrelated card. |
+| `required-action-stranded` | — | a required item tagged with a column the card has already left. His own question about his own board's history: he moved a card `backlog -> next-to-work-on` in the browser, which is deliberately ungated (TKT-426/452, a human dragging a card is not an agent skipping a gate), with all eight of its backlog required actions still unmarked. The CLI departure gate (`_column_required_action_violation`) only ever reads items tagged with the card's CURRENT column, so an item tagged with a column already left behind is invisible to it forever - and until this rule, nothing else read `required_items` at all. The cheapest of three candidates offered (a police rule, changing no move behaviour; the departure gate reading every unmet item regardless of column, which would refuse cards that legitimately skip one; or resetting stranded items, the forward mirror of `TKT-455`'s backward reset) - his own choice, because the immediate harm was that nobody was told. "Already left" is judged by the board's own column order, not by being merely a different column - a first draft used plain inequality, which Codex review caught also reporting an item manually attached to a column the card had not reached yet as though it had already been skipped. Honours the same exemption mechanism (`--exempt-required`/`--exempt-reason`) `_unmet_in_column` already reads, and is silent for a discarded card like every other machine-watching rule, and for an item tagged `discard` itself. **No `--age`**: an item is stranded or it is not the moment the card leaves its column, not after waiting some more. TKT-612. |
 | `orphan-card` | — | a card with no parent Since 5.61 this rule refuses `--age` rather than silently storing one nothing reads (TKT-933). |
 | `rules-undeclared` | — | a rule this board has neither declared nor declined, which is what an upgrade leaves behind. **No age**: a gap is a gap the moment it opens. Settles only when every rule has an answer — declining one counts, because the point is that nothing is left unconsidered. Since 5.61 this rule refuses `--age` rather than silently storing one nothing reads (TKT-933). |
 | `upgrade-unreviewed` | `--age` | the card the upgrade gate raised, still with nothing ticked on it after that long. **Watches the card, not a column**, and so refuses `--column` and `--enter`: the gate lands its card in `backlog`, where no column-scoped rule looks and `card-still` does not either, because `_resting_columns` skips a protected column. That resting is correct — a card waiting its turn is not a stalled card — so the exception is made for the one card in backlog that is not waiting its turn. It is found by the `upgrade-gate` label the gate now writes, not by its title, which somebody will reasonably reword. One ticked checklist item settles it: the question is whether anybody read what changed, not whether they finished acting on it. TKT-957. | TKT-974 and TKT-983 (5.83->5.84 and 5.84->5.85, raised in the same session) both arrived with no parent and most fields empty, needing manual repair, three times over before **TKT-956, since 5.86**, made the gate derive its nine text/array fields from the version range itself and exempt `upgrade-gate` from needing a parent (joining `standalone` in the same `CARD_EXEMPT` list a SOW already uses) - `d2 tira.ticket.missing` and `tools/card-holes` both now report the raised card complete.
@@ -901,7 +902,7 @@ passing every test they had — the tests handed the engine a world of their own
 A rule that is silent because nothing was looked at is indistinguishable from a
 rule being obeyed. If you write a rule that reads the machine, prove it fires
 by making the condition real, not by describing it to the engine.
-## 109 use cases
+## 110 use cases
 
 Each is an invented situation and the command that answers it. Find the
 situation that looks like your project; ignore the rest. And read the
@@ -2971,4 +2972,32 @@ move, with the identical 5-second grace. A move into or out of `discard` is
 left entirely to `discard-unexplained`. A forward move gains no prompt at
 all, and a backward move is no harder to make - this rule reports, it never
 refuses.
+
+**110.** A required item tagged with a column the card has already left,
+invisible to every gate from the moment it was skipped.
+
+```
+d2 tira.policy.add --rule required-action-stranded --action bridge-reminder
+```
+
+His own question about his own board's history: he moved a card
+`backlog -> next-to-work-on` in the browser - deliberately ungated
+(TKT-426/452, a human dragging a card is not an agent skipping a gate) - with
+all eight of its backlog required actions still unmarked. The CLI departure
+gate only ever reads items tagged with the card's CURRENT column, so an item
+tagged with a column already left behind was invisible to it forever, and
+nothing else read `required_items` at all. The cheapest of three candidates
+he was offered - a police rule, changing no move behaviour - over widening
+the departure gate (which would refuse cards that legitimately skip a
+column) or resetting stranded items (the forward mirror of the backward-move
+reset, needing its own decision about what skipping a column means).
+"Already left" is judged by the board's own column ORDER, not merely by
+being a different column - Codex review caught a first draft using plain
+inequality, which would also have reported an item `required-action.add`
+manually attached to a column the card has not reached YET, the opposite
+of stranded. Honours the same `--exempt-required`/`--exempt-reason`
+exemptions the departure gate itself reads, and is silent for a discarded
+card like every other machine-watching rule, and for an item tagged
+`discard` itself. No `--age`: an item is stranded or it is not the moment
+the card leaves, not after waiting some more.
 

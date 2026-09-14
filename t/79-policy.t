@@ -143,6 +143,7 @@ my %needs = (
     'checklist-idle'            => { column => 'implement', age => '30m' },
     'checklist-unmoved'         => {},
     'checklist-item-terminal'   => {},
+    'required-action-stranded'  => {},
     'orphan-card'               => {},
     'monitor-dead'              => {},
     'monitor-output'            => {},

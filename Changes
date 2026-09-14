@@ -1,5 +1,29 @@
 Revision history for Tira
 
+5.109  2026-09-14
+    - TKT-612: his own question about his own board's history - he moved a
+      card backlog -> next-to-work-on in the browser, deliberately ungated
+      (TKT-426/452), with all eight of its backlog required actions still
+      unmarked. The CLI departure gate only ever reads items tagged with a
+      card's CURRENT column, so those eight items became invisible to it
+      forever, and no police rule read required_items at all. New rule
+      required-action-stranded reports any unmet required item whose
+      column sits BEHIND the card's current one in the board's own order -
+      his own choice of the three candidates offered, the cheapest,
+      changing no move behaviour. Honours the same --exempt-required/
+      --exempt-reason exemptions the departure gate already reads, silent
+      for a discarded card like every other machine-watching rule, and for
+      an item tagged 'discard' itself. Caught by Codex review before this
+      shipped: a first draft compared columns with plain inequality, which
+      would also have reported an item manually attached to a column the
+      card has not reached YET as though it had already been skipped - the
+      opposite of stranded. New test:
+      t/1083-an-item-nobody-follows-past-the-door.t. Also updates four
+      exhaustive rule-catalogue tests (t/79, t/86, t/98, t/544) and the
+      rule-count/line-count claims in README.md, SKILLS.md and
+      docs/POLICIES.md that this new rule and lib/Tira.pm's growth made
+      stale.
+
 5.108  2026-09-13
     - TKT-1078: found by Codex while reviewing TKT-587's documentation of
       --exempt-required/--exempt-reason - _exempt_entries only ran its

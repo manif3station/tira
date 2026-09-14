@@ -32,7 +32,7 @@ close $fh;
 
 my ($pod) = $body =~ /^__END__\s*(.*)\z/ms;
 my %documented;
-$documented{$1}++ while $pod =~ /^=head2 (\S+)/mg;
+$documented{$1}++ while $pod =~ /^=head2\s+(\S+)/mg;
 
 my @cli_files;
 find( { no_chdir => 1, wanted => sub {
@@ -70,6 +70,17 @@ my @undocumented = sort grep { !/^_/ && !$documented{$_} } keys %called;
 
 is_deeply( \@undocumented, [],
     'every method Tira::CLI calls on $tira has a =head2 entry in the METHODS POD' );
+
+# TKT-670. A method documented ONCE satisfies the test above just as well as
+# one documented twice - so a stale duplicate (column_update had two
+# =head2 entries, one filed with record_update describing an unrelated
+# refusal it no longer carries, TKT-591's own POD split having left the old
+# one behind) went unnoticed by this file for the same reason a missing
+# entry used to: nothing counted, only presence/absence was ever asked.
+my @duplicated = sort grep { $documented{$_} > 1 } keys %documented;
+is_deeply( \@duplicated, [],
+    'no method has more than one =head2 entry in the METHODS POD' )
+  or diag( "documented more than once: " . join( ', ', @duplicated ) );
 
 done_testing;
 

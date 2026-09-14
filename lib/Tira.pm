@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.114';
+our $VERSION = '5.115';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -15104,40 +15104,6 @@ read as confirmation the move had happened. Checked first, before the
 near-miss check and before the project lock, naming C<record_move> (or the
 type-specific C<*.move> verb) as the real command.
 
-=head2 column_update
-
-Changes one column's settings on one board. C<required_action> replaces the
-whole list of what a card must finish before it may LEAVE this column;
-C<entry_required_action> replaces the whole list of what it must already have
-done before it may ENTER. Two separate templates rather than one list doing
-both jobs, because they ask different things of a card and a board declares
-them separately - an entry declaration leaves the exit list untouched, and a
-column may reasonably have one and not the other.
-
-Both replace wholesale per call, matching C<next> and the record side's own
-multi-value fields: an empty array clears the list, which is the only way to
-correct one rather than append past it. TKT-427 for the exit list, TKT-591 for
-the entry list.
-
-Each list is refused, whole, if any entry is empty or whitespace-only, or if
-the same text appears twice - naming which list and, for a duplicate, the
-repeated text. TKT-699.
-
-Since 5.92 (TKT-936/Q-154) an entry may be conditional:
-C<< { text => TEXT, touches => [PATTERN, ...] } >> instead of a plain string.
-The CLI's C<--required-action-if-touches>/C<--entry-required-action-if-touches>
-build these from C<"PATTERN[,PATTERN...]=TEXT">; this method only validates
-the shape (non-empty text, a non-empty touches list of non-empty patterns) -
-reading a card's git history to decide whether a conditional entry actually
-matches happens at move-time in the CLI layer, since this module is forbidden
-C<qx>/C<system>/C<exec>/piped C<open>.
-
-The gating itself lives in the CLI dispatch layer, not here - see
-C<Tira::CLI>'s C<_column_entry_required_action_violation>. Storing what a
-column asks for and refusing a move are deliberately separate: the browser
-dashboard's own move calls the engine directly and is not refused, because a
-human dragging a card is not an agent skipping a gate.
-
 =head2 rule_suspend
 
 Puts one policy rule down for a card, or the whole board, for a bounded
@@ -15614,7 +15580,28 @@ ambiguity the browser editor carried, in the API's own documentation.
 C<required_action> is the list a card must finish before it may LEAVE the
 column; C<entry_required_action> is what it must already have done before it
 may ARRIVE. Each is replaced whole per call and neither touches the other, so
-updating one leaves the other exactly as it was.
+updating one leaves the other exactly as it was. Both replace wholesale per
+call, matching C<next> and the record side's own multi-value fields: an empty
+array clears the list, which is the only way to correct one rather than
+append past it. TKT-427 for the exit list, TKT-591 for the entry list.
+
+Each list is refused, whole, if any entry is empty or whitespace-only, or if
+the same text appears twice - naming which list and, for a duplicate, the
+repeated text. TKT-699.
+
+Since 5.92 (TKT-936/Q-154) an entry may be conditional:
+C<< { text => TEXT, touches => [PATTERN, ...] } >> instead of a plain string.
+The CLI's C<--required-action-if-touches>/C<--entry-required-action-if-touches>
+build these from C<"PATTERN[,PATTERN...]=TEXT">; this method only validates
+the shape (non-empty text, a non-empty touches list of non-empty patterns) -
+reading a card's git history to decide whether a conditional entry actually
+matches happens at move-time in the CLI layer, since this module is forbidden
+C<qx>/C<system>/C<exec>/piped C<open>. The gating itself lives in the CLI
+dispatch layer, not here - see C<Tira::CLI>'s
+C<_column_entry_required_action_violation>. Storing what a column asks for
+and refusing a move are deliberately separate: the browser dashboard's own
+move calls the engine directly and is not refused, because a human dragging
+a card is not an agent skipping a gate.
 
 C<administrative_action> (TKT-678) declares, by exact item text, which of a
 column's required actions a backward move must never reset - the reset

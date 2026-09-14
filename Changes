@@ -1,5 +1,20 @@
 Revision history for Tira
 
+5.115  2026-09-14
+    - TKT-670: lib/Tira.pm documented column_update twice - one entry filed
+      with record_update (introduced by TKT-591's own POD split), one in
+      the column_* family. Reading both line by line found they had
+      diverged rather than one simply going stale: each carried real
+      content the other lacked (the record_update-filed one had the 5.92
+      conditional-entry feature and the CLI dispatch-layer gating note;
+      the column-family one had administrative_action/TKT-678 and the
+      TKT-651 "template" naming correction). Merged both into the single
+      surviving entry, in the column family per the ticket's own
+      acceptance criteria - its title said the opposite of its criteria,
+      followed the binding, testable statement. t/344 now also asserts no
+      =head2 name appears more than once, so a future duplicate fails a
+      gate instead of sitting unnoticed.
+
 5.114  2026-09-14
     - TKT-667: the browser onboarding form's Columns box came back empty
       for a project whose sow/epic/ticket boards have diverged, since

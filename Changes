@@ -1,5 +1,32 @@
 Revision history for Tira
 
+5.111  2026-09-14
+    - TKT-642: lib/Tira.pm generated three kinds of item id and did it two
+      different ways. Tasks read a persisted counter file AND scanned
+      existing items for the highest number, taking whichever was larger,
+      so an id was never reissued even after a removal (tasklist_remove
+      exists). conversation_add already scans for the max too. But
+      required_item_add and checklist_add derived their next id from
+      'scalar(@list) + 1' - correct only while nothing ever shortens the
+      list. Nothing removes a required item or a checklist entry today, so
+      this was not a live bug, but required-item ids are quoted in proofs,
+      refusals, and required-action.update calls, and TKT-583's
+      reused-proof machinery stashes a confirmation code against an item
+      by id - a reissued id would inherit a history that was never its
+      own. Both functions now scan for the highest existing number
+      instead of counting, matching conversation_add's own pattern - no
+      persisted counter needed, since these ids live inside a single
+      record rather than a shared list. This closes the collision case -
+      a removed item can no longer make a later add reuse an id still on
+      the list - but not the one a max-scan structurally cannot: removing
+      the currently-highest item and adding again reissues that same
+      number, the same limit conversation_add already carried; closing
+      that too would need a persisted counter, deliberately out of scope
+      here. New test: t/1085-an-id-that-came-back-from-the-dead.t,
+      simulating a hand-removal (there is no removal command for either
+      list) and proving both the collision case and the documented
+      max-item limit.
+
 5.110  2026-09-14
     - TKT-634: found by using it while working TKT-591 - tools/browser-tests
       took a single positional argument and read it as a port

@@ -766,7 +766,7 @@ overrides, 5.23), `lib/Tira/Tasklist.pm` (the shared to-do queue, 5.24) and
 `lib/Tira/Render.pm` (the human and table renderers, 5.25) and
 `lib/Tira/Attachment.pm` (storing files and hanging them off records, 5.42),
 each loaded with `require` at the point it is actually needed. `lib/Tira.pm` is
-16,686 lines now (TKT-612) - grown rather than shrunk since the fourth lift,
+16,713 lines now (TKT-642) - grown rather than shrunk since the fourth lift,
 since most releases that touch it add more than any one concern removes.
 Entry points keep their names throughout - the split is where the
 code lives, not what anything is called. They are inlined at render rather than linked, so the board still
@@ -896,6 +896,19 @@ to notice you are not where you thought you were.
 
 See [the foundation guide](docs/foundation.md) and [SKILLS.md](SKILLS.md) for
 the complete implemented Tira ecosystem.
+
+Ids inside a record - `REQ-NNN` on required items, `CHK-NNN` on checklist
+entries, `CNV-NNN` on conversation entries - come from scanning the existing
+entries for the highest number rather than counting how many there are, so
+a removal (there is no removal command for either list today) never causes
+a later add to collide with an id still on the list (TKT-642, 5.111). It
+does not fully protect the one id that was itself the highest - removing
+that entry and adding another reissues the exact number just freed, the
+same known limit `conversation_add` already lived with before this ticket;
+closing that case needs a persisted counter, deliberately out of scope
+here. Task ids (`TSK-NNN`) go one step further, since they
+live in a shared list rather than inside one record: a small persisted
+counter next to the list survives even a task being fully removed.
 
 ## Verification
 

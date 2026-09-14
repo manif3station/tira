@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.110';
+our $VERSION = '5.111';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4814,7 +4814,14 @@ sub checklist_add {
             die "Unknown checklist status '$args{status}' - the values that work are pending, done, and To Do\n";
         }
         my $record = $self->record_show(%args);
-        my $number = @{ $record->{checklist} } + 1;
+
+        # TKT-642: scan for the highest existing number rather than
+        # counting, the same way conversation_add already does - counting
+        # reissues a removed entry's id the moment the list is shortened.
+        my $number = 1;
+        for my $existing ( @{ $record->{checklist} // [] } ) {
+            $number = $1 + 1 if $existing->{id} =~ /\ACHK-(\d+)\z/ && $1 >= $number;
+        }
         my $now = $self->{clock}->();
         my $entry = {
             id => sprintf( 'CHK-%03d', $number ), item => $args{item}, status => $args{status},
@@ -5042,7 +5049,13 @@ sub required_item_add {
             }
         }
 
-        my $number = @{ $record->{required_items} } + 1;
+        # TKT-642: scan for the highest existing number rather than
+        # counting, the same way conversation_add already does - counting
+        # reissues a removed item's id the moment the list is shortened.
+        my $number = 1;
+        for my $existing ( @{ $record->{required_items} } ) {
+            $number = $1 + 1 if $existing->{id} =~ /\AREQ-(\d+)\z/ && $1 >= $number;
+        }
         my $now = $self->{clock}->();
         my $entry = {
             id => sprintf( 'REQ-%03d', $number ),
@@ -15893,6 +15906,12 @@ item, since one created done has nothing left to prove and the checklist
 gates would have nothing to mark. An explicit C<--status> still wins,
 unchanged, and still validates against the declared set above.
 
+Since 5.111 (TKT-642) the next C<CHK-NNN> id is the highest existing
+number plus one, scanned from the record's own checklist, rather than
+C<scalar(@list) + 1> - counting reissued a removed entry's id the moment
+the list was shortened by hand (there is no removal command), the same
+fix C<required_item_add> got at the same time.
+
 =head2 checklist_update
 
 Updates a checklist entry's item text or status. C<--id> is required even
@@ -16002,6 +16021,14 @@ text match against the column's current entry list - the marker
 survives a rename, the text match keeps a manually-completed item
 satisfying an entry requirement the same way it already satisfies an
 exit one (TKT-445). TKT-652.
+
+Since 5.111 (TKT-642) the next C<REQ-NNN> id is the highest existing
+number plus one, scanned from the record's own required items, rather
+than C<scalar(@list) + 1> - the same fix C<checklist_add> got at the
+same time, and for the same reason: a required-item id is quoted in
+proofs, refusals, and C<required-action.update> calls, so reissuing one
+after a hand-removed item would hand a later item a history that was
+never its own.
 
 =head2 required_item_update
 

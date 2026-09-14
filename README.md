@@ -264,6 +264,12 @@ done costs. Forty-nine commands are not there yet and still answer with a bare
 `[options]` — `tira.police`, `tira.next` and the `policy.*`, `backup.*` and
 `project.*` families among them; that set is a written-down ledger a test
 holds, so it can shrink but not grow unnoticed.
+`--help` on a name that is not a real command is refused rather than
+answered, since 5.112 (TKT-660) — it used to return the same fallback usage
+line a real command with no line yet gets, printed for a name with no
+entrypoint anywhere, and a caller composing a call from it learned the
+command did not exist only once it ran. The refusal suggests a near match
+the same way an unknown option already does.
 The Columns dialog also carries an Entry checkbox per row, so which
 column (or columns — a board can start new cards in more than one
 place) new cards land in is chosen from the browser, not just

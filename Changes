@@ -1,5 +1,29 @@
 Revision history for Tira
 
+5.112  2026-09-14
+    - TKT-660: asking Tira::CLI->run() for --help about a command that does
+      not exist answered as though it does - it printed the fallback usage
+      line ("Usage: dashboard tira.not.a.real.command [options] [-o toon|
+      json|human]") and returned success, because run()'s help branch
+      handles --help before dispatch, so the dispatcher's own unknown-
+      command "Did you mean" is never reached. The one moment an agent
+      most wants to be told it has the name wrong got what read like
+      confirmation. --help on a bare command now refuses unless it is one
+      this skill actually dispatches, and suggests a near match the same
+      way the dispatcher and the unknown-option refusal already do. New
+      module lib/Tira/CLI/Command.pm (known_command/nearest_commands)
+      reads lib/Tira/CLI.pm's own dispatch surface, both the literal
+      '$command eq' shape t/410 already reads for its usage-line ledger
+      AND the regex-alternation shape ($command =~ /\Alogin\.(register|
+      check|status|logout)\z/ and two dozen more) t/410 does not need to -
+      an early version checking only the first shape would have refused
+      --help for login.status, dashboard.sow and every other
+      regex-dispatched command as unknown, caught by this ticket's own
+      t/1086 the first time it ran against a real implementation. Typed
+      record commands (ticket.foo, epic.bar) are unaffected. Split into
+      its own module rather than growing lib/Tira/CLI/Usage.pm past its
+      500-line limit. New test: t/1086-a-usage-line-for-nothing.t.
+
 5.111  2026-09-14
     - TKT-642: lib/Tira.pm generated three kinds of item id and did it two
       different ways. Tasks read a persisted counter file AND scanned

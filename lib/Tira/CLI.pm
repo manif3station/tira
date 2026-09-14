@@ -409,6 +409,23 @@ sub run {
     #
     if ( $option{help} || $command eq 'policies' || $command eq 'job.help' ) {
         require Tira::CLI::Usage;
+
+        # TKT-660. --help ran before dispatch ever asked whether the
+        # command was real, so the one moment an agent most wants to be
+        # told it has the name wrong got what read like confirmation: a
+        # usage line naming the invented command back. Typed record
+        # commands ($type defined - ticket.foo, epic.bar) are untouched.
+        # A bare command with no entrypoint anywhere now refuses here
+        # instead, with the same "Did you mean" shape the dispatcher and
+        # the unknown-option refusal both already give.
+        if ( $option{help} && !defined($type) && $command ne 'policies' && $command ne 'job.help' ) {
+            require Tira::CLI::Command;
+            if ( !Tira::CLI::Command::known_command($command) ) {
+                my $near = Tira::CLI::Command::nearest_commands($command);
+                return _error( $tira, $option{output}, "Unknown command '$command'"
+                  . ( @{$near} ? "\nDid you mean:\n" . join( "\n", map {"  $_"} @{$near} ) : '' ) );
+            }
+        }
         print $command eq 'policies' ? Tira::CLI::Usage::_policy_help()
           : $command eq 'job.help'   ? Tira::CLI::Usage::_job_help()
           :                            Tira::CLI::Usage::_usage( $command, $type );
@@ -2090,6 +2107,7 @@ in modules of their own:
     Tira::CLI::Wizard    onboard's questions, and the line editor that asks them
     Tira::CLI::Backup    the four backup verbs, and the readers others ask
     Tira::CLI::Usage     usage lines, policy help, and "did you mean"
+    Tira::CLI::Command   whether a bare command name is real, and its nearest match
     Tira::CLI::Records   creating a record, and the question verbs
     Tira::CLI::Board     columns, the next card, logins, policies
 
@@ -2130,6 +2148,15 @@ produce a failed command and a fully created project at the same time, with
 nothing to roll back. The accepted values come from
 C<onboarding_questions()> rather than being written out here, so the two
 cannot disagree.
+
+Since 5.112 (TKT-660), C<--help> for a bare command name that this skill does
+not dispatch is refused rather than answered with the fallback usage line -
+C<Tira::CLI::Command::known_command> tests the name against the real
+dispatch surface (both the literal C<$command eq> shape and the regex
+alternations like C<login.(register|check|status|logout)>), and
+C<nearest_commands> offers a near match when there is one. Typed record
+commands (C<$type> defined) are unaffected: their own entrypoint scripts
+always pass C<type> explicitly, never the bare dotted name.
 
 Moving a card into a column that carries required actions prints a reminder
 naming how many arrived and to work them one at a time, each with its own

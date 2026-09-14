@@ -11,18 +11,71 @@
 # fails, this exits non-zero and says which - because skipping quietly is how
 # seven files came to be counted as coverage while covering nothing.
 #
-# Usage: tools/browser-tests [port]
+# Naming no test runs all of them, still starting and stopping one board -
+# that stays the default so no browser test goes unrun by omission. Iterating
+# on one browser-facing change does not need to pay for the other nine:
+# --only NAME (repeatable) runs just the named file(s), board lifecycle
+# unchanged. TKT-634.
+#
+# Usage: tools/browser-tests [--only NAME]... [port]
 
 set -uo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
+# TKT-634. Every argument used to be read as the port unconditionally, so
+# the natural guess for "run just this one" - tools/browser-tests
+# column-editor.js - took the test's own name AS the port, and the failure
+# that followed blamed the board rather than the argument: "the board never
+# came up on port column-editor.js". Kept as its own function, rather than
+# inline, so its parsing can be proven against fake argv without starting a
+# board - the same discipline t/348 already established for this file, and
+# for the same reason t/290 exists: a change that looks right by eye already
+# broke this file's own behaviour once without a test catching it.
+#
+# Sets (and, run via `parse_args "$@"`, exports to the caller's own shell -
+# deliberately not a subshell) two things: `port`, empty unless a purely
+# numeric argument was given; and `only`, an array of test file names to run
+# instead of everything. An argument that is neither is refused by name,
+# naming the `--only` form as the way to mean it.
+only=()
+port=""
+parse_args() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --only)
+                shift
+                if [ $# -eq 0 ]; then
+                    echo "browser-tests: --only needs a test file name, e.g. --only column-editor.js" >&2
+                    return 1
+                fi
+                only+=("$1")
+                ;;
+            *)
+                if [[ "$1" =~ ^[0-9]+$ ]]; then
+                    if [ -n "$port" ]; then
+                        echo "browser-tests: only one port can be given - '$port' was already set, then '$1'." >&2
+                        return 1
+                    fi
+                    port="$1"
+                else
+                    echo "browser-tests: '$1' is not a port - a port is a whole number." >&2
+                    echo "  Did you mean to run just that one test? Use: tools/browser-tests --only $1" >&2
+                    return 1
+                fi
+                ;;
+        esac
+        shift
+    done
+    return 0
+}
+parse_args "$@" || exit 1
+
 # A port this run can have, rather than one it assumes. Given explicitly, it is
 # used as given and a clash is refused - a caller naming a port means it. Given
 # nothing, the first free one from 7841 upwards is taken, so another project
 # holding the default blocks nothing. TKT-344.
-port="${1:-}"
 port_was_given=1
 if [ -z "$port" ]; then
     port_was_given=0
@@ -481,7 +534,50 @@ run_one() {
     fi
 }
 
-for test in "$tests"/*.js; do
+# TKT-634. `only`, set by parse_args above, narrows which test files run;
+# empty (the default) means every .js file in $tests, exactly as before.
+# Kept as its own function, extracted and run against a fake tests/
+# directory the same way parse_args is proven above - a caller naming a
+# test that does not exist is refused by name here rather than silently
+# running nothing for it.
+select_tests() {
+    if [ ${#only[@]} -eq 0 ]; then
+        printf '%s\n' "$tests"/*.js
+        return 0
+    fi
+    local missing=() name
+    for name in "${only[@]}"; do
+        if [ -f "$tests/$name" ]; then
+            printf '%s\n' "$tests/$name"
+        else
+            missing+=("$name")
+        fi
+    done
+    if [ ${#missing[@]} -gt 0 ]; then
+        echo "browser-tests: no such test(s): ${missing[*]}" >&2
+        echo "  Known tests: $(cd "$tests" && printf '%s ' *.js)" >&2
+        return 1
+    fi
+    return 0
+}
+
+# TKT-634/CHK-005. Every mapping below by name, so an unmapped test fails
+# closed rather than silently falling through to the plain-board catch-all
+# a new test was never written against - the exact trap that cost a round
+# trip diagnosing card-editors.js's own "Timeout 30000ms exceeded" instead
+# of "no fixture mapping".
+known_mappings="login-gate.js dashboard-browser.js card-dialog-refresh.js stale-board.js police-log.js gate-log-pagination.js required-actions.js priority-sort.js card-freshness.js wide-board.js wrap-board.js sticky-header-hysteresis.js dashboard-table.js card-editors.js mixed-case-done.js current-column-group.js source-attachment-preview.js announced-command.js job-card-empty-column.js column-editor.js policy-editor.js tasklist-section.js review-toggle.js"
+
+# Command substitution, not `mapfile < <(select_tests)` - Codex review
+# caught that process substitution loses the inner command's own exit
+# status through the pipe, so `|| exit 1` there was checking mapfile's
+# status, never select_tests'. A caller naming an unknown test with
+# --only got "0 browser tests ran" and exit 0 instead of the refusal.
+selected_tests_raw="$(select_tests)"
+select_status=$?
+[ "$select_status" -eq 0 ] || exit 1
+mapfile -t selected_tests <<< "$selected_tests_raw"
+for test in "${selected_tests[@]}"; do
     name="$(basename "$test")"
     case "$name" in
         login-gate.js)        run_one "$name" "http://127.0.0.1:$port" ;;
@@ -529,7 +625,19 @@ for test in "$tests"/*.js; do
         column-editor.js)     run_one "$name" "$live_html" ;;
         policy-editor.js)     run_one "$name" "$live_html" ;;
         tasklist-section.js)  run_one "$name" "$live_html" ;;
-        *)                    run_one "$name" "$html" ;;
+        # Codex review caught this one missing entirely: review-toggle.js
+        # takes exactly one fixture-html argument, the same shape the
+        # generic catch-all below used to hand every unmapped file - it
+        # was genuinely running correctly under that catch-all, and the
+        # new fail-closed default (TKT-634/CHK-005) would have broken it
+        # by naming it "unmapped" rather than by anything wrong with it.
+        review-toggle.js)     run_one "$name" "$html" ;;
+        *)
+            echo "browser-tests: no fixture mapping for '$name' - refusing rather than guessing."
+            echo "  Known mappings: $known_mappings"
+            echo "  Add a case for it above, naming the fixture it needs."
+            failed=$(( failed + 1 ))
+            ;;
     esac
 done
 

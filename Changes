@@ -1,5 +1,25 @@
 Revision history for Tira
 
+5.110  2026-09-14
+    - TKT-634: found by using it while working TKT-591 - tools/browser-tests
+      took a single positional argument and read it as a port
+      unconditionally, so the natural guess for "run just this one",
+      tools/browser-tests column-editor.js, took the test's own name AS
+      THE PORT: "the board never came up on port column-editor.js" named
+      neither mistake. There was also no way to run a single browser test
+      at all - every invocation started a board and drove all ten files.
+      Added parse_args() (validates the positional as a whole-number port,
+      refusing anything else by name and suggesting --only NAME) and
+      select_tests() (repeatable --only NAME narrows which files run,
+      defaulting to all as before). Also fixes a second silent misroute
+      found in the same file the same visit (CHK-005): an unmapped test
+      file used to fall through to the generic board fixture with no
+      warning to the author; the dispatch's catch-all now fails closed,
+      naming the unmapped file and every known mapping. New test:
+      t/1084-a-test-name-mistaken-for-a-port.t, extracting both new
+      functions and running them against fake argv/fixtures the same way
+      t/348 already does for this file.
+
 5.109  2026-09-14
     - TKT-612: his own question about his own board's history - he moved a
       card backlog -> next-to-work-on in the browser, deliberately ungated

@@ -1,5 +1,19 @@
 Revision history for Tira
 
+5.116  2026-09-14
+    - TKT-691: docs/POLICIES.md's Requires column claimed --notify was
+      required for agent-still and --read-age for answer-unjudged, though
+      both are documented as optional add-ons right beside the claim -
+      declaring either rule without them works fine. New guard
+      (t/1092) compares every rule's documented Requires cell against its
+      real %POLICY_RULES needs, in both directions, using the CLI's own
+      key-to-flag mapping (card-stalled's 'before' need against its real
+      --before-column flag, not a naive --before) so it does not itself
+      drift the way the two corrected cells did. Excludes --type (a
+      generic scope every rule shares, not a per-rule need) and treats
+      task-card-mismatch's --column-role as the alternative spelling of
+      --column its own row already says it is.
+
 5.115  2026-09-14
     - TKT-670: lib/Tira.pm documented column_update twice - one entry filed
       with record_update (introduced by TKT-591's own POD split), one in

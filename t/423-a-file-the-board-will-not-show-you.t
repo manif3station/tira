@@ -41,7 +41,11 @@ use Tira;
 # An anchor. Without it the failures below read as "the engine has no idea what
 # text is" rather than "its list is too short".
 
-is( Tira::_attachment_content_type('md'), 'text/plain; charset=UTF-8',
+# TKT-707: called with no path at all, nothing can be read to confirm a
+# charset - the type is still text (unchanged, this card's whole point),
+# but the charset claim this anchor originally carried was never actually
+# checked against any bytes. See t/1093 for the charset behaviour itself.
+is( Tira::_attachment_content_type('md'), 'text/plain',
     'a markdown attachment is served as text, as it always has been' );
 is( Tira::_attachment_content_type('png'), 'image/png',
     'and an image is still an image - widening text must not swallow the other kinds' );

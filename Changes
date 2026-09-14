@@ -1,5 +1,22 @@
 Revision history for Tira
 
+5.117  2026-09-14
+    - TKT-707: a text attachment was always labelled charset=UTF-8
+      regardless of its actual bytes - a Latin-1 source rendered as
+      replacement characters in any viewer that trusted the header.
+      _attachment_content_type's named-extension path (a .pl is Perl by
+      name, unconditionally) never read the file at all; its sniff path
+      had the bytes in hand but never checked them against UTF-8 either.
+      New _utf8_charset_suffix reads the WHOLE file fresh for both paths
+      (bounded by the module's existing 16MB upload cap) rather than
+      reusing the sniff path's own 8KB _attachment_head sample, and only
+      claims the charset once actually confirmed - an earlier draft
+      reused the 8KB sample and still mislabelled an invalid byte past
+      that boundary, which is what the whole-file read exists to fix.
+      Both paths still decide TEXT the same way as before - only the
+      charset claim changed. New test:
+      t/1093-a-charset-that-guessed-wrong.t.
+
 5.116  2026-09-14
     - TKT-691: docs/POLICIES.md's Requires column claimed --notify was
       required for agent-still and --read-age for answer-unjudged, though

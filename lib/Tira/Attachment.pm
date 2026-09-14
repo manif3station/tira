@@ -344,7 +344,15 @@ sub _attachment_content_type {
       pl pm py rb java go rs php js jsx ts tsx css scss c h cpp hpp cc sh bash
       sql ini toml conf cfg diff patch tsv rst
     );
-    return 'text/plain; charset=UTF-8' if $text{$extension};
+    # TKT-707. Named rather than sniffed for WHETHER this is text - a .pl
+    # is Perl whatever its bytes look like - but the charset is a separate
+    # question this list was never asked, and claiming UTF-8 for bytes
+    # never examined is the same fault the sniff path below already had:
+    # a Latin-1 source served with that header renders as mojibake in a
+    # viewer that trusts it. So the type is still decided by the
+    # extension, but the charset is read the same way the sniff path
+    # below reads it - checked, not assumed from the name alone.
+    return 'text/plain' . _utf8_charset_suffix($path) if $text{$extension};
 
     # And a list of things that are definitely NOT text, so the sniff below
     # never has to guess about them - a zip whose first bytes happen to look
@@ -361,8 +369,38 @@ sub _attachment_content_type {
     # an extension nobody anticipated is shown if it reads as text, and the
     # list above only exists to answer the cases where guessing would be worse
     # than knowing.
-    return _looks_like_text( _attachment_head($path) )
-      ? 'text/plain; charset=UTF-8' : 'application/octet-stream';
+    my $head = _attachment_head($path);
+    return 'application/octet-stream' if !_looks_like_text($head);
+
+    # TKT-707. _looks_like_text's own printable-byte check happily accepts
+    # the high bytes (0x80-0xff) a Latin-1 file is full of - it answers "is
+    # this text", not "is this UTF-8" - so claiming charset=UTF-8 here for
+    # bytes that were never actually validated as UTF-8 was the same
+    # unchecked guess the named-extension path above used to make.
+    return 'text/plain' . _utf8_charset_suffix($path);
+}
+
+# The one place either code path above claims UTF-8, and the one place
+# either checks it. Reads the WHOLE file rather than reusing _attachment_head's
+# 8KB sniff sample - Codex review: an invalid byte past that boundary would
+# otherwise still be served as charset=UTF-8, which is the exact bug this
+# ticket exists to remove, only moved further into the file. Uploads are
+# capped at 16MB (this file's own upload refusal, "That file is too large"),
+# so reading one whole is bounded, unlike reading an arbitrary stream would
+# be. Decoded with
+# FB_CROAK so a single invalid sequence anywhere in the file refuses the
+# charset claim rather than Encode's default of silently substituting
+# replacement characters.
+sub _utf8_charset_suffix {
+    my ($path) = @_;
+    return '' if !defined $path || !-f $path;
+    open my $fh, '<:raw', $path or return '';
+    local $/;
+    my $bytes = <$fh>;
+    close $fh;
+    return '' if !defined $bytes;
+    my $is_utf8 = eval { Encode::decode( 'UTF-8', $bytes, Encode::FB_CROAK ); 1 };
+    return $is_utf8 ? '; charset=UTF-8' : '';
 }
 
 # The first few kilobytes of a stored attachment, or undef when there is

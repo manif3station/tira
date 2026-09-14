@@ -871,7 +871,19 @@ means binary. Nothing to examine means refusal rather than a guess. The
 browser viewer holds no extension list of its own; it reads this field,
 and the twelve languages named on TKT-645 are highlighted in the page by
 an embedded 4.5KB tokeniser, since the board loads nothing over the
-network. The `/attachment` download route computes the same answer from
+network.
+
+**The charset half of that decision is checked, not assumed, since 5.117**
+(TKT-707): every text attachment used to be labelled `charset=UTF-8`
+whatever its actual bytes were - a Latin-1 source saved on a machine that
+never defaults to UTF-8 rendered as replacement characters in any viewer
+that trusted the header. Both the named-extension path (a `.pl` is Perl
+by name, unconditionally) and the sniff path now separately confirm the
+bytes actually decode as UTF-8 before claiming that charset; either way,
+a file whose bytes are not valid UTF-8 is still served as `text/plain`
+with no charset, rather than mislabelled.
+
+The `/attachment` download route computes the same answer from
 the same stored bytes (TKT-713) - it once decided from the extension
 alone, since the stored path that lets an unlisted extension be sniffed
 was silently dropped on the way there, so a file the dialog correctly

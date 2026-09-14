@@ -1,5 +1,18 @@
 Revision history for Tira
 
+5.118  2026-09-14
+    - TKT-693: checklist.update and required-action.update only accepted an
+      id (CHK-NNN/REQ-NNN) via --id, but the wording an agent actually has
+      in front of it is the entry's own text - printed on the card and
+      quoted in whatever instruction it is following - forcing a
+      ticket.show read before every single tick. Both commands now also
+      accept an entry's own exact wording as the value of --id: an
+      unambiguous match ticks it, more than one match refuses and names
+      every matching id, and no match keeps the existing not-found
+      refusal. --item's existing meaning (rename an entry) is unchanged
+      and cannot be confused with addressing one. New test:
+      t/1094-a-wording-that-was-already-an-id.t.
+
 5.117  2026-09-14
     - TKT-707: a text attachment was always labelled charset=UTF-8
       regardless of its actual bytes - a Latin-1 source rendered as

@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.117';
+our $VERSION = '5.118';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4863,6 +4863,23 @@ sub checklist_update {
     return $self->_with_project_lock( $root, sub {
         my $record = $self->record_show(%args);
         my ($entry) = grep { $_->{id} eq $args{id} } @{ $record->{checklist} };
+
+        # TKT-693. --id was the only way to address an entry, though the
+        # wording an agent has in front of it is the entry's own text, not
+        # its id - printed on the card and quoted in whatever instruction it
+        # is following. An exact, unambiguous match on that text is treated
+        # the same as the id would be; --item is untouched and still renames
+        # rather than addresses, since it is a different argument entirely.
+        if ( !$entry ) {
+            my @text_matches = grep { defined $_->{item} && $_->{item} eq $args{id} } @{ $record->{checklist} };
+            if ( @text_matches == 1 ) {
+                $entry = $text_matches[0];
+            }
+            elsif ( @text_matches > 1 ) {
+                die "Checklist entry text '$args{id}' matches more than one entry: "
+                  . join( ', ', map { $_->{id} } @text_matches ) . " - address by id instead\n";
+            }
+        }
         if ( !$entry ) {
             my @ids = map { $_->{id} } @{ $record->{checklist} };
 
@@ -5343,6 +5360,20 @@ sub required_item_update {
         # Same pre-3.03 legacy-record case required_item_add guards against.
         $record->{required_items} //= [];
         my ($entry) = grep { $_->{id} eq $args{id} } @{ $record->{required_items} };
+
+        # TKT-693. Same text-addressing fallback as checklist_update, for
+        # the same reason: an agent has the entry's own wording in front of
+        # it, not its id. --item is untouched and still renames.
+        if ( !$entry ) {
+            my @text_matches = grep { defined $_->{item} && $_->{item} eq $args{id} } @{ $record->{required_items} };
+            if ( @text_matches == 1 ) {
+                $entry = $text_matches[0];
+            }
+            elsif ( @text_matches > 1 ) {
+                die "Required item text '$args{id}' matches more than one entry: "
+                  . join( ', ', map { $_->{id} } @text_matches ) . " - address by id instead\n";
+            }
+        }
         if ( !$entry ) {
             my @ids = map { $_->{id} } @{ $record->{required_items} };
 
@@ -15936,6 +15967,17 @@ C<_proof_entries_for>, which both this and C<required_item_update> call, so the
 CLI and the engine cannot come to different conclusions about the same pair.
 TKT-585.
 
+Since 5.118 (TKT-693), C<--id> also accepts an entry's own exact C<item>
+text as an alternative to its id - the wording an agent has in front of
+it, rather than an id it would otherwise run C<ticket.show> to find. An
+unambiguous match resolves to that entry exactly as its id would; text
+matching more than one entry refuses, naming every matching id, and
+changes nothing; text matching no entry falls through to the existing
+not-found refusal. C<--item> is unaffected and still renames the entry
+addressed by C<--id> - it is a separate argument and does not become a
+second way to address one. C<required_item_update> gets the identical
+fallback.
+
 =head2 _proof_entries_for
 
 Turns C<--command>/C<--proof> arguments into what is stored on an item, and is
@@ -16061,6 +16103,12 @@ written. Ids named together in one call share the given proof without
 tripping the reused-proof check against each other - only reuse against an
 item outside the batch still needs C<repeated_reason>. Refused when given
 alongside C<item>.
+
+Since 5.118 (TKT-693), the single C<id> form also accepts an entry's own
+exact C<item> text as an alternative to its id, the identical fallback
+C<checklist_update> gained at the same time - see that method's own
+entry for the full reasoning. C<ids> is unaffected: its batch form still
+addresses only by real id.
 
 =head2 search
 

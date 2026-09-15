@@ -1,0 +1,162 @@
+=head1 NAME
+
+Tira::CLI::Police - the police pass, the bridge, and the world it scans
+
+=head1 DESCRIPTION
+
+C<police_world> gathers what is true of this machine - running processes and
+containers, git branches, worktrees, unpushed commits, when the tree last
+changed - and C<police_pass> in L<Tira> judges the board against it.
+C<police_follow> and C<bridge_follow> are the two loops in this module.
+C<report_to_tira> is the body behind C<tira.dev.found.bug_or_improvement>.
+
+=head2 Which of these runs a pass
+
+Only three call C<police_pass>, and the difference is the whole reason
+C<--fresh> exists:
+
+=over
+
+=item * C<police_follow> - the C<d2 tira.police> watch loop, on every tick.
+
+=item * C<police_run> - a single pass on demand.
+
+=item * C<police_outstanding> - B<only> when C<--fresh> is given. Without it
+the command reports what the last pass wrote, however old that is.
+
+=back
+
+C<bridge_follow> never runs one. It streams what a pass has already recorded,
+so a board whose watcher has stopped keeps answering from the last pass and the
+bridge cannot tell. That is not a defect in the bridge - one process writes to a
+project, and a reader that started passes of its own would be a second writer -
+but it does mean the loop that looks most like it is watching the board is the
+one that never judges it.
+
+Said here because it was written down nowhere outside this source until 4.81,
+and two cards were raised by somebody who could not find it out. TKT-745.
+
+They lived in C<Tira::CLI> until 4.74. C<Tira::CLI> now loads this module with
+C<require> at each point one of those verbs is entered, so a CLI call that never
+polices anything never compiles the world scan.
+
+=head2 advance_monitor_output
+
+What takes a monitor's words off its job record after a pass has reported them.
+The engine deliberately writes nothing during a pass - F<t/86> requires a pass to
+change not one byte of the board - so the pass hands out marks saying what it
+announced and this clears them afterwards, under the CLI where writing is
+allowed.
+
+B<It asks what the pass REPORTED, not what the rule meant to report.> Until 5.47
+its only guard was the mark's C<spoke> flag, which is set from the same condition
+that calls the reporter - so it was true when the reporter returned without
+reporting, which happens for a suspended rule or a declined finding. The words
+came off the record with nothing anywhere having said them, which is the one loss
+the C<monitor-output> rule exists to prevent. TKT-925.
+
+B<Recorded, not announced, and the distinction is load-bearing.> The first
+version of that guard also required the policy's action to be C<bridge-reminder>
+and the finding not to be quiet, and both are wrong. A C<log-only> rule is one
+being tuned: its findings still reach the ledger and C<tira.police.outstanding>,
+and its output must still drain. And quiet means these exact words were already
+announced - a poller doing the same work every minute prints the same line
+constantly, and F<t/502> exists to assert that the repetition is drained rather
+than said again.
+
+=head2 Why each entry says require
+
+There are five entries into this module from C<Tira::CLI> and each carries its
+own C<require>. C<require> is idempotent - it consults C<%INC> and returns - so
+the repetition costs nothing at runtime, and it buys the property that matters
+in an index: a reader at any one of those call sites can see where control is
+going without having to know that an earlier branch was taken first.
+
+=head2 The singleton
+
+C<police_claim_singleton>, C<police_release_singleton>, C<police_singleton_path>
+and C<police_goodbye> are the lock that stops two police passes running against
+one board at once, and the farewell the second one prints. They move together
+because they are one mechanism.
+
+B<Who wins.> The owner's ruling on TKT-486 is that the last run wins: a new
+claimant kills whatever held the claim and says so. That is unchanged, and it is
+still what happens between two ordinary daemons.
+
+B<The dashboard is the one exception>, his answer to Q-117 on TKT-897: I<"The
+dashboard is a special case - while it holds police, a later tira.police says so
+and exits 0. TKT-486 still applies everywhere else.">  So a claim may name a
+holder as well as a pid - C<< holder => 'dashboard' >> - and an ordinary
+claimant meeting a live dashboard stands down instead of killing it.
+
+Three things about that are deliberate rather than incidental. B<The ordinary
+claim is still written as a bare pid>, because nothing about the ordinary case
+changed and rewriting its record would break readers that are right to expect
+one. B<A yielding claimant does not write the file at all>: stamping its own pid
+on the way out would leave the record naming a process about to exit while the
+dashboard ran on unrecorded. And B<a claim left behind by a dashboard that has
+died is not a reason to stand down> - the alive-check decides that, exactly as
+it always has, or one unclean exit would block police until somebody deleted a
+file by hand.
+
+B<What the exception costs, said rather than discovered.> An ordinary police can
+see the dashboard alive, stand down, and exit - and the dashboard can die a
+moment later. Nothing then watches the board until something starts again, and
+the claim file names a dashboard that is gone. The next claimant takes it
+normally, because the alive-check handles exactly that, so the state repairs
+itself the moment anybody tries. But between those two points there is a window
+where somebody believes police is running inside a dashboard that has stopped.
+Closing it properly means holding a lock across a fork, which is a larger change
+than the rule it would protect; it is written down here instead, because a gap
+somebody can read about is one they can plan around.
+
+=head2 How this module is loaded
+
+C<Tira::CLI> pulls this in with C<require> at the point one of its verbs runs,
+so a command that never needs it never compiles it. It calls into L<Tira::CLI::Backup> and L<Tira::CLI::Serve>, and asks for
+that the same way - inside the sub that needs it, not at the top of this
+file. A C<use> there is correct and turns a lazy chain eager, which is how
+C<tira.next> came to compile four modules for the sake of one helper for the
+first hour after the split.
+
+=head2 run_due_job
+
+Runs a due command-mode job and returns C<< { ran, status, output } >>. A
+message-mode job returns C<< ran => 0 >> and is not executed; the engine has
+already announced it and that is all it owes.
+
+B<This is where execution lives, and the placement was decided by a test.> The
+engine is forbidden every shell-invoking construct, and the guard's pattern
+catches the list form as well - so "without a shell" buys no exception there.
+C<Suite::engine_source()> already excludes F<lib/Tira/CLI> because
+L<Tira::CLI::Serve> legitimately needs one to serve a board, so this layer is
+the sanctioned home and no second exception was invented for jobs.
+F<t/489> still asserts the C<job-due> rule body runs nothing and F<t/492>
+asserts it of the whole engine.
+
+The command is split on whitespace and handed to C<IPC::Open3> as a list, so
+the program is named separately from its arguments and a semicolon in a
+command is an argument rather than an instruction. B<There is no quoting>:
+C<echo "two words"> is four arguments. A job that needs quoting should be a
+script, which is also the answer that keeps the guarantee.
+
+Stdout and stderr are both captured - stdout in full, then stderr appended, so
+ordering B<between> the streams is not preserved - and the exit status is
+returned rather than discarded, because a command that failed silently cannot be told apart
+from one that never ran - the ambiguity EPC-014 exists to remove. A program
+that is not installed is a B<result>, not a crash: what could not be run is
+named in C<output> with a status of -1, the same judgement
+C<Tira::CLI::Serve::_reading> already makes about a missing C<docker>.
+
+B<The command runs with no shell and no interactive C<PATH>> (TKT-1002): a
+bare program name that resolves fine typed into a terminal can fail here with
+"No such file or directory", because C<IPC::Open3> execs the words directly
+rather than through a login shell. See F<docs/JOBS.md>'s "The command is
+executed a second time" section for why, and for the fix - an absolute path
+in C<--command>.
+
+=head1 SEE ALSO
+
+L<Tira::CLI>, L<Tira::CLI::Backup>
+
+=cut

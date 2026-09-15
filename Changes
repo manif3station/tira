@@ -1,5 +1,37 @@
 Revision history for Tira
 
+5.133  2026-09-15
+    - TKT-1103: lib/Tira/CLI/Police.pm (1318 lines) and lib/Tira/CLI/Serve.pm
+      (1010 lines) both crossed Michael's 1000-line-per-module cap
+      (TKT-1092) - Serve.pm when TKT-1100 added the
+      TIRA_POLICY_BRIDGE_HOLDER marker, Police.pm the same ticket's own
+      singleton generalization on top of its accumulated growth since
+      TKT-1043's lift. lib/Tira/CLI/Serve.pod and lib/Tira/CLI/Police.pod
+      now carry each module's own POD (TKT-1098's convention) - for
+      Serve.pm the POD move alone was enough (965 lines), respecting
+      TKT-906's "process inspection, server lifecycle... one concern, do
+      not split" ruling rather than decomposing it. Police.pm needed more:
+      police_world and its own machine-reading helper cluster
+      (_running_containers, _running_processes, _git_branches,
+      _git_worktrees, _sandbox_clone_dirs, _unpushed_commits,
+      _tree_changing_since - what the file's own header already called
+      "the bulk of it") lifted into a new lib/Tira/CLI/Police/World.pm
+      (Police.pm: 1153 -> 990 lines). Four of those keep one-line
+      forwarders in Tira::CLI::Police - police_world, _running_processes
+      (Tira::CLI::Job::Monitor's own liveness check calls it directly),
+      _running_containers and _unpushed_commits/_tree_changing_since - all
+      called by several existing tests via their fully-qualified
+      Tira::CLI::Police:: name; the other three helpers have no caller
+      outside police_world itself and get none, the same convention
+      Tira::Tasklist's purely-internal helpers already follow.
+      _card_in_progress stays in Tira::CLI::Police (it reads the board,
+      not the machine) and is called back from the new module by its
+      fully-qualified name. New test t/1106 proves both files land at or
+      under the cap with their POD moved out, confirmed genuinely red
+      first. t/524's own 500-line-rule exemption text for both files
+      updated to reflect the real, current state rather than a stale
+      not-yet-owned description.
+
 5.132  2026-09-15
     - TKT-1100: repeated `d2 tira.dashboard` starts left every past
       `d2 tira.policy.bridge` child running beside the newest one -

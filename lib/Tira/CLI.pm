@@ -751,6 +751,16 @@ sub run {
         print "$result->{count}\n";
         return _finish( $tira, \%option, $command, 0 );
     }
+
+    # TKT-785. record.move's own dispatch stamps a 'moved' field onto the
+    # record it returns - printed here, ahead of the ordinary full-record
+    # dump, so the one fact that confirms the move worked is the first thing
+    # a reader (or a script grepping the first line) sees. Nothing is removed
+    # from $result: the field stays on it, so -o json/-o toon see it as an
+    # ordinary field below, and the full human dump still follows right after
+    # this line.
+    print _utf8_bytes("$result->{moved}\n")
+      if $option{output} eq 'human' && ref $result eq 'HASH' && defined $result->{moved};
     if ( $option{output} eq 'human' && $option{refs_only} && ref $result eq 'ARRAY' ) {
         print _utf8_bytes( join '', map { "$_\n" } @{$result} );
         return _finish( $tira, \%option, $command, 0 );
@@ -1676,9 +1686,17 @@ sub _invoke {
             my $entry_blocked = _column_entry_required_action_violation( $tira, %args );
             die $entry_blocked if defined $entry_blocked;
 
-            my $before  = eval { $tira->record_show(%args) };
-            my $from    = $before ? $before->{column} : undef;
+            # $from comes from record_move's OWN return value, not a
+            # separate record_show taken before it runs. TKT-785, Codex
+            # review: a read-then-move like that races a concurrent writer -
+            # reproduced directly, another move landing between the read and
+            # this one made the reported "from" name a column the record had
+            # already left. record_move now captures previous_column inside
+            # the very lock that performs the rename, so this is the column
+            # THIS call actually moved the record out of, never a stale read
+            # of somebody else's move.
             my $result  = $tira->record_move(%args);
+            my $from    = $result->{previous_column};
             my $columns = _columns_for( $tira, \%args, $result );
             _apply_column_required_actions( $tira, \%args, $from, $args{column}, $columns, $result )
               if ref $columns eq 'ARRAY';
@@ -1689,7 +1707,38 @@ sub _invoke {
             # population/reset above writes to the checklist after record_move
             # already captured its snapshot, so the caller's own output would
             # otherwise show the move without the side effect it just caused.
-            return $tira->record_show(%args);
+            my $final = $tira->record_show(%args);
+
+            # TKT-785. The one fact that confirms a move worked - where it
+            # went - used to be buried somewhere inside a full record dump
+            # that can run to hundreds of lines. A real card sat stalled for
+            # two hours because its own move was never actually confirmed to
+            # have landed. Added as an ordinary field on the record rather
+            # than a second return shape: -o json/toon already carry it
+            # alongside every other field for free, and run()'s own -o human
+            # path prints it as the first line before the usual full dump -
+            # every consumer of the full record is unaffected, since nothing
+            # here is removed. Every refusal above this point dies before
+            # reaching here, so a caller only ever sees this on a genuine
+            # success.
+            #
+            # Two gaps found by Codex review. First: a move onto the column a
+            # card is already resting in is not a move at all - record_move
+            # still runs (nothing refuses it) but previous_column equals the
+            # destination, so nothing changed and nothing should claim to
+            # have. Second: this record_show is a second, unlocked read,
+            # taken after record_move's own lock is released and after the
+            # required-action/tasklist side effects above have run - a
+            # concurrent writer could move the card again in that window, and
+            # reporting the literal $args{column} the CALLER asked for would
+            # then contradict the live $final->{column} sitting right beside
+            # it in the same payload. Reporting $final->{column} instead
+            # costs nothing in the ordinary case (they are the same value)
+            # and means the "moved" line can never disagree with the record
+            # it is printed next to.
+            $final->{moved} = "$args{ref} moved: $from -> $final->{column}"
+              if ref $final eq 'HASH' && defined $from && $from ne $args{column};
+            return $final;
         }
         return $tira->record_discard(%args) if $action eq 'discard';
         return $tira->record_restore(%args) if $action eq 'restore';

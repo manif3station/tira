@@ -762,7 +762,7 @@ none of it. Since 5.89 those assets are formatted rather than left as the
 single minified line each kept from the move - a change to any one of them
 now reads as an ordinary diff. Since 4.74 the CLI is split the same way for the same
 reason: `lib/Tira/CLI.pm` was 6,048 lines with every command body in it, and is
-2,519 lines now, with the bodies in `lib/Tira/CLI/` - `Browser`, `Police`, `Serve`,
+2,534 lines now, with the bodies in `lib/Tira/CLI/` - `Browser`, `Police`, `Serve`,
 `Records`, `Board`, `Wizard`, `Usage`, `Backup`. Each is loaded only when one of
 its commands runs, so an ordinary card command compiles none of them.
 Since 5.23 the engine is being split the same way and for the same reason:

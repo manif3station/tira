@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.126';
+our $VERSION = '5.128';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -3238,7 +3238,18 @@ sub record_move {
                 entries => [ { field => 'column', before => $previous_column, after => $column } ],
             );
         }
-        return { %{$record}, column => $column };
+
+        # previous_column, since 5.128 (TKT-785, Codex review). The CLI
+        # dispatch layer used to read the column BEFORE the move with its
+        # own separate, unlocked record_show call, taken before this lock is
+        # acquired - a genuine race, reproduced directly: another writer's
+        # move could land between that read and this one, so the "from"
+        # side of a move confirmation could name a column the record had
+        # already left. $previous_column is captured right here, inside the
+        # same lock that performs the actual rename, so it is exactly the
+        # column this move itself moved the record out of - never a stale
+        # read of somebody else's move.
+        return { %{$record}, column => $column, previous_column => $previous_column };
     } );
 }
 
@@ -15855,7 +15866,7 @@ Bulk export of records, honoring the same filtering as C<record_list> plus a cha
 
 =head2 record_move
 
-Moves a card to another column, running the chain, required-action, and journal-attribution checks along the way. Refuses a move with no author.
+Moves a card to another column, running the chain, required-action, and journal-attribution checks along the way. Refuses a move with no author. Since 5.128 (TKT-785) the returned record also carries C<previous_column>, the column it moved the record out of - captured inside the same project lock that performs the actual rename, so it names the column THIS call moved the record from rather than a value read by a separate, unlocked call that could race a concurrent writer.
 
 =head2 record_discard
 

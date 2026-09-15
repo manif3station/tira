@@ -1,5 +1,39 @@
 Revision history for Tira
 
+5.128  2026-09-15
+    - TKT-785: record.move's dispatch returned the whole re-fetched record
+      on success - the same full dump tira.TYPE.show gives, with the one
+      fact that actually confirms a move worked (the new column) buried
+      wherever it happens to sort among comments, required_items,
+      checklist, gate_passing_log and evidence. A real card sat stalled
+      in verify for roughly two hours because its own move was never
+      confirmed to have landed, caught only by an unrelated 30-minute
+      police poll. A successful move now stamps a "moved" field onto the
+      record it returns ("REF moved: FROM -> TO"); -o human prints it as
+      the first line, ahead of the unabridged full record that still
+      follows; -o json/-o toon carry the same field as an ordinary part
+      of the record, alongside every other field, never replacing any of
+      them. A refused move is unaffected - it dies before reaching this
+      point, so it never claims to have moved anything. Codex review then
+      found the "from" column was read with a separate, unlocked
+      record_show call taken BEFORE record_move's own lock - a genuine
+      race with a concurrent writer, reproduced directly. record_move
+      now returns previous_column, captured inside the very lock that
+      performs the rename, and the CLI dispatch reads that instead of a
+      second, racy call. A second Codex pass on this same fix found two
+      more gaps in the CLI dispatch's own "moved" line: a no-op move onto
+      the column a card already rests in was reported as "REF moved: X ->
+      X" even though nothing changed, since the check only asked whether a
+      previous column was known, not whether it differed from the
+      destination; and the confirmation named the caller's literal
+      --column argument as the destination rather than the record's own
+      current column, so a concurrent writer moving the card again inside
+      the window between record_move's lock releasing and this dispatch's
+      own re-read could make "moved" disagree with the very record sitting
+      next to it. Both fixed: moved is now set only when the two columns
+      genuinely differ, and always names the record's own current column.
+      New test: t/1102-a-move-that-did-not-say-so.t.
+
 5.127  2026-09-15
     - TKT-772: the browser Columns dialog had no rename control at all - only
       the CLI's tira.column.rename could rename a column without discarding

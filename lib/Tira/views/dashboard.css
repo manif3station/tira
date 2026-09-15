@@ -1265,6 +1265,14 @@ html[data-width="fit"] .card__ref {
   user-select: none;
   padding: 0 0.2rem;
 }
+.column-row__name {
+  flex: 1;
+  min-width: 0;
+}
+.column-row__name:disabled {
+  color: var(--muted);
+  background: transparent;
+}
 .column-row__label {
   flex: 1;
   min-width: 0;

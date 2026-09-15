@@ -1,5 +1,28 @@
 Revision history for Tira
 
+5.127  2026-09-15
+    - TKT-772: the browser Columns dialog had no rename control at all - only
+      the CLI's tira.column.rename could rename a column without discarding
+      its cards - so renaming through the dialog's Save button removed the
+      old name and added the new one, discarding every card the old column
+      held. An earlier fix tried to detect a rename by shape (exactly one
+      column removed, exactly one added, at the same position) and refuse
+      it; Codex review proved that unsound - t/52-column-apply.t's own
+      long-standing "Adding and removing in the same call" case removes one
+      column and adds an unrelated one at the identical position, structurally
+      indistinguishable from a real rename - and it was fully reverted.
+      column_apply now accepts an explicit rename_from field on a layout
+      entry, set only by a real rename control (never inferred from shape or
+      position), delegated to column_rename itself so cards and
+      required_items are preserved and retagged exactly as a standalone
+      column_rename call already promises. rename_from naming a column that
+      is not current, or claimed by more than one entry at once, is refused
+      by name before anything is written; renaming a protected column is
+      refused the same way column_rename refuses it. The browser Columns
+      dialog gained a real name field (disabled for protected columns),
+      wired to set rename_from only when a row's name actually changed. New
+      test: t/1101-a-rename-named-rather-than-guessed.t.
+
 5.126  2026-09-15
     - TKT-784: SKILLS.md's own TKT-750 paragraph said "the work log also
       draws a bare divider line before each entry where the card changed

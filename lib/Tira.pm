@@ -1794,8 +1794,29 @@ sub column_apply {
           if $column->{protected} && !$seen{ $column->{name} };
     }
 
-    my %present = map { $_->{name} => 1 } @{$current};
-    my @removed = grep { !$seen{$_} } map { $_->{name} } @{$current};
+    # TKT-772. A real rename, named explicitly by the caller rather than
+    # guessed from the layout's own shape - Q-163's own answer, after the
+    # shape-guessing approach this replaced was proven unsound: a genuine
+    # remove-one-add-a-different-one-elsewhere change can look structurally
+    # identical to a rename (t/52-column-apply.t's own long-standing "Adding
+    # and removing in the same call" case does), so only an explicit signal
+    # from a caller that actually means a rename is trusted. Delegated to
+    # column_rename itself rather than a second implementation of the same
+    # promise - the browser's new rename control, and any other caller,
+    # gets the identical card-preserving, required-items-retagging behaviour
+    # tira.column.rename already gives, whichever door it comes through.
+    my %rename_of;
+    for my $column (@plan) {
+        next if !defined $column->{rename_from};
+        my $old = $self->_valid_slug( $column->{rename_from} );
+        die "Column '$old' cannot be renamed to '$column->{name}' - '$old' is not a "
+          . "current column\n"
+          if !grep { $_->{name} eq $old } @{$current};
+        die "Column '$old' is named by rename_from on more than one entry\n"
+          if $rename_of{$old};
+        $rename_of{$old} = $column->{name};
+    }
+
     # column_apply's own --author/--reason are a separate question (TKT-701
     # left it out of scope deliberately, as a whole-layout replace rather
     # than the single-column removal this fix is about). A real project
@@ -1806,20 +1827,84 @@ sub column_apply {
     my $fallback_author = $args{author}
       // ( $self->person_list( project => $root )->[0] // {} )->{id};
 
-    my @added = grep { !$present{$_} } map { $_->{name} } @plan;
     return $self->_with_project_lock( $root, sub {
+
+        # Renames run FIRST, inside the very lock the removal/write below
+        # already uses - column_rename's own lock is reentrant (see
+        # _with_project_lock), so this costs nothing extra and closes a real
+        # gap: an earlier version of this fix ran the renames BEFORE this
+        # lock was even taken, so a later failure (a removal, or the final
+        # config write) left renames already committed with nothing to roll
+        # them back - the exact half-done state the "whole call is one
+        # transaction" promise (TKT-767) exists to prevent. Codex review
+        # caught it directly.
+        #
+        # Each rename is staged through a scratch name rather than applied
+        # straight from old to new, in sorted order (the first version's
+        # approach): a genuinely valid multi-rename layout - a chain
+        # (a->z, b->c, c->d) or a swap (a<->b) - has every FINAL name
+        # unique, but column_rename refuses a target name still occupied by
+        # a column that has not been renamed away yet, so sorted order broke
+        # on the second hop of a three-column chain even though nothing
+        # about the request was invalid. Every old name moves out of the way
+        # to a scratch name first, then every scratch name moves to its real
+        # new name - order no longer matters, since no real name is ever
+        # fought over.
+        my @rename_undo;
+        my $undo_renames = sub {
+            $self->column_rename( project => $root, type => $args{type}, %{$_} ) for @rename_undo;
+        };
+        if (%rename_of) {
+            my %taken = map { $_->{name} => 1 } @{$current};
+            $taken{$_} = 1 for values %rename_of;
+            my $n         = 0;
+            my $scratch_name = sub {
+                my $candidate;
+                do { $n++; $candidate = "tira-rename-staging-$n" } while $taken{$candidate};
+                $taken{$candidate} = 1;
+                return $candidate;
+            };
+            eval {
+                my %scratch;
+                for my $old ( sort keys %rename_of ) {
+                    my $tmp = $scratch_name->();
+                    $self->column_rename( project => $root, type => $args{type}, name => $old, new_name => $tmp );
+                    unshift @rename_undo, { name => $tmp, new_name => $old };
+                    $scratch{$old} = $tmp;
+                }
+                for my $old ( sort keys %rename_of ) {
+                    my $new = $rename_of{$old};
+                    next if $scratch{$old} eq $new;
+                    $self->column_rename( project => $root, type => $args{type}, name => $scratch{$old}, new_name => $new );
+                    unshift @rename_undo, { name => $new, new_name => $scratch{$old} };
+                }
+                1;
+            } or do {
+                my $error = $@ || 'Unknown column rename failure';
+                $undo_renames->();
+                die $error;
+            };
+            $current = $self->column_list( project => $root, type => $args{type} );
+        }
+
+        my %present = map { $_->{name} => 1 } @{$current};
+        my @removed = grep { !$seen{$_} } map { $_->{name} } @{$current};
+        my @added   = grep { !$present{$_} } map { $_->{name} } @plan;
+
         my ( $path, $config ) = $self->_board_data( project => $root, type => $args{type} );
 
         # UNDONE ON ANY FAILURE FROM HERE ON: every ref this call has moved to
         # discard, in the reverse order it moved them, back to the column it
         # was actually resting in - a plain string capture rather than a
         # reference into $config, which the removal loop below is about to
-        # mutate.
+        # mutate - and every rename this call made, back to its original
+        # name.
         my @moved;
         my $rollback = sub {
             $self->record_move(
                 project => $root, ref => $_->{ref}, column => $_->{from}, author => $fallback_author )
               for reverse @moved;
+            $undo_renames->();
         };
 
         for my $name (@removed) {
@@ -15640,6 +15725,19 @@ nothing.
 Each column's own required-action templates are refused the same way
 C<column_update> refuses them - empty, whitespace-only, or duplicated - for
 every column in the layout, before anything is written. TKT-699.
+
+Since 5.127 a layout entry may carry C<rename_from>, an explicit signal that
+this entry is a real rename of an existing column rather than a new one -
+set only by a caller that actually means a rename, never inferred from the
+layout's own shape or position (an earlier shape-guessing attempt was
+proven unsound and reverted: a genuine remove-one-add-a-different-one
+change can look structurally identical to a rename). A C<rename_from> entry
+is delegated to C<column_rename> itself, so cards and C<required_items> are
+preserved and retagged exactly as a standalone C<column_rename> call
+already promises. C<rename_from> naming a column that is not current, or
+claimed by more than one entry at once, is refused by name before anything
+is written; renaming a protected column is refused the same way
+C<column_rename> refuses it. TKT-772.
 
 =head2 column_update
 

@@ -1,5 +1,19 @@
 Revision history for Tira
 
+5.125  2026-09-15
+    - TKT-755: tira.police.freshness's stale condition in lib/Tira.pm has
+      three branches (no pass has run, a stored stamp that will not parse,
+      or the pass is older than the freshness threshold) and
+      docs/commands.md already documented all three, but SKILLS.md's own
+      paragraph named only two - the never-policed case and the too-old
+      case - and left out the one that actually looks contradictory
+      without an explanation: a pass time present, stale true, no age at
+      all. Added the missing sentence to SKILLS.md, reusing
+      docs/commands.md's own UNREADABLE wording rather than inventing a
+      third phrasing. Found by the reporter's own earlier documentation
+      pass, an hour after adding the third case to the code and
+      docs/commands.md. New test: t/1100-a-third-way-nobody-named.t.
+
 5.124  2026-09-15
     - TKT-749: t/260-an-example-that-cannot-be-run.t matched fenced blocks
       with /```\n(.*?)```/gs, which only recognises an opener with NO

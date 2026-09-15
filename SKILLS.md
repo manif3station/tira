@@ -2117,7 +2117,7 @@ the plain functions `_render_view`, `_view_asset` and `json_object`.
 
 **`--help` on a command that does not exist is refused, not answered, since 5.112** (TKT-660). `Tira::CLI->run()` handled `--help` before dispatch, so a name with no entrypoint anywhere got the fallback usage line - grammatical, correctly formatted, naming the invented command back - and returned success. The dispatcher's own unknown-command "Did you mean" was never reached, because the help branch returns before dispatch runs at all. New module `lib/Tira/CLI/Command.pm` answers whether a bare command is real by reading `lib/Tira/CLI.pm`'s own dispatch surface: both the literal `$command eq '...'` shape t/410 already reads for its usage-line ledger, AND the regex-alternation shape (`$command =~ /\Alogin\.(register|check|status|logout)\z/` and two dozen more) t/410 does not need to check. An early version of this fix checked only the first shape and would have refused `--help` for `login.status`, `dashboard.sow` and every other regex-dispatched command as though it did not exist - caught by this ticket's own `t/1086` the first time it ran against a real implementation. The fix tests the dispatch regex objects directly against the given name rather than trying to re-derive every concrete string an alternation can produce, and was verified with a standalone sweep against all statically-extracted real commands (0 false negatives) before shipping. Typed record commands (`ticket.foo`, `epic.bar`) are unaffected - they always arrive with `$type` already set by their own entrypoint script, never as the bare dotted name. Split into its own module rather than growing `lib/Tira/CLI/Usage.pm` past its own 500-line limit, which t/524 caught live mid-implementation.
 
-`lib/Tira.pm` is 16,808 lines as of TKT-709 (5.120), grown rather than shrunk
+`lib/Tira.pm` is 16,808 lines as of TKT-724 (5.121), grown rather than shrunk
 since the fourth lift's own 14,164 - the file gains from most releases that
 touch it, and a hand-corrected number drifts again by design. The figure the
 fourth lift replaced said 14,256, README said 14,177, `lib/Tira/Job.pm` said
@@ -2127,6 +2127,24 @@ that-outgrew-its-own-claim.t` holds this sentence to the real count every
 run, the same shape `t/433` already uses for the police rule count - so the
 next lift, or the next thousand lines nobody lifted anywhere, updates this
 number by failing the suite rather than by somebody remembering to.
+
+**The same guard now covers every `lib/<path> is N lines` claim, anywhere,
+since 5.121** (TKT-724) - `t/1098-a-count-nothing-connects-to-its-file.t`
+generalises t/876's one-file pattern to SKILLS.md, README.md, Changes and
+every module's own header. A size claim in this codebase says two things a
+reader cannot tell apart by grammar alone, so the convention is to say both
+explicitly: WHAT it counts (the whole file's own `wc -l`, or a named subset
+like "N lines of subs" / "N lines of bodies") and WHEN (a live, present-tense
+"is N lines" that this guard holds to the real file forever, or a frozen,
+past-tense "was N lines" / "N lines at the Mth lift" that is correct as
+history and never re-checked). Only the first kind - present tense, whole
+file - is what this guard verifies; a subset count has no single `wc -l` to
+compare against, and a past-tense one is a record, not a claim. Checked
+against the real corpus before writing the guard: every module header's own
+"N lines" sentence today names a subset, so none currently match - a real,
+checked absence rather than a gap. `Changes` carries no file extension at
+all, so t/876's own `.md`-only search never reached it; this guard's walk
+matches it by name instead.
 
 The one candidate named on TKT-746 still unmoved is the police engine — its own
 future lift, not assumed to be as self-contained as these four turned out to

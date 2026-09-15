@@ -1,5 +1,21 @@
 Revision history for Tira
 
+5.121  2026-09-15
+    - TKT-724: a "lib/<path> is N lines" claim in SKILLS.md, README.md or
+      Changes was held by nothing - lib/Tira.pm's own line count went
+      stale three times in one card (TKT-607), self-found by eye each
+      time, before t/876 guarded that one file. Generalises t/876's
+      pattern from one hard-coded file to any such claim, anywhere,
+      including every module's own header, and against the real corpus
+      before writing it: today's module headers all name a SUBSET
+      instead ("249 lines of bodies", "575 lines of subs"), a genuinely
+      different, not wc-l-comparable measurement, so none currently
+      match - a real, checked absence rather than a gap in the guard.
+      Found and fixed a real hole in the walk itself: Changes carries no
+      file extension, so a plain .md-only search (t/876's own) never
+      reached it at all. New test:
+      t/1098-a-count-nothing-connects-to-its-file.t.
+
 5.120  2026-09-14
     - TKT-709: tira.attachment.list's plain form (--ref alone) returned a
       bare array of raw stored references - no filename, size, or

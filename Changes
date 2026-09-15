@@ -1,5 +1,19 @@
 Revision history for Tira
 
+5.122  2026-09-15
+    - TKT-1092: Michael's live rule (Telegram, 2026-09-15) - every Perl
+      module at or under 1000 lines, not just lib/Tira.pm - continues
+      TKT-746's own decomposition. t/524's exemption for lib/Tira.pm
+      named TKT-746 as the owning card, correct while that card tracked
+      the split and stale once it closed at 16,808 lines with the file
+      nowhere near any cap. The reason now credits TKT-746 for the first
+      four lifts explicitly as done, and names TKT-1092 as the ticket
+      tracking continued work. Five modules currently exceed the new
+      1000-line cap (lib/Tira.pm, lib/Tira/CLI.pm, lib/Tira/Job.pm,
+      lib/Tira/CLI/Police.pm, lib/Tira/CLI/Browser.pm) - the actual
+      further lifts are each their own child ticket, the way
+      TKT-830/832/834 were TKT-746's.
+
 5.121  2026-09-15
     - TKT-724: a "lib/<path> is N lines" claim in SKILLS.md, README.md or
       Changes was held by nothing - lib/Tira.pm's own line count went

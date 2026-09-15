@@ -2409,12 +2409,19 @@ saying so and citing TKT-906 as the card that recorded that decision — not
 as an owner of future work, since none is owed. `t/524`'s own guard and
 assertions are unchanged; only the data it checks was corrected.
 
-Eighteen entries today. `lib/Tira.pm` names TKT-746, which already owns it; the
-other seventeen are TKT-906's own triage above. `lib/Tira/CLI/Browser.pm` is
-the entry that makes the argument — TKT-607's decomposition **created** it at
-805 lines, already over, and it grew a further 400 before anything noticed. A
-split that produces a file breaking the same rule is why a guard is needed and
-a convention is not.
+Eighteen entries today. `lib/Tira.pm` names TKT-1092, since 5.122 — **TKT-746
+is done** (it shipped the first four lifts: Toon, Tasklist, Render,
+Attachment) and citing it as the active owner once it closed left nothing
+tracking the debt, which is exactly the gap a hermetic test cannot watch for
+itself (`t/524` never reads the live board, so it cannot know a cited card
+closed - this was found and fixed by hand). TKT-1092 is Michael's live rule,
+Telegram, 2026-09-15: every Perl module at or under 1000 lines, not 500 -
+a tighter cap than TKT-751's own, and explicitly not limited to `lib/Tira.pm`.
+The other seventeen are TKT-906's own triage above. `lib/Tira/CLI/Browser.pm`
+is the entry that makes the argument — TKT-607's decomposition **created** it
+at 805 lines, already over, and it grew a further 400 before anything
+noticed. A split that produces a file breaking the same rule is why a guard
+is needed and a convention is not.
 
 **Making room was the work, not raising the cap (TKT-837, 5.30).** These four
 verbs took `lib/Tira/CLI.pm` past `t/430`'s 3,000-line limit, and the card sat

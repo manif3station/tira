@@ -106,16 +106,20 @@ my $LIMIT = 500;
 # instances of exactly that on the books this week. The note() at the foot of
 # this file prints the live sizes, measured at the moment it runs.
 #
-# EVERY ENTRY IS A DEBT. TKT-751 is what identified them; TKT-746 already owns
-# splitting lib/Tira.pm. The rest have no dedicated card yet, which is the next
-# thing this list is for - it is now visible, and the guard below stops it
-# growing while somebody works through it.
+# EVERY ENTRY IS A DEBT. TKT-751 is what identified them; TKT-746 did the
+# first four lifts of lib/Tira.pm and is done, and TKT-1092 (Michael's
+# live 1000-line-per-module rule, 2026-09-15) owns continuing it. The
+# rest have no dedicated card yet, which is the next thing this list is
+# for - it is now visible, and the guard below stops it growing while
+# somebody works through it.
 my %EXEMPT = (
 
     # The engine. Every record verb, every rule, the whole policy pass and the
     # question and tasklist machinery in one file - splitting it is its own
     # project, and it already has a card.
-    'lib/Tira.pm' => 'the engine, and splitting it is its own project - TKT-746 owns it',
+    'lib/Tira.pm' => 'the engine, and splitting it is its own project - TKT-746 did the '
+      . 'first four lifts and is done; TKT-1092 (Michael\'s live 1000-line-per-module '
+      . 'rule, 2026-09-15) owns continuing it',
 
     # TKT-906 triaged all seventeen entries below, since seventeen of the
     # eighteen exemptions TKT-751 shipped pointed at TKT-751 itself - the
@@ -306,6 +310,25 @@ is_deeply( stale_entries( \%EXEMPT ), [],
       . 'than by somebody remembering to prune it' )
   or diag( "exemptions no longer needed:\n"
       . join( "\n", map {"  $_"} @{ stale_entries( \%EXEMPT ) } ) );
+
+# TKT-1092. lib/Tira.pm's own entry named TKT-746 as the owning card -
+# correct while that card tracked the decomposition, stale once it closed
+# without the file coming anywhere near the (now tighter, live-rule) cap.
+# cardless_entries only checks a card reference EXISTS, not that it is
+# still the right one to point at - a gap this ticket found by hand, not
+# one a hermetic test can watch for generally (whether a card is open is
+# live board state, which this file deliberately never reads). Checked
+# directly instead, for this one entry, the same way t/524 already checks
+# individual entries by hand a few lines below.
+like( $EXEMPT{'lib/Tira.pm'}, qr/TKT-1092.{0,80}owns continuing it/,
+    "lib/Tira.pm's exemption reason names TKT-1092 as the one OWNING the "
+      . 'continued decomposition, not merely mentioned in passing' );
+like( $EXEMPT{'lib/Tira.pm'}, qr/TKT-746 did the first four lifts and is done/,
+    'and still credits TKT-746 for the first four lifts specifically, saying '
+      . 'plainly that card is done rather than leaving it looking like the '
+      . "active owner - CODEX REVIEW: the first draft's regexes only proved "
+      . "the ids appeared anywhere, which 'TKT-746 ... not done' would also "
+      . 'have passed' );
 
 # --- and each of those three has teeth ---------------------------------------
 

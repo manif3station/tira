@@ -465,6 +465,20 @@ sub attachment_where {
 
 sub attachment_list {
     my ( $self, %args ) = @_;
+    # TKT-709. --meta-only used to be the ONLY way to reach the block below -
+    # the plain form (--ref alone) returned a bare array of raw stored
+    # references instead, with no filename, size or content_type and no
+    # count/total_size envelope. The flag named for LESS gave MORE, so an
+    # agent asking "what is on this card, and can I read it" ran the plain
+    # form and learned nothing useful. Michael's answer (Q-159): make the
+    # default the useful shape.
+    #
+    # meta_only is read and discarded here, deliberately kept as an accepted
+    # argument rather than removed - it is now vestigial rather than
+    # narrowed, because Tira::CLI's own _stamp_attachment_types already
+    # relies on --meta-only including content_type, and narrowing it would
+    # break that real caller for no benefit once the default already
+    # includes everything --meta-only does.
     my $meta_only = delete $args{meta_only};
     my $count_mode = delete $args{count};
     my $since = delete $args{since};
@@ -473,7 +487,7 @@ sub attachment_list {
         die "Attachment read options require --ref\n"
           if $meta_only || $count_mode || defined $since || defined $fields;
     }
-    if ( defined $args{ref} && ( $meta_only || $count_mode || defined $since || defined $fields ) ) {
+    if ( defined $args{ref} ) {
         my $keep;
         if ( defined $fields ) {
             my @names = map { split /,/, $_, -1 } @{$fields};
@@ -525,7 +539,6 @@ sub attachment_list {
         $total_size += $_->{size} // 0 for @entries;
         return { attachments => \@entries, count => scalar @entries, total_size => $total_size };
     }
-    return _record_attachments( $self->record_show(%args) ) if defined $args{ref};
     my $root = $self->discover_project(%args);
     my $dir = File::Spec->catdir( $root, '.tira', 'attachments' );
     opendir my $dh, $dir or die "Cannot read attachments: $!\n";

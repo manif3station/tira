@@ -866,6 +866,9 @@ sub _dd_path_resolver {
 sub _stamp_attachment_types {
     my ( $tira, $project, $ref, $record ) = @_;
     return if ref $record ne 'HASH';
+    # TKT-709. meta_only is vestigial since 5.120 - the plain call already
+    # returns this same shape - but kept here rather than dropped, since it
+    # still says plainly what this call wants and costs nothing to keep.
     my $listed = eval {
         $tira->attachment_list(
             project => $project, ref => $ref, meta_only => 1 );

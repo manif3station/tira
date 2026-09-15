@@ -3691,6 +3691,22 @@ for such a file and served it as a forced download, while the card dialog
 (reading `attachment.list`'s already-sniffed answer) correctly called it
 text. Both surfaces now agree, because both are handed the path.
 
+**`tira.attachment.list --ref TKT-001` with no other flags returns the same
+shape `--meta-only` always did, since 5.120** (TKT-709): `count`,
+`total_size` and an `attachments` array where each entry carries
+`filename`, `size` and `content_type`, alongside the stored `sha`,
+`extension`, `original_filename`, `added_at` and `attached_to`. It used to
+return a bare array of only the last five - the flag named for LESS
+(`--meta-only`) was the one call that gave MORE, so the plain command was
+the wrong one to run for "what is on this card, and can I read it".
+`--meta-only` is still accepted and still works exactly as it always has;
+it changes nothing now that the default already matches it, kept rather
+than removed because an existing internal caller
+(`Tira::CLI::_stamp_attachment_types`) and several tests already name it.
+`--since` and `--fields` are unaffected in what they do - `--since` filters
+which entries come back, `--fields` narrows an entry to `sha` plus the
+named keys - neither changes the base shape described here.
+
 ### Records: SOWs, epics and tickets
 
 The three boards carry the same nine verbs. `TYPE` below is one of `sow`,

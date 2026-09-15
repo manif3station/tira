@@ -50,7 +50,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.119';
+our $VERSION = '5.120';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -16481,11 +16481,21 @@ record is named. Supports metadata-only reads, a count, a C<since> filter and
 a chosen field set, so a poll need not carry content it already has.
 
 The C<content_type> on each entry is computed here and nowhere else, on the
-reads that ask for it. A plain listing returns the stored references
-untouched, which is why C<record_show> carries no type: deciding one stats the
-file and sometimes reads it, and a record is read on every gate, every police
-pass and every board render. The browser's card dialog asks for it and stamps
-it on - see C<Tira::CLI::_stamp_attachment_types>.
+reads that ask for it. C<record_show> carries no type of its own: deciding
+one stats the file and sometimes reads it, and a record is read on every
+gate, every police pass and every board render. The browser's card dialog
+asks for it and stamps it on - see C<Tira::CLI::_stamp_attachment_types>.
+
+Since 5.120 (TKT-709), a plain listing (C<--ref> alone) returns the same
+enriched envelope C<meta_only> always did - C<filename>, real byte
+C<size>, C<content_type>, wrapped with C<count> and C<total_size> -
+rather than the bare stored references it used to return: the flag named
+for LESS gave MORE, so the natural command for "what is on this card"
+was the wrong one to run. C<meta_only> is accepted and behaves exactly as
+it always did; it changes nothing now that the default already matches
+it, kept because C<_stamp_attachment_types> and several tests already
+name it. C<since>/C<fields> are unaffected - they still only filter rows
+or project a narrower field set.
 
 =head2 _render_view
 

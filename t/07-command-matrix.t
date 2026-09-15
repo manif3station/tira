@@ -155,7 +155,8 @@ cli( 'comment.attach', undef, '--ref', 'TKT-001', '--comment', 'CMT-001', '--fil
 ( $status, $out ) = cli( 'attachment.add', undef, '--ref', 'TKT-001', '--file', $bin_file, @at );
 my $attachment = decode_json($out);
 ( $status, $out ) = cli( 'attachment.list', undef, '--ref', 'TKT-001', @at );
-ok( @{ decode_json($out) }, 'record attachments list dispatch' );
+# TKT-709: the plain call returns an envelope now, not a bare array.
+ok( @{ decode_json($out)->{attachments} }, 'record attachments list dispatch' );
 ( $status, $out ) = cli( 'attachment.get', undef, '--sha', $attachment->{sha}, '--extension', 'dat');
 is( $out, "matrix\0attachment", 'attachment get emits raw bytes' );
 ( $status, $out, my $path_error ) = cli( 'attachment.get', undef, '--sha', $attachment->{sha}, '--extension', 'dat', '-o', 'path' );

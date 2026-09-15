@@ -1,5 +1,20 @@
 Revision history for Tira
 
+5.120  2026-09-14
+    - TKT-709: tira.attachment.list's plain form (--ref alone) returned a
+      bare array of raw stored references - no filename, size, or
+      content_type, and no count/total_size envelope - while --meta-only
+      gave all of that. The flag named for LESS gave MORE, so the natural
+      command to run for "what is on this card, and can I read it" was
+      the wrong one. The plain form now returns the same rich shape
+      --meta-only always did; --meta-only is accepted unchanged but no
+      longer changes anything, since Tira::CLI's own
+      _stamp_attachment_types and several existing tests already rely on
+      it including content_type - narrowing it would have broken real,
+      load-bearing behavior for no benefit once the default already
+      matches it. --since/--fields continue to only filter rows or
+      project fields. New test: t/1096-the-plain-command-was-the-wrong-one.t.
+
 5.119  2026-09-14
     - TKT-719: two of the four places Tira resolved its own installation
       root counted a fixed number of directories up from __FILE__, correct

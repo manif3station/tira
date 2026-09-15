@@ -49,8 +49,9 @@ my $other = $tira->create_record( project => $root, type => 'ticket', title => '
 
 sub live {
     my ($ref) = @_;
+    # TKT-709: the plain call returns an envelope now, not a bare array.
     return grep { !$_->{discarded_at} }
-      @{ $tira->attachment_list( project => $root, ref => $ref ) };
+      @{ $tira->attachment_list( project => $root, ref => $ref )->{attachments} };
 }
 
 my $bytes = "the screenshot that did not change\n";

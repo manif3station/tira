@@ -855,12 +855,19 @@ everything). `--meta-only` returns id, author, format, both stamps,
 2. Comment `--fields` selects comment keys with `id` always kept;
 `--since` filters by the comment's own stamps. On show, list, and
 export, `--meta-only` strips embedded comment bodies board-wide.
-`tira.attachment.list --ref REF --meta-only` returns newest-first
-entries with `filename`, real byte `size`, `content_type`, `added_at`,
-and `sha`, in an envelope with `count` and `total_size`; attachment
-`--fields` keeps `sha`; `--since` filters by `added_at`; these options
-require `--ref`. The computed record field `attachment_count` is
-selectable via `--fields` for board-wide evidence coverage.
+`tira.attachment.list --ref REF` returns newest-first entries with
+`filename`, real byte `size`, `content_type`, `added_at`, and `sha`, in
+an envelope with `count` and `total_size` - **the plain call as well as
+`--meta-only`, since 5.120** (TKT-709): the plain form used to return a
+bare array of the raw stored reference alone, while `--meta-only` gave
+this richer shape, so the flag named for LESS was the one call that gave
+MORE. `--meta-only` is still accepted and does exactly what it always
+did - it changes nothing now, since an internal caller
+(`_stamp_attachment_types`) already depends on it including
+`content_type` unchanged. Attachment `--fields` keeps `sha`; `--since`
+filters by `added_at`; these options require `--ref`. The computed
+record field `attachment_count` is selectable via `--fields` for
+board-wide evidence coverage.
 Since 4.69 `content_type` is the one answer to "can this be read": a
 named list decides the extensions where guessing would be worse than
 knowing — a `.pl` file is Perl whatever its first bytes look like, and a
@@ -2110,7 +2117,7 @@ the plain functions `_render_view`, `_view_asset` and `json_object`.
 
 **`--help` on a command that does not exist is refused, not answered, since 5.112** (TKT-660). `Tira::CLI->run()` handled `--help` before dispatch, so a name with no entrypoint anywhere got the fallback usage line - grammatical, correctly formatted, naming the invented command back - and returned success. The dispatcher's own unknown-command "Did you mean" was never reached, because the help branch returns before dispatch runs at all. New module `lib/Tira/CLI/Command.pm` answers whether a bare command is real by reading `lib/Tira/CLI.pm`'s own dispatch surface: both the literal `$command eq '...'` shape t/410 already reads for its usage-line ledger, AND the regex-alternation shape (`$command =~ /\Alogin\.(register|check|status|logout)\z/` and two dozen more) t/410 does not need to check. An early version of this fix checked only the first shape and would have refused `--help` for `login.status`, `dashboard.sow` and every other regex-dispatched command as though it did not exist - caught by this ticket's own `t/1086` the first time it ran against a real implementation. The fix tests the dispatch regex objects directly against the given name rather than trying to re-derive every concrete string an alternation can produce, and was verified with a standalone sweep against all statically-extracted real commands (0 false negatives) before shipping. Typed record commands (`ticket.foo`, `epic.bar`) are unaffected - they always arrive with `$type` already set by their own entrypoint script, never as the bare dotted name. Split into its own module rather than growing `lib/Tira/CLI/Usage.pm` past its own 500-line limit, which t/524 caught live mid-implementation.
 
-`lib/Tira.pm` is 16,798 lines as of TKT-719 (5.119), grown rather than shrunk
+`lib/Tira.pm` is 16,808 lines as of TKT-709 (5.120), grown rather than shrunk
 since the fourth lift's own 14,164 - the file gains from most releases that
 touch it, and a hand-corrected number drifts again by design. The figure the
 fourth lift replaced said 14,256, README said 14,177, `lib/Tira/Job.pm` said

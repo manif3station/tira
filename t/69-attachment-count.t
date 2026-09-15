@@ -61,8 +61,9 @@ is( $where{'log.txt'}, "comment $comment->{id}", 'a comment attachment names its
 is( $where{'ask.ogg'}, "question $question->{id}", 'and a voice note names its question' );
 
 # The plain list agrees with the count, or one of them is lying.
+# TKT-709: the plain call returns the same envelope --meta-only does now.
 my $plain = $tira->attachment_list( project => $root, ref => $card->{ref} );
-is( scalar @{$plain}, $detailed->{count}, 'the plain list and the count agree' );
+is( scalar @{ $plain->{attachments} }, $detailed->{count}, 'the plain list and the count agree' );
 
 # A card with nothing really does have nothing.
 my $empty = $tira->create_record( project => $root, type => 'ticket', title => 'Genuinely empty' );

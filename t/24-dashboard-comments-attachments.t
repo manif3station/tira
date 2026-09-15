@@ -46,7 +46,8 @@ my $from_path = $tira->attachment_add( project => $root, ref => 'TKT-001', file 
 is( $from_path->{added_at}, '2026-08-06T23:00:00+0100', 'file-path adds stamp their added time too' );
 
 my $listed = $tira->attachment_list( project => $root, ref => 'TKT-001' );
-is( scalar( grep { defined $_->{added_at} } @{$listed} ), 3, 'every stored reference carries added_at' );
+# TKT-709: the plain call returns an envelope now, not a bare array.
+is( scalar( grep { defined $_->{added_at} } @{ $listed->{attachments} } ), 3, 'every stored reference carries added_at' );
 
 # Legacy references (pre-0.22) lack added_at; reads must recover it from
 # the stored file's own mtime. The test simulates the legacy state by

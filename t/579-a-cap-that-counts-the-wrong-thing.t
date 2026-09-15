@@ -121,8 +121,9 @@ sub add_content {
         "a short proof with an em dash \x{2014} and an emoji \x{1F600}" );
     ok( $ok, 'a short non-ASCII proof still stores' ) or diag($why);
 
+    # TKT-709: the plain call returns an envelope now, not a bare array.
     my $stored = $tira->attachment_list( project => $root, ref => $ref );
-    is( scalar @{$stored}, 1, 'and is on the card afterwards' );
+    is( scalar @{ $stored->{attachments} }, 1, 'and is on the card afterwards' );
 }
 
 # --- the cap is measured after the encode, in the source ---------------------

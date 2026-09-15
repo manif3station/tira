@@ -39,9 +39,15 @@ my $second = $tira->attachment_add( project => $root, ref => $ticket->{ref}, fil
 is( $second->{original_filename}, 'first-name.txt', 'duplicate returns retained filename' );
 is( $second->{supplied_filename}, 'second-name.txt', 'duplicate returns rejected supplied filename' );
 ok( $second->{deduped}, 'duplicate reports record-level deduplication' );
+# TKT-709: the plain call now returns the same enriched envelope
+# --meta-only always did, rather than the bare stored reference.
 is_deeply( $tira->attachment_list( project => $root, ref => $ticket->{ref} ),
-    [ { sha => $first->{sha}, extension => 'txt', original_filename => 'first-name.txt',
-        added_at => '2026-08-05T17:00:00Z', attached_to => 'card' } ],
+    { attachments => [
+        { sha => $first->{sha}, extension => 'txt', original_filename => 'first-name.txt',
+          added_at => '2026-08-05T17:00:00Z', attached_to => 'card',
+          filename => 'first-name.txt', size => length("identical content\n"),
+          content_type => 'text/plain; charset=UTF-8' } ],
+      count => 1, total_size => length("identical content\n") },
     'record stores one truthful reference, and says where it hangs' );
 
 $tira->attachment_remove( project => $root, sha => $first->{sha}, extension => 'txt' );

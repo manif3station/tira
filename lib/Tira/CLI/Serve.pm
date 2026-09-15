@@ -838,13 +838,30 @@ sub _serving_pid { return $Tira::CLI::SERVING_PID // $$ }
 # silences it, because silencing the whole program's standard error would take
 # it away from whoever else was using it - a test capturing it, most obviously.
 # So it is not provoked in the first place.
+
+# TKT-1101, Michael's own live report: a `.git` DIRECTORY existing is not the
+# same claim as a `.git` directory being a real, usable repository - one left
+# behind by a `git init` that was interrupted before it finished (confirmed
+# live: `info/exclude` written, HEAD/objects/refs never reached) still exists
+# by this function's original -e test, so the guard this whole sub exists for
+# waved every caller through to a real `git -C` call anyway. git itself does
+# not recognise that same broken directory as a stopping point either - it
+# keeps walking upward past it looking for a real one, which is what produced
+# "not a git repository (or any parent up to mount point /)" on a project
+# whose actual repository lives in an unrelated subdirectory instead. A `.git`
+# FILE (a worktree or submodule's gitdir pointer) is trusted on existence
+# alone, since Tira never writes one and git only ever creates a valid one;
+# a `.git` DIRECTORY is trusted only once it holds the one file every git
+# implementation writes before anything else could call it initialized - HEAD.
 sub _is_repository {
     my ($where) = @_;
     return 0 if !defined $where;
     my $here = abs_path($where) // $where;
     my $last = '';
     while ( $here ne $last ) {
-        return 1 if -e File::Spec->catfile( $here, '.git' );
+        my $git = File::Spec->catfile( $here, '.git' );
+        return 1 if -f $git;
+        return 1 if -d $git && -f File::Spec->catfile( $git, 'HEAD' );
         ( $last, $here ) = ( $here, dirname($here) );
     }
     return 0;

@@ -1,5 +1,25 @@
 Revision history for Tira
 
+5.130  2026-09-15
+    - TKT-1101: a project reported raw "fatal: not a git repository (or any
+      parent up to mount point /)" lines on plain STDERR every time police
+      ran - Michael, live TG, P1 - even with none of card-sandbox-missing or
+      the five other machine-watching rules declared. Reproduced live with a
+      fake git binary logging its own caller: every call traced through
+      police_world's existing _is_repository guard, which only checked that
+      a path named ".git" EXISTED, not that it was a genuinely initialized
+      repository. A "git init" interrupted before it wrote HEAD (confirmed
+      live: the project's own .git held nothing but info/exclude) passed
+      that check, waving every git-reading helper through to a real
+      "git -C" call that then failed for real - git itself does not
+      recognise that same broken directory as a repository either, and
+      keeps walking upward past it until it hits a filesystem boundary it
+      refuses to cross. _is_repository (lib/Tira/CLI/Serve.pm) now requires
+      a .git DIRECTORY to hold a real HEAD file before trusting it; a .git
+      FILE (a worktree/submodule gitdir pointer) is unaffected, since only
+      git itself ever creates one. New test coverage added to
+      t/183-where-the-repository-is.t.
+
 5.129  2026-09-15
     - TKT-1098: lib/Tira.pm carried its whole POD block inline at the end of
       the file (1,758 lines, from =head1 NAME through the closing =cut),

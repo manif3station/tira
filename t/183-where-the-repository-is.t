@@ -197,6 +197,44 @@ is( $tira->project_show( project => $board )->{repo}, $repo,
         'a board inside a repository declares it without having to say where' ) or diag($@);
 }
 
+# --- a `.git` directory that exists but was never finished is not treated -----
+# as a repository either - TKT-1101, Michael's own live report. A `git init`
+# interrupted before it wrote HEAD leaves a `.git` directory that -e alone
+# cannot tell apart from a real one; git itself does not recognise it as a
+# stopping point either, and keeps walking upward past it - which is what
+# produced raw "fatal: not a git repository" stderr on a board whose real
+# repository lives in an unrelated subdirectory instead. Reproduced directly:
+# a `.git` holding only `info/exclude`, the one file `git init` writes first.
+
+{
+    my $broken_root = File::Spec->catdir( $tmp, 'broken-git' );
+    mkdir $broken_root;
+    my $broken_git = File::Spec->catdir( $broken_root, '.git' );
+    mkdir $broken_git;
+    mkdir File::Spec->catdir( $broken_git, 'info' );
+    open my $exclude, '>', File::Spec->catfile( $broken_git, 'info', 'exclude' ) or die $!;
+    print {$exclude} "# git ls-files --others --exclude-from=.git/info/exclude\n";
+    close $exclude;
+
+    ok( !Tira::CLI::Serve::_is_repository($broken_root),
+        'a .git directory holding only info/exclude - a git init interrupted '
+          . 'before it wrote HEAD - is not treated as a real repository' );
+
+    my $stray = Tira->new;
+    $stray->project_new(
+        name => 'Stray', dir => $broken_root, members => ['claude'],
+        columns => ['backlog, implement, done'],
+        sow_prefix => 'STS', epic_prefix => 'STE', ticket_prefix => 'STT',
+    );
+    my $world = Tira::CLI::Police::police_world( project => $broken_root );
+    is_deeply( $world->{branches}, [],
+        'so police_world reports no branches for it, the same as any other '
+          . 'non-repository - no git subprocess is invoked, and no raw git '
+          . 'stderr reaches the terminal' );
+    is_deeply( $world->{worktrees}, [],
+        'and no work trees either' );
+}
+
 done_testing;
 
 __END__

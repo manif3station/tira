@@ -1901,6 +1901,21 @@ fault from one being gone: police pointed at a repository that does not hold the
 work trees reports an empty list, and that read exactly like a tree somebody had
 deleted.
 
+**A `.git` directory existing is not the same claim as it being a real
+repository, since TKT-1101.** A project reported raw `fatal: not a git
+repository (or any parent up to mount point /)` lines on plain STDERR every
+time police ran, even with none of `card-sandbox-missing` or the five other
+machine-watching rules declared. The cause: a `git init` interrupted before it
+wrote `HEAD` left a `.git` directory holding nothing but `info/exclude` -
+enough for Tira's own repository check (existence of a path named `.git`) to
+wave every git-reading helper through to a real `git -C` call, which then
+failed for real, since git itself does not recognise that same broken
+directory as a repository either and keeps walking upward past it until it
+hits a filesystem boundary it refuses to cross. The check now requires a
+`.git` directory to hold a genuine `HEAD` file before trusting it; a `.git`
+FILE (a worktree or submodule's `gitdir:` pointer) is unaffected, since only
+git itself ever creates one.
+
 ## A card police cannot read
 
 A board reported nothing at all: zero violations across twenty-seven declared

@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# TKT-493: a dashboard modal for the board-wide police policy engine (36
+# TKT-493: a dashboard modal for the board-wide police policy engine (49
 # rules), separate from the Columns dialog's narrower per-column
 # required-action template. Covers the new engine method (policy_rule_specs),
 # the new browser_providers closures (policies/policy_add/policy_remove/
@@ -145,7 +145,7 @@ __END__
 =head1 DESCRIPTION
 
 TKT-493 gave the dashboard a modal for the board-wide police policy engine
-(36 rules), which until now was CLI-only (tira.policy.add/list/remove/
+(49 rules), which until now was CLI-only (tira.policy.add/list/remove/
 decline). This covers: the new Tira.pm engine method policy_rule_specs
 (exposes the same needs/forbids data policy_add validates against, so a
 form's rule picker cannot drift from what the engine actually accepts); the

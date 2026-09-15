@@ -1,5 +1,26 @@
 Revision history for Tira
 
+5.123  2026-09-15
+    - TKT-736: t/433 held every claim of the police rule count in
+      markdown to what the engine reports, but two live claims lived in
+      Perl source (a comment in lib/Tira/DashboardWeb.pm, POD in
+      t/378-the-police-policies-modal.t) and had drifted to 36 while the
+      engine grew to 49 - found by TKT-704's own REQ-027 check, grepping
+      for surviving "36 rules" after the documentation was corrected.
+      New t/1099 extends the walk to every .pm/.t file's line comments
+      and POD, matching a bare "(N rules)" parenthetical - narrower than
+      t/433's own shape, since that wider shape, checked directly
+      against this repository's own source comments, matches several
+      real sentences that are not claims of the total at all (an
+      incident count, a worked example, another card's own historical
+      problem statement, a subset property). A quoted span - even one
+      spanning several comment lines, as one of t/433's own explanatory
+      comments does - is stripped before matching, so t/433's own
+      historical quoting of the stale wording is correctly not read as
+      a live claim. Found and fixed a third, previously-unnamed stale
+      occurrence in t/378's own file header while implementing. New
+      test: t/1099-a-count-that-quoted-its-own-history.t.
+
 5.122  2026-09-15
     - TKT-1092: Michael's live rule (Telegram, 2026-09-15) - every Perl
       module at or under 1000 lines, not just lib/Tira.pm - continues

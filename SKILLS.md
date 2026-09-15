@@ -4573,17 +4573,19 @@ claim that lands inside an example block nobody wrote is a claim nothing checks.
 
 ## The meta-guards
 
-TKT-865 (extended by TKT-877, then TKT-903). Twenty-one files in `t/` do not
-test a feature - they test the SUITE itself, and a test author writing test
-number twenty-two used to meet each one individually, on whichever run
-happened to hit it first. Read from `t/` directly rather than from memory -
-across three passes, Codex review catching five the first missed by
-grepping only header phrasing rather than the words this suite's own guards
-use to name each other, then a sixth (`t/717`) and a weak count check on a
-second pass, then a twentieth (`t/877`) added afterward, then a
+TKT-865 (extended by TKT-877, TKT-903, then TKT-736). Twenty-two files in
+`t/` do not test a feature - they test the SUITE itself, and a test author
+writing test number twenty-three used to meet each one individually, on
+whichever run happened to hit it first. Read from `t/` directly rather than
+from memory - across three passes, Codex review catching five the first
+missed by grepping only header phrasing rather than the words this suite's
+own guards use to name each other, then a sixth (`t/717`) and a weak count
+check on a second pass, then a twentieth (`t/877`) added afterward, then a
 twenty-first (`t/239`, TKT-903 - it protects test coverage of declared
 refusals rather than one product feature, and the fix that added it here
-was itself a correctness repair to the guard's own parser) - and checked as
+was itself a correctness repair to the guard's own parser), then a
+twenty-second (`t/1099`, TKT-736 - the same police-rule-count claim `t/433`
+checks in markdown, checked in Perl source comments and POD too) - and checked as
 a set by `t/865-guards-that-name-themselves.t`: each guard below still
 exists and still carries its own marker phrase, and this table names
 exactly this set, compared sorted rather than only counted (a same-count
@@ -4612,9 +4614,10 @@ substitution would still be caught).
 | `t/717-a-fixture-that-stopped-listening.t` | A Playwright fixture mocking a real `/record` payload shape keeps listening to what that shape actually carries, so the two cannot drift apart unnoticed. |
 | `t/877-two-gates-one-decision.t` | The commit gate's two independent copies - this repo's own `tools/hooks/commit-msg` and `lib/Tira.pm`'s installable `$COMMIT_GATE` - agree on the same idle/writing column rules, compared as sets rather than as text. |
 | `t/239-every-declared-refusal-is-exercised.t` | A refusal declared in `%MISLEADING_OPTIONS` or `%OPTION_READ_BY` is actually exercised, not merely declared - and the parser reading those tables cannot itself degrade to a silent warning. |
+| `t/1099-a-count-that-quoted-its-own-history.t` | The same police-rule-count claim `t/433` checks in markdown is also checked in every Perl line comment and POD block, narrower than `t/433`'s own shape since the wider one false-positives on real, unrelated source sentences. |
 
-What this is not: a claim that these twenty-one are the only meta-guards
-that will ever exist, or that a twenty-second is caught automatically.
+What this is not: a claim that these twenty-two are the only meta-guards
+that will ever exist, or that a twenty-third is caught automatically.
 Adding one means adding it here and to the canonical list in `t/865` itself, the same
 honest limit `t/433`'s own doc-vs-code count already has - a check can compare
 two named things against each other, it cannot notice a third thing nobody

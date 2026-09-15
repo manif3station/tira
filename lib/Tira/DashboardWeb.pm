@@ -324,7 +324,7 @@ get '/columns' => sub {
     return _response_bytes( $COLUMNS->( { type => $type } ) );
 };
 
-# The board-wide police policy engine (36 rules), separate from a column's
+# The board-wide police policy engine (49 rules), separate from a column's
 # own required-action template above. TKT-493.
 get '/policies' => sub {
     content_type 'application/json; charset=UTF-8';

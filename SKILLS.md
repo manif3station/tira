@@ -2117,10 +2117,13 @@ the plain functions `_render_view`, `_view_asset` and `json_object`.
 
 **`--help` on a command that does not exist is refused, not answered, since 5.112** (TKT-660). `Tira::CLI->run()` handled `--help` before dispatch, so a name with no entrypoint anywhere got the fallback usage line - grammatical, correctly formatted, naming the invented command back - and returned success. The dispatcher's own unknown-command "Did you mean" was never reached, because the help branch returns before dispatch runs at all. New module `lib/Tira/CLI/Command.pm` answers whether a bare command is real by reading `lib/Tira/CLI.pm`'s own dispatch surface: both the literal `$command eq '...'` shape t/410 already reads for its usage-line ledger, AND the regex-alternation shape (`$command =~ /\Alogin\.(register|check|status|logout)\z/` and two dozen more) t/410 does not need to check. An early version of this fix checked only the first shape and would have refused `--help` for `login.status`, `dashboard.sow` and every other regex-dispatched command as though it did not exist - caught by this ticket's own `t/1086` the first time it ran against a real implementation. The fix tests the dispatch regex objects directly against the given name rather than trying to re-derive every concrete string an alternation can produce, and was verified with a standalone sweep against all statically-extracted real commands (0 false negatives) before shipping. Typed record commands (`ticket.foo`, `epic.bar`) are unaffected - they always arrive with `$type` already set by their own entrypoint script, never as the bare dotted name. Split into its own module rather than growing `lib/Tira/CLI/Usage.pm` past its own 500-line limit, which t/524 caught live mid-implementation.
 
-`lib/Tira.pm` is 15,158 lines as of TKT-1098 (5.129) - a sharp drop unrelated
-to decomposition: its own POD block moved to a sibling `lib/Tira.pod`, the
-standard CPAN same-basename convention, so `perldoc Tira` is unaffected.
-Before that move it had grown to 16,917 lines since the fourth lift's own
+`lib/Tira.pm` is 14,866 lines as of TKT-1102 (5.131). Two drops stacked:
+TKT-1098 moved its own POD block to a sibling `lib/Tira.pod` (the standard
+CPAN same-basename convention, so `perldoc Tira` is unaffected) - unrelated
+to decomposition - and TKT-1102 then lifted a genuine concern, the
+notification/warning subsystem, into `lib/Tira/Notification.pm`, the first
+real cut since TKT-1092 was filed to track this and had not yet produced
+one. Before the POD move it had grown to 16,917 lines since the fourth lift's own
 14,164 - the file gains from most releases that touch it, and a
 hand-corrected number drifts again by design. The figure the
 fourth lift replaced said 14,256, README said 14,177, `lib/Tira/Job.pm` said

@@ -314,17 +314,26 @@ Registers this project's collector entry machine-wide, refusing a name collision
 
 Unregisters this project's collector entry.
 
+=head2 clearance_list
+
+Cards whose questions are all answered since the last all-clear sent for
+them - the "welcome back" half of a reminder, read by C<notification_message>.
+Lives in L<Tira::Notification> since TKT-1102.
+
 =head2 notification_message
 
 Composes the reminder text for every card that has dwelt past its threshold.
+Lives in L<Tira::Notification> since TKT-1102.
 
 =head2 warning_list
 
-Returns the project's standing warnings.
+Returns the project's standing warnings. Lives in L<Tira::Notification>
+since TKT-1102.
 
 =head2 warning_add
 
-Adds a warning, or returns the existing one if the same message is already standing.
+Adds a warning, or returns the existing one if the same message is already
+standing. Lives in L<Tira::Notification> since TKT-1102.
 
 =head2 warning_clear
 
@@ -332,6 +341,7 @@ Clears one warning by id, or every one with C<--all>. C<--all> against a
 board with nothing to clear returns an empty list rather than refusing -
 clearing everything from nothing is a completed request, not a failed
 lookup. C<--id> still refuses, by name, when the id names nothing. TKT-721.
+Lives in L<Tira::Notification> since TKT-1102.
 
 =head2 job_add
 
@@ -551,11 +561,21 @@ the same "No task" error an unknown id gets.
 
 =head2 notification_record
 
-Records that a reminder was sent for one or more cards in a given column, so the same reminder is not sent twice.
+Records that a reminder was sent for one or more cards in a given column,
+so the same reminder is not sent twice. Lives in L<Tira::Notification>
+since TKT-1102.
+
+=head2 notification_level
+
+How many reminders a card has already had in its current column since the
+last all-clear - the count C<notification_record> and
+C<notification_message> both derive their own answers from. Lives in
+L<Tira::Notification> since TKT-1102.
 
 =head2 notification_list
 
-Returns recorded notification sends, optionally filtered by ref.
+Returns recorded notification sends, optionally filtered by ref. Lives in
+L<Tira::Notification> since TKT-1102.
 
 =head2 column_list
 

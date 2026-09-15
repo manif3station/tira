@@ -1,5 +1,35 @@
 Revision history for Tira
 
+5.131  2026-09-15
+    - TKT-1102: card-reminder escalation and the board's own warning log
+      (notification_message, clearance_list, warning_list, warning_add,
+      warning_clear, notification_record, notification_level,
+      notification_list - 13 subs including private helpers) lifted out of
+      lib/Tira.pm into lib/Tira/Notification.pm, the same pattern TKT-746's
+      four earlier lifts (Toon/Tasklist/Render/Attachment) already
+      established - Michael's own live call-out (msg #8356/#8362) that
+      TKT-1092's decomposition umbrella had tracked zero actual module
+      splits since TKT-746, and citing it as an excuse on every gate
+      without real work behind it was "talking rubbish". This is the first
+      real cut since. lib/Tira.pm drops from 15,158 to 14,866 lines.
+      Entry points keep their old names - Tira.pm's own copies are one-line
+      require-and-forward stubs, matching Tira::Tasklist's exact
+      convention, including the same private-helper discipline: an early
+      draft called _warning_read/_notification_dbh as $self->methods from
+      within the new module, which compiles clean but dies at runtime
+      ("Can't locate object method") since $self is blessed Tira and Tira
+      no longer defines them - caught live by the existing test suite
+      (t/60-blocked-cards.t, t/721) and fixed by calling them as plain
+      functions with $self passed explicitly, the same discipline
+      Tira::Tasklist's own POD already documents. _sqlite_available stays
+      on Tira itself (a second, unrelated concern - _search_index_dbh -
+      calls it too) and _duration_phrase keeps a plain-function forwarder,
+      since t/48-escalation.t calls it directly as Tira::_duration_phrase().
+      Method-level POD stays in lib/Tira.pod per TKT-832's own convention;
+      lib/Tira/Notification.pm gets its own NAME/DESCRIPTION/CALL-IT-
+      THROUGH-TIRA/IF-YOU-EDIT-THIS-MODULE sections matching
+      lib/Tira/Tasklist.pm's shape.
+
 5.130  2026-09-15
     - TKT-1101: a project reported raw "fatal: not a git repository (or any
       parent up to mount point /)" lines on plain STDERR every time police

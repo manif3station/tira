@@ -20,17 +20,18 @@ use warnings;
 use File::Find qw(find);
 use Test::More;
 
-# READS THE ENGINE FILE ON PURPOSE - t/486 marker: about this file, not its code.
-# Only the POD is taken from it, and Tira.pm's POD is deliberately where the
-# lifted modules' methods stay documented (TKT-832) - so the section this
-# compares really is this file's own. The CALLERS are already found by walking
+# READS THE ENGINE'S POD ON PURPOSE - t/486 marker: about this file, not its
+# code. Tira.pm's own POD is deliberately where the lifted modules' methods
+# stay documented (TKT-832) - so the section this compares really is this
+# file's own. Since TKT-1098 that POD lives in a sibling lib/Tira.pod (the
+# standard CPAN same-basename convention), not inline in lib/Tira.pm any
+# more - read from there instead. The CALLERS are already found by walking
 # lib/Tira below, which is the half that had to follow the code.
-my $module = 'lib/Tira.pm';
+my $module = 'lib/Tira.pod';
 open my $fh, '<', $module or die "Cannot read $module: $!";
-my $body = do { local $/; <$fh> };
+my $pod = do { local $/; <$fh> };
 close $fh;
 
-my ($pod) = $body =~ /^__END__\s*(.*)\z/ms;
 my %documented;
 $documented{$1}++ while $pod =~ /^=head2\s+(\S+)/mg;
 

@@ -148,7 +148,8 @@ find( { no_chdir => 1, wanted => sub {
     return if !-f $File::Find::name;
     return if $File::Find::name !~ m{(?:\A|/)cli/[^/]+\z}
       && $File::Find::name !~ m{\At/.*\.t\z}
-      && $File::Find::name !~ m{\Alib/.*\.pm\z};
+      && $File::Find::name !~ m{\Alib/.*\.pm\z}
+      && $File::Find::name !~ m{\Alib/.*\.pod\z};
     $File::Find::name =~ /\A([^\x00-\x1f\x7f]+)\z/ or die 'Unsafe Perl file path';
     push @perl_files, $1;
 } }, qw(cli lib skills t) );
@@ -167,7 +168,19 @@ my $lib_pm_count = do {
 my @found_lib_pm = grep { m{\Alib/.*\.pm\z} } @perl_files;
 is( scalar @found_lib_pm, $lib_pm_count,
     "the lib/ walk found every .pm module ($lib_pm_count of them) - not an empty or mis-rooted walk passing silently" );
+
+# TKT-1098: lib/Tira.pm's POD moved to a sibling lib/Tira.pod, the standard
+# CPAN same-basename convention - podchecker returns -1 (its "no POD found"
+# answer, not an error) for a .pm file that deliberately carries none any
+# more, so this one file is checked for exactly that instead of the 0 every
+# other file (including lib/Tira.pod itself) must still return.
+my %intentionally_pod_free = ( 'lib/Tira.pm' => 1 );
 for my $file (@perl_files) {
+    if ( $intentionally_pod_free{$file} ) {
+        is( podchecker($file), -1,
+            "$file carries no POD of its own any more - it moved to lib/Tira.pod" );
+        next;
+    }
     is( podchecker($file), 0, "$file has valid POD" );
     open my $fh, '<:raw', $file or die "Cannot read '$file': $!";
     my $body = do { local $/; <$fh> };

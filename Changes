@@ -1,5 +1,22 @@
 Revision history for Tira
 
+5.129  2026-09-15
+    - TKT-1098: lib/Tira.pm carried its whole POD block inline at the end of
+      the file (1,758 lines, from =head1 NAME through the closing =cut),
+      counting toward the very line-count caps TKT-1092's decomposition
+      effort is trying to bring the file under, for no reason connected to
+      the code itself. Michael's own live ask (same message that asked why
+      the file was still >15k lines): move the POD to a sibling
+      lib/Tira.pod, the standard CPAN convention perldoc/pod2* tools
+      already look for when a same-basename .pod file exists beside a .pm
+      one. A pure location move - the extracted content is byte-identical
+      to what lib/Tira.pm used to carry, confirmed by direct diff, and
+      Pod::Simple::Text confirms lib/Tira.pod renders the same 83,504
+      characters of documentation while lib/Tira.pm now renders none.
+      lib/Tira.pm drops from 16,917 to 15,158 lines - a sharp reduction
+      unrelated to any further decomposition lift. New test:
+      t/1103-a-name-worth-its-own-file.t.
+
 5.128  2026-09-15
     - TKT-785: record.move's dispatch returned the whole re-fetched record
       on success - the same full dump tira.TYPE.show gives, with the one

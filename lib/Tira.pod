@@ -1,0 +1,1758 @@
+=head1 NAME
+
+Tira - Filesystem-native Kanban project management engine
+
+=head1 SYNOPSIS
+
+  my $tira = Tira->new;
+  $tira->create_project(dir => 'demo', name => 'Demo');
+  my $ticket = $tira->create_record(type => 'ticket', title => 'Ship it');
+  print $tira->format_output($ticket);
+
+=head1 DESCRIPTION
+
+Tira stores project configuration beneath C<.tira>, represents board columns as
+folders, and stores SOW, epic, and ticket records as JSON files. This module owns
+safe project discovery, atomic persistence, monotonic reference allocation, and
+the shared TOON, JSON, and Markdown output contract. Text persistence is
+canonical UTF-8; legacy isolated bytes are repaired during record reads.
+Every work record also supports ordered checklist entries with item/status
+values and immutable record-local IDs.
+
+=head1 METHODS
+
+=head2 new
+
+Creates an engine. Tests may supply a C<clock> callback.
+
+=head2 create_project
+
+Creates the canonical project and board layout.
+
+=head2 discover_project
+
+Finds C<.tira/project.yml> by explicit root or upward directory traversal.
+
+=head2 create_record
+
+Creates one free-ranging SOW, epic, or ticket in its Backlog column.
+Release 0.03 records include singular assignee, optional reporter, planning and
+version metadata, numeric priority, and an immediate generated parent.
+C<fix_version> must be a released version number, C<none>, or an
+C<n/a - ...> explanation for work outside a release - anything else is
+refused, since 3.45.
+
+B<A misspelled argument is refused, since 5.87> (TKT-635): a key that closely
+resembles a real field - small edit distance, or the same words transposed
+(C<exempt_required> for C<required_exempt>) - is named with a suggestion,
+rather than silently doing nothing. A key that resembles no real field is
+left alone, because this method is called internally with C<%args> hashes
+that legitimately carry other keys too.
+
+B<A whitespace-only title is refused like an empty one, since 5.89> (TKT-754):
+C<title> is trimmed before the "Record title is required" check, via
+C<_valid_title>, shared with C<record_update> so the same card cannot be
+blanked to whitespace after creation either. The stored value is never
+rewritten - only the emptiness test runs against the trimmed value.
+
+B<--checklist TEXT (repeatable), since 5.95> (TKT-574): files the card
+with checklist items already on it, in the order given, each getting a
+sequential C<CHK-NNN> id and defaulting to C<To Do> the same way
+C<checklist_add>'s own C<--status> now defaults. Each item is refused if
+whitespace-only or empty, the same check C<checklist_add> makes on its own
+C<--item> - checked before anything is written, so a bad item anywhere in
+the list fails the whole creation rather than leaving a partial checklist
+behind. A create with no C<checklist> argument is unchanged - an empty
+list, as before - and marking an item C<Done> still requires its
+C<--command>/C<--proof> pair
+regardless of how the item was created (TKT-958 unweakened). It is a
+create-only field: C<record_update> does not recognize it, since
+C<@CARD_FIELDS> (shared by both) never lists it, only
+C<@CREATE_RECORD_FIELDS> does - which of a card's existing items to touch
+is not a question this field can answer for an update.
+
+=head2 format_output
+
+Encodes data as TOON by default, pretty JSON, Markdown, or an HTML board.
+
+Both rendering concerns are loaded lazily, at the branch that needs them, so
+a caller gets only the one it asked for. The C<toon> branch C<require>s
+L<Tira::Toon>, for the encoder/decoder overrides Data::TOON needs to render
+this project's own output correctly. The C<human> and C<table> branches
+C<require> L<Tira::Render>, which holds the markdown renderer and the HTML
+board builder. A caller asking for C<json> or C<json-pretty> compiles
+neither. TKT-746, via TKT-830 and TKT-834.
+
+=head2 record_update
+
+Writes fields on an existing record. Repeatable list fields (labels,
+key_details, deliverables, acceptance, test_steps, bdd, atdd,
+affects_versions, scope_in, scope_out) append; the C<*_replace> forms
+(C<labels_replace>, C<scope_in_replace>, C<scope_out_replace>, and so on)
+replace the whole array wholesale, including with an empty array to clear
+it - the only way to correct a wrong entry rather than append past it.
+
+B<A misspelled argument is refused, since 5.87> (TKT-635, see C<create_record>
+above for the full reasoning and the design constraint that shapes it): the
+same near-miss check, run against the same field list plus this method's own
+call-mechanics keys (C<ref>, C<author>, C<expect>, and so on).
+
+B<A whitespace-only title is refused, since 5.89> (TKT-754): C<title> shares
+C<create_record>'s C<_valid_title> check, so a card cannot be blanked to
+whitespace by update even if it started with a real one.
+
+B<A C<column> argument is refused outright, since 5.89> (TKT-820,
+self-found): C<column> is not one of this method's fields - C<record_move>
+is the only path allowed to change it - but it is a legitimate name
+elsewhere (C<create_record> takes one), so the near-miss check above
+deliberately leaves it alone rather than flagging it as a typo. Nothing
+else caught it either, so C<record_update( ..., column => 'done' )> used to
+succeed with no error and no effect: a clean exit and an unchanged card
+read as confirmation the move had happened. Checked first, before the
+near-miss check and before the project lock, naming C<record_move> (or the
+type-specific C<*.move> verb) as the real command.
+
+=head2 rule_suspend
+
+Puts one policy rule down for a card, or the whole board, for a bounded
+number of seconds with a required reason. The enforcement log entry
+carries C<rule>, C<seconds> and C<reason> as fields, alongside the same
+prose C<detail> a person reads, so suspensions can be counted and grouped
+by rule without parsing text. An optional C<pid> ties the suspension to a
+running process instead of only the clock: C<_rule_suspended> lifts it the
+moment that process is gone (checked with a plain C<kill(0, $pid)>, not a
+process-table read), bounded by a higher, measured ceiling
+(C<$SUSPENSION_PID_CEILING_SECONDS>, 1800s) as a backstop rather than the
+clock-only form's 600s C<$SUSPENSION_CEILING_SECONDS>, since a suspension
+waiting on this repo's coverage gate (846s) always outlasted the shorter
+ceiling. TKT-361. The pre-push hook was the other gate that did so, at 15m+,
+until TKT-680 took the suite out of it in 4.62; the coverage gate alone still
+exceeds the clock-only ceiling, so the higher backstop is unchanged.
+
+=head2 changelog_check
+
+Cross-references every card's claimed C<fix_version> against a changelog
+file's own version headings (C<Changes> by default), returning any card
+whose claimed version was never actually released. C<none> and an
+C<n/a - ...> explanation are never reported as missing.
+
+=head2 bulk_import
+
+Applies (or, with C<dry_run>, previews) a ref-keyed set of field changes
+transactionally. A change object is keyed by its own record reference, not
+a C<--ref> flag; an empty or malformed key is refused naming that key
+structure rather than a flag this command does not have.
+
+=head2 question_list
+
+Lists a card's questions with their answers. Reading marks an unread
+answer's C<read_at>, unless C<peek> is set: a peek returns metadata only
+(C<id>, C<status>, C<answered_at>, C<read_at>, C<mark>, never the answer
+text, reason, or options) and does not itself mark anything read, so
+checking whether an answer has been read stops being the same act as
+reading it.
+
+=head2 work_order
+
+Answers what to work next: the highest-priority waiting card, and what it
+was chosen over. A card carrying an unanswered question, or a future
+C<start_date>, is held rather than offered - both are machine-readable
+holds this board already validates, released the moment the condition
+clears.
+
+=head2 policy_evaluate
+
+Runs every declared policy rule against the board and returns the
+violations found. A rule that loops over several things on one card and
+reports each with the card's own ref - C<question-unanswered>,
+C<answer-waiting>, C<answer-unjudged>, C<answer-ok-not-folded>,
+C<answer-not-ok-no-followup> - passes the looped-over thing's own id as a
+C<sub_key>, so two findings about one card get distinct ledger entries
+instead of colliding into one.
+
+B<That mechanism has a twin, and until 5.47 the twin could not receive it.>
+The environment rules - the ones about the machine rather than about a card -
+are evaluated by C<_police_environment_violations>, which has a reporter closure
+of its own, also called C<$report>. It declared three parameters where this one
+declares five. C<monitor-output> lives inside it and calls it with five, passing
+C<< <job id>:<what was said> >> as a C<sub_key> so that two passes carrying
+different words are not read as one rule repeating itself. Perl discarded the
+argument in silence. The ledger keys an entry by C<rule|policy|ref|sub_key>, and
+that rule reports with no ref, so every finding it ever made on a board was a
+single entry; the quiet ladder marked each telling after the first as a repeat,
+correctly, and the bridge skipped it. One C<monitor-output> line reached the
+board this was found on in three weeks. Both closures now take the same
+parameters and mean the same thing by the last two, which is what stops the next
+rule written by copying a neighbour from losing its arguments the same way.
+TKT-925. C<checklist-unmoved> is addressed to a card's reporter,
+not its assignee, since the assignee is often the reviewer for a card in
+review and cannot tick an item only the card's own author left unticked.
+C<card-still>'s finding names the limit that was actually crossed and
+which of the two possible sources set it - a column's own C<notify_after>,
+or the policy's own C<--age> when the column has none - since elapsed
+time alone read as though it were the threshold too. C<wip-limit> counts
+each record kind (sow/epic/ticket) in a watched column separately, rather
+than one merged pool, so a manager layer of epics cannot exhaust a
+ticket's budget by existing. C<card-duration>'s finding names which
+C<--type>-scoped threshold fired, since 5.89 (TKT-756) - C<--type> is the
+same generic policy scope every rule already reads, so two type-scoped
+declarations on the same column (an epic threshold and a SOW threshold,
+say) were already judged independently before this, but read as
+identical findings until the detail also named the type and its
+threshold. C<agent-still>'s direct-to-Telegram message
+opens by naming the board it is about - the C<TIRA_HOME> alias if one was
+set, and always the real project path - since that one message goes to the
+owner rather than to the agent-readable bridge, and an unnamed alert on a
+machine running several projects with this skill cannot be placed. That
+same rule asks whose card it is before reporting: a card sitting in a
+working column is only counted against the agent when the board names an
+agent and that card is not assigned to somebody else, since an agent
+cannot be stalling on work it has no power to move. An unassigned card
+still counts - nobody has claimed it, so the agent is the only party who
+could be moving it - and a board that declares no agent is measured
+exactly as it always was. C<upgrade-unreviewed> is the one rule here that
+names no column at all, and that is deliberate rather than an omission: the
+card the upgrade gate raises lands in C<backlog>, where the column-scoped
+rules are not declared and where C<card-still> does not look either, because
+C<_resting_columns> excludes a protected column. Backlog resting is correct - a
+card waiting in a queue is not a stalled card - so scoping a rule to it would
+speak about every card waiting there. This one matches the C<upgrade-gate>
+label the gate writes, rather than the title it generates from the version
+pair, and stops as soon as one checklist item is ticked, since the question is
+whether anybody read what changed and not whether they finished acting on it.
+TKT-957.
+
+C<job-due>'s due-check read (C<job_checked>, in the same store-backed ledger
+C<agent-still>'s notified-stamp already uses) used to run outside any lock,
+while only the write that records a job as checked/fired was wrapped in
+C<_with_enforcement_lock> - the same read-modify-write shape C<t/364> already
+fixed for C<violation_record>, left unfixed here. Two police daemons racing
+that gap - a normal, supported way to run this project - both read the same
+stale C<job_checked>, both decide the job is due, and both announce it.
+TKT-995, Michael's own report: the same violation logged three times, 33
+seconds apart, on a job scheduled every three hours. Fixed by moving the read
+inside the same lock as the write, so the whole decide-announce-record
+sequence is atomic per pass.
+
+=head2 project_new
+
+Creates a complete project in one call - the project, its three boards, prefixes, columns, and members - re-runnable safely, since an existing piece is adopted rather than refused.
+
+=head2 project_show
+
+Returns the project's stored configuration, with each person's active flag defaulted and only the safe fields returned.
+
+=head2 project_mode
+
+Reads or sets whether the project is worked by a single agent or a chain of them.
+
+=head2 project_limit
+
+Reads or sets the board's work-in-progress limit.
+
+=head2 project_gates
+
+Reads the project's declared gate vocabulary, empty if none has been declared.
+
+=head2 project_gates_set
+
+Declares the project's gate vocabulary, replacing whatever was declared before.
+
+=head2 onboarding_questions
+
+Returns the fixed list of questions asked when a project is first set up.
+
+=head2 project_update
+
+Writes project-level settings: name, notify_after, and the automation settings that turn the reminder collector on or off.
+
+=head2 person_list
+
+Returns every person on the project.
+
+=head2 person_add
+
+Adds a person to the project; refuses a duplicate id.
+
+=head2 person_update
+
+Updates a person's name or email.
+
+=head2 person_remove
+
+Removes a person, refusing one still referenced anywhere in the board's history (assignee, reporter, comment, evidence, or gate author).
+
+=head2 person_activate
+
+Marks a person active.
+
+=head2 person_deactivate
+
+Marks a person inactive.
+
+=head2 link_type_list
+
+Returns the project's declared link types.
+
+=head2 link_type_add
+
+Declares a new outward/inward link type pair.
+
+=head2 link_type_remove
+
+Removes a link type, refusing one that is protected or still used on a record.
+
+=head2 collector_entry
+
+Builds the machine-wide collector configuration entry for this project (command, interval, cwd), or C<undef> if the project has no heartbeat set.
+
+=head2 collector_install
+
+Registers this project's collector entry machine-wide, refusing a name collision with a different project's working directory.
+
+=head2 collector_remove
+
+Unregisters this project's collector entry.
+
+=head2 notification_message
+
+Composes the reminder text for every card that has dwelt past its threshold.
+
+=head2 warning_list
+
+Returns the project's standing warnings.
+
+=head2 warning_add
+
+Adds a warning, or returns the existing one if the same message is already standing.
+
+=head2 warning_clear
+
+Clears one warning by id, or every one with C<--all>. C<--all> against a
+board with nothing to clear returns an empty list rather than refusing -
+clearing everything from nothing is a completed request, not a failed
+lookup. C<--id> still refuses, by name, when the id names nothing. TKT-721.
+
+=head2 job_add
+
+Creates a repeated job: a C<schedule> (a crontab expression, or the literal
+C<monitor>) and either a C<command> to run or a C<message> to announce -
+never both, never neither. Refuses a malformed schedule when it is written,
+naming the field that was wrong and the range it takes, and stores nothing;
+a job that could never fire would be indistinguishable from one with
+nothing to say, which is the ambiguity this record exists to remove.
+Implemented in L<Tira::Job>, required at the call site. EPC-014, TKT-836.
+
+=head2 job_list
+
+Returns every repeated job on the board. TKT-984: given C<id>, returns a
+single-element list holding just that job - refusing by name (the same shape
+C<job_update>'s own C<_job_find> uses) rather than answering with an empty or
+the full list when the id names nothing. C<id> used to reach the CLI dispatch
+hash and stop there, silently unused by this method.
+
+=head2 job_update
+
+Changes a job's schedule, command, message or C<enabled> flag. The schedule
+is validated against the job as it would be, not against the arguments
+alone, so changing only the schedule of a command job is not refused for
+having no command.
+
+=head2 job_delete
+
+Removes a job by C<id>.
+
+=head2 job_started
+
+Records the pid a C<monitor> job was started as, and when. Refused for a
+cron job: that is not supposed to be up between runs, so a pid on one would
+be a fact about a process that has already exited, and C<job_monitor_alive>
+would then have to decide which pids it is allowed to believe. Refusing the
+write keeps that question from existing. EPC-014, TKT-842.
+
+=head2 job_restart_capped
+
+Records that a monitor's C<restart_every> loop stopped auto-restarting
+after C<count> consecutive crash-loop restarts, and when. Written by the
+feeder itself, the moment its own cap is reached - not by C<job_stop>,
+which has no idea why the process it is signalling stopped restarting
+itself. C<monitor-dead> reads this to say more than a cold start: a
+monitor that tried and gave up is a different fact from one that never
+got going. Cleared by C<job_started>, since a deliberate fresh start is a
+fresh chance rather than a continuation of whatever crash streak stopped
+the last run. TKT-1063.
+
+=head2 job_stop
+
+Lets go of a running monitor: clears the recorded pid and start time, and
+returns the pid it was holding as C<stopped_pid> so the caller can signal it.
+Refused for a cron job, which is not up between runs and has nothing to stop.
+
+B<It succeeds whether or not the process is still there>, and that is the
+engine's constraint deciding the shape rather than a preference. This module
+cannot read a process table - it is forbidden C<qx>, C<system>, C<exec> and
+piped C<open> - so all it can know is that a pid was RECORDED. A pid whose
+process has already died is exactly the record somebody needs to clear, and
+refusing would leave the board wrong for ever with no way out.
+
+That is why C<job_update> and C<job_delete> can point at it when they refuse to
+touch a running monitor: the way past a refusal has to work in every case that
+reaches it. TKT-893.
+
+=head2 job_feed
+
+Records what a monitor has called in with, against the job that said it, and
+stamps C<last_output_at> - once for the delivery, not once per line, so it
+answers when the monitor last spoke rather than when a given line was printed. A monitor is started inside a pipeline whose other half is
+C<skills/job/cli/feed>, so its output arrives here rather than being left in a
+file for police to follow - his instruction that monitors should not have
+separate logs, and his answer to Q-112 that each output be registered to
+whoever talked to the police. The buffer is bounded and counts what it could
+not keep. EPC-014, TKT-851.
+
+=head2 job_ran
+
+Records that a job's command was run, stamping C<last_run_at>. The third of
+three facts a job can report and the last to exist: C<last_due_at> says the
+window came round, C<last_output_at> says the job spoke, and neither answers
+"did it run". His report is why - C<tira.job.run> answered C<ran=1 status=0>
+and left the record untouched, so a job just run by hand went on reading
+"Never fired", which is painted from C<last_due_at> and a manual run never
+comes due. Stamped where the command is run rather than where its output
+arrives, so a command exiting 0 in silence still records its run, and stamped
+through one recorder shared by the button and the schedule. TKT-963.
+
+=head2 job_output_drain
+
+Takes what a monitor has said so it can be carried to the bridge, and clears
+exactly that much. Called from L<Tira::CLI::Police> after the write, never
+from the pass, which changes not one byte of the board. It removes the count
+that was announced rather than whatever is in the buffer when it runs: the
+monitor may have called in during the gap, and taking those lines would lose
+output nobody ever saw. EPC-014, TKT-851.
+
+=head2 job_is_due
+
+Answers whether a job is due at a given instant, which is always passed in
+rather than read from the clock. A disabled job is never due, and neither
+is a C<monitor> job - that runs continuously rather than on a tick, so
+answering otherwise would have a caller restart it every minute.
+
+=head2 tasklist_list
+
+Every C<tasklist_*> method, from here down to C<tasklist_task_ref_unlink>, is
+implemented in L<Tira::Tasklist> and reached through a one-line forwarder on
+this class that C<require>s that module at the call site - so a command that
+never touches the task list never compiles it. Names, arguments and return
+values are unchanged by that move, and they stay documented here because here
+is where callers still find them. TKT-832.
+
+Returns the task-list items scoped to C<session> - two different session ids
+never share a list, and no session at all is the single shared list. TKT-539:
+C<all_sessions> is a deliberate opt-in that returns every item across every
+session instead, each still carrying its own C<session> field. TKT-545:
+C<status> narrows to one status, taking the same values C<tasklist_update>
+does and through the same parser, so an unknown value is refused rather
+than matching nothing. TKT-552: C<unlinked> narrows to items with an empty
+C<refs> array, filtering linkage only and composing with C<status> rather
+than replacing it. Both filter before sorting.
+
+TKT-844: a damaged C<tasklist.json> refuses naming the path and saying it is
+damaged, rather than leaking the JSON decoder's own words and a
+C<lib/Tira/Tasklist.pm> line number - the shape a half-written file has.
+C<search>'s C<tasklist> mode shares the same read and refuses the same way;
+C<police_pass> still completes against a corrupt tasklist, since
+C<task-unlinked> and C<task-card-mismatch> both walk the list too.
+
+=head2 tasklist_sessions
+
+TKT-541: returns one row per distinct session present in the task list -
+C<session>, C<count>, and a C<status> breakdown (pending/working/done) -
+sorted by item count descending. No session-scoping args of its own, since
+seeing every session is the whole point.
+
+=head2 tasklist_add
+
+Adds a free-text task-list item, starting C<pending>, scoped to C<session>.
+
+=head2 tasklist_update
+
+Moves a task-list item between C<pending>, C<working>, and C<done>, and/or replaces its text. At least one of C<status>/C<text> is required; either given alone leaves the other untouched. TKT-523: added C<text>, for the browser dashboard's Task List section's own inline edit control. TKT-538: refuses an item belonging to a different C<session> than the caller's, with the same "No task" error an unknown id gets.
+
+=head2 tasklist_next
+
+Peeks at the front of the session's pending queue, without removing it.
+Given C<refs> (TKT-563), narrows to the next pending item linked to any of
+those card references instead of the queue's own front; omitted, the whole
+pending queue is considered, as before.
+
+=head2 tasklist_shift
+
+Returns and removes the front of the session's pending queue (FIFO).
+
+=head2 tasklist_pop
+
+Returns and removes the back of the session's pending queue (LIFO).
+
+=head2 tasklist_unshift
+
+Adds a new item at the very front of the session's queue.
+
+=head2 tasklist_slice
+
+Adds a new item at an arbitrary C<--position> within the session's queue.
+
+=head2 tasklist_remove
+
+Deletes a task-list item entirely, by id - distinct from marking it C<done>.
+TKT-538: refuses an item belonging to a different C<session> than the
+caller's, with the same "No task" error an unknown id gets.
+
+=head2 tasklist_import
+
+Copies a card's still-pending required-actions and checklist entries into
+linked task-list items, skipping any already imported.
+
+=head2 tasklist_prune
+
+Deletes every C<done> item, scoped by C<session> the same as list/add.
+
+=head2 tasklist_task_attach_add
+
+Attaches one or more files to an existing task-list item, by id. TKT-538:
+refuses an item belonging to a different C<session> than the caller's, with
+the same "No task" error an unknown id gets.
+
+=head2 tasklist_task_attach_add_content
+
+Content-based twin of tasklist_task_attach_add, for a browser upload that
+has bytes rather than a server-side file path. Same TKT-538 session refusal.
+
+=head2 tasklist_task_attach_discard
+
+Removes one or more attachments from an existing task-list item, by name.
+TKT-538: refuses an item belonging to a different C<session> than the
+caller's, with the same "No task" error an unknown id gets.
+
+=head2 tasklist_task_ref_link
+
+Adds one or more refs to an existing task-list item, by id. TKT-538: refuses
+an item belonging to a different C<session> than the caller's, with the same
+"No task" error an unknown id gets. TKT-682: every ref is validated against
+the board before any of them is stored - a ref naming no record refuses the
+whole call and names the ref that was not found, so a typo'd or invented ref
+can never be stored as if it were a real link.
+
+=head2 tasklist_task_ref_unlink
+
+Removes one or more refs from an existing task-list item, by id. TKT-538:
+refuses an item belonging to a different C<session> than the caller's, with
+the same "No task" error an unknown id gets.
+
+=head2 notification_record
+
+Records that a reminder was sent for one or more cards in a given column, so the same reminder is not sent twice.
+
+=head2 notification_list
+
+Returns recorded notification sends, optionally filtered by ref.
+
+=head2 column_list
+
+Returns a board's columns, or all three boards' columns when no type is given.
+
+=head2 column_apply
+
+Replaces a board's whole column layout in one call - order, labels, chains, and
+both required-action templates, the entry one and the exit one - matching what
+the column editor dialog sends. The editor sends an emptied list as an explicit
+empty rather than omitting the key, which is what lets a list be cleared
+entirely rather than read as "nothing changed".
+
+Since 5.65 (TKT-767) every removal and the final config write run under one
+lock, all-or-nothing: a failure at any point rolls back every card already
+moved to discard, rather than leaving the layout half the old shape and half
+nothing.
+
+Each column's own required-action templates are refused the same way
+C<column_update> refuses them - empty, whitespace-only, or duplicated - for
+every column in the layout, before anything is written. TKT-699.
+
+Since 5.127 a layout entry may carry C<rename_from>, an explicit signal that
+this entry is a real rename of an existing column rather than a new one -
+set only by a caller that actually means a rename, never inferred from the
+layout's own shape or position (an earlier shape-guessing attempt was
+proven unsound and reverted: a genuine remove-one-add-a-different-one
+change can look structurally identical to a rename). A C<rename_from> entry
+is delegated to C<column_rename> itself, so cards and C<required_items> are
+preserved and retagged exactly as a standalone C<column_rename> call
+already promises. C<rename_from> naming a column that is not current, or
+claimed by more than one entry at once, is refused by name before anything
+is written; renaming a protected column is refused the same way
+C<column_rename> refuses it. TKT-772.
+
+=head2 column_update
+
+Updates one column's notify_after, watched flag, terminal role, chain, or
+either of its two required-action templates.
+
+There are two, and this entry said "template" until TKT-651 - the same
+ambiguity the browser editor carried, in the API's own documentation.
+C<required_action> is the list a card must finish before it may LEAVE the
+column; C<entry_required_action> is what it must already have done before it
+may ARRIVE. Each is replaced whole per call and neither touches the other, so
+updating one leaves the other exactly as it was. Both replace wholesale per
+call, matching C<next> and the record side's own multi-value fields: an empty
+array clears the list, which is the only way to correct one rather than
+append past it. TKT-427 for the exit list, TKT-591 for the entry list.
+
+Each list is refused, whole, if any entry is empty or whitespace-only, or if
+the same text appears twice - naming which list and, for a duplicate, the
+repeated text. TKT-699.
+
+Since 5.92 (TKT-936/Q-154) an entry may be conditional:
+C<< { text => TEXT, touches => [PATTERN, ...] } >> instead of a plain string.
+The CLI's C<--required-action-if-touches>/C<--entry-required-action-if-touches>
+build these from C<"PATTERN[,PATTERN...]=TEXT">; this method only validates
+the shape (non-empty text, a non-empty touches list of non-empty patterns) -
+reading a card's git history to decide whether a conditional entry actually
+matches happens at move-time in the CLI layer, since this module is forbidden
+C<qx>/C<system>/C<exec>/piped C<open>. The gating itself lives in the CLI
+dispatch layer, not here - see C<Tira::CLI>'s
+C<_column_entry_required_action_violation>. Storing what a column asks for
+and refusing a move are deliberately separate: the browser dashboard's own
+move calls the engine directly and is not refused, because a human dragging
+a card is not an agent skipping a gate.
+
+C<administrative_action> (TKT-678) declares, by exact item text, which of a
+column's required actions a backward move must never reset - the reset
+otherwise only knows which column an item belongs to, not what kind of item
+it is, so a real build gate and administrative bookkeeping sharing a column
+were reset identically. Replaced whole per call, same as the other two.
+
+=head2 board_show
+
+Returns a board's stored column configuration, each column carrying a count
+of the cards currently in it - read from the record list, never stored back
+into the configuration file.
+
+=head2 column_add
+
+Adds a new column to a board, at a given position.
+
+=head2 column_rename
+
+Renames a column, moving its on-disk directory to match. Also rewrites the
+C<column> tag on every record's C<required_items> entries, board-wide for
+the type, that still name the old column - not only cards currently sitting
+in it - so the departure gate (which matches a card's pending items against
+its CURRENT column) does not go blind to an item left tagged with a name
+that no longer exists. TKT-613.
+
+=head2 column_reorder
+
+Moves a column before or after another.
+
+=head2 column_remove
+
+Removes a column, refusing a protected one or a missing C<reason>/C<author>;
+any cards in it are moved to discard through the ordinary C<record_move>
+path (journalled, attributed) and given a comment carrying the reason, so
+C<discard-unexplained> never fires on a card discarded by this rather than
+abandoned. A config-write failure rolls the discarded cards back to their
+original column. TKT-701. Deliberately does not retag or scrub
+required_items entries elsewhere that still name the removed column -
+unlike a rename, a removed column's name can never again equal a card's
+current column, so a stale entry there is harmless history. TKT-613.
+
+=head2 board_refs
+
+Reads or sets a board's reference prefix and digit width.
+
+=head2 record_show
+
+Returns one record, with field projection, since/if_changed short-circuiting, and attachment backfill applied. Carries checklist_done/checklist_total alongside checklist, computed at read time only.
+
+=head2 record_missing
+
+Returns which of a complete card's fields are still empty, the same list card-full-details computes internally to fire a violation. Since TKT-696 also includes C<_card_owed_missing>'s answer - what the card owes past a milestone column (gate/evidence past verify, fix_version past shipping) - so a card the push gate is about to refuse no longer reads as complete here.
+
+=head2 diff_records
+
+Returns what changed on a record since a timestamp or against a stored snapshot hash.
+
+=head2 record_show_many
+
+Batch form of C<record_show> for up to 100 refs at once.
+
+=head2 record_list
+
+Returns records across one or all three boards, with filtering, field projection, and count/refs-only modes. Each record carries checklist_done/checklist_total the same way record_show does.
+
+=head2 dwell_list
+
+Returns cards that have sat in their column past a threshold, with a staleness level.
+
+=head2 dwell_report
+
+C<dwell_list>'s historical sibling: median, p90, max and count seconds per
+column per type, computed from every card's own recorded column moves.
+Only completed passes count - a card's current column, and the opening
+span of a journal that does not begin with its own creation, are excluded
+rather than measured from an invented start. TKT-366.
+
+=head2 export_records
+
+Bulk export of records, honoring the same filtering as C<record_list> plus a change-hash mode.
+
+=head2 record_move
+
+Moves a card to another column, running the chain, required-action, and journal-attribution checks along the way. Refuses a move with no author. Since 5.128 (TKT-785) the returned record also carries C<previous_column>, the column it moved the record out of - captured inside the same project lock that performs the actual rename, so it names the column THIS call moved the record from rather than a value read by a separate, unlocked call that could race a concurrent writer.
+
+=head2 record_discard
+
+Moves a card to the discard column.
+
+=head2 record_restore
+
+Moves a discarded card back to backlog, or a named column.
+
+=head2 project_validate
+
+Checks (and optionally repairs) a board's column layout against what is actually on disk.
+
+=head2 column_sync
+
+Compares a board's configured columns against its actual on-disk directories, and applies the difference when asked.
+
+=head2 link_add
+
+Links two records, writing the reciprocal link on the other side too. An
+unknown C<type> is refused naming every configured link type, not just the
+bad value. TKT-728.
+
+=head2 link_remove
+
+Removes a link and its reciprocal. C<type> must be the type C<from> actually
+holds towards C<to> - since 5.92 (TKT-910) a removal that matches neither
+side is refused, naming every real type the pair is linked by, rather than
+reporting success for a change that never happened. A self-link's two writes
+share one in-memory record so both of its type spellings are removable,
+rather than one write silently discarding the other.
+
+=head2 comment_list
+
+Returns a record's comments, with first/last windowing and field projection.
+
+=head2 record_reminder
+
+Builds the list of missing fields and update-command hints for one record.
+
+=head2 question_add
+
+Adds a question to a record.
+
+=head2 question_update
+
+Updates a question's text, reason, options, or voice note.
+
+=head2 question_discard
+
+Marks a question discarded.
+
+=head2 question_withdraw
+
+Marks a question discarded with a required reason. TKT-895: the same state
+C<question_discard> already gives, plus a C<withdrawn_reason> on the record
+and a refusal if no reason is given - so ending a question asked by mistake
+never has to fake an answer to leave a true account of why.
+
+=head2 question_answer
+
+Records an answer to a question, or replaces one already there.
+
+Answering again is allowed - an owner corrects himself, or an agent records an
+answer he gave elsewhere - and since 5.42 it keeps what it replaced. The
+previous answer moves to a C<superseded> list on the answer, carrying its text,
+its author, when it was given, when it was replaced and by whom, and the
+C<author> becomes whoever wrote the new text.
+
+The author changes only when one is B<given>. Answering again without naming an
+author leaves the name already recorded, because a missing author is not a claim
+that nobody wrote it.
+
+Before 5.42 a second answer replaced the text and left the author alone, so a
+card could show one person's name above another person's words with nothing
+anywhere to recover the original from. TKT-879.
+
+Note that recording that an answer has been READ is not this method's job and
+needs no call: C<question_list> sets C<read_at> as a side effect, and
+C<question_mark> records a judgement rather than a reading.
+
+=head2 question_attach
+
+Attaches a file to a question or its answer.
+
+=head2 question_voice
+
+Attaches (or removes) a voice-note recording to a question's answer.
+
+=head2 question_mark
+
+Marks an answered question ok or not-ok.
+
+=head2 conversation_add
+
+Adds a conversation entry to a record.
+
+=head2 conversation_list
+
+Returns a record's conversation entries.
+
+=head2 agent_sessions
+
+Returns every child record's agent_session, so a parent can see what would need waking.
+
+=head2 check_owner
+
+Who owes a card's final check, computable from the parent: the parent's own
+assignee if a parent exists (an unassigned parent reports no owner rather
+than walking further up or guessing), or the card's own assignee when it
+has no parent. TKT-372.
+
+=head2 card_holes
+
+Board-wide sweep of C<_card_missing_from> - the same private helper
+C<card_missing> calls per card - so the two can never disagree about what
+complete means. Discarded cards are excluded; an untriaged
+C<tira.dev.found> report still sitting in the board's own entry column is
+exempt, exactly as the push gate exempts it. TKT-374. Also merges in
+C<_card_owed_missing> since TKT-696, the second standard C<card_required>
+carries as C<past_column> - what a card owes once past a milestone
+column, which C<tools/card-holes>' own push-gate check used to keep as a
+hardcoded list nowhere else could read.
+
+A card labelled C<upgrade-gate> is exempt from needing a parent, the same
+way a C<standalone>-labelled card or a SOW is - see C<%CARD_EXEMPT> and
+C<_raise_upgrade_gate>, TKT-956.
+
+=head2 comment_add
+
+Adds a comment to a record. A body that is empty or whitespace-only is refused -
+C<A comment needs some text>.
+
+An B<empty> body is something this was alone in accepting: every sibling refuses
+one - C<evidence_add> a summary, C<warning_add> a message, C<question_answer>
+some text, C<checklist_add>/C<required_item_add> an item. On B<whitespace> the
+siblings disagree, and this joins the stricter pair: C<warning_add> and
+C<question_answer> test C</\S/>, while C<evidence_add>, C<checklist_add> and
+C<required_item_add> test C<eq ''> and so still accept a value made of spaces.
+
+The test is C</\S/> rather than a length check, and that is not style. It is the
+same test C<discard-unexplained> applies to a comment body when deciding whether
+a discarded card was explained, so the command and the rule cannot drift apart
+about what counts as saying something - the failure the earlier state of this
+sub produced, where an agent could satisfy a rule about accountability by adding
+nothing.
+
+Refused before the project lock is taken: nothing in the check needs the record,
+and a refusal that locked first would serialise other callers behind a call that
+was never going to write. TKT-753.
+
+=head2 comment_update
+
+Updates a comment's body or format. C<--comment> is required - since
+TKT-692, omitting it refuses directly rather than falling into the
+not-found lookup with an undef id.
+
+=head2 comment_remove
+
+Removes a comment.
+
+=head2 comment_attach
+
+Attaches a file to a comment; an alias for C<attachment_add>.
+
+=head2 attachment_add
+
+Attaches a file, given by path, to a record or comment.
+
+=head2 attachment_add_content
+
+Content-based twin of C<attachment_add> for browser uploads: same sha dedup, no temporary file, with a 16 MB cap. Character content is encoded to UTF-8 bytes before hashing and writing, so content containing non-ASCII characters stores instead of dying inside C<sha256_hex>.
+
+B<The cap is measured on those bytes, since 5.84> (TKT-829). It was checked twelve lines earlier, on the string as the caller handed it over, and C<length()> on a character string counts CHARACTERS - so a proof made of four-byte UTF-8 passed a 16 MB cap while writing up to 64 MB. The encode above is what made that reachable rather than theoretical, by accepting such content at all, and the fix is that it now runs first. The refusal names the size it measured as well as the limit, because that size is the encoded one and not the length the caller can count.
+
+=head2 attachment_detach
+
+Detaches an attachment reference from a record or comment without deleting its stored content.
+
+=head2 tls_certificate
+
+Reads or writes the project's TLS certificate and key, stored beside the project rather than inside a board.
+
+=head2 attachment_discard
+
+Removes an attachment's stored content, logging the deletion.
+
+=head2 attachment_get
+
+Returns an attachment's stored content, or a note that it was deleted.
+
+=head2 record_clone
+
+Creates a new record copying a source record's fields, linked back to it as a clone.
+
+=head2 checklist_add
+
+Adds a checklist entry to a record. TKT-668: C<--status> is validated
+against the declared set C<{pending, done, To Do}>, case-insensitive - a
+misspelling refuses rather than storing an item no gate can recognize as
+done. Since 5.62 (TKT-909) C<--item> refuses a whitespace-only value the
+same way the literal empty string always did - a space is not a smaller
+piece of content than none.
+
+Since 5.85 (TKT-958) a C<--status done> call also routes through the same
+C<_proof_entries_for> helper C<checklist_update> uses, refusing with no
+C<--command>/C<--proof> pair - previously an item could be created already
+done with no evidence at all, bypassing the pairing C<checklist_update>
+enforces on every later write to the same field.
+
+Since 5.95 (TKT-574) a missing or empty C<--status> defaults to C<To Do>
+rather than refusing - it is the only sensible status for a newly-added
+item, since one created done has nothing left to prove and the checklist
+gates would have nothing to mark. An explicit C<--status> still wins,
+unchanged, and still validates against the declared set above.
+
+Since 5.111 (TKT-642) the next C<CHK-NNN> id is the highest existing
+number plus one, scanned from the record's own checklist, rather than
+C<scalar(@list) + 1> - counting reissued a removed entry's id the moment
+the list was shortened by hand (there is no removal command), the same
+fix C<required_item_add> got at the same time.
+
+=head2 checklist_update
+
+Updates a checklist entry's item text or status. C<--id> is required even
+when C<--item>/C<--status> are given - since TKT-692, an absent one
+refuses directly, naming that C<--item> renames an existing entry rather
+than addressing one. TKT-668: C<--status> is
+validated against the same declared set C<checklist_add> enforces at
+creation - a status already stranger than the set (written before this
+fix shipped) can still be read and moved, it just cannot be written back
+unchanged by a later update.
+
+Marking one C<done> costs at least one C<--command>/C<--proof> pair, and since
+4.60 each half of every pair must contain something. Until then the gate counted
+the pairs and never read them, so C<--command '' --proof ''> marked any item
+done - cheaper than doing the work, and cheaper than reusing another item's
+proof, which already costs a written reason. Whitespace counts as empty. The
+refusal names the half that is missing rather than repeating the message for a
+missing pair, because a caller who supplied a pair and is told to supply one has
+been sent back to what they already did.
+
+Emptiness is what is checked; quality is not. A proof of C<x> is accepted,
+deliberately - whether evidence is any good is not mechanically decidable, and a
+gate that tried would refuse honest work. The check lives in
+C<_proof_entries_for>, which both this and C<required_item_update> call, so the
+CLI and the engine cannot come to different conclusions about the same pair.
+TKT-585.
+
+Since 5.118 (TKT-693), C<--id> also accepts an entry's own exact C<item>
+text as an alternative to its id - the wording an agent has in front of
+it, rather than an id it would otherwise run C<ticket.show> to find. An
+unambiguous match resolves to that entry exactly as its id would; text
+matching more than one entry refuses, naming every matching id, and
+changes nothing; text matching no entry falls through to the existing
+not-found refusal. C<--item> is unaffected and still renames the entry
+addressed by C<--id> - it is a separate argument and does not become a
+second way to address one. C<required_item_update> gets the identical
+fallback.
+
+=head2 _proof_entries_for
+
+Turns C<--command>/C<--proof> arguments into what is stored on an item, and is
+the one function both C<checklist_update> and C<required_item_update> call - so
+what it refuses, both families refuse, and what it changed in 4.64, both
+families gained.
+
+Marking done still costs a matching pair. What is new is that a C<--command>
+may arrive ahead of its proof: it is recorded, the item's status is untouched,
+and the proof follows later repeating its command.
+
+It arrives WITH a C<--status> or an C<--item> rather than entirely alone.
+C<required_item_update> and C<checklist_update> both refuse a call that changes
+nothing - "Required item or status is required" - and that guard is older than
+this feature and is not relaxed by it. So the shape is
+C<--status pending --command TEXT> on an item already pending, which reads
+oddly and is honest: the status is being restated, not changed. Until TKT-628 this returned C<undef> for
+any status that was not C<done>, so a lone command was parsed by the CLI,
+accepted, and dropped here before the pair logic was reached - the call
+succeeded, nothing was stored, and the caller was told nothing.
+
+The remaining early return is about having nothing to store rather than about
+which status was named, which is the distinction that makes an ordinary status
+change still free of any evidence requirement.
+
+Two refusals fire on different shapes and it is worth knowing which: a side
+missing entirely gives "requires at least one --command/--proof pair", while an
+unequal COUNT of the two gives "Every --command needs a matching --proof". A
+lone C<--command> has no proofs at all, so it meets the first - a test written
+against the second passes for the wrong reason, which is a mistake this
+project has already made once.
+
+The refusal for an empty half forks on WHICH HALF is empty rather than on the
+status: "The pair is what says the work happened" for a done claim, "An empty
+command announces nothing" only when there is no proof side at all, and "An
+empty half is not evidence" when a blank proof was supplied beside a real
+command. Forking on the status alone told a caller with a blank C<--proof> that
+an empty command announces nothing, naming the half that was fine.
+
+Three further things this function and its callers had to learn once a
+non-proof could flow through them, each found by a code review rather than by a
+test:
+
+C<_refuse_reused_proof> filters announcements out before it signatures
+anything. It treats a missing proof as the empty string, so two items
+announcing the same command hashed identically and the second was charged with
+reusing evidence that did not exist. The rule is about one PROOF being passed
+off as proving two things; a command with no proof yet proves nothing.
+
+An announcement must not overwrite evidence behind a done claim. The assignment
+C<$entry-E<gt>{proof} = $proof_entries> is unconditional and an announcement is
+truthy, so renaming a done item while announcing replaced its proof with a
+command-only entry and left the status C<done> - the state TKT-583 and TKT-585
+exist to prevent, reached from a new direction. Announcing over a done item is
+now refused unless C<--status> re-opens it deliberately.
+
+Both that guard and the gate-log condition read the RESULTING status -
+C<defined $args{status} ? $args{status} : $entry-E<gt>{status}> - not what the
+caller passed. Keyed off the argument alone, a done item given fresh evidence
+without repeating C<--status> stored it and logged nothing. And an announcement writes no C<gate_passing_log> entry - those
+read "Marked ... done", and an announcement is not that. Both callers of
+C<_log_proof_gate> test the status for exactly this reason; without it,
+announcing a command wrote a false done-claim into the record the board keeps
+of what was proved. TKT-585, TKT-628.
+
+=head2 required_item_add
+
+Since 5.62 (TKT-909) C<--item> refuses a whitespace-only value, the same
+fix C<checklist_add> and C<evidence_add> got.
+
+Adds a required-action entry to a record. An item a column's exit or
+entry template itself populates (C<source =E<gt> 'required-action'>)
+carries a C<template> marker, and an entry-list item also carries an
+C<entry> marker; a manually added item carries neither at creation,
+whatever its wording - though it picks up C<entry> retroactively the
+first time an entry template asks for that same wording (a manual/exit
+item and an entry template saying the same thing are one obligation,
+not two, per t/421). The entry-move guard trusts C<entry> OR a live
+text match against the column's current entry list - the marker
+survives a rename, the text match keeps a manually-completed item
+satisfying an entry requirement the same way it already satisfies an
+exit one (TKT-445). TKT-652.
+
+Since 5.111 (TKT-642) the next C<REQ-NNN> id is the highest existing
+number plus one, scanned from the record's own required items, rather
+than C<scalar(@list) + 1> - the same fix C<checklist_add> got at the
+same time, and for the same reason: a required-item id is quoted in
+proofs, refusals, and C<required-action.update> calls, so reissuing one
+after a hand-removed item would hand a later item a history that was
+never its own.
+
+=head2 required_item_update
+
+Updates a required-action entry's item text or status. C<--id> is
+required even when C<--item>/C<--status> are given - since TKT-692, an
+absent one refuses directly, naming that C<--item> renames an existing
+entry rather than addressing one. TKT-668: C<--status>
+is validated against the declared set C<{pending, done}>, case-insensitive -
+a misspelling refuses rather than storing an item C<_item_is_done> would
+never recognize.
+
+Marking one C<done> is refused when another item in the same column already
+carries the exact same C<command>/C<proof> pair - trimmed before comparison,
+and attachment-backed proofs compared by content hash. One piece of evidence
+cannot prove two different instructions. TKT-583.
+
+Letting an honest reuse through takes two calls, not one argument. The first
+adds C<repeated_reason> and is still refused, reading this item's own
+instruction back beside the reason given and issuing a six-character code;
+the second repeats the call with C<repeated_confirm> set to that code. The
+code is stashed on the item against the exact command, proof and reason it
+was issued for, so changing any of them invalidates it and issues a fresh
+one, while re-asking unchanged returns the same code rather than rotating it
+- a typo is a retry, not a lockout. The reason is stored on the item only
+once the item is genuinely a duplicate, so a card never records an accusation
+of borrowing evidence that was not borrowed.
+
+C<ids> (an arrayref), since 5.89 (TKT-769), marks several ids with the one
+C<command>/C<proof> pair in a single call - additive alongside the single
+C<id> above, which is unaffected. Every id is validated before any is
+marked; a bad one anywhere refuses the whole call before anything is
+written. Ids named together in one call share the given proof without
+tripping the reused-proof check against each other - only reuse against an
+item outside the batch still needs C<repeated_reason>. Refused when given
+alongside C<item>.
+
+Since 5.118 (TKT-693), the single C<id> form also accepts an entry's own
+exact C<item> text as an alternative to its id, the identical fallback
+C<checklist_update> gained at the same time - see that method's own
+entry for the full reasoning. C<ids> is unaffected: its batch form still
+addresses only by real id.
+
+=head2 search
+
+Full-text and field search across records. C<tasklist> opts tasklist items
+in as well, matched on text, id or a linked ref, and scoped to the caller's
+own session - TKT-537's privacy boundary, not an oversight. C<all_sessions>
+lifts that scoping for one call, the same opt-in C<tasklist_list> takes.
+Every tasklist hit carries a C<session> field either way, since a
+cross-session answer that cannot say whose item matched is not an answer.
+
+=head2 replace_records
+
+Bulk find-and-replace across one or more text fields, scoped by a regular expression pattern. C<comments> and C<checklist> only replace their one genuine prose leaf (a comment's body, a checklist item's text); a pattern matching any other leaf (id, status, timestamps, recorded proof) is reported in C<protected_hits> rather than rewritten.
+
+=head2 login_register
+
+Sets a person's initial password.
+
+=head2 login_verify
+
+Checks a login attempt's id and password against the stored hash. Refuses a
+record whose C<iterations> is not a positive integer within
+C<$PASSWORD_ITERATIONS_FLOOR> and C<$PASSWORD_ITERATIONS_CEILING>, before any
+hashing is attempted.
+
+=head2 login_start
+
+Starts a session for a verified login, returning a session token.
+
+=head2 session_peek
+
+Reads a session without touching its last-seen time.
+
+=head2 session_resume
+
+Reads a session and refreshes its last-seen time.
+
+=head2 session_end
+
+Ends a session.
+
+=head2 session_list
+
+Returns (and sweeps expired entries from) the project's sessions.
+
+=head2 login_page_html
+
+Renders the self-contained login page markup shown to a stranger.
+
+=head2 policy_add
+
+Declares a policy rule on the project.
+
+A rule's C<--column> is normally a scope - the same rule watching a different
+column is a different intention rather than a duplicate. C<task-card-mismatch>
+is the exception: its columns say which columns MEAN work, so every policy of
+that rule on a board is unioned into one set (a comma-separated C<--column>, a
+C<--column-role> the board has assigned, several policies, or any mixture), and
+its pass reports from the first of them. Read the ordinary way, a board
+declaring its four working columns as four policies would have each policy
+calling the other three's honest tasks mismatches.
+
+TKT-980: C<unpushed-work> now refuses C<--pattern>, since its own rule body
+never read it - only C<leftover-process> and C<leftover-container> do. A
+declared pattern used to be accepted, stored, and read back correctly while
+doing nothing, the same shape TKT-933 fixed for C<card-stalled>'s ignored
+C<--age>.
+
+TKT-867: C<checklist-item-terminal> reports an epic or sow checklist item once
+every card it names in free text has reached a terminal column, while the item
+itself is still open - the refs are read out of the item's own text the same
+way C<commit-without-card> already finds one in a commit subject, since a
+checklist item carries no structured C<refs> field the way a tasklist item
+does. It marks nothing itself, fires only when every named card is terminal,
+and never fires on an item naming none.
+
+=head2 policy_list
+
+Returns the project's declared policies.
+
+=head2 policy_decline
+
+Records a deliberate decision not to declare a rule, with a required reason.
+Given a card reference, scopes the decision to that one card instead, leaving
+the rule declared board-wide for every other card.
+
+=head2 policy_actions
+
+Returns the actions a policy may take: bridge-reminder, print-reminder, log-only.
+
+=head2 policy_declined
+
+Returns declined rules, excluding any that have since been declared after all.
+
+=head2 policy_remove
+
+Removes a declared policy.
+
+=head2 policy_rule_specs
+
+Returns which parameters each policy rule needs or forbids, the same data policy_add already consults.
+
+=head2 policy_message_fields
+
+Returns the sorted list of C<{token}> names a policy's C<--message> can substitute (ref, rule, policy, detail, column, title, assignee, reporter, age, max) - the keys of the same table C<_policy_message> reads.
+
+=head2 policy_message_field_help
+
+Returns a one-line description for each C<policy_message_fields> token, matching docs/POLICIES.md's own "Saying it in your own words" table. TKT-519: exposed through the C<policies> browser provider so the dialog can show which tokens exist without a second, hand-copied explanation to drift.
+
+=head2 notify_moves
+
+Reads or sets the Telegram bridge address (chat, column, enabled) that card-move announcements go to.
+
+=head2 policy_review
+
+Reports which columns each declared rule actually watches.
+
+=head2 policy_undeclared
+
+Returns rules the project has neither declared nor declined.
+
+=head2 column_endings
+
+Returns a board's ending (resting) columns.
+
+=head2 police_prompt
+
+Builds the police status text shown to the agent, with the version-upgrade notice appended.
+
+=head2 police_pass
+
+Runs one police pass: move announcements, then policy evaluation, recording violations to the store.
+
+Every violation carries a C<fix:> line whose purpose is to be pasted, and it
+names a command for the KIND of thing the finding is about. A rule with its own
+remedy wins first - C<card-damaged> answers C<d2 tira.doctor --repair> and
+C<board-unbacked> answers C<d2 tira.backup> - because pointing at a card is a
+good default and a bad answer where there is a command to run. Otherwise the
+reference decides: a C<JOB-> or C<TSK-> reference names the job or tasklist
+command, a card reference opens the card, and a finding with no reference at all
+points at the policy list.
+
+The job and tasklist cases were added by TKT-866, which found them offering the
+card command for a job - a command that answers "Record not found" and exits 2.
+The report closure accepts either a record or a bare id and these rules pass an
+id, so a reference that is not a card was being treated as one. Prefix matching
+is safe for exactly those two because the engine numbers jobs and tasklist items
+itself, unlike a card's prefix, which is per-project.
+
+A pass resolves each card's location at most once, and remembers it only for the
+length of that pass. Locating a card means walking all three board trees to match
+a filename, and history reads go through the same lookup - about 1,384 walks in
+one pass on a 349-card board, at 0.0095s each, while reading the card a walk
+finds costs 0.0002s. The path is cached and the record is not, which is a
+correctness distinction rather than a frugal one: this method raises the
+upgrade-gate card while it is running, so a record held across the pass could be
+stale by the time a later rule reads it, but a path cannot, because writing a
+card does not move its file. A resolution that FAILED is not remembered either,
+since the card that was missing a moment ago is the one the gate is about to
+create. Nothing is kept between passes - a board is a live thing and the next
+pass has to see what changed. TKT-978.
+
+Move announcements do the equivalent for a card's JOURNAL rather than its path.
+_announce_moves used to open every record's entire journal to ask whether it had
+moved - including discards, deliberately - and only afterwards check whether
+that move was already told. Since TKT-979 the check runs first: a record whose
+last_updated is no newer than the stamp already recorded for it cannot have
+moved since, using the same fact agent-still already relies on - a card's
+newest history entry cannot be later than its own last_updated. A record with
+no last_updated is never assumed quiet, the same "unknown is not evidence"
+reasoning priority-skipped gives for an age it cannot read. Measured by call
+count on his zenandi copy, because wall-clock timing was too noisy under load to
+trust: _last_move calls fell 349 to 214 on one quiet pass, 38.7%, smaller than a
+profile's 61.9% stack-share because that figure counts samples where the
+function is anywhere in the chain rather than a fraction of calls. Five other
+rules independently walk a card's whole journal for their own question and are
+not yet fixed - TKT-987, a larger remaining cost than this removed.
+
+A read failure's reason never carries the board's own filesystem path, since
+TKT-988 - his live finding, quoting his own zenandi board: a card-unreadable
+detail once read "Cannot read JSON '.../ticket/documenting/ZSD-334.json': No
+such file or directory". _slurp embeds the
+absolute path in its own die message with no idea this project promises never
+to disclose where a board lives. _redact_path strips that path and Perl's own
+"at FILE line N" trailer from the three places a read failure can reach a
+violation - card-unreadable/card-damaged, the jobs-reading rules, and this
+method's own board-read failure - keeping the OS-level reason so the finding
+stays actionable. The corruption-detail path (a byte count and an offset) never
+carried a path and is untouched. It reproduces only when a ref's path was
+already resolved earlier in the SAME pass and its file vanishes before a later
+read of it; a card never found at all resolves through the safer "Record 'X'
+not found" instead.
+
+The upgrade-gate card this method raises on a version change still arrives
+with no parent and most fields empty (TKT-956, unlanded) - confirmed a third
+time on 2026-09-06/07 by TKT-974 and TKT-983, both requiring the same manual
+repair. Working one of those cards means running tira.policy.undeclared,
+which is what its own checklist asks for, and declaring or declining whatever
+it lists.
+
+=head2 police_farewell
+
+Returns the fixed message shown when police is stopped.
+
+=head2 bridge_log_path
+
+Returns the bridge log's file path for a police store, creating the store directory if needed.
+
+=head2 bridge_write
+
+Appends a line to the bridge log.
+
+Since TKT-981, C<_bridge_line> collapses whitespace in a violation's detail
+before composing the line - a detail carrying newlines (a job's own message,
+in particular) used to interpolate verbatim and break every reader's
+one-violation-per-line contract. The stored record itself is untouched.
+
+=head2 bridge_backlog
+
+Returns the bridge log's lines not yet marked read, touching it first.
+
+=head2 column_roles
+
+Reads a board's named column roles (e.g. which column is backlog).
+
+=head2 column_roles_remove
+
+Removes named roles from a board, with a required reason.
+
+=head2 column_roles_set
+
+Sets named roles on a board, with a required reason, logged.
+
+=head2 police_outstanding
+
+Returns violations still open in a police store's ledger. Each row carries
+C<policy>, the id of the declaration that raised it - reused from what the
+pass already recorded, not recomputed - so a rule declared more than once
+still says which one to change. TKT-380.
+
+=head2 police_outstanding_taken_at
+
+Returns the timestamp of the last police pass recorded in a store.
+
+=head2 police_freshness
+
+Returns C<< { taken_at, age_seconds, stale } >> for a police store: when the last
+pass ran, how long ago that was, and whether the answer can still be trusted.
+
+Stale means missing, unreadable, or older than C<$POLICE_STALE_AFTER> seconds -
+ten times the watcher's default interval. All three are one idea: in none of them
+can the board's silence be trusted, so a board nobody has policed and a board
+whose stored stamp will not parse are both reported stale rather than fresh.
+Reporting an age of zero for either would put a confident number on an absence.
+
+=head2 enforcement_log
+
+Returns enforcement-record entries from a police store, optionally filtered by ref.
+
+=head2 police_suspend
+
+Puts one rule down for a bounded number of seconds, with a required reason.
+
+=head2 gates_install
+
+Installs the commit-msg and pre-push git hooks into the project's repository.
+
+C<commit-msg> refuses a commit that names no card on this board, one whose card
+is in backlog, discard or done, and - since 5.41 - one that changes B<code>
+while its card sits in a column claiming the code is settled, meaning anything
+other than C<tests-red>, C<implement> or C<verify>. The last two are the same
+rule read in both directions: a card's column must match its real state
+whichever way they have come apart. It decides by what the commit actually
+touches, so a documentation commit in a documentation column is not refused as
+code. Since 5.92 a staged C<lib/*.pm> file counts as code only if its non-POD
+content actually differs from HEAD, so a commit that only adds or edits POD is
+not refused as code even from C<document>, while one that also touches a real
+line of Perl still is.
+
+C<pre-push> asks police about the board and refuses the push if it has anything
+to say. Both fail closed - a missing C<d2>, or a board that cannot be read, is a
+refusal rather than a skip.
+
+=head2 work_log
+
+Returns a record's history as a chronological work log, folding field writes that have their own logged event (comment, checklist, etc) into that event rather than reporting them twice.
+
+=head2 doctor
+
+Scans the project's stored JSON/YAML for corruption, repairing what it can.
+
+=head2 history_list
+
+Returns a record's field-write history, with first/last windowing and field/since filtering.
+
+The raw journal parse this reads from is cached for the length of one police
+pass, keyed by ref - see C<_journal_entries>, TKT-987 - because four
+independent rule readers otherwise open and JSON-decode the same card's whole
+journal once each within a single pass.
+
+Resolves the record's own path through C<_record_data>, which since TKT-992
+re-walks once on ENOENT for a path drawn from its own per-pass cache (TKT-978)
+before refusing - a card moved to a different column mid-pass is not the same
+fault as one genuinely missing everywhere.
+
+=head2 assignment_set
+
+Replaces a record's assignee. Refuses a list of more than one, since a record
+carries a single assignee; an empty list clears it.
+
+=head2 assignment_add
+
+Assigns one person to a record, through C<assignment_set>.
+
+=head2 assignment_remove
+
+Clears a record's assignee, but only when it is the person named - removing
+somebody who does not hold the card leaves it alone rather than unassigning
+whoever does.
+
+=head2 assignment_list
+
+Returns the record's assignee as a list, empty when nobody holds it.
+
+=head2 attachment_list
+
+Lists a record's attachments, or every attachment in the project when no
+record is named. Supports metadata-only reads, a count, a C<since> filter and
+a chosen field set, so a poll need not carry content it already has.
+
+The C<content_type> on each entry is computed here and nowhere else, on the
+reads that ask for it. C<record_show> carries no type of its own: deciding
+one stats the file and sometimes reads it, and a record is read on every
+gate, every police pass and every board render. The browser's card dialog
+asks for it and stamps it on - see C<Tira::CLI::_stamp_attachment_types>.
+
+Since 5.120 (TKT-709), a plain listing (C<--ref> alone) returns the same
+enriched envelope C<meta_only> always did - C<filename>, real byte
+C<size>, C<content_type>, wrapped with C<count> and C<total_size> -
+rather than the bare stored references it used to return: the flag named
+for LESS gave MORE, so the natural command for "what is on this card"
+was the wrong one to run. C<meta_only> is accepted and behaves exactly as
+it always did; it changes nothing now that the default already matches
+it, kept because C<_stamp_attachment_types> and several tests already
+name it. C<since>/C<fields> are unaffected - they still only filter rows
+or project a narrower field set.
+
+=head2 _render_view
+
+Renders one Template Toolkit template from the View directory.
+
+The dashboard had no view layer at all: Dancer2 served the board, Starman ran
+it, and no template engine was configured, so the page was built by
+concatenating Perl strings in this file. This is what replaced that. The page,
+the sign-in page and the card and column dialogs each render through here.
+
+C<INCLUDE_PATH> comes from C<_view_dir>, so an installed skill finds its
+templates wherever it is run from - the reason is the one C<_view_asset> gives.
+C<ABSOLUTE> and C<RELATIVE> are off, so a template name can only ever name a
+file inside that directory.
+
+The templates chomp around every directive. The page is one long line, and a
+readable template that added a newline per directive would change every byte
+after the first; chomping is what lets the markup be read on twenty lines and
+still emit what the concatenation emitted. That equivalence is asserted rather
+than hoped for - TKT-703 rendered the board before and after each of its five
+moves and required C<cmp> to report no difference, which is how a stray script
+fragment worth 216 bytes was caught in a 152KB page whose every element was
+still correct.
+
+A template that will not render dies rather than returning a partial page,
+because a board that renders half its markup is harder to diagnose than one that
+says which template failed. TKT-703.
+
+=head2 _view_dir
+
+Where the View lives: C<views> beside this module, from C<__FILE__>.
+
+One place answers this so C<_view_asset>, C<_render_view> and
+L<Tira::DashboardWeb>'s C<views> setting cannot disagree about it - three
+readers of one question being the fault this board has spent a week finding in
+other forms.
+
+=head2 _view_asset
+
+Reads one of the View's files from beside this module.
+
+The dashboard had no view layer at all: its markup, stylesheet and front-end
+were Perl strings in this file, 113,884 bytes of them on eight lines, the
+longest 54,419. TKT-703 moves them out, and this is what the page calls to get
+them back at render time.
+
+The directory is resolved from C<__FILE__> rather than from the process's
+working directory. An installed skill is run from anywhere, and a relative path
+would find the assets only when the board happened to be served out of the
+source tree - the same problem C<tools/card-holes> solved for its entrypoints.
+
+Inlined into the page, never linked. The board makes no network requests, and a
+C<< <link> >> or C<< <script src> >> pointing at a served asset would be one.
+What this changes is where the bytes live, not how they reach the browser.
+
+Files rather than strings, because a string in Perl carries an escaping layer
+the browser never sees. TKT-645 shipped a dead dashboard through exactly that
+gap: a backslash pair inside a C<q{}> collapsed to one and the served script
+held a quote that escaped itself, so 98KB of JavaScript failed to parse while
+every test still passed. A file read verbatim cannot have that fault.
+
+A missing asset dies rather than rendering a page with no stylesheet, because a
+board that looks broken is harder to diagnose than one that says what it could
+not find.
+
+=head2 _attachment_content_type
+
+Decides what an attachment is, so that exactly one thing decides it.
+
+Two named lists come first, for the cases where guessing would be worse than
+knowing in each direction: a C<.pl> file is Perl whatever its first bytes look
+like, and an empty one is still text; a C<.zip> whose first bytes happen to
+read as printable must never be offered as text. Everything else is decided by
+looking - C<_attachment_head> reads the first 8KB and C<_looks_like_text> calls
+it binary on a NUL byte, or when more than a tenth of those bytes fall outside
+the printable and common-whitespace range.
+
+Nothing to examine is a refusal rather than a guess: no content, an empty file
+and a missing path all come back as C<application/octet-stream>, because that
+is where offering the download is the honest answer.
+
+The sniff is lazy - only an extension in neither list is read - so the cost
+lands on the unusual file rather than on every listing.
+
+This exists as one function because the fault it replaces was two. The browser
+viewer kept its own extension allowlist while the engine computed a type, and
+the two disagreed about every source file on the board; the same shape as
+TKT-224, TKT-671, TKT-681 and TKT-657, each of which turned out to be one
+question with two answers. TKT-645.
+
+=head2 attachment_remove
+
+Deletes an attachment's stored file and its reference on the record. Unlike
+discarding, this does not keep the reference - see C<attachment_discard> for
+the reversible form.
+
+=head2 attachment_where
+
+Answers which OTHER records reference a given sha - C<attachment_list> only
+ever resolves through one record via C<--ref>. Walks every record on the
+board, including discarded ones, reusing C<_record_attachments>. C<--sha>
+is required; C<--extension> narrows the match. A sha nothing references
+returns an empty list. TKT-766.
+
+=head2 checklist_list
+
+Returns a record's checklist entries. C<status> narrows them to one status,
+compared case-insensitively against the three values C<checklist_add> accepts -
+C<pending>, C<done> and C<To Do>. Anything outside that set is refused, naming
+what was given, rather than matching nothing: an empty list reads as "no items
+are done", which is a wrong answer where a refusal would have been an honest
+one.
+
+C<To Do> is in the set because it is the spelling this board itself writes on
+move-in, and a filter that understood only the other two would make every
+unmarked item unfindable - the same silent wrong answer this filter exists to
+end, one layer along.
+
+The filter lives here rather than in the option parser so the browser dashboard,
+which reads the checklist through a provider on a timer, gets the same answer as
+the CLI. TKT-748.
+
+=head2 required_item_list
+
+Returns a record's required-action entries. C<status> narrows them the same way
+C<checklist_list> does, against the narrower set C<pending> and C<done> - a
+required item is never written as C<To Do>. TKT-804.
+
+C<brief>, since 5.87 (TKT-669), trims each item to C<id>/C<column>/C<status>/
+C<item>, dropping C<proof> - deliberately deleted before C<record_show> is
+called, since that method's own C<brief> means something else entirely
+(project down to C<@BRIEF_FIELDS>, which C<required_items> is not one of).
+
+=head2 evidence_add
+
+Appends an evidence entry to a record, naming its author and taking a summary
+with an optional URI or stored file. Since 5.62 (TKT-909) C<--summary>
+refuses a whitespace-only value: an evidence entry is what a release gate
+reads back as the record of what was proved, and a summary of pure spaces
+satisfied every check that asks whether evidence exists while telling the
+next reader nothing.
+
+=head2 evidence_list
+
+Returns a record's evidence entries.
+
+=head2 evidence_annotate
+
+Adds a note to an existing evidence entry, leaving the entry itself
+intact. C<--id> is required - since TKT-692, an absent one refuses
+directly rather than reaching the not-found lookup with an undef id.
+Since 5.89 (TKT-731) the read-modify-write is inside C<_with_project_lock>,
+the same as every other writer on this path - it was the only one of
+twenty-three C<_replace_record> callers that was not.
+
+=head2 gate_add
+
+Records a gate result - pass, fail or blocked - against a record, with the
+details that justify it. C<--details> refuses a whitespace-only value the
+same way it refuses an empty one, since 5.89 (TKT-768) - the last of this
+field family (evidence, checklist, required-action) to get the C<!~ /\S/>
+test TKT-585/TKT-909 already established for the others.
+
+=head2 gate_list
+
+Returns a record's gate results.
+
+=head2 gate_annotate
+
+Adds a note to an existing gate entry, leaving the result itself intact.
+Same C<--id>-required fix as C<evidence_annotate> (TKT-692), and the same
+project-lock fix (TKT-731), shared through the C<_annotate_log> helper
+both call.
+
+=head2 release_record
+
+Writes the gate entry, evidence entry and fix version a passed release needs,
+in one call. Refuses rather than defaults on anything missing, and never moves
+a column. Given several refs it records each independently, so one that cannot
+be written does not take the rest down with it.
+
+=head2 hierarchy_link
+
+Links a child record to a parent, establishing the SOW/epic/ticket hierarchy.
+
+=head2 hierarchy_unlink
+
+Removes a parent/child hierarchy link.
+
+=head2 hierarchy_show
+
+Returns a record's hierarchy as a tree, guarding against cycles.
+
+=head2 link_list
+
+Returns a record's non-hierarchy links, optionally narrowed to one link type.
+
+=head2 subitem_link
+
+Links a record as a subitem of another.
+
+=head2 subitem_unlink
+
+Removes a subitem link.
+
+=head2 search_index
+
+Builds or refreshes the SQLite full-text index C<search> reads. Requires
+DBD::SQLite and says so plainly when it is missing.
+
+=head2 outstanding_summary
+
+The project-wide count of cards with a genuinely unanswered question and of
+tasklist items still pending or working - the same aggregate the browser
+dashboard's sticky header shows, for a caller working through the CLI alone.
+
+B<Cards in C<discard> are not counted, since 5.84> (TKT-827). They were: this
+counts by walking C<record_list>, which never filters columns and returns
+every one including C<discard>, while the dashboard behind that header
+excludes it explicitly - so a card somebody had set aside, still carrying an
+unanswered question, was counted here and not there. C<include_discard>
+counts the whole board again, and it now does something: the option parser is
+shared, so before this card the flag was accepted here and never read.
+
+The filter lives in this method rather than in C<record_list>, because five
+other callers pass C<record_list> that same flag without it being read, and
+teaching the read to filter would change what all of them get - including
+C<person_remove>, which must see discarded cards, since a person named by a
+set-aside card still has a historical reference. TKT-970 carries that
+question.
+
+=head2 dashboard
+
+Returns the whole board as columns of records, per type or across all three,
+with the column order the boards declare.
+
+The browser dashboard's own behaviour is built from the JavaScript this module
+inlines, so a few decisions live here rather than in a file of their own.
+
+Three helpers sit beside C<el()>. C<growBox> follows the content to a ceiling
+and then scrolls; C<mdBarFor> builds a formatting bar bound to whichever
+textarea it is given; C<pasteImageInto> attaches a pasted image and leaves an
+C<[image: name]> marker at the caret.
+
+Every text editor in the card dialog uses the first two, which is what stops
+them drifting apart again - including the comment composer, whose inline bar
+C<mdBarFor> was extracted from and which now calls it rather than keeping a
+second copy. C<pasteImageInto> is wired to the long fields only, which is where
+paste was asked for.
+
+A fifth arrived with TKT-628 in 4.64. C<isAnnounced> answers whether an item
+has said what it is running without having finished - a proof list carrying a
+command and no proof - and the icon became four states from three:
+
+    exempt ? mark : isDone ? tick : isAnnounced ? clock : empty box
+
+The ordering is the whole of it. Exempt wins over everything, done over
+announced, announced over untouched; a predicate inserted at the wrong point in
+that chain would let a finished item read as merely started, or an exempt one
+as either. C<t/playwright/announced-command.js> drives all four on one card and
+asserts they render as four DISTINCT marks, because a renderer that collapsed
+two onto one glyph would satisfy every individual check if the glyph happened
+to be right for both.
+
+An announced item is still offered its checkbox. It has started, not finished,
+and if the checkbox went away the clock would have quietly become a second way
+of saying done.
+
+A fourth sits with them since 4.63, for the same reason and after the same
+mistake. C<isDone> answers whether a required action is finished, and all three
+places that ask - the done/total count, the tick-or-empty-box icon, and whether
+an actionable checkbox is drawn - go through it rather than each testing
+C<entry.status === "done"> for themselves. They did test it for themselves, and
+one of them was enough to make the page disagree with the engine: an item stored
+as C<Done> read finished to every gate and outstanding to the dashboard, on 21
+cards of one real board.
+
+It is written to agree with the engine -
+C<String((entry&&entry.status)||"").toLowerCase()==="done"> against the engine's
+C<lc($_-E<gt>{status} // '')> - and it does, on every value either has been
+given: a missing key, C<null>, the empty string, whitespace, a numeric zero and
+the string C<"0"> all read as not-done on both sides.
+
+They are not the same expression, which is worth knowing before someone
+"simplifies" one to match the other. A numeric C<0> is discarded to C<""> by the
+C<||> before C<toLowerCase> ever sees it, where Perl lowercases it to C<"0"> and
+compares that; the answer is the same and the route is not. The empty-string
+default IS deliberately identical, and it is what lets an item written before
+the status field existed render as outstanding rather than throwing and taking
+the whole dialog down with it.
+
+The checklist renderer is NOT one of the three and must not become one. It
+prints C<"[" + status + "] "> verbatim and compares nothing, which makes it
+honest about whatever value it holds; C<t/417> asserts it stays that way, so a
+later change that goes looking for C<status> cannot quietly correct a renderer
+that was already right. TKT-601.
+
+C<growBox> defaults to 420px because two grow handlers already existed and they
+differ: the tasklist card input grows without limit, the question answer box
+stops at 420. A description runs to paragraphs, and unbounded growth pushes the
+dialog's own Save and Cancel off the screen, so the answer box is the precedent
+worth copying. C<overflowY> is set explicitly - hidden while it fits, auto once
+capped - because a capped box that does not scroll clips instead.
+
+C<mutate> takes an optional third argument that suppresses its reload. A paste
+happens while an editor is OPEN, and reloading re-renders the dialog and takes
+that editor with it: the attachment survives and the writing does not. The
+attachment appears on the next reload, which is when the author saves. TKT-586.
+
+=cut

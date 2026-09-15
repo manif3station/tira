@@ -1,5 +1,36 @@
 Revision history for Tira
 
+5.132  2026-09-15
+    - TKT-1100: repeated `d2 tira.dashboard` starts left every past
+      `d2 tira.policy.bridge` child running beside the newest one -
+      police's own watch loop (police_follow) already claimed a singleton
+      pid file before starting, killing a still-alive previous daemon and
+      yielding to a dashboard-held claim (TKT-492/897), but bridge_follow
+      had no equivalent at all: no claim, no kill-previous, no signal
+      handler. Generalized police_singleton_path/police_claim_singleton/
+      police_release_singleton in lib/Tira/CLI/Police.pm with an optional
+      `kind` parameter (default 'police', so every existing .police.pid
+      caller and test - including t/373 - is unaffected), and gave
+      bridge_follow the identical claim/kill/yield/release mechanism
+      keyed by kind => 'policy-bridge', its own .policy-bridge.pid file
+      never confused with police's. _spawn_policy_bridge_beside_board in
+      lib/Tira/CLI/Serve.pm now also sets TIRA_POLICY_BRIDGE_HOLDER=
+      dashboard, the same privileged-holder marker _spawn_police_beside_
+      board already set for police, so a dashboard-spawned bridge is not
+      killed by a later ordinary `d2 tira.policy.bridge`. New test
+      t/1104-a-bridge-nobody-stopped.t proves the fix, confirmed
+      genuinely red against the pre-fix code first. Found while
+      investigating Michael's live report of repeated 'fatal: not a git
+      repository' lines (TKT-1101, a separate, already-shipped fix) - the
+      process pile-up was a distinct, confirmed-real finding from that
+      same live container session. Also filed TKT-1103, a concrete
+      decomposition ticket naming lib/Tira/CLI/Police.pm (1295 lines) and
+      lib/Tira/CLI/Serve.pm (1010 lines) - both already over Michael's
+      1000-line cap before this ticket touched either file - rather than
+      citing TKT-1092's umbrella again, which Michael called out directly
+      (msg #8356/#8362) as an empty citation with zero real work behind
+      it.
+
 5.131  2026-09-15
     - TKT-1102: card-reminder escalation and the board's own warning log
       (notification_message, clearance_list, warning_list, warning_add,

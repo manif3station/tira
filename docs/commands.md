@@ -819,9 +819,12 @@ separately and the standing-down rule would never fire.
 same reasoning one entrypoint over (TKT-1026): open3 rather than a hand-rolled
 fork, output shared with the parent's own handles rather than piped, and the
 child reaped on shutdown so nothing outlives the board it was started beside.
-Combine it with `--with-police` and one command starts the bridge, the police,
-and the dashboard together — his own words on Q-151: *"So there will be the
-bridge and the police and the dashboard run them all in 1 go."*
+Since TKT-1100 it also claims its own singleton the same way `--with-police`
+already does, so interrupting the dashboard releases that claim too rather
+than leaving a pid file naming a process that has gone. Combine it with
+`--with-police` and one command starts the bridge, the police, and the
+dashboard together — his own words on Q-151: *"So there will be the bridge and
+the police and the dashboard run them all in 1 go."*
 
 **While the dashboard holds police, a later `tira.police` stands down.** It says
 which process holds the watch and exits 0, because standing aside is the correct
@@ -1132,8 +1135,11 @@ walk independently and are not yet fixed.
 claims a pid file in its own store, killing whatever daemon was already
 running there - "whoever the last run it is the winner and the loser process
 will be killed", his own words after two live daemons were found racing the
-same board's enforcement ledger. `--once` and `tira.policy.bridge` (a
-read-only tail) do not participate in the claim. TKT-492.
+same board's enforcement ledger. `--once` does not participate in the claim -
+a single pass is not "a process" in the sense that rule means. TKT-492.
+`tira.policy.bridge`'s own persistent watch (`bridge_follow`) claims a
+singleton the identical way, in its own pid file, since TKT-1100 - see its
+own entry below.
 
 Every violation carries a `VIO-nnnn`. The same problem keeps its number, counts
 the times it has been said and climbs four tones - note, warning, urgent,
@@ -2316,6 +2322,15 @@ makes and a log with nothing in it look exactly the same.
 **The agent runs this** and acts on what arrives. One way: police speaks, the
 agent listens. Shows what is already outstanding when it starts, not only what
 happens next.
+
+**A singleton since TKT-1100 (5.132), the same as `tira.police`.** Repeated
+`d2 tira.dashboard` starts each spawned their own bridge child, and nothing
+stopped an older one when a newer dashboard came up. It now claims its own pid
+file (`.policy-bridge.pid`, never confused with police's `.police.pid`) before
+its watch loop starts, kills a still-alive previous claimant, yields to a
+dashboard-held claim the way an ordinary `tira.police` yields, and releases the
+claim on a clean signal-driven exit. See docs/POLICIES.md's own paragraph on
+`--with-policy-bridge` for the full mechanism.
 
 **A policy set without the bridge running is worse than no policy**, because it
 looks like cover.

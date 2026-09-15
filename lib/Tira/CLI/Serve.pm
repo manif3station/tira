@@ -773,6 +773,12 @@ sub _spawn_policy_bridge_beside_board {
 
     local $ENV{TIRA_HOME} = defined $args{project} ? $args{project} : ( $ENV{TIRA_HOME} // '' );
 
+    # Same reason as police's own TIRA_POLICE_HOLDER: bridge_follow reads
+    # TIRA_POLICY_BRIDGE_HOLDER to claim as the dashboard's own, so a later
+    # ordinary `d2 tira.policy.bridge` stands down rather than killing this
+    # one - TKT-1100 gave the bridge the same protection police already had.
+    local $ENV{TIRA_POLICY_BRIDGE_HOLDER} = 'dashboard';
+
     my @argv = ( $^X, $script );
     push @argv, '--store', $args{store}
       if defined $args{store} && $args{store} =~ /\S/;

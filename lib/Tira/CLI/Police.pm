@@ -318,7 +318,7 @@ sub police_world {
 sub police_claim_singleton {
     my ( $store, %opts ) = @_;
     File::Path::make_path($store) if !-d $store;
-    my $path = police_singleton_path($store);
+    my $path = police_singleton_path( $store, $opts{kind} );
     my $my_pid = $opts{pid} // $$;
     my $alive = $opts{alive} || sub { return kill 0, $_[0] };
     my $kill_previous = $opts{kill} || sub { kill 'TERM', $_[0] };
@@ -328,7 +328,10 @@ sub police_claim_singleton {
     # tira.police says so and exits 0. TKT-486 still applies everywhere else."
     # A bare pid cannot express that - a later claimant reading the file has to
     # be able to tell a dashboard from an ordinary daemon before it decides
-    # whether to kill it or stand down.
+    # whether to kill it or stand down. TKT-1100 gave policy.bridge the
+    # identical claim, keyed by its own kind of file (police_singleton_path's
+    # own $kind), so "ordinary" here means whichever kind is claiming - a
+    # policy.bridge claim's ordinary holder is 'policy-bridge', not 'police'.
     #
     # NORMALISED TO THE TWO STATES THAT EXIST, rather than trusting whatever
     # arrives. A review pointed out that the first version preserved the bare-pid
@@ -337,7 +340,8 @@ sub police_claim_singleton {
     # being slightly wrong changed the on-disk format that three other tests read.
     # There are two holders, not a free-text field, and saying so here means an
     # unrecognised one is ordinary rather than a new kind of record.
-    my $my_holder = ( $opts{holder} // '' ) eq 'dashboard' ? 'dashboard' : 'police';
+    my $ordinary_holder = $opts{kind} // 'police';
+    my $my_holder = ( $opts{holder} // '' ) eq 'dashboard' ? 'dashboard' : $ordinary_holder;
 
     my $killed;
     if ( open my $fh, '<', $path ) {
@@ -414,18 +418,41 @@ sub police_goodbye {
 # reason past. A daemon that dies uncleanly (kill -9, a crash) leaves the
 # file behind - the next claim's alive-check still handles that safely,
 # since a dead pid answers false and nothing is killed.
+#
+# OWNERSHIP-AWARE, since TKT-1100's Codex review caught the race this always
+# had: a successor can claim (kill us, write ITS OWN pid) before our signal
+# handler gets to run this. Releasing unconditionally would then delete the
+# SUCCESSOR's claim, not ours, leaving the board looking unwatched while a
+# live daemon runs on with no pid file naming it. Reading the file back and
+# comparing the pid it names to our own before removing means a claim we no
+# longer hold is left exactly as the successor wrote it.
 sub police_release_singleton {
     my ( $store, %opts ) = @_;
-    my $path = police_singleton_path($store);
+    my $path = police_singleton_path( $store, $opts{kind} );
+    my $my_pid = $opts{pid} // $$;
     my $remove = $opts{unlink} || sub { unlink $_[0] };
+
+    if ( open my $fh, '<', $path ) {
+        my $content = do { local $/; <$fh> };
+        close $fh;
+        my ($stored_pid) = split ' ', ( $content // '' );
+        return if !defined $stored_pid || $stored_pid ne $my_pid;
+    }
     $remove->($path);
     return;
 }
 # Where the singleton claim lives - beside the enforcement ledger itself,
-# since both are per-store, not per-project.
+# since both are per-store, not per-project. $kind names which watcher this
+# is: undef/'police' keeps the original filename so every existing claim and
+# every test that reads it verbatim (t/373) still finds the same file;
+# TKT-1100 gave policy.bridge its own file rather than sharing police's, since
+# a bridge and a police daemon started by the same dashboard are not rivals
+# for the same slot - each needs its own newest-wins rule.
 sub police_singleton_path {
-    my ($store) = @_;
-    return File::Spec->catfile( $store, '.police.pid' );
+    my ( $store, $kind ) = @_;
+    $kind //= 'police';
+    my $name = $kind eq 'police' ? '.police.pid' : ".$kind.pid";
+    return File::Spec->catfile( $store, $name );
 }
 # A loop that never ends cannot be called by anything, including a test - so
 # the number of rounds and the waiting are both injectable. Left alone it runs
@@ -436,6 +463,44 @@ sub bridge_follow {
     my $wait = $args{sleeper} || sub { sleep $_[0] if $_[0] };
     my $every = defined $args{interval} ? $args{interval} : 2;
     my $path = $tira->bridge_log_path( store => $store );
+
+    # d2 tira.policy.bridge is a singleton for the same reason police is
+    # (TKT-1100): repeated `d2 tira.dashboard` starts each spawned their own
+    # bridge watcher beside the police one, and nothing ever stopped an older
+    # one when a newer dashboard came up - police already had this because
+    # police_follow claims before its loop starts (TKT-492/897); bridge_follow
+    # never did. Same claim mechanism, a different file
+    # (police_singleton_path's own 'policy-bridge' kind), so a bridge and a
+    # police daemon from the same dashboard are not each other's rivals.
+    my %singleton = %{ $args{singleton} // {} };
+    $singleton{kind} = 'policy-bridge';
+    $singleton{holder} = $ENV{TIRA_POLICY_BRIDGE_HOLDER}
+      if !exists $singleton{holder} && defined $ENV{TIRA_POLICY_BRIDGE_HOLDER};
+
+    my $claim = police_claim_singleton( $store, %singleton );
+    if ( $claim->{yield} ) {
+        print {*STDERR} "policy.bridge: the browser dashboard is already running policy.bridge "
+          . "(pid $claim->{holding_pid}), and it keeps the watch - so this one is "
+          . "standing down rather than taking it over.\n";
+        return 0;
+    }
+    print {*STDERR} "policy.bridge: killed a still-running daemon (pid $claim->{killed}) - only the newest watches now\n"
+      if defined $claim->{killed};
+
+    my $leave = $args{leave} || sub { exit 0 };
+    for my $signal (qw(INT TERM HUP)) {
+        $SIG{$signal} = sub {
+
+            # Releasing %singleton itself, the same hash the claim above used
+            # (kind forced to 'policy-bridge' there already) - not a fresh
+            # 'kind => ... , %{ $args{singleton} }' construction, which a
+            # caller-supplied singleton{kind} would win over the forced
+            # 'policy-bridge' in a plain hash literal (Codex review, TKT-1100)
+            # and release a file the claim never wrote.
+            police_release_singleton( $store, %singleton );
+            $leave->();
+        };
+    }
 
     # Counted through the same filter the agent reads through, or a line
     # written for somebody else would advance the mark and swallow the next
@@ -964,7 +1029,8 @@ sub police_run {
         print Tira::CLI::_utf8_bytes( join '', map { "$_\n" } @{$backlog} );
         require Tira::CLI::Police;
         bridge_follow( $tira, $store, rounds => $option->{rounds}, agent => $agent,
-            interval => $option->{interval}, sleeper => $option->{sleeper} )
+            interval => $option->{interval}, sleeper => $option->{sleeper},
+            singleton => $option->{singleton}, leave => $option->{leave} )
           if !$option->{once};
         return { streamed => scalar @{$backlog} };
     }

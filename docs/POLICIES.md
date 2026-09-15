@@ -156,18 +156,28 @@ released rather than left naming a process that has gone.
 `tira.policy.bridge` beside the served board the same way, one entrypoint over
 (TKT-1026, 5.90). Combine both flags and one command carries the board, the
 police, and the bridge together - his own words on Q-151: *"So there will be
-the bridge and the police and the dashboard run them all in 1 go."* The bridge
-is a reader, not a singleton claimant, so none of the yielding rule above
-applies to it.
+the bridge and the police and the dashboard run them all in 1 go."*
+
+**The bridge is a singleton too, since TKT-1100 (5.132) - it was not before,
+and that was a real gap, not a design choice.** Repeated `d2 tira.dashboard`
+starts each spawned their own `police` AND `policy.bridge` children, and
+while `police_follow` had claimed a singleton pid file since TKT-492/897
+(killing a still-alive previous daemon, yielding to a dashboard holder),
+`bridge_follow` had no equivalent at all - every past bridge from an earlier
+dashboard just kept running, unbounded, beside the newest one. `bridge_follow`
+now claims its own pid file (`.policy-bridge.pid`, distinct from police's
+`.police.pid` - `police_singleton_path` takes an optional `kind`) before its
+first round, with the identical kill-previous/yield-to-dashboard/release-on-
+signal rules `police_claim_singleton` already had. `_spawn_policy_bridge_
+beside_board` sets `TIRA_POLICY_BRIDGE_HOLDER=dashboard` the same way
+`_spawn_police_beside_board` sets `TIRA_POLICE_HOLDER`, so a dashboard-spawned
+bridge is not killed by a later ordinary `d2 tira.policy.bridge`.
 
 **While the dashboard holds police, a separate `d2 tira.police` stands down.**
 It says which process holds the watch and exits 0 - standing aside is the
-correct outcome, not a failure. (`d2 tira.policy.bridge` is unaffected: it is
-a reader with no singleton claim of its own, found stated wrongly here while
-writing TKT-1026's own paragraph above - `bridge_follow` tails
-`bridge_log_path` and never touches `police_claim_singleton` at all, so it
-never yields and was never really the second thing this sentence claimed it
-was.) This is the one
+correct outcome, not a failure. (`d2 tira.policy.bridge` behaves the same way
+now, standing down for a dashboard-held bridge for the identical reason - see
+the paragraph above.) This is the one
 exception to the ordinary rule, which is otherwise unchanged: between two
 ordinary police daemons the newest wins and the previous one is killed. The
 owner's words, answering Q-117: *"The dashboard is a special case - while it

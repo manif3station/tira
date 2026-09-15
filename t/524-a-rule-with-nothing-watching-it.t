@@ -157,11 +157,17 @@ my %EXEMPT = (
       . '(including advance_monitor_output, the piece that drains a '
       . "monitor's own leavings) into Tira::CLI::Police::Jobs "
       . '(1495 -> 1230 lines), the sharpest single concern in it; the '
-      . 'rest (rule evaluation and the bridge itself) is still one file, '
-      . 'not yet owned by a card',
+      . 'rest (rule evaluation and the bridge itself) is still one file. '
+      . 'TKT-1100 (5.132) added the policy.bridge singleton claim, growing '
+      . 'it further (1252 -> 1295); TKT-1103 now owns moving its POD to a '
+      . 'sibling Police.pod and decomposing what remains',
     'lib/Tira/CLI/Serve.pm' => 'TKT-906: process inspection, server lifecycle, '
       . 'restart and beside-board supervision are all aspects of serving a '
-      . 'board on one machine - one concern, do not split',
+      . 'board on one machine - one concern, do not split. TKT-1100 (5.132) '
+      . 'grew it past the 1000-line cap (1004 -> 1010); TKT-1103 owns moving '
+      . 'its POD to a sibling Serve.pod, which is enough on its own to bring '
+      . 'it back under the cap without splitting the one concern TKT-906 '
+      . 'already decided should stay together',
     'lib/Tira/Job.pm' => 'repeated jobs - TKT-1044 lifted its cron schedule '
       . 'parsing/validation/wording into Tira::Job::Schedule '
       . '(1906 -> 1426 lines), the sharpest single concern in it; the rest '

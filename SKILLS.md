@@ -226,9 +226,12 @@ directly after the duplicate-daemon investigation above: "Whoever the last run
 it is the winner and the loser process will be killed." The persistent daemon
 now claims a pid file in the violation store before its first round, killing
 whatever still-alive daemon held the claim before it, and releases the claim
-on a clean exit - `--once` and `policy.bridge` (a read-only tail, never a
-writer) do not participate, since neither is "a process" in the sense that
-answer means. TKT-492.
+on a clean exit - `--once` does not participate, since a single pass is not "a
+process" in the sense that answer means. TKT-492. `policy.bridge`'s own
+persistent watch (a read-only tail of the ledger, never a writer to it) claims
+an identical singleton in its own pid file since TKT-1100 - repeated
+`d2 tira.dashboard` starts had left every past bridge child running unbounded
+beside the newest one, which police's own claim never protected it from.
 
 ## Record schema
 
@@ -3480,8 +3483,10 @@ child Devel::Cover cannot follow; output shared with the parent's own
 handles, not piped, for the same 64KB-deadlock reason; reaped on shutdown so
 nothing is left running past the board it was started beside. It does not
 touch `TIRA_POLICE_HOLDER` - that variable is what makes a later
-`tira.police` stand down for the dashboard, and the bridge is a reader, not a
-singleton claimant, so it has nothing to yield.
+`tira.police` stand down for the dashboard. Since TKT-1100 the bridge has its
+own equivalent, `TIRA_POLICY_BRIDGE_HOLDER`, set here the same way, so a later
+ordinary `tira.policy.bridge` stands down for a dashboard-spawned one instead
+of killing it.
 
 **`unpushed-work` stops demanding a push his own gate forbids, since 5.90
 (TKT-847).** On 2026-09-01 he made a card sitting unreviewed in

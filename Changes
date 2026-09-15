@@ -1,5 +1,18 @@
 Revision history for Tira
 
+5.126  2026-09-15
+    - TKT-784: SKILLS.md's own TKT-750 paragraph said "the work log also
+      draws a bare divider line before each entry where the card changed
+      column" with no qualifier, reading as a universal work-log
+      property. TKT-750's own accepted scope was the browser card dialog
+      only - its CLI deliverable was conditional and never built. The
+      gap had a real, measured cost: asked which ticket added the
+      separator and whether it shipped, this same ambiguous wording
+      produced an answer overstating CLI support. Reworded to name the
+      browser card dialog explicitly and state plainly that
+      tira.worklog.show carries no such divider. New test:
+      t/1101-a-divider-drawn-somewhere-unsaid.t.
+
 5.125  2026-09-15
     - TKT-755: tira.police.freshness's stale condition in lib/Tira.pm has
       three branches (no pass has run, a stored stamp that will not parse,

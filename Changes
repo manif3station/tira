@@ -1,5 +1,27 @@
 Revision history for Tira
 
+5.124  2026-09-15
+    - TKT-749: t/260-an-example-that-cannot-be-run.t matched fenced blocks
+      with /```\n(.*?)```/gs, which only recognises an opener with NO
+      language tag - a tagged opener (```text) was skipped entirely, its own
+      CLOSING fence was read as the next opener instead, and every block
+      after that point in the document was parsed as the gap between two
+      blocks rather than as a block. Found by documenting TKT-593: adding a
+      ```text block to docs/commands.md took the test's refusal-block count
+      from a real number to a wrong one, with a failure message ('0' >= '2')
+      naming nothing about fencing. Rewrote the block extraction as a
+      line-based fence toggle (/^ {0,3}(?:```|~~~)/ per line, alternating
+      fenced/not-fenced) - the same approach t/433, t/876 and t/1098 already
+      use for the identical reason, checked and confirmed those three are
+      already immune. An unclosed fence now dies naming the line that
+      opened it, rather than surfacing later as an unrelated count
+      mismatch, and (Codex review) a closer whose own character does not
+      match its opener is refused by name too - a ``` closed by a ~~~
+      used to pair cleanly with no memory of which character opened
+      which block; not a live fault today since docs/commands.md carries
+      no ~~~ fence, but the diagnostic is only honest once it catches
+      both shapes.
+
 5.123  2026-09-15
     - TKT-736: t/433 held every claim of the police rule count in
       markdown to what the engine reports, but two live claims lived in

@@ -4571,6 +4571,24 @@ true when it was taken. That exemption is why the suite also requires this
 document's fences to close - an unclosed one inverts every block after it, and a
 claim that lands inside an example block nobody wrote is a claim nothing checks.
 
+**The same fence-pairing fault, in a different file, for a different reason
+(TKT-749).** `t/260-an-example-that-cannot-be-run.t`, which checks
+`docs/commands.md`'s own refused-command examples, matched fences with
+`/```\n(.*?)```/gs` - an opener with a language tag (` ```text `) never
+matched, so the regex skipped to that block's own CLOSING fence and used it
+as the next opener instead, inverting every pairing after it. Found live,
+documenting TKT-593, by adding a `text`-tagged block before the refusal
+examples: the checked refusal-block count moved from a real number to a
+wrong one, and the failure named nothing about fencing. Fixed the same way
+`t/433`, `t/876` and `t/1098` already parse fenced content - a per-line
+toggle on any fence, tagged or not - rather than inventing a fourth
+approach; those three were checked and are already immune. An unclosed
+fence now dies naming the line that opened it, and a closer whose own
+character does not match its opener (a ``` closed by a ~~~, found by
+Codex review) is refused by name rather than silently accepted as a
+pair - not a live fault today, since `docs/commands.md` carries no `~~~`
+fence, but the diagnostic is only honest once it catches both shapes.
+
 ## The meta-guards
 
 TKT-865 (extended by TKT-877, TKT-903, then TKT-736). Twenty-two files in

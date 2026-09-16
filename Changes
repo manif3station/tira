@@ -1,5 +1,24 @@
 Revision history for Tira
 
+5.143  2026-09-16
+    - TKT-1116: the police-pass interval degraded from its coded 30s
+      default to 8-16 minutes as the board grew this session, delaying
+      job/monitor notifications by minutes. TKT-978 (5.85) stopped a
+      REPEATED lookup of the same ref from walking the board twice within
+      one pass, but the FIRST lookup of each distinct ref still ran its
+      own File::Find walk - despite record_list(include_discard=>1),
+      already called once at the start of every pass, walking the whole
+      board anyway. That walk now seeds the path cache as a free side
+      effect of visiting every card, so _record_data's lookup is a plain
+      hash hit for every pre-existing card; the lazy walk now runs only
+      for a card raised mid-pass, or a ref that turns out missing or
+      genuinely duplicated - a miss must never be cached. Keyed by the
+      FILENAME's own ref, not the record's own content, so a corrupted or
+      mismatched file cannot cache an otherwise-missing ref (Codex review).
+      Measured on a 350-card synthetic board: 4.453s before, 1.221s after
+      (3.6x). A ref found at two different paths by the eager walk still
+      refuses when looked up, the same as the lazy walk always has.
+
 5.142  2026-09-16
     - TKT-1114: two watchers running a police pass at nearly the same
       moment could both read the enforcement store's "not yet announced"

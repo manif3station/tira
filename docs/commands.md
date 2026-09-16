@@ -1122,7 +1122,16 @@ A default `--interval` of thirty seconds against a ten-second pass keeps a core
 a third busy, and several watched boards multiply that. If police is costing
 more than expected, the number to look at is the board's journal size.
 Since 5.85 a pass resolves each card's location once instead of re-walking the
-board for every question about it, and remembers nothing between passes. A
+board for every question about it, and remembers nothing between passes. Since
+5.143 (TKT-1116) even that FIRST resolution usually costs nothing: the pass's
+own initial `record_list` call, which walks the whole board once to build its
+listing regardless, now seeds every card's path as it goes, so the walk 5.85
+added is only reached for a card raised mid-pass or a ref that turns out to
+be missing or genuinely duplicated - the cases a miss must never be cached
+for. Measured on a live
+board where this had degraded to 8-16 minutes between passes (up from a
+30-second interval, as the board grew this session): 4.453s before and 1.221s
+after on a 350-card synthetic equivalent, 3.6x. A
 quiet card's journal stops being reopened every pass too, by the same reasoning
 applied to a different question - a card whose last_updated has not moved past
 the stamp already recorded for it cannot have moved since, so _announce_moves

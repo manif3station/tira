@@ -715,6 +715,27 @@ only. The card itself is still read from disk every time: a path cannot go
 stale mid-pass because writing a card does not move its file, but a record
 can, and police raises the upgrade-gate card while the pass is running.
 
+**And since 5.143 the first lookup of a ref costs nothing either** (TKT-1116).
+5.85's fix (above) stopped a REPEATED lookup of the same ref from walking
+twice within one pass, but the FIRST lookup of each distinct ref still ran
+its own walk - the great majority of the ~1,384 walks TKT-978 measured on
+his board, since a 349-card board asking about most of its cards has few
+repeats to dedupe - despite
+`record_list(include_discard=>1)`, called before any rule runs, already
+walking the entire board once to build its own listing. That walk now seeds
+the path cache as a free side effect: every card it visits has its path
+recorded before any rule asks, so `_record_data`'s own lookup is a plain hash
+hit for every pre-existing card, and the lazy walk this section describes
+above now runs only for the rare card raised mid-pass (the upgrade gate's own
+case). Measured on a 350-card synthetic board: 4.453s before, 1.221s after —
+a 3.6x speedup with only 3 declared policies; a board declaring 59, like his,
+reads and resolves far more per pass and should see a larger relative win. A
+ref the eager walk finds at two DIFFERENT paths - a genuine board fault -
+still refuses the moment anything asks for it, the same protection the lazy
+walk has always given by basename; the eager index keys by that same
+filename-derived ref rather than a record's own content, so a card whose
+content disagrees with its filename cannot cache a wrong answer either.
+
 **Nothing is remembered between passes**, deliberately. A board is a live
 thing, and the next pass has to see what changed.
 

@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.142';
+our $VERSION = '5.143';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2577,6 +2577,42 @@ sub record_list {
             }
 
             my $record = $self->_json_from_content($content);
+
+            # TKT-1116. This walk already visits every card, filters or no -
+            # they all run AFTER this point - so a police pass's own
+            # record_list call (include_discard=>1, no narrowing filters) can
+            # seed _record_data's path cache for free instead of paying for
+            # ~1,384 separate File::Find walks later, one per distinct ref a
+            # rule asks about (TKT-978's own measurement on this board).
+            # Outside a pass _path_cache is undef and this is a no-op, same as
+            # _record_data's own cache check.
+            #
+            # Keyed by the FILENAME's own ref, not $record->{ref} - Codex
+            # review caught that the two are not the same guarantee. A card's
+            # content is corruptible independently of its name (TKT-988's own
+            # reasoning: a read failure is a fact about the file, not the
+            # record), and _record_data's own $walk has only ever matched by
+            # basename. Indexing by content would let a mismatched file cache
+            # an otherwise-missing ref, or hide a genuine filename collision
+            # the walk would have refused.
+            if ( my $path_cache = $self->{_path_cache} ) {
+                my ($ref) = basename($path) =~ /\A(.+)\.json\z/;
+                if ( defined $ref ) {
+                    my $key = join "\x00", $root, $ref;
+
+                    # Same path already claiming this ref (a lazy _record_data
+                    # walk earlier in the same pass beat this one to it) is
+                    # not a duplicate - only a DIFFERENT path is, the one case
+                    # _record_data's own $walk would also have refused.
+                    if ( exists $path_cache->{$key} && $path_cache->{$key} ne $path ) {
+                        $self->{_path_duplicates}{$key} = 1;
+                    }
+                    else {
+                        $path_cache->{$key} = $path;
+                    }
+                }
+            }
+
             my $column = basename( dirname($path) );
             return if defined $args{column} && $column ne $args{column};
             return if defined $args{assignee} && ( $record->{assignee} // '' ) ne $args{assignee};
@@ -12003,9 +12039,16 @@ sub police_pass {
 # A fresh cache for the length of one call, restored on the way out however the
 # call ends - `local` unwinds through a die, which matters because a pass that
 # dies half way must not leave a stale map behind for the next one.
+#
+# _path_duplicates rides alongside for the same lifetime (TKT-1116): a ref
+# record_list's own walk finds at two different paths is a genuine board
+# fault, and _record_data still has to die naming it the moment anything
+# actually asks for that ref - not silently pick whichever path record_list
+# happened to see last.
 sub _police_path_cache {
     my ( $self, $code ) = @_;
-    local $self->{_path_cache} = {};
+    local $self->{_path_cache}      = {};
+    local $self->{_path_duplicates} = {};
     return $code->();
 }
 
@@ -14188,8 +14231,15 @@ sub _record_data {
     # asked once and remembered. Outside a pass _path_cache is undef and every
     # lookup walks, which is what every other command wants: a board is a live
     # thing and nothing here should hold a map of it. TKT-978.
+    #
+    # The cache is USUALLY already full by the time anything asks: a pass's
+    # own record_list call seeds every pre-existing card's path as a side
+    # effect of the walk it already has to do (TKT-1116), so this is a plain
+    # hash hit for everything but a card raised mid-pass - the one case the
+    # walk below still exists for.
     my $cache = $self->{_path_cache};
     my $key   = join "\x00", $root, $ref;
+    die "Duplicate record '$ref' found\n" if $cache && $self->{_path_duplicates}{$key};
     my $path  = $cache ? $cache->{$key} : undef;
 
     my $walk = sub {

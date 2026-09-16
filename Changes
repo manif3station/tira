@@ -1,5 +1,22 @@
 Revision history for Tira
 
+5.140  2026-09-16
+    - TKT-885: t/162 printed 17 uninitialized-value warnings on every
+      passing suite run - one per bare cli/ACTION entrypoint (an
+      entrypoint with no skills/ prefix), since two pops after splitting
+      the path emptied @parts for those cases before the code asked
+      whether $parts[0] was 'cli'. The logic itself was already right;
+      an empty list simply has no first segment to compare. Guarded with
+      `shift @parts if @parts && $parts[0] eq 'cli'`, matching the
+      question actually being asked. Test-only change (no lib/ file
+      touched); the derived dotted command names are unchanged. Decided
+      NOT to build a suite-wide fail-on-warning guard alongside this fix
+      - many tests deliberately warn while exercising an error path, and
+      a blanket guard would need its own ongoing declared-exception
+      mechanism (the shape t/486 already uses) for every one of them, a
+      maintenance cost this card's narrower fix does not need to pay for
+      a real warning to have somewhere quiet to appear again.
+
 5.139  2026-09-16
     - TKT-846: checklist_add and checklist_update validated --status
       case-insensitively against pending, done and 'To Do' (TKT-668,

@@ -47,33 +47,46 @@ ok( scalar @entrypoints, 'the release ships entrypoints to check' );
 
 my $reference = slurp('docs/commands.md');
 
+# TKT-885: a two-segment entrypoint path (a bare cli/ACTION, with no skills/
+# prefix) empties @parts after the two pops below, so $parts[0] read undef
+# and warned on every one of the 17 bare entrypoints this release ships -
+# on every passing run, which is exactly the run a real warning has nowhere
+# quiet to appear in. The logic itself was already right ("if the first
+# segment is cli"); an empty list simply has no first segment to ask about.
+my @warnings;
 my @missing;
-for my $path (@entrypoints) {
-    my @parts = split m{/}, $path;
-    my $action = pop @parts;
-    pop @parts;
-    shift @parts if $parts[0] eq 'cli';
-    @parts = grep { $_ ne 'skills' } @parts;
-    my $dotted = 'tira.' . join '.', @parts, $action;
+{
+    local $SIG{__WARN__} = sub { push @warnings, $_[0] };
+    for my $path (@entrypoints) {
+        my @parts = split m{/}, $path;
+        my $action = pop @parts;
+        pop @parts;
+        shift @parts if @parts && $parts[0] eq 'cli';
+        @parts = grep { $_ ne 'skills' } @parts;
+        my $dotted = 'tira.' . join '.', @parts, $action;
 
-    # The three boards share one set of verbs and the dashboard has three
-    # forms of one command, so the document names them once as TYPE rather
-    # than repeating itself three times over. That was the reason given for
-    # skipping them entirely, and skipping is not the same as accepting a
-    # shorter spelling: nothing checked that the shorter spelling was there.
-    # It was not. Nine of the twenty-four record verbs were named in no
-    # document at all, tira.ticket.discard among them, and the family that
-    # was supposedly documented once was documented raggedly, per verb per
-    # board - ticket.update eight times, epic.update once, sow.update never.
-    # TKT-233.
-    $dotted =~ s/\Atira\.(?:sow|epic|ticket)\./tira.TYPE./;
-    $dotted =~ s/\Atira\.dashboard\.(?:sow|epic|ticket)\z/tira.dashboard.TYPE/;
+        # The three boards share one set of verbs and the dashboard has three
+        # forms of one command, so the document names them once as TYPE rather
+        # than repeating itself three times over. That was the reason given for
+        # skipping them entirely, and skipping is not the same as accepting a
+        # shorter spelling: nothing checked that the shorter spelling was there.
+        # It was not. Nine of the twenty-four record verbs were named in no
+        # document at all, tira.ticket.discard among them, and the family that
+        # was supposedly documented once was documented raggedly, per verb per
+        # board - ticket.update eight times, epic.update once, sow.update never.
+        # TKT-233.
+        $dotted =~ s/\Atira\.(?:sow|epic|ticket)\./tira.TYPE./;
+        $dotted =~ s/\Atira\.dashboard\.(?:sow|epic|ticket)\z/tira.dashboard.TYPE/;
 
-    push @missing, $dotted if index( $reference, $dotted ) < 0;
+        push @missing, $dotted if index( $reference, $dotted ) < 0;
+    }
 }
 
 is_deeply( [ sort @missing ], [],
     'every command that ships is named in the command reference, which is what it says it is' );
+
+is_deeply( \@warnings, [],
+    'deriving every dotted command name warns about nothing - a real warning has somewhere quiet to appear' );
 
 # --- and the promise it makes about itself ------------------------------------------
 #

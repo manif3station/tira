@@ -78,19 +78,18 @@ my %OPTION_READ_BY = (
         flag     => 'comment',
         # The commands that DO read it, which is what this table lists - the
         # first draft named record.discard here and so declared the broken
-        # command to be the one that works.
-        commands => qr/\A(?:comment\.|attachment\.discard\z)/,
+        # command to be the one that works. TKT-905's derived walk caught
+        # --comment being refused as unread on all three attachment verbs:
+        # detach/discard read it directly, and add forwards %args to
+        # attachment_add_content, which reads it to scope a NEW attachment
+        # to an existing comment rather than the card itself.
+        commands => qr/\A(?:comment\.|attachment\.(?:discard|detach|add)\z)/,
         instead  => 'tira.comment.add --ref REF --text TEXT, which is the command that records a reason',
 
-        # attachment.discard reads --comment as an identifier - which
-        # comment to detach the attachment from - not a reason, so of the
-        # exempted commands it is the one where a caller could plausibly
-        # mean the wrong thing. A value that cannot be a comment id is
-        # refused the same way, rather than accepted and quoted back as a
-        # missing identifier: measured live, 'tira.attachment.discard
-        # --comment "Set aside because it was the wrong file"' answered
-        # "Comment 'Set aside...' not found" and recorded nothing. TKT-373.
-        shape_checked_on => qr/\Aattachment\.discard\z/,
+        # All three attachment verbs read --comment as an identifier, not a
+        # reason, so a value that cannot be a comment id is refused the same
+        # way rather than accepted and quoted back as missing. TKT-373.
+        shape_checked_on => qr/\Aattachment\.(?:discard|detach|add)\z/,
         shape            => qr/\ACMT-\d+\z/,
     },
 

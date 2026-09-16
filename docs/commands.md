@@ -2247,6 +2247,16 @@ are: until 3.58 it was accepted and quoted back as a missing comment
 ("Comment 'Wrong file' not found"), which named nothing a caller could act
 on. TKT-373.
 
+`attachment.detach` reads `--comment` the identical way `attachment.discard`
+does, and so does `attachment.add` - scoping a new attachment to an existing
+comment rather than the card itself, by forwarding to `attachment_add_content`.
+A mechanically-derived check of every declared reader list against the engine
+(TKT-905) found the table had never been told about either: `--comment` on
+both `attachment.detach` and `attachment.add` was refused as unread until now,
+even though `Tira::Attachment` genuinely acts on it in both places. Fixed by
+extending the same table entry to cover all three verbs, rather than adding
+separate ones.
+
 A move is not the command that sets a gate, and on a board whose rules require
 the gate to move with every transition that is worth saying rather than
 dropping: the whole card comes back after a move, which reads as confirmation.

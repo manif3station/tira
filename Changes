@@ -1,5 +1,21 @@
 Revision history for Tira
 
+5.141  2026-09-16
+    - TKT-905: %OPTION_READ_BY's own reader lists (lib/Tira/CLI/Options.pm)
+      were hand-walked once, on TKT-748, and never checked again. Added
+      t/1116-a-ledger-nobody-checked-by-hand.t, which mechanically derives
+      the engine-side reader set for every entry (a two-layer walk: the
+      command->sub dispatch table plus a per-module scan for `$args{OPTION}`
+      reads) and fails naming any option whose declared `commands` regex
+      does not cover a genuine reader. It found two real gaps, both on
+      `--comment`: `attachment.detach` reads it directly and was refused as
+      unread, and `attachment.add` reads it too, but only by forwarding to
+      attachment_add_content, which a Codex review pass on this same ticket
+      caught the first-draft test missing (a forwarder's own reads are
+      invisible to a derivation keyed on the dispatched sub's name alone).
+      Fixed by extending that one table entry's `commands`/
+      `shape_checked_on` regexes to cover all three attachment verbs.
+
 5.140  2026-09-16
     - TKT-885: t/162 printed 17 uninitialized-value warnings on every
       passing suite run - one per bare cli/ACTION entrypoint (an

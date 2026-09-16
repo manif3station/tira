@@ -1,5 +1,19 @@
 Revision history for Tira
 
+5.142  2026-09-16
+    - TKT-1114: two watchers running a police pass at nearly the same
+      moment could both read the enforcement store's "not yet announced"
+      state before either had written it back, so both decided a version
+      change was news and both raised their own upgrade-gate card -
+      reproduced live as three identical duplicate cards for one version
+      jump (TKT-1110/1111/1112, filed within minutes of each other by 5
+      concurrent dashboard-monitor processes). Fixed by extracting the
+      decision into a new _announce_upgrade method that re-reads the
+      enforcement store fresh, inside _with_project_lock, rather than
+      trusting a read taken before the lock - a second watcher racing in
+      now only gets the lock after the first has already written, and its
+      own fresh read shows the change already recorded.
+
 5.141  2026-09-16
     - TKT-905: %OPTION_READ_BY's own reader lists (lib/Tira/CLI/Options.pm)
       were hand-walked once, on TKT-748, and never checked again. Added

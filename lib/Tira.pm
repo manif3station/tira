@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.141';
+our $VERSION = '5.142';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1120,13 +1120,16 @@ sub _changes_between {
 # commands and what new policies options between old and new version? Set a
 # checklist on the ticket the agent to pick up and do."
 #
-# Called only from inside police_pass's own announced_changes guard, which
-# already means this runs once per genuine version change - a restarting
-# police or a second watcher at the same version never reaches here twice.
-# Failure to raise the ticket must not fail the pass that found a real
-# upgrade to announce, so this is wrapped in an eval by its caller in
-# spirit: every write here is best-effort, and the bridge line still went
-# out regardless.
+# Called only from _announce_upgrade, inside its project lock, which is what
+# actually makes this run once per genuine version change - TKT-1114 found
+# that a comment here once claimed that on its own, without the lock: two
+# watchers racing the enforcement store both decided a change was news
+# before either had written it back, so a restarting police and a second
+# watcher at the same version both reached here, each filing its own card
+# for the same jump. Failure to raise the ticket must not fail the pass
+# that found a real upgrade to announce, so this is wrapped in an eval by
+# its caller in spirit: every write here is best-effort, and the bridge
+# line still went out regardless.
 sub _raise_upgrade_gate {
     my ( $self, $root, $upgraded ) = @_;
     my $from = $upgraded->{from};
@@ -1212,6 +1215,49 @@ sub _raise_upgrade_gate {
         1;
     };
     return;
+}
+
+# TKT-1114. Reads and decides whether $VERSION is news, but under the
+# project lock and with its OWN fresh read of the enforcement store -
+# never a $quieted the caller already had lying around. That is the whole
+# fix: a stale read taken before the lock is exactly what let two watchers
+# racing the same store both see "not yet announced" and both raise a
+# card. A second watcher now only gets the lock after the first has
+# already written, and its own fresh read then shows the change already
+# in $said.
+sub _announce_upgrade {
+    my ( $self, $root, $store ) = @_;
+    return $self->_with_project_lock( $root, sub {
+        my $quieted = $self->_enforcement_read($store);
+        my $told = $quieted->{announced_version};
+        my $said = $quieted->{announced_changes} ||= [];
+        my $change = ( $told // '' ) . '>' . $VERSION;
+        my $upgraded;
+        if ( ( $told // '' ) ne $VERSION && !grep { $_ eq $change } @{$said} ) {
+            $upgraded = { to => $VERSION, ( defined $told ? ( from => $told ) : () ) };
+            push @{$said}, $change;
+            $quieted->{announced_version} = $VERSION;
+            $self->_enforcement_write( $store, $quieted );
+
+            # A bridge line trusted the agent to act on it - easy to scroll
+            # past among everything else a pass says, with nothing tracking
+            # whether it ever was. TKT-604, TSK-181: raise a standing ticket
+            # instead, which does not go away until somebody closes it.
+            # Nothing to gate on a board's first-ever pass - there is no
+            # "from" to have missed anything in - so only a real upgrade,
+            # not the initial "Tira is now X", raises one.
+            $self->_raise_upgrade_gate( $root, $upgraded ) if defined $told;
+        }
+        elsif ( ( $told // '' ) ne $VERSION ) {
+
+            # Said before, so nothing is written to the agent - but the board
+            # still records which version it is looking at, or the next
+            # genuine change would be measured from the wrong place.
+            $quieted->{announced_version} = $VERSION;
+            $self->_enforcement_write( $store, $quieted );
+        }
+        return $upgraded;
+    } );
 }
 
 sub collector_entry {
@@ -12107,39 +12153,20 @@ sub _police_pass_body {
     # change again is not. Two watchers taking turns say it twice and then stop,
     # and a genuine move to something this board has not been told about is
     # still announced. TKT-273.
-    my $upgraded;
-    {
-        my $told = $quieted->{announced_version};
-        my $said = $quieted->{announced_changes} ||= [];
-        my $change = ( $told // '' ) . '>' . $VERSION;
-        if ( ( $told // '' ) ne $VERSION && !grep { $_ eq $change } @{$said} ) {
-            $upgraded = { to => $VERSION, ( defined $told ? ( from => $told ) : () ) };
-            push @{$said}, $change;
-            $quieted->{announced_version} = $VERSION;
-            $self->_enforcement_write( $store, $quieted );
-
-            # A bridge line trusted the agent to act on it - easy to scroll
-            # past among everything else a pass says, with nothing tracking
-            # whether it ever was. TKT-604, TSK-181: raise a standing ticket
-            # instead, which does not go away until somebody closes it. The
-            # same announced_changes guard above already means this runs
-            # once per genuine change, so a restarting police or a second
-            # watcher never files a second one. Nothing to gate on a board's
-            # first-ever pass - there is no "from" to have missed anything
-            # in - so only a real upgrade, not the initial "Tira is now X",
-            # raises one.
-            $self->_raise_upgrade_gate( $self->discover_project(%args), $upgraded )
-              if defined $told;
-        }
-        elsif ( ( $told // '' ) ne $VERSION ) {
-
-            # Said before, so nothing is written to the agent - but the board
-            # still records which version it is looking at, or the next genuine
-            # change would be measured from the wrong place.
-            $quieted->{announced_version} = $VERSION;
-            $self->_enforcement_write( $store, $quieted );
-        }
-    }
+    #
+    # TKT-1114: the decision above is read-decide-write, and reading $quieted
+    # once at the top of this pass (line ~12043, shared with the card-damaged/
+    # card-unreadable tracking above) is fine for THAT purpose - but here it
+    # let two watchers running a pass at nearly the same moment both read the
+    # same stale "not yet announced" state before either had written back, so
+    # both decided it was news and both raised their own gate card. Reproduced
+    # live: 5 concurrent 'd2 tira.dashboard' monitor processes filed
+    # TKT-1110/1111/1112, three identical cards for one version jump.
+    #
+    # _announce_upgrade re-reads the store FRESH, inside the project lock, so
+    # a second watcher racing in only gets the lock after the first has
+    # already written - and then sees its own change already in $said.
+    my $upgraded = $self->_announce_upgrade( $self->discover_project(%args), $store );
 
     if ( $self->police_suspended( store => $store ) ) {
         return {

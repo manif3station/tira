@@ -1219,10 +1219,25 @@ that knows its own remedy still wins over all of it: `card-damaged` answers
 now X - this board last heard Y" now also creates a ticket in the backlog, at
 priority 5, naming the version pair, carrying the Changes entries between
 them as its description, and a checklist with one item to read the new
-commands and one item per rule `tira.policy.undeclared` still lists. The
-guard is shared, so a restarting police or a second watcher at the same
-version never files a second one, and a board's first-ever pass - which has
-no prior version to have missed anything in - raises nothing.
+commands and one item per rule `tira.policy.undeclared` still lists. A
+board's first-ever pass - which has no prior version to have missed anything
+in - raises nothing.
+
+**The guard's own decision is made under the project lock, since 5.142**
+(TKT-1114) - it was not before, and two watchers running a pass within the
+same moment both read the same "not yet announced" state before either had
+written it back, so both decided a version change was news and both raised
+their own card: reproduced live as three identical duplicate cards for one
+jump (TKT-1110/1111/1112). `_announce_upgrade` now re-reads the enforcement
+store fresh, inside `_with_project_lock`, so a second watcher's OWN pass
+racing in only gets the lock after the first has already written and finds
+its own change already recorded, closing the race this ticket reproduced.
+The lock is scoped to this one decision, not to every writer of the
+enforcement store - a still-unlocked writer elsewhere (e.g. a rule
+suspension recorded at the same moment) could in principle overwrite the
+announcement with its own stale copy of the file and reopen the window;
+that broader "one lock per store" question is tracked separately (TKT-1118)
+rather than folded into this fix.
 
 **The gating card's own record type is configurable** (TKT-941), reported
 from a project that repurposes `ticket` for something with a mandatory

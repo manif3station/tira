@@ -189,7 +189,8 @@ C<required_item_add> is deliberately left unvalidated, since every real
 creation path (column templates, move-in population, a manual backfill)
 writes C<pending> itself, so the misspelling this fix targets only ever
 reached the board through an update. Checklists get the same tight
-vocabulary plus C<To Do> - C<{pending, done, To Do}> - on both
+vocabulary plus C<To Do> and (since 5.139, TKT-846) C<todo> -
+C<{pending, done, To Do, todo}> - on both
 C<checklist_add> and C<checklist_update>, since a checklist item (unlike
 a required item) is commonly created directly with a caller-chosen
 status.

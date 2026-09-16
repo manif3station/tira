@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.138';
+our $VERSION = '5.139';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4608,6 +4608,21 @@ sub release_record {
     return { recorded => \@done, ( @refused ? ( refused => \@refused ) : () ) };
 }
 
+# The one declared set checklist_list/checklist_add/checklist_update all
+# enforce (TKT-668, Q-099), extracted so the three copies cannot drift.
+# 'todo' (no space) joins the accepted set here, TKT-846: 8 items on this
+# board's own EPC-007 were stored with that spelling before this validation
+# existed, and a caller reading one back could never write the same value
+# again. Widening the accepted set rather than migrating the 8 stored items
+# - the smaller, lower-risk change, decided on the card before this shipped.
+my @CHECKLIST_STATUS_KNOWN = ( 'pending', 'done', 'to do', 'todo' );
+
+sub _checklist_status_known {
+    my ($status) = @_;
+    my $wanted = lc $status;
+    return grep { $_ eq $wanted } @CHECKLIST_STATUS_KNOWN;
+}
+
 sub checklist_list {
     my ( $self, %args ) = @_;
     my $items = $self->record_show(%args)->{checklist};
@@ -4627,10 +4642,12 @@ sub checklist_list {
     # no status to filter on.
     #
     # THE VOCABULARY IS WIDER THAN required_item_list's, and that is the part
-    # worth getting right. checklist_add accepts pending, done and 'To Do' - the
-    # last being the spelling this board itself writes on move-in - so a filter
-    # that understood only the first two would make every unmarked item
-    # unfindable, which is the same silent wrong answer wearing new clothes.
+    # worth getting right. checklist_add accepts pending, done, 'To Do' and
+    # (since 5.139, TKT-846) 'todo' - 'To Do' being the spelling this board
+    # itself writes on move-in, 'todo' being what several cards had already
+    # stored before this validation existed - so a filter that understood
+    # only a subset would make some unmarked items unfindable, which is the
+    # same silent wrong answer wearing new clothes.
     #
     # An unrecognized value is refused rather than matching nothing, for
     # required_item_list's reason: an empty list reads as "no items are done".
@@ -4638,8 +4655,8 @@ sub checklist_list {
     if ( defined $args{status} ) {
         my $wanted = lc $args{status};
         die "Unknown checklist status '$args{status}' - the values that work "
-          . "are pending, done, and To Do\n"
-          if $wanted ne 'pending' && $wanted ne 'done' && $wanted ne 'to do';
+          . "are pending, done, To Do, and todo\n"
+          if !_checklist_status_known($wanted);
         $items = [ grep { lc( $_->{status} // 'pending' ) eq $wanted } @{$items} ];
     }
     return $items;
@@ -4678,8 +4695,8 @@ sub checklist_add {
         # actual unmarked spelling this board itself writes on move-in
         # (required_item_update's own declared set never carries it,
         # since a required item is only ever added as 'pending').
-        if ( lc( $args{status} ) ne 'pending' && lc( $args{status} ) ne 'done' && lc( $args{status} ) ne 'to do' ) {
-            die "Unknown checklist status '$args{status}' - the values that work are pending, done, and To Do\n";
+        if ( !_checklist_status_known( $args{status} ) ) {
+            die "Unknown checklist status '$args{status}' - the values that work are pending, done, To Do, and todo\n";
         }
         my $record = $self->record_show(%args);
 
@@ -4718,7 +4735,7 @@ sub checklist_update {
     local $self->{_journal_author} = $self->_require_author(%args);
     die "Checklist item or status is required\n" if !defined $args{item} && !defined $args{status};
     die "Checklist item is required\n" if defined $args{item} && $args{item} eq '';
-    die "Checklist status is required - the values that work are pending, done, and To Do\n" if defined $args{status} && $args{status} eq '';
+    die "Checklist status is required - the values that work are pending, done, To Do, and todo\n" if defined $args{status} && $args{status} eq '';
     my $proof_entries = $self->_proof_entries_for(%args);
 
     my $root = $self->discover_project(%args);
@@ -4781,10 +4798,8 @@ sub checklist_update {
         # TKT-668) can still be read and moved; it just cannot be written
         # back unchanged by a later update. See checklist_add for the full
         # reasoning.
-        if ( defined $args{status}
-            && lc( $args{status} ) ne 'pending' && lc( $args{status} ) ne 'done' && lc( $args{status} ) ne 'to do' )
-        {
-            die "Unknown checklist status '$args{status}' - the values that work are pending, done, and To Do\n";
+        if ( defined $args{status} && !_checklist_status_known( $args{status} ) ) {
+            die "Unknown checklist status '$args{status}' - the values that work are pending, done, To Do, and todo\n";
         }
         $entry->{item} = $args{item} if defined $args{item};
         $entry->{status} = $args{status} if defined $args{status};

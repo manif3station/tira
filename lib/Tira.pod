@@ -941,7 +941,10 @@ Creates a new record copying a source record's fields, linked back to it as a cl
 Adds a checklist entry to a record. TKT-668: C<--status> is validated
 against the declared set C<{pending, done, To Do}>, case-insensitive - a
 misspelling refuses rather than storing an item no gate can recognize as
-done. Since 5.62 (TKT-909) C<--item> refuses a whitespace-only value the
+done. Since 5.139 (TKT-846) the declared set also accepts C<todo> (no
+space) - the legacy spelling this board itself had already stored on
+several cards before the validation existed, which the stricter set then
+refused to write back unchanged. Since 5.62 (TKT-909) C<--item> refuses a whitespace-only value the
 same way the literal empty string always did - a space is not a smaller
 piece of content than none.
 
@@ -1595,8 +1598,8 @@ returns an empty list. TKT-766.
 =head2 checklist_list
 
 Returns a record's checklist entries. C<status> narrows them to one status,
-compared case-insensitively against the three values C<checklist_add> accepts -
-C<pending>, C<done> and C<To Do>. Anything outside that set is refused, naming
+compared case-insensitively against the values C<checklist_add> accepts -
+C<pending>, C<done>, C<To Do> and (since 5.139, TKT-846) C<todo>. Anything outside that set is refused, naming
 what was given, rather than matching nothing: an empty list reads as "no items
 are done", which is a wrong answer where a refusal would have been an honest
 one.

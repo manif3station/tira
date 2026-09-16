@@ -1,5 +1,21 @@
 Revision history for Tira
 
+5.139  2026-09-16
+    - TKT-846: checklist_add and checklist_update validated --status
+      case-insensitively against pending, done and 'To Do' (TKT-668,
+      Q-099), added without migrating what the board already had stored -
+      8 items on EPC-007 carried the legacy spelling 'todo' (no space),
+      which the validation refused. An agent reading one of those items
+      back and writing the same value again - the ordinary round-trip
+      every other status already supported - was refused for a value the
+      board itself produced. Widened the accepted set to include 'todo'
+      (the smaller, lower-risk change, versus migrating the 8 stored
+      items) via a new shared helper, _checklist_status_known, replacing
+      three near-identical inline checks in checklist_list, checklist_add
+      and checklist_update so the three copies cannot drift again. A
+      genuine misspelling (Donee, in progress) is still refused. New
+      test: t/1112-a-status-the-board-itself-handed-out.t.
+
 5.138  2026-09-16
     - TKT-845: checklist-idle reported any card whose checklist had not
       moved within the policy age, with no way to tell a card held open by

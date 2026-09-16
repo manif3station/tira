@@ -216,10 +216,10 @@ sub board {
 }
 
 # 'To Do' is the third value, and it is the one a careless filter loses.
-# checklist_add's own vocabulary is pending, done and 'To Do', and 'To Do' is
-# what this board itself writes on move-in - so a filter that only understood
-# two of the three would silently drop real items, which is the same fault
-# wearing different clothes.
+# checklist_add's own vocabulary is pending, done, 'To Do' and (since 5.139,
+# TKT-846) 'todo', and 'To Do' is what this board itself writes on move-in -
+# so a filter that only understood a subset would silently drop real items,
+# which is the same fault wearing different clothes.
 
 {
     my ( $tira, $root, $card ) = board();

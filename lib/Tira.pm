@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.137';
+our $VERSION = '5.138';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -8023,6 +8023,18 @@ sub policy_evaluate {
                 next if ( $record->{column} // '' ) ne ( $self->_policy_column_for(
                     project => $root, policy => $policy, field => 'column',
                     record => $record ) // '' );
+
+                # A card labelled "standing" is held open by design - a
+                # container like an epic collecting bridge-reported defects
+                # for the length of the programme, or a SOW spanning it -
+                # rather than stalled. The label sits on the card itself
+                # (ticket.show shows it), not in policy configuration, so a
+                # reader can see why the card is exempt. TKT-845: without
+                # this, EPC-007 and SOW-004 were reported 108 and 124 times
+                # respectively, every one true about elapsed time and naming
+                # an action ("tick something") neither card needed.
+                next if grep { lc($_) eq 'standing' } @{ $record->{labels} // [] };
+
                 my $checklist = $record->{checklist} // [];
                 next if !@{$checklist};
                 my ($latest) = sort { $b cmp $a } map { $_->{last_updated} } @{$checklist};

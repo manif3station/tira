@@ -1173,6 +1173,19 @@ behaviour — when it fires, and that moving the card settles it — is
 unchanged; a checklist with anything still unticked keeps the
 existing wording. TKT-357.
 
+`checklist-idle` had no way to tell a standing container - an epic
+collecting bridge-reported defects for the length of a programme, a
+SOW spanning it - from a card that had genuinely stalled: both always
+carry open checklist items, and the rule reported EPC-007 and SOW-004
+108 and 124 times respectively, every report true about elapsed time
+and useless as an instruction. **Fixed.** A record carrying a
+`standing` label (matched case-insensitively) is now skipped by
+`checklist-idle` entirely, however long its checklist has stood
+still; a card without that label is reported exactly as before. The
+hold sits on the card itself (visible via `ticket.show`), not in the
+policy declaration, so a reader can see why a given card is exempt.
+TKT-845.
+
 The reminder job is **Implemented.** `tira.collector.show`
 computes the background job for this project and
 `tira.collector.install` registers it, merging into the machine's own
@@ -2120,7 +2133,7 @@ the plain functions `_render_view`, `_view_asset` and `json_object`.
 
 **`--help` on a command that does not exist is refused, not answered, since 5.112** (TKT-660). `Tira::CLI->run()` handled `--help` before dispatch, so a name with no entrypoint anywhere got the fallback usage line - grammatical, correctly formatted, naming the invented command back - and returned success. The dispatcher's own unknown-command "Did you mean" was never reached, because the help branch returns before dispatch runs at all. New module `lib/Tira/CLI/Command.pm` answers whether a bare command is real by reading `lib/Tira/CLI.pm`'s own dispatch surface: both the literal `$command eq '...'` shape t/410 already reads for its usage-line ledger, AND the regex-alternation shape (`$command =~ /\Alogin\.(register|check|status|logout)\z/` and two dozen more) t/410 does not need to check. An early version of this fix checked only the first shape and would have refused `--help` for `login.status`, `dashboard.sow` and every other regex-dispatched command as though it did not exist - caught by this ticket's own `t/1086` the first time it ran against a real implementation. The fix tests the dispatch regex objects directly against the given name rather than trying to re-derive every concrete string an alternation can produce, and was verified with a standalone sweep against all statically-extracted real commands (0 false negatives) before shipping. Typed record commands (`ticket.foo`, `epic.bar`) are unaffected - they always arrive with `$type` already set by their own entrypoint script, never as the bare dotted name. Split into its own module rather than growing `lib/Tira/CLI/Usage.pm` past its own 500-line limit, which t/524 caught live mid-implementation.
 
-`lib/Tira.pm` is 14,969 lines now (TKT-786, 5.135 - measured now rather
+`lib/Tira.pm` is 14,981 lines now (TKT-845, 5.138 - measured now rather
 than carried forward, the fault this section is about). As of TKT-1102
 (5.131) it was 14,866. Two drops stacked before that:
 TKT-1098 moved its own POD block to a sibling `lib/Tira.pod` (the standard

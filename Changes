@@ -1,5 +1,24 @@
 Revision history for Tira
 
+5.138  2026-09-16
+    - TKT-845: checklist-idle reported any card whose checklist had not
+      moved within the policy age, with no way to tell a card held open by
+      design from one that had genuinely stalled. Standing containers -
+      EPC-007 (collecting bridge-reported defects for the length of the
+      programme) and SOW-004 (spanning it) - always carry open checklist
+      items and are worked in bursts; measured 2026-09-02, checklist-idle
+      had reported them 108 and 124 times respectively, every report
+      CRITICAL-toned, true about elapsed time, and naming an action ("tick
+      something") neither card needed. Settling each report with a dated
+      checklist entry bought silence only until the age window passed
+      again. checklist-idle now skips a record carrying a "standing" label
+      (matched case-insensitively) entirely, however long its checklist has
+      stood still; a card without that label is reported exactly as
+      before. The mechanism sits on the card itself (visible via
+      ticket.show), not in policy configuration, so a reader can see why a
+      given card is exempt. New test: t/1111-a-card-that-was-never-going-
+      to-finish.t.
+
 5.137  2026-09-16
     - TKT-824: TKT-806 added a possible_duplicate soft signal to
       tasklist_add, firing when --ref names a card that already has a

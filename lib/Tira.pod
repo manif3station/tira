@@ -667,7 +667,15 @@ C<column> tag on every record's C<required_items> entries, board-wide for
 the type, that still name the old column - not only cards currently sitting
 in it - so the departure gate (which matches a card's pending items against
 its CURRENT column) does not go blind to an item left tagged with a name
-that no longer exists. TKT-613.
+that no longer exists. TKT-613. The retag walk survives one bad record: each
+is retagged inside its own try, and the returned hash carries a
+C<retag_failed> array naming any ref whose own retag could not complete -
+the directory and config rename have already committed by the time the
+walk runs, so a record that cannot be read no longer aborts retagging
+everything after it. A record whose embedded C<ref> disagrees with the ref
+its own filename names is refused rather than written back under the
+embedded ref, which would send the write looking for a different file
+entirely. TKT-771.
 
 =head2 column_reorder
 

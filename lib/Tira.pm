@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.133';
+our $VERSION = '5.134';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1910,18 +1910,49 @@ sub column_rename {
         # unless walked and rewritten here. The push/departure gate matches
         # items by the card's CURRENT column, so a stale tag makes that
         # gate blind to a pending item. TKT-613.
+        #
+        # ONE RECORD'S OWN FAILURE MUST NOT ABORT THE WALK, since TKT-771
+        # (Codex review, TKT-613's own verify gate; Michael's answer,
+        # Q-160/Q-161): the directory and config rename above have already
+        # committed by the time this walk starts, so a die left uncaught
+        # inside File::Find's own wanted callback silently stopped
+        # retagging every record File::Find had not yet reached - with no
+        # record anywhere of which refs were left stale. Each record is
+        # now handled inside its own eval; a failure is caught, the ref it
+        # happened to (derived from the filename, since a record that
+        # cannot even be read has no $record->{ref} to ask) is collected,
+        # and the walk continues past it.
+        my @retag_failed;
         find( { no_chdir => 1, wanted => sub {
             return if !-f $File::Find::name || basename( $File::Find::name ) !~ /\.json\z/;
-            my $record_path = $self->_canonical_path( $File::Find::name, 'record file' );
-            my $record      = $self->_json_from_content( $self->_slurp($record_path) );
-            my @stale = grep { ( $_->{column} // '' ) eq $args{name} } @{ $record->{required_items} // [] };
-            return if !@stale;
-            $_->{column}       = $args{new_name} for @stale;
-            $_->{last_updated} = $self->{clock}->() for @stale;
-            $self->_replace_record( project => $root, type => $args{type}, ref => $record->{ref}, record => $record );
+            my ($ref_guess) = basename( $File::Find::name ) =~ /\A(.+)\.json\z/;
+            eval {
+                my $record_path = $self->_canonical_path( $File::Find::name, 'record file' );
+                my $record      = $self->_json_from_content( $self->_slurp($record_path) );
+
+                # Written back by the ref THIS FILE is named for, not whatever
+                # ref happens to be embedded in its own JSON - a record file
+                # is found by walking the filesystem, so a mismatch between
+                # the two (a hand-edited or corrupted file) would otherwise
+                # send _replace_record looking for a DIFFERENT file entirely,
+                # writing this file's new tag onto some other card's record.
+                # Codex review, TKT-771.
+                die "record at '$record_path' is named for ref '$ref_guess' but its own content names "
+                  . "'" . ( $record->{ref} // '<undef>' ) . "' - refusing to write, since a mismatch "
+                  . "here means the walk cannot tell which record this file actually is\n"
+                  if !defined $ref_guess || ( $record->{ref} // '' ) ne $ref_guess;
+
+                my @stale = grep { ( $_->{column} // '' ) eq $args{name} } @{ $record->{required_items} // [] };
+                if (@stale) {
+                    $_->{column}       = $args{new_name} for @stale;
+                    $_->{last_updated} = $self->{clock}->() for @stale;
+                    $self->_replace_record( project => $root, type => $args{type}, ref => $record->{ref}, record => $record );
+                }
+                1;
+            } or push @retag_failed, $ref_guess // $File::Find::name;
         } }, $board );
 
-        return $column;
+        return { %{$column}, retag_failed => \@retag_failed };
     } );
 }
 

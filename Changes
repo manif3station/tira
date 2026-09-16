@@ -1,5 +1,27 @@
 Revision history for Tira
 
+5.134  2026-09-16
+    - TKT-771 (found by Codex review during TKT-613's own verify gate,
+      2026-08-30): column_rename's required_items retag walk renames the
+      column's directory and config entry, then walks every record on the
+      board rewriting any stale column tag left on a required_items entry.
+      The rename has already committed by the time that walk starts, but
+      a die left uncaught inside File::Find's own wanted callback - a
+      corrupt record, anything _json_from_content/_replace_record throws
+      on - aborted the ENTIRE walk, silently leaving every record
+      File::Find had not yet reached with its stale tag and no report of
+      what failed. Michael's answer (Q-160/Q-161, both marked ok): make
+      the walk resilient, continue past a per-record failure, and report
+      which refs failed to retag. Each record is now retagged inside its
+      own eval; a failure is caught, the ref it happened to (or the
+      filename's own basename, when the record could not even be parsed
+      enough to read its own ref) is collected, and the walk continues.
+      column_rename's return now carries a retag_failed array, empty on
+      the ordinary path. New test t/1107 corrupts one of three records
+      mid-walk and asserts the other two still retag, the corrupt one is
+      named in retag_failed, and the column rename itself still succeeds -
+      confirmed genuinely red first (the whole call died, exit 255).
+
 5.133  2026-09-15
     - TKT-1103: lib/Tira/CLI/Police.pm (1318 lines) and lib/Tira/CLI/Serve.pm
       (1010 lines) both crossed Michael's 1000-line-per-module cap

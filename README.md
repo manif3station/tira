@@ -773,7 +773,7 @@ overrides, 5.23), `lib/Tira/Tasklist.pm` (the shared to-do queue, 5.24) and
 `lib/Tira/Attachment.pm` (storing files and hanging them off records, 5.42),
 each loaded with `require` at the point it is actually needed, and
 `lib/Tira/Notification.pm` (card-reminder escalation and the board's own
-warning log, TKT-1102). `lib/Tira.pm` is 14,866 lines now: TKT-1098 first
+warning log, TKT-1102). `lib/Tira.pm` is 14,897 lines now: TKT-1098 first
 dropped it sharply for a reason unrelated to decomposition - its own POD
 block, previously carried inline at the end of the file, moved to a
 sibling `lib/Tira.pod` (the standard CPAN same-basename convention), so
@@ -782,7 +782,8 @@ then lifted a genuine concern on top of that, the first real cut since
 TKT-1092 was filed to track exactly this and had not yet produced one.
 Before the POD move it had grown to 16,917 lines despite the lifts already
 made, since most releases that touch it add more than any one concern
-removes. Entry points keep their names throughout - the split is where the
+removes - TKT-771's own small resilience fix to column_rename is one such
+release. Entry points keep their names throughout - the split is where the
 code lives, not what anything is called. They are inlined at render rather than linked, so the board still
 loads nothing from another host — every request the live page makes is to
 itself (it polls its own card data, fetches a record when you open a card, and

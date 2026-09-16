@@ -1,5 +1,25 @@
 Revision history for Tira
 
+5.137  2026-09-16
+    - TKT-824: TKT-806 added a possible_duplicate soft signal to
+      tasklist_add, firing when --ref names a card that already has a
+      pending/working item. The browser dashboard's tasklist UI could
+      never trigger or see this signal, structurally: its quick-add flow
+      posts text only, no ref, and its ref-attachment flow is a SEPARATE
+      call (tasklist_task_ref_link) that never ran the check at all - a
+      person working entirely through the browser got none of TKT-806's
+      protection. tasklist_add's own inline check is now extracted into a
+      shared helper, _tasklist_possible_duplicate, called by both
+      tasklist_add and the newly-updated tasklist_task_ref_link (checked
+      against every ref the item carries once linked, not only the ones
+      just added). tasklist-editor.js's add and ref-link handlers now
+      read and show the field via the existing warning element, ordered
+      after the list reload settles (the reload's own success path clears
+      that element, which would otherwise hide the warning before it was
+      ever seen). New test t/1110 proves the browser's own two-step
+      add-then-link flow surfaces the signal, confirmed genuinely red
+      first.
+
 5.136  2026-09-16
     - TKT-819: SKILLS.md's tasklist.list grammar line once missed
       --all-sessions (TKT-539), --status (TKT-545) and --unlinked

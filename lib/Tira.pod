@@ -551,7 +551,12 @@ an item belonging to a different C<session> than the caller's, with the same
 "No task" error an unknown id gets. TKT-682: every ref is validated against
 the board before any of them is stored - a ref naming no record refuses the
 whole call and names the ref that was not found, so a typo'd or invented ref
-can never be stored as if it were a real link.
+can never be stored as if it were a real link. TKT-824: also runs
+C<tasklist_add>'s own C<possible_duplicate> soft-signal check (via the
+shared C<_tasklist_possible_duplicate> helper) against every ref the item
+carries once linked - the browser dashboard's add-then-link flow never
+went through that check at all before this, so a person working entirely
+through the browser got none of TKT-806's protection.
 
 =head2 tasklist_task_ref_unlink
 

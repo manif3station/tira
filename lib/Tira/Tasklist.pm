@@ -379,16 +379,8 @@ sub tasklist_add {
         # go stale the moment the item it names is later marked done or
         # removed, and this call has no reason to ever be re-read the way
         # a written field would be. TKT-806, Codex review.
-        if (@{$refs}) {
-            my %wanted = map { $_ => 1 } @{$refs};
-            my ($existing) = grep {
-                $_->{id} ne $entry->{id}
-                  && ( $_->{session} // '' ) eq $session
-                  && ( $_->{status} // 0 ) != 2
-                  && grep { $wanted{$_} } @{ $_->{refs} // [] }
-            } @{$items};
-            return { %{$entry}, possible_duplicate => { id => $existing->{id}, text => $existing->{text} } } if $existing;
-        }
+        my $duplicate = _tasklist_possible_duplicate( $items, $entry, $session, $refs );
+        return { %{$entry}, possible_duplicate => $duplicate } if $duplicate;
         return $entry;
     } );
 }
@@ -609,6 +601,26 @@ sub _tasklist_find_item {
     return $entry;
 }
 
+# The same soft-signal check tasklist_add computes (TKT-806), extracted so
+# tasklist_task_ref_link can run it too (TKT-824) - the browser dashboard's
+# ref-attach flow is a separate call from add and never went through this
+# check at all, so a person working entirely through the browser got none
+# of TKT-806's protection. A done item is not "still owed" and does not
+# count; $entry->{id} itself is excluded so an item is never reported as a
+# duplicate of itself.
+sub _tasklist_possible_duplicate {
+    my ( $items, $entry, $session, $refs ) = @_;
+    return undef if !@{ $refs // [] };
+    my %wanted = map { $_ => 1 } @{$refs};
+    my ($existing) = grep {
+        $_->{id} ne $entry->{id}
+          && ( $_->{session} // '' ) eq $session
+          && ( $_->{status} // 0 ) != 2
+          && grep { $wanted{$_} } @{ $_->{refs} // [] }
+    } @{$items};
+    return $existing ? { id => $existing->{id}, text => $existing->{text} } : undef;
+}
+
 # The four sub-verbs, operating on an existing item by --id rather than
 # creating one: attach/discard files, link/unlink refs. Mirrors the shape
 # tasklist.add already has (attachments content-addressed the same way,
@@ -727,6 +739,17 @@ sub tasklist_task_ref_link {
         }
         $entry->{last_updated} = $self->{clock}->();
         $self->_write_json( _tasklist_path( $self, $root), $items );
+
+        # Checked against the refs THIS CALL requested, not every ref the
+        # item now carries - Codex review caught that using the full
+        # accumulated list would report a duplicate caused solely by an
+        # older, already-linked ref when linking an unrelated new one, or
+        # when re-linking a ref already present (a no-op _write_json
+        # aside). The same signal tasklist_add computes at creation time,
+        # scoped the same way tasklist_add itself scopes it: to what this
+        # one call is actually claiming. TKT-824.
+        my $duplicate = _tasklist_possible_duplicate( $items, $entry, $session, \@refs );
+        return { %{$entry}, possible_duplicate => $duplicate } if $duplicate;
         return $entry;
     } );
 }

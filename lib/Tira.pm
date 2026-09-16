@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.134';
+our $VERSION = '5.135';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -7282,6 +7282,76 @@ sub _policy_older_than {
     return $now - $then > $seconds;
 }
 
+# discard-unexplained's own actual computation, extracted so police_explain
+# (TKT-786) can print the same inputs the rule itself reads rather than a
+# second copy that could drift from the verdict. Everything the rule body
+# used to compute inline lives here now, unchanged - the rule below calls
+# this and only asks the returned 'explained' flag; police_explain calls it
+# and prints the rest.
+sub _discard_unexplained_inputs {
+    my ( $self, $root, $record ) = @_;
+
+    # A comment, said so - but any comment the card ever had satisfied this,
+    # including one written long before the discard about something else
+    # entirely. A comment can only be the explanation for THIS discard if it
+    # exists at or after the move that discarded the card, with a body that
+    # says something. TKT-638.
+    my $moved_at;
+    for my $entry ( @{ $self->history_list(
+        project => $root, ref => $record->{ref}, type => $record->{type}, field => 'column',
+    ) } ) {
+        $moved_at = $entry->{at} if ( $entry->{after} // '' ) eq 'discard';
+    }
+
+    # Compared as instants, not strings - Tira timestamps can legitimately
+    # carry different offset spellings (Z, +0100, +01:00) for the same
+    # clock, and two of those sort wrong lexically even though one
+    # genuinely comes after the other.
+    my $moved_epoch = defined $moved_at ? eval { _epoch_of_datetime( $moved_at, 'Discard' ) } : undef;
+
+    # Two gaps measured in real boards, TKT-778: the natural "decide, write,
+    # then move" authoring order writes the explanation a second or two
+    # BEFORE the move, which a strict >= rejected outright - a card
+    # explaining itself is not the same failure as a card saying nothing,
+    # and a small grace window closes that second without opening the door
+    # to an unrelated comment from an hour earlier. TKT-777: a card
+    # migrated in already-discarded carries no column-change history at
+    # all, so there is no $moved_epoch to compare against - treated before
+    # this fix as permanently unsatisfied, when the honest answer is that a
+    # real comment is all that CAN be asked for without a timestamp to
+    # anchor to.
+    my $GRACE_SECONDS = 5;
+    my @comments = map {
+        my $body_present = ( $_->{body} // '' ) =~ /\S/ ? 1 : 0;
+        my $epoch = eval { _epoch_of_datetime( $_->{created_at}, 'Comment' ) };
+        {   created_at   => $_->{created_at},
+            epoch        => $epoch,
+            body_present => $body_present,
+
+            # Matches the original inline comparison exactly: an unparseable
+            # timestamp on a real comment fell back to epoch 0 rather than
+            # being excluded outright, so it still counted as explanatory
+            # against a $moved_epoch at or before 5 seconds past 1970 (a
+            # valid, if unusual, discard time). Codex review, TKT-786.
+            within_grace => $body_present && defined $moved_epoch
+              ? ( ( $epoch // 0 ) >= $moved_epoch - $GRACE_SECONDS ? 1 : 0 )
+              : undef,
+        };
+    } @{ $record->{comments} // [] };
+
+    my $explained = defined $moved_epoch
+      ? ( grep { $_->{within_grace} } @comments ) ? 1 : 0
+      : ( grep { $_->{body_present} } @comments ) ? 1 : 0;
+
+    return {
+        moved_at      => $moved_at,
+        moved_epoch   => $moved_epoch,
+        grace_seconds => $GRACE_SECONDS,
+        comments      => \@comments,
+        explained     => $explained,
+    };
+}
+
 # The fields a card must carry to be real work rather than a title. Kept here
 # rather than in a rule so one answer serves the engine, the reminder surface
 # and anything else that later asks the same question.
@@ -9683,47 +9753,11 @@ sub policy_evaluate {
                 next if !$resolved_for->( $policy, $record );
                 next if ( $record->{column} // '' ) ne 'discard';
 
-                # A comment, said so - but any comment the card ever had
-                # satisfied this, including one written long before the
-                # discard about something else entirely. A comment can only
-                # be the explanation for THIS discard if it exists at or
-                # after the move that discarded the card, with a body that
-                # says something. TKT-638.
-                my $moved_at;
-                for my $entry ( @{ $self->history_list(
-                    project => $root, ref => $record->{ref}, type => $record->{type}, field => 'column',
-                ) } ) {
-                    $moved_at = $entry->{at} if ( $entry->{after} // '' ) eq 'discard';
-                }
-
-                # Compared as instants, not strings - Tira timestamps can
-                # legitimately carry different offset spellings (Z, +0100,
-                # +01:00) for the same clock, and two of those sort wrong
-                # lexically even though one genuinely comes after the other.
-                my $moved_epoch = defined $moved_at ? eval { _epoch_of_datetime( $moved_at, 'Discard' ) } : undef;
-
-                # Two gaps measured in real boards, TKT-778: the natural
-                # "decide, write, then move" authoring order writes the
-                # explanation a second or two BEFORE the move, which a
-                # strict >= rejected outright - a card explaining itself is
-                # not the same failure as a card saying nothing, and a small
-                # grace window closes that second without opening the door
-                # to an unrelated comment from an hour earlier. TKT-777: a
-                # card migrated in already-discarded carries no column-
-                # change history at all, so there is no $moved_epoch to
-                # compare against - treated before this fix as permanently
-                # unsatisfied, when the honest answer is that a real comment
-                # is all that CAN be asked for without a timestamp to anchor
-                # to.
-                my $GRACE_SECONDS = 5;
-                my $explained = defined $moved_epoch
-                  ? grep {
-                      ( $_->{body} // '' ) =~ /\S/
-                        && ( eval { _epoch_of_datetime( $_->{created_at}, 'Comment' ) } // 0 )
-                        >= $moved_epoch - $GRACE_SECONDS
-                    } @{ $record->{comments} // [] }
-                  : grep { ( $_->{body} // '' ) =~ /\S/ } @{ $record->{comments} // [] };
-                next if $explained;
+                # The actual computation lives in _discard_unexplained_inputs,
+                # shared with police_explain (TKT-786) so the explanation it
+                # prints can never drift from the verdict this rule reaches -
+                # both read the identical inputs.
+                next if $self->_discard_unexplained_inputs( $root, $record )->{explained};
                 $report->( $policy, $record,
                     'discarded with no reason given - leave a comment saying why it was set aside' );
             }
@@ -13112,6 +13146,44 @@ our $POLICE_STALE_AFTER = 300;
 # card: "nothing has been checked" and "nothing is wrong" must not be the same
 # answer. Reporting an age of zero there would put a confident number on an
 # absence, which is worse than the ambiguity this removes.
+# TKT-786: 'why does this rule still fire' (or not) turned from manual
+# history_list archaeology into one command - reading the SAME inputs the
+# rule itself reads, not a second copy of the logic that could drift from
+# the verdict. discard-unexplained is the first rule covered
+# (_discard_unexplained_inputs, shared with the real rule body above);
+# card-duration, agent-still and board-still are CHK-003's own carried-
+# forward scope, tracked on a follow-up card rather than rushed here -
+# each of those needs the SPECIFIC declared policy applicable to a given
+# card/board resolved first (there can be more than one policy for the
+# same rule, scoped by column/type), which is the police pass's own
+# resolved_for closure and not yet extracted into something explain can
+# call standalone.
+sub police_explain {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $rule = $args{rule};
+    die "A rule is required: --rule RULE\n" if !defined $rule || $rule !~ /\S/;
+
+    die "tira.police.explain covers discard-unexplained today; card-duration, "
+      . "agent-still and board-still are tracked as a follow-up, TKT-1106 (each "
+      . "needs the specific declared policy for a card/board resolved first, the "
+      . "same way the police pass itself does) - see d2 tira.police.outstanding "
+      . "for those rules in the meantime\n"
+      if $rule ne 'discard-unexplained';
+
+    die "A card ref is required for discard-unexplained: --ref REF\n"
+      if !defined $args{ref} || $args{ref} !~ /\S/;
+
+    my $record = $self->record_show( project => $root, ref => $args{ref}, type => $args{type} );
+    my $inputs = $self->_discard_unexplained_inputs( $root, $record );
+    return {
+        rule   => $rule,
+        ref    => $args{ref},
+        column => $record->{column},
+        %{$inputs},
+    };
+}
+
 sub police_freshness {
     my ( $self, %args ) = @_;
     my $store = $args{store} or die "A police store is required\n";

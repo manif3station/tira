@@ -1372,6 +1372,15 @@ still says which one to change. TKT-380.
 
 Returns the timestamp of the last police pass recorded in a store.
 
+=head2 police_explain
+
+TKT-786: prints why one police rule reaches its verdict on one card, reading
+the SAME inputs the rule itself reads rather than a second copy of the
+logic that could drift from it. Covers C<discard-unexplained> today (calls
+C<_discard_unexplained_inputs>, the identical helper the real rule body
+calls); C<card-duration>, C<agent-still> and C<board-still> are refused by
+name, tracked as TKT-1106.
+
 =head2 police_freshness
 
 Returns C<< { taken_at, age_seconds, stale } >> for a police store: when the last

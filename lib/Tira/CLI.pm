@@ -1799,6 +1799,12 @@ sub _invoke {
         return Tira::CLI::Police::police_freshness( $tira, \%args, $option );
     }
 
+    # TKT-786: 'why does this rule fire, or not fire, on this card' turned
+    # from manual history_list archaeology into one command.
+    if ( $command eq 'police.explain' ) {
+        return $tira->police_explain( %args, rule => $option->{rule} );
+    }
+
     if (   $command eq 'police.suspend'
         || $command eq 'police.log'
         || $command eq 'policy.bridge.logs' )

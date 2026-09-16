@@ -1968,6 +1968,44 @@ escalating from note to critical, and was read four times and acted on never.
 An answer that depends on somebody remembering to look is the thing this
 subsystem exists to remove.
 
+### `tira.police.explain`
+
+TKT-786: several police rules compute their verdict from timestamps buried in
+history, comments or gate logs, but nothing surfaced the actual computation -
+only the final violation text, or its absence. `d2 tira.police.explain --ref
+REF --rule RULE` runs the SAME computation the rule itself reads and prints
+it, so a one-second timing edge case is visible as one number rather than
+reconstructed by hand from `.tira/history/<ref>.jsonl`.
+
+Covers `discard-unexplained` today (`--ref REF --rule discard-unexplained`):
+the move-to-discard timestamp (or `undef` if the card was migrated in already
+discarded, with no history to anchor to), every comment's own timestamp and
+whether it falls within the 5-second grace window, and the real `explained`
+verdict. The rule's own body calls the identical helper
+(`_discard_unexplained_inputs`) and asks only for that verdict, so this
+command's explanation cannot drift from what the rule actually decided.
+
+```
+{
+  "rule": "discard-unexplained", "ref": "TKT-763", "column": "discard",
+  "moved_at": "2026-09-15T22:39:10+0100", "moved_epoch": 1789603150,
+  "grace_seconds": 5,
+  "comments": [
+    { "created_at": "2026-09-15T22:39:09+0100", "epoch": 1789603149,
+      "body_present": 1, "within_grace": 1 }
+  ],
+  "explained": 1
+}
+```
+
+`card-duration`, `agent-still` and `board-still` are named in this ticket's
+own acceptance criteria but not yet covered - each needs the specific
+declared policy for a given card/board resolved first (there can be more
+than one policy for the same rule, scoped by column/type), which today only
+happens inside the police pass's own internal resolution and is not yet
+callable standalone. Asking for one of those three refuses by name rather
+than guessing at a shape, and names TKT-1106 as the tracked follow-up.
+
 ### `tira.police.freshness`
 
 When the last pass ran, how long ago that was, and whether that is recent enough

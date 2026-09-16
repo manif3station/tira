@@ -1,5 +1,27 @@
 Revision history for Tira
 
+5.135  2026-09-16
+    - TKT-786: several police rules compute their verdict from timestamps
+      buried in history_list/comments/gate_passing_log, but nothing
+      surfaced the actual computation - only the final violation text.
+      This session personally spent real time manually reconstructing why
+      a card still showed discard-unexplained (grep
+      .tira/history/<ref>.jsonl, compare epochs by hand) to confirm it
+      was a 1-second timing edge case rather than a genuinely missing
+      explanation. New command `d2 tira.police.explain --ref REF --rule
+      RULE` runs the same computation the rule itself reads and prints
+      it - discard-unexplained's own per-card logic (moved_epoch, every
+      comment's own epoch and grace-window comparison) extracted into
+      _discard_unexplained_inputs, called by both the real rule body and
+      the new police_explain, so the explanation can never drift from the
+      verdict. card-duration, agent-still and board-still are named in
+      this ticket's own acceptance criteria but not yet covered - each
+      needs the specific declared policy for a card/board resolved first,
+      which today only happens inside the police pass's own internal
+      resolution - refused by name rather than guessed at, tracked as
+      TKT-1106. New test t/1108 proves the exact 1-second edge case from
+      the ticket's own key_details, confirmed genuinely red first.
+
 5.134  2026-09-16
     - TKT-771 (found by Codex review during TKT-613's own verify gate,
       2026-08-30): column_rename's required_items retag walk renames the

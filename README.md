@@ -260,10 +260,14 @@ prose value into a dozen bare words used to discard the whole command with
 nothing to act on.
 `--help` names the arguments a command refuses without, including the
 `--command`/`--proof` pair that marking a required action or a checklist item
-done costs. Forty-nine commands are not there yet and still answer with a bare
-`[options]` — `tira.police`, `tira.next` and the `policy.*`, `backup.*` and
-`project.*` families among them; that set is a written-down ledger a test
-holds, so it can shrink but not grow unnoticed.
+done costs. `tira.police`, `tira.next` and the `policy.*`, `backup.*` and
+`project.*` families were the last holdouts still answering with a bare
+`[options]`; TKT-630 gave all 49 real lines, and `t/410`'s ledger of the
+literal- and method-table-dispatched commands it scans is empty as of
+5.86 — a command that newly falls into that scan's bare `[options]` fails
+the test outright. That scan does not reach every dispatch shape: a
+regex-alternation command like `tira.login.status` still has no usage
+line and still answers bare, a separate, known gap (TKT-904).
 `--help` on a name that is not a real command is refused rather than
 answered, since 5.112 (TKT-660) — it used to return the same fallback usage
 line a real command with no line yet gets, printed for a name with no

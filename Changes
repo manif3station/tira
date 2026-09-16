@@ -1,5 +1,18 @@
 Revision history for Tira
 
+5.136  2026-09-16
+    - TKT-819: SKILLS.md's tasklist.list grammar line once missed
+      --all-sessions (TKT-539), --status (TKT-545) and --unlinked
+      (TKT-552) - all three real, documented in docs/commands.md but
+      absent from the agent-facing manual _usage() falls back to.
+      TKT-1048 already fixed the line itself (commit 7e5f376) before
+      this ticket was picked up this session - confirmed via git log -S,
+      not assumed. What was genuinely missing was a regression test:
+      nothing guarded the line against drifting again. New t/1109 proves
+      it names every real flag, and was confirmed to genuinely catch the
+      original pre-TKT-1048 wording by reverting the line and rerunning
+      (3/7 assertions failed) before restoring it.
+
 5.135  2026-09-16
     - TKT-786: several police rules compute their verdict from timestamps
       buried in history_list/comments/gate_passing_log, but nothing

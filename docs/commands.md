@@ -2001,8 +2001,12 @@ REF --rule RULE` runs the SAME computation the rule itself reads and prints
 it, so a one-second timing edge case is visible as one number rather than
 reconstructed by hand from `.tira/history/<ref>.jsonl`.
 
-Covers `discard-unexplained` today (`--ref REF --rule discard-unexplained`):
-the move-to-discard timestamp (or `undef` if the card was migrated in already
+Covers `discard-unexplained`, `card-duration`, `agent-still` and `board-still`
+(TKT-786, extended by TKT-1106). Asking for any other rule refuses by name,
+listing what it does cover rather than leaving the caller to guess.
+
+**`discard-unexplained`** (`--ref REF --rule discard-unexplained`): the
+move-to-discard timestamp (or `undef` if the card was migrated in already
 discarded, with no history to anchor to), every comment's own timestamp and
 whether it falls within the 5-second grace window, and the real `explained`
 verdict. The rule's own body calls the identical helper
@@ -2022,13 +2026,47 @@ command's explanation cannot drift from what the rule actually decided.
 }
 ```
 
-`card-duration`, `agent-still` and `board-still` are named in this ticket's
-own acceptance criteria but not yet covered - each needs the specific
-declared policy for a given card/board resolved first (there can be more
-than one policy for the same rule, scoped by column/type), which today only
-happens inside the police pass's own internal resolution and is not yet
-callable standalone. Asking for one of those three refuses by name rather
-than guessing at a shape, and names TKT-1106 as the tracked follow-up.
+**`card-duration`** (`--ref REF --rule card-duration`, per-card): the
+specific declared policy resolved for this card via `policy_resolve` (there
+can be more than one `card-duration` policy on a board, scoped by column or
+type - the SAME winner-by-specificity resolution the pass itself uses, not a
+second copy), the column it watches, whether the card is currently sitting
+in that column (and whether that column is a resting one the rule leaves
+alone), its dwell-start timestamp (extended to the newest child's own
+dwell-start for a sow/epic, exactly as the rule does), the configured age,
+whether that dwell is already older than it, and a real `would_fire` folding
+in the resting/watched-column checks - `older_than_age` alone can be true on
+a card the rule leaves silent.
+
+**`agent-still`** and **`board-still`** (`--rule agent-still` /
+`--rule board-still`, whole-board - `--ref` is refused, since a per-card
+answer to a board-wide question would say nothing true, and more than one
+declared policy for either rule is refused too, rather than silently
+explaining one of them): the declared policy, the age it configures, and the
+one timestamp each rule actually measures - `board-still` the newest
+`last_updated` across every card, `agent-still` when the agent itself last
+acted (`_agent_last_acted`, a column move or an edit by the board's own
+declared agent - the two rules watch different things on purpose, since a
+card arriving from another project moves `board-still`'s figure without the
+agent having done anything). `agent-still` also shows the cards actually
+waiting on the agent (`waiting`, after the same idle-queue and
+assignee-ownership exemptions the rule itself applies) and a real
+`would_fire` - the age alone can be exceeded on a board with nothing waiting,
+which the rule correctly leaves silent.
+
+`agent-still`'s helper also replicates the rule's own idle-queue and
+assignee-ownership exemptions (`_ending_columns`/`_queue_columns`/
+`_agent_declared_for`) and returns a real `would_fire`, not just the age
+comparison - Codex review caught a first draft that showed `older_than_age:
+1` on a board the real rule correctly left silent, because nothing was
+waiting for the agent. `card-duration`'s own `would_fire` folds in the
+resting-column and watched-column checks the same way. None of the three is
+literally shared code with its rule's own inline block the way
+`discard-unexplained`'s is - each reads the same underlying facts
+(`policy_resolve`/`policy_list`, `_dwell_start`, `_agent_last_acted`,
+`_policy_older_than`) rather than being provably one code path, so a future
+change to a rule's own inline logic could still drift from its explain
+helper without both being edited together.
 
 ### `tira.police.freshness`
 

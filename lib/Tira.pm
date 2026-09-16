@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.143';
+our $VERSION = '5.144';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -7449,6 +7449,130 @@ sub _discard_unexplained_inputs {
     };
 }
 
+# card-duration's own computation for one card, for police_explain (TKT-1106).
+# Unlike discard-unexplained's own extraction (TKT-786), the inline rule
+# below does NOT call this - it keeps its own copy, so this reads the same
+# underlying facts (policy_resolve, _resting_columns, _policy_column_for,
+# _dwell_start) rather than being provably the same code path. Uses
+# policy_resolve rather than repeating the outer loop's own
+# winner-by-specificity logic, since that answer does not depend on which
+# of possibly several declared card-duration policies happens to be
+# iterating - it is a property of the record alone.
+sub _card_duration_inputs {
+    my ( $self, $root, $record, $records ) = @_;
+    my ($policy) = grep { $_->{rule} eq 'card-duration' }
+      @{ $self->policy_resolve( project => $root, record => $record ) };
+    return { policy => undef } if !$policy;
+
+    my $kind = $record->{type} // 'ticket';
+    my $resting = $self->_resting_columns( $root, $kind );
+    my $watched = $self->_policy_column_for(
+        project => $root, policy => $policy, field => 'column', record => $record );
+
+    # A sow/epic's own arrival says nothing about whether it is stalled - see
+    # the rule's own comment on this, unchanged here. TKT-666.
+    my ($since) = $self->_dwell_start( $root, $record->{ref} );
+    if ( defined $since && $kind ne 'ticket' ) {
+        for my $child ( grep { ( $_->{parent} // '' ) eq $record->{ref} } @{$records} ) {
+            my ($child_since) = $self->_dwell_start( $root, $child->{ref} );
+            $since = $child_since if defined $child_since && $child_since gt $since;
+        }
+    }
+
+    my $on_watched = ( ( $record->{column} // '' ) eq ( $watched // '' ) ) ? 1 : 0;
+    my $resting_here = $resting->{ $record->{column} // '' } ? 1 : 0;
+    my $older_than_age = defined $since ? ( $self->_policy_older_than( $since, $policy->{age} ) ? 1 : 0 ) : 0;
+
+    return {
+        policy         => $policy,
+        watched_column => $watched,
+        on_watched     => $on_watched,
+        resting        => $resting_here,
+        since          => $since,
+        age            => $policy->{age},
+        elapsed        => defined $since ? $self->_policy_elapsed($since) : undef,
+        older_than_age => $older_than_age,
+
+        # The real verdict, not just the age comparison - the rule also
+        # skips a resting column and any column but the one it watches.
+        would_fire => ( !$resting_here && $on_watched && defined $since && $older_than_age ) ? 1 : 0,
+    };
+}
+
+# board-still and agent-still are whole-board, so there is no per-record
+# resolution to share with policy_resolve - just the declared policy for the
+# rule, read the same way the pass itself finds it. Refused rather than
+# guessed at if more than one is declared: --type is not forbidden for
+# either rule (unlike --column/--enter, which %WHOLE_BOARD_RULE's own
+# refusal already covers), so two type-scoped declarations can coexist, and
+# the pass evaluates each independently. Picking one silently would show a
+# threshold or verdict that might not be the one behind a given finding.
+sub _board_still_inputs {
+    my ( $self, $root, $all ) = @_;
+    my @policies = grep { $_->{rule} eq 'board-still' } @{ $self->policy_list( project => $root ) };
+    return { policy => undef } if !@policies;
+    die "More than one board-still policy is declared on this board - "
+      . "police.explain cannot say which one a finding belongs to; read "
+      . "d2 tira.policy.list yourself\n"
+      if @policies > 1;
+    my $policy = $policies[0];
+    my ($moved) = sort { $b cmp $a } grep { defined } map { $_->{last_updated} } @{$all};
+    return {
+        policy         => $policy,
+        moved          => $moved,
+        age            => $policy->{age},
+        elapsed        => defined $moved ? $self->_policy_elapsed($moved) : undef,
+        older_than_age => defined $moved ? ( $self->_policy_older_than( $moved, $policy->{age} ) ? 1 : 0 ) : 0,
+    };
+}
+
+# Unlike the other three helpers, this one is not purely additive: the real
+# rule's own verdict needs more than "the agent has been quiet longer than
+# the age" - it is silent on an idle queue (nothing is waiting) and on a
+# card belonging to somebody else, exactly the two escapes TKT-570/TKT-571
+# closed for the rule itself. Read here identically (_ending_columns,
+# _queue_columns, _agent_declared_for), or explain would show
+# older_than_age: 1 on a board the real rule correctly leaves alone - Codex
+# review, which is exactly the gap the first draft had.
+sub _agent_still_inputs {
+    my ( $self, $root, $all ) = @_;
+    my @policies = grep { $_->{rule} eq 'agent-still' } @{ $self->policy_list( project => $root ) };
+    return { policy => undef } if !@policies;
+    die "More than one agent-still policy is declared on this board - "
+      . "police.explain cannot say which one a finding belongs to; read "
+      . "d2 tira.policy.list yourself\n"
+      if @policies > 1;
+    my $policy = $policies[0];
+    my $acted = $self->_agent_last_acted( $root, $all );
+    my $older_than_age = defined $acted ? ( $self->_policy_older_than( $acted, $policy->{age} ) ? 1 : 0 ) : 0;
+
+    my %ends  = %{ $self->_ending_columns( $root, 'ticket' ) };
+    my %queue = %{ $self->_queue_columns( $root, 'ticket' ) };
+    my $agent = $self->_agent_declared_for($root);
+    my @waiting = sort map { $_->{ref} }
+      grep {
+        my $column = $_->{column} // '';
+        !$ends{$column} && !$queue{$column} && $column ne 'discard'
+          && !( defined $agent
+            && length( $_->{assignee} // '' )
+            && ( $_->{assignee} // '' ) ne $agent )
+      } @{$all};
+
+    return {
+        policy         => $policy,
+        acted          => $acted,
+        age            => $policy->{age},
+        elapsed        => defined $acted ? $self->_policy_elapsed($acted) : undef,
+        older_than_age => $older_than_age,
+        waiting        => \@waiting,
+
+        # The real verdict, not just the age comparison - a board past its
+        # age with nothing waiting is correctly silent, the idle-queue
+        # exemption the rule itself gives.
+        would_fire     => ( $older_than_age && @waiting ) ? 1 : 0,
+    };
+}
+
 # The fields a card must carry to be real work rather than a title. Kept here
 # rather than in a rule so one answer serves the engine, the reminder surface
 # and anything else that later asks the same question.
@@ -13255,30 +13379,56 @@ our $POLICE_STALE_AFTER = 300;
 # same rule, scoped by column/type), which is the police pass's own
 # resolved_for closure and not yet extracted into something explain can
 # call standalone.
+my %EXPLAINABLE_RULES = map { $_ => 1 }
+  qw(discard-unexplained card-duration agent-still board-still);
+
 sub police_explain {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
     my $rule = $args{rule};
     die "A rule is required: --rule RULE\n" if !defined $rule || $rule !~ /\S/;
+    die "tira.police.explain does not cover '$rule' - it covers "
+      . join( ', ', sort keys %EXPLAINABLE_RULES ) . "\n"
+      if !$EXPLAINABLE_RULES{$rule};
 
-    die "tira.police.explain covers discard-unexplained today; card-duration, "
-      . "agent-still and board-still are tracked as a follow-up, TKT-1106 (each "
-      . "needs the specific declared policy for a card/board resolved first, the "
-      . "same way the police pass itself does) - see d2 tira.police.outstanding "
-      . "for those rules in the meantime\n"
-      if $rule ne 'discard-unexplained';
+    if ( $rule eq 'discard-unexplained' ) {
+        die "A card ref is required for discard-unexplained: --ref REF\n"
+          if !defined $args{ref} || $args{ref} !~ /\S/;
+        my $record = $self->record_show( project => $root, ref => $args{ref}, type => $args{type} );
+        return { rule => $rule, ref => $args{ref}, column => $record->{column},
+            %{ $self->_discard_unexplained_inputs( $root, $record ) } };
+    }
 
-    die "A card ref is required for discard-unexplained: --ref REF\n"
-      if !defined $args{ref} || $args{ref} !~ /\S/;
+    if ( $rule eq 'card-duration' ) {
+        die "A card ref is required for card-duration: --ref REF\n"
+          if !defined $args{ref} || $args{ref} !~ /\S/;
+        my $record = $self->record_show( project => $root, ref => $args{ref}, type => $args{type} );
 
-    my $record = $self->record_show( project => $root, ref => $args{ref}, type => $args{type} );
-    my $inputs = $self->_discard_unexplained_inputs( $root, $record );
-    return {
-        rule   => $rule,
-        ref    => $args{ref},
-        column => $record->{column},
-        %{$inputs},
-    };
+        # record_list's own include_discard flag filters nothing - by design
+        # (see dashboard/dwell's own comment on this - the filter belongs to
+        # each caller, since teaching record_list to drop discard would
+        # silently change every other reader too). policy_evaluate builds its
+        # own $records by grep-ing column ne 'discard' out of the raw list;
+        # replicated identically here, or a child moved into discard could
+        # extend $since here and nowhere the rule itself looks. Codex review:
+        # this was the one place the two could disagree.
+        my $records = [ grep { ( $_->{column} // '' ) ne 'discard' }
+            @{ $self->record_list( project => $root, include_discard => 1 ) } ];
+        return { rule => $rule, ref => $args{ref}, column => $record->{column},
+            %{ $self->_card_duration_inputs( $root, $record, $records ) } };
+    }
+
+    # board-still and agent-still are whole-board - the same reasoning the
+    # rules themselves give for refusing --column/--enter applies here too,
+    # since a per-card answer to a board-wide question would say nothing
+    # true about either.
+    die "$rule is whole-board: it takes no --ref\n"
+      if defined $args{ref} && $args{ref} =~ /\S/;
+    my $all = $self->record_list( project => $root, include_discard => 1 );
+    return { rule => $rule,
+        %{ $rule eq 'board-still'
+            ? $self->_board_still_inputs( $root, $all )
+            : $self->_agent_still_inputs( $root, $all ) } };
 }
 
 sub police_freshness {

@@ -1,5 +1,20 @@
 Revision history for Tira
 
+5.144  2026-09-16
+    - TKT-1106: extended tira.police.explain (TKT-786) to card-duration,
+      agent-still and board-still, which it previously refused by name.
+      policy_resolve/policy_list were already standalone (used inside the
+      police pass's own record_list=>policy_resolve loop), so the only
+      missing piece was extracting each rule's own real inputs the same
+      way TKT-786 extracted discard-unexplained's: _card_duration_inputs
+      (the resolved policy, watched column, dwell-start, age), and the
+      whole-board _agent_still_inputs/_board_still_inputs (declared
+      policy, age, and the one timestamp each rule actually measures -
+      board-still the board's newest last_updated, agent-still when the
+      agent itself last acted). card-duration requires --ref; agent-still
+      and board-still refuse it, since a per-card answer to a whole-board
+      question would say nothing true.
+
 5.143  2026-09-16
     - TKT-1116: the police-pass interval degraded from its coded 30s
       default to 8-16 minutes as the board grew this session, delaying

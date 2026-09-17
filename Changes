@@ -1,5 +1,18 @@
 Revision history for Tira
 
+5.152  2026-09-17
+    - TKT-1005: SKILLS.md's usage catalogue documented 'tira.record.clone',
+      'tira.record.create' and 'tira.record.update' as directly typeable
+      commands, but cli/dashboard derives $command/$type from the invoking
+      symlink's own directory (skills/{ticket,epic,sow}/cli/{action}) - no
+      'record' symlink directory exists, so none of the three could ever
+      be run as documented. t/03-metadata.t's own is_deeply diagnostic
+      only reported the first divergence point of the mismatch, masking
+      that all three (not just clone) were broken; confirmed by adding a
+      temporary diag before the assertion. Corrected all three lines to
+      the already-correct tira.TYPE.* form the same catalogue block uses
+      for show/list/move/discard/restore/missing.
+
 5.151  2026-09-17
     - TKT-1004: Tira::CLI::Usage::_edit_distance (TKT-298) and
       Tira::_edit_distance (TKT-635, added the same day) were

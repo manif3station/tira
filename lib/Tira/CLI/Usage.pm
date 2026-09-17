@@ -152,6 +152,22 @@ sub _usage {
 
     my $known = _skills_usage_line($command);
     return "Usage: d2 tira.$command $known\n" if defined $known;
+
+    # TKT-1005. The internal dispatch name for every sow/epic/ticket verb is
+    # literally 'record.$verb' before a caller's own $type is known - this
+    # branch is reached with exactly that shape when a caller asks about the
+    # dispatch name rather than the typed command a user actually runs. SKILLS.md
+    # cannot answer it: 'tira.record.clone' was never a command a user could
+    # type (no 'record' symlink directory exists, only ticket/epic/sow), so
+    # documenting it there taught the opposite of the truth. %RECORD_USAGE
+    # already answers the typed branch above for exactly this reason; asking
+    # it here too means the generic and the typed paths agree without a second
+    # untypeable line pretending to be documentation.
+    if ( $command =~ /\Arecord\.([a-z]+)\z/ ) {
+        my $takes = $RECORD_USAGE{$1};
+        return "Usage: d2 tira.$command $takes [-o toon|json|human]\n"
+          if defined $takes;
+    }
     return "Usage: d2 tira.$command [options] [-o toon|json|human]\n";
 }
 # The skill's own root, found by climbing out of lib/ rather than by counting

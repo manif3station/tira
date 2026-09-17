@@ -1,5 +1,21 @@
 Revision history for Tira
 
+5.150  2026-09-17
+    - TKT-972: a card whose timestamp cannot be parsed was silently
+      exempt from every age-based rule - _policy_older_than's own
+      fallback ("never old enough") is correct in that it must not
+      crash a pass, but said nothing about the difference between a
+      card that is fine and a card nobody could check. checklist-idle,
+      card-duration, question-unanswered and five other genuinely
+      card-scoped rules now report the card as card-stamp-unreadable
+      instead, the third member of the card-damaged/card-unreadable
+      family - same ledger, same quiet ladder, same settlement the
+      moment the stamp is fixed. Excluded from a card already
+      card-damaged/card-unreadable (Codex review caught the first
+      draft double-reporting). tira.doctor --repair deliberately does
+      not fix this stamp: doctor knows when a file was written, not
+      when a card was genuinely last touched.
+
 5.149  2026-09-17
     - TKT-970: record_list accepted an include_discard argument that its
       own body never read - the method never filters by column, discard

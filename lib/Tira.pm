@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.149';
+our $VERSION = '5.150';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -7003,7 +7003,7 @@ my @POLICY_SCOPE_FIELDS = (
 # raised straight into the pass and so were outside the catalogue that both of
 # those commands validate against. A board with permanently damaged files had a
 # violation it could not stop by any means.
-my %DIAGNOSTIC_RULES = map { $_ => 1 } qw(card-damaged card-unreadable);
+my %DIAGNOSTIC_RULES = map { $_ => 1 } qw(card-damaged card-unreadable card-stamp-unreadable);
 
 sub policy_rules { return [ sort keys %POLICY_RULES ] }
 
@@ -7454,9 +7454,22 @@ sub _duration_seconds {
 }
 
 sub _policy_older_than {
-    my ( $self, $stamp, $age ) = @_;
+    my ( $self, $stamp, $age, $ref ) = @_;
     my $seconds = _duration_seconds($age) // return 0;
-    my $then = eval { _epoch_of_datetime( $stamp, 'Stamp' ) } // return 0;
+
+    # TKT-972: an unparseable stamp used to make every age-based rule agree,
+    # silently, that the card was never old enough - the same fallback
+    # card-damaged/card-unreadable exist for, applied here without either
+    # of their names. $ref is the record this stamp belongs to, when the
+    # caller has one (a card being measured, not a process or a container);
+    # recorded on $self rather than returned, so this stays a plain boolean
+    # for the twenty existing callers that never asked for anything else.
+    my $then = eval { _epoch_of_datetime( $stamp, 'Stamp' ) };
+    if ( !defined $then ) {
+        $self->{_stamp_unreadable}{$ref} = 1
+          if defined $ref && $self->{_stamp_unreadable};
+        return 0;
+    }
     my $now = eval { _epoch_of_datetime( $self->{clock}->(), 'Clock' ) } // return 0;
     return $now - $then > $seconds;
 }
@@ -8288,7 +8301,7 @@ sub policy_evaluate {
                         $since = $child_since if defined $child_since && $child_since gt $since;
                     }
                 }
-                next if !$self->_policy_older_than( $since, $policy->{age} );
+                next if !$self->_policy_older_than( $since, $policy->{age}, $record->{ref} );
 
                 # A --type-scoped policy is one of possibly several sharing
                 # this column, each judging a different distribution - so
@@ -8341,7 +8354,7 @@ sub policy_evaluate {
                 my $checklist = $record->{checklist} // [];
                 next if !@{$checklist};
                 my ($latest) = sort { $b cmp $a } map { $_->{last_updated} } @{$checklist};
-                next if !$self->_policy_older_than( $latest, $policy->{age} );
+                next if !$self->_policy_older_than( $latest, $policy->{age}, $record->{ref} );
 
                 # "no checklist movement" is true and useless on a checklist
                 # with nothing left to move - it names the one action that
@@ -8618,7 +8631,7 @@ sub policy_evaluate {
                 next if !$resolved_for->( $policy, $record );
                 for my $question ( _policy_questions($record) ) {
                     next if $question->{answer};
-                    next if !$self->_policy_older_than( $question->{asked_at}, $policy->{age} );
+                    next if !$self->_policy_older_than( $question->{asked_at}, $policy->{age}, $record->{ref} );
                     $report->( $policy, $record,
                         "$question->{id} has been waiting since $question->{asked_at}",
                         undef, $question->{id} );
@@ -8747,7 +8760,7 @@ sub policy_evaluate {
                   @{ $record->{checklist} // [] };
 
                 my $touched = $self->_card_last_activity( $root, $record );
-                next if !$self->_policy_older_than( $touched, $policy->{age} );
+                next if !$self->_policy_older_than( $touched, $policy->{age}, $record->{ref} );
 
                 # THE COLUMN IS NAMED RATHER THAN DESCRIBED, and the first
                 # draft described it: "it rests where no column-scoped rule
@@ -8835,14 +8848,14 @@ sub policy_evaluate {
                     # excuse removed, and is chased from the moment it was read.
                     if ( defined $policy->{read_age} && defined $answer->{read_at} ) {
                         next
-                          if !$self->_policy_older_than( $answer->{read_at}, $policy->{read_age} );
+                          if !$self->_policy_older_than( $answer->{read_at}, $policy->{read_age}, $record->{ref} );
                         $report->( $policy, $record,
                             "$question->{id} was read at $answer->{read_at} and never marked",
                             $question->{author}, $question->{id} );
                         next;
                     }
 
-                    next if !$self->_policy_older_than( $answer->{answered_at}, $policy->{age} );
+                    next if !$self->_policy_older_than( $answer->{answered_at}, $policy->{age}, $record->{ref} );
                     $report->( $policy, $record,
                         "$question->{id} was answered and never marked",
                         $question->{author}, $question->{id} );
@@ -8858,7 +8871,7 @@ sub policy_evaluate {
                     my $answer = $question->{answer} or next;
                     next if ( $answer->{mark} // '' ) ne $wanted;
                     my $marked = $answer->{marked_at} // $answer->{answered_at};
-                    next if !$self->_policy_older_than( $marked, $policy->{age} );
+                    next if !$self->_policy_older_than( $marked, $policy->{age}, $record->{ref} );
 
                     # Whoever asked has to deal with the answer. A question with
                     # nobody named on it falls back to the card, because
@@ -9214,7 +9227,7 @@ sub policy_evaluate {
                 my $age = $column_limit // $policy->{age};
 
                 my $touched = $self->_card_last_activity( $root, $record );
-                next if !$self->_policy_older_than( $touched, $age );
+                next if !$self->_policy_older_than( $touched, $age, $record->{ref} );
 
                 # Elapsed time alone reads as if it were the threshold too -
                 # measured on a real reader: 2h elapsed against a 2h column
@@ -12255,6 +12268,13 @@ sub _police_path_cache {
     my ( $self, $code ) = @_;
     local $self->{_path_cache}      = {};
     local $self->{_path_duplicates} = {};
+
+    # TKT-972: which refs an age-based rule tried to measure this pass and
+    # could not, because the stamp it read did not parse. Scoped to one
+    # pass, the same reason _path_cache is: a ref fixed between two passes
+    # must be free to stop being reported, not remembered as broken
+    # forever.
+    local $self->{_stamp_unreadable} = {};
     return $code->();
 }
 
@@ -12356,6 +12376,37 @@ sub _police_pass_body {
             ),
         };
     } @unreadable;
+
+    # TKT-972. A card that reads but whose stamp does not is a third fact
+    # in the same family as card-damaged/card-unreadable above, and gets
+    # the same treatment: assembled outside the rule loop (policy_evaluate
+    # already populated $self->{_stamp_unreadable} while running every
+    # age-based rule this pass declared), so it gets the ledger, the quiet
+    # ladder, and a settlement line the moment the stamp is fixed - rather
+    # than staying invisible the way _policy_older_than's own fallback
+    # made it before this card.
+    # A card whose HISTORY is unreadable or damaged already has a diagnosis -
+    # card-unreadable or card-damaged, above - and adding card-stamp-unreadable
+    # on top would tell a reader the same card twice in two different words.
+    # This diagnostic is about a card that reads fine but carries a stamp an
+    # age rule cannot parse, which is a narrower and different fact. Codex
+    # review: the first draft reported both for a card that had neither.
+    my %already_diagnosed = map { ( $_->{ref} // '' ) => 1 } @unreadable;
+
+    push @{$found}, grep { defined } map {
+        my $ref = $_;
+          $already_diagnosed{$ref} ? undef
+        : $refused{'card-stamp-unreadable'} ? undef
+        : $self->_rule_suspended( $quieted, 'card-stamp-unreadable', $ref ) ? undef
+        : {
+            rule   => 'card-stamp-unreadable',
+            ref    => $ref,
+            action => 'bridge-reminder',
+            detail => 'an age-based rule tried to measure a timestamp on this '
+              . 'card and could not read it. Every age-based rule sees it as '
+              . 'never old enough, silently, until the stamp is fixed.',
+        };
+    } sort keys %{ $self->{_stamp_unreadable} // {} };
 
     # A new Tira, said to the agent once.
     #

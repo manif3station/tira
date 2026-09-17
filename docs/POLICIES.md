@@ -2080,13 +2080,20 @@ a pass. The damage is one fact about one card and is reported as one.
 
 **A card moved between columns mid-pass no longer reports card-unreadable, since 5.86** (TKT-992, his report on developer-dashboard). Every rule resolves a ref's path once per pass and reuses it (TKT-978's own per-pass cache) - correct for a card being edited, since writing does not move its file, but not for one being MOVED: an agent moving a card while the police loop runs is ordinary, and a path cached before the move points at a file that has since relocated to a different column's directory, reading as `Cannot read JSON '...': No such file or directory` for a card that was never actually unreadable - settling on the very next pass once the stale cache expired with it. Fixed by re-walking once on ENOENT for a path that came from the cache; only a re-walk that also finds nothing is genuinely `card-unreadable`, and that case still names the original OS-level reason rather than the walk's own generic "not found," since a card genuinely deleted mid-pass is a real fault this cannot paper over.
 
-## Two rules a board answers but does not declare
+**A third member of this family since 5.150: `card-stamp-unreadable`** (TKT-972). A card can read perfectly - valid JSON, every field where it should be - and still carry a timestamp an age-based rule cannot parse. `_policy_older_than`'s own fallback for that case has to stay ("never old enough" rather than dying mid-pass, since one bad card must not silence every other), but until this card the fallback said nothing: `checklist-idle`, `card-duration`, `question-unanswered` and every other age-based rule simply agreed the card was never due, which reads exactly like the card being fine. Assembled the same way as `card-damaged`/`card-unreadable` - outside the rule loop, through the same ledger, so it gets a number, the quiet ladder, one escalation, and a settlement line the moment the stamp is fixed - but excluded from a card that is ALSO `card-damaged` or `card-unreadable`, since a card whose history could not be read at all already has a diagnosis and does not need a second one in different words (Codex review caught the first draft reporting both). **`tira.doctor --repair` deliberately does not fix this stamp**, unlike a damaged history byte: doctor knows when a FILE was written, not when a card was genuinely last touched, so a repaired stamp would be a guess presented as a fact.
 
-`card-damaged` and `card-unreadable` are not policies. A policy says what a
-board wants watched; these two say whether watching was possible at all. So
-there is nothing to configure, nothing to scope, and **a board that has declared
-nothing still hears them** — silence about a corrupt record is the fault this
-whole section exists to prevent.
+## Three rules a board answers but does not declare
+
+`card-damaged`, `card-unreadable` and `card-stamp-unreadable` are not policies. A policy says what a
+board wants watched; these three say whether watching was possible at all. So
+there is nothing to configure and nothing to scope for any of the three -
+**a board with at least one policy declared, of any rule, still hears
+them** — silence about a corrupt record is the fault this whole section
+exists to prevent. (A board with NO policies at all hears nothing from
+police, these three included: `_police_pass_body` returns before reaching
+any of the three, the same way it returns before reaching every other
+rule - "nothing declared" and "declared, but this one specific thing" are
+different states, and only the second is what these three exist for.)
 
 They must still be answerable, and for two releases they were not. Every other
 rule can be put down for a while or refused outright; these were raised straight

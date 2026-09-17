@@ -85,12 +85,12 @@ is_deeply( [ sort grep { !$real{$_} } keys %shown ], [],
 is_deeply( [ sort grep { !$shown{$_} } keys %declarable ], [],
     'and every rule that exists is shown at least once' );
 
-# Which leaves the two that are answerable and not declarable, checked by name
-# rather than by counting - a rule that quietly stopped being answerable would
-# otherwise pass this file in silence.
+# Which leaves the three that are answerable and not declarable, checked by
+# name rather than by counting - a rule that quietly stopped being answerable
+# would otherwise pass this file in silence.
 is_deeply( [ sort grep { !$declarable{$_} } @{ Tira::answerable_rules() } ],
-    [ 'card-damaged', 'card-unreadable' ],
-    'and the rules a board answers without declaring are exactly the two diagnostics' );
+    [ 'card-damaged', 'card-stamp-unreadable', 'card-unreadable' ],
+    'and the rules a board answers without declaring are exactly the three diagnostics' );
 
 # --- the message parameters are real --------------------------------------
 

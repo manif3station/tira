@@ -892,6 +892,16 @@ Refused before the project lock is taken: nothing in the check needs the record,
 and a refusal that locked first would serialise other callers behind a call that
 was never going to write. TKT-753.
 
+Since 5.146, a caller who passes C<< body => ... >> instead of C<< text => ... >>
+(comment's own stored field, mistaken for the write flag) gets a refusal naming
+C<--text> rather than the plain message - measured live in three fixtures in
+this repository that made exactly that mistake and stored an empty comment for
+as long as they existed. The message is derived from C<%WRITE_READ_PAIR>, the
+table naming all four write/read pairs docs/commands.md describes, so a pair
+that starts disagreeing later has one place to update rather than a second
+message to write. A genuinely empty C<--text> still gets the plain refusal -
+the two cases stay distinguishable. TKT-908.
+
 =head2 comment_update
 
 Updates a comment's body or format. C<--comment> is required - since

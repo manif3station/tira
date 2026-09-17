@@ -1,5 +1,19 @@
 Revision history for Tira
 
+5.146  2026-09-17
+    - TKT-908: comment.add's refusal now names --text when a caller passes
+      body => ... instead - comment's own stored field, the one write/read
+      pair (of four docs/commands.md names) where the write flag and the
+      stored field disagree. Three fixtures in this repository made exactly
+      that mistake and stored an empty comment for as long as they existed,
+      passing anyway since the rules they exercised only cared that a
+      comment existed. TKT-753 already fixed the silence; this names the
+      flag instead of leaving the caller believing they supplied one.
+      Derived from a shared %WRITE_READ_PAIR table rather than written into
+      one message, so a pair that starts disagreeing later has one place to
+      update. A genuinely empty --text still gets the plain refusal - the
+      two cases stay distinguishable.
+
 5.145  2026-09-16
     - TKT-1120 (same-day hotfix): TKT-1116's eager path-cache duplicate
       detection broke live on this very board within an hour of shipping

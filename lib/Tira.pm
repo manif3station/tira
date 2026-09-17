@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.145';
+our $VERSION = '5.146';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -3503,6 +3503,18 @@ sub assignment_set {
 my @COMMENT_FIELDS = qw(id author format body text attachments created_at last_updated body_length attachment_count);
 my %COMMENT_FIELD = map { $_ => 1 } @COMMENT_FIELDS;
 
+# The four write flag / stored field pairs docs/commands.md names. comment is
+# the only one where they DISAGREE (--text writes body); the other three are
+# listed for the same reason a control test is: so a later pair that starts
+# disagreeing has one table to update rather than a message to remember to
+# add. TKT-908.
+our %WRITE_READ_PAIR = (
+    comment   => { write => 'text',    read => 'body' },
+    gate      => { write => 'details', read => 'details' },
+    evidence  => { write => 'summary', read => 'summary' },
+    checklist => { write => 'item',    read => 'item' },
+);
+
 # The only one of the four write/read pairs (gate --details/details,
 # evidence --summary/summary, checklist --item/item) where the names
 # differ: comment.add takes --text and the stored record calls it body,
@@ -4262,8 +4274,19 @@ sub comment_add {
     # Raised before the project lock: nothing here needs the record, and a
     # refusal that took a lock first would serialise callers behind a call that
     # was never going to write. TKT-753.
-    die "A comment needs some text\n"
-      if !defined $args{text} || $args{text} !~ /\S/;
+    #
+    # A caller who passes body => ... (comment's own STORED field, the one
+    # write/read pair in %WRITE_READ_PAIR where the names disagree) believes
+    # they supplied a comment. "A comment needs some text" is true and no
+    # help at all in that case - name the flag that actually carries it,
+    # derived from the shared table rather than written into this message
+    # alone. TKT-908.
+    if ( !defined $args{text} || $args{text} !~ /\S/ ) {
+        my $pair = $WRITE_READ_PAIR{comment};
+        die "A comment needs some text - use --$pair->{write}, not $pair->{read}\n"
+          if defined $args{ $pair->{read} } && $args{ $pair->{read} } =~ /\S/;
+        die "A comment needs some text\n";
+    }
 
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {

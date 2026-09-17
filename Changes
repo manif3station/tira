@@ -1,5 +1,22 @@
 Revision history for Tira
 
+5.153  2026-09-17
+    - TKT-1019, follow-up to TKT-712: audited all nine engine methods that
+      call Tira::_require_author unconditionally, plus record_move's own
+      identical inline check - ten in total. TIRA_AUTHOR lets a caller
+      satisfy any of them without typing --author, so a usage line naming
+      it in brackets is correct documentation, not a lie; what was NOT
+      correct is record_update's usage line, which named no --author at
+      all (only the vague catch-all "[record field arguments]") despite
+      TKT-712's own key_details claiming it had already been fixed. Added
+      --author NAME to %RECORD_USAGE's update entry (the single source
+      both typed and untyped _usage() branches read since TKT-1005),
+      corrected SKILLS.md's tira.TYPE.update/tira.TYPE.move prose to
+      match, and added t/1019, which reads %RECORD_USAGE directly rather
+      than SKILLS.md's own prose - a documentation catalogue is a second
+      true source no better than the first if a test just diffs one
+      against the other.
+
 5.152  2026-09-17
     - TKT-1005: SKILLS.md's usage catalogue documented 'tira.record.clone',
       'tira.record.create' and 'tira.record.update' as directly typeable

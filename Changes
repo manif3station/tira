@@ -1,5 +1,14 @@
 Revision history for Tira
 
+5.154  2026-09-18
+    - TKT-1060: docs/POLICIES.md's card-sandbox-missing row named
+      `tira.policy.declare` in backtick-command shape while describing a
+      police-rule design that was offered and declined (TKT-936/Q-154) -
+      never a real command. t/03-metadata.t's doc-vs-ships scan correctly
+      flagged it, a pre-existing failure carried since 2026-09-10.
+      Reworded to plain prose with no command-shaped string for something
+      that was never built.
+
 5.153  2026-09-17
     - TKT-1019, follow-up to TKT-712: audited all nine engine methods that
       call Tira::_require_author unconditionally, plus record_move's own

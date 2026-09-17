@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.144';
+our $VERSION = '5.145';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2558,6 +2558,13 @@ sub record_list {
     my $threshold = defined $args{since} ? _epoch_of_datetime( $args{since}, 'Since' ) : undef;
     my $root = $self->discover_project(%args);
     my $cached = defined $args{text} ? $self->_search_index_read($root) : undef;
+
+    # Scoped to THIS call, not the pass ($self->{_path_cache} is the
+    # pass-wide one, below) - a ref this one walk visits twice is on disk
+    # twice RIGHT NOW, a fact this walk can prove; a ref that differs from
+    # what an EARLIER, separate call saw might only mean the card moved in
+    # between (TKT-1120). Only the former is safe to call a duplicate.
+    my %seen_this_walk;
     my @records;
     for my $candidate ( defined $args{type} ? ( $args{type} ) : qw(sow epic ticket) ) {
         my $type = $self->_valid_type($candidate);
@@ -2595,16 +2602,30 @@ sub record_list {
             # basename. Indexing by content would let a mismatched file cache
             # an otherwise-missing ref, or hide a genuine filename collision
             # the walk would have refused.
+            #
+            # A ref found TWICE BY THIS SAME WALK is a genuine duplicate -
+            # File::Find visits the whole tree in one call, so two files
+            # sharing a ref are both seen here regardless of which the
+            # pass asks about first. Flagged immediately, so _record_data
+            # can still refuse it (TKT-988's own reasoning: found and
+            # unreadable are not the same silence).
+            #
+            # A ref that only DIFFERS from an EARLIER, SEPARATE call's own
+            # finding is not treated as a duplicate at all - last write
+            # wins instead. An earlier draft compared against the whole
+            # pass's cache and broke live on this very board within the
+            # hour: policy_evaluate calls record_list a SECOND time from
+            # inside one rule's own block (the task-work loop), and a card
+            # moved between the two calls - ordinary on a board being
+            # worked while the pass runs - genuinely resolves to two
+            # different paths across calls without being duplicated at
+            # all. Only a single walk, not the whole pass, can tell "moved"
+            # apart from "duplicated". TKT-1120.
             if ( my $path_cache = $self->{_path_cache} ) {
                 my ($ref) = basename($path) =~ /\A(.+)\.json\z/;
                 if ( defined $ref ) {
                     my $key = join "\x00", $root, $ref;
-
-                    # Same path already claiming this ref (a lazy _record_data
-                    # walk earlier in the same pass beat this one to it) is
-                    # not a duplicate - only a DIFFERENT path is, the one case
-                    # _record_data's own $walk would also have refused.
-                    if ( exists $path_cache->{$key} && $path_cache->{$key} ne $path ) {
+                    if ( $seen_this_walk{$key}++ ) {
                         $self->{_path_duplicates}{$key} = 1;
                     }
                     else {
@@ -12164,11 +12185,11 @@ sub police_pass {
 # call ends - `local` unwinds through a die, which matters because a pass that
 # dies half way must not leave a stale map behind for the next one.
 #
-# _path_duplicates rides alongside for the same lifetime (TKT-1116): a ref
-# record_list's own walk finds at two different paths is a genuine board
-# fault, and _record_data still has to die naming it the moment anything
-# actually asks for that ref - not silently pick whichever path record_list
-# happened to see last.
+# _path_duplicates rides alongside for the same lifetime (TKT-1120): a ref
+# ONE record_list walk finds twice is a genuine board fault, flagged as
+# soon as that walk sees it, and _record_data still has to die naming it
+# the moment anything actually asks - not silently pick whichever path
+# happened to be found first.
 sub _police_path_cache {
     my ( $self, $code ) = @_;
     local $self->{_path_cache}      = {};
@@ -14387,6 +14408,18 @@ sub _record_data {
     # effect of the walk it already has to do (TKT-1116), so this is a plain
     # hash hit for everything but a card raised mid-pass - the one case the
     # walk below still exists for.
+    #
+    # A duplicate found by record_list's own walk still refuses here
+    # (TKT-1120) - but only one it found WITHIN ONE WALK, a fact that walk
+    # can prove because File::Find visits the whole tree in a single call.
+    # A ref that merely differs from what an EARLIER, SEPARATE record_list
+    # call saw is not a duplicate at all: policy_evaluate calls record_list
+    # a second time from inside one rule's own block (the task-work loop),
+    # and a card moved between the two calls - ordinary on a board being
+    # worked while the pass runs - genuinely resolves to two different
+    # paths across calls without being duplicated. Comparing across the
+    # whole pass rather than within one walk is exactly what broke this
+    # live within an hour of shipping the first version of this cache.
     my $cache = $self->{_path_cache};
     my $key   = join "\x00", $root, $ref;
     die "Duplicate record '$ref' found\n" if $cache && $self->{_path_duplicates}{$key};

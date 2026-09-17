@@ -102,26 +102,83 @@ is_deeply( \@walked, [],
       . 'seeded the path cache' )
   or diag( 'walked at least once: ' . join( ', ', map { "$_ => $walks{$_}" } sort @walked ) );
 
-# --- a genuine duplicate found by record_list's own walk still dies -------
+# --- a card moved between two record_list calls in one pass is not a ------
+# --- duplicate, even though the eager cache sees two different paths ------
 #
-# The eager index must not silently pick whichever path record_list happens
-# to see last: a ref filed twice is a real board fault, and _record_data has
-# to keep refusing it the moment anything actually asks, exactly as the
-# lazy $walk inside it already does.
+# TKT-1116's first draft flagged this as a duplicate and it broke live on
+# the real board within the hour: policy_evaluate calls record_list a
+# SECOND time from inside one rule's own block (the task-work loop, ~line
+# 9668), and a card moved between the first and second call - ordinary on
+# a board being worked while the pass runs - resolved to two different
+# paths within one pass. The eager cache must let the later path win
+# rather than calling that a duplicate; only _record_data's own lazy,
+# single-instant $walk is the authority on a genuine one.
 
 {
-    my $tmp2  = tempdir( CLEANUP => 1 );
-    my $now2  = '2026-09-06T09:00:00Z';
-    my $tira  = Tira->new( clock => sub {$now2} );
-    my $root  = File::Spec->catdir( $tmp2, 'proj' );
-    my $store = File::Spec->catdir( $tmp2, 'store' );
+    my $tmp2 = tempdir( CLEANUP => 1 );
+    my $now2 = '2026-09-06T09:00:00Z';
+    my $tira = Tira->new( clock => sub {$now2} );
+    my $root = File::Spec->catdir( $tmp2, 'proj' );
     $tira->project_new(
-        name => 'Duplicated On Disk', dir => $root, members => ['claude'],
+        name => 'Moved Mid Pass', dir => $root, members => ['claude'],
         columns    => ['backlog, implement, done'],
-        sow_prefix => 'DOS', epic_prefix => 'DOE', ticket_prefix => 'DOT',
+        sow_prefix => 'MMS', epic_prefix => 'MME', ticket_prefix => 'MMT',
     );
     mkdir File::Spec->catdir( $root, '.git' );
-    $tira->policy_add( project => $root, rule => 'orphan-card', action => 'bridge-reminder' );
+    my $card = $tira->create_record( project => $root, type => 'ticket',
+        title => 'a card that will move between two record_list calls' );
+
+    # The mechanism isolated from any particular rule's own call shape,
+    # the same way t/582's own second block isolates _police_path_cache
+    # from policy_evaluate: two direct record_list calls inside one shared
+    # path cache, with a real move between them - exactly what
+    # policy_evaluate's own initial walk and task-card-mismatch's own
+    # second, bare record_list(project=>$root) call (~line 9668) produce on
+    # a board being worked while the pass runs.
+    # The lookup has to happen INSIDE the same _police_path_cache scope -
+    # _path_cache reverts to undef the moment that block returns, which
+    # would hide the bug entirely (a first draft of this test checked
+    # afterwards and passed against the unfixed code for exactly that
+    # reason: with no active cache, the duplicate flag no longer matters).
+    my $found;
+    my $error;
+    $tira->_police_path_cache( sub {
+        $tira->record_list( project => $root, include_discard => 1 );
+        $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement',
+            author => 'claude' );
+        $tira->record_list( project => $root );
+        $found = eval { $tira->_record_data( project => $root, ref => $card->{ref} ); 1 };
+        $error = $@;
+    } );
+
+    ok( $found, 'a card moved between two record_list calls in the same pass is still readable '
+          . 'afterwards - moving mid-pass is not a duplicate, even though the eager cache saw it '
+          . 'at two different paths' )
+      or diag($error);
+}
+
+# --- a ref found TWICE BY ONE WALK still refuses - a genuine duplicate ------
+#
+# Codex review, TKT-1120: removing cross-call comparison entirely would also
+# have silently accepted a real on-disk duplicate encountered by the eager
+# walk, since a populated cache bypasses _record_data's own lazy $walk (and
+# its @found > 1 check) on a hit. File::Find visits the WHOLE tree in one
+# record_list call, so two files sharing a ref are both seen within that
+# same call regardless of which the pass happens to ask about first - that
+# is what distinguishes a genuine duplicate from a card that merely moved
+# between two SEPARATE calls.
+
+{
+    my $tmp3 = tempdir( CLEANUP => 1 );
+    my $now3 = '2026-09-06T09:00:00Z';
+    my $tira = Tira->new( clock => sub {$now3} );
+    my $root = File::Spec->catdir( $tmp3, 'proj' );
+    $tira->project_new(
+        name => 'Genuine Duplicate', dir => $root, members => ['claude'],
+        columns    => ['backlog, implement, done'],
+        sow_prefix => 'GDS', epic_prefix => 'GDE', ticket_prefix => 'GDT',
+    );
+    mkdir File::Spec->catdir( $root, '.git' );
     my $card = $tira->create_record( project => $root, type => 'ticket',
         title => 'a card about to be duplicated on disk' );
     my $original = File::Spec->catfile( $root, '.tira', 'ticket', 'backlog', "$card->{ref}.json" );
@@ -130,15 +187,16 @@ is_deeply( \@walked, [],
     require File::Copy;
     File::Copy::copy( $original, $copy ) or die "copy failed: $!";
 
-    my $world = Tira::CLI::Police::police_world( tira => $tira, project => $root );
-    eval { $tira->police_pass( project => $root, store => $store, world => $world ) };
+    my ( $found, $error );
+    $tira->_police_path_cache( sub {
+        $tira->record_list( project => $root, include_discard => 1 );
+        $found = eval { $tira->_record_data( project => $root, ref => $card->{ref} ); 1 };
+        $error = $@;
+    } );
 
-    my $found = eval { $tira->_record_data( project => $root, ref => $card->{ref} ); 1 };
-    ok( !$found, 'a ref record_list found at two different paths still refuses when looked up '
-          . 'after the pass, the same as a lazily-walked duplicate always has' );
-    like( $@ // '', qr/Duplicate record/,
-        'naming it a duplicate, not silently returning whichever of the two paths the eager '
-          . 'walk happened to see last' );
+    ok( !$found, 'a ref found twice by the SAME record_list walk still refuses when looked up, '
+          . 'a genuine board fault the eager cache must not silently pick one side of' );
+    like( $error // '', qr/Duplicate record/, 'naming it a duplicate' );
 }
 
 done_testing();

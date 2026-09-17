@@ -1127,11 +1127,21 @@ board for every question about it, and remembers nothing between passes. Since
 own initial `record_list` call, which walks the whole board once to build its
 listing regardless, now seeds every card's path as it goes, so the walk 5.85
 added is only reached for a card raised mid-pass or a ref that turns out to
-be missing or genuinely duplicated - the cases a miss must never be cached
-for. Measured on a live
+be missing - a miss must never be cached. Measured on a live
 board where this had degraded to 8-16 minutes between passes (up from a
 30-second interval, as the board grew this session): 4.453s before and 1.221s
-after on a 350-card synthetic equivalent, 3.6x. A
+after on a 350-card synthetic equivalent, 3.6x. **A duplicate is only real if
+ONE walk finds it twice, since 5.145** (TKT-1120, a same-day hotfix): a first
+draft flagged two different cached paths for one ref as a duplicate whenever
+they came from anywhere in the same pass, which broke live on this board
+within the hour - a card moved between two `record_list` calls in the same
+pass (`policy_evaluate` calls it a second time from inside
+`task-card-mismatch`'s own block) resolves to two different paths without
+being duplicated at all. Fixed by scoping the check to a single
+`record_list` call: `File::Find` visits the whole tree in one call, so two
+files genuinely sharing a ref are both seen within it regardless of which
+the pass asks about first - a ref that only differs from an earlier,
+separate call is last-write-wins instead. A
 quiet card's journal stops being reopened every pass too, by the same reasoning
 applied to a different question - a card whose last_updated has not moved past
 the stamp already recorded for it cannot have moved since, so _announce_moves

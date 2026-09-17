@@ -1,5 +1,23 @@
 Revision history for Tira
 
+5.145  2026-09-16
+    - TKT-1120 (same-day hotfix): TKT-1116's eager path-cache duplicate
+      detection broke live on this very board within an hour of shipping
+      5.143 - policy_evaluate calls record_list a SECOND time within one
+      pass (task-card-mismatch's own rule block), and a card moved between
+      the two calls, ordinary on a board being actively worked while the
+      pass runs, resolved to two different paths without being duplicated
+      at all. TKT-1106 and TKT-1119 both went card-unreadable on the real
+      board for exactly this reason. Fixed by scoping duplicate detection
+      to a single record_list call rather than the whole pass: File::Find
+      visits the entire tree in one call, so two files genuinely sharing
+      a ref are both seen within that same call regardless of which the
+      pass asks about first - only that is proof of a real duplicate. A
+      ref that merely differs from an earlier, separate call's own
+      finding is last-write-wins instead (Codex review caught that
+      removing duplicate detection entirely, the first draft of this
+      fix, would have silently masked a genuine on-disk duplicate too).
+
 5.144  2026-09-16
     - TKT-1106: extended tira.police.explain (TKT-786) to card-duration,
       agent-still and board-still, which it previously refused by name.

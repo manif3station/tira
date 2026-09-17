@@ -729,12 +729,28 @@ hit for every pre-existing card, and the lazy walk this section describes
 above now runs only for the rare card raised mid-pass (the upgrade gate's own
 case). Measured on a 350-card synthetic board: 4.453s before, 1.221s after —
 a 3.6x speedup with only 3 declared policies; a board declaring 59, like his,
-reads and resolves far more per pass and should see a larger relative win. A
-ref the eager walk finds at two DIFFERENT paths - a genuine board fault -
-still refuses the moment anything asks for it, the same protection the lazy
-walk has always given by basename; the eager index keys by that same
-filename-derived ref rather than a record's own content, so a card whose
-content disagrees with its filename cannot cache a wrong answer either.
+reads and resolves far more per pass and should see a larger relative win.
+The eager index keys by the filename-derived ref rather than a record's own
+content, so a card whose content disagrees with its filename cannot cache a
+wrong answer either.
+
+**Since 5.145, a duplicate is only real if ONE walk finds it twice**
+(TKT-1120, a same-day hotfix). The first draft flagged two different cached
+paths for the same ref as a genuine filesystem duplicate whenever they
+came from ANYWHERE in the same pass, and that broke live on this very
+board within an hour of shipping: `policy_evaluate` calls `record_list` a
+SECOND time from inside one rule's own block (`task-card-mismatch`), and a
+card moved between the first and second call - ordinary on a board being
+actively worked while the pass runs - resolved to two different paths
+without being duplicated at all. Two real cards went card-unreadable on
+the production board for exactly this reason within the hour of
+installing 5.143. Fixed by scoping the check to a single `record_list`
+call rather than the whole pass: `File::Find` visits the entire tree in
+ONE call, so two files genuinely sharing a ref are both seen within that
+same call regardless of which the pass happens to ask about first - only
+that is proof of a real duplicate. A ref that merely differs from what an
+EARLIER, SEPARATE call saw is last-write-wins instead, since that could
+just as easily be a card that moved.
 
 **Nothing is remembered between passes**, deliberately. A board is a live
 thing, and the next pass has to see what changed.

@@ -722,6 +722,16 @@ Batch form of C<record_show> for up to 100 refs at once.
 
 Returns records across one or all three boards, with filtering, field projection, and count/refs-only modes. Each record carries checklist_done/checklist_total the same way record_show does.
 
+Every column, including C<discard>, is always in the result - there is no
+C<include_discard> to read here, deliberately: excluding discard is each
+CALLER's decision (C<policy_evaluate> greps it out for itself when a rule
+needs to; several callers want everything, including discard, and always
+have). Teaching this method to filter would silently change what every
+other caller gets. Seven callers passed C<include_discard =E<gt> 1> anyway
+until TKT-970 removed it - the argument did nothing, since nothing here
+ever read it, and it taught the opposite of the truth: that the default
+hides discard and this flag opts back in.
+
 =head2 dwell_list
 
 Returns cards that have sat in their column past a threshold, with a staleness level.

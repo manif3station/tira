@@ -721,8 +721,10 @@ twice within one pass, but the FIRST lookup of each distinct ref still ran
 its own walk - the great majority of the ~1,384 walks TKT-978 measured on
 his board, since a 349-card board asking about most of its cards has few
 repeats to dedupe - despite
-`record_list(include_discard=>1)`, called before any rule runs, already
-walking the entire board once to build its own listing. That walk now seeds
+`record_list`, called before any rule runs, already walking the entire
+board once to build its own listing (its `include_discard=>1` argument was
+removed by TKT-970/5.149 as a no-op record_list never read - the walk it
+describes here is unaffected, since record_list always walked everything). That walk now seeds
 the path cache as a free side effect: every card it visits has its path
 recorded before any rule asks, so `_record_data`'s own lookup is a plain hash
 hit for every pre-existing card, and the lazy walk this section describes

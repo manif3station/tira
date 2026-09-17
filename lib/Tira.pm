@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.148';
+our $VERSION = '5.149';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1869,7 +1869,7 @@ sub board_show {
     # writer of the file column.add and friends already own. TKT-394.
     my %count;
     $count{ $_->{column} // '' }++
-      for @{ $self->record_list( project => $root, type => $type, include_discard => 1 ) };
+      for @{ $self->record_list( project => $root, type => $type ) };
     my @columns = map { { %{$_}, count => $count{ $_->{name} } // 0 } } @{ $config->{columns} };
     return { %{$config}, columns => \@columns };
 }
@@ -2587,7 +2587,7 @@ sub record_list {
 
             # TKT-1116. This walk already visits every card, filters or no -
             # they all run AFTER this point - so a police pass's own
-            # record_list call (include_discard=>1, no narrowing filters) can
+            # record_list call (no narrowing filters) can
             # seed _record_data's path cache for free instead of paying for
             # ~1,384 separate File::Find walks later, one per distinct ref a
             # rule asks about (TKT-978's own measurement on this board).
@@ -6031,7 +6031,7 @@ sub changelog_check {
 
     my @missing;
     for my $type (qw(sow epic ticket)) {
-        for my $record ( @{ $self->record_list( project => $root, type => $type, include_discard => 1 ) } ) {
+        for my $record ( @{ $self->record_list( project => $root, type => $type ) } ) {
             my $fv = $record->{fix_version} // '';
             next if $fv eq '' || $fv eq 'none' || $fv =~ /\An\/a\b/i;
             next if $released{$fv};
@@ -6144,10 +6144,12 @@ sub outstanding_summary {
     # tickets, 165 of them discarded, all 964 walked.
     #
     # THE FILTER IS HERE RATHER THAN IN record_list, and that is deliberate.
-    # Five call sites already pass include_discard => 1 to record_list and
-    # nothing reads it; teaching record_list to filter would silently change
-    # what every OTHER caller gets - including policy_evaluate, which walks
-    # everything on purpose and drops discarded cards itself. A read that
+    # record_list never filters by column, discard included, and TKT-970
+    # removed the include_discard argument that used to be passed to it
+    # anyway - nothing ever read it. Teaching record_list to filter would
+    # silently change what every OTHER caller gets - including
+    # policy_evaluate, which walks everything on purpose and drops
+    # discarded cards itself. A read that
     # returns everything is not the fault. A total that claims to match a
     # view which excludes set-aside work, and does not, is.
     my $questions = 0;
@@ -8123,7 +8125,7 @@ sub policy_evaluate {
     my $policies = $self->policy_list( project => $root );
     return [] if !@{$policies};
 
-    my $all = $self->record_list( project => $root, include_discard => 1 );
+    my $all = $self->record_list( project => $root );
 
     # Discarded work is set aside, not neglected. Holding it to the same
     # standard as live work would teach an agent to read past the whole
@@ -10460,7 +10462,7 @@ sub _announce_moves {
     my $wanted = $data->{notify_moves} || {};
     return if !$wanted->{enabled};
 
-    my $records = eval { $self->record_list( project => $root, include_discard => 1 ) } || [];
+    my $records = eval { $self->record_list( project => $root ) } || [];
 
     # The read, the "already told" check and the write are one race without
     # the lock: a second writer to this same ledger file (violation_record,
@@ -12291,7 +12293,7 @@ sub _police_pass_body {
     # rule itself for why execution cannot live in here.
     my $due_commands = [];
     my $ok = eval {
-        my $records = $self->record_list( %args, include_discard => 1 );
+        my $records = $self->record_list( %args );
         my ( $environment, $seen ) = $self->_police_environment_violations(
             %args, policies => $policies, records => $records );
         $output_seen = $seen;
@@ -13484,7 +13486,7 @@ sub police_explain {
           if !defined $args{ref} || $args{ref} !~ /\S/;
         my $record = $self->record_show( project => $root, ref => $args{ref}, type => $args{type} );
 
-        # record_list's own include_discard flag filters nothing - by design
+        # record_list never filters by column, discard included - by design
         # (see dashboard/dwell's own comment on this - the filter belongs to
         # each caller, since teaching record_list to drop discard would
         # silently change every other reader too). policy_evaluate builds its
@@ -13493,7 +13495,7 @@ sub police_explain {
         # extend $since here and nowhere the rule itself looks. Codex review:
         # this was the one place the two could disagree.
         my $records = [ grep { ( $_->{column} // '' ) ne 'discard' }
-            @{ $self->record_list( project => $root, include_discard => 1 ) } ];
+            @{ $self->record_list( project => $root ) } ];
         return { rule => $rule, ref => $args{ref}, column => $record->{column},
             %{ $self->_card_duration_inputs( $root, $record, $records ) } };
     }
@@ -13504,7 +13506,7 @@ sub police_explain {
     # true about either.
     die "$rule is whole-board: it takes no --ref\n"
       if defined $args{ref} && $args{ref} =~ /\S/;
-    my $all = $self->record_list( project => $root, include_discard => 1 );
+    my $all = $self->record_list( project => $root );
     return { rule => $rule,
         %{ $rule eq 'board-still'
             ? $self->_board_still_inputs( $root, $all )

@@ -1,5 +1,18 @@
 Revision history for Tira
 
+5.149  2026-09-17
+    - TKT-970: record_list accepted an include_discard argument that its
+      own body never read - the method never filters by column, discard
+      included, with or without it. Eight call sites (7 in lib/Tira.pm, 1
+      in lib/Tira/Attachment.pm found only after Codex review widened the
+      caller scan past lib/Tira.pm alone) passed it anyway, teaching every
+      reader the opposite of the truth: that discard is normally hidden and
+      this flag opts back in. Removed the no-op argument everywhere and
+      documented the true default in record_list's own POD. Verified zero
+      behaviour change: person_remove and link_type_remove already see
+      discarded cards today without passing the flag at all, proving it
+      was never read by anything.
+
 5.148  2026-09-17
     - TKT-968: SKILLS.md's claim that "twenty test files and the dashboard"
       call Tira::CLI::browser_providers by that name had drifted to thirty,

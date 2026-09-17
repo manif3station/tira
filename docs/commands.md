@@ -3414,11 +3414,13 @@ before this card the flag was accepted here and silently ignored, because the
 option parser is shared and nothing read it.
 
 The filter is applied where the counting happens rather than inside
-`record_list`, deliberately. Five call sites already hand `record_list` an
-`include_discard` it does not read, and teaching it to filter would silently
-change what every other caller gets - including `person_remove`, which must
-see discarded cards, since a person named by a set-aside card still has a
-historical reference. That larger question is TKT-970.
+`record_list`, deliberately - `record_list` never filters by column, discard
+included, and never took an `include_discard` argument that changed that.
+Eight call sites used to hand it one anyway, teaching every reader that it
+did; TKT-970 (5.149) removed the no-op argument everywhere and put the true
+default in `record_list`'s own POD instead. Not filtering there matters
+because `person_remove`, among others, must see discarded cards - a person
+named by a set-aside card still has a historical reference.
 
 **Since 5.90 the two agree** (TKT-817): `hero-counts.js`'s own task count
 used to count every tasklist item regardless of status, and now filters to

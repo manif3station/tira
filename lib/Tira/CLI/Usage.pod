@@ -1,0 +1,138 @@
+=head1 NAME
+
+Tira::CLI::Usage - the usage lines, the help, and "did you mean"
+
+=head1 DESCRIPTION
+
+C<_usage> returns the C<Usage:> line C<--help> prints for a command.
+C<project.create> is written out; everything else comes from SKILLS.md's own
+usage catalogue via C<_skills_usage_line>, so the documentation and the help are
+one text rather than two that drift.
+
+C<_unknown_option_message>, C<_names_the_option> and C<_declared_option_names>
+are the refusal an unknown option gets, and the suggestion that comes with it -
+built on C<Tira::_edit_distance>, the engine's own Levenshtein implementation
+(TKT-1004; this module carried a byte-for-byte identical copy of its own from
+TKT-298 until TKT-635 added the engine's).
+
+=head2 The same message, two commands, two flags
+
+C<%COMMAND_OVERRIDE>, keyed by the raising command, is checked before C<%SUPPLIED_BY>'s single answer, via C<_names_the_option>'s optional second argument. TKT-689.
+
+=head2 A typo and a quoted value are not the same "unknown option"
+
+C<_unknown_option_message> tells them apart before suggesting anything.
+Getopt::Long reports the same "Unknown option" for a misspelled flag and for a
+VALUE that begins with two dashes and was passed as a separate argument - the
+parser reads it as the next option. The two are distinguishable by one thing:
+the reported name is the first whitespace-delimited word of the rejected
+argument, so if it EXACTLY matches one of the command's declared option names
+- including a short alias, C<_declared_option_names> keeps every C<|>-joined
+spelling - the argument cannot have been a mistyped flag, because a bare
+declared option, by any of its accepted spellings, parses. It was a value
+carrying more text.
+
+A misspelling almost never matches a declared name exactly, so the edit-distance
+suggestion below is still what a real typo gets. The exact-match case gets a
+different message naming C<--option=VALUE> instead - because suggesting the
+option back to a caller who just typed it reads as a correct flag being
+rejected, which is the fault TKT-742 fixed.
+
+C<_policy_help> and C<_policy_help_fallback> answer the same question for
+policies.
+
+C<_job_help> and C<_job_help_fallback> do it once more for repeated jobs
+(TKT-886), printing F<docs/JOBS.md>. The three-way arrangement is deliberate:
+these subs FIND a document, they do not generate one. The answer lives in the
+file, so improving what an agent is told means editing Markdown rather than
+this module - and a document is reviewable in a way a here-doc buried in a
+dispatcher is not.
+
+The fallbacks earn their place at the moment an install is incomplete. An agent
+that asks for help and receives nothing has just been taught that the surface is
+unreliable, and F<docs/JOBS.md> exists precisely because agents who believe that
+go and build their own scheduling instead. Answering with the verb list is worth
+more there than anywhere else on this page.
+
+B<C<job.help> is dispatched in F<lib/Tira/CLI.pm> beside C<policies>, not with
+the other job verbs in L<Tira::CLI::Job>.> It is the same kind of thing as
+C<tira.policies> - a document printed whole - and routing it through the job
+dispatcher would have produced a verb taking no C<--id>, no C<--schedule> and no
+project, sitting among seven that do.
+
+All of it is asked for by C<--help> and by the error paths, which is a minority
+of invocations - so C<Tira::CLI> loads this module at the point one of them is
+taken.
+
+=head2 How this module is loaded
+
+C<Tira::CLI> pulls this in with C<require> at the point one of its verbs runs,
+so a command that never needs it never compiles it.
+
+It calls into no sibling module. This paragraph said otherwise until 4.74 -
+one note written once and pasted into all eight, describing a chain three of
+them do not sit in.
+
+=head2 _usage
+
+This entry came with the sub. It was left behind in
+L<Tira::CLI>'s POD when the code moved in 4.74 - a heading describing a sub that
+is no longer beneath it, which is the exact fault this card has produced in six
+other forms, and it was found by a check that reads every C<=head2> in every
+module and asks where that sub actually lives. TKT-607.
+
+Returns the C<Usage:> line C<--help> prints for a command. C<project.create>
+is written out here; everything else comes from SKILLS.md's own usage
+catalogue via C<_skills_usage_line>, which greps for a line beginning
+C<tira.E<lt>commandE<gt> >. A command with no line there falls back to a bare
+C<[options]>, which names nothing.
+
+Two shapes of failure, and the second is the dangerous one. A bare
+C<[options]> at least admits it is withholding something. A line that
+enumerates the optional flags and omits the mandatory ones looks complete, so
+a caller composes from it with no reason to doubt it - which is what happened
+to C<checklist.update>: it named three optional flags and not the
+C<--command>/C<--proof> pair it refuses C<--status done> without, and another
+board's agent wrote four calls from it, suppressed their output, and believed
+four entries were ticked while the checklist read 0/9.
+
+The pair was written as one bracketed unit, C<[--command TEXT --proof TEXT ...]>,
+rather than two independent optionals: it was required together and repeatable,
+and two brackets would have been true about the parser and false about the
+command.
+
+Since 4.64 that is no longer true and the line says
+C<[--command TEXT ... [--proof TEXT ...]]> - the proofs nest inside the
+commands as a group rather than pairing off one bracket at a time.
+
+The nesting is doing exact work and the obvious shorter form is WRONG. Written
+C<[--command TEXT [--proof TEXT] ...]> it would say each command may
+independently carry a proof, so one command with a proof beside one without
+would be legal. It is not: give any proofs at all and the counts must match,
+"Every --command needs a matching --proof". Either all of them are proved or
+none are. Measured, after writing that shorter form first and checking it. A C<--command> is now usable on its own, which
+records what is being run and leaves the item where it is; the proof arrives
+afterwards, repeating its command. What marks the item done is C<--status
+done>, which refuses without the pair - a full pair given with C<--status
+pending> is accepted, stored, and leaves the item pending. So the pair is still
+required TOGETHER to mark something done, and no longer required at all to say
+something has started. The nesting is what makes both true in one line, and it is the reason
+this entry is worth reading rather than a formatting note: the bracket shape is
+a claim about when the flags are needed, and TKT-628 changed when. TKT-575,
+TKT-628.
+Forty-nine commands still fall back to C<[options]>; t/410 holds that set as a
+ledger so a new one cannot join it silently, and reads C<_usage> itself rather
+than the SKILLS.md lookup, since what matters is what C<--help> prints.
+TKT-575.
+
+Since 5.86 all forty-nine have real lines, each read out of the command's own
+dispatch branch in C<run()> rather than guessed - the same parser property
+this whole section is about, since one global C<@spec> cannot say which
+options a given command implements. t/410's ledger is empty; a command that
+falls back to C<[options]> now fails the guard directly. TKT-630.
+
+=head1 SEE ALSO
+
+L<Tira::CLI>
+
+=cut

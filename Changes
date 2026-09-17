@@ -1,5 +1,20 @@
 Revision history for Tira
 
+5.151  2026-09-17
+    - TKT-1004: Tira::CLI::Usage::_edit_distance (TKT-298) and
+      Tira::_edit_distance (TKT-635, added the same day) were
+      byte-for-byte identical Levenshtein implementations, each private
+      to its own module, each backing its own "did you mean" suggestion
+      (the CLI's unknown-option refusal and the engine's near-miss
+      argument refusal respectively) - a future fix to the algorithm
+      applied to one would silently leave the other on the old
+      behavior. Removed the CLI's copy; both it and a third call site
+      found only by grepping all of lib/ (lib/Tira/CLI/Command.pm's own
+      nearest_commands, missed by the ticket's own key_details) now call
+      the engine's Tira::_edit_distance. lib/Tira/CLI/Usage.pm's inline
+      POD moved to a sibling lib/Tira/CLI/Usage.pod, the same convention
+      TKT-1103 gave lib/Tira/CLI/Police.pm and lib/Tira/CLI/Serve.pm.
+
 5.150  2026-09-17
     - TKT-972: a card whose timestamp cannot be parsed was silently
       exempt from every age-based rule - _policy_older_than's own

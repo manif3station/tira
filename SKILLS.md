@@ -115,7 +115,14 @@ misspelled a composed field (`exempt_required` for `required_exempt`, the
 exact case that was measured) got no error and no effect. Both methods now
 refuse a key that closely resembles a real field - small edit distance, or the
 same words in the wrong order - naming it and suggesting the field it was
-probably meant to be. Unlike the CLI's own TKT-298 refusal above, an unrelated
+probably meant to be. **Since 5.151 the CLI's own TKT-298 refusal above calls
+into this same `Tira::_edit_distance`** rather than a private, byte-for-byte
+identical copy `Tira::CLI::Usage` had carried since TKT-298 was written -
+TKT-1004, caught by a 2-hourly improvement hunt the day the engine's own copy
+was added. A third call site, `Tira::CLI::Command`'s own near-miss suggestion
+for an unrecognised bare command name, was found only by grepping all of
+`lib/` rather than trusting the ticket's own key details, and switched too.
+Unlike the CLI's own TKT-298 refusal above, an unrelated
 key is left alone rather than refused outright: the engine is called
 internally with the CLI's own shared `%option` hash, which always carries
 dozens of keys neither method uses, and refusing every one of those would

@@ -24,6 +24,7 @@ use warnings;
 
 use File::Find ();
 use File::Spec ();
+use Tira ();
 use Tira::CLI::Usage ();
 
 # Cached after the first call - the command surface does not change within
@@ -114,7 +115,7 @@ sub known_command {
 sub nearest_commands {
     my ($bad) = @_;
     _ensure_known_commands();
-    my %distance = map { $_ => Tira::CLI::Usage::_edit_distance( $bad, $_ ) } keys %KNOWN_COMMAND;
+    my %distance = map { $_ => Tira::_edit_distance( $bad, $_ ) } keys %KNOWN_COMMAND;
     my @close = grep { $distance{$_} <= 3 } keys %distance;
     my @near = sort { $distance{$a} <=> $distance{$b} || $a cmp $b } @close;
     return [ @near[ 0 .. ( $#near > 2 ? 2 : $#near ) ] ] if @near;
@@ -141,6 +142,9 @@ does not fully understand the way a generator could.
 
 C<nearest_commands> offers the closest known literal names within a small
 edit distance, the same shape C<Tira::CLI::Usage>'s unknown-option message
-already gives.
+already gives - both built on C<Tira::_edit_distance>, the engine's own
+Levenshtein implementation (TKT-1004; this module's copy and
+C<Tira::CLI::Usage>'s were byte-for-byte identical from the day each was
+introduced until this ticket removed the duplicate).
 
 =cut

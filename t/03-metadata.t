@@ -174,11 +174,13 @@ is( scalar @found_lib_pm, $lib_pm_count,
 # answer, not an error) for a .pm file that deliberately carries none any
 # more, so this one file is checked for exactly that instead of the 0 every
 # other file (including lib/Tira.pod itself) must still return. TKT-1103 did
-# the same for lib/Tira/CLI/Police.pm and lib/Tira/CLI/Serve.pm.
+# the same for lib/Tira/CLI/Police.pm and lib/Tira/CLI/Serve.pm, and TKT-1004
+# for lib/Tira/CLI/Usage.pm.
 my %intentionally_pod_free = (
     'lib/Tira.pm'                => 1,
     'lib/Tira/CLI/Police.pm'     => 1,
     'lib/Tira/CLI/Serve.pm'      => 1,
+    'lib/Tira/CLI/Usage.pm'      => 1,
 );
 for my $file (@perl_files) {
     if ( $intentionally_pod_free{$file} ) {

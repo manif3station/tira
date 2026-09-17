@@ -2136,8 +2136,10 @@ the plain functions `_render_view`, `_view_asset` and `json_object`.
 
 **`--help` on a command that does not exist is refused, not answered, since 5.112** (TKT-660). `Tira::CLI->run()` handled `--help` before dispatch, so a name with no entrypoint anywhere got the fallback usage line - grammatical, correctly formatted, naming the invented command back - and returned success. The dispatcher's own unknown-command "Did you mean" was never reached, because the help branch returns before dispatch runs at all. New module `lib/Tira/CLI/Command.pm` answers whether a bare command is real by reading `lib/Tira/CLI.pm`'s own dispatch surface: both the literal `$command eq '...'` shape t/410 already reads for its usage-line ledger, AND the regex-alternation shape (`$command =~ /\Alogin\.(register|check|status|logout)\z/` and two dozen more) t/410 does not need to check. An early version of this fix checked only the first shape and would have refused `--help` for `login.status`, `dashboard.sow` and every other regex-dispatched command as though it did not exist - caught by this ticket's own `t/1086` the first time it ran against a real implementation. The fix tests the dispatch regex objects directly against the given name rather than trying to re-derive every concrete string an alternation can produce, and was verified with a standalone sweep against all statically-extracted real commands (0 false negatives) before shipping. Typed record commands (`ticket.foo`, `epic.bar`) are unaffected - they always arrive with `$type` already set by their own entrypoint script, never as the bare dotted name. Split into its own module rather than growing `lib/Tira/CLI/Usage.pm` past its own 500-line limit, which t/524 caught live mid-implementation.
 
-`lib/Tira.pm` is 15,279 lines now (TKT-908, 5.146 - measured now rather
-than carried forward, the fault this section is about). It was 15,256 as
+`lib/Tira.pm` is 15,315 lines now (TKT-967, 5.147 - measured now rather
+than carried forward, the fault this section is about). It was 15,279 as
+of TKT-908 (5.146), which named the actual write-side flag when a caller
+mistyped comment's own stored field. It was 15,256 as
 of TKT-1120 (5.145), a same-day hotfix rescoping the eager duplicate-detection
 TKT-1116 (5.143) added to `record_list`'s own walk - to within one walk
 rather than across the whole pass - after the wider version broke live on
@@ -2597,8 +2599,13 @@ excludes the `Tira::CLI` layer for the same class of reason: `t/106` asserts
 the engine invokes no shell, and `lib/Tira/CLI/Serve.pm` legitimately does.
 
 Entry points kept their names. `Tira::CLI::browser_providers` still exists and
-still answers; twenty test files and the dashboard call it by that name, and a
-refactor that renames its own front door is not behaviour-preserving.
+still answers; twenty-eight test files and the dashboard call it by that name,
+and a refactor that renames its own front door is not behaviour-preserving.
+Held to t/968's own grep since 5.148, since this was twenty at the time of
+writing and was already twenty-five, uncorrected, by the time TKT-968 was
+filed to fix it - and a first draft of the fix itself over-counted, before
+Codex review caught that the check matched any file MENTIONING the entry
+point rather than one CALLING it.
 
 
 None of the four move guards - chain order, exit required actions, unjudged answers, and entry required actions - can be evaded by omitting the board type. `column_list` needs a concrete type to say which columns exist, while `record_show` and `record_move` resolve a card by ref alone, so a guard that asked for columns with the caller's arguments got nothing back and returned "nothing to refuse" - failing silent and open rather than closed. Reproduced on a copy of a real board: a card walked from backlog to in-review through nine gated columns with all 75 of its required actions pending. The browser move provider had already solved this for its own bookkeeping under the principle recorded there - "a caller is never required to say what the engine can already tell for itself" (TKT-532) - and the recovery is now a shared helper with five call sites - all four move guards and the post-move required-action bookkeeping. It said three guards and four sites until TKT-662, written when there were three: TKT-591 added the entry guard afterwards and the count was never revisited, the same drift that left CLI.pm's POD documenting one guard of four. The browser move provider keeps its own recovery, which is where the principle came from and which predates this. The recovered type is written back into the caller's own arguments, not kept to the lookup: the chain guard's refusal ends by naming the move to make instead, and that line is formatted from those arguments, so recovering the type for the lookup alone left the gate correctly closed and the caller told to run a move command with an empty type in it - `tira` then two dots then `move` - which is not a command at all. It matters to two refusals in four - the chain guard names the move to make, and the entry guard ends with `d2 tira.column.update --type TYPE ...`, so both format the recovered type into their own advice. The required-action and unjudged-answer refusals name a command of their own and never print it. This said 'one refusal in three' until TKT-662: the entry guard both raised the count and joined the half of it that prints the type. A guard that refuses correctly and then misdirects has moved the failure rather than fixed it. TKT-597.

@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.146';
+our $VERSION = '5.148';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -6609,6 +6609,31 @@ JS
         { name => $name, style => $style, script => $script } );
 }
 
+# The reason a forbidden option is refused, keyed by option name rather than
+# stored per-rule: every rule forbidding the same option wants the same
+# reason today, and a table here is one place to update if that stops being
+# true, rather than a sentence copied into every rule that forbids it.
+# TKT-967.
+my %FORBID_REASON = (
+    age     => 'it reports the moment there is something to say, and a grace would only delay it',
+    column  => 'it watches the card wherever it sits, not the column',
+    enter   => 'it watches the card wherever it sits, not when it entered a column',
+    pattern => "its own rule body never reads it - only leftover-process and leftover-container do",
+);
+
+# An option-only reason is wrong for a rule that forbids the option for a
+# DIFFERENT reason than every other rule forbidding it - column-unwatched
+# forbids --column not because it watches one card (nothing here does; it
+# is whole-board, the same as %WHOLE_BOARD_RULE says below), but because it
+# is about which columns OTHER policies name, so one column could never
+# narrow it. Checked before the option-only table above. Codex review,
+# TKT-967: the option-only table alone would have told a column-unwatched
+# caller their card sits somewhere, which this rule has no card to sit in.
+my %FORBID_REASON_FOR_RULE = (
+    'column-unwatched:column' =>
+      'it is about which columns OTHER policies name, not one column to watch itself',
+);
+
 # What police can be told to watch for. Every rule here traces to something
 # that actually went wrong rather than something imagined, and each names the
 # parameters it cannot work without - so a policy police could not follow is
@@ -7198,10 +7223,21 @@ sub policy_add {
     # rule cannot work without. A grace on a rule whose whole point is that
     # there is none would be accepted, ignored, and believed - which is the
     # shape of a setting that does nothing and looks like it does.
+    #
+    # The REASON is per option, not per refusal. age's reason is genuinely
+    # about a grace period; column and enter are not delays at all - a rule
+    # that forbids them watches the card wherever it sits, not the column,
+    # and telling a caller their column/enter was refused because "a grace
+    # would only delay it" describes an option that is not the one they set.
+    # Keyed by option name rather than stored per-rule in %POLICY_RULES,
+    # since every rule forbidding the same option wants the same reason
+    # today - except column-unwatched, %FORBID_REASON_FOR_RULE's one entry,
+    # checked first. TKT-967.
     for my $refused ( @{ $spec->{forbids} // [] } ) {
         ( my $flag = $refused ) =~ tr/_/-/;
-        die "Policy rule '$rule' takes no --$flag: it reports the moment there is "
-          . "something to say, and a grace would only delay it\n"
+        my $why = $FORBID_REASON_FOR_RULE{"$rule:$refused"} // $FORBID_REASON{$refused}
+          // 'it reports the moment there is something to say, and a grace would only delay it';
+        die "Policy rule '$rule' takes no --$flag: $why\n"
           if defined $args{$refused} && $args{$refused} ne '';
     }
 

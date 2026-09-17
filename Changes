@@ -1,5 +1,32 @@
 Revision history for Tira
 
+5.148  2026-09-17
+    - TKT-968: SKILLS.md's claim that "twenty test files and the dashboard"
+      call Tira::CLI::browser_providers by that name had drifted to thirty,
+      unnoticed since t/433 (which holds the police rule count against the
+      engine) held nothing else. Corrected the count and added t/968,
+      holding it the same way - by shape, not by one sentence, so it
+      cannot drift silently again. The other count this ticket was filed
+      about, "50 callers" for _epoch_of_datetime, was re-measured and
+      found to be already correct; the ticket's own premise about it was
+      wrong, which t/968's own control now proves rather than assumes.
+
+5.147  2026-09-17
+    - TKT-967: a forbidden policy option's refusal now names what that
+      option actually means, rather than one sentence written for --age.
+      card-unassigned forbids column, enter AND age; declaring it with
+      --column got back "a grace would only delay it" - true of --age,
+      not of --column at all. The reason is now looked up in a shared
+      %FORBID_REASON table, keyed by option name rather than stored
+      per-rule, since every rule forbidding the same option wants the
+      same reason today. --age's own wording is unchanged. Codex review
+      found two gaps in the first draft: unpushed-work forbids --pattern
+      with no entry in the table (silently fell back to the --age
+      wording, which is false), fixed by adding one; and column-unwatched
+      forbids --column for a whole-board reason, not a card-scoped one
+      like every other rule forbidding it, fixed with a small per-rule
+      override table checked first.
+
 5.146  2026-09-17
     - TKT-908: comment.add's refusal now names --text when a caller passes
       body => ... instead - comment's own stored field, the one write/read

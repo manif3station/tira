@@ -1221,6 +1221,21 @@ checklist item carries no structured C<refs> field the way a tasklist item
 does. It marks nothing itself, fires only when every named card is terminal,
 and never fires on an item naming none.
 
+Since 5.147, a forbidden option's refusal names what THAT option actually
+means rather than one sentence written for C<--age>. C<card-unassigned>
+forbids C<column>, C<enter> AND C<age>; declaring it with C<--column> used to
+get back "a grace would only delay it" - true of C<--age>, and not what
+C<--column> is at all. The reason is now looked up in C<%FORBID_REASON>,
+keyed by option name rather than stored per-rule, since every rule forbidding
+the same option wants the same reason today. C<--age>'s own wording is
+unchanged. Codex review found two gaps in the first draft: C<unpushed-work>
+forbids C<--pattern> with no entry in the table, which silently fell back to
+the C<--age> wording (false - pattern is refused because the rule's own body
+never reads it); and C<column-unwatched> forbids C<--column> because it is
+about which columns OTHER policies name, a whole-board reason, not the
+card-scoped one every other rule forbidding C<--column> wants - fixed with
+C<%FORBID_REASON_FOR_RULE>, checked before the option-only table. TKT-967.
+
 =head2 policy_list
 
 Returns the project's declared policies.

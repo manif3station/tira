@@ -1,5 +1,15 @@
 Revision history for Tira
 
+5.156  2026-09-18
+    - TKT-1025: t/176's ratchet (the ten-assertions-that-mean-something-else
+      hunt) found two more unmarked bare qr/\S/ hits since its own last
+      confirmation - t/590:78 and t/973:98, both subsumed by a stronger
+      assertion checking real content on the next line, so both were
+      removed rather than marked. A third, t/764:39, is a genuine
+      precondition ("the file is there to be read" before checking its
+      content) and was marked per the ratchet's own convention instead.
+      No shipped code changed - test suite hygiene only.
+
 5.155  2026-09-18
     - TKT-1123, TG msg #8571/#8572: added `tira.schema.export --file FILE`
       (writes a board's columns/column-chain/prefix/digits per type plus

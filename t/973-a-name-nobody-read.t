@@ -95,7 +95,6 @@ use Suite;
 
 {
     my $whole = Suite::cli_source();
-    like( $whole, qr/\S/, 'the whole-layer form still answers with something' );
     like( $whole, qr/package Tira::CLI::Police/, 'and it still includes every file, Police.pm among them' );
     like( $whole, qr/package Tira::CLI::Job::Feeder/, 'and Job::Feeder.pm too' );
 }

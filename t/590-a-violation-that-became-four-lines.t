@@ -75,7 +75,6 @@ my $multiline = "First line of the hunt.\nSecond line, after a newline.\n\nFourt
 
     my @entries = grep { /VIO-0001/ } @{$backlog};
     is( scalar @entries, 1, 'and its own id-bearing line is findable' );
-    like( $entries[0] // '', qr/\S/, 'and it is there to be read' );
     like( $entries[0] // '', qr/First line of the hunt\. Second line, after a newline\. Fourth line after a blank one\./,
         'the detail survives, whitespace-collapsed rather than dropped' );
 }

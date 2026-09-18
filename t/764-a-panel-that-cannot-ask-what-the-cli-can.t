@@ -31,6 +31,10 @@ use Suite ();
 my $js     = Suite::view_source('tasklist-editor.js');
 my $render = Suite::engine_source();
 
+# Both are read straight from disk with no fallback, so an empty string
+# here means the file is missing or was renamed - a fact worth its own
+# failure before the content checks below run against nothing and pass by
+# accident. non-empty is the whole claim on both of the next two lines.
 like( $js,     qr/\S/, 'the tasklist editor is there to be read' );
 like( $render, qr/\S/, 'the renderer is there to be read' );
 

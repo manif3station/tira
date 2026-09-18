@@ -1,5 +1,61 @@
 Revision history for Tira
 
+5.159  2026-09-18
+    - TKT-1125, Michael's own live ask: "agent needs to have more control
+      of the tira.dashboard... if an agent want to stop it, there is not
+      option for that and neither restart... these have to be done with
+      the command together." tira.dashboard/.sow/.epic/.ticket gain --stop
+      and --restart. A served board writes its own pid/port/command/argv
+      and each spawned companion's own pid to a small state file in its
+      police store the moment it starts serving. --stop finds the master
+      by port (Michael's own TKT-565 precedent, never a pidfile), confirms
+      it is genuinely a Starman, sends it the same INT signal Ctrl-C
+      already does, and kills each recorded --with-police/
+      --with-policy-bridge companion directly by its own pid. --restart
+      does the same stop, then execs into the exact script and argv the
+      board was originally started with - the identical mechanism the
+      version-upgrade self-restart already uses. Documented in
+      SKILLS.md/README.md/docs/commands.md/docs/POLICIES.md, and both
+      verbs now show in tira.dashboard --help/tira.usage.
+
+      CAUGHT LIVE DURING VERIFY, both real: (1) relying on Tira::CLI::run's
+      existing "the pass dies with the board" cleanup to stop a companion
+      after --stop's INT was wrong - Starman's own INT handling exits
+      before that cleanup code ever runs, orphaning the companion every
+      time; fixed by recording and killing each companion's own pid
+      directly, not through the master. (2) --stop/--restart resolved the
+      project against the current directory rather than TIRA_HOME, because
+      $option{project} was not populated from $environment_project until
+      after the --stop/--restart dispatch ran; fixed by reading
+      $environment_project directly there.
+
+      CAUGHT BY A CODEX ADVERSARIAL REVIEW, all real: (3) a corrupted or
+      hand-edited state file with police_pid=0 or a negative value could
+      have signalled a process GROUP instead of nothing - companion pids
+      are now required to be positive integers before anything is
+      signalled. (4) --stop's poll loop exhausting its wait budget still
+      reported success and cleared the one restart record even for a
+      board still genuinely answering on its port - it now refuses
+      "still-running" instead of claiming a stop that did not happen. (5)
+      --restart's failed-exec path had already cleared the state as part
+      of its own stop step, permanently losing the remembered argv on the
+      very first retry - the state is now written back if the exec never
+      replaces the process. (6) that same written-back state was also
+      restoring the police/policy-bridge pids the preceding stop had just
+      killed, which a later --stop could then signal again after they had
+      been reused by an unrelated process - the restored state now clears
+      both pids, since those companions are confirmed gone. (7) a served
+      board never checked whether writing its own state file succeeded, so
+      an unwritable store left --stop/--restart silently unable to ever
+      find that board again - it now warns to stderr, the same "still
+      worth serving, said rather than swallowed" shape a failed police/
+      policy-bridge spawn already gets. (8) writing that same test found a
+      more severe version of it: the state write's own File::Path::
+      make_path call CROAKS, not merely fails, when the store path
+      collides with an existing file - previously an unguarded call, this
+      would have crashed the whole board's own startup rather than
+      degrading gracefully; now eval-guarded.
+
 5.158  2026-09-18
     - TKT-1029, Q-174: tools/hooks/commit-msg now exempts a pure
       release-bookkeeping commit (staged files only .env/Changes/lib/

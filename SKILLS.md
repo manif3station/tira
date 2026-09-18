@@ -1462,10 +1462,10 @@ tira.schema.export --file FILE [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [--count] [--refs-only] [-o FORMAT]
 tira.search.index [-o FORMAT]
 tira.replace --pattern REGEX --with TEXT [--field FIELD ...] [--type TYPE] [--dry-run] [-o FORMAT]
-tira.dashboard [--type TYPE|all] [--include-discard] [--title] [--with-questions] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [--show-logs] [--ssl] [-o DASHBOARD_FORMAT]
-tira.dashboard.sow [--include-discard] [--title] [--with-questions] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [--show-logs] [--ssl] [-o DASHBOARD_FORMAT]
-tira.dashboard.epic [--include-discard] [--title] [--with-questions] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [--show-logs] [--ssl] [-o DASHBOARD_FORMAT]
-tira.dashboard.ticket [--include-discard] [--title] [--with-questions] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [--show-logs] [--ssl] [-o DASHBOARD_FORMAT]
+tira.dashboard [--type TYPE|all] [--include-discard] [--title] [--with-questions] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [--show-logs] [--ssl] [--stop] [--restart] [-o DASHBOARD_FORMAT]
+tira.dashboard.sow [--include-discard] [--title] [--with-questions] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [--show-logs] [--ssl] [--stop] [--restart] [-o DASHBOARD_FORMAT]
+tira.dashboard.epic [--include-discard] [--title] [--with-questions] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [--show-logs] [--ssl] [--stop] [--restart] [-o DASHBOARD_FORMAT]
+tira.dashboard.ticket [--include-discard] [--title] [--with-questions] [--with-police] [--with-policy-bridge] [--no-session-expire] [--no-police] [--no-policy-bridge] [--with-session-expire] [--show-logs] [--ssl] [--stop] [--restart] [-o DASHBOARD_FORMAT]
 ```
 
 `--terminal`/`--no-terminal` above marks a column as somewhere work has
@@ -1845,7 +1845,19 @@ implementations of the same reverse lookup. Long-text sections carry their edit
 pencil in the section heading, and a small-screen layout keeps the board and
 dialog fully usable at phone width.
 The visible last-updated time advances only after fresh data is applied. Stop
-the foreground server with Ctrl-C.
+the foreground server with Ctrl-C, or from another terminal/agent session -
+since TKT-1125 - with `d2 tira.dashboard --stop`, which finds the running
+board by its port (never a pidfile), sends it the same signal Ctrl-C
+does, and kills any `--with-police`/`--with-policy-bridge` companion
+beside it by its own recorded pid, not by the signal alone.
+`d2 tira.dashboard --restart` stops it and starts it again with the
+exact command and flags it was originally launched with - not the tool's
+current defaults - by replaying a small per-board record written the moment it
+started serving. Both are refused on every command except
+`tira.dashboard`/`.sow`/`.epic`/`.ticket`, and `--stop`/`--restart` say why
+they could not act (nothing running, a stranger on the port, or - for
+`--restart` - no memory of what it was launched with) rather than doing
+nothing silently.
 
 ## 149 use cases
 

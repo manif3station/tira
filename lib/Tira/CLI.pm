@@ -140,6 +140,7 @@ sub run {
         'show-logs' => \$option{show_logs},
         'with-police' => \$option{with_police},
         'with-policy-bridge' => \$option{with_policy_bridge},
+        'stop' => \$option{stop}, 'restart' => \$option{restart},
 
         # TKT-1068, his own words on TG msg #8172: a bare dashboard command
         # now defaults to all three of these, and each gets its own opt-out
@@ -364,6 +365,62 @@ sub run {
         $option{no_session_expire}  = 1 if !$option{with_session_expire};
     }
 
+    # TKT-1125, Michael's own live ask: an agent had no way to stop or
+    # restart tira.dashboard, and a restart has to remember what it was
+    # started with - --with-police/--with-policy-bridge among them, not
+    # retyped from memory. Checked here, ahead of everything below, because
+    # --stop/--restart act on an ALREADY-RUNNING board rather than serving
+    # one - none of the render/data closures or police/policy-bridge
+    # spawning further down is ever reached for either.
+    if ( $command =~ /\Adashboard(?:\.(?:sow|epic|ticket))?\z/ && ( $option{stop} || $option{restart} ) ) {
+        if ( $option{stop} && $option{restart} ) {
+            print {*STDERR} "Use only one of --stop or --restart\n";
+            return 1;
+        }
+        require Tira::CLI::Serve;
+        require Tira::CLI::Police;
+
+        # $option{project} is not set yet - that assignment from
+        # $environment_project happens further down (line ~495), after this
+        # block, which ran --stop/--restart against '.' regardless of
+        # TIRA_HOME until caught live: it only worked from inside the
+        # project's own directory, not "from another terminal or session"
+        # as documented. $environment_project is used directly here instead.
+        my $serving = eval { $tira->discover_project( project => $environment_project ) };
+        if ( !defined $serving ) {
+            print {*STDERR} ( $@ || "Unable to resolve the board to stop\n" );
+            return 1;
+        }
+        my $store = defined $option{store} && length $option{store}
+          ? $option{store}
+          : Tira::CLI::Police::_police_store($serving);
+        if ( $option{restart} ) {
+            my $result = Tira::CLI::Serve::_restart_dashboard( store => $store );
+
+            # _restart_dashboard execs into the remembered invocation on
+            # success and never returns to here - reaching this line at all
+            # means it could not.
+            print {*STDERR} "Could not restart: $result->{refused}\n";
+            return 1;
+        }
+        my $result = Tira::CLI::Serve::_stop_dashboard( store => $store );
+        if ( !$result->{stopped} ) {
+
+            # CODEX REVIEW: "still-running" means a board was genuinely
+            # found and signalled, not that there was nothing to stop -
+            # the two need different words, since the second one is the
+            # normal "already down" case and the first is a real failure.
+            print {*STDERR} $result->{refused} eq 'still-running'
+              ? "Signalled the board, but it is still answering on its port after waiting - it may not have stopped.\n"
+              : "Nothing to stop - no board is currently running for this project ($result->{refused}).\n";
+            return 1;
+        }
+        print "Stopped the board"
+          . ( ( $result->{state}{police_pid} || $result->{state}{policy_bridge_pid} )
+            ? " and its police/policy-bridge companions.\n" : ".\n" );
+        return 0;
+    }
+
     # --file is a list only where a batch makes sense, and one file everywhere
     # else. Nine commands read it - attachment, question voice and answer, bulk
     # import, comment add and update among them - so handing eight of them an
@@ -460,6 +517,15 @@ sub run {
     die "--show-logs needs -o browser: the record it keeps is read through the "
       . "page the board serves, and there is no page in '$option{output}'\n"
       if $option{show_logs} && $option{output} !~ /\Abrowser(?:=|\z)/;
+
+    # TKT-1125: accepted-and-ignored is the fault this file refuses
+    # everywhere else. A non-dashboard command reaching here with either
+    # flag set means the dashboard-specific early return above never fired.
+    die "--stop belongs to the dashboard command - it stops the board "
+      . "tira.dashboard was told to serve\n"
+      if $option{stop} && $command !~ /\Adashboard(?:\.(?:sow|epic|ticket))?\z/;
+    die "--restart belongs to the dashboard command, for the same reason --stop does\n"
+      if $option{restart} && $command !~ /\Adashboard(?:\.(?:sow|epic|ticket))?\z/;
 
     # --with-police (TKT-897) and --with-policy-bridge (TKT-1026): full
     # reasoning is with the shared refusal itself, kept in Tira::CLI::Serve
@@ -710,6 +776,26 @@ sub run {
             tira    => $tira, project => $serving, store => $option{store},
             name    => 'the policy bridge', run => 'd2 tira.policy.bridge' );
 
+        # TKT-1125: a separate `tira.dashboard --stop`/`--restart` invocation
+        # is a NEW process with no access to this one's own in-memory argv -
+        # written to disk here, in the same store the police/HUP state
+        # already lives in, so it can be found and replayed later. Cleared
+        # below once serve() returns, the same way the police/policy-bridge
+        # companions are stopped there rather than left running.
+        my $dashboard_store = defined $option{store} && length $option{store}
+          ? $option{store}
+          : do { require Tira::CLI::Police; Tira::CLI::Police::_police_store($serving) };
+        # CODEX REVIEW: same "still worth serving, said rather than
+        # swallowed" shape as a failed police/policy-bridge spawn above -
+        # an unwritable store should not stop the board, just its own
+        # --stop/--restart, and silently is the one answer this refuses.
+        print {*STDERR} "tira: could not record dashboard state in $dashboard_store - "
+          . "--stop/--restart will not find this board\n"
+          if !Tira::CLI::Serve::_write_dashboard_state(
+            store => $dashboard_store, pid => $$, port => $browser_port,
+            command => $command, argv => [@Tira::CLI::RESTART_ARGV],
+            police_pid => $police_child, policy_bridge_pid => $policy_bridge_child );
+
         my $served = eval {
             ( $browser_server || \&Tira::CLI::Serve::_serve_browser )->(
                 host => $browser_host, port => $browser_port, render => $render, data => $data,
@@ -752,6 +838,11 @@ sub run {
           if $police_child;
         ( $policy_bridge_stopper || \&Tira::CLI::Serve::_stop_policy_bridge_beside_board )->($policy_bridge_child)
           if $policy_bridge_child;
+
+        # TKT-1125: this board is no longer running - a `--stop`/`--restart`
+        # reading the state file after this point must find nothing, the
+        # same way it would find nothing for a board that was never started.
+        Tira::CLI::Serve::_clear_dashboard_state($dashboard_store);
 
         return _error( $tira, 'toon', $@ || 'Unable to serve dashboard' ) if !$served;
         return 0;

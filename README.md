@@ -766,7 +766,7 @@ none of it. Since 5.89 those assets are formatted rather than left as the
 single minified line each kept from the move - a change to any one of them
 now reads as an ordinary diff. Since 4.74 the CLI is split the same way for the same
 reason: `lib/Tira/CLI.pm` was 6,048 lines with every command body in it, and is
-2,553 lines now, with the bodies in `lib/Tira/CLI/` - `Browser`, `Police`, `Serve`,
+2,644 lines now, with the bodies in `lib/Tira/CLI/` - `Browser`, `Police`, `Serve`,
 `Records`, `Board`, `Wizard`, `Usage`, `Backup`. Each is loaded only when one of
 its commands runs, so an ordinary card command compiles none of them.
 Since 5.23 the engine is being split the same way and for the same reason:
@@ -805,7 +805,14 @@ validated engine as the CLI, and the comment section adds, edits, and
 permanently deletes comments with an author picker limited to active project
 people. Validation failures appear inside the dialog. “Last updated” changes
 only after fresh data is applied. Stop the foreground command with
-Ctrl-C when the dashboard is no longer needed.
+Ctrl-C when the dashboard is no longer needed - since 5.159 (TKT-1125),
+`d2 tira.dashboard --stop` is the way to be sure any `--with-police`/
+`--with-policy-bridge` companion is actually killed too, rather than
+depending on the terminal's own process-group signal delivery to reach
+it. `--stop` also works from another terminal or session for the same
+project, without a foreground terminal to interrupt;
+`d2 tira.dashboard --restart` stops it and starts it again with the exact
+command and flags it was originally launched with.
 
 The default all-interface bind is reachable from permitted network peers. Use
 `localhost` or `127.0.0.1` when the complete ticket payload must remain local

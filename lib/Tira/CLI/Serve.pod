@@ -35,6 +35,82 @@ It calls into no sibling module. This paragraph said otherwise until 4.74 -
 one note written once and pasted into all eight, describing a chain three of
 them do not sit in.
 
+=head2 tira.dashboard --stop / --restart (TKT-1125)
+
+A separately-invoked C<--stop>/C<--restart> is a NEW process, so it has no
+access to the running master's own C<@Tira::CLI::RESTART_ARGV> - the argv
+record the version-upgrade self-restart already replays via
+C<_restart_into>. C<_write_dashboard_state> persists what a later
+C<--stop>/C<--restart> needs (pid, port, the command name, the full argv,
+and each spawned companion's own pid) to a small state file in the
+board's own police store - the same store C<_dashboard_hup_mark_path>
+already uses for the same board - the moment the board starts serving,
+and C<_clear_dashboard_state> removes it the moment the board stops.
+Its own failure never stops the board itself: the caller in
+C<Tira::CLI::run> warns rather than refusing to serve, and the write's
+C<File::Path::make_path> call is eval-guarded, since it croaks (rather
+than failing quietly) on a store path that collides with an existing
+file - a startup crash over this convenience would be a worse fault than
+the one it exists to fix (CODEX REVIEW).
+
+C<_stop_dashboard> finds the master the same way C<_dashboard_hup_if_stale>
+already does: by the port it remembers, via C<_listening_pid>, never a
+pidfile (Michael's own precedent on TKT-565 - "find the pid on demand by
+checking which is the master process by the port number"). It confirms the
+process found there is genuinely a Starman (C<_confirm_starman>, sharing
+C<_dashboard_hup_if_stale>'s own check) before sending it C<INT> - the same
+signal Ctrl-C on the board's own foreground terminal already sends - and
+kills any recorded C<police_pid>/C<policy_bridge_pid> companion directly.
+
+RELYING ON C<Tira::CLI::run>'s existing "the pass dies with the board"
+cleanup to stop a companion, once C<$runner-E<gt>run($app)> returns, was
+the first design and was WRONG - measured live in a
+C<developer-dashboard:latest> container: Starman's own C<INT> handling
+exits the served process before that cleanup code ever runs, so a
+C<--with-policy-bridge> companion was orphaned every time despite
+C<--stop> reporting success. Signalling the master's process GROUP
+(negative pid) instead was tried next and also failed live: the master
+is not reliably its own process group leader (its pgid was the launching
+shell's, not its own, inside a container). Recording and killing each
+companion's own pid directly is the only one of the three that actually
+worked when measured.
+
+Companion pids are only ever taken from the state file as positive
+integers - a corrupted or hand-edited file holding C<0> (this process's
+own group) or a negative value (an arbitrary process group) is kill(2)'s
+own spelling for a group of processes, not "nothing to signal", so
+anything else is filtered out before a single
+C<kill> call is made (CODEX REVIEW).
+
+The stop then polls the port (Starman's graceful shutdown is not instant)
+before reporting itself done - and exhausting that poll's budget is not
+treated as proof the master died. A master still answering after the
+whole wait is reported C<still-running> rather than C<stopped>, so a
+board that never actually went down does not lose its one restart record
+to a false claim of success (CODEX REVIEW).
+
+C<_restart_dashboard> reads the state, stops the board, and re-execs into
+the exact script and argv it names via C<_restart_into> - the identical
+exec C<_restart_if_updated> already uses for the version-upgrade case,
+just triggered on demand instead of on a version mismatch. A stop that
+reports C<no-board> (the port already had nobody on it - stopped some
+other way since the state was written) is not a refusal for a restart:
+"make it running" still has something to do even when there was nothing
+left to stop. A stop that reports C<not-a-board> or C<still-running>
+still refuses outright - a stranger on the port would just fail to bind,
+and a board that never actually stopped should not be raced into a
+second one.
+
+Failing to exec is not the same as failing to stop: C<_stop_dashboard>
+already cleared the state as part of a successful stop, so if
+C<_restart_into> never actually replaces this process, the remembered
+command and argv are written straight back rather than left cleared -
+otherwise the very first retry after a failed exec would find nothing to
+replay (CODEX REVIEW). The companion pids are NOT part of what comes
+back, though: that same stop just killed them, and restoring their old
+values would let a later C<--stop> signal an already-dead, possibly
+since-reused pid instead of correctly finding none (CODEX REVIEW).
+
 =head1 SEE ALSO
 
 L<Tira::CLI>, L<Tira::CLI::Police>

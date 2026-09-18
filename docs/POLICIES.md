@@ -192,6 +192,24 @@ holds police, a later tira.police says so and exits 0. TKT-486 still applies
 everywhere else."* If you find your police quietly gone, that message is why,
 and its findings are in the terminal running the dashboard.
 
+**Stopping and restarting a board with its companions, from another
+terminal or session for the same project - TKT-1125 (5.159).**
+`d2 tira.dashboard --stop` finds the running board by the port it
+remembers (never a pidfile, the same `_listening_pid` convention police
+already uses), confirms it is genuinely a Starman, sends it the same
+`INT` Ctrl-C on its own terminal already would, and kills any
+`--with-police`/`--with-policy-bridge` companion it started beside it by
+that companion's own recorded pid. Measured live rather than assumed:
+relying on the cleanup already described above (which runs once
+`Tira::CLI::run`'s `serve()` call returns) does not reach a companion at
+all, because Starman's own `INT` handling exits the served process before
+that cleanup code ever runs - so each companion's pid is recorded
+separately in the board's own state file and killed directly, not left
+for the master to clean up on its way out. `d2 tira.dashboard --restart`
+does the same stop, then starts the board again with the exact command
+and flags it was originally launched with - rather than the tool's
+current defaults - by replaying that same state file.
+
 **Run it exactly as shown above - `d2 tira.policy.bridge`, nothing else.** It
 streams every event to its own stdout as it happens; that is what "tail it"
 means everywhere else in this guide. It is not an instruction to pipe the

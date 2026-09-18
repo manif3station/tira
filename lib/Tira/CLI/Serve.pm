@@ -9,9 +9,8 @@ package Tira::CLI::Serve;
 # had to be read through.
 #
 # THE PROCESS TABLE READERS ARE HERE because the police world scan is their
-# largest reader but not their owner - Tira::CLI::Police calls them by their
-# full names, the same way it calls the backup readers that stayed in the index.
-# A helper belongs where its subject is, not where its busiest caller is.
+# largest reader but not their owner - a helper belongs where its subject
+# is, not its busiest caller (Tira::CLI::Police calls them by full name).
 #
 # WHAT STAYED IN Tira::CLI: _command_of_pid, _parent_of_pid, _entrypoint_for,
 # _version_on_disk and _dashboard_hup_mark_path, which answer questions about
@@ -518,6 +517,78 @@ sub _dashboard_hup_mark_path {
     my ($store) = @_;
     return File::Spec->catfile( $store, '.dashboard.huped' );
 }
+# TKT-1125: state file lets --stop/--restart (a NEW process) replay the
+# master's own @Tira::CLI::RESTART_ARGV. Full rationale in Serve.pod.
+sub _dashboard_state_path { return File::Spec->catfile( $_[0], '.dashboard.state' ) }
+sub _write_dashboard_state {
+    my (%args) = @_;
+    require Cpanel::JSON::XS;
+    # eval'd - make_path croaks colliding with a file; startup must not crash over this.
+    return 0 if !-d $args{store} && !eval { File::Path::make_path( $args{store} ); 1 };
+    open my $fh, '>', _dashboard_state_path( $args{store} ) or return 0;
+    print {$fh} Cpanel::JSON::XS->new->canonical->encode(
+        { pid => $args{pid}, port => $args{port}, command => $args{command}, argv => $args{argv} // [],
+          police_pid => $args{police_pid}, policy_bridge_pid => $args{policy_bridge_pid} } );
+    close $fh; return 1;
+}
+sub _read_dashboard_state {
+    my ($store) = @_;
+    open my $fh, '<', _dashboard_state_path($store) or return undef;
+    my $raw = do { local $/; <$fh> }; close $fh;
+    require Cpanel::JSON::XS;
+    return eval { Cpanel::JSON::XS->new->decode($raw) };
+}
+sub _clear_dashboard_state { unlink _dashboard_state_path( $_[0] ); return 1 }
+sub _confirm_starman {    # same check _dashboard_hup_if_stale makes before HUPing
+    my ( $pid, %opts ) = @_;
+    my $command = ( $opts{identify} || sub { _command_of_pid( $_[0] ) } )->($pid);
+    return defined $command && $command =~ /\bstarman\b/i;
+}
+sub _stop_dashboard {    # INT like Ctrl-C - triggers run()'s own "pass dies with the board" cleanup
+    my (%opts) = @_;
+    my $state = _read_dashboard_state( $opts{store} );
+    return { stopped => 0, refused => 'not-running' } if !$state || !$state->{port};
+    # positive integers only - 0/negative means a process GROUP to kill(2), not one pid.
+    my @companions = grep { defined && /\A[1-9][0-9]*\z/ } @{$state}{qw(police_pid policy_bridge_pid)};
+    my $find = $opts{listening} || sub { _listening_pid( $_[0] ) };
+    my $pid = $find->( $state->{port} );
+    return { stopped => 0, refused => 'no-board' } if !defined $pid && !@companions;
+    return { stopped => 0, refused => 'not-a-board' }
+      if defined $pid && !( $opts{confirm} || \&_confirm_starman )->($pid);
+
+    # killed directly, not via the master - Starman's INT handling exits
+    # before run()'s post-return cleanup fires, and the master is not
+    # reliably its own process group leader either (both measured live).
+    ( $opts{kill_companion} || sub { kill 'TERM', $_[0] } )->($_) for @companions;
+    if ( defined $pid ) {
+        ( $opts{kill} || sub { kill 'INT', $_[0] } )->($pid);
+        my $sleep = $opts{sleep} || sub { select( undef, undef, undef, 0.2 ) };
+        for ( 1 .. ( $opts{wait_seconds} // 10 ) * 5 ) {    # polled: Starman's shutdown is not instant
+            last if !defined $find->( $state->{port} ); $sleep->();
+        }
+        # exhausting the poll budget is not proof the master is gone -
+        # claiming success here would clear the only restart record.
+        return { stopped => 0, refused => 'still-running', pid => $pid, state => $state }
+          if defined $find->( $state->{port} );
+    }
+    _clear_dashboard_state( $opts{store} );
+    return { stopped => 1, pid => $pid, state => $state };
+}
+sub _restart_dashboard {    # stop, then re-exec the SAME script/argv, like _restart_if_updated's upgrade case
+    my (%opts) = @_;
+    my $state = _read_dashboard_state( $opts{store} );
+    return { restarted => 0, refused => 'not-running' } if !$state || !$state->{argv} || !@{ $state->{argv} };
+    my $stopped = _stop_dashboard(%opts);    # "no-board" is fine here; "not-a-board"/"still-running" still refuse
+    return { restarted => 0, refused => $stopped->{refused} // 'stop-failed' }
+      if !$stopped->{stopped} && ( $stopped->{refused} // q{} ) ne 'no-board';
+    my $script = $opts{entrypoint} // _entrypoint_for( $state->{command} // 'dashboard' )
+      or return { restarted => 0, refused => 'no-entrypoint' };
+    ( $opts{restarter} || \&_restart_into )->( $script, @{ $state->{argv} } );
+    # restore, minus the companion pids the stop above just killed - kept,
+    # a later --stop could signal an already-dead, possibly reused pid.
+    _write_dashboard_state( %{$state}, store => $opts{store}, police_pid => undef, policy_bridge_pid => undef );
+    return { restarted => 0, refused => 'exec-failed' };    # _restart_into never returns on success
+}
 sub _running {
     my (@command) = @_;
     return 0 if !_program_exists( $command[0] );
@@ -526,44 +597,23 @@ sub _running {
     close $handle;
     return $? == 0 ? 1 : 0;
 }
-# Running something whose own chatter is not the caller's business. git bundle
-# verify prints "<file> is okay" on the error stream when it succeeds, and a
-# successful import that prints to stderr reads like a warning to anybody
-# watching. Its answer is the exit status; its opinion is noise.
 # Running something whose own chatter is not the caller's business. git prints
 # "<file> is okay" on the error stream when a bundle verifies, and a successful
 # command that writes to stderr reads like a warning to whoever is watching.
 #
-# The parent hands the child a filehandle for its error stream, so nothing in
-# this process is reopened and no Perl runs in the child. Two other ways were
-# tried and both cost more than the line is worth: reopening this process's
-# stream took it away from every caller that had redirected it, and forking a
-# child that silences itself puts lines in the codebase that no coverage tool
-# can measure, because the child execs away before any counter is written.
-# Move the descriptors, not the globs.
+# Descriptors are moved, not globs: open3's approach (reopening STDOUT/STDERR
+# after forking) only moves descriptors 1/2 while those globs still own them -
+# a caller that captured its own output into a string (every test here, and
+# the served dashboard collecting a response) leaves the glob with no
+# descriptor at all, so the child's output reaches the real descriptor
+# unsilenced (measured: "git version 2.52.0" leaked to stdout). Every open3
+# variant tried leaked identically - the fault is on the parent's side of the
+# fork. Pointing the descriptors at the null device first means the child
+# inherits harmless ones regardless of the globs.
 #
-# open3 silences a child by reopening the STDOUT and STDERR globs after it
-# forks, which moves descriptors 1 and 2 only while those globs still own them.
-# A caller that captured its own output into a string - every test in this
-# suite, and the served dashboard collecting a response - leaves the glob with
-# no descriptor at all, so nothing the child does to it reaches descriptor 1,
-# exec passes the real one through, and the command that was run quietly is
-# heard. Measured rather than reasoned: the pipe open3 set up received nothing
-# and the process's own standard output received "git version 2.52.0".
-#
-# No choice of open3 argument fixes that - a handle, a fileno dup string and a
-# second null device were each tried and each leaked identically - because the
-# fault is on the parent's side of the fork. Pointing the descriptors themselves
-# at the null device first means the child inherits harmless ones whatever the
-# globs are doing.
-#
-# The same hole sits on the error stream. t/139 does not reach it because it
-# reopens STDERR onto a real file, which hands descriptor 2 back a real
-# descriptor and hides the fault - the same way an earlier attempt at t/204
-# went green by aiming descriptor 1 at a file.
-#
-# Both are put back before returning, so a caller keeps the output it had; that
-# is the failure t/139 records, and it is asserted here rather than assumed.
+# Both are put back before returning, so a caller keeps the output it had -
+# t/139 asserts this rather than assuming it (it reopens STDERR onto a real
+# file first, which would otherwise hide the same fault).
 sub _running_quietly {
     my (@command) = @_;
     return 0 if !_program_exists( $command[0] );
@@ -656,9 +706,8 @@ sub _serve_browser {
 # go."
 #
 # HERE RATHER THAN IN Tira::DashboardWeb, which is engine source: t/106 holds
-# the engine to inviting no processes at all, and forking one is exactly that.
-# This module is the CLI layer, which is where the board is served from and
-# where a process may be started.
+# the engine to inviting no processes at all, and forking one is exactly
+# that. This module is the CLI layer, where a process may be started.
 #
 # THE CHILD CLAIMS, NOT THE PARENT, because the claim names a pid and the pid
 # that matters is the one actually watching. It claims as the DASHBOARD, which
@@ -672,30 +721,16 @@ sub _start_police_beside_board {
     return $spawn->(%args);
 }
 
-# Police beside the served board, for tira.dashboard -o browser --with-police.
-# His words on TKT-897: "So the user doesn't need to run 2 terminals. All in 1
-# go."
+# open3, not fork/exec (same argument as Tira::CLI::Job's monitor-starting):
+# a hand-rolled fork puts the child's exec in a branch Devel::Cover cannot
+# follow, which gate-run refused twice on the first version of this. open3
+# does the forking in code that is not ours to cover.
 #
-# WHY open3 AND NOT fork/exec, which is the same argument Tira::CLI::Job already
-# makes for starting a monitor and is worth repeating rather than pointing at: a
-# hand-rolled fork puts the child's exec in a branch that ONLY EVER RUNS IN THE
-# CHILD, where Devel::Cover cannot follow it. The first version of this did
-# exactly that, and gate-run refused it twice - first at the exec, then again at
-# the injectable defaults added to make the child reachable. The gate was right
-# both times: code that only runs in a child is code no test has watched, and
-# writing seams until it looks covered is meeting the number rather than the
-# point. open3 does the forking in code that is not ours to cover.
-#
-# THE CHILD KEEPS THIS TERMINAL, which is the entire feature. Its output goes to
-# the parent's own handles rather than a pipe - a pipe would put the findings
-# somewhere nobody is reading, and worse, an unread pipe fills at about 64KB and
-# would block police forever, which is the deadlock TKT-841 was reviewed for.
-#
-# IT LEARNS IT IS THE DASHBOARD'S FROM THE ENVIRONMENT, because it is a separate
-# process now rather than a fork carrying our variables. police_follow reads
-# TIRA_POLICE_HOLDER, and an unrecognised value is normalised to an ordinary
-# claim, so a stray environment cannot buy the protection only the dashboard
-# earns.
+# The child keeps this terminal - the entire feature - by writing to the
+# parent's own handles rather than a pipe, which would go unread and fill at
+# ~64KB, the TKT-841 deadlock. It learns it is the dashboard's from the
+# environment (TIRA_POLICE_HOLDER), since it is a separate process now
+# rather than a fork carrying our variables.
 sub _spawn_police_beside_board {
     my (%args) = @_;
 

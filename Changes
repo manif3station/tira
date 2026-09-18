@@ -1,5 +1,27 @@
 Revision history for Tira
 
+5.155  2026-09-18
+    - TKT-1123, TG msg #8571/#8572: added `tira.schema.export --file FILE`
+      (writes a board's columns/column-chain/prefix/digits per type plus
+      its declared and declined policies as JSON - read-only, never
+      touches the board) and a new `--from-schema FILE` flag on the
+      existing `tira.onboard` command (Q-172, Michael's own call - not a
+      standalone command) that applies an exported schema right after the
+      wizard creates the skeleton, overriding whatever was just typed.
+      Cards, jobs and tasks are explicitly out of scope. Three rounds of
+      Codex review caught real bugs before shipping: policy_counter not
+      carried over (a POL-NNN id collision risk), --from-schema silently
+      overwriting an existing project's columns/prefix even with real
+      records already on it, and unvalidated schema input - all fixed,
+      with the whole check-then-write sequence now running inside one
+      held project lock. This ticket's own manual test-steps walkthrough
+      then found a fourth, separate bug no review or test had caught:
+      onboard's own printed JSON result kept showing the wizard's TYPED
+      prefixes/columns even after --from-schema had silently overridden
+      them on disk - a command reporting something other than what it
+      actually did. Fixed by refreshing the printed summary after the
+      import runs, the same way project_new builds it in the first place.
+
 5.154  2026-09-18
     - TKT-1060: docs/POLICIES.md's card-sandbox-missing row named
       `tira.policy.declare` in backtick-command shape while describing a

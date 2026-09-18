@@ -2932,6 +2932,28 @@ answers, unusable answers are re-asked, and both declining and running out of
 input leave nothing behind. Only `tira.onboard` ever prompts — `project.new`
 is purely argument-driven so nothing automated can be left waiting on input.
 
+TKT-1123: `tira.onboard --from-schema FILE` applies a previously exported
+schema (`tira.schema.export --file FILE`) right after the wizard's own
+answers create the project skeleton, overwriting whatever columns/prefixes
+were just typed with the schema's per-type columns, prefix, digits and
+declared/declined policies. `next_number` is deliberately left alone, so
+the new project still starts counting at 1 even from a schema whose source
+board had a much higher counter. Cards, jobs and tasks are out of scope by
+design - a schema is the shape a board is built from, not the work on it.
+
+Codex review caught what "fresh" actually needs to mean: `onboard` is
+intentionally re-runnable against an existing project, but applying a
+schema's columns/prefix on top of a board that already has real records
+can orphan cards sitting in a column the new layout no longer has, or
+split a reference series against a changed prefix. `schema_import` now
+checks every type the schema names for existing records BEFORE writing
+anything, refuses per type if any are found, and does the whole check and
+every write inside one held project lock so nothing can be created in the
+gap between the check and the write. The schema's own shape is validated
+first too - each type needs a non-empty, correctly-slugged set of columns
+and a real prefix/digits pair - so a malformed or hand-edited schema file
+is refused before it can leave a board half-configured.
+
 TKT-562: `--mode` is checked before anything is created, on both commands.
 It used to be applied after the project had been fully written, so an
 invalid value produced a failed command *and* a real project on disk, with

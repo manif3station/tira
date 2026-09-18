@@ -1458,6 +1458,7 @@ tira.column.endings [--type TYPE] [-o FORMAT]
 tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [-o FORMAT]
 tira.import --file FILE [--dry-run] [-o FORMAT]
 tira.changelog.check [--file FILE] [-o FORMAT]
+tira.schema.export --file FILE [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [--count] [--refs-only] [-o FORMAT]
 tira.search.index [-o FORMAT]
 tira.replace --pattern REGEX --with TEXT [--field FIELD ...] [--type TYPE] [--dry-run] [-o FORMAT]
@@ -1853,6 +1854,24 @@ Every case below is implemented and executable.
 ### UC-001: Create a project, or a whole board setup, in one call
 **Implemented.** `d2 tira.project.create --name "MT5"` creates an empty project in the current directory. `d2 tira.project.new --name "MT5" --members "K-Bot, Michael" --columns "Backlog, Planning, In Progress, Done / Release" --sow-prefix M5S --epic-prefix M5E --ticket-prefix M5T` does the whole onboarding at once — people, per-board reference prefixes, and the same columns on all three boards, named as they read. `d2 tira.onboard` asks the same questions one at a time and creates it from the answers.
 
+### UC-001a: Export a board's shape, and onboard a new one from it
+**Implemented, TKT-1123.** Michael, via TG (msg #8571/#8572): capture a
+board's shape - policies, columns, the column chain, the entry point,
+each type's prefix, and the required-action templates that live inside
+each column - "everything but except the cards", and "except jobs and
+tasks" too. `d2 tira.schema.export --file schema.json` writes exactly that
+(per-type `columns`/`prefix`/`digits`, plus the declared and declined
+policy ledgers) as JSON; it never writes to the board itself, so exporting
+a live project is always safe. `d2 tira.onboard --from-schema schema.json`
+(a new flag on the existing command - Q-172, his own call, not a
+standalone command) applies it right after the wizard's own answers create
+the skeleton, overwriting whatever columns/prefixes were just typed with
+the schema's. `next_number` is deliberately left alone, so an onboarded
+project always starts counting from 1 even when the schema came from a
+board with a much higher counter. Cards, jobs and tasks are out of scope
+by design - a schema is the shape a board is built from, not the work on
+it.
+
 ### UC-002: Create elsewhere
 **Implemented.** `d2 tira.project.create --name "API" --dir ~/work/api`.
 
@@ -2143,7 +2162,9 @@ the plain functions `_render_view`, `_view_asset` and `json_object`.
 
 **`--help` on a command that does not exist is refused, not answered, since 5.112** (TKT-660). `Tira::CLI->run()` handled `--help` before dispatch, so a name with no entrypoint anywhere got the fallback usage line - grammatical, correctly formatted, naming the invented command back - and returned success. The dispatcher's own unknown-command "Did you mean" was never reached, because the help branch returns before dispatch runs at all. New module `lib/Tira/CLI/Command.pm` answers whether a bare command is real by reading `lib/Tira/CLI.pm`'s own dispatch surface: both the literal `$command eq '...'` shape t/410 already reads for its usage-line ledger, AND the regex-alternation shape (`$command =~ /\Alogin\.(register|check|status|logout)\z/` and two dozen more) t/410 does not need to check. An early version of this fix checked only the first shape and would have refused `--help` for `login.status`, `dashboard.sow` and every other regex-dispatched command as though it did not exist - caught by this ticket's own `t/1086` the first time it ran against a real implementation. The fix tests the dispatch regex objects directly against the given name rather than trying to re-derive every concrete string an alternation can produce, and was verified with a standalone sweep against all statically-extracted real commands (0 false negatives) before shipping. Typed record commands (`ticket.foo`, `epic.bar`) are unaffected - they always arrive with `$type` already set by their own entrypoint script, never as the bare dotted name. Split into its own module rather than growing `lib/Tira/CLI/Usage.pm` past its own 500-line limit, which t/524 caught live mid-implementation.
 
-`lib/Tira.pm` is 15,368 lines now (TKT-972, 5.150 - measured now rather
+`lib/Tira.pm` is 15,509 lines now (TKT-1123, 5.155), which added
+`schema_export`/`schema_import`. It was 15,368 as
+of TKT-972 (5.150 - measured now rather
 than carried forward, the fault this section is about). It was 15,317 as
 of TKT-970 (5.149), which removed record_list's own inert include_discard
 argument from every call site that passed it. It was 15,279 as
@@ -2669,7 +2690,7 @@ tira.dwell.report [--type ticket|epic|sow] [-o FORMAT]
 tira.gates.install [-o FORMAT]
 tira.next [--type ticket|epic|sow] [--brief] [--truncate N] [-o FORMAT]
 tira.notify.moves [--column SLUG] [--chat ID] [--watch|--no-watch] [-o FORMAT]
-tira.onboard [--name NAME] [--dir DIR] [--mode single|chain] [--columns LIST] [--sow-prefix TEXT] [--epic-prefix TEXT] [--ticket-prefix TEXT] [--digits N] [--members LIST] [--author NAME] [-o FORMAT]
+tira.onboard [--name NAME] [--dir DIR] [--mode single|chain] [--columns LIST] [--sow-prefix TEXT] [--epic-prefix TEXT] [--ticket-prefix TEXT] [--digits N] [--members LIST] [--from-schema FILE] [--author NAME] [-o FORMAT]
 tira.outstanding [--fresh] [--include-discard] [-o FORMAT]
 tira.police [--author NAME] [--rounds N] [--interval SECONDS] [--once] [--store PATH] [-o FORMAT]
 tira.police.log [--store PATH] [-o FORMAT]

@@ -163,6 +163,7 @@ sub run {
         'after=s' => \$option{after}, 'before=s' => \$option{before},
         'new-name=s' => \$option{new_name}, 'prefix=s' => \$option{prefix},
         'digits=i' => \$option{digits}, 'ref=s@' => \$option{ref_list},
+        'from-schema=s' => \$option{from_schema},
         'refs=s' => \$option{refs},
         'column=s' => \$option{column}, 'parent=s' => \$option{parent},
         'child=s' => \$option{child},
@@ -1338,6 +1339,8 @@ sub _invoke {
 
     die "Nested belongs to the project.new, project.create and onboard commands\n"
       if $option->{nested} && $command !~ /\A(?:project\.(?:new|create)|onboard)\z/;
+    die "--from-schema belongs to the onboard command\n"
+      if defined $option->{from_schema} && $command ne 'onboard';
     die "A mark belongs to the question.mark command\n"
       if defined $option->{mark} && $command ne 'question.mark';
     # Shared by both checks below - these four also take a reason and options.
@@ -1936,6 +1939,7 @@ sub _invoke {
         'checklist.update' => 'checklist_update',
         'required-action.list' => 'required_item_list', 'required-action.add' => 'required_item_add',
         'required-action.update' => 'required_item_update',
+        'schema.export' => 'schema_export',
         'search' => 'search', 'search.index' => 'search_index', 'dashboard' => 'dashboard',
         'dashboard.sow' => 'dashboard', 'dashboard.epic' => 'dashboard', 'dashboard.ticket' => 'dashboard',
         'outstanding' => 'outstanding_summary',

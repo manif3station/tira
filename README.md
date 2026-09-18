@@ -766,7 +766,7 @@ none of it. Since 5.89 those assets are formatted rather than left as the
 single minified line each kept from the move - a change to any one of them
 now reads as an ordinary diff. Since 4.74 the CLI is split the same way for the same
 reason: `lib/Tira/CLI.pm` was 6,048 lines with every command body in it, and is
-2,540 lines now, with the bodies in `lib/Tira/CLI/` - `Browser`, `Police`, `Serve`,
+2,544 lines now, with the bodies in `lib/Tira/CLI/` - `Browser`, `Police`, `Serve`,
 `Records`, `Board`, `Wizard`, `Usage`, `Backup`. Each is loaded only when one of
 its commands runs, so an ordinary card command compiles none of them.
 Since 5.23 the engine is being split the same way and for the same reason:
@@ -777,7 +777,7 @@ overrides, 5.23), `lib/Tira/Tasklist.pm` (the shared to-do queue, 5.24) and
 `lib/Tira/Attachment.pm` (storing files and hanging them off records, 5.42),
 each loaded with `require` at the point it is actually needed, and
 `lib/Tira/Notification.pm` (card-reminder escalation and the board's own
-warning log, TKT-1102). `lib/Tira.pm` is 15,368 lines now (TKT-972): TKT-1098 first
+warning log, TKT-1102). `lib/Tira.pm` is 15,509 lines now (TKT-1123 added schema_export/schema_import); it was 15,368 lines as of TKT-972. TKT-1098 first
 dropped it sharply for a reason unrelated to decomposition - its own POD
 block, previously carried inline at the end of the file, moved to a
 sibling `lib/Tira.pod` (the standard CPAN same-basename convention), so

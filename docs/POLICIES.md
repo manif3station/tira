@@ -112,6 +112,13 @@ d2 tira.police
 d2 tira.policy.bridge
 ```
 
+**Already have a board whose rules you want on a new one?** TKT-1123:
+`d2 tira.schema.export --file schema.json` captures this board's declared
+and declined policies (along with its columns, column chain, prefixes and
+digits - not its cards, jobs or tasks). `d2 tira.onboard --from-schema
+schema.json` applies that same shape to a fresh project in one step,
+skipping all five steps above.
+
 **A policy set without the bridge running is worse than no policy at all**,
 because it looks like cover. Police will be saying things and nobody will be
 listening. Keep the bridge running for as long as you are working.

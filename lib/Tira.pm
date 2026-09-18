@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.154';
+our $VERSION = '5.155';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -7322,6 +7322,147 @@ sub policy_list {
     my $root = $self->discover_project(%args);
     my ( undef, $data ) = $self->_project_data($root);
     return $data->{policies} // [];
+}
+
+# TKT-1123. A schema is a board's shape with none of its work in it: columns
+# (which is also the column chain, since 'next' lives inside each column
+# entry), each type's prefix/digits, and the declared/declined policy
+# ledgers - including policy_counter, since POL-NNN ids are never reused
+# (policy_add's own comment) and an import that dropped it would let a
+# freshly onboarded project's next policy_add collide with an imported id.
+# Deliberately excludes cards, jobs and tasks - Michael's own scope for
+# this, since those are the work a schema is meant to be reusable without.
+# Reads only (_board_data/_project_data never write), so exporting a live
+# board is always safe.
+sub schema_export {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $file = $args{file};
+    die "A file is required: --file FILE\n" if !defined $file || $file eq '';
+    my %types;
+    for my $type (qw(sow epic ticket)) {
+        my ( undef, $config ) = $self->_board_data( project => $root, type => $type );
+        $types{$type} = {
+            prefix  => $config->{prefix},
+            digits  => $config->{digits},
+            columns => $config->{columns},
+        };
+    }
+    my ( undef, $data ) = $self->_project_data($root);
+    my $schema = {
+        schema_version    => 1,
+        types             => \%types,
+        policies          => $data->{policies} // [],
+        declined_policies => $data->{declined_policies} // [],
+        policy_counter    => $data->{policy_counter} // 0,
+    };
+    my $encoded = json_object()->utf8->canonical->pretty->encode($schema);
+    open my $fh, '>', $file or die "Cannot write '$file': $!\n";
+    binmode $fh, ':raw';
+    print {$fh} $encoded or die "Cannot write '$file': $!\n";
+    close $fh or die "Cannot write '$file': $!\n";
+    return $schema;
+}
+
+# The other half of TKT-1123: a new flag on the existing onboard command
+# (Michael's own call, Q-172 - not a standalone command), applied right
+# after project_new lays down the default skeleton. Per type, only the
+# fields schema_export captured are overwritten - next_number is left alone,
+# so a freshly onboarded project still starts counting at 1 even when the
+# schema came from a board with a much higher counter.
+#
+# CODEX REVIEW caught real gaps across two passes:
+#
+# 1. A board that already has records for a type refuses the import for
+#    that type outright, checked for every type BEFORE any type is written.
+#    --from-schema is for a fresh project; overwriting an existing board's
+#    columns out from under real cards can orphan them in a column the new
+#    layout no longer has, or split its reference series against a changed
+#    prefix. Checking every type first, and writing only after every check
+#    passes, also means a schema naming three types either lands as a whole
+#    or refuses as a whole - never two types written and a third refused
+#    partway through. SECOND PASS: the check-then-write shape still left a
+#    window between the preflight and the writes where a concurrent caller
+#    could create a record. The whole method now runs inside one held
+#    project lock (reentrant, so the inner per-type/per-policy locks below
+#    cost nothing extra) rather than one lock per step, closing that window.
+# 2. Each incoming type's columns are validated (a non-empty arrayref of
+#    hashes carrying a name that is actually a valid column slug, checked
+#    with the same _valid_slug every real column name is validated against
+#    elsewhere) before anything is written, so a malformed, empty, or
+#    not-actually-a-slug schema file dies before it can leave a type with a
+#    column nothing else in the engine would accept.
+# 3. policy_counter is imported too (see schema_export's own comment), and
+#    re-derived as the larger of the schema's own counter and the highest
+#    POL-NNN id actually present in the imported ledgers, so a hand-edited
+#    or older schema missing the counter still cannot collide. SECOND PASS:
+#    this used to run only when policies/declined_policies were non-empty,
+#    so a schema naming a nonzero policy_counter but no ledger entries at
+#    all left the target's own counter untouched - now checked independently.
+sub schema_import {
+    my ( $self, %args ) = @_;
+    my $root = $self->discover_project(%args);
+    my $file = $args{file};
+    die "A schema file is required: --from-schema FILE\n" if !defined $file || $file eq '';
+    my $schema = eval { json_decode( $self->_slurp($file) ) };
+    die "Cannot read schema file '$file': $@" if !$schema;
+    die "Schema file '$file' has no 'types' section to import\n"
+      if ref $schema->{types} ne 'HASH' || !%{ $schema->{types} };
+
+    my @import_types = grep { /\A(?:sow|epic|ticket)\z/ } sort keys %{ $schema->{types} };
+    die "Schema file '$file' names no recognised board type (sow, epic, ticket)\n"
+      if !@import_types;
+    die "Schema file '$file' has an invalid policy_counter '$schema->{policy_counter}'\n"
+      if defined $schema->{policy_counter} && $schema->{policy_counter} !~ /\A\d+\z/;
+
+    for my $type (@import_types) {
+        my $incoming = $schema->{types}{$type};
+        die "Schema file '$file': '$type' has no columns to import\n"
+          if ref $incoming->{columns} ne 'ARRAY' || !@{ $incoming->{columns} };
+        for my $column ( @{ $incoming->{columns} } ) {
+            die "Schema file '$file': '$type' has a malformed column (not a named object)\n"
+              if ref $column ne 'HASH' || !defined $column->{name} || $column->{name} eq '';
+            eval { $self->_valid_slug( $column->{name} ) };
+            die "Schema file '$file': '$type' names an invalid column '$column->{name}'\n" if $@;
+        }
+        die "Schema file '$file': '$type' has an invalid prefix '$incoming->{prefix}'\n"
+          if defined $incoming->{prefix} && $incoming->{prefix} !~ /\A[A-Z][A-Z0-9-]{0,31}\z/;
+        die "Schema file '$file': '$type' has invalid digits '$incoming->{digits}'\n"
+          if defined $incoming->{digits} && ( $incoming->{digits} !~ /\A\d+\z/ || $incoming->{digits} < 1 || $incoming->{digits} > 12 );
+    }
+
+    return $self->_with_project_lock( $root, sub {
+        for my $type (@import_types) {
+            my @existing = @{ $self->record_list( project => $root, type => $type, refs_only => 1 ) };
+            die "Refusing to import the '$type' schema: this board already has "
+              . scalar(@existing) . " $type record(s). --from-schema is for a fresh "
+              . "project, not one with work already on it.\n"
+              if @existing;
+        }
+
+        for my $type (@import_types) {
+            my $incoming = $schema->{types}{$type};
+            my ( $path, $config ) = $self->_board_data( project => $root, type => $type );
+            $config->{columns} = $incoming->{columns};
+            $config->{prefix}  = $incoming->{prefix} if defined $incoming->{prefix};
+            $config->{digits}  = $incoming->{digits} if defined $incoming->{digits};
+            $self->_validated_counter( $config, $path );
+            $self->_write_yaml( $path, $config );
+        }
+        if ( $schema->{policies} || $schema->{declined_policies} || defined $schema->{policy_counter} ) {
+            my ( $path, $data ) = $self->_project_data($root);
+            $data->{policies}          = $schema->{policies} // [];
+            $data->{declined_policies} = $schema->{declined_policies} // [];
+            my $highest = $schema->{policy_counter} // 0;
+            for my $policy ( @{ $data->{policies} }, @{ $data->{declined_policies} } ) {
+                next if !$policy->{id} || $policy->{id} !~ /\APOL-(\d+)\z/;
+                $highest = $1 if $1 > $highest;
+            }
+            $data->{policy_counter} = $highest;
+            $self->_write_yaml( $path, $data );
+        }
+        return { imported => \@import_types };
+    } );
 }
 
 # Considered, and deliberately not used.

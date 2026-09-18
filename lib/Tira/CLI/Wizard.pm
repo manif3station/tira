@@ -373,6 +373,33 @@ sub project_new_or_onboard {
         ( $option->{nested} ? ( nested => 1 ) : () ),
     );
 
+    # Applied right after the skeleton exists and before anything else reads
+    # it, so a schema's columns/prefix/policies are in place before onboard's
+    # own reminder-job registration below looks at $summary. Only onboard
+    # carries --from-schema (enforced in Tira::CLI's option guard), and it
+    # names an existing exported schema (tira.schema.export) rather than a
+    # new standalone command - TKT-1123, Michael's own call on the shape.
+    #
+    # $summary->{boards} is refreshed after the import, the same way
+    # project_new builds it in the first place - without this, the printed
+    # result kept showing the WIZARD'S OWN TYPED prefixes and columns even
+    # though the schema had already silently overridden them on disk, which
+    # is exactly the kind of misleading command output SOW-004 exists to
+    # find and remove. Caught in this ticket's own manual test-steps
+    # walkthrough (REQ-044) - not by Codex, not by the automated suite.
+    if ( $command eq 'onboard' && defined $option->{from_schema} ) {
+        $tira->schema_import( project => $option->{dir} // '.', file => $option->{from_schema} );
+        $summary->{boards} = [ map {
+            my $type = $_;
+            {
+                type    => $type,
+                prefix  => $tira->board_refs( project => $option->{dir} // '.', type => $type )->{prefix},
+                columns => [ map { $_->{name} }
+                    @{ $tira->column_list( project => $option->{dir} // '.', type => $type ) } ],
+            };
+        } qw(sow epic ticket) ];
+    }
+
     # Written after the project exists, because it is a fact about the
     # project rather than one of the things that makes one. Unanswered
     # leaves it unset, and unset is every board that exists today.

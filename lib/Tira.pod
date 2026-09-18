@@ -1260,6 +1260,24 @@ the rule declared board-wide for every other card.
 
 Returns the actions a policy may take: bridge-reminder, print-reminder, log-only.
 
+=head2 schema_export
+
+Writes a board's shape - per-type columns (the column chain lives inside
+each column's own C<next>), prefix, digits, and the declared/declined
+policy ledgers - as JSON to C<--file FILE>. Read-only; never writes to the
+board it reads from. Cards, jobs and tasks are deliberately out of scope.
+
+=head2 schema_import
+
+The other half of TKT-1123, called by C<tira.onboard --from-schema FILE>
+right after C<project_new> lays down a fresh project's skeleton. Overwrites
+each type's columns/prefix/digits and the project's policy ledgers (with
+C<policy_counter>) with what a prior C<schema_export> captured;
+C<next_number> is left alone, so the new project still starts counting at
+1. Refuses per type if the target already has real records, and validates
+the schema's own shape (columns, prefix, digits) before writing anything -
+the whole check-then-write runs inside one held project lock.
+
 =head2 policy_declined
 
 Returns declined rules, excluding any that have since been declared after all.

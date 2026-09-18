@@ -27,6 +27,71 @@ case "$message" in
   Merge\ *|Revert\ *|fixup!\ *|squash!\ *) exit 0 ;;
 esac
 
+# TKT-1029, Q-174, his own answer: "a commit whose only diff is
+# .env/Changes/VERSION never needs to name a card at all - it's release
+# bookkeeping, not a code change." A batch push's own version-bump commit
+# has no card it can legitimately name once every real ticket in the batch
+# has already reached push - naming an unrelated card instead swept that
+# card into pre-push's own card-holes check and wrongly refused the push
+# over its incompleteness (hit live, TKT-847). requires .env among the
+# changed files, since a real release bump always touches it - a commit
+# that happens to touch only lib/Tira.pm's $VERSION line with no .env
+# change is not this exemption, just an unusual code commit.
+# CODEX REVIEW caught two real gaps in the first draft:
+#
+# 1. Stripping any WHOLE LINE starting with the version assignment let a
+#    line shaped like `our $VERSION = '5.158'; do_real_work();` smuggle a
+#    trailing statement past the exemption undetected - the pattern must
+#    match the ENTIRE line, not just its start, and exactly one such line
+#    must exist on each side (a duplicated or removed version line is a
+#    real structural change, not "only the version changed").
+# 2. `git diff --cached --name-only` answers the same for a deleted .env
+#    as a modified one, so a commit that DELETES .env (while only editing
+#    Changes) satisfied "saw .env" without .env actually being bumped.
+#    `--diff-filter=M` on the .env check alone requires it be a real edit.
+version_only_change() {
+  local file="$1"
+  perl -e '
+    use strict; use warnings;
+    my $file = shift @ARGV;
+    my $version_line = qr/\A\s*our\s+\$VERSION\s*=\s*.*;\s*\z/;
+    sub slurp_lines {
+      my (@cmd) = @_;
+      open my $fh, "-|", @cmd or return [];
+      my @lines = <$fh>;
+      close $fh;
+      return \@lines;
+    }
+    sub strip_version {
+      my ( $pattern, @lines ) = @_;
+      my @matched = grep { /$pattern/ } @lines;
+      return undef if @matched != 1;
+      return join q{}, grep { !/$pattern/ } @lines;
+    }
+    my $old = strip_version( $version_line, @{ slurp_lines( "git", "show", "HEAD:$file" ) } );
+    my $new = strip_version( $version_line, @{ slurp_lines( "git", "show", ":$file" ) } );
+    exit 1 if !defined $old || !defined $new;
+    exit( $old eq $new ? 0 : 1 );
+  ' "$file"
+}
+
+release_only=1
+saw_env=0
+[ -n "$(git diff --cached --name-only --diff-filter=M -- .env)" ] && saw_env=1
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  case "$f" in
+    .env) continue ;;
+    Changes) continue ;;
+    lib/Tira.pm) version_only_change "$f" && continue ;;
+  esac
+  release_only=0
+  break
+done < <(git diff --cached --name-only)
+
+[ "$saw_env" -eq 1 ] || release_only=0
+[ "$release_only" -eq 1 ] && exit 0
+
 # The subject names what the commit is against; the body is prose. This project
 # quotes bridge lines and card references in commit messages constantly - that
 # is how a commit explains what it found - and reading the whole message made a

@@ -1,5 +1,19 @@
 Revision history for Tira
 
+5.158  2026-09-18
+    - TKT-1029, Q-174: tools/hooks/commit-msg now exempts a pure
+      release-bookkeeping commit (staged files only .env/Changes/lib/
+      Tira.pm's own $VERSION line, with .env among them) from needing to
+      name a card at all - "it's release bookkeeping, not a code change,"
+      his own words. Found live pushing a nine-card batch: once every real
+      ticket has already reached push, the version-bump commit that
+      satisfies pre-push's own VERSION-changed refusal has no card left it
+      can legitimately name, and naming an unrelated one swept it into
+      pre-push's card-holes check and wrongly blocked the release.
+      Deliberately not carried into the installable $COMMIT_GATE (tira.
+      gates.install), which is a different project's own convention to
+      keep or not.
+
 5.157  2026-09-18
     - TKT-1028, hourly bug hunt (JOB-001): `--with-police`/`--with-policy-
       bridge` were passed all the way into `DashboardWeb->serve` and read

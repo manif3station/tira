@@ -1539,6 +1539,28 @@ The commit gate asks the board which references are cards rather than assuming
 what a reference looks like, so it works on a project whose boards are named
 anything at all. Installing twice is safe.
 
+**This repo's own `commit-msg` also exempts a pure release-bookkeeping
+commit from naming a card at all, since 5.158 (TKT-1029).** His own answer
+(Q-174): "a commit whose only diff is `.env`/`Changes`/`VERSION` never
+needs to name a card at all - it's release bookkeeping, not a code
+change." Found live pushing a nine-card batch: once every real ticket in
+a batch has already reached `push`, the version-bump commit that satisfies
+`pre-push`'s own "VERSION did not change" refusal has no card left it can
+legitimately name - naming an unrelated in-progress card instead swept
+that card into `pre-push`'s own card-holes check and wrongly blocked the
+release over its incompleteness. A commit whose staged files are only
+`.env`, `Changes`, and/or `lib/Tira.pm` - with `lib/Tira.pm` carrying
+exactly one changed line and that line being the whole of its `$VERSION`
+assignment, nothing riding alongside it on the same line - skips the
+"name a card" requirement entirely, and only when `.env` was genuinely
+*modified* among them (deleting it does not count, and a code commit that
+happens to touch only the VERSION line with no real `.env` edit is not
+mistaken for this exemption either). **Deliberately not carried
+into the installable `$COMMIT_GATE`** (`tira.gates.install`): the
+exemption names `.env`/`lib/Tira.pm`'s own `$VERSION` convention, which is
+this project's own release shape, not a convention every installed
+project shares.
+
 ### `tira.police.suspend`
 
 Ask police to look away for a set number of seconds, so the agent can

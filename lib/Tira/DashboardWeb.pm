@@ -836,6 +836,16 @@ sub serve {
     local $ENV{TIRA_DASHBOARD_TYPE} = $args{type} // '';
     local $ENV{TIRA_DASHBOARD_TITLE} = $args{with_title} ? '1' : '0';
 
+    # TKT-1028, Michael's own answer (Q-173): with_police/with_policy_bridge
+    # travel to the workers the same way with_title does - through the
+    # environment, since a worker starts fresh and cannot be handed a
+    # closure over these - so dashboard.psgi can show a served page reads
+    # this to know whether police/the policy bridge were successfully
+    # spawned beside it, rather than accepting the flag and rendering
+    # nothing. A one-time snapshot at serve time, not a liveness probe.
+    local $ENV{TIRA_DASHBOARD_POLICE}        = $args{with_police}        ? '1' : '0';
+    local $ENV{TIRA_DASHBOARD_POLICY_BRIDGE} = $args{with_policy_bridge} ? '1' : '0';
+
     my $app = $class->_psgi_path;
 
     require Plack::Runner;
@@ -974,5 +984,13 @@ content type and disposition; unknown attachments answer 404.
 =head2 serve
 
 Runs the application using the supplied C<host>, C<port>, and provider values.
+
+C<with_police>/C<with_policy_bridge> (TKT-1028) travel to the workers via
+C<TIRA_DASHBOARD_POLICE>/C<TIRA_DASHBOARD_POLICY_BRIDGE>, the same way
+C<with_title> already does through C<TIRA_DASHBOARD_TITLE>, so a served
+page can show whether either companion process was successfully spawned
+alongside it - a one-time snapshot taken when the page is served, not a
+liveness probe; a companion that dies afterward is not reflected until
+the page is reloaded.
 
 =cut

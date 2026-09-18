@@ -1,5 +1,15 @@
 Revision history for Tira
 
+5.157  2026-09-18
+    - TKT-1028, hourly bug hunt (JOB-001): `--with-police`/`--with-policy-
+      bridge` were passed all the way into `DashboardWeb->serve` and read
+      nowhere past there - confirmed by grep, live, that nothing downstream
+      ever consumed them. Michael's own answer (Q-173): wire it up. A served
+      page now shows a small indicator ("Police running beside this board" /
+      "Policy bridge running beside this board") whenever the corresponding
+      flag is genuinely on, via two new env vars that travel to the workers
+      the same way TIRA_DASHBOARD_TITLE already does.
+
 5.156  2026-09-18
     - TKT-1025: t/176's ratchet (the ten-assertions-that-mean-something-else
       hunt) found two more unmarked bare qr/\S/ hits since its own last

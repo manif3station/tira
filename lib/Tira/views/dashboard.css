@@ -143,6 +143,30 @@ body:before {
   background: #22d3ee;
   box-shadow: 0 0 12px #22d3ee;
 }
+.dashboard-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.38rem 0.7rem;
+  color: #bbf7d0;
+  background: rgba(21, 128, 61, 0.16);
+  border: 1px solid rgba(134, 239, 172, 0.3);
+  border-radius: 999px;
+  font:
+    750 0.72rem/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.04em;
+}
+.dashboard-indicator:before {
+  content: "";
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 12px #4ade80;
+}
 .board {
   --accent: #818cf8;
   margin: 0 0 2rem;

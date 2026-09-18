@@ -826,6 +826,18 @@ than leaving a pid file naming a process that has gone. Combine it with
 dashboard together — his own words on Q-151: *"So there will be the bridge and
 the police and the dashboard run them all in 1 go."*
 
+**The served page shows it, since 5.157 (TKT-1028).** Both flags used to
+reach `Tira::DashboardWeb->serve` and stop there - confirmed by grep, live,
+that nothing downstream ever read either one. Michael's own answer (Q-173):
+wire it up. A served page now carries a small indicator, near the refresh
+status, saying "Police running beside this board" and/or "Policy bridge
+running beside this board" - and only when the companion process actually
+started, not merely because the flag was given (a failed spawn still serves
+the board, per the comment above, and would otherwise have claimed a police
+pass that was never really running). It is a one-time snapshot taken when
+the page is served, not a liveness probe - the badge does not know if the
+companion process exits afterward, and only a page reload would notice.
+
 **While the dashboard holds police, a later `tira.police` stands down.** It says
 which process holds the watch and exits 0, because standing aside is the correct
 outcome rather than a failure — a non-zero status there would make every wrapper

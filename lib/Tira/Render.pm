@@ -248,6 +248,8 @@ my $live_helpers = $args{live} ? Tira::_view_asset('live-helpers.js')
         boards      => $boards,
         dialog      => $dialog,
         script      => $script,
+        indicators  => ( $args{with_police} ? '<span class="dashboard-indicator dashboard-indicator--police">Police running beside this board</span>' : '' )
+          . ( $args{with_policy_bridge} ? '<span class="dashboard-indicator dashboard-indicator--policy-bridge">Policy bridge running beside this board</span>' : '' ),
     } );
 }
 

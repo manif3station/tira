@@ -727,8 +727,17 @@ sub run {
                 # to live and die beside - a pass started here would outlive a
                 # server that failed to bind, and the claim it holds would point
                 # at a pid nobody could find.
-                with_police => $option{with_police} ? 1 : 0,
-                with_policy_bridge => $option{with_policy_bridge} ? 1 : 0,
+                #
+                # TKT-1028, CODEX REVIEW: the served page's own indicator
+                # (Q-173's "wire it up") must say whether the companion is
+                # actually running, not merely whether it was asked for -
+                # _spawn_beside_board_if_requested answers undef and serves
+                # on regardless when a spawn fails ("the board is still
+                # worth serving without the bridge"), so $option{with_police}
+                # here would have shown "running" for a process that never
+                # started.
+                with_police => $police_child ? 1 : 0,
+                with_policy_bridge => $policy_bridge_child ? 1 : 0,
                 %tls, %providers,
             );
             1;

@@ -3551,6 +3551,23 @@ own equivalent, `TIRA_POLICY_BRIDGE_HOLDER`, set here the same way, so a later
 ordinary `tira.policy.bridge` stands down for a dashboard-spawned one instead
 of killing it.
 
+**The served page shows it, since 5.157 (TKT-1028).** Found by the hourly bug
+hunt: `--with-police`/`--with-policy-bridge` were passed all the way into
+`DashboardWeb->serve` and read nowhere past there - confirmed by grep, live,
+that nothing downstream ever consumed them. His own answer (Q-173): wire it
+up. A served page now carries a small indicator, near the refresh status,
+saying "Police running beside this board" and/or "Policy bridge running
+beside this board" whenever the corresponding companion process was
+successfully spawned alongside the server - not merely because the flag
+was asked for, since a failed spawn still serves the board and the page
+must not claim a pass that never started. `TIRA_DASHBOARD_POLICE`/
+`TIRA_DASHBOARD_POLICY_BRIDGE` travel to the workers the same way
+`TIRA_DASHBOARD_TITLE` already does, since a worker starts fresh and
+cannot be handed a closure over any of this. CODEX REVIEW: this is a
+one-time snapshot at the moment the page was served, not a liveness
+probe - if the companion process dies later, the badge is unaware of it
+until the page is reloaded.
+
 **`unpushed-work` stops demanding a push his own gate forbids, since 5.90
 (TKT-847).** On 2026-09-01 he made a card sitting unreviewed in
 `pending-push` the normal state - *"Card reach to pending push then wait for

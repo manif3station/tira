@@ -55,6 +55,12 @@ my $project = $ENV{TIRA_DASHBOARD_ROOT} // die "TIRA_DASHBOARD_ROOT is required\
 # afterwards, so the failure belongs here.
 my $type = $ENV{TIRA_DASHBOARD_TYPE};
 my $with_title = ( $ENV{TIRA_DASHBOARD_TITLE} // '' ) eq '1';
+
+# TKT-1028, Michael's own answer (Q-173): shown to the page, not silently
+# accepted and thrown away the way with_police/with_policy_bridge were
+# before this.
+my $with_police        = ( $ENV{TIRA_DASHBOARD_POLICE}        // '' ) eq '1';
+my $with_policy_bridge = ( $ENV{TIRA_DASHBOARD_POLICY_BRIDGE} // '' ) eq '1';
 # With the same resolver the CLI builds, so a worker is not the one process on
 # the machine that cannot say which board it is serving.
 #
@@ -96,6 +102,7 @@ Tira::DashboardWeb->build_psgi_app(
         return $tira->format_output(
             $tira->dashboard(%args), output => 'table', live => 1,
             with_title => $with_title, project => $project,
+            with_police => $with_police, with_policy_bridge => $with_policy_bridge,
         );
     },
     data => sub {

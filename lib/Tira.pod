@@ -1506,6 +1506,27 @@ Returns a record's history as a chronological work log, folding field writes tha
 
 Scans the project's stored JSON/YAML for corruption, repairing what it can.
 
+Two independent kinds of damage, found by two independent passes over the
+same files. The first, since 1.94, is a byte-level check: any byte that is
+not valid UTF-8, repaired (with C<--repair>) by reading it as latin-1 and
+writing it back as UTF-8. The second, since 5.162 (TKT-1131, found by an
+improvement hunt while working TKT-1130's C<record_update> fix), is a
+structural check: a card record whose C<evidence>/C<attachments>/
+C<gate_passing_log> is C<null> or not an ARRAY ref of HASH refs - the shape
+C<record_update> now refuses to write, but a record corrupted that way
+before 5.161 shipped, or written directly rather than through the engine,
+is perfectly valid JSON and so invisible to the byte check. C<null> counts
+as damage too, not a legitimate "no value": C<record_update>'s own guard
+treats undef as "never asked" at write time, but a record already holding
+one crashes C<evidence_add>'s C<@{$record-E<gt>{evidence}} + 1> the same
+way a plain string does. C<--repair> resets an offending field to C<[]>;
+there is no way to recover the intended array content from a corrupted
+scalar, and doing so rewrites the whole record through the canonical JSON
+encoder, so its formatting/key order can change even though content
+otherwise does not - unlike the byte repair, which touches only the bad
+byte. Both kinds of finding share the same C<damaged>/C<repaired> result
+lists.
+
 =head2 history_list
 
 Returns a record's field-write history, with first/last windowing and field/since filtering.

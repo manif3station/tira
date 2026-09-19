@@ -1,5 +1,27 @@
 Revision history for Tira
 
+5.163  2026-09-19
+    - TKT-1059, self-caught during a 2-hourly improvement hunt: t/lib/Suite.pm's
+      `cli_source` POD block never mentioned the optional NAME argument
+      TKT-973 (5.93) added (a by-name lookup that dies on no match or more
+      than one, the same shape `view_source`'s own POD already documents
+      right below it). Fixed - documentation only, no code behavior
+      changed - and a new test (t/1059) checks the POD block names the
+      argument and its failure shape.
+
+5.162  2026-09-19
+    - TKT-1131, found by a 2-hourly improvement hunt (JOB-002/TKT-521)
+      while working TKT-1130: `tira.doctor`'s damage scan only ever
+      checked for invalid UTF-8 bytes, so a record already corrupted the
+      way TKT-1028's own evidence field was - a scalar where
+      `evidence`/`attachments`/`gate_passing_log` should be an array of
+      hash records - was invisible to it, and would not have been
+      recoverable if it had been seen (recovery meant hand-editing the
+      raw JSON). `doctor` now also checks this shape on every card
+      record, reports it in the same `damaged[]` list, and `--repair`
+      resets the offending field to `[]` - there is no way to recover the
+      intended array content from a corrupted scalar.
+
 5.161  2026-09-19
     - TKT-1130, self-caught live while pushing TKT-1028: `d2 <type>.update
       --evidence TEXT` wrote the plain string straight into a field every

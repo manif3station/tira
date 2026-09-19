@@ -223,6 +223,14 @@ C<engine_source>, and together the two are F<lib/>. TKT-837 lifted two option
 tables out of F<lib/Tira/CLI.pm> and F<t/239>, which parsed them by filename,
 reported a table as empty when it had merely moved.
 
+Since TKT-973, an optional NAME argument (C<cli_source($name)>) returns just
+that one file's content instead of the whole concatenated layer - matched on
+a path suffix rather than a basename, since a name may be one directory deep
+(C<Job/Feeder.pm>), and B<dies> on no match or more than one, the same
+failure shape C<view_source> documents for itself below. A caller naming one
+file wants that file, not the whole layer silently substituted for it - the
+gap TKT-829 shipped through for ten call sites before this argument existed.
+
 =head2 view_source
 
 One view file, found by B<basename> wherever it lives under F<lib/>. Dies if

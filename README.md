@@ -25,6 +25,10 @@ CLI flag of its own - refuse any value that is not already an array of
 hash records, rather than silently overwriting the field with whatever
 string (or array of the wrong shape) the caller handed through and
 corrupting every later read of the card.
+Since 5.162 (TKT-1131), `tira.doctor` also detects a record already
+corrupted that way before 5.161 shipped - the JSON is valid, just the
+wrong shape - and `--repair` resets the field to `[]`, alongside its
+existing invalid-UTF-8-byte check.
 Since 5.89, `gate.add --details` refuses a whitespace-only value the same
 way it refuses an empty one — the last of this "required explanation"
 field family (evidence, checklist, required-action) still testing for
@@ -784,7 +788,7 @@ overrides, 5.23), `lib/Tira/Tasklist.pm` (the shared to-do queue, 5.24) and
 `lib/Tira/Attachment.pm` (storing files and hanging them off records, 5.42),
 each loaded with `require` at the point it is actually needed, and
 `lib/Tira/Notification.pm` (card-reminder escalation and the board's own
-warning log, TKT-1102). `lib/Tira.pm` is 15,530 lines now (TKT-1130 added the evidence/attachments/gate_passing_log shape guard); it was 15,368 lines as of TKT-972. TKT-1098 first
+warning log, TKT-1102). `lib/Tira.pm` is 15,585 lines now (TKT-1131 added doctor's shape-corruption scan); it was 15,368 lines as of TKT-972. TKT-1098 first
 dropped it sharply for a reason unrelated to decomposition - its own POD
 block, previously carried inline at the end of the file, moved to a
 sibling `lib/Tira.pod` (the standard CPAN same-basename convention), so

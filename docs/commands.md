@@ -3772,8 +3772,11 @@ file carried.
 ## Repairing a damaged board file
 
 `tira.doctor [--repair] [-o FORMAT]` finds board files holding bytes that are
-not valid UTF-8, naming the file, the byte and its offset. It reports only,
-until `--repair` is given.
+not valid UTF-8, naming the file, the byte and its offset - and, since 5.162
+(TKT-1131), a record whose `evidence`/`attachments`/`gate_passing_log` field
+is `null` or not an array of hash records, the shape every reader expects
+(the same shape `record_update` enforces on write, since 5.161/TKT-1130).
+It reports only, until `--repair` is given.
 
     d2 tira.doctor
     d2 tira.doctor --repair
@@ -3788,6 +3791,17 @@ A bad byte is repaired by reading it as latin-1 and writing it back as UTF-8, so
 would make the damage permanent. Nothing else in the file moves. Attachments are
 never touched, being bytes that were never meant to decode, and neither is the
 notification database.
+
+A corrupted `evidence`/`attachments`/`gate_passing_log` field is a different
+kind of damage - the JSON is valid, just the wrong shape: `null`, or a
+scalar/array of scalars in a spot every reader expects to be an array of
+hash records, from a record written before 5.161, or written directly
+rather than through the engine. There is no way to recover the intended
+array content from a corrupted scalar, so `--repair` resets the field to
+`[]` rather than attempting to guess it - unlike the byte repair above,
+this rewrites the whole record through the same canonical, pretty-printed
+JSON encoder every other write already uses, so its key order and
+formatting can change even though its content otherwise does not.
 
 ## Every other command
 

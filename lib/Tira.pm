@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.161';
+our $VERSION = '5.163';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -14944,7 +14944,62 @@ sub doctor {
         return;
     };
 
+    # TKT-1131. A second, unrelated kind of damage: TKT-1130 made
+    # record_update refuse to WRITE a scalar into evidence/attachments/
+    # gate_passing_log, but a record already corrupted that way before
+    # 5.161 (or written directly, bypassing the engine) still crashes every
+    # future read with "Can't use string (...) as an ARRAY ref". Byte
+    # decoding is fine here - the JSON itself is valid, just the wrong
+    # shape - so this is a structural check, not a character one, and only
+    # applies to an actual card record (one with a REF-shaped 'ref' key),
+    # never a journal line, index file, or anything else living under
+    # C<.tira>.
+    my @SHAPE_FIELD = qw(evidence attachments gate_passing_log);
+    my $look_shape = sub {
+        my $path = $File::Find::name;
+        return if !-f $path;
+        return if $path =~ m{/attachments/};
+        return if $path =~ /\.db\z/;
+        return if $path =~ m{/\.git/};
+
+        open my $fh, '<:raw', $path or return;
+        my $bytes = do { local $/; <$fh> };
+        close $fh;
+        return if !defined $bytes;
+
+        my $record = eval { json_decode($bytes) };
+        return if !$record || ref $record ne 'HASH';
+        return if !defined $record->{ref} || $record->{ref} !~ /\A[A-Z][A-Z0-9-]{0,31}-\d{1,12}\z/;
+
+        my $changed = 0;
+        for my $field (@SHAPE_FIELD) {
+            next if !exists $record->{$field};
+            my $value = $record->{$field};
+            next if defined $value && ref $value eq 'ARRAY' && !grep { ref $_ ne 'HASH' } @{$value};
+
+            push @damaged, {
+                path => $path,
+                field => $field,
+                detail => "expected an array of hash records for '$field', found "
+                  . ( defined $value ? ( ref($value) || 'a plain scalar' ) : 'null' ),
+            };
+            next if !$args{repair};
+
+            $record->{$field} = [];
+            $changed = 1;
+            push @repaired, {
+                path => $path,
+                field => $field,
+                detail => "reset '$field' to an empty array - the corrupted value could not be recovered",
+            };
+        }
+        $self->_atomic_write( $path, json_object()->canonical->pretty->utf8->encode($record) )
+          if $changed;
+        return;
+    };
+
     find( { wanted => $look, no_chdir => 1 }, $home ) if -d $home;
+    find( { wanted => $look_shape, no_chdir => 1 }, $home ) if -d $home;
 
     return {
         damaged  => [ sort { $a->{path} cmp $b->{path} } @damaged ],

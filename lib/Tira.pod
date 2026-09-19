@@ -112,6 +112,23 @@ read as confirmation the move had happened. Checked first, before the
 near-miss check and before the project lock, naming C<record_move> (or the
 type-specific C<*.move> verb) as the real command.
 
+B<C<evidence>/C<attachments>/C<gate_passing_log> refuse a non-array value,
+since 5.161> (TKT-1130, self-caught live while pushing TKT-1028): C<evidence>
+is a real CLI flag (C<--evidence>); C<attachments> and C<gate_passing_log>
+have no CLI flag of their own but are recognised at the engine level in the
+same shape. All three are a raw whole-array replacement kept for repair/
+import, and C<attachments> doubles as C<record_clone>'s own passthrough
+(TKT-609) - but the CLI always hands an option value through as a plain
+string. C<record_update> used to write that string straight into the field
+with no shape check, succeeding and printing the card back; every later
+C<record_show> then died with C<Can't use string (...) as an ARRAY ref while
+strict refs in use>. Now refused before the write - the outer value must be an ARRAY ref, and
+(caught by a second review pass) every entry in it must itself be a HASH
+ref, since a plain array of scalars corrupts the same way one level deeper
+- naming the field and the one correct dedicated verb for it
+(C<evidence_add>, C<attachment_add>, or C<gate_add>). A genuine ARRAY ref
+of hash records still passes through unchanged.
+
 =head2 rule_suspend
 
 Puts one policy rule down for a card, or the whole board, for a bounded

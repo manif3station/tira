@@ -1,5 +1,43 @@
 Revision history for Tira
 
+5.161  2026-09-19
+    - TKT-1130, self-caught live while pushing TKT-1028: `d2 <type>.update
+      --evidence TEXT` wrote the plain string straight into a field every
+      reader expects as an array of records, corrupting the card silently
+      - `update` returned success, and every later `<type>.show` died with
+      "Can't use string (...) as an ARRAY ref while strict refs in use".
+      `record_update` now refuses `evidence` (and, at the engine level -
+      `attachments`/`gate_passing_log` have no CLI flag of their own but
+      are the same recognised-and-corruptible shape for a direct Perl
+      caller) whenever the value given isn't already an ARRAY ref, naming
+      the field and the one correct dedicated verb for it (`evidence.add`,
+      `attachment.add`, or `gate.add`). A real ARRAY ref still passes
+      through unchanged, so `record_clone`'s own legitimate attachments
+      passthrough (TKT-609) is unaffected.
+
+      CAUGHT BY A CODEX ADVERSARIAL REVIEW (first pass): the first version
+      of this fix named all three verbs in every refusal regardless of
+      which field was rejected, and its own Changes/README/SKILLS/
+      docs/commands.md wording implied `--attachments`/`--gate-passing-log`
+      were real CLI flags, which they never were (only `--evidence` is).
+      Fixed: the refusal now names only the one correct verb per field,
+      and the documentation says plainly that `evidence` is the
+      CLI-reachable case while `attachments`/`gate_passing_log` are an
+      engine-level safeguard with no CLI flag at all.
+
+      CAUGHT BY A CODEX ADVERSARIAL REVIEW (second pass), also real: the
+      fix only checked the outer value was an ARRAY ref - an array of
+      plain scalars (`evidence => ['not a record']`) still corrupted the
+      card one level deeper, dying on the next read with "Can't use string
+      (...) as a HASH ref" instead. `record_update` now also refuses an
+      ARRAY ref whose entries are not themselves HASH refs, for the same
+      three keys. The review pass also caught the test file's own header
+      comment still implying `--attachments`/`--gate-passing-log` were CLI
+      flags after the first fix, and a `grep`/list-parsing bug in the
+      test's own added assertion (an unparenthesized `grep { BLOCK } LIST,
+      "message"` silently pulled the diagnostic string into the list being
+      grepped, inverting the check) - both fixed.
+
 5.160  2026-09-19
     - TKT-1126, Q-175 (Michael's own answer: a static snapshot). The
       served dashboard's police/policy-bridge indicator (TKT-1028) said

@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.160';
+our $VERSION = '5.161';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -3017,9 +3017,30 @@ sub record_update {
             my $replacement = "${argument}_replace";
             $record->{ $accumulating{$argument} } = $args{$replacement} if defined $args{$replacement};
         }
+        # TKT-1130. Every reader expects these three as an array of hash
+        # records, and the CLI always hands an option value through as a
+        # plain string - it never builds an arrayref from --evidence TEXT.
+        # Writing that string straight in here corrupted the field
+        # silently: the call returned success, and every later read died
+        # with "Can't use string (...) as an ARRAY ref while strict refs in
+        # use". A well-formed ARRAY ref still passes through unchanged -
+        # record_clone (TKT-609) relies on that for attachments, and this
+        # same raw evidence key is record_update's own documented repair/
+        # import path (see release_record's comment above).
         my %arrays = ( attachments => 'attachments', evidence => 'evidence', gate_passing_log => 'gate_passing_log' );
+        my %array_verb = ( attachments => 'attachment.add', evidence => 'evidence.add', gate_passing_log => 'gate.add' );
         for my $argument ( keys %arrays ) {
-            $record->{ $arrays{$argument} } = $args{$argument} if defined $args{$argument};
+            next if !defined $args{$argument};
+            die "record_update does not accept '$argument' as a plain value - it is a "
+              . "structured list every reader expects as an array of records, and writing "
+              . "anything else here would silently corrupt it. Use $array_verb{$argument} instead.\n"
+              if ref $args{$argument} ne 'ARRAY';
+            die "record_update does not accept '$argument' as an array of anything but hash "
+              . "records - every reader expects each entry to be one, and a bare value inside "
+              . "would corrupt the same way a scalar for the whole field does. Use "
+              . "$array_verb{$argument} instead.\n"
+              if grep { ref $_ ne 'HASH' } @{ $args{$argument} };
+            $record->{ $arrays{$argument} } = $args{$argument};
         }
         push @{ $record->{scope}{included} }, @{ $args{scope_in} } if defined $args{scope_in};
         push @{ $record->{scope}{excluded} }, @{ $args{scope_out} } if defined $args{scope_out};

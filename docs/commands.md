@@ -2267,7 +2267,33 @@ d2 tira.ticket.update --ref TKT-001 --author claude --details "..."   # refused
   record.update does not act on --details. Use tira.gate.add --details TEXT,
   the command that reads it, or tira.<type>.update --key-detail TEXT if what
   you meant was the ticket/epic/sow narrative field.
+
+d2 tira.ticket.update --ref TKT-001 --author claude --evidence "Ran the suite"   # refused
+  record_update does not accept 'evidence' as a plain value - it is a
+  structured list every reader expects as an array of records, and writing
+  anything else here would silently corrupt it. Use evidence.add instead.
 ```
+
+TKT-1130, self-caught live while pushing TKT-1028. `--evidence` is a real
+CLI flag (`tira.<type>.update --ref REF --evidence TEXT`); the CLI hands its
+value through as a plain string, never an array of hashes, and `evidence` is
+also one of the keys `record_update`'s generic setter has always recognised
+as a raw whole-array replacement (used internally for repair/import). A
+`--evidence TEXT` call used to write that string straight into the field,
+returning success and printing the card back - looking exactly like a
+normal update. Every later `<type>.show` then died with *"Can't use string
+(...) as an ARRAY ref while strict refs in use"*, and neither
+`tira.doctor --repair` nor `tira.project.validate --repair` detected or
+fixed it; recovery meant editing the raw JSON record by hand.
+`record_update` now refuses `evidence` (and, at the engine level only -
+`attachments` and `gate_passing_log` have no CLI flag at all, but are the
+same recognised-and-corruptible shape for a direct Perl caller, `record_clone`'s
+own attachments passthrough - TKT-609 - included) whenever the value given
+is not already an ARRAY ref, or is one whose entries are not themselves
+hash refs (a plain array of scalars corrupts the same way one level deeper),
+naming the field and the one correct dedicated verb for it (`evidence.add`,
+`attachment.add`, or `gate.add`) - a genuine ARRAY ref of hash records still
+passes through unchanged.
 
 A ticket/epic/sow has no `details` field at all - the narrative one is
 `key_details` - but the shared parser knows `--details` anyway since

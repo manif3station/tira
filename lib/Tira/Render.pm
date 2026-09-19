@@ -2,12 +2,10 @@ package Tira::Render;
 
 # The human and table renderers, lifted out of Tira.pm so that reading the
 # engine to change one command no longer means reading these too. TKT-746's
-# third lift (TKT-834), after Tira::Toon (TKT-830) and Tira::Tasklist
-# (TKT-832).
+# third lift (TKT-834), after Tira::Toon (TKT-830) and Tira::Tasklist (TKT-832).
 #
 # WHAT IS HERE: everything format_output delegates to except the TOON
-# encoder, which went to Tira::Toon. _markdown and _markdown_fields render
-# the "human" format; _dashboard_table builds the HTML board.
+# encoder (Tira::Toon) - _markdown/_markdown_fields render "human", _dashboard_table the HTML board.
 #
 # LOADED LAZILY. format_output requires this module immediately before its
 # human and table branches, and nowhere else - so a caller asking for toon
@@ -15,28 +13,24 @@ package Tira::Render;
 # module compiles standalone without Tira.pm loaded first, and a
 # format_output call for json or toon leaves Tira::Render out of %INC.
 #
-# THIS IS THE Tira::Toon SHAPE, NOT THE Tira::Tasklist SHAPE, and the
-# difference was measured rather than assumed. All four subs are reached
-# only from format_output's own branches; nothing in t/, cli/ or the CLI
-# modules names them. One caller means format_output calls in here directly
-# and no forwarder is left behind - unlike Tira::Tasklist, whose eighteen
-# public entry points each kept one.
+# THIS IS THE Tira::Toon SHAPE, NOT THE Tira::Tasklist SHAPE - measured,
+# not assumed. All four subs are reached only from format_output's own
+# branches, so no forwarder is left behind, unlike Tira::Tasklist's
+# eighteen public entry points, each of which kept one.
 #
 # TWO THINGS DELIBERATELY LEFT ON Tira, both because they have callers
 # outside this concern:
 #
-#   _html_escape - the login page HTML uses it too (Tira.pm:6070). It is
-#   reached here as $self->_html_escape(...), which resolves because $self
-#   is still a blessed Tira.
+#   _html_escape - the login page HTML uses it too (Tira.pm:6070), reached
+#   here as $self->_html_escape(...) since $self is still a blessed Tira.
 #
 #   _render_view / _view_asset / json_object - the view layer and the JSON
 #   backend, used all over the engine. These are PLAIN functions, not
 #   methods, so they are called here fully qualified as Tira::_render_view()
-#   and so on. Left unqualified they would resolve against Tira::Render,
-#   compile cleanly under perl -c, and die at runtime the first time a board
-#   was rendered - the fault TKT-607 produced seven times and TKT-832 at 36
-#   call sites. Found by grepping the moved region for its own dependencies
-#   BEFORE moving it, rather than by the suite afterwards.
+#   and so on - left unqualified they would resolve against Tira::Render,
+#   compile cleanly under perl -c, and die at runtime the first time a
+#   board was rendered (TKT-607, seven times; TKT-832, 36 call sites).
+#   Found by grepping the moved region for its own dependencies first.
 
 use strict;
 use warnings;
@@ -67,7 +61,13 @@ sub _markdown_value {
       if ref $value eq 'HASH';
     return $value eq '' ? '_Empty._' : $value;
 }
-
+# TKT-1126, Q-175: static snapshot - running/not-running whenever answered at all; undef renders nothing.
+sub _indicator {
+    my ( $slug, $label, $running ) = @_;
+    return '' if !defined $running;
+    return qq{<span class="dashboard-indicator dashboard-indicator--$slug">$label }
+      . ( $running ? 'running' : 'not running' ) . qq{ beside this board</span>};
+}
 sub _dashboard_table {
     my ( $self, $data, %args ) = @_;
     die "Table output requires dashboard data\n"
@@ -248,8 +248,8 @@ my $live_helpers = $args{live} ? Tira::_view_asset('live-helpers.js')
         boards      => $boards,
         dialog      => $dialog,
         script      => $script,
-        indicators  => ( $args{with_police} ? '<span class="dashboard-indicator dashboard-indicator--police">Police running beside this board</span>' : '' )
-          . ( $args{with_policy_bridge} ? '<span class="dashboard-indicator dashboard-indicator--policy-bridge">Policy bridge running beside this board</span>' : '' ),
+        indicators  => _indicator( 'police', 'Police', $args{with_police} )
+          . _indicator( 'policy-bridge', 'Policy bridge', $args{with_policy_bridge} ),
     } );
 }
 
@@ -385,18 +385,12 @@ did, and how much of it gets built is the view asset's decision.
 Two more empty controls sit beside the text filter, since 5.89 (TKT-764): a status C<< <select> >> (numeric option values) and an unlinked C<< <input type="checkbox"> >>, giving the panel the C<--status>/C<--unlinked> questions C<tasklist.list> already answers, without duplicating C<STATUS_NAME>'s own wording.
 
 The page's own frame is a contract too, and a quieter one. F<dashboard.tt> emits
-C<< <main class="shell"> >> wrapping C<< <header class="hero"> >>, and the hero
-is C<position: sticky; top: 0>. That single property decides what the space
-above it is worth. Padding on the shell above a sticky header is seen once, on
-first paint, and not again once anybody scrolls - and, less obviously, it is
-part of the header's normal-flow position, so it also sets how far the page must
-scroll before the header pins. A larger value both wastes a band nobody sees
-twice and keeps the header out of its useful position for longer. It stood at 3.5rem until
-TKT-859's neighbour TKT-855 cut it to 1rem - kept non-zero only because the
-header has rounded bottom corners and would otherwise meet the viewport edge as
-a torn line. Anybody making that header static again should reconsider the
-number rather than defend it, and F<t/501> asserts the sticky premise so the
-question is asked rather than missed.
+C<< <main class="shell"> >> wrapping C<< <header class="hero"> >>, sticky at
+C<top: 0> - padding above it is seen once, on first paint, and also sets how
+far the page scrolls before it pins, so a larger value wastes space twice
+over. TKT-859's neighbour TKT-855 cut it from 3.5rem to 1rem, kept non-zero
+only for the header's rounded bottom corners; F<t/501> asserts the sticky
+premise so a static header is reconsidered rather than assumed safe.
 
 The classes that shell emits are the contract F<dashboard.css> styles against.
 Until TKT-859 there were no C<.jobs-> rules at all - the shell was written here,
@@ -409,6 +403,11 @@ silently unstyled.
 Loaded with C<require> from C<format_output> immediately before its C<human>
 and C<table> branches, so a caller asking for C<toon> or C<json> never
 compiles it.
+
+C<_indicator> (TKT-1126, Q-175) is the static snapshot behind the police/
+policy-bridge indicators: it renders "running"/"not running" for any
+defined C<with_police>/C<with_policy_bridge> value, and nothing for
+C<undef> - a caller that never asked the question gets no answer either.
 
 =head1 CALL IT THROUGH TIRA, NOT DIRECTLY
 

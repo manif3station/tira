@@ -1,5 +1,14 @@
 Revision history for Tira
 
+5.160  2026-09-19
+    - TKT-1126, Q-175 (Michael's own answer: a static snapshot). The
+      served dashboard's police/policy-bridge indicator (TKT-1028) said
+      nothing at all when either was explicitly not running - the same
+      as never having asked. `_indicator` in Tira::Render now renders
+      "running"/"not running" for any defined `with_police`/
+      `with_policy_bridge` value, and stays silent only for `undef`
+      (never having asked the question at all).
+
 5.159  2026-09-18
     - TKT-1125, Michael's own live ask: "agent needs to have more control
       of the tira.dashboard... if an agent want to stop it, there is not

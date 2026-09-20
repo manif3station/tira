@@ -1,5 +1,19 @@
 Revision history for Tira
 
+5.164  2026-09-19
+    - TKT-1133, found by a 2-hourly improvement hunt while working
+      TKT-1130/1131: `record_update`'s shape-check loop declared `%arrays`
+      mapping each field name to itself (`attachments => 'attachments'`,
+      etc.) with no exceptions - pure indirection with no purpose.
+      Simplified to iterate the field names directly. No behavior change
+      for any single field, confirmed by an identical pass count on t/1130
+      and t/1131 before and after - the one edge case Codex review flagged
+      is that the iteration order used to be Perl's unspecified hash order
+      and is now the fixed order the fields are listed in, so a call that
+      passes two or three of these fields simultaneously invalid now
+      always reports the same one first, rather than whichever hash order
+      happened to land. Nothing observable depended on the old order.
+
 5.163  2026-09-19
     - TKT-1059, self-caught during a 2-hourly improvement hunt: t/lib/Suite.pm's
       `cli_source` POD block never mentioned the optional NAME argument

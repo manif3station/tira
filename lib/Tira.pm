@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.163';
+our $VERSION = '5.164';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -3027,9 +3027,8 @@ sub record_update {
         # record_clone (TKT-609) relies on that for attachments, and this
         # same raw evidence key is record_update's own documented repair/
         # import path (see release_record's comment above).
-        my %arrays = ( attachments => 'attachments', evidence => 'evidence', gate_passing_log => 'gate_passing_log' );
         my %array_verb = ( attachments => 'attachment.add', evidence => 'evidence.add', gate_passing_log => 'gate.add' );
-        for my $argument ( keys %arrays ) {
+        for my $argument ( qw(attachments evidence gate_passing_log) ) {
             next if !defined $args{$argument};
             die "record_update does not accept '$argument' as a plain value - it is a "
               . "structured list every reader expects as an array of records, and writing "
@@ -3040,7 +3039,7 @@ sub record_update {
               . "would corrupt the same way a scalar for the whole field does. Use "
               . "$array_verb{$argument} instead.\n"
               if grep { ref $_ ne 'HASH' } @{ $args{$argument} };
-            $record->{ $arrays{$argument} } = $args{$argument};
+            $record->{$argument} = $args{$argument};
         }
         push @{ $record->{scope}{included} }, @{ $args{scope_in} } if defined $args{scope_in};
         push @{ $record->{scope}{excluded} }, @{ $args{scope_out} } if defined $args{scope_out};

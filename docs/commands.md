@@ -1811,6 +1811,28 @@ capped at two attempts. A genuine test
 failure still breaks out immediately rather than spending a second
 ten-plus-minute run on a tree that is actually broken.
 
+**`cleanup()` now attempts a fallback rather than silently giving up on a
+worktree containing a root-owned path, since 5.165** (TKT-1073, the same
+root cause TKT-579 fixed in `tools/dev-run`). `cleanup()` removed its
+scratch worktree with a plain `git worktree remove --force "$tree"
+>/dev/null 2>&1 || true`; a `cover_db` written by root inside the
+container can leave a subdirectory git's own removal cannot delete, and
+the `|| true` swallowed that failure completely - gate-run reported
+success while the worktree survived on disk. Reproduced live: a real
+linked worktree with a chmod-000 root-owned subdirectory inside it failed
+`git worktree remove --force` exactly as described. `cleanup()` now tries
+git's own removal first (it also updates the main repo's worktree
+bookkeeping when it succeeds), and only on failure attempts to clear the
+tree with a disposable container - `docker run --rm -v "$tree:/workspace"
+ubuntu rm -rf /workspace`, the same pattern `tools/dev-run` already uses -
+before a plain `rm -rf` and a `git worktree prune` to clear the now-stale
+registration (the container wipe also destroys the worktree's own `.git`
+file, so git's native removal can no longer recognize the directory
+afterward). Each fallback step is still wrapped in its own `|| true` - a
+failure of the container wipe or the plain `rm -rf` itself is not
+re-raised, so this closes the common case (a root-owned `cover_db`)
+without claiming every possible failure is now handled.
+
 Without `--pid`, the 600-second ceiling was shorter than either gate this
 repo ran at the time - coverage at 846s, pre-push at 15m and counting - so
 the commonest legitimate reason for a suspension (waiting on a gate) always

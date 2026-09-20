@@ -1,0 +1,8 @@
+# TKT-1073, self-caught. .tira is intentionally excluded from here only in
+# spirit, not by name: the Dockerfile's own `ADD .tira /test-project/.tira`
+# line still needs it in the build context. The blanket `COPY .` destination
+# (/root/.developer-dashboard/skills/tira) has it removed with a RUN step
+# in the Dockerfile instead, right after that copy - see the comment there.
+.git
+cover_db
+.test-tmp

@@ -1,5 +1,36 @@
 Revision history for Tira
 
+5.165  2026-09-20
+    - TKT-1073, found by a 2-hourly improvement hunt while fixing the
+      identical bug in tools/dev-run (TKT-579): tools/gate-run's cleanup()
+      removed its scratch worktree with a plain `git worktree remove
+      --force ... || true`, which can silently fail to delete a root-owned
+      or restrictively-permissioned subdirectory left by an instrumented
+      coverage run (`cover_db` is written by root inside the container).
+      Because the failure was wrapped in `|| true`, gate-run reported
+      success while the worktree survived. Reproduced live: a real linked
+      worktree with a chmod-000 root-owned subdirectory inside it failed
+      to be removed by the pre-fix command exactly as described.
+      cleanup() now tries git's own removal first, and only when that
+      fails clears the tree with a disposable container (the same pattern
+      tools/dev-run's own cleanup() already uses) before a final plain
+      removal and a `git worktree prune` to clean the stale registration.
+    - Also found and fixed while switching the project's own test mechanism
+      to `d2 docker compose` (Michael's live instruction, 2026-09-20): the
+      test image's Dockerfile did `COPY . /root/.developer-dashboard/skills/tira`
+      with no exclusion for `.tira`, baking this repo's own production board
+      into every test image at the exact path doc-examples/prove run from,
+      breaking t/172's own board-isolation check. Fixed with a `.dockerignore`
+      (excluding `.git`, `cover_db`, `.test-tmp` - `.tira` stays in the build
+      context deliberately, since the same Dockerfile's `ADD .tira
+      /test-project/.tira` line needs it) plus a `RUN rm -rf
+      /root/.developer-dashboard/skills/tira/.tira` step right after the
+      `COPY .`, removing only the accidentally-baked copy at the source path
+      and leaving the deliberate `/test-project/.tira` copy untouched. The
+      Dockerfile itself lives under `.developer-dashboard/`, which is
+      deliberately untracked by git (confirmed with Michael directly) - the
+      fix is real and verified live but is not part of this repo's own diff.
+
 5.164  2026-09-19
     - TKT-1133, found by a 2-hourly improvement hunt while working
       TKT-1130/1131: `record_update`'s shape-check loop declared `%arrays`

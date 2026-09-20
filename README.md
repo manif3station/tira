@@ -1100,6 +1100,19 @@ failing for everybody else. It requires a clean tree and refuses rather than
 guessing, because it records its result against HEAD's tree and an uncommitted
 change is not part of that. Run it after committing and before `git push`.
 
+Its `cleanup()` now attempts a fallback rather than silently giving up on
+that worktree, since 5.165 (TKT-1073, the same root cause TKT-579 already
+fixed in `tools/dev-run`). A plain `git worktree remove --force "$tree"
+>/dev/null 2>&1 || true` can fail to delete a root-owned subdirectory a
+coverage run's `cover_db` leaves behind, with the `|| true` swallowing that
+failure completely - the tool reported success while the worktree survived
+on disk. `cleanup()` now tries git's own removal first, and only on failure
+attempts to clear the tree with a disposable container (the same pattern
+`tools/dev-run` already uses) before a plain `rm -rf` and a `git worktree
+prune` to clear the now-stale registration - each fallback step is still
+best-effort (`|| true`), so this closes the common case rather than
+guaranteeing every possible failure is now handled.
+
 Since 5.69 it also holds a host-wide `flock` at `$DD_SUITE_LOCK` (default
 `/tmp/dd-gate-host.lock`) around the suite run - the same lock
 developer-dashboard's own `script/coverage-gate` and `.claude/tools/run-suite`

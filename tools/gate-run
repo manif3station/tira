@@ -77,7 +77,23 @@ cleanup() {
     rm -f "$output"
     [ -n "$docker_pid" ] && kill "$docker_pid" >/dev/null 2>&1 || true
     docker rm -f "$container_name" >/dev/null 2>&1 || true
-    git worktree remove --force "$tree" >/dev/null 2>&1 || true
+    # TKT-1073. cover_db (when the coverage step ran) is written by root
+    # inside the container, so "git worktree remove --force" alone can fail
+    # to delete a root-owned or restrictively-permissioned subdirectory -
+    # it still shells out to an rm equivalent internally and hits the
+    # identical permission wall, silently swallowed by the "|| true" above.
+    # Try git's own removal first, since it also updates the main repo's
+    # worktree bookkeeping correctly when it succeeds. If a root-owned file
+    # blocked it, the tree survives non-empty: clear it with a disposable
+    # container (the same pattern tools/dev-run's own cleanup() already
+    # uses for the identical root cause - never sudo on the host), then
+    # remove the now-ownerless leftover directly and prune the stale
+    # worktree registration git's own removal never got to make.
+    if ! git worktree remove --force "$tree" >/dev/null 2>&1; then
+        docker run --rm -v "$tree:/workspace" ubuntu rm -rf /workspace >/dev/null 2>&1 || true
+        rm -rf "$tree" >/dev/null 2>&1 || true
+        git worktree prune >/dev/null 2>&1 || true
+    fi
 }
 trap cleanup EXIT
 

@@ -1,5 +1,19 @@
 Revision history for Tira
 
+5.171  2026-09-21
+    - TKT-1090, self-found: satisfying conversation-not-folded after a
+      substantial comment needed a second, separate
+      tira.<type>.update --key-detail call restating the same text in a
+      durable field - a friction hit repeatedly over this project's own
+      work, already recorded in the agent's own cross-session memory
+      before this ticket existed to file it as a real board item.
+      comment.add now accepts a repeatable --key-detail, writing both the
+      comment and the key_detail(s) in the same call; a whitespace-only
+      key-detail refuses the whole call (nothing written, not even the
+      comment half), the same all-or-nothing shape --text already had.
+      Omitting the flag leaves behavior exactly as before. New test at
+      t/1141.
+
 5.170  2026-09-21
     - TKT-1094, found by the hourly bug hunt (JOB-001) while working TKT-755:
       police_freshness reads two timestamps through _epoch_of_datetime,

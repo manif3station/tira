@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.170';
+our $VERSION = '5.171';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4308,6 +4308,19 @@ sub comment_add {
         die "A comment needs some text\n";
     }
 
+    # TKT-1090: folding a substantial comment into the card's durable
+    # key_details field used to cost a second, separate
+    # tira.<type>.update --key-detail call restating the same text - a
+    # friction hit repeatedly over this project's own work. Checked before
+    # the lock, same as the text check above, so a whitespace-only entry
+    # refuses the whole call rather than writing the comment half and
+    # silently dropping the key_detail half.
+    if ( defined $args{key_details} ) {
+        for my $key_detail ( @{ $args{key_details} } ) {
+            die "A key detail needs some text\n" if !defined $key_detail || $key_detail !~ /\S/;
+        }
+    }
+
     my $root = $self->discover_project(%args);
     return $self->_with_project_lock( $root, sub {
         $self->_require_person( %args, person => $args{author} );
@@ -4323,6 +4336,7 @@ sub comment_add {
             body => $args{text} // '', attachments => [], created_at => $now, last_updated => $now,
         };
         push @{ $record->{comments} }, $comment;
+        push @{ $record->{key_details} }, @{ $args{key_details} } if defined $args{key_details};
         $self->_replace_record( %args, record => $record );
         return _with_text_alias($comment);
     } );

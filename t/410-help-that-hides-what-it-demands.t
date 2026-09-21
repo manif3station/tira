@@ -60,16 +60,26 @@ my $cli = cli_source();
 
 # The first version of this guard read only the %method table and asserted
 # "every dispatchable command has a usage line". It passed, and it was wrong:
-# %method is one of two dispatch routes, and 49 commands answered by the
+# %method is one of three dispatch routes, and 49 commands answered by the
 # earlier if/elsif branches - police, next, policy.*, login.*, backup.*,
 # project.*, question.attach, question.voice among them - still printed a bare
 # [options]. A guard that reads one route and speaks for the whole surface is
 # the same shape as the checklist.update usage line this file exists about: it
 # looks exhaustive, so nobody checks. Codex review caught it, 2026-08-27.
 #
-# So the surface is both routes, and the outstanding ones are named rather than
-# quietly excluded. The list is a ledger, not an allowance: nothing may join it
-# without this test failing, and it shrinks as the lines get written.
+# TKT-1115, 2026-09-21: a THIRD route - $command =~ /\Aprefix\.(a|b|c)\z/
+# regex-alternation dispatch - was still unread even after the second route
+# (the %method table) joined the scan. tira.login.status was the named
+# example: dispatched entirely through login_verbs' own regex match, it
+# never appeared as a literal 'eq' comparison or a %method key, so it stayed
+# invisible to this file's own ledger and kept answering a bare [options]
+# indefinitely - a gap SKILLS.md had documented honestly since TKT-904
+# rather than silently assumed closed.
+#
+# So the surface is all three routes, and the outstanding ones are named
+# rather than quietly excluded. The list is a ledger, not an allowance:
+# nothing may join it without this test failing, and it shrinks as the
+# lines get written.
 #
 # Tested through _usage() rather than _skills_usage_line() because _usage is
 # what --help actually prints - project.create has its line hard-coded there
@@ -81,8 +91,58 @@ my ($table) = $cli =~ /my \%method\s*=\s*\((.*?)\n    \);/s;
 ok( $table, 'found the dispatch table to read the command list from' );
 $command{$1} = 1 while $table =~ /'([a-z][a-z0-9.\-]*)'\s*=>/g;
 
+# TKT-1115. A THIRD dispatch shape neither of the two above sees:
+# $command =~ /\Aprefix\.(a|b|c)\z/ or /\Aprefix\.(?:a|b|c)\z/, routing by
+# the verb captured into $1 - login_verbs/policy_verbs (lib/Tira/CLI/
+# Board.pm) and several blocks in lib/Tira/CLI.pm itself (question.*,
+# notify.*, record.*, job.*) are this shape. tira.login.status was
+# invisible to this file for exactly this reason, documented as a known
+# gap in SKILLS.md since TKT-904 rather than silently assumed fixed.
+#
+# Codex review: lib/Tira/CLI/Command.pm's own POD quotes this exact regex
+# as an illustrative example (C<$command =~ /\Alogin\.(register|check|
+# status|logout)\z/>) - scanning $cli raw would match that comment too, so
+# the two assertions below could stay green from documentation alone even
+# with the real dispatch code deleted. Comments and POD are stripped from
+# a scoped copy first, so only executable source can satisfy this scan.
+( my $executable_cli = $cli ) =~ s/^=\w.*?^=cut\n?//msg;
+$executable_cli =~ s/^\s*#.*$//mg;
+my $regex_count = 0;
+while ( $executable_cli =~ /\$command\s*=~\s*\/\\A([a-z][a-z0-9_]*)\\\.\((?:\?:)?([a-z0-9|_-]+)\)\\z\//g ) {
+    my ( $prefix, $alternatives ) = ( $1, $2 );
+    for my $verb ( split /\|/, $alternatives ) {
+        $command{"$prefix.$verb"} = 1;
+        $regex_count++;
+    }
+}
+cmp_ok( $regex_count, '>', 0, 'the regex-alternation dispatch shape was found and read too' );
+ok( $command{'login.status'}, 'and it specifically surfaced tira.login.status, the named example of this gap' );
+
+# Codex review: this pattern is `prefix.(a|b|c)` specifically, not every
+# regex-dispatch shape in the file - `dashboard(?:\.(?:sow|epic|ticket))?`
+# (an outer optional suffix, no bare "dashboard" alternative inside the
+# group) is a different shape this loop does not parse. Both of those
+# commands already have real usage lines via the %method/literal-eq
+# routes, so the ledger is not missing anything today - but the scan
+# itself is one dispatch shape wider, not exhaustive of every shape that
+# could exist. Documented rather than silently assumed complete, the same
+# honesty this file's own history already asks of every other claim in it.
+
+# The stripped copy proves its own point: the illustrative POD example
+# alone must NOT be enough to pass the assertions above, or they would
+# stay green even with the real dispatch code deleted.
+{
+    my ($pod_only) = $cli =~ /(package Tira::CLI::Command;.*?=cut)/s;
+    ok( $pod_only && $pod_only =~ /login\\\.\(register/,
+        'sanity: the POD example text really is present in the raw source, so stripping it is not a no-op' );
+    ( my $pod_stripped = $pod_only ) =~ s/^=\w.*?^=cut\n?//msg;
+    $pod_stripped =~ s/^\s*#.*$//mg;
+    unlike( $pod_stripped, qr/login\\\.\(register/,
+        'and comment/POD stripping actually removes it, so the scan above is reading real code' );
+}
+
 cmp_ok( scalar keys %command, '>', 100,
-    'both dispatch routes were read, not just the method table' );
+    'all three dispatch routes were read, not just the method table' );
 
 # All 49 are written, TKT-630 - the ledger is empty on purpose, and stays
 # that way: a command that falls back to a bare [options] now fails the

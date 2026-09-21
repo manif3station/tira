@@ -1,5 +1,22 @@
 Revision history for Tira
 
+5.173  2026-09-21
+    - TKT-1115, self-found via Codex review while fixing TKT-904: t/410's
+      own command inventory read two dispatch routes (literal
+      `$command eq '...'` comparisons and the %method table) but missed a
+      third - `$command =~ /\Aprefix\.(a|b|c)\z/` regex-alternation
+      dispatch, used by login_verbs/policy_verbs (lib/Tira/CLI/Board.pm)
+      and several blocks in lib/Tira/CLI.pm itself (question.*, notify.*,
+      record.*, job.*). tira.login.status, dispatched entirely through
+      login_verbs' own regex match, was invisible to t/410's ledger and
+      answered a bare [options] indefinitely - a gap SKILLS.md documented
+      honestly since TKT-904 rather than silently assumed closed.
+      Extending the scan surfaced 9 commands, not just login.status:
+      login.register/check/status/logout, policy.add/list/remove,
+      question.list/update - all given real usage lines in SKILLS.md's
+      catalogue, keeping the bare-[options] ledger empty per this file's
+      own established convention (TKT-630).
+
 5.172  2026-09-21
     - TKT-1096, found by the hourly bug hunt (JOB-001) directly after
       TKT-785 shipped, checking whether that fix reached every command

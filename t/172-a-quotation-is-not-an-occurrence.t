@@ -38,7 +38,7 @@ require Tira::CLI::Serve;
 
 plan skip_all => 'python3 is not installed here' if !Tira::CLI::Serve::_program_exists('python3');
 
-my $tool = 'tools/docs-examples-run';
+my $tool = '.developer-dashboard/skills/docs/skills/examples/cli/run';
 runnable_ok( $tool, 'the documented-examples check ships and is runnable' );
 
 open my $fh, '<', $tool or die "$tool: $!";

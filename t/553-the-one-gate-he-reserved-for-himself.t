@@ -83,7 +83,7 @@ sub complete_card {
 my $waiting = complete_card('Waiting for Michael to say it can ship');
 $tira->record_move( author => 'claude', project => $root, ref => $waiting->{ref}, column => 'pending-push' );
 
-my $tool  = File::Spec->rel2abs( File::Spec->catfile( 'tools', 'card-holes' ) );
+my $tool  = File::Spec->rel2abs( File::Spec->catfile( qw(.developer-dashboard skills card cli holes) ) );
 my $skill = File::Spec->rel2abs('.');
 
 my $stub = File::Spec->catdir( $tmp, 'bin' );

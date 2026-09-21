@@ -27,7 +27,7 @@ system( 'git', '-C', $repo, 'config', 'user.name',  'Test' );
 # The hook finds its own project root two directories up from itself
 # (tools/hooks/commit-msg -> project root), so it has to live at that same
 # relative path under the test repo - t/1017's own precedent.
-my $real_hook = File::Spec->rel2abs( File::Spec->catfile( 'tools', 'hooks', 'commit-msg' ) );
+my $real_hook = File::Spec->rel2abs( File::Spec->catfile( qw(.developer-dashboard cli hooks commit-msg) ) );
 mkdir File::Spec->catdir( $repo, 'tools' );
 mkdir File::Spec->catdir( $repo, 'tools', 'hooks' );
 my $hook = File::Spec->catfile( $repo, 'tools', 'hooks', 'commit-msg' );

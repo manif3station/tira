@@ -520,14 +520,14 @@ Starman rather than for this board specifically because Starman rewrites
 every Starman handles `HUP` and merely reloads, while a process without a
 handler dies.
 
-Proved end to end rather than reasoned about: `tools/hup-integration` runs a
+Proved end to end rather than reasoned about: `d2 hup.integration` runs a
 real board inside the `developer-dashboard:latest` image, installs a newer
 Tira underneath it, runs one police pass, and asserts the master pid is
 unchanged while every worker pid has been replaced and the board is still
 serving. Those three together can only mean a reload in place - a restart
 would change the master, and doing nothing would leave the workers alone.
 It needs Docker and a real image, so it is run by hand like
-`tools/browser-tests` rather than from the test suite. A board running slightly old
+`d2 browser.tests` rather than from the test suite. A board running slightly old
 code is a working board. With police not running, the board stays on its old
 version and shows the banner below until somebody restarts it.
 
@@ -1290,7 +1290,7 @@ gate writes a title, a description sliced from the Changes file, and a
 checklist - and no problem statement, scope, acceptance criteria or parent. On
 the 5.77 to 5.83 upgrade, `d2 tira.ticket.missing` reported eleven empty fields
 on the card the moment it appeared, and police reported it as an orphan within
-the minute. `tools/card-holes` refuses a push while any live card is
+the minute. `d2 card.holes` refuses a push while any live card is
 incomplete, so an upgrade costs one release-gate violation that has to be
 cleared by hand. The gate holds the version range and the changelog entries
 between them, so the fields it leaves empty are derivable; whether to fill
@@ -1523,7 +1523,7 @@ code defect is not a check that failed; it is the card returning to `implement`,
 and this is what says so at the moment it matters.
 
 This repository's own `commit-msg` (installed into its `.git/hooks` by
-`tools/install-hooks`) carries the same idle/writing column rules by hand, in
+`d2 install.hooks`) carries the same idle/writing column rules by hand, in
 a different shell idiom, so that Tira is developed under the same gate it
 ships - the two hooks are not identical overall (the local one reads only the
 subject and only this repo's prefixes; the installable one scans the full
@@ -1597,21 +1597,21 @@ Put one rule down for a while, without going deaf to everything else.
 
 ### What the push gate asks, since 4.62
 
-The gate is `tools/hooks/pre-push`, installed by `tools/install-hooks` as a
+The gate is `.developer-dashboard/cli/hooks/pre-push`, installed by `d2 install.hooks` as a
 symlink so it is version-controlled rather than local configuration. It refuses
 a push nine ways and runs no test suite, no browser:
 
 | Order | Check | Refuses when |
 | --- | --- | --- |
 | 1 | the version against what is shipping | a shipped file changed and `VERSION` did not |
-| 2 | `tools/changes-not-reopened`, since 5.93 | any version origin has already released has a local section that no longer matches origin's own text under that heading - not only the newest local heading (TKT-965) |
-| 3 | the board backup | `tools/board-backup` is missing, or it fails |
+| 2 | `d2 changes.not.reopened`, since 5.93 | any version origin has already released has a local section that no longer matches origin's own text under that heading - not only the newest local heading (TKT-965) |
+| 3 | the board backup | `d2 board.backup` is missing, or it fails |
 | 4 | live-card completeness | a card this push is about is incomplete |
-| 5 | `tools/card-holes` | a card has holes in it, or its checklist and its column disagree |
-| 6 | `tools/docs-match-code` | the documentation and the code disagree |
-| 7 | `tools/docs-examples-run` | a documented example is not what the command accepts |
+| 5 | `d2 card.holes` | a card has holes in it, or its checklist and its column disagree |
+| 6 | `d2 docs.match.code` | the documentation and the code disagree |
+| 7 | `d2 docs.examples.run` | a documented example is not what the command accepts |
 
-**`tools/card-holes` also refuses a card that has not reached `push`, since
+**`d2 card.holes` also refuses a card that has not reached `push`, since
 5.70.** Every other check in the table asks whether a card is COMPLETE; none
 of them ask whether it has been APPROVED to ship, which is a different
 question with a different answer. `pending-push` exists because Michael, and
@@ -1640,7 +1640,7 @@ complaint at once. Each clause now reads on its own (`no gate recorded`,
 `no evidence attached`, `no fix version set`), and the refusal ends with
 the exact command to run, the card's own ref already filled in.
 
-Since 4.99 (TKT-796) the browser suite (`tools/browser-tests`, 23 Playwright
+Since 4.99 (TKT-796) the browser suite (`d2 browser.tests`, 23 Playwright
 checks since TKT-955) no longer runs here - a single flaky test used to block an entire
 batch of otherwise-good, individually-verified cards. **The intended
 replacement - a conditional required action on the `verify` column, firing
@@ -1649,7 +1649,7 @@ only for a card whose changes touch `lib/Tira/views/*`, `DashboardWeb.pm`, or
 configuration.** `d2 tira.column.list --type ticket` shows `verify`'s
 required actions today carry no browser-relevant item at all, so a
 browser-relevant card reaching `verify` gets no prompt to run
-`tools/browser-tests` from either place. TKT-799 tracks adding the real gate;
+`d2 browser.tests` from either place. TKT-799 tracks adding the real gate;
 until it lands, running the browser suite for a browser-relevant change is on
 whoever is working the card to remember.
 
@@ -1668,7 +1668,7 @@ that matters - is anything outstanding at all - it does not decide. It asks.
 A checklist item ticked as `Done` - the natural capitalisation, and the one the
 column templates themselves use for `To Do` - used to be finished to the card
 and unfinished to the gate, because the engine lowercases before comparing and
-`tools/card-holes` did not. That refused the push of 4.57, 4.58 and 4.59 over
+`d2 card.holes` did not. That refused the push of 4.57, 4.58 and 4.59 over
 items every one of which was marked done. `record_list` already attaches
 `checklist_done` and `checklist_total` to every row, so the gate reads the
 engine's own count for that. Two readers, one definition - the same arrangement
@@ -1715,7 +1715,7 @@ what puts the card in `push` in the first place. Before 4.62 the hook ran it
 again, over a tree verify had already cleared, at about twenty minutes a
 release; the last push to pay that cost took 21 minutes 19 seconds.
 
-`tools/gate-run` still runs the suite and coverage by hand, against a checkout
+`d2 gate.run` still runs the suite and coverage by hand, against a checkout
 of the commit rather than your working directory - so a change that passes only
 because of an unstaged file fails there instead of failing for everybody else.
 It still writes a pass record keyed to the commit's tree. Nothing reads those
@@ -1728,7 +1728,7 @@ measured on 2026-08-29, when a concurrent run reported `lib/Tira/CLI.pm` at
 70.3% when it was actually 100%. `developer-dashboard`'s own
 `script/coverage-gate` and `.claude/tools/run-suite` already share an
 exclusion for this: a `flock` at `$DD_SUITE_LOCK`, default
-`/tmp/dd-gate-host.lock`. `tools/gate-run` now joins that same lock rather
+`/tmp/dd-gate-host.lock`. `d2 gate.run` now joins that same lock rather
 than inventing a second one, held only around the `docker compose run`
 invocation - not across the git-worktree setup or the coverage-threshold
 loop, so a healthy suite never waits on unrelated bookkeeping.
@@ -1756,7 +1756,7 @@ and its percentage and stop, while the `Devel::Cover` database that knows which
 statement is missing sat in `cover_db` beside it — and finding the line by hand
 cost a session twice, most recently `lib/Tira.pm:12134` after two failed attempts
 at parsing the text report, whose column layout is not a contract.
-`tools/coverage-holes` asks the database instead and prints `file:line` for every
+`d2 coverage.holes` asks the database instead and prints `file:line` for every
 uncovered statement and subroutine, the subroutine by name as well, beneath the
 percentage that proves the threshold was applied:
 
@@ -1772,13 +1772,13 @@ moment the answer can be taken. It cannot fail the run: a gate that refused
 because its *explanation* broke would be worse than one that explains nothing, so
 a refusal that finds no lines says so rather than printing the percentage alone.
 Above twenty holes it caps and says how many it held back; `--all` prints every
-one. Ask it yourself with `tools/coverage-holes --db cover_db`. TKT-593.
+one. Ask it yourself with `d2 coverage.holes --db cover_db`. TKT-593.
 
 **A suite refusal names the file, since 5.86.** `gate-run` used to pipe the
 whole run through `prove -j"$JOBS" -lr t 2>&1 | tail -4` - right for a clean
 run, wrong for a failing one, because `prove`'s own Test Summary Report
 (naming every failing file and its failing subtests) prints ABOVE those four
-lines and the tail discarded it. `tools/gate-summarize STATUS LOGFILE` now
+lines and the tail discarded it. `d2 gate.summarize STATUS LOGFILE` now
 prints the same four lines either way, plus that report whenever `STATUS` is
 non-zero - nothing computed, only not thrown away. Extracted as its own tool
 rather than a line inside `gate-run` for the same reason `coverage-complete`
@@ -1790,7 +1790,7 @@ LATER step (`coverage-complete`, `coverage-guard`) is what actually makes the
 whole docker invocation exit non-zero, the handler around it used to pipe
 the entire captured output through a bare `tail -3`, with no way to tell
 whether the suite itself had passed, failed, or never started.
-`tools/gate-outer-refusal LOGFILE` checks for prove's own `Result: PASS`
+`d2 gate.outer.refusal LOGFILE` checks for prove's own `Result: PASS`
 line first: present, it says the suite passed and shows what came after;
 absent, it falls back to the same tail, unchanged for a genuine suite
 failure.
@@ -1813,7 +1813,7 @@ ten-plus-minute run on a tree that is actually broken.
 
 **`cleanup()` now attempts a fallback rather than silently giving up on a
 worktree containing a root-owned path, since 5.165** (TKT-1073, the same
-root cause TKT-579 fixed in `tools/dev-run`). `cleanup()` removed its
+root cause TKT-579 fixed in `d2 dev.run`). `cleanup()` removed its
 scratch worktree with a plain `git worktree remove --force "$tree"
 >/dev/null 2>&1 || true`; a `cover_db` written by root inside the
 container can leave a subdirectory git's own removal cannot delete, and
@@ -1824,7 +1824,7 @@ linked worktree with a chmod-000 root-owned subdirectory inside it failed
 git's own removal first (it also updates the main repo's worktree
 bookkeeping when it succeeds), and only on failure attempts to clear the
 tree with a disposable container - `docker run --rm -v "$tree:/workspace"
-ubuntu rm -rf /workspace`, the same pattern `tools/dev-run` already uses -
+ubuntu rm -rf /workspace`, the same pattern `d2 dev.run` already uses -
 before a plain `rm -rf` and a `git worktree prune` to clear the now-stale
 registration (the container wipe also destroys the worktree's own `.git`
 file, so git's native removal can no longer recognize the directory
@@ -1887,7 +1887,7 @@ tree, and a card labelled `standalone` is saying somebody meant it to have none.
 The answer is `{"fields": [...], "exempt": {...}}`, not a flat list - until
 3.78 the exceptions above existed as this paragraph and nowhere else: not in
 this command's own JSON, not in `tira.skills`, and the push gate
-(`tools/card-holes`) carried an independent hardcoded copy of the identical
+(`d2 card.holes`) carried an independent hardcoded copy of the identical
 two exceptions, a fourth place they could have silently drifted from. A
 caller building a completeness check from this command's field list alone
 used to flag every legitimately parentless card - 169 of 304 live cards on
@@ -1896,7 +1896,7 @@ this project's own board at the time, every one of them standalone. Read
 rather than assuming the field list applies unconditionally. TKT-285.
 
 **A second standard joined the answer as `past_column`, since TKT-696.**
-`tools/card-holes`' own push-gate check (`unproven()`) separately demanded a
+`d2 card.holes`' own push-gate check (`unproven()`) separately demanded a
 `gate_passing_log`, an `evidence` entry, and - once past the shipping column
 - a `fix_version`, of any card past verify. None of the three was in
 `fields`, so `tira.ticket.missing` answered nothing was missing on a card
@@ -1907,7 +1907,7 @@ milestone role/column past which it is owed (`{"role": "testing", "fallback":
 "verify"}` for the first two, `{"role": "push", "fallback": "push"}` for
 `fix_version`, which additionally falls back to whichever of the board's own
 ending columns sorts first when it has no push column at all - the same
-fallback `tools/card-holes`' `SHIPPED_FROM` always had). `tira.ticket.missing`
+fallback `d2 card.holes`' `SHIPPED_FROM` always had). `tira.ticket.missing`
 and the engine's own board-wide `card_holes` sweep both answer from it now,
 exempting a card already in an ended column the same way `unproven()`
 always did - work finished before this check existed is not refused for
@@ -3377,7 +3377,7 @@ columns as though it were real work, with nothing behind it.
 | `-o FORMAT` | no | As above. |
 
 Answers a list of `{ref, type, column, missing}`. This is the same check
-`tools/card-holes` already made from the pre-push hook, and only against
+`d2 card.holes` already made from the pre-push hook, and only against
 the cards a push happened to be about — measured live, 26 of 300 cards
 missing both `problem_or_feature` and `solution_needed`, 24 of them still
 open with no push ever having named them, unblocked indefinitely. Reads
@@ -3828,7 +3828,7 @@ formatting can change even though its content otherwise does not.
 ## Every other command
 
 Each of these ships and is exercised by the suite. The synopsis is the one the
-manual's own examples are checked against, and `tools/docs-examples-run` runs
+manual's own examples are checked against, and `d2 docs.examples.run` runs
 them; the manual carries the worked use cases behind them.
 
 
@@ -4126,7 +4126,7 @@ so the second of two concurrent calls sees the first's addition and skips it. A 
 - `tira.column.rename --type TYPE --name SLUG --new-name SLUG [--label TEXT] [-o FORMAT]` — renames the column's directory and its config entry, and also rewrites the `column` tag stored on every record's `required_items` entries across the whole type's board that still named the old column, not only cards currently sitting in it - a `required_item_add`d entry stores the column name as its own copy at the time it was written, not a live reference, so before this it stayed stamped with the old name forever and the push/departure gate (which matches items by a card's CURRENT column) went blind to any pending item left tagged that way. TKT-613. **The retag walk is resilient to one bad record, since TKT-771** (Codex review, TKT-613's own verify gate): the directory and config rename have already committed by the time the retag walk starts, so a record that cannot be read - corrupt JSON, anything the walk throws on - no longer aborts the whole walk and leaves every later record's stale tag untouched with no trace. Each record is retagged inside its own try, and the result carries a `retag_failed` array naming any ref whose own retag could not complete - empty on the ordinary path, where every record was already readable. A record whose own embedded `ref` field disagrees with the ref its filename names is refused the same way (Codex review) - writing back by the embedded ref rather than the filename just read would send the write looking for a different file entirely on a mismatch, so a mismatch reports failure by the filename's own ref rather than writing to a card this walk never actually found.
 - `tira.column.reorder --type TYPE --name SLUG (--after SLUG|--before SLUG) [-o FORMAT]`
 - `tira.column.sync --type TYPE [--apply] [-o FORMAT]`
-- `tira.column.update --type TYPE --name SLUG [--notify-after MINUTES] [--watch|--no-watch] [--terminal|--no-terminal] [--queue|--no-queue] [--required-action TEXT ...] [--entry-required-action TEXT ...] [--required-action-if-touches "PATTERN[,PATTERN...]=TEXT" ...] [--entry-required-action-if-touches "PATTERN[,PATTERN...]=TEXT" ...] [--administrative-action TEXT ...] [--next COLUMN ...] [-o FORMAT]` — **`--required-action-if-touches` / `--entry-required-action-if-touches`, since 5.92 (TKT-936/Q-154)**, add a CONDITIONAL required action instead of an unconditional one: given as `"PATTERN[,PATTERN...]=TEXT"` (split on the first `=`, since a path pattern never contains one and TEXT may), each is placed onto `--required-action`/`--entry-required-action`'s own list as `{ text => TEXT, touches => [PATTERN, ...] }` rather than a third list the engine has to know about. At move-time, a conditional item is placed on a card only if that card's own git history touched a matching path. Reading it is two steps, not a single `git log --grep`: `--grep` is a substring match against the whole commit message, so a naive version would let `TKT-9` match a commit actually about `TKT-90`, or match a passing mention in a commit's body rather than its subject. Instead every commit's hash and subject line are read, subjects are scanned for ref-shaped tokens (`\b[A-Za-z]+-\d+\b`) and kept only on an EXACT match against this card's ref, and only THOSE commits' changed paths are then read (`git log --no-walk --name-only`, given the matching hashes directly). A pattern with no `/` matches by basename anywhere in the tree (`DashboardWeb.pm` matches `lib/Tira/DashboardWeb.pm`), a pattern with `/` matches by prefix (`lib/Tira/views/*` reaches everything under that directory). No matching commit, or no match among the paths it touched, and the item is never placed on the card - unaffected, not silently exempt. A card created straight into the column (rather than moved) never gets a conditional item either: its own ref cannot appear in any commit before the card exists, so there is nothing yet to match. A malformed `PATTERN[,PATTERN...]` list - a leading, trailing, or doubled comma leaving a blank pattern - is refused rather than silently dropped down to the patterns either side of it. A plain `--required-action`/`--entry-required-action` entry is unaffected by any of this - it is still placed unconditionally. This is TKT-799's own doc-drift finding: docs/commands.md once claimed the `verify` column carried exactly this kind of gate (fires when a card's changes touch `lib/Tira/views/*`, `DashboardWeb.pm` or `OnboardWeb.pm`, asking for `tools/browser-tests` before the card can leave) which this board's project configuration never actually declared - TKT-799 corrected the claim to say so honestly, and this is the general mechanism that would make such a claim true, not a declaration on this board's own `verify` column, which still carries none. A column is identified with `--name`, not `--column`; `--column` is the reflex flag on `record.move`, `record.list`, `notify.record` and `search`, and this command (with `column.add`, `column.rename` and `column.remove`) refuses it with a usage error naming `--name` rather than silently accepting and ignoring it - until 3.39 it was accepted and did nothing, and with `--name` absent entirely the resulting "Column '' not found" read as a claim about the board rather than the actual mistake, a mistyped flag. TKT-305. **`--terminal` / `--no-terminal` marks a column as somewhere work has ended, board-wide** - not one rule's private setting. A board whose work ends in more than one place (finished and waiting for release, finished and shipping nothing, finished and published) marks each one; a board that marks nothing treats `done` as its only ending, as before. This decides what `card-unassigned`, `agent-still`, `board-still`, `card-changed-by-owner`, `conversation-not-folded`, `column-unwatched` and `discard-with-open-questions` all count as work still in progress, and it decides the pre-push hook's own answer too - a card whose real ending column is unmarked reads as unfinished work to the gate, which is a refused push rather than a bridge reminder. See [docs/POLICIES.md's "Where work ends"](POLICIES.md#where-work-ends) for the full list of readers and why there are two different functions behind it. TKT-592. `--queue` marks a column as somewhere work waits, which `tira.next` and `priority-skipped` ask about; a board that marks nothing treats its protected non-ending columns as its queue, which is right until the board adds columns of its own — `protected` says Tira owns a column, not what it means. `--required-action` is repeatable and replaces the column's whole template each call; it is what `tira.<type>.move` checks a card's checklist against on the way in and out of that column, and belongs to this command alone — every other command refuses it, naming this one. `--next` is repeatable and replaces the column's whole set each call; it names every column a genuine fork can legitimately move to next, and is what the chain check (below) tests a forward move against instead of the single positional successor it otherwise derives - a column with nothing configured is unaffected. `--next` refuses a column name that does not exist, rather than accepting a typo silently. Removing a column (via `tira.column.remove` or a `tira.column.apply` layout that omits it) strips its name from every other column's stored `next` too, and `column.apply` strips any `next` entry naming a column absent from the layout being saved regardless of what the caller sent - a removed column can no longer be left behind as a dangling fork target that blocks every forward move through the column that pointed at it. TKT-475. `--administrative-action` (TKT-678) is repeatable and replaces the column's whole exempt-item list each call, the same as `--required-action`; it names specific required-action items, by exact text, that a backward move never resets even though their column falls inside the range TKT-455/TKT-525 already reset - the reset only ever knew which column an item belonged to, not what kind of item it was, so a real build gate and an administrative one ("assign yourself to the card") sharing a column were reset identically. An item not named here resets exactly as before; the column-range design itself is unchanged. The match is on `(column, item text)` alone - an item is exempted whether it arrived via the exit template, the entry template, or a manual `required-action.add` sharing that text, the same reach `--required-action`'s own dedup already has; it is not scoped to only the exit-template items `--required-action` itself declares. A `tira.column.apply` layout round-trip persists this list too, same as `required_actions`/`entry_required_actions`/`next`. **`--required-action` and `--entry-required-action` refuse an empty, whitespace-only, or duplicated entry, since 5.89** (TKT-699) - naming which template and, for a duplicate, the repeated text. Until then a column stored whatever it was given: an empty entry produced the correct "Cannot move REF into COLUMN - an entry required action is not done" refusal later, but every column re-declaring its own entry list to fix it hit the exact same fault, permanently. A duplicate was milder - the column's template held two entries while `required_item_add` stores one, since it already dedupes on the card - but the counts disagreed for anyone comparing the two. `tira.column.apply`'s whole-layout replace refuses the same faults, on every column in the layout, before writing any of it; the browser column editor already trims and drops blank entries client-side before posting, so the same server-side refusal on `column.apply` covers it without a separate client-side change. A column whose template was already broken before this fix - written directly, or shipped before 5.89 - is unaffected: the original move refusal, its reason, and its working fix line are exactly as before, since the fix is at the point of typing rather than the point of use.
+- `tira.column.update --type TYPE --name SLUG [--notify-after MINUTES] [--watch|--no-watch] [--terminal|--no-terminal] [--queue|--no-queue] [--required-action TEXT ...] [--entry-required-action TEXT ...] [--required-action-if-touches "PATTERN[,PATTERN...]=TEXT" ...] [--entry-required-action-if-touches "PATTERN[,PATTERN...]=TEXT" ...] [--administrative-action TEXT ...] [--next COLUMN ...] [-o FORMAT]` — **`--required-action-if-touches` / `--entry-required-action-if-touches`, since 5.92 (TKT-936/Q-154)**, add a CONDITIONAL required action instead of an unconditional one: given as `"PATTERN[,PATTERN...]=TEXT"` (split on the first `=`, since a path pattern never contains one and TEXT may), each is placed onto `--required-action`/`--entry-required-action`'s own list as `{ text => TEXT, touches => [PATTERN, ...] }` rather than a third list the engine has to know about. At move-time, a conditional item is placed on a card only if that card's own git history touched a matching path. Reading it is two steps, not a single `git log --grep`: `--grep` is a substring match against the whole commit message, so a naive version would let `TKT-9` match a commit actually about `TKT-90`, or match a passing mention in a commit's body rather than its subject. Instead every commit's hash and subject line are read, subjects are scanned for ref-shaped tokens (`\b[A-Za-z]+-\d+\b`) and kept only on an EXACT match against this card's ref, and only THOSE commits' changed paths are then read (`git log --no-walk --name-only`, given the matching hashes directly). A pattern with no `/` matches by basename anywhere in the tree (`DashboardWeb.pm` matches `lib/Tira/DashboardWeb.pm`), a pattern with `/` matches by prefix (`lib/Tira/views/*` reaches everything under that directory). No matching commit, or no match among the paths it touched, and the item is never placed on the card - unaffected, not silently exempt. A card created straight into the column (rather than moved) never gets a conditional item either: its own ref cannot appear in any commit before the card exists, so there is nothing yet to match. A malformed `PATTERN[,PATTERN...]` list - a leading, trailing, or doubled comma leaving a blank pattern - is refused rather than silently dropped down to the patterns either side of it. A plain `--required-action`/`--entry-required-action` entry is unaffected by any of this - it is still placed unconditionally. This is TKT-799's own doc-drift finding: docs/commands.md once claimed the `verify` column carried exactly this kind of gate (fires when a card's changes touch `lib/Tira/views/*`, `DashboardWeb.pm` or `OnboardWeb.pm`, asking for `d2 browser.tests` before the card can leave) which this board's project configuration never actually declared - TKT-799 corrected the claim to say so honestly, and this is the general mechanism that would make such a claim true, not a declaration on this board's own `verify` column, which still carries none. A column is identified with `--name`, not `--column`; `--column` is the reflex flag on `record.move`, `record.list`, `notify.record` and `search`, and this command (with `column.add`, `column.rename` and `column.remove`) refuses it with a usage error naming `--name` rather than silently accepting and ignoring it - until 3.39 it was accepted and did nothing, and with `--name` absent entirely the resulting "Column '' not found" read as a claim about the board rather than the actual mistake, a mistyped flag. TKT-305. **`--terminal` / `--no-terminal` marks a column as somewhere work has ended, board-wide** - not one rule's private setting. A board whose work ends in more than one place (finished and waiting for release, finished and shipping nothing, finished and published) marks each one; a board that marks nothing treats `done` as its only ending, as before. This decides what `card-unassigned`, `agent-still`, `board-still`, `card-changed-by-owner`, `conversation-not-folded`, `column-unwatched` and `discard-with-open-questions` all count as work still in progress, and it decides the pre-push hook's own answer too - a card whose real ending column is unmarked reads as unfinished work to the gate, which is a refused push rather than a bridge reminder. See [docs/POLICIES.md's "Where work ends"](POLICIES.md#where-work-ends) for the full list of readers and why there are two different functions behind it. TKT-592. `--queue` marks a column as somewhere work waits, which `tira.next` and `priority-skipped` ask about; a board that marks nothing treats its protected non-ending columns as its queue, which is right until the board adds columns of its own — `protected` says Tira owns a column, not what it means. `--required-action` is repeatable and replaces the column's whole template each call; it is what `tira.<type>.move` checks a card's checklist against on the way in and out of that column, and belongs to this command alone — every other command refuses it, naming this one. `--next` is repeatable and replaces the column's whole set each call; it names every column a genuine fork can legitimately move to next, and is what the chain check (below) tests a forward move against instead of the single positional successor it otherwise derives - a column with nothing configured is unaffected. `--next` refuses a column name that does not exist, rather than accepting a typo silently. Removing a column (via `tira.column.remove` or a `tira.column.apply` layout that omits it) strips its name from every other column's stored `next` too, and `column.apply` strips any `next` entry naming a column absent from the layout being saved regardless of what the caller sent - a removed column can no longer be left behind as a dangling fork target that blocks every forward move through the column that pointed at it. TKT-475. `--administrative-action` (TKT-678) is repeatable and replaces the column's whole exempt-item list each call, the same as `--required-action`; it names specific required-action items, by exact text, that a backward move never resets even though their column falls inside the range TKT-455/TKT-525 already reset - the reset only ever knew which column an item belonged to, not what kind of item it was, so a real build gate and an administrative one ("assign yourself to the card") sharing a column were reset identically. An item not named here resets exactly as before; the column-range design itself is unchanged. The match is on `(column, item text)` alone - an item is exempted whether it arrived via the exit template, the entry template, or a manual `required-action.add` sharing that text, the same reach `--required-action`'s own dedup already has; it is not scoped to only the exit-template items `--required-action` itself declares. A `tira.column.apply` layout round-trip persists this list too, same as `required_actions`/`entry_required_actions`/`next`. **`--required-action` and `--entry-required-action` refuse an empty, whitespace-only, or duplicated entry, since 5.89** (TKT-699) - naming which template and, for a duplicate, the repeated text. Until then a column stored whatever it was given: an empty entry produced the correct "Cannot move REF into COLUMN - an entry required action is not done" refusal later, but every column re-declaring its own entry list to fix it hit the exact same fault, permanently. A duplicate was milder - the column's template held two entries while `required_item_add` stores one, since it already dedupes on the card - but the counts disagreed for anyone comparing the two. `tira.column.apply`'s whole-layout replace refuses the same faults, on every column in the layout, before writing any of it; the browser column editor already trims and drops blank entries client-side before posting, so the same server-side refusal on `column.apply` covers it without a separate client-side change. A column whose template was already broken before this fix - written directly, or shipped before 5.89 - is unaffected: the original move refusal, its reason, and its working fix line are exactly as before, since the fix is at the point of typing rather than the point of use.
 
 
 ### Comments

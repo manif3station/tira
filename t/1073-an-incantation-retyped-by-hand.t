@@ -23,10 +23,10 @@ use warnings;
 
 use Test::More;
 
-ok( -e 'tools/dev-run', 'tools/dev-run exists' );
-ok( -x 'tools/dev-run', 'and is executable' );
+ok( -e '.developer-dashboard/skills/dev/cli/run', 'tools/dev-run exists' );
+ok( -x '.developer-dashboard/skills/dev/cli/run', 'and is executable' );
 
-open my $fh, '<', 'tools/dev-run' or die "Cannot read tools/dev-run: $!";
+open my $fh, '<', '.developer-dashboard/skills/dev/cli/run' or die "Cannot read tools/dev-run: $!";
 my $text = do { local $/; <$fh> };
 close $fh;
 ok( $text, 'tools/dev-run was read - not empty, not truncated' );
@@ -77,7 +77,7 @@ like( $text, qr/-select/, 'passed to cover -select, the same flag tools/gate-run
 
 # --- tools/gate-run and the push hook are untouched -------------------------
 
-ok( -e 'tools/gate-run', 'tools/gate-run still exists' );
+ok( -e '.developer-dashboard/skills/gate/cli/run', 'tools/gate-run still exists' );
 like( $text, qr/gate-run/, 'dev-run\'s own header names gate-run as the tool it sits beside, not replaces' );
 
 # --- README.md points at it -------------------------------------------------

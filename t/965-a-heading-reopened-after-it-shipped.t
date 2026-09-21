@@ -28,7 +28,7 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
 
-my $TOOL = File::Spec->rel2abs('tools/changes-not-reopened');
+my $TOOL = File::Spec->rel2abs('.developer-dashboard/skills/changes/skills/not/cli/reopened');
 ok( -x $TOOL, 'tools/changes-not-reopened exists and is executable' ) or BAIL_OUT('nothing to test');
 
 my $tmp  = tempdir( CLEANUP => 1 );

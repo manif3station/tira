@@ -38,7 +38,7 @@ use Test::More;
 use lib 'lib', 't/lib';
 use Shipped qw(runnable_ok);
 
-my $tool = File::Spec->catfile(qw(tools coverage-holes));
+my $tool = File::Spec->catfile(qw(.developer-dashboard skills coverage cli holes));
 
 runnable_ok( $tool, 'the coverage helper ships and is runnable' );
 
@@ -215,12 +215,12 @@ ok( length($source) && $code !~ /`\s*cover\b|qx\{[^}]*\bcover\b|system\([^)]*\bc
 # not that two named callers share it.
 
 my $gate = '';
-if ( open my $gate_fh, '<', File::Spec->catfile(qw(tools gate-run)) ) {
+if ( open my $gate_fh, '<', File::Spec->catfile(qw(.developer-dashboard skills gate cli run)) ) {
     $gate = do { local $/; <$gate_fh> };
     close $gate_fh;
 }
 
-like( $gate, qr/coverage-holes/,
+like( $gate, qr{coverage/cli/holes},
     'tools/gate-run reaches for the helper rather than growing its own parser' );
 like( $gate, qr/-report\s+text|\bcover\b/,
     'while still running the coverage report that produces the percentage - '

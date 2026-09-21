@@ -25,8 +25,8 @@ use File::Temp qw(tempdir);
 use Test::More;
 
 my $root = File::Spec->rel2abs('.');
-my $guard = File::Spec->catfile( $root, 'tools', 'coverage-guard' );
-ok( -x $guard, 'tools/coverage-guard exists and is executable' );
+my $guard = File::Spec->catfile( $root, qw(.developer-dashboard skills coverage cli guard) );
+ok( -x $guard, '.developer-dashboard/skills/coverage/cli/guard (d2 coverage.guard) exists and is executable' );
 
 # A scratch project with its own lib/, so this never touches the real one.
 my $tmp = tempdir( CLEANUP => 1 );

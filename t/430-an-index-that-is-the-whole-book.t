@@ -163,7 +163,7 @@ like( $index, qr/=head2 The four guards on the move path/,
       . 'needs and which moving code is most likely to lose' );
 
 my $gate = do {
-    open my $fh, '<', 'tools/gate-run' or die "tools/gate-run: $!";
+    open my $fh, '<', '.developer-dashboard/skills/gate/cli/run' or die "tools/gate-run: $!";
     local $/;
     <$fh>;
 };

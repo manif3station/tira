@@ -63,10 +63,15 @@ sub slurp {
 
 # --- the tools exist and are runnable ---------------------------------------
 
-for my $tool (qw(gate-cache-write gate-cache-read gate-run)) {
-    my $path = File::Spec->catfile( $root, 'tools', $tool );
-    ok( -f $path, "tools/$tool ships in the repository" );
-    ok( -x $path, "tools/$tool is executable" );
+for my $tool (
+    [ 'gate.cache.write', [qw(.developer-dashboard skills gate skills cache cli write)] ],
+    [ 'gate.cache.read',  [qw(.developer-dashboard skills gate skills cache cli read)] ],
+    [ 'gate.run',         [qw(.developer-dashboard skills gate cli run)] ],
+) {
+    my ( $name, $parts ) = @$tool;
+    my $path = File::Spec->catfile( $root, @$parts );
+    ok( -f $path, "d2 $name ships in the repository" );
+    ok( -x $path, "d2 $name is executable" );
 }
 
 # --- the suite runs once, and since 4.62 for a stronger reason --------------
@@ -81,7 +86,7 @@ for my $tool (qw(gate-cache-write gate-cache-read gate-run)) {
 # the property this file is named for - the suite runs once - is still the
 # subject, and it is now guarded from both directions.
 
-my $hook_source = slurp( File::Spec->catfile( $root, 'tools', 'hooks', 'pre-push' ) );
+my $hook_source = slurp( File::Spec->catfile( $root, qw(.developer-dashboard cli hooks pre-push) ) );
 
 # Established before it is denied. Both statements about the hook below are
 # denials now, where they used to be assertions, and a denial about a file that
@@ -94,7 +99,7 @@ unlike( $hook_source, qr/gate-cache-read/,
 unlike( $hook_source, qr/\bprove\s+-lr\b/,
     'and runs no suite, so there is no second run for a record to prevent' );
 
-my $runner_source = slurp( File::Spec->catfile( $root, 'tools', 'gate-run' ) );
+my $runner_source = slurp( File::Spec->catfile( $root, qw(.developer-dashboard skills gate cli run) ) );
 like( $runner_source, qr/\bprove\s+(?:-j\S+\s+)?-lr\b/,
     'the one place that runs the suite still runs it' );
 like( $runner_source, qr/gate-cache-write/,
@@ -107,12 +112,10 @@ like( $runner_source, qr/gate-cache-write/,
 # producing the tree it claims to have tested" - is a claim about git's own
 # hashing, and the only way to know these tools agree with git is to ask git.
 
-my $tmp   = tempdir( CLEANUP => 1 );
-my $repo  = File::Spec->catdir( $tmp, 'skills', 'faketira' );
-my $tools = File::Spec->catdir( $repo, 'tools' );
+my $tmp  = tempdir( CLEANUP => 1 );
+my $repo = File::Spec->catdir( $tmp, 'skills', 'faketira' );
 mkdir File::Spec->catdir( $tmp, 'skills' ) or die $!;
-mkdir $repo  or die $!;
-mkdir $tools or die $!;
+mkdir $repo or die $!;
 
 # The scratch repo needs the modules gate-run will hold to 100%. Since TKT-594
 # it derives that list by walking lib/ rather than naming three paths, so a
@@ -137,15 +140,31 @@ open my $compose, '>', File::Spec->catfile( $tmp, 'docker-compose.testing.yml' )
 print {$compose} "services: {}\n";
 close $compose;
 
+my %source_parts = (
+    'gate-cache-write' => [qw(.developer-dashboard skills gate skills cache cli write)],
+    'gate-cache-read'  => [qw(.developer-dashboard skills gate skills cache cli read)],
+    'gate-run'         => [qw(.developer-dashboard skills gate cli run)],
+);
+# TKT-1073: gate-run's own reference to gate-cache-write (line ~441) is now the
+# real nested .developer-dashboard/skills/gate/skills/cache/cli/write path,
+# resolved relative to $root (DIR_TIRA-or-fallback, which lands on $repo for
+# this fixture since gate-run sits one level under it, matching its old flat
+# tools/ position). A flat tools/ copy of these three scripts is no longer
+# where gate-run itself looks, so each is placed at its real nested path
+# under $repo instead - matching t/969's identical fix for the same reason.
+my %tool_path;
 for my $tool (qw(gate-cache-write gate-cache-read gate-run)) {
-    my $from = File::Spec->catfile( $root, 'tools', $tool );
-    my $to   = File::Spec->catfile( $tools, $tool );
+    my @parts = @{ $source_parts{$tool} };
+    my $from  = File::Spec->catfile( $root, @parts );
+    my $to    = File::Spec->catfile( $repo, @parts );
+    File::Path::make_path( File::Spec->catdir( $repo, @parts[ 0 .. $#parts - 1 ] ) );
     open my $in,  '<', $from or die $!;
     open my $out, '>', $to   or die $!;
     print {$out} do { local $/; <$in> };
     close $in;
     close $out;
     chmod 0755, $to or die $!;
+    $tool_path{$tool} = $to;
 }
 
 is( run_quietly( 'git', 'init', '-q', $repo ), 0, 'a throwaway repository to test the tree hashing against' );
@@ -186,18 +205,28 @@ sub in_repo {
 }
 
 sub cache_read {
-    return in_repo( sub { return run_split( File::Spec->catfile( $tools, 'gate-cache-read' ) ) } );
+    return in_repo( sub { return run_split( $tool_path{'gate-cache-read'} ) } );
 }
 
 sub cache_write {
     my ($outfile) = @_;
     return in_repo( sub {
-        return run_split( File::Spec->catfile( $tools, 'gate-cache-write' ), $outfile );
+        return run_split( $tool_path{'gate-cache-write'}, $outfile );
     } );
 }
 
 sub run_gate {
-    return in_repo( sub { return run_split( File::Spec->catfile( $tools, 'gate-run' ) ) } );
+    # TKT-1073: gate-run itself now lives four levels under $repo
+    # (.developer-dashboard/skills/gate/cli/run), so its own 1-level
+    # dirname-fallback root computation no longer lands on $repo when it is
+    # invoked directly like this, without d2 setting DIR_TIRA. Exporting it
+    # here is what makes its internal .developer-dashboard/skills/.../cli/...
+    # calls (gate-cache-write among them) resolve against $repo, the same way
+    # a real `d2 gate.run` invocation would.
+    return in_repo( sub {
+        local $ENV{DIR_TIRA} = $repo;
+        return run_split( $tool_path{'gate-run'} );
+    } );
 }
 
 # --- nothing recorded yet: a miss -------------------------------------------

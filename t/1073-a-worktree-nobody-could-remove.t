@@ -29,9 +29,9 @@ use warnings;
 
 use Test::More;
 
-ok( -e 'tools/gate-run', 'tools/gate-run exists' );
+ok( -e '.developer-dashboard/skills/gate/cli/run', 'tools/gate-run exists' );
 
-open my $fh, '<', 'tools/gate-run' or die "Cannot read tools/gate-run: $!";
+open my $fh, '<', '.developer-dashboard/skills/gate/cli/run' or die "Cannot read tools/gate-run: $!";
 my $text = do { local $/; <$fh> };
 close $fh;
 ok( $text, 'tools/gate-run was read - not empty, not truncated' );

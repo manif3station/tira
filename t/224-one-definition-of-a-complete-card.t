@@ -72,7 +72,7 @@ is_deeply( $answer->{exempt}{parent}{labels}, [ 'standalone', 'upgrade-gate' ],
 # that it has no list of its own to drift.
 
 {
-    open my $tool, '<', 'tools/card-holes' or die "card-holes: $!";
+    open my $tool, '<', '.developer-dashboard/skills/card/cli/holes' or die "card-holes: $!";
     my $text = do { local $/; <$tool> };
     close $tool;
 

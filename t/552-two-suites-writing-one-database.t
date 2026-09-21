@@ -33,7 +33,7 @@ use Test::More;
 
 my $gate_run = do {
     local $/;
-    open my $fh, '<', 'tools/gate-run' or die "tools/gate-run: $!";
+    open my $fh, '<', '.developer-dashboard/skills/gate/cli/run' or die "tools/gate-run: $!";
     <$fh>;
 };
 

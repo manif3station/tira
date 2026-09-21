@@ -46,7 +46,7 @@ plan skip_all => 'python3 is not installed here' if !Tira::CLI::Serve::_program_
 # The waiting lives in one shared caller now rather than in the audit - the very
 # next push after this shipped failed the same way in the backup step, which had
 # none of it, so the decision was moved somewhere both tools reach. TKT-174.
-my $audit = File::Spec->catfile(qw(tools tira-call));
+my $audit = File::Spec->catfile(qw(.developer-dashboard skills tira cli call));
 runnable_ok( $audit, 'the shared caller ships and is runnable' );
 
 open my $fh, '<', $audit or die $!;

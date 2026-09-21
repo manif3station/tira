@@ -55,7 +55,7 @@ ok( scalar @{ $live->{evidence} // [] },         'and evidence' );
 # is that it does not carry a list of its own that nothing compares to a card.
 
 {
-    open my $source, '<', 'tools/board-restore' or die "board-restore: $!";
+    open my $source, '<', '.developer-dashboard/skills/board/cli/restore' or die "board-restore: $!";
     my $text = do { local $/; <$source> };
     close $source;
 

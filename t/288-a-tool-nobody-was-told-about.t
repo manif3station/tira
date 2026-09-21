@@ -44,7 +44,7 @@ like( $verification, qr/\bcommit\b.*\bpush\b|\bpush\b.*\bcommit\b/is,
 # The claim has to match what the script actually requires, or this
 # documents the same shape of drift TKT-413 just fixed elsewhere in this
 # project - a stated instruction nobody checked against the tool it names.
-open my $script, '<', 'tools/gate-run' or die "Cannot read tools/gate-run: $!";
+open my $script, '<', '.developer-dashboard/skills/gate/cli/run' or die "Cannot read tools/gate-run: $!";
 my $script_text = do { local $/; <$script> };
 close $script;
 like( $script_text, qr/Requires a clean tree/,

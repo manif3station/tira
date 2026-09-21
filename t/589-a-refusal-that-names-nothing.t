@@ -21,7 +21,7 @@ use File::Spec;
 use File::Temp qw(tempdir tempfile);
 use Test::More;
 
-my $TOOL = 'tools/gate-summarize';
+my $TOOL = '.developer-dashboard/skills/gate/cli/summarize';
 
 sub run_tool {
     my (@args) = @_;

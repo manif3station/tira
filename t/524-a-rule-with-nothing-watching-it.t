@@ -46,7 +46,7 @@ use Test::More;
 # directories are named but the files inside them never are.
 sub perl_files {
     my @found;
-    for my $dir (qw(lib t cli tools)) {
+    for my $dir (qw(lib t cli tools .developer-dashboard)) {
         next if !-d $dir;
         File::Find::find(
             {   no_chdir => 1,
@@ -241,16 +241,16 @@ ok( ( grep { $_ eq 'lib/Tira.pm' } @files ),
     'and it found lib/Tira.pm, the largest of them - a walk that missed the '
       . 'worst offender would pass this file while proving nothing' );
 
-ok( !( grep { $_ eq 'tools/prove-the-gate' } @files ),
+ok( !( grep { $_ eq '.developer-dashboard/skills/prove/skills/the/cli/gate' } @files ),
     'and NOT tools/prove-the-gate, which is bash. The card names it as one of '
       . 'fourteen Perl files over the limit; it is not Perl, and a guard built '
       . 'from that list would refuse it on its first run' );
 
-ok( !( grep { $_ eq 'tools/card-holes' } @files ),
+ok( !( grep { $_ eq '.developer-dashboard/skills/card/cli/holes' } @files ),
     'nor tools/card-holes, which is python - the same mistake, and the reason '
       . 'this walks by shebang rather than by directory' );
 
-ok( ( grep { $_ eq 'tools/coverage-holes' } @files ),
+ok( ( grep { $_ eq '.developer-dashboard/skills/coverage/cli/holes' } @files ),
     'but tools/coverage-holes IS found, because it is Perl - so the shebang '
       . 'check includes as well as excludes, and is not just a way of skipping '
       . 'the tools directory' );

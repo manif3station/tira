@@ -36,7 +36,7 @@ is( $quiet, '', '-fs says nothing about the same failure - what waiting should l
 
 # --- the three retry loops, read from the source ----------------------------
 
-open my $fh, '<', 'tools/browser-tests' or die "Cannot read tools/browser-tests: $!";
+open my $fh, '<', '.developer-dashboard/skills/browser/cli/tests' or die "Cannot read tools/browser-tests: $!";
 my $source = do { local $/; <$fh> };
 close $fh;
 

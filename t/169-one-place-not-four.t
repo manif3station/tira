@@ -33,7 +33,7 @@ use lib 'lib', 't/lib';
 use Shipped qw(runnable_ok);
 use Tira::CLI;
 
-my $caller = File::Spec->catfile(qw(tools tira-call));
+my $caller = File::Spec->catfile(qw(.developer-dashboard skills tira cli call));
 runnable_ok( $caller, 'there is one caller the gate tools share' );
 
 sub slurp {
@@ -49,17 +49,17 @@ sub slurp {
 # The whole point. Two languages, one decision - written once rather than twice
 # in dialects that can drift.
 
-my $backup = slurp('tools/board-backup');
-like( $backup, qr/tira-call/, 'the board backup calls through it' );
+my $backup = slurp('.developer-dashboard/skills/board/cli/backup');
+like( $backup, qr{tira.{1,15}cli.{1,15}call}, 'the board backup calls through it' );
 unlike( $backup, qr/^\s*d2 tira\./m,
     'and no longer calls d2 directly, which is what left it unprotected' );
 
-my $holes = slurp('tools/card-holes');
-like( $holes, qr/tira-call/, 'and so does the board audit' );
+my $holes = slurp('.developer-dashboard/skills/card/cli/holes');
+like( $holes, qr{tira.{1,15}cli.{1,15}call}, 'and so does the board audit' );
 
 # --- it waits on the one failure that means an install ------------------------------
 
-my $shared = slurp('tools/tira-call');
+my $shared = slurp('.developer-dashboard/skills/tira/cli/call');
 like( $shared, qr/not found in skill/, 'it knows the failure that means the skill was being written' );
 like( $shared, qr/sleep/, 'and waits rather than failing on the instant' );
 like( $shared, qr/attempts/i, 'and says how many times it tried if it never resolves' );

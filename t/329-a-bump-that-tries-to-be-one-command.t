@@ -20,8 +20,8 @@ use File::Copy qw(copy);
 use Test::More;
 
 my $real_root = File::Spec->rel2abs( File::Spec->catdir( dirname($0), File::Spec->updir ) );
-my $script    = File::Spec->catfile( $real_root, 'tools', 'bump-version' );
-ok( -x $script, 'tools/bump-version exists and is executable' ) or die "cannot find $script";
+my $script    = File::Spec->catfile( $real_root, qw(.developer-dashboard skills bump cli version) );
+ok( -x $script, '.developer-dashboard/skills/bump/cli/version (d2 bump.version) exists and is executable' ) or die "cannot find $script";
 
 # Purpose: a throwaway project layout the script can run against, with only
 #          the two files and the relative path (tools/bump-version) it needs.

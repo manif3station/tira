@@ -39,12 +39,13 @@ use Test::More;
 
 plan skip_all => 'git is not available' if system('git --version >/dev/null 2>&1') != 0;
 
-my $tool = abs_path('tools/review-worktree') // 'tools/review-worktree';
+my $tool = abs_path('.developer-dashboard/skills/review/cli/worktree')
+  // '.developer-dashboard/skills/review/cli/worktree';
 my $have_tool = -e $tool && -x $tool;
-ok( $have_tool, 'tools/review-worktree exists and is executable' );
+ok( $have_tool, '.developer-dashboard/skills/review/cli/worktree exists and is executable' );
 
 SKIP: {
-    skip 'tools/review-worktree has not been written yet', 14 if !$have_tool;
+    skip '.developer-dashboard/skills/review/cli/worktree has not been written yet', 14 if !$have_tool;
 
 # --- a repository with committed history and uncommitted work in it ----------
 

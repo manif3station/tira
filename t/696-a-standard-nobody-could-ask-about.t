@@ -98,7 +98,7 @@ ok( !( grep { $_ eq 'gate_passing_log' || $_ eq 'evidence' || $_ eq 'fix_version
 # it for the first definition --------------------------------------------
 
 {
-    open my $tool, '<', 'tools/card-holes' or die "card-holes: $!";
+    open my $tool, '<', '.developer-dashboard/skills/card/cli/holes' or die "card-holes: $!";
     my $text = do { local $/; <$tool> };
     close $tool;
 

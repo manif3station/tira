@@ -60,7 +60,7 @@ my $mine = $tira->create_record( project => $root, type => 'ticket',
     title => 'A card of my own with nothing on it' );
 $tira->record_move(author => 'claude',  project => $root, ref => $mine->{ref}, column => 'implement' );
 
-my $tool  = File::Spec->rel2abs( File::Spec->catfile( 'tools', 'card-holes' ) );
+my $tool  = File::Spec->rel2abs( File::Spec->catfile( qw(.developer-dashboard skills card cli holes) ) );
 my $skill = File::Spec->rel2abs('.');
 
 # A dispatcher of its own, because the real one is not here. The gate reaches a

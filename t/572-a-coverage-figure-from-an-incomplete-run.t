@@ -37,7 +37,7 @@ use lib 'lib';
 use lib 't/lib';
 use Suite ();
 
-my $TOOL = 'tools/coverage-complete';
+my $TOOL = '.developer-dashboard/skills/coverage/cli/complete';
 
 sub run_tool {
     my (@args) = @_;
@@ -129,7 +129,7 @@ ok( -x $TOOL, 'and is executable, so the gate can call it' );
 # A tool nothing runs is a tool that proves nothing.
 
 {
-    open my $fh, '<:raw', 'tools/gate-run' or die $!;
+    open my $fh, '<:raw', '.developer-dashboard/skills/gate/cli/run' or die $!;
     my $gate = do { local $/; <$fh> };
     close $fh;
     # non-empty is the whole claim: the check below would pass on an

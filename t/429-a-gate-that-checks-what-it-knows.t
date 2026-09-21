@@ -31,7 +31,7 @@ use File::Find ();
 use Test::More;
 
 my $gate = do {
-    open my $fh, '<', 'tools/gate-run' or die "tools/gate-run: $!";
+    open my $fh, '<', '.developer-dashboard/skills/gate/cli/run' or die "tools/gate-run: $!";
     local $/;
     <$fh>;
 };

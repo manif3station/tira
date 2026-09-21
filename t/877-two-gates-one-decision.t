@@ -63,7 +63,7 @@ sub _rules_in {
 
 # --- the repo's own hand-maintained copy ------------------------------------
 
-open my $fh, '<', 'tools/hooks/commit-msg' or die "tools/hooks/commit-msg: $!";
+open my $fh, '<', '.developer-dashboard/cli/hooks/commit-msg' or die "tools/hooks/commit-msg: $!";
 my $repo_text = do { local $/; <$fh> };
 close $fh;
 my $repo_rules = _rules_in($repo_text);

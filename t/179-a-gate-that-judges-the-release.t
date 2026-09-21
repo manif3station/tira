@@ -47,7 +47,7 @@ require Tira::CLI::Serve;
 
 plan skip_all => 'git is not installed here' if !Tira::CLI::Serve::_program_exists('git');
 
-my $hook = File::Spec->catfile(qw(tools hooks pre-push));
+my $hook = File::Spec->catfile(qw(.developer-dashboard cli hooks pre-push));
 ok( -f $hook, 'the gate ships in the repository rather than only in .git/hooks' );
 
 open my $fh, '<', $hook or die "$hook: $!";
@@ -67,7 +67,7 @@ close $fh;
 # that keeps it changed. Deleting these would have retired a property because
 # its address moved.
 
-my $runner = File::Spec->catfile(qw(tools gate-run));
+my $runner = File::Spec->catfile(qw(.developer-dashboard skills gate cli run));
 ok( -f $runner, 'the suite runner ships in the repository' );
 
 open my $rfh, '<', $runner or die "$runner: $!";

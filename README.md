@@ -956,21 +956,21 @@ docker compose -f ~/projects/skills/docker-compose.testing.yml run --rm perl-tes
   bash -lc 'cd /workspace/skills/tira && cpanm --quiet --notest --installdeps . && prove -lr t'
 ```
 
-**`tools/dev-run`** runs that same incantation for you, against the WORKING
+**`d2 dev.run`** runs that same incantation for you, against the WORKING
 tree - uncommitted changes included - copied on the host into a scratch
 directory first and mounted into the container from there, so a coverage
 pass never reads a file mid-edit. It
 checks `--installdeps` explicitly and names a dependency-install failure as
 itself, rather than letting a missing module abort test files at compile time
-and read as a broken test. `tools/dev-run -- t/FILE.t` runs one file the same
-way; `tools/dev-run --coverage lib/Module.pm` adds the coverage pass. This is
-the working-tree half of the pair; `tools/gate-run` below is the committed-tree
+and read as a broken test. `d2 dev.run -- t/FILE.t` runs one file the same
+way; `d2 dev.run --coverage lib/Module.pm` adds the coverage pass. This is
+the working-tree half of the pair; `d2 gate.run` below is the committed-tree
 half, tied to a git hash for the push hook.
 
 The release gate requires 100% statement and subroutine coverage plus the
 post-coverage `perlsec` and taint-mode audit recorded in `tickets/TESTING.md`.
 Since 4.73 that means every module under `lib/`, found by looking rather than
-by a list somebody typed — `tools/gate-run` enumerates them, names the ones it
+by a list somebody typed — `d2 gate.run` enumerates them, names the ones it
 checked, and refuses a release for any that is missing from the coverage report
 or below 100%. A module can be exempted, but only by being written into the
 gate's exemption list with a reason beside it; the list is currently empty.
@@ -1039,9 +1039,9 @@ The percentage stays, because it is what proves the threshold was applied. To as
 the same question yourself, against a `cover_db` you already have:
 
 ```bash
-./tools/coverage-holes --db cover_db                    # everything it found
-./tools/coverage-holes --db cover_db --module lib/Tira.pm
-./tools/coverage-holes --db cover_db --all              # past the 20-line cap
+d2 coverage.holes --db cover_db                    # everything it found
+d2 coverage.holes --db cover_db --module lib/Tira.pm
+d2 coverage.holes --db cover_db --all              # past the 20-line cap
 ```
 
 It reads the `Devel::Cover` database rather than parsing `cover -report text`,
@@ -1059,7 +1059,7 @@ reproduces.** Measured on 4.76, `-j 4` under `Devel::Cover` reported
 `lib/Tira.pm` at 99.8% statement with one uncovered `map` body that three
 separate tests demonstrably enter, while the same tree run with plain
 `prove -lr t` reported 100.0%. That measurement stood as the reason
-`tools/gate-run` ran the suite serially for several releases. TKT-683
+`d2 gate.run` ran the suite serially for several releases. TKT-683
 re-tested it properly - after two earlier attempts had been reverted for
 the wrong reason (both blamed `-j`/`Devel::Cover` for failures that turned
 out to be an unrelated fixture bug, corrected without ever isolating a
@@ -1067,7 +1067,7 @@ clean serial baseline first) - and could not reproduce the data loss:
 three separate runs (`-j 7` twice, `-j 4` once, the same worker count the
 4.76 measurement used) each reported 100.0/100.0/100.0 on both
 `lib/Tira.pm` and `lib/Tira/CLI.pm`, with wallclock roughly half the
-serial baseline (509-555s versus 1238-1449s). `tools/gate-run` now runs
+serial baseline (509-555s versus 1238-1449s). `d2 gate.run` now runs
 `-j`, deriving the worker count from the machine and leaving one core
 free. The original incident is kept here rather than deleted: it was a
 real, measured failure once, on this same suite, and a future report of
@@ -1075,7 +1075,7 @@ coverage loss under `-j` deserves to find this history rather than
 assume it has never happened.
 
 Bumping the release version means `.env`'s `VERSION=` line and
-`lib/Tira.pm`'s `our $VERSION` always agreeing - `tools/bump-version NEW`
+`lib/Tira.pm`'s `our $VERSION` always agreeing - `d2 bump.version NEW`
 writes both together and refuses rather than guessing if they already
 disagree. `Changes` (the dated entry with real release notes) stays
 hand-written; `t/03-metadata.t` no longer carries a version literal of its
@@ -1092,7 +1092,7 @@ incomplete cards, the documentation, every documented example, the browser),
 but it starts no container and takes seconds rather than the twenty minutes
 it used to.
 
-`tools/gate-run` is still here and is now the only place the suite is run
+`d2 gate.run` is still here and is now the only place the suite is run
 against a *commit* rather than against your working directory: it checks out
 HEAD into a throwaway worktree and runs the suite and coverage there, so a
 change that passes only because of an unstaged file fails there instead of
@@ -1102,13 +1102,13 @@ change is not part of that. Run it after committing and before `git push`.
 
 Its `cleanup()` now attempts a fallback rather than silently giving up on
 that worktree, since 5.165 (TKT-1073, the same root cause TKT-579 already
-fixed in `tools/dev-run`). A plain `git worktree remove --force "$tree"
+fixed in `d2 dev.run`). A plain `git worktree remove --force "$tree"
 >/dev/null 2>&1 || true` can fail to delete a root-owned subdirectory a
 coverage run's `cover_db` leaves behind, with the `|| true` swallowing that
 failure completely - the tool reported success while the worktree survived
 on disk. `cleanup()` now tries git's own removal first, and only on failure
 attempts to clear the tree with a disposable container (the same pattern
-`tools/dev-run` already uses) before a plain `rm -rf` and a `git worktree
+`d2 dev.run` already uses) before a plain `rm -rf` and a `git worktree
 prune` to clear the now-stale registration - each fallback step is still
 best-effort (`|| true`), so this closes the common case rather than
 guaranteeing every possible failure is now handled.
@@ -1121,19 +1121,24 @@ of sharing a `Devel::Cover` database and producing a wrong coverage number.
 Unlike DD's own tools it blocks rather than refuses: nothing here is an
 interactive session watching for a refusal to retry.
 
-It still records a pass keyed to that commit's tree; `tools/gate-cache-read`
+It still records a pass keyed to that commit's tree; `d2 gate.cache.read`
 is how you ask whether the tree `HEAD` currently points at was already proved
 (it takes no argument and answers for that tree alone). Nothing reads those
 records automatically any more - the hook stopped consulting them along with
 the suite they existed to skip - so the record is for you, not for the gate.
 
-When a gate asks for a code review, run it through `tools/review-worktree`
+When a gate asks for a code review, run it through `d2 review.worktree`
 rather than pointing the reviewer at the checkout:
 
 ```bash
-./tools/review-worktree codex exec --skip-git-repo-check \
+d2 review.worktree codex exec --skip-git-repo-check \
   -c sandbox_mode='"danger-full-access"' "<the review prompt>"
 ```
+
+The tool itself lives at `.developer-dashboard/skills/review/cli/worktree`
+(the standard Developer Dashboard layout for a helper script - reachable as
+`d2 review.worktree` without any separate registration), so it is not part
+of this repository's own git history.
 
 It runs the command in a throwaway clone of this repository with your
 uncommitted work carried into it - tracked changes, staged state and untracked

@@ -3,6 +3,12 @@
 # line still needs it in the build context. The blanket `COPY .` destination
 # (/root/.developer-dashboard/skills/tira) has it removed with a RUN step
 # in the Dockerfile instead, right after that copy - see the comment there.
-.git
+#
+# .git is deliberately NOT excluded here (an earlier version of this file
+# did, on the assumption it was just build-context bloat) - t/1015 clones
+# "the real repository" from inside the container at runtime, which needs
+# a real .git directory at the copied source path. Excluding it broke that
+# test outright ("fatal: repository ... does not exist"), caught live
+# during this same ticket's verify pass.
 cover_db
 .test-tmp

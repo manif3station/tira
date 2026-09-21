@@ -129,7 +129,7 @@ isnt( push_status('refused'), 0, 'and a hook that refuses still stops the push' 
 # not leave the machine.
 
 {
-    open my $installer, '<', File::Spec->catfile(qw(tools install-hooks)) or die $!;
+    open my $installer, '<', File::Spec->catfile(qw(.developer-dashboard skills install cli hooks)) or die $!;
     my $source = do { local $/; <$installer> };
     close $installer;
     like( $source, qr/core\.sshCommand/,

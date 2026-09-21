@@ -42,7 +42,7 @@ use Tira;
 
 my $tmp   = tempdir( CLEANUP => 1 );
 my $skill = File::Spec->rel2abs('.');
-my $tool  = File::Spec->rel2abs( File::Spec->catfile( 'tools', 'card-holes' ) );
+my $tool  = File::Spec->rel2abs( File::Spec->catfile( qw(.developer-dashboard skills card cli holes) ) );
 
 # A dispatcher of its own, because the dashboard is not installed in the
 # container the suite runs in.

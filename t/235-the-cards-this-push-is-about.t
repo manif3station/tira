@@ -75,7 +75,7 @@ $tira->hierarchy_link( project => $root,
 my $next = $tira->create_record( project => $root, type => 'ticket',
     title => 'Something else somebody is in the middle of' );
 
-my $tool  = File::Spec->rel2abs( File::Spec->catfile( 'tools', 'card-holes' ) );
+my $tool  = File::Spec->rel2abs( File::Spec->catfile( qw(.developer-dashboard skills card cli holes) ) );
 my $skill = File::Spec->rel2abs('.');
 
 # A dispatcher of its own, because the real one is not here: the tool reaches a

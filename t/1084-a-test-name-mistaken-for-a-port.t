@@ -21,7 +21,7 @@ use File::Temp qw(tempdir);
 use File::Spec;
 use Test::More;
 
-open my $fh, '<', 'tools/browser-tests' or die "Cannot read tools/browser-tests: $!";
+open my $fh, '<', '.developer-dashboard/skills/browser/cli/tests' or die "Cannot read tools/browser-tests: $!";
 my $source = do { local $/; <$fh> };
 close $fh;
 

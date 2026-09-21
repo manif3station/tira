@@ -29,7 +29,7 @@ use lib 'lib', 't/lib';
 use Run qw(run_capturing);
 
 my $tmp  = tempdir( CLEANUP => 1 );
-my $tool = File::Spec->rel2abs( File::Spec->catfile( 'tools', 'board-restore' ) );
+my $tool = File::Spec->rel2abs( File::Spec->catfile( qw(.developer-dashboard skills board cli restore) ) );
 
 # A backup with one card on it, in the shape the tool reads.
 my $backup = File::Spec->catdir( $tmp, 'backup' );

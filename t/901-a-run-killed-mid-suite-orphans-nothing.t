@@ -50,7 +50,7 @@ print {$compose} "services: {}\n";
 close $compose;
 
 my $gate_run_source = do {
-    open my $in, '<', File::Spec->catfile( $root, 'tools', 'gate-run' ) or die $!;
+    open my $in, '<', File::Spec->catfile( $root, qw(.developer-dashboard skills gate cli run) ) or die $!;
     local $/;
     <$in>;
 };

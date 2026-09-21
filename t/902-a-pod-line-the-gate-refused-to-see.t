@@ -43,7 +43,7 @@ system( 'git', '-C', $repo, 'config', 'user.email', 'a@b.c' );
 system( 'git', '-C', $repo, 'config', 'user.name',  'Test' );
 
 my $real_hook = File::Spec->rel2abs(
-    File::Spec->catfile( 'tools', 'hooks', 'commit-msg' ) );
+    File::Spec->catfile( qw(.developer-dashboard cli hooks commit-msg) ) );
 mkdir File::Spec->catdir( $repo, 'tools' );
 mkdir File::Spec->catdir( $repo, 'tools', 'hooks' );
 my $hook = File::Spec->catfile( $repo, 'tools', 'hooks', 'commit-msg' );

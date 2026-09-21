@@ -126,7 +126,7 @@ SH
 # nothing here and passes vacuously - written that way once already, caught
 # by noticing it passed a moment before the fix existed to make it pass.
 
-my $source = slurp('tools/browser-tests');
+my $source = slurp('.developer-dashboard/skills/browser/cli/tests');
 like( $source, qr/\A#!\/usr\/bin\/env bash/,
     'the real script was read - establishing $source before the denial below is about it' );
 

@@ -44,7 +44,7 @@ use Test::More;
 
 my $source = do {
     local $/;
-    open my $fh, '<', 'tools/gate-run' or die "cannot read tools/gate-run: $!";
+    open my $fh, '<', '.developer-dashboard/skills/gate/cli/run' or die "cannot read tools/gate-run: $!";
     <$fh>;
 };
 ok( length $source, 'tools/gate-run was read' );

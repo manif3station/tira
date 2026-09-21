@@ -67,7 +67,7 @@ $tira->checklist_add( author => 'claude', project => $root, ref => $card->{ref},
 # silently measure the skill's own board. It did, on the first attempt: two
 # passes over 235 cards instead of one, and the run timed out rather than
 # failing, which is the least useful way to be wrong.
-my $tool = File::Spec->rel2abs( File::Spec->catfile( 'tools', 'card-holes' ) );
+my $tool = File::Spec->rel2abs( File::Spec->catfile( qw(.developer-dashboard skills card cli holes) ) );
 my $skill = File::Spec->rel2abs('.');
 
 # A dispatcher of its own, because the real one is not here.

@@ -55,7 +55,7 @@ sub slurp {
 
 # --- extract the real "about" computation, unedited -------------------------
 
-my $hook = slurp('tools/hooks/pre-push');
+my $hook = slurp('.developer-dashboard/cli/hooks/pre-push');
 my ($stdin_block) = $hook =~ /^(pushed_sha="HEAD"\n(?:.*\n)*?fi\n)/m;
 my ($about_block)  = $hook =~ /^(about=""\n(?:.*\n)*?fi\n)/m;
 ok( defined $stdin_block && defined $about_block,

@@ -89,7 +89,7 @@ is( $mixed->{checklist_done}, 1,
 # the gate (t/224, t/416): it is a separate program in another language, and
 # what matters is that it has no second opinion to drift.
 
-open my $tool, '<', 'tools/card-holes' or die "card-holes: $!";
+open my $tool, '<', '.developer-dashboard/skills/card/cli/holes' or die "card-holes: $!";
 my $gate = do { local $/; <$tool> };
 close $tool;
 
@@ -138,7 +138,7 @@ like( $gate, qr/\Qand not waiting\E/,
 # correct - so the ledger would have stayed red after the real fix and taught
 # whoever met it that the assertion was the thing to loosen.
 my @sites;
-open my $dir, '-|', 'grep', '-rn', "get('status') != 'done'", 'tools/' or die $!;
+open my $dir, '-|', 'grep', '-rn', "get('status') != 'done'", '.developer-dashboard/' or die $!;
 while ( my $line = <$dir> ) { chomp $line; push @sites, $line }
 close $dir;
 is_deeply( \@sites, [],

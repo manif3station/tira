@@ -57,9 +57,9 @@ sub slurp {
     return $text;
 }
 
-my $hook     = slurp('tools/hooks/pre-push');
-my $prover   = slurp('tools/prove-the-gate');
-my $gate_run = slurp('tools/gate-run');
+my $hook     = slurp('.developer-dashboard/cli/hooks/pre-push');
+my $prover   = slurp('.developer-dashboard/skills/prove/skills/the/cli/gate');
+my $gate_run = slurp('.developer-dashboard/skills/gate/cli/run');
 
 # Established first, and not as a formality: every denial below is about text
 # that is absent from these three files, and a denial about a file that failed
@@ -99,9 +99,9 @@ unlike( $hook, qr/Result:\s*PASS/,
 # answer, and a live-looking call to it would be dead code behind a real name -
 # which is the fault t/121 exists to catch on the dashboard's controls.
 
-unlike( $hook, qr{tools/gate-cache-read},
+unlike( $hook, qr{gate/skills/cache/cli/read},
     'the hook does not consult the gate cache' );
-unlike( $hook, qr{tools/gate-cache-write},
+unlike( $hook, qr{gate/skills/cache/cli/write},
     'and does not write to it' );
 
 # --- what must survive ------------------------------------------------------
@@ -111,19 +111,19 @@ unlike( $hook, qr{tools/gate-cache-write},
 
 like( $hook, qr/checking the version against what is being shipped/,
     'the version check survives' );
-like( $hook, qr{tools/board-backup},
+like( $hook, qr{board/cli/backup},
     'the board backup survives' );
 like( $hook, qr/refusing to push without a backup/,
     'including its refusal when the backup tool is missing' );
-like( $hook, qr{tools/card-holes},
+like( $hook, qr{card/cli/holes},
     'the card check survives' );
 like( $hook, qr/every live card is complete|checking the board for incomplete/,
     'and the live-card completeness check with it' );
-like( $hook, qr{tools/docs-match-code},
+like( $hook, qr{docs/skills/match/cli/code},
     'the documentation check survives' );
-like( $hook, qr{tools/docs-examples-run},
+like( $hook, qr{docs/skills/examples/cli/run},
     'every documented example is still run' );
-unlike( $hook, qr{tools/browser-tests\s*(?:\|\||&&|;|\z)},
+unlike( $hook, qr{browser/cli/tests\s*(?:\|\||&&|;|\z)},
     'the browser suite no longer runs here - TKT-796 moved it to a per-card, '
       . 'conditional verify-column check instead of a once-per-push gate' );
 
@@ -132,10 +132,10 @@ unlike( $hook, qr{tools/browser-tests\s*(?:\|\||&&|;|\z)},
 # a removal that hoisted them above the surviving checks would leave them
 # proving nothing about what goes out.
 my $version_at  = index( $hook, 'checking the version against what is being shipped' );
-my $backup_at   = index( $hook, 'tools/board-backup' );
-my $holes_at    = index( $hook, 'tools/card-holes' );
-my $docs_at     = index( $hook, 'tools/docs-match-code' );
-my $examples_at = index( $hook, 'tools/docs-examples-run' );
+my $backup_at   = index( $hook, '.developer-dashboard/skills/board/cli/backup' );
+my $holes_at    = index( $hook, '.developer-dashboard/skills/card/cli/holes' );
+my $docs_at     = index( $hook, '.developer-dashboard/skills/docs/skills/match/cli/code' );
+my $examples_at = index( $hook, '.developer-dashboard/skills/docs/skills/examples/cli/run' );
 
 cmp_ok( $version_at, '<', $backup_at,
     'the version check still runs before the board backup' );
@@ -155,7 +155,7 @@ cmp_ok( $docs_at, '<', $examples_at,
 # named twice, once in an `[ -x ... ]` guard and once when it runs, and the
 # first mention is the guard. Anchoring on it left the invocation line inside
 # the tail and both counts below were wrong - caught by them failing.
-my $invoked_at = index( $hook, 'tools/docs-examples-run || fail' );
+my $invoked_at = index( $hook, '.developer-dashboard/skills/docs/skills/examples/cli/run || fail' );
 cmp_ok( $invoked_at, '>', $examples_at,
     'the examples tool is guarded before it is invoked' );
 
@@ -173,7 +173,7 @@ my $refusals_after = () = $after_examples =~ /\bfail\s+["']/g;
 is( $refusals_after, 0,
     'nothing after the examples can refuse a push - it is the last gate' );
 
-my $tools_after = () = $after_examples =~ m{\btools/[a-z-]+}g;
+my $tools_after = () = $after_examples =~ m{\B\.developer-dashboard/\S+}g;
 is( $tools_after, 0,
     'and no further tool is invoked after it' );
 

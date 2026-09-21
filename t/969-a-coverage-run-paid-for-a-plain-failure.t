@@ -57,7 +57,7 @@ sub extract_embedded_script {
     return $text;
 }
 
-my $script_text = extract_embedded_script( File::Spec->catfile( $root, 'tools', 'gate-run' ) );
+my $script_text = extract_embedded_script( File::Spec->catfile( $root, qw(.developer-dashboard skills gate cli run) ) );
 like( $script_text, qr/prove -j"\$JOBS" -lr t/, 'the embedded script was found and looks like the one under test' )
   or BAIL_OUT('extraction failed - nothing else in this file is testing anything real');
 
@@ -88,11 +88,25 @@ print {$testfile} "use Test::More; ok(1); done_testing;\n";
 close $testfile;
 
 require File::Copy;
-mkdir File::Spec->catdir( $repo, 'tools' ) or die $!;
+require File::Path;
+# The extracted script itself calls these by their real, current relative
+# path (.developer-dashboard/skills/.../cli/...) - matching gate-run's own
+# fixture copy of the whole .developer-dashboard/ tree into its worktree,
+# this places each copied tool where the extracted text actually expects
+# it, not a flat tools/ layout that predates TKT-1073's move.
+my %source_parts = (
+    'gate-summarize'     => [qw(.developer-dashboard skills gate cli summarize)],
+    'coverage-complete'  => [qw(.developer-dashboard skills coverage cli complete)],
+    'coverage-guard'     => [qw(.developer-dashboard skills coverage cli guard)],
+    'coverage-holes'     => [qw(.developer-dashboard skills coverage cli holes)],
+);
 for my $tool (qw(gate-summarize coverage-complete coverage-guard coverage-holes)) {
-    File::Copy::copy( File::Spec->catfile( $root, 'tools', $tool ), File::Spec->catdir( $repo, 'tools' ) )
+    my @parts = @{ $source_parts{$tool} };
+    my $dest  = File::Spec->catfile( $repo, @parts );
+    File::Path::make_path( File::Spec->catdir( $repo, @parts[ 0 .. $#parts - 1 ] ) );
+    File::Copy::copy( File::Spec->catfile( $root, @parts ), $dest )
       or die "copy $tool: $!";
-    chmod 0755, File::Spec->catfile( $repo, 'tools', $tool );
+    chmod 0755, $dest;
 }
 
 ( my $retargeted_text = $script_text ) =~ s{\Qcd /workspace/skills/tira\E}{cd $repo};
@@ -155,6 +169,14 @@ PROVE
 
     local $ENV{PATH} = "$bin:$ENV{PATH}";
     local $ENV{HARNESS_PERL_SWITCHES} = $opt{inherited_switches} if defined $opt{inherited_switches};
+    # TKT-1073: coverage-guard (called deep inside the embedded script) cds
+    # to its own believed project root via the same $DIR_TIRA-or-fallback
+    # pattern every moved tool now uses - the fallback assumes the old flat
+    # tools/ layout, which this fixture deliberately does NOT recreate (it
+    # copies each tool to its real nested path, matching what the extracted
+    # script itself calls). Exporting $DIR_TIRA is what makes that resolve
+    # correctly here, the same way `d2` sets it for a real invocation.
+    local $ENV{DIR_TIRA} = $repo;
     my $out = `cd $repo && bash $script_path 2>&1`;
     my $status = $? >> 8;
 

@@ -17,7 +17,7 @@ use File::Spec;
 use Test::More;
 
 my $root = File::Spec->rel2abs('.');
-my $path = File::Spec->catfile( $root, 'tools', 'gate-run' );
+my $path = File::Spec->catfile( $root, qw(.developer-dashboard skills gate cli run) );
 
 my $source = do {
     open my $fh, '<', $path or die "$path: $!";

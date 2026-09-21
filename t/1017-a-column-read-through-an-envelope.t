@@ -45,7 +45,7 @@ my $fake_d2 = File::Spec->catfile( $bin, 'd2' );
 # git - so it has to live at that same relative path under the test repo,
 # not be run from the real tira checkout's own tools/hooks/.
 my $real_hook = File::Spec->rel2abs(
-    File::Spec->catfile( 'tools', 'hooks', 'commit-msg' ) );
+    File::Spec->catfile( qw(.developer-dashboard cli hooks commit-msg) ) );
 mkdir File::Spec->catdir( $repo, 'tools' );
 mkdir File::Spec->catdir( $repo, 'tools', 'hooks' );
 my $hook = File::Spec->catfile( $repo, 'tools', 'hooks', 'commit-msg' );

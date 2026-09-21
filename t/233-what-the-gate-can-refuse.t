@@ -36,8 +36,8 @@ sub slurp {
     return $text;
 }
 
-my $hook   = slurp('tools/hooks/pre-push');
-my $prover = slurp('tools/prove-the-gate');
+my $hook   = slurp('.developer-dashboard/cli/hooks/pre-push');
+my $prover = slurp('.developer-dashboard/skills/prove/skills/the/cli/gate');
 
 # --- what the hook can refuse ----------------------------------------------
 #

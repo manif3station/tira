@@ -25,7 +25,7 @@ use warnings;
 use File::Temp qw(tempfile);
 use Test::More;
 
-my $TOOL = 'tools/gate-outer-refusal';
+my $TOOL = '.developer-dashboard/skills/gate/skills/outer/cli/refusal';
 
 sub run_tool {
     my (@args) = @_;

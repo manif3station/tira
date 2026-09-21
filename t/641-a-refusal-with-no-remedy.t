@@ -48,7 +48,7 @@ $tira->checklist_add( author => 'claude', project => $root, ref => $card->{ref},
     item => 'the work', status => 'Done', command => ['did it'], proof => ['done'] );
 $tira->record_move( author => 'claude', project => $root, ref => $card->{ref}, column => 'push' );
 
-my $tool  = File::Spec->rel2abs( File::Spec->catfile( 'tools', 'card-holes' ) );
+my $tool  = File::Spec->rel2abs( File::Spec->catfile( qw(.developer-dashboard skills card cli holes) ) );
 my $skill = File::Spec->rel2abs('.');
 
 my $stub = File::Spec->catdir( $tmp, 'bin' );

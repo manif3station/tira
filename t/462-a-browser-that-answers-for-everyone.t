@@ -34,7 +34,7 @@ sub slurp {
     return $text;
 }
 
-my $hook = slurp('tools/hooks/pre-push');
+my $hook = slurp('.developer-dashboard/cli/hooks/pre-push');
 like( $hook, qr{\A#!/usr/bin/env bash}, 'the push hook is a bash script and was read' );
 
 unlike( $hook, qr{tools/browser-tests\s*(?:\|\||&&|;|\z)},

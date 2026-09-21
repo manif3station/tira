@@ -30,9 +30,11 @@ use lib 'lib';
 use lib 't/lib';
 use Suite ();
 
+my %TOOL_PATH = ( 'gate-run' => '.developer-dashboard/skills/gate/cli/run' );
+
 sub tool_source {
     my ($name) = @_;
-    my $path = "tools/$name";
+    my $path = $TOOL_PATH{$name} // "tools/$name";
     open my $fh, '<:raw', $path or die "cannot read $path: $!";
     my $text = do { local $/; <$fh> };
     close $fh;

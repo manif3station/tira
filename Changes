@@ -1,5 +1,63 @@
 Revision history for Tira
 
+5.166  2026-09-21
+    - TKT-1073, a third issue found in the same test-mechanism switch,
+      self-caught: the new Dockerfile never installed `Devel::Cover` (the
+      old docker-compose.testing.yml's own Dockerfile did, since it is a
+      test-only tool deliberately absent from cpanfile's runtime deps),
+      so `HARNESS_PERL_SWITCHES=-MDevel::Cover prove -lr t` failed outright
+      with "Can't locate Devel/Cover.pm" - the mandatory 100%
+      statement+subroutine coverage gate could not run at all under the
+      new mechanism. Added `RUN cpanm --notest Devel::Cover Test::More`,
+      matching the old Dockerfile. Same untracked-Dockerfile caveat as
+      above applies.
+    - A fourth issue, this one a genuine self-caused regression caught
+      during this same ticket's own verify pass: the `.dockerignore` above
+      originally excluded `.git` too, on the assumption it was only build-
+      context bloat. `t/1015` clones "the real repository" from inside the
+      container at runtime and needs an actual `.git` directory at the
+      copied source path - excluding it broke that test outright ("fatal:
+      repository ... does not exist"). Removed `.git` from `.dockerignore`;
+      re-confirmed both t/1015 (now green) and t/172 (the earlier .tira-
+      board fix, unaffected by restoring .git) pass together.
+    - Also, per Michael's live instruction (2026-09-21): every remaining
+      tool under tools/ (24 scripts, plus review-worktree already moved)
+      relocated to .developer-dashboard/skills/<name>/cli/<verb>, the
+      standard Developer Dashboard helper-script layout - each reachable
+      as `d2 <name>.<verb>` (verified live for every one). tools/ itself
+      is retired; "stop adding any more file to the tools folder" is now
+      the standing rule for this project. None of these scripts are
+      tracked by git any more, matching the test Dockerfile's own already-
+      established untracked status. Every reference across the codebase
+      was updated: docs (README.md, SKILLS.md, docs/POLICIES.md,
+      docs/commands.md, tickets/TESTING.md), the pre-push and commit-msg
+      git hooks' own internal tool invocations, tools/gate-run's internal
+      calls to gate-summarize/coverage-complete/coverage-guard/coverage-
+      holes/gate-outer-refusal/gate-cache-write, and every test file that
+      read or executed a tool by its old path. Root-detection inside each
+      moved script (previously a fixed `$(dirname "$0")/..`, correct only
+      because every tool lived exactly one level under a flat tools/) now
+      prefers `$DIR_TIRA` - set automatically by `d2` for any dispatched
+      command, regardless of how deep the target script actually lives -
+      falling back to the old one-level dirname math only for tests that
+      copy a tool into a scratch fixture and invoke it directly (bump-
+      version, coverage-guard), which don't run through `d2` and mimic the
+      old flat layout on purpose. The two git hooks needed a different fix
+      again: git invokes them through the .git/hooks/ symlink at one
+      depth, while tools/prove-the-gate invokes the real file directly at
+      another, so no single relative depth is right for both - both hooks
+      now derive their root from `git rev-parse --show-toplevel` instead,
+      which is correct regardless of which path reached them.
+    - A follow-up sweep, same ticket: the doc pass above left 81 literal
+      `tools/NAME` references unconverted across README.md, SKILLS.md,
+      docs/commands.md, docs/POLICIES.md and tickets/TESTING.md - the
+      earlier pass added narrative about the move without touching every
+      individual mention. Replaced each with its real `d2 <name>.<verb>`
+      form (or, for the two git hooks and t/524's directory-shebang scan,
+      the real `.developer-dashboard/...` path), leaving only the two
+      unrelated `.claude/tools/run-suite` mentions - a different project's
+      path - untouched.
+
 5.165  2026-09-20
     - TKT-1073, found by a 2-hourly improvement hunt while fixing the
       identical bug in tools/dev-run (TKT-579): tools/gate-run's cleanup()
@@ -21,7 +79,7 @@ Revision history for Tira
       with no exclusion for `.tira`, baking this repo's own production board
       into every test image at the exact path doc-examples/prove run from,
       breaking t/172's own board-isolation check. Fixed with a `.dockerignore`
-      (excluding `.git`, `cover_db`, `.test-tmp` - `.tira` stays in the build
+      (excluding `cover_db`, `.test-tmp` - `.tira` stays in the build
       context deliberately, since the same Dockerfile's `ADD .tira
       /test-project/.tira` line needs it) plus a `RUN rm -rf
       /root/.developer-dashboard/skills/tira/.tira` step right after the

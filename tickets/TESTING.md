@@ -15,7 +15,7 @@ before the retry. A gate that cannot be run in the foreground is a cost, not an
 inconvenience beside one.
 
 The gate-cache (TKT-351) was built to stop exactly this double-run and could
-not. `tools/gate-cache-read` keys on `git rev-parse HEAD^{tree}`, and the verify
+not. `d2 gate.cache.read` keys on `git rev-parse HEAD^{tree}`, and the verify
 suite runs against the working tree *before* the documentation and version
 commits exist - so the tree it records is never the tree being pushed. 93
 records in `.git/tira-gate-cache` that morning and not one for `HEAD`'s tree.
@@ -34,7 +34,7 @@ first option on the question, and **declined**. It is recorded in the card's
 
 He was right, and for a better reason than the one I gave him. I argued a card
 dragged into `push` by hand could otherwise push unproved code. But that refusal
-already exists and survives untouched: `tools/card-holes` - step 4, still in the
+already exists and survives untouched: `d2 card.holes` - step 4, still in the
 hook - refuses a card with `no gate has been recorded`, `no evidence is
 attached`, or `no fix version` once it is past the shipping columns. The check I
 proposed was already there under another name. What would have been added is a
@@ -49,12 +49,12 @@ Seven checks, four before the removed block and three after it:
 | | Check | Refuses when |
 | --- | --- | --- |
 | before | the version against what is shipping | a shipped file changed and `VERSION` did not |
-| before | the board backup | `tools/board-backup` is missing, or it fails |
+| before | the board backup | `d2 board.backup` is missing, or it fails |
 | before | live-card completeness | a card this push is about is incomplete |
-| before | `tools/card-holes` | a card has holes in it |
-| after | `tools/docs-match-code` | the documentation and the code disagree |
-| after | `tools/docs-examples-run` | a documented example is not what the command accepts |
-| after | `tools/browser-tests` | a browser test fails, or the runner is absent |
+| before | `d2 card.holes` | a card has holes in it |
+| after | `d2 docs.match.code` | the documentation and the code disagree |
+| after | `d2 docs.examples.run` | a documented example is not what the command accepts |
+| after | `d2 browser.tests` | a browser test fails, or the runner is absent |
 
 The three after the block are last **deliberately**, and their own comment says
 why: *"Documentation edited after a gate has shipped a broken build here twice,
@@ -72,12 +72,12 @@ not do reads as having passed something. Rewritten to what it actually proves,
 naming where the suite was proved instead - so a push transcript does not leave
 a reader wondering whether the suite was skipped or merely unmentioned.
 
-**`tools/prove-the-gate`.** It carried seven `# covers:` declarations for
+**`d2 prove.the.gate`.** It carried seven `# covers:` declarations for
 refusals inside the removed block, and **five live probes** behind them. The
 declarations alone would have failed `t/233`. The probes are the dangerous half:
 a probe left behind after its refusal has gone does not fail - it **passes**,
 against a hook that never had the chance to refuse, and reports the gate proved.
-That is the exact shape `tools/prove-the-gate` was written to end. Removed with
+That is the exact shape `d2 prove.the.gate` was written to end. Removed with
 them: the fake `docker` stub that fed the hook fabricated suite output, the
 `PASSING_SUITE` fixture, `run_hook`'s `suite_output` parameter and the argument
 at all seven call sites, and the `hook_timeout` lookup reading a `SUITE_TIMEOUT`
@@ -92,7 +92,7 @@ its margin of two against a real count that went from 17 to 11. It is a parse
 guard - it says the file was read and yielded refusals - not a target, and
 lowering it is the honest response to the hook genuinely having fewer.
 
-### What `tools/gate-run` is for now
+### What `d2 gate.run` is for now
 
 Unchanged, and still worth running: it proves a *committed* tree rather than the
 working directory, so a change that passes only because of an unstaged file
@@ -143,9 +143,9 @@ It now asks about the cards the commits being pushed name, taken from their
 subjects the same way the commit gate takes them. With no remote ref, or no
 commits in the range, it falls back to the whole board - the direction that
 checks more rather than less, and the way the tool is run by hand and by
-`tools/prove-the-gate`.
+`d2 prove.the.gate`.
 
-`tools/prove-the-gate` found two faults in the change that reading it did not:
+`d2 prove.the.gate` found two faults in the change that reading it did not:
 
 | What reading missed | What running showed |
 | --- | --- |
@@ -159,14 +159,14 @@ is absent.
 
 ## 2.20 - the release where the gate's own refusals were counted
 
-`tools/prove-the-gate` breaks the push gate one check at a time, because a check
+`d2 prove.the.gate` breaks the push gate one check at a time, because a check
 that has never been seen to fail is not a check, it is a hope. Nobody had ever
 counted how many of the hook's refusals it reaches. I counted by hand three
 times while raising TKT-230 and got it wrong twice, both times in the tool's
 favour, by reading for a pattern instead of reading the file.
 
 The count is now made by `t/233-what-the-gate-can-refuse.t`: it reads
-`tools/hooks/pre-push` for every way the gate can refuse and the prover for what
+`.developer-dashboard/cli/hooks/pre-push` for every way the gate can refuse and the prover for what
 answers each one. Seventeen refusals, fifteen provoked, two carrying a written
 reason why they are not.
 
@@ -514,12 +514,15 @@ its place by priority and age like everything else.
 ## Running the mandated code review (TKT-626, 2026-08-28)
 
 The verify column's `REQ-030` says "Ask Codex to do code review". Run it through
-`tools/review-worktree`, never against the checkout directly:
+`d2 review.worktree`, never against the checkout directly:
 
 ```bash
-./tools/review-worktree codex exec --skip-git-repo-check \
+d2 review.worktree codex exec --skip-git-repo-check \
   -c sandbox_mode='"danger-full-access"' "<the review prompt>"
 ```
+
+The tool lives at `.developer-dashboard/skills/review/cli/worktree`, the
+standard Developer Dashboard helper-script layout, and is not tracked by git.
 
 ### Why the read-only sandbox is not used
 

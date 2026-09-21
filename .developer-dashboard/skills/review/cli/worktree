@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+#
+# Run a command against a throwaway copy of this repository, uncommitted work
+# and all, so a reviewing agent can read and run everything and destroy nothing.
+#
+#   tools/review-worktree [REPO] COMMAND [ARG...]
+#
+# REPO defaults to the current repository. The command runs with the throwaway
+# clone as its working directory.
+#
+# Why this exists. The verify column's REQ-030 says "Ask Codex to do code
+# review", so every card entering verify points a reviewing agent at this
+# checkout. On 2026-08-27 one of them ran, inside this repository:
+#
+#   git diff -- README.md docs/POLICIES.md | head -120
+#   git checkout -- README.md docs/POLICIES.md && git status --short
+#
+# and reverted two documentation paragraphs written while it was running. Taken
+# from that session's own log. The loss is silent in the worst way: afterwards
+# git status shows the files unmodified, which is indistinguishable from the
+# edit never having been made. TKT-626.
+#
+# A CLONE, not a linked worktree. The first version used 'git worktree add',
+# and the first review run through it found the hole: a linked worktree shares
+# the source repository's git directory, so refs and config are still live. It
+# proved it rather than asserting it -
+#
+#   before=[]
+#   rc=0
+#   after=[changed]
+#
+# - by running 'git config --local review.escape changed' inside the throwaway
+# and reading the value back out of the SOURCE repo. 'git update-ref
+# refs/heads/master HEAD~1' escapes the same way. The working tree was isolated;
+# the repository was not. A local clone hardlinks its objects, so it costs
+# 0.034s on this 70M repo, and has its own refs, its own config and its own
+# index.
+#
+# Why not a flat copy of the changed files. Tried first, on TKT-625, and it is
+# safe - three reviews, tree untouched, verified by md5. But the reviewer said,
+# unprompted, that it "can't run the supplied test directly from this reduced
+# directory because it has no lib/Tira.pm", and went looking in sibling project
+# directories for dependencies. A copy protects the tree by starving the
+# reviewer and pointing it at unrelated work.
+#
+# Why not fix the sandbox instead. The read-only sandbox refused to start twice
+# - "Codex's Linux sandbox uses bubblewrap and needs access to create user
+# namespaces" - which is what led to running with full access in the first
+# place. That is outside this board's control.
+#
+# What this does NOT protect against, refused by name rather than left to be
+# discovered: a symlink in the reviewed state that points outside the tree,
+# which a write inside the clone would follow straight back out; and submodules,
+# whose working-tree changes a superproject diff cannot carry, so a review would
+# silently see less than the live checkout holds.
+
+set -euo pipefail
+
+if [ "$#" -lt 1 ]; then
+    echo "usage: tools/review-worktree [REPO] COMMAND [ARG...]" >&2
+    exit 2
+fi
+
+# One optional leading REPO. A first argument that is a directory is the repo;
+# anything else starts the command, so the common form - passing just a command
+# - needs no placeholder.
+repo=""
+if [ -d "$1" ]; then
+    repo=$1
+    shift
+fi
+if [ "$#" -lt 1 ]; then
+    echo "review-worktree: no command given" >&2
+    exit 2
+fi
+if [ -z "$repo" ]; then
+    repo=$(git rev-parse --show-toplevel)
+fi
+repo=$(cd "$repo" && pwd -P)
+
+if ! git -C "$repo" rev-parse --git-dir >/dev/null 2>&1; then
+    echo "review-worktree: $repo is not a git repository" >&2
+    exit 2
+fi
+
+# A review of an empty history has nothing to isolate and nothing to say.
+if ! head_sha=$(git -C "$repo" rev-parse --verify --quiet HEAD); then
+    echo "review-worktree: $repo has no commits yet, so there is nothing to review against" >&2
+    exit 2
+fi
+
+# Submodules: a superproject diff cannot carry a submodule's working-tree
+# changes, and a clone does not populate them. Reviewing less than the checkout
+# holds, silently, is the failure this tool exists to prevent - so refuse.
+if [ -e "$repo/.gitmodules" ]; then
+    echo "review-worktree: $repo has submodules, whose uncommitted contents cannot be carried into the clone" >&2
+    echo "review-worktree: refusing rather than letting the review silently see less than the checkout holds" >&2
+    exit 2
+fi
+
+# Symlinks that leave the tree. A write through one inside the clone lands
+# outside it - possibly in the live checkout - so the isolation would be a
+# claim rather than a fact. Checked over tracked and untracked entries alike.
+escaping=$(
+    {
+        git -C "$repo" ls-files -z
+        git -C "$repo" ls-files --others --exclude-standard -z
+    } | while IFS= read -r -d '' path; do
+        [ -L "$repo/$path" ] || continue
+        target=$(readlink "$repo/$path")
+        case $target in
+            /*) echo "$path -> $target" ;;
+            *)
+                resolved=$(cd "$repo/$(dirname "$path")" 2>/dev/null && cd "$(dirname "$target")" 2>/dev/null && pwd -P) || continue
+                case $resolved in
+                    "$repo" | "$repo"/*) ;;
+                    *) echo "$path -> $target" ;;
+                esac
+                ;;
+        esac
+    done
+)
+if [ -n "$escaping" ]; then
+    echo "review-worktree: the reviewed state has symlinks pointing outside the tree:" >&2
+    echo "$escaping" | sed 's/^/  /' >&2
+    echo "review-worktree: a write through one of these would land outside the throwaway" >&2
+    exit 2
+fi
+
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/review-worktree.XXXXXXXX")
+tree="$scratch/tree"
+
+# Remove the throwaway on ANY exit, including the reviewer's own failure and an
+# interrupt. It is a plain directory - no worktree registration to prune, which
+# is one fewer thing that can be left behind.
+cleanup() {
+    local status=$?
+    rm -rf "$scratch"
+    return $status
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# --local hardlinks the object store, so this is nearly free and a gc in the
+# clone cannot damage the source. --no-checkout because the source HEAD may be
+# detached or on a branch this clone should not adopt.
+git clone --quiet --local --no-checkout "$repo" "$tree"
+git -C "$tree" checkout --quiet --detach "$head_sha"
+
+# The uncommitted work, in two halves so the INDEX is reproduced and not just
+# the file contents. A reviewer that asks "what is staged?" gets the same answer
+# it would get in the live checkout; applying only the combined diff left
+# git diff --cached empty while the files looked modified.
+staged=$scratch/staged.diff
+unstaged=$scratch/unstaged.diff
+git -C "$repo" diff --cached --binary --no-color > "$staged"
+git -C "$repo" diff --binary --no-color > "$unstaged"
+[ -s "$staged" ]   && git -C "$tree" apply --index --whitespace=nowarn "$staged"
+[ -s "$unstaged" ] && git -C "$tree" apply --whitespace=nowarn "$unstaged"
+
+# Untracked files. A diff cannot carry a file git has never seen, and a review
+# of new code that omits the new files is the "reviewed nothing" failure again.
+# -P so a symlink is copied as a symlink: -p alone dereferences it, turning a
+# link into a copy of its target and failing outright on a dangling one.
+while IFS= read -r -d '' path; do
+    mkdir -p "$tree/$(dirname "$path")"
+    cp -Pp "$repo/$path" "$tree/$path"
+done < <(git -C "$repo" ls-files --others --exclude-standard -z)
+
+cd "$tree"
+"$@"

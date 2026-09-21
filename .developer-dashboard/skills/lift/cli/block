@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+"""Lift one of _invoke's per-command blocks into a module of its own.
+
+TKT-607, the half the card calls hard. tools/lift-concern moves helpers; this
+moves the command bodies that were written inline in the dispatcher. _invoke was
+1,294 lines and only about fifty of them dispatch - the rest are blocks like
+
+    if ( $command eq 'record.create' ) {
+        ... 189 lines ...
+    }
+
+each of which is about one concern and none of which any other command needs to
+read. A block becomes a sub in the concern's module, and the dispatcher keeps
+two lines saying the concern exists and where it lives.
+
+  tools/lift-block --head "\\$command eq 'record.create'" \\
+      --module Records --sub record_create --dry-run
+
+WHAT IT CHECKS BEFORE IT MOVES. A block inside _invoke closes over %args,
+$option, $command and $tira; as a sub it is handed them. Anything else it reads
+from _invoke's scope would be silently undefined after the move - the block
+would compile and behave differently, which is the worst outcome available - so
+every free variable is listed and anything outside the four is refused.
+"""
+
+import argparse
+import re
+import sys
+
+CLI = 'lib/Tira/CLI.pm'
+PASSED = {'tira', 'args', 'option', 'command'}
+
+
+def block_at(src, head):
+    """Extent of the `if ( ... ) { ... }` whose head line contains `head`."""
+    for i, line in enumerate(src):
+        if head in line and line.lstrip().startswith('if ('):
+            depth = line.count('{') - line.count('}')
+            j = i
+            while depth > 0:
+                j += 1
+                if j >= len(src):
+                    raise SystemExit('lift-block: block at line %d never closes' % (i + 1))
+                depth += src[j].count('{') - src[j].count('}')
+            return i, j
+    raise SystemExit('lift-block: no block head containing %r' % head)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--head', required=True, help='distinctive text from the if() line')
+    parser.add_argument('--module', required=True, help='e.g. Records, for Tira::CLI::Records')
+    parser.add_argument('--sub', required=True, help='name the block takes as a sub')
+    parser.add_argument('--needs-command', action='store_true',
+                        help='the block reads $command, so pass it in')
+    parser.add_argument('--dry-run', action='store_true')
+    args = parser.parse_args()
+
+    src = open(CLI).read().split('\n')
+    a, b = block_at(src, args.head)
+    inner = [line[4:] if line.startswith('    ') else line for line in src[a + 1:b]]
+    text = '\n'.join(inner)
+
+    # Every $name it reads, minus every one it declares itself.
+    read = set(re.findall(r'\$(\w+)', text))
+    declared = set(re.findall(r'my \(?\s*[\$@%](\w+)', text))
+    declared |= set(re.findall(r'my \([^)]*\$(\w+)', text))
+    declared |= set(re.findall(r'for(?:each)?\s+my \$(\w+)', text))
+    # $_ IS NOT PASSED, AND IT USED TO BE ON THE ALLOWED LIST. A second reader
+    # caught that: a block reading a bare $_ - through map, grep, a naked
+    # regex, s///, chomp - takes it from whatever scope it is written in, and
+    # moved into a sub it reads the SUB'S $_ instead of the dispatcher's. It
+    # would compile and it would run; it would just read the wrong thing.
+    #
+    # Most $_ in this codebase is inside a map or grep block, where it is the
+    # block's own and moves correctly. So the check is not "does $_ appear" -
+    # that would refuse almost everything - it is "does $_ appear OUTSIDE such
+    # a block". Those are the ones that borrow it from the caller.
+    borrowed = []
+    depth_stack = []
+    for line in inner:
+        stripped = line.strip()
+        if stripped.startswith('#'):
+            continue
+        inside = any(depth_stack)
+        if re.search(r'(?<![\w$])\$_(?![\w{])', line) and not inside:
+            borrowed.append(stripped[:80])
+        opens = line.count('{')
+        closes = line.count('}')
+        introduces = bool(re.search(r'\b(?:map|grep|sort|for(?:each)?)\b[^{]*\{', line))
+        for _ in range(opens):
+            depth_stack.append(introduces)
+            introduces = False
+        for _ in range(closes):
+            if depth_stack:
+                depth_stack.pop()
+    if borrowed:
+        print('lift-block: %s reads $_ outside any map/grep/for block:\n    %s\n'
+              'As a sub it would read its own $_, not the dispatcher\'s - and it '
+              'would still compile and still run. Pass the value in explicitly, '
+              'or leave the block where it is.'
+              % (args.sub, '\n    '.join(borrowed)), file=sys.stderr)
+        raise SystemExit(1)
+
+    # $1 is the commonest of these and the most dangerous, because it is the one
+    # that would not have crashed. A head like
+    #     if ( $command =~ /\Aquestion\.(ask|list|answer)\z/ ) {
+    # leaves the capture set for the block that follows, and three blocks read it
+    # to decide which verb they are. Moved as-is, $1 would hold whatever the last
+    # match in the caller happened to leave - a wrong branch taken silently.
+    # The sub re-does the match on the $command it is handed, so the capture is
+    # its own.
+    rematch = ''
+    if '1' in read - declared:
+        pattern = re.search(r'\$command\s*=~\s*(/.*?/)\s*\)', src[a])
+        if not pattern:
+            print('lift-block: %s reads $1 but its head is not a $command match - '
+                  'the capture comes from somewhere this cannot see' % args.sub,
+                  file=sys.stderr)
+            raise SystemExit(1)
+        if not args.needs_command:
+            print('lift-block: %s reads $1, so it needs $command passed in to '
+                  'match again - re-run with --needs-command' % args.sub, file=sys.stderr)
+            raise SystemExit(1)
+        rematch = ('    # $1 below is this match\'s, not the dispatcher\'s. The block read the\n'
+                   '    # capture left by the if() it used to sit inside; as a sub it sets its\n'
+                   '    # own, so a stale match elsewhere cannot choose the branch.\n'
+                   '    $command =~ %s or return;\n' % pattern.group(1))
+        read.discard('1')
+
+    free = sorted(read - declared - PASSED)
+    if free:
+        print('lift-block: %s reads %s from _invoke\'s scope. As a sub those are '
+              'undefined, and the block would run rather than fail - pass them in '
+              'or leave the block where it is.'
+              % (args.sub, ', '.join('$' + v for v in free)), file=sys.stderr)
+        raise SystemExit(1)
+
+    # A BLOCK THAT FALLS THROUGH IS NOT A COMMAND BODY. Some of _invoke's
+    # if() blocks prepare %args and then continue to the dispatch below rather
+    # than answering the command themselves. Lifted, "prepare and continue"
+    # silently becomes "prepare somewhere else, discard, and return" - which is
+    # what happened to the dashboard verbs: every browser and table board came
+    # back with no column order, and the failure surfaced three modules away as
+    # "Table output requires dashboard data".
+    #
+    # The test is the block's last statement at its own nesting level. Nested
+    # returns do not count: an early return inside an if() is not the block
+    # answering, it is the block answering sometimes.
+    # Statements, not lines. A multi-line `return $tira->thing(\n ... \n);` ends
+    # on a line reading `);`, and a first version of this check read that as the
+    # block's last statement and refused three blocks that were perfectly fine.
+    # So lines are accumulated until the statement closes at depth zero.
+    statements = []
+    current = ''
+    depth = 0
+    for line in inner:
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#'):
+            continue
+        current = (current + ' ' + stripped).strip()
+        depth += line.count('{') - line.count('}')
+        depth += line.count('(') - line.count(')')
+        if depth <= 0 and current.endswith((';', '}')):
+            statements.append(current)
+            current = ''
+            depth = 0
+    last = statements[-1] if statements else ''
+    if not last.startswith('return') and not last.startswith('die'):
+        print('lift-block: the block ending %r does not answer the command - its '
+              'last statement at the top level is:\n    %s\nIt prepares state and '
+              'falls through to the dispatch below, so moving it would discard the '
+              'state and return early. Leave it in the index.'
+              % (args.head, last[:100]), file=sys.stderr)
+        raise SystemExit(1)
+
+    helpers = sorted(set(re.findall(r'(?<![\w:>$])(_[a-z][a-z0-9_]*)\s*\(', text)))
+    for helper in helpers:
+        text = re.sub(r'(?<![\w:>$])%s\(' % helper, 'Tira::CLI::%s(' % helper, text)
+
+    signature = '    my ( $tira, $args, $option%s ) = @_;\n    my %%args = %%{$args};\n' % (
+        ', $command' if args.needs_command else '')
+    body = 'sub %s {\n%s%s%s\n}\n' % (args.sub, signature, rematch, text)
+
+    call = 'Tira::CLI::%s::%s( $tira, \\%%args, $option%s )' % (
+        args.module, args.sub, ', $command' if args.needs_command else '')
+    head_line = src[a].strip()
+    replacement = [
+        '    %s' % head_line,
+        '        require Tira::CLI::%s;' % args.module,
+        '        return %s;' % call,
+        '    }',
+    ]
+
+    print('lift-block: %s <- %s (%d lines)' % (args.module, args.sub, len(inner)))
+    print('  block at lines %d..%d' % (a + 1, b + 1))
+    print('  helpers qualified back into Tira::CLI: %s' % (', '.join(helpers) or 'none'))
+    if args.dry_run:
+        print('  (dry run - nothing written)')
+        return
+
+    out = '/tmp/%s-%s.pl' % (args.module.lower(), args.sub)
+    with open(out, 'w') as handle:
+        handle.write(body)
+    src[a:b + 1] = replacement
+    with open(CLI, 'w') as handle:
+        handle.write('\n'.join(src))
+    print('  body -> %s;  %s now %d lines' % (out, CLI, len(src)))
+
+
+if __name__ == '__main__':
+    main()

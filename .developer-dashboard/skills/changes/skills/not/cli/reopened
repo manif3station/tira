@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+"""Refuse a Changes section that grew after its own version was released.
+
+Exit 0 when the tree is clean, 1 when ANY version origin has already shipped
+has a local section that no longer matches origin's own text for it - not
+only the newest local heading.
+
+TKT-965. Measured 2026-09-06: seven cards' entries sat under "5.83" in this
+repo's own Changes file, a version already pushed AND installed - each was
+committed, none was pushed, and nothing caught it because t/03-metadata.t
+compares .env, our $VERSION and the newest Changes heading only to EACH
+OTHER, never to what origin last actually shipped. All three agreed at
+"5.83" the whole time the drift grew, so the suite stayed green.
+
+TKT-936's own commit reproduced the identical shape live, in this same
+session: real code landed under the already-released 5.92 heading, with
+.env still saying 5.92 too - genuinely self-consistent, and genuinely wrong.
+
+The fix reads two things git already has and compares them rather than
+trusting the working tree's own say-so: origin's own copy of Changes, and
+the LOCAL copy's section for EVERY version origin's own file already names
+- not only the newest local heading. Checking only the newest heading was
+the first version's own bug (Codex-caught): the newest local heading is
+routinely a fresh, unreleased one (a later card bumps VERSION for its own
+work, exactly as TKT-957 did), which made every ALREADY-released heading
+below it invisible to the check - the precise shape of the original bug,
+where the newest heading (5.84) was genuinely new while an older,
+already-shipped one (5.83) kept quietly growing underneath it. So every
+origin-shipped version is checked: if origin has it, its own text under
+that heading is the ceiling, and any local difference under the SAME
+heading - an addition, an edit, or a deletion - is refused.
+
+A version local names that origin has NOT shipped yet is unwatched here on
+purpose: that is the normal, in-progress state of every release before it
+ships, and the existing pre-push "shipped files changed and VERSION did
+not" check already covers the case where code moved and the heading did
+not follow it.
+
+Usage: tools/changes-not-reopened [--base REF]
+"""
+
+import re
+import subprocess
+import sys
+
+
+def _run(*args):
+    result = subprocess.run(args, capture_output=True, text=True)
+    return result.returncode, result.stdout, result.stderr
+
+
+def _sections(text):
+    """{version: full section text, heading included} in first-seen order."""
+    sections = {}
+    order = []
+    heading_re = re.compile(r'^(\d+\.\d+)\s')
+    current = None
+    lines = []
+    for line in text.splitlines(keepends=True):
+        match = heading_re.match(line)
+        if match:
+            if current is not None:
+                sections[current] = ''.join(lines)
+            current = match.group(1)
+            order.append(current)
+            lines = [line]
+        elif current is not None:
+            lines.append(line)
+    if current is not None:
+        sections[current] = ''.join(lines)
+    return sections, order
+
+
+def main(argv):
+    base = 'origin/HEAD'
+    if len(argv) == 2 and argv[0] == '--base':
+        base = argv[1]
+    elif argv:
+        print('Usage: tools/changes-not-reopened [--base REF]', file=sys.stderr)
+        return 2
+
+    rc, local_text, _ = _run('git', 'show', 'HEAD:Changes')
+    if rc != 0:
+        # No Changes file at HEAD is not this check's business.
+        return 0
+
+    rc, origin_text, _ = _run('git', 'show', f'{base}:Changes')
+    if rc != 0:
+        # Nothing released yet to compare against - the normal state of a
+        # repository with no remote, or no history on it, and not a fault.
+        return 0
+
+    local_sections, _ = _sections(local_text)
+    origin_sections, origin_order = _sections(origin_text)
+
+    reopened = [
+        version for version in origin_order
+        if local_sections.get(version, '') != origin_sections[version]
+    ]
+    if not reopened:
+        return 0
+
+    named = ', '.join(reopened)
+    print(
+        f"changes-not-reopened: {named} - already released by origin - no\n"
+        f"longer matches origin's own text under that heading in this tree.\n"
+        f"Anything added, changed, or removed there will never reach anyone:\n"
+        f"an install compares .env, not this file's word count.\n\n"
+        f"Bump VERSION (tools/bump-version NEW_VERSION) and move the new\n"
+        f"entries to a heading for the version actually being released.\n",
+        file=sys.stderr,
+    )
+    return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

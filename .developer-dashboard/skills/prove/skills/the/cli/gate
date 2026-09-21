@@ -1,0 +1,576 @@
+#!/usr/bin/env bash
+#
+# Break the pre-push gate on purpose, one check at a time, and confirm each one
+# refuses.
+#
+# A check that has never been seen to fail is not a check, it is a hope. Five
+# times in one session a guard on this project turned out to be passing for
+# free: a hash that never landed in the file it was meant to be read from, a
+# mutation that never applied, a test driving commands that do not exist. Every
+# one of them was green.
+#
+# So the gate is proved the way the code is: by breaking it. This runs the real
+# hook, from the real repository, with one thing wrong at a time.
+#
+# The suite is not run here. `docker` is replaced on PATH by a script that
+# prints whatever this file tells it to, so the gate's judgement about a suite
+# result can be tested in a second rather than in ten minutes. The real suite
+# still runs, for real, on every actual push - what is proved here is that the
+# gate reaches the right verdict about what it is told, which is the part that
+# has silently been wrong before.
+#
+# Usage: tools/prove-the-gate
+
+set -uo pipefail
+
+root="${DIR_TIRA:-$(cd "$(dirname "$0")/../../../../../.." && pwd)}"
+cd "$root"
+
+hook="$root/.developer-dashboard/cli/hooks/pre-push"
+[ -x "$hook" ] || { echo "prove-the-gate: $hook is missing"; exit 1; }
+
+# One at a time. This moves real files aside and puts a real card on the real
+# board, so two running at once corrupt each other - which is exactly what
+# happened: one run hid a tool the other was looking for, and each reported the
+# gate broken when the only broken thing was running it twice. The same lesson
+# as never running two test containers at once, made mechanical.
+lock="$root/.prove-the-gate.lock"
+exec 9>"$lock"
+flock -n 9 || {
+    echo "prove-the-gate: another run is in progress. This moves files aside and puts a card on the board, so two at once would corrupt each other."
+    exit 1
+}
+
+sandbox="$(mktemp -d)"
+
+# The probe card is discarded on the way out however this ends. An interrupted
+# run used to leave a hollow card on the real board, and every later run then
+# failed at the card check for a reason that had nothing to do with what it was
+# testing - a check that leaves the thing it checks in a worse state.
+hollow=""
+hidden_from=""
+hidden_to=""
+
+# Why this card is on the board, written before it is set aside. A discarded
+# card with no reason is indistinguishable from abandoned work - twenty of them
+# accumulated here, one per release, and the discard-unexplained rule reported
+# every one of them for ever. A tool that makes work for the rules it is
+# checking is not a check, it is a source of noise.
+say_why() {
+    # A comment needs a person the board knows. This tool ships, and a board
+    # with no "claude" on it is an ordinary board - so the author is whoever
+    # this board actually has, falling back to its first member. Getting this
+    # wrong would leave the card silent and then fail the very push that was
+    # trying to be tidy.
+    who="$(d2 tira.project.show -o json | python3 -c '
+import json, sys
+people = [p["id"] for p in json.load(sys.stdin).get("people", []) if p.get("active", True)]
+print("claude" if "claude" in people else (people[0] if people else ""))' 2>/dev/null)"
+    [ -n "$who" ] || return 0
+    d2 tira.comment.add --ref "$1" --author "$who" -o json \
+        --text 'Raised by tools/prove-the-gate to prove the push gate refuses a card with nothing on it, then set aside. Not abandoned work - this card existed for the length of one gate run, and its being refused is the check passing.' \
+        >/dev/null 2>&1 || true
+}
+
+cleanup() {
+    # A tool moved aside is put back however this ends. An interrupted run used
+    # to leave a shipped file missing from the working tree, which is the third
+    # time this file has damaged the thing it was checking - and the worst of
+    # the three, because the next run then reports a check broken that is not.
+    [ -n "$hidden_to" ] && [ -f "$hidden_to" ] && mv "$hidden_to" "$hidden_from"
+    [ -n "$hollow" ] && say_why "$hollow" \
+        && d2 tira.ticket.discard --ref "$hollow" -o json >/dev/null 2>&1
+    rm -rf "$sandbox"
+    rm -f "$lock"
+}
+trap cleanup EXIT INT TERM
+
+# And it will not start against a board that is already wrong, because then
+# every check before the card probe fails for that reason instead of its own.
+if ! ./.developer-dashboard/skills/card/cli/holes >/dev/null 2>&1; then
+    echo "prove-the-gate: the board has an incomplete card, so every check here would fail for that reason:"
+    ./.developer-dashboard/skills/card/cli/holes
+    exit 1
+fi
+
+# --- what the gate can refuse, and what proves it -------------------------
+#
+# One line per way the hook can refuse, naming either the probe that breaks it
+# or the reason nothing does. t/233 reads the hook for its refusals and this
+# block for the answers, so a gate that grows a step is not covered by a list
+# somebody forgot to extend - which is how the browser refusal went uncovered
+# for its entire life, and how I miscounted this twice while writing it down.
+#
+# The name on the right is the words the probe prints about itself, not a name
+# invented here: delete the probe and the words go with it, leaving the claim
+# naming nothing, which the guard reports.
+#
+# covers: shipped files changed and VERSION did not | a shipped change with no version bump
+# covers: board/cli/backup is missing - refusing to push without a backup | board/cli/backup
+# covers: the board backup failed | a board backup that fails
+# covers: card/cli/holes is missing - refusing to push without the card check | card/cli/holes
+# covers: fill the cards in, or discard what is not real work | a card check that fails
+# covers: docs/skills/match/cli/code is missing - refusing to push undocumented | docs/skills/match/cli/code
+# covers: the documentation and the code disagree | an entrypoint nobody documented
+# covers: docs/skills/examples/cli/run is missing - refusing to push examples nobody ran | docs/skills/examples/cli/run
+# covers: a documented example is not what the command accepts | a documented example the command refuses
+# covers: the changelog names a release nobody would actually receive - see above. | a heading reopened after its own release
+
+passed=0
+failed=0
+# A probe that could not run is not a probe that passed. One of them cannot
+# always run - it needs a board with no incomplete card on it - and it used
+# to print a line and move on without touching either count, so the closing
+# line read '13 proved, 0 not proved' about a run that had measured twelve. A
+# prover that reports success for what it did not measure is the fault it
+# exists to catch.
+not_measured=0
+
+# A run of the hook with PATH rigged and, optionally, one tool taken away.
+# Returns the hook's exit status; its output lands in $out.
+out=""
+run_hook() {
+    local missing="${1:-}" broken="${2:-}"
+    local bin="$sandbox/bin"
+    rm -rf "$bin"
+    mkdir -p "$bin"
+
+    # No fake docker any more. It existed to feed the hook a suite result, and
+    # the hook stopped running a suite in TKT-680 - so a stub standing in for a
+    # container nothing starts would be a prop for an absent scene. The same
+    # is true of the node stub that used to live here: it fed the hook a
+    # failing browser check, and TKT-796 moved that check out of the hook
+    # entirely.
+
+    if [ -n "$missing" ]; then
+        hidden_from="$root/$missing"
+        hidden_to="$sandbox/hidden-$(basename "$missing")"
+        mv "$hidden_from" "$hidden_to"
+    fi
+
+    # A gate tool that is present and reports a failure, which is a different
+    # refusal from one that is absent: the hook has a line for each and only
+    # the absent one was ever exercised. The real tool is stood aside and a
+    # stub that exits non-zero takes its place, so the hook sees exactly what
+    # a broken step looks like.
+    if [ -n "$broken" ]; then
+        hidden_from="$root/$broken"
+        hidden_to="$sandbox/hidden-$(basename "$broken")"
+        mv "$hidden_from" "$hidden_to"
+        printf '#!/usr/bin/env bash\necho "%s failed on purpose" >&2\nexit 1\n' "$broken" >"$hidden_from"
+        chmod +x "$hidden_from"
+    fi
+
+    out="$(PATH="$bin:$PATH" "$hook" 2>&1)"
+    local status=$?
+
+    if [ -n "$missing" ] || [ -n "$broken" ]; then
+        mv -f "$hidden_to" "$hidden_from"
+        hidden_from=""
+        hidden_to=""
+    fi
+
+    # Printed as well as kept, so a caller can capture it like any other
+    # command. Everything here used to read the global, which quietly meant a
+    # probe could only ever be the hook: the first probe that ran something
+    # else - the card check, asked about one card - was reported as refusing
+    # without saying why, because what it said went to the terminal and the
+    # global still held the previous hook run.
+    printf '%s' "$out"
+    return $status
+}
+
+# The gate must refuse, and it must say why in words that name the problem.
+# A refusal that came from an earlier step is not an answer about this one.
+# The hook checks the cards before it checks the documents, so anything after
+# that is unreachable while the board carries an incomplete card - and the
+# probe would report the step it was measuring as unproved when what
+# actually happened is that it never ran. TKT-230.
+board_is_clean() {
+    "$root/.developer-dashboard/skills/card/cli/holes" >/dev/null 2>&1
+}
+
+# Except for the one probe that makes the board incomplete on purpose. The
+# first version of this guard did not have the exception, and the hollow-card
+# probe - the only one that raises a real card on the real board - was skipped
+# every run from the moment the guard was added. A guard that silences the
+# check it was written beside is worse than the reason it was written: the
+# tool went on reporting proved, one probe short, and its own count did not
+# notice because a skip was neither proved nor failed.
+board_may_be_incomplete=0
+
+refuses() {
+    local what="$1" expect="$2"
+    shift 2
+    if [ "$board_may_be_incomplete" -eq 0 ] && ! board_is_clean; then
+        printf 'not measured - %s, because the board carries an incomplete card and the gate refuses there first\n' "$what"
+        not_measured=$(( not_measured + 1 ))
+        return 0
+    fi
+    out="$( "$@" 2>&1 )"
+    if [ $? -eq 0 ]; then
+        printf 'NOT PROVED - the gate allowed a push with %s\n' "$what"
+        failed=$(( failed + 1 ))
+        return
+    fi
+    if ! printf '%s' "$out" | grep -qiE "$expect"; then
+        printf 'NOT PROVED - it refused %s, but never said so: %s\n' "$what" "$(printf '%s' "$out" | tail -2)"
+        failed=$(( failed + 1 ))
+        return
+    fi
+    printf 'proved - %s is refused\n' "$what"
+    passed=$(( passed + 1 ))
+}
+
+# --- a missing tool is a failure, not a skip ------------------------------
+#
+# The failure mode that matters most: a gate that disappears when somebody
+# deletes a file looks exactly like a gate that passed.
+#
+# A missing tool here is a failure, not a skip - the failure mode that matters
+# most: a gate that disappears when somebody deletes a file looks exactly like
+# a gate that passed. tools/browser-tests left this list with TKT-796, which
+# moved the check it ran out of this hook entirely.
+for tool in .developer-dashboard/skills/board/cli/backup .developer-dashboard/skills/card/cli/holes .developer-dashboard/skills/docs/skills/match/cli/code .developer-dashboard/skills/docs/skills/examples/cli/run; do
+    refuses "a missing $(basename "$tool")" 'missing|refusing' run_hook "$tool"
+done
+
+# --- and a board backup that fails rather than one that is absent ----------
+#
+# The same distinction, one step earlier in the hook and cheaper to reach: the
+# backup runs first, so a stub exiting non-zero is reached immediately. This is
+# the refusal that guards the only copy of the board a push leaves behind.
+refuses 'a board backup that fails' 'the board backup failed' \
+    run_hook '' .developer-dashboard/skills/board/cli/backup
+
+# --- the suite and coverage probes went with the suite ---------------------
+#
+# Five probes lived here: a failing suite, a suite that produced nothing, a
+# suite killed by the timeout, coverage below 100%, and a module never measured
+# at all. Each fed the hook a fabricated suite result through a fake docker and
+# checked it refused.
+#
+# The hook stopped running a suite in TKT-680, so those five refusals no longer
+# exist to provoke. A probe that stays behind after the refusal it proves has
+# gone does not fail - it PASSES, against a hook that never had the chance to
+# refuse, and reports the gate proved. That is the exact shape this tool was
+# written to end, and t/233 now fails on a '# covers:' line naming a refusal
+# the hook cannot make.
+#
+# The suite is still proved. It moved to the verify column, where it runs once
+# per card and its output is recorded on the card as evidence - which is what
+# puts the card in the push column in the first place.
+
+
+# --- the board is checked -------------------------------------------------
+#
+# Not a stub: a real hollow card is put on the real board, the gate is run, and
+# the card is discarded again. Anything less proves the tool runs, not that the
+# gate refuses.
+hollow="$(d2 tira.ticket.create --title 'Probe: a hollow card the gate must refuse' -o json |
+    python3 -c 'import json,sys; print(json.load(sys.stdin)["ref"])')"
+if [ -n "$hollow" ]; then
+    board_may_be_incomplete=1
+
+    # Asked about the card, because that is what the gate asks about now: the
+    # cards the commits being pushed name, rather than every card there is. Run
+    # through the hook, this probe was proving whatever the current range
+    # happened to contain - a hollow card on a board with nothing to push, and
+    # nothing at all once there was a commit naming a different card. TKT-253.
+    refuses "a hollow card the push is about ($hollow)" 'Fill them in before pushing' \
+        ./.developer-dashboard/skills/card/cli/holes "$hollow"
+
+    # And the hook refusing when that check reports a failure, which is the
+    # step above it and was only ever proved for the check being absent.
+    refuses 'a card check that fails' 'fill the cards in' \
+        run_hook '' .developer-dashboard/skills/card/cli/holes
+
+    board_may_be_incomplete=0
+    say_why "$hollow"
+    d2 tira.ticket.discard --ref "$hollow" -o json >/dev/null
+    hollow=""
+else
+    printf 'NOT PROVED - could not raise a probe card\n'
+    failed=$(( failed + 1 ))
+fi
+
+# --- the documentation is checked -----------------------------------------
+#
+# An entrypoint that ships undocumented is exactly what happened in 1.05, when
+# twenty-one of them went out with not one named in the documents an agent
+# reads.
+probe="$root/skills/police/cli/undocumented-probe"
+cp "$root/skills/police/cli/suspend" "$probe" 2>/dev/null || cp "$root/cli/police" "$probe"
+chmod +x "$probe"
+refuses 'an entrypoint nobody documented' 'documentation and the code disagree' run_hook
+rm -f "$probe"
+
+# --- the examples are run rather than read --------------------------------
+#
+# His requirement, and the one that found an example the validator refuses.
+# A real example is broken on purpose here, in the real document, and put back.
+# Staged in a clone, not in the real document. The first version of this
+# appended a broken example to SKILLS.md and put it back afterwards - and when
+# a run was interrupted the putting back never happened, so the broken example
+# sat in the shipped documentation and was committed with everything else. A
+# check that can damage what it is checking is worse than no check, and this
+# is the second time this file has taught me that.
+example_probe() {
+    local clone="$sandbox/clone-example"
+    rm -rf "$clone"
+    git clone --quiet --no-hardlinks "$root" "$clone" 2>/dev/null || {
+        printf 'NOT PROVED - could not clone the repository to stage a broken example\n'
+        failed=$(( failed + 1 ))
+        return
+    }
+    # .developer-dashboard/ is deliberately untracked by git (confirmed with
+    # Michael), so a clone carries none of it - every helper script the hook
+    # calls internally lives there now. Copied in whole, not file by file:
+    # the hook's own dependency graph on other tools under this tree is not
+    # something this probe should have to keep hand-listing correctly.
+    cp -r "$root/.developer-dashboard" "$clone/.developer-dashboard"
+    printf '\n`dashboard tira.project.create --name "Probe" --a-flag-that-does-not-exist`\n' >>"$clone/SKILLS.md"
+
+    out="$(cd "$clone" && ./.developer-dashboard/skills/docs/skills/examples/cli/run 2>&1)"
+    local status=$?
+    rm -rf "$clone"
+
+    if [ "$status" -eq 0 ]; then
+        printf 'NOT PROVED - a documented example the command refuses was accepted\n'
+        failed=$(( failed + 1 ))
+    elif ! printf '%s' "$out" | grep -qiE 'not what the command accepts'; then
+        printf 'NOT PROVED - it refused the example without saying why: %s\n' "$(printf '%s' "$out" | tail -2)"
+        failed=$(( failed + 1 ))
+    else
+        printf 'proved - a documented example the command refuses is refused\n'
+        passed=$(( passed + 1 ))
+    fi
+}
+example_probe
+
+# --- and it passes when everything is right -------------------------------
+#
+# A gate that refuses everything is not a gate either. This is the control.
+if run_hook >/dev/null; then
+    printf 'proved - a clean tree is allowed through\n'
+    passed=$(( passed + 1 ))
+else
+    printf 'NOT PROVED - the gate refused a clean tree: %s\n' "$(printf '%s' "$out" | tail -3)"
+    failed=$(( failed + 1 ))
+fi
+
+# --- a release nobody would receive ---------------------------------------
+#
+# An install compares versions: same version, no update. A push that changes
+# shipped code without changing VERSION is in the repository and on nobody's
+# machine, which is how a board spent a night being driven by a version four
+# releases behind the working tree.
+#
+# Staged in a throwaway clone rather than in this repository. The first version
+# of this probe committed to the real one and undid it afterwards, and when the
+# run was interrupted halfway the undoing never happened - a check that can
+# damage what it is checking is worse than no check.
+version_probe() {
+    local what="$1" shipped_file="$2" expect="$3"
+    local clone="$sandbox/clone-$what"
+    git clone --quiet --no-hardlinks "$root" "$clone" 2>/dev/null || {
+        printf 'NOT PROVED - could not clone the repository to stage %s\n' "$what"
+        failed=$(( failed + 1 ))
+        return
+    }
+
+    # The clone's origin is this repository, so origin/<branch> is exactly what
+    # the gate compares against.
+    # A clone carries committed history, and the gate being proved may not be
+    # committed yet - the first version of this probe tested the old hook and
+    # reported that the new rule did not work. The tools under test are copied
+    # in as they are now.
+    cp -r "$root/.developer-dashboard" "$clone/.developer-dashboard"
+
+    ( cd "$clone" && printf '\n# probe\n' >>"$shipped_file" &&
+      git commit --quiet --no-verify -m "probe: $what" -- "$shipped_file" ) || return
+
+    out="$(cd "$clone" && ./.developer-dashboard/cli/hooks/pre-push 2>&1)"
+    local status=$?
+
+    if [ "$expect" = 'refused' ]; then
+        if [ "$status" -eq 0 ]; then
+            printf 'NOT PROVED - the gate allowed %s\n' "$what"
+            failed=$(( failed + 1 ))
+        elif ! printf '%s' "$out" | grep -qiE 'VERSION did not|reach nobody'; then
+            printf 'NOT PROVED - it refused %s without saying why: %s\n' "$what" "$(printf '%s' "$out" | tail -2)"
+            failed=$(( failed + 1 ))
+        else
+            printf 'proved - %s is refused\n' "$what"
+            passed=$(( passed + 1 ))
+        fi
+    else
+        # A clone has no board, so the later steps of the gate cannot run there
+        # and their refusal says nothing about this rule. What is proved is
+        # that the version step let it past, which is the whole claim.
+        if printf '%s' "$out" | grep -qiE 'VERSION did not|reach nobody'; then
+            printf 'NOT PROVED - the version check refused %s\n' "$what"
+            failed=$(( failed + 1 ))
+        else
+            printf 'proved - %s is allowed through\n' "$what"
+            passed=$(( passed + 1 ))
+        fi
+    fi
+    rm -rf "$clone"
+}
+
+version_probe 'a shipped change with no version bump' 'lib/Tira.pm' refused
+version_probe 'a change no install copies' 't/00-foundation.t' allowed
+
+# --- a changelog heading reopened after its own release ---------------------
+#
+# TKT-965: seven cards' Changes entries once sat under a version already
+# pushed AND installed. VERSION eventually did change, in a later commit -
+# so version_probe's own check above would not have caught this, and did
+# not, while it happened. The bug is specifically an already-released
+# heading growing new text under it, whether or not VERSION ever moves.
+changes_reopen_probe() {
+    local clone="$sandbox/clone-changes-reopen"
+    git clone --quiet --no-hardlinks "$root" "$clone" 2>/dev/null || {
+        printf 'NOT PROVED - could not clone the repository to stage a reopened heading\n'
+        failed=$(( failed + 1 ))
+        return
+    }
+    cp -r "$root/.developer-dashboard" "$clone/.developer-dashboard"
+
+    local newest
+    newest="$(cd "$clone" && grep -m1 -oE '^[0-9]+\.[0-9]+' Changes)"
+    ( cd "$clone" && sed -i "/^${newest}  /a\\    - TKT-0000: a probe entry added after the release." Changes &&
+      git commit --quiet --no-verify -m 'probe: reopen an already-released heading' -- Changes ) || return
+
+    out="$(cd "$clone" && ./.developer-dashboard/cli/hooks/pre-push 2>&1)"
+    local status=$?
+    if [ "$status" -eq 0 ]; then
+        printf 'NOT PROVED - the gate allowed a reopened already-released heading\n'
+        failed=$(( failed + 1 ))
+    elif ! printf '%s' "$out" | grep -qiE 'reach anyone|reach nobody'; then
+        printf 'NOT PROVED - it refused the reopened heading without saying why: %s\n' "$(printf '%s' "$out" | tail -2)"
+        failed=$(( failed + 1 ))
+    else
+        printf 'proved - a heading reopened after its own release is refused\n'
+        passed=$(( passed + 1 ))
+    fi
+    rm -rf "$clone"
+}
+changes_reopen_probe
+
+# --- the commit gate reads the subject, not the whole message --------------
+#
+# It took every card reference anywhere in a message as a card the commit was
+# against, and this project quotes references in commit messages constantly -
+# that is how a commit explains what it found. A message describing a defect
+# that mentioned a finished card was refused for working on it, and the way
+# through was to take the evidence out of the message.
+#
+# Run for real, against the real board, because a hook that is only read is the
+# thing this whole tool exists to stop.
+
+commit_hook="$root/.developer-dashboard/cli/hooks/commit-msg"
+[ -x "$commit_hook" ] || { echo "prove-the-gate: .developer-dashboard/cli/hooks/commit-msg is missing"; exit 1; }
+
+run_commit_hook() {
+    local message="$1"
+    local file="$sandbox/commit-message"
+    printf '%s\n' "$message" >"$file"
+    out="$("$commit_hook" "$file" 2>&1)"
+    local status=$?
+    printf '%s' "$out"
+    return $status
+}
+
+# A card that is certainly finished, and one that is certainly being worked.
+finished="$(d2 tira.ticket.list -o json 2>/dev/null |
+    python3 -c 'import json,sys
+rows = json.load(sys.stdin)
+rows = rows if isinstance(rows, list) else rows.get("tickets") or rows.get("records") or []
+print(next((r["ref"] for r in rows if r.get("column") == "done"), ""))' 2>/dev/null)"
+working="$(d2 tira.ticket.list -o json 2>/dev/null |
+    python3 -c 'import json,sys
+rows = json.load(sys.stdin)
+rows = rows if isinstance(rows, list) else rows.get("tickets") or rows.get("records") or []
+print(next((r["ref"] for r in rows if r.get("column") not in ("done", "discard", "backlog")), ""))' 2>/dev/null)"
+
+# Made rather than found, when the board has none. These five checks used to run
+# only if something happened to be mid-flight, so on a board where everything
+# was finished - which is the state a board is meant to reach - the whole commit
+# gate went unproved and this printed one line about it. Nothing runs this tool,
+# so that line was never read.
+#
+# The same shape as the hollow card above: a real card on the real board, put
+# into a working column so the gate has something true to refuse, and set aside
+# afterwards with a reason, because a discarded card with no reason on it is
+# indistinguishable from work somebody gave up on.
+made_working=""
+if [ -z "$working" ]; then
+    working="$(d2 tira.ticket.create --title 'Probe: a card at a working gate, for the commit hook' -o json |
+        python3 -c 'import json,sys; print(json.load(sys.stdin)["ref"])')"
+    if [ -n "$working" ]; then
+        column="$(d2 tira.board.show --type ticket -o json |
+            python3 -c 'import json,sys
+columns = json.load(sys.stdin)["columns"]
+print(next((c["name"] for c in columns if not c.get("protected")), ""))')"
+        d2 tira.ticket.move --ref "$working" --column "$column" -o json >/dev/null
+        made_working="$working"
+    fi
+fi
+
+if [ -n "$finished" ] && [ -n "$working" ]; then
+    refuses "a commit against a finished card ($finished)" "in 'done'" \
+        run_commit_hook "$finished the work is over"
+
+    refuses 'a commit naming no card at all' 'name the card' \
+        run_commit_hook 'something happened'
+
+    refuses "a card named only in the body ($working)" 'name the card' \
+        run_commit_hook "no card up here
+
+        the body mentions $working, which is prose"
+
+    if run_commit_hook "$working doing the work
+
+Quoting $finished as evidence, the way every commit here explains what it
+found."; then
+        printf 'proved - a finished card quoted as evidence is allowed through\n'
+        passed=$(( passed + 1 ))
+    else
+        printf 'NOT PROVED - the commit gate refused a quoted reference: %s\n' "$(printf '%s' "$out" | tail -2)"
+        failed=$(( failed + 1 ))
+    fi
+else
+    printf 'NOT PROVED - could not raise a card to drive the commit gate\n'
+    failed=$(( failed + 1 ))
+fi
+
+# Set aside with a reason, like the hollow card. A probe left at a working gate
+# would read as work in progress on a board whose whole point is saying what is
+# being worked, and the card audit refuses a discard with nothing on it.
+if [ -n "$made_working" ]; then
+    say_why "$made_working"
+    d2 tira.ticket.discard --ref "$made_working" -o json >/dev/null
+    made_working=""
+fi
+
+# --- and it leaves nothing behind -----------------------------------------
+#
+# The example check makes a scratch board to run against. It runs on every
+# push, so one left behind is not one directory but one per release - twelve of
+# them accumulated in a single night before anybody looked.
+litter="$(ls -d /tmp/tira-doc-examples-* 2>/dev/null | wc -l)"
+if [ "$litter" -eq 0 ]; then
+    printf 'proved - the gate leaves no scratch boards behind\n'
+    passed=$(( passed + 1 ))
+else
+    printf 'NOT PROVED - %s scratch board(s) left in /tmp after running the gate\n' "$litter"
+    failed=$(( failed + 1 ))
+fi
+
+printf '\n%d proved, %d not proved, %d not measured\n' "$passed" "$failed" "$not_measured"
+if [ "$not_measured" -gt 0 ]; then
+    printf 'the gate is not proved while anything here could not be measured\n'
+fi
+[ "$failed" -eq 0 ] && [ "$not_measured" -eq 0 ]

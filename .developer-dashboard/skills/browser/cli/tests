@@ -1,0 +1,654 @@
+#!/usr/bin/env bash
+# Run every browser test against a board this starts and stops.
+#
+# t/playwright held seven files and nothing ran one of them. prove reads .t and
+# these are .js, so the suite was never going to see them; neither push hook
+# nor gate prover mentioned playwright anywhere. They were written, they were
+# extended, and no gate ever opened a browser - which is the defect this
+# project keeps finding, in the last place I would have looked for it.
+#
+# Fails closed. If playwright is missing, or a board will not start, or a test
+# fails, this exits non-zero and says which - because skipping quietly is how
+# seven files came to be counted as coverage while covering nothing.
+#
+# Naming no test runs all of them, still starting and stopping one board -
+# that stays the default so no browser test goes unrun by omission. Iterating
+# on one browser-facing change does not need to pay for the other nine:
+# --only NAME (repeatable) runs just the named file(s), board lifecycle
+# unchanged. TKT-634.
+#
+# Usage: tools/browser-tests [--only NAME]... [port]
+
+set -uo pipefail
+
+root="${DIR_TIRA:-$(cd "$(dirname "$0")/.." && pwd)}"
+cd "$root"
+
+# TKT-634. Every argument used to be read as the port unconditionally, so
+# the natural guess for "run just this one" - tools/browser-tests
+# column-editor.js - took the test's own name AS the port, and the failure
+# that followed blamed the board rather than the argument: "the board never
+# came up on port column-editor.js". Kept as its own function, rather than
+# inline, so its parsing can be proven against fake argv without starting a
+# board - the same discipline t/348 already established for this file, and
+# for the same reason t/290 exists: a change that looks right by eye already
+# broke this file's own behaviour once without a test catching it.
+#
+# Sets (and, run via `parse_args "$@"`, exports to the caller's own shell -
+# deliberately not a subshell) two things: `port`, empty unless a purely
+# numeric argument was given; and `only`, an array of test file names to run
+# instead of everything. An argument that is neither is refused by name,
+# naming the `--only` form as the way to mean it.
+only=()
+port=""
+parse_args() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --only)
+                shift
+                if [ $# -eq 0 ]; then
+                    echo "browser-tests: --only needs a test file name, e.g. --only column-editor.js" >&2
+                    return 1
+                fi
+                only+=("$1")
+                ;;
+            *)
+                if [[ "$1" =~ ^[0-9]+$ ]]; then
+                    if [ -n "$port" ]; then
+                        echo "browser-tests: only one port can be given - '$port' was already set, then '$1'." >&2
+                        return 1
+                    fi
+                    port="$1"
+                else
+                    echo "browser-tests: '$1' is not a port - a port is a whole number." >&2
+                    echo "  Did you mean to run just that one test? Use: tools/browser-tests --only $1" >&2
+                    return 1
+                fi
+                ;;
+        esac
+        shift
+    done
+    return 0
+}
+parse_args "$@" || exit 1
+
+# A port this run can have, rather than one it assumes. Given explicitly, it is
+# used as given and a clash is refused - a caller naming a port means it. Given
+# nothing, the first free one from 7841 upwards is taken, so another project
+# holding the default blocks nothing. TKT-344.
+port_was_given=1
+if [ -z "$port" ]; then
+    port_was_given=0
+    port=7841
+    while ss -ltn 2>/dev/null | grep -q ":$port " ||
+          ss -ltn 2>/dev/null | grep -q ":$(( port + 1 )) " ||
+          ss -ltn 2>/dev/null | grep -q ":$(( port + 2 )) "; do
+        port=$(( port + 10 ))
+        if [ "$port" -gt 7941 ]; then
+            echo "browser-tests: no test could start - every port from 7841 to 7941 is held."
+            echo "  This is a machine condition, not a fault in the change being pushed."
+            echo "  Clear what is holding them: ps aux | grep -E 'Starman|playwright', then stop"
+            echo "  any leftover process from an earlier interrupted run."
+            exit 1
+        fi
+    done
+fi
+tests="$root/t/playwright"
+
+# The working tree, not the installed copy. A tool that drives the released
+# version cannot catch a regression before it is released, which is the same
+# trap as a test that never runs - it reports on something other than the thing
+# in front of you. d2 resolves to whatever is installed, so every call here
+# goes through the tree's own lib instead.
+# Through the repository's own entrypoints, which derive their dotted command
+# from where they sit - so this drives exactly the code an install would ship,
+# from the tree rather than from whatever version is installed.
+tira() {
+    local command="$1"; shift
+    local script
+    case "$command" in
+        *.*) script="$root/skills/${command%%.*}/cli/${command#*.}" ;;
+        *)   script="$root/cli/$command" ;;
+    esac
+    [ -f "$script" ] || { echo "browser-tests: no entrypoint for tira.$command" >&2; return 1; }
+
+    # The board is named in the environment, which is the only way to name one.
+    # Every call here used to carry --project and the flag is gone. TKT-250.
+    TIRA_HOME="${TIRA_BOARD:-$board}" perl -I"$root/lib" "$script" "$@"
+}
+
+[ -d "$tests" ] || { echo "browser-tests: $tests is missing - refusing to report success"; exit 1; }
+
+command -v node >/dev/null 2>&1 || {
+    echo "browser-tests: node is not installed. The browser tests cannot run, so this refuses"
+    echo "  rather than passing. Install node and playwright, or say so on a card."
+    exit 1
+}
+node -e "require.resolve('playwright')" >/dev/null 2>&1 || {
+    echo "browser-tests: playwright is not installed. The browser tests cannot run, so this"
+    echo "  refuses rather than passing - a check nobody runs is worse than no check, because"
+    echo "  it is counted."
+    exit 1
+}
+
+# The board and its project are removed however this ends. An interrupted run
+# used to be the thing that left a scratch board in /tmp for a week, and a tool
+# that litters the thing it is checking is not a check.
+board=""
+serving=""
+cleanup() {
+    # The whole group, not just the shell that launched it. Starman forks a
+    # master and five workers, and killing the launcher left all six holding
+    # the port - which is how two earlier runs of this very tool left boards
+    # listening on 7841 and 7844, and how the next run failed to bind and
+    # reported the board as never coming up. A tool that leaks the thing it
+    # starts is the fault this project keeps finding, and this one was mine.
+    for launched in $serving ${browsing:-} ${prioritising:-}; do
+        kill "$launched" 2>/dev/null
+        wait "$launched" 2>/dev/null
+    done
+    # Only what this run started. There used to be a sweep here that killed
+    # anything holding the port, whoever started it - written to reap this
+    # tool's own leaked Starman workers, which is a fault it genuinely had
+    # twice, but unable to tell its own litter from somebody else's live work.
+    #
+    # On 2026-08-17 it came within one refusal of killing another project's
+    # Playwright run: zen-e2e-zsd163chromium was holding 7841 and the startup
+    # check refused first, which is luck rather than design. This workspace's
+    # rules say it plainly - never touch another project - and a kill-by-port
+    # on a shared machine is touching whatever happens to be there.
+    #
+    # The leak it was written for is still covered: the leaked processes are
+    # the ones this run started, and the loop above kills the whole group.
+    # TKT-344.
+    [ -n "$board" ] && rm -rf "$(dirname "$board")"
+    return 0
+}
+trap cleanup EXIT INT TERM
+
+scratch="$(mktemp -d)"
+board="$scratch/board"
+
+# The shape these tests were written against, built here rather than assumed
+# to exist. Ten columns, because two of them are about what a board does when
+# it is wider than the window; six tickets, two of them awaiting judgement and
+# one waiting on the owner, because the review queues are counted exactly.
+# Guessing at this is what made six of them fail on their first ever run.
+tira project.new --name Browser --dir "$board" --members 'michael, ada' \
+    --columns 'backlog, ready, tests-red, implement, review, verify, document, staging, push, done' \
+    --sow-prefix BRS --epic-prefix BRE --ticket-prefix BRT -o json >/dev/null || {
+    echo "browser-tests: could not make a board to drive"
+    exit 1
+}
+
+# Each test gets a board shaped for it, because they want different ones -
+# review-toggle counts exactly six cards and wide-board refuses with fewer than
+# eleven. One shared fixture cannot satisfy both, and trying made each fix
+# break the other. Nothing recorded that these needed particular boards; it was
+# only discoverable by running them, which nothing did.
+make_card() {
+    local TIRA_BOARD="$1"; export TIRA_BOARD
+    tira ticket.create --title "$2" \
+        --description "Something for the dialog to show" -o json |
+        python3 -c 'import json,sys; print(json.load(sys.stdin)["ref"])'
+}
+
+# A job that has never fired, the exact shape his report was about (JOB-003):
+# a schedule and a command, no output panel to render because nothing has run
+# yet. TKT-952.
+make_job() {
+    local TIRA_BOARD="$1"; export TIRA_BOARD
+    tira job.add --schedule '0 6 * * *' --command 'd2 tira.backup' -o json |
+        python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])'
+}
+
+# A card at a particular column, walked there one step at a time. TKT-426
+# refuses a move that skips ahead of the board's declared order - this
+# fixture wants a card AT a column, not a simulation of an agent skipping a
+# gate, but the CLI cannot tell the two apart from here, so it walks through
+# every column between backlog and the target instead of asking for an
+# exemption the real feature should not have.
+walk_to() {
+    local ref="$1" target="$2"
+    local reached=0
+    for col in backlog ready tests-red implement review verify document staging push done; do
+        if [ "$reached" -eq 1 ]; then
+            tira ticket.move --ref "$ref" --column "$col" --author michael -o json >/dev/null
+        fi
+        [ "$col" = backlog ] && reached=1
+        [ "$col" = "$target" ] && break
+    done
+}
+
+# Six cards, two of them answered and unjudged, one waiting on the owner.
+build_review_board() {
+    local where="$1"
+    local TIRA_BOARD="$where"; export TIRA_BOARD
+    for column in backlog ready implement review verify done; do
+        local card
+        card="$(make_card "$where" "A card in $column")"
+        [ "$column" = backlog ] || walk_to "$card" "$column"
+        case "$column" in
+            review|verify)
+                # The id the ask returned, not Q-001. Question ids run across
+                # the board rather than per card, so the second card's question
+                # is Q-002 - and hard-coding Q-001 answered the first card
+                # twice, silently, until 1.28 made that a refusal. This fixture
+                # is where that defect was found.
+                local asked
+                asked="$(tira question.ask --ref "$card" --author ada \
+                    --text "Is this the right approach?" --reason "two ways to do it" \
+                    --option one --option two -o json |
+                    python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
+                tira question.answer --ref "$card" --id "$asked" \
+                    --text "the first one" -o json >/dev/null
+                ;;
+            implement)
+                tira question.ask --ref "$card" --author ada \
+                    --text "Which way round should this go?" --reason "not obvious from here" \
+                    --option this --option that -o json >/dev/null
+                ;;
+        esac
+    done
+}
+
+# More than ten, so the board pages.
+build_wide_board() {
+    local where="$1"
+    local TIRA_BOARD="$where"; export TIRA_BOARD
+    for spare in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do
+        make_card "$where" "Card $spare" >/dev/null
+    done
+}
+
+# A board shaped for dashboard-browser, which stands in for the server and
+# asserts particular cards by name: TKT-001 in a column called in-progress, and
+# exactly two in backlog with TKT-003 the most recently modified. The review
+# board cannot also be this - it counts exactly six cards and has no
+# in-progress column - which is the third time these tests have wanted boards
+# that contradict each other.
+build_browser_board() {
+    local where="$1"
+    local TIRA_BOARD="$where"; export TIRA_BOARD
+    local first second third
+    first="$(make_card "$where" "Live browser card")"
+    tira ticket.move --ref "$first" --column in-progress --author michael -o json >/dev/null
+    sleep 1
+    second="$(make_card "$where" "Second card")"
+    sleep 1
+    third="$(make_card "$where" "Third card")"
+    make_job "$where" >/dev/null
+    tira login.register --id michael --password hunter2 -o json >/dev/null
+
+}
+
+# A board of its own for priority-sort, which needs a column holding more than
+# two cards. Adding them to the browsing board broke dashboard-browser, which
+# counts exactly three tickets - the fourth time these tests have wanted boards
+# that contradict each other, and the reason each one gets its own.
+build_priority_board() {
+    local where="$1"
+    local TIRA_BOARD="$where"; export TIRA_BOARD
+    for spare in 1 2 3 4; do
+        make_card "$where" "Something to order $spare" >/dev/null
+    done
+    tira login.register --id michael --password hunter2 -o json >/dev/null
+}
+
+build_review_board "$board"
+
+# A claimed password, because the login test needs a wrong password to be
+# wrong. Tira trusts on first use - a person who has never signed in claims a
+# password by typing one - so on a board where nobody is registered, the
+# "wrong password" the test types is not wrong at all: it claims the password
+# and signs in, and the refusal the test waits for never comes. That is why
+# login-gate timed out, and it took driving the login by hand to see it.
+#
+# hunter2 is what the test signs in with afterwards, so it has to be that.
+tira login.register --id michael --password hunter2 -o json >/dev/null || {
+    echo "browser-tests: could not claim a password for the login test"
+    exit 1
+}
+
+# Refused rather than fought over. A port already in use means somebody else's
+# board is there - possibly a leaked one of ours - and binding over it is not
+# possible anyway; saying so beats reporting that the board never came up.
+if [ "$port_was_given" -eq 1 ] && ss -ltn 2>/dev/null | grep -q ":$port "; then
+    echo "browser-tests: something is already listening on port $port."
+    echo "  Stop it, or pass a different port: tools/browser-tests 7851"
+    exit 1
+fi
+
+# Named, not pathed.
+#
+# Real usage refers to a board without naming where it is, and this gate spent
+# its life handing itself a path - so it exercised the one input shape that
+# still worked while the shape everybody uses was broken. TKT-229.
+#
+# A path in TIRA_HOME is not enough to fix that: an existing directory is used
+# as it stands and the resolver is never reached, so the environment route
+# would still prove nothing about resolution. The board is given a name here,
+# and a home of its own holding the one alias that turns that name into a
+# directory. Its own, because the machine's registry is not this gate's to
+# write to, and because a gate that depends on what somebody happens to have
+# registered passes or fails for reasons that have nothing to do with the code.
+gate_home="$scratch/home"
+mkdir -p "$gate_home/.developer-dashboard/config"
+cat >"$gate_home/.developer-dashboard/config/config.json" <<JSON
+{ "path_aliases": { "gate-board": "$board" } }
+JSON
+
+# perl invoked directly, not through the tira() function above. $! after
+# backgrounding a FUNCTION call names the subshell running the function body,
+# not the perl process it forks inside itself - cleanup() below then killed
+# that subshell, which died correctly, while the actual server it had started
+# was never signalled at all and kept running, orphaned, holding the port.
+# Measured: 34 leaked Starman masters, three per run (this one plus the two
+# below) against a 101-port range - almost exactly one leaked trio per run,
+# not an occasional interrupt. TKT-397.
+HOME="$gate_home" TIRA_HOME=gate-board perl -I"$root/lib" "$root/cli/dashboard" \
+    -o "browser=127.0.0.1:$port" >"$scratch/board.log" 2>&1 &
+serving=$!
+
+# Waited for, rather than slept at. A fixed sleep is either too short on a busy
+# machine or wasted on an idle one, and when it is too short the failure looks
+# like the test failing rather than the board not being up yet.
+up=""
+for _ in $(seq 1 60); do
+    if curl -fs -o /dev/null -m 2 "http://127.0.0.1:$port/"; then up=yes; break; fi
+    kill -0 "$serving" 2>/dev/null || break
+    sleep 1
+done
+[ -n "$up" ] || {
+    echo "browser-tests: the board never came up on port $port"
+    echo "--- what it said:"
+    tail -12 "$scratch/board.log" 2>/dev/null
+    echo "--- the board it was given:"
+    tira ticket.list -o json 2>&1 | head -c 200
+    echo
+    exit 1
+}
+
+# The seven are two kinds of test and the first runner treated them as one,
+# which is how six of them "failed" on their first ever run for no reason but
+# being handed the wrong argument. login-gate drives a live board through a
+# browser; the rest open a rendered page from disk and inspect it. Each is
+# given what it asks for in its own usage line.
+# A second board, wide enough to page, rendered to its own page - the tests
+# that count columns and paging want more cards than the ones that count
+# review queues will tolerate.
+wide="$scratch/wide"
+# planning is here because wide-board checks that a column with nothing to page
+# keeps its "show more" hidden, and uses that column as the example.
+tira project.new --name Wide --dir "$wide" --members michael \
+    --columns 'backlog, planning, ready, tests-red, implement, review, verify, document, staging, push, done' \
+    --sow-prefix WDS --epic-prefix WDE --ticket-prefix WDT -o json >/dev/null
+build_wide_board "$wide"
+wide_html="$scratch/wide.html"
+TIRA_BOARD="$wide" tira dashboard --title -o table >"$wide_html" 2>/dev/null
+
+# The same board as JSON, for the tests that drive a refresh. priority-sort
+# needs a column with more than two cards in it, and the browsing board has
+# three cards altogether - which is how that test failed on its first run.
+wide_data="$scratch/wide-data.json"
+TIRA_BOARD="$wide" tira dashboard -o json >"$wide_data" 2>/dev/null
+
+html="$scratch/board.html"
+tira dashboard --title -o table >"$html" 2>/dev/null || {
+    echo "browser-tests: could not render the board to a page"
+    exit 1
+}
+[ -s "$html" ] || { echo "browser-tests: the rendered page is empty"; exit 1; }
+
+# A page with one board on it. dashboard-table checks the page a person looks
+# at when they want a single board - it asserts exactly one .board - and the
+# combined render carries three. Nothing recorded that; it was discoverable
+# only by reading the assertion after running it.
+# The live board's own page, signed in. column-editor fakes /columns and
+# /people and drives the editor, which only the served board carries - the
+# static page renders the button and the dialog markup but not the script that
+# opens them. Fetching it needs a session, which is why the password claimed
+# above is used twice.
+live_html="$scratch/live-board.html"
+
+one_html="$scratch/one-board.html"
+tira dashboard.ticket --title -o table >"$one_html" 2>/dev/null
+
+data="$scratch/board.json"
+tira export -o json >"$data" 2>/dev/null || true
+
+# The browser board, served on its own port, so its page and data are the ones
+# dashboard-browser is written against.
+browser_board="$scratch/browser-board"
+browser_port=$(( port + 1 ))
+tira project.new --name Browsing --dir "$browser_board" --members 'michael, ada' \
+    --columns 'backlog, in-progress, done' \
+    --sow-prefix SOW --epic-prefix EPC --ticket-prefix TKT -o json >/dev/null
+build_browser_board "$browser_board"
+
+# perl invoked directly, for the same reason as the first server above. TKT-397.
+TIRA_HOME="$browser_board" perl -I"$root/lib" "$root/cli/dashboard" \
+    -o "browser=127.0.0.1:$browser_port" >"$scratch/browser-board.log" 2>&1 &
+browsing=$!
+for _ in $(seq 1 60); do
+    curl -fs -o /dev/null -m 2 "http://127.0.0.1:$browser_port/" && break
+    kill -0 "$browsing" 2>/dev/null || break
+    sleep 1
+done
+
+# Signed in, then the page as a person sees it.
+curl -fsS -c "$scratch/jar" -X POST "http://127.0.0.1:$port/login" \
+    -H 'Content-Type: application/json' -d '{"id":"michael","password":"hunter2"}' \
+    -o /dev/null 2>/dev/null || {
+    echo "browser-tests: could not sign in to fetch the live page"
+    exit 1
+}
+curl -fsS -b "$scratch/jar" "http://127.0.0.1:$port/" -o "$live_html" 2>/dev/null || {
+    echo "browser-tests: could not fetch the live board page"
+    exit 1
+}
+
+curl -fsS -c "$scratch/browserjar" -X POST "http://127.0.0.1:$browser_port/login" \
+    -H 'Content-Type: application/json' -d '{"id":"michael","password":"hunter2"}' \
+    -o /dev/null 2>/dev/null
+# The priority board, served, because the sort has to be clicked and then
+# survive a refresh - and only a live page carries the code that rebuilds cards.
+priority_board="$scratch/priority-board"
+priority_port=$(( port + 2 ))
+tira project.new --name Priority --dir "$priority_board" --members michael \
+    --columns 'backlog, done' \
+    --sow-prefix PRS --epic-prefix PRE --ticket-prefix PRT -o json >/dev/null
+build_priority_board "$priority_board"
+
+# perl invoked directly, for the same reason as the servers above. TKT-397.
+TIRA_HOME="$priority_board" perl -I"$root/lib" "$root/cli/dashboard" \
+    -o "browser=127.0.0.1:$priority_port" >"$scratch/priority-board.log" 2>&1 &
+prioritising=$!
+for _ in $(seq 1 60); do
+    curl -fs -o /dev/null -m 2 "http://127.0.0.1:$priority_port/" && break
+    kill -0 "$prioritising" 2>/dev/null || break
+    sleep 1
+done
+curl -fsS -c "$scratch/priorityjar" -X POST "http://127.0.0.1:$priority_port/login" \
+    -H 'Content-Type: application/json' -d '{"id":"michael","password":"hunter2"}' \
+    -o /dev/null 2>/dev/null
+priority_html="$scratch/priority.html"
+curl -fsS -b "$scratch/priorityjar" "http://127.0.0.1:$priority_port/" -o "$priority_html" 2>/dev/null || {
+    echo "browser-tests: could not fetch the priority board page"
+    exit 1
+}
+priority_data="$scratch/priority-data.json"
+curl -fsS -b "$scratch/priorityjar" "http://127.0.0.1:$priority_port/data" -o "$priority_data" 2>/dev/null || {
+    echo "browser-tests: could not fetch the priority board data"
+    exit 1
+}
+
+browsing_html="$scratch/browsing.html"
+curl -fsS -b "$scratch/browserjar" "http://127.0.0.1:$browser_port/" -o "$browsing_html" 2>/dev/null || {
+    echo "browser-tests: could not fetch the browsing board page"
+    exit 1
+}
+
+# The board's own /data reply, which is what the live page refreshes from -
+# not an export. dashboard-browser stands in for the server and needs the same
+# shape the page would really receive.
+live_data="$scratch/live-data.json"
+curl -fsS -b "$scratch/browserjar" "http://127.0.0.1:$browser_port/data" -o "$live_data" 2>/dev/null || {
+    echo "browser-tests: could not fetch the board data"
+    exit 1
+}
+
+# A test that cannot get a browser under machine load reads exactly like one
+# that failed on behaviour - both are node exiting non-zero, and "FAILED:
+# NAME" says nothing about which. Measured on 2.64, a release that touched
+# no browser code: the gate refused it, and the message pointed straight at
+# the change rather than at the machine that could not run the check. A
+# fixed ceiling distinguishes the two: playwright's own launch/navigation
+# stalls under contention rather than failing fast, so a run that hits the
+# ceiling is read as "could not run", not "ran and failed". TKT-369.
+failed=0
+timed_out=0
+ran=0
+# Overridable so a test of this distinction is not itself a 60-second test.
+per_test_timeout="${BROWSER_TEST_TIMEOUT_SECONDS:-60}"
+run_one() {
+    local name="$1"; shift
+    printf '\n--- %s\n' "$name"
+    local start end elapsed status
+    start=$(date +%s)
+    timeout "${per_test_timeout}s" node "$tests/$name" "$@"
+    status=$?
+    end=$(date +%s)
+    elapsed=$(( end - start ))
+    if [ "$status" -eq 0 ]; then
+        ran=$(( ran + 1 ))
+    elif [ "$status" -eq 124 ]; then
+        echo "TIMED OUT: $name (${elapsed}s) - this is a machine-load condition, not a fault in the change."
+        echo "  Clear whatever is holding the machine: leftover Starman/Playwright processes from an"
+        echo "  earlier interrupted run (ps aux | grep -E 'Starman|playwright'), or contention from"
+        echo "  another project's own browser-tests run at the same time."
+        timed_out=$(( timed_out + 1 ))
+    else
+        echo "FAILED: $name (${elapsed}s)"
+        failed=$(( failed + 1 ))
+    fi
+}
+
+# TKT-634. `only`, set by parse_args above, narrows which test files run;
+# empty (the default) means every .js file in $tests, exactly as before.
+# Kept as its own function, extracted and run against a fake tests/
+# directory the same way parse_args is proven above - a caller naming a
+# test that does not exist is refused by name here rather than silently
+# running nothing for it.
+select_tests() {
+    if [ ${#only[@]} -eq 0 ]; then
+        printf '%s\n' "$tests"/*.js
+        return 0
+    fi
+    local missing=() name
+    for name in "${only[@]}"; do
+        if [ -f "$tests/$name" ]; then
+            printf '%s\n' "$tests/$name"
+        else
+            missing+=("$name")
+        fi
+    done
+    if [ ${#missing[@]} -gt 0 ]; then
+        echo "browser-tests: no such test(s): ${missing[*]}" >&2
+        echo "  Known tests: $(cd "$tests" && printf '%s ' *.js)" >&2
+        return 1
+    fi
+    return 0
+}
+
+# TKT-634/CHK-005. Every mapping below by name, so an unmapped test fails
+# closed rather than silently falling through to the plain-board catch-all
+# a new test was never written against - the exact trap that cost a round
+# trip diagnosing card-editors.js's own "Timeout 30000ms exceeded" instead
+# of "no fixture mapping".
+known_mappings="login-gate.js dashboard-browser.js card-dialog-refresh.js stale-board.js police-log.js gate-log-pagination.js required-actions.js priority-sort.js card-freshness.js wide-board.js wrap-board.js sticky-header-hysteresis.js dashboard-table.js card-editors.js mixed-case-done.js current-column-group.js source-attachment-preview.js announced-command.js job-card-empty-column.js column-editor.js policy-editor.js tasklist-section.js review-toggle.js"
+
+# Command substitution, not `mapfile < <(select_tests)` - Codex review
+# caught that process substitution loses the inner command's own exit
+# status through the pipe, so `|| exit 1` there was checking mapfile's
+# status, never select_tests'. A caller naming an unknown test with
+# --only got "0 browser tests ran" and exit 0 instead of the refusal.
+selected_tests_raw="$(select_tests)"
+select_status=$?
+[ "$select_status" -eq 0 ] || exit 1
+mapfile -t selected_tests <<< "$selected_tests_raw"
+for test in "${selected_tests[@]}"; do
+    name="$(basename "$test")"
+    case "$name" in
+        login-gate.js)        run_one "$name" "http://127.0.0.1:$port" ;;
+        dashboard-browser.js) run_one "$name" "$browsing_html" "$live_data" "$scratch/$name.png" ;;
+        card-dialog-refresh.js) run_one "$name" "$browsing_html" "$live_data" ;;
+        stale-board.js)       run_one "$name" "$browsing_html" "$live_data" ;;
+        police-log.js)        run_one "$name" "$browsing_html" "$live_data" ;;
+        gate-log-pagination.js) run_one "$name" "$browsing_html" "$live_data" ;;
+        required-actions.js)  run_one "$name" "$browsing_html" "$live_data" ;;
+        priority-sort.js)     run_one "$name" "$priority_html" "$priority_data" ;;
+        # The same fixture priority-sort uses: a board with three cards in one
+        # column, which is what a relative ranking needs to say anything.
+        card-freshness.js)    run_one "$name" "$priority_html" "$priority_data" ;;
+        wide-board.js|wrap-board.js)
+                              run_one "$name" "$wide_html" "$scratch/$name.png" ;;
+        sticky-header-hysteresis.js) run_one "$name" "$wide_html" ;;
+        dashboard-table.js)   run_one "$name" "$one_html" "$scratch/$name.png" ;;
+        # The card dialog's three text editors need the LIVE page: the
+        # description editor only exists in edit mode, which the static
+        # render does not carry. TKT-586.
+        card-editors.js)      run_one "$name" "$browsing_html" "$live_data" ;;
+        # A card carrying required actions in four states, three of them done
+        # under three spellings. It needs the LIVE page for the same reason
+        # card-editors does - the dialog is filled from /record, which a static
+        # render does not carry. TKT-601.
+        mixed-case-done.js)   run_one "$name" "$browsing_html" "$live_data" ;;
+        # A card whose required actions span five columns, asked which group is
+        # the one in front of you. The LIVE page for the same reason as the
+        # others here - the groups are built from /record, and the answer the
+        # page renders is decided in Perl and carried in that payload. TKT-665.
+        current-column-group.js) run_one "$name" "$browsing_html" "$live_data" ;;
+        # A card carrying a .pl and a binary, opened in the attachment viewer.
+        # The LIVE page for the same reason as the two above - the dialog and
+        # its viewer are filled from /record, which a static render has not
+        # got. TKT-645.
+        source-attachment-preview.js) run_one "$name" "$browsing_html" "$live_data" ;;
+        # Four required-action states on one card, including the announced one
+        # that has a command and no proof. Needs the LIVE page for the same
+        # reason its neighbours do - the dialog is filled from /record. TKT-628.
+        announced-command.js) run_one "$name" "$browsing_html" "$live_data" ;;
+        # jobs-editor.js, which builds .jobs-card, is only embedded on a
+        # live=>1 render - a static export ships an empty .jobs-cards list
+        # and none of the script that would fill it. TKT-952.
+        job-card-empty-column.js) run_one "$name" "$browsing_html" "$live_data" ;;
+        column-editor.js)     run_one "$name" "$live_html" ;;
+        policy-editor.js)     run_one "$name" "$live_html" ;;
+        tasklist-section.js)  run_one "$name" "$live_html" ;;
+        # Codex review caught this one missing entirely: review-toggle.js
+        # takes exactly one fixture-html argument, the same shape the
+        # generic catch-all below used to hand every unmapped file - it
+        # was genuinely running correctly under that catch-all, and the
+        # new fail-closed default (TKT-634/CHK-005) would have broken it
+        # by naming it "unmapped" rather than by anything wrong with it.
+        review-toggle.js)     run_one "$name" "$html" ;;
+        *)
+            echo "browser-tests: no fixture mapping for '$name' - refusing rather than guessing."
+            echo "  Known mappings: $known_mappings"
+            echo "  Add a case for it above, naming the fixture it needs."
+            failed=$(( failed + 1 ))
+            ;;
+    esac
+done
+
+printf '\n'
+if [ "$timed_out" -gt 0 ] && [ "$failed" -eq 0 ]; then
+    echo "browser-tests: $timed_out of $(( ran + failed + timed_out )) browser tests could not run" \
+      "under machine load - not a fault in the change. See TIMED OUT above for what to clear."
+    exit 1
+fi
+if [ "$failed" -gt 0 ]; then
+    echo "browser-tests: $failed of $(( ran + failed + timed_out )) browser tests failed"
+    exit 1
+fi
+echo "browser-tests: $ran browser tests ran, and every one passed"

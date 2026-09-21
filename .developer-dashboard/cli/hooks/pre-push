@@ -1,0 +1,199 @@
+#!/usr/bin/env bash
+#
+# The release gate, as a gate rather than as a habit.
+#
+# Push is part of "done" in this workspace, so this is the last moment anything
+# can be caught. Everything here was previously "something I always do", and on
+# 2026-08-11 the owner found, in one morning: a card with no fields moving
+# between columns, a card whose checklist was finished while its column said
+# otherwise, tickets that were all orphans because an argument was silently
+# ignored, and a board destroyed with no backup to restore from. None of those
+# were caught by a habit. They are caught here.
+#
+# Every check fails closed. A missing tool is a failure, not a skip - a gate
+# that disappears when you delete a file is not a gate.
+
+set -euo pipefail
+
+# TKT-1073 (Michael's tools/ -> .developer-dashboard/skills/*/cli/* move,
+# 2026-09-21): $0's own dirname is no longer a reliable way to find the repo
+# root - this file is reached two different ways with two different
+# effective depths for $0 (git invokes it through the .git/hooks/ symlink,
+# two levels deep; tools/prove-the-gate invokes the real file directly,
+# three levels deep under .developer-dashboard/cli/hooks/), and a fixed
+# number of ".." cannot be right for both. git itself always knows the
+# answer regardless of how this script was reached.
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+
+step() { printf '\n\033[1mpre-push: %s\033[0m\n' "$1"; }
+fail() { printf '\n\033[31mpre-push: %s\033[0m\n' "$1" >&2; exit 1; }
+
+# --- a release nobody would receive -------------------------------------
+#
+# Developer Dashboard installs a skill by comparing versions: same version, no
+# update. Tira's own self-restart compares the installed version with the
+# running one and does the same. So a push that changes shipped code without
+# changing VERSION is in the repository and on nobody's machine.
+#
+# That trap cost hours in one night: the board was being driven by an installed
+# copy at 1.04 while the working tree was well past it, so commands that existed
+# answered "not found" and features that were built had never arrived.
+step 'checking the version against what is being shipped'
+
+# What is being pushed, found without asking for an upstream branch: this
+# repository has no tracking branch configured, so the first version of this
+# check asked for one, found none, and quietly did nothing - a gate that
+# disappears, which is the exact failure everything else here is written to
+# avoid. The remote ref is what git actually has; where there is none, every
+# file counts as changed and the check still runs.
+branch="$(git rev-parse --abbrev-ref HEAD)"
+
+# TKT-1015. Which sha is actually being pushed, not assumed to be HEAD. Git
+# gives a pre-push hook the real answer on stdin, one line per ref: <local
+# ref> <local sha1> <remote ref> <remote sha1>. Read once, here, before
+# anything below reads stdin for anything else. Only the first line is
+# read - a push of several refs at once is rare enough on this project's
+# own workflow (one branch, one remote) that reading the rest would add
+# complexity a real push here never exercises. With nothing on stdin at
+# all - this hook run by hand, or by d2 prove.the.gate - HEAD is kept,
+# which is the ordinary case and must stay exactly as it always was.
+pushed_sha="HEAD"
+deleting_ref=""
+if IFS=' ' read -r _local_ref _local_sha _remote_ref _remote_sha; then
+    zero='0000000000000000000000000000000000000000'
+    if [ -n "${_local_sha:-}" ] && [ "$_local_sha" != "$zero" ]; then
+        pushed_sha="$_local_sha"
+    elif [ "${_local_sha:-}" = "$zero" ]; then
+        # A branch DELETION, not a push of HEAD under another name - the
+        # all-zero local sha means no commit is being pushed at all, so
+        # there is no commit range to compute "about" from. Falling back
+        # to HEAD here would derive it from whatever local commits happen
+        # to be lying around, unrelated to what this push actually does.
+        deleting_ref=1
+    fi
+fi
+
+base="$(git rev-parse --verify --quiet "origin/$branch" || true)"
+[ -n "$base" ] || base="$(git hash-object -t tree /dev/null)"
+
+changed="$(git diff --name-only "$base"..HEAD -- lib cli skills collector dashboard.psgi cpanfile || true)"
+if [ -n "$changed" ]; then
+    version_changed="$(git diff --name-only "$base"..HEAD -- .env || true)"
+    [ -n "$version_changed" ] || fail "shipped files changed and VERSION did not:
+$(printf '%s' "$changed" | head -5)
+An install compares versions, so this release would reach nobody. Bump VERSION
+in .env, and lib/Tira.pm and t/03-metadata.t with it."
+fi
+
+# TKT-965: seven cards' Changes entries once sat under a version already
+# pushed AND installed - committed, never pushed, and the check above did
+# not catch it, since VERSION eventually did change in a LATER commit,
+# leaving the earlier entries permanently misfiled under the old heading.
+# .developer-dashboard/skills/changes/skills/not/cli/reopened (d2 changes.not.reopened) compares every version origin has already
+# shipped against origin's own text under that same heading - not only the
+# newest local heading, since a fresh heading routinely sits above an
+# already-released one. Anything added past it is refused here, before it
+# can happen again.
+if ! .developer-dashboard/skills/changes/skills/not/cli/reopened --base "$base"; then
+    fail "the changelog names a release nobody would actually receive - see above."
+fi
+
+# --- the board is backed up before anything else ------------------------
+#
+# The board is deliberately outside git, so a push is the natural moment to
+# take a copy. It costs a second and it is the difference between losing
+# minutes and losing the morning.
+step 'backing up the board'
+[ -x .developer-dashboard/skills/board/cli/backup ] || fail 'board/cli/backup is missing - refusing to push without a backup'
+.developer-dashboard/skills/board/cli/backup >/dev/null || fail 'the board backup failed'
+
+# --- every live card is real work ---------------------------------------
+step 'checking the board for incomplete or stalled cards'
+[ -x .developer-dashboard/skills/card/cli/holes ] || fail 'card/cli/holes is missing - refusing to push without the card check'
+
+# The cards this push is about, read from the subjects of the commits being
+# pushed - the same place and the same way the commit gate reads them.
+#
+# This used to ask about every card on the board, which is a different question
+# from whether this commit is fit to push, and the answer changes while the
+# push runs. It refused 2.14 three times for cards that had nothing to do with
+# it, and 2.21 for a card a bug hunt had raised an hour earlier on an unrelated
+# subject. Whether the board as a whole is in order is police's question, asked
+# continuously on a channel somebody reads. TKT-253.
+#
+# With no remote ref there is no range to read, and with no commits there are no
+# subjects: both fall back to the whole board, which is the direction that
+# checks more rather than less. The second is how this tool is run by hand and
+# by d2 prove.the.gate.
+about=""
+if [ -z "$deleting_ref" ] && [ -n "$(git rev-parse --verify --quiet "origin/$branch" || true)" ]; then
+    # The `|| true` is not decoration. Under `set -e` with pipefail, a grep
+    # that matches nothing exits 1 and takes the whole hook with it - silently,
+    # at the card check, with no output at all. That is exactly what happened
+    # the first time this was run: eleven probes reported the gate broken, and
+    # the only broken thing was a range with no commits in it.
+    about="$(git log --format=%s "origin/$branch..$pushed_sha" |
+        grep -oE '[A-Z][A-Z0-9]*-[0-9]+' | sort -u | tr '\n' ' ' || true)"
+fi
+
+# Deliberately unquoted: the refs are separate arguments, and each is a card
+# reference with no whitespace in it.
+# shellcheck disable=SC2086
+.developer-dashboard/skills/card/cli/holes $about || fail 'fill the cards in, or discard what is not real work'
+
+# --- the suite is not here, and that is the point ------------------------
+#
+# It used to be. This hook ran the full suite with coverage in a container -
+# 138 of its 266 lines and some twenty minutes - over a tree the verify column had
+# already cleared. Measured on the release of 4.60 and 4.61: the suite ran at
+# 08:41 in verify and again at 11:47 here, and the push took 21 minutes 19
+# seconds. The first attempt was killed by a foreground timeout and left an
+# orphaned container still running the suite, which is a cost of the length
+# rather than an accident beside it.
+#
+# The gate-cache (TKT-351) was built to stop that double-run and could not. It
+# keys on the tree HEAD carries, and the verify suite runs BEFORE the
+# documentation and version commits exist, so the tree it records is never the
+# tree being pushed. 93 records, none of them matching. It left with the suite
+# it existed to skip; d2 gate.run still writes those records for anyone
+# proving a tree by hand.
+#
+# The owner's rule, and it is a statement about where readiness is decided
+# rather than about speed: "anything landed on push column is ready to pushed".
+# A card reaches that column because verify proved it and recorded the
+# evidence on the card. Re-deriving that here, more slowly and with no new
+# information, was the hook contradicting the board.
+#
+# What the suite step was really defending was not "the tests pass" but
+# "nothing was edited between the proof and the push". That is still defended,
+# by the three checks below - they run last for exactly that reason, and they
+# are cheap. TKT-680.
+# --- the documentation describes what actually ships ---------------------
+#
+# Last, deliberately. Documentation edited after a gate has shipped a broken
+# build here twice, so anything that runs before the edits proves nothing about
+# what goes out. This is the final thing that can stop a release.
+step 'checking the documentation against the code'
+[ -x .developer-dashboard/skills/docs/skills/match/cli/code ] || fail 'docs/skills/match/cli/code is missing - refusing to push undocumented'
+.developer-dashboard/skills/docs/skills/match/cli/code || fail 'the documentation and the code disagree'
+
+# And every example run rather than read. His words. The policies document
+# shipped with an example the validator refuses, and nothing but executing it
+# would have found that.
+#
+# A browser check ran here too, once per push, from the day it was written
+# until TKT-796: a single flaky drag-simulation test (TKT-675) then blocked an
+# entire batch of otherwise-good, individually-verified cards, because it ran
+# once for the whole push rather than once for the card it was actually
+# about. The owner's own words: "Browser test should be a separate column and
+# not mix with pushing. When card reaches to push column should be already
+# fully tested" - and, asked whether every card needs it, "not all cards need
+# browser test... dynamically". It now runs per-card, at verify, conditional
+# on whether that card's own changes touch a browser-relevant view file -
+# project board configuration, not a step in this repo's own release tooling.
+step 'running every documented example'
+[ -x .developer-dashboard/skills/docs/skills/examples/cli/run ] || fail 'docs/skills/examples/cli/run is missing - refusing to push examples nobody ran'
+.developer-dashboard/skills/docs/skills/examples/cli/run || fail 'a documented example is not what the command accepts'
+
+step 'board backed up, every live card complete, documentation agrees and every example ran - the suite was proved in verify'

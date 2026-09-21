@@ -1,0 +1,644 @@
+#!/usr/bin/env python3
+"""Report cards on this project's Tira board that are missing required fields.
+
+Exit 0 when every live card is complete, 1 when any is not.
+
+Michael found a card on 2026-08-11 with a title, a description and nothing
+else - no problem statement, no scope, no deliverables, no test steps, no BDD,
+no checklist - moving between columns as though it were real work. His words:
+"just a zombie card moving around". He asked, fairly, whether he was going to
+have to check every card himself from now on.
+
+He is not. This is the check, and it runs from the pre-push hook, so a push
+with a hollow card fails the same way a push with a failing test fails.
+Reading is done through Tira's own commands rather than the files, so it stays
+correct if the on-disk layout changes.
+"""
+
+import json
+import os
+import subprocess
+import time
+import sys
+
+# Columns in the order work passes through them. A card whose checklist is
+# finished must have left the columns that mean "still being done".
+#
+# Asked of the board rather than carried here. This was a list of the seven
+# columns the tool happened to know, and every column-dependent check began by
+# locating the card in it - so a column the list had never heard of was not in
+# it, the check did not apply, and the card passed. Silently, which is the only
+# way it could have survived: a board that declares a working column lost the
+# gate, evidence and fix-version checks for everything in it, and the push
+# still succeeded. The engine had already learned this and asks the board.
+# TKT-223.
+#
+# discard stays out of the flow, deliberately. A discarded card is not work in
+# progress, and asking it for a gate would be the tool arguing with a decision
+# somebody already made. It is identified by what the board says about it - a
+# protected column that is not the one work starts in - rather than by its name,
+# so a board that calls it something else is still understood.
+def flow_from_board():
+    columns = tira('tira.column.list', '--type', 'ticket', '-o', 'json')
+    roles = tira('tira.column.roles', '-o', 'json').get('ticket', {})
+    # Where work starts. A board says so through its roles if it has declared
+    # any, and the first column is where cards start if it has not - which most
+    # boards have not. Reading only the role dropped the first column out of
+    # the flow entirely, because it is protected, so the flow began at the
+    # column after it. TKT-245.
+    starts_in = roles.get('backlog') or (columns[0]['name'] if columns else None)
+    names = [c['name'] for c in columns
+             if not (c.get('protected') and c.get('name') != starts_in)]
+    return names, roles
+
+
+
+# The milestones, by what the board says they mean rather than by name. A board
+# that calls its testing column something else is still understood; one that has
+# no such column is told so, because guessing which of its columns means proven
+# would be inventing a rule nobody declared.
+def milestone(role, fallback):
+    named = ROLES.get(role)
+    if named in FLOW:
+        return FLOW.index(named)
+    if fallback in FLOW:
+        return FLOW.index(fallback)
+    raise SystemExit(
+        f'card-holes: this board has no {role} column and no {fallback} column, '
+        'so there is no point past which a card is claiming to be proven. '
+        'Declare one, or these checks cannot say anything.')
+
+
+
+# What a complete card is, asked rather than kept.
+#
+# This was a list of nine fields and the engine had its own of twelve, and they
+# disagreed in both directions at once: the same card at the same moment was
+# missing a description to police and missing a parent to this, and neither
+# mentioned the other's field. The bridge nagged about a field this called
+# finished, and three pushes died on a field police had never once mentioned.
+# The engine owns the definition now and this asks for it, which is the only
+# arrangement where the two cannot drift apart again. TKT-241.
+REQUIRED = None
+EXEMPT = None
+PAST_COLUMN = None
+
+
+def from_tree(what, skill, verb, *args):
+    """Ask the engine, from the tree rather than from the installed copy.
+
+    This gate runs before a push and the push is what makes the new code
+    installable, so asking d2 for a command that arrives with this release
+    would refuse the release that introduces it - which is not a hypothetical:
+    it refused the release that added tira.column.endings, the command written
+    to answer one of these very questions. It also drives the code being pushed
+    rather than whatever version happens to be installed, which is the argument
+    tools/browser-tests already makes for reaching into the tree the same way.
+    """
+    # TKT-1073 (tools/ -> .developer-dashboard/skills/*/cli/* move,
+    # 2026-09-21): this file moved from tools/card-holes (one level under
+    # the repo root) to .developer-dashboard/skills/card/cli/holes (four
+    # levels under it) - see the identical fix and comment on tira()
+    # above. $DIR_TIRA first, walking up from this file's own real
+    # location as the fallback.
+    root = os.environ.get('DIR_TIRA') or os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+    entrypoint = os.path.join(root, 'skills', skill, 'cli', verb)
+    done = subprocess.run(
+        ['perl', '-I' + os.path.join(root, 'lib'), entrypoint, *args, '-o', 'json'],
+        capture_output=True, text=True)
+    if done.returncode != 0:
+        raise SystemExit(f'card-holes: the tree could not say {what}: '
+                         + done.stderr.strip())
+    return json.loads(done.stdout)
+
+
+def _card_required():
+    """The engine's definition of a complete card, read once.
+
+    tira.card.required returns {"fields": [...], "exempt": {...}} as of
+    TKT-285 - the exemptions (a SOW needs no parent, a standalone card needs
+    none either) used to live as prose in tira.usage alone, and this script
+    carried an independent hardcoded copy of the same two exceptions: a
+    fourth place the two could have drifted apart from. Read from the same
+    structure the engine returns instead.
+    """
+    global REQUIRED, EXEMPT, PAST_COLUMN
+    if REQUIRED is None:
+        answer = from_tree('what a complete card is', 'card', 'required')
+        REQUIRED = answer['fields']
+        EXEMPT = answer.get('exempt') or {}
+        PAST_COLUMN = answer.get('past_column') or {}
+    return REQUIRED
+
+
+def required():
+    """The engine's definition of a complete card, read once."""
+    _card_required()
+    return REQUIRED
+
+
+def exempt():
+    """The exceptions to that definition, read once alongside it."""
+    _card_required()
+    return EXEMPT
+
+
+def past_column():
+    """The second standard, TKT-696: what a card owes once past a milestone,
+    read alongside the first rather than kept as this file's own list -
+    which is what unproven() carried independently until now, in no
+    definition ticket.missing could answer from."""
+    _card_required()
+    return PAST_COLUMN
+
+
+ATTEMPTS = 3
+INSTALLING = 'not found in skill'
+
+
+def tira(*args):
+    """Ask the board, surviving the moment the skill is being written.
+
+    The gate failed twice reporting a command that ships as unknown -
+    tira.epic.show once, tira.ticket.list the next push - and both entrypoints
+    ran fine seconds later. The installed skill directory had been rewritten
+    inside the failing gate's window: the dispatcher resolves a command by
+    finding its entrypoint, and during an install the entrypoint is briefly
+    absent.
+
+    Only that failure is waited on, and only for a moment. Anything else stops
+    the gate at once, because an audit that retried everything would go quiet
+    exactly when the board is broken - and if it never resolves, the gate says
+    how many times it tried rather than reporting the last attempt as though it
+    were the only one.
+    """
+    # TKT-1073 (tools/ -> .developer-dashboard/skills/*/cli/* move,
+    # 2026-09-21): tira-call is no longer a sibling in the same directory -
+    # each moved tool lives under its own skill name now. $DIR_TIRA (set by
+    # `d2` for any dispatched command) is the reliable way to find the repo
+    # root; falling back to walking up from this file's own real location
+    # (.developer-dashboard/skills/card/cli/holes, four levels down) when
+    # invoked directly without going through `d2`.
+    root = os.environ.get('DIR_TIRA') or os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+    caller = os.path.join(root, '.developer-dashboard', 'skills', 'tira', 'cli', 'call')
+    done = subprocess.run([caller, *args], capture_output=True, text=True)
+    if done.returncode != 0:
+        raise SystemExit(f'card-holes: {" ".join(args)} failed: {done.stderr.strip()}')
+    return json.loads(done.stdout)
+
+
+# The board is asked once, here, because everything below is derived from it.
+# These sat above the caller they use, so the tool died with a NameError before
+# reading a single card - and it died inside a push, because the hook runs this
+# file from the working tree rather than from the copy it is about to push.
+# TKT-223.
+FLOW, ROLES = flow_from_board()
+
+# Where work starts. A board says so through its roles if it has declared any,
+# and the first column is where cards start if it has not - which most boards
+# have not, so reading only the role left this looking at nothing. TKT-245.
+STARTS_IN = ROLES.get('backlog') or (FLOW[0] if FLOW else None)
+
+# The columns where work has ended, asked of the engine rather than worked out
+# here. This read the done column role and nothing else, so it could not read a
+# board that marks its ending with --terminal instead of calling it done - it
+# refused to run on one entirely - and on a board that has declared no roles,
+# which the comment above says most boards are, it came out empty and every
+# finished card was judged as work in progress. The engine reads the column,
+# with done as the fallback for a board that has marked nothing, and it is the
+# one place that decides. TKT-267.
+_ENDINGS = {}
+
+
+def endings(kind):
+    if kind not in _ENDINGS:
+        _ENDINGS[kind] = set(from_tree(
+            f'where {kind} work ends', 'column', 'endings', '--type', kind))
+    return _ENDINGS[kind]
+
+SETTLED_FROM = milestone('testing', 'verify')
+
+PROVEN_FROM = SETTLED_FROM
+
+# Shipping has no role on the board, so the column is named here and the
+# terminal column stands in for a board that does not have it - a card in the
+# column work ends in is shipped by anybody's definition.
+# Where a card counts as shipped. A board with a push column says so by having
+# one; otherwise the first column work ends in serves, because a card in the
+# column work ends in is shipped by anybody's definition. This used to ask
+# milestone('done', 'done'), which named the same thing twice and told a board
+# that marks its ending to declare a column it may already have.
+SHIPPED_FROM = (FLOW.index('push') if 'push' in FLOW
+                else min((FLOW.index(name) for name in endings('ticket') if name in FLOW),
+                         default=None))
+if SHIPPED_FROM is None:
+    raise SystemExit(
+        'card-holes: this board has no push column and none of the columns it '
+        'says work ends in are in its flow, so there is no point past which a '
+        'card counts as shipped.')
+
+
+def outstanding(record):
+    """Which checklist items are not finished, asked of the engine.
+
+    TKT-671. This file used to decide for itself, comparing each item's raw
+    status text against the word done case-sensitively, in two places, while
+    lib/Tira.pm lowercases before comparing. (The old expression is
+    deliberately not quoted here: t/420 greps this directory for it, so writing
+    it even inside a docstring would fail the ledger that keeps it out - which
+    is exactly how this docstring failed on its first run.) An item ticked as
+    'Done', which is the natural capitalisation and matches the 'To Do' the
+    column templates themselves use, was therefore finished to the card and
+    unfinished to the gate. That refused the push of 4.57, 4.58 and 4.59.
+
+    The two sites failed in OPPOSITE directions, which is why lowercasing them
+    would not have been enough. premature() counted 'Done' as waiting and
+    refused a good push - loud, and noticed. stalled() took 'Done' as proof the
+    checklist was unfinished and returned early, so the check that exists
+    because Michael caught TKT-005 fully ticked and still in implement was,
+    against 'Done', permanently blind. One shouted falsely and the other stayed
+    quiet falsely.
+
+    So the gate stops holding an opinion. record_list already attaches
+    checklist_done and checklist_total to every row (lib/Tira.pm), so the
+    question 'is anything outstanding' is answered by the engine and this file
+    only works out WHICH items to name. Same arrangement as the definition of a
+    complete card, which this file asks for rather than keeping (TKT-224): two
+    readers, one definition, nothing to drift.
+    """
+    checklist = record.get('checklist') or []
+    waiting = [c for c in checklist
+               if str(c.get('status') or '').lower() != 'done']
+    done, total = record.get('checklist_done'), record.get('checklist_total')
+
+    # Finished only when BOTH say so. The two cannot disagree on a record from
+    # record_list - checklist_done and checklist_total are computed by
+    # _checklist_progress over this very array, in the same call - so requiring
+    # them to agree costs nothing today. It is here for the day they can: a
+    # review asked what happens if the counts say complete while the array
+    # still shows an unticked item, and the answer under a count-only
+    # shortcut was that stalled() announces 'every checklist item is done'
+    # beside an item that visibly is not. A gate that contradicts what it
+    # prints is worse than one that is merely wrong.
+    if done is not None and total is not None and done >= total and not waiting:
+        return []
+    return waiting
+
+
+def premature(record, ended):
+    """A card in a finished column with work still unticked.
+
+    Found on 2026-08-11 when TKT-008 was moved to done with "restore proven
+    from the backup" still pending, and this check said nothing - it only
+    looked for the opposite mistake. A board that catches you moving too late
+    but not too early is only half a check, and the half it misses is the one
+    that overstates progress.
+    """
+    checklist = record.get('checklist') or []
+    if not checklist:
+        return None
+    column = record.get('column')
+    # An ending as the board defines it, plus a shipping column where a board
+    # has one. 'done' was written here as a name, which is the same decision
+    # this file was making in three other places.
+    if column not in ended and column != 'push':
+        return None
+    waiting = outstanding(record)
+    if not waiting:
+        return None
+    # Named up to three, and said so when there are more. The count was always
+    # honest and the list never was: the failure that raised TKT-671 read
+    # "TKT-626 is in push with 4 checklist item(s) unfinished:" and then listed
+    # three, with nothing to say the fourth had been dropped.
+    shown = '; '.join(c.get('item', '?') for c in waiting[:3])
+    if len(waiting) > 3:
+        shown += f' (and {len(waiting) - 3} more)'
+    return (f"is in {column} with {len(waiting)} checklist item(s) unfinished: "
+            + shown)
+
+
+def stalled(record):
+    """A card whose checklist is done but whose column says otherwise.
+
+    Michael caught this on 2026-08-11: every item on TKT-005 was ticked and
+    the card was still sitting in implement. Ticking a box is recording the
+    work; moving the card is what the board actually shows him. When those two
+    disagree, the board is lying, and he is the one who notices.
+    """
+    checklist = record.get('checklist') or []
+    if not checklist:
+        return None
+    if outstanding(record):
+        return None
+    column = record.get('column')
+    if column not in FLOW:
+        return None
+    if FLOW.index(column) >= SETTLED_FROM:
+        return None
+    return f'every checklist item is done but the card is still in {column}'
+
+
+# Past this point a card is making a claim about work that happened, and a
+# claim with nothing attached is a sentence. Michael, watching the work log:
+# "you have not updated everything on the card, just the checklist - I know you
+# are lazy about it." He is right that it needs to be mechanical rather than
+# remembered.
+
+
+def not_yet_approved(record, wanted):
+    """A card the push carries a commit for, sitting before the push column.
+
+    pending-push exists because Michael, and only he, decides what ships.
+    Every other check here asks whether a card is COMPLETE - unproven() among
+    them, which demands a fix_version only at or past the push column, so a
+    well-formed card one column short of it draws nothing. TKT-854 had 44
+    gate entries and one evidence item and shipped in 5.41 thirteen minutes
+    before its own card reached pending-push. Nothing anywhere had asked the
+    one question the column exists to answer.
+
+    SCOPED TO `wanted` ALONE (TKT-887, KD4). With no remote ref the hook
+    sweeps the whole board and `wanted` is empty - applying this there would
+    refuse every push on any board with a card in backlog, which is every
+    board. A ref `wanted` names that matches no row here - scraped from a
+    commit subject for a card that does not exist, or no longer does - never
+    reaches this function at all, because the caller only calls it for rows
+    the board actually returned; it is neither refused nor silently passed,
+    it is simply not a card this check has an opinion about.
+    """
+    # Only on a board that HAS a push column, distinct from where work ends.
+    # Without one, SHIPPED_FROM falls back to the ending column itself (a
+    # board that ships whatever reaches done), and this would then refuse
+    # any card still in implement or verify - the exact fault unproven() and
+    # premature() already exist to report, not a missing-approval gate.
+    if 'push' not in FLOW:
+        return None
+    if not wanted or record.get('ref') not in wanted:
+        return None
+    column = record.get('column')
+    if column not in FLOW or FLOW.index(column) >= SHIPPED_FROM:
+        return None
+    return (f"is in {column}, which has not reached the push column - "
+            'pending-push is the queue Michael reviews before anything ships, '
+            'and this commit ships it anyway')
+
+
+def unproven(record, ended):
+    """A card claiming to be verified with nothing anybody could check."""
+    column = record.get('column')
+    if column not in FLOW or FLOW.index(column) < PROVEN_FROM:
+        return None
+
+    # Not applied backwards. Thirty-five cards shipped before this check
+    # existed, and demanding artefacts nobody kept would block every push for
+    # ever and teach everybody to switch the check off. Anything reaching done
+    # from now on passes through verify, document and push, where this bites.
+    if column in ended:
+        return None
+
+    # TKT-696: read from the engine's own definition, the same way REQUIRED
+    # and EXEMPT already are, rather than a copy that could say something
+    # different - which is exactly what happened before this: ticket.missing
+    # answered nothing was missing on five cards this refused the same day.
+    # fix_version's threshold is SHIPPED_FROM, computed above with a second
+    # fallback (the board's own ending columns) that a bare role/column
+    # lookup does not have - a board with no push column is not asked to
+    # declare one just to have a shipped point.
+    named = {'gate_passing_log': 'no gate recorded', 'evidence': 'no evidence attached',
+             'fix_version': 'no fix version set'}
+    owed = past_column()
+    said = []
+    for field in ('gate_passing_log', 'evidence'):
+        spec = owed.get(field)
+        if spec and FLOW.index(column) >= milestone(spec['role'], spec['fallback']) and not record.get(field):
+            said.append(named[field])
+    if 'fix_version' in owed and FLOW.index(column) >= SHIPPED_FROM and not record.get('fix_version'):
+        said.append(named['fix_version'])
+    if not said:
+        return None
+
+    # NAMED, NOT LEFT FOR THE READER TO FIND. tira.release.record writes a
+    # gate entry, an evidence entry and the fix version together - the one
+    # command that answers everything this check can complain about - and
+    # the refusal used to say what was wrong without ever saying what fixes
+    # it. Six cards moved to push all refused with this same sentence and
+    # nothing in the output named the remedy. TKT-641.
+    return (f"is in {column} with " + ' and '.join(said)
+            + ' - a claim about work that happened, with nothing anybody could check. '
+            'Fix it with: d2 tira.release.record --ref ' + record.get('ref', '<REF>')
+            + ' --gate TEXT --result pass --details TEXT --evidence TEXT --fix-version VERSION')
+
+
+# A report somebody else filed, which nobody here has picked up yet.
+#
+# tira.dev.found.bug_or_improvement fills a title, a description, a source and
+# a reporter, because that is what a reporter knows - they know what they saw,
+# not how this project will fix it. Asking such a card for a solution, test
+# steps, BDD, ATDD, a checklist and a parent is asking the wrong person, and it
+# stops a release that has already passed its suite until somebody writes up
+# another project's report. That happened three times in one evening, with more
+# arriving while the first three were being written.
+#
+# Triage is what turns a report into a ticket, and the board records triage as
+# the card leaving the backlog. Until then nobody has decided what it is; after
+# it, the card is this project's work like any other and is asked for all of
+# it. TKT-245.
+def untriaged_report(record, column, starts_in):
+    source = str(record.get('source') or '')
+    return 'tira.dev.found' in source and column == starts_in
+
+
+def holes(record, kind):
+    missing = []
+    scope = record.get('scope') or {}
+
+    # A statement of work sits at the top of the tree, so it has no parent to
+    # be missing. Everything below one does - unless it says it stands alone.
+    #
+    # Michael asked for an investigation raised on its own, with no parent,
+    # because what it finds decides where it belongs; filing it under an epic
+    # first would be deciding that before understanding it. A card with no
+    # parent by accident is still a hole, so the difference is declared: the
+    # 'standalone' label says somebody meant it.
+    labels = set(str(l).lower() for l in (record.get('labels') or []))
+
+    for field in required():
+        if field == 'scope_in':
+            if not scope.get('included'):
+                missing.append(field)
+        elif field == 'scope_out':
+            if not scope.get('excluded'):
+                missing.append(field)
+        elif field == 'parent':
+            rule = exempt().get('parent') or {}
+            if (kind not in (rule.get('types') or [])
+                    and not (labels & set(l.lower() for l in rule.get('labels') or []))
+                    and not record.get('parent')):
+                missing.append(field)
+        elif not record.get(field):
+            missing.append(field)
+
+    return missing
+
+
+def parents_ahead(wanted=None):
+    """Parents claiming to be finished above children that are not.
+
+    Michael photographed an epic in done with a ticket in backlog underneath
+    it, an hour after he had asked for that ticket, and a statement of work in
+    done above both epics. Every other check here looks at a card on its own,
+    so nothing was ever going to see it - and it is the direction that
+    overstates progress, which is the direction he cannot check without opening
+    every parent himself.
+    """
+    everything = []
+    for kind in ('sow', 'epic', 'ticket'):
+        everything += [dict(row, kind=kind) for row in tira(f'tira.{kind}.list', '-o', 'json')]
+
+    live = {}
+    for row in everything:
+        if row.get('column') not in ('done', 'discard'):
+            live[row['ref']] = row
+
+    problems = []
+    for row in everything:
+        if row.get('column') != 'done':
+            continue
+        # The row again, not a second reading of it. A list row carries the
+        # linkage this needs, and asking per card was the other half of the
+        # seven minutes every push paid. TKT-251.
+        record = row
+        open_children = sorted(
+            child['ref'] for child in live.values()
+            if (child.get('parent') or '') == row['ref'])
+
+        # A card that lists children it does not carry a parent link from is
+        # the same thing seen from the other side, so both are read.
+        listed = (record.get('linkage') or {}).get('sub_ticket_refs') or []
+        open_children = sorted(set(open_children) | {r for r in listed if r in live})
+
+        # Narrowed the same way as everything else, from either end: a pair
+        # is this push's business if the push names the parent or one of the
+        # children it is holding open.
+        if wanted and row['ref'] not in wanted \
+                and not (set(open_children) & wanted):
+            continue
+
+        if open_children:
+            problems.append(
+                f"{row['ref']} says it is finished while "
+                f"{', '.join(open_children)} "
+                f"{'are' if len(open_children) > 1 else 'is'} still open")
+    return problems
+
+
+def main():
+    # The cards this push is about, named on the command line. Given none, the
+    # whole board - which is what this always did and what somebody running the
+    # tool by hand wants.
+    #
+    # A commit that had passed its own gate used to be refused for cards that
+    # had nothing to do with it: work in progress for the next release, a card
+    # mid-move while the check ran, a report another project filed minutes
+    # earlier. Three refusals of one commit for 2.14, and again for 2.21 by a
+    # card a bug hunt had raised an hour before on an unrelated subject.
+    #
+    # Whether the board as a whole is in order is a real question and police
+    # asks it continuously, on a channel somebody reads. Asking it again at push
+    # time only makes a release wait on it. TKT-253.
+    wanted = {ref.upper() for ref in sys.argv[1:]}
+    if wanted:
+        print('checking ' + ', '.join(sorted(wanted))
+              + ' - the card(s) this push is about')
+
+    failures = 0
+    for kind in ('sow', 'epic', 'ticket'):
+        # The row is the record. This asked the board for each card again
+        # after fetching them all, once per card and once per process - about
+        # 250 of them on this project, seven minutes that every push paid and
+        # any push refused and retried paid twice. Measured before changing
+        # it: the list and the show return the same 27 fields for the same
+        # card, and there is nothing in the show that the list lacks. It is
+        # also why running the gate prover took forty-four minutes to say one
+        # thing. TKT-251.
+        for row in tira(f'tira.{kind}.list', '-o', 'json'):
+            if wanted and row['ref'] not in wanted:
+                continue
+            # Discarded work is set aside, not planned. Holding it to the same
+            # standard would only teach people to ignore this check - but it
+            # still has to say why it was set aside. Twenty probe cards from
+            # this very gate accumulated in discard with nothing on them,
+            # indistinguishable from work somebody gave up on, and the police
+            # rule reported all twenty on every run for ever.
+            if row.get('column') == 'discard':
+                record = row
+                if not record.get('comments'):
+                    failures += 1
+                    print(f"{row['ref']} was discarded with no reason given")
+                continue
+            # Not asked backwards. The definition of a complete card gained
+            # two fields when it became one definition instead of two, and 61
+            # cards that shipped under the old one lack a description they
+            # were never asked for. Writing those now would be inventing
+            # summaries of work somebody else finished, and demanding them
+            # would block every push for ever - which is the reasoning already
+            # written a hundred lines above this for the gate-and-evidence
+            # check, in the same words, for the same situation. A card still
+            # being worked is held to the whole definition. TKT-241.
+            record = row
+            if row['column'] in endings(kind):
+                behind = stalled(record)
+                if behind:
+                    failures += 1
+                    print(f"{row['ref']}: {behind}")
+                continue
+            if untriaged_report(record, row['column'], STARTS_IN):
+                continue
+            missing = holes(record, kind)
+            if missing:
+                failures += 1
+                print(f"{row['ref']} ({row['column']}) is missing: {', '.join(missing)}")
+            behind = stalled(record)
+            if behind:
+                failures += 1
+                print(f"{row['ref']}: {behind}")
+            early = premature(record, endings(kind))
+            if early:
+                failures += 1
+                print(f"{row['ref']} {early}")
+            thin = unproven(record, endings(kind))
+            if thin:
+                failures += 1
+                print(f"{row['ref']} {thin}")
+            unapproved = not_yet_approved(record, wanted)
+            if unapproved:
+                failures += 1
+                print(f"{row['ref']} {unapproved}")
+
+    for ahead in parents_ahead(wanted):
+        failures += 1
+        print(ahead)
+
+    if failures:
+        print(f'\n{failures} card(s) incomplete. Fill them in before pushing.')
+        print('A card that cannot say what problem it solves, what is in scope, '
+              'or how it will be proved is not a ticket - it is a title.')
+        print('A card whose checklist is finished while its column says otherwise '
+              'is a board that reports the wrong thing to whoever is reading it.')
+        print('A card in done with work still unticked is the same lie told the '
+              'other way round, and it is the one that overstates progress.')
+        print('A parent in done above a child that is not is that same lie one '
+              'level up, and nobody sees it without opening every parent.')
+        print('A card past verify with no gate and no evidence is a claim about '
+              'work that happened with nothing anybody could check.')
+        print('A discarded card with no reason on it is indistinguishable from '
+              'work somebody abandoned, and it stays that way for ever.')
+        return 1
+
+    print('every live card is complete')
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

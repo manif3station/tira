@@ -4,5 +4,16 @@
 *.bak
 /.pw-fixtures/
 .prove-the-gate.lock
-.developer-dashboard
 files
+
+# .developer-dashboard/ is excluded machine-wide by ~/.gitignore (a bare
+# ".developer-dashboard" line, matching at any depth) - not by anything in
+# this repo. A directory excluded that way cannot be re-included by any
+# negation pattern here, in this file or any other project's: git will not
+# even recurse into an excluded directory to look for one. TKT-1073, 2026-
+# 09-21: the tools moved to .developer-dashboard/skills/*/cli/* and
+# .developer-dashboard/cli/hooks/* are real, load-bearing tira source
+# (gate-run, the push/commit-msg hooks, etc), confirmed with Michael
+# (Q-178) that they must be tracked - they are added with `git add -f`,
+# which bypasses ignore matching entirely rather than trying to out-rule
+# the global exclude from here.

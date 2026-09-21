@@ -1,0 +1,441 @@
+#!/usr/bin/env bash
+#
+# Run the suite and coverage against a checkout of HEAD, and record a pass
+# against the tree that produced it.
+#
+# Until 4.62 the push hook ran this same step itself, and this tool existed so
+# it would not have to run it twice. TKT-680 removed the suite from the hook
+# entirely, so nothing consults the record automatically any more - the record
+# is for a person asking whether the tree HEAD carries has already been proved.
+# This is now the ONLY place the suite is run against a commit rather than
+# against whatever is lying in the working directory.
+#
+# Built for TKT-351, measured on one release: the gate ran the suite and
+# passed - 258 files, 6072 tests, 100.0 on all three modules - and the push
+# hook then ran the identical suite against the identical tree, because only
+# one test container may run at a time and the hook had no way to know this
+# tree was already proved. Six cards and five releases queued behind it from
+# 19:44 past midnight, and three attempts were killed at a ceiling that had to
+# be raised before any could finish - every one of them a second run of
+# something already proved.
+#
+# The hook was not wrong to distrust a claim - "I ran it and it passed" is a
+# sentence, and a gate that accepts sentences is not a gate. What can be
+# trusted instead is a record naming the exact tree it tested, in git's own
+# hash. That property is why the record is still worth writing even now that
+# no gate reads it: it cannot be produced for a tree nobody had. See
+# tools/gate-cache-write and tools/gate-cache-read for the record itself.
+#
+# Requires a clean tree - commit first. This tests the commit that is about
+# to be pushed; testing anything else would record a pass for a tree nobody is
+# pushing, which is the exact gap "I ran it and it passed" already had.
+#
+# Usage: tools/gate-run
+
+set -euo pipefail
+
+root="${DIR_TIRA:-$(cd "$(dirname "$0")/.." && pwd)}"
+cd "$root"
+
+if [ -n "$(git status --porcelain)" ]; then
+    echo "gate-run: uncommitted changes present - commit first. This records a result against HEAD's tree; an uncommitted change is not part of it, and testing the desk instead of the commit is a mistake nothing else catches now - since 4.62 the push hook runs no suite at all, so this is the only place a committed tree is proved rather than whatever happens to be lying in the working directory." >&2
+    exit 1
+fi
+
+workspace="$(cd "$root/../.." && pwd)"
+compose="$workspace/docker-compose.testing.yml"
+[ -f "$compose" ] || { echo "gate-run: cannot find $compose" >&2; exit 1; }
+
+tree_hash="$(git rev-parse HEAD^{tree})"
+echo "gate-run: testing a checkout of HEAD ($tree_hash), the commit about to be pushed - not the working directory"
+
+tree="$(mktemp -d)"
+output="$(mktemp)"
+# TKT-901. A killed gate-run used to remove this worktree without ever telling
+# the container mounted on it to stop - the container kept running against a
+# directory that no longer existed, and the coverage step then failed with a
+# misleading "no modules found under lib/" because lib/ had been deleted mid-
+# run, not because coverage was actually short. The container needs a name of
+# its own so cleanup can target it, and it has to be stopped BEFORE the
+# worktree is removed, not merely stopped eventually - a race in the other
+# order reproduces the exact same bug one step later.
+# docker_pid is the compose CLI's own pid, set only once it is actually
+# launched below - a kill landing before then has nothing to stop but the
+# worktree, which is still safe since no container exists yet to orphan.
+# Killing that CLI process first, before "docker rm -f", closes the narrow
+# window where a kill lands between the container being NAMED here and
+# "docker compose run" actually registering it with the daemon: the CLI's own
+# in-flight create/start call is what "docker rm -f" alone cannot reach,
+# because there is nothing yet to remove. This does not make the two
+# operations atomic - a kill landing in the instant after the daemon creates
+# the container but before the CLI process reacts is still possible - but it
+# closes the case that matters in practice, and "docker rm -f" right after
+# still catches a container that did make it into existence.
+container_name="gate-run-$$"
+docker_pid=""
+cleanup() {
+    rm -f "$output"
+    [ -n "$docker_pid" ] && kill "$docker_pid" >/dev/null 2>&1 || true
+    docker rm -f "$container_name" >/dev/null 2>&1 || true
+    # TKT-1073. cover_db (when the coverage step ran) is written by root
+    # inside the container, so "git worktree remove --force" alone can fail
+    # to delete a root-owned or restrictively-permissioned subdirectory -
+    # it still shells out to an rm equivalent internally and hits the
+    # identical permission wall, silently swallowed by the "|| true" above.
+    # Try git's own removal first, since it also updates the main repo's
+    # worktree bookkeeping correctly when it succeeds. If a root-owned file
+    # blocked it, the tree survives non-empty: clear it with a disposable
+    # container (the same pattern tools/dev-run's own cleanup() already
+    # uses for the identical root cause - never sudo on the host), then
+    # remove the now-ownerless leftover directly and prune the stale
+    # worktree registration git's own removal never got to make.
+    if ! git worktree remove --force "$tree" >/dev/null 2>&1; then
+        docker run --rm -v "$tree:/workspace" ubuntu rm -rf /workspace >/dev/null 2>&1 || true
+        rm -rf "$tree" >/dev/null 2>&1 || true
+        git worktree prune >/dev/null 2>&1 || true
+    fi
+}
+trap cleanup EXIT
+
+git worktree add --detach --quiet "$tree" HEAD \
+  || { echo "gate-run: could not check out HEAD" >&2; exit 1; }
+
+# TKT-1073 (tools/ -> .developer-dashboard/skills/*/cli/* move,
+# 2026-09-21): a git worktree carries only tracked content, and
+# .developer-dashboard/ - where gate-summarize, coverage-complete,
+# coverage-guard, coverage-holes, gate-outer-refusal and gate-cache-write
+# all now live - is deliberately untracked (confirmed with Michael). The
+# embedded container script below calls all of them by that path, so
+# without this copy every one of those calls would fail inside a tree
+# gate-run itself just checked out. Conditional on it existing: a test
+# fixture running this same script against a throwaway repository has no
+# .developer-dashboard/ of its own and mocks docker so nothing downstream
+# actually needs it.
+if [ -d "$root/.developer-dashboard" ]; then
+    cp -r "$root/.developer-dashboard" "$tree/.developer-dashboard"
+fi
+
+# TKT-857. The instrumented suite writes a coverage database, and two writers
+# sharing one produce a wrong number rather than a failed run - measured on
+# 2026-08-29, when a concurrent run reported lib/Tira/CLI.pm at 70.3% when it
+# was actually 100%. developer-dashboard's own script/coverage-gate and
+# .claude/tools/run-suite already share an exclusion for exactly this: a flock
+# at $DD_SUITE_LOCK, default /tmp/dd-gate-host.lock. Joined here rather than
+# reinvented, so a DD-run suite and a gate-run suite refuse to trample each
+# other too.
+#
+# Scoped to the docker invocation alone, matching run-suite's own reasoning:
+# held across the whole gate chain, one session waited forty minutes for
+# another's twelve-minute suite.
+#
+# BLOCKS rather than refuses, the opposite of DD's own tools. Those refuse
+# (flock -n) because a waiter would start the instant the lock freed with no
+# fresh look at the host, and an interactive user is there to notice a refusal
+# and re-measure readiness before retrying. This project's suite runs are
+# driven by an unattended agent with nothing watching for a refusal to retry -
+# so a queue is what makes concurrent runs safe rather than merely audible.
+lockf="${DD_SUITE_LOCK:-/tmp/dd-gate-host.lock}"
+exec 8>>"$lockf"
+flock 8
+printf '%s\n' "$$" > "$lockf"
+
+SUITE_TIMEOUT=3600
+# Backgrounded, with its own pid captured into docker_pid, so cleanup() above
+# can kill the compose CLI itself rather than only the container it may not
+# have created yet - see the TKT-901 comment by container_name/cleanup().
+docker compose -f "$compose" run --rm --name "$container_name" -v "$tree:/workspace/skills/tira" perl-test bash -lc '
+  cd /workspace/skills/tira &&
+  cpanm --quiet --notest --installdeps . >/dev/null 2>&1 &&
+  CORES=$(nproc) &&
+  JOBS=$(( CORES > 1 ? CORES - 1 : 1 )) &&
+
+  # TKT-969: plain first, and pay for coverage only once the suite itself is
+  # known to pass. Measured 2026-09-06: an identical suite costs 86s plain
+  # against 788-801s under Devel::Cover, and three of six gate attempts that
+  # day failed on a PLAIN suite failure - each paying the full instrumented
+  # run anyway to learn it. tools/gate-summarize is the same reader the
+  # coverage pass below already uses, so a plain refusal names the failing
+  # file rather than a bare test number. This is a FAIL-FAST FILTER, never a
+  # substitute for the coverage pass that follows it unchanged: a tree that
+  # passes here and fails under coverage still fails the gate, since only the
+  # instrumented run below writes the 100% figure anything else trusts.
+  rm -rf cover_db .test-tmp &&
+  timeout --signal=KILL '"$SUITE_TIMEOUT"' env -u HARNESS_PERL_SWITCHES prove -j"$JOBS" -lr t >/tmp/gate-run-plain.log 2>&1;
+  plain_status=$?;
+  ./.developer-dashboard/skills/gate/cli/summarize "$plain_status" /tmp/gate-run-plain.log;
+  if [ "$plain_status" -ne 0 ]; then
+    echo "gate-run: the plain suite did not pass - refusing before any coverage run starts" >&2;
+    exit 1;
+  fi;
+
+  # THE WHOLE COLLECTION PIPELINE IS RETRIED ONCE, NOT ONLY THE RUN COUNT.
+  # TKT-825, investigating TKT-954s own fix further: that fix (coverage-
+  # complete) checks the per-process run COUNT, and a real gate-run still
+  # measured lib/Tira.pm at 99.7% with that check PASSING - so a retry
+  # gated on coverage-complete alone (an earlier draft of this fix, caught
+  # by Codex review) would never have fired for the failure actually
+  # reported. The root fault, found reading Devel::Cover 1.52s own source:
+  # each per-process run directory is named `time . "." . $$ . "."
+  # . sprintf "%05d", rand 2**16` (lib/Devel/Cover.pm:788) - one-second
+  # resolution, no collision check. Under prove -jN spawning hundreds of
+  # short-lived worker processes, a PID reused within the same second can
+  # collide, and one processs run directory silently clobbers anothers -
+  # present (satisfying the count check) but WRONG, which only the actual
+  # coverage PERCENTAGE, not the run count, can catch. Upstream Devel::
+  # Cover gap, no fix reachable at this projects own layer - so the whole
+  # collection, count check through percentage, is retried together, the
+  # same way a flaky network read gets a second attempt rather than
+  # trusting the first one unconditionally.
+  attempt=1;
+  suite_status=1;
+  coverage_status=1;
+  report_status=1;
+  refusal_reason="the suite did not pass";
+  while [ "$attempt" -le 2 ]; do
+    rm -rf cover_db .test-tmp;
+    timeout --signal=KILL '"$SUITE_TIMEOUT"' env HARNESS_PERL_SWITCHES=-MDevel::Cover prove -j"$JOBS" -lr t >/tmp/gate-run-suite.log 2>&1;
+    suite_status=$?;
+
+    # TKT-961: a clean run needs nothing past the last four lines - they already
+    # say everything the common case has to say. A refusal is a different case:
+    # prove already printed a Test Summary Report, naming every failing file
+    # and its failing subtests, immediately ABOVE those four lines - tools/
+    # gate-summarize prints both, so a refusal is actionable from the gate log
+    # alone rather than needing a ten-to-sixteen-minute re-run to learn what
+    # prove already knew.
+    ./.developer-dashboard/skills/gate/cli/summarize "$suite_status" /tmp/gate-run-suite.log;
+    if [ "$suite_status" -ne 0 ]; then
+      # A genuine test failure is not the race this retry exists for - do not
+      # spend a second suite run on a tree that is actually broken.
+      refusal_reason="the suite did not pass";
+      break;
+    fi
+
+    # WAS THE COVERAGE ACTUALLY COLLECTED, before any percentage is believed.
+    #
+    # The suite runs under prove -j, so every test process writes into one shared
+    # cover_db. When a process fragment does not survive, every statement only
+    # that process executed reads as uncovered - a wrong figure that does not
+    # look wrong. Measured on 2026-09-05: this tree reported lib/Tira.pm at 99.8
+    # and then 100.0 with nothing changed between the runs, and three further
+    # runs agreed at 100.0. So it is lost about one run in six, which is exactly
+    # the rate at which looking at the number cannot catch it.
+    #
+    # The expected count is the test files themselves rather than anything parsed
+    # out of prove: -lr t runs every .t under t/, and Devel::Cover records one run
+    # per process. TKT-954.
+    expected_runs=$(find t -name "*.t" | wc -l);
+    ./.developer-dashboard/skills/coverage/cli/complete --db cover_db --expected "$expected_runs";
+    coverage_status=$?;
+    if [ "$coverage_status" -ne 0 ]; then
+      refusal_reason="the coverage collection was incomplete";
+      if [ "$attempt" -lt 2 ]; then
+        echo "gate-run: coverage collection was incomplete on attempt $attempt - retrying the suite once more before refusing" >&2;
+      fi
+      attempt=$(( attempt + 1 ));
+      continue;
+    fi
+
+    select_args=();
+    module_count=0;
+    while IFS= read -r m; do
+      select_args+=(-select "$m");
+      module_count=$(( module_count + 1 ));
+    done < <(find lib -name "*.pm" | sort);
+    if [ "$module_count" -eq 0 ]; then
+      echo "gate-run: no modules found under lib/ - refusing to report coverage over nothing" >&2;
+      exit 1;
+    fi;
+    cat >/tmp/.gate-run-cover <<"COVERSCRIPT"
+#!/usr/bin/env bash
+cover -ignore_covered_err -report text "$@" -coverage statement -coverage subroutine 2>/dev/null
+COVERSCRIPT
+    chmod +x /tmp/.gate-run-cover;
+    ./.developer-dashboard/skills/coverage/cli/guard -- /tmp/.gate-run-cover "${select_args[@]}" >/tmp/.gate-run-cover-out 2>&1;
+    coverage_status=$?;
+
+    # A RUN DIRECTORY CAN BE PRESENT AND STILL WRONG - the whole reason this
+    # retry exists. coverage-complete only counts entries in cover_db/runs;
+    # it cannot see a run that a colliding process clobbered, which shows up
+    # here, in the actual reported PERCENTAGE, not there. Every ^lib line is
+    # checked for 100.0/100.0/100.0 without the hosts own EXEMPT_COVERAGE
+    # list (the container does not know it) - a false retry on a genuinely
+    # exempt module costs one extra suite run, not a wrong result, since the
+    # host below still applies EXEMPT_COVERAGE for the real pass/fail call.
+    # A REPORT WITH NO ^lib LINES AT ALL IS NOT A COMPLETE ONE. Codex review:
+    # report_status started at 0 and was only ever SET to 1 by a short
+    # module line - a coverage-guard that exited 0 but printed a PARTIAL
+    # report (fewer ^lib lines than modules selected - a database cover
+    # could not fully read, say) would leave report_status at 0 for every
+    # module it DID print, missing modules it never printed at all.
+    # Codex review, twice: first found the empty-report case, then found
+    # this partial one when the first fix only checked "at least one
+    # line seen". Counted against the modules actually selected above.
+    report_status=0;
+    seen_modules=0;
+    if [ "$coverage_status" -eq 0 ]; then
+      while IFS= read -r line; do
+        case "$line" in
+          lib/*)
+            seen_modules=$(( seen_modules + 1 ));
+            case "$line" in
+              *"100.0"*"100.0"*"100.0"*) ;;
+              *) report_status=1 ;;
+            esac
+            ;;
+        esac
+      done < <(grep -E "^lib" /tmp/.gate-run-cover-out);
+      if [ "$seen_modules" -ne "$module_count" ]; then
+        report_status=1;
+      fi;
+    else
+      report_status=1;
+    fi;
+
+    if [ "$coverage_status" -eq 0 ] && [ "$report_status" -eq 0 ]; then
+      break;
+    fi;
+    if [ "$coverage_status" -ne 0 ]; then
+      refusal_reason="coverage-guard did not trust this run";
+    else
+      refusal_reason="the coverage report was short";
+    fi;
+    if [ "$attempt" -lt 2 ]; then
+      echo "gate-run: coverage was short on attempt $attempt - retrying the suite once more before refusing" >&2;
+    fi;
+    attempt=$(( attempt + 1 ));
+  done;
+  [ "$suite_status" -eq 0 ] && [ "$coverage_status" -eq 0 ] &&
+  grep -E "^lib|^Total|^coverage-guard" /tmp/.gate-run-cover-out
+  if [ "$coverage_status" -ne 0 ]; then
+    echo "gate-run: refusing - $refusal_reason" >&2
+    exit "$coverage_status"
+  fi
+  true &&
+
+  # The percentage says a module is short; this says which line. It runs HERE,
+  # inside the container, because the next line removes the database and the
+  # refusal happens afterwards on the host, from this captured text - so the
+  # only moment the answer can be taken is before cover_db is gone. Prefixed so
+  # the host can find these lines among the report and the suite output, and
+  # never allowed to fail the run: a gate that refuses because its explanation
+  # broke would be worse than one that explains nothing.
+  #
+  # A review asked whether this || true lets a broken coverage database pass the
+  # gate. It does not, and the reason is forty lines below rather than here: a
+  # database cover cannot read produces no "^lib" percentage lines at all, so
+  # the per-module check finds no line and exits 1 with "no coverage was measured
+  # for $module". The helper failing costs the EXPLANATION, which is only ever
+  # consulted when a module is already below 100% - and that path prints "(no
+  # uncovered lines were recorded - check the helper ran)" rather than a
+  # percentage on its own. TKT-593.
+  ./.developer-dashboard/skills/coverage/cli/holes --db cover_db 2>&1 | sed "s/^/uncovered: /" || true
+
+  rm -rf cover_db
+' >"$output" 2>&1 &
+docker_pid=$!
+docker_status=0
+wait "$docker_pid" || docker_status=$?
+docker_pid=""
+if [ "$docker_status" -ne 0 ]; then
+    ./.developer-dashboard/skills/gate/skills/outer/cli/refusal "$output" >&2
+    exit 1
+fi
+
+# Released as soon as the suite that needed it is done - everything from here
+# only reads $output and writes the cache record, neither of which touches the
+# shared database the lock protects.
+flock -u 8
+exec 8>&-
+
+cat "$output"
+
+if ! grep -q '^Result: PASS' "$output"; then
+    echo "gate-run: the suite did not pass - no record written" >&2
+    exit 1
+fi
+
+# Modules the gate deliberately does not hold to 100%. Empty, and it should
+# stay that way unless somebody has a reason to write on the line beside the
+# path - which is the whole point of the list existing rather than a module
+# simply being missing from a loop. TKT-594.
+EXEMPT_COVERAGE=(
+)
+
+# Derived from the worktree that was actually tested, not from the working
+# directory. The clean-tree check above means the two agree today, but that is a
+# guarantee living forty lines away from the thing relying on it - and a gate
+# that measures one set of modules and enforces against another would be this
+# card's own fault wearing a different hat.
+modules=()
+while IFS= read -r m; do modules+=("${m#"$tree"/}"); done \
+  < <(find "$tree/lib" -name '*.pm' | sort)
+
+# An empty derivation must refuse. Deriving the list fixed a gate that checked
+# three modules of four; a gate that checks NONE and exits zero would be the
+# same fault taken to its end, and the loop below would simply not run.
+if [ ${#modules[@]} -eq 0 ]; then
+    echo "gate-run: no modules found under lib/ - refusing rather than passing a gate that checked nothing" >&2
+    exit 1
+fi
+
+checked=""
+for module in "${modules[@]}"; do
+    exempt=""
+    for entry in "${EXEMPT_COVERAGE[@]}"; do
+        case "$entry" in
+            # A path with something after it: the reason, which is the whole
+            # point of the list. Matched with a space so the reason cannot be
+            # omitted.
+            "$module "*) exempt="$entry" ;;
+            # A bare path with no reason REFUSES rather than exempting. An
+            # exemption nobody justified is the silence this card removed from
+            # the module list; honouring it here would put it back one line
+            # further in.
+            "$module")
+                echo "gate-run: $module is listed as exempt with no reason beside it - write one, or remove the entry" >&2
+                exit 1
+                ;;
+        esac
+    done
+    if [ -n "$exempt" ]; then
+        echo "gate-run: $module is exempt from the coverage gate - $exempt"
+        continue
+    fi
+    checked="$checked $module"
+    line="$(grep -F "$module" "$output" | grep -E '[0-9]+\.[0-9]' || true)"
+    if [ -z "$line" ]; then
+        echo "gate-run: no coverage was measured for $module - no record written" >&2
+        exit 1
+    fi
+    if ! echo "$line" | grep -qE '100\.0[[:space:]]+100\.0[[:space:]]+100\.0'; then
+        echo "gate-run: coverage is below 100% for $module - no record written: $line" >&2
+        # The percentage above proves the threshold was applied; these say where
+        # to look. Twice now, finding them by hand has cost a session - CLI.pm
+        # 4503/4619/4620 after a night of guessing, and lib/Tira.pm:12134 after
+        # two failed attempts at parsing the report's columns. TKT-593.
+        # grep -F, not -E: a module path is a literal, and interpolating one
+        # into a regex makes every "." match any character - lib/Tira/CLI.pm
+        # would also match lib/Tira/CLIXpm. No path in lib/ carries a worse
+        # metacharacter today, which is exactly why this is worth fixing before
+        # one does.
+        holes="$(grep -F "uncovered: ${module}:" "$output" | sed 's/^uncovered: /  /' || true)"
+        if [ -n "$holes" ]; then
+            echo "$holes" >&2
+        else
+            # Say so rather than leaving the reader to wonder whether the module
+            # is clean or the explanation is broken - the same distinction the
+            # helper itself refuses to blur.
+            echo "  (no uncovered lines were recorded - check the helper ran)" >&2
+        fi
+        exit 1
+    fi
+done
+
+# Say what was held to the standard, so the guarantee can be read rather than
+# assumed. A gate that checks a subset in silence is what TKT-594 was raised
+# about: lib/Tira/OnboardWeb.pm had no coverage requirement for four releases
+# and nothing said so, because the loop only visited the modules it named.
+echo "gate-run: checked coverage for${checked:- nothing - lib/ held no modules}"
+
+"$root/.developer-dashboard/skills/gate/skills/cache/cli/write" "$output"

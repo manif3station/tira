@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+#
+# Run one Tira command, surviving the skill being installed underneath it.
+#
+# The gate resolves a command by finding its entrypoint in the installed skill,
+# and the installed skill is rewritten on every release. Three pushes failed on
+# commands that ship - tira.epic.show, tira.ticket.list, tira.project.show -
+# each of which ran fine seconds later, because the directory was being written
+# while the gate read it.
+#
+# The first fix went into the board audit alone, and the very next push failed
+# the same way one step earlier in the board backup. That is the fault this
+# project keeps finding: a fix placed where the failure appeared rather than
+# where the class lives. So this is one script rather than the same decision
+# written twice, once in shell and once in python, in dialects that can drift.
+#
+# Only the one failure is waited on. Anything else stops at once and is passed
+# on exactly as the command said it - a caller that retried everything would go
+# quiet exactly when something is really wrong, which is worse than the flake it
+# was written for.
+#
+# Usage: tools/tira-call tira.project.show -o json
+
+set -uo pipefail
+
+attempts=3
+installing='not found in skill'
+
+for attempt in $(seq 1 "$attempts"); do
+  err="$(mktemp)"
+  if out="$(d2 "$@" 2>"$err")"; then
+    rm -f "$err"
+    printf '%s\n' "$out"
+    exit 0
+  fi
+
+  said="$(cat "$err")"
+  rm -f "$err"
+
+  case "$said" in
+    *"$installing"*) sleep 2 ;;
+    *) printf '%s\n' "$said" >&2; exit 1 ;;
+  esac
+done
+
+printf '%s\n' "$said" >&2
+printf 'tira-call: %s still unresolved after %s attempts\n' "$*" "$attempts" >&2
+exit 1

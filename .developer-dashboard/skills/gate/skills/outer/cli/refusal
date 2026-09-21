@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+#
+# Print what gate-run's OUTER failure handler is worth reading, given the
+# whole docker invocation's captured output.
+#
+# TKT-997. That handler used to pipe the ENTIRE combined output through
+# `tail -3` whenever the docker invocation exited non-zero - right when the
+# suite itself failed early (there is little else to show), and wrong when
+# the suite passed cleanly and a LATER step (coverage-complete,
+# coverage-guard) is what actually refused: the tail then shows only the
+# later step's own short error, with no way to tell whether the ten-plus-
+# minute suite had passed, failed, or never started. Reproduced live,
+# 2026-09-07, four times in one session: every refusal read
+#
+#   gate-run: the suite did not run:
+#   grep: /tmp/.gate-run-cover-out: No such file or directory
+#   gate-run: refusing - coverage-guard did not trust this run
+#
+# with nothing distinguishing it from a suite that had never run at all.
+#
+# Extracted into its own tool rather than left as a line inside gate-run,
+# the same reason tools/gate-summarize exists rather than a check inline
+# there (TKT-961, TKT-716): gate-run has no test harness of its own.
+#
+# Usage: tools/gate-outer-refusal LOGFILE
+#   LOGFILE  the full captured stdout+stderr of the docker invocation
+
+set -euo pipefail
+
+log="${1:-}"
+
+if [ -z "$log" ]; then
+    echo "gate-outer-refusal: usage: tools/gate-outer-refusal LOGFILE" >&2
+    exit 2
+fi
+[ -f "$log" ] || { echo "gate-outer-refusal: $log does not exist" >&2; exit 2; }
+
+if grep -q '^Result: PASS' "$log"; then
+    echo "gate-run: the suite passed; something after it did not:"
+    awk '/^Result: PASS/{f=1;next} f' "$log"
+else
+    tail -3 "$log"
+fi

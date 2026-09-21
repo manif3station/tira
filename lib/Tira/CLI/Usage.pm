@@ -119,7 +119,7 @@ my %COMMAND_OVERRIDE = ( 'record.move' => { 'Invalid column name' => ' - the opt
 
 sub _usage {
     my ( $command, $type ) = @_;
-    return "Usage: d2 tira.project.create --name NAME [--dir DIR] [-o toon|json|human]\n"
+    return "Usage: d2 tira.project.create --name NAME [--dir DIR] [--nested] [-o toon|json|human]\n"
       if $command eq 'project.create';
 
     if ( $NEEDS_TYPE{ $command // '' } ) {

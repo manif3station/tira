@@ -18,6 +18,6 @@ tira.project.create - Create a Tira project
 
 =head1 SYNOPSIS
 
-  dashboard tira.project.create --name NAME [--dir DIR] [-o toon|json|human]
+  dashboard tira.project.create --name NAME [--dir DIR] [--nested] [-o toon|json|human]
 
 =cut

@@ -1,5 +1,19 @@
 Revision history for Tira
 
+5.167  2026-09-21
+    - TKT-1079, found live by Codex while reviewing TKT-587's documentation
+      of --nested: project.create's own CLI option guard already listed
+      project.create as a legitimate reader of --nested, alongside
+      project.new and onboard, but the dispatch for project.create called
+      Tira->create_project with only name and dir - nested was never
+      forwarded, so create_project's own _refuse_nesting never saw
+      nested=>1 and `d2 tira.project.create --dir DIR --nested` inside an
+      existing project's tree still refused, exactly as if --nested had
+      never been typed. Tira->create_project and _refuse_nesting were
+      never at fault; both already forwarded/read %args correctly. Fixed
+      by forwarding nested => $option->{nested} in the dispatch, matching
+      project.new/onboard's existing forwarding.
+
 5.166  2026-09-21
     - TKT-1073, a third issue found in the same test-mechanism switch,
       self-caught: the new Dockerfile never installed `Devel::Cover` (the

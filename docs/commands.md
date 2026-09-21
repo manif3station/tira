@@ -3154,12 +3154,12 @@ always given per board, or left at its default).
 `project.new`/`project.create`/`onboard` refuse to create a project inside the
 directory tree of one that already exists - creating one there would bury it,
 and later commands could address either. `--nested` is the deliberate
-override, for the rare case where that is genuinely intended - though it only
-reaches `project.new` and `onboard`; `project.create`'s own CLI dispatch never
-forwards it to the engine at all, so it is accepted and silently has no
-effect there. `--nested` is refused on every other command, naming
-`project.new`/`project.create`/`onboard` together as its readers (the guard
-itself does not distinguish the gap `project.create` has).
+override, for the rare case where that is genuinely intended, and reaches all
+three - `project.new`, `project.create`, and `onboard` (TKT-1079: until
+5.167, `project.create`'s own CLI dispatch never forwarded it to the engine,
+so it was accepted and silently had no effect there). `--nested` is refused
+on every other command, naming `project.new`/`project.create`/`onboard`
+together as its readers.
 
 `--agent` names a real person on the project, the same way `--assignee` and
 `--reporter` do — not an arbitrary string. `project.new`'s own `--members`
@@ -4252,7 +4252,7 @@ Show-more control at all, unchanged.
 
 ### Projects
 
-- `tira.project.create --name TEXT [--dir DIR] [-o FORMAT]`
+- `tira.project.create --name TEXT [--dir DIR] [--nested] [-o FORMAT]`
 - `tira.project.show [-o FORMAT]` — the project as stored: its name, its people, its boards and its settings. Since 2.64 it withholds every account's stored password - the algorithm, its work factor, the salt and the hash - as do the four `project.people.*` commands, all of which are built on the same read. Before that a command an agent runs to learn how a board is configured handed back the whole of what an offline attempt needs, into transcripts, logs, and whatever gets pasted when somebody asks for help with a board. Everything else about a person is unchanged - id, name, email, active - and signing in is unaffected, because it reads the person from the store rather than through this command.
 - `tira.project.validate [--repair-columns] [-o FORMAT]` — Read-only without repair.
 - `tira.project.link-types.add --outward NAME --inward NAME [-o FORMAT]` — Names unique.

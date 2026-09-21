@@ -1589,7 +1589,10 @@ sub _invoke {
     }
     $args{label} = $option->{labels}[0] if $command =~ /\Acolumn\.(?:add|rename)\z/ && $option->{labels};
 
-    return $tira->create_project( name => $option->{name}, dir => $option->{dir} // '.' ) if $command eq 'project.create';
+    return $tira->create_project(
+        name => $option->{name}, dir => $option->{dir} // '.',
+        nested => $option->{nested},
+    ) if $command eq 'project.create';
     if ( $command eq 'project.new' || $command eq 'onboard' ) {
         require Tira::CLI::Wizard;
         return Tira::CLI::Wizard::project_new_or_onboard( $tira, \%args, $option, $command );

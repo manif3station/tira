@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.173';
+our $VERSION = '5.174';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2559,6 +2559,22 @@ sub record_list {
     my $root = $self->discover_project(%args);
     my $cached = defined $args{text} ? $self->_search_index_read($root) : undef;
 
+    # TKT-1117: refs_only with none of the filters below asks for exactly
+    # what the filename already names - "TKT-042.json" IS "TKT-042" -
+    # so this specific call shape never needs the card's own content at
+    # all. A board of any real size pays a slurp + a full JSON decode per
+    # card for a question the directory listing already answered.
+    #
+    # Codex review: --since was missing from this list in the first
+    # version. _changed_since reads $record itself (its own last_updated,
+    # comments, etc), which the filename cannot answer - a
+    # refs_only+since call taking the fast path would have silently
+    # returned every ref regardless of the threshold, not just the
+    # changed ones.
+    my $refs_only_unfiltered = $args{refs_only}
+      && !defined $args{column} && !defined $args{assignee} && !defined $args{parent}
+      && !defined $args{text} && !$where && !defined $threshold;
+
     # Scoped to THIS call, not the pass ($self->{_path_cache} is the
     # pass-wide one, below) - a ref this one walk visits twice is on disk
     # twice RIGHT NOW, a fact this walk can prove; a ref that differs from
@@ -2573,6 +2589,28 @@ sub record_list {
         find( { no_chdir => 1, wanted => sub {
             return if !-f $File::Find::name || basename( $File::Find::name ) !~ /\.json\z/;
             my $path = $self->_canonical_path( $File::Find::name, 'record file' );
+
+            # TKT-1117. The fast path: no _slurp, no _json_from_content -
+            # the ref this call wants IS the filename. Duplicate detection
+            # and path-cache seeding (TKT-1120/TKT-1116, right below in the
+            # slow path) both key off the filename-derived ref already, not
+            # off parsed content, so they still apply here unchanged.
+            if ($refs_only_unfiltered) {
+                my ($ref) = basename($path) =~ /\A(.+)\.json\z/;
+                return if !defined $ref;
+                if ( my $path_cache = $self->{_path_cache} ) {
+                    my $key = join "\x00", $root, $ref;
+                    if ( $seen_this_walk{$key}++ ) {
+                        $self->{_path_duplicates}{$key} = 1;
+                    }
+                    else {
+                        $path_cache->{$key} = $path;
+                    }
+                }
+                push @records, { ref => $ref };
+                return;
+            }
+
             my $content = $self->_slurp($path);
 
             # The index says only one thing: what the card with exactly these

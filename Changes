@@ -1,5 +1,37 @@
 Revision history for Tira
 
+5.174  2026-09-21
+    - TKT-1117, found by the 2-hourly improvement hunt (JOB-002) while
+      TKT-905/TKT-1116 work was in progress on this same board:
+      record_list(refs_only=>1) with no column/assignee/parent/text/where
+      filter still slurped and JSON-decoded every matching card's file
+      just to read the one field being asked for - the ref - which the
+      filename already names ("TKT-042.json" IS "TKT-042"). Now derives
+      the ref directly from the filename for this specific call shape,
+      skipping the content read entirely; any filter still reads content
+      as before, since only the unfiltered case can answer from the
+      filename alone. Duplicate detection and path-cache seeding
+      (TKT-1120/TKT-1116) are both already filename-keyed and unaffected.
+      Measured on 500 cards in a container: 0.059s before, 0.015s after -
+      roughly 4x faster for this call shape. New test at t/1143, proving
+      zero real _slurp calls for the unfiltered case via a monkey-patched
+      counter.
+
+      Codex's review of this diff caught a real bug before it shipped:
+      the first version's fast-path guard omitted --since, so
+      refs_only+since would have silently ignored the threshold and
+      returned every ref rather than only the changed ones - fixed, with
+      a regression test combining both. Also surfaced (and pinned with a
+      test, not silently accepted) two deliberate, observable behavior
+      changes scoped to this one call shape: an unfiltered refs_only call
+      no longer dies on a corrupt record file (it never reads far enough
+      to notice), and would answer with a card's filename rather than its
+      own embedded ref if the two ever disagreed. schema_import's
+      fresh-board check is the one in-tree caller of this shape; against
+      a corrupt file it now refuses import as "already has records"
+      rather than failing to parse - a different message for the same
+      outcome (import refused either way).
+
 5.173  2026-09-21
     - TKT-1115, self-found via Codex review while fixing TKT-904: t/410's
       own command inventory read two dispatch routes (literal

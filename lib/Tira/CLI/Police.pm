@@ -653,8 +653,19 @@ sub police_freshness {
     # A stamp we cannot read is reported as unreadable rather than printed as
     # though it were usable. "last pass <garbage>" with no further comment reads
     # as data; saying it cannot be read says what the caller actually knows.
-    return [ 'last pass ' . $answer->{taken_at}
-          . ' - UNREADABLE, so nothing can be judged from it and an empty answer'
+    #
+    # TKT-1094: age_seconds can also be undef because the CLOCK reading (not
+    # the stored stamp) failed to parse - unreachable in real production, the
+    # clock always emits a valid ISO 8601 string there, but a caller with an
+    # injected clock (a test) can hit it, and blaming the stored stamp for a
+    # failure that was actually the clock's sends a reader looking for
+    # corruption in the wrong place. Named only when it is actually the
+    # cause; the ordinary case's wording is unchanged.
+    return [ 'last pass ' . $answer->{taken_at} . ' - UNREADABLE'
+          . ( ( $answer->{unreadable} // '' ) eq 'clock'
+            ? ' (the clock reading used to compute its age could not be parsed, not the stored pass time)'
+            : '' )
+          . ', so nothing can be judged from it and an empty answer'
           . ' from tira.police.outstanding means nothing' ]
       if defined $answer->{taken_at} && !defined $answer->{age_seconds};
 

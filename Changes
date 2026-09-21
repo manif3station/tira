@@ -1,5 +1,22 @@
 Revision history for Tira
 
+5.170  2026-09-21
+    - TKT-1094, found by the hourly bug hunt (JOB-001) while working TKT-755:
+      police_freshness reads two timestamps through _epoch_of_datetime,
+      distinctly labeled ('Pass' for the stored last_pass stamp, 'Clock'
+      for the live clock reading), but both calls are wrapped in eval and
+      the label was discarded either way - age_seconds stayed undef
+      whichever side failed to parse, so the CLI's UNREADABLE message
+      always blamed the stored pass stamp, even when it was actually the
+      clock reading that could not be parsed. Unreachable in real
+      production (the clock always emits a valid ISO 8601 string there),
+      but reachable via an injected test clock. police_freshness now
+      tracks which side failed and returns it as `unreadable`; the CLI
+      message names the clock specifically when that is the actual cause,
+      with the ordinary (stored-stamp) case's wording unchanged. New test
+      at t/1140; t/436's existing stored-stamp-corruption coverage
+      re-confirmed unaffected.
+
 5.169  2026-09-21
     - TKT-1082, found by the 2-hourly improvement hunt (TKT-521) while
       closing out TKT-642 - grepping for the same 'scalar(@list) + 1'

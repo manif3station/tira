@@ -1461,13 +1461,22 @@ name, tracked as TKT-1106.
 
 =head2 police_freshness
 
-Returns C<< { taken_at, age_seconds, stale } >> for a police store: when the last
-pass ran, how long ago that was, and whether the answer can still be trusted.
+Returns C<< { taken_at, age_seconds, unreadable, stale } >> for a police store:
+when the last pass ran, how long ago that was, and whether the answer can
+still be trusted.
 
 Stale means missing, unreadable, or older than C<$POLICE_STALE_AFTER> seconds -
 ten times the watcher's default interval. All three are one idea: in none of them
 can the board's silence be trusted, so a board nobody has policed and a board
 whose stored stamp will not parse are both reported stale rather than fresh.
+
+C<unreadable> (TKT-1094) is C<undef> when C<age_seconds> parsed cleanly,
+C<'pass'> when the stored C<last_pass> stamp would not parse - the only case
+real production ever reaches - or C<'clock'> when the live clock reading used
+to compute the age is what failed instead, which needs an injected clock (a
+test) to reach at all. It exists so a caller reporting the failure (the CLI's
+UNREADABLE message) can name the side that actually broke, rather than always
+assuming the stored stamp.
 Reporting an age of zero for either would put a confident number on an absence.
 
 =head2 enforcement_log

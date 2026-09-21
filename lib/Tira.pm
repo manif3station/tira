@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.169';
+our $VERSION = '5.170';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -13751,9 +13751,17 @@ sub police_freshness {
     my $at    = $self->police_outstanding_taken_at( store => $store );
 
     my $age;
+    # TKT-1094: which side failed, if either did - unreachable in real
+    # production ($self->{clock}->() always emits a valid ISO 8601 string
+    # there), but a caller with an injected clock (a test) can hit it, and
+    # the CLI wrapper needs to know which side to name rather than always
+    # assuming the stored stamp.
+    my $unreadable;
     if ( defined $at ) {
         my $then = eval { _epoch_of_datetime( $at, 'Pass' ) };
-        my $now  = eval { _epoch_of_datetime( $self->{clock}->(), 'Clock' ) };
+        $unreadable = 'pass' if !defined $then;
+        my $now = eval { _epoch_of_datetime( $self->{clock}->(), 'Clock' ) };
+        $unreadable = 'clock' if !defined $now && !defined $unreadable;
         $age = $now - $then if defined $then && defined $now;
     }
 
@@ -13768,6 +13776,7 @@ sub police_freshness {
     return {
         taken_at    => $at,
         age_seconds => $age,
+        unreadable  => $unreadable,
         stale       => ( !defined $at || !defined $age || $age > $POLICE_STALE_AFTER ) ? 1 : 0,
     };
 }

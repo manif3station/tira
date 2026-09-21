@@ -2167,6 +2167,15 @@ rather than printing the value as though it were usable. Three ways to be stale 
 missing, unreadable, or old - and they are one idea: in none of them can the
 board's silence be trusted.
 
+**`unreadable` under `-o json` names which side actually failed** (TKT-1094):
+`"pass"` when the stored stamp will not parse (the real-production case above),
+`"clock"` when the live clock reading used to compute the age is what failed -
+unreachable in real production, since the clock always emits a valid ISO 8601
+string there, but reachable with an injected clock (a test). The human
+UNREADABLE message names the clock specifically only when that is the actual
+cause, so a reader is not sent looking for corruption in the stored stamp when
+it was fine.
+
 **Stale means older than 300 seconds**, ten times the watcher's default
 thirty-second interval. A bridge that has missed ten consecutive passes has
 stopped rather than run late, and the threshold is a multiple of the interval

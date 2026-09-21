@@ -1,5 +1,20 @@
 Revision history for Tira
 
+5.168  2026-09-21
+    - TKT-1081, found by a 2-hourly improvement hunt while fixing TKT-1080
+      (dashboard/policy.bridge hangs): t/70-doc-examples.t's attempt() runs
+      every documented CLI example in-process (no fork, Tira::CLI->run
+      called directly), and every command known to spawn a server or loop
+      forever (job.start/job.feeder/job.run, dashboard*, policy.bridge) was
+      added to a manual skip list only after the suite actually hung and
+      someone root-caused it - no proactive signal existed for a NEW
+      command with the same shape. Added t/lib/Deadline.pm's
+      run_with_deadline(), a bounded SIGALRM around a coderef; attempt()
+      now wraps its Tira::CLI->run call in it (10s), failing the test by
+      name on a genuine hang instead of hanging the whole suite silently.
+      New test at t/1138 proves the mechanism against a real infinite loop
+      and confirms attempt() actually uses it, not just that it exists.
+
 5.167  2026-09-21
     - TKT-1079, found live by Codex while reviewing TKT-587's documentation
       of --nested: project.create's own CLI option guard already listed

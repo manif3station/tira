@@ -8,6 +8,7 @@ use Test::More;
 
 use lib 't/lib';
 use Suite ();
+use Deadline qw(run_with_deadline);
 # An agent reported twenty-seven failed attempts against an example in the
 # manual that named a flag the command does not take. The existing doc test
 # checked that flags were *mentioned* somewhere in the section, which a wrong
@@ -159,18 +160,32 @@ sub attempt {
     # narrower and stays in scope: the HARNESS must not hang waiting for
     # input nobody is going to send it, whatever the example is.
     open my $stdin, '<', File::Spec->devnull or die $!;
+
+    # TKT-1081. Every command on the skip list above (job.start/job.feeder/
+    # job.run, dashboard*, policy.bridge) was found the same way: the suite
+    # actually hung, and someone root-caused it afterward. There is no
+    # proactive signal that a NEW command with the same shape has been
+    # documented, before it hangs this whole file - and every file after it
+    # - again. A bounded deadline turns that into a fast, named failure.
+    my $timed_out;
     {
         local *STDOUT = $stdout;
         local *STDERR = $stderr;
         local *STDIN  = $stdin;
         eval {
-            do { local $ENV{TIRA_HOME} = $root; Tira::CLI->run(
-                command => $command, type => $type,
-                argv => [ @argv ], tira => $tira ) };
+            local $ENV{TIRA_HOME} = $root;
+            run_with_deadline( 10, sub {
+                Tira::CLI->run( command => $command, type => $type,
+                    argv => [ @argv ], tira => $tira );
+            }, "tira.$command" );
             1;
+        } or do {
+            $timed_out = $@ if $@ =~ /\ATKT-1081:/;
         };
     }
     chdir $return_to or die "Cannot leave the fixture: $!";
+    Test::More::fail("$command hung: $timed_out - add it to the skip list above, or fix the example")
+      if $timed_out;
     return $err;
 }
 

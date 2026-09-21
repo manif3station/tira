@@ -1,5 +1,24 @@
 Revision history for Tira
 
+5.169  2026-09-21
+    - TKT-1082, found by the 2-hourly improvement hunt (TKT-521) while
+      closing out TKT-642 - grepping for the same 'scalar(@list) + 1'
+      pattern found two more call sites still doing it: evidence_add
+      (mints EVD-NNN) and gate_add (mints GATE-NNN), plus a third,
+      separate gate_passing_log-writing site inside required_item_update's
+      own auto-announce path (_log_proof_gate) that shares the same
+      shape, missed by TKT-642 because it only covered required_items/
+      checklist. Nothing removes an evidence or gate_passing_log entry
+      today (not a live bug), but their ids are read back by
+      evidence.annotate/gate.annotate (TKT-490 already refused an unknown
+      GATE-NNN/EVD-NNN by name) and gate_passing_log entries are what
+      verify/pending-push proofs point to. All three now scan for the
+      highest existing number rather than counting, matching
+      required_item_add/checklist_add's own TKT-642 fix and carrying the
+      identical documented limit (removing the currently-highest entry
+      and adding again still reissues that number). New test at t/1139,
+      modeled on TKT-642's own sibling test t/1085.
+
 5.168  2026-09-21
     - TKT-1081, found by a 2-hourly improvement hunt while fixing TKT-1080
       (dashboard/policy.bridge hangs): t/70-doc-examples.t's attempt() runs

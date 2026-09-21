@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.168';
+our $VERSION = '5.169';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4614,8 +4614,16 @@ sub evidence_add {
         my $stored_attachment = $attachment
           ? { map { $_ => $attachment->{$_} } qw(sha extension original_filename) }
           : undef;
+        # TKT-1082: scan for the highest existing number rather than
+        # counting, the same fix TKT-642 already gave required_items/
+        # checklist - counting reissues a removed entry's id the moment
+        # the list is shortened.
+        my $number = 1;
+        for my $existing ( @{ $record->{evidence} } ) {
+            $number = $1 + 1 if $existing->{id} =~ /\AEVD-(\d+)\z/ && $1 >= $number;
+        }
         my $entry = {
-            id => sprintf( 'EVD-%03d', @{ $record->{evidence} } + 1 ),
+            id => sprintf( 'EVD-%03d', $number ),
             summary => $args{summary}, uri => $args{uri} // '', author => $args{author},
             attachment => $stored_attachment, annotations => [], created_at => $self->{clock}->(),
         };
@@ -4646,8 +4654,13 @@ sub gate_add {
         $self->_require_gate_name( root => $root, name => $args{gate} );
         $self->_require_person( %args, person => $args{author} );
         my $record = $self->record_show(%args);
+        # TKT-1082: same max-scan fix as evidence_add above.
+        my $number = 1;
+        for my $existing ( @{ $record->{gate_passing_log} } ) {
+            $number = $1 + 1 if $existing->{id} =~ /\AGATE-(\d+)\z/ && $1 >= $number;
+        }
         my $entry = {
-            id => sprintf( 'GATE-%03d', @{ $record->{gate_passing_log} } + 1 ),
+            id => sprintf( 'GATE-%03d', $number ),
             gate => $args{gate}, result => $args{result}, details => $args{details},
             author => $args{author}, annotations => [], created_at => $self->{clock}->(),
         };
@@ -5632,8 +5645,15 @@ sub _log_proof_gate {
           : defined $_->{proof} ? "\"$_->{proof}\"" : '(no proof recorded)';
         "$_->{command} -> $what";
     } @{$proof_entries};
+    # TKT-1082: same max-scan fix as evidence_add/gate_add - the identical
+    # length-based pattern, a second gate_passing_log-writing call site
+    # TKT-642 did not touch because it only covered required_items/checklist.
+    my $number = 1;
+    for my $existing ( @{ $record->{gate_passing_log} } ) {
+        $number = $1 + 1 if $existing->{id} =~ /\AGATE-(\d+)\z/ && $1 >= $number;
+    }
     push @{ $record->{gate_passing_log} }, {
-        id => sprintf( 'GATE-%03d', @{ $record->{gate_passing_log} } + 1 ),
+        id => sprintf( 'GATE-%03d', $number ),
         gate => $gate, result => 'pass',
         details => "Marked \"$entry->{item}\" done: " . join( '; ', @details ),
         author => undef, annotations => [], created_at => $self->{clock}->(),

@@ -1,5 +1,22 @@
 Revision history for Tira
 
+5.172  2026-09-21
+    - TKT-1096, found by the hourly bug hunt (JOB-001) directly after
+      TKT-785 shipped, checking whether that fix reached every command
+      sharing its mechanism: record_discard and record_restore are thin
+      record_move wrappers and already carry previous_column, but their
+      CLI dispatch branches called the engine methods directly and
+      returned immediately, never reaching the 'move' branch's own
+      confirmation-stamping - a successful discard or restore printed the
+      full, unabridged record dump under -o human with no confirmation
+      line, the exact "confirmation buried in a full record dump" problem
+      TKT-785 fixed for move. Both branches now stamp the same 'moved'
+      field ("REF discarded: FROM -> discard" / "REF restored: FROM ->
+      TO"), picked up by the identical run()-level print special-case
+      TKT-785 already added, so -o human/-o json/-o toon all carry it the
+      same way move's own output does. New test at t/1142, modeled on
+      TKT-785's own t/1102.
+
 5.171  2026-09-21
     - TKT-1090, self-found: satisfying conversation-not-folded after a
       substantial comment needed a second, separate

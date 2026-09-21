@@ -1846,8 +1846,27 @@ sub _invoke {
               if ref $final eq 'HASH' && defined $from && $from ne $args{column};
             return $final;
         }
-        return $tira->record_discard(%args) if $action eq 'discard';
-        return $tira->record_restore(%args) if $action eq 'restore';
+        # TKT-1096: record_discard/record_restore are thin record_move
+        # wrappers (lib/Tira.pm) and already carry previous_column for the
+        # same reason move's own confirmation reads it - but calling them
+        # directly here, rather than through the 'move' branch above, never
+        # reached that branch's own 'moved'-stamping. Same field, same
+        # run()-level print special-case (TKT-785), so -o human/-o json/
+        # -o toon all pick it up identically - just the wording differs.
+        if ( $action eq 'discard' ) {
+            my $result = $tira->record_discard(%args);
+            my $from   = $result->{previous_column};
+            $result->{moved} = "$args{ref} discarded: $from -> $result->{column}"
+              if ref $result eq 'HASH' && defined $from && $from ne $result->{column};
+            return $result;
+        }
+        if ( $action eq 'restore' ) {
+            my $result = $tira->record_restore(%args);
+            my $from   = $result->{previous_column};
+            $result->{moved} = "$args{ref} restored: $from -> $result->{column}"
+              if ref $result eq 'HASH' && defined $from && $from ne $result->{column};
+            return $result;
+        }
         return $tira->record_clone(%args);
     }
 

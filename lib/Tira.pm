@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.180';
+our $VERSION = '5.181';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -434,8 +434,8 @@ sub create_project {
 
 sub discover_project {
     my ( $self, %args ) = @_;
-    my $candidate = defined $args{project} ? $args{project} : ( $args{start} // '.' );
-    my $selector = $candidate;
+    my $selector = defined $args{project} ? $args{project} : ( $args{start} // '.' );
+    my $candidate = $selector;
     my $used_alias = 0;
     if ( !-e $candidate && $self->{path_resolver} ) {
         my $resolved = eval { $self->{path_resolver}->($candidate) };
@@ -444,10 +444,55 @@ sub discover_project {
         $candidate = $resolved;
         $used_alias = 1;
     }
-    die "Cannot resolve project path '$candidate'\n" if !-e $candidate;
+    my $found = $self->_walk_up_for_project( $candidate, $used_alias ? $selector : undef );
+    return $found if defined $found;
+
+    # TKT-1009: a literal path coincidentally existing at the alias's own
+    # name must not shadow the alias - the existence check above only
+    # skips the resolver, it does not prove the literal path is the right
+    # answer. Only once walking up from it finds no project does the
+    # resolver get a chance, so an alias whose target really does answer
+    # is not defeated by an unrelated same-named directory sitting in cwd.
+    # THE RESOLVER ITSELF IS CALLED AT MOST ONCE, never recursively - the
+    # walk-up below runs a second time, on whatever it returned, but the
+    # resolver is never asked again for a name it already answered. A
+    # resolver that does not
+    # recognise the name (the common case, every "deliberately not a
+    # project" test in this suite) answers with the SAME path unchanged
+    # rather than undef, and two aliases naming each other would cycle
+    # forever if each attempt tried the resolver again on its own result
+    # (Codex review). The resolved target is never named in the final
+    # refusal either, for the same reason the alias branch above never
+    # named it - only $selector, the non-disclosure this already promised.
+    if ( !$used_alias && $self->{path_resolver} ) {
+        my $resolved = eval { $self->{path_resolver}->($selector) };
+        if ( !$@ && defined $resolved && $resolved ne '' && $resolved ne $selector && -e $resolved ) {
+            my $found2 = $self->_walk_up_for_project( $resolved, $selector );
+            return $found2 if defined $found2;
+        }
+    }
+    die "No Tira project found from '$selector'\n";
+}
+
+# The upward walk shared by discover_project's primary attempt and its
+# single TKT-1009 alias-fallback attempt - returns the project root, or
+# undef (never dies) when nothing is found, so the caller decides what a
+# miss means rather than this repeating the same die twice. $obfuscate_as,
+# when given, is an alias-resolved candidate's own selector: a
+# canonicalization failure on a RESOLVED path must never leak that path in
+# the error, the same non-disclosure promise the caller's own alias branch
+# already keeps.
+sub _walk_up_for_project {
+    my ( $self, $candidate, $obfuscate_as ) = @_;
+    if ( !-e $candidate ) {
+        die "Cannot resolve project selector '$obfuscate_as'\n" if defined $obfuscate_as;
+        die "Cannot resolve project path '$candidate'\n";
+    }
     my $path = eval { $self->_canonical_path( $candidate, "project path '$candidate'" ) };
-    die "Cannot resolve project selector '$selector'\n" if $used_alias && !defined $path;
-    die $@ if !defined $path;
+    if ( !defined $path ) {
+        die "Cannot resolve project selector '$obfuscate_as'\n" if defined $obfuscate_as;
+        die $@;
+    }
     $path = dirname($path) if -f $path;
 
     while (1) {
@@ -456,7 +501,7 @@ sub discover_project {
         last if $parent eq $path;
         $path = $parent;
     }
-    die "No Tira project found from '" . ( $used_alias ? $selector : $candidate ) . "'\n";
+    return undef;
 }
 
 sub create_record {

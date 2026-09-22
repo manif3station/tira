@@ -716,9 +716,17 @@ failed counter persistence removes the uncommitted record.
 
 Project-directory selectors accept either an existing relative/absolute
 directory or an alias registered with `d2 path add`. Existing directories take
-precedence over an alias of the same spelling. Alias lookup uses Developer
-Dashboard's registry and layered config directly; it does not spawn a command,
-parse human output, or disclose the resolved target in Tira output and errors.
+precedence over an alias of the same spelling *when the directory itself is a
+Tira project (or sits under one)* - a selector that exists as a literal path
+but answers no `.tira/project.yml` anywhere up its own chain falls back to the
+alias registered under that same spelling, since 5.181 (TKT-1009). Before
+that, a coincidental same-named directory - one with nothing to do with the
+alias - silently shadowed a working alias and raised "No Tira project found",
+even though the alias itself resolved fine; found live when an unrelated
+bug's stray `./tira-ddd/.tira/` directory broke every `d2 tira.*` command run
+from that checkout. Alias lookup uses Developer Dashboard's registry and
+layered config directly; it does not spawn a command, parse human output, or
+disclose the resolved target in Tira output and errors.
 
 **Since 5.85 that promise also holds when a read fails** (TKT-988). A file read
 failure's raw error message used to reach a police violation carrying the

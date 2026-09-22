@@ -1,5 +1,14 @@
 Revision history for Tira
 
+5.181  2026-09-22
+    - TKT-1009: discover_project() only consulted its registered path
+      alias when the literal candidate did not already exist as a file
+      or directory - so a coincidental same-named directory relative to
+      cwd, unrelated to the alias, silently shadowed a working alias and
+      raised "No Tira project found" instead of resolving. It now falls
+      back to the alias resolver once walking up from the literal path
+      finds no project. New test at t/1150.
+
 5.180  2026-09-22
     - TKT-1138 (found by a Codex review of TKT-1104's own fix, 5.178):
       police_release_singleton's ownership check (read the file, compare

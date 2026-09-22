@@ -710,6 +710,20 @@ self-contained HTML, the same escaping, and the same two refusals - `-o table`
 handed data that is not a board still says `Table output requires dashboard
 data`, and an unrecognised format is still refused by `format_output` itself.
 
+**`-o human` names `required_items` now, since 5.186** (TKT-647). A single-card
+`-o human` view always rendered `## Checklist` - which never gates a move out
+of a column - and said nothing about `required_items`, which gates every one.
+Measured live on TKT-649: 2 genuinely pending required actions, invisible to
+`-o human`. An agent reading a card the documented way (`-o human`, add
+`-o json` to parse) saw a checklist and no sign anything was blocking its
+move - the first place it learned the requirement text was the refusal when
+it tried to move. A new `## Required Actions` section, immediately after
+Checklist, lists each item as `- [STATUS] REQ-NNN (COLUMN): TEXT`; like
+Checklist, it renders unconditionally, with an empty list reading `_Empty._`
+rather than the heading vanishing. `-o json`/`-o toon` are unaffected - this
+is a rendering-only fix to the human formatter, and no data was added or
+removed from either.
+
 ## Transaction boundaries
 
 Every mutation takes the private project lock. Reciprocal record changes first

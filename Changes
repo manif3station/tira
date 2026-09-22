@@ -1,5 +1,19 @@
 Revision history for Tira
 
+5.186  2026-09-22
+    - TKT-647 (found by a read-only audit agent on zenandi, 4.56):
+      ticket.show -o human rendered '## Checklist' - which never gates a
+      move out of a column - and said nothing about required_items, which
+      gates every one. Measured live on TKT-649: 2 genuinely pending
+      required actions, invisible to -o human. Added a '## Required
+      Actions' section, same convention as Checklist (renders
+      unconditionally, empty says so). New test at t/1155. Its own change
+      pushed lib/Tira/Render.pm to 521 lines, past the project's enforced
+      500-line-per-.pm limit (t/524, caught in this ticket's own verify
+      gate) - fixed by moving the module's POD into lib/Tira/Render.pod,
+      matching Tira.pm/CLI/Police.pm/Serve.pm/Usage.pm's own .pm+.pod
+      pairs, bringing the .pm to 368 lines with no behavior change.
+
 5.185  2026-09-22
     - TKT-649 (found on zen-framework: two checkouts of the same repo
       answered the same board at two different versions, and nothing

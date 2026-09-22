@@ -2176,7 +2176,7 @@ The first is `lib/Tira/Toon.pm` - the `Data::TOON` encoder/decoder overrides,
 227 lines, required from `format_output`'s `toon` branch only, so a command
 asking for `json` or `human` output never compiles it (TKT-830, 5.23).
 
-The second is `lib/Tira/Tasklist.pm` - the shared to-do queue, 692 lines,
+The second is `lib/Tira/Tasklist.pm` - the shared to-do queue, 868 lines,
 required by each of its own entry points rather than from one call site,
 because unlike the TOON block it is not one branch of one sub but eighteen
 public commands (TKT-832, 5.24). Those entry points keep their old names:
@@ -2187,7 +2187,7 @@ the same reason - `_tasklist_read`, because `search` and `police_pass` read
 the list from outside the concern, and `_tasklist_session`, which `search`
 calls as a plain function rather than a method.
 
-The third is `lib/Tira/Render.pm` - the human and table renderers, 346 lines,
+The third is `lib/Tira/Render.pm` - the human and table renderers, 368 lines,
 required by `format_output` immediately before its `human` and `table`
 branches, so a caller asking for `json` or `toon` compiles none of it
 (TKT-834, 5.25). Three helpers stayed on `Tira` because they have callers

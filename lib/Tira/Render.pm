@@ -312,6 +312,18 @@ sub _markdown {
         my $checklist = @{ $data->{checklist} // [] }
           ? "\n## Checklist\n\n" . join( '', map { "- [$_->{status}] $_->{item}\n" } @{ $data->{checklist} } )
           : "\n## Checklist\n\n_Empty._\n";
+
+        # TKT-647. -o human rendered the Checklist above - which never gates a
+        # move out of a column - and said nothing about required_items, which
+        # gates every one. Measured live on TKT-649: 2 genuinely pending
+        # required actions, invisible to -o human. Same convention as
+        # Checklist: render unconditionally, an empty list says so rather
+        # than omitting the heading.
+        my $required = @{ $data->{required_items} // [] }
+          ? "\n## Required Actions\n\n" . join( '',
+              map { "- [$_->{status}] $_->{id} ($_->{column}): $_->{item}\n" }
+                @{ $data->{required_items} } )
+          : "\n## Required Actions\n\n_Empty._\n";
         my $children = exists $data->{children}
           ? "\n## Children\n\n" . ( @{ $data->{children} }
               ? join( '', map { "- `$_->{ref}`" . ( defined $_->{title} ? " $_->{title}" : '' ) . "\n" }
@@ -326,6 +338,7 @@ sub _markdown {
           . '- Created: ' . ( $data->{created_at} // '' ) . "\n"
           . '- Last Updated: ' . ( $data->{last_updated} // '' ) . "\n"
           . $checklist
+          . $required
           . $children;
     }
     if ( ref($data) eq 'HASH' && ref( $data->{_column_order} ) eq 'HASH' ) {
@@ -353,147 +366,3 @@ sub _markdown {
 }
 
 1;
-
-__END__
-
-=head1 NAME
-
-Tira::Render - the human and table renderers, one concern lifted out of Tira.pm
-
-=head1 DESCRIPTION
-
-Everything C<Tira::format_output> delegates to except the TOON encoder, which
-lives in L<Tira::Toon>. C<_markdown> and C<_markdown_fields> render the
-C<human> format; C<_dashboard_table> builds the HTML board.
-
-Under C<live>, C<_dashboard_table> also emits the Repeated Jobs section - an
-empty C<< <ol class="jobs-cards"> >> inside C<section.board--jobs>, placed
-after the Task List section, and the C<jobs-editor.js> view asset that fills
-it from the C<GET /jobs> route. Only the shell is built here: no job data is
-concatenated into the page, which is what keeps F<t/426>'s claim true.
-
-The Task List section above it carries one more empty control for the same
-reason: a C<< <button class="tasklist-more" hidden> >> after its C<< <ol> >>,
-which C<tasklist-editor.js> unhides and labels once it knows how many items
-are behind the cap (TKT-881). It is emitted here rather than created in script
-so that it is in the page source, the way every other control in that section
-is - and because a button that exists only after the first successful fetch is
-a button that is missing exactly when the fetch fails. Nothing about the cap
-itself lives in this module: the section renders the same empty list it always
-did, and how much of it gets built is the view asset's decision.
-
-Two more empty controls sit beside the text filter, since 5.89 (TKT-764): a status C<< <select> >> (numeric option values) and an unlinked C<< <input type="checkbox"> >>, giving the panel the C<--status>/C<--unlinked> questions C<tasklist.list> already answers, without duplicating C<STATUS_NAME>'s own wording.
-
-The page's own frame is a contract too, and a quieter one. F<dashboard.tt> emits
-C<< <main class="shell"> >> wrapping C<< <header class="hero"> >>, sticky at
-C<top: 0> - padding above it is seen once, on first paint, and also sets how
-far the page scrolls before it pins, so a larger value wastes space twice
-over. TKT-859's neighbour TKT-855 cut it from 3.5rem to 1rem, kept non-zero
-only for the header's rounded bottom corners; F<t/501> asserts the sticky
-premise so a static header is reconsidered rather than assumed safe.
-
-The classes that shell emits are the contract F<dashboard.css> styles against.
-Until TKT-859 there were no C<.jobs-> rules at all - the shell was written here,
-the rows were built in the view asset, and neither step styled anything, so the
-section sat next to a Task List with twenty-two rules looking like nothing else
-on the page. Anything added to the shell or to C<jobs-editor.js> needs a rule to
-match, and F<t/499> names the classes it checks for so a new one cannot be added
-silently unstyled.
-
-Loaded with C<require> from C<format_output> immediately before its C<human>
-and C<table> branches, so a caller asking for C<toon> or C<json> never
-compiles it.
-
-C<_indicator> (TKT-1126, Q-175) is the static snapshot behind the police/
-policy-bridge indicators: it renders "running"/"not running" for any
-defined C<with_police>/C<with_policy_bridge> value, and nothing for
-C<undef> - a caller that never asked the question gets no answer either.
-
-=head1 CALL IT THROUGH TIRA, NOT DIRECTLY
-
-C<Tira> is the public entry point; this module is an implementation detail of
-C<format_output>. Every sub here takes C<$self> - a blessed C<Tira> - as its
-first argument and is meant to be reached that way.
-
-=head1 IF YOU EDIT THIS MODULE
-
-=over 4
-
-=item * B<Do not add C<use Tira::Render> to F<lib/Tira.pm>.> The per-call
-C<require> is the point of the lift, and it is guarded rather than merely
-asked for: F<t/485> renders nothing and asserts C<Tira/Render.pm> is absent
-from C<%INC>, so collapsing it into a top-level C<use> turns that red.
-
-=item * B<Qualify the helpers that stayed behind.> C<Tira::_render_view>,
-C<Tira::_view_asset>, C<Tira::json_object> and C<$Tira::VERSION> are plain
-functions and a package variable on C<Tira>, not methods, and must keep their
-C<Tira::> prefix here. Unqualified they resolve against this package, compile
-cleanly, and die when a board is rendered. C<$self-E<gt>_html_escape>,
-C<$self-E<gt>person_list> and C<$self-E<gt>project_show> are method calls and
-need no prefix.
-
-=item * B<Do not "finish the cleanup" by dragging those helpers in here.>
-Calling back into C<Tira> is the deliberate boundary of this lift, not an
-unfinished edge of it. The rule is that a helper moves only if this concern
-is its B<only> caller, and each of the ones left behind fails that test:
-C<_html_escape> is also used by the login page HTML (F<lib/Tira.pm>, in
-C<login_page_html>), and C<_render_view>, C<_view_asset>, C<json_object> and
-C<$VERSION> are used across the whole engine. Moving any of them would put a
-name somewhere its other callers cannot reach - which is the same mistake in
-the opposite direction from leaving a call unqualified.
-
-=back
-
-=head1 WHAT MUST NOT REGRESS
-
-F<t/485> is the file that holds this lift to its promises, and it asserts
-four distinct things - if you change this module, that is the file to run
-first:
-
-=over 4
-
-=item * C<Tira::Render> compiles and loads standalone, without C<Tira.pm>
-having been loaded first.
-
-=item * C<format_output> for C<json> B<and> for C<toon> both leave
-C<Tira/Render.pm> out of C<%INC>. This is what enforces the lazy C<require>.
-
-=item * Both rendering branches still produce what they produced before the
-lift - whole-record C<human>, narrowed C<human> (the C<_markdown_fields>
-branch TKT-157 fixed), and C<table>, including escaping performed through the
-helper that stayed on C<Tira>.
-
-=item * Both refusals survive: C<table> handed data that is not a board still
-dies with C<Table output requires dashboard data>, and an unknown format is
-still refused by C<format_output> itself.
-
-=back
-
-Those last two groups passed B<before> the lift as well as after, which is
-what makes them a no-behaviour-change baseline rather than a description of
-the end state.
-
-=head1 THE BRIDGE SECTION IS A TERMINAL, AND ITS ORDER IS THE PAGE'S
-
-The live board emits an empty C<< <div class="bridge-lines" role="log"> >> for
-C<bridge-panel.js> to fill. It was an C<< <ol> >> until 5.85, which rendered
-the board's running log as a numbered list, oldest first - so the newest line,
-the one somebody watching a live board is waiting for, sat at the bottom behind
-ninety-nine already-read ones. TKT-976, from his own screenshot.
-
-If you change this markup, know what the class carries: C<.bridge-lines> is
-what makes the block monospaced, dark and internally scrolling in
-F<dashboard.css>, and the panel appends C<.bridge-line> rows into it. An
-element without that class renders as ordinary prose and nothing in the suite
-notices except F<t/583>, which asserts the stylesheet rule exists and is
-monospaced for exactly that reason.
-
-B<The newest-first order is applied in the page and must not be moved here or
-into the route.> C</bridge> is read by the browser panel, by the bridge
-terminal and by C<tira.policy.bridge.logs>, all through C<enforcement_log>.
-Reversing at the source would change what every one of those readers sees in
-order to fix how one panel looks - the same drift F<t/541> was written about.
-F<t/583> holds the boundary by reading C<enforcement_log> and requiring that it
-does B<not> reverse. Since 5.89 (TKT-1020) the header also carries C<.bridge-clear>, matching C<.logs-clear> and C<.jobs-card__log-clear> - each empties its own current rendering only, since these panels keep polling regardless.
-
-=cut

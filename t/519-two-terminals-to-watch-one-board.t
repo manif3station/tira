@@ -496,17 +496,22 @@ is( Tira::CLI::Serve::_stop_police_beside_board(undef), 0,
         sow_prefix => 'ENS', epic_prefix => 'ENE', ticket_prefix => 'ENT',
     );
 
+    my $path = Tira::CLI::Police::police_singleton_path($store);
+    # TKT-1104: police_follow now releases its own claim on a normal
+    # finite-rounds exit, so the file is read WHILE the round is still
+    # running (via the injected sleeper) rather than after the call has
+    # already returned and released it.
+    my $held;
     {
         local $ENV{TIRA_POLICE_HOLDER} = 'dashboard';
         Tira::CLI::Police::police_follow(
             $tira, { project => $root }, $store,
-            { rounds => 1, sleeper => sub { }, singleton => { pid => 4900, alive => sub { 0 }, kill => sub { } } } );
+            { rounds => 1, sleeper => sub {
+                open my $fh, '<', $path or die "$path: $!";
+                $held = do { local $/; <$fh> };
+                close $fh;
+            }, singleton => { pid => 4900, alive => sub { 0 }, kill => sub { } } } );
     }
-
-    my $path = Tira::CLI::Police::police_singleton_path($store);
-    open my $fh, '<', $path or die "$path: $!";
-    my $held = do { local $/; <$fh> };
-    close $fh;
 
     is( $held, '4900 dashboard',
         'TIRA_POLICE_HOLDER MAKES THE CLAIM THE DASHBOARD\'S - which is what a '
@@ -514,16 +519,17 @@ is( Tira::CLI::Serve::_stop_police_beside_board(undef), 0,
           . 'tira.police reads to decide whether to stand down' );
 
     # And a stray value cannot buy that protection.
+    my $held2;
     {
         local $ENV{TIRA_POLICE_HOLDER} = 'something else';
         Tira::CLI::Police::police_follow(
             $tira, { project => $root }, $store,
-            { rounds => 1, sleeper => sub { }, singleton => { pid => 4901, alive => sub { 0 }, kill => sub { } } } );
+            { rounds => 1, sleeper => sub {
+                open my $fh2, '<', $path or die "$path: $!";
+                $held2 = do { local $/; <$fh2> };
+                close $fh2;
+            }, singleton => { pid => 4901, alive => sub { 0 }, kill => sub { } } } );
     }
-
-    open my $fh2, '<', $path or die "$path: $!";
-    my $held2 = do { local $/; <$fh2> };
-    close $fh2;
 
     is( $held2, '4901',
         'and an unrecognised holder in the environment is an ORDINARY claim - a '

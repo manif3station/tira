@@ -527,6 +527,23 @@ sub run {
     die "--restart belongs to the dashboard command, for the same reason --stop does\n"
       if $option{restart} && $command !~ /\Adashboard(?:\.(?:sow|epic|ticket))?\z/;
 
+    # TKT-664: checked here too, not only inside _invoke below - onboard -o
+    # browser starts a disposable HTTP server a few lines down and only
+    # calls _invoke when the served form is submitted, so _invoke's own
+    # copy of this refusal used to fire AFTER a person filled the whole
+    # form in. Scoped to exactly the case that starts the server early
+    # (mirroring the browser-branch condition just below) rather than
+    # every command - every other command already reaches the identical
+    # refusal inside _invoke's own eval/_error conversion further down,
+    # and duplicating it unconditionally here would raise it as a raw,
+    # uncaught die for them instead of the printed refusal a caller
+    # expects. Same shared helper both places reach, so the wording
+    # itself is one definition, not two that can drift.
+    if ( $command eq 'onboard' && $option{output} =~ /\Abrowser(?:=|\z)/ ) {
+        my $ok = eval { _refuse_dry_run_unless_allowed( $command, \%option ); 1 };
+        return _error( $tira, $option{output}, $@ || 'Unknown Tira failure', $command ) if !$ok;
+    }
+
     # --with-police (TKT-897) and --with-policy-bridge (TKT-1026): full
     # reasoning is with the shared refusal itself, kept in Tira::CLI::Serve
     # rather than inline here twice - see its own comment.
@@ -1302,6 +1319,21 @@ sub _apply_column_required_actions {
     return Tira::CLI::Move::_apply_column_required_actions(@_);
 }
 
+# TKT-625/TKT-664. dry_run is read in exactly two places (bulk_import and
+# replace_records), so naming those two refuses it everywhere else by
+# construction - an allow-list, not a list of the offenders. Extracted to
+# one definition, called both from run() (before onboard -o browser's
+# disposable server ever starts) and from _invoke (every other command's
+# own dispatch), so the wording a caller sees is identical either way.
+sub _refuse_dry_run_unless_allowed {
+    my ( $command, $option ) = @_;
+    die "$command does not act on --dry-run: nothing is previewed here, the "
+      . "change is made. tira.import and tira.replace are the commands that "
+      . "honour it.\n"
+      if $option->{dry_run} && $command ne 'import' && $command ne 'replace';
+    return;
+}
+
 sub _invoke {
     my ( $tira, $command, $record_type, $option ) = @_;
     # Who is running this, said once in the environment rather than remembered
@@ -1432,10 +1464,7 @@ sub _invoke {
     # neighbour above: %MISLEADING_OPTIONS is narrow because deriving it is
     # impossible, while this one is exact because the flag has exactly two
     # readers. TKT-625.
-    die "$command does not act on --dry-run: nothing is previewed here, the "
-      . "change is made. tira.import and tira.replace are the commands that "
-      . "honour it.\n"
-      if $option->{dry_run} && $command ne 'import' && $command ne 'replace';
+    _refuse_dry_run_unless_allowed( $command, $option );
 
     die "Nested belongs to the project.new, project.create and onboard commands\n"
       if $option->{nested} && $command !~ /\A(?:project\.(?:new|create)|onboard)\z/;

@@ -131,11 +131,31 @@ my $second = $tira->create_record(
 );
 corrupt_field( record_path( $second->{ref} ), 'evidence', undef );
 
+# evidence_add used to crash here ("Can't use an undefined value as an
+# ARRAY reference") - TKT-1082's max-id-scan rewrite changed its loop to
+# `for my $existing (@{ $record->{evidence} })`, and a foreach over a
+# dereferenced undef is a silent empty list in Perl, not a die. That
+# incidentally makes evidence_add treat a null field the same way
+# checklist_add's own TKT-642 precedent already treats one (`@{ $record->
+# {checklist} // [] }`) - consistent with the established pattern, not a
+# regression to guard against. doctor's own detection below (the actual
+# point of this file, per its own header) is unaffected either way.
 eval { $tira->evidence_add( project => $root, ref => $second->{ref}, author => 'claude', summary => 'x' ) };
-like( $@, qr/ARRAY reference/, 'a null evidence field really does crash evidence_add right now' );
+ok( !$@, 'evidence_add no longer crashes on a null evidence field - TKT-1082 made it consistent with checklist_add' )
+  or diag("died: $@");
+
+# doctor's own detection needs a SEPARATE still-null record: evidence_add's
+# successful write above replaced $second's null field with a real array as
+# a side effect, so scanning $second again would prove nothing about
+# doctor's own null-detection - only that evidence_add fixed what it touched.
+my $third = $tira->create_record(
+    project => $root, type => 'ticket', title => 'Another null-evidence card', author => 'claude',
+    description => 'd', problem_or_feature => 'p', solution_needed => 's',
+);
+corrupt_field( record_path( $third->{ref} ), 'evidence', undef );
 
 my $null_scan = $tira->doctor( project => $root );
-my ($null_report) = grep { $_->{path} eq record_path( $second->{ref} ) && ( $_->{field} // '' ) eq 'evidence' }
+my ($null_report) = grep { $_->{path} eq record_path( $third->{ref} ) && ( $_->{field} // '' ) eq 'evidence' }
   @{ $null_scan->{damaged} };
 like( $null_report->{detail}, qr/null/i, 'saying it was null, not silently treating null as fine' );
 

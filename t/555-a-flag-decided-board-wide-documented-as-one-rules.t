@@ -85,10 +85,13 @@ like( $engine, qr/sub _resting_columns/,
 like( $section, qr/card-unassigned/, 'and the section names card-unassigned' );
 like( $section, qr/board-still/,     'and board-still' );
 
-# The push gate: a third implementation, in Python, outside the engine
-# entirely - named because "the push-gate consequence" is one of this card's
-# own acceptance criteria and it costs a refused push, not a bridge reminder.
-like( $section, qr/card-holes/i, 'and tools/card-holes, the push gate' );
+# The push gate: a third implementation, outside the engine entirely -
+# named because "the push-gate consequence" is one of this card's own
+# acceptance criteria and it costs a refused push, not a bridge reminder.
+# tools/card-holes was renamed to the d2-dispatched `d2 card.holes` since
+# this test was written (matching the project's own d2 <skill>.<verb>
+# convention) - matched here with a dot, not the retired hyphenated path.
+like( $section, qr/card\.holes/i, 'and d2 card.holes, the push gate' );
 like( $section, qr/SHIPPED_FROM|push column/,
     'with enough of the mechanism that a reader recognises it in the code' );
 

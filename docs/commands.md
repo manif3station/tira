@@ -1595,6 +1595,17 @@ Put one rule down for a while, without going deaf to everything else.
 | `--ref CARD` | no | Put it down for one card only. With none, the whole board. |
 | `--store PATH` | no | Police's own state, if it is not in the usual place. |
 
+Both suspend commands, and the other read-modify-write callers of the same
+enforcement store found unlocked alongside them - `bridge_write`,
+`bridge_touch`, `_enforcement_record`, and `_announce_upgrade`'s own
+read-decide-write (nested inside its existing project lock, found by a
+follow-up Codex pass on this same ticket) - share one
+`_with_enforcement_lock`, since 5.175 (TKT-1118). `rule.suspend` writes the
+suspension and then records it as a log entry via `_enforcement_record` in the
+same call, so the lock is reentrant: a second acquisition from the same
+process on the same store rejoins rather than blocks, since `flock()` would
+otherwise deadlock a process re-entering its own lock on the same path.
+
 ### What the push gate asks, since 4.62
 
 The gate is `.developer-dashboard/cli/hooks/pre-push`, installed by `d2 install.hooks` as a

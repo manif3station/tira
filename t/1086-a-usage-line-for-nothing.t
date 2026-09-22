@@ -92,12 +92,17 @@ sub help_for {
 # no SKILLS.md line, so --help on them has always been a bare [options] - and
 # this ticket does not change that, only what happens for a name with no
 # entrypoint AT ALL.
+#
+# login.status itself was this example until TKT-1115 (5.173) gave it (and
+# 8 siblings) a real usage line, closing the exact regex-dispatch gap TKT-1115
+# found - so this now checks the SAME real command still succeeds and prints
+# ITS real line, rather than the bare fallback it used to be the example of.
 
 {
     my ( $out, $status ) = help_for('login.status');
-    is( $status, 0, 'help for a real command with no usage line still succeeds' );
-    like( $out, qr/Usage: d2 tira\.login\.status \[options\]/,
-        'and still falls back to the bare [options] form, unchanged' );
+    is( $status, 0, 'help for login.status still succeeds' );
+    like( $out, qr/Usage: d2 tira\.login\.status \[-o FORMAT\]/,
+        'and now prints its own real usage line (TKT-1115), not the bare [options] fallback it once did' );
 }
 
 # --- every command the dispatcher itself answers is known_command() too ----

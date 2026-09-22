@@ -146,6 +146,24 @@ ceiling. TKT-361. The pre-push hook was the other gate that did so, at 15m+,
 until TKT-680 took the suite out of it in 4.62; the coverage gate alone still
 exceeds the clock-only ceiling, so the higher backstop is unchanged.
 
+Since 5.175 (TKT-1118), the read-modify-write of the suspension itself and
+the C<_enforcement_record> call that logs it both run under
+C<_with_enforcement_lock>, sharing one exclusive lock on the store rather than
+either being unguarded. C<_with_enforcement_lock> is reentrant precisely
+because C<rule_suspend> calls C<_enforcement_record> while already holding it
+- a plain non-reentrant lock would have deadlocked on that second
+acquisition, since C<flock()> blocks a second open file description on the
+same path even from the process that already holds it.
+
+A follow-up Codex pass, run while documenting this same ticket, found that
+C<_announce_upgrade> (TKT-1114's own fix, see C<_announce_upgrade> below)
+only took C<_with_project_lock> - a different mutex, keyed on the project
+root rather than the store path - so it still shared no lock with any of
+the five functions above even after they were fixed. It now takes
+C<_with_enforcement_lock> too, nested inside its existing project lock,
+so every C<_enforcement_read>/C<_enforcement_write> pair in this module
+now shares one lock.
+
 =head2 changelog_check
 
 Cross-references every card's claimed C<fix_version> against a changelog

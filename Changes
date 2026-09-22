@@ -1,5 +1,74 @@
 Revision history for Tira
 
+5.178  2026-09-21
+    - TKT-1104, found by the 2-hourly improvement hunt (TKT-521) while
+      reading bridge_follow/police_follow's own singleton mechanism
+      during TKT-1100: both watch loops released their singleton claim
+      from their SIGINT/SIGTERM/SIGHUP handlers only - a call bounded by
+      a finite --rounds that completed its loop normally returned with
+      the claim still on disk, naming a process that had already
+      exited. Both now call police_release_singleton on that exit path
+      too, sharing the same ownership-aware release the signal handlers
+      already used. New test at t/1147; t/373/t/519/t/1104 updated,
+      since each had relied on the old (buggy) persistence of a normal
+      exit's claim for its own setup.
+
+5.177  2026-09-21
+    - TKT-664, found by Codex review during TKT-625's own verify gate:
+      tira.onboard -o browser --dry-run started the disposable onboarding
+      HTTP server and let a person fill in the whole project-creation
+      form before the --dry-run refusal (living inside _invoke, reached
+      only on submit) ever fired. The refusal is now also checked in
+      run(), before the browser endpoint is resolved or the server
+      started, scoped to exactly the onboard-browser case that starts a
+      server early - every other command keeps reaching the identical
+      refusal through _invoke's own existing eval/_error conversion,
+      unchanged. Both call sites now share one _refuse_dry_run_unless_
+      allowed helper, so the wording is one definition, not two that can
+      drift. tira.import and tira.replace, the two commands that
+      genuinely honour --dry-run, are unaffected from either call site.
+      New test at t/1146.
+
+5.176  2026-09-21
+    - TKT-1127, found during TKT-1125's 2-hourly improvement hunt:
+      lib/Tira/CLI/Serve.pm's _stop_police_beside_board and
+      _stop_policy_bridge_beside_board were byte-for-byte identical (kill
+      TERM; waitpid; return 1). Pure duplication cleanup, no bug, no
+      behavior change - both now delegate to one shared
+      _stop_child_beside_board helper.
+
+5.175  2026-09-21
+    - TKT-1118, flagged by Codex review of TKT-1114's own fix (2026-09-16)
+      and deliberately scoped out of that ticket: five more callers in
+      lib/Tira.pm read-then-wrote enforcement.json with no exclusion
+      across the span - bridge_write, bridge_touch, _enforcement_record,
+      rule_suspend, police_suspend - the identical unlocked
+      read-modify-write race TKT-1114 already fixed for
+      _announce_upgrade, just at other call sites of the same store.
+      All five now wrapped in _with_enforcement_lock. rule_suspend calls
+      _enforcement_record internally, so wrapping both independently
+      would have re-entered the same lock from the same process and
+      deadlocked (flock() blocks a second open file description on the
+      same path even from the process already holding it) -
+      _with_enforcement_lock was made reentrant via a
+      {_enforcement_locked}{$store} guard (mirroring
+      _with_project_lock's own {_locked}{$root} pattern) before wrapping
+      the callers, and t/1144 proves it live with an alarm(5)-bounded
+      call to rule_suspend, not merely by reading the source. Checked
+      the same way t/1119 checks TKT-1114's own fix: read each
+      function's source directly for the lock wrap, since a
+      monkeypatched race on one of several call sites proved fragile to
+      write and no more convincing than reading the fix straight from
+      its own source. A follow-up Codex pass, run while documenting this
+      fix, caught a sixth gap in the same family: _announce_upgrade
+      itself (TKT-1114's own fix) only took _with_project_lock - a
+      different mutex, keyed on the project root rather than the store
+      path - so it still shared no exclusion with any of the five above.
+      It now takes _with_enforcement_lock too, nested inside its
+      existing project lock; t/1119 (updated) checks the nesting and its
+      ordering directly. Every enforcement.json read-modify-write in
+      lib/Tira.pm now shares one lock.
+
 5.174  2026-09-21
     - TKT-1117, found by the 2-hourly improvement hunt (JOB-002) while
       TKT-905/TKT-1116 work was in progress on this same board:

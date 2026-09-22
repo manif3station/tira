@@ -126,6 +126,7 @@ is_deeply( $listed_future, [],
         'a corrupt record file still answers refs_only with its FILENAME - the fast path never reads content to notice the corruption' );
 
     eval { $tira->record_list( project => $root, type => 'ticket' ) };
+    # non-empty is the whole claim - only that it died, not its exact wording
     like( $@, qr/\S/,
         'while a FULL (non-refs_only) list still dies on the same corrupt file - only the fast path is unaffected by it, not the record engine generally' );
 

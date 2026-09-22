@@ -137,6 +137,8 @@ ok( $command{'login.status'}, 'and it specifically surfaced tira.login.status, t
         'sanity: the POD example text really is present in the raw source, so stripping it is not a no-op' );
     ( my $pod_stripped = $pod_only ) =~ s/^=\w.*?^=cut\n?//msg;
     $pod_stripped =~ s/^\s*#.*$//mg;
+    like( $pod_stripped, qr/package Tira::CLI::Command/,
+        'the stripped copy still has real code content left, not wiped out entirely' );
     unlike( $pod_stripped, qr/login\\\.\(register/,
         'and comment/POD stripping actually removes it, so the scan above is reading real code' );
 }

@@ -48,36 +48,54 @@ sub follow {
 
 {
     my @killed;
+    my $bridge_pid_path = File::Spec->catfile( $store, '.policy-bridge.pid' );
+    # TKT-1104: bridge_follow now releases its own claim on a normal
+    # finite-rounds exit, so the file is checked WHILE the round is still
+    # running (via the injected sleeper) rather than after follow() has
+    # already returned and released it.
+    my $written;
     follow( singleton => {
         pid => 111,
         alive => sub { return 0 },
         kill  => sub { push @killed, $_[0] },
-    } );
-    ok( -f File::Spec->catfile( $store, '.policy-bridge.pid' ),
-        'the claim leaves its OWN pid file behind' );
+    }, extra => { sleeper => sub {
+        open my $fh, '<', $bridge_pid_path or die $!;
+        $written = do { local $/; <$fh> };
+        close $fh;
+    } } );
+    is( $written, '111', 'the claim leaves its OWN pid file behind, carrying this run\'s own pid, while the round runs' );
     ok( !-f File::Spec->catfile( $store, '.police.pid' ),
         'and never touches police\'s own file' );
-    open my $fh, '<', File::Spec->catfile( $store, '.policy-bridge.pid' ) or die $!;
-    is( do { local $/; <$fh> }, '111', 'carrying this run\'s own pid' );
-    close $fh;
+    ok( !-f $bridge_pid_path, 'and releases its own file once the round (and the whole finite-rounds call) has finished' );
     is( scalar @killed, 0, 'nothing was killed - there was nothing to kill' );
 }
 
 # --- a second bridge claiming kills the first, the loser ---------------------
 
 {
+    # TKT-1104: block 1's own claim (pid 111) is no longer left behind for
+    # this block to find - a normal finite-rounds follow() now releases
+    # its own claim on exit, same as block 1 already proved. Set up this
+    # block's own precondition directly instead of relying on leftover
+    # state from the previous one.
+    Tira::CLI::Police::police_claim_singleton( $store,
+        kind => 'policy-bridge', pid => 111, alive => sub { 0 }, kill => sub { } );
+
     my @killed;
     my @alive_checked;
+    my $written;
     follow( singleton => {
         pid => 222,
         alive => sub { push @alive_checked, $_[0]; return 1 },
         kill  => sub { push @killed, $_[0] },
-    } );
+    }, extra => { sleeper => sub {
+        open my $fh, '<', File::Spec->catfile( $store, '.policy-bridge.pid' ) or die $!;
+        $written = do { local $/; <$fh> };
+        close $fh;
+    } } );
     is_deeply( \@alive_checked, [111], 'the previous bridge pid is checked for life' );
     is_deeply( \@killed, [111], 'and killed - it is the loser, the new run is the winner' );
-    open my $fh, '<', File::Spec->catfile( $store, '.policy-bridge.pid' ) or die $!;
-    is( do { local $/; <$fh> }, '222', 'the new pid overwrites the old claim' );
-    close $fh;
+    is( $written, '222', 'the new pid overwrites the old claim, while the round runs' );
 }
 
 # --- a dashboard-held bridge is not killed by an ordinary one ----------------
@@ -112,16 +130,30 @@ sub follow {
 
 {
     my $left = 0;
+    my $existed_mid_round;
+    # TKT-1104: follow() here runs rounds=>1 synchronously and returns
+    # before this block continues - and a normal finite-rounds exit now
+    # releases the claim itself (the whole point of this ticket), so the
+    # file is already gone by the time control returns here. Checked
+    # mid-round instead, via the injected sleeper, to prove the claim
+    # really was held while the bridge was running.
     follow(
         singleton => { pid => 555, alive => sub { 0 }, kill => sub { } },
-        extra => { leave => sub { $left = 1 } },
+        extra => { leave => sub { $left = 1 }, sleeper => sub {
+            $existed_mid_round = -f File::Spec->catfile( $store, '.policy-bridge.pid' ) ? 1 : 0;
+        } },
     );
-    ok( -f File::Spec->catfile( $store, '.policy-bridge.pid' ),
-        'the claim exists while the bridge is still running its rounds' );
-    kill 'TERM', $$;    # exercised through the real SIG{TERM} handler bridge_follow installs
-    ok( $left, 'the injected leave handler ran on the signal' );
+    ok( $existed_mid_round, 'the claim existed while the bridge was still running its rounds' );
     ok( !-f File::Spec->catfile( $store, '.policy-bridge.pid' ),
-        'and a clean exit released the claim, so the next bridge sees nothing stale' );
+        'and a normal, finite-rounds exit already released it, so the next bridge sees nothing stale' );
+
+    # The signal handler bridge_follow installed is still live in %SIG after
+    # a normal return (a global, not scoped to the call) - firing it late,
+    # against a claim its own normal exit already released, must still run
+    # the leave handler and must not die trying to release an already-gone
+    # file (police_release_singleton's own ownership check tolerates that).
+    kill 'TERM', $$;
+    ok( $left, 'and the still-installed signal handler still runs cleanly afterward, releasing nothing further' );
 }
 
 # --- a successor's claim survives a stale signal handler (Codex, TKT-1100) --
@@ -133,7 +165,14 @@ sub follow {
 # only removes the file if it still names the releasing pid.
 
 {
-    follow( singleton => { pid => 666, alive => sub { 0 }, kill => sub { } } );
+    # TKT-1104: claimed directly via police_claim_singleton rather than
+    # through follow() - a normal, finite-rounds follow() call now
+    # releases its own claim on exit (this ticket's own fix), which would
+    # leave nothing here for the late/stale release below to collide
+    # with. This block is about police_release_singleton's ownership
+    # check specifically, independent of when a caller normally releases.
+    Tira::CLI::Police::police_claim_singleton( $store,
+        kind => 'policy-bridge', pid => 666, alive => sub { 0 }, kill => sub { } );
     ok( -f File::Spec->catfile( $store, '.policy-bridge.pid' ), 'pid 666 holds the claim' );
 
     # A successor claims now, as if it started while 666's own process was

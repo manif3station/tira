@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.174';
+our $VERSION = '5.178';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -1225,37 +1225,56 @@ sub _raise_upgrade_gate {
 # card. A second watcher now only gets the lock after the first has
 # already written, and its own fresh read then shows the change already
 # in $said.
+#
+# TKT-1118 (Codex review, found while documenting that ticket's own fix):
+# the project lock above only serialises two _announce_upgrade calls
+# against EACH OTHER - it never shared a lock with the enforcement store's
+# other writers (bridge_write, bridge_touch, _enforcement_record,
+# rule_suspend, police_suspend), which all take _with_enforcement_lock, a
+# separate mutex keyed on the store path rather than the project root. So
+# this read-modify-write of enforcement.json could still race any of
+# those five even after TKT-1114's own fix. The read/write span below is
+# now ALSO wrapped in _with_enforcement_lock, nested inside the project
+# lock - _raise_upgrade_gate (called after the write, still under the
+# project lock) never itself takes the enforcement lock, so this nesting
+# order is never inverted anywhere else in the engine.
 sub _announce_upgrade {
     my ( $self, $root, $store ) = @_;
     return $self->_with_project_lock( $root, sub {
-        my $quieted = $self->_enforcement_read($store);
-        my $told = $quieted->{announced_version};
-        my $said = $quieted->{announced_changes} ||= [];
-        my $change = ( $told // '' ) . '>' . $VERSION;
-        my $upgraded;
-        if ( ( $told // '' ) ne $VERSION && !grep { $_ eq $change } @{$said} ) {
-            $upgraded = { to => $VERSION, ( defined $told ? ( from => $told ) : () ) };
-            push @{$said}, $change;
-            $quieted->{announced_version} = $VERSION;
-            $self->_enforcement_write( $store, $quieted );
+        my ( $upgraded, $told ) = @{ $self->_with_enforcement_lock( $store, sub {
+            my $quieted = $self->_enforcement_read($store);
+            my $told = $quieted->{announced_version};
+            my $said = $quieted->{announced_changes} ||= [];
+            my $change = ( $told // '' ) . '>' . $VERSION;
+            my $upgraded;
+            if ( ( $told // '' ) ne $VERSION && !grep { $_ eq $change } @{$said} ) {
+                $upgraded = { to => $VERSION, ( defined $told ? ( from => $told ) : () ) };
+                push @{$said}, $change;
+                $quieted->{announced_version} = $VERSION;
+                $self->_enforcement_write( $store, $quieted );
+            }
+            elsif ( ( $told // '' ) ne $VERSION ) {
 
-            # A bridge line trusted the agent to act on it - easy to scroll
-            # past among everything else a pass says, with nothing tracking
-            # whether it ever was. TKT-604, TSK-181: raise a standing ticket
-            # instead, which does not go away until somebody closes it.
-            # Nothing to gate on a board's first-ever pass - there is no
-            # "from" to have missed anything in - so only a real upgrade,
-            # not the initial "Tira is now X", raises one.
-            $self->_raise_upgrade_gate( $root, $upgraded ) if defined $told;
-        }
-        elsif ( ( $told // '' ) ne $VERSION ) {
+                # Said before, so nothing is written to the agent - but the
+                # board still records which version it is looking at, or the
+                # next genuine change would be measured from the wrong place.
+                $quieted->{announced_version} = $VERSION;
+                $self->_enforcement_write( $store, $quieted );
+            }
+            return [ $upgraded, $told ];
+        } ) };
 
-            # Said before, so nothing is written to the agent - but the board
-            # still records which version it is looking at, or the next
-            # genuine change would be measured from the wrong place.
-            $quieted->{announced_version} = $VERSION;
-            $self->_enforcement_write( $store, $quieted );
-        }
+        # A bridge line trusted the agent to act on it - easy to scroll past
+        # among everything else a pass says, with nothing tracking whether it
+        # ever was. TKT-604, TSK-181: raise a standing ticket instead, which
+        # does not go away until somebody closes it. Nothing to gate on a
+        # board's first-ever pass - there is no "from" to have missed
+        # anything in - so only a real upgrade, not the initial "Tira is now
+        # X", raises one. Deliberately OUTSIDE the enforcement lock above
+        # (TKT-1118): card creation is not part of the race the lock exists
+        # to close, and holding that lock while it runs would block every
+        # other enforcement.json writer for as long as it takes.
+        $self->_raise_upgrade_gate( $root, $upgraded ) if $upgraded && defined $told;
         return $upgraded;
     } );
 }
@@ -11071,6 +11090,19 @@ sub _violation_terminal_notice {
 # project lock, t/364 proves it here.
 sub _with_enforcement_lock {
     my ( $self, $store, $code ) = @_;
+
+    # TKT-1118. Reentrant, the same shape _with_project_lock already has
+    # and for the identical reason: rule_suspend writes the rule itself
+    # and then calls _enforcement_record to log it, both now under this
+    # same lock - a second, unguarded flock() on the same path from the
+    # same process blocks forever rather than succeeding, since flock()
+    # locks are per open file description, not per process. Proved not to
+    # deadlock in t/1144 by actually calling rule_suspend under a bounded
+    # alarm(), not only by reading this guard's presence.
+    if ( $self->{_enforcement_locked}{$store} ) {
+        return $code->();
+    }
+    local $self->{_enforcement_locked}{$store} = 1;
     make_path($store) if !-d $store;
     my $lock_path = File::Spec->catfile( $store, '.lock' );
     open my $lock, '>>', $lock_path or die "Cannot open enforcement lock '$lock_path': $!\n";
@@ -12950,11 +12982,20 @@ sub bridge_write {
         $board = eval { $self->project_show( project => $args{project} )->{name} };
     }
     if ( defined $board && $args{store} ) {
-        my $ledger = eval { $self->_enforcement_read( $args{store} ) } || {};
-        if ( ( $ledger->{board} // '' ) ne $board ) {
-            $ledger->{board} = $board;
-            eval { $self->_enforcement_write( $args{store}, $ledger ) };
-        }
+        # TKT-1118: same race, same store, same lock as _enforcement_record.
+        # Best-effort either way (the outer eval already swallowed a read/
+        # write failure here before this fix), so the lock only removes the
+        # race - a failure inside it still cannot break bridge_write itself.
+        eval {
+            $self->_with_enforcement_lock( $args{store}, sub {
+                my $ledger = $self->_enforcement_read( $args{store} ) || {};
+                if ( ( $ledger->{board} // '' ) ne $board ) {
+                    $ledger->{board} = $board;
+                    $self->_enforcement_write( $args{store}, $ledger );
+                }
+                return 1;
+            } );
+        };
     }
 
     # First, because it changes how everything under it should be read: a rule
@@ -13138,10 +13179,13 @@ sub bridge_write {
 sub bridge_touch {
     my ( $self, %args ) = @_;
     my $store = $args{store} or return 0;
-    my $log = $self->_enforcement_read($store);
-    $log->{bridge_read_at} = $self->{clock}->();
-    $self->_enforcement_write( $store, $log );
-    return 1;
+    # TKT-1118: same race, same store, same lock as _enforcement_record.
+    return $self->_with_enforcement_lock( $store, sub {
+        my $log = $self->_enforcement_read($store);
+        $log->{bridge_read_at} = $self->{clock}->();
+        $self->_enforcement_write( $store, $log );
+        return 1;
+    } );
 }
 
 sub bridge_backlog {
@@ -13637,6 +13681,10 @@ sub _enforcement_write {
 sub _enforcement_record {
     my ( $self, %args ) = @_;
     my $store = $args{store} or die "A police store is required\n";
+    # TKT-1118: an unlocked read-modify-write of the same store every
+    # other enforcement writer now locks - a second writer's read landing
+    # before this write could otherwise silently lose either side.
+    return $self->_with_enforcement_lock( $store, sub {
     my $log = $self->_enforcement_read($store);
     push @{ $log->{entries} }, {
         at => $self->{clock}->(),
@@ -13655,6 +13703,7 @@ sub _enforcement_record {
     };
     $self->_enforcement_write( $store, $log );
     return 1;
+    } );
 }
 
 # What is still true, asked as a question.
@@ -13900,6 +13949,12 @@ sub rule_suspend {
     my $at = _epoch_of_datetime( $self->{clock}->(), 'Clock' );
     my $until = _iso_from_epoch( $at + $seconds );
 
+    # TKT-1118: locked from the first read through the log write AND the
+    # _enforcement_record call right after - that call re-enters this same
+    # lock (now reentrant), so both writes this one command makes land
+    # under a single, unbroken hold rather than racing a second writer
+    # between them.
+    $self->_with_enforcement_lock( $store, sub {
     my $log = $self->_enforcement_read($store);
 
     # Kept by rule, and within a rule by card. A rule put down for one card must
@@ -13921,6 +13976,8 @@ sub rule_suspend {
         fields => { rule => $rule, seconds => $seconds, reason => $reason,
           ( defined $pid ? ( pid => $pid ) : () ) },
     );
+    return 1;
+    } );
 
     return { rule => $rule, ref => $ref, until => $until, reason => $reason,
       ( defined $pid ? ( pid => $pid ) : () ) };
@@ -13982,6 +14039,13 @@ sub police_suspend {
 
     my $now = $self->{clock}->();
     my $at = _epoch_of_datetime( $now, 'Clock' );
+
+    # TKT-1118: locked from the read this decision is based on through
+    # both writes it makes (the log itself, then _enforcement_record's own
+    # entry) - the reentrant lock lets that second call re-enter safely,
+    # so a concurrent writer can only run its own read-decide-write
+    # entirely before or entirely after this one, never interleaved with it.
+    return $self->_with_enforcement_lock( $store, sub {
     my $log = $self->_enforcement_read($store);
 
     # A renewal is any suspension asked for within the hour of the last one.
@@ -14029,6 +14093,7 @@ sub police_suspend {
         renewal => $renewal, quiet_seconds_today => $quiet_so_far,
         terminal => $terminal,
     };
+    } );
 }
 
 sub police_suspended {

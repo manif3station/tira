@@ -81,11 +81,16 @@ ok( -e '.developer-dashboard/skills/gate/cli/run', 'tools/gate-run still exists'
 like( $text, qr/gate-run/, 'dev-run\'s own header names gate-run as the tool it sits beside, not replaces' );
 
 # --- README.md points at it -------------------------------------------------
+#
+# tools/dev-run was renamed to the d2-dispatched `d2 dev.run` since this
+# test was written (matching the project's own d2 <skill>.<verb>
+# convention) - checked here as the current name, not the retired literal
+# path.
 
 open my $readme, '<', 'README.md' or die "Cannot read README.md: $!";
 my $readme_text = do { local $/; <$readme> };
 close $readme;
-like( $readme_text, qr/tools\/dev-run/,
+like( $readme_text, qr/d2 dev\.run/,
     'README.md names the working-tree runner alongside the raw command it documents' );
 
 done_testing;

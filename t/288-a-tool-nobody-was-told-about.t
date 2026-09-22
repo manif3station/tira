@@ -28,7 +28,11 @@ open my $readme, '<', 'README.md' or die "Cannot read README.md: $!";
 my $readme_text = do { local $/; <$readme> };
 close $readme;
 
-like( $readme_text, qr/tools\/gate-run/,
+# tools/gate-run was renamed to the d2-dispatched `d2 gate.run` since this
+# test was written (matching the project's own d2 <skill>.<verb> convention
+# for every helper script) - checked here as the current name, not the
+# retired literal path.
+like( $readme_text, qr/d2 gate\.run/,
     'README.md names the tool that avoids a duplicate suite run' );
 
 # The guidance has to say WHEN, not just that the tool exists - the gap this
@@ -36,7 +40,7 @@ like( $readme_text, qr/tools\/gate-run/,
 # to run it between committing and pushing.
 my ($verification) = $readme_text =~ /^## Verification\n(.*?)(?=^## |\z)/ms;
 ok( defined $verification, 'the Verification section is where this lives' );
-like( $verification, qr/tools\/gate-run/,
+like( $verification, qr/d2 gate\.run/,
     'and the guidance is inside the section about proving a change' );
 like( $verification, qr/\bcommit\b.*\bpush\b|\bpush\b.*\bcommit\b/is,
     'and it says where gate-run sits between committing and pushing' );

@@ -20,6 +20,15 @@
 # gets the lock after the first has already written, and its own fresh
 # read then shows the change already recorded.
 #
+# TKT-1118 update: the project lock alone only serialised two
+# _announce_upgrade calls against each other - it shared no lock with the
+# enforcement store's other writers (bridge_write, bridge_touch,
+# _enforcement_record, rule_suspend, police_suspend), all of which take a
+# separate _with_enforcement_lock keyed on the store path. The
+# read-decide-write below is now ALSO wrapped in _with_enforcement_lock,
+# nested inside the project lock, so this method now serialises against
+# every other writer of the same file, not merely against itself.
+#
 # A genuine two-process race is exactly what this bug needed to reproduce
 # live, and is exactly what a deterministic test suite should not try to
 # force - a monkeypatched "concurrent" call landing at the wrong one of
@@ -55,23 +64,31 @@ like( $announce // '', qr/_with_project_lock/,
     'and it is wrapped in the project lock, so two watchers racing the same '
       . 'enforcement store cannot both decide before either writes' );
 
+# TKT-1118: also wrapped in _with_enforcement_lock, nested inside the
+# project lock, so it serialises against the store's other writers too -
+# not merely against another _announce_upgrade call.
+like( $announce // '', qr/_with_enforcement_lock/,
+    'and it is ALSO wrapped in the enforcement lock, so it serialises against '
+      . 'bridge_write/bridge_touch/_enforcement_record/rule_suspend/police_suspend '
+      . 'racing the same store, not only against another _announce_upgrade call' );
+
 # THE ORDER MATTERS, so this does not just grep the whole method for both
 # strings - a locked callback that reads nothing, followed by a read once
 # the lock has already been released, would satisfy that and change
 # nothing about the race. Captured by its own closing line (a lone
-# 4-space-indented "} );", the shape this file's own callback closes
-# with - not `.*?\n\}` alone, which nested if/elsif blocks inside the
-# callback would satisfy first at their own 8-space-indented "}").
+# 8-space-indented "} ) };", the shape this file's own inner callback
+# closes with - not `.*?\n\}` alone, which nested if/elsif blocks inside
+# the callback would satisfy first at their own 12-space-indented "}").
 my ($callback) = $announce =~
-  /_with_project_lock\s*\(\s*\$root\s*,\s*sub\s*\{(.*?)\n {4}\}\s*\);/s;
+  /_with_enforcement_lock\s*\(\s*\$store\s*,\s*sub\s*\{(.*?)\n {8}\}\s*\)\s*\};/s;
 ok( defined $callback,
-    "found the callback _with_project_lock actually runs, bounded by its own closing "
+    "found the callback _with_enforcement_lock actually runs, bounded by its own closing "
       . 'line rather than the first brace anywhere in the method' );
 
 like( $callback // '', qr/\A\s*my \$quieted = \$self->_enforcement_read/,
-    'and the very first thing that callback does, once it holds the lock, is its own '
+    'and the very first thing that callback does, once it holds BOTH locks, is its own '
       . 'fresh read of the enforcement store - not a value the caller read before '
-      . 'taking the lock, which a locked block merely guarding a stale read would still '
+      . 'taking either lock, which a locked block merely guarding a stale read would still '
       . 'leave racing' );
 
 done_testing();

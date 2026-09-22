@@ -230,7 +230,23 @@ does"). TKT-487: the same file has two more writers besides `violation_record`
 - the move-notification stamp and the agent-still throttle stamp - each doing
 their own read-modify-write of it. Both now share the same lock, factored into
 one `_with_enforcement_lock` helper, so all three serialise against each other
-rather than only against themselves.
+rather than only against themselves. TKT-1118: five more callers of the same
+store - `bridge_write`, `bridge_touch`, `_enforcement_record`, `rule_suspend`,
+`police_suspend` - had the identical unlocked read-modify-write gap, found by
+Codex review of TKT-1114's own fix and deliberately scoped out of it. All five
+now share the same `_with_enforcement_lock`. `rule_suspend` calls
+`_enforcement_record` internally, so `_with_enforcement_lock` was made
+reentrant (a `{_enforcement_locked}{$store}` guard) before wrapping both -
+`flock()` blocks a second open file description on the same path even from the
+process already holding it, so an unguarded second acquisition here would have
+deadlocked every rule suspension, not merely raced one. A follow-up Codex pass
+on TKT-1118's own documentation found a sixth gap in the same family:
+`_announce_upgrade` (TKT-1114's own fix) only took `_with_project_lock` - a
+different mutex, keyed on the project root rather than the store path - so it
+still shared no exclusion with any of the five above. It now takes
+`_with_enforcement_lock` too, nested inside its existing project lock, so
+every read-modify-write of `enforcement.json` in `lib/Tira.pm` now shares one
+lock.
 
 `d2 tira.police` is meant to be a singleton per board - his own words, asked
 directly after the duplicate-daemon investigation above: "Whoever the last run
@@ -2184,7 +2200,10 @@ the plain functions `_render_view`, `_view_asset` and `json_object`.
 
 **`--help` on a command that does not exist is refused, not answered, since 5.112** (TKT-660). `Tira::CLI->run()` handled `--help` before dispatch, so a name with no entrypoint anywhere got the fallback usage line - grammatical, correctly formatted, naming the invented command back - and returned success. The dispatcher's own unknown-command "Did you mean" was never reached, because the help branch returns before dispatch runs at all. New module `lib/Tira/CLI/Command.pm` answers whether a bare command is real by reading `lib/Tira/CLI.pm`'s own dispatch surface: both the literal `$command eq '...'` shape t/410 already reads for its usage-line ledger, AND the regex-alternation shape (`$command =~ /\Alogin\.(register|check|status|logout)\z/` and two dozen more) t/410 does not need to check. An early version of this fix checked only the first shape and would have refused `--help` for `login.status`, `dashboard.sow` and every other regex-dispatched command as though it did not exist - caught by this ticket's own `t/1086` the first time it ran against a real implementation. The fix tests the dispatch regex objects directly against the given name rather than trying to re-derive every concrete string an alternation can produce, and was verified with a standalone sweep against all statically-extracted real commands (0 false negatives) before shipping. Typed record commands (`ticket.foo`, `epic.bar`) are unaffected - they always arrive with `$type` already set by their own entrypoint script, never as the bare dotted name. Split into its own module rather than growing `lib/Tira/CLI/Usage.pm` past its own 500-line limit, which t/524 caught live mid-implementation.
 
-`lib/Tira.pm` is 15,584 lines now (TKT-1133, 5.164), which removed
+`lib/Tira.pm` is 15,730 lines now (TKT-1118, 5.175), which added
+`_with_enforcement_lock` coverage to `_announce_upgrade`, `bridge_write`,
+`bridge_touch`, `_enforcement_record`, `rule_suspend` and `police_suspend`.
+It was 15,584 as of TKT-1133 (5.164), which removed
 a pointless identity-map hash from record_update. It was 15,368 as
 of TKT-972 (5.150 - measured now rather
 than carried forward, the fault this section is about). It was 15,317 as

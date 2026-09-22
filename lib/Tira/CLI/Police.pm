@@ -102,7 +102,7 @@ sub police_follow {
     for my $signal (qw(INT TERM HUP)) {
         $SIG{$signal} = sub {
             police_goodbye( $tira, $signal );
-            police_release_singleton( $store, %{ $option->{singleton} // {} } );
+            police_release_singleton( $store, %singleton );
             $leave->();
         };
     }
@@ -200,6 +200,7 @@ sub police_follow {
 
         $wait->($interval);
     }
+    police_release_singleton( $store, %singleton );    # TKT-1104: matches the claim's own normalized %singleton, same as bridge_follow.
     return { rounds => $done };
 }
 # The world scan (police_world and its own machine-reading helpers) lives in
@@ -420,6 +421,7 @@ sub bridge_follow {
         print Tira::CLI::_utf8_bytes( join '', map { "$_\n" } @{$all}[ $seen .. $#{$all} ] );
         $seen = scalar @{$all};
     }
+    police_release_singleton( $store, %singleton );    # TKT-1104: same gap as police_follow's normal exit above.
     return $seen;
 }
 # An agent working on something else, reporting a fault in Tira. It knows what
@@ -655,11 +657,8 @@ sub police_freshness {
     # as data; saying it cannot be read says what the caller actually knows.
     #
     # TKT-1094: age_seconds can also be undef because the CLOCK reading (not
-    # the stored stamp) failed to parse - unreachable in real production, the
-    # clock always emits a valid ISO 8601 string there, but a caller with an
-    # injected clock (a test) can hit it, and blaming the stored stamp for a
-    # failure that was actually the clock's sends a reader looking for
-    # corruption in the wrong place. Named only when it is actually the
+    # the stored stamp) failed to parse - unreachable in production but
+    # reachable with an injected test clock. Named only when actually the
     # cause; the ordinary case's wording is unchanged.
     return [ 'last pass ' . $answer->{taken_at} . ' - UNREADABLE'
           . ( ( $answer->{unreadable} // '' ) eq 'clock'

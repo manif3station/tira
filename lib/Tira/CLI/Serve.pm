@@ -765,17 +765,20 @@ sub _spawn_police_beside_board {
     return $pid;
 }
 
-# THE PASS DIES WITH THE BOARD. A police child outliving the server it was
-# started beside would hold the singleton claim while nothing served the board,
-# so the next tira.police would stand down in favour of a dashboard that is
-# gone. Reaped as well as signalled, so the claim is released before the serving
-# command returns rather than whenever the child happens to be collected.
-sub _stop_police_beside_board {
+# THE PASS DIES WITH THE BOARD - reaped as well as signalled, so a claim
+# is released before the serving command returns. TKT-1127: police and
+# policy-bridge below were identical copies of this body; both delegate here.
+sub _stop_child_beside_board {
     my ($child) = @_;
     return 0 if !$child;
     kill 'TERM', $child;
     waitpid $child, 0;
     return 1;
+}
+
+sub _stop_police_beside_board {
+    my ($child) = @_;
+    return _stop_child_beside_board($child);
 }
 
 # TKT-1026, his own answer to Q-151: "if --with-policy-bridge then d2 tira.
@@ -827,10 +830,7 @@ sub _spawn_policy_bridge_beside_board {
 
 sub _stop_policy_bridge_beside_board {
     my ($child) = @_;
-    return 0 if !$child;
-    kill 'TERM', $child;
-    waitpid $child, 0;
-    return 1;
+    return _stop_child_beside_board($child);
 }
 
 # --with-police (TKT-897) and --with-policy-bridge (TKT-1026) are refused

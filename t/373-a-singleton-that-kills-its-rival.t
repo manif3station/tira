@@ -53,45 +53,74 @@ sub follow {
 
 {
     my @killed;
+    my $pid_path = File::Spec->catfile( $store, '.police.pid' );
+    # TKT-1104: police_follow now releases its own claim on a normal
+    # finite-rounds exit (the same as its signal handler already did), so
+    # the file is checked WHILE the round is still running (via the
+    # injected sleeper, which runs inside the loop) rather than after
+    # follow() has already returned and released it.
+    my $written;
     follow( singleton => {
         pid => 111,
         alive => sub { return 0 },
         kill  => sub { push @killed, $_[0] },
-    } );
-    ok( -f File::Spec->catfile( $store, '.police.pid' ), 'the claim leaves a pid file behind' );
-    open my $fh, '<', File::Spec->catfile( $store, '.police.pid' ) or die $!;
-    my $written = do { local $/; <$fh> };
-    close $fh;
-    is( $written, '111', 'carrying this run\'s own pid' );
+    }, extra => { sleeper => sub {
+        open my $fh, '<', $pid_path or die $!;
+        $written = do { local $/; <$fh> };
+        close $fh;
+    } } );
+    is( $written, '111', 'the claim leaves a pid file behind, carrying this run\'s own pid, while the round runs' );
+    ok( !-f $pid_path, 'and releases it once the round (and the whole finite-rounds call) has finished' );
     is( scalar @killed, 0, 'nothing was killed - there was nothing to kill' );
 }
 
 # --- a second daemon claiming kills the first, the loser ---------------------
 
 {
+    # TKT-1104: the previous block's own claim (pid 111) is no longer left
+    # behind for this block to find - a normal finite-rounds follow() now
+    # releases its own claim on exit, same as that block already proved.
+    # Set up this block's own precondition directly instead of relying on
+    # leftover state from the previous one.
+    Tira::CLI::Police::police_claim_singleton( $store, pid => 111, alive => sub { 0 }, kill => sub { } );
+
     my @killed;
     my @alive_checked;
+    my $written;
     follow( singleton => {
         pid => 222,
         alive => sub { push @alive_checked, $_[0]; return 1 },
         kill  => sub { push @killed, $_[0] },
-    } );
+    }, extra => { sleeper => sub {
+        open my $fh, '<', File::Spec->catfile( $store, '.police.pid' ) or die $!;
+        $written = do { local $/; <$fh> };
+        close $fh;
+    } } );
     is_deeply( \@alive_checked, [111], 'the previous pid is checked for life' );
     is_deeply( \@killed, [111], 'and killed - it is the loser, the new run is the winner' );
-    open my $fh, '<', File::Spec->catfile( $store, '.police.pid' ) or die $!;
-    is( do { local $/; <$fh> }, '222', 'the new pid overwrites the old claim' );
-    close $fh;
+    is( $written, '222', 'the new pid overwrites the old claim, while the round runs' );
 }
 
 # --- a dead previous pid is not killed - nothing to kill, just overwritten --
 
 {
+    # TKT-1104: the previous block's own claim is gone (released on its
+    # own normal exit), so this block needs its own precondition to
+    # actually exercise alive() at all, rather than vacuously passing
+    # because there is nothing left to check aliveness of. A DIFFERENT
+    # pid than the one claiming below - police_claim_singleton skips the
+    # alive() check entirely when the previous pid equals the new one
+    # (a process reclaiming its own slot, not a rival).
+    Tira::CLI::Police::police_claim_singleton( $store, pid => 300, alive => sub { 0 }, kill => sub { } );
+
     my @killed;
+    my @alive_checked;
     follow( singleton => {
         pid => 333,
-        alive => sub { return 0 },
+        alive => sub { push @alive_checked, $_[0]; return 0 },
         kill  => sub { push @killed, $_[0] },
     } );
+    is_deeply( \@alive_checked, [300], 'aliveness really was checked for the previous pid' );
     is( scalar @killed, 0, 'a pid that is no longer alive is not sent a signal' );
 }
 
@@ -99,16 +128,29 @@ sub follow {
 
 {
     my $left = 0;
+    my $existed_mid_round;
+    # TKT-1104: follow() runs rounds=>1 synchronously and returns before
+    # this block continues, and a normal finite-rounds exit now releases
+    # the claim itself (this ticket's own fix) - so the file is checked
+    # mid-round, via the injected sleeper, to prove it really was held
+    # while the daemon was running.
     follow(
         singleton => { pid => 444, alive => sub { 0 }, kill => sub { } },
-        extra => { leave => sub { $left = 1 } },
+        extra => { leave => sub { $left = 1 }, sleeper => sub {
+            $existed_mid_round = -f File::Spec->catfile( $store, '.police.pid' ) ? 1 : 0;
+        } },
     );
-    ok( -f File::Spec->catfile( $store, '.police.pid' ),
-        'the claim exists while the daemon is still running its rounds' );
-    kill 'TERM', $$;    # exercised through the real SIG{TERM} handler _police_follow installs
-    ok( $left, 'the injected leave handler ran on the signal' );
+    ok( $existed_mid_round, 'the claim existed while the daemon was still running its rounds' );
     ok( !-f File::Spec->catfile( $store, '.police.pid' ),
-        'and a clean exit released the claim, so the next daemon sees nothing stale' );
+        'and a normal, finite-rounds exit already released it, so the next daemon sees nothing stale' );
+
+    # The signal handler _police_follow installed is still live in %SIG
+    # after a normal return (a global, not scoped to the call) - firing
+    # it late, against a claim its own normal exit already released, must
+    # still run the leave handler and must not die trying to release an
+    # already-gone file.
+    kill 'TERM', $$;
+    ok( $left, 'and the still-installed signal handler still runs cleanly afterward' );
 }
 
 # --- the real pid/alive/kill defaults, not just the injected fakes above ---

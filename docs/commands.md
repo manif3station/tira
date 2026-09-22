@@ -53,7 +53,13 @@ first `--exempt-reason`, and so on. Every `--exempt-required` needs a
 matching `--exempt-reason` and vice versa, in either direction and however
 few are given - a card cannot be born, or later made, exempt from a
 required item without a reason recorded for it, the same discipline
-`discard-unexplained` applies to a card set aside. **Since 5.108, this is
+`discard-unexplained` applies to a card set aside. **`--exempt-required`
+accepts EITHER a required item's own REQ id (`REQ-082`, the identifier
+`d2 tira.required-action.list` and every police finding already name it
+by) OR its exact item text, since 5.182 (TKT-1084).** A live incident
+used the id, since that is what everything else on the board calls a
+required item by, and it silently had no effect: the exempt check only
+ever matched against item text. **Since 5.108, this is
 enforced in both directions** (TKT-1078): `--exempt-reason` given with no
 `--exempt-required` at all used to be accepted and do nothing, the same
 silent-swallow shape TKT-281/302/431/581/1077 all fixed for other flags.

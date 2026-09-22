@@ -1,5 +1,15 @@
 Revision history for Tira
 
+5.182  2026-09-22
+    - TKT-1084: --exempt-required's value was matched against a required
+      item's descriptive text only, never its REQ id - so a live
+      exemption naming an item by its board-visible id (the identifier
+      every police finding and required-action.list already use)
+      silently had no effect, in required-action-stranded, the
+      departure gate, AND the entry gate (all three share the same
+      exempt-matching pattern). Now matched against either. New test at
+      t/1151.
+
 5.181  2026-09-22
     - TKT-1009: discover_project() only consulted its registered path
       alias when the literal candidate did not already exist as a file

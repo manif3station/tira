@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.181';
+our $VERSION = '5.182';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -7771,6 +7771,22 @@ sub _policy_older_than {
     return $now - $then > $seconds;
 }
 
+# TKT-1084: an exemption matches a required item by its own REQ id OR its
+# exact item text - but not BOTH from one exempt value, or a genuine text
+# exemption whose text happens to equal a DIFFERENT item's id would
+# unintentionally exempt that other item too (Codex review). A value
+# shaped like a REQ id (REQ-NNN, the only shape this board ever writes
+# into an id field) is only ever an id match; anything else is text-only.
+# lib/Tira/CLI/Move.pm keeps its own copy (_item_is_exempt) - a different
+# package, the same small rule, not worth an import for.
+sub _required_item_is_exempt {
+    my ( $exempt, $item ) = @_;
+    return 1 if defined $item->{id} && $exempt->{ $item->{id} };
+    my $text = $item->{item};
+    return 0 if !defined $text || $text =~ /\AREQ-\d+\z/;
+    return $exempt->{$text} ? 1 : 0;
+}
+
 # discard-unexplained's own actual computation, extracted so police_explain
 # (TKT-786) can print the same inputs the rule itself reads rather than a
 # second copy that could drift from the verdict. Everything the rule body
@@ -8800,7 +8816,7 @@ sub policy_evaluate {
                       && exists $order->{$column}
                       && $order->{$column} < $order->{$current}
                       && $column ne 'discard'
-                      && !$exempt{ $_->{item} }
+                      && !_required_item_is_exempt( \%exempt, $_ )
                       && lc( $_->{status} // '' ) ne 'done';
                 } @{ $record->{required_items} // [] };
                 next if !@stranded;

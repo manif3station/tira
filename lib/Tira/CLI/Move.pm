@@ -229,7 +229,7 @@ sub _column_entry_required_action_violation {
         # symmetric with how it already satisfies the exit list.
         ( $_->{column} // '' ) eq $to
           && ( $_->{entry} || $wanted{ $_->{item} // '' } )
-          && !$exempt{ $_->{item} }
+          && !_item_is_exempt( \%exempt, $_ )
           && !_item_is_done($_);
     } @{ $refreshed->{required_items} // [] };
     return undef if !@unmet;
@@ -272,7 +272,7 @@ sub _unmet_in_column {
       @{ $record->{required_exempt} // [] };
     return [ grep {
         ( $_->{column} // '' ) eq $column
-          && !$exempt{ $_->{item} }
+          && !_item_is_exempt( \%exempt, $_ )
           && !_item_is_done($_);
     } @{ $record->{required_items} // [] } ];
 }
@@ -388,6 +388,20 @@ sub _column_required_action_violation {
 sub _item_is_done {
     my ($item) = @_;
     return lc( ( ref $item eq 'HASH' ? $item->{status} : $item ) // '' ) eq 'done';
+}
+
+# TKT-1084: an exemption matches a required item by its own REQ id OR its
+# exact item text - but not BOTH from one exempt value, or a genuine text
+# exemption whose text happens to equal a DIFFERENT item's id would
+# unintentionally exempt that other item too (Codex review). A value
+# shaped like a REQ id (REQ-NNN, the only shape this board ever writes
+# into an id field) is only ever an id match; anything else is text-only.
+sub _item_is_exempt {
+    my ( $exempt, $item ) = @_;
+    return 1 if defined $item->{id} && $exempt->{ $item->{id} };
+    my $text = $item->{item};
+    return 0 if !defined $text || $text =~ /\AREQ-\d+\z/;
+    return $exempt->{$text} ? 1 : 0;
 }
 
 sub _remind_one_at_a_time {

@@ -1,5 +1,25 @@
 Revision history for Tira
 
+5.180  2026-09-22
+    - TKT-1138 (found by a Codex review of TKT-1104's own fix, 5.178):
+      police_release_singleton's ownership check (read the file, compare
+      the stored pid) and its unlink were two separate steps with nothing
+      serializing them against a concurrent police_claim_singleton on the
+      same path - a successor's claim landing in that gap had its own
+      live file deleted by the outgoing release. Both functions now take
+      the same lock across their whole body. New test at t/1149.
+
+5.179  2026-09-22
+    - TKT-1093 (found live as JOB-008 on the developer-dashboard project's
+      own board, "d2 check-tickets" - misdiagnosed as a word-splitting
+      bug and corrected on the card): tira.job.add now warns, without
+      refusing, when a --command's first word is not an absolute path
+      and does not resolve on this process's own $PATH. The job daemon
+      execs a job's command with no shell and no interactive PATH
+      (docs/JOBS.md, TKT-1002/959), so a bare name that only resolves
+      under an interactive shell used to be accepted silently and fail
+      with ENOENT every time the job fired. New test at t/1148.
+
 5.178  2026-09-21
     - TKT-1104, found by the 2-hourly improvement hunt (TKT-521) while
       reading bridge_follow/police_follow's own singleton mechanism

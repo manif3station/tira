@@ -556,6 +556,24 @@ my $tasklist = [ { pid => 7, command => 'perl.exe', started_at => undef } ];
         'and prove.exe on another pid is not that monitor' );
 }
 
+# --- job.feeder, the monitor-as-one-process helper, actually dispatches ----
+#
+# TKT-927's own helper (the one ps shows a readable line for) was reachable
+# only by spawning a real subprocess, which no test here does - dispatch's
+# 'job.feeder' branch (require Tira::CLI::Job::Feeder; return ...run_feeder)
+# had never actually run under any test, found only because this coverage
+# run was the first true full-suite pass under Devel::Cover in a while.
+# run_feeder's own first line refuses a missing id, which is enough to prove
+# dispatch really reaches it without starting a real monitor process.
+{
+    my $refused = eval {
+        Tira::CLI::Job::dispatch( $tira, { project => $root }, {}, 'job.feeder' );
+        1;
+    };
+    ok( !$refused, 'job.feeder dispatches into Job::Feeder::run_feeder, which refuses a missing id' );
+    like( $@, qr/job id is required/i, 'and says why, rather than dying somewhere unrelated' );
+}
+
 done_testing();
 
 __END__

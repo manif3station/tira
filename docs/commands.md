@@ -4687,7 +4687,7 @@ runs a `--command` — never both and never neither, because a record carrying
 both cannot say which the bridge should get. `mode` records which it is, so a
 reader never has to infer it from whichever field is populated.
 
-- `tira.job.add --schedule CRON|monitor (--command TEXT | --message TEXT) [--expect-every MINUTES] [--restart-every SECONDS] [-o FORMAT]`
+- `tira.job.add --schedule CRON|monitor (--command TEXT | --message TEXT) [--expect-every MINUTES] [--restart-every SECONDS] [-o FORMAT]` — since 5.179 (TKT-1093), a `--command` whose first word is a bare word (no `/` or `\` anywhere in it) and does not resolve on this process's own `$PATH` prints a warning to STDERR naming the word, without refusing the job: `run_due_job` execs with no shell and no interactive PATH, so a bare name that only works from a login shell would otherwise fail silently with `ENOENT` every time the job fires.
 - `tira.job.list [--id ID] [-o FORMAT]`
 - `tira.job.update --id ID [--schedule CRON|monitor] [--command TEXT] [--message TEXT] [--expect-every MINUTES] [--restart-every SECONDS] [--enabled 1|yes|true|on|0|no|false|off] [-o FORMAT]`
 - `tira.job.delete --id ID [-o FORMAT]`

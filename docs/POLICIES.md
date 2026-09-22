@@ -180,6 +180,17 @@ beside_board` sets `TIRA_POLICY_BRIDGE_HOLDER=dashboard` the same way
 `_spawn_police_beside_board` sets `TIRA_POLICE_HOLDER`, so a dashboard-spawned
 bridge is not killed by a later ordinary `d2 tira.policy.bridge`.
 
+**The claim and the release are serialized against each other, since TKT-1138.**
+`police_release_singleton` used to open the pid file, read it, close the
+handle, compare the stored pid to its own, and only then `unlink` - three
+separate steps with nothing holding the file still across them. A successor's
+`police_claim_singleton` (its own read-decide-write) could land in the gap
+between the ownership check and the `unlink`, and the outgoing release then
+deleted the successor's live claim instead of its own already-stale one -
+found by a Codex review of TKT-1104's own fix above. Both functions now take
+the same `flock` across their whole body (a shared `_with_singleton_lock`
+wrapper), so a release and a claim on the same path can never interleave.
+
 **While the dashboard holds police, a separate `d2 tira.police` stands down.**
 It says which process holds the watch and exits 0 - standing aside is the
 correct outcome, not a failure. (`d2 tira.policy.bridge` behaves the same way

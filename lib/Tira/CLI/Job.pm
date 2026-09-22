@@ -14,6 +14,7 @@ package Tira::CLI::Job;
 
 use strict;
 use warnings;
+use Config ();
 
 # How many lines the feeder gathers before writing, and how long it will wait
 # for more before writing what it has anyway.
@@ -34,6 +35,24 @@ our $QUIET_AFTER_SECONDS  = 2;
 # here instead. Two of them is refused rather than silently taking one - a job
 # runs exactly one command, and quietly dropping the other is the same fault
 # the whole option guard above exists to prevent.
+# TKT-1093: warns, never refuses, when --command's bare word won't resolve.
+sub _warn_if_unresolvable {
+    my ($command) = @_;
+    return if !defined $command || $command eq '';
+    require Tira::Job;
+    my ($word) = eval { Tira::Job::job_command_words($command) };    # can die on a bad quote
+    return if !defined $word || $word eq '' || $word =~ m{[\\/]};    # separator = already a path
+    require File::Spec;
+    my $path_env = $ENV{PATH} // '';
+    for my $raw_dir ( $path_env eq '' ? ('') : split /\Q$Config::Config{path_sep}\E/, $path_env, -1 ) {
+        my $dir = $raw_dir eq '' ? '.' : $raw_dir;    # empty segment (leading/trailing/whole) = cwd
+        return if -f File::Spec->catfile( $dir, $word ) && -x File::Spec->catfile( $dir, $word );
+    }
+    print {*STDERR} "tira.job.add: '$word' is not absolute/PATH-resolvable - the "
+      . "daemon execs with no shell, so this will likely ENOENT when the job fires.\n";
+    return;
+}
+
 sub _command_of {
     my ($option) = @_;
     my $given = $option->{command};
@@ -259,16 +278,17 @@ sub dispatch {
 
     my $job_command = _command_of($option);
 
-    return $tira->job_add(
-        %{$args},
-        schedule => $option->{schedule},
-        ( defined $job_command ? ( command => $job_command ) : () ),
-        ( defined $option->{message} ? ( message => $option->{message} ) : () ),
-        ( defined $option->{expect_every}
-            ? ( expect_every => $option->{expect_every} ) : () ),
-        ( defined $option->{restart_every}
-            ? ( restart_every => $option->{restart_every} ) : () ),
-    ) if $command eq 'job.add';
+    if ( $command eq 'job.add' ) {
+        my $job = $tira->job_add(
+            %{$args}, schedule => $option->{schedule},
+            ( defined $job_command ? ( command => $job_command ) : () ),
+            ( defined $option->{message} ? ( message => $option->{message} ) : () ),
+            ( defined $option->{expect_every} ? ( expect_every => $option->{expect_every} ) : () ),
+            ( defined $option->{restart_every} ? ( restart_every => $option->{restart_every} ) : () ),
+        );
+        _warn_if_unresolvable($job_command);
+        return $job;
+    }
 
     return $tira->job_update(
         %{$args},

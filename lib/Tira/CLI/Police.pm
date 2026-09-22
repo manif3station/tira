@@ -5,12 +5,10 @@ package Tira::CLI::Police;
 # slice moved 368 lines of world-scanning and violation-following; later slices
 # brought the two police command bodies and the store and card-in-progress
 # readers, and the module is 575 lines of subs today.
-#
 # The world scan is the bulk of it: what is running on this machine, which
 # containers, which git branches and worktrees, what is unpushed, when the tree
 # last changed. None of that is needed by any other command, and all of it was
 # in the file every command had to be read through.
-#
 # WHAT STAYED IN Tira::CLI AND IS CALLED BY ITS FULL NAME HERE: the backup
 # readers (_backup_home, _backup_store, _last_backup, _later_backup,
 # _last_backup_commit), which the world scan reads but does not own; the process
@@ -18,7 +16,6 @@ package Tira::CLI::Police;
 # _containers_from, _process_command, _reading), which are general; the git
 # helpers _is_repository and _tracking_branch; _card_in_progress,
 # _dashboard_hup_if_stale, _restart_if_updated, _tira_home and _utf8_bytes.
-#
 # Qualifying them is deliberate beyond necessity. A reader of this file can see
 # at the call site that the helper lives in the index rather than here, which is
 # the distinction the split exists to make; an import would have hidden exactly
@@ -27,6 +24,7 @@ package Tira::CLI::Police;
 use strict;
 use warnings;
 use Encode ();
+use Fcntl qw(:flock);
 
 use Cwd ();
 use File::Spec ();
@@ -74,7 +72,6 @@ sub police_follow {
     # that standing aside is the correct outcome rather than a failure. A
     # non-zero status here would make every wrapper treat a working board as a
     # broken one.
-    #
     # It says WHICH process holds it, because "something else is running" is the
     # kind of message that sends somebody hunting. EPC-014, TKT-897.
     if ( $claim->{yield} ) {
@@ -136,7 +133,6 @@ sub police_follow {
             # The watch loop matters most of the three: it is the one that runs
             # continuously, so a monitor's output left unrecorded here would be
             # re-announced every round forever.
-            #
             # Through _utf8_bytes like every other output path in this file, and
             # for the same reason: STDERR is :raw on purpose (Tira::CLI::run),
             # and this is the print that runs on every poll of the standing
@@ -153,7 +149,6 @@ sub police_follow {
             print {*STDERR} Tira::CLI::_utf8_bytes( join '', map { "$_\n" } @{ $result->{terminal} } );
         }
         # Into the code that is installed, between rounds.
-        #
         # The machinery has existed since the dashboard needed it and nothing
         # here ever called it, so a police left running through a release kept
         # the rulebook it started with: rules that shipped since were not
@@ -163,11 +158,9 @@ sub police_follow {
         # and measured on this project's own board an hour later, where a fix
         # that had shipped, passed its gate and reached origin went on being
         # contradicted by the police still running the previous version.
-        #
         # Between rounds, never during a pass: police writes the bridge and the
         # enforcement ledger, and a pass cut in half would leave a violation
         # counted and unsaid, or said and uncounted.
-        #
         # _restart_if_updated asks whether the code differs rather than whether
         # a label moved, which is what stops this looping - exec loads the same
         # module again and disagrees with .env again, and four dashboards did
@@ -216,10 +209,31 @@ sub police_world {
 # injectable - the same shape leave/restarter/sleeper already use in
 # _police_follow - so this is provable without spawning or signalling a
 # real OS process. TKT-492.
+# TKT-1138: serializes claim/release on the same path. Closed EXPLICITLY,
+# not left to scope exit - a caller that closed STDERR/STDOUT first (t/84,
+# t/1104, proving a real exit handler) can make this open() land on fd
+# 2/1, and Perl does not release a flock held there on scope exit alone,
+# which deadlocked the very next claim or release on the same store.
+sub _with_singleton_lock {
+    my ( $path, $code ) = @_;
+    open my $lock, '>>', "$path.lock" or die "Cannot open '$path.lock': $!\n";
+    flock( $lock, LOCK_EX ) or die "Cannot lock '$path.lock': $!\n";
+    my $result = eval { $code->() };
+    my $error = $@;
+    close $lock;
+    die $error if $error;
+    return $result;
+}
+
 sub police_claim_singleton {
     my ( $store, %opts ) = @_;
     File::Path::make_path($store) if !-d $store;
     my $path = police_singleton_path( $store, $opts{kind} );
+    return _with_singleton_lock( $path, sub { _police_claim_singleton_locked( $path, %opts ) } );
+}
+
+sub _police_claim_singleton_locked {
+    my ( $path, %opts ) = @_;
     my $my_pid = $opts{pid} // $$;
     my $alive = $opts{alive} || sub { return kill 0, $_[0] };
     my $kill_previous = $opts{kill} || sub { kill 'TERM', $_[0] };
@@ -233,7 +247,6 @@ sub police_claim_singleton {
     # identical claim, keyed by its own kind of file (police_singleton_path's
     # own $kind), so "ordinary" here means whichever kind is claiming - a
     # policy.bridge claim's ordinary holder is 'policy-bridge', not 'police'.
-    #
     # NORMALISED TO THE TWO STATES THAT EXIST, rather than trusting whatever
     # arrives. A review pointed out that the first version preserved the bare-pid
     # write only for the exact string 'police': holder => '' wrote "1234 " with a
@@ -279,7 +292,6 @@ sub police_claim_singleton {
             # own pid on the way out would leave the record naming a process
             # about to exit while the dashboard ran on unrecorded, which is the
             # board saying something untrue about a live process.
-            #
             # A dashboard meeting a dashboard falls through to the ordinary rule
             # deliberately: the exception is about the dashboard outranking
             # police, not about dashboards being immortal.
@@ -319,7 +331,6 @@ sub police_goodbye {
 # reason past. A daemon that dies uncleanly (kill -9, a crash) leaves the
 # file behind - the next claim's alive-check still handles that safely,
 # since a dead pid answers false and nothing is killed.
-#
 # OWNERSHIP-AWARE, since TKT-1100's Codex review caught the race this always
 # had: a successor can claim (kill us, write ITS OWN pid) before our signal
 # handler gets to run this. Releasing unconditionally would then delete the
@@ -330,6 +341,15 @@ sub police_goodbye {
 sub police_release_singleton {
     my ( $store, %opts ) = @_;
     my $path = police_singleton_path( $store, $opts{kind} );
+    # A missing store is nothing to release, same as before TKT-1138: the
+    # lock file lives beside the pid file, so opening it would die where
+    # a plain unlink used to just fail quietly (Codex review).
+    return if !-d $store;
+    return _with_singleton_lock( $path, sub { _police_release_singleton_locked( $path, %opts ) } );
+}
+
+sub _police_release_singleton_locked {
+    my ( $path, %opts ) = @_;
     my $my_pid = $opts{pid} // $$;
     my $remove = $opts{unlink} || sub { unlink $_[0] };
 
@@ -464,7 +484,6 @@ sub report_to_tira {
     };
 }
 # Run a due command-mode job and hand back what it produced. TKT-841.
-#
 # THIS IS WHERE EXECUTION LIVES, and the placement is decided by a test rather
 # than by taste. t/106 forbids qx, system(, exec( and piped open anywhere in
 # the engine, and its pattern catches list-form system( too - so "no shell"
@@ -472,7 +491,6 @@ sub report_to_tira {
 # lib/Tira/CLI because Serve.pm legitimately shells out to serve a board, so
 # the CLI layer is the sanctioned home and no second exception was invented.
 # The engine announces a due job; this runs it.
-#
 # LIST FORM, NEVER A SHELL STRING. The command is split on whitespace and
 # handed to open3 as a list, so the program is named separately from its
 # arguments and a semicolon in a command is an argument rather than an
@@ -480,7 +498,6 @@ sub report_to_tira {
 # `echo "two words"` is four arguments, not two. Jobs on this board run
 # commands like `d2 tira.police.bridge`; a job needing quoting should be a
 # script, which is also the answer that keeps the no-shell guarantee.
-#
 # STDERR IS CAPTURED WITH STDOUT because a failing command usually says why on
 # stderr, and the whole point of this card is that a job which ran and failed
 # must be distinguishable from one that never ran. Dropping stderr would leave
@@ -488,7 +505,6 @@ sub report_to_tira {
 # the same silence.
 # What the pass read from each monitor's spool, written back AFTER the bridge
 # has it. TKT-851.
-#
 # THE ENGINE DELIBERATELY DOES NOT DO THIS. My first version advanced the offset
 # inside the rule, under the same lock as the announcement, on the grounds that
 # announcing and advancing must not drift apart. t/86 overturned it: it
@@ -496,12 +512,10 @@ sub report_to_tira {
 # different things wrong changed not one byte". Police observes and does not
 # mutate, and that guarantee is older and better established than my argument
 # against it.
-#
 # So the split is the one this epic already uses for job-due - announce in the
 # engine, act in the CLI - and the drift I was worried about is answered by
 # doing it here, in the same command, immediately after the write rather than
 # in some later pass.
-#
 # ORDER MATTERS. The bridge write comes first: if this ran before it and the
 # write then failed, the offset would have moved past output nobody ever saw,
 # which is the exact loss this rule exists to prevent.
@@ -512,21 +526,18 @@ sub report_to_tira {
 # cli/ was Tira::CLI::Job::run_now - the manual Run now button - so a
 # command-mode job was announced on the bridge as "runs: ..." every time its
 # window came round and was never once executed by a pass.
-#
 # Measured before this existed, on a scratch board: a job due every minute
 # whose command was `/bin/touch <witness>`, one pass past the window. The
 # bridge printed the announcement; the witness file was never created. On the
 # real board that is JOB-004 - `d2 tira.police.outstanding`, every thirty
 # minutes - announcing itself and doing nothing, for as long as it has
 # existed.
-#
 # HERE RATHER THAN IN THE ENGINE, and that is not a preference. t/489 asserts
 # the job-due rule body runs nothing and t/492 asserts the whole engine does;
 # Suite::engine_source() excludes lib/Tira/CLI precisely so execution has a
 # sanctioned home. The engine names the due jobs in the pass result and this
 # runs them - the same division advance_monitor_output already uses for a
 # monitor's leavings, and for the same reason.
-#
 # WHAT IT PRINTED IS KEPT. job_feed is the pipe a monitor's output already
 # travels, so a cron run's output lands on the job's own `recent` tail and
 # stamps last_output_at - the run becomes something a reader can see rather
@@ -535,13 +546,11 @@ sub report_to_tira {
 # schedule_kind 'monitor', and widening a rule that carries that name is a
 # decision about what the rule means, which is asked on the card rather than
 # taken here.
-#
 # ONE JOB'S FAILURE MUST NOT TAKE THE PASS DOWN, the same stance every other
 # job read in this file takes: a command that dies, or output that cannot be
 # recorded, is reported through the return value and the loop continues to the
 # next job.
 # WHAT A RUN LEAVES BEHIND, in one place because two callers need it.
-#
 # TKT-963, his report: tira.job.run answered ran=1 status=0 and left the job
 # record untouched, so a job that had just run went on reading "Never fired".
 # The scheduled path recorded output and the manual one recorded nothing, and
@@ -549,14 +558,12 @@ sub report_to_tira {
 # both of them go through. Two functions doing the same job separately is the
 # fault this module has already paid for twice: TKT-932 and TKT-953 on
 # decoding a child's output, TKT-949 and TKT-962 on absent versus empty.
-#
 # THE STAMP FOLLOWS THIS FILE'S OWN MEANING OF "ran" rather than inventing a
 # second one. run_due_job answers ran => 1 for a program that is not there -
 # "a program that is not there is a RESULT, not a crash" - and ran => 0 for a
 # job that runs no command at all. So a missing program records a run, with
 # what went wrong in the output lines where TKT-950 put it, and a message-mode
 # job records none.
-#
 # The output is fed only when there IS output, unchanged from before. The
 # stamp is not: a command that exits 0 silently still ran, and recording
 # nothing for it was what made "ran" and "was due" the same reading.
@@ -614,20 +621,17 @@ sub _tree_changing_since {
 # 1,294 lines, and only about fifty of them are the dispatcher; the rest are
 # per-command blocks like these two, each of which belongs with the concern it
 # is about rather than in the file every other command has to be read through.
-#
 # They take \%args rather than reading a lexical, which is the only thing that
 # had to change: inside _invoke they closed over %args, $option and $command,
 # and here those arrive as arguments. Nothing else in either block moved.
 
 # When the last pass ran, and whether that is recent enough to trust.
-#
 # tira.police.outstanding answers what is outstanding AS OF THE LAST PASS, and
 # on a clean board that answer is an empty list. On a board whose bridge stopped
 # eleven hours ago it is also an empty list - the same bytes, with no field to
 # compare. Measured on zenandi, 2026-08-29: a pass at 03:38:41 read at 14:41:50,
 # unchanged, while the board reported itself clean all day and a card-duration
 # policy sat an hour past its age in that silence.
-#
 # WHY A SECOND COMMAND RATHER THAN A RICHER PAYLOAD. Q-096, answered by the owner
 # and marked ok: "Keep the bare list and add a separate command for freshness
 # [...] Nothing breaks anywhere; the cost is a second command to remember and a
@@ -636,7 +640,6 @@ sub _tree_changing_since {
 # finished, and docs/commands.md promises it stays a list. TKT-354 chose
 # one-shape-always for tira.next in 3.48 and that precedent does not transfer:
 # that command had no documented consumers outside this board.
-#
 # The cost he named is paid in police_outstanding's own human output, which names
 # this command when the pass it is reporting on is stale - so the answer is one
 # command away from the question rather than a documentation lookup. TKT-684.
@@ -655,7 +658,6 @@ sub police_freshness {
     # A stamp we cannot read is reported as unreadable rather than printed as
     # though it were usable. "last pass <garbage>" with no further comment reads
     # as data; saying it cannot be read says what the caller actually knows.
-    #
     # TKT-1094: age_seconds can also be undef because the CLOCK reading (not
     # the stored stamp) failed to parse - unreachable in production but
     # reachable with an injected test clock. Named only when actually the
@@ -716,7 +718,6 @@ sub police_outstanding {
     # -o json is the payload and stays a bare list. The instruction that drives
     # the clear-violations loop pipes it and indexes the result, and two other
     # projects run that loop.
-    #
     # DECIDED, not deferred. This comment used to say the list stays because
     # "TKT-354 is already open about tira.next answering with a dict when work
     # waits and a list when it does not - the same fault from the other side".
@@ -724,7 +725,6 @@ sub police_outstanding {
     # over documenting the inconsistency. So this cited a card that had decided
     # against it, for a year of releases, and nobody noticed because a deferral
     # reads like a reason.
-    #
     # Q-096 settled it here, and reached the same conclusion for a current
     # reason: "Keep the bare list and add a separate command for freshness [...]
     # Nothing breaks anywhere; the cost is a second command to remember and a
@@ -733,7 +733,6 @@ sub police_outstanding {
     # docs/commands.md promises them a list. That command is police_freshness
     # above, and the cost he named is paid by the warning below, which names it.
     # TKT-684.
-    #
     # Everything below is the human summary the CLI contract asks for.
     return $open if ( $option->{output} // '' ) eq 'json';
 
@@ -850,7 +849,6 @@ sub police_run {
         # escalated to critical. The agent's only channel for violations was
         # silent, and a channel silent because it is buffered looks exactly
         # like a board that is clean.
-        #
         # Localised rather than set through the handle. STDOUT->autoflush
         # was tried first and took the stream away from every later caller
         # in the process - four test files went quiet at once - which is the
@@ -888,7 +886,6 @@ sub police_run {
     # than writing the instructions himself every time. Printed on every
     # run, because remembering which run was the first is the sort of thing
     # he should not have to do.
-    #
     # That was a promise this comment made and the engine did not keep. A
     # board with every rule declared got undef and printed nothing, so it
     # looked exactly like a police that had died - and the boards it
@@ -938,18 +935,15 @@ sub _card_in_progress {
     my ( $tira, $root ) = @_;
     return undef if !$tira || !defined $root;
     # Where work happens, asked of the board rather than read off one role.
-    #
     # This counted a card as being worked only if it sat in the single column
     # named by the in-progress role, when a board declared one. On this project's
     # own board - in-progress=implement, five columns work happens in - that left
     # tests-red, verify, document and push reading as nobody working, and
     # work-without-card raised VIO-0013 to CRITICAL five times while a card sat
     # in verify with its suite running.
-    #
     # A setting that names one column stops covering the board the moment work
     # happens in another, which is the fault column-unwatched reports for
     # policies. The role was accurate when it was set; the board grew.
-    #
     # The same question card-unassigned and priority-skipped ask: not protected,
     # and not an ending. A board that has marked nothing terminal ends in `done`,
     # which is the fallback those rules use too. The in-progress role is still a
@@ -976,14 +970,12 @@ sub _card_in_progress {
 # own board on the day the subsystem was designed.
 # One directory per board, named for it, so two boards never write over each
 # other - the rule _backup_home states forty lines below and this did not keep.
-#
 # It took the --project OPTION and called the answer 'here' when there was none.
 # Police started from inside a project passes no --project, so every board
 # worked that way shared a single store: the version each board last heard, the
 # violation numbering, the escalation counts, the suspensions, and the bridge
 # log they are written to. A board was never told about an upgrade because a
 # different board had already been told about it.
-#
 # Refused rather than invented now. Every caller has a board to hand - police
 # discovers one before it can watch anything - so there is no case where a name
 # has to be made up, and inventing one is what made the sharing silent.

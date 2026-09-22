@@ -165,6 +165,16 @@ agent with an ordinary `PATH`, and every one of them is proven to run that way
 by `t/509` - it is only the *string handed to `--command`*, which the daemon
 resolves on its own later, that needs the absolute form.
 
+**Since 5.179, `tira.job.add` warns about exactly this** (TKT-1093, the same
+root cause as TKT-1002 above, found again live as JOB-008 on the
+developer-dashboard project's own board): if `--command`'s first word is a
+bare word (no `/` or `\` anywhere in it - not qualified by any directory,
+relative or absolute) and does not resolve on the process's own `$PATH`,
+`job.add` prints a warning to STDERR naming the word - it still creates the
+job, since
+a command that will exist by the time it first fires is a legitimate reason
+to see the warning and proceed anyway.
+
 ---
 
 ## Worked examples

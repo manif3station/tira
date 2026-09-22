@@ -2771,6 +2771,7 @@ tira.TYPE.create --title TEXT [record field arguments] [-o FORMAT]
 tira.TYPE.update --ref REF [record field arguments] [--author NAME] [-o FORMAT]
 tira.rule.suspend --rule RULE --seconds N --reason TEXT --store PATH [--pid PID] [-o FORMAT]
 tira.tasklist.sessions [-o FORMAT]
+tira.version [-o FORMAT]
 tira.worklog.show --ref REF [-o FORMAT]
 ```
 

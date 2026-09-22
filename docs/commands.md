@@ -1905,6 +1905,21 @@ to switch back on — and every putting-down is in the enforcement log with its
 rule, its card, its length and its reason, because a silence nobody can account
 for is worse than the noise it replaces.
 
+### `tira.version`
+
+Names the running `$Tira::VERSION`. Takes no arguments beyond `-o FORMAT`,
+answers with no board or project context required, and needs no `TIRA_HOME`.
+
+Since 5.185 (TKT-649). Before this, nothing exposed which version was
+actually running - `$Tira::VERSION` existed internally, but every command's
+own output was silent about it. Two checkouts of the same repository at
+different versions could answer the same board with different behaviour
+(a flag one had implemented and the other silently accepted and ignored),
+and settling which was live meant comparing file sizes on disk rather than
+running anything. `d2 tira.version -o json` now answers `{"version":"X.YYY"}`
+directly, so a stale install shadowing a fresh one is one command away from
+obvious rather than undetectable.
+
 ### `tira.card.required`
 
 What a complete card is: the fields every card must have before it can claim to

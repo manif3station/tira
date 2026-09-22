@@ -1,5 +1,12 @@
 Revision history for Tira
 
+5.185  2026-09-22
+    - TKT-649 (found on zen-framework: two checkouts of the same repo
+      answered the same board at two different versions, and nothing
+      either process could run said which was live): added tira.version,
+      naming the running $Tira::VERSION with no board or project context
+      required. New test at t/1154.
+
 5.184  2026-09-22
     - TKT-646 (found by a read-only audit agent on zenandi, 4.56):
       policy.list took every filter option its own CLI parser accepts -

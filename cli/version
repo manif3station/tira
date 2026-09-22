@@ -1,0 +1,17 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use File::Spec;
+use FindBin;
+unshift @INC, File::Spec->catdir( $FindBin::Bin, '..', 'lib' );
+require Tira::CLI;
+exit Tira::CLI->run( command => 'version', argv => \@ARGV );
+__END__
+=head1 NAME
+Tira version - Names the running $Tira::VERSION
+=head1 DESCRIPTION
+A static fact requiring no board or project context, the same shape
+C<tira.card.required> already answers. Added because nothing exposed which
+version was actually running (TKT-649) - a stale install shadowing a fresh
+one was undetectable from any command's own output.
+=cut

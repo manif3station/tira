@@ -1922,6 +1922,13 @@ sub _invoke {
     if ( $command eq 'card.required' ) {
         return Tira->card_required;
     }
+    # TKT-649. A static fact, the same shape card.required above already
+    # answers with no board or project context - a stale install shadowing
+    # a fresh one was undetectable from any command's own output until now,
+    # discovered live only by comparing file sizes on disk.
+    if ( $command eq 'version' ) {
+        return { version => Tira->VERSION };
+    }
 
     # What to pick up, from the board that already decided it. The ordering
     # belongs to priority-skipped, so it is asked rather than sorted again -

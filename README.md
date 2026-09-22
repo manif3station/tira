@@ -788,7 +788,7 @@ overrides, 5.23), `lib/Tira/Tasklist.pm` (the shared to-do queue, 5.24) and
 `lib/Tira/Attachment.pm` (storing files and hanging them off records, 5.42),
 each loaded with `require` at the point it is actually needed, and
 `lib/Tira/Notification.pm` (card-reminder escalation and the board's own
-warning log, TKT-1102). `lib/Tira.pm` is 15,791 lines now (TKT-1118 added the enforcement-lock coverage for `_announce_upgrade`, `bridge_write`, `bridge_touch`, `_enforcement_record`, `rule_suspend`, `police_suspend`); it was 15,584 lines as of TKT-1133, and 15,368 lines as of TKT-972. TKT-1098 first
+warning log, TKT-1102). `lib/Tira.pm` is 15,814 lines now (TKT-1118 added the enforcement-lock coverage for `_announce_upgrade`, `bridge_write`, `bridge_touch`, `_enforcement_record`, `rule_suspend`, `police_suspend`); it was 15,584 lines as of TKT-1133, and 15,368 lines as of TKT-972. TKT-1098 first
 dropped it sharply for a reason unrelated to decomposition - its own POD
 block, previously carried inline at the end of the file, moved to a
 sibling `lib/Tira.pod` (the standard CPAN same-basename convention), so

@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.182';
+our $VERSION = '5.184';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -7477,7 +7477,30 @@ sub policy_list {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
     my ( undef, $data ) = $self->_project_data($root);
-    return $data->{policies} // [];
+    my $policies = $data->{policies} // [];
+
+    # TKT-646. Every one of these parsed and was silently discarded - policy_list
+    # took %args and returned the whole list regardless, so --rule/--id/--action/
+    # --column/--ref/--enter/--age all read as filters and were none. Checked
+    # on DEFINEDNESS, not non-emptiness (Codex review): an explicit empty
+    # string is itself a real filter value - --ref '' asks for board-wide
+    # policies specifically (those with no stored ref), which a caller could
+    # never ask for if an empty string were treated the same as "not given".
+    #
+    # --author is deliberately NOT among these, and NOT refused either
+    # (Codex review caught a first draft that died whenever it was set): every
+    # command's %args carries an 'author' key whenever $ENV{TIRA_AUTHOR} is
+    # set, for the write-attribution journal every OTHER command uses it for
+    # (Tira::CLI::_invoke) - it is not a caller-supplied policy.list filter at
+    # all, ambient on essentially every invocation this project's own
+    # convention makes, and dying on its mere presence would refuse policy.list
+    # under the exact TIRA_AUTHOR=claude setup this session runs with.
+    for my $field (qw(rule id action column ref enter age)) {
+        next if !defined $args{$field};
+        my $want = $args{$field};
+        $policies = [ grep { ( $_->{$field} // '' ) eq $want } @{$policies} ];
+    }
+    return $policies;
 }
 
 # TKT-1123. A schema is a board's shape with none of its work in it: columns

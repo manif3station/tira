@@ -1104,6 +1104,19 @@ other rule the project set.
 
 See them, or remove one by `--id POL-nnn`. Numbers are never reused.
 
+**`policy.list` actually filters by what it is given, since 5.184
+(TKT-646).** `--rule`, `--id`, `--action`, `--column`, `--ref`, `--enter`
+and `--age` each narrow the returned list to policies whose own stored
+field matches exactly - `--rule card-duration` returns only that rule's
+declarations, `--id POL-016` returns (at most) one. Before 5.184 every one
+of these parsed successfully and was silently discarded: `policy.list`
+returned the full, unfiltered list regardless of what was typed, at exit
+0 with no error - `policy.list --id POL-016` on an 89-policy board
+returned all 89. `--author` is refused outright rather than filtered: a
+declared policy carries no author field at all, so no value given could
+ever match one, and a filter that can never match anything is the same
+silent failure wearing a different shape.
+
 **The dashboard's Policies button is Implemented,** as a modal
 alongside the Columns dialog, since TKT-493. It reads and writes the
 same declared/declined/undeclared policies as the commands on this

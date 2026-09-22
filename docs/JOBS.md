@@ -175,6 +175,32 @@ job, since
 a command that will exist by the time it first fires is a legitimate reason
 to see the warning and proceed anyway.
 
+**Since 5.183, `run_due_job` itself also resolves a bare command word before
+exec'ing it** (TKT-1129, the same root cause found a third time live -
+JOB-008's own `d2 recurring-card-check`, this time on a *served* board whose
+process had drifted to an unrelated project's directory as its own current
+working directory at the exact moment the job fired, so even a `PATH`
+containing a relative entry - itself resolved against whatever the process's
+cwd happens to be - found nothing). A bare word is checked first beside the
+running `perl` interpreter's own `bin/` (where a `local::lib` install of
+`d2` always lives, independent of `PATH` or cwd entirely), then against any
+*absolute* `PATH` entry; a relative `PATH` entry is skipped rather than
+trusted, since trusting it is exactly the failure this closes. This does not
+replace the advice above - an explicit absolute path in `--command` is still
+the surest fix, and `job.add`'s own warning still fires - it closes the gap
+for a bare word this resolution happens to find, which the reporting
+incident's own `d2` was.
+
+**A known, accepted limitation on Windows** (Codex review): this resolution
+does not apply `PATHEXT`-based extension matching, so a bare word whose
+actual Windows install is `d2.bat`/`d2.exe` is not found by this fix even
+when an absolute `PATH` entry contains it - it falls through to the same
+ambient-PATH exec that could fail before. Accepted for the same reason
+TKT-1093's own PATH-resolvability warning left the identical gap: this
+project's primary test and runtime environment is Linux, and implementing
+full Windows executable-extension resolution here is a larger undertaking
+than a narrowly-scoped exec-time fallback warrants.
+
 ---
 
 ## Worked examples

@@ -1,5 +1,25 @@
 Revision history for Tira
 
+5.184  2026-09-22
+    - TKT-646 (found by a read-only audit agent on zenandi, 4.56):
+      policy.list took every filter option its own CLI parser accepts -
+      --rule, --id, --action, --column, --ref, --author, --enter, --age -
+      and returned the full unfiltered list regardless, at exit 0 with no
+      error. Now filters by rule/id/action/column/ref/enter/age exactly;
+      --author is refused outright, since no policy record carries one.
+      New test at t/1153.
+
+5.183  2026-09-22
+    - TKT-1129 (JOB-008's 'd2 recurring-card-check', the same root cause
+      as TKT-1002/1093 found a third time live): run_due_job now resolves
+      a bare command word before exec'ing it - checked first beside the
+      running perl interpreter's own bin/ (where a local::lib install of
+      d2 always lives), then against any absolute $PATH entry - rather
+      than relying entirely on the served board process's own ambient
+      $ENV{PATH} and current working directory at the exact moment the
+      job fires, which had drifted to an unrelated project's directory
+      when the reporting incident hit. New test at t/1152.
+
 5.182  2026-09-22
     - TKT-1084: --exempt-required's value was matched against a required
       item's descriptive text only, never its REQ id - so a live

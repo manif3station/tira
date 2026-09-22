@@ -174,6 +174,49 @@ sub advance_monitor_output {
 # in this package, which would be a different variable the test's local()
 # never touches.
 
+# TKT-1129. A bare word's ONLY reliable home, independent of the served
+# board process's own ambient $ENV{PATH}/cwd at the exact moment a job
+# fires, is beside the running perl interpreter itself - a d2/local::lib
+# install always puts its own wrapper scripts in the same bin/ as $^X.
+# Checked first, before an ordinary PATH search: a relative PATH entry
+# (docs/JOBS.md's own documented pitfall) resolves against whatever the
+# PROCESS's cwd happens to be right now, which can drift to an unrelated
+# directory in a long-running served board - exactly what broke JOB-008
+# live. Absolute PATH entries are still searched as a fallback, since
+# those do not depend on cwd either; relative ones are skipped rather
+# than trusted, and an unresolved word is returned unchanged so exec's
+# own error surfaces exactly as it always did.
+sub _resolve_bare_command {
+    my ($word) = @_;
+    return $word if !defined $word || $word eq '' || $word =~ m{[\\/]};
+    require File::Spec;
+    require Config;
+
+    # $^X is not guaranteed absolute - Perl only promises it is what the
+    # calling shell used to invoke this interpreter, which can be a bare
+    # word or a relative path exactly as cwd-dependent as the problem this
+    # closes (Codex review). $Config::Config{perlpath} is USUALLY the
+    # absolute path perl was installed to, fixed at build time - used
+    # whenever $^X itself is not already absolute. Perl does not actually
+    # guarantee perlpath is absolute either (a relocated or oddly-built
+    # perl can leave it bare); a build where NEITHER is absolute has no
+    # reliable, subprocess-free way to find perl's own bin dir at all, so
+    # this degrades safely to the PATH search below rather than resolving
+    # wrongly (Codex review, round 2 - accepted as a genuinely rare edge
+    # case with safe degradation already in place, not chased further).
+    my $perl_bin = File::Spec->file_name_is_absolute($^X) ? $^X : $Config::Config{perlpath};
+    if ( defined $perl_bin && File::Spec->file_name_is_absolute($perl_bin) ) {
+        my $beside_perl = File::Spec->catfile( ( File::Spec->splitpath($perl_bin) )[1], $word );
+        return $beside_perl if -f $beside_perl && -x $beside_perl;
+    }
+    for my $dir ( split /\Q$Config::Config{path_sep}\E/, $ENV{PATH} // '' ) {
+        next if $dir eq '' || !File::Spec->file_name_is_absolute($dir);
+        my $candidate = File::Spec->catfile( $dir, $word );
+        return $candidate if -f $candidate && -x $candidate;
+    }
+    return $word;
+}
+
 # THE COMMAND BELOW IS EXEC'D WITH NO SHELL AND NO INTERACTIVE PATH. A bare
 # program name that resolves fine typed into a terminal can fail here with
 # "No such file or directory" - see docs/JOBS.md's "The command is executed a
@@ -208,6 +251,8 @@ sub run_due_job {
     }
     return { ran => 0, status => -1, output => 'the job has no command to run' }
       if !@command;
+
+    $command[0] = _resolve_bare_command( $command[0] );
 
     require IPC::Open3;
     require Symbol;

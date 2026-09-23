@@ -78,26 +78,38 @@ cleanup() {
     [ -n "$docker_pid" ] && kill "$docker_pid" >/dev/null 2>&1 || true
     docker rm -f "$container_name" >/dev/null 2>&1 || true
     # TKT-1073. cover_db (when the coverage step ran) is written by root
-    # inside the container, so "git worktree remove --force" alone can fail
-    # to delete a root-owned or restrictively-permissioned subdirectory -
-    # it still shells out to an rm equivalent internally and hits the
-    # identical permission wall, silently swallowed by the "|| true" above.
-    # Try git's own removal first, since it also updates the main repo's
-    # worktree bookkeeping correctly when it succeeds. If a root-owned file
-    # blocked it, the tree survives non-empty: clear it with a disposable
-    # container (the same pattern tools/dev-run's own cleanup() already
-    # uses for the identical root cause - never sudo on the host), then
-    # remove the now-ownerless leftover directly and prune the stale
-    # worktree registration git's own removal never got to make.
-    if ! git worktree remove --force "$tree" >/dev/null 2>&1; then
+    # inside the container, so a plain "rm -rf" alone can fail to delete a
+    # root-owned or restrictively-permissioned subdirectory. Clear it with
+    # a disposable container first (the same pattern tools/dev-run's own
+    # cleanup() already uses for the identical root cause - never sudo on
+    # the host), then remove the now-ownerless tree directly. $tree is a
+    # local clone (TKT-1148), not a linked worktree - no "git worktree
+    # remove"/"prune" bookkeeping is needed, since nothing was ever
+    # registered against the main repo.
+    if ! rm -rf "$tree" >/dev/null 2>&1; then
         docker run --rm -v "$tree:/workspace" ubuntu rm -rf /workspace >/dev/null 2>&1 || true
         rm -rf "$tree" >/dev/null 2>&1 || true
-        git worktree prune >/dev/null 2>&1 || true
     fi
 }
 trap cleanup EXIT
 
-git worktree add --detach --quiet "$tree" HEAD \
+# TKT-1148. A linked worktree ("git worktree add") was tried first and
+# broke every test needing git to work from inside the container: its
+# .git FILE holds an absolute HOST path back to the shared object store
+# (gitdir: /home/.../tira/.git/worktrees/<name>), and the container's
+# mount namespace exposes $tree at a DIFFERENT path with no way back to
+# that host path - confirmed live: t/1015's own "git clone $root $clone"
+# step failed with "fatal: not a git repository", reproduced identically
+# on HEAD and HEAD~1, so this was never specific to one commit. A local
+# CLONE has no such external reference - it is genuinely self-contained,
+# with its own .git directory (objects hardlinked, not copied, so the
+# cost is the same one review-worktree already measured and chose this
+# same fix for: 0.034s on this repo). "checkout --detach HEAD" afterward
+# guarantees the same detached-at-this-commit state the worktree gave,
+# regardless of what branch the clone's own default checkout happened to
+# follow.
+git clone --quiet "$root" "$tree" \
+  && git -C "$tree" checkout --quiet --detach HEAD \
   || { echo "gate-run: could not check out HEAD" >&2; exit 1; }
 
 # TKT-1073 (tools/ -> .developer-dashboard/skills/*/cli/* move,

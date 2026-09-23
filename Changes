@@ -1,5 +1,23 @@
 Revision history for Tira
 
+5.189  2026-09-23
+    - TKT-1148: tools/gate-run's own checkout of HEAD used "git worktree
+      add --detach", a LINKED worktree whose .git file holds an absolute
+      HOST path back to the shared object store. gate-run's container
+      mounts that worktree at a different path than it lives at on the
+      host, so nothing inside the container can resolve the reference -
+      any test needing git to work from inside that checkout (confirmed
+      live: t/1015's own "git clone" step) failed with "fatal: not a git
+      repository", regardless of what the commit under test actually
+      changed - reproduced identically against two different commits.
+      Switched to a local CLONE instead - genuinely self-contained, with
+      its own .git directory (objects hardlinked, so the cost is the same
+      review-worktree already measured and chose this same fix for:
+      0.034s on this repo) - then "checkout --detach HEAD" to match the
+      exact detached-at-this-commit state the worktree gave. cleanup()'s
+      "git worktree remove"/"prune" calls, meaningless for a plain clone,
+      replaced with a direct removal (unchanged root-owned-file handling).
+
 5.188  2026-09-23
     - TKT-1144: the required-action departure gate lived only in the CLI
       dispatch layer (Tira::CLI.pm's run(), which checks

@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
-# tools/gate-run line 52 makes a worktree, line 60 checks it out, and until
-# TKT-901 an EXIT trap removed that worktree without ever telling the docker
+# tools/gate-run line 52 makes a clone, line 60 checks it out, and until
+# TKT-901 an EXIT trap removed that clone without ever telling the docker
 # container mounted on it to stop. Killing gate-run mid-run let the trap fire
 # (bash runs its EXIT trap on a received signal even though the run itself
-# does not complete), which deleted the worktree out from under a container
+# does not complete), which deleted the clone out from under a container
 # still running against it - measured on TKT-893, 2026-09-03: a container ran
 # 21:57 to 22:47 after its host process had already been killed at 22:46, and
 # the coverage step then failed with "no modules found under lib/" because
@@ -12,7 +12,7 @@
 #
 # This test kills gate-run mid-run against a mocked "docker" that stands in
 # for a running container, and checks the fix's own two obligations: the
-# container is told to stop, and it is told to stop BEFORE the worktree it
+# container is told to stop, and it is told to stop BEFORE the clone it
 # was mounted on is removed - not merely stopped eventually.
 
 use strict;
@@ -74,9 +74,9 @@ run_quietly( 'git', '-C', $repo, 'commit', '-q', '-m', 'first commit' );
 # "run" blocks the way a real container does while the suite runs inside it -
 # long enough for the test to kill gate-run while it is still up. "rm"/"kill"
 # is the shape gate-run's own cleanup is expected to call to stop it; the mock
-# records, at the moment it is invoked, whether the worktree it was mounted on
+# records, at the moment it is invoked, whether the clone it was mounted on
 # still exists - the one fact that tells the two failure modes apart, since a
-# stop call made after the worktree is already gone proves nothing.
+# stop call made after the clone is already gone proves nothing.
 
 my $bin        = File::Spec->catdir( $tmp, 'bin' );
 my $state      = File::Spec->catdir( $tmp, 'state' );
@@ -121,9 +121,9 @@ case "$*" in
   "rm "*|"kill "*)
     TREE=$(cat "$STATE/tree-path" 2>/dev/null)
     if [ -n "$TREE" ] && [ -d "$TREE" ]; then
-      echo "stop-called worktree-present" >> "$STATE/events"
+      echo "stop-called clone-present" >> "$STATE/events"
     else
-      echo "stop-called worktree-absent" >> "$STATE/events"
+      echo "stop-called clone-absent" >> "$STATE/events"
     fi
     if [ -f "$STATE/container.pid" ]; then
       kill -TERM "$(cat "$STATE/container.pid")" 2>/dev/null || true
@@ -138,17 +138,20 @@ close $docker_fh;
 chmod 0755, $docker or die $!;
 
 # gate-run's own tree var is a mktemp'd directory it creates itself; to let
-# the mock know when that directory has been removed, gate-run's own worktree
-# add target is recorded into state/tree-path by wrapping git - the simplest
-# observation point, since that mktemp'd directory is exactly what "git
-# worktree remove" deletes, so its continued existence IS the fact under test.
+# the mock know when that directory has been removed, gate-run's own clone
+# target is recorded into state/tree-path by wrapping git - the simplest
+# observation point, since that mktemp'd directory is exactly what the
+# plain "rm -rf" in cleanup() deletes, so its continued existence IS the
+# fact under test. Since TKT-1148, gate-run clones rather than makes a
+# linked worktree (git clone --quiet "$root" "$tree"), so the mock watches
+# for "clone" instead of "worktree add" - the LAST argument is the target.
 my $git_wrapper = File::Spec->catfile( $bin, 'git' );
 open my $git_fh, '>', $git_wrapper or die $!;
 print {$git_fh} <<'GIT_WRAPPER';
 #!/usr/bin/env bash
-if [ "$1" = "worktree" ] && [ "$2" = "add" ]; then
-  # the worktree path is the argument right before HEAD's ref
-  echo "${@: -2:1}" > "$FAKE_GATE_STATE/tree-path"
+if [ "$1" = "clone" ]; then
+  # the clone target is the last argument
+  echo "${@: -1}" > "$FAKE_GATE_STATE/tree-path"
 fi
 exec "$FAKE_REAL_GIT" "$@"
 GIT_WRAPPER
@@ -237,11 +240,11 @@ if ( open my $fh, '<', $events_log ) {
     close $fh;
 }
 like( $events, qr/\bstop-called\b/,
-    'gate-run told the container to stop rather than only removing the worktree' );
-like( $events, qr/stop-called worktree-present/,
-    'and it did so while the worktree it was mounted on still existed - a stop after the fact proves nothing' );
-unlike( $events, qr/stop-called worktree-absent/,
-    'no stop call ever landed after the worktree had already been removed' );
+    'gate-run told the container to stop rather than only removing the clone' );
+like( $events, qr/stop-called clone-present/,
+    'and it did so while the clone it was mounted on still existed - a stop after the fact proves nothing' );
+unlike( $events, qr/stop-called clone-absent/,
+    'no stop call ever landed after the clone had already been removed' );
 
 done_testing();
 
@@ -249,11 +252,11 @@ __END__
 
 =head1 NAME
 
-t/901-a-run-killed-mid-suite-orphans-nothing.t - a killed gate-run stops its own container before removing the worktree
+t/901-a-run-killed-mid-suite-orphans-nothing.t - a killed gate-run stops its own container before removing the clone
 
 =head1 WHY
 
-TKT-901: C<tools/gate-run>'s EXIT trap removed the worktree it had checked
+TKT-901: C<tools/gate-run>'s EXIT trap removed the clone it had checked
 out but never told the docker container mounted on it to stop - measured on
 TKT-893, 2026-09-03: a container ran 21:57 to 22:47 after its host process
 had already been killed at 22:46, and the coverage step then failed with "no
@@ -263,10 +266,10 @@ because coverage was actually short.
 =head1 WHAT IS ASSERTED
 
 A mocked "docker" stands in for the container and a thin "git" wrapper
-records the worktree gate-run creates. A real C<gate-run> is started, killed
+records the clone gate-run creates. A real C<gate-run> is started, killed
 once its mocked container is up, and the test checks that the container
 itself dies (nothing left for C<docker ps> to find) and that the mocked
-stop call landed while the worktree still existed - proving the ordering, not
+stop call landed while the clone still existed - proving the ordering, not
 merely that a stop eventually happened.
 
 =cut

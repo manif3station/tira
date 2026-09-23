@@ -40,30 +40,29 @@ my ($cleanup_body) = $text =~ /cleanup\(\)\s*\{(.*?)\n\}/s;
 ok( defined $cleanup_body, 'cleanup() is where this test expects it' );
 
 # --- the fix: a disposable container clears anything root-owned first ------
+#
+# Since TKT-1148, $tree is a local git CLONE, not a linked worktree - a
+# linked worktree's .git file holds an absolute HOST path back to the
+# shared object store, unreachable once gate-run's own container mounts
+# the checkout at a different path than it lives at on the host (confirmed
+# live: any test needing git to work from inside that checkout, t/1015's
+# own "git clone" step, failed with "fatal: not a git repository"). A
+# clone is genuinely self-contained - its own .git directory, no external
+# reference - so "git worktree remove"/"prune" bookkeeping no longer
+# applies; a plain rm is both correct and sufficient.
+
+like( $cleanup_body, qr/if\s*!\s*rm -rf "\$tree"/,
+    'cleanup() tries a plain removal first' );
 
 like( $cleanup_body, qr/docker run --rm -v "\$tree:\/workspace" ubuntu rm -rf \/workspace/,
-    'cleanup() clears the tree with a disposable container before relying on a plain removal' );
+    'cleanup() clears the tree with a disposable container when the plain removal fails' );
 
-# --- and it still tries git's own removal, rather than replacing it --------
+# --- no worktree-specific bookkeeping remains - $tree is a clone now -------
 
-like( $cleanup_body, qr/git worktree remove --force "\$tree"/,
-    "cleanup() still uses git's own worktree removal" );
-
-# --- the disposable-container wipe happens only as a fallback, not always --
-#
-# Always wiping first would mean the common, unaffected case (no root-owned
-# file at all) pays for a container launch on every single run instead of
-# never. The wipe belongs behind the same guard that already caught the
-# failure - an "if ! git worktree remove" branch - not run unconditionally
-# ahead of it.
-
-like( $cleanup_body, qr/if\s*!\s*git worktree remove --force "\$tree"/,
-    "the disposable-container wipe only runs when git's own removal already failed" );
-
-# --- and a stale worktree registration left behind is pruned afterward -----
-
-like( $cleanup_body, qr/git worktree prune/,
-    'cleanup() prunes the worktree registration git\'s own removal never got to make' );
+unlike( $cleanup_body, qr/git worktree remove/,
+    'cleanup() no longer calls git worktree remove - $tree is a clone, not a linked worktree (TKT-1148)' );
+unlike( $cleanup_body, qr/git worktree prune/,
+    'cleanup() no longer calls git worktree prune - nothing was ever registered against the main repo' );
 
 done_testing;
 
@@ -72,7 +71,7 @@ __END__
 =head1 NAME
 
 t/1073-a-worktree-nobody-could-remove.t - tools/gate-run's cleanup() clears
-a root-owned leftover before removing its scratch worktree
+a root-owned leftover before removing its scratch checkout
 
 =head1 DESCRIPTION
 
@@ -83,10 +82,17 @@ subdirectory left by an instrumented coverage run - the identical bug
 C<tools/dev-run>'s own cleanup hit and was fixed for (TKT-579). Reproduced
 live: a real linked worktree with a C<chmod 000> root-owned subdirectory
 inside it failed to be removed by the pre-fix command, and the tree
-survived. C<cleanup()> now tries git's own removal first, and only when
-that fails does it clear the tree with a disposable container (the same
-pattern C<tools/dev-run> already uses - never C<sudo> on the host) before a
-final plain removal and a C<git worktree prune> to clean the stale
-registration git's own removal never got to make.
+survived. C<cleanup()> now tries a plain removal first, and only when that
+fails does it clear the tree with a disposable container (the same pattern
+C<tools/dev-run> already uses - never C<sudo> on the host) before a final
+plain removal.
+
+Since 5.189 (TKT-1148), C<$tree> is a local git clone, not a linked
+worktree - a linked worktree's C<.git> file holds an absolute host path
+back to the shared object store, which gate-run's own container cannot
+resolve once the checkout is mounted at a different path than it lives at
+on the host. A clone is genuinely self-contained, so the git-worktree-
+specific removal/prune calls this test originally proved are no longer
+present or needed.
 
 =cut

@@ -74,9 +74,18 @@ open my $rfh, '<', $runner or die "$runner: $!";
 my $runner_source = do { local $/; <$rfh> };
 close $rfh;
 
-like( $runner_source, qr/git worktree add/,
+# Since 5.189 (TKT-1148) this is a local git clone, not a linked worktree -
+# a linked worktree's .git file holds an absolute host path back to the
+# shared object store, unreachable once the checkout is mounted into the
+# gate's own container at a different path than it lives at on the host
+# (confirmed live: any test needing git to work from inside it, t/1015's
+# own "git clone" step, failed with "fatal: not a git repository"). A
+# clone is genuinely self-contained - the claim this file makes ("judged
+# on the commit, not the desk") is unaffected by which mechanism proves it.
+
+like( $runner_source, qr/git clone/,
     'the gate makes a checkout of the commits being pushed' );
-like( $runner_source, qr/worktree add[^\n]*\bHEAD\b/,
+like( $runner_source, qr/checkout --quiet --detach HEAD/,
     'at the commit being pushed rather than at whatever is lying around' );
 
 # --- and runs the suite against that, not against the desk ------------------------------
@@ -94,7 +103,7 @@ like( $runner_source, qr/-v\s+"?\$\{?\w+\}?:\/workspace\/skills\/tira/,
 # machine it is protecting. The cleanup has to survive the failure paths, which
 # are the common ones.
 
-like( $runner_source, qr/git worktree remove/, 'the checkout is removed' );
+like( $runner_source, qr/rm -rf "\$tree"/, 'the checkout is removed' );
 like( $runner_source, qr/\btrap\b[^\n]*(?:EXIT|INT|TERM)/,
     'on the way out however the gate ends, because its failure paths are the busy ones' );
 

@@ -1885,6 +1885,19 @@ failure of the container wipe or the plain `rm -rf` itself is not
 re-raised, so this closes the common case (a root-owned `cover_db`)
 without claiming every possible failure is now handled.
 
+**The linked worktree itself was retired in favour of a local clone, since
+5.189** (TKT-1148). A linked worktree's `.git` file holds an absolute host
+path back to the shared object store - and gate-run's own container mounts
+the checkout at a different path than it lives at on the host, so nothing
+inside the container can resolve that reference. Confirmed live: any test
+needing git to work from inside the checkout (`t/1015`'s own `git clone`
+step) failed with `fatal: not a git repository`, reproduced identically on
+two different commits - this broke gate-run for every commit, not one
+particular push. `git worktree add --detach` became a plain `git clone`
+plus `checkout --detach HEAD`, matching `tools/review-worktree`'s own
+precedent for the identical reason; `cleanup()`'s worktree-specific
+removal/prune calls, meaningless for a clone, became a direct `rm -rf`.
+
 Without `--pid`, the 600-second ceiling was shorter than either gate this
 repo ran at the time - coverage at 846s, pre-push at 15m and counting - so
 the commonest legitimate reason for a suspension (waiting on a gate) always

@@ -163,7 +163,8 @@ print {$red} "not ok 1 - the next card, not this release\n";
 close $red;
 
 my $checkout = File::Spec->catdir( $tmp, 'checkout' );
-my ( $status, $said ) = $git->( $repo, 'worktree', 'add', '--detach', '--quiet', $checkout, 'HEAD' );
+my ( $status, $said ) = $git->( $tmp, 'clone', '--quiet', $repo, $checkout );
+$git->( $checkout, 'checkout', '--quiet', '--detach', 'HEAD' ) if $status == 0;
 is( $status, 0, 'a checkout of the pushed commit can be made' ) or diag($said);
 
 ok( -f File::Spec->catfile( $checkout, 'committed.t' ),
@@ -185,7 +186,8 @@ ok( !-e File::Spec->catfile( $checkout, 'next-card.t' ),
     $git->( $repo, 'commit', '-q', '-m', 'a commit that is genuinely broken' );
 
     my $second = File::Spec->catdir( $tmp, 'second' );
-    $git->( $repo, 'worktree', 'add', '--detach', '--quiet', $second, 'HEAD' );
+    $git->( $tmp, 'clone', '--quiet', $repo, $second );
+    $git->( $second, 'checkout', '--quiet', '--detach', 'HEAD' );
     ok( -f File::Spec->catfile( $second, 'broken.t' ),
         'a commit that is broken on its own is in the checkout, so it still fails the gate' );
 }
@@ -203,7 +205,8 @@ ok( !-e File::Spec->catfile( $checkout, 'next-card.t' ),
     close $h;    # written, never added
 
     my $third = File::Spec->catdir( $tmp, 'third' );
-    $git->( $repo, 'worktree', 'add', '--detach', '--quiet', $third, 'HEAD' );
+    $git->( $tmp, 'clone', '--quiet', $repo, $third );
+    $git->( $third, 'checkout', '--quiet', '--detach', 'HEAD' );
     ok( !-e File::Spec->catfile( $third, 'helper.pm' ),
         'a file that was never committed is absent from the checkout, so the gate meets what everybody else would' );
 }

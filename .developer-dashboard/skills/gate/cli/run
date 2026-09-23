@@ -51,17 +51,17 @@ echo "gate-run: testing a checkout of HEAD ($tree_hash), the commit about to be 
 
 tree="$(mktemp -d)"
 output="$(mktemp)"
-# TKT-901. A killed gate-run used to remove this worktree without ever telling
+# TKT-901. A killed gate-run used to remove this checkout without ever telling
 # the container mounted on it to stop - the container kept running against a
 # directory that no longer existed, and the coverage step then failed with a
 # misleading "no modules found under lib/" because lib/ had been deleted mid-
 # run, not because coverage was actually short. The container needs a name of
 # its own so cleanup can target it, and it has to be stopped BEFORE the
-# worktree is removed, not merely stopped eventually - a race in the other
+# checkout is removed, not merely stopped eventually - a race in the other
 # order reproduces the exact same bug one step later.
 # docker_pid is the compose CLI's own pid, set only once it is actually
 # launched below - a kill landing before then has nothing to stop but the
-# worktree, which is still safe since no container exists yet to orphan.
+# checkout, which is still safe since no container exists yet to orphan.
 # Killing that CLI process first, before "docker rm -f", closes the narrow
 # window where a kill lands between the container being NAMED here and
 # "docker compose run" actually registering it with the daemon: the CLI's own
@@ -113,7 +113,7 @@ git clone --quiet "$root" "$tree" \
   || { echo "gate-run: could not check out HEAD" >&2; exit 1; }
 
 # TKT-1073 (tools/ -> .developer-dashboard/skills/*/cli/* move,
-# 2026-09-21): a git worktree carries only tracked content, and
+# 2026-09-21): a git checkout carries only tracked content, and
 # .developer-dashboard/ - where gate-summarize, coverage-complete,
 # coverage-guard, coverage-holes, gate-outer-refusal and gate-cache-write
 # all now live - is deliberately untracked (confirmed with Michael). The
@@ -374,7 +374,7 @@ fi
 EXEMPT_COVERAGE=(
 )
 
-# Derived from the worktree that was actually tested, not from the working
+# Derived from the checkout that was actually tested, not from the working
 # directory. The clean-tree check above means the two agree today, but that is a
 # guarantee living forty lines away from the thing relying on it - and a gate
 # that measures one set of modules and enforces against another would be this

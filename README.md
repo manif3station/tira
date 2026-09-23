@@ -878,9 +878,10 @@ Inactive people remain visible on historical work but cannot receive new
 ownership.
 
 **Importing a Jira issue** — `d2 tira.import.jira --ref TKT-123 --file
-export.xml` reads a Jira issue's exported XML (Jira's standard "Export XML"
-action) and records the Jira issue key and summary as a key-detail on the
-named Tira ticket. Since 5.192 (TKT-1153).
+export.xml --author YOU` reads a Jira issue's exported XML (Jira's standard
+"Export XML" action) and records the Jira issue key and summary as a
+key-detail on the named Tira ticket. `--author` is required, like every
+other command that writes a comment. Since 5.192 (TKT-1153).
 
 ## Output
 

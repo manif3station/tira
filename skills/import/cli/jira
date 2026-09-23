@@ -20,8 +20,9 @@ tira.import.jira - Import a Jira issue's exported XML onto a Tira ticket
 
 Parses a Jira "Export XML" file (the standard RSS 0.92 issue shape) and
 records the Jira issue key and summary as a key-detail on the target Tira
-ticket. TKT-1153.
+ticket. TKT-1153. C<--author> is required, like every other command that
+writes a comment - there is no default person.
 
-    d2 tira.import.jira --ref TKT-123 --file export.xml
+    d2 tira.import.jira --ref TKT-123 --file export.xml --author YOU
 
 =cut

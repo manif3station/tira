@@ -5320,7 +5320,7 @@ reader never has to infer it from whichever field is populated.
 
 ### Jira Import
 
-- `tira.import.jira --ref REF --file PATH [-o FORMAT]`
+- `tira.import.jira --ref REF --file PATH --author ID [-o FORMAT]`
 
     TKT-1153, owner deadline. Parses a Jira issue's exported XML - Jira's own
     standard "Export XML" action, an RSS 0.92 document - and records the
@@ -5328,14 +5328,20 @@ reader never has to infer it from whichever field is populated.
     (`--ref`), via the same key-detail mechanism `comment.add --key-detail`
     already writes through. Not a new field, not a new record type: a Jira
     ref lives on a Tira ticket exactly the way any other durable note does.
+    `--author` (or `TIRA_AUTHOR`) is required, the same as every other
+    command that writes a comment - there is no default person.
 
     A hand-written tag extractor rather than a general-purpose XML library:
     no sample export was available to confirm the exact field mapping (asked
     twice, none arrived before the deadline), so this targets the documented,
-    stable shape specifically - `<item>`, `<key>`, `<summary>` - rather than
-    adding a dependency (a new cpanfile entry means a Dockerfile and coverage
-    gate change too) that could not be verified against a real export in
-    time. A file that does not contain a recognizable `<item>`/`<key>` pair
-    refuses cleanly, naming what was expected, rather than importing nothing
-    silently or dying with an internal parser error.
+    stable shape specifically - `<key>`, `<summary>` - rather than adding a
+    dependency (a new cpanfile entry means a Dockerfile and coverage gate
+    change too) that could not be verified against a real export in time.
+    XML entities (`&amp;`, `&lt;`, ...) and a CDATA-wrapped summary are both
+    decoded rather than stored literally. A file with no recognizable
+    `<key>` tag, or one naming more than one issue (Jira's export is a
+    search-results document and can hold many - importing the first
+    silently would attach the wrong issue with no warning), refuses by
+    name (a die, exiting non-zero) rather than succeeding silently or
+    crashing with an internal parser error.
 

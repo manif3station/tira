@@ -309,6 +309,23 @@ sub _populate_column_required_actions {
     return;
 }
 
+# _xml_unescape(TEXT) - decodes the five standard XML entities and strips a
+# CDATA wrapper, if present. Codex review, TKT-1153: the first version
+# stored '&amp;'/CDATA markers literally instead of decoding them.
+sub _xml_unescape {
+    my ($text) = @_;
+    return '' if !defined $text;
+    if ( $text =~ m{\A<!\[CDATA\[(.*)\]\]>\z}s ) {
+        return $1;
+    }
+    $text =~ s/&lt;/</g;
+    $text =~ s/&gt;/>/g;
+    $text =~ s/&quot;/"/g;
+    $text =~ s/&apos;/'/g;
+    $text =~ s/&amp;/&/g;
+    return $text;
+}
+
 # import_jira(%args) - TKT-1153. Reads a Jira "Export XML" file (the
 # standard RSS 0.92 issue shape: item/key/summary/description/parent/
 # subtasks) and records the Jira issue key and summary as a key-detail on
@@ -320,38 +337,52 @@ sub _populate_column_required_actions {
 # arrived before the deadline), so this targets Jira's documented standard
 # format specifically rather than adding a general-purpose XML dependency
 # (a new cpanfile entry means a Dockerfile/coverage-gate change too, all
-# unverifiable against a real export right now). Regex-based, deliberately
-# narrow: it extracts exactly the five tags this ticket's acceptance
-# criteria name and refuses cleanly when the file does not look like the
-# expected shape, rather than guessing at a wider grammar it cannot test.
+# unverifiable against a real export right now).
+#
+# DIES ON REFUSAL, like every other engine verb - Codex review caught the
+# first version returning {ok=>0} instead, which the CLI dispatcher treats
+# as a SUCCESSFUL exit(0) with the refusal buried in the JSON body, directly
+# contradicting the documented "refuses cleanly" behavior.
+#
+# COUNTS <key> TAGS RATHER THAN LOCATING AN <item>...</item> BOUNDARY.
+# Jira's export is a search-results document and can legitimately hold many
+# issues; picking the first silently would import the wrong one with no
+# warning. It also sidesteps a real corruption risk Codex found: a
+# <description> CDATA block containing the literal text "</item>" would
+# terminate a naive item-boundary regex early. Exactly one <key> tag is
+# required; more or none refuses by name.
 sub import_jira {
     my ( $tira, $args, $option ) = @_;
     my %args = %{$args};
     my $file = ( $args{files} // [] )->[0];
-    return { ok => 0, error => "A Jira XML export file is required" } if !defined $file || $file eq '';
-    return { ok => 0, error => "No such file: $file" } if !-f $file;
+    die "A Jira XML export file is required - use --file\n" if !defined $file || $file eq '';
+    die "No such file: $file\n" if !-f $file;
 
-    open my $fh, '<', $file or return { ok => 0, error => "Cannot read $file: $!" };
+    open my $fh, '<', $file or die "Cannot read $file: $!\n";
     local $/;
     my $content = <$fh>;
     close $fh;
 
-    return { ok => 0, error => "Not a recognizable Jira XML export - no <item> block found" }
-      if $content !~ m{<item>(.*?)</item>}s;
-    my $item = $1;
+    my @keys = $content =~ m{<key[^>]*>\s*([^<\s]+)\s*</key>}g;
+    die "Not a recognizable Jira XML export - no <key> tag found\n" if !@keys;
+    die "This export names " . scalar(@keys) . " issues (" . join( ', ', @keys )
+      . ") - import.jira takes exactly one issue at a time\n"
+      if @keys > 1;
+    my $key = $keys[0];
 
-    my ($key) = $item =~ m{<key[^>]*>\s*([^<\s]+)\s*</key>};
-    return { ok => 0, error => "Not a recognizable Jira XML export - no <key> tag found in <item>" }
-      if !defined $key || $key eq '';
-
-    my ($summary) = $item =~ m{<summary>\s*(.*?)\s*</summary>}s;
-    $summary //= '';
+    my ($summary_raw) = $content =~ m{<summary>\s*(.*?)\s*</summary>}s;
+    my $summary = _xml_unescape($summary_raw);
 
     my $detail = "Jira ref: $key";
     $detail .= " - $summary" if $summary ne '';
 
+    # No 'claude' fallback here - Codex review caught that guess failing on
+    # any board without a person literally named 'claude'. --author/TIRA_AUTHOR
+    # is already resolved onto $args{author} by the CLI layer before this
+    # runs (the same resolution every other verb relies on); comment_add's own
+    # _require_person refuses clearly if it is still unset or unknown.
     $tira->comment_add(
-        project => $args{project}, ref => $args{ref}, author => $args{author} // 'claude',
+        project => $args{project}, ref => $args{ref}, author => $args{author},
         text => "Imported from Jira export ($file): $key" . ( $summary ne '' ? " - $summary" : '' ),
         key_details => [$detail],
     );

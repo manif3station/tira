@@ -1,5 +1,16 @@
 Revision history for Tira
 
+5.193  2026-09-23
+    - TKT-1145: _column_chain_violation and _unjudged_answer_violation
+      (refusing a column skip and a departure while an answer is
+      unjudged) lived only in the CLI dispatch layer, the identical gap
+      TKT-1144 already closed for the required-action check - any
+      caller reaching record_move a different way skipped both
+      entirely, with no exemption and no reason recorded. record_move
+      now refuses both by default, reusing the same _dashboard_move
+      exemption TKT-1144 established (a human on the HTML dashboard is
+      not an agent skipping a gate). New test at t/1145.
+
 5.192  2026-09-23
     - TKT-1143: t/524's own 500-line file gate refused after the OR-rule
       fix pushed lib/Tira/Job/Schedule.pm to 516 lines - added the

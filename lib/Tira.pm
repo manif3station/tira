@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.192';
+our $VERSION = '5.193';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -3187,6 +3187,52 @@ sub _unmet_in_column {
     } @{ $record->{required_items} // [] } ];
 }
 
+# TKT-1145. Same shape as _unmet_in_column above: lib/Tira/CLI/Move.pm's own
+# _column_chain_violation and _unjudged_answer_violation live only in the CLI
+# dispatch layer, so a caller reaching record_move a different way never had
+# to pass through either - the identical class of gap TKT-1144 closed for the
+# required-action check. Reads from the already-loaded $record/$columns
+# rather than a fresh record_show/column_list, since record_move already has
+# both in hand at the point these are called.
+sub _column_skip_blocked {
+    my ( $columns, $from, $to, $log ) = @_;
+    my %index;
+    my $i = 0;
+    for my $col ( @{$columns} ) { $index{ $col->{name} } = $i++; }
+    return undef if !exists $index{$from} || !exists $index{$to};
+    my $from_idx = $index{$from};
+    my $to_idx   = $index{$to};
+    return undef if $to_idx <= $from_idx;    # backward is always fine
+
+    my ($from_col) = grep { $_->{name} eq $from } @{$columns};
+    my $fork = $from_col ? ( $from_col->{next} // [] ) : [];
+    my @expected;
+    if ( @{$fork} ) {
+        @expected = @{$fork} if !grep { $_ eq $to } @{$fork};
+    }
+    elsif ( $to_idx > $from_idx + 1 ) {
+        @expected = ( $columns->[ $from_idx + 1 ]{name} );
+    }
+    return undef if !@expected;
+
+    my $all_gated = 1;
+    SKIPPED: for my $j ( $from_idx + 1 .. $to_idx - 1 ) {
+        my $name = $columns->[$j]{name};
+        next SKIPPED if grep { ( $_->{gate} // '' ) eq $name && ( $_->{result} // '' ) eq 'pass' } @{$log};
+        $all_gated = 0;
+        last SKIPPED;
+    }
+    return undef if $all_gated;
+    return \@expected;
+}
+
+sub _unjudged_answers {
+    my ($record) = @_;
+    return [ grep {
+        $_->{answer} && !$_->{discarded_at} && !( $_->{answer}{mark} // '' );
+    } @{ $record->{questions} // [] } ];
+}
+
 sub record_move {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
@@ -3258,6 +3304,34 @@ sub record_move {
                       . "  Mark one, then move again:\n"
                       . "    d2 tira.required-action.update --ref $args{ref} --id $unmet[0]{id} --status done --command TEXT --proof TEXT\n";
                 }
+            }
+        }
+
+        # TKT-1145. Same $dashboard_move exemption, same shape, for the two
+        # remaining CLI-dispatch-only guards (lib/Tira/CLI/Move.pm's
+        # _column_chain_violation/_unjudged_answer_violation) - closing the
+        # identical gap TKT-1144 already closed for the required-action gate.
+        if ( !$dashboard_move
+            && $column ne 'discard'
+            && $previous_column ne $column
+            && defined $previous_column && $previous_column ne '' )
+        {
+            my $expected = _column_skip_blocked(
+                _column_defaults( $config->{columns} ), $previous_column, $column, $record->{gate_passing_log} // [] );
+            if ( defined $expected ) {
+                die "Cannot move $args{ref} to $column - the next column should be "
+                  . join( ' or ', @{$expected} ) . ".\n"
+                  . "  Move there first, e.g.:  d2 tira.$type.move --ref $args{ref} --column $expected->[0]\n";
+            }
+
+            my @unjudged = @{ _unjudged_answers($record) };
+            if (@unjudged) {
+                die "Cannot move $args{ref} out of $previous_column - this card carries "
+                  . ( @unjudged == 1 ? 'an answer' : scalar(@unjudged) . ' answers' )
+                  . " nobody has judged:\n"
+                  . join( '', map { "  $_->{id}  " . ( split /\n/, $_->{text} // '' )[0] . "\n" } @unjudged )
+                  . "  Judge it, then move again:\n"
+                  . "    d2 tira.question.mark --ref $args{ref} --id $unjudged[0]{id} --mark ok|not-ok\n";
             }
         }
         rename $path, $destination or die "Cannot move '$args{ref}': $!\n";

@@ -1,0 +1,12 @@
+name: tira-gate
+services:
+  gate:
+    image: tira-gate:latest
+    build:
+      context: ${DIR_TIRA}
+      dockerfile: ${DIR_TIRA_DOCKER}/gate/Dockerfile
+    volumes:
+    - gate_cover_db:/root/.developer-dashboard/skills/tira/cover_db
+    working_dir: /root/.developer-dashboard/skills/tira
+volumes:
+  gate_cover_db:

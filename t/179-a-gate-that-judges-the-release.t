@@ -90,12 +90,14 @@ like( $runner_source, qr/checkout --quiet --detach HEAD/,
 
 # --- and runs the suite against that, not against the desk ------------------------------
 #
-# The container mounts the skill directory. Overriding that mount for the run is
-# what makes the suite see the checkout at the path it expects, so the rest of
-# the harness needs no knowledge of any of this.
+# Since 5.190 (TKT-1136) the checkout is baked into the container's own
+# image at build time (DIR_TIRA overridden for that one build, so the
+# image is built FROM the checkout, not the live skill directory) rather
+# than bind-mounted into a shared image - but the property is the same:
+# the suite that runs inside sees the checkout, never the desk.
 
-like( $runner_source, qr/-v\s+"?\$\{?\w+\}?:\/workspace\/skills\/tira/,
-    'and mounts it over the path the suite runs in' );
+like( $runner_source, qr/DIR_TIRA="\$tree"/,
+    'and builds its own image from that checkout, not the live directory' );
 
 # --- and takes it away afterwards, however it ends -------------------------------------
 #

@@ -1,0 +1,12 @@
+name: tira-dev
+services:
+  dev:
+    image: tira-dev:latest
+    build:
+      context: ${DIR_TIRA}
+      dockerfile: ${DIR_TIRA_DOCKER}/dev/Dockerfile
+    volumes:
+    - dev_cover_db:/root/.developer-dashboard/skills/tira/cover_db
+    working_dir: /root/.developer-dashboard/skills/tira
+volumes:
+  dev_cover_db:

@@ -949,14 +949,14 @@ counter next to the list survives even a task being fully removed.
 
 ## Verification
 
-Run tests only through the workspace Docker environment:
+Run tests only through the workspace Docker environment, via `d2 dev.run`
+or `d2 gate.run` (below) - since 5.190 (TKT-1136) both build their own
+distinct image through `d2 docker compose` (project `tira-dev`/`tira-gate`,
+their own `.developer-dashboard/config/docker/{dev,gate}/` service
+folders), rather than the retired workspace-root `docker-compose.testing.yml`
+shared across every skill.
 
-```bash
-docker compose -f ~/projects/skills/docker-compose.testing.yml run --rm perl-test \
-  bash -lc 'cd /workspace/skills/tira && cpanm --quiet --notest --installdeps . && prove -lr t'
-```
-
-**`d2 dev.run`** runs that same incantation for you, against the WORKING
+**`d2 dev.run`** runs the suite for you, against the WORKING
 tree - uncommitted changes included - copied on the host into a scratch
 directory first and mounted into the container from there, so a coverage
 pass never reads a file mid-edit. It

@@ -42,9 +42,23 @@ if [ -n "$(git status --porcelain)" ]; then
     exit 1
 fi
 
-workspace="$(cd "$root/../.." && pwd)"
-compose="$workspace/docker-compose.testing.yml"
-[ -f "$compose" ] || { echo "gate-run: cannot find $compose" >&2; exit 1; }
+# TKT-1136. docker-compose.testing.yml (a single compose file shared by every
+# skill, bind-mounting a live directory into a shared "perl-test" service) was
+# retired in favour of d2 docker compose - which builds a distinct image per
+# skill/service pair, baking the source in at build time rather than bind-
+# mounting it. A shared bind-mount service has no notion of "this run's own
+# tree" separate from "the real checkout", so it needed no per-invocation
+# image identity; d2 docker compose's own default resolution (one fixed image
+# tag, one fixed project name per skill) does, and gate-run builds from a
+# DIFFERENT directory on every invocation (the scratch clone below, never the
+# real checkout) - reusing the ordinary "test" service's own tira:latest tag
+# would race a concurrent normal dev build doing the same thing (Q-179).
+# Per Michael's own answer (Q-181/182): a distinct service folder gets a
+# distinct image. .developer-dashboard/config/docker/gate/{compose.yml,
+# Dockerfile} declares project "tira-gate", image "tira-gate:latest" - never
+# touched by an ordinary `d2 docker compose` invocation against the real
+# checkout, which stays on the "test" service's own "tira" project/tag.
+gate_service=gate
 
 tree_hash="$(git rev-parse HEAD^{tree})"
 echo "gate-run: testing a checkout of HEAD ($tree_hash), the commit about to be pushed - not the working directory"
@@ -152,11 +166,9 @@ flock 8
 printf '%s\n' "$$" > "$lockf"
 
 SUITE_TIMEOUT=3600
-# Backgrounded, with its own pid captured into docker_pid, so cleanup() above
-# can kill the compose CLI itself rather than only the container it may not
-# have created yet - see the TKT-901 comment by container_name/cleanup().
-docker compose -f "$compose" run --rm --name "$container_name" -v "$tree:/workspace/skills/tira" perl-test bash -lc '
-  cd /workspace/skills/tira &&
+# Backgrounded (docker_pid below); see TKT-901/TKT-1136 comments above.
+DIR_TIRA="$tree" d2 docker compose --service "$gate_service" run --build --rm --name "$container_name" "$gate_service" bash -lc '
+  cd /root/.developer-dashboard/skills/tira &&
   cpanm --quiet --notest --installdeps . >/dev/null 2>&1 &&
   CORES=$(nproc) &&
   JOBS=$(( CORES > 1 ? CORES - 1 : 1 )) &&

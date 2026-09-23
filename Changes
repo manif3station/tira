@@ -1,5 +1,24 @@
 Revision history for Tira
 
+5.190  2026-09-23
+    - TKT-1136: tools/gate-run and tools/dev-run both hardcoded
+      docker-compose.testing.yml, a single compose file shared by every
+      skill in the workspace (bind-mounting a live or scratch directory
+      into a shared "perl-test" service). Confirmed live: the file was
+      retired mid-session, and both tools failed immediately with "cannot
+      find .../docker-compose.testing.yml" for any commit or working
+      tree, not a regression from either tool's own logic. Migrated to
+      d2 docker compose instead - each tool through its own service
+      folder (.developer-dashboard/config/docker/{gate,dev}/{compose.yml,
+      Dockerfile}), building a genuinely distinct image
+      (tira-gate:latest, tira-dev:latest) from whichever scratch
+      directory that invocation is actually testing, baked in at build
+      time rather than bind-mounted. Per Michael's own answer (Q-179/
+      Q-181/Q-182): a distinct service folder gets a distinct image - a
+      single shared tag (the ordinary "test" service's own tira:latest,
+      or one tool's service reused by the other) would race a concurrent
+      build of the same tag elsewhere. New test at t/1159.
+
 5.189  2026-09-23
     - TKT-1148: tools/gate-run's own checkout of HEAD used "git worktree
       add --detach", a LINKED worktree whose .git file holds an absolute

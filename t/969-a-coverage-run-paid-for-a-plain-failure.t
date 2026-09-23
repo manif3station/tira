@@ -63,17 +63,19 @@ like( $script_text, qr/prove -j"\$JOBS" -lr t/, 'the embedded script was found a
 
 # --- build a scratch checkout the extracted script can run against ---------
 #
-# The extracted text's own FIRST line is `cd /workspace/skills/tira && ...` -
-# right where the real gate-run mounts a worktree inside its own container.
-# This suite runs inside that same real mount (docker-compose.testing.yml
-# binds ./skills to it), so left unmodified this script would `cd` into the
-# actual live project and run its stubbed prove/cover/cpanm from there rather
-# than from the scratch fixture below - harmless only because the stubs
-# intercept every command that could do real damage (prove/cover/cpanm are
-# resolved from a PATH-prepended scratch bin, never the real ones), but wrong
-# in exactly the way a fixture that leaks into the real tree is always wrong.
-# Retargeted to the scratch checkout instead - not a paraphrase of the logic
-# under test, only where its very first line is told to land.
+# The extracted text's own FIRST line is
+# `cd /root/.developer-dashboard/skills/tira && ...` - right where the real
+# gate-run's own container image bakes its checkout in at build time (since
+# 5.190, TKT-1136). This suite runs inside that same real "test" service's
+# own image, at that same path, so left unmodified this script would `cd`
+# into the actual live project and run its stubbed prove/cover/cpanm from
+# there rather than from the scratch fixture below - harmless only because
+# the stubs intercept every command that could do real damage (prove/cover/
+# cpanm are resolved from a PATH-prepended scratch bin, never the real
+# ones), but wrong in exactly the way a fixture that leaks into the real
+# tree is always wrong. Retargeted to the scratch checkout instead - not a
+# paraphrase of the logic under test, only where its very first line is
+# told to land.
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $repo = File::Spec->catdir( $tmp, 'repo' );
@@ -109,8 +111,8 @@ for my $tool (qw(gate-summarize coverage-complete coverage-guard coverage-holes)
     chmod 0755, $dest;
 }
 
-( my $retargeted_text = $script_text ) =~ s{\Qcd /workspace/skills/tira\E}{cd $repo};
-is( ( () = $script_text =~ m{cd /workspace/skills/tira}g ), 1,
+( my $retargeted_text = $script_text ) =~ s{\Qcd /root/.developer-dashboard/skills/tira\E}{cd $repo};
+is( ( () = $script_text =~ m{cd /root/\.developer-dashboard/skills/tira}g ), 1,
     'exactly one real-tree cd to retarget - not zero (the extraction broke) and not more (a second one would go unretargeted)' );
 
 my $script_path = File::Spec->catfile( $tmp, 'embedded.sh' );

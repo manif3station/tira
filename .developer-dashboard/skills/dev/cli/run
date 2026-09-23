@@ -51,9 +51,18 @@ set -euo pipefail
 root="${DIR_TIRA:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$root"
 
-workspace="$(cd "$root/../.." && pwd)"
-compose="$workspace/docker-compose.testing.yml"
-[ -f "$compose" ] || { echo "dev-run: cannot find $compose" >&2; exit 1; }
+# TKT-1136. docker-compose.testing.yml (shared by every skill, bind-mounting
+# a live directory into a shared "perl-test" service) was retired in favour
+# of d2 docker compose. dev-run builds a fresh image per invocation from its
+# own scratch copy - reusing the ordinary "test" service's tira:latest tag
+# would race a concurrent normal dev build doing the same thing, and reusing
+# tools/gate-run's own "gate" service would race a concurrent gate-run in
+# the same way. Per Michael's own answer (Q-181/182): a distinct service
+# folder gets a distinct image. .developer-dashboard/config/docker/dev/
+# {compose.yml,Dockerfile} declares project "tira-dev", image
+# "tira-dev:latest" - never touched by the ordinary "test" service or by
+# tools/gate-run's own "gate" service.
+dev_service=dev
 
 coverage_modules=()
 files=()
@@ -108,7 +117,7 @@ rm -rf "$tree/cover_db" "$tree/.test-tmp"
 # caught the first draft doing exactly that.
 if [ ${#coverage_modules[@]} -eq 0 ]; then
     script='
-      cd /workspace/skills/tira || exit 1
+      cd /root/.developer-dashboard/skills/tira || exit 1
       cpanm --quiet --notest --installdeps . >/tmp/dev-run-install.log 2>&1
       install_status=$?
       if [ "$install_status" -ne 0 ]; then
@@ -124,11 +133,11 @@ if [ ${#coverage_modules[@]} -eq 0 ]; then
       fi
       prove -lr "$@"
     '
-    docker compose -f "$compose" run --rm --name "$container_name" -v "$tree:/workspace/skills/tira" perl-test \
+    DIR_TIRA="$tree" d2 docker compose --service "$dev_service" run --build --rm --name "$container_name" "$dev_service" \
       bash -lc "$script" bash "${files[@]}" &
 else
     script='
-      cd /workspace/skills/tira || exit 1
+      cd /root/.developer-dashboard/skills/tira || exit 1
       rm -rf cover_db .test-tmp
       cpanm --quiet --notest --installdeps . >/tmp/dev-run-install.log 2>&1
       install_status=$?
@@ -153,7 +162,7 @@ else
       cover -ignore_covered_err -report text "${select_args[@]}" -coverage statement -coverage subroutine
       exit "$suite_status"
     '
-    docker compose -f "$compose" run --rm --name "$container_name" -v "$tree:/workspace/skills/tira" perl-test \
+    DIR_TIRA="$tree" d2 docker compose --service "$dev_service" run --build --rm --name "$container_name" "$dev_service" \
       bash -lc "$script" bash "${#coverage_modules[@]}" "${coverage_modules[@]}" "${files[@]}" &
 fi
 docker_pid=$!

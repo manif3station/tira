@@ -614,7 +614,8 @@ each hour)*. What is exact is said plainly, so `*/60` reads *Every hour, on the
 hour* without a hedge. And when both day fields are set, cron *ORs* them, so
 `0 0 1 * 1` reads *At 00:00 on the 1st of each month, and also every Monday* —
 stated rather than hedged, because that is exact and surprising rather than
-imprecise.
+imprecise. Since 5.191 the due-check itself matches that OR (TKT-1143) —
+before, the words and the actual firing behavior disagreed.
 
 The schedule shows as words — *Every 30 minutes*, *Every day at 09:00*, *Runs
 continuously* — with the cron string kept as the tooltip. The words are produced

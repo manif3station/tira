@@ -1,5 +1,17 @@
 Revision history for Tira
 
+5.191  2026-09-23
+    - TKT-1143: job_schedule_words already promised POSIX cron's day-of-
+      month/weekday OR rule ("0 0 1 * 1" -> the 1st of the month AND ALSO
+      every Monday), but _cron_minute_matches, the function job_is_due
+      actually calls, implemented it as AND across every field - a
+      schedule's description and its real firing behavior disagreed, and
+      the job fired roughly 1/7 as often as promised. Added
+      _both_days_restricted (reading the already-parsed field sets, not
+      re-deriving restricted-ness from the raw schedule text) and wired
+      its OR-logic into _cron_minute_matches; single-restricted and
+      neither-restricted schedules are unaffected. New test at t/1157.
+
 5.190  2026-09-23
     - TKT-1136: tools/gate-run and tools/dev-run both hardcoded
       docker-compose.testing.yml, a single compose file shared by every

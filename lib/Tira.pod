@@ -483,6 +483,12 @@ rather than read from the clock. A disabled job is never due, and neither
 is a C<monitor> job - that runs continuously rather than on a tick, so
 answering otherwise would have a caller restart it every minute.
 
+TKT-1143: when a cron schedule restricts both day-of-month and weekday
+(neither is C<*>), POSIX cron matches on either field, not both - a schedule
+of C<0 0 1 * 1> is due on the 1st of the month I<and also> every Monday, not
+only on a Monday that happens to be the 1st. A schedule restricting at most
+one of the two day fields is unaffected.
+
 =head2 tasklist_list
 
 Every C<tasklist_*> method, from here down to C<tasklist_task_ref_unlink>, is

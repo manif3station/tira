@@ -436,6 +436,26 @@ sub job_schedule_words {
     return "Every day $at";
 }
 
+# Whether a parsed field's set is "restricted" - covers less than every value
+# in its own range. Reads the ALREADY-PARSED set, not the raw schedule text:
+# _cron_field_values has already expanded '*', '*/1', '0-59' etc identically,
+# so this avoids a second parser that could disagree with the first - the
+# trap job_schedule_words's own '$dom ne '*'' text-check above is exposed to
+# ('*/1' means unrestricted but isn't the literal string '*'; out of this
+# ticket's scope to fix there, since it only affects wording).
+sub _field_is_restricted {
+    my ( $set, $field ) = @_;
+    return ( keys %{$set} ) != ( $field->{max} - $field->{min} + 1 );
+}
+
+# Whether BOTH day-of-month and weekday are restricted - job_schedule_words
+# already promises the OR rule here ("THE OR TRAP", above); TKT-1143.
+sub _both_days_restricted {
+    my ($sets) = @_;
+    return _field_is_restricted( $sets->[2], $CRON_FIELDS[2] )
+      && _field_is_restricted( $sets->[4], $CRON_FIELDS[4] );
+}
+
 sub _cron_minute_matches {
     my ( $sets, $epoch ) = @_;
     my ( $minute, $hour, $day, $month, $weekday ) = ( localtime $epoch )[ 1, 2, 3, 4, 6 ];
@@ -443,13 +463,20 @@ sub _cron_minute_matches {
 
     return 0 if !$sets->[0]{$minute};
     return 0 if !$sets->[1]{$hour};
-    return 0 if !$sets->[2]{$day};
     return 0 if !$sets->[3]{$month};
+
+    my $day_matches = !!$sets->[2]{$day};
 
     # Sunday is both 0 and 7 in cron, and a schedule naming either means the
     # same day.
-    return 0 if !$sets->[4]{$weekday} && !( $weekday == 0 && $sets->[4]{7} );
-    return 1;
+    my $weekday_matches = !!( $sets->[4]{$weekday} || ( $weekday == 0 && $sets->[4]{7} ) );
+
+    # THE OR TRAP (TKT-1143): both restricted means EITHER, not both - "0 0 1
+    # * 1" fires on the 1st and also every Monday. At most one restricted
+    # collapses back to AND (an unrestricted field always contains $day).
+    return _both_days_restricted($sets)
+      ? ( $day_matches || $weekday_matches )
+      : ( $day_matches && $weekday_matches );
 }
 
 1;

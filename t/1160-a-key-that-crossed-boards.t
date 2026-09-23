@@ -73,6 +73,11 @@ like( $key_details_text, qr/Summary & more <text>/,
 unlike( $key_details_text, qr/CDATA|<\/item>/,
     'the CDATA-wrapped description text (with its embedded literal </item>) never reaches the key-detail - only key+summary are stored' );
 
+# --- a CDATA-wrapped summary is unwrapped too, not only entity-decoded ----
+
+is( Tira::CLI::Records::_xml_unescape('<![CDATA[Wrapped & unescaped]]>'), 'Wrapped & unescaped',
+    'a CDATA-wrapped value returns its inner text verbatim, not re-decoded as entities' );
+
 # --- a malformed file refuses (dies), not a silent {ok=>0} success --------
 
 my $bad = File::Spec->catfile( $tmp, 'bad.xml' );

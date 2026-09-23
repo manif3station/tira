@@ -951,15 +951,22 @@ counter next to the list survives even a task being fully removed.
 
 Run tests only through the workspace Docker environment, via `d2 dev.run`
 or `d2 gate.run` (below) - since 5.190 (TKT-1136) both build their own
-distinct image through `d2 docker compose` (project `tira-dev`/`tira-gate`,
-their own `.developer-dashboard/config/docker/{dev,gate}/` service
-folders), rather than the retired workspace-root `docker-compose.testing.yml`
-shared across every skill.
+distinct image (`tira-dev:latest`/`tira-gate:latest`) and named cover_db
+volume through `d2 docker compose`, each from its own
+`.developer-dashboard/config/docker/{dev,gate}/` service folder, rather than
+the retired workspace-root `docker-compose.testing.yml` shared across every
+skill. The docker compose *project* itself is not distinct per service - `d2
+docker compose` merges every enabled service's compose file together for any
+invocation, so the effective top-level project name is shared - but the image
+tag and cover_db volume, the two things that would otherwise race a
+concurrent build or corrupt another run's coverage data, are genuinely
+distinct per service.
 
 **`d2 dev.run`** runs the suite for you, against the WORKING
 tree - uncommitted changes included - copied on the host into a scratch
-directory first and mounted into the container from there, so a coverage
-pass never reads a file mid-edit. It
+directory first and baked into the image as its own docker build context
+from there (since 5.190/TKT-1136, no longer a live bind mount), so a
+coverage pass never reads a file mid-edit. It
 checks `--installdeps` explicitly and names a dependency-install failure as
 itself, rather than letting a missing module abort test files at compile time
 and read as a broken test. `d2 dev.run -- t/FILE.t` runs one file the same

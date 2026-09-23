@@ -1479,6 +1479,7 @@ tira.column.update --type TYPE --name SLUG [--notify-after MINUTES] [--watch|--n
 tira.column.endings [--type TYPE] [-o FORMAT]
 tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [-o FORMAT]
 tira.import --file FILE [--dry-run] [-o FORMAT]
+tira.import.jira --ref REF --file FILE [-o FORMAT]
 tira.changelog.check [--file FILE] [-o FORMAT]
 tira.schema.export --file FILE [-o FORMAT]
 tira.search --text QUERY [--field FIELD ...] [--type TYPE] [--column SLUG] [--assignee ID] [--count] [--refs-only] [-o FORMAT]

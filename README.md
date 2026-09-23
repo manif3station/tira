@@ -877,6 +877,11 @@ Assignee and reporter values are person IDs in JSON and names in human output.
 Inactive people remain visible on historical work but cannot receive new
 ownership.
 
+**Importing a Jira issue** — `d2 tira.import.jira --ref TKT-123 --file
+export.xml` reads a Jira issue's exported XML (Jira's standard "Export XML"
+action) and records the Jira issue key and summary as a key-detail on the
+named Tira ticket. Since 5.192 (TKT-1153).
+
 ## Output
 
 TOON is the default and is also selected explicitly with `-o toon` - except a bare `d2 tira.dashboard` (and its `.sow`/`.epic`/`.ticket` forms) with no `--output` at all, which since 5.98 defaults to `-o browser` instead (see SKILLS.md UC-149).

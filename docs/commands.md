@@ -5318,3 +5318,24 @@ reader never has to infer it from whichever field is populated.
 - `tira.warning.clear {--id ID | --all} [-o FORMAT]`
 - `tira.warning.list [-o FORMAT]`
 
+### Jira Import
+
+- `tira.import.jira --ref REF --file PATH [-o FORMAT]`
+
+    TKT-1153, owner deadline. Parses a Jira issue's exported XML - Jira's own
+    standard "Export XML" action, an RSS 0.92 document - and records the
+    parsed issue key and summary as a key-detail on the target Tira ticket
+    (`--ref`), via the same key-detail mechanism `comment.add --key-detail`
+    already writes through. Not a new field, not a new record type: a Jira
+    ref lives on a Tira ticket exactly the way any other durable note does.
+
+    A hand-written tag extractor rather than a general-purpose XML library:
+    no sample export was available to confirm the exact field mapping (asked
+    twice, none arrived before the deadline), so this targets the documented,
+    stable shape specifically - `<item>`, `<key>`, `<summary>` - rather than
+    adding a dependency (a new cpanfile entry means a Dockerfile and coverage
+    gate change too) that could not be verified against a real export in
+    time. A file that does not contain a recognizable `<item>`/`<key>` pair
+    refuses cleanly, naming what was expected, rather than importing nothing
+    silently or dying with an internal parser error.
+

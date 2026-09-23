@@ -377,6 +377,10 @@ C<question_verbs> answers C<question.ask>, C<question.list>, C<question.answer>,
 C<question.update>, C<question.mark>, C<question.discard> and
 C<question.withdraw>.
 
+C<import_jira> answers C<tira.import.jira> (TKT-1153): parses a Jira issue's
+exported XML (Jira's standard "Export XML" RSS 0.92 shape) and records the
+parsed issue key and summary as a key-detail on the target Tira ticket.
+
 =head2 The capture that had to be re-taken
 
 C<question_verbs> chose its branch from C<$1> - the capture left by the C<if>

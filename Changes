@@ -1,5 +1,17 @@
 Revision history for Tira
 
+5.192  2026-09-23
+    - TKT-1143: t/524's own 500-line file gate refused after the OR-rule
+      fix pushed lib/Tira/Job/Schedule.pm to 516 lines - added the
+      required exemption entry, pointing at TKT-1151's real
+      decomposition plan.
+    - TKT-1153: added tira.import.jira, importing a Jira issue's
+      exported XML (the standard RSS 0.92 "Export XML" shape) onto a
+      Tira ticket - the Jira issue key and summary are recorded as a
+      key-detail on the target ticket. A hand-written tag extractor
+      rather than a general XML dependency, since no sample export was
+      available to confirm field mapping against a real one.
+
 5.191  2026-09-23
     - TKT-1143: job_schedule_words already promised POSIX cron's day-of-
       month/weekday OR rule ("0 0 1 * 1" -> the 1st of the month AND ALSO

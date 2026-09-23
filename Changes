@@ -1,5 +1,13 @@
 Revision history for Tira
 
+5.187  2026-09-22
+    - TKT-648 (found by a read-only audit agent on zenandi, 4.56):
+      tira.export's embedded questions carried no 'status' key at all -
+      the same gap TKT-322 already fixed for record.show, but export
+      was never included. A consumer filtering on the documented field
+      silently saw zero discarded questions instead of the real count.
+      Fixed at the same CLI dispatch boundary. New test at t/1156.
+
 5.186  2026-09-22
     - TKT-647 (found by a read-only audit agent on zenandi, 4.56):
       ticket.show -o human rendered '## Checklist' - which never gates a

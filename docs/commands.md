@@ -3041,6 +3041,18 @@ all reads and mutations and must not attempt direct filesystem access. Run
 Existing record-list commands retain their compatible array result; `--full`
 is an explicit assertion that the full records already returned are required.
 
+**Embedded questions carry `status` now, since 5.187** (TKT-648). `status`
+(new/answered/discarded) is computed only by `_question_view`, and
+`record.show`'s own embedded questions already got this at the `Tira::CLI`
+dispatch boundary (TKT-322) - `export` never did, so every question in a
+`tira.export -o json` answer carried no `status` key at all, regardless of
+whether it was live, answered, or long discarded. Measured live: 151
+questions across 49 cards, 0 carrying `status` - a consumer filtering on the
+documented field silently saw zero discarded questions instead of the real
+sixteen, at exit 0. Fixed the same way and in the same place as TKT-322: at
+the CLI dispatch boundary for the `export` command, not inside the engine's
+own `export_records`, which stays an unmodified plain read.
+
 The read cache is opt-in per call: `--cache-ttl N` on read commands serves
 repeated identical calls locally while both the ttl and a board fingerprint
 hold — any write invalidates immediately (read-your-own-writes), hits are

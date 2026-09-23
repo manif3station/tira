@@ -1670,7 +1670,24 @@ sub _invoke {
         require Tira::CLI::Records;
         return Tira::CLI::Records::record_create( $tira, \%args, $option );
     }
-    return $tira->export_records(%args) if $command eq 'export';
+    if ( $command eq 'export' ) {
+        my $result = $tira->export_records(%args);
+
+        # TKT-648. The same gap TKT-322 already fixed for record.show
+        # (see the comment above the record.show|list|... branch): status
+        # is computed only by Tira::_question_view, and export_records'
+        # own answer embeds the stored question entry as-is - no status
+        # key at all. Applied here, at the CLI boundary, for the same
+        # reason: export_records is a plain read with no fetch-then-mutate
+        # reuse to protect, but keeping the fix in one place (the CLI
+        # dispatch layer) rather than splitting it between here and the
+        # engine avoids two definitions of the same view.
+        for my $record ( @{ $result->{records} // [] } ) {
+            next if ref $record->{questions} ne 'ARRAY';
+            $record->{questions} = [ map { Tira::_question_view($_) } @{ $record->{questions} } ];
+        }
+        return $result;
+    }
     return $tira->diff_records(%args) if $command eq 'diff';
     if ( $command eq 'stale' ) {
         my %dwell = ( project => $args{project} );

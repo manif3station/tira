@@ -275,7 +275,19 @@ DIR_TIRA="$tree" d2 docker compose --service "$gate_service" run --build --rm --
 cover -ignore_covered_err -report text "$@" -coverage statement -coverage subroutine 2>/dev/null
 COVERSCRIPT
     chmod +x /tmp/.gate-run-cover;
-    ./.developer-dashboard/skills/coverage/cli/guard -- /tmp/.gate-run-cover "${select_args[@]}" >/tmp/.gate-run-cover-out 2>&1;
+
+    # TKT-1136, self-caught. coverage-guard resolves its own root the same
+    # dirname-based way this script and dev-run do - correct for a caller
+    # invoked with $0 already relative to the tree it means, wrong here:
+    # $0 is ./.developer-dashboard/skills/coverage/cli/guard, so its own
+    # unset-DIR_TIRA fallback lands inside .../coverage, not the checkout
+    # the Dockerfile for this image actually baked in at /root/.developer-
+    # dashboard/skills/tira (already this shells own PWD, since the top
+    # of this embedded script already cd-ed there). Scoped to this one
+    # call, not exported for the whole container, so coverage-guards own
+    # test fixtures - which rely on the SAME unset-by-default fallback to
+    # point it at a scratch tree instead - are untouched.
+    DIR_TIRA="$PWD" ./.developer-dashboard/skills/coverage/cli/guard -- /tmp/.gate-run-cover "${select_args[@]}" >/tmp/.gate-run-cover-out 2>&1;
     coverage_status=$?;
 
     # A RUN DIRECTORY CAN BE PRESENT AND STILL WRONG - the whole reason this

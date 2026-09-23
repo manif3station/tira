@@ -372,6 +372,15 @@ my $first_tree = tree_hash();
 # PATH that prints canned suite output instead of running a container. What
 # is proved here is gate-run's own judgement about what it is told, and that
 # it writes nothing when the answer is not a clean pass.
+#
+# Since 5.190 (TKT-1136) gate-run's own container invocation is
+# `d2 docker compose ... run ...`, not a raw `docker compose` call - so `d2`
+# itself is what has to be faked here too, or this fixture would reach the
+# REAL d2 binary and try to build and run an actual image inside this
+# unit test. Any OTHER `d2` call this fixture's own setup makes (there are
+# none right now, but a future one might) is passed through to the real
+# binary, found on the PATH this fake script's own PATH still carries
+# minus $bin itself, so faking one verb does not silently fake everything.
 
 sub install_fake_docker {
     my ($suite_output) = @_;
@@ -380,6 +389,30 @@ sub install_fake_docker {
     print {$out} "#!/usr/bin/env bash\ncat <<'SUITE_EOF'\n$suite_output\nSUITE_EOF\n";
     close $out;
     chmod 0755, $docker or die $!;
+
+    my $real_d2 = do {
+        chomp( my $found = `PATH="\$(echo "\$PATH" | tr ':' '\\n' | grep -v '^\Q$bin\E\$' | paste -sd:)" command -v d2` );
+        $found;
+    };
+    my $d2 = File::Spec->catfile( $bin, 'd2' );
+    open my $d2fh, '>', $d2 or die $!;
+    print {$d2fh} <<"FAKE_D2";
+#!/usr/bin/env bash
+if [ "\$1" = "docker" ] && [ "\$2" = "compose" ]; then
+  for arg in "\$@"; do
+    if [ "\$arg" = "run" ]; then
+      cat <<'SUITE_EOF'
+$suite_output
+SUITE_EOF
+      exit 0
+    fi
+  done
+  exit 0
+fi
+exec "$real_d2" "\$\@"
+FAKE_D2
+    close $d2fh;
+    chmod 0755, $d2 or die $!;
     return;
 }
 

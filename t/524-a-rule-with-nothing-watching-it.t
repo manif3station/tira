@@ -175,6 +175,12 @@ my %EXEMPT = (
       . '(storage, due-check, run recording) is still one file, not yet '
       . 'owned by a card',
 
+    'lib/Tira/Job/Schedule.pm' => 'TKT-1044\'s own lift crossed back over '
+      . 'the line when TKT-1143 fixed the day-OR-weekday matching bug - '
+      . 'TKT-1151 owns a real decomposition plan (candidate splits named: '
+      . 'the field-matching helpers vs the wording logic), filed rather '
+      . 'than an unrelated mid-ticket refactor for a fourteen-line overage',
+
     'lib/Tira/Tasklist.pm' => 'TKT-906: storage, session scoping, queue '
       . 'operations, attachments and record links are the complete tasklist '
       . 'item lifecycle - one concern, do not split',

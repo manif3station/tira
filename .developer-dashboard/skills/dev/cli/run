@@ -138,7 +138,7 @@ if [ ${#coverage_modules[@]} -eq 0 ]; then
 else
     script='
       cd /root/.developer-dashboard/skills/tira || exit 1
-      rm -rf cover_db .test-tmp
+      rm -rf cover_db/* cover_db/.[!.]* .test-tmp
       cpanm --quiet --notest --installdeps . >/tmp/dev-run-install.log 2>&1
       install_status=$?
       if [ "$install_status" -ne 0 ]; then

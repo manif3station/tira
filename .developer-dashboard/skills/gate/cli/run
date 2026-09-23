@@ -183,7 +183,7 @@ DIR_TIRA="$tree" d2 docker compose --service "$gate_service" run --build --rm --
   # substitute for the coverage pass that follows it unchanged: a tree that
   # passes here and fails under coverage still fails the gate, since only the
   # instrumented run below writes the 100% figure anything else trusts.
-  rm -rf cover_db .test-tmp &&
+  rm -rf cover_db/* cover_db/.[!.]* .test-tmp &&
   timeout --signal=KILL '"$SUITE_TIMEOUT"' env -u HARNESS_PERL_SWITCHES prove -j"$JOBS" -lr t >/tmp/gate-run-plain.log 2>&1;
   plain_status=$?;
   ./.developer-dashboard/skills/gate/cli/summarize "$plain_status" /tmp/gate-run-plain.log;
@@ -216,7 +216,7 @@ DIR_TIRA="$tree" d2 docker compose --service "$gate_service" run --build --rm --
   report_status=1;
   refusal_reason="the suite did not pass";
   while [ "$attempt" -le 2 ]; do
-    rm -rf cover_db .test-tmp;
+    rm -rf cover_db/* cover_db/.[!.]* .test-tmp;
     timeout --signal=KILL '"$SUITE_TIMEOUT"' env HARNESS_PERL_SWITCHES=-MDevel::Cover prove -j"$JOBS" -lr t >/tmp/gate-run-suite.log 2>&1;
     suite_status=$?;
 
@@ -355,7 +355,7 @@ COVERSCRIPT
   # percentage on its own. TKT-593.
   ./.developer-dashboard/skills/coverage/cli/holes --db cover_db 2>&1 | sed "s/^/uncovered: /" || true
 
-  rm -rf cover_db
+  rm -rf cover_db/* cover_db/.[!.]*
 ' >"$output" 2>&1 &
 docker_pid=$!
 docker_status=0

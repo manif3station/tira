@@ -1670,6 +1670,11 @@ sub _invoke {
         require Tira::CLI::Records;
         return Tira::CLI::Records::record_create( $tira, \%args, $option );
     }
+    if ( $command eq 'import.jira' ) {
+        require Tira::CLI::Records;
+        return Tira::CLI::Records::import_jira(
+            $tira, { %args, files => $option->{files} // [] }, $option );
+    }
     if ( $command eq 'export' ) {
         my $result = $tira->export_records(%args);
 

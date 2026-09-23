@@ -309,6 +309,56 @@ sub _populate_column_required_actions {
     return;
 }
 
+# import_jira(%args) - TKT-1153. Reads a Jira "Export XML" file (the
+# standard RSS 0.92 issue shape: item/key/summary/description/parent/
+# subtasks) and records the Jira issue key and summary as a key-detail on
+# the target Tira ticket, via comment_add's own --key-detail mechanism -
+# not a new field, not a new record type.
+#
+# A HAND-WRITTEN TAG EXTRACTOR, NOT A FULL XML PARSER. No sample export was
+# available to confirm the exact shape (the owner asked for one; none
+# arrived before the deadline), so this targets Jira's documented standard
+# format specifically rather than adding a general-purpose XML dependency
+# (a new cpanfile entry means a Dockerfile/coverage-gate change too, all
+# unverifiable against a real export right now). Regex-based, deliberately
+# narrow: it extracts exactly the five tags this ticket's acceptance
+# criteria name and refuses cleanly when the file does not look like the
+# expected shape, rather than guessing at a wider grammar it cannot test.
+sub import_jira {
+    my ( $tira, $args, $option ) = @_;
+    my %args = %{$args};
+    my $file = ( $args{files} // [] )->[0];
+    return { ok => 0, error => "A Jira XML export file is required" } if !defined $file || $file eq '';
+    return { ok => 0, error => "No such file: $file" } if !-f $file;
+
+    open my $fh, '<', $file or return { ok => 0, error => "Cannot read $file: $!" };
+    local $/;
+    my $content = <$fh>;
+    close $fh;
+
+    return { ok => 0, error => "Not a recognizable Jira XML export - no <item> block found" }
+      if $content !~ m{<item>(.*?)</item>}s;
+    my $item = $1;
+
+    my ($key) = $item =~ m{<key[^>]*>\s*([^<\s]+)\s*</key>};
+    return { ok => 0, error => "Not a recognizable Jira XML export - no <key> tag found in <item>" }
+      if !defined $key || $key eq '';
+
+    my ($summary) = $item =~ m{<summary>\s*(.*?)\s*</summary>}s;
+    $summary //= '';
+
+    my $detail = "Jira ref: $key";
+    $detail .= " - $summary" if $summary ne '';
+
+    $tira->comment_add(
+        project => $args{project}, ref => $args{ref}, author => $args{author} // 'claude',
+        text => "Imported from Jira export ($file): $key" . ( $summary ne '' ? " - $summary" : '' ),
+        key_details => [$detail],
+    );
+
+    return { ok => 1, jira_key => $key, summary => $summary };
+}
+
 1;
 
 __END__

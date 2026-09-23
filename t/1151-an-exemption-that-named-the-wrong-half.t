@@ -19,6 +19,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub {'2026-09-22T00:00:00Z'} );
@@ -111,7 +112,14 @@ is( scalar @{$violations}, 0,
         project => $root, ref => $card4->{ref}, type => 'ticket', author => 'claude',
         required_exempt => ['REQ-002'], exempt_reason => ['exempting the item whose TEXT is REQ-002'],
     );
-    $tira->record_move( project => $root, ref => $card4->{ref}, column => 'implement', author => 'claude' );
+    # This card's REQ-001 (text 'REQ-002') is not exempted by the id-shaped
+    # exemption value below - the departure gate would genuinely refuse
+    # this move, which is not what this subtest is about. Routed through
+    # the browser dashboard's own real move path (TKT-426/1144), the one
+    # sanctioned way past that, rather than faked with a flag record_move
+    # itself no longer trusts.
+    my %providers4 = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    $providers4{move}->( { ref => $card4->{ref}, column => 'implement', type => 'ticket', _signed_in => 'claude' } );
 
     my $pass4 = $tira->police_pass(
         project => $root, store => File::Spec->catdir( $tmp, 'store4' ), world => {},

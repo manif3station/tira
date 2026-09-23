@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.187';
+our $VERSION = '5.188';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -3154,6 +3154,39 @@ sub record_update {
     } );
 }
 
+# TKT-1144. Lifted down from Tira::CLI::Move (which keeps these three names
+# as thin forwards) so record_move itself can refuse a departure with unmet
+# required items - the check used to live only in the CLI dispatch layer,
+# which any caller reaching record_move a different way (Tira::CLI::Browser's
+# own two call sites, or any future direct-engine automation) never had to
+# pass through, exactly the shape TKT-457 already fixed once for the author
+# requirement and left this half open. Unchanged behaviour, moved location.
+sub _item_is_done {
+    my ($item) = @_;
+    return lc( ( ref $item eq 'HASH' ? $item->{status} : $item ) // '' ) eq 'done';
+}
+
+sub _item_is_exempt {
+    my ( $exempt, $item ) = @_;
+    return 1 if defined $item->{id} && $exempt->{ $item->{id} };
+    my $text = $item->{item};
+    return 0 if !defined $text || $text =~ /\AREQ-\d+\z/;
+    return $exempt->{$text} ? 1 : 0;
+}
+
+sub _unmet_in_column {
+    my ( $record, $column ) = @_;
+    return [] if ref $record ne 'HASH';
+    return [] if !defined $column || $column eq '';
+    my %exempt = map { ( ref($_) eq 'HASH' ? $_->{item} : $_ ) => 1 }
+      @{ $record->{required_exempt} // [] };
+    return [ grep {
+        ( $_->{column} // '' ) eq $column
+          && !_item_is_exempt( \%exempt, $_ )
+          && !_item_is_done($_);
+    } @{ $record->{required_items} // [] } ];
+}
+
 sub record_move {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
@@ -3168,6 +3201,17 @@ sub record_move {
     # only refuses a caller that supplied neither. TKT-457.
     die "A move needs to say who is making it\n" if !defined $args{author} || $args{author} eq '';
     local $self->{_journal_author} = $self->_journal_attribution( %args, project => $root );
+
+    # TKT-1144 (Codex review). Trusting a caller-supplied %args flag here
+    # would just move the hole this card exists to close - any code, not
+    # only Tira::CLI::Browser's own two call sites, could pass the same
+    # key and skip the gate below. caller() at this exact point (before
+    # descending into the _with_project_lock closure, where it would
+    # instead name _with_project_lock's own internals) reports which
+    # PACKAGE's code is actually making this call - true regardless of
+    # what arguments that code chooses to pass, and nothing outside
+    # Tira::CLI::Browser's own source can ever make this true of itself.
+    my $dashboard_move = ( caller() )[0] eq 'Tira::CLI::Browser';
     return $self->_with_project_lock( $root, sub {
         my ( $path, $record ) = $self->_record_data( project => $root, ref => $args{ref} );
         my $type = $record->{type};
@@ -3178,6 +3222,44 @@ sub record_move {
         die "Column '$column' not found\n" if !grep { $_->{name} eq $column } @{ $config->{columns} };
         my $destination = File::Spec->catfile( $root, '.tira', $type, $column, basename($path) );
         my $previous_column = basename( dirname($path) );
+
+        # TKT-1144. The CLI dispatch layer's own pre-move check
+        # (_column_required_action_violation) still runs first for the
+        # ordinary d2 tira.<type>.move path and gives its own well-formatted
+        # refusal - this is the backstop for every OTHER path, so the two
+        # must never disagree about which moves that check would have
+        # allowed. Same three exceptions it already has: discard, a no-op
+        # move, and a genuinely backward one (moving back resets required
+        # items instead of gating on them - a different, existing behaviour,
+        # not this card's concern).
+        #
+        # $dashboard_move (captured above, from caller() - see there) is the
+        # ONE sanctioned way around this: a call made from inside
+        # Tira::CLI::Browser's own source, the owner's own instruction,
+        # TKT-426 - a human moving a card on the HTML dashboard is not an
+        # agent skipping a gate.
+        if ( !$dashboard_move
+            && $column ne 'discard'
+            && $previous_column ne $column
+            && defined $previous_column && $previous_column ne '' )
+        {
+            my %index;
+            my $i = 0;
+            for my $col ( @{ $config->{columns} } ) { $index{ $col->{name} } = $i++; }
+            if ( exists $index{$previous_column} && exists $index{$column}
+                && $index{$column} > $index{$previous_column} )
+            {
+                my @unmet = @{ _unmet_in_column( $record, $previous_column ) };
+                if (@unmet) {
+                    die "Cannot move $args{ref} out of $previous_column - "
+                      . ( @unmet == 1 ? '1 required action is' : scalar(@unmet) . ' required actions are' )
+                      . " not done:\n"
+                      . join( '', map { "  $_->{id}  $_->{item}\n" } @unmet )
+                      . "  Mark one, then move again:\n"
+                      . "    d2 tira.required-action.update --ref $args{ref} --id $unmet[0]{id} --status done --command TEXT --proof TEXT\n";
+                }
+            }
+        }
         rename $path, $destination or die "Cannot move '$args{ref}': $!\n";
 
         if ( $previous_column ne $column ) {

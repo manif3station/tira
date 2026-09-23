@@ -23,8 +23,20 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
+
+# The browser move: ungated, exactly as TKT-426/452 leave it, and as every
+# comment in this file already says - routed through the real dashboard
+# move path (TKT-1144: record_move itself now checks, via caller(), that
+# it is genuinely being called from Tira::CLI::Browser's own source, so a
+# test can no longer fake this with a flag).
+sub browser_moved {
+    my ( $tira, $root, $ref, $column, $type ) = @_;
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    return $providers{move}->( { ref => $ref, column => $column, type => $type // 'ticket', _signed_in => 'claude' } );
+}
 
 sub board_at {
     my ($name) = @_;
@@ -60,7 +72,7 @@ sub reported {
     # The browser move: ungated, exactly as TKT-426/452 leave it. Going
     # straight to implement, past both backlog and tests-red, is the shape
     # that stranded the owner's own real card.
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement', author => 'claude' );
+    browser_moved( $tira, $root, $card->{ref}, 'implement', 'ticket' );
 
     my $violations = reported( $tira, $root, 'stranded' );
     is( scalar @{$violations}, 1, 'the item tagged backlog, now unreachable from implement, is reported' );
@@ -76,7 +88,7 @@ sub reported {
         column => 'backlog', item => 'Fill in the fields', status => 'pending' );
     $tira->required_item_update( author => 'claude', project => $root, ref => $card->{ref},
         id => 'REQ-001', status => 'done', command => ['filled them in'], proof => ['confirmed'] );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement', author => 'claude' );
+    browser_moved( $tira, $root, $card->{ref}, 'implement', 'ticket' );
 
     is( scalar @{ reported( $tira, $root, 'clean' ) }, 0,
         'a card with nothing outstanding produces no report' );
@@ -108,8 +120,8 @@ sub reported {
     my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Reached the end anyway' );
     $tira->required_item_add( author => 'claude', project => $root, ref => $card->{ref},
         column => 'backlog', item => 'Fill in the fields', status => 'pending' );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement', author => 'claude' );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'done', author => 'claude' );
+    browser_moved( $tira, $root, $card->{ref}, 'implement', 'ticket' );
+    browser_moved( $tira, $root, $card->{ref}, 'done', 'ticket' );
 
     is( scalar @{ reported( $tira, $root, 'finished' ) }, 0,
         'a card that reached done is settled, even with an old item stranded in a column it left on the way' );
@@ -129,7 +141,7 @@ sub reported {
     my $card = $tira->create_record( project => $root, type => 'ticket', title => 'A board with its own ending' );
     $tira->required_item_add( author => 'claude', project => $root, ref => $card->{ref},
         column => 'backlog', item => 'Fill in the fields', status => 'pending' );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement', author => 'claude' );
+    browser_moved( $tira, $root, $card->{ref}, 'implement', 'ticket' );
 
     is( scalar @{ reported( $tira, $root, 'declared-terminal' ) }, 0,
         "a board that declared 'implement' its own ending settles a card there too, not only in the default 'done'" );
@@ -143,8 +155,8 @@ sub reported {
     my $second = $tira->create_record( project => $root, type => 'ticket', title => 'Reached done, which is still an ending too' );
     $tira->required_item_add( author => 'claude', project => $root, ref => $second->{ref},
         column => 'backlog', item => 'Fill in the fields', status => 'pending' );
-    $tira->record_move( project => $root, ref => $second->{ref}, column => 'implement', author => 'claude' );
-    $tira->record_move( project => $root, ref => $second->{ref}, column => 'done', author => 'claude' );
+    browser_moved( $tira, $root, $second->{ref}, 'implement', 'ticket' );
+    browser_moved( $tira, $root, $second->{ref}, 'done', 'ticket' );
 
     is( scalar @{ reported( $tira, $root, 'declared-terminal' ) }, 0,
         "declaring 'implement' terminal does not undo the 'done' default - a card that reaches done is still settled too" );
@@ -165,12 +177,12 @@ sub reported {
     my $ticket = $tira->create_record( project => $root, type => 'ticket', title => 'A stranded ticket' );
     $tira->required_item_add( author => 'claude', project => $root, ref => $ticket->{ref},
         column => 'backlog', item => 'Fill in the fields', status => 'pending' );
-    $tira->record_move( project => $root, ref => $ticket->{ref}, column => 'implement', author => 'claude' );
+    browser_moved( $tira, $root, $ticket->{ref}, 'implement', 'ticket' );
 
     my $sow = $tira->create_record( project => $root, type => 'sow', title => 'A stranded sow' );
     $tira->required_item_add( author => 'claude', project => $root, ref => $sow->{ref},
         column => 'backlog', item => 'Fill in the fields', status => 'pending' );
-    $tira->record_move( project => $root, ref => $sow->{ref}, column => 'implement', author => 'claude' );
+    browser_moved( $tira, $root, $sow->{ref}, 'implement', 'sow' );
 
     my $violations = reported( $tira, $root, 'mixed-types' );
     is( scalar @{$violations}, 2,
@@ -188,7 +200,7 @@ sub reported {
         column => 'backlog', item => 'Fill in the fields', status => 'pending' );
     $tira->record_update( project => $root, ref => $card->{ref}, author => 'claude',
         required_exempt => ['Fill in the fields'], exempt_reason => ['Not needed for this card'] );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement', author => 'claude' );
+    browser_moved( $tira, $root, $card->{ref}, 'implement', 'ticket' );
 
     is( scalar @{ reported( $tira, $root, 'exempted' ) }, 0,
         'an item this card is exempt from is not reported as stranded' );
@@ -200,7 +212,7 @@ sub reported {
     my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Set aside with work outstanding' );
     $tira->required_item_add( author => 'claude', project => $root, ref => $card->{ref},
         column => 'backlog', item => 'Fill in the fields', status => 'pending' );
-    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement', author => 'claude' );
+    browser_moved( $tira, $root, $card->{ref}, 'implement', 'ticket' );
     $tira->record_discard( author => 'claude', project => $root, ref => $card->{ref} );
 
     is( scalar @{ reported( $tira, $root, 'discarded' ) }, 0,

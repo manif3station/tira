@@ -75,6 +75,15 @@ sub providers {
             # accurate for whoever looks at it next - and that has to happen
             # here too, or a browser move silently leaves required_items
             # stale in either direction. TKT-452.
+            #
+            # TKT-1144: record_move itself now refuses an unmet required
+            # item by default for every OTHER caller, since that check used
+            # to live only in the CLI dispatch layer this route never
+            # passes through. record_move exempts this route by checking
+            # (via caller()) that it is genuinely being called from this
+            # package's own source - not by anything this payload carries,
+            # which a browser request controls and record_move must never
+            # trust for that.
             my $before = eval { $tira->record_show(%move_args) };
             my $from   = $before ? $before->{column} : undef;
             my $record = $tira->record_move(%move_args);

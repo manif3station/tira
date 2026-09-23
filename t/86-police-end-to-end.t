@@ -35,6 +35,18 @@ $tira->project_new(
 );
 $tira->project_update( project => $root, agent => 'claude' );
 
+# Fixture setup throughout this file is not exercising the required-action
+# departure gate - it is building board states for the police rules under
+# test, many with items deliberately left pending. Routed through the real
+# dashboard move path (TKT-1144: record_move checks via caller() that it is
+# genuinely called from Tira::CLI::Browser's own source, so this can no
+# longer be faked with a flag).
+my %move_providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+sub browser_moved {
+    my ( $ref, $column, $type ) = @_;
+    return $move_providers{move}->( { ref => $ref, column => $column, type => $type // 'ticket', _signed_in => 'claude' } );
+}
+
 # card-sandbox-missing reads branches and work trees, and refuses to be
 # declared where no repository can be resolved (TKT-178). This board sits
 # inside one, which is the ordinary case and what a real board declaring
@@ -139,14 +151,14 @@ $tira->column_add( project => $root, type => 'ticket', name => 'document',
 # --- a board with something wrong of every kind ---------------------------
 
 my $bare = $tira->create_record( project => $root, type => 'ticket', title => 'No detail at all' );
-$tira->record_move(author => 'claude',  project => $root, ref => $bare->{ref}, column => 'implement' );
+browser_moved( $bare->{ref}, 'implement', 'ticket' );
 
 my $crowding = $tira->create_record( project => $root, type => 'ticket', title => 'A second in progress' );
-$tira->record_move(author => 'claude',  project => $root, ref => $crowding->{ref}, column => 'implement' );
+browser_moved( $crowding->{ref}, 'implement', 'ticket' );
 $tira->checklist_add( author => 'michael', project => $root, ref => $crowding->{ref}, item => 'started', status => 'pending' );
 
 my $finished = $tira->create_record( project => $root, type => 'ticket', title => 'Work all done' );
-$tira->record_move(author => 'claude',  project => $root, ref => $finished->{ref}, column => 'implement' );
+browser_moved( $finished->{ref}, 'implement', 'ticket' );
 $tira->checklist_add( author => 'michael', project => $root, ref => $finished->{ref}, item => 'the work', status => 'done', command => ['did it'], proof => ['done'] );
 
 # agent-still: since TKT-570 the rule counts only working-column cards the
@@ -156,8 +168,7 @@ $tira->checklist_add( author => 'michael', project => $root, ref => $finished->{
 # what the agent cannot be stalling on.
 my $agents_own = $tira->create_record( project => $root, type => 'ticket',
     title => 'The agent has this one', assignee => 'claude' );
-$tira->record_move( author => 'claude', project => $root,
-    ref => $agents_own->{ref}, column => 'implement' );
+browser_moved( $agents_own->{ref}, 'implement', 'ticket' );
 
 # checklist-unmoved: a card carried on from one working column to the next with
 # nothing ticked in between. Two moves are needed, because the window a move is
@@ -165,8 +176,8 @@ $tira->record_move( author => 'claude', project => $root,
 # that window includes being raised, and the checklist was written inside it.
 my $dragged = $tira->create_record( project => $root, type => 'ticket', title => 'Carried along' );
 $tira->checklist_add( author => 'michael', project => $root, ref => $dragged->{ref}, item => 'never started', status => 'pending' );
-$tira->record_move(author => 'claude',  project => $root, ref => $dragged->{ref}, column => 'implement' );
-$tira->record_move(author => 'claude',  project => $root, ref => $dragged->{ref}, column => 'verify' );
+browser_moved( $dragged->{ref}, 'implement', 'ticket' );
+browser_moved( $dragged->{ref}, 'verify', 'ticket' );
 
 # required-action-stranded: an item tagged with a column the card has
 # already left behind - the browser move that started TKT-612, ungated by
@@ -174,15 +185,15 @@ $tira->record_move(author => 'claude',  project => $root, ref => $dragged->{ref}
 my $stranded = $tira->create_record( project => $root, type => 'ticket', title => 'Dragged past its own door' );
 $tira->required_item_add( author => 'claude', project => $root, ref => $stranded->{ref},
     column => 'backlog', item => 'Fill in the fields', status => 'pending' );
-$tira->record_move( author => 'claude', project => $root, ref => $stranded->{ref}, column => 'implement' );
+browser_moved( $stranded->{ref}, 'implement', 'ticket' );
 
 # checklist-item-terminal: an epic checklist item naming a card that has
 # already reached a terminal column, while the item itself is still open.
 my $epic_with_terminal_child = $tira->create_record( project => $root, type => 'epic', title => 'Names a finished card' );
 my $terminal_child = $tira->create_record( project => $root, type => 'ticket', title => 'Already done' );
-$tira->record_move( author => 'claude', project => $root, ref => $terminal_child->{ref}, column => 'implement' );
-$tira->record_move( author => 'claude', project => $root, ref => $terminal_child->{ref}, column => 'verify' );
-$tira->record_move( author => 'claude', project => $root, ref => $terminal_child->{ref}, column => 'done' );
+browser_moved( $terminal_child->{ref}, 'implement', 'ticket' );
+browser_moved( $terminal_child->{ref}, 'verify', 'ticket' );
+browser_moved( $terminal_child->{ref}, 'done', 'ticket' );
 $tira->checklist_add( author => 'michael', project => $root, ref => $epic_with_terminal_child->{ref},
     item => "Finish $terminal_child->{ref}", status => 'pending' );
 
@@ -263,7 +274,7 @@ $tira->job_feed( project => $root, id => $quiet_monitor->{id},
 {
     my $worked = $tira->create_record(
         project => $root, type => 'ticket', title => 'A card somebody started' );
-    $tira->record_move( author => 'claude', project => $root, ref => $worked->{ref}, column => 'implement' );
+    browser_moved( $worked->{ref}, 'implement', 'ticket' );
     $tira->tasklist_add(
         project => $root, text => 'A note whose card moved on without it',
         refs => [ $worked->{ref} ] );
@@ -311,7 +322,7 @@ my $open_question = $tira->question_add( project => $root, ref => $unjudged->{re
 $tira->question_answer( project => $root, ref => $unjudged->{ref}, id => $open_question->{id}, text => 'this way' );
 
 my $lingering = $tira->create_record( project => $root, type => 'ticket', title => 'Sitting in verify' );
-$tira->record_move(author => 'claude',  project => $root, ref => $lingering->{ref}, column => 'verify' );
+browser_moved( $lingering->{ref}, 'verify', 'ticket' );
 
 # Work taken out of turn: a low card being worked while a higher one of the same
 # kind sits untouched where it was raised. 5 is the urgent end, so the waiting
@@ -320,10 +331,10 @@ my $urgent = $tira->create_record( project => $root, type => 'ticket',
     title => 'Should have gone first', priority => 5 );
 my $lesser = $tira->create_record( project => $root, type => 'ticket',
     title => 'Being worked instead', priority => 2 );
-$tira->record_move(author => 'claude',  project => $root, ref => $lesser->{ref}, column => 'implement' );
+browser_moved( $lesser->{ref}, 'implement', 'ticket' );
 
 my $shipped = $tira->create_record( project => $root, type => 'ticket', title => 'Done with no gate' );
-$tira->record_move(author => 'claude',  project => $root, ref => $shipped->{ref}, column => 'done' );
+browser_moved( $shipped->{ref}, 'done', 'ticket' );
 
 my $dropped = $tira->create_record( project => $root, type => 'ticket', title => 'Dropped in silence' );
 $tira->record_discard(author => 'claude',  project => $root, ref => $dropped->{ref} );
@@ -332,8 +343,8 @@ $tira->record_discard(author => 'claude',  project => $root, ref => $dropped->{r
 # own mirror. Walked to verify, then back to implement, with no comment
 # near the move to explain it.
 my $backtracked = $tira->create_record( project => $root, type => 'ticket', title => 'Sent back with no word' );
-$tira->record_move(author => 'claude',  project => $root, ref => $backtracked->{ref}, column => 'verify' );
-$tira->record_move(author => 'claude',  project => $root, ref => $backtracked->{ref}, column => 'implement' );
+browser_moved( $backtracked->{ref}, 'verify', 'ticket' );
+browser_moved( $backtracked->{ref}, 'implement', 'ticket' );
 
 # A card set aside while a question on it was still waiting - the questions go
 # with the card, and the decision they were waiting on is never made.
@@ -351,7 +362,7 @@ $tira->column_roles_set( project => $root, type => 'epic', roles => { done => 'd
 my $premature = $tira->create_record( project => $root, type => 'epic', title => 'Claims to be finished' );
 my $underneath = $tira->create_record( project => $root, type => 'ticket', title => 'Still open underneath it' );
 $tira->hierarchy_link( project => $root, parent => $premature->{ref}, child => $underneath->{ref} );
-$tira->record_move(author => 'claude',  project => $root, ref => $premature->{ref}, column => 'done' );
+browser_moved( $premature->{ref}, 'done', 'epic' );
 
 # The card the upgrade gate raises, left exactly as it lands: in backlog, with
 # its checklist untouched. That column is the whole of upgrade-unreviewed -
@@ -527,7 +538,7 @@ $tira->record_update( author => 'michael', project => $root, ref => $bare->{ref}
 # complete by one definition is incomplete by the one there is now.
 $tira->checklist_add( author => 'michael', project => $root, ref => $bare->{ref},
     item => 'the thing to do', status => 'To Do' );
-$tira->record_move(author => 'claude',  project => $root, ref => $finished->{ref}, column => 'verify' );
+browser_moved( $finished->{ref}, 'verify', 'ticket' );
 
 my $repaired = $tira->police_pass( project => $root, store => $store, world => $world );
 my %still = map { $_->{rule} => 1 } @{ $repaired->{violations} };

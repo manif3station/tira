@@ -1,5 +1,29 @@
 Revision history for Tira
 
+5.188  2026-09-23
+    - TKT-1144: the required-action departure gate lived only in the CLI
+      dispatch layer (Tira::CLI.pm's run(), which checks
+      _column_required_action_violation before calling record_move) - the
+      engine's own record_move had no such check, so any caller reaching
+      it a different way (a plugin, a script, direct-Perl automation)
+      skipped the gate entirely, with no exemption and no reason
+      recorded. Confirmed live on a real board: an automation identity
+      moved a card through 5+ columns, leaving each column's own required
+      items pending and unexempted throughout. record_move now refuses a
+      forward departure with unmet, non-exempt required items by default,
+      matching the CLI's own existing refusal text; --exempt-required/
+      --exempt-reason remains the only sanctioned way through.
+      Tira::CLI::Browser's own two move call sites (the HTML dashboard,
+      TKT-426) are unaffected - record_move checks, via caller(), that it
+      is genuinely being called from that package's own source, not from
+      anything a caller-supplied argument could claim (a first version
+      trusted a plain %args flag instead; Codex review caught that any
+      caller could set the identical key and reopen the exact hole this
+      card exists to close). _item_is_done/_item_is_exempt/
+      _unmet_in_column lifted from Tira::CLI::Move into Tira.pm as
+      engine-level helpers, with Tira::CLI::Move keeping the same names
+      as thin forwards. New test at t/1158.
+
 5.187  2026-09-22
     - TKT-648 (found by a read-only audit agent on zenandi, 4.56):
       tira.export's embedded questions carried no 'status' key at all -

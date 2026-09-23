@@ -28,6 +28,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $root = File::Spec->catdir( $tmp, 'proj' );
@@ -45,7 +46,16 @@ $tira->required_item_add(
     project => $root, ref => $record->{ref}, type => 'ticket', column => 'review',
     item => 'Verify the fix works', status => 'pending', author => 'claude',
 );
-$tira->record_move( project => $root, ref => $record->{ref}, type => 'ticket', column => 'done', author => 'claude' );
+
+# This card's departure from 'review' is not the concern under test - only
+# what column_remove does to the item's stale tag afterwards - so the move
+# is made via the browser's own real, ungated dashboard route (TKT-1144:
+# record_move checks via caller() that it is genuinely called from
+# Tira::CLI::Browser, so this can no longer be faked with a flag) rather
+# than exercising (or being blocked by) the unrelated required-action
+# departure gate.
+my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+$providers{move}->( { ref => $record->{ref}, column => 'done', type => 'ticket', _signed_in => 'claude' } );
 
 $tira->column_remove( project => $root, type => 'ticket', name => 'review', author => 'claude', reason => 'consolidating review into done' );
 

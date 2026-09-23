@@ -264,17 +264,13 @@ sub _column_entry_required_action_violation {
 # comment - the first version of this card left the refusal with its own copy
 # of the grep while the comment beside it claimed otherwise, which codex review
 # caught and which is the same shape as a POD promising a report nothing wrote.
+# TKT-1144. Lifted down into Tira.pm itself, so record_move can use the
+# identical check for every caller, not only the CLI dispatch layer that
+# reaches it through here. Kept as a forward, not renamed, for the same
+# reason every other lift in this file is - every existing caller of
+# Tira::CLI::Move::_unmet_in_column needed no change at all.
 sub _unmet_in_column {
-    my ( $record, $column ) = @_;
-    return [] if ref $record ne 'HASH';
-    return [] if !defined $column || $column eq '';
-    my %exempt = map { ( ref($_) eq 'HASH' ? $_->{item} : $_ ) => 1 }
-      @{ $record->{required_exempt} // [] };
-    return [ grep {
-        ( $_->{column} // '' ) eq $column
-          && !_item_is_exempt( \%exempt, $_ )
-          && !_item_is_done($_);
-    } @{ $record->{required_items} // [] } ];
+    return Tira::_unmet_in_column(@_);
 }
 
 # Answering the same question on demand. The card must exist: turning a failed
@@ -384,24 +380,18 @@ sub _column_required_action_violation {
 # predicate can be grepped for, and t/422 does.
 #
 # Nothing is normalised on write. 'Done' stays 'Done' on the card; this is the
-# one place that reads it.
+# one place that reads it. Lifted into Tira.pm (TKT-1144) so record_move can
+# use the identical predicate for every caller; kept as a forward here.
 sub _item_is_done {
-    my ($item) = @_;
-    return lc( ( ref $item eq 'HASH' ? $item->{status} : $item ) // '' ) eq 'done';
+    return Tira::_item_is_done(@_);
 }
 
 # TKT-1084: an exemption matches a required item by its own REQ id OR its
-# exact item text - but not BOTH from one exempt value, or a genuine text
-# exemption whose text happens to equal a DIFFERENT item's id would
-# unintentionally exempt that other item too (Codex review). A value
-# shaped like a REQ id (REQ-NNN, the only shape this board ever writes
-# into an id field) is only ever an id match; anything else is text-only.
+# exact item text, never both from one value (Codex review). Lifted into
+# Tira.pm (TKT-1144) for the same reason _item_is_done was; kept as a
+# forward here.
 sub _item_is_exempt {
-    my ( $exempt, $item ) = @_;
-    return 1 if defined $item->{id} && $exempt->{ $item->{id} };
-    my $text = $item->{item};
-    return 0 if !defined $text || $text =~ /\AREQ-\d+\z/;
-    return $exempt->{$text} ? 1 : 0;
+    return Tira::_item_is_exempt(@_);
 }
 
 sub _remind_one_at_a_time {

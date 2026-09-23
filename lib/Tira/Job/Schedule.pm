@@ -436,28 +436,30 @@ sub job_schedule_words {
     return "Every day $at";
 }
 
-# Whether a parsed field's set is "restricted" - covers less than every value
-# in its own range. Reads the ALREADY-PARSED set, not the raw schedule text:
-# _cron_field_values has already expanded '*', '*/1', '0-59' etc identically,
-# so this avoids a second parser that could disagree with the first - the
-# trap job_schedule_words's own '$dom ne '*'' text-check above is exposed to
-# ('*/1' means unrestricted but isn't the literal string '*'; out of this
-# ticket's scope to fix there, since it only affects wording).
-sub _field_is_restricted {
-    my ( $set, $field ) = @_;
-    return ( keys %{$set} ) != ( $field->{max} - $field->{min} + 1 );
+# Whether a single field's ORIGINAL TEXT is a star-form ('*' or a step off
+# it, '*/N') - cron's actual "restricted" test is syntactic, not "does the
+# expanded set happen to cover the whole range". An explicit '1-31' or '0-7'
+# still counts as restricted even though it matches every possible value.
+# Codex review, TKT-1143: the first version of this fix checked the parsed
+# VALUE SET's size instead, which wrongly called '1-31'/'0-7' unrestricted.
+sub _field_is_star_form {
+    my ($text) = @_;
+    return $text =~ m{\A\*(?:/\d+)?\z};
 }
 
 # Whether BOTH day-of-month and weekday are restricted - job_schedule_words
-# already promises the OR rule here ("THE OR TRAP", above); TKT-1143.
+# already promises the OR rule here ("THE OR TRAP", above); TKT-1143. Splits
+# exactly like _cron_parse (split ' ', not /\s+/) so the two never disagree
+# on a leading-whitespace schedule.
 sub _both_days_restricted {
-    my ($sets) = @_;
-    return _field_is_restricted( $sets->[2], $CRON_FIELDS[2] )
-      && _field_is_restricted( $sets->[4], $CRON_FIELDS[4] );
+    my ($schedule) = @_;
+    my @field = split ' ', $schedule;
+    return 0 if @field != 5;
+    return !_field_is_star_form( $field[2] ) && !_field_is_star_form( $field[4] );
 }
 
 sub _cron_minute_matches {
-    my ( $sets, $epoch ) = @_;
+    my ( $sets, $epoch, $schedule ) = @_;
     my ( $minute, $hour, $day, $month, $weekday ) = ( localtime $epoch )[ 1, 2, 3, 4, 6 ];
     $month += 1;
 
@@ -474,7 +476,7 @@ sub _cron_minute_matches {
     # THE OR TRAP (TKT-1143): both restricted means EITHER, not both - "0 0 1
     # * 1" fires on the 1st and also every Monday. At most one restricted
     # collapses back to AND (an unrestricted field always contains $day).
-    return _both_days_restricted($sets)
+    return _both_days_restricted($schedule)
       ? ( $day_matches || $weekday_matches )
       : ( $day_matches && $weekday_matches );
 }

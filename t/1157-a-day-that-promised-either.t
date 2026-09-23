@@ -87,6 +87,46 @@ my $daily = $tira->job_add(
 ok( $tira->job_is_due( $daily, '2026-09-21T00:00:00Z' ), 'daily: due on a Monday' );
 ok( $tira->job_is_due( $daily, '2026-09-15T00:00:00Z' ), 'daily: due on an ordinary Tuesday' );
 
+# --- restricted-but-full-range: still "restricted" - cron's rule is
+# syntactic (not "*"), not "does the expanded set happen to cover the whole
+# range". Codex review caught this: an earlier version of the fix checked
+# the parsed value set's size, which wrongly treated '1-31' as unrestricted.
+
+my $explicit_dom = $tira->job_add(
+    project => $root, schedule => '0 0 1-31 * 1',
+    command => 'perl -e print+1',
+);
+ok( $tira->job_is_due( $explicit_dom, '2026-09-15T00:00:00Z' ),
+    "'1-31' is still restricted (not the literal '*'), so ORs with weekday - due on an ordinary Tuesday, since 1-31 covers it" );
+ok( $tira->job_is_due( $explicit_dom, '2026-09-21T00:00:00Z' ),
+    "and due on a Monday too" );
+
+# The 0/7 Sunday-alias interaction: '0-7' explicitly names every weekday
+# value cron stores (including both spellings of Sunday), so it is a
+# full-range set, but still written as an explicit range, not '*'.
+
+my $explicit_dow = $tira->job_add(
+    project => $root, schedule => '0 0 1 * 0-7',
+    command => 'perl -e print+1',
+);
+ok( $tira->job_is_due( $explicit_dow, '2026-09-01T00:00:00Z' ),
+    "'0-7' is still restricted, so ORs with day-of-month - due on the 1st" );
+ok( $tira->job_is_due( $explicit_dow, '2026-09-15T00:00:00Z' ),
+    "and due on an ordinary Tuesday too, since 0-7 covers every weekday" );
+
+# */1 - a step-off-star form, which real cron treats the same as a bare '*':
+# unrestricted, so with only weekday actually restricted this stays AND
+# (single-field behavior, same as dom_only/dow_only above), not OR.
+
+my $step_dom = $tira->job_add(
+    project => $root, schedule => '0 0 */1 * 1',
+    command => 'perl -e print+1',
+);
+ok( !$tira->job_is_due( $step_dom, '2026-09-15T00:00:00Z' ),
+    "'*/1' is unrestricted like '*' - an ordinary Tuesday is not due (AND with the restricted weekday field)" );
+ok( $tira->job_is_due( $step_dom, '2026-09-21T00:00:00Z' ),
+    'and a Monday is due' );
+
 done_testing();
 
 __END__

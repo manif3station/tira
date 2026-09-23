@@ -1025,7 +1025,7 @@ sub job_is_due {
       ? $since_epoch + 60
       : $when_epoch;
     for ( my $epoch = $start_epoch; $epoch <= $when_epoch; $epoch += 60 ) {
-        return 1 if _cron_minute_matches( $sets, $epoch );
+        return 1 if _cron_minute_matches( $sets, $epoch, $schedule );
     }
     return 0;
 }

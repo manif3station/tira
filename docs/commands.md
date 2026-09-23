@@ -1898,6 +1898,25 @@ plus `checkout --detach HEAD`, matching `tools/review-worktree`'s own
 precedent for the identical reason; `cleanup()`'s worktree-specific
 removal/prune calls, meaningless for a clone, became a direct `rm -rf`.
 
+**The shared workspace-root `docker-compose.testing.yml` was retired from
+under both tools too, since 5.190** (TKT-1136). Both `gate-run` and `dev-run`
+hardcoded a path to a single compose file shared by every skill in the
+workspace, bind-mounting a checkout into a shared `perl-test` service.
+Confirmed live, 2026-09-23: the file was deleted mid-session, and both tools
+failed immediately with "cannot find .../docker-compose.testing.yml" for any
+commit or working tree - not specific to either tool's own change. Migrated
+onto `d2 docker compose` instead, each tool through its own service folder
+(`.developer-dashboard/config/docker/{gate,dev}/{compose.yml,Dockerfile}`)
+building a genuinely distinct image (`tira-gate:latest`, `tira-dev:latest`)
+from whichever tree that invocation is actually testing, baked in at build
+time rather than bind-mounted - per Michael's own answer (Q-179/Q-181/Q-182),
+a distinct service folder needs a distinct image, since a shared tag would
+race a concurrent build of the same tag elsewhere. `cover_db` moved from a
+plain directory to a named docker volume as part of the same change, so
+every `rm -rf cover_db` call site had to switch to clearing its contents
+rather than the mount point itself, which `rm -rf` cannot remove while
+mounted.
+
 Without `--pid`, the 600-second ceiling was shorter than either gate this
 repo ran at the time - coverage at 846s, pre-push at 15m and counting - so
 the commonest legitimate reason for a suspension (waiting on a gate) always

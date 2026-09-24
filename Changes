@@ -12,9 +12,9 @@ Revision history for Tira
       mechanical-lift shape TKT-1044 itself used. job_schedule_words
       itself stays in Schedule.pm (needs _cron_field_values/@CRON_FIELDS)
       and calls the moved helpers by fully-qualified name. No behaviour
-      change - Schedule.pm is now 419 lines. t/524's own now-stale
-      exemption entry for Schedule.pm (from the original overage) was
-      also removed.
+      change - lib/Tira/Job/Schedule.pm is now 420 lines. t/524's own
+      now-stale exemption entry for Schedule.pm (from the original
+      overage) was also removed.
 
 5.197  2026-09-24
     - TKT-1147: lib/Tira.pm carried two independently-maintained,

@@ -46,7 +46,12 @@ my %said = (
 );
 for my $cron ( sort keys %said ) {
     my $words = Tira::Job::job_schedule_words($cron);
-    ok( defined $words && length $words, "job_schedule_words('$cron') still returns real words: '$words'" );
+    if ( ref $said{$cron} eq 'Regexp' ) {
+        like( $words, $said{$cron}, "job_schedule_words('$cron') still returns real words: '$words'" );
+    }
+    else {
+        is( $words, $said{$cron}, "job_schedule_words('$cron') still says '$said{$cron}'" );
+    }
 }
 
 done_testing;

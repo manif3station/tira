@@ -10,8 +10,16 @@
 # never be created (a positive-amount adjustment whose auto-built title
 # happened to start with '+').
 #
-# WRITTEN RED: no Getopt::Long::Configure call exists yet, so getopt_compat
-# is still active and this reproduces against the pre-fix code.
+# WRITTEN RED: no rewrite of a --title/+VALUE pair exists yet, so this
+# reproduces against the pre-fix code.
+#
+# Codex review, first draft: disabling getopt_compat outright (an earlier
+# version of this fix) silently broke the OTHER thing that setting controls -
+# the '+foo'/'+no-foo' spelling for every negatable ('!') option in the same
+# @spec (with-questions, repair, watch, terminal, queue), and unknown-option
+# detection for a bogus '+flag'. This file's own regression assertions below
+# (the "must not regress" section) exist specifically to catch that class of
+# fix again, not just prove the original bug is gone.
 
 use strict;
 use warnings;
@@ -80,6 +88,34 @@ like( $out, qr/\Q+something\E/, 'and stores the value verbatim' );
 isnt( $status, 0, 'a bare --title (dash-prefixed next token) still refuses - title ends up empty, not swallowing --author\'s value' );
 unlike( $err, qr/Unknown option/, 'the refusal is a normal missing-title validation, not a parse-level "Unknown option" - --author was still parsed correctly as its own option' );
 
+# --- MUST NOT REGRESS: getopt_compat's '+foo'/'+no-foo' negatable-option ---
+# --- spelling, and '+bogus' unknown-option detection, both caught by  -----
+# --- Codex review on this ticket's first (disable-getopt_compat) draft. ---
+
+use Getopt::Long qw(GetOptionsFromArray);
+
+{
+    my @argv = ('+repair');
+    my %opt;
+    my $ok = GetOptionsFromArray( \@argv, 'repair!' => \$opt{repair} );
+    ok( $ok, '+repair still parses successfully (getopt_compat negation spelling untouched)' );
+    is( $opt{repair}, 1, 'and still sets the negatable option to 1, exactly as before this ticket' );
+}
+{
+    my @argv = ('+no-repair');
+    my %opt;
+    my $ok = GetOptionsFromArray( \@argv, 'repair!' => \$opt{repair} );
+    ok( $ok, '+no-repair still parses successfully' );
+    is( $opt{repair}, 0, 'and still sets the negatable option to 0' );
+}
+{
+    my @argv = ('+bogus');
+    my %opt;
+    local $SIG{__WARN__} = sub { };
+    my $ok = GetOptionsFromArray( \@argv, 'repair!' => \$opt{repair} );
+    ok( !$ok, 'a genuinely unknown +-prefixed option is still refused (getopt_compat unknown-option detection untouched)' );
+}
+
 done_testing();
 
 __END__
@@ -98,11 +134,22 @@ default C<getopt_compat> setting treats a leading C<+> as an
 option-introducing prefix the same as C<->, so for an optional-argument
 option it refuses to consume a next token starting with C<+> as the
 value - the token is left unconsumed and then misparsed as a bogus option
-itself, failing with "Unknown option: ...". C<Getopt::Long::Configure(qw(no_getopt_compat))>
-removes C<+> from that prefix pattern, fixing this while leaving C<->
-(genuinely still an option prefix, unaffected) and the existing bare-flag
-pattern (C<--title -o browser>) completely unchanged. A leading C<->
-value still requires the C<--title=VALUE> equals form - that is standard,
-expected getopt behavior for every CLI tool and is unrelated to this fix.
+itself, failing with "Unknown option: ...".
+
+A first draft of this fix disabled C<getopt_compat> outright
+(C<Getopt::Long::Configure(qw(no_getopt_compat))>), which Codex review
+caught as a real regression: that setting also controls the C<+foo>/
+C<+no-foo> spelling for every negatable (C<!>) option in the CLI's shared
+option spec, and disabling it silently broke C<+repair> (stopped setting
+anything at all) and unknown-option detection for a bogus C<+flag>
+(stopped being reported as "Unknown option"). The actual fix instead
+rewrites a literal C<--title> argv element immediately followed by a
+C<+>-leading element into a single C<--title=VALUE> element, before
+Getopt::Long ever sees it - identical to typing the equals form by hand,
+and scoped to C<--title> alone (the only optional-argument option in the
+spec). C<getopt_compat> itself, and every other option's behavior, is
+completely untouched. A leading C<-> value still requires the
+C<--title=VALUE> equals form - that is standard, expected getopt behavior
+for every CLI tool and is unrelated to this fix.
 
 =cut

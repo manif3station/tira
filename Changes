@@ -17,24 +17,32 @@ Revision history for Tira
       to work exactly as before, unaffected.
 
 5.203  2026-09-24
-    - TKT-937: --title (and any other option declared with Getopt::Long's
-      optional-argument spec, ':s') refused a value starting with a
-      literal '+' passed space-separated - e.g. `--title '+16.17
-      adjustment'` failed with "Unknown option: 16.17" - because
-      Getopt::Long's default getopt_compat setting treats a leading '+'
-      as an option-introducing prefix the same as '-', and an
-      optional-argument option refuses to consume a next token that
-      looks like another option as its value. A real card (a
-      positive-amount adjustment whose auto-built title happened to
-      start with '+') could never be created this way.
-      Getopt::Long::Configure(qw(no_getopt_compat)) removes '+' from
-      that prefix pattern; '-'/'--' are still recognized, so the existing
-      bare-flag pattern (`--title -o browser`, relied on by the browser
-      CLI tests) is unchanged, and a '-'-leading value still requires the
-      --title=VALUE equals form, same as any getopt-style CLI - that is
-      standard, expected behavior, not a remaining defect. Options
-      declared with a mandatory argument (=s, e.g. --description) were
-      never affected by this bug.
+    - TKT-937: --title (the only option declared with Getopt::Long's
+      optional-argument spec, ':s' - needed for the bare `--title -o
+      browser` toggle pattern) refused a value starting with a literal
+      '+' passed space-separated - e.g. `--title '+16.17 adjustment'`
+      failed with "Unknown option: 16.17" - because Getopt::Long's
+      default getopt_compat setting treats a leading '+' as an
+      option-introducing prefix the same as '-', and an optional-argument
+      option refuses to consume a next token that looks like another
+      option as its value. A real card (a positive-amount adjustment
+      whose auto-built title happened to start with '+') could never be
+      created this way. A `--title` argv element immediately followed by
+      a '+'-leading element is now rewritten into a single
+      `--title=VALUE` element before Getopt::Long ever parses it -
+      identical to typing the equals form by hand. Codex review caught a
+      real regression in an earlier draft that disabled getopt_compat
+      outright: that also silently broke the OTHER thing getopt_compat
+      controls, the '+foo'/'+no-foo' spelling for every negatable ('!')
+      option in the CLI's shared spec (with-questions, repair, watch,
+      terminal, queue) and unknown-option detection for a bogus
+      '+flag' - the actual fix above is scoped to --title alone and
+      leaves getopt_compat, and every other option, completely
+      untouched. A '-'-leading value still requires the --title=VALUE
+      equals form, same as any getopt-style CLI - that is standard,
+      expected behavior, not a remaining defect. Options declared with a
+      mandatory argument (=s, e.g. --description) were never affected by
+      this bug.
 
 5.202  2026-09-24
     - TKT-722: every --set-* array option (record.update's key-details,

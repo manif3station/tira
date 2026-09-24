@@ -522,13 +522,22 @@ meant a value starting with a literal `+`, passed space-separated (e.g.
 option: 16.17" - Getopt::Long's default `getopt_compat` setting treats a
 leading `+` as an option-introducing prefix the same as `-`, and an
 optional-argument option will not consume a next token that looks like
-another option as its value. `Getopt::Long::Configure(qw(no_getopt_compat))`
-in `lib/Tira/CLI.pm` removes `+` from that prefix pattern; `-`/`--` are still
-recognized as prefixes, unaffected, so the bare-`--title -o browser` pattern
-and every mandatory `=s` option (which always consumed a `+`-leading value
-correctly, compat setting or not) are unchanged. A `-`-leading `--title`
-value still requires the `--title=VALUE` equals form - that is standard,
-expected getopt behavior for any CLI tool, not a remaining defect.
+another option as its value. A first draft disabled `getopt_compat`
+outright, which Codex review caught as a real regression: that setting
+also controls the `+foo`/`+no-foo` spelling for every negatable (`!`)
+option in this same shared spec (`with-questions`, `repair`, `watch`,
+`terminal`, `queue`) and unknown-option detection for a bogus `+flag` -
+disabling it broke both silently. The actual fix, in `lib/Tira/CLI.pm`,
+rewrites a literal `--title` argv element immediately followed by a
+`+`-leading element into a single `--title=VALUE` element before
+Getopt::Long ever parses it - identical to typing the equals form by
+hand, scoped to `--title` alone (the only optional-argument option in the
+spec). `getopt_compat` itself, the bare-`--title -o browser` pattern, and
+every mandatory `=s` option (which always consumed a `+`-leading value
+correctly regardless of this fix) are completely unaffected. A
+`-`-leading `--title` value still requires the `--title=VALUE` equals
+form - that is standard, expected getopt behavior for any CLI tool, not a
+remaining defect.
 | `--source TEXT` | no | optional | optional | Origin. |
 | `--acceptance TEXT` | yes | optional | append | Acceptance criterion. |
 | `--test-step TEXT` | yes | optional | append | Verification step. |

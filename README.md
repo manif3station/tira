@@ -269,7 +269,12 @@ misparsed as an unknown option - `--title` takes an optional Getopt::Long
 argument (needed for a bare `--title` toggle, as in `dashboard.ticket --title
 -o browser`), and Getopt::Long's default `getopt_compat` setting used to
 treat a leading `+` as an option prefix the same as `-`, refusing to consume
-it as the value. A `-`-leading value still requires the `--title=VALUE`
+it as the value. A `--title` argv element immediately followed by a
+`+`-leading element is now rewritten into a single `--title=VALUE` element
+before Getopt::Long ever parses it - a first draft disabled `getopt_compat`
+outright instead, which Codex review caught silently breaking the
+`+foo`/`+no-foo` negation spelling used by other options in the same
+parser. A `-`-leading value still requires the `--title=VALUE`
 equals form, unchanged - standard getopt behavior for any CLI tool.
 The same release also named a leftover positional argument in a refusal
 instead of a bare "Invalid command-line options": a word that is neither a

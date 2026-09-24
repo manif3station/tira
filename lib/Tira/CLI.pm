@@ -11,20 +11,6 @@ use Getopt::Long qw(GetOptionsFromArray);
 use Cpanel::JSON::XS ();
 use Tira;
 
-# TKT-937. Getopt::Long's default getopt_compat setting treats a leading '+'
-# as an option-introducing prefix, same as '-' - an old getopt(3)/GNU-getopt
-# compatibility quirk nothing else in this CLI's own conventions expects. For
-# an OPTIONAL-argument option (':s', like --title below, needed for a bare
-# --title toggle such as 'dashboard.ticket --title -o browser') Getopt::Long
-# refuses to consume a next token that LOOKS like another option as the
-# value, so '--title +16.17 adjustment' left title empty and then tried to
-# parse '+16.17 adjustment' itself as a bogus option, failing with "Unknown
-# option: 16.17". Disabling getopt_compat removes '+' from that prefix
-# pattern; '-'/'--' are still recognized as prefixes, unaffected, so the
-# existing bare-flag pattern above is unchanged and a '-'-leading value
-# still requires the --title=VALUE equals form, same as any getopt-style CLI.
-Getopt::Long::Configure(qw(no_getopt_compat));
-
 # PATH separators, executable extensions and the absence of an execute bit are
 # all facts about the platform being described rather than the one this is
 # running on, so they hang off a flag a test can set.
@@ -333,6 +319,33 @@ sub run {
             $$target = $value;
         };
     }
+    # TKT-937. --title is the only OPTIONAL-argument option in @spec ('title:s',
+    # needed so a bare --title immediately followed by another option, as
+    # 'dashboard.ticket --title -o browser' relies on, leaves it unset rather
+    # than demanding a value). Getopt::Long's default getopt_compat setting
+    # treats a leading '+' as an option-introducing prefix the same as '-', so
+    # for an optional-argument option it refuses to consume a next token
+    # starting with '+' as the value - '--title +16.17 adjustment' left title
+    # empty and misparsed '+16.17 adjustment' as a bogus option, failing with
+    # "Unknown option: 16.17". Disabling getopt_compat outright (an earlier
+    # draft of this fix, caught by Codex review) also disables its OTHER,
+    # genuinely-relied-on effect: the '+foo'/'+no-foo' spelling for every
+    # negatable ('!') option in this same @spec (with-questions, repair,
+    # watch, terminal, queue) - '+repair' stops setting repair=1 at all, and
+    # an unknown '+bogus' stops being reported as "Unknown option" (it
+    # becomes an unrecognized leftover argument instead). So the fix is
+    # scoped to --title alone, ahead of the parse: a literal '--title'
+    # element immediately followed by a '+'-leading element is merged into
+    # one '--title=VALUE' element, which Getopt::Long always treats as an
+    # explicit value regardless of getopt_compat - identical to typing the
+    # equals form by hand. Every other option, and getopt_compat itself,
+    # stays completely untouched.
+    for ( my $i = 0; $i < $#{$argv}; $i++ ) {
+        next if $argv->[$i] ne '--title';
+        next if !defined $argv->[ $i + 1 ] || $argv->[ $i + 1 ] !~ /\A\+/;
+        splice( @{$argv}, $i, 2, '--title=' . $argv->[ $i + 1 ] );
+    }
+
     # An unknown COMMAND already gets "Did you mean" from the dispatcher; an unknown OPTION got only Getopt::Long's raw "Unknown option: X", discarded into a generic "Invalid command-line options" - TKT-298: one bad option name discarded a whole update carrying twenty composed fields. Getopt::Long only warns to STDERR, so its text is captured here rather than re-derived.
     my $unknown_option_warning = '';
     my $parsed = do {

@@ -2281,15 +2281,22 @@ sub _json_array_input {
     my ( $file, $flag, $append_flag ) = @_;
     my $usage = "Example: [\"first item\", \"second item\"]\nTo append one item at a time instead, use --$append_flag TEXT, repeated.\n";
 
-    # TKT-722. A newline, a brace, a bracket or a quote is not a path
-    # anybody meant - it is inline JSON (an array or an object) or text a
-    # caller passed directly, mistaking --set-* for the append form's TEXT
-    # argument. Caught here, before open() is ever attempted, so the
-    # refusal below (which used to embed the whole unreadable "path" -
-    # reproduced at ~1,900 characters of a caller's own JSON quoted back as
-    # a filename) stays short and names the option instead. A merely long
-    # ordinary path is not singled out by length alone; only the shapes no
-    # path actually takes give this away.
+    # TKT-722. A newline, a brace, a bracket or a quote is treated as inline
+    # JSON (an array or an object) or text a caller passed directly,
+    # mistaking --set-* for the append form's TEXT argument - not as an
+    # unusual but genuine path. Codex review: Unix permits all four in a
+    # real filename (only NUL and '/' are actually forbidden), so this is
+    # a deliberate, named tradeoff rather than a claim that no real path
+    # can look like this - the discoverability win for the overwhelmingly
+    # common inline-mistake case is worth misreading the rare path that
+    # legitimately contains one of these characters, which still gets a
+    # short, correctly-labelled refusal rather than silent misbehavior.
+    # Caught here, before open() is ever attempted, so the refusal below
+    # (which used to embed the whole unreadable "path" - reproduced at
+    # ~1,900 characters of a caller's own JSON quoted back as a filename)
+    # stays short and names the option instead. A merely long ordinary
+    # path is not singled out by length alone; only these four characters
+    # trigger it.
     if ( $file ne '-' && $file =~ /[\n\{\["]/ ) {
         my $shown = substr( $file, 0, 60 );
         $shown .= '...' if length($file) > 60;

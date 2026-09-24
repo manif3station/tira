@@ -71,6 +71,34 @@ isnt( $status, 0, 'a multi-line inline argument is refused the same way' );
 like( $err, qr/--set-scope-in/, 'naming the option' );
 ok( length($err) < 500, 'still short' );
 
+# --- a brace-containing inline argument (a JSON object) is refused too ---
+
+my $inline_object = '{"not": "an array, and not a path either"}';
+( $status, $out, $err ) = run_cli(
+    '--ref', $card->{ref}, '--author', 'claude', '--set-scope-in', $inline_object, '-o', 'json' );
+isnt( $status, 0, 'a brace-containing inline argument is refused' );
+like( $err, qr/--set-scope-in/, 'naming the option' );
+like( $err, qr/(?:PATH|path)/, 'and says a path was expected' );
+
+# --- a quote-containing inline argument is refused too --------------------
+
+my $inline_quoted = 'this "looks like" quoted text, not a path';
+( $status, $out, $err ) = run_cli(
+    '--ref', $card->{ref}, '--author', 'claude', '--set-scope-in', $inline_quoted, '-o', 'json' );
+isnt( $status, 0, 'a quote-containing inline argument is refused' );
+like( $err, qr/--set-scope-in/, 'naming the option' );
+
+# --- the same detection applies across the shared decode boundary, not ----
+# --- just --set-scope-in - confirmed on two more of the ten options -------
+
+for my $flag (qw(set-key-details set-acceptance)) {
+    ( $status, $out, $err ) = run_cli(
+        '--ref', $card->{ref}, '--author', 'claude', "--$flag", $inline_json, '-o', 'json' );
+    isnt( $status, 0, "an inline JSON array is refused on --$flag too" );
+    like( $err, qr/--\Q$flag\E/, "naming --$flag specifically, not a different option" );
+    ok( length($err) < 500, "and stays short for --$flag" );
+}
+
 # --- an ordinary, merely-nonexistent file path is unaffected --------------
 
 my $missing_path = File::Spec->catfile( $tmp, 'does-not-exist.json' );
@@ -105,17 +133,19 @@ that argument echoed back in full
 =head1 DESCRIPTION
 
 TKT-722. C<_json_array_input> (the shared boundary for all ten C<--set-*>
-array options) used to try C<open()> on any argument, including one that
-is clearly not a plausible file path - a large inline JSON array or a
-multi-line string a caller mistakenly typed inline. The resulting
-C<open()> failure echoed that entire argument back into the refusal,
-reproduced at roughly 1,900 characters, which cost a real junk card
-(TKT-719) when the refusal was accidentally discarded through a grep
-pipe and never seen. An argument containing a newline or a brace, or one
-that is implausibly long, is now recognised as inline content rather
-than a path before C<open()> is ever attempted, and refused with a
-short, truncated message naming the option and stating that a file path
-is expected - a genuinely missing or unreadable ordinary path is
-unaffected and still names the real path in its own refusal.
+array options) used to try C<open()> on any argument, including a large
+inline JSON array or object, or a multi-line string, a caller mistakenly
+typed inline. The resulting C<open()> failure echoed that entire
+argument back into the refusal, reproduced at roughly 1,900 characters,
+which cost a real junk card (TKT-719) when the refusal was accidentally
+discarded through a grep pipe and never seen. An argument containing a
+newline, brace, bracket, or quote is now treated as inline content
+rather than a path, refused with a short, truncated message naming the
+option before C<open()> is ever attempted - a deliberate tradeoff rather
+than a claim that no real path can contain these characters (Unix
+permits all four in a genuine filename), and a merely long ordinary path
+is not singled out by length alone. A genuinely missing or unreadable
+ordinary path is unaffected and still names the real path in its own
+refusal.
 
 =cut

@@ -51,7 +51,14 @@ sub run {
 }
 
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Ships today' );
-$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'verify' );
+
+# Routed through the real dashboard move path (TKT-1144/TKT-1145: record_move
+# itself now enforces the column chain for every other caller) - this skips
+# straight past 'implement', not what this file is testing.
+{
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    $providers{move}->( { ref => $card->{ref}, column => 'verify', type => 'ticket', _signed_in => 'claude' } );
+}
 
 # --- one command, everything a passed gate needs ---------------------------
 

@@ -26,6 +26,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
 
@@ -47,6 +48,17 @@ sub board {
     return ( $tira, $root );
 }
 
+# Routed through the real dashboard move path (TKT-1144/TKT-1145: record_move
+# itself now enforces the unjudged-answer gate for every other caller) -
+# every card in this file carries an unmarked question by design (that is
+# the rule under test here, discard-with-open-questions), not the unjudged-
+# answer gate itself.
+sub browser_moved {
+    my ( $tira, $root, $ref, $column, $type ) = @_;
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    return $providers{move}->( { ref => $ref, column => $column, type => $type // 'ticket', _signed_in => 'claude' } );
+}
+
 # --- reaching done with an open question is reported --------------------------------
 
 {
@@ -55,8 +67,8 @@ sub board {
         title => 'Ships with a loose end' );
     $tira->question_add( project => $root, ref => $card->{ref}, author => 'claude',
         text => 'Which columns should notify you?' );
-    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
-    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'done' );
+    browser_moved( $tira, $root, $card->{ref}, 'implement' );
+    browser_moved( $tira, $root, $card->{ref}, 'done' );
 
     my $violations = $tira->policy_evaluate( project => $root );
     my ($found) = grep { $_->{rule} eq 'discard-with-open-questions'
@@ -96,8 +108,8 @@ sub board {
         title => 'Ships under a different name' );
     $tira->question_add( project => $root, ref => $card->{ref}, author => 'claude',
         text => 'Ready?' );
-    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
-    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'shipped' );
+    browser_moved( $tira, $root, $card->{ref}, 'implement' );
+    browser_moved( $tira, $root, $card->{ref}, 'shipped' );
 
     my $violations = $tira->policy_evaluate( project => $root );
     my ($found) = grep { $_->{rule} eq 'discard-with-open-questions'
@@ -116,8 +128,8 @@ sub board {
     my $q = $tira->question_add( project => $root, ref => $card->{ref}, author => 'claude',
         text => 'Ready?' );
     $tira->question_answer( project => $root, id => $q->{id}, author => 'michael', text => 'yes' );
-    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
-    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'done' );
+    browser_moved( $tira, $root, $card->{ref}, 'implement' );
+    browser_moved( $tira, $root, $card->{ref}, 'done' );
 
     my $violations = $tira->policy_evaluate( project => $root );
     my ($found) = grep { $_->{rule} eq 'discard-with-open-questions'
@@ -137,8 +149,8 @@ sub board {
         title => 'A statement of work with a loose end' );
     $tira->question_add( project => $root, ref => $sow->{ref}, author => 'claude',
         text => 'Scope settled?' );
-    $tira->record_move(author => 'claude',  project => $root, ref => $sow->{ref}, column => 'implement' );
-    $tira->record_move(author => 'claude',  project => $root, ref => $sow->{ref}, column => 'done' );
+    browser_moved( $tira, $root, $sow->{ref}, 'implement', 'sow' );
+    browser_moved( $tira, $root, $sow->{ref}, 'done', 'sow' );
 
     my $violations = $tira->policy_evaluate( project => $root );
     my ($found) = grep { $_->{rule} eq 'discard-with-open-questions'
@@ -154,8 +166,8 @@ sub board {
         title => 'Ships with a loose end' );
     $tira->question_add( project => $root, ref => $card->{ref}, author => 'claude',
         text => 'Which columns?' );
-    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'implement' );
-    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'done' );
+    browser_moved( $tira, $root, $card->{ref}, 'implement' );
+    browser_moved( $tira, $root, $card->{ref}, 'done' );
 
     no warnings 'redefine';
     local *Tira::_ending_columns = sub { return {} };

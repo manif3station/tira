@@ -29,6 +29,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
 
@@ -141,8 +142,10 @@ sub board {
 
     my $p1 = $tira->create_record( project => $root, type => 'ticket',
         title => 'Already being worked', priority => 1 );
-    $tira->record_move(author => 'claude',  project => $root, type => 'ticket', ref => $p1->{ref},
-        column => 'implement' );
+    {
+        my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+        $providers{move}->( { ref => $p1->{ref}, column => 'implement', type => 'ticket', _signed_in => 'claude' } );
+    }
     my $p5 = $tira->create_record( project => $root, type => 'ticket',
         title => 'Waiting in backlog', priority => 5 );
 

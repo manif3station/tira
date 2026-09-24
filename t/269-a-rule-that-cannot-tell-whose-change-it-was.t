@@ -41,6 +41,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $now  = '2026-08-18T13:00:00Z';
@@ -142,7 +143,10 @@ my $store = File::Spec->catdir( $tmp, 'police' );
 {
     my $done = $tira->create_record( project => $named, type => 'ticket',
         title => 'Finished, and edited afterwards', priority => 3, assignee => 'claude' );
-    $tira->record_move(author => 'claude',  project => $named, ref => $done->{ref}, column => 'done' );
+    {
+        my %providers = Tira::CLI::browser_providers( tira => $tira, project => $named );
+        $providers{move}->( { ref => $done->{ref}, column => 'done', type => 'ticket', _signed_in => 'claude' } );
+    }
 
     $now = '2026-08-18T13:10:00Z';
     $tira->record_update( project => $named, ref => $done->{ref},

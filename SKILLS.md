@@ -2680,8 +2680,8 @@ excludes the `Tira::CLI` layer for the same class of reason: `t/106` asserts
 the engine invokes no shell, and `lib/Tira/CLI/Serve.pm` legitimately does.
 
 Entry points kept their names. `Tira::CLI::browser_providers` still exists and
-still answers; 53 test files and the dashboard call it by that name (TKT-1145
-routed 16 more fixtures through the real dashboard move path, needed once
+still answers; 74 test files and the dashboard call it by that name (TKT-1145
+routed 42 more fixtures through the real dashboard move path, needed once
 record_move began enforcing the column-chain and unjudged-answer gates for
 every other caller), and a refactor that renames its own front door is not
 behaviour-preserving.

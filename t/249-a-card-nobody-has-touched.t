@@ -32,6 +32,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp   = tempdir( CLEANUP => 1 );
 my $now   = '2026-08-17T09:00:00Z';
@@ -70,7 +71,16 @@ my $finished  = $tira->create_record( project => $root, type => 'ticket', title 
 
 $tira->record_move(author => 'claude',  project => $root, ref => $_->{ref}, column => 'implement' )
   for ( $worked, $abandoned );
-$tira->record_move(author => 'claude',  project => $root, ref => $finished->{ref}, column => 'done' );
+
+# Routed through the real dashboard move path (TKT-1144/TKT-1145: record_move
+# itself now enforces the column chain for every other caller) - these skip
+# straight past 'implement'/'verify', not what this file is testing.
+sub browser_moved {
+    my ( $ref, $column ) = @_;
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    return $providers{move}->( { ref => $ref, column => $column, type => 'ticket', _signed_in => 'claude' } );
+}
+browser_moved( $finished->{ref}, 'done' );
 
 sub still {
     my $pass = $tira->police_pass( project => $root, store => $store, world => {} );
@@ -142,7 +152,7 @@ is_deeply( still(), {}, 'a board where everything was just touched is quiet' );
 {
     my $slow = $tira->create_record( project => $root, type => 'ticket',
         title => 'Somewhere a card may wait' );
-    $tira->record_move(author => 'claude',  project => $root, ref => $slow->{ref}, column => 'verify' );
+    browser_moved( $slow->{ref}, 'verify' );
     $tira->column_update( project => $root, type => 'ticket', name => 'verify',
         notify_after => 600 );
 

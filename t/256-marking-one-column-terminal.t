@@ -30,6 +30,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp   = tempdir( CLEANUP => 1 );
 my $tira  = Tira->new( clock => sub {'2026-08-17T09:00:00Z'} );
@@ -43,10 +44,14 @@ $tira->project_new(
 );
 $tira->policy_add( project => $root, rule => 'card-unassigned', action => 'log-only' );
 
+# Routed through the real dashboard move path (TKT-1144/TKT-1145: record_move
+# itself now enforces the column chain for every other caller) - this skips
+# straight past 'implement', not what this file is testing.
+my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
 for my $i ( 1 .. 20 ) {
     my $card = $tira->create_record( project => $root, type => 'ticket',
         title => "Finished, and nobody's any more $i", priority => 3 );
-    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'done' );
+    $providers{move}->( { ref => $card->{ref}, column => 'done', type => 'ticket', _signed_in => 'claude' } );
 }
 
 sub findings {

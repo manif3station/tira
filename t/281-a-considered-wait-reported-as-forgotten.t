@@ -41,6 +41,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp   = tempdir( CLEANUP => 1 );
 my $now   = '2026-08-18T09:00:00Z';
@@ -59,11 +60,16 @@ $tira->policy_add( project => $root, rule => 'card-duration', action => 'bridge-
     column => 'release-held', age => '24h',
     message => 'the wait is legitimate, but a whole day means the release has been FORGOTTEN rather than held' );
 
+# Routed through the real dashboard move path (TKT-1144/TKT-1145: record_move
+# itself now enforces the column chain for every other caller) - these skip
+# straight past intermediate columns, not what this file is testing.
+my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+
 my $held = $tira->create_record( project => $root, type => 'ticket', title => 'Parked on purpose' );
-$tira->record_move(author => 'claude',  project => $root, ref => $held->{ref}, column => 'release-held' );
+$providers{move}->( { ref => $held->{ref}, column => 'release-held', type => 'ticket', _signed_in => 'claude' } );
 
 my $unrelated = $tira->create_record( project => $root, type => 'ticket', title => 'A different column' );
-$tira->record_move(author => 'claude',  project => $root, ref => $unrelated->{ref}, column => 'elsewhere' );
+$providers{move}->( { ref => $unrelated->{ref}, column => 'elsewhere', type => 'ticket', _signed_in => 'claude' } );
 
 sub findings_for {
     my ($rule) = @_;

@@ -70,6 +70,21 @@ require Tira::CLI::Usage;
 my $usage = Tira::CLI::Usage::_usage('policy.declined');
 like( $usage, qr/--ref/, 'the usage line names --ref' );
 
+# --- MUST NOT REGRESS: internal callers of policy_declined() stay -----------
+# --- board-wide-only, unaffected by the CLI-only merge above (Codex --------
+# --- review caught an earlier draft that merged unconditionally, breaking --
+# --- policy_review's own t/470/TKT-800 contract) ----------------------------
+
+my $review = $tira->policy_review( project => $root );
+is( scalar @{ $review->{declined} }, 1,
+    'policy_review still reports exactly the one board-wide decline, not the per-card one mixed in' );
+is( scalar @{ $review->{declined_per_card} }, 1,
+    'the per-card decline still shows up in ITS OWN dedicated key, unaffected' );
+
+my $undeclared = $tira->policy_undeclared( project => $root );
+ok( ( grep { $_ eq 'checklist-idle' } @{$undeclared} ),
+    'checklist-idle is still reported as undeclared board-wide - the per-card-only decline on one card does not wrongly mark the RULE as answered for the whole board' );
+
 done_testing();
 
 __END__
@@ -82,14 +97,26 @@ board-wide subset
 
 =head1 DESCRIPTION
 
-TKT-789. C<policy_declined>'s no-C<--ref> branch used to read only
+TKT-789. C<tira.policy.declined> with no C<--ref> used to read only
 C<declined_policies> (board-wide), silently omitting every real,
 stored per-card decline in C<card_declines> - a caller asking "what is
 declined on this board?" got a number that under-counted, with nothing
-in the output indicating it was scoped. The no-ref result now merges
-in every per-card decline alongside the board-wide ones. C<--ref>
-itself already worked correctly (returning only that card's own
-declines) and is unaffected; it was also entirely undocumented in the
-usage line, now fixed alongside the omission.
+in the output indicating it was scoped. The CLI command now merges in
+every per-card decline alongside the board-wide ones, via a new
+C<merge_card_declines> opt-in parameter on C<policy_declined()> set
+only by the CLI dispatch. C<--ref> itself already worked correctly
+(returning only that card's own declines) and is unaffected; it was
+also entirely undocumented in the usage line, now fixed alongside the
+omission.
+
+A first draft merged card_declines into C<policy_declined()>'s base
+return unconditionally, which Codex review caught as a real
+regression: every INTERNAL caller (C<policy_review>, C<policy_undeclared>,
+C<_police_pass_body>'s card-damaged/card-unreadable suppression) relies
+on the no-ref shape staying board-wide-only, and mixing per-card
+entries in broke each of them - confirmed by running the existing
+C<t/470> (TKT-800) test, which failed outright. C<merge_card_declines>
+is opt-in and set only by the C<policy.declined> CLI command, so every
+internal caller is completely unaffected.
 
 =cut

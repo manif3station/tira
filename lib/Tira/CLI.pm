@@ -2064,7 +2064,14 @@ sub _invoke {
     }
 
     return $tira->policy_decline(%args) if $command eq 'policy.decline';
-    return $tira->policy_declined(%args) if $command eq 'policy.declined';
+    # TKT-789. merge_card_declines is set ONLY here, for the command a human
+    # actually types to see "what is declined on this board" - every other,
+    # internal caller of policy_declined (policy_review, policy_undeclared,
+    # _police_pass_body) gets the unchanged, board-wide-only shape they
+    # always have, since mixing per-card entries into THEIR result broke
+    # each of them (Codex review, confirmed by running t/470 against a
+    # first draft that merged unconditionally).
+    return $tira->policy_declined( %args, merge_card_declines => 1 ) if $command eq 'policy.declined';
 
     # Repeated jobs. EPC-014, TKT-837 - bodies in Tira::CLI::Job.
     if ( $command =~ /\Ajob\.(?:add|list|update|delete|start|run|stop|feed|feeder)\z/ ) {

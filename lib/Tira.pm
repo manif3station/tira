@@ -7926,21 +7926,24 @@ sub policy_declined {
     # A rule that has since been declared is no longer declined, whatever the
     # file says. A project that changed its mind would otherwise carry a record
     # saying it had decided the opposite, which is worse than carrying nothing.
-    # This filter applies only to the board-wide list: a per-card decline
-    # answers "does this rule apply to THIS card", not "should this rule
-    # exist at all" (TKT-303's own distinction, in policy_decline above), so
-    # it is unaffected by whether the rule is declared board-wide - the same
-    # way the --ref branch above already returns card_declines unfiltered.
-    #
-    # TKT-789. The no-ref case used to return ONLY the board-wide list,
-    # silently omitting every real, stored per-card decline - a caller
-    # asking "what is declined on this board?" got a number that
-    # under-counted, with nothing in the result indicating it was scoped.
-    # Merging card_declines in here answers that same question completely.
-    return [
-        ( grep { !$declared{ $_->{rule} // '' } } @{ $data->{declined_policies} // [] } ),
-        @{ $data->{card_declines} // [] },
-    ];
+    my @board_wide = grep { !$declared{ $_->{rule} // '' } } @{ $data->{declined_policies} // [] };
+
+    # TKT-789, Codex review. A first draft merged card_declines into THIS
+    # return unconditionally - which broke every INTERNAL caller that relies
+    # on the no-ref shape staying board-wide-only: policy_review's own
+    # `declined` key (t/470/TKT-800 failed outright, double-counting a
+    # per-card decline against its own "still reported where it always was"
+    # assertion), policy_undeclared's %answered map (a per-card-only decline
+    # would wrongly mark a rule "answered" board-wide), and
+    # _police_pass_body's card-damaged/card-unreadable %refused map (a
+    # per-card decline for ONE card would have silently suppressed the
+    # finding for EVERY card, since that map keys on rule name alone with no
+    # ref-scoping). Merging is now opt-in via merge_card_declines, set only
+    # by the CLI's own policy.declined display command below - every
+    # existing internal caller is completely unaffected, unchanged from
+    # before this ticket.
+    return [ @board_wide, @{ $data->{card_declines} // [] } ] if $args{merge_card_declines};
+    return \@board_wide;
 }
 
 sub policy_remove {

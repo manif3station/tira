@@ -8103,12 +8103,22 @@ sub _card_duration_inputs {
     my $on_watched = ( ( $record->{column} // '' ) eq ( $watched // '' ) ) ? 1 : 0;
     my $resting_here = $resting->{ $record->{column} // '' } ? 1 : 0;
 
-    # $record->{ref} passed through so an unreadable stamp is still recorded
-    # against _stamp_unreadable (TKT-972) the same way the inline rule's own
-    # call used to - lost when this helper's own call omitted it, unnoticed
-    # only because no test exercised an unreadable stamp on this rule.
+    # $record->{ref} is passed through to _policy_older_than ONLY when this
+    # card is actually resting-clear and on the watched column - the same
+    # gate the inline rule's own short-circuit ('next if resting', 'next if
+    # not on watched column') used to apply BEFORE it ever touched $since or
+    # the age comparison. Passing it unconditionally (Codex review caught
+    # this) would record card-stamp-unreadable for a resting or unwatched
+    # card whose dwell stamp happens to be unparseable - a real behavior
+    # change this rule never had, since it never used to measure that
+    # card's age at all. police_explain still gets since/elapsed/
+    # older_than_age for every card regardless, unchanged from before this
+    # ticket - only the SIDE EFFECT of stamp-unreadable tracking is scoped.
     my $older_than_age = defined $since
-      ? ( $self->_policy_older_than( $since, $policy->{age}, $record->{ref} ) ? 1 : 0 )
+      ? ( $self->_policy_older_than(
+            $since, $policy->{age},
+            ( !$resting_here && $on_watched ? $record->{ref} : undef )
+          ) ? 1 : 0 )
       : 0;
 
     return {

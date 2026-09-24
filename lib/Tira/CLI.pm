@@ -2281,6 +2281,22 @@ sub _json_array_input {
     my ( $file, $flag, $append_flag ) = @_;
     my $usage = "Example: [\"first item\", \"second item\"]\nTo append one item at a time instead, use --$append_flag TEXT, repeated.\n";
 
+    # TKT-722. A newline, a brace, a bracket or a quote is not a path
+    # anybody meant - it is inline JSON (an array or an object) or text a
+    # caller passed directly, mistaking --set-* for the append form's TEXT
+    # argument. Caught here, before open() is ever attempted, so the
+    # refusal below (which used to embed the whole unreadable "path" -
+    # reproduced at ~1,900 characters of a caller's own JSON quoted back as
+    # a filename) stays short and names the option instead. A merely long
+    # ordinary path is not singled out by length alone; only the shapes no
+    # path actually takes give this away.
+    if ( $file ne '-' && $file =~ /[\n\{\["]/ ) {
+        my $shown = substr( $file, 0, 60 );
+        $shown .= '...' if length($file) > 60;
+        die "--$flag expects a PATH to a JSON file (or - for stdin), not JSON or text "
+          . "given directly - got '$shown'.\n$usage";
+    }
+
     # TKT-578. Read and decode used to share one eval, so a path that could
     # not be read at all answered "is not JSON" - the wrong claim, since the
     # path was never read far enough to have content. Split so the two

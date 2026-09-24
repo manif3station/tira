@@ -369,7 +369,18 @@ sub import_jira {
     # second issue key, wrongly refusing a genuinely single-issue export.
     # Skipped (not parsed) before the key regex runs, the same way the
     # summary extraction below never looks inside it either.
-    ( my $scanned = $content ) =~ s{<description>.*?</description>}{}gs;
+    #
+    # CODEX REVIEW: a plain non-greedy .*? up to the first '</description>'
+    # is not CDATA-safe - a CDATA-wrapped description whose own content
+    # happens to contain the literal text '</description>' (the same class
+    # of gap t/1160's own '</item>'-inside-CDATA fixture guards against for
+    # the item boundary) would end the match early, leaving a real embedded
+    # '<key>' tag unstripped and counted. The CDATA alternative is tried
+    # FIRST, matching through to the real closing ']]>' before requiring
+    # '</description>' immediately after it - only a description with no
+    # CDATA wrapper at all falls through to the plain non-greedy match.
+    ( my $scanned = $content ) =~
+      s{<description>(?:<!\[CDATA\[.*?\]\]>|.*?)</description>}{}gs;
 
     my @keys = $scanned =~ m{<key[^>]*>\s*([^<\s]+)\s*</key>}g;
     die "Not a recognizable Jira XML export - no <key> tag found\n" if !@keys;

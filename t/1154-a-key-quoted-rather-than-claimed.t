@@ -58,6 +58,32 @@ ok( !$error, 'a description quoting key-shaped markup does not trip the multi-is
 is( $result->{jira_key}, 'PROJ-999', 'the real key is named, not the one quoted inside the description' )
   if $result;
 
+# --- CODEX REVIEW: a CDATA-wrapped description whose own content contains
+# --- the literal text '</description>' must not end the strip early,
+# --- leaving a real embedded <key> tag unstripped and counted -------------
+
+my $cdata_xml = File::Spec->catfile( $tmp, 'cdata.xml' );
+open my $cfh, '>', $cdata_xml or die $!;
+print {$cfh} <<'XML';
+<rss version="0.92"><channel><item>
+  <title>Bug</title>
+  <key id="1">PROJ-999</key>
+  <summary>A real issue</summary>
+  <description><![CDATA[text </description> <key>NOT-REAL</key>]]></description>
+</item></channel></rss>
+XML
+close $cfh;
+
+my $cdata_result = eval {
+    Tira::CLI::Records::import_jira(
+        $tira, { project => $root, ref => $target->{ref}, author => 'claude', files => [$cdata_xml] }, {},
+    );
+};
+ok( !$@, 'a literal "</description>" string inside CDATA does not end the strip early' )
+  or diag("import_jira refused: $@");
+is( $cdata_result->{jira_key}, 'PROJ-999', 'the real key is still named correctly' )
+  if $cdata_result;
+
 # --- the existing genuine multi-issue refusal still works -----------------
 
 my $multi_xml = File::Spec->catfile( $tmp, 'multi.xml' );

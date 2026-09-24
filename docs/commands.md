@@ -5364,6 +5364,9 @@ reader never has to infer it from whichever field is populated.
     as raw text, so text like "use a `<key>` tag like this:
     `<key>NOT-REAL</key>`" inside a description wrongly triggered the
     multi-issue refusal. `<description>` spans are now skipped before the
-    key regex runs; the genuine multi-issue refusal and CDATA-in-
-    description handling are both unaffected.
+    key regex runs; the genuine multi-issue refusal still works. The
+    strip itself tries a CDATA-wrapped form first (matching through to
+    the real closing `]]>` before requiring `</description>`), so a
+    description's own CDATA content can safely contain a literal
+    `</description>`-shaped substring without ending the strip early.
 

@@ -8,9 +8,14 @@ Revision history for Tira
       case - Jira tickets about markup or config commonly quote such
       examples) was counted as a second issue key, wrongly refusing a
       perfectly valid single-issue export. Fixed by skipping
-      <description> spans before running the key regex. The existing
-      genuine multi-issue refusal (t/1160) and CDATA-in-description
-      handling are unaffected.
+      <description> spans before running the key regex; the existing
+      genuine multi-issue refusal (t/1160) still works. Codex review
+      caught the first version of this fix: a plain non-greedy match
+      ended early at a literal '</description>' substring inside
+      CDATA-wrapped description content, leaving a real embedded <key>
+      tag unstripped - the strip now tries the CDATA-wrapped form
+      first, matching through to the actual closing ']]>' before
+      requiring '</description>'.
 
 5.198  2026-09-24
     - TKT-1151: lib/Tira/Job/Schedule.pm crossed the 500-line convention

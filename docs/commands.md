@@ -5358,3 +5358,12 @@ reader never has to infer it from whichever field is populated.
     correctly, with no code change needed. Kept as a permanent fixture in
     `t/1160`, verbatim.
 
+    Since 5.199, a `<description>` quoting example markup containing a
+    literal `<key>...</key>`-shaped substring is no longer mistaken for a
+    second issue - the key-extraction regex used to scan the whole file
+    as raw text, so text like "use a `<key>` tag like this:
+    `<key>NOT-REAL</key>`" inside a description wrongly triggered the
+    multi-issue refusal. `<description>` spans are now skipped before the
+    key regex runs; the genuine multi-issue refusal and CDATA-in-
+    description handling are both unaffected.
+

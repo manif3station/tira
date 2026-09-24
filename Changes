@@ -1,5 +1,22 @@
 Revision history for Tira
 
+5.202  2026-09-24
+    - TKT-722: every --set-* array option (record.update's key-details,
+      deliverables, acceptance, test-steps, bdd, atdd, labels,
+      affects-versions, scope-in, scope-out) takes a PATH to a JSON file,
+      not inline text - but a caller who mistakenly passed a large inline
+      JSON/text string directly got that entire string echoed back
+      verbatim in the refusal (reproduced at ~1,900-3,100 characters),
+      which cost a real junk card (TKT-719) when the refusal was
+      discarded through a grep pipe and never seen. _json_array_input now
+      detects an implausible file-path argument (one containing a
+      newline, brace, bracket, or quote - not '-' for stdin) before ever
+      attempting to open() it, and refuses immediately with a short
+      message naming the option and stating a file path is expected, with
+      only a 60-character preview of what was actually given. A
+      genuinely missing or unreadable ordinary file path is unaffected
+      and still names the real path in its own refusal.
+
 5.201  2026-09-24
     - TKT-1156: policy_evaluate's inline card-duration branch kept its own
       independent computation of resting/watched/since/older-than-age

@@ -450,7 +450,18 @@ path is refused with its own message** (TKT-578): a `--set-*` value that
 cannot be opened as a file used to fall through to TKT-741's "is not JSON"
 wording, which is the wrong claim - the path was never read far enough to
 have content to judge. It now says a JSON file or `-` for stdin is expected,
-distinct from a readable file whose content genuinely is not JSON. Append and
+distinct from a readable file whose content genuinely is not JSON. **Since
+5.202, an argument that is clearly not a plausible file path at all - one
+containing a newline, brace, bracket, or quote - is refused before `open()`
+is even attempted** (TKT-722): a caller who mistakenly passed a large inline
+JSON array or plain-text string directly (mistaking `--set-*` for the
+append form's own `TEXT` argument) used to get that entire string, at
+whatever length, echoed back verbatim as the "path" that could not be
+opened - reproduced at roughly 1,900-3,100 characters, and it cost a real
+junk card (TKT-719) when the refusal was discarded through a grep pipe and
+never seen. The refusal now names the option and shows only a 60-character
+preview of what was actually given; a genuinely missing or unreadable
+ordinary path is unaffected. Append and
 replacement forms for the same field conflict. Empty strings clear nullable
 scalar fields. Parent changes only through hierarchy or sub-item link
 commands.

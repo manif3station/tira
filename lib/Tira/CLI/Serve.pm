@@ -959,7 +959,7 @@ sub _touch_pattern_matches {
     }
     my $regex = quotemeta($pattern);
     $regex =~ s/\\\*/.*/g;
-    return $path =~ /\A$regex/ ? 1 : 0;
+    return $path =~ /\A$regex\z/ ? 1 : 0;
 }
 
 sub _record_touches_any {

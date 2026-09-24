@@ -1,5 +1,23 @@
 Revision history for Tira
 
+5.205  2026-09-24
+    - TKT-789: policy_declined with no --ref returned ONLY board-wide
+      declines (declined_policies), silently omitting every real, stored
+      per-card decline (card_declines) - a caller asking "what is
+      declined on this board?" got a number that under-counted, with
+      nothing in the result indicating it was scoped. The no-ref result
+      now merges every per-card decline in alongside the board-wide ones
+      (filtered against currently-declared rules the same way board-wide
+      declines already are), unfiltered, matching how the --ref branch
+      already returns per-card declines regardless of board-wide
+      declared status - a per-card decline answers a different question
+      ("does this rule apply to THIS card") and is not affected by
+      whether the rule is declared board-wide. --ref itself is
+      unaffected and continues to return only that card's own declines.
+      (The original report's second claim, that --ref was undocumented
+      in the usage line, was found stale during grooming - it is already
+      documented - so this fix is scoped to the omission alone.)
+
 5.204  2026-09-24
     - TKT-723: tasklist.prune resolved an absent --session/TIRA_AGENT_SESSION
       the same way it resolved an explicit empty one - both became the same

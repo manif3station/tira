@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.204';
+our $VERSION = '5.205';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -7926,7 +7926,21 @@ sub policy_declined {
     # A rule that has since been declared is no longer declined, whatever the
     # file says. A project that changed its mind would otherwise carry a record
     # saying it had decided the opposite, which is worse than carrying nothing.
-    return [ grep { !$declared{ $_->{rule} // '' } } @{ $data->{declined_policies} // [] } ];
+    # This filter applies only to the board-wide list: a per-card decline
+    # answers "does this rule apply to THIS card", not "should this rule
+    # exist at all" (TKT-303's own distinction, in policy_decline above), so
+    # it is unaffected by whether the rule is declared board-wide - the same
+    # way the --ref branch above already returns card_declines unfiltered.
+    #
+    # TKT-789. The no-ref case used to return ONLY the board-wide list,
+    # silently omitting every real, stored per-card decline - a caller
+    # asking "what is declined on this board?" got a number that
+    # under-counted, with nothing in the result indicating it was scoped.
+    # Merging card_declines in here answers that same question completely.
+    return [
+        ( grep { !$declared{ $_->{rule} // '' } } @{ $data->{declined_policies} // [] } ),
+        @{ $data->{card_declines} // [] },
+    ];
 }
 
 sub policy_remove {

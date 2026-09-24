@@ -3339,6 +3339,13 @@ cleared honestly is worse than one that is merely wrong." `--ref` reads back
 through `tira.policy.declined --ref CARD` the same narrow way it was made.
 Reusable by any rule, not scoped to `card-sandbox-missing`. TKT-303.
 
+**Since 5.205 (TKT-789)**, `tira.policy.declined` with no `--ref` returns every
+per-card decline alongside the board-wide list, not just the board-wide one -
+before this it silently under-counted, reporting only `declined_policies` and
+omitting `card_declines` entirely, with nothing in the result indicating it
+was scoped. `--ref CARD` is unaffected: it already returned only that card's
+own declines.
+
 ### `tira.policy.undeclared`
 
 The rules this project has neither declared nor declined - the ones nobody has

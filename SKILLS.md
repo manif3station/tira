@@ -1229,7 +1229,10 @@ permanent violation nobody could act on, and this project's own
 standing instruction is that every outstanding violation is followed
 up until cleared. Requires a reason exactly like board-wide decline,
 reads back through `tira.policy.declined --ref CARD`, and is reusable
-by any rule. TKT-303.
+by any rule. TKT-303. **Since 5.205 (TKT-789)**, `tira.policy.declined`
+with no `--ref` merges every per-card decline in alongside the
+board-wide list - before this it silently reported only the board-wide
+subset, under-counting with nothing indicating it was scoped.
 
 `checklist-idle`'s message is **Fixed.** on a checklist that is
 100% complete it now says "checklist complete since TIMESTAMP - move

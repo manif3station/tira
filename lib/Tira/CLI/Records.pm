@@ -363,7 +363,15 @@ sub import_jira {
     my $content = <$fh>;
     close $fh;
 
-    my @keys = $content =~ m{<key[^>]*>\s*([^<\s]+)\s*</key>}g;
+    # TKT-1154. <description> text is prose, not structure - a Jira ticket
+    # about markup or config commonly quotes example tags, and a literal
+    # '<key>...</key>'-shaped substring inside one used to be counted as a
+    # second issue key, wrongly refusing a genuinely single-issue export.
+    # Skipped (not parsed) before the key regex runs, the same way the
+    # summary extraction below never looks inside it either.
+    ( my $scanned = $content ) =~ s{<description>.*?</description>}{}gs;
+
+    my @keys = $scanned =~ m{<key[^>]*>\s*([^<\s]+)\s*</key>}g;
     die "Not a recognizable Jira XML export - no <key> tag found\n" if !@keys;
     die "This export names " . scalar(@keys) . " issues (" . join( ', ', @keys )
       . ") - import.jira takes exactly one issue at a time\n"

@@ -1,5 +1,17 @@
 Revision history for Tira
 
+5.199  2026-09-24
+    - TKT-1154: tira.import.jira's key-extraction regex scanned the WHOLE
+      file as raw text rather than being scoped to the item's own
+      top-level fields. A <description> quoting example markup
+      containing a literal '<key>...</key>'-shaped substring (a realistic
+      case - Jira tickets about markup or config commonly quote such
+      examples) was counted as a second issue key, wrongly refusing a
+      perfectly valid single-issue export. Fixed by skipping
+      <description> spans before running the key regex. The existing
+      genuine multi-issue refusal (t/1160) and CDATA-in-description
+      handling are unaffected.
+
 5.198  2026-09-24
     - TKT-1151: lib/Tira/Job/Schedule.pm crossed the 500-line convention
       (516 lines) after TKT-1143's OR-trap fix added cohesive

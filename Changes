@@ -13,7 +13,11 @@ Revision history for Tira
       newline, brace, bracket, or quote - not '-' for stdin) before ever
       attempting to open() it, and refuses immediately with a short
       message naming the option and stating a file path is expected, with
-      only a 60-character preview of what was actually given. A
+      only a 60-character preview of what was actually given. This is a
+      deliberate tradeoff, not a claim that no real path can contain
+      these characters - Unix permits all four in a genuine filename,
+      and one that legitimately does still gets a short,
+      correctly-labelled refusal rather than silent misbehavior. A
       genuinely missing or unreadable ordinary file path is unaffected
       and still names the real path in its own refusal.
 

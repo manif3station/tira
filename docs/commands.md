@@ -2843,19 +2843,22 @@ now names the option, states that a JSON array is required with an example,
 and points at the repeated single-item form (`--scope-in TEXT`, and so on)
 as the append alternative a caller reaching for `--set-*` usually wanted.
 
-**An argument that is not a plausible file path at all is refused before
-`open()` is attempted, since 5.202 (TKT-722).** A `--set-*` value containing
-a newline, brace, bracket, or quote is not a path anybody meant - it is
-inline JSON or text a caller passed directly, mistaking `--set-*` for the
-append form's own `TEXT` argument (`--key-detail TEXT`, and so on). The old
-behavior tried to `open()` it anyway, and the resulting "not readable"
-refusal echoed the whole argument back verbatim - reproduced at roughly
-1,900-3,100 characters of a caller's own JSON quoted back as a filename,
-which cost a real junk card (TKT-719) when the refusal was discarded
-through a grep pipe and never seen. The refusal now names the option and
-shows only a 60-character preview of what was actually given, before
-`open()` is ever attempted; a genuinely missing or unreadable ordinary
-file path is unaffected and still names the real path in its own refusal.
+**A `--set-*` value containing a newline, brace, bracket, or quote is
+treated as inline content rather than a path, since 5.202 (TKT-722).** A
+caller who passes JSON or text directly - mistaking `--set-*` for the
+append form's own `TEXT` argument (`--key-detail TEXT`, and so on) - used
+to have the whole thing echoed back verbatim in a "not readable" refusal
+after a failed `open()`, reproduced at roughly 1,900-3,100 characters of a
+caller's own JSON quoted back as a filename, which cost a real junk card
+(TKT-719) when the refusal was discarded through a grep pipe and never
+seen. Any of those four characters is now refused before `open()` is ever
+attempted, with only a 60-character preview of what was actually given.
+This is a deliberate tradeoff rather than a claim that no real path can
+contain them - Unix permits all four in a genuine filename - and a path
+that legitimately does still gets a short, correctly-labelled refusal
+rather than silent misbehavior. A genuinely missing or unreadable
+ordinary file path is unaffected and still names the real path in its
+own refusal.
 
 ## A whitespace-only title is refused like an empty one
 

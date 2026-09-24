@@ -47,6 +47,24 @@ ok( Tira::CLI::Serve::_touch_pattern_matches( 'lib/Tira/views/nested/deep.html',
 ok( !Tira::CLI::Serve::_touch_pattern_matches( 'lib/Tira/other/board.html', 'lib/Tira/views/*' ),
     'and a path outside the wildcarded prefix still does not match' );
 
+# --- Codex review: a NON-trailing wildcard is anchored too, not only a
+# --- trailing one - this is a real (if also latent) behaviour change ------
+#
+# Before this fix, 'lib/Tira/*.pm' matched 'lib/Tira/X.pm.bak' too, since the
+# substituted '.*' could absorb the '.bak' suffix and the whole thing was
+# still only prefix-matched. \z now requires the match to end exactly where
+# the pattern's own literal tail says it does, for ANY '*' position - not
+# only a trailing one. No live 'touches' declaration on this board uses a
+# non-trailing wildcard either, so this is the same class of latent gap the
+# main fix closes, not a newly introduced one.
+
+ok( Tira::CLI::Serve::_touch_pattern_matches( 'lib/Tira/X.pm', 'lib/Tira/*.pm' ),
+    'a non-trailing wildcard still matches a path that ends exactly where the pattern says' );
+ok( !Tira::CLI::Serve::_touch_pattern_matches( 'lib/Tira/X.pm.bak', 'lib/Tira/*.pm' ),
+    'but no longer matches one that merely starts that way, same as the literal case' );
+ok( !Tira::CLI::Serve::_touch_pattern_matches( 'lib/Tira/X.pm/child', 'lib/Tira/*.pm' ),
+    'nor one that continues into a subdirectory of the matched name' );
+
 # --- a slash-free (basename) pattern is unaffected - it already used exact
 # --- string equality -------------------------------------------------------
 

@@ -5,11 +5,16 @@ Revision history for Tira
       only a start anchor, so a literal (non-wildcard) pattern matched any
       path it was merely a PREFIX of - docs/commands.md wrongly matched
       docs/commands.md.bak, docs/commands.mdx, and
-      docs/commands.md/subdir/file. Appended \z to close the gap; a
-      wildcard pattern is unaffected, since its own .* substitution
-      already absorbs the end anchor harmlessly. Latent, not caught
-      misfiring live (found by static analysis, hourly bug hunt). New
-      test at t/1146.
+      docs/commands.md/subdir/file. Appended \z to close the gap. A
+      pattern ending in * (lib/Tira/views/*) is unaffected, since its own
+      trailing .* already absorbs the end anchor harmlessly - but a *
+      anywhere else in the pattern is also now anchored: lib/Tira/*.pm
+      used to also match lib/Tira/X.pm.bak, and no longer does. Codex
+      review caught the first draft's docs claiming "wildcard patterns
+      are unaffected" too broadly for that shape. Neither the literal nor
+      the non-trailing-wildcard case has a live declaration on this
+      board, so both are latent (found by static analysis, hourly bug
+      hunt). New test at t/1146.
 
 5.194  2026-09-24
     - TKT-1153: re-validated tira.import.jira against a real Jira "Export

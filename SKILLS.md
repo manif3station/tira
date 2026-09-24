@@ -548,18 +548,21 @@ remaining defect.
 | `--label TEXT` | yes | optional | append | Case-insensitive unique label. |
 
 **Since 5.206 (TKT-733)**, `tira.TYPE.list --label TEXT` actually filters -
-a card matches if it carries ANY of the given values (OR semantics,
-matching `--label`'s own repeatable declaration). Before this, `--label`
-was accepted at the option-parsing layer and never read by `record_list`
-at all: every call, whatever label was given, returned the entire
+a card matches if it carries ANY of the given values (OR semantics) - the
+chosen semantics for this fix, not something `--label`'s repeatable
+option declaration dictates by itself. Before this, `--label` was
+accepted at the option-parsing layer and never read by `record_list` at
+all: every call, whatever label was given, returned the entire
 unfiltered board. A label matching no card proved it - nothing could
 possibly match, and the full count came back anyway, which fails OPEN
 (a large, plausible number) rather than closed (an obvious zero that
 invites suspicion) - the more dangerous direction of failure, since a
-wrong-but-plausible answer is one somebody acts on. The `--refs-only`
-fast path (filename-only, no record content ever read) also now excludes
-a `--label` call, since it cannot see labels at all and used to bypass
-the filter entirely.
+wrong-but-plausible answer is one somebody acts on. Comparison is
+case-folded on both sides, matching how labels are already stored
+case-insensitively - a first draft compared raw strings, missing this
+(Codex review). The `--refs-only` fast path (filename-only, no record
+content ever read) also now excludes a `--label` call, since it cannot
+see labels at all and used to bypass the filter entirely.
 | `--due-date DATETIME|""` | no | optional | replace/clear | Zoned ISO 8601 date-time. |
 | `--start-date DATETIME|""` | no | optional | replace/clear | Zoned ISO 8601 date-time. |
 | `--sdlc-gate TEXT|""` | no | optional | replace/clear | Free-text SDLC state. |

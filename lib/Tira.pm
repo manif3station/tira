@@ -2741,18 +2741,6 @@ sub record_list {
             return if defined $args{column} && $column ne $args{column};
             return if defined $args{assignee} && ( $record->{assignee} // '' ) ne $args{assignee};
 
-            # TKT-733. --label ('label=s@' in the CLI spec) reached %args as
-            # $args{labels} (the generic %args = %{$option} assignment
-            # already threaded it through) but nothing here ever read it -
-            # accepted, silently ignored, the full unfiltered board answered
-            # regardless of the value given, including one no card could
-            # possibly carry. OR semantics: a record matches if it carries
-            # ANY of the given values, the conventional meaning for a
-            # repeatable filter flag, matching --label's own =s@ spec.
-            if ( defined $args{labels} && @{ $args{labels} } ) {
-                my %record_labels = map { $_ => 1 } @{ $record->{labels} // [] };
-                return if !grep { $record_labels{$_} } @{ $args{labels} };
-            }
             my $parent = $record->{parent} // '';
             return if defined $args{parent} && $parent ne $args{parent};
 
@@ -2761,13 +2749,18 @@ sub record_list {
             # ignored - every call returned the whole board regardless of the
             # value given, including a label matching nothing (the dangerous
             # direction of failure: a large, plausible number rather than an
-            # obvious empty result that invites suspicion). OR semantics: a
-            # record matches if it carries ANY of the given values, the
-            # conventional meaning for a repeatable filter flag - matching how
-            # --label is already repeatable ('label=s@') at the option layer.
+            # obvious empty result that invites suspicion). A record matches if
+            # it carries ANY of the given values (OR) - the chosen semantics for
+            # this fix, not something --label's own repeatable ('label=s@')
+            # option spec dictates by itself (Codex review: an earlier version
+            # of this comment overstated that connection). Case-folded on both
+            # sides, matching how labels are already stored case-insensitively
+            # (_unique_casefold, deduplicated but not lowercased in place) -
+            # Codex review caught a raw string-equality first draft that missed
+            # this, so 'Hourly Bugfix' never matched --label 'hourly bugfix'.
             if ( defined $args{labels} && @{ $args{labels} } ) {
-                my %record_labels = map { $_ => 1 } @{ $record->{labels} // [] };
-                return if !grep { $record_labels{$_} } @{ $args{labels} };
+                my %record_labels = map { lc($_) => 1 } @{ $record->{labels} // [] };
+                return if !grep { $record_labels{ lc $_ } } @{ $args{labels} };
             }
             return if defined $args{text}
               && index( lc _search_haystack($record), lc $args{text} ) < 0;

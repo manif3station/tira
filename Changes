@@ -9,10 +9,14 @@ Revision history for Tira
       back anyway - the dangerous direction of failure, since it looks
       like a real, narrowed answer rather than an obvious empty one.
       record_list now filters on labels with OR semantics (a record
-      matches if it carries ANY of the given values, matching --label's
-      own repeatable option-layer declaration). The refs_only fast path
-      (which never parses record content) is also excluded when --label
-      is given, so it no longer bypasses the new filter entirely.
+      matches if it carries ANY of the given values) - the chosen
+      semantics for this fix, not something --label's repeatable option
+      declaration dictates by itself. Comparison is case-folded on both
+      sides, matching how labels are already stored case-insensitively
+      (a first draft compared raw strings, missing this). The refs_only
+      fast path (which never parses record content) is also excluded
+      when --label is given, so it no longer bypasses the new filter
+      entirely.
 
 5.205  2026-09-24
     - TKT-789: tira.policy.declined with no --ref returned ONLY board-wide

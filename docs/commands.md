@@ -4130,7 +4130,7 @@ field holds.** `--column` sets a card's column only at creation, where there
 is no history to break by skipping the move gates - `record.update --column`
 is refused by name, naming `record.move`/`tira.TYPE.move` instead.
 
-- `tira.TYPE.create --title TEXT [record field arguments] [-o FORMAT]` - **`--checklist TEXT` (repeatable), since 5.95 (TKT-574)**, files the card with checklist items already on it, in the order given, each defaulting to `To Do` the same way `checklist.add` now does - the one list-valued field creation lacked while `--key-detail`, `--deliverable`, `--test-step` and the rest were already there. A card created with no `--checklist` is unchanged: an empty list, as before. A whitespace-only or empty item is refused the same way `checklist.add` refuses one, checked before anything is written so a bad item anywhere in the list fails the whole creation. `--checklist` is refused on `tira.TYPE.update` (naming `tira.checklist.add` instead), since which of a card's existing items to touch is not a question this flag can answer.
+- `tira.TYPE.create --title TEXT [record field arguments] [-o FORMAT]` - **`--checklist TEXT` (repeatable), since 5.95 (TKT-574)**, files the card with checklist items already on it, in the order given, each defaulting to `To Do` the same way `checklist.add` now does - the one list-valued field creation lacked while `--key-detail`, `--deliverable`, `--test-step` and the rest were already there. A card created with no `--checklist` is unchanged: an empty list, as before. A whitespace-only or empty item is refused the same way `checklist.add` refuses one, checked before anything is written so a bad item anywhere in the list fails the whole creation. `--checklist` is refused on `tira.TYPE.update` (naming `tira.checklist.add` instead), since which of a card's existing items to touch is not a question this flag can answer. **`--title`, since 5.203 (TKT-937)**, accepts a value starting with a literal `+` passed space-separated (e.g. `--title '+16.17 adjustment'`) - before this it was refused with "Unknown option: 16.17", because `--title` takes an optional Getopt::Long argument (needed so a bare `--title` immediately followed by another option, as `dashboard.ticket --title -o browser` relies on, leaves it unset) and Getopt::Long's default `getopt_compat` setting treats a leading `+` as an option prefix the same as `-`, so it refused to consume a `+`-leading value. `Getopt::Long::Configure(qw(no_getopt_compat))` removes `+` from that prefix pattern; a `-`-leading value still requires `--title=VALUE`, unchanged, same as any getopt-style CLI.
 - `tira.TYPE.show --ref REF [-o FORMAT]`
 - `tira.TYPE.list [--column SLUG] [--fields LIST] [-o FORMAT]`
 - `tira.TYPE.update --ref REF [record field arguments] [--author NAME] [-o FORMAT]`
@@ -4561,8 +4561,18 @@ has to run a migration by hand.
 - `tira.tasklist.update --id ID [--status pending|working|done|0|1|2] [--text TEXT] [--session ID] [-o FORMAT]` -
   at least one of `--status`/`--text` is required; either given alone leaves
   the other field as it was. TKT-523.
-- `tira.tasklist.prune [--session ID] [-o FORMAT]` - deletes every item with
-  status `done`, scoped the same way list/add are.
+- `tira.tasklist.prune [--session ID] [--all-sessions] [-o FORMAT]` - deletes
+  every item with status `done`, scoped the same way list/add are. **Refuses
+  rather than deleting when no session can be determined** (neither
+  `--session` nor `TIRA_AGENT_SESSION` set) - TKT-723: an absent session used
+  to resolve to the same shared `''` bucket an explicit empty one would, so
+  a caller who never set a session pruned every OTHER unscoped session's
+  done items too, not just its own (observed as real data loss: ten
+  completed items from one session deleted by another session's routine
+  prune). Pass `--all-sessions` to deliberately ignore session scoping and
+  prune every session's `done` items at once, not only the unscoped bucket -
+  the same explicit, broad opt-in `tasklist.list` already uses (TKT-539) for
+  "see every session's items."
 
 The queue is treated like an array list, his words - every array function
 applies, scoped the same way `--session`/env-var fallback already work:

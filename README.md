@@ -263,6 +263,14 @@ cost what it did.
 Since 5.89, `--title` is trimmed before that same "is required" check runs, at
 both create and update, so a title of nothing but spaces is refused exactly
 like an empty one instead of producing a card no listing can show a name for.
+Since 5.203, a `--title` value starting with a literal `+` and passed
+space-separated (`--title '+16.17 adjustment'`) is accepted rather than
+misparsed as an unknown option - `--title` takes an optional Getopt::Long
+argument (needed for a bare `--title` toggle, as in `dashboard.ticket --title
+-o browser`), and Getopt::Long's default `getopt_compat` setting used to
+treat a leading `+` as an option prefix the same as `-`, refusing to consume
+it as the value. A `-`-leading value still requires the `--title=VALUE`
+equals form, unchanged - standard getopt behavior for any CLI tool.
 The same release also named a leftover positional argument in a refusal
 instead of a bare "Invalid command-line options": a word that is neither a
 known option nor a value now names itself, counts how many followed, and

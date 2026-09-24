@@ -11,6 +11,20 @@ use Getopt::Long qw(GetOptionsFromArray);
 use Cpanel::JSON::XS ();
 use Tira;
 
+# TKT-937. Getopt::Long's default getopt_compat setting treats a leading '+'
+# as an option-introducing prefix, same as '-' - an old getopt(3)/GNU-getopt
+# compatibility quirk nothing else in this CLI's own conventions expects. For
+# an OPTIONAL-argument option (':s', like --title below, needed for a bare
+# --title toggle such as 'dashboard.ticket --title -o browser') Getopt::Long
+# refuses to consume a next token that LOOKS like another option as the
+# value, so '--title +16.17 adjustment' left title empty and then tried to
+# parse '+16.17 adjustment' itself as a bogus option, failing with "Unknown
+# option: 16.17". Disabling getopt_compat removes '+' from that prefix
+# pattern; '-'/'--' are still recognized as prefixes, unaffected, so the
+# existing bare-flag pattern above is unchanged and a '-'-leading value
+# still requires the --title=VALUE equals form, same as any getopt-style CLI.
+Getopt::Long::Configure(qw(no_getopt_compat));
+
 # PATH separators, executable extensions and the absence of an execute bit are
 # all facts about the platform being described rather than the one this is
 # running on, so they hang off a flag a test can set.

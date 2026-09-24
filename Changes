@@ -1,5 +1,15 @@
 Revision history for Tira
 
+5.197  2026-09-24
+    - TKT-1147: lib/Tira.pm carried two independently-maintained,
+      byte-identical implementations of the same exempt-matching
+      predicate - _item_is_exempt (record_move's departure gate) and
+      _required_item_is_exempt (the required-action-stranded police
+      rule) - nothing forcing them to stay in sync, the same drift class
+      TKT-1084 itself closed for a different pair. Unified:
+      _required_item_is_exempt is now a two-line forward
+      (goto &_item_is_exempt). No behaviour change to either call site.
+
 5.196  2026-09-24
     - TKT-1146: 5.195's own doc-comment addition (8745a09) pushed
       lib/Tira/CLI/Serve.pm to 1004 lines, over Michael's 1000-line cap

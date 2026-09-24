@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.196';
+our $VERSION = '5.197';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -7983,14 +7983,12 @@ sub _policy_older_than {
 # unintentionally exempt that other item too (Codex review). A value
 # shaped like a REQ id (REQ-NNN, the only shape this board ever writes
 # into an id field) is only ever an id match; anything else is text-only.
-# lib/Tira/CLI/Move.pm keeps its own copy (_item_is_exempt) - a different
-# package, the same small rule, not worth an import for.
+#
+# TKT-1147: this used to be its own full copy of the same logic as
+# _item_is_exempt above (record_move's departure gate) - identical bodies
+# under two names, nothing forcing them to stay in sync. Now a forward.
 sub _required_item_is_exempt {
-    my ( $exempt, $item ) = @_;
-    return 1 if defined $item->{id} && $exempt->{ $item->{id} };
-    my $text = $item->{item};
-    return 0 if !defined $text || $text =~ /\AREQ-\d+\z/;
-    return $exempt->{$text} ? 1 : 0;
+    goto &_item_is_exempt;
 }
 
 # discard-unexplained's own actual computation, extracted so police_explain

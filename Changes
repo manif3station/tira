@@ -1,5 +1,23 @@
 Revision history for Tira
 
+5.201  2026-09-24
+    - TKT-1156: policy_evaluate's inline card-duration branch kept its own
+      independent computation of resting/watched/since/older-than-age
+      facts, separate from _card_duration_inputs (TKT-1106's extraction
+      for police_explain to read the same facts) - the two were not
+      provably the same code path, so a future change to one could
+      silently diverge from the other, the same drift class TKT-1147
+      closed for _item_is_exempt/_required_item_is_exempt. The inline
+      branch now calls _card_duration_inputs directly, passing the
+      currently-iterating policy through (so a board with more than one
+      card-duration policy still reports against the same policy the
+      outer loop is on, rather than whichever policy_resolve would pick
+      as the overall winner) and the record's ref through to
+      _policy_older_than for TKT-972's stamp-unreadable tracking, which
+      the helper's own prior call had omitted. No behavior change for any
+      currently-declared policy on this board; existing card-duration
+      test coverage (31 files, 653 tests) passes unchanged.
+
 5.200  2026-09-24
     - TKT-1155: _touch_pattern_matches's slash-free (basename-only)
       branch compared a 'touches' pattern to the path's basename with

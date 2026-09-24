@@ -945,20 +945,21 @@ sub _record_touched_paths {
 }
 
 # A pattern with no '/' matches by basename anywhere in the tree; a
-# pattern with '/' is anchored at both ends (TKT-1146: it used to lack
-# the end anchor, so docs/commands.md wrongly matched
-# docs/commands.md.bak). Not a general glob - a real glob library is
-# more mechanism than a prefix-or-basename check earns.
+# pattern with '/' is anchored at both ends against the whole path (TKT-1146).
+# Either way '*' is substituted into the same anchored regex (TKT-1155: the
+# basename branch used to skip this, so a wildcard basename could never
+# match) - not a general glob, more mechanism than earned here.
 sub _touch_pattern_matches {
     my ( $path, $pattern ) = @_;
     return 0 if !defined $path || !defined $pattern || $pattern eq '';
+    my $target = $path;
     if ( index( $pattern, '/' ) < 0 ) {
-        my ($base) = $path =~ m{([^/]+)\z};
-        return defined $base && $base eq $pattern ? 1 : 0;
+        ($target) = $path =~ m{([^/]+)\z};
+        return 0 if !defined $target;
     }
     my $regex = quotemeta($pattern);
     $regex =~ s/\\\*/.*/g;
-    return $path =~ /\A$regex\z/ ? 1 : 0;
+    return $target =~ /\A$regex\z/ ? 1 : 0;
 }
 
 sub _record_touches_any {

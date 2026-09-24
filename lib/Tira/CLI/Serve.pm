@@ -946,10 +946,14 @@ sub _record_touched_paths {
 
 # A pattern with no '/' matches by basename anywhere in the tree
 # (DashboardWeb.pm matches lib/Tira/DashboardWeb.pm); a pattern with '/'
-# matches by prefix, so a trailing '*' reaches everything under a directory
-# (lib/Tira/views/*). Not a general glob - this board's own three named
-# patterns are the only shapes it has ever needed to say, and a real glob
-# library is more mechanism than a prefix-or-basename check earns.
+# and a trailing '*' matches by prefix, reaching everything under a
+# directory (lib/Tira/views/*); a pattern with '/' and no '*' requires an
+# exact match (TKT-1146: it used to match anything it was merely a prefix
+# of, since the built regex had no end anchor - docs/commands.md wrongly
+# matched docs/commands.md.bak). Not a general glob - this board's own
+# three named patterns are the only shapes it has ever needed to say, and
+# a real glob library is more mechanism than a prefix-or-basename check
+# earns.
 sub _touch_pattern_matches {
     my ( $path, $pattern ) = @_;
     return 0 if !defined $path || !defined $pattern || $pattern eq '';

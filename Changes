@@ -1,5 +1,18 @@
 Revision history for Tira
 
+5.200  2026-09-24
+    - TKT-1155: _touch_pattern_matches's slash-free (basename-only)
+      branch compared a 'touches' pattern to the path's basename with
+      plain string equality, so a basename pattern containing '*' (e.g.
+      '*.pm') could only match a basename literally named that four-
+      character string, not match ordinary .pm files by wildcard as
+      intended - no wildcard substitution ran on that branch, unlike the
+      slash-containing branch's own
+      anchored-regex handling (TKT-1146). Fixed by substituting '*' into
+      the same anchored regex for both branches, applied to the basename
+      when the pattern is slash-free; a literal (non-wildcard) slash-free
+      pattern is unaffected.
+
 5.199  2026-09-24
     - TKT-1154: tira.import.jira's key-extraction regex scanned the WHOLE
       file as raw text rather than being scoped to the item's own

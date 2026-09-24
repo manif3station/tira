@@ -5347,3 +5347,14 @@ reader never has to infer it from whichever field is populated.
     name (a die, exiting non-zero) rather than succeeding silently or
     crashing with an internal parser error.
 
+    Since 5.194, re-validated against a real export the owner attached
+    directly to the ticket rather than only the hand-built fixtures above.
+    The real file's `<description>` carries several KB of unescaped inline
+    HTML between `<key>` and `<summary>`, and the file itself opens with a
+    line a browser's own XML viewer prepends when the export is saved from
+    a browser tab ("This XML file does not appear to have any style
+    information...") rather than fetched via the API directly. Neither
+    affected the regex-based extractor - the real key and summary parsed
+    correctly, with no code change needed. Kept as a permanent fixture in
+    `t/1160`, verbatim.
+

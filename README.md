@@ -881,7 +881,12 @@ ownership.
 export.xml --author YOU` reads a Jira issue's exported XML (Jira's standard
 "Export XML" action) and records the Jira issue key and summary as a
 key-detail on the named Tira ticket. `--author` is required, like every
-other command that writes a comment. Since 5.192 (TKT-1153).
+other command that writes a comment. Since 5.192 (TKT-1153). Since 5.194,
+re-validated against a real export the owner attached directly to the
+ticket - unaffected by the several KB of unescaped inline HTML Jira embeds
+in the issue's own `<description>`, or by the "This XML file does not
+appear to have any style information..." line a browser's own XML viewer
+prepends when the export is saved from a browser tab.
 
 ## Output
 

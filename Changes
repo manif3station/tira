@@ -1,5 +1,19 @@
 Revision history for Tira
 
+5.194  2026-09-24
+    - TKT-1153: re-validated tira.import.jira against a real Jira "Export
+      XML" file the owner attached directly to the ticket (rather than
+      only the hand-built fixtures the original implementation shipped
+      with, since no sample was available at the time). Confirmed live:
+      the key/summary extraction is unaffected by the several KB of
+      unescaped inline HTML Jira embeds in <description>, and by the
+      leading "This XML file does not appear to have any style
+      information..." line a browser's own XML viewer prepends when the
+      export is saved from a browser tab rather than fetched directly.
+      No code change was needed - the owner's real export parses
+      correctly with the existing implementation. Added as a permanent
+      regression fixture in t/1160, using the real file verbatim.
+
 5.193  2026-09-23
     - TKT-1145: _column_chain_violation and _unjudged_answer_violation
       (refusing a column skip and a departure while an answer is

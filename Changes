@@ -1,5 +1,16 @@
 Revision history for Tira
 
+5.196  2026-09-24
+    - TKT-1146: 5.195's own doc-comment addition (8745a09) pushed
+      lib/Tira/CLI/Serve.pm to 1004 lines, over Michael's 1000-line cap
+      (TKT-1092) - a self-inflicted regression t/1106 exists to catch,
+      but never ran against the real HEAD because the gate.run I had
+      cited for 5.195's coverage proof was launched before 5.195's own
+      commits landed and actually validated a stale, earlier tree
+      (caught while working TKT-1147, corrected on the card). Trimmed
+      the comment above _touch_pattern_matches to 999 lines - no logic
+      change.
+
 5.195  2026-09-24
     - TKT-1146: _touch_pattern_matches's slash-containing-pattern regex had
       only a start anchor, so a literal (non-wildcard) pattern matched any

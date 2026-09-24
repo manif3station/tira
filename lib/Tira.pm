@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.200';
+our $VERSION = '5.201';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -8071,9 +8071,18 @@ sub _discard_unexplained_inputs {
 # of possibly several declared card-duration policies happens to be
 # iterating - it is a property of the record alone.
 sub _card_duration_inputs {
-    my ( $self, $root, $record, $records ) = @_;
-    my ($policy) = grep { $_->{rule} eq 'card-duration' }
-      @{ $self->policy_resolve( project => $root, record => $record ) };
+    my ( $self, $root, $record, $records, $policy ) = @_;
+
+    # The caller may already know which declared card-duration policy it is
+    # iterating (TKT-1156, unifying with the inline rule below, which is
+    # per-policy) - passed in rather than re-derived, so a board with more
+    # than one card-duration policy still reports against the SAME policy
+    # the outer loop is on, not whichever policy_resolve would pick as the
+    # overall winner for this record.
+    if ( !$policy ) {
+        ($policy) = grep { $_->{rule} eq 'card-duration' }
+          @{ $self->policy_resolve( project => $root, record => $record ) };
+    }
     return { policy => undef } if !$policy;
 
     my $kind = $record->{type} // 'ticket';
@@ -8093,7 +8102,14 @@ sub _card_duration_inputs {
 
     my $on_watched = ( ( $record->{column} // '' ) eq ( $watched // '' ) ) ? 1 : 0;
     my $resting_here = $resting->{ $record->{column} // '' } ? 1 : 0;
-    my $older_than_age = defined $since ? ( $self->_policy_older_than( $since, $policy->{age} ) ? 1 : 0 ) : 0;
+
+    # $record->{ref} passed through so an unreadable stamp is still recorded
+    # against _stamp_unreadable (TKT-972) the same way the inline rule's own
+    # call used to - lost when this helper's own call omitted it, unnoticed
+    # only because no test exercised an unreadable stamp on this rule.
+    my $older_than_age = defined $since
+      ? ( $self->_policy_older_than( $since, $policy->{age}, $record->{ref} ) ? 1 : 0 )
+      : 0;
 
     return {
         policy         => $policy,
@@ -8782,43 +8798,20 @@ sub policy_evaluate {
             }
         }
         elsif ( $rule eq 'card-duration' ) {
-            my %resting;
+
+            # TKT-1156: reads the same facts (resting/watched/since/older-
+            # than-age) as _card_duration_inputs, extracted for
+            # police_explain (TKT-1106) - calling it directly here instead
+            # of keeping an independent copy means the rule's own verdict
+            # and its own explanation can no longer silently disagree. The
+            # currently-iterating $policy is passed through rather than
+            # re-derived, so a board with more than one card-duration
+            # policy still reports against the SAME policy this outer loop
+            # is on.
             for my $record ( @{$records} ) {
                 next if !$resolved_for->( $policy, $record );
-
-                # This rule names its column outright, so it never asked which
-                # columns to leave alone - and a board that switches a column
-                # off means it for every rule, not only the ones that happened
-                # to ask. TKT-287.
-                my $kind = $record->{type} // 'ticket';
-                $resting{$kind} //= $self->_resting_columns( $root, $kind );
-                next if $resting{$kind}{ $record->{column} // '' };
-
-                # By role where one was given, exactly as enter and before are
-                # read. The role was storable and documented and no rule
-                # resolved it, so a policy declared with --column-role watched
-                # a column called nothing. TKT-221.
-                my $watched = $self->_policy_column_for(
-                    project => $root, policy => $policy, field => 'column', record => $record );
-                next if ( $record->{column} // '' ) ne ( $watched // '' );
-                my ($since) = $self->_dwell_start( $root, $record->{ref} );
-                next if !defined $since;
-
-                # A sow/epic's own arrival says nothing about whether it is
-                # stalled - it lives in its resting column for its whole
-                # life by design, the same reasoning wip-limit already
-                # applies (TKT-333). Measured instead from whichever is
-                # LATER: its own arrival, or its most recent child's own
-                # last move - a parent whose children are moving is not
-                # stale, and one whose children have gone quiet still is.
-                # TKT-666.
-                if ( ( $record->{type} // '' ) ne 'ticket' ) {
-                    for my $child ( grep { ( $_->{parent} // '' ) eq $record->{ref} } @{$records} ) {
-                        my ($child_since) = $self->_dwell_start( $root, $child->{ref} );
-                        $since = $child_since if defined $child_since && $child_since gt $since;
-                    }
-                }
-                next if !$self->_policy_older_than( $since, $policy->{age}, $record->{ref} );
+                my $inputs = $self->_card_duration_inputs( $root, $record, $records, $policy );
+                next if !$inputs->{would_fire};
 
                 # A --type-scoped policy is one of possibly several sharing
                 # this column, each judging a different distribution - so
@@ -8826,7 +8819,7 @@ sub policy_evaluate {
                 # the same column read identically. TKT-756.
                 my $scoped = defined $policy->{type} && $policy->{type} ne ''
                   ? " ($policy->{type} threshold $policy->{age})" : '';
-                $report->( $policy, $record, "in $watched since $since$scoped" );
+                $report->( $policy, $record, "in $inputs->{watched_column} since $inputs->{since}$scoped" );
             }
         }
         elsif ( $rule eq 'card-stalled' ) {

@@ -278,9 +278,15 @@ my %OPTION_READ_BY = (
         # TKT-537 put there deliberately (lib/Tira.pm's own search, the
         # $args{all_sessions} check beside the TKT-550 comment) - caught by
         # Codex review, which the first draft (tasklist.list only) missed.
-        commands => qr/\A(?:tasklist\.list|search)\z|\A(?:ticket|epic|sow|record)\.move\z/,
-        instead  => 'tira.tasklist.list, or tira.search --tasklist, the only'
-          . ' commands that scope by session and can be told to ignore it',
+        # tasklist.prune added TKT-723: its own deliberate opt-in to ignore
+        # session scoping and prune every session's done items at once -
+        # Codex review caught this allowlist not yet knowing about it, so
+        # `tira.tasklist.prune --all-sessions` was refused by the CLI even
+        # though the engine and the docs both already supported it.
+        commands => qr/\A(?:tasklist\.(?:list|prune)|search)\z|\A(?:ticket|epic|sow|record)\.move\z/,
+        instead  => 'tira.tasklist.list, tira.tasklist.prune, or'
+          . ' tira.search --tasklist, the only commands that scope by'
+          . ' session and can be told to ignore it',
     },
     unlinked => {
         flag     => 'unlinked',

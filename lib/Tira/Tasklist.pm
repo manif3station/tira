@@ -571,13 +571,29 @@ sub tasklist_update {
 
 # His screenshot: "tira.tasklist.prune to remove all done items." Session-
 # scoped like list/add - a shared (no-session) call prunes the shared list.
+#
+# TKT-723: _tasklist_session resolves an ABSENT session to the same empty
+# string an EXPLICIT one would, so a caller who never sets --session or
+# TIRA_AGENT_SESSION prunes the SAME shared '' bucket every other unscoped
+# caller's done items land in - the documented single-agent default is
+# exactly "no --session", so two sessions both defaulting to it collide
+# in that one bucket. A session-less prune now refuses instead of silently
+# deleting it, unless --all-sessions opts in deliberately - the same
+# explicit opt-in tasklist_list already uses (TKT-539) for "see every
+# session's items".
 sub tasklist_prune {
     my ( $self, %args ) = @_;
     my $root = $self->discover_project(%args);
+    die "tasklist.prune needs a session to know whose done items to remove - "
+      . "pass --session ID, set TIRA_AGENT_SESSION, or pass --all-sessions "
+      . "to deliberately prune every session's done items at once.\n"
+      if !defined $args{session} && !defined $ENV{TIRA_AGENT_SESSION} && !$args{all_sessions};
     my $session = _tasklist_session(%args);
     return $self->_with_project_lock( $root, sub {
         my $items = _tasklist_read( $self, $root);
-        my @pruned = grep { ( $_->{session} // '' ) eq $session && ( $_->{status} // -1 ) == 2 } @{$items};
+        my @pruned = $args{all_sessions}
+          ? grep { ( $_->{status} // -1 ) == 2 } @{$items}
+          : grep { ( $_->{session} // '' ) eq $session && ( $_->{status} // -1 ) == 2 } @{$items};
         return \@pruned if !@pruned;
         my %pruned_id = map { $_->{id} => 1 } @pruned;
         $self->_write_json( _tasklist_path( $self, $root),

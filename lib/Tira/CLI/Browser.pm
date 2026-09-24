@@ -483,8 +483,27 @@ sub providers {
         },
         tasklist_prune => sub {
             my ($payload) = @_;
+
+            # TKT-723. The browser UI has no session concept for prune - its
+            # own tasklist-editor.js posts an empty payload ({}) - so
+            # defaulting an absent $payload->{session} to '' used to reach
+            # tasklist_prune's own guard as a DEFINED (if empty) session,
+            # silently bypassing the new refusal every other unscoped caller
+            # now gets. Caught by Codex review. Passing all_sessions => 1
+            # explicitly instead preserves the browser button's existing
+            # behavior (it has always pruned every done item, not a scoped
+            # session's own) while making that a deliberate, correctly-
+            # labeled opt-in rather than an accidental one. A caller that
+            # DOES send an explicit session (none do today) still gets
+            # scoped-only pruning, unaffected.
             return $json->encode(
-                $tira->tasklist_prune( project => $project, session => $payload->{session} // '' ) );
+                $tira->tasklist_prune(
+                    project => $project,
+                    ( defined $payload->{session}
+                        ? ( session => $payload->{session} )
+                        : ( all_sessions => 1 ) )
+                )
+            );
         },
         tasklist_task_attach_add => sub {
             my ($payload) = @_;

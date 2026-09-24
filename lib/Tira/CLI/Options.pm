@@ -274,15 +274,9 @@ my %OPTION_READ_BY = (
     },
     all_sessions => {
         flag     => 'all-sessions',
-        # search reads it too, when --tasklist crosses the session boundary
-        # TKT-537 put there deliberately (lib/Tira.pm's own search, the
-        # $args{all_sessions} check beside the TKT-550 comment) - caught by
-        # Codex review, which the first draft (tasklist.list only) missed.
-        # tasklist.prune added TKT-723: its own deliberate opt-in to ignore
-        # session scoping and prune every session's done items at once -
-        # Codex review caught this allowlist not yet knowing about it, so
-        # `tira.tasklist.prune --all-sessions` was refused by the CLI even
-        # though the engine and the docs both already supported it.
+        # search reads it too (TKT-537, lib/Tira.pm's own $args{all_sessions}
+        # check), and tasklist.prune (TKT-723, its own opt-in to prune every
+        # session's done items) - both caught by Codex review missing them.
         commands => qr/\A(?:tasklist\.(?:list|prune)|search)\z|\A(?:ticket|epic|sow|record)\.move\z/,
         instead  => 'tira.tasklist.list, tira.tasklist.prune, or'
           . ' tira.search --tasklist, the only commands that scope by'
